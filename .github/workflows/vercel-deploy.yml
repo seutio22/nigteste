@@ -1,0 +1,45 @@
+name: 🚀 Deploy Vercel (Frontend)
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  deploy-frontend:
+    runs-on: ubuntu-latest
+    name: 🌐 Deploy Frontend (Vercel)
+    
+    steps:
+    - name: 📥 Checkout código
+      uses: actions/checkout@v4
+      
+    - name: 🟢 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: demandas-web/package-lock.json
+        
+    - name: 📦 Instalar dependências
+      working-directory: ./demandas-web
+      run: npm ci
+      
+    - name: 🏗️ Build do projeto
+      working-directory: ./demandas-web
+      run: npm run build
+      
+    - name: 🚀 Deploy no Vercel
+      uses: amondnet/vercel-action@v25
+      with:
+        vercel-token: ${{ secrets.VERCEL_TOKEN }}
+        vercel-org-id: ${{ secrets.ORG_ID }}
+        vercel-project-id: ${{ secrets.PROJECT_ID }}
+        working-directory: ./demandas-web
+        vercel-args: '--prod'
+        
+    - name: 📋 URL do Deploy
+      run: |
+        echo "🎉 DEPLOY CONCLUÍDO!"
+        echo "🌐 Frontend online no Vercel!"
+        echo "📱 Acesse o dashboard do Vercel para ver a URL"
