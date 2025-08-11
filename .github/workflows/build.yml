@@ -1,0 +1,95 @@
+name: 🏗️ Build e Preparação para Deploy
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-backend:
+    runs-on: ubuntu-latest
+    name: 🚂 Build Backend
+    
+    steps:
+    - name: 📥 Checkout código
+      uses: actions/checkout@v4
+      
+    - name: 🟢 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: demandas-api/package-lock.json
+        
+    - name: 📦 Instalar dependências Backend
+      working-directory: ./demandas-api
+      run: npm ci
+      
+    - name: 🗄️ Gerar cliente Prisma
+      working-directory: ./demandas-api
+      run: npx prisma generate
+      
+    - name: 🏗️ Build do Backend
+      working-directory: ./demandas-api
+      run: npm run build
+      
+    - name: 📦 Criar artefato do Backend
+      uses: actions/upload-artifact@v4
+      with:
+        name: backend-build
+        path: demandas-api/dist
+        retention-days: 1
+
+  build-frontend:
+    runs-on: ubuntu-latest
+    name: 🌐 Build Frontend
+    
+    steps:
+    - name: 📥 Checkout código
+      uses: actions/checkout@v4
+      
+    - name: 🟢 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: demandas-web/package-lock.json
+        
+    - name: 📦 Instalar dependências Frontend
+      working-directory: ./demandas-web
+      run: npm ci
+      
+    - name: 🏗️ Build do Frontend
+      working-directory: ./demandas-web
+      run: npm run build
+      
+    - name: 📦 Criar artefato do Frontend
+      uses: actions/upload-artifact@v4
+      with:
+        name: frontend-build
+        path: demandas-web/dist
+        retention-days: 1
+
+  deploy-instructions:
+    runs-on: ubuntu-latest
+    name: 📋 Instruções de Deploy
+    needs: [build-backend, build-frontend]
+    
+    steps:
+    - name: 📋 Gerar instruções
+      run: |
+        echo "🎉 BUILD CONCLUÍDO COM SUCESSO!" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## 🚂 Deploy do Backend (Railway):" >> $GITHUB_STEP_SUMMARY
+        echo "1. Acesse: https://railway.app/dashboard" >> $GITHUB_STEP_SUMMARY
+        echo "2. Clique em 'New Project'" >> $GITHUB_STEP_SUMMARY
+        echo "3. Escolha 'Deploy from GitHub repo'" >> $GITHUB_STEP_SUMMARY
+        echo "4. Selecione: seutio22/nigteste" >> $GITHUB_STEP_SUMMARY
+        echo "5. Diretório: demandas-api" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## 🌐 Deploy do Frontend (Vercel):" >> $GITHUB_STEP_SUMMARY
+        echo "1. Acesse: https://vercel.com/dashboard" >> $GITHUB_STEP_SUMMARY
+        echo "2. Clique em 'New Project'" >> $GITHUB_STEP_SUMMARY
+        echo "3. Importe: seutio22/nigteste" >> $GITHUB_STEP_SUMMARY
+        echo "4. Diretório: demandas-web" >> $GITHUB_STEP_SUMMARY
+        echo "5. Framework: Vite" >> $GITHUB_STEP_SUMMARY
