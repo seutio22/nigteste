@@ -29,11 +29,12 @@ jobs:
       working-directory: ./demandas-api
       run: npx prisma generate
       
-    - name: 🚀 Deploy no Railway
-      uses: railway/deploy@v1.0.0
-      with:
-        service: backend
-        token: ${{ secrets.RAILWAY_TOKEN }}
+    - name: 🚀 Deploy no Railway via CLI
+      working-directory: ./demandas-api
+      run: |
+        npm install -g @railway/cli
+        echo ${{ secrets.RAILWAY_TOKEN }} | railway login
+        railway up --service backend
 
   deploy-frontend:
     runs-on: ubuntu-latest
