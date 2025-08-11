@@ -33,7 +33,13 @@ jobs:
       working-directory: ./demandas-api
       run: |
         npm install -g @railway/cli
-        echo ${{ secrets.RAILWAY_TOKEN }} | railway login
+        echo "Instalando Railway CLI..."
+        railway --version
+        echo "Fazendo login no Railway..."
+        echo ${{ secrets.RAILWAY_TOKEN }} | railway login --token
+        echo "Verificando projetos..."
+        railway projects
+        echo "Deploy iniciado..."
         railway up --service backend
 
   deploy-frontend:
