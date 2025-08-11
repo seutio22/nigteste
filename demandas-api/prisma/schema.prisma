@@ -1,0 +1,134 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id       String @id @default(uuid())
+  email    String @unique
+  name     String
+  password String
+  role     String
+}
+
+model Area {
+  id   String @id @default(uuid())
+  nome String
+}
+
+model Analista {
+  id   String @id @default(uuid())
+  nome String
+}
+
+model Operadora {
+  id   String @id @default(uuid())
+  nome String
+}
+
+model Produto {
+  id   String @id @default(uuid())
+  nome String
+}
+
+model Sistema {
+  id   String @id @default(uuid())
+  nome String
+}
+
+model Cliente {
+  id             String @id @default(uuid())
+  nome           String
+  grupoEconomico String?
+}
+
+model Contrato {
+  id             String @id @default(uuid())
+  codigo         String
+  grupoEconomico String
+}
+
+model TipoServico {
+  id   String @id
+  nome String
+}
+
+model TipoDemanda {
+  id            String @id @default(uuid())
+  nome          String
+  tipoServicoId String?
+}
+
+model Demanda {
+  id            String @id @default(uuid())
+  ticket        String @unique
+  status        String
+  analistaId    String?
+  solicitante   String?
+  areaId        String?
+  tipoId        String?
+  descricao     String?
+  clienteId     String
+  contratoId    String
+  operadoraId   String
+  produtoId     String
+  sistemaId     String?
+  tipoServicoId String?
+  dataInicio    DateTime?
+  dataFinal     DateTime?
+  qtdRetornos   Int? @default(0)
+  qualidade     String?
+  observacoes   String?
+
+}
+
+model Validacao {
+  id            String   @id @default(uuid())
+  analistaId    String
+  dataInicio    DateTime
+  dataFinal     DateTime?
+  status        String
+  periodicidade String?
+  ticket        String?
+  solicitante   String?
+  areaId        String
+  demanda       String?
+  tipoId        String
+  descricao     String
+  total         Float
+
+}
+
+model Reajuste {
+  id                    String  @id @default(uuid())
+  mes                   String
+  ano                   String
+  filial                String?
+  operadoraId           String
+  responsavelAnalistaId String
+  clienteId             String?
+  contratoId            String?
+  produtoId             String?
+  total                 Float?
+
+}
+
+model Log {
+  id         String   @id @default(uuid())
+  demandaId  String
+  timestamp  DateTime @default(now())
+  usuario    String
+  tipoEvento String
+  campo      String?
+  de         String?
+  para       String?
+  comentario String?
+
+}
