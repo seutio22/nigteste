@@ -30,7 +30,7 @@ jobs:
       run: npx prisma generate
       
     - name: 🚀 Deploy no Railway
-      uses: bervProject/railway-deploy@v1.0.0
+      uses: railway/deploy@v1.0.0
       with:
         service: backend
         token: ${{ secrets.RAILWAY_TOKEN }}
