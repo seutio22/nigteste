@@ -1,0 +1,3 @@
+[33m9f20a58[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m, [m[1;31morigin/master[m[33m)[m  Corrigindo vercel.json - removendo dependência de secrets
+[33mef0d0e7[m  OPÇÃO 3: Deploy Vercel apenas (mais rápido e simples)
+[33m978cdd9[m  Nova abordagem: Build automático + Deploy manual (Railway + Vercel)

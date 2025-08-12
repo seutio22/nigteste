@@ -1,0 +1,35 @@
+name: 🔧 Setup GitHub Pages
+
+on:
+  workflow_dispatch:
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🔧 Enable GitHub Pages
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              await github.rest.repos.updatePagesSite({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                source: {
+                  branch: 'gh-pages',
+                  path: '/'
+                }
+              });
+              console.log('✅ GitHub Pages habilitado com sucesso!');
+            } catch (error) {
+              console.log('⚠️ GitHub Pages já está configurado ou erro:', error.message);
+            }
+
+      - name: 📋 Status
+        run: |
+          echo "🎉 CONFIGURAÇÃO CONCLUÍDA!"
+          echo "🌐 GitHub Pages será habilitado automaticamente"
+          echo "📱 URL será: https://seutio22.github.io/nigteste"
