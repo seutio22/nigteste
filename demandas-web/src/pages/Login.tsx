@@ -13,7 +13,7 @@ export default function LoginPage() {
     e.preventDefault()
     if (!email || !password) return
     try {
-      const data = await api.login(email, password)
+      const data = await api.post('/auth/login', { email, password })
       useAuthStore.getState().setAuth(data.token, data.user)
       navigate('/')
     } catch (err: any) {

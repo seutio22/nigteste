@@ -63,7 +63,7 @@ export default function AdminUsersPage() {
 
   async function handleDelete(id: string) {
     if (!confirm('Excluir este usuário?')) return
-    await api.del(`/users/${id}`)
+    await api.delete(`/users/${id}`)
     await load()
   }
 
