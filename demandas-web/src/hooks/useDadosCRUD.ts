@@ -91,26 +91,55 @@ export const useDadosCRUD = () => {
         case 'operadoras':
         case 'produtos':
         case 'sistemas':
-        case 'analistas':
         case 'areas':
+          // Payload para a API (sem id, pois o Prisma gera automaticamente)
+          const apiPayload: any = { 
+            nome: form.nome
+          }
+          break
+        case 'analistas':
+          // Payload específico para analistas
+          const analistaPayload: any = { 
+            nome: form.nome,
+            email: form.email || null,
+            telefone: form.telefone || null
+          }
+          
+          // Entidade completa para o store local (com id)
+          newEntity = { 
+            id, 
+            nome: form.nome,
+            email: form.email || null,
+            telefone: form.telefone || null
+          }
+          
+          const storeKey = activeTab as keyof typeof store
+          if (storeKey in store) {
+            // PRIMEIRO: Salvar na API (banco de dados)
+            const savedEntity = await api.post(config.endpoint, analistaPayload)
+            console.log(`✅ ${activeTab} salvo no banco de dados:`, savedEntity.id)
+            // DEPOIS: Salvar no store local (cache) usando o retorno da API
+            store.upsertMany({ [storeKey]: [...(store[storeKey] as any[]), savedEntity] })
+          }
+          break
         case 'areasMailling':
         case 'cargosMailling':
         case 'filiaisMailling':
           // Payload para a API (sem id, pois o Prisma gera automaticamente)
-          const apiPayload: any = { 
+          const maillingPayload: any = { 
             nome: form.nome, 
             ativo: form.ativo !== undefined ? form.ativo : true
           }
           
           // Só incluir descricao se não estiver vazia
           if (form.descricao && form.descricao.trim() !== '') {
-            apiPayload.descricao = form.descricao
+            maillingPayload.descricao = form.descricao
           }
           
           console.log('🔍 DEBUG MAILLING:')
           console.log('  - Form completo:', form)
           console.log('  - form.descricao:', form.descricao)
-          console.log('  - API Payload final:', apiPayload)
+          console.log('  - API Payload final:', maillingPayload)
           
           // Entidade completa para o store local (com id)
           newEntity = { 
@@ -123,7 +152,7 @@ export const useDadosCRUD = () => {
           const storeKey = activeTab as keyof typeof store
           if (storeKey in store) {
             // PRIMEIRO: Salvar na API (banco de dados)
-            const savedEntity = await api.post(config.endpoint, apiPayload)
+            const savedEntity = await api.post(config.endpoint, maillingPayload)
             console.log(`✅ ${activeTab} salvo no banco de dados:`, savedEntity.id)
             // DEPOIS: Salvar no store local (cache) usando o retorno da API
             store.upsertMany({ [storeKey]: [...(store[storeKey] as any[]), savedEntity] })
