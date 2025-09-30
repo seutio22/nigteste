@@ -1,7 +1,8 @@
 // API utility functions
 import { ApiRequestOptions, ApiResponse, ApiError, LoginCredentials, LoginResponse, UserData, CreateUserData, UpdateUserData } from '../types/api'
+import { getBaseUrl } from '../config/api'
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3333'; // URL configurável por ambiente - CACHE BUST 2025-01-30
+const BASE_URL = getBaseUrl(); // URL configurável por ambiente - CACHE BUST 2025-01-30
 
 export const api = {
   async request<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
