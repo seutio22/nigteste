@@ -39,6 +39,11 @@ async function setupDatabase() {
     execSync('node seed-data.js', { stdio: 'inherit' });
     console.log('✅ Seed de dados executado com sucesso');
     
+    // 6. Testar e verificar usuário
+    console.log('🔍 Testando e verificando usuário...');
+    execSync('node test-and-create-user.js', { stdio: 'inherit' });
+    console.log('✅ Teste de usuário concluído');
+    
   } catch (error) {
     console.error('❌ Erro ao configurar banco:', error);
     process.exit(1);
