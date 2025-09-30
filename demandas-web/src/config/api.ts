@@ -4,14 +4,14 @@ export const API_CONFIG = {
   TIMEOUT: 10000
 };
 
-// Função para obter a URL base
+// Função para obter a URL base - SEMPRE usa Railway
 export function getBaseUrl(): string {
-  // Prioridade: variável de ambiente > URL forçada > localhost
-  return import.meta.env.VITE_API_URL || API_CONFIG.BASE_URL || 'http://localhost:3333';
+  // SEMPRE usa a URL do Railway, ignorando variáveis de ambiente
+  return API_CONFIG.BASE_URL;
 }
 
 // Debug da configuração
-console.log('🔧 API Config Debug:');
+console.log('🔧 API Config Debug - CACHE BUST 2025-01-30:');
 console.log('  - VITE_API_URL:', import.meta.env.VITE_API_URL);
 console.log('  - BASE_URL forçada:', API_CONFIG.BASE_URL);
-console.log('  - URL final:', getBaseUrl());
+console.log('  - URL final (FORÇADA):', getBaseUrl());
