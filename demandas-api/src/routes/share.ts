@@ -1,8 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { PrismaClient } from '@prisma/client';
-import { randomBytes } from 'node:crypto';
-
-declare const process: any;
+import { randomBytes } from 'crypto';
 
 export default async function shareRoutes(fastify: FastifyInstance, options: { prisma: PrismaClient }) {
   const { prisma } = options;
