@@ -21,6 +21,9 @@ model Area {
 model Analista {
   id                   String                @id @default(uuid())
   nome                 String
+  email                String?
+  telefone             String?
+  cargo                String?
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
   atendimentos         Atendimento[]
