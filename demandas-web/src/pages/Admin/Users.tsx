@@ -84,7 +84,7 @@ export default function UsersPage() {
         return
       }
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3333'}/users`, {
+      const response = await fetch(`https://nigteste-production.up.railway.app/users`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -111,7 +111,7 @@ export default function UsersPage() {
   const manualLogin = useCallback(async () => {
     try {
       console.log('🔐 Fazendo login manual...')
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3333'}/auth/login`, {
+      const response = await fetch(`https://nigteste-production.up.railway.app/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -201,7 +201,7 @@ export default function UsersPage() {
         delete userData.password
       }
 
-      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3333'
+      const baseUrl = 'https://nigteste-production.up.railway.app'
       const url = editingUser 
         ? `${baseUrl}/users/${editingUser.id}`
         : `${baseUrl}/users`
@@ -244,7 +244,7 @@ export default function UsersPage() {
     if (!selectedUser) return
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3333'}/users/${selectedUser.id}`, {
+      const response = await fetch(`https://nigteste-production.up.railway.app/users/${selectedUser.id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -284,7 +284,7 @@ export default function UsersPage() {
     if (!userToDelete) return
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3333'}/users/${userToDelete.id}`, {
+      const response = await fetch(`https://nigteste-production.up.railway.app/users/${userToDelete.id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
