@@ -1,5 +1,16 @@
 {
   "env": {
     "VITE_API_URL": "https://nigteste-production.up.railway.app"
-  }
+  },
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        }
+      ]
+    }
+  ]
 }
