@@ -1,12 +1,12 @@
 {
   "name": "demandas-api",
   "version": "1.0.0",
-  "description": "Backend API - Force redeploy 2025-09-30T22:30:00.000Z",
+  "description": "Backend API - Force redeploy 2025-09-30T19:46:04.391Z - Schema Analista atualizado",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
-    "start": "rm -rf node_modules/.prisma && rm -rf node_modules/@prisma && npm install @prisma/client && npx prisma generate --force && node setup-db.js && node dist/server.js",
+    "start": "rm -rf node_modules/.prisma && rm -rf node_modules/@prisma && npm install @prisma/client && npx prisma generate --force && npx prisma db push --accept-data-loss && node setup-db.js && node dist/server.js",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate deploy",
     "db:generate": "prisma generate",
