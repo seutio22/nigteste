@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Limpeza de Dados Mock - Frontend</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .section {
+            margin-bottom: 25px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        .section h3 {
+            margin-top: 0;
+            color: #555;
+        }
+        button {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        button:hover {
+            background-color: #c82333;
+        }
+        .success {
+            background-color: #28a745;
+        }
+        .success:hover {
+            background-color: #218838;
+        }
+        .info {
+            background-color: #17a2b8;
+        }
+        .info:hover {
+            background-color: #138496;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .success-result {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error-result {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .warning-result {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧹 Limpeza de Dados Mock - Frontend</h1>
+        
+        <div class="section">
+            <h3>📊 Status Atual do localStorage</h3>
+            <button onclick="checkLocalStorage()" class="info">Verificar localStorage</button>
+            <div id="localStorageStatus"></div>
+        </div>
+        
+        <div class="section">
+            <h3>🗑️ Limpeza Completa</h3>
+            <p>Remove todos os dados mock do localStorage e limpa os stores do frontend.</p>
+            <button onclick="clearAllMockData()" class="success">Limpar Todos os Dados Mock</button>
+            <div id="clearResult"></div>
+        </div>
+        
+        <div class="section">
+            <h3>🔄 Limpeza Específica por Store</h3>
+            <button onclick="clearMasterDataStore()">Limpar Master Data Store</button>
+            <button onclick="clearDashboardStore()">Limpar Dashboard Store</button>
+            <button onclick="clearReportStore()">Limpar Report Store</button>
+            <button onclick="clearDemandStore()">Limpar Demand Store</button>
+            <button onclick="clearAtendimentoStore()">Limpar Atendimento Store</button>
+            <button onclick="clearValidationStore()">Limpar Validation Store</button>
+            <button onclick="clearReajusteStore()">Limpar Reajuste Store</button>
+            <div id="specificClearResult"></div>
+        </div>
+        
+        <div class="section">
+            <h3>✅ Verificação Final</h3>
+            <button onclick="verifyCleanup()" class="info">Verificar se Limpeza foi Bem-sucedida</button>
+            <div id="verifyResult"></div>
+        </div>
+    </div>
+
+    <script>
+        function checkLocalStorage() {
+            const resultDiv = document.getElementById('localStorageStatus');
+            const keys = Object.keys(localStorage);
+            
+            let html = '<h4>Chaves encontradas no localStorage:</h4><ul>';
+            keys.forEach(key => {
+                const value = localStorage.getItem(key);
+                const size = new Blob([value]).size;
+                html += `<li><strong>${key}</strong> (${size} bytes)</li>`;
+            });
+            html += '</ul>';
+            
+            if (keys.length === 0) {
+                html = '<p class="result success-result">✅ localStorage está vazio!</p>';
+            } else {
+                html += `<p class="result warning-result">⚠️ ${keys.length} chaves encontradas no localStorage</p>`;
+            }
+            
+            resultDiv.innerHTML = html;
+        }
+        
+        function clearAllMockData() {
+            const resultDiv = document.getElementById('clearResult');
+            
+            try {
+                // Lista de todas as chaves conhecidas dos stores
+                const storeKeys = [
+                    'master-data-store',
+                    'dashboard-storage',
+                    'reports-v1',
+                    'demand-store',
+                    'atendimento-store',
+                    'validation-store',
+                    'reajuste-store',
+                    'auth-store',
+                    'kanban-store',
+                    'project-store',
+                    'timeline-store',
+                    'comunicado-store',
+                    'mailling-store',
+                    'analytics-store',
+                    'user-store',
+                    'permission-store'
+                ];
+                
+                let removedCount = 0;
+                storeKeys.forEach(key => {
+                    if (localStorage.getItem(key)) {
+                        localStorage.removeItem(key);
+                        removedCount++;
+                    }
+                });
+                
+                // Remover outras chaves que possam conter dados mock
+                const allKeys = Object.keys(localStorage);
+                allKeys.forEach(key => {
+                    if (key.includes('store') || key.includes('mock') || key.includes('test') || key.includes('example')) {
+                        localStorage.removeItem(key);
+                        removedCount++;
+                    }
+                });
+                
+                resultDiv.innerHTML = `<p class="result success-result">✅ Limpeza completa realizada! ${removedCount} chaves removidas do localStorage.</p>`;
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="result error-result">❌ Erro na limpeza: ${error.message}</p>`;
+            }
+        }
+        
+        function clearMasterDataStore() {
+            const resultDiv = document.getElementById('specificClearResult');
+            try {
+                localStorage.removeItem('master-data-store');
+                resultDiv.innerHTML = '<p class="result success-result">✅ Master Data Store limpo!</p>';
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="result error-result">❌ Erro: ${error.message}</p>`;
+            }
+        }
+        
+        function clearDashboardStore() {
+            const resultDiv = document.getElementById('specificClearResult');
+            try {
+                localStorage.removeItem('dashboard-storage');
+                resultDiv.innerHTML = '<p class="result success-result">✅ Dashboard Store limpo!</p>';
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="result error-result">❌ Erro: ${error.message}</p>`;
+            }
+        }
+        
+        function clearReportStore() {
+            const resultDiv = document.getElementById('specificClearResult');
+            try {
+                localStorage.removeItem('reports-v1');
+                resultDiv.innerHTML = '<p class="result success-result">✅ Report Store limpo!</p>';
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="result error-result">❌ Erro: ${error.message}</p>`;
+            }
+        }
+        
+        function clearDemandStore() {
+            const resultDiv = document.getElementById('specificClearResult');
+            try {
+                localStorage.removeItem('demand-store');
+                resultDiv.innerHTML = '<p class="result success-result">✅ Demand Store limpo!</p>';
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="result error-result">❌ Erro: ${error.message}</p>`;
+            }
+        }
+        
+        function clearAtendimentoStore() {
+            const resultDiv = document.getElementById('specificClearResult');
+            try {
+                localStorage.removeItem('atendimento-store');
+                resultDiv.innerHTML = '<p class="result success-result">✅ Atendimento Store limpo!</p>';
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="result error-result">❌ Erro: ${error.message}</p>`;
+            }
+        }
+        
+        function clearValidationStore() {
+            const resultDiv = document.getElementById('specificClearResult');
+            try {
+                localStorage.removeItem('validation-store');
+                resultDiv.innerHTML = '<p class="result success-result">✅ Validation Store limpo!</p>';
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="result error-result">❌ Erro: ${error.message}</p>`;
+            }
+        }
+        
+        function clearReajusteStore() {
+            const resultDiv = document.getElementById('specificClearResult');
+            try {
+                localStorage.removeItem('reajuste-store');
+                resultDiv.innerHTML = '<p class="result success-result">✅ Reajuste Store limpo!</p>';
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="result error-result">❌ Erro: ${error.message}</p>`;
+            }
+        }
+        
+        function verifyCleanup() {
+            const resultDiv = document.getElementById('verifyResult');
+            const keys = Object.keys(localStorage);
+            
+            if (keys.length === 0) {
+                resultDiv.innerHTML = '<p class="result success-result">✅ Perfeito! localStorage está completamente limpo!</p>';
+            } else {
+                let html = '<p class="result warning-result">⚠️ Ainda existem chaves no localStorage:</p><ul>';
+                keys.forEach(key => {
+                    html += `<li>${key}</li>`;
+                });
+                html += '</ul>';
+                resultDiv.innerHTML = html;
+            }
+        }
+        
+        // Verificar status inicial
+        window.onload = function() {
+            checkLocalStorage();
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Limpar Demandas Incorretas</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .warning {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .danger {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        button {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #c82333;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        pre {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Limpar Demandas Incorretas</h1>
+        
+        <div class="warning">
+            <strong>⚠️ ATENÇÃO:</strong> Esta ferramenta irá limpar dados incorretos que foram inseridos na página de demandas.
+        </div>
+
+        <div class="danger">
+            <strong>🚨 PERIGO:</strong> Esta operação é irreversível! Certifique-se de que você quer remover os dados incorretos.
+        </div>
+
+        <h2>📋 O que será limpo:</h2>
+        <ul>
+            <li>Dados de demandas que foram inseridos incorretamente via upload</li>
+            <li>Dados que não seguem a estrutura correta da página demandas</li>
+            <li>Dados que foram criados com campos incorretos</li>
+        </ul>
+
+        <h2>🛠️ Ações disponíveis:</h2>
+        
+        <button onclick="verificarDados()">🔍 Verificar Dados Atuais</button>
+        <button onclick="limparDadosIncorretos()">🗑️ Limpar Dados Incorretos</button>
+        <button onclick="limparTudo()">💥 Limpar TUDO (CUIDADO!)</button>
+        <button onclick="limparLocalStorage()">🧹 Limpar LocalStorage</button>
+
+        <div id="resultado"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3333';
+        
+        async function verificarDados() {
+            try {
+                const resultado = document.getElementById('resultado');
+                resultado.innerHTML = '<div class="warning">🔍 Verificando dados...</div>';
+                
+                const response = await fetch(`${API_BASE}/demandas`);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const demandas = await response.json();
+                
+                resultado.innerHTML = `
+                    <div class="success">
+                        <h3>✅ Dados encontrados:</h3>
+                        <p><strong>Total de demandas:</strong> ${demandas.length}</p>
+                        <pre>${JSON.stringify(demandas, null, 2)}</pre>
+                    </div>
+                `;
+            } catch (error) {
+                document.getElementById('resultado').innerHTML = `
+                    <div class="danger">
+                        <h3>❌ Erro ao verificar dados:</h3>
+                        <p>${error.message}</p>
+                        <p>Verifique se o backend está rodando em ${API_BASE}</p>
+                    </div>
+                `;
+            }
+        }
+
+        async function limparDadosIncorretos() {
+            try {
+                const resultado = document.getElementById('resultado');
+                resultado.innerHTML = '<div class="warning">🗑️ Limpando dados incorretos...</div>';
+                
+                // Primeiro, verificar quais dados estão incorretos
+                const response = await fetch(`${API_BASE}/demandas`);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const demandas = await response.json();
+                
+                // Identificar dados incorretos (que não têm campos obrigatórios)
+                const dadosIncorretos = demandas.filter(d => {
+                    // Dados incorretos são aqueles que não têm ticket ou têm apenas nome/tipoServicoId
+                    return !d.ticket || (d.nome && !d.clienteId);
+                });
+                
+                if (dadosIncorretos.length === 0) {
+                    resultado.innerHTML = `
+                        <div class="success">
+                            <h3>✅ Nenhum dado incorreto encontrado!</h3>
+                            <p>Todas as demandas parecem estar corretas.</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                resultado.innerHTML = `
+                    <div class="warning">
+                        <h3>🔍 Dados incorretos identificados:</h3>
+                        <p><strong>Total de dados incorretos:</strong> ${dadosIncorretos.length}</p>
+                        <pre>${JSON.stringify(dadosIncorretos, null, 2)}</pre>
+                        <p>Clique em "Confirmar Limpeza" para remover estes dados.</p>
+                        <button onclick="confirmarLimpezaIncorretos()">✅ Confirmar Limpeza</button>
+                    </div>
+                `;
+                
+            } catch (error) {
+                document.getElementById('resultado').innerHTML = `
+                    <div class="danger">
+                        <h3>❌ Erro ao verificar dados incorretos:</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        async function confirmarLimpezaIncorretos() {
+            try {
+                const resultado = document.getElementById('resultado');
+                resultado.innerHTML = '<div class="warning">🗑️ Removendo dados incorretos...</div>';
+                
+                const response = await fetch(`${API_BASE}/demandas`);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const demandas = await response.json();
+                const dadosIncorretos = demandas.filter(d => !d.ticket || (d.nome && !d.clienteId));
+                
+                let removidos = 0;
+                for (const demanda of dadosIncorretos) {
+                    try {
+                        const deleteResponse = await fetch(`${API_BASE}/demandas/${demanda.id}`, {
+                            method: 'DELETE'
+                        });
+                        
+                        if (deleteResponse.ok) {
+                            removidos++;
+                        }
+                    } catch (error) {
+                        console.error(`Erro ao remover demanda ${demanda.id}:`, error);
+                    }
+                }
+                
+                resultado.innerHTML = `
+                    <div class="success">
+                        <h3>✅ Limpeza concluída!</h3>
+                        <p><strong>Dados removidos:</strong> ${removidos} de ${dadosIncorretos.length}</p>
+                        <p>Os dados incorretos foram removidos com sucesso.</p>
+                    </div>
+                `;
+                
+            } catch (error) {
+                document.getElementById('resultado').innerHTML = `
+                    <div class="danger">
+                        <h3>❌ Erro durante a limpeza:</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        async function limparTudo() {
+            if (!confirm('🚨 ATENÇÃO: Esta ação irá remover TODAS as demandas do banco de dados. Tem certeza?')) {
+                return;
+            }
+            
+            try {
+                const resultado = document.getElementById('resultado');
+                resultado.innerHTML = '<div class="warning">💥 Removendo TODAS as demandas...</div>';
+                
+                const response = await fetch(`${API_BASE}/demandas`);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const demandas = await response.json();
+                
+                let removidos = 0;
+                for (const demanda of demandas) {
+                    try {
+                        const deleteResponse = await fetch(`${API_BASE}/demandas/${demanda.id}`, {
+                            method: 'DELETE'
+                        });
+                        
+                        if (deleteResponse.ok) {
+                            removidos++;
+                        }
+                    } catch (error) {
+                        console.error(`Erro ao remover demanda ${demanda.id}:`, error);
+                    }
+                }
+                
+                resultado.innerHTML = `
+                    <div class="success">
+                        <h3>✅ Limpeza total concluída!</h3>
+                        <p><strong>Total de demandas removidas:</strong> ${removidos}</p>
+                        <p>Todas as demandas foram removidas do banco de dados.</p>
+                    </div>
+                `;
+                
+            } catch (error) {
+                document.getElementById('resultado').innerHTML = `
+                    <div class="danger">
+                        <h3>❌ Erro durante a limpeza total:</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        function limparLocalStorage() {
+            try {
+                // Limpar dados relacionados a demandas
+                const keysToRemove = [];
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && (key.includes('demand') || key.includes('ticket'))) {
+                        keysToRemove.push(key);
+                    }
+                }
+                
+                keysToRemove.forEach(key => localStorage.removeItem(key));
+                
+                // Limpar sessionStorage
+                sessionStorage.clear();
+                
+                document.getElementById('resultado').innerHTML = `
+                    <div class="success">
+                        <h3>✅ LocalStorage limpo!</h3>
+                        <p><strong>Chaves removidas:</strong> ${keysToRemove.length}</p>
+                        <p>SessionStorage também foi limpo.</p>
+                    </div>
+                `;
+                
+            } catch (error) {
+                document.getElementById('resultado').innerHTML = `
+                    <div class="danger">
+                        <h3>❌ Erro ao limpar LocalStorage:</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

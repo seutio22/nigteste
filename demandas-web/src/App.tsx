@@ -1,17 +1,40 @@
-import { CssBaseline, ThemeProvider, createTheme } from '@mui/material'
+import { SidebarProvider } from './contexts/SidebarContext'
 import { AppRoutes } from './routes/AppRoutes'
+import { useTheme } from './hooks/useTheme'
+import { useAuthStore } from './store/authStore'
+import { useMasterDataStore } from './store/masterDataStore'
+import { useEffect } from 'react'
 
-const theme = createTheme({
-  palette: { mode: 'light' },
-})
-
-export default function App() {
+function App() {
+  // Aplicar tema global
+  useTheme()
+  
+  // Inicializar store de autenticação
+  const { initialize, user, loading } = useAuthStore()
+  
+  // Inicializar sincronização de dados mestres
+  const syncFromApi = useMasterDataStore((state) => state.syncFromApi)
+  
+  useEffect(() => {
+    initialize()
+  }, [initialize])
+  
+  useEffect(() => {
+    // Sincronizar dados mestres quando a aplicação inicia
+    if (syncFromApi) {
+      syncFromApi().catch((error) => {
+        console.error('❌ App: Erro na sincronização inicial:', error)
+      })
+    }
+  }, [syncFromApi])
+  
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
+    <SidebarProvider>
       <AppRoutes />
-    </ThemeProvider>
+    </SidebarProvider>
   )
 }
+
+export default App
 
 

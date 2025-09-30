@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste API Compartilhamento</title>
+</head>
+<body>
+    <h1>Teste API de Compartilhamento</h1>
+    
+    <div>
+        <h3>1. Health Check</h3>
+        <button onclick="testHealth()">Testar Health</button>
+        <div id="health-result"></div>
+    </div>
+    
+    <div>
+        <h3>2. Listar Projetos</h3>
+        <button onclick="testProjects()">Listar Projetos</button>
+        <div id="projects-result"></div>
+    </div>
+    
+    <div>
+        <h3>3. Testar Compartilhamento</h3>
+        <button onclick="testShare()">Testar Compartilhamento</button>
+        <div id="share-result"></div>
+    </div>
+    
+    <div>
+        <h3>4. Criar Token</h3>
+        <button onclick="createToken()">Criar Token</button>
+        <div id="create-result"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3333';
+        
+        async function testHealth() {
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+                document.getElementById('health-result').innerHTML = 
+                    `<pre>✅ Status: ${response.status}\n${JSON.stringify(data, null, 2)}</pre>`;
+            } catch (error) {
+                document.getElementById('health-result').innerHTML = 
+                    `<pre>❌ Erro: ${error.message}</pre>`;
+            }
+        }
+        
+        async function testProjects() {
+            try {
+                const response = await fetch(`${API_BASE}/projects`);
+                const data = await response.json();
+                document.getElementById('projects-result').innerHTML = 
+                    `<pre>✅ Status: ${response.status}\nProjetos: ${data.length}\n${JSON.stringify(data, null, 2)}</pre>`;
+            } catch (error) {
+                document.getElementById('projects-result').innerHTML = 
+                    `<pre>❌ Erro: ${error.message}</pre>`;
+            }
+        }
+        
+        async function testShare() {
+            try {
+                const response = await fetch(`${API_BASE}/projects`);
+                const projects = await response.json();
+                
+                if (projects.length > 0) {
+                    const projectId = projects[0].id;
+                    const shareResponse = await fetch(`${API_BASE}/projects/${projectId}/share`);
+                    const shareData = await shareResponse.json();
+                    
+                    document.getElementById('share-result').innerHTML = 
+                        `<pre>✅ Status: ${shareResponse.status}\n${JSON.stringify(shareData, null, 2)}</pre>`;
+                } else {
+                    document.getElementById('share-result').innerHTML = 
+                        `<pre>❌ Nenhum projeto encontrado</pre>`;
+                }
+            } catch (error) {
+                document.getElementById('share-result').innerHTML = 
+                    `<pre>❌ Erro: ${error.message}</pre>`;
+            }
+        }
+        
+        async function createToken() {
+            try {
+                const response = await fetch(`${API_BASE}/projects`);
+                const projects = await response.json();
+                
+                if (projects.length > 0) {
+                    const projectId = projects[0].id;
+                    const createResponse = await fetch(`${API_BASE}/projects/${projectId}/share`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            name: 'Teste Frontend',
+                            description: 'Teste via frontend'
+                        })
+                    });
+                    
+                    const createData = await createResponse.json();
+                    document.getElementById('create-result').innerHTML = 
+                        `<pre>✅ Status: ${createResponse.status}\n${JSON.stringify(createData, null, 2)}</pre>`;
+                } else {
+                    document.getElementById('create-result').innerHTML = 
+                        `<pre>❌ Nenhum projeto encontrado</pre>`;
+                }
+            } catch (error) {
+                document.getElementById('create-result').innerHTML = 
+                    `<pre>❌ Erro: ${error.message}</pre>`;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug - Usuário Demanda</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .warning { background-color: #fff3cd; border-color: #ffeaa7; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+        .field-test { margin: 10px 0; padding: 10px; border-left: 3px solid #007bff; background: #f8f9fa; }
+        .demanda-info { margin: 10px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; background: #f8f9fa; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Debug - Usuário Demanda</h1>
+    
+    <div class="section">
+        <h2>1. Simular Dados de Demanda com Usuário</h2>
+        <button onclick="simulateDemandaWithUser()">Simular Demanda</button>
+        <div id="demandaResult"></div>
+    </div>
+    
+    <div class="section">
+        <h2>2. Testar Criação de Demanda</h2>
+        <button onclick="testCreateDemanda()">Testar Criação</button>
+        <div id="createResult"></div>
+    </div>
+    
+    <div class="section">
+        <h2>3. Verificar API Response</h2>
+        <button onclick="testApiResponse()">Testar API</button>
+        <div id="apiResult"></div>
+    </div>
+
+    <div class="section">
+        <h2>4. Simular Exibição na Interface</h2>
+        <button onclick="simulateDisplay()">Simular Exibição</button>
+        <div id="displayResult"></div>
+    </div>
+
+    <script>
+        // Simular dados do usuário
+        const mockUser = {
+            id: '2cd1ef91-757e-438f-8e48-c6cf8a05981f',
+            name: 'Administrador',
+            email: 'admin@admin.com',
+            role: 'admin'
+        };
+
+        // Simular dados de demanda com usuário
+        const mockDemandaWithUser = {
+            id: '641d3109-7514-4954-93a2-e305c379345a',
+            ticket: 'DEM-202509-0002',
+            status: 'Em reajuste',
+            solicitante: 'Denis',
+            descricao: 'Teste de demanda',
+            userId: '2cd1ef91-757e-438f-8e48-c6cf8a05981f',
+            user: {
+                id: '2cd1ef91-757e-438f-8e48-c6cf8a05981f',
+                name: 'Administrador',
+                email: 'admin@admin.com'
+            },
+            createdAt: '2025-09-10T21:30:00.000Z',
+            updatedAt: '2025-09-10T21:45:00.000Z'
+        };
+
+        // Simular dados de demanda sem usuário (problema atual)
+        const mockDemandaWithoutUser = {
+            id: '641d3109-7514-4954-93a2-e305c379345a',
+            ticket: 'DEM-202509-0002',
+            status: 'Em reajuste',
+            solicitante: 'Denis',
+            descricao: 'Teste de demanda',
+            userId: null,
+            user: null,
+            createdAt: '2025-09-10T21:30:00.000Z',
+            updatedAt: '2025-09-10T21:45:00.000Z'
+        };
+
+        function simulateDemandaWithUser() {
+            const result = document.getElementById('demandaResult');
+            
+            let html = '<h3>Dados de Demanda com Usuário:</h3>';
+            html += '<div class="demanda-info">';
+            html += '<h4>Demanda ID: ' + mockDemandaWithUser.id + '</h4>';
+            html += '<p><strong>Ticket:</strong> ' + mockDemandaWithUser.ticket + '</p>';
+            html += '<p><strong>Status:</strong> ' + mockDemandaWithUser.status + '</p>';
+            html += '<p><strong>Usuário ID:</strong> ' + (mockDemandaWithUser.userId || 'null') + '</p>';
+            html += '<p><strong>Usuário Nome:</strong> ' + (mockDemandaWithUser.user?.name || 'null') + '</p>';
+            html += '<p><strong>Usuário Email:</strong> ' + (mockDemandaWithUser.user?.email || 'null') + '</p>';
+            html += '</div>';
+            
+            html += '<h3>Dados de Demanda sem Usuário (Problema):</h3>';
+            html += '<div class="demanda-info">';
+            html += '<h4>Demanda ID: ' + mockDemandaWithoutUser.id + '</h4>';
+            html += '<p><strong>Ticket:</strong> ' + mockDemandaWithoutUser.ticket + '</p>';
+            html += '<p><strong>Status:</strong> ' + mockDemandaWithoutUser.status + '</p>';
+            html += '<p><strong>Usuário ID:</strong> ' + (mockDemandaWithoutUser.userId || 'null') + '</p>';
+            html += '<p><strong>Usuário Nome:</strong> ' + (mockDemandaWithoutUser.user?.name || 'null') + '</p>';
+            html += '<p><strong>Usuário Email:</strong> ' + (mockDemandaWithoutUser.user?.email || 'null') + '</p>';
+            html += '</div>';
+            
+            result.innerHTML = html;
+        }
+
+        function testCreateDemanda() {
+            const result = document.getElementById('createResult');
+            
+            // Simular payload de criação
+            const createPayload = {
+                status: 'Aberta',
+                ticket: 'DEM-202509-0003',
+                solicitante: 'Teste',
+                descricao: 'Teste de criação',
+                userId: mockUser.id, // ← Campo corrigido
+                analistaId: 'analista-001',
+                areaId: 'area-001',
+                tipoId: 'tipo-001',
+                tipoServicoId: 'tipo-servico-001'
+            };
+            
+            let html = '<h3>Teste de Criação de Demanda:</h3>';
+            html += '<div class="field-test">';
+            html += '<h4>Payload de Criação:</h4>';
+            html += '<pre>' + JSON.stringify(createPayload, null, 2) + '</pre>';
+            html += '</div>';
+            
+            // Verificar se userId está presente
+            if (createPayload.userId) {
+                html += '<div class="success">✅ userId presente no payload: ' + createPayload.userId + '</div>';
+            } else {
+                html += '<div class="error">❌ userId ausente no payload</div>';
+            }
+            
+            // Simular resposta da API
+            const apiResponse = {
+                ...createPayload,
+                id: 'nova-demanda-id',
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                user: {
+                    id: mockUser.id,
+                    name: mockUser.name,
+                    email: mockUser.email
+                }
+            };
+            
+            html += '<div class="field-test">';
+            html += '<h4>Resposta da API:</h4>';
+            html += '<pre>' + JSON.stringify(apiResponse, null, 2) + '</pre>';
+            html += '</div>';
+            
+            result.innerHTML = html;
+        }
+
+        function testApiResponse() {
+            const result = document.getElementById('apiResult');
+            
+            // Simular diferentes cenários de resposta da API
+            const scenarios = [
+                {
+                    name: 'Cenário 1: Demanda com usuário completo',
+                    data: mockDemandaWithUser,
+                    expected: 'Administrador'
+                },
+                {
+                    name: 'Cenário 2: Demanda sem usuário (problema atual)',
+                    data: mockDemandaWithoutUser,
+                    expected: '-'
+                },
+                {
+                    name: 'Cenário 3: Demanda com userId mas sem relação user',
+                    data: {
+                        ...mockDemandaWithoutUser,
+                        userId: '2cd1ef91-757e-438f-8e48-c6cf8a05981f',
+                        user: null
+                    },
+                    expected: 'ID do usuário'
+                }
+            ];
+            
+            let html = '<h3>Teste de Resposta da API:</h3>';
+            
+            scenarios.forEach((scenario, index) => {
+                const displayName = scenario.data.user?.name || (scenario.data.userId ? scenario.data.userId : '-');
+                const status = displayName === scenario.expected ? 'success' : 'warning';
+                
+                html += '<div class="field-test">';
+                html += '<h4>' + scenario.name + '</h4>';
+                html += '<p><strong>Dados:</strong></p>';
+                html += '<pre>' + JSON.stringify(scenario.data, null, 2) + '</pre>';
+                html += '<p><strong>Nome exibido:</strong> <span class="' + status + '">' + displayName + '</span></p>';
+                html += '<p><strong>Esperado:</strong> ' + scenario.expected + '</p>';
+                html += '</div>';
+            });
+            
+            result.innerHTML = html;
+        }
+
+        function simulateDisplay() {
+            const result = document.getElementById('displayResult');
+            
+            // Simular exibição na interface
+            const demandas = [mockDemandaWithUser, mockDemandaWithoutUser];
+            
+            let html = '<h3>Simulação de Exibição na Interface:</h3>';
+            
+            demandas.forEach((demanda, index) => {
+                const userDisplay = demanda.user?.name || '-';
+                const status = userDisplay !== '-' ? 'success' : 'error';
+                
+                html += '<div class="demanda-info">';
+                html += '<h4>Demanda ' + (index + 1) + ': ' + demanda.ticket + '</h4>';
+                html += '<p><strong>Status:</strong> ' + demanda.status + '</p>';
+                html += '<p><strong>Criado por:</strong> <span class="' + status + '">' + userDisplay + '</span></p>';
+                html += '<p><strong>Descrição:</strong> ' + demanda.descricao + '</p>';
+                html += '</div>';
+            });
+            
+            html += '<div class="field-test">';
+            html += '<h4>Recomendações:</h4>';
+            html += '<ul>';
+            html += '<li>✅ Garantir que userId seja definido na criação</li>';
+            html += '<li>✅ Incluir relação user na consulta da API</li>';
+            html += '<li>✅ Exibir user.name na interface</li>';
+            html += '<li>✅ Fallback para "-" quando user for null</li>';
+            html += '</ul>';
+            html += '</div>';
+            
+            result.innerHTML = html;
+        }
+
+        // Executar simulação inicial
+        window.onload = function() {
+            simulateDemandaWithUser();
+        };
+    </script>
+</body>
+</html>

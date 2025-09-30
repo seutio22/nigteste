@@ -1,0 +1,280 @@
+/* Estilos personalizados para o Quill Editor */
+.ql-editor {
+  min-height: 400px;
+  font-size: 16px;
+  line-height: 1.8;
+  font-family: system-ui, -apple-system, sans-serif;
+  color: #374151;
+}
+
+.ql-toolbar {
+  border-top: 1px solid #e5e7eb;
+  border-left: 1px solid #e5e7eb;
+  border-right: 1px solid #e5e7eb;
+  background-color: #f9fafb;
+  padding: 12px;
+}
+
+.ql-container {
+  border-bottom: 1px solid #e5e7eb;
+  border-left: 1px solid #e5e7eb;
+  border-right: 1px solid #e5e7eb;
+  font-size: 16px;
+}
+
+.ql-toolbar .ql-stroke {
+  stroke: #6b7280;
+}
+
+.ql-toolbar .ql-fill {
+  fill: #6b7280;
+}
+
+.ql-toolbar .ql-picker-label {
+  color: #6b7280;
+}
+
+.ql-toolbar .ql-picker-options {
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.ql-toolbar .ql-picker-item:hover {
+  background-color: #f3f4f6;
+}
+
+.ql-toolbar .ql-picker-item.ql-selected {
+  background-color: #3b82f6;
+  color: white;
+}
+
+.ql-toolbar button:hover {
+  background-color: #e5e7eb;
+  border-radius: 4px;
+}
+
+.ql-toolbar button.ql-active {
+  background-color: #3b82f6;
+  color: white;
+}
+
+.ql-toolbar button.ql-active .ql-stroke {
+  stroke: white;
+}
+
+.ql-toolbar button.ql-active .ql-fill {
+  fill: white;
+}
+
+/* Estilos para imagens */
+.ql-editor img {
+  max-width: 100%;
+  height: auto;
+  margin: 1em 0;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Estilos para links */
+.ql-editor a {
+  color: #2563eb;
+  text-decoration: underline;
+}
+
+.ql-editor a:hover {
+  color: #1d4ed8;
+}
+
+/* Estilos para listas */
+.ql-editor ul,
+.ql-editor ol {
+  margin: 1em 0;
+  padding-left: 1.5em;
+}
+
+.ql-editor li {
+  margin-bottom: 0.5em;
+  line-height: 1.6;
+}
+
+/* Estilos para cabeçalhos */
+.ql-editor h1,
+.ql-editor h2,
+.ql-editor h3,
+.ql-editor h4,
+.ql-editor h5,
+.ql-editor h6 {
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+  font-weight: 600;
+  line-height: 1.25;
+  color: #1f2937;
+}
+
+.ql-editor h1 { font-size: 2em; }
+.ql-editor h2 { font-size: 1.5em; }
+.ql-editor h3 { font-size: 1.25em; }
+.ql-editor h4 { font-size: 1.1em; }
+.ql-editor h5 { font-size: 1em; }
+.ql-editor h6 { font-size: 0.9em; }
+
+/* Estilos para parágrafos */
+.ql-editor p {
+  margin-bottom: 1em;
+  line-height: 1.8;
+}
+
+/* Estilos para citações */
+.ql-editor blockquote {
+  border-left: 3px solid #e5e7eb;
+  margin: 1em 0;
+  padding-left: 1em;
+  font-style: italic;
+  color: #6b7280;
+  background-color: #f9fafb;
+  padding: 1em;
+  border-radius: 0.5rem;
+}
+
+/* Estilos para código */
+.ql-editor code {
+  background-color: #f3f4f6;
+  padding: 0.2em 0.4em;
+  border-radius: 0.25rem;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.9em;
+  color: #dc2626;
+}
+
+.ql-editor pre {
+  background-color: #1f2937;
+  color: #f9fafb;
+  padding: 1em;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  margin: 1em 0;
+}
+
+.ql-editor pre code {
+  background-color: transparent;
+  color: inherit;
+  padding: 0;
+}
+
+/* Estilos para alinhamento */
+.ql-editor .ql-align-left {
+  text-align: left;
+}
+
+.ql-editor .ql-align-center {
+  text-align: center;
+}
+
+.ql-editor .ql-align-right {
+  text-align: right;
+}
+
+.ql-editor .ql-align-justify {
+  text-align: justify;
+}
+
+/* Estilos para modo somente leitura */
+.ql-editor.ql-disabled {
+  background-color: #f9fafb;
+  color: #6b7280;
+}
+
+/* Estilos para foco */
+.ql-editor:focus {
+  outline: none;
+}
+
+/* Estilos para seleção de texto */
+.ql-editor::selection {
+  background-color: #3b82f6;
+  color: white;
+}
+
+/* Estilos para scrollbar */
+.ql-editor::-webkit-scrollbar {
+  width: 8px;
+}
+
+.ql-editor::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.ql-editor::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.ql-editor::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Estilos para dropdowns */
+.ql-toolbar .ql-picker {
+  color: #6b7280;
+}
+
+.ql-toolbar .ql-picker:hover {
+  background-color: #e5e7eb;
+  border-radius: 4px;
+}
+
+.ql-toolbar .ql-picker.ql-expanded {
+  background-color: #e5e7eb;
+  border-radius: 4px;
+}
+
+/* Estilos para botões de formatação */
+.ql-toolbar .ql-formats {
+  margin-right: 15px;
+}
+
+.ql-toolbar .ql-formats:last-child {
+  margin-right: 0;
+}
+
+/* Estilos para separadores */
+.ql-toolbar .ql-separator {
+  border-right: 1px solid #d1d5db;
+  margin: 0 8px;
+}
+
+/* Estilos para tooltips */
+.ql-tooltip {
+  background-color: #1f2937;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 14px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.ql-tooltip input {
+  background-color: #374151;
+  color: white;
+  border: 1px solid #4b5563;
+  border-radius: 4px;
+  padding: 4px 8px;
+}
+
+.ql-tooltip input:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+/* Estilos para cores personalizadas */
+.ql-color-picker .ql-picker-options {
+  width: 200px;
+}
+
+.ql-background-picker .ql-picker-options {
+  width: 200px;
+}

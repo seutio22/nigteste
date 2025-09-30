@@ -4,22 +4,33 @@ export interface Demand {
   id: DemandId
   status: string
   ticket?: string
-  analista?: string // id de Analista
+  analista?: string // nome do Analista
+  analistaId?: string // id do Analista
   solicitante?: string
-  area?: string // id de Área
-  tipo?: string // id de TipoDemanda
+  area?: string // nome da Área
+  areaId?: string // id da Área
+  tipo?: string // nome do TipoDemanda
+  tipoId?: string // id do TipoDemanda
   descricao?: string
-  cliente: string // id de Cliente
-  contrato: string // id de Contrato
-  operadora: string // id de Operadora
-  produto: string // id de Produto
-  tipoServico?: string // id de TipoServico
-  sistema?: string // id de Sistema
+  cliente: string // nome do Cliente
+  clienteId?: string // id do Cliente
+  contrato: string // nome do Contrato
+  contratoId?: string // id do Contrato
+  operadora: string // nome da Operadora
+  operadoraId?: string // id da Operadora
+  produto: string // nome do Produto
+  produtoId?: string // id do Produto
+  tipoServico?: string // nome do TipoServico
+  tipoServicoId?: string // id do TipoServico
+  sistema?: string // nome do Sistema
+  sistemaId?: string // id do Sistema
   dataInicio?: string // ISO date
   dataFinal?: string // ISO date
   periodicidade?: string
   qtdRetornos?: number
   qualidade?: string
+  qtdClientesVinculados?: number  // QTD CLIENTES VINCULADOS - EDGE
+  usuariosEmpresa?: number        // USUÁRIOS EMPRESA - MOVE
   observacoes?: string
   createdAt: string
   updatedAt: string

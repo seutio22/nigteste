@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>🔧 Correção Imediata do Cache</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            padding: 20px; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        .container { 
+            max-width: 600px; 
+            margin: 0 auto; 
+            background: rgba(255,255,255,0.1); 
+            padding: 30px; 
+            border-radius: 15px; 
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+        }
+        .button { 
+            background: #ff6b6b; 
+            color: white; 
+            padding: 15px 30px; 
+            border: none; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            font-size: 18px; 
+            font-weight: bold;
+            width: 100%;
+            margin: 10px 0;
+            transition: all 0.3s ease;
+        }
+        .button:hover { 
+            background: #ff5252; 
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        .status { 
+            background: rgba(255,255,255,0.2); 
+            padding: 15px; 
+            margin: 15px 0; 
+            border-radius: 8px; 
+            font-family: monospace; 
+            font-size: 14px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .alert {
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+        .alert.error { background: rgba(244, 67, 54, 0.8); }
+        .alert.success { background: rgba(76, 175, 80, 0.8); }
+        .alert.warning { background: rgba(255, 152, 0, 0.8); }
+        h1 { text-align: center; margin-bottom: 30px; }
+        .step { margin: 20px 0; padding: 15px; background: rgba(255,255,255,0.1); border-radius: 8px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Correção Imediata do P2003</h1>
+        
+        <div class="alert error">
+            <strong>❌ PROBLEMA:</strong> O erro P2003 continua porque o masterDataStore tem IDs inválidos em cache persistente.
+        </div>
+        
+        <div class="alert warning">
+            <strong>⚡ SOLUÇÃO IMEDIATA:</strong> Clique no botão abaixo para corrigir automaticamente!
+        </div>
+        
+        <button class="button" onclick="fixCacheNow()">
+            🚀 CORRIGIR AGORA - RESOLVER P2003
+        </button>
+        
+        <div id="status" class="status">
+            Aguardando ação...
+        </div>
+        
+        <div class="step">
+            <strong>📋 O que este botão faz:</strong><br>
+            1. Remove cache inválido do localStorage<br>
+            2. Busca IDs válidos do backend<br>
+            3. Salva dados corretos no cache<br>
+            4. Recarrega a página automaticamente
+        </div>
+    </div>
+
+    <script>
+        const status = document.getElementById('status');
+        
+        function log(message) {
+            status.innerHTML += new Date().toLocaleTimeString() + ': ' + message + '<br>';
+            status.scrollTop = status.scrollHeight;
+        }
+        
+        async function fixCacheNow() {
+            try {
+                log('🔧 Iniciando correção do cache...');
+                
+                // 1. Limpar cache existente
+                log('🗑️ Removendo cache inválido...');
+                localStorage.removeItem('master-data-store');
+                sessionStorage.clear();
+                log('✅ Cache limpo!');
+                
+                // 2. Verificar se há token de auth
+                const authData = localStorage.getItem('auth-store');
+                if (!authData) {
+                    log('❌ Token não encontrado. Faça login primeiro!');
+                    return;
+                }
+                
+                const auth = JSON.parse(authData);
+                const token = auth.state?.token;
+                
+                if (!token) {
+                    log('❌ Token inválido. Faça logout e login novamente!');
+                    return;
+                }
+                
+                log('🔐 Token encontrado, buscando dados válidos...');
+                
+                // 3. Buscar dados válidos do backend
+                const endpoints = ['tiposCadastro', 'tiposServico', 'analistas', 'areas', 'clientes'];
+                const validData = {};
+                
+                for (const endpoint of endpoints) {
+                    try {
+                        log(`📡 Buscando ${endpoint}...`);
+                        const response = await fetch(`http://localhost:3333/${endpoint}`, {
+                            headers: { 'Authorization': `Bearer ${token}` }
+                        });
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            validData[endpoint] = data;
+                            log(`✅ ${endpoint}: ${data.length} registros`);
+                        } else {
+                            log(`❌ ${endpoint}: Erro ${response.status}`);
+                        }
+                    } catch (error) {
+                        log(`❌ ${endpoint}: ${error.message}`);
+                    }
+                }
+                
+                // 4. Verificar se conseguiu buscar dados essenciais
+                if (!validData.tiposCadastro || !validData.tiposServico) {
+                    log('❌ Falha ao buscar dados essenciais. Verifique se o backend está rodando.');
+                    return;
+                }
+                
+                // 5. Criar novo store com dados válidos
+                log('💾 Salvando dados válidos no cache...');
+                
+                const newStore = {
+                    state: {
+                        ...validData,
+                        contratos: [],
+                        operadoras: [],
+                        produtos: [],
+                        sistemas: [],
+                        tiposDemanda: [],
+                        areasMailling: [],
+                        cargosMailling: [],
+                        filiaisMailling: [],
+                        categorias: [],
+                        periodicidades: [],
+                        status: [],
+                        isSyncing: false,
+                        lastSync: new Date().toISOString()
+                    },
+                    version: 0
+                };
+                
+                localStorage.setItem('master-data-store', JSON.stringify(newStore));
+                log('✅ Dados válidos salvos!');
+                
+                // 6. Mostrar alguns IDs para confirmação
+                log('📋 IDs válidos carregados:');
+                if (validData.tiposCadastro.length > 0) {
+                    log(`   Tipo Serviço: ${validData.tiposCadastro[0].id} (${validData.tiposCadastro[0].nome})`);
+                }
+                if (validData.tiposServico.length > 0) {
+                    log(`   Tipo Demanda: ${validData.tiposServico[0].id} (${validData.tiposServico[0].nome})`);
+                }
+                
+                log('🎉 CORREÇÃO CONCLUÍDA!');
+                log('🔄 Recarregando página em 3 segundos...');
+                
+                // 7. Recarregar página
+                setTimeout(() => {
+                    window.location.href = '/cadastro/new';
+                }, 3000);
+                
+            } catch (error) {
+                log(`❌ ERRO: ${error.message}`);
+                log('💡 Tente fazer logout e login novamente, depois execute esta correção.');
+            }
+        }
+        
+        // Auto-executar se houver parâmetro na URL
+        if (window.location.search.includes('autofix=true')) {
+            fixCacheNow();
+        }
+        
+        log('🔧 Correção carregada! Clique no botão para resolver o P2003.');
+    </script>
+</body>
+</html>

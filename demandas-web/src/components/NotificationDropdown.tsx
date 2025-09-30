@@ -1,0 +1,299 @@
+import React, { useState, useEffect } from 'react'
+import { 
+  IconButton, 
+  Badge, 
+  Menu, 
+  MenuItem, 
+  Typography, 
+  Box, 
+  Divider, 
+  Button,
+  Chip,
+  Avatar
+} from '@mui/material'
+import { 
+  Bell, 
+  CheckCircle, 
+  Info, 
+  MessageSquare,
+  FileText,
+  Settings,
+  Trash2,
+  Eye
+} from 'lucide-react'
+import { useNotificationStore } from '../store/notificationStore'
+import { useNavigate } from 'react-router-dom'
+
+export function NotificationDropdown() {
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
+  const [showAll, setShowAll] = useState(false)
+  const navigate = useNavigate()
+  
+  const { 
+    notifications, 
+    unreadCount, 
+    markAsRead, 
+    markAllAsRead, 
+    remove, 
+    clearRead 
+  } = useNotificationStore()
+
+  const open = Boolean(anchorEl)
+  
+  const handleClick = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget)
+  }
+  
+  const handleClose = () => {
+    setAnchorEl(null)
+  }
+
+  const handleNotificationClick = (notification: any) => {
+    console.log('🔍 NotificationDropdown: Clicou na notificação:', notification)
+    markAsRead(notification.id)
+    
+    // Navegar para o link se existir
+    if (notification.link) {
+      console.log('🔍 NotificationDropdown: Navegando para link:', notification.link)
+      navigate(notification.link)
+    } else if (notification.dados?.comunicadoId) {
+      console.log('🔍 NotificationDropdown: Navegando para comunicado:', notification.dados.comunicadoId)
+      navigate(`/comunicados/${notification.dados.comunicadoId}`)
+    } else if (notification.dados?.demandaId) {
+      console.log('🔍 NotificationDropdown: Navegando para demanda:', notification.dados.demandaId)
+      navigate(`/cadastro/${notification.dados.demandaId}`)
+    } else if (notification.dados?.atendimentoId) {
+      console.log('🔍 NotificationDropdown: Navegando para atendimento:', notification.dados.atendimentoId)
+      navigate(`/atendimento/${notification.dados.atendimentoId}`)
+    } else if (notification.dados?.kanbanTicketId) {
+      console.log('🔍 NotificationDropdown: Navegando para Kanban com ticket:', notification.dados.kanbanTicketId)
+      // Navegar para o Kanban com a tarefa destacada
+      navigate('/kanban', { 
+        state: { 
+          highlightTicket: notification.dados.kanbanTicketId,
+          scrollToTicket: true
+        }
+      })
+    } else {
+      console.log('🔍 NotificationDropdown: Nenhuma rota encontrada para a notificação')
+    }
+    
+    handleClose()
+  }
+
+  const getNotificationIcon = (tipo: string, prioridade: string) => {
+    const iconProps = { className: 'w-4 h-4' }
+    
+    switch (tipo) {
+      case 'comunicado':
+        return <MessageSquare {...iconProps} className="text-blue-500" />
+      case 'demanda':
+        return <FileText {...iconProps} className="text-green-500" />
+      case 'atendimento':
+        return <Settings {...iconProps} className="text-orange-500" />
+      case 'sistema':
+        return <Info {...iconProps} className="text-purple-500" />
+      default:
+        return <Bell {...iconProps} className="text-gray-500" />
+    }
+  }
+
+  const getPriorityColor = (prioridade: string) => {
+    switch (prioridade) {
+      case 'urgente': return 'bg-red-100 text-red-800'
+      case 'alta': return 'bg-orange-100 text-orange-800'
+      case 'media': return 'bg-yellow-100 text-yellow-800'
+      case 'baixa': return 'bg-green-100 text-green-800'
+      default: return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  const formatTimeAgo = (dateString: string) => {
+    const now = new Date()
+    const date = new Date(dateString)
+    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60))
+    
+    if (diffInMinutes < 1) return 'Agora mesmo'
+    if (diffInMinutes < 60) return `${diffInMinutes} min atrás`
+    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h atrás`
+    return `${Math.floor(diffInMinutes / 1440)}d atrás`
+  }
+
+  const displayedNotifications = showAll ? notifications : notifications.slice(0, 5)
+  const hasMoreNotifications = notifications.length > 5
+
+  return (
+    <>
+      <IconButton
+        onClick={handleClick}
+        className="relative"
+        size="large"
+        aria-label="notificações"
+        aria-controls={open ? 'notifications-menu' : undefined}
+        aria-haspopup="true"
+        aria-expanded={open ? 'true' : undefined}
+      >
+        <Badge badgeContent={unreadCount} color="error" max={99}>
+          <Bell className="w-5 h-5 text-gray-600" />
+        </Badge>
+      </IconButton>
+
+      <Menu
+        id="notifications-menu"
+        anchorEl={anchorEl}
+        open={open}
+        onClose={handleClose}
+        PaperProps={{
+          className: 'w-96 max-h-96 overflow-y-auto'
+        }}
+        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+      >
+        {/* Header */}
+        <Box className="p-4 border-b border-gray-100">
+          <div className="flex items-center justify-between">
+            <Typography variant="h6" className="font-semibold">
+              Notificações
+            </Typography>
+            <div className="flex items-center gap-2">
+              {unreadCount > 0 && (
+                <Button
+                  size="small"
+                  onClick={markAllAsRead}
+                  className="text-xs"
+                >
+                  Marcar todas como lidas
+                </Button>
+              )}
+              <IconButton
+                size="small"
+                onClick={clearRead}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <Trash2 className="w-4 h-4" />
+              </IconButton>
+            </div>
+          </div>
+          
+          {unreadCount > 0 && (
+            <Typography variant="body2" color="textSecondary" className="mt-1">
+              {unreadCount} não lida{unreadCount > 1 ? 's' : ''}
+            </Typography>
+          )}
+        </Box>
+
+        {/* Notificações */}
+        {displayedNotifications.length > 0 ? (
+          <div className="py-2">
+            {displayedNotifications.map((notification) => (
+              <MenuItem
+                key={notification.id}
+                onClick={() => handleNotificationClick(notification)}
+                className={`p-3 hover:bg-gray-50 transition-colors ${
+                  !notification.lida ? 'bg-blue-50' : ''
+                }`}
+              >
+                <div className="flex items-start gap-3 w-full">
+                  {/* Ícone */}
+                  <div className="flex-shrink-0 mt-1">
+                    {getNotificationIcon(notification.tipo, notification.prioridade)}
+                  </div>
+                  
+                  {/* Conteúdo */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Typography 
+                        variant="subtitle2" 
+                        className={`font-medium ${
+                          !notification.lida ? 'text-blue-900' : 'text-gray-900'
+                        }`}
+                      >
+                        {notification.titulo}
+                      </Typography>
+                      
+                      <Chip
+                        label={notification.prioridade}
+                        size="small"
+                        className={`text-xs ${getPriorityColor(notification.prioridade)}`}
+                      />
+                    </div>
+                    
+                    <Typography 
+                      variant="body2" 
+                      className="text-gray-600 mb-2 line-clamp-2"
+                    >
+                      {notification.mensagem}
+                    </Typography>
+                    
+                    <div className="flex items-center justify-between">
+                      <Typography variant="caption" color="textSecondary">
+                        {formatTimeAgo(notification.dataCriacao)}
+                      </Typography>
+                      
+                      {notification.dados?.autor && (
+                        <Typography variant="caption" color="textSecondary">
+                          por {notification.dados.autor}
+                        </Typography>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Ações */}
+                  <div className="flex items-center gap-1">
+                    {!notification.lida && (
+                      <IconButton
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          markAsRead(notification.id)
+                        }}
+                        className="text-blue-500 hover:text-blue-700"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </IconButton>
+                    )}
+                    
+                    <IconButton
+                      size="small"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        remove(notification.id)
+                      }}
+                      className="text-gray-400 hover:text-red-500"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </IconButton>
+                  </div>
+                </div>
+              </MenuItem>
+            ))}
+            
+            {/* Botão "Ver mais" */}
+            {hasMoreNotifications && (
+              <div className="px-3 py-2">
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  onClick={() => setShowAll(!showAll)}
+                  size="small"
+                >
+                  {showAll ? 'Mostrar menos' : `Ver mais ${notifications.length - 5} notificação${notifications.length - 5 > 1 ? 'ões' : 'ão'}`}
+                </Button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <Box className="p-8 text-center">
+            <Bell className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+            <Typography variant="body1" color="textSecondary">
+              Nenhuma notificação
+            </Typography>
+            <Typography variant="body2" color="textSecondary" className="mt-1">
+              Você está em dia com tudo!
+            </Typography>
+          </Box>
+        )}
+      </Menu>
+    </>
+  )
+}

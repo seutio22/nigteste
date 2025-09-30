@@ -1,64 +1,33 @@
-import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Paper, Stack, Tab, Tabs, TextField, Typography, MenuItem } from '@mui/material'
-import AddIcon from '@mui/icons-material/Add'
-import DeleteIcon from '@mui/icons-material/Delete'
-import { DataGrid, GridColDef } from '@mui/x-data-grid'
-import { useRef, useState } from 'react'
-import { useMasterDataStore } from '@/store/masterDataStore'
-import type { Area, Analista, Cliente, Contrato, Operadora, Produto, Sistema, TipoDemanda, TipoServico } from '@/types/masterData'
+import React, { useState, useMemo, useEffect } from 'react'
+import { Paper, Typography, Box, Button } from '@mui/material'
 import * as XLSX from 'xlsx'
-
-type TabKey = 'clientes' | 'contratos' | 'operadoras' | 'produtos' | 'sistemas' | 'analistas' | 'areas' | 'tipos' | 'servicos'
-
-const columns: Record<TabKey, GridColDef[]> = {
-  clientes: [
-    { field: 'nome', headerName: 'Nome', flex: 1 },
-    { field: 'grupoEconomico', headerName: 'Grupo econômico', flex: 1 },
-  ],
-  contratos: [
-    { field: 'grupoEconomico', headerName: 'Grupo econômico', width: 180 },
-    { field: 'codigo', headerName: 'Código', flex: 1 },
-  ],
-  operadoras: [
-    { field: 'nome', headerName: 'Nome', flex: 1 },
-  ],
-  produtos: [
-    { field: 'nome', headerName: 'Nome', flex: 1 },
-  ],
-  sistemas: [
-    { field: 'nome', headerName: 'Nome', flex: 1 },
-  ],
-  analistas: [
-    { field: 'nome', headerName: 'Nome', flex: 1 },
-  ],
-  areas: [
-    { field: 'nome', headerName: 'Nome', flex: 1 },
-  ],
-  tipos: [
-    { field: 'nome', headerName: 'Nome', flex: 1 },
-    { field: 'tipoServicoId', headerName: 'Tipo de serviço', width: 200, valueGetter: (params: any) => {
-      const id = params?.row?.tipoServicoId
-      const st = (window as any).__md?.tiposServico || []
-      const it = st.find((x: any) => x.id === id)
-      return it?.nome || ''
-    } },
-  ],
-  servicos: [
-    { field: 'nome', headerName: 'Nome', flex: 1 },
-  ],
-}
+import { useMasterDataStore } from '../store/masterDataStore'
+import { useDadosStore } from '../store/dadosStore'
+import { useDadosCRUD } from '../hooks/useDadosCRUD'
+import { useDadosSync } from '../hooks/useDadosSync'
+import { DadosHeader } from '../components/DadosHeader'
+import { DadosTabs } from '../components/DadosTabs'
+import { DadosGrid } from '../components/DadosGrid'
+import { DadosForm } from '../components/DadosForm'
+import { DadosHelpModal } from '../components/DadosHelpModal'
+import { SnackNotification } from '../components/SnackNotification'
+import { UploadModal } from '../components/UploadModal'
+import type { TabKey, FormData, DataMap } from '../types/dadosTypes'
 
 export default function DadosPage() {
   const store = useMasterDataStore()
-  // Expor store para valueGetter simples (evitar recriação de col defs)
-  ;(window as any).__md = store
-  const [tab, setTab] = useState<TabKey>('clientes')
-  const [open, setOpen] = useState(false)
-  const [form, setForm] = useState<any>({})
-  const fileRef = useRef<HTMLInputElement | null>(null)
+  const dadosStore = useDadosStore()
+  const { snack, setSnack, saveEntity, deleteEntity } = useDadosCRUD()
+  const { forceSync, isSyncing, lastSync } = useDadosSync()
+  
+  const [activeTab, setActiveTab] = useState<TabKey>('clientes')
+  const [form, setForm] = useState<FormData>({})
+  const [openForm, setOpenForm] = useState(false)
   const [openHelp, setOpenHelp] = useState(false)
-  const [snack, setSnack] = useState<{ open: boolean; message: string; severity: 'success' | 'error' | 'info' } | null>(null)
+  const [uploadModalOpen, setUploadModalOpen] = useState(false)
 
-  const dataMap: Record<TabKey, any[]> = {
+  // Mapeamento de dados para cada aba
+  const dataMap: DataMap = useMemo(() => ({
     clientes: store.clientes,
     contratos: store.contratos,
     operadoras: store.operadoras,
@@ -66,323 +35,923 @@ export default function DadosPage() {
     sistemas: store.sistemas,
     analistas: store.analistas,
     areas: store.areas,
+    areasMailling: store.areasMailling,
+    cargosMailling: store.cargosMailling,
+    filiaisMailling: store.filiaisMailling,
     tipos: store.tiposDemanda,
+    tiposCadastro: store.tiposCadastro, // Fonte de dados separada
     servicos: store.tiposServico,
-  }
+    solicitantes: store.solicitantes,
+    relatorios: store.relatorios,
+    modelos: store.modelos,
+    padrao: store.padrao,
+    configuracoes: dadosStore.items,
+  }), [store, dadosStore])
 
-  function handleAdd() {
-    setForm({})
-    setOpen(true)
-  }
+  // Dados atuais da aba selecionada
+  const currentData = dataMap[activeTab] || []
+  
 
-  function handleSave() {
-    const id = form.id || crypto.randomUUID()
-    switch (tab) {
-      case 'clientes':
-        store.upsertMany({ clientes: [...store.clientes, { id, nome: form.nome ?? '', grupoEconomico: form.grupoEconomico ?? '' } as Cliente] })
-        break
-      case 'contratos':
-        store.upsertMany({ contratos: [...store.contratos, { id, grupoEconomico: form.grupoEconomico ?? '', codigo: form.codigo ?? '' } as Contrato] })
-        break
-      case 'operadoras':
-        store.upsertMany({ operadoras: [...store.operadoras, { id, nome: form.nome ?? '' } as Operadora] })
-        break
-      case 'produtos':
-        store.upsertMany({ produtos: [...store.produtos, { id, nome: form.nome ?? '' } as Produto] })
-        break
-      case 'sistemas':
-        store.upsertMany({ sistemas: [...store.sistemas, { id, nome: form.nome ?? '' } as Sistema] })
-        break
-      case 'analistas':
-        store.upsertMany({ analistas: [...store.analistas, { id, nome: form.nome ?? '' } as Analista] })
-        break
-      case 'areas':
-        store.upsertMany({ areas: [...store.areas, { id, nome: form.nome ?? '' } as Area] })
-        break
-      case 'tipos':
-        store.upsertMany({ tiposDemanda: [...store.tiposDemanda, { id, nome: form.nome ?? '', tipoServicoId: form.tipoServicoId ?? '' } as TipoDemanda] })
-        break
-      case 'servicos':
-        store.upsertMany({ tiposServico: [...store.tiposServico, { id, nome: form.nome ?? '' } as TipoServico] })
-        break
+  // Handlers
+  const handleAdd = () => {
+    // Inicializar formulário com valores padrão baseado na aba ativa
+    const defaultForm: FormData = {}
+    
+    // Para entidades de mailling, definir ativo como true por padrão e descricao como string vazia
+    if (['areasMailling', 'cargosMailling', 'filiaisMailling'].includes(activeTab)) {
+      defaultForm.ativo = true
+      defaultForm.descricao = ''
     }
-    setOpen(false)
+    
+    setForm(defaultForm)
+    setOpenForm(true)
   }
 
-  function handleImportClick() {
-    fileRef.current?.click()
+  const handleEdit = (row: any) => {
+    setForm({ ...row })
+    setOpenForm(true)
   }
 
-  function toStringSafe(v: any): string {
-    if (v == null) return ''
-    return String(v).trim()
+  const handleDelete = async (id: string) => {
+    const success = await deleteEntity(activeTab, id)
+    if (success) {
+      setOpenForm(false)
+    }
   }
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => {
-      try {
-        const data = new Uint8Array(reader.result as ArrayBuffer)
-        const wb = XLSX.read(data, { type: 'array' })
-        if (!wb.SheetNames || wb.SheetNames.length === 0) throw new Error('Arquivo sem abas detectadas')
+  const handleSave = async () => {
+    const success = await saveEntity(activeTab, form)
+    if (success) {
+      setOpenForm(false)
+      setForm({})
+    }
+  }
 
-        const normalize = (s: string) => s
-          .normalize('NFD')
-          .replace(/\p{Diacritic}/gu, '')
-          .toLowerCase()
-          .replace(/\s+/g, '')
 
-        // Acumular todas as abas reconhecidas por categoria
-        const buckets: Record<'clientes'|'contratos'|'operadoras'|'produtos'|'sistemas'|'analistas'|'areas'|'tipos', any[]> = {
-          clientes: [], contratos: [], operadoras: [], produtos: [], sistemas: [], analistas: [], areas: [], tipos: [],
+  const handleSync = () => {
+    if (window.confirm('Isso irá recarregar todos os dados do banco. Dados excluídos localmente serão perdidos. Continuar?')) {
+      forceSync()
+    }
+  }
+  
+
+
+  const handleUpload = async (file: File) => {
+    try {
+      // Importar API
+      const { api } = await import('../lib/api.local')
+      
+      // Ler o arquivo Excel
+      const arrayBuffer = await file.arrayBuffer()
+      const workbook = XLSX.read(arrayBuffer, { type: 'array' })
+      
+      let totalImported = 0
+      let totalSavedToDatabase = 0
+      const errors: string[] = []
+      
+      // Processar cada aba do Excel
+      for (const sheetName of workbook.SheetNames) {
+        try {
+          const worksheet = workbook.Sheets[sheetName]
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 })
+          
+          if (jsonData.length < 2) {
+            continue
+          }
+          
+          const headers = jsonData[0] as string[]
+          const rows = jsonData.slice(1) as any[][]
+          
+          
+          // Mapear dados baseado no nome da aba
+          switch (sheetName.toLowerCase()) {
+            case 'contratos':
+              console.log(`🔍 UPLOAD: Processando contratos - Headers:`, headers)
+              console.log(`🔍 UPLOAD: Processando contratos - Primeiras 3 linhas:`, rows.slice(0, 3))
+              
+              const contratosData = rows.map((row, rowIndex) => {
+                const contrato: any = { id: crypto.randomUUID() }
+                console.log(`🔍 UPLOAD: Processando linha ${rowIndex + 1}:`, row)
+                
+                headers.forEach((header, index) => {
+                  const cleanHeader = header?.toString().toLowerCase().trim().replace(/\s+/g, '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                  const value = row[index]
+                  console.log(`🔍 UPLOAD: Header "${header}" -> limpo: "${cleanHeader}" (índice ${index}) = valor "${value}"`)
+                  
+                  if (cleanHeader === 'id' && value) {
+                    contrato.id = value
+                  } else if (cleanHeader === 'codigo') {
+                    contrato.codigo = value
+                  } else if (cleanHeader === 'grupoeconomico' || cleanHeader === 'grupoeconomico') {
+                    contrato.grupoEconomico = value
+                  } else if (cleanHeader === 'status') {
+                    contrato.status = value || 'Ativo' // Valor padrão se não informado
+                  }
+                })
+                
+                console.log(`🔍 UPLOAD: Contrato processado:`, contrato)
+                return contrato
+              }).filter(c => {
+                const isValid = c.codigo && c.grupoEconomico && c.status
+                console.log(`🔍 UPLOAD: Contrato ${c.id} válido? ${isValid} (codigo: "${c.codigo}", grupoEconomico: "${c.grupoEconomico}", status: "${c.status}")`)
+                return isValid
+              })
+              
+              console.log(`🔍 UPLOAD: Contratos válidos encontrados:`, contratosData.length)
+              console.log(`🔍 UPLOAD: Estado atual do store antes do upsert:`, store.contratos.length)
+              
+              if (contratosData.length > 0) {
+                const newContratos = [...store.contratos, ...contratosData]
+                console.log(`🔍 UPLOAD: Novos contratos a serem adicionados:`, contratosData)
+                console.log(`🔍 UPLOAD: Total de contratos após merge:`, newContratos.length)
+                
+                // Salvar no store local
+                store.upsertMany({ contratos: newContratos })
+                totalImported += contratosData.length
+                
+                // Salvar no banco de dados via API
+                try {
+                  for (const contrato of contratosData) {
+                    await api.post('/contratos', {
+                      codigo: contrato.codigo,
+                      grupoEconomico: contrato.grupoEconomico,
+                      status: contrato.status
+                    })
+                    totalSavedToDatabase++
+                  }
+                  console.log(`✅ UPLOAD: ${contratosData.length} contratos salvos no banco de dados`)
+                } catch (apiError) {
+                  console.error(`❌ UPLOAD: Erro ao salvar contratos no banco:`, apiError)
+                  errors.push(`Erro ao salvar contratos no banco: ${apiError instanceof Error ? apiError.message : 'Erro desconhecido'}`)
+                }
+                
+                console.log(`🔍 UPLOAD: ${contratosData.length} contratos importados`)
+                
+                // Verificar estado após upsert
+                setTimeout(() => {
+                  console.log(`🔍 UPLOAD: Estado do store após upsert:`, store.contratos.length)
+                  console.log(`🔍 UPLOAD: Contratos no store:`, store.contratos)
+                }, 100)
+              } else {
+                console.log(`⚠️ UPLOAD: Nenhum contrato válido encontrado`)
+              }
+              break
+              
+            case 'clientes':
+              console.log(`🔍 UPLOAD: Processando clientes - Headers:`, headers)
+              console.log(`🔍 UPLOAD: Processando clientes - Primeiras 3 linhas:`, rows.slice(0, 3))
+              
+              const clientesData = rows.map((row, rowIndex) => {
+                const cliente: any = { id: crypto.randomUUID() }
+                console.log(`🔍 UPLOAD: Processando linha ${rowIndex + 1}:`, row)
+                
+                headers.forEach((header, index) => {
+                  const cleanHeader = header?.toString().toLowerCase().trim().replace(/\s+/g, '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                  const value = row[index]
+                  console.log(`🔍 UPLOAD: Header "${header}" -> limpo: "${cleanHeader}" (índice ${index}) = valor "${value}"`)
+                  
+                  if (cleanHeader === 'id' && value) {
+                    cliente.id = value
+                  } else if (cleanHeader === 'nome') {
+                    cliente.nome = value
+                  } else if (cleanHeader === 'grupoeconomico' || cleanHeader === 'grupoeconomico') {
+                    cliente.grupoEconomico = value
+                  }
+                })
+                
+                console.log(`🔍 UPLOAD: Cliente processado:`, cliente)
+                return cliente
+              }).filter(c => {
+                const isValid = c.nome
+                console.log(`🔍 UPLOAD: Cliente ${c.id} válido? ${isValid} (nome: "${c.nome}", grupoEconomico: "${c.grupoEconomico}")`)
+                return isValid
+              })
+              
+              console.log(`🔍 UPLOAD: Clientes válidos encontrados:`, clientesData.length)
+              console.log(`🔍 UPLOAD: Estado atual do store antes do upsert:`, store.clientes.length)
+              
+              if (clientesData.length > 0) {
+                const newClientes = [...store.clientes, ...clientesData]
+                console.log(`🔍 UPLOAD: Novos clientes a serem adicionados:`, clientesData)
+                console.log(`🔍 UPLOAD: Total de clientes após merge:`, newClientes.length)
+                
+                // Salvar no store local
+                store.upsertMany({ clientes: newClientes })
+                totalImported += clientesData.length
+                
+                // Salvar no banco de dados via API
+                try {
+                  for (const cliente of clientesData) {
+                    await api.post('/clientes', {
+                      nome: cliente.nome,
+                      grupoEconomico: cliente.grupoEconomico
+                    })
+                    totalSavedToDatabase++
+                  }
+                  console.log(`✅ UPLOAD: ${clientesData.length} clientes salvos no banco de dados`)
+                } catch (apiError) {
+                  console.error(`❌ UPLOAD: Erro ao salvar clientes no banco:`, apiError)
+                  errors.push(`Erro ao salvar clientes no banco: ${apiError instanceof Error ? apiError.message : 'Erro desconhecido'}`)
+                }
+                
+                console.log(`🔍 UPLOAD: ${clientesData.length} clientes importados`)
+                
+                // Verificar estado após upsert
+                setTimeout(() => {
+                  console.log(`🔍 UPLOAD: Estado do store após upsert:`, store.clientes.length)
+                  console.log(`🔍 UPLOAD: Clientes no store:`, store.clientes)
+                }, 100)
+              } else {
+                console.log(`⚠️ UPLOAD: Nenhum cliente válido encontrado`)
+              }
+              break
+              
+            case 'operadoras':
+            case 'produtos':
+            case 'sistemas':
+            case 'analistas':
+            case 'areas':
+              const simpleData = rows.map(row => {
+                const item: any = { id: crypto.randomUUID() }
+                headers.forEach((header, index) => {
+                  if (header === 'id' && row[index]) {
+                    item.id = row[index]
+                  } else if (header === 'nome') {
+                    item.nome = row[index]
+                  }
+                })
+                return item
+              }).filter(item => item.nome)
+              
+              if (simpleData.length > 0) {
+                const storeKey = sheetName.toLowerCase() as keyof typeof store
+                if (storeKey in store) {
+                  // Salvar no store local
+                  store.upsertMany({ [storeKey]: [...(store[storeKey] as any[]), ...simpleData] })
+                  totalImported += simpleData.length
+                  
+                  // Salvar no banco de dados via API
+                  try {
+                    const endpoint = `/${storeKey}`
+                    for (const item of simpleData) {
+                      await api.post(endpoint, {
+                        nome: item.nome
+                      })
+                      totalSavedToDatabase++
+                    }
+                    console.log(`✅ UPLOAD: ${simpleData.length} ${sheetName} salvos no banco de dados`)
+                  } catch (apiError) {
+                    console.error(`❌ UPLOAD: Erro ao salvar ${sheetName} no banco:`, apiError)
+                    errors.push(`Erro ao salvar ${sheetName} no banco: ${apiError instanceof Error ? apiError.message : 'Erro desconhecido'}`)
+                  }
+                  
+                  console.log(`🔍 UPLOAD: ${simpleData.length} ${sheetName} importados`)
+                }
+              }
+              break
+              
+            case 'areasmailling':
+              const areasMaillingData = rows.map(row => {
+                const item: any = { id: crypto.randomUUID() }
+                headers.forEach((header, index) => {
+                  if (header === 'id' && row[index]) {
+                    item.id = row[index]
+                  } else if (header === 'nome') {
+                    item.nome = row[index]
+                  }
+                })
+                return item
+              }).filter(item => item.nome)
+              
+              if (areasMaillingData.length > 0) {
+                // Salvar no store local
+                store.upsertMany({ areasMailling: [...store.areasMailling, ...areasMaillingData] })
+                totalImported += areasMaillingData.length
+                
+                // Salvar no banco de dados via API
+                try {
+                  for (const item of areasMaillingData) {
+                    await api.post('/areas-mailling', {
+                      nome: item.nome
+                    })
+                    totalSavedToDatabase++
+                  }
+                  console.log(`✅ UPLOAD: ${areasMaillingData.length} areas mailling salvos no banco de dados`)
+                } catch (apiError) {
+                  console.error(`❌ UPLOAD: Erro ao salvar areas mailling no banco:`, apiError)
+                  errors.push(`Erro ao salvar areas mailling no banco: ${apiError instanceof Error ? apiError.message : 'Erro desconhecido'}`)
+                }
+                
+                console.log(`🔍 UPLOAD: ${areasMaillingData.length} areas mailling importados`)
+              }
+              break
+              
+            case 'cargosmailling':
+              const cargosMaillingData = rows.map(row => {
+                const item: any = { id: crypto.randomUUID() }
+                headers.forEach((header, index) => {
+                  if (header === 'id' && row[index]) {
+                    item.id = row[index]
+                  } else if (header === 'nome') {
+                    item.nome = row[index]
+                  }
+                })
+                return item
+              }).filter(item => item.nome)
+              
+              if (cargosMaillingData.length > 0) {
+                // Salvar no store local
+                store.upsertMany({ cargosMailling: [...store.cargosMailling, ...cargosMaillingData] })
+                totalImported += cargosMaillingData.length
+                
+                // Salvar no banco de dados via API
+                try {
+                  for (const item of cargosMaillingData) {
+                    await api.post('/cargos-mailling', {
+                      nome: item.nome
+                    })
+                    totalSavedToDatabase++
+                  }
+                  console.log(`✅ UPLOAD: ${cargosMaillingData.length} cargos mailling salvos no banco de dados`)
+                } catch (apiError) {
+                  console.error(`❌ UPLOAD: Erro ao salvar cargos mailling no banco:`, apiError)
+                  errors.push(`Erro ao salvar cargos mailling no banco: ${apiError instanceof Error ? apiError.message : 'Erro desconhecido'}`)
+                }
+                
+                console.log(`🔍 UPLOAD: ${cargosMaillingData.length} cargos mailling importados`)
+              }
+              break
+              
+            case 'filiaismailling':
+              const filiaisMaillingData = rows.map(row => {
+                const item: any = { id: crypto.randomUUID() }
+                headers.forEach((header, index) => {
+                  if (header === 'id' && row[index]) {
+                    item.id = row[index]
+                  } else if (header === 'nome') {
+                    item.nome = row[index]
+                  }
+                })
+                return item
+              }).filter(item => item.nome)
+              
+              if (filiaisMaillingData.length > 0) {
+                // Salvar no store local
+                store.upsertMany({ filiaisMailling: [...store.filiaisMailling, ...filiaisMaillingData] })
+                totalImported += filiaisMaillingData.length
+                
+                // Salvar no banco de dados via API
+                try {
+                  for (const item of filiaisMaillingData) {
+                    await api.post('/filiais-mailling', {
+                      nome: item.nome
+                    })
+                    totalSavedToDatabase++
+                  }
+                  console.log(`✅ UPLOAD: ${filiaisMaillingData.length} filiais mailling salvos no banco de dados`)
+                } catch (apiError) {
+                  console.error(`❌ UPLOAD: Erro ao salvar filiais mailling no banco:`, apiError)
+                  errors.push(`Erro ao salvar filiais mailling no banco: ${apiError instanceof Error ? apiError.message : 'Erro desconhecido'}`)
+                }
+                
+                console.log(`🔍 UPLOAD: ${filiaisMaillingData.length} filiais mailling importados`)
+              }
+              break
+              
+            case 'tipos':
+              console.log(`🔍 UPLOAD: Processando tipos - Headers:`, headers)
+              console.log(`🔍 UPLOAD: Processando tipos - Primeiras 3 linhas:`, rows.slice(0, 3))
+              
+              const tiposData = rows.map((row, rowIndex) => {
+                const tipo: any = { id: crypto.randomUUID() }
+                console.log(`🔍 UPLOAD: Processando linha ${rowIndex + 1}:`, row)
+                
+                headers.forEach((header, index) => {
+                  const cleanHeader = header?.toString().toLowerCase().trim().replace(/\s+/g, '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                  const value = row[index]
+                  console.log(`🔍 UPLOAD: Header "${header}" -> limpo: "${cleanHeader}" (índice ${index}) = valor "${value}"`)
+                  
+                  if (cleanHeader === 'id' && value) {
+                    tipo.id = value
+                  } else if (cleanHeader === 'nome') {
+                    tipo.nome = value
+                  }
+                })
+                
+                console.log(`🔍 UPLOAD: Tipo processado:`, tipo)
+                return tipo
+              }).filter(t => {
+                const isValid = t.nome
+                console.log(`🔍 UPLOAD: Tipo ${t.id} válido? ${isValid} (nome: "${t.nome}")`)
+                return isValid
+              })
+              
+              console.log(`🔍 UPLOAD: Tipos válidos encontrados:`, tiposData.length)
+              console.log(`🔍 UPLOAD: Estado atual do store antes do upsert:`, store.tiposDemanda.length)
+              
+              if (tiposData.length > 0) {
+                const newTipos = [...store.tiposDemanda, ...tiposData]
+                console.log(`🔍 UPLOAD: Novos tipos a serem adicionados:`, tiposData)
+                console.log(`🔍 UPLOAD: Total de tipos após merge:`, newTipos.length)
+                
+                // Salvar no store local
+                store.upsertMany({ tiposDemanda: newTipos })
+                totalImported += tiposData.length
+                
+                // Salvar no banco de dados via API
+                try {
+                  for (const tipo of tiposData) {
+                    await api.post('/tiposDemanda', {
+                      nome: tipo.nome
+                    })
+                    totalSavedToDatabase++
+                  }
+                  console.log(`✅ UPLOAD: ${tiposData.length} tipos salvos no banco de dados`)
+                } catch (apiError) {
+                  console.error(`❌ UPLOAD: Erro ao salvar tipos no banco:`, apiError)
+                  errors.push(`Erro ao salvar tipos no banco: ${apiError instanceof Error ? apiError.message : 'Erro desconhecido'}`)
+                }
+                
+                console.log(`🔍 UPLOAD: ${tiposData.length} tipos importados`)
+                
+                // Forçar sincronização para garantir persistência
+                setTimeout(async () => {
+                  console.log(`🔍 UPLOAD: Forçando sincronização após upload...`)
+                  if (store.syncFromApi) {
+                    await store.syncFromApi()
+                    console.log(`✅ UPLOAD: Sincronização forçada concluída`)
+                  }
+                }, 500)
+              } else {
+                console.log(`⚠️ UPLOAD: Nenhum tipo válido encontrado`)
+              }
+              break
+              
+            case 'tiposcadastro':
+              console.log(`🔍 UPLOAD: Processando tipos cadastro - Headers:`, headers)
+              console.log(`🔍 UPLOAD: Processando tipos cadastro - Primeiras 3 linhas:`, rows.slice(0, 3))
+              
+              const tiposCadastroData = rows.map((row, rowIndex) => {
+                const tipoCadastro: any = { id: crypto.randomUUID() }
+                console.log(`🔍 UPLOAD: Processando linha ${rowIndex + 1}:`, row)
+                
+                headers.forEach((header, index) => {
+                  const cleanHeader = header?.toString().toLowerCase().trim().replace(/\s+/g, '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                  const value = row[index]
+                  console.log(`🔍 UPLOAD: Header "${header}" -> limpo: "${cleanHeader}" (índice ${index}) = valor "${value}"`)
+                  
+                  if (cleanHeader === 'id' && value) {
+                    tipoCadastro.id = value
+                  } else if (cleanHeader === 'nome') {
+                    tipoCadastro.nome = value
+                  } else if (cleanHeader === 'descricao') {
+                    tipoCadastro.descricao = value
+                  }
+                })
+                
+                console.log(`🔍 UPLOAD: Tipo cadastro processado:`, tipoCadastro)
+                return tipoCadastro
+              }).filter(t => {
+                const isValid = t.nome
+                console.log(`🔍 UPLOAD: Tipo cadastro ${t.id} válido? ${isValid} (nome: "${t.nome}", descricao: "${t.descricao}")`)
+                return isValid
+              })
+              
+              console.log(`🔍 UPLOAD: Tipos cadastro válidos encontrados:`, tiposCadastroData.length)
+              console.log(`🔍 UPLOAD: Estado atual do store antes do upsert:`, store.tiposCadastro.length)
+              
+              if (tiposCadastroData.length > 0) {
+                const newTiposCadastro = [...store.tiposCadastro, ...tiposCadastroData]
+                console.log(`🔍 UPLOAD: Novos tipos cadastro a serem adicionados:`, tiposCadastroData)
+                console.log(`🔍 UPLOAD: Total de tipos cadastro após merge:`, newTiposCadastro.length)
+                
+                // Salvar no store local
+                store.upsertMany({ tiposCadastro: newTiposCadastro })
+                totalImported += tiposCadastroData.length
+                
+                // Salvar no banco de dados via API
+                try {
+                  for (const tipoCadastro of tiposCadastroData) {
+                    await api.post('/tiposCadastro', {
+                      nome: tipoCadastro.nome,
+                      descricao: tipoCadastro.descricao
+                    })
+                    totalSavedToDatabase++
+                  }
+                  console.log(`✅ UPLOAD: ${tiposCadastroData.length} tipos cadastro salvos no banco de dados`)
+                } catch (apiError) {
+                  console.error(`❌ UPLOAD: Erro ao salvar tipos cadastro no banco:`, apiError)
+                  errors.push(`Erro ao salvar tipos cadastro no banco: ${apiError instanceof Error ? apiError.message : 'Erro desconhecido'}`)
+                }
+                
+                console.log(`🔍 UPLOAD: ${tiposCadastroData.length} tipos cadastro importados`)
+                
+                // Forçar sincronização para garantir persistência
+                setTimeout(async () => {
+                  console.log(`🔍 UPLOAD: Forçando sincronização após upload...`)
+                  if (store.syncFromApi) {
+                    await store.syncFromApi()
+                    console.log(`✅ UPLOAD: Sincronização forçada concluída`)
+                  }
+                }, 500)
+              } else {
+                console.log(`⚠️ UPLOAD: Nenhum tipo cadastro válido encontrado`)
+              }
+              break
+              
+            case 'servicos':
+              const servicosData = rows.map(row => {
+                const servico: any = { id: crypto.randomUUID() }
+                headers.forEach((header, index) => {
+                  if (header === 'id' && row[index]) {
+                    servico.id = row[index]
+                  } else if (header === 'nome') {
+                    servico.nome = row[index]
+                  }
+                })
+                return servico
+              }).filter(s => s.nome)
+              
+              if (servicosData.length > 0) {
+                // Salvar no store local
+                store.upsertMany({ tiposServico: [...store.tiposServico, ...servicosData] })
+                totalImported += servicosData.length
+                
+                // Salvar no banco de dados via API
+                try {
+                  for (const servico of servicosData) {
+                    await api.post('/tiposServico', {
+                      nome: servico.nome
+                    })
+                    totalSavedToDatabase++
+                  }
+                  console.log(`✅ UPLOAD: ${servicosData.length} serviços salvos no banco de dados`)
+                } catch (apiError) {
+                  console.error(`❌ UPLOAD: Erro ao salvar serviços no banco:`, apiError)
+                  errors.push(`Erro ao salvar serviços no banco: ${apiError instanceof Error ? apiError.message : 'Erro desconhecido'}`)
+                }
+                
+                console.log(`🔍 UPLOAD: ${servicosData.length} serviços importados`)
+              }
+              break
+              
+            case 'padrao':
+              console.log(`🔍 UPLOAD: Processando padrao - Headers:`, headers)
+              console.log(`🔍 UPLOAD: Processando padrao - Primeiras 3 linhas:`, rows.slice(0, 3))
+              
+              const padraoData = rows.map((row, rowIndex) => {
+                const padrao: any = { id: crypto.randomUUID() }
+                console.log(`🔍 UPLOAD: Processando linha ${rowIndex + 1}:`, row)
+                
+                headers.forEach((header, index) => {
+                  const cleanHeader = header?.toString().toLowerCase().trim().replace(/\s+/g, '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                  const value = row[index]
+                  console.log(`🔍 UPLOAD: Header "${header}" -> limpo: "${cleanHeader}" (índice ${index}) = valor "${value}"`)
+                  
+                  if (cleanHeader === 'id' && value) {
+                    padrao.id = value
+                  } else if (cleanHeader === 'nome') {
+                    padrao.nome = value
+                  }
+                })
+                
+                console.log(`🔍 UPLOAD: Padrao processado:`, padrao)
+                return padrao
+              }).filter(p => {
+                const isValid = p.nome
+                console.log(`🔍 UPLOAD: Padrao ${p.id} válido? ${isValid} (nome: "${p.nome}")`)
+                return isValid
+              })
+              
+              console.log(`🔍 UPLOAD: Padroes válidos encontrados:`, padraoData.length)
+              console.log(`🔍 UPLOAD: Estado atual do store antes do upsert:`, store.padrao.length)
+              
+              if (padraoData.length > 0) {
+                const newPadrao = [...store.padrao, ...padraoData]
+                console.log(`🔍 UPLOAD: Novos padrões a serem adicionados:`, padraoData)
+                console.log(`🔍 UPLOAD: Total de padrões após merge:`, newPadrao.length)
+                
+                // Salvar no store local
+                store.upsertMany({ padrao: newPadrao })
+                totalImported += padraoData.length
+                
+                // Salvar no banco de dados via API
+                try {
+                  for (const padrao of padraoData) {
+                    await api.post('/padrao', {
+                      nome: padrao.nome
+                    })
+                    totalSavedToDatabase++
+                  }
+                  console.log(`✅ UPLOAD: ${padraoData.length} padrões salvos no banco de dados`)
+                } catch (apiError) {
+                  console.error(`❌ UPLOAD: Erro ao salvar padrões no banco:`, apiError)
+                  errors.push(`Erro ao salvar padrões no banco: ${apiError instanceof Error ? apiError.message : 'Erro desconhecido'}`)
+                }
+                
+                console.log(`🔍 UPLOAD: ${padraoData.length} padrões importados`)
+                
+                // Verificar estado após upsert
+                setTimeout(() => {
+                  console.log(`🔍 UPLOAD: Estado do store após upsert:`, store.padrao.length)
+                  console.log(`🔍 UPLOAD: Padrões no store:`, store.padrao)
+                }, 100)
+              } else {
+                console.log(`⚠️ UPLOAD: Nenhum padrão válido encontrado`)
+              }
+              break
+              
+            case 'configuracoes':
+              const configData = rows.map(row => {
+                const config: any = { id: crypto.randomUUID() }
+                headers.forEach((header, index) => {
+                  if (header === 'id' && row[index]) {
+                    config.id = row[index]
+                  } else if (header === 'chave') {
+                    config.chave = row[index]
+                  } else if (header === 'valor') {
+                    config.valor = row[index]
+                  } else if (header === 'tipo') {
+                    config.tipo = row[index]
+                  } else if (header === 'categoria') {
+                    config.categoria = row[index]
+                  } else if (header === 'descricao') {
+                    config.descricao = row[index]
+                  }
+                })
+                return config
+              }).filter(c => c.chave && c.valor)
+              
+              if (configData.length > 0) {
+                // Salvar no store local
+                configData.forEach(config => {
+                  dadosStore.add(config)
+                })
+                totalImported += configData.length
+                
+                // Salvar no banco de dados via API
+                try {
+                  for (const config of configData) {
+                    await api.post('/dados', {
+                      chave: config.chave,
+                      valor: config.valor,
+                      tipo: config.tipo,
+                      categoria: config.categoria,
+                      descricao: config.descricao,
+                      ativo: config.ativo
+                    })
+                    totalSavedToDatabase++
+                  }
+                  console.log(`✅ UPLOAD: ${configData.length} configurações salvas no banco de dados`)
+                } catch (apiError) {
+                  console.error(`❌ UPLOAD: Erro ao salvar configurações no banco:`, apiError)
+                  errors.push(`Erro ao salvar configurações no banco: ${apiError instanceof Error ? apiError.message : 'Erro desconhecido'}`)
+                }
+                
+                console.log(`🔍 UPLOAD: ${configData.length} configurações importadas`)
+              }
+              break
+              
+            case 'solicitantes':
+              const solicitantesData = rows.map(row => {
+                const item: any = { id: crypto.randomUUID() }
+                headers.forEach((header, index) => {
+                  if (header === 'id' && row[index]) {
+                    item.id = row[index]
+                  } else if (header === 'nome') {
+                    item.nome = row[index]
+                  }
+                })
+                return item
+              }).filter(item => item.nome)
+              
+              if (solicitantesData.length > 0) {
+                // Salvar no store local
+                store.upsertMany({ solicitantes: [...store.solicitantes, ...solicitantesData] })
+                totalImported += solicitantesData.length
+                
+                // Salvar no banco de dados via API
+                try {
+                  for (const item of solicitantesData) {
+                    await api.post('/solicitantes', {
+                      nome: item.nome
+                    })
+                    totalSavedToDatabase++
+                  }
+                  console.log(`✅ UPLOAD: ${solicitantesData.length} solicitantes salvos no banco de dados`)
+                } catch (apiError) {
+                  console.error(`❌ UPLOAD: Erro ao salvar solicitantes no banco:`, apiError)
+                  errors.push(`Erro ao salvar solicitantes no banco: ${apiError instanceof Error ? apiError.message : 'Erro desconhecido'}`)
+                }
+                
+                console.log(`🔍 UPLOAD: ${solicitantesData.length} solicitantes importados`)
+              }
+              break
+              
+            case 'relatorios':
+              const relatoriosData = rows.map(row => {
+                const item: any = { id: crypto.randomUUID() }
+                headers.forEach((header, index) => {
+                  if (header === 'id' && row[index]) {
+                    item.id = row[index]
+                  } else if (header === 'nome') {
+                    item.nome = row[index]
+                  } else if (header === 'descricao') {
+                    item.descricao = row[index]
+                  }
+                })
+                return item
+              }).filter(item => item.nome)
+              
+              if (relatoriosData.length > 0) {
+                // Salvar no store local
+                store.upsertMany({ relatorios: [...store.relatorios, ...relatoriosData] })
+                totalImported += relatoriosData.length
+                
+                // Salvar no banco de dados via API
+                try {
+                  for (const item of relatoriosData) {
+                    await api.post('/relatorios', {
+                      nome: item.nome,
+                      descricao: item.descricao || ''
+                    })
+                    totalSavedToDatabase++
+                  }
+                  console.log(`✅ UPLOAD: ${relatoriosData.length} relatórios salvos no banco de dados`)
+                } catch (apiError) {
+                  console.error(`❌ UPLOAD: Erro ao salvar relatórios no banco:`, apiError)
+                  errors.push(`Erro ao salvar relatórios no banco: ${apiError instanceof Error ? apiError.message : 'Erro desconhecido'}`)
+                }
+                
+                console.log(`🔍 UPLOAD: ${relatoriosData.length} relatórios importados`)
+              }
+              break
+              
+            case 'modelos':
+              const modelosData = rows.map(row => {
+                const item: any = { id: crypto.randomUUID() }
+                headers.forEach((header, index) => {
+                  if (header === 'id' && row[index]) {
+                    item.id = row[index]
+                  } else if (header === 'nome') {
+                    item.nome = row[index]
+                  } else if (header === 'descricao') {
+                    item.descricao = row[index]
+                  }
+                })
+                return item
+              }).filter(item => item.nome)
+              
+              if (modelosData.length > 0) {
+                // Salvar no store local
+                store.upsertMany({ modelos: [...store.modelos, ...modelosData] })
+                totalImported += modelosData.length
+                
+                // Salvar no banco de dados via API
+                try {
+                  for (const item of modelosData) {
+                    await api.post('/modelos', {
+                      nome: item.nome,
+                      descricao: item.descricao || ''
+                    })
+                    totalSavedToDatabase++
+                  }
+                  console.log(`✅ UPLOAD: ${modelosData.length} modelos salvos no banco de dados`)
+                } catch (apiError) {
+                  console.error(`❌ UPLOAD: Erro ao salvar modelos no banco:`, apiError)
+                  errors.push(`Erro ao salvar modelos no banco: ${apiError instanceof Error ? apiError.message : 'Erro desconhecido'}`)
+                }
+                
+                console.log(`🔍 UPLOAD: ${modelosData.length} modelos importados`)
+              }
+              break
+          }
+          
+        } catch (sheetError) {
+          console.error(`❌ UPLOAD: Erro ao processar aba ${sheetName}:`, sheetError)
+          errors.push(`Erro na aba ${sheetName}: ${sheetError instanceof Error ? sheetError.message : 'Erro desconhecido'}`)
         }
-
-        const matchCategory = (name: string): keyof typeof buckets | null => {
-          const n = normalize(name)
-          if (['clientes'].includes(n)) return 'clientes'
-          if (['contratos'].includes(n)) return 'contratos'
-          if (['operadoras'].includes(n)) return 'operadoras'
-          if (['produtos'].includes(n)) return 'produtos'
-          if (['sistemas'].includes(n)) return 'sistemas'
-          if (['analistas'].includes(n)) return 'analistas'
-          if (['areas','areasolicitantes','area'].includes(n)) return 'areas'
-          if (['tipos','tiposdemanda','tipodedemanda'].includes(n)) return 'tipos'
-          return null
-        }
-
-        let recognizedSheets = 0
-        let ignoredSheets = 0
-
-        wb.SheetNames.forEach((sheetName) => {
-          const cat = matchCategory(sheetName)
-          if (!cat) { ignoredSheets++; return }
-          const sh = wb.Sheets[sheetName]
-          const rows = XLSX.utils.sheet_to_json<any>(sh, { defval: '' })
-          buckets[cat].push(...rows)
-          recognizedSheets++
-        })
-
-        const genId = () => (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`)
-
-        const importedClientes = buckets.clientes.map((r) => ({
-          id: toStringSafe(r.id) || genId(),
-          nome: toStringSafe(r.nome ?? r.Nome),
-          grupoEconomico: toStringSafe(r.grupoEconomico ?? r['Grupo Econômico'] ?? r.grupo_economico),
-        })).filter((x) => x.nome)
-
-        const importedContratos = buckets.contratos.map((r) => ({
-          id: toStringSafe(r.id) || genId(),
-          grupoEconomico: toStringSafe(r.grupoEconomico ?? r['Grupo Econômico'] ?? r.grupo_economico),
-          codigo: toStringSafe(r.codigo ?? r.Código),
-        })).filter((x) => x.codigo)
-
-        const simple = (rows: any[], key = 'nome') => rows
-          .map((r) => ({ id: toStringSafe(r.id) || genId(), nome: toStringSafe(r[key] ?? r.Nome) }))
-          .filter((x) => x.nome)
-
-        const importedOperadoras = simple(buckets.operadoras) as Operadora[]
-        const importedProdutos = simple(buckets.produtos) as Produto[]
-        const importedSistemas = simple(buckets.sistemas) as Sistema[]
-        const importedAnalistas = simple(buckets.analistas) as Analista[]
-        const importedAreas = simple(buckets.areas) as Area[]
-        const importedTipos = (buckets.tipos).map((r: any) => ({
-          id: toStringSafe(r.id) || genId(),
-          nome: toStringSafe(r.nome ?? r.Nome),
-          tipoServicoId: toStringSafe(r.tipoServicoId ?? r['Tipo de serviço'] ?? r.tipo_servico_id),
-        })).filter((x: any) => x.nome)
-        const importedServicos = simple((buckets as any).servicos ?? []) as TipoServico[]
-
-        // Mesclar com existentes
-        store.upsertMany({
-          clientes: [...store.clientes, ...importedClientes],
-          contratos: [...store.contratos, ...importedContratos],
-          operadoras: [...store.operadoras, ...importedOperadoras],
-          produtos: [...store.produtos, ...importedProdutos],
-          sistemas: [...store.sistemas, ...importedSistemas],
-          analistas: [...store.analistas, ...importedAnalistas],
-          areas: [...store.areas, ...importedAreas],
-          tiposDemanda: [...store.tiposDemanda, ...importedTipos],
-          tiposServico: [...store.tiposServico, ...importedServicos],
-        })
-
-        const total = importedClientes.length + importedContratos.length + importedOperadoras.length + importedProdutos.length + importedSistemas.length + importedAnalistas.length + importedAreas.length + importedTipos.length + importedServicos.length
-        setSnack({ open: true, message: `Importação concluída. Abas lidas: ${recognizedSheets}, ignoradas: ${ignoredSheets}. Registros adicionados: ${total}.`, severity: 'success' })
-      } catch (err: any) {
-        setSnack({ open: true, message: `Falha ao importar: ${err?.message ?? err}`, severity: 'error' })
-      } finally {
-        // Limpar input para permitir reupload do mesmo arquivo
-        if (fileRef.current) fileRef.current.value = ''
       }
+      
+      // Mostrar resultado
+      if (totalImported > 0) {
+        const successMessage = totalSavedToDatabase > 0 
+          ? `Upload concluído! ${totalImported} registros importados e ${totalSavedToDatabase} salvos no banco de dados.`
+          : `Upload concluído! ${totalImported} registros importados localmente.`
+        
+        setSnack({
+          open: true,
+          message: successMessage,
+          severity: totalSavedToDatabase > 0 ? 'success' : 'warning'
+        })
+        
+        if (errors.length > 0) {
+          console.warn('⚠️ UPLOAD: Alguns erros ocorreram:', errors)
+          setSnack({
+            open: true,
+            message: `${successMessage} ${errors.length} erros ocorreram ao salvar no banco.`,
+            severity: 'warning'
+          })
+        }
+        
+        console.log(`✅ UPLOAD: Processamento concluído. Total importado: ${totalImported}, Total salvo no banco: ${totalSavedToDatabase}`)
+      } else {
+        setSnack({
+          open: true,
+          message: 'Nenhum dado foi importado. Verifique o formato do arquivo.',
+          severity: 'warning'
+        })
+      }
+      
+    } catch (error) {
+      console.error('❌ UPLOAD: Erro geral:', error)
+      setSnack({
+        open: true,
+        message: `Erro no upload: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
+        severity: 'error'
+      })
+      throw error // Re-throw para o modal mostrar o erro
     }
-    reader.readAsArrayBuffer(file)
-  }
-
-  function downloadTemplate() {
-    const wb = XLSX.utils.book_new()
-    const addSheet = (name: string, headers: string[]) => {
-      const ws = XLSX.utils.aoa_to_sheet([headers])
-      XLSX.utils.book_append_sheet(wb, ws, name)
-    }
-    addSheet('Clientes', ['id', 'nome', 'grupoEconomico'])
-    addSheet('Contratos', ['id', 'grupoEconomico', 'codigo'])
-    addSheet('Operadoras', ['id', 'nome'])
-    addSheet('Produtos', ['id', 'nome'])
-    addSheet('Sistemas', ['id', 'nome'])
-    addSheet('Analistas', ['id', 'nome'])
-    addSheet('Areas', ['id', 'nome'])
-    addSheet('Tipos', ['id', 'nome', 'tipoServicoId'])
-    addSheet('Servicos', ['id', 'nome'])
-    XLSX.writeFile(wb, 'modelo-dados-mestres.xlsx')
   }
 
   return (
-    <Paper sx={{ p: 3 }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
-        <Typography variant="h5">Dados Mestres</Typography>
-        <Box>
-          <input ref={fileRef} type="file" accept=".xlsx,.xls" onChange={handleFileChange} style={{ display: 'none' }} />
-          <Button sx={{ mr: 1 }} variant="outlined" onClick={handleImportClick}>Importar Excel</Button>
-          <Button sx={{ mr: 1 }} variant="outlined" onClick={downloadTemplate}>Modelo Excel</Button>
-          <Button onClick={() => setOpenHelp(true)}>Instruções</Button>
-          {tab !== 'servicos' && (
-            <IconButton color="primary" onClick={handleAdd}><AddIcon /></IconButton>
-          )}
-        </Box>
-      </Stack>
+    <Paper sx={{ p: 2 }}>
+      <DadosHeader
+        activeTab={activeTab}
+        onUpload={() => setUploadModalOpen(true)}
+        onSync={handleSync}
+        onHelp={() => setOpenHelp(true)}
+        onAdd={handleAdd}
+      />
 
       <Typography variant="body2" sx={{ mb: 2 }}>
-        Para importar, utilize o modelo com abas: Clientes, Contratos, Operadoras, Produtos, Sistemas, Analistas, Areas, Tipos, Servicos. As colunas devem seguir exatamente os nomes do modelo. Em "Tipos", preencha "tipoServicoId" com CAD (Cadastro) ou MAN (Manutenção).
+        Para importar, utilize o modelo com abas: Clientes, Contratos, Operadoras, Produtos, Sistemas, Analistas, Areas, Areas Mailling, Cargos Mailling, Filiais Mailling, Tipos, Servicos, Solicitantes, Relatorios, Modelos. As colunas devem seguir exatamente os nomes do modelo. Em "Tipos", preencha "tipoServicoId" com CAD (Cadastro) ou MAN (Manutenção).
       </Typography>
 
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
-        <Tab value="clientes" label="Clientes" />
-        <Tab value="contratos" label="Contratos" />
-        <Tab value="operadoras" label="Operadoras" />
-        <Tab value="produtos" label="Produtos" />
-        <Tab value="sistemas" label="Sistemas" />
-        <Tab value="analistas" label="Analistas" />
-        <Tab value="areas" label="Áreas" />
-        <Tab value="tipos" label="Tipos de demanda" />
-        <Tab value="servicos" label="Tipos de serviço" />
-      </Tabs>
-
-      <div style={{ height: 520, width: '100%' }}>
-        <DataGrid
-          rows={dataMap[tab]}
-          columns={[...columns[tab], {
-            field: 'acoes', headerName: 'Ações', width: 100, sortable: false, filterable: false,
-            renderCell: (params) => (
-              <IconButton color="error" onClick={() => {
-                const id = params.row.id as string
-                switch (tab) {
-                  case 'clientes':
-                    store.upsertMany({ clientes: store.clientes.filter(x => x.id !== id) })
-                    break
-                  case 'contratos':
-                    store.upsertMany({ contratos: store.contratos.filter(x => x.id !== id) })
-                    break
-                  case 'operadoras':
-                    store.upsertMany({ operadoras: store.operadoras.filter(x => x.id !== id) })
-                    break
-                  case 'produtos':
-                    store.upsertMany({ produtos: store.produtos.filter(x => x.id !== id) })
-                    break
-                  case 'sistemas':
-                    store.upsertMany({ sistemas: store.sistemas.filter(x => x.id !== id) })
-                    break
-                  case 'analistas':
-                    store.upsertMany({ analistas: store.analistas.filter(x => x.id !== id) })
-                    break
-                  case 'areas':
-                    store.upsertMany({ areas: store.areas.filter(x => x.id !== id) })
-                    break
-                  case 'tipos':
-                    store.upsertMany({ tiposDemanda: store.tiposDemanda.filter(x => x.id !== id) })
-                    break
-                  case 'servicos':
-                    if (['CAD','MAN'].includes(id)) {
-                      setSnack({ open: true, message: 'Itens padrão (Cadastro/Manutenção) não podem ser excluídos.', severity: 'error' })
-                      return
-                    }
-                    store.upsertMany({ tiposServico: store.tiposServico.filter(x => x.id !== id) })
-                    break
-                }
-              }}>
-                <DeleteIcon />
-              </IconButton>
-            )
-          }]} 
-          getRowId={(r) => r.id}
-          disableRowSelectionOnClick 
-        />
-      </div>
-
-      <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Novo registro</DialogTitle>
-        <DialogContent>
-          {tab === 'clientes' && (
-            <Stack gap={2} mt={1}>
-              <TextField label="Nome" value={form.nome ?? ''} onChange={(e) => setForm({ ...form, nome: e.target.value })} />
-              <TextField label="Grupo econômico" value={form.grupoEconomico ?? ''} onChange={(e) => setForm({ ...form, grupoEconomico: e.target.value })} />
-            </Stack>
+      {/* Status de sincronização */}
+      <Box sx={{ mb: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1, border: '1px solid', borderColor: 'grey.300' }}>
+        <Typography variant="subtitle2" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+          {isSyncing ? '🔄 Sincronizando...' : '✅ Sincronizado'}
+          {lastSync && (
+            <Typography variant="caption" color="text.secondary">
+              (Última sincronização: {new Date(lastSync).toLocaleString('pt-BR')})
+            </Typography>
           )}
-          {tab === 'contratos' && (
-            <Stack gap={2} mt={1}>
-              <TextField label="Grupo econômico" value={form.grupoEconomico ?? ''} onChange={(e) => setForm({ ...form, grupoEconomico: e.target.value })} />
-              <TextField label="Código" value={form.codigo ?? ''} onChange={(e) => setForm({ ...form, codigo: e.target.value })} />
-            </Stack>
-          )}
-          {['operadoras','produtos','sistemas','analistas','areas','servicos'].includes(tab) && (
-            <Stack gap={2} mt={1}>
-              <TextField label="Nome" value={form.nome ?? ''} onChange={(e) => setForm({ ...form, nome: e.target.value })} />
-            </Stack>
-          )}
-          {tab === 'tipos' && (
-            <Stack gap={2} mt={1}>
-              <TextField label="Nome" value={form.nome ?? ''} onChange={(e) => setForm({ ...form, nome: e.target.value })} />
-              <TextField select label="Tipo de serviço" value={form.tipoServicoId ?? ''} onChange={(e) => setForm({ ...form, tipoServicoId: e.target.value })}>
-                {store.tiposServico.map(ts => <MenuItem key={ts.id} value={ts.id}>{ts.nome}</MenuItem>)}
-              </TextField>
-            </Stack>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpen(false)}>Cancelar</Button>
-          <Button variant="contained" onClick={handleSave}>Salvar</Button>
-        </DialogActions>
-      </Dialog>
+        </Typography>
+        
+        <Typography variant="body2" color="text.secondary">
+          Dados locais: {store.clientes.length} clientes, {store.contratos.length} contratos, {store.operadoras.length} operadoras, {store.solicitantes.length} solicitantes, {store.relatorios.length} relatórios, {store.modelos.length} modelos
+          {store.clientes.length > 0 || store.contratos.length > 0 ? ' - Dados persistidos localmente' : ' - Nenhum dado local'}
+        </Typography>
+        
+        <Box sx={{ mt: 1 }}>
+          <Button 
+            variant="outlined" 
+            size="small" 
+            onClick={handleSync}
+            disabled={isSyncing}
+            sx={{ mr: 1 }}
+          >
+            {isSyncing ? '🔄 Sincronizando...' : '🔄 Forçar Sincronização'}
+          </Button>
+        </Box>
+      </Box>
 
-      {snack?.open && (
-        <div style={{ position: 'fixed', bottom: 16, left: 16, background: snack.severity === 'success' ? '#1b5e20' : snack.severity === 'error' ? '#b71c1c' : '#1565c0', color: '#fff', padding: '8px 12px', borderRadius: 6 }}>
-          <Typography variant="body2">{snack.message}</Typography>
-        </div>
-      )}
+      <DadosTabs
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+      />
 
-      <Dialog open={openHelp} onClose={() => setOpenHelp(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Modelo de importação (Excel)</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" sx={{ mb: 1 }}>
-            Estrutura das abas e colunas esperadas:
-          </Typography>
-          <Typography variant="body2">- Clientes: id, nome, grupoEconomico</Typography>
-          <Typography variant="body2">- Contratos: id, grupoEconomico, codigo</Typography>
-          <Typography variant="body2">- Operadoras: id, nome</Typography>
-          <Typography variant="body2">- Produtos: id, nome</Typography>
-          <Typography variant="body2">- Sistemas: id, nome</Typography>
-          <Typography variant="body2">- Analistas: id, nome</Typography>
-          <Typography variant="body2">- Areas: id, nome</Typography>
-          <Typography variant="body2">- Tipos: id, nome</Typography>
-          <Typography variant="caption" display="block" sx={{ mt: 2 }}>
-            Observações: IDs podem ser deixados em branco para geração automática. Para Contratos, o vínculo é por grupoEconomico.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenHelp(false)}>Fechar</Button>
-          <Button variant="contained" onClick={downloadTemplate}>Baixar modelo</Button>
-        </DialogActions>
-      </Dialog>
+      <DadosGrid
+        activeTab={activeTab}
+        data={currentData}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+      />
+
+      <DadosForm
+        open={openForm}
+        onClose={() => setOpenForm(false)}
+        activeTab={activeTab}
+        form={form}
+        onFormChange={setForm}
+        onSave={handleSave}
+      />
+
+      <DadosHelpModal
+        open={openHelp}
+        onClose={() => setOpenHelp(false)}
+      />
+
+      <SnackNotification snack={snack} />
+
+      <UploadModal
+        open={uploadModalOpen}
+        onClose={() => setUploadModalOpen(false)}
+        title="Upload de Dados Mestres"
+        entityType="dados"
+        onUpload={handleUpload}
+      />
     </Paper>
   )
 }

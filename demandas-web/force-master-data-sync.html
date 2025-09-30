@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>🔧 Forçar Sincronização Master Data</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f8f9fa; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .button { background: #007bff; color: white; padding: 12px 24px; border: none; border-radius: 5px; cursor: pointer; margin: 10px; font-size: 16px; }
+        .button:hover { background: #0056b3; }
+        .button.danger { background: #dc3545; }
+        .button.danger:hover { background: #c82333; }
+        .button.success { background: #28a745; }
+        .button.success:hover { background: #218838; }
+        .log { background: #f8f9fa; border: 1px solid #dee2e6; padding: 15px; margin: 10px 0; border-radius: 5px; white-space: pre-wrap; max-height: 400px; overflow-y: auto; font-family: monospace; font-size: 12px; }
+        .alert { padding: 15px; margin: 10px 0; border-radius: 5px; }
+        .alert.error { background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+        .alert.success { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .alert.warning { background: #fff3cd; border: 1px solid #ffeaa7; color: #856404; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Forçar Sincronização Master Data</h1>
+        
+        <div class="alert error">
+            <strong>⚠️ PROBLEMA IDENTIFICADO:</strong><br>
+            O masterDataStore tem dados locais com IDs inválidos e se recusa a sincronizar.<br>
+            Isso causa erro P2003 (Foreign key constraint violated) ao criar demandas.
+        </div>
+        
+        <div class="alert warning">
+            <strong>📋 SOLUÇÃO:</strong><br>
+            1. Limpar todos os dados locais do masterDataStore<br>
+            2. Forçar sincronização com dados válidos do backend<br>
+            3. Recarregar a página para aplicar mudanças
+        </div>
+        
+        <button class="button danger" onclick="clearMasterData()">🗑️ 1. Limpar Master Data</button>
+        <button class="button success" onclick="forceSyncMasterData()">🔄 2. Sincronizar do Backend</button>
+        <button class="button" onclick="reloadPage()">🔄 3. Recarregar Página</button>
+        
+        <div id="log" class="log">Aguardando ação...</div>
+    </div>
+
+    <script>
+        const log = document.getElementById('log');
+        
+        function addLog(message) {
+            log.textContent += new Date().toLocaleTimeString() + ': ' + message + '\n';
+            log.scrollTop = log.scrollHeight;
+        }
+        
+        function clearMasterData() {
+            addLog('🗑️ Iniciando limpeza do masterDataStore...');
+            
+            try {
+                // Tentar acessar o store diretamente se possível
+                if (window.useMasterDataStore) {
+                    const store = window.useMasterDataStore.getState();
+                    addLog('✅ Store encontrado, chamando clearAll()...');
+                    store.clearAll();
+                    addLog('✅ clearAll() executado com sucesso!');
+                } else {
+                    // Fallback: limpar localStorage diretamente
+                    addLog('⚠️ Store não acessível, limpando localStorage...');
+                    
+                    const keys = Object.keys(localStorage);
+                    keys.forEach(key => {
+                        if (key.includes('master-data')) {
+                            addLog(`   🗑️ Removendo: ${key}`);
+                            localStorage.removeItem(key);
+                        }
+                    });
+                    
+                    addLog('✅ localStorage limpo!');
+                }
+                
+                addLog('✅ Passo 1 concluído! Agora clique em "Sincronizar do Backend"');
+                
+            } catch (error) {
+                addLog(`❌ Erro na limpeza: ${error.message}`);
+            }
+        }
+        
+        async function forceSyncMasterData() {
+            addLog('🔄 Iniciando sincronização forçada...');
+            
+            try {
+                // Verificar se há token de autenticação
+                const authData = localStorage.getItem('auth-store');
+                if (!authData) {
+                    addLog('❌ Token de autenticação não encontrado!');
+                    addLog('💡 Faça login primeiro e tente novamente.');
+                    return;
+                }
+                
+                const auth = JSON.parse(authData);
+                const token = auth.state?.token;
+                
+                if (!token) {
+                    addLog('❌ Token inválido no localStorage!');
+                    addLog('💡 Faça logout e login novamente.');
+                    return;
+                }
+                
+                addLog('🔐 Token encontrado, buscando dados do backend...');
+                
+                // Endpoints para sincronizar
+                const endpoints = [
+                    'tiposCadastro',
+                    'tiposServico',
+                    'analistas', 
+                    'areas',
+                    'clientes',
+                    'contratos',
+                    'operadoras',
+                    'produtos',
+                    'sistemas'
+                ];
+                
+                const masterData = {};
+                
+                for (const endpoint of endpoints) {
+                    try {
+                        addLog(`   📡 Buscando ${endpoint}...`);
+                        
+                        const response = await fetch(`http://localhost:3333/${endpoint}`, {
+                            headers: {
+                                'Authorization': `Bearer ${token}`
+                            }
+                        });
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            masterData[endpoint] = data;
+                            addLog(`   ✅ ${endpoint}: ${data.length} registros`);
+                            
+                            // Mostrar primeiro ID para verificação
+                            if (data.length > 0) {
+                                addLog(`      📋 Primeiro: ${data[0].id} (${data[0].nome})`);
+                            }
+                        } else {
+                            addLog(`   ❌ ${endpoint}: Erro ${response.status}`);
+                        }
+                    } catch (error) {
+                        addLog(`   ❌ ${endpoint}: ${error.message}`);
+                    }
+                }
+                
+                // Salvar dados no localStorage
+                const storeData = {
+                    state: {
+                        ...masterData,
+                        // Campos vazios para outras propriedades
+                        areasMailling: [],
+                        cargosMailling: [],
+                        filiaisMailling: [],
+                        categorias: [],
+                        periodicidades: [],
+                        status: [],
+                        isSyncing: false,
+                        lastSync: new Date().toISOString()
+                    },
+                    version: 0
+                };
+                
+                localStorage.setItem('master-data-store', JSON.stringify(storeData));
+                
+                addLog('✅ Dados sincronizados e salvos no localStorage!');
+                addLog('🎉 Sincronização concluída! Agora clique em "Recarregar Página"');
+                
+            } catch (error) {
+                addLog(`❌ Erro na sincronização: ${error.message}`);
+            }
+        }
+        
+        function reloadPage() {
+            addLog('🔄 Recarregando página...');
+            addLog('💡 Após recarregar, tente criar uma demanda novamente!');
+            
+            setTimeout(() => {
+                window.location.reload(true);
+            }, 1000);
+        }
+        
+        // Log inicial
+        addLog('🔧 Ferramenta carregada!');
+        addLog('📋 Siga os passos em ordem:');
+        addLog('   1. Limpar Master Data');
+        addLog('   2. Sincronizar do Backend'); 
+        addLog('   3. Recarregar Página');
+        addLog('');
+        addLog('⚠️ Certifique-se de estar logado antes de começar!');
+    </script>
+</body>
+</html>

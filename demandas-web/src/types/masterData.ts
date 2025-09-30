@@ -13,8 +13,14 @@ export interface Cliente {
 
 export interface Contrato {
   id: Id
-  grupoEconomico: string
-  codigo: string
+  numero: string
+  codigo?: string
+  grupoEconomico?: string
+  clienteId: string
+  valor?: number
+  dataInicio?: string
+  dataFim?: string
+  status?: string
 }
 
 export type Operadora = SimpleEntity
@@ -25,8 +31,29 @@ export type Area = SimpleEntity
 export interface TipoDemanda {
   id: Id
   nome: string
-  tipoServicoId?: Id
 }
+
+export interface TipoCadastro {
+  id: Id
+  nome: string
+  descricao?: string
+}
+
 export type TipoServico = SimpleEntity
+
+export interface Solicitante {
+  id: Id
+  nome: string
+}
+
+export interface Relatorio {
+  id: Id
+  nome: string
+}
+
+export interface Modelo {
+  id: Id
+  nome: string
+}
 
 

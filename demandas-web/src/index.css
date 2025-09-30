@@ -1,0 +1,270 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Estilos para destaque de tarefas no Kanban */
+.highlighted-ticket {
+  animation: pulse-highlight 2s ease-in-out infinite;
+  position: relative;
+}
+
+.highlighted-ticket::before {
+  content: '';
+  position: absolute;
+  top: -5px;
+  left: -5px;
+  right: -5px;
+  bottom: -5px;
+  background: linear-gradient(45deg, #ef4444, #f97316, #eab308, #ef4444);
+  background-size: 400% 400%;
+  border-radius: 16px;
+  z-index: -1;
+  animation: gradient-shift 3s ease infinite;
+  opacity: 0.3;
+}
+
+@keyframes pulse-highlight {
+  0%, 100% {
+    transform: scale(1.05);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+}
+
+@keyframes gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Estilos específicos para conteúdo de comunicados */
+.comunicado-content {
+  max-width: none;
+  overflow: visible;
+  height: auto;
+  min-height: 200px;
+}
+
+.comunicado-content h1,
+.comunicado-content h2,
+.comunicado-content h3,
+.comunicado-content h4,
+.comunicado-content h5,
+.comunicado-content h6 {
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+  font-weight: 600;
+  line-height: 1.25;
+  color: #1f2937;
+}
+
+.comunicado-content p {
+  margin-bottom: 1em;
+  line-height: 1.8;
+  color: #374151;
+}
+
+.comunicado-content ul,
+.comunicado-content ol {
+  margin-bottom: 1em;
+  padding-left: 1.5em;
+}
+
+.comunicado-content li {
+  margin-bottom: 0.5em;
+  line-height: 1.6;
+}
+
+.comunicado-content blockquote {
+  border-left: 3px solid #e5e7eb;
+  margin: 1em 0;
+  padding-left: 1em;
+  font-style: italic;
+  color: #6b7280;
+  background-color: #f9fafb;
+  padding: 1em;
+  border-radius: 0.5rem;
+}
+
+.comunicado-content img {
+  max-width: 100%;
+  height: auto;
+  margin: 1em 0;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.comunicado-content a {
+  color: #2563eb;
+  text-decoration: underline;
+}
+
+.comunicado-content a:hover {
+  color: #1d4ed8;
+}
+
+.comunicado-content mark {
+  background-color: #fef08a;
+  padding: 0.1em 0.2em;
+  border-radius: 0.2em;
+}
+
+.comunicado-content strong {
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.comunicado-content em {
+  font-style: italic;
+  color: #4b5563;
+}
+
+.comunicado-content code {
+  background-color: #f3f4f6;
+  padding: 0.2em 0.4em;
+  border-radius: 0.25rem;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.9em;
+  color: #dc2626;
+}
+
+.comunicado-content pre {
+  background-color: #1f2937;
+  color: #f9fafb;
+  padding: 1em;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  margin: 1em 0;
+}
+
+.comunicado-content pre code {
+  background-color: transparent;
+  color: inherit;
+  padding: 0;
+}
+
+/* Utilitários para truncamento de texto */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Variáveis CSS para temas */
+:root {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f9fafb;
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+  --border-color: #e5e7eb;
+}
+
+/* Tema escuro */
+.dark {
+  --bg-primary: #1f2937;
+  --bg-secondary: #374151;
+  --text-primary: #f9fafb;
+  --text-secondary: #d1d5db;
+  --border-color: #4b5563;
+}
+
+/* Aplicar variáveis CSS */
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Estilos para componentes com tema escuro */
+.dark .bg-white {
+  background-color: var(--bg-secondary);
+}
+
+.dark .text-neutral-900 {
+  color: var(--text-primary);
+}
+
+.dark .text-neutral-600 {
+  color: var(--text-secondary);
+}
+
+.dark .border-neutral-200 {
+  border-color: var(--border-color);
+}
+
+.dark .bg-neutral-100 {
+  background-color: var(--bg-secondary);
+}
+
+.dark .hover\:bg-neutral-100:hover {
+  background-color: var(--border-color);
+}
+
+@layer base {
+  html {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+  }
+  
+  body {
+    @apply bg-neutral-50 text-neutral-900 antialiased;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-white/80 backdrop-blur-md border border-white/20 shadow-glass;
+  }
+  
+  .gradient-text {
+    @apply bg-gradient-primary bg-clip-text text-transparent;
+  }
+  
+  .floating-element {
+    @apply animate-float;
+  }
+  
+  .sidebar-item {
+    @apply flex items-center gap-3 px-4 py-3 text-white hover:text-primary-200 hover:bg-white/10 rounded-lg transition-all duration-200;
+  }
+  
+  .sidebar-item.active {
+    @apply text-white bg-white/20 border-r-2 border-primary-400;
+  }
+  
+  .btn-primary {
+    @apply bg-gradient-primary text-white px-6 py-3 rounded-lg font-medium hover:shadow-glow-primary transition-all duration-200 hover:scale-105;
+  }
+  
+  .btn-secondary {
+    @apply bg-gradient-secondary text-white px-6 py-3 rounded-lg font-medium hover:shadow-glow-secondary transition-all duration-200 hover:scale-105;
+  }
+  
+  .btn-accent {
+    @apply bg-gradient-accent text-white px-6 py-3 rounded-lg font-medium hover:shadow-glow-accent transition-all duration-200 hover:scale-105;
+  }
+  
+  .card-hover {
+    @apply hover:shadow-lg hover:scale-105 transition-all duration-300;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}

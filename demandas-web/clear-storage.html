@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Limpar Storage</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #c82333;
+        }
+        .success {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .error {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .info {
+            background: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧹 Limpar Storage do Sistema</h1>
+        
+        <div class="info">
+            <strong>⚠️ ATENÇÃO:</strong> Esta página irá limpar todos os dados salvos no navegador (localStorage) relacionados ao sistema de demandas.
+        </div>
+
+        <h3>Dados que serão removidos:</h3>
+        <ul>
+            <li>Dados mestres (áreas, analistas, clientes, etc.)</li>
+            <li>Configurações do sistema</li>
+            <li>Dados de projetos</li>
+            <li>Outros dados salvos localmente</li>
+        </ul>
+
+        <h3>Ações disponíveis:</h3>
+        
+        <button onclick="clearAllStorage()">🗑️ Limpar TUDO</button>
+        <button onclick="clearSpecificStorage()">🎯 Limpar Específico</button>
+        <button onclick="showStorageInfo()">📊 Ver Storage Atual</button>
+        
+        <div id="result"></div>
+    </div>
+
+    <script>
+        function clearAllStorage() {
+            try {
+                // Limpar todo o localStorage
+                localStorage.clear();
+                
+                // Limpar também sessionStorage
+                sessionStorage.clear();
+                
+                showResult('✅ Storage completamente limpo!', 'success');
+                
+                // Mostrar informações atualizadas
+                setTimeout(showStorageInfo, 1000);
+                
+            } catch (error) {
+                showResult('❌ Erro ao limpar storage: ' + error.message, 'error');
+            }
+        }
+
+        function clearSpecificStorage() {
+            try {
+                // Lista de chaves específicas do sistema
+                const keysToRemove = [
+                    'master-data-v2',
+                    'dados-storage',
+                    'project-store',
+                    'demanda-store',
+                    'atendimento-store',
+                    'validacao-store',
+                    'reajuste-store',
+                    'comunicado-store',
+                    'kanban-store',
+                    'user-store',
+                    'auth-store'
+                ];
+                
+                let removedCount = 0;
+                keysToRemove.forEach(key => {
+                    if (localStorage.getItem(key)) {
+                        localStorage.removeItem(key);
+                        removedCount++;
+                    }
+                });
+                
+                showResult(`✅ ${removedCount} chaves específicas removidas!`, 'success');
+                
+                // Mostrar informações atualizadas
+                setTimeout(showStorageInfo, 1000);
+                
+            } catch (error) {
+                showResult('❌ Erro ao limpar storage específico: ' + error.message, 'error');
+            }
+        }
+
+        function showStorageInfo() {
+            try {
+                const storageKeys = Object.keys(localStorage);
+                const sessionKeys = Object.keys(sessionStorage);
+                
+                let result = '<h3>📊 Storage Atual:</h3>';
+                
+                if (storageKeys.length === 0 && sessionKeys.length === 0) {
+                    result += '<p class="success">✅ Storage completamente vazio!</p>';
+                } else {
+                    if (storageKeys.length > 0) {
+                        result += '<h4>localStorage:</h4><ul>';
+                        storageKeys.forEach(key => {
+                            const value = localStorage.getItem(key);
+                            const size = new Blob([value]).size;
+                            result += `<li><strong>${key}</strong> (${size} bytes)</li>`;
+                        });
+                        result += '</ul>';
+                    }
+                    
+                    if (sessionKeys.length > 0) {
+                        result += '<h4>sessionStorage:</h4><ul>';
+                        sessionKeys.forEach(key => {
+                            const value = sessionStorage.getItem(key);
+                            const size = new Blob([value]).size;
+                            result += `<li><strong>${key}</strong> (${size} bytes)</li>`;
+                        });
+                        result += '</ul>';
+                    }
+                }
+                
+                document.getElementById('result').innerHTML = result;
+                
+            } catch (error) {
+                showResult('❌ Erro ao mostrar informações do storage: ' + error.message, 'error');
+            }
+        }
+
+        function showResult(message, type) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = `<p class="${type}">${message}</p>`;
+        }
+
+        // Mostrar informações ao carregar a página
+        window.onload = function() {
+            showStorageInfo();
+        };
+    </script>
+</body>
+</html>

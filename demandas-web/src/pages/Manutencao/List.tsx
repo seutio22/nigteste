@@ -1,0 +1,758 @@
+import { Box, Button, Stack, Typography, IconButton, Menu, MenuItem, ListItemIcon, ListItemText, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Switch, FormControlLabel, Chip } from '@mui/material'
+import { DataGrid, GridColDef, GridToolbar, GridColumnVisibilityModel, GridFilterModel, GridPaginationModel, GridSortModel } from '@mui/x-data-grid'
+import { useNavigate } from 'react-router-dom'
+import { useManutencaoStore } from '../../store/manutencaoStore'
+import { useMasterDataStore } from '../../store/masterDataStore'
+import { useAuthStore } from '../../store/authStore'
+import { StatusBadge } from '../../components/StatusBadge'
+import { UploadModal } from '../../components/UploadModal'
+import { useFilteredData } from '../../lib/utils'
+import { useEffect, useState } from 'react'
+import ExportDataModal from '../../components/ExportDataModal'
+import MoreVertIcon from '@mui/icons-material/MoreVert'
+import VisibilityIcon from '@mui/icons-material/Visibility'
+import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
+import DeleteIcon from '@mui/icons-material/Delete'
+import FileCopyIcon from '@mui/icons-material/FileCopy'
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf'
+import CloudUploadIcon from '@mui/icons-material/CloudUpload'
+import EditIcon from '@mui/icons-material/Edit'
+import PersonIcon from '@mui/icons-material/Person'
+import GroupIcon from '@mui/icons-material/Group'
+
+const columns: GridColDef[] = [
+  { field: 'acoes', headerName: 'Ações', width: 80, sortable: false, filterable: false, renderCell: (p) => (
+    <ActionCell id={String(p.id)} status={String(p.row.status ?? '')} />
+  ) },
+  { field: 'ticket', headerName: 'Nº Ticket', width: 140 },
+  { field: 'descricao', headerName: 'Descrição', flex: 1, minWidth: 220 },
+  { field: 'status', headerName: 'Status', width: 150, renderCell: (p) => <StatusBadge status={String(p.value ?? '')} /> },
+  { field: 'analista', headerName: 'Analista', width: 160 },
+  { field: 'area', headerName: 'Área', width: 160 },
+  { field: 'cliente', headerName: 'Cliente', width: 200 },
+  { field: 'contrato', headerName: 'Contrato', width: 140 },
+  { field: 'operadora', headerName: 'Operadora', width: 160 },
+  { field: 'produto', headerName: 'Produto', width: 160 },
+  { field: 'tipoServico', headerName: 'Tipo de serviço', width: 180 },
+  { field: 'tipo', headerName: 'Tipo de Manutenção', width: 180 },
+  { field: 'updatedAt', headerName: 'Atualizado em', width: 160 },
+]
+
+export default function ManutencaoListPage() {
+  const navigate = useNavigate()
+  const { items } = useManutencaoStore()
+  const manutencaoStore = useManutencaoStore()
+  const md = useMasterDataStore()
+  const { user } = useAuthStore()
+  const [uploadModalOpen, setUploadModalOpen] = useState(false)
+  const [showOnlyMyManutencoes, setShowOnlyMyManutencoes] = useState(true)
+  const [exportModalOpen, setExportModalOpen] = useState(false)
+
+  const STORAGE_KEY = 'manutencoes-list-view-v1'
+  const FILTER_KEY = 'manutencoes-user-filter-v1'
+  const [columnVisibilityModel, setColumnVisibilityModel] = useState<GridColumnVisibilityModel>({})
+  const [sortModel, setSortModel] = useState<GridSortModel>([
+    { field: 'updatedAt', sort: 'desc' } // Ordenar por data de atualização (mais recentes primeiro)
+  ])
+  const [filterModel, setFilterModel] = useState<GridFilterModel>({ items: [], quickFilterValues: [] })
+  const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({ page: 0, pageSize: 10 })
+
+
+  // Filtrar dados por permissão do usuário
+  const filteredItems = useFilteredData(items, user?.role, user?.id, user?.viewOwnDataOnly)
+  
+  const finalFilteredItems = showOnlyMyManutencoes
+    ? items.filter(manutencao => {
+        // Buscar o analista correspondente ao usuário logado
+        const analista = md.analistas.find(a => a.id === manutencao.analistaId)
+        
+        // Múltiplas verificações para identificar se a manutenção é do usuário
+        const check1 = manutencao.analistaId === user?.id
+        const check2 = analista && analista.nome === user?.name
+        const check3 = user?.role === 'admin' && manutencao.analistaId === 'analista-admin'
+        const check4 = manutencao.analista === user?.id // Verificar campo analista também
+        const check5 = manutencao.analista === user?.name // Verificar se analista é o nome do usuário
+        
+        // Verificação adicional: se o usuário é admin, sempre incluir
+        const check6 = user?.role === 'admin'
+        
+        const isMyManutencao = check1 || check2 || check3 || check4 || check5 || check6
+        
+        return isMyManutencao
+      })
+    : items
+
+  // carregar preferências
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY)
+      if (!raw) return
+      const saved = JSON.parse(raw)
+      if (saved.columnVisibilityModel) setColumnVisibilityModel(saved.columnVisibilityModel)
+      if (saved.sortModel) setSortModel(saved.sortModel)
+      if (saved.filterModel) setFilterModel(saved.filterModel)
+      if (saved.paginationModel) setPaginationModel(saved.paginationModel)
+    } catch {}
+    
+    // Carregar preferência do filtro de usuário - SEMPRE inicia como "Minhas manutenções" (true)
+    try {
+      const filterPreference = localStorage.getItem(FILTER_KEY)
+      if (filterPreference !== null) {
+        setShowOnlyMyManutencoes(JSON.parse(filterPreference))
+      } else {
+        // Se não houver preferência salva, manter o padrão "Minhas manutenções" (true)
+        setShowOnlyMyManutencoes(true)
+      }
+    } catch {
+      // Em caso de erro, manter o padrão "Minhas manutenções" (true)
+      setShowOnlyMyManutencoes(true)
+    }
+  }, [])
+
+  // Garantir que os dados mestres sejam carregados
+  useEffect(() => {
+    if (md.analistas.length === 0) {
+
+      md.syncFromApi?.()
+    }
+  }, []) // Removido as dependências que causavam o loop
+
+  // Carregar manutenções automaticamente quando a página é carregada
+  useEffect(() => {
+    if (user?.id) {
+      manutencaoStore.syncFromApi()
+    }
+  }, []) // Removido a dependência que causava o loop
+
+  // Recarregar dados quando a página recebe foco (volta de outras páginas)
+  useEffect(() => {
+    const handleFocus = () => {
+      if (user?.id) {
+        manutencaoStore.syncFromApi()
+      }
+    }
+
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, []) // Removido a dependência que causava o loop
+
+  // Persistir preferência do filtro de usuário
+  useEffect(() => {
+    try {
+      localStorage.setItem(FILTER_KEY, JSON.stringify(showOnlyMyManutencoes))
+    } catch {}
+  }, [showOnlyMyManutencoes])
+
+  function persist(next: Partial<{ columnVisibilityModel: GridColumnVisibilityModel; sortModel: GridSortModel; filterModel: GridFilterModel; paginationModel: GridPaginationModel }>) {
+    try {
+      const current = {
+        columnVisibilityModel,
+        sortModel,
+        filterModel,
+        paginationModel,
+      }
+      const merged = { ...current, ...next }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged))
+    } catch {}
+  }
+
+  const handleUpload = async (file: File) => {
+    // Simular processamento do upload
+    await new Promise(resolve => setTimeout(resolve, 2000))
+    
+    // Aqui você implementaria a lógica real de processamento do arquivo
+    // Por exemplo, usando uma biblioteca como xlsx para ler o Excel
+    
+    // Simular sucesso
+    return Promise.resolve()
+  }
+
+  const rows = finalFilteredItems.map((d) => {
+    // Gerar ticket se não existir
+    const generateTicket = (id: string) => {
+      const now = new Date()
+      const year = now.getFullYear()
+      const month = String(now.getMonth() + 1).padStart(2, '0')
+      const day = String(now.getDate()).padStart(2, '0')
+      const random = Math.random().toString(36).substr(2, 4).toUpperCase()
+      return `MAN-${year}${month}${day}-${random}`
+    }
+    
+    return {
+      id: d.id,
+      ticket: d.ticket || generateTicket(d.id),
+      descricao: d.descricao ?? '',
+      status: d.status,
+      analista: (() => {
+        // Tratamento especial para analista-admin
+        if (d.analista === 'analista-admin') {
+          return 'ADMINISTRADOR'
+        }
+        
+        // Se d.analista é um ID, buscar o nome; se já é um nome, usar diretamente
+        if (d.analista && typeof d.analista === 'string' && d.analista.length > 20) {
+          // Parece ser um ID (UUID), buscar o nome
+          return md.analistas.find(a => a.id === d.analista)?.nome ?? d.analista
+        }
+        
+        // Se d.analistaId existe, buscar o nome
+        if (d.analistaId) {
+          return md.analistas.find(a => a.id === d.analistaId)?.nome ?? d.analistaId
+        }
+        
+        return d.analista || ''
+      })(),
+      area: (() => {
+        if (d.area && typeof d.area === 'string' && d.area.length > 20) {
+          return md.areas.find(ar => ar.id === d.area)?.nome ?? d.area
+        }
+        
+        // Se d.areaId existe, buscar o nome
+        if (d.areaId) {
+          return md.areas.find(ar => ar.id === d.areaId)?.nome ?? d.areaId
+        }
+        
+        return d.area || ''
+      })(),
+      cliente: (() => {
+        if (d.cliente && typeof d.cliente === 'string' && d.cliente.length > 20) {
+          return md.clientes.find(c => c.id === d.cliente)?.nome ?? d.cliente
+        }
+        
+        // Se d.clienteId existe, buscar o nome
+        if (d.clienteId) {
+          return md.clientes.find(c => c.id === d.clienteId)?.nome ?? d.clienteId
+        }
+        
+        return d.cliente || ''
+      })(),
+      contrato: (() => {
+        if (d.contrato && typeof d.contrato === 'string' && d.contrato.length > 20) {
+          return md.contratos.find(c => c.id === d.contrato)?.numero ?? d.contrato
+        }
+        
+        // Se d.contratoId existe, buscar o código
+        if (d.contratoId) {
+          return md.contratos.find(c => c.id === d.contratoId)?.numero ?? d.contratoId
+        }
+        
+        return d.contrato || ''
+      })(),
+      operadora: (() => {
+        if (d.operadora && typeof d.operadora === 'string' && d.operadora.length > 20) {
+          return md.operadoras.find(o => o.id === d.operadora)?.nome ?? d.operadora
+        }
+        
+        // Se d.operadoraId existe, buscar o nome
+        if (d.operadoraId) {
+          return md.operadoras.find(o => o.id === d.operadoraId)?.nome ?? d.operadoraId
+        }
+        
+        return d.operadora || ''
+      })(),
+      produto: (() => {
+        if (d.produto && typeof d.produto === 'string' && d.produto.length > 20) {
+          return md.produtos.find(p => p.id === d.produto)?.nome ?? d.produto
+        }
+        
+        // Se d.produtoId existe, buscar o nome
+        if (d.produtoId) {
+          return md.produtos.find(p => p.id === d.produtoId)?.nome ?? d.produtoId
+        }
+        
+        return d.produto || ''
+      })(),
+      tipoServico: (() => {
+        if (d.tipoServico && typeof d.tipoServico === 'string' && d.tipoServico.length > 20) {
+          // Usar tiposCadastro para tipo de serviço
+          const tipoServico = md.tiposCadastro.find(tc => tc.id === d.tipoServico)
+          return tipoServico?.nome ?? d.tipoServico
+        }
+        
+        // Se d.tipoServicoId existe, buscar o nome
+        if (d.tipoServicoId) {
+          const tipoServico = md.tiposCadastro.find(tc => tc.id === d.tipoServicoId)
+          return tipoServico?.nome ?? d.tipoServicoId
+        }
+        
+        return d.tipoServico || ''
+      })(),
+      tipo: (() => {
+        if (d.tipo && typeof d.tipo === 'string' && d.tipo.length > 20) {
+        // Buscar o tipo de manutenção nos dados mestres (padrao)
+        const tipo = md.padrao.find(p => p.id === d.tipo)
+        return tipo?.nome ?? d.tipo
+        }
+        
+        // Se d.tipoId existe, buscar o nome
+        if (d.tipoId) {
+          const tipo = md.padrao.find(p => p.id === d.tipoId)
+          return tipo?.nome ?? d.tipoId
+        }
+        
+        return d.tipo || ''
+      })(),
+      updatedAt: new Date(d.updatedAt).toLocaleString('pt-BR'),
+    }
+  })
+
+  return (
+    <Box sx={{ height: '100vh', width: '100%', display: 'flex', flexDirection: 'column' }}>
+      {/* Header Principal com Design Padrão */}
+      <div className="bg-white/80 backdrop-blur-sm border-b border-white/20 shadow-sm sticky top-0 z-10">
+        <div className="px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <Typography variant="h5" className="font-bold text-slate-800">
+                Manutenções
+              </Typography>
+              
+              {/* Filtro Automático */}
+              <div className="flex items-center gap-3 mt-2">
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={showOnlyMyManutencoes}
+                      onChange={(e) => setShowOnlyMyManutencoes(e.target.checked)}
+                      sx={{
+                        '& .MuiSwitch-switchBase.Mui-checked': {
+                          color: '#667eea',
+                          '&:hover': {
+                            backgroundColor: 'rgba(102, 126, 234, 0.08)',
+                          },
+                        },
+                        '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                          backgroundColor: '#667eea',
+                        },
+                      }}
+                    />
+                  }
+                  label={
+                    <div className="flex items-center gap-2">
+                      {showOnlyMyManutencoes ? (
+                        <>
+                          <PersonIcon className="w-4 h-4 text-blue-600" />
+                          <span className="text-sm text-slate-600">Minhas Manutenções</span>
+                        </>
+                      ) : (
+                        <>
+                          <GroupIcon className="w-4 h-4 text-slate-600" />
+                          <span className="text-sm text-slate-600">Todas as Manutenções</span>
+                        </>
+                      )}
+                    </div>
+                  }
+                />
+                
+                {/* Contador de manutenções */}
+                <Chip
+                  label={`${finalFilteredItems.length} manutenção${finalFilteredItems.length !== 1 ? 'ões' : ''}`}
+                  size="small"
+                  variant="outlined"
+                  className={`${
+                    showOnlyMyManutencoes 
+                      ? 'border-blue-300 text-blue-600 bg-blue-50' 
+                      : 'border-slate-300 text-slate-600 bg-slate-50'
+                  }`}
+                  sx={{ borderRadius: '12px' }}
+                />
+                
+                
+                {/* Mensagem informativa */}
+                {showOnlyMyManutencoes && (
+                  <Typography 
+                    variant="caption" 
+                    className="text-blue-600 bg-blue-50 px-2 py-1 rounded-md border border-blue-200"
+                  >
+                    Mostrando apenas suas manutenções
+                  </Typography>
+                )}
+              </div>
+            </div>
+            <Stack direction="row" spacing={2}>
+              <Button 
+                variant="outlined" 
+                startIcon={<CloudUploadIcon />}
+                onClick={() => setUploadModalOpen(true)}
+                size="medium"
+                className="text-primary-600 border-primary-300 hover:text-primary-700 hover:border-primary-400 hover:bg-primary-50 transition-all duration-300 font-medium"
+                sx={{
+                  borderRadius: '14px',
+                  padding: '10px 20px',
+                  textTransform: 'none',
+                  fontWeight: 500,
+                  fontSize: '0.9rem',
+                  height: '44px',
+                  borderWidth: '2px',
+                  '&:hover': {
+                    borderWidth: '2px',
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 4px 12px 0 rgba(59, 130, 246, 0.15)'
+                  }
+                }}
+              >
+                Importar
+              </Button>
+
+              <Button 
+                variant="outlined" 
+                startIcon={<PictureAsPdfIcon />}
+                onClick={() => setExportModalOpen(true)}
+                size="medium"
+                className="text-secondary-600 border-secondary-300 hover:text-secondary-700 hover:border-secondary-400 hover:bg-secondary-50 transition-all duration-300 font-medium"
+                sx={{
+                  borderRadius: '14px',
+                  padding: '10px 20px',
+                  textTransform: 'none',
+                  fontWeight: 500,
+                  fontSize: '0.9rem',
+                  height: '44px',
+                  borderWidth: '2px',
+                  '&:hover': {
+                    borderWidth: '2px',
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 4px 12px 0 rgba(156, 39, 176, 0.15)'
+                  }
+                }}
+              >
+                Exportar
+              </Button>
+
+              <Button 
+                variant="contained" 
+                onClick={() => navigate('/manutencao/nova')}
+                size="medium"
+                className="bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-800 hover:to-slate-900 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 font-semibold"
+                sx={{
+                  borderRadius: '14px',
+                  padding: '10px 20px',
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  fontSize: '0.9rem',
+                  height: '44px',
+                  minWidth: '140px',
+                  boxShadow: '0 4px 14px 0 rgba(15, 23, 42, 0.25)',
+                  '&:hover': {
+                    boxShadow: '0 8px 25px 0 rgba(15, 23, 42, 0.35)',
+                    transform: 'translateY(-2px)'
+                  }
+                }}
+              >
+                Nova Manutenção
+              </Button>
+            </Stack>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex-1 p-6" style={{ minHeight: '400px' }}>
+        <DataGrid
+          rows={rows}
+          columns={columns}
+          getRowId={(row) => row.id}
+          initialState={{
+            pagination: {
+              paginationModel: { page: 0, pageSize: 10 },
+            },
+          }}
+          pageSizeOptions={[10, 25, 50, 100]}
+          disableRowSelectionOnClick
+          slots={{ toolbar: GridToolbar }}
+          slotProps={{
+            toolbar: {
+              showQuickFilter: true,
+              quickFilterProps: { debounceMs: 500 },
+            },
+          }}
+          columnVisibilityModel={columnVisibilityModel}
+          onColumnVisibilityModelChange={(newModel) => {
+            setColumnVisibilityModel(newModel)
+            persist({ columnVisibilityModel: newModel })
+          }}
+          sortModel={sortModel}
+          onSortModelChange={(newModel) => {
+            setSortModel(newModel)
+            persist({ sortModel: newModel })
+          }}
+          filterModel={filterModel}
+          onFilterModelChange={(newModel) => {
+            setFilterModel(newModel)
+            persist({ filterModel: newModel })
+          }}
+          paginationModel={paginationModel}
+          onPaginationModelChange={(newModel) => {
+            setPaginationModel(newModel)
+            persist({ paginationModel: newModel })
+          }}
+          sx={{
+            height: '100%',
+            minHeight: '400px',
+            '& .MuiDataGrid-cell:focus': {
+              outline: 'none',
+            },
+          }}
+        />
+      </div>
+
+      <UploadModal
+        open={uploadModalOpen}
+        onClose={() => setUploadModalOpen(false)}
+        onUpload={handleUpload}
+        title="Importar Manutenções"
+        entityType="manutencoes"
+      />
+
+      {/* Modal de Exportação */}
+      <ExportDataModal
+        open={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        data={finalFilteredItems.map(d => ({
+          ...d,
+          // Mapear IDs para nomes legíveis
+          analista: md.analistas.find(a => a.id === d.analista)?.nome ?? d.analista ?? 'N/A',
+          area: md.areas.find(ar => ar.id === d.area)?.nome ?? d.area ?? 'N/A',
+          cliente: md.clientes.find(c => c.id === d.cliente)?.nome ?? d.cliente ?? 'N/A',
+          contrato: md.contratos.find(c => c.id === d.contrato)?.numero ?? d.contrato ?? 'N/A',
+          operadora: md.operadoras.find(o => o.id === d.operadora)?.nome ?? d.operadora ?? 'N/A',
+          produto: md.produtos.find(p => p.id === d.produto)?.nome ?? d.produto ?? 'N/A',
+          tipoServico: md.tiposServico.find(ts => ts.id === d.tipoServico)?.nome ?? d.tipoServico ?? 'N/A',
+          // Formatar data
+          updatedAt: d.updatedAt ? new Date(d.updatedAt).toLocaleString('pt-BR') : 'N/A'
+        }))}
+        moduleName="manutencoes"
+        moduleTitle="Manutenções"
+        appliedFilters={{
+          'Minhas Manutenções': showOnlyMyManutencoes ? 'Sim' : 'Não',
+          'Total de Registros': finalFilteredItems.length
+        }}
+        columns={[
+          { key: 'ticket', label: 'Nº Ticket' },
+          { key: 'descricao', label: 'Descrição' },
+          { key: 'status', label: 'Status' },
+          { key: 'analista', label: 'Analista' },
+          { key: 'area', label: 'Área' },
+          { key: 'cliente', label: 'Cliente' },
+          { key: 'contrato', label: 'Contrato' },
+          { key: 'operadora', label: 'Operadora' },
+          { key: 'produto', label: 'Produto' },
+          { key: 'tipoServico', label: 'Tipo de Serviço' },
+          { key: 'updatedAt', label: 'Atualizado em' }
+        ]}
+      />
+    </Box>
+  )
+}
+
+function ActionCell({ id, status }: { id: string, status: string }) {
+  const navigate = useNavigate()
+  const store = useManutencaoStore()
+  const md = useMasterDataStore()
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
+  const [openStatus, setOpenStatus] = useState(false)
+  const [newStatus, setNewStatus] = useState(status)
+  const [openDelete, setOpenDelete] = useState(false)
+
+  const handleMenuOpen = (e: React.MouseEvent<HTMLElement>) => setAnchorEl(e.currentTarget)
+  const handleMenuClose = () => setAnchorEl(null)
+
+  const doChangeStatus = () => {
+    const d = store.items.find((x) => x.id === id)
+    if (!d) return
+    const from = d.status
+    const next = { ...d, status: newStatus, updatedAt: new Date().toISOString() }
+    store.upsert(next)
+    store.log?.({ demandaId: id, type: 'status_change', field: 'status', from, to: newStatus })
+    setOpenStatus(false)
+  }
+
+  const doDelete = async () => {
+    try {
+      await store.remove(id)
+      setOpenDelete(false)
+    } catch (error) {
+      alert(`Erro ao excluir manutenção: ${error instanceof Error ? error.message : 'Erro desconhecido'}`)
+    }
+  }
+
+  const doDuplicate = async () => {
+    const d = store.items.find((x) => x.id === id)
+    if (!d) return
+    const { id: _omit, createdAt: _c, updatedAt: _u, ticket: _t, ...rest } = d
+    const duplicated = await store.add({ ...rest, status: 'Aberta', ticket: undefined })
+    navigate(`/manutencao/${duplicated.id}`)
+  }
+
+  const doExportPdf = () => {
+    const d = store.items.find((x) => x.id === id)
+    if (!d) return
+    const label = (val?: string, arr?: { id: string, nome: string }[]) => arr?.find(a => a.id === val)?.nome || '-'
+    const contrato = md.contratos.find(c => c.id === d.contrato)?.codigo || '-'
+    const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Manutenção ${d.id}</title>
+    <style>body{font-family:Arial, sans-serif; padding:24px;} h1{font-size:18px;} table{width:100%; border-collapse:collapse;} td{padding:6px; border-bottom:1px solid #ddd;} .muted{color:#555;}</style>
+    </head><body>
+    <h1>Manutenção ${d.id}</h1>
+    <table>
+      <tr><td class="muted">Status</td><td>${d.status}</td></tr>
+      <tr><td class="muted">Cliente</td><td>${label(d.cliente, md.clientes)}</td></tr>
+      <tr><td class="muted">Contrato</td><td>${contrato}</td></tr>
+      <tr><td class="muted">Operadora</td><td>${label(d.operadora, md.operadoras)}</td></tr>
+      <tr><td class="muted">Produto</td><td>${label(d.produto, md.produtos)}</td></tr>
+      <tr><td class="muted">Sistema</td><td>${label(d.sistema, md.sistemas)}</td></tr>
+      <tr><td class="muted">Área</td><td>${label(d.area, md.areas)}</td></tr>
+      <tr><td class="muted">Analista</td><td>${label(d.analista, md.analistas)}</td></tr>
+      <tr><td class="muted">Tipo</td><td>${label(d.tipo, md.tiposDemanda)}</td></tr>
+      <tr><td class="muted">Descrição</td><td>${d.descricao ?? '-'}</td></tr>
+      <tr><td class="muted">Atualizado em</td><td>${new Date(d.updatedAt).toLocaleString('pt-BR')}</td></tr>
+    </table>
+    <script>window.onload=()=>window.print()</script>
+    </body></html>`
+    const w = window.open('', '_blank')
+    if (w) {
+      w.document.write(html)
+      w.document.close()
+    }
+  }
+
+  return (
+    <>
+      <IconButton size="small" onClick={handleMenuOpen}>
+        <MoreVertIcon fontSize="small" />
+      </IconButton>
+      <Menu anchorEl={anchorEl} open={!!anchorEl} onClose={handleMenuClose} keepMounted>
+        <MenuItem onClick={() => { handleMenuClose(); navigate(`/manutencao/${id}`) }}>
+          <ListItemIcon><VisibilityIcon fontSize="small" /></ListItemIcon>
+          <ListItemText>Ver</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => { handleMenuClose(); navigate(`/manutencao/${id}/edit`) }}>
+          <ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>
+          <ListItemText>Editar</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => { handleMenuClose(); doDuplicate() }}>
+          <ListItemIcon><FileCopyIcon fontSize="small" /></ListItemIcon>
+          <ListItemText>Duplicar</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => { handleMenuClose(); setOpenStatus(true) }}>
+          <ListItemIcon><SwapHorizIcon fontSize="small" /></ListItemIcon>
+          <ListItemText>Alterar status</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => { handleMenuClose(); doExportPdf() }}>
+          <ListItemIcon><PictureAsPdfIcon fontSize="small" /></ListItemIcon>
+          <ListItemText>Exportar PDF</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => { handleMenuClose(); setOpenDelete(true) }}>
+          <ListItemIcon><DeleteIcon fontSize="small" color="error" /></ListItemIcon>
+          <ListItemText>Excluir</ListItemText>
+        </MenuItem>
+      </Menu>
+
+      <Dialog open={openStatus} onClose={() => setOpenStatus(false)}>
+        <DialogTitle>Alterar status</DialogTitle>
+        <DialogContent>
+          <TextField select label="Novo status" value={newStatus} onChange={(e) => setNewStatus(e.target.value)} sx={{ mt: 1, minWidth: 280 }}>
+            {['Aberta','Em andamento','Aguardando validação','Com erros','Em reajuste','Concluída','Cancelada'].map(s => (
+              <MenuItem key={s} value={s}>{s}</MenuItem>
+            ))}
+          </TextField>
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => setOpenStatus(false)}
+            size="medium"
+            className="text-primary-600 border-primary-300 hover:text-primary-700 hover:border-primary-400 hover:bg-primary-50 transition-all duration-300 font-medium"
+            sx={{
+              borderRadius: '14px',
+              padding: '10px 20px',
+              textTransform: 'none',
+              fontWeight: 500,
+              fontSize: '0.9rem',
+              height: '44px',
+              borderWidth: '2px',
+              '&:hover': {
+                borderWidth: '2px',
+                transform: 'translateY(-2px)',
+                boxShadow: '0 4px 12px 0 rgba(59, 130, 246, 0.15)'
+              }
+            }}
+          >
+            Cancelar
+          </Button>
+          <Button 
+            variant="contained" 
+            onClick={doChangeStatus}
+            size="medium"
+            className="bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-800 hover:to-slate-900 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 font-semibold"
+            sx={{
+              borderRadius: '14px',
+              padding: '10px 20px',
+              textTransform: 'none',
+              fontWeight: 600,
+              fontSize: '0.9rem',
+              height: '44px',
+              minWidth: '100px',
+              boxShadow: '0 4px 14px 0 rgba(15, 23, 42, 0.25)',
+              '&:hover': {
+                boxShadow: '0 8px 25px 0 rgba(15, 23, 42, 0.35)',
+                transform: 'translateY(-2px)'
+              }
+            }}
+          >
+            Confirmar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={openDelete} onClose={() => setOpenDelete(false)}>
+        <DialogTitle>Excluir manutenção</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">Tem certeza que deseja excluir esta manutenção?</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => setOpenDelete(false)}
+            size="medium"
+            className="text-primary-600 border-primary-300 hover:text-primary-700 hover:border-primary-400 hover:bg-primary-50 transition-all duration-300 font-medium"
+            sx={{
+              borderRadius: '14px',
+              padding: '10px 20px',
+              textTransform: 'none',
+              fontWeight: 500,
+              fontSize: '0.9rem',
+              height: '44px',
+              borderWidth: '2px',
+              '&:hover': {
+                borderWidth: '2px',
+                transform: 'translateY(-2px)',
+                boxShadow: '0 4px 12px 0 rgba(59, 130, 246, 0.15)'
+              }
+            }}
+          >
+            Cancelar
+          </Button>
+          <Button 
+            color="error" 
+            variant="contained" 
+            onClick={doDelete}
+            size="medium"
+            className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 font-semibold"
+            sx={{
+              borderRadius: '14px',
+              padding: '10px 20px',
+              textTransform: 'none',
+              fontWeight: 600,
+              fontSize: '0.9rem',
+              height: '44px',
+              minWidth: '100px',
+              boxShadow: '0 4px 14px 0 rgba(220, 38, 38, 0.25)',
+              '&:hover': {
+                boxShadow: '0 8px 25px 0 rgba(220, 38, 38, 0.35)',
+                transform: 'translateY(-2px)'
+              }
+            }}
+          >
+            Excluir
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
+  )
+}

@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug - Filtro Meus Cadastros</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .debug-section {
+            background: #f8f9fa;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border-left: 4px solid #007bff;
+        }
+        .error {
+            background: #fff3cd;
+            border-left-color: #ffc107;
+        }
+        .success {
+            background: #d4edda;
+            border-left-color: #28a745;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Debug - Filtro "Meus Cadastros"</h1>
+        
+        <div class="debug-section">
+            <h3>📊 Dados do Usuário Logado</h3>
+            <div id="userData"></div>
+        </div>
+        
+        <div class="debug-section">
+            <h3>👥 Dados dos Analistas</h3>
+            <div id="analistasData"></div>
+        </div>
+        
+        <div class="debug-section">
+            <h3>📋 Demandas Disponíveis</h3>
+            <div id="demandasData"></div>
+        </div>
+        
+        <div class="debug-section">
+            <h3>🔍 Análise do Filtro</h3>
+            <div id="filtroAnalysis"></div>
+        </div>
+        
+        <div style="text-align: center; margin-top: 20px;">
+            <button onclick="runDebug()">🔄 Executar Debug</button>
+            <button onclick="clearCache()">🧹 Limpar Cache</button>
+        </div>
+    </div>
+
+    <script>
+        function runDebug() {
+            console.log('🔍 Iniciando debug do filtro...')
+            
+            // 1. Dados do usuário
+            const userData = JSON.parse(localStorage.getItem('authStore') || '{}')
+            document.getElementById('userData').innerHTML = `
+                <pre>${JSON.stringify(userData, null, 2)}</pre>
+            `
+            
+            // 2. Dados dos analistas
+            const masterData = JSON.parse(localStorage.getItem('masterDataStore') || '{}')
+            const analistas = masterData.analistas || []
+            document.getElementById('analistasData').innerHTML = `
+                <p><strong>Total de analistas:</strong> ${analistas.length}</p>
+                <pre>${JSON.stringify(analistas.map(a => ({ id: a.id, nome: a.nome })), null, 2)}</pre>
+            `
+            
+            // 3. Demandas
+            const demandStore = JSON.parse(localStorage.getItem('demandStore') || '{}')
+            const demandas = demandStore.items || []
+            document.getElementById('demandasData').innerHTML = `
+                <p><strong>Total de demandas:</strong> ${demandas.length}</p>
+                <pre>${JSON.stringify(demandas.map(d => ({ 
+                    id: d.id, 
+                    ticket: d.ticket,
+                    analista: d.analista,
+                    analistaId: d.analistaId
+                })), null, 2)}</pre>
+            `
+            
+            // 4. Análise do filtro
+            const userId = userData.user?.id
+            const userName = userData.user?.name
+            const userRole = userData.user?.role
+            
+            let analysis = `
+                <h4>🔍 Análise de Compatibilidade:</h4>
+                <p><strong>User ID:</strong> ${userId}</p>
+                <p><strong>User Name:</strong> ${userName}</p>
+                <p><strong>User Role:</strong> ${userRole}</p>
+                <br>
+            `
+            
+            demandas.forEach((demanda, index) => {
+                const analista = analistas.find(a => a.id === demanda.analistaId)
+                
+                const check1 = demanda.analistaId === userId
+                const check2 = analista && analista.nome === userName
+                const check3 = userRole === 'admin' && demanda.analistaId === 'analista-admin'
+                const check4 = demanda.analista === userId
+                const check5 = demanda.analista === userName
+                
+                const isMyDemand = check1 || check2 || check3 || check4 || check5
+                
+                analysis += `
+                    <div class="debug-section ${isMyDemand ? 'success' : 'error'}">
+                        <h5>Demanda ${index + 1}: ${demanda.ticket || 'Sem ticket'}</h5>
+                        <p><strong>Analista ID:</strong> ${demanda.analistaId}</p>
+                        <p><strong>Analista Nome:</strong> ${demanda.analista}</p>
+                        <p><strong>Analista Encontrado:</strong> ${analista ? analista.nome : 'Não encontrado'}</p>
+                        <br>
+                        <p><strong>Verificações:</strong></p>
+                        <ul>
+                            <li>analistaId === userId: ${check1} (${demanda.analistaId} === ${userId})</li>
+                            <li>analista.nome === userName: ${check2} (${analista?.nome} === ${userName})</li>
+                            <li>admin + analista-admin: ${check3}</li>
+                            <li>analista === userId: ${check4} (${demanda.analista} === ${userId})</li>
+                            <li>analista === userName: ${check5} (${demanda.analista} === ${userName})</li>
+                        </ul>
+                        <p><strong>Resultado:</strong> ${isMyDemand ? '✅ SERIA INCLUÍDA' : '❌ SERIA EXCLUÍDA'}</p>
+                    </div>
+                `
+            })
+            
+            document.getElementById('filtroAnalysis').innerHTML = analysis
+        }
+        
+        function clearCache() {
+            localStorage.removeItem('demandStore')
+            localStorage.removeItem('masterDataStore')
+            localStorage.removeItem('authStore')
+            alert('Cache limpo! Recarregue a página para ver os dados atualizados.')
+        }
+        
+        // Executar debug automaticamente ao carregar
+        window.onload = runDebug
+    </script>
+</body>
+</html>

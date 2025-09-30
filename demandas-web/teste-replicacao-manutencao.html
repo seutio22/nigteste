@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Replicação - Manutenções</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 1000px; margin: 0 auto; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .warning { background-color: #fff3cd; border-color: #ffeaa7; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button { padding: 10px 15px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .log { background: #f8f9fa; padding: 10px; border-radius: 3px; font-family: monospace; white-space: pre-wrap; max-height: 400px; overflow-y: auto; }
+        .comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .comparison-item { border: 1px solid #ddd; padding: 10px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔄 Teste Replicação - Manutenções vs Demandas</h1>
+        
+        <div class="section">
+            <h3>📋 Status do Sistema</h3>
+            <div id="status">Carregando...</div>
+        </div>
+
+        <div class="section">
+            <h3>🎯 Testes de Replicação</h3>
+            <button onclick="testarEstrutura()">Testar Estrutura de Dados</button>
+            <button onclick="testarMapeamento()">Testar Mapeamento de IDs</button>
+            <button onclick="testarFiltros()">Testar Filtros</button>
+            <button onclick="testarCriacao()">Testar Criação</button>
+            <button onclick="compararComDemandas()">Comparar com Demandas</button>
+            <button onclick="limparLogs()">Limpar Logs</button>
+        </div>
+
+        <div class="section">
+            <h3>📊 Comparação: Manutenções vs Demandas</h3>
+            <div class="comparison">
+                <div class="comparison-item">
+                    <h4>🔧 Manutenções</h4>
+                    <div id="manutencoes-data">Carregando...</div>
+                </div>
+                <div class="comparison-item">
+                    <h4>📋 Demandas</h4>
+                    <div id="demandas-data">Carregando...</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>📝 Logs</h3>
+            <div id="logs" class="log"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        let logs = [];
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}`;
+            logs.push(logEntry);
+            
+            const logsDiv = document.getElementById('logs');
+            logsDiv.textContent = logs.join('\n');
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+            
+            console.log(logEntry);
+        }
+
+        function limparLogs() {
+            logs = [];
+            document.getElementById('logs').textContent = '';
+        }
+
+        async function testarEstrutura() {
+            log('🔍 Testando estrutura de dados...');
+            
+            try {
+                // Testar manutenções
+                const manutencoesResponse = await fetch('http://localhost:3333/manutencoes', {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                    }
+                });
+                
+                if (manutencoesResponse.ok) {
+                    const manutencoes = await manutencoesResponse.json();
+                    log(`✅ Manutenções carregadas: ${manutencoes.length}`);
+                    
+                    if (manutencoes.length > 0) {
+                        const primeira = manutencoes[0];
+                        log(`📋 Primeira manutenção:`, 'info');
+                        log(`   - ID: ${primeira.id}`);
+                        log(`   - Ticket: ${primeira.ticket}`);
+                        log(`   - Status: ${primeira.status}`);
+                        log(`   - AnalistaId: ${primeira.analistaId || 'N/A'}`);
+                        log(`   - ClienteId: ${primeira.clienteId || 'N/A'}`);
+                        log(`   - ContratoId: ${primeira.contratoId || 'N/A'}`);
+                        log(`   - TipoId: ${primeira.tipoId || 'N/A'}`);
+                        log(`   - TipoServicoId: ${primeira.tipoServicoId || 'N/A'}`);
+                        
+                        // Verificar se tem campos de mapeamento
+                        const temCamposMapeamento = primeira.analistaId || primeira.clienteId || primeira.contratoId;
+                        if (temCamposMapeamento) {
+                            log('✅ Estrutura de dados: SUCESSO - Campos de mapeamento presentes', 'success');
+                        } else {
+                            log('⚠️ Estrutura de dados: ATENÇÃO - Campos de mapeamento ausentes', 'warning');
+                        }
+                    }
+                } else {
+                    log(`❌ Erro ao carregar manutenções: ${manutencoesResponse.status}`, 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ Erro no teste de estrutura: ${error.message}`, 'error');
+            }
+        }
+
+        async function testarMapeamento() {
+            log('🔍 Testando mapeamento de IDs...');
+            
+            try {
+                // Carregar dados mestres
+                const [analistas, clientes, tiposDemanda, tiposServico] = await Promise.all([
+                    fetch('http://localhost:3333/analistas').then(r => r.json()),
+                    fetch('http://localhost:3333/clientes').then(r => r.json()),
+                    fetch('http://localhost:3333/tiposDemanda').then(r => r.json()),
+                    fetch('http://localhost:3333/tiposServico').then(r => r.json())
+                ]);
+                
+                log(`📊 Dados mestres carregados:`);
+                log(`   - Analistas: ${analistas.length}`);
+                log(`   - Clientes: ${clientes.length}`);
+                log(`   - Tipos Demanda: ${tiposDemanda.length}`);
+                log(`   - Tipos Serviço: ${tiposServico.length}`);
+                
+                // Testar mapeamento
+                const manutencoesResponse = await fetch('http://localhost:3333/manutencoes', {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                    }
+                });
+                
+                if (manutencoesResponse.ok) {
+                    const manutencoes = await manutencoesResponse.json();
+                    
+                    if (manutencoes.length > 0) {
+                        const primeira = manutencoes[0];
+                        
+                        // Testar mapeamento de analista
+                        if (primeira.analistaId) {
+                            const analista = analistas.find(a => a.id === primeira.analistaId);
+                            if (analista) {
+                                log(`✅ Mapeamento Analista: ${primeira.analistaId} -> ${analista.nome}`, 'success');
+                            } else {
+                                log(`❌ Mapeamento Analista: ${primeira.analistaId} -> NÃO ENCONTRADO`, 'error');
+                            }
+                        }
+                        
+                        // Testar mapeamento de cliente
+                        if (primeira.clienteId) {
+                            const cliente = clientes.find(c => c.id === primeira.clienteId);
+                            if (cliente) {
+                                log(`✅ Mapeamento Cliente: ${primeira.clienteId} -> ${cliente.nome}`, 'success');
+                            } else {
+                                log(`❌ Mapeamento Cliente: ${primeira.clienteId} -> NÃO ENCONTRADO`, 'error');
+                            }
+                        }
+                        
+                        // Testar mapeamento de tipo
+                        if (primeira.tipoId) {
+                            const tipo = tiposDemanda.find(t => t.id === primeira.tipoId);
+                            if (tipo) {
+                                log(`✅ Mapeamento Tipo: ${primeira.tipoId} -> ${tipo.nome}`, 'success');
+                            } else {
+                                log(`❌ Mapeamento Tipo: ${primeira.tipoId} -> NÃO ENCONTRADO`, 'error');
+                            }
+                        }
+                        
+                        // Testar mapeamento de tipo de serviço
+                        if (primeira.tipoServicoId) {
+                            const tipoServico = tiposServico.find(ts => ts.id === primeira.tipoServicoId);
+                            if (tipoServico) {
+                                log(`✅ Mapeamento Tipo Serviço: ${primeira.tipoServicoId} -> ${tipoServico.nome}`, 'success');
+                            } else {
+                                log(`❌ Mapeamento Tipo Serviço: ${primeira.tipoServicoId} -> NÃO ENCONTRADO`, 'error');
+                            }
+                        }
+                    }
+                }
+                
+            } catch (error) {
+                log(`❌ Erro no teste de mapeamento: ${error.message}`, 'error');
+            }
+        }
+
+        async function testarFiltros() {
+            log('🔍 Testando filtros...');
+            
+            try {
+                // Simular filtro "Minhas Manutenções"
+                const manutencoesResponse = await fetch('http://localhost:3333/manutencoes', {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                    }
+                });
+                
+                if (manutencoesResponse.ok) {
+                    const manutencoes = await manutencoesResponse.json();
+                    log(`📊 Total de manutenções: ${manutencoes.length}`);
+                    
+                    // Simular filtro por analista
+                    const manutencoesComAnalista = manutencoes.filter(m => m.analistaId);
+                    log(`📊 Manutenções com analista: ${manutencoesComAnalista.length}`);
+                    
+                    // Simular filtro por status
+                    const manutencoesAbertas = manutencoes.filter(m => m.status === 'Aberta');
+                    log(`📊 Manutenções abertas: ${manutencoesAbertas.length}`);
+                    
+                    log('✅ Teste de filtros: SUCESSO', 'success');
+                }
+                
+            } catch (error) {
+                log(`❌ Erro no teste de filtros: ${error.message}`, 'error');
+            }
+        }
+
+        async function testarCriacao() {
+            log('🔍 Testando criação de manutenção...');
+            
+            try {
+                const manutencaoData = {
+                    status: 'Aberta',
+                    ticket: `MAN-${new Date().toISOString().slice(0,10).replace(/-/g, '')}-TEST`,
+                    descricao: 'Teste de replicação'
+                };
+                
+                const response = await fetch('http://localhost:3333/manutencoes', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                    },
+                    body: JSON.stringify(manutencaoData)
+                });
+                
+                if (response.ok) {
+                    const manutencao = await response.json();
+                    log(`✅ Manutenção criada: ${manutencao.ticket}`, 'success');
+                    
+                    // Verificar se aparece na listagem
+                    const listResponse = await fetch('http://localhost:3333/manutencoes', {
+                        headers: {
+                            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                        }
+                    });
+                    
+                    if (listResponse.ok) {
+                        const manutencoes = await listResponse.json();
+                        const encontrada = manutencoes.find(m => m.id === manutencao.id);
+                        
+                        if (encontrada) {
+                            log('✅ Manutenção encontrada na listagem!', 'success');
+                        } else {
+                            log('❌ Manutenção NÃO encontrada na listagem', 'error');
+                        }
+                    }
+                } else {
+                    const error = await response.text();
+                    log(`❌ Erro na criação: ${error}`, 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ Erro no teste de criação: ${error.message}`, 'error');
+            }
+        }
+
+        async function compararComDemandas() {
+            log('🔍 Comparando manutenções com demandas...');
+            
+            try {
+                const [manutencoes, demandas] = await Promise.all([
+                    fetch('http://localhost:3333/manutencoes', {
+                        headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+                    }).then(r => r.json()),
+                    fetch('http://localhost:3333/demandas', {
+                        headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+                    }).then(r => r.json())
+                ]);
+                
+                // Atualizar dados na interface
+                document.getElementById('manutencoes-data').innerHTML = `
+                    <strong>Total:</strong> ${manutencoes.length}<br>
+                    <strong>Com analista:</strong> ${manutencoes.filter(m => m.analistaId).length}<br>
+                    <strong>Com cliente:</strong> ${manutencoes.filter(m => m.clienteId).length}<br>
+                    <strong>Com contrato:</strong> ${manutencoes.filter(m => m.contratoId).length}<br>
+                    <strong>Com tipo:</strong> ${manutencoes.filter(m => m.tipoId).length}<br>
+                    <strong>Com tipo serviço:</strong> ${manutencoes.filter(m => m.tipoServicoId).length}
+                `;
+                
+                document.getElementById('demandas-data').innerHTML = `
+                    <strong>Total:</strong> ${demandas.length}<br>
+                    <strong>Com analista:</strong> ${demandas.filter(d => d.analistaId).length}<br>
+                    <strong>Com cliente:</strong> ${demandas.filter(d => d.clienteId).length}<br>
+                    <strong>Com contrato:</strong> ${demandas.filter(d => d.contratoId).length}<br>
+                    <strong>Com tipo:</strong> ${demandas.filter(d => d.tipoId).length}<br>
+                    <strong>Com tipo serviço:</strong> ${demandas.filter(d => d.tipoServicoId).length}
+                `;
+                
+                // Comparar estruturas
+                const manutencaoFields = manutencoes.length > 0 ? Object.keys(manutencoes[0]) : [];
+                const demandaFields = demandas.length > 0 ? Object.keys(demandas[0]) : [];
+                
+                log(`📊 Campos Manutenções: ${manutencaoFields.length}`);
+                log(`📊 Campos Demandas: ${demandaFields.length}`);
+                
+                const camposComuns = manutencaoFields.filter(f => demandaFields.includes(f));
+                const camposDiferentes = manutencaoFields.filter(f => !demandaFields.includes(f));
+                
+                log(`✅ Campos comuns: ${camposComuns.length}`);
+                log(`⚠️ Campos diferentes: ${camposDiferentes.length}`);
+                
+                if (camposDiferentes.length > 0) {
+                    log(`📋 Campos únicos em manutenções: ${camposDiferentes.join(', ')}`);
+                }
+                
+                log('✅ Comparação concluída', 'success');
+                
+            } catch (error) {
+                log(`❌ Erro na comparação: ${error.message}`, 'error');
+            }
+        }
+
+        // Verificar status inicial
+        async function verificarStatus() {
+            try {
+                const response = await fetch('http://localhost:3333/analistas');
+                if (response.ok) {
+                    document.getElementById('status').innerHTML = 
+                        '<div class="success">✅ API funcionando - Sistema pronto para testes</div>';
+                } else {
+                    document.getElementById('status').innerHTML = 
+                        '<div class="error">❌ API não está respondendo</div>';
+                }
+            } catch (error) {
+                document.getElementById('status').innerHTML = 
+                    '<div class="error">❌ Erro de conexão com a API</div>';
+            }
+        }
+
+        // Tornar funções globais
+        window.testarEstrutura = testarEstrutura;
+        window.testarMapeamento = testarMapeamento;
+        window.testarFiltros = testarFiltros;
+        window.testarCriacao = testarCriacao;
+        window.compararComDemandas = compararComDemandas;
+        window.limparLogs = limparLogs;
+
+        // Inicializar
+        verificarStatus();
+        log('🚀 Sistema de teste de replicação carregado');
+    </script>
+</body>
+</html>

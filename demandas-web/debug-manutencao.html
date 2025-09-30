@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Manutenção</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background: #d4edda; border-color: #c3e6cb; }
+        .warning { background: #fff3cd; border-color: #ffeaa7; }
+        .error { background: #f8d7da; border-color: #f5c6cb; }
+        .info { background: #d1ecf1; border-color: #bee5eb; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto; }
+        button { padding: 10px 20px; margin: 5px; border: none; border-radius: 4px; cursor: pointer; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-warning { background: #ffc107; color: black; }
+        .btn-danger { background: #dc3545; color: white; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Debug Manutenção</h1>
+        
+        <div class="section info">
+            <h3>📊 Status dos Dados</h3>
+            <div id="status"></div>
+        </div>
+        
+        <div class="section">
+            <h3>🔧 Testes</h3>
+            <button class="btn-primary" onclick="verificarDados()">Verificar Dados</button>
+            <button class="btn-success" onclick="testarCriacao()">Testar Criação</button>
+            <button class="btn-warning" onclick="testarSincronizacao()">Testar Sincronização</button>
+            <button class="btn-danger" onclick="limparCache()">Limpar Cache</button>
+        </div>
+        
+        <div class="section">
+            <h3>📋 Resultados</h3>
+            <div id="resultados"></div>
+        </div>
+        
+        <div class="section">
+            <h3>🔍 Logs</h3>
+            <div id="logs"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3333';
+        const logs = [];
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}`;
+            logs.push(logEntry);
+            console.log(logEntry);
+            
+            const logsDiv = document.getElementById('logs');
+            logsDiv.innerHTML = `<pre>${logs.slice(-50).join('\n')}</pre>`;
+        }
+
+        function atualizarStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = `<div class="${type}">${message}</div>`;
+        }
+
+        function atualizarResultados(message, type = 'info') {
+            const resultadosDiv = document.getElementById('resultados');
+            resultadosDiv.innerHTML += `<div class="${type}">${message}</div>`;
+        }
+
+        async function verificarDados() {
+            log('🔍 Verificando dados de manutenção...');
+            
+            try {
+                // Verificar endpoint de manutenções
+                const response = await fetch(`${API_BASE}/manutencoes`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    log(`✅ Manutenções encontradas: ${data.length}`);
+                    atualizarResultados(`✅ Manutenções: ${data.length} registros`, 'success');
+                    
+                    if (data.length > 0) {
+                        log('📋 Primeiras 3 manutenções:');
+                        data.slice(0, 3).forEach((item, index) => {
+                            log(`  ${index + 1}. ${item.ticket || item.id} - ${item.status} - ${item.descricao || 'Sem descrição'}`);
+                        });
+                    }
+                } else {
+                    log(`❌ Erro ao carregar manutenções: ${response.status}`);
+                    atualizarResultados(`❌ Erro ao carregar manutenções: ${response.status}`, 'error');
+                }
+                
+                // Verificar localStorage
+                const manutencaoStorage = localStorage.getItem('manutencoes-v1');
+                if (manutencaoStorage) {
+                    const data = JSON.parse(manutencaoStorage);
+                    const manutencoes = data.state?.items || [];
+                    log(`📊 Dados no localStorage: ${manutencoes.length} manutenções`);
+                    atualizarResultados(`📊 localStorage: ${manutencoes.length} manutenções`, 'info');
+                } else {
+                    log('❌ Nenhuma manutenção encontrada no localStorage');
+                    atualizarResultados('❌ Nenhuma manutenção encontrada no localStorage', 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ Erro ao verificar dados: ${error.message}`);
+                atualizarResultados(`❌ Erro ao verificar dados: ${error.message}`, 'error');
+            }
+        }
+
+        async function testarCriacao() {
+            log('🔍 Testando criação de manutenção...');
+            
+            const manutencaoTeste = {
+                status: 'Aberta',
+                ticket: `TEST-${Date.now()}`,
+                clienteId: 'test-cliente-id',
+                contratoId: 'test-contrato-id',
+                operadoraId: 'test-operadora-id',
+                produtoId: 'test-produto-id',
+                descricao: 'Manutenção de teste',
+                analistaId: 'test-analista-id',
+                tipoServicoId: 'test-tipo-servico-id'
+            };
+            
+            try {
+                const response = await fetch(`${API_BASE}/manutencoes`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(manutencaoTeste)
+                });
+                
+                if (response.ok) {
+                    const created = await response.json();
+                    log(`✅ Manutenção criada com sucesso: ${created.id}`);
+                    atualizarResultados(`✅ Manutenção criada: ${created.id}`, 'success');
+                    
+                    // Verificar se aparece na listagem
+                    setTimeout(async () => {
+                        await verificarDados();
+                    }, 1000);
+                } else {
+                    const errorText = await response.text();
+                    log(`❌ Erro ao criar manutenção: ${response.status} - ${errorText}`);
+                    atualizarResultados(`❌ Erro ao criar manutenção: ${response.status} - ${errorText}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Erro na requisição: ${error.message}`);
+                atualizarResultados(`❌ Erro na requisição: ${error.message}`, 'error');
+            }
+        }
+
+        async function testarSincronizacao() {
+            log('🔍 Testando sincronização...');
+            
+            try {
+                // Simular chamada de sincronização
+                const response = await fetch(`${API_BASE}/manutencoes`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    log(`✅ Sincronização: ${data.length} manutenções carregadas`);
+                    atualizarResultados(`✅ Sincronização: ${data.length} manutenções`, 'success');
+                    
+                    // Simular atualização do localStorage
+                    const manutencaoStorage = {
+                        state: {
+                            items: data,
+                            timeline: []
+                        },
+                        version: 0
+                    };
+                    
+                    localStorage.setItem('manutencoes-v1', JSON.stringify(manutencaoStorage));
+                    log('💾 Dados salvos no localStorage');
+                    
+                } else {
+                    log(`❌ Erro na sincronização: ${response.status}`);
+                    atualizarResultados(`❌ Erro na sincronização: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Erro na sincronização: ${error.message}`);
+                atualizarResultados(`❌ Erro na sincronização: ${error.message}`, 'error');
+            }
+        }
+
+        function limparCache() {
+            log('🧹 Limpando cache...');
+            
+            // Limpar localStorage
+            localStorage.removeItem('manutencoes-v1');
+            localStorage.removeItem('manutencoes-list-view-v1');
+            localStorage.removeItem('manutencoes-user-filter-v1');
+            
+            log('✅ Cache limpo');
+            atualizarResultados('✅ Cache limpo', 'success');
+            
+            // Recarregar a página
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        }
+
+        // Executar ao carregar a página
+        window.onload = function() {
+            log('🔍 Página de debug carregada');
+            verificarDados();
+        };
+    </script>
+</body>
+</html>

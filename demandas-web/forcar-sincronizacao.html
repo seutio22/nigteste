@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forçar Sincronização - Demandas</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background: #d4edda; border-color: #c3e6cb; }
+        .warning { background: #fff3cd; border-color: #ffeaa7; }
+        .error { background: #f8d7da; border-color: #f5c6cb; }
+        .info { background: #d1ecf1; border-color: #bee5eb; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto; }
+        button { padding: 10px 20px; margin: 5px; border: none; border-radius: 4px; cursor: pointer; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-warning { background: #ffc107; color: black; }
+        .btn-danger { background: #dc3545; color: white; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔄 Forçar Sincronização - Demandas</h1>
+        
+        <div class="section info">
+            <h3>📊 Status Atual</h3>
+            <div id="status"></div>
+        </div>
+        
+        <div class="section">
+            <h3>🔧 Ações de Sincronização</h3>
+            <button class="btn-primary" onclick="verificarDados()">Verificar Dados Atuais</button>
+            <button class="btn-success" onclick="sincronizarDemandas()">Sincronizar Demandas</button>
+            <button class="btn-warning" onclick="sincronizarMasterData()">Sincronizar Dados Mestres</button>
+            <button class="btn-danger" onclick="limparTudo()">Limpar Tudo e Sincronizar</button>
+        </div>
+        
+        <div class="section">
+            <h3>📋 Resultados</h3>
+            <div id="resultados"></div>
+        </div>
+        
+        <div class="section">
+            <h3>🔍 Logs</h3>
+            <div id="logs"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3333';
+        const logs = [];
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}`;
+            logs.push(logEntry);
+            console.log(logEntry);
+            
+            const logsDiv = document.getElementById('logs');
+            logsDiv.innerHTML = `<pre>${logs.slice(-50).join('\n')}</pre>`;
+        }
+
+        function atualizarStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = `<div class="${type}">${message}</div>`;
+        }
+
+        function atualizarResultados(message, type = 'info') {
+            const resultadosDiv = document.getElementById('resultados');
+            resultadosDiv.innerHTML += `<div class="${type}">${message}</div>`;
+        }
+
+        async function verificarDados() {
+            log('🔍 Verificando dados atuais...');
+            
+            // Verificar localStorage
+            const demandasStorage = localStorage.getItem('demandStore');
+            const masterDataStorage = localStorage.getItem('master-data-store');
+            const authStorage = localStorage.getItem('auth-v1');
+            
+            log('📦 Demandas no localStorage:', demandasStorage ? 'Presente' : 'Ausente');
+            log('📦 MasterData no localStorage:', masterDataStorage ? 'Presente' : 'Ausente');
+            log('📦 Auth no localStorage:', authStorage ? 'Presente' : 'Ausente');
+            
+            if (demandasStorage) {
+                const data = JSON.parse(demandasStorage);
+                const demandas = data.state?.items || [];
+                log(`📋 Demandas carregadas: ${demandas.length}`);
+                atualizarResultados(`📋 Demandas no localStorage: ${demandas.length}`, 'info');
+            }
+            
+            if (masterDataStorage) {
+                const data = JSON.parse(masterDataStorage);
+                const masterData = data.state || {};
+                log(`🏢 Dados mestres carregados: ${Object.keys(masterData).length} tipos`);
+                atualizarResultados(`🏢 Dados mestres: ${Object.keys(masterData).length} tipos`, 'info');
+            }
+        }
+
+        async function sincronizarDemandas() {
+            log('🔄 Sincronizando demandas...');
+            atualizarStatus('🔄 Sincronizando demandas...', 'warning');
+            
+            try {
+                const response = await fetch(`${API_BASE}/demandas`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    log(`✅ Demandas sincronizadas: ${data.length} registros`);
+                    atualizarResultados(`✅ Demandas sincronizadas: ${data.length} registros`, 'success');
+                    
+                    // Atualizar localStorage
+                    const demandasData = {
+                        state: {
+                            items: data,
+                            timeline: [],
+                            isLoading: false
+                        },
+                        version: 0
+                    };
+                    
+                    localStorage.setItem('demandStore', JSON.stringify(demandasData));
+                    log('💾 Demandas salvas no localStorage');
+                    
+                    // Recarregar a página
+                    setTimeout(() => {
+                        window.location.href = '/cadastro';
+                    }, 2000);
+                } else {
+                    log('❌ Erro ao sincronizar demandas: ' + response.status);
+                    atualizarResultados('❌ Erro ao sincronizar demandas: ' + response.status, 'error');
+                }
+            } catch (error) {
+                log('❌ Erro na sincronização de demandas: ' + error.message);
+                atualizarResultados('❌ Erro na sincronização de demandas: ' + error.message, 'error');
+            }
+        }
+
+        async function sincronizarMasterData() {
+            log('🔄 Sincronizando dados mestres...');
+            atualizarStatus('🔄 Sincronizando dados mestres...', 'warning');
+            
+            try {
+                const endpoints = [
+                    { name: 'clientes', url: '/clientes' },
+                    { name: 'contratos', url: '/contratos' },
+                    { name: 'analistas', url: '/analistas' },
+                    { name: 'areas', url: '/areas' },
+                    { name: 'tiposCadastro', url: '/tiposCadastro' },
+                    { name: 'tiposServico', url: '/tiposServico' },
+                    { name: 'tiposDemanda', url: '/tiposDemanda' }
+                ];
+                
+                const masterData = {};
+                
+                for (const endpoint of endpoints) {
+                    try {
+                        const response = await fetch(`${API_BASE}${endpoint.url}`);
+                        const data = await response.json();
+                        
+                        if (response.ok) {
+                            masterData[endpoint.name] = data;
+                            log(`✅ ${endpoint.name}: ${data.length} registros`);
+                        } else {
+                            log(`❌ ${endpoint.name}: Erro ${response.status}`);
+                            masterData[endpoint.name] = [];
+                        }
+                    } catch (error) {
+                        log(`❌ ${endpoint.name}: ${error.message}`);
+                        masterData[endpoint.name] = [];
+                    }
+                }
+                
+                // Atualizar localStorage
+                const masterDataStorage = {
+                    state: masterData,
+                    version: 0
+                };
+                
+                localStorage.setItem('master-data-store', JSON.stringify(masterDataStorage));
+                log('💾 Dados mestres salvos no localStorage');
+                
+                atualizarResultados('✅ Dados mestres sincronizados e salvos', 'success');
+                
+                // Recarregar a página
+                setTimeout(() => {
+                    window.location.href = '/cadastro';
+                }, 2000);
+                
+            } catch (error) {
+                log('❌ Erro na sincronização de dados mestres: ' + error.message);
+                atualizarResultados('❌ Erro na sincronização de dados mestres: ' + error.message, 'error');
+            }
+        }
+
+        async function limparTudo() {
+            log('🧹 Limpando tudo e sincronizando...');
+            atualizarStatus('🧹 Limpando tudo e sincronizando...', 'warning');
+            
+            // Limpar localStorage
+            localStorage.removeItem('demandStore');
+            localStorage.removeItem('master-data-store');
+            localStorage.removeItem('auth-v1');
+            localStorage.removeItem('demands-list-view-v1');
+            localStorage.removeItem('demands-user-filter-v1');
+            
+            log('✅ localStorage limpo');
+            atualizarResultados('✅ localStorage limpo', 'success');
+            
+            // Sincronizar tudo
+            await sincronizarDemandas();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            await sincronizarMasterData();
+        }
+
+        // Executar ao carregar a página
+        window.onload = function() {
+            log('🔍 Página de sincronização carregada');
+            verificarDados();
+        };
+    </script>
+</body>
+</html>

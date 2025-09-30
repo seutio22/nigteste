@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Limpar Cache - Analistas</title>
+</head>
+<body>
+    <h1>Limpar Cache - Analistas</h1>
+    <button onclick="clearCache()">Limpar Cache e Recarregar</button>
+    
+    <script>
+        function clearCache() {
+            console.log('🧹 Limpando cache...');
+            
+            // Limpar localStorage
+            try {
+                localStorage.removeItem('masterDataStore');
+                localStorage.removeItem('demandas-web-masterDataStore');
+                console.log('✅ localStorage limpo');
+            } catch (e) {
+                console.error('❌ Erro ao limpar localStorage:', e);
+            }
+            
+            // Limpar sessionStorage
+            try {
+                sessionStorage.clear();
+                console.log('✅ sessionStorage limpo');
+            } catch (e) {
+                console.error('❌ Erro ao limpar sessionStorage:', e);
+            }
+            
+            // Recarregar página
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        }
+        
+        // Mostrar dados atuais
+        console.log('🔍 Dados atuais no localStorage:');
+        try {
+            const masterData = localStorage.getItem('masterDataStore');
+            if (masterData) {
+                const parsed = JSON.parse(masterData);
+                console.log('📊 Analistas no cache:', parsed.state?.analistas);
+            } else {
+                console.log('📊 Nenhum dado encontrado no cache');
+            }
+        } catch (e) {
+            console.error('❌ Erro ao ler cache:', e);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,773 @@
+import { useParams, useNavigate } from 'react-router-dom'
+import { useReajusteStore } from '../../store/reajusteStore'
+import { useMasterDataStore } from '../../store/masterDataStore'
+import { useTimelineStore } from '../../store/timelineStore'
+import { useAuthStore } from '../../store/authStore'
+import { ArrowLeft, Edit3, Save, Clock } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import { StatusBadge } from '../../components/StatusBadge'
+import { Timeline } from '../../components/Timeline'
+import { fmt, calcTempo } from '../../lib/utils'
+
+export default function ReajusteDetailPage() {
+  const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
+  const store = useReajusteStore()
+  const md = useMasterDataStore()
+  const reajuste = store.items.find(r => r.id === id)
+
+  if (!reajuste) {
+    return (
+      <div className="p-6">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-gray-900">Reajuste não encontrado</h2>
+          <p className="text-gray-600 mt-2">O reajuste solicitado não foi encontrado.</p>
+        </div>
+      </div>
+    )
+  }
+
+  const label = (id?: string, arr?: { id: string, nome: string }[]) => 
+    arr?.find(a => a.id === id)?.nome || '-'
+
+  // Função para gerar um título amigável para o reajuste
+  const getReajusteTitle = (reajuste: any) => {
+    // Prioridade 1: Mês/Ano + Cliente (se existir)
+    if (reajuste.mes && reajuste.ano) {
+      const mesAno = `${reajuste.mes}/${reajuste.ano}`
+      if (reajuste.cliente) {
+        const clienteNome = md.clientes.find(c => c.id === reajuste.cliente)?.nome
+        if (clienteNome) {
+          return `${mesAno} - ${clienteNome}`
+        }
+      }
+      return mesAno
+    }
+    
+    // Prioridade 2: Cliente (se existir)
+    if (reajuste.cliente) {
+      const clienteNome = md.clientes.find(c => c.id === reajuste.cliente)?.nome
+      if (clienteNome) {
+        return clienteNome
+      }
+    }
+    
+    // Prioridade 3: Operadora (se existir)
+    if (reajuste.operadora) {
+      const operadoraNome = md.operadoras.find(o => o.id === reajuste.operadora)?.nome
+      if (operadoraNome) {
+        return operadoraNome
+      }
+    }
+    
+    // Prioridade 4: Filial (se existir)
+    if (reajuste.filial && reajuste.filial.trim()) {
+      return reajuste.filial
+    }
+    
+    // Prioridade 5: Descrição (primeiras 30 caracteres)
+    if (reajuste.descricao && reajuste.descricao.trim()) {
+      const desc = reajuste.descricao.trim()
+      return desc.length > 30 ? `${desc.substring(0, 30)}...` : desc
+    }
+    
+    // Prioridade 6: Data de criação formatada
+    if (reajuste.createdAt) {
+      const date = new Date(reajuste.createdAt)
+      return date.toLocaleDateString('pt-BR')
+    }
+    
+    // Fallback: ID curto (primeiros 8 caracteres)
+    return reajuste.id.substring(0, 8)
+  }
+
+  return (
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center gap-4">
+        <button
+          onClick={() => navigate('/reajuste')}
+          className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <div className="flex-1">
+          <h1 className="text-2xl font-bold text-gray-900">
+            Reajuste {getReajusteTitle(reajuste)}
+          </h1>
+          <p className="text-gray-600 mt-1">
+            Criado em {fmt(reajuste.createdAt)}
+          </p>
+        </div>
+        <StatusBadge status={reajuste.status || 'Ativo'} />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main Content */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Resumo do Reajuste */}
+          <div className="bg-white p-6 rounded-lg border shadow-sm">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Resumo do Reajuste</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                <div>
+                  <p className="text-sm text-gray-500">Mês/Ano</p>
+                  <p className="font-medium">{reajuste.mes}/{reajuste.ano}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                <div>
+                  <p className="text-sm text-gray-500">Status</p>
+                  <p className="font-medium">{reajuste.status || '-'}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
+                <div>
+                  <p className="text-sm text-gray-500">Operadora</p>
+                  <p className="font-medium">{label(reajuste.operadora, md.operadoras)}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+                <div>
+                  <p className="text-sm text-gray-500">Analista Responsável</p>
+                  <p className="font-medium">{label(reajuste.responsavelAnalista, md.analistas)}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                <div>
+                  <p className="text-sm text-gray-500">Cliente</p>
+                  <p className="font-medium">{label(reajuste.cliente, md.clientes)}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                <div>
+                  <p className="text-sm text-gray-500">Ticket</p>
+                  <p className="font-medium">{reajuste.ticket || '-'}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                <div className="w-3 h-3 bg-pink-500 rounded-full"></div>
+                <div>
+                  <p className="text-sm text-gray-500">Solicitante</p>
+                  <p className="font-medium">{label(reajuste.solicitante, md.solicitantes)}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                <div className="w-3 h-3 bg-teal-500 rounded-full"></div>
+                <div>
+                  <p className="text-sm text-gray-500">Filial</p>
+                  <p className="font-medium">{reajuste.filial || '-'}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                <div className="w-3 h-3 bg-cyan-500 rounded-full"></div>
+                <div>
+                  <p className="text-sm text-gray-500">Responsável da Conta</p>
+                  <p className="font-medium">{reajuste.responsavelConta || '-'}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                <div className="w-3 h-3 bg-lime-500 rounded-full"></div>
+                <div>
+                  <p className="text-sm text-gray-500">Qualidade (prazo)</p>
+                  <p className="font-medium">{reajuste.qualidade || '-'}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                <div className="w-3 h-3 bg-amber-500 rounded-full"></div>
+                <div>
+                  <p className="text-sm text-gray-500">Qualidade da Informação</p>
+                  <p className="font-medium">{reajuste.qualidadeInformacao || '-'}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                <div className="w-3 h-3 bg-emerald-500 rounded-full"></div>
+                <div>
+                  <p className="text-sm text-gray-500">Planos</p>
+                  <p className="font-medium">{reajuste.planos || '-'}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                <div className="w-3 h-3 bg-violet-500 rounded-full"></div>
+                <div>
+                  <p className="text-sm text-gray-500">Data de Início</p>
+                  <p className="font-medium">{reajuste.dataInicio ? new Date(reajuste.dataInicio).toLocaleDateString('pt-BR') : '-'}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                <div className="w-3 h-3 bg-rose-500 rounded-full"></div>
+                <div>
+                  <p className="text-sm text-gray-500">Data de Finalização</p>
+                  <p className="font-medium">{reajuste.dataFim ? new Date(reajuste.dataFim).toLocaleDateString('pt-BR') : '-'}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                <div className="w-3 h-3 bg-slate-500 rounded-full"></div>
+                <div>
+                  <p className="text-sm text-gray-500">Data de Atualização</p>
+                  <p className="font-medium">{reajuste.dataAtualizacao ? new Date(reajuste.dataAtualizacao).toLocaleDateString('pt-BR') : '-'}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+                <div>
+                  <p className="text-sm text-gray-500">Itens Pendentes</p>
+                  <p className="font-medium">{reajuste.itensPendentes || 0}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                <div>
+                  <p className="text-sm text-gray-500">Itens Concluídos</p>
+                  <p className="font-medium">{reajuste.itensConcluidos || 0}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Descrição */}
+          <div className="bg-white p-6 rounded-lg border shadow-sm">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Descrição</h2>
+            <div className="min-h-[200px] p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <p className="text-gray-700 whitespace-pre-wrap">
+                {reajuste.descricao || 'Nenhuma descrição fornecida para este reajuste.'}
+              </p>
+            </div>
+          </div>
+
+          {/* Edição do Reajuste */}
+          <div className="bg-white p-6 rounded-lg border shadow-sm">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <Edit3 className="w-5 h-5 text-blue-600" />
+              Editar Reajuste
+            </h2>
+            <EditInline reajuste={reajuste} />
+          </div>
+
+          {/* Informações Adicionais */}
+          <div className="bg-white p-6 rounded-lg border shadow-sm">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Informações Adicionais</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-gray-500">Tipo de Reajuste</p>
+                <p className="font-medium">{reajuste.tipoReajuste || '-'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Percentual</p>
+                <p className="font-medium">{reajuste.percentual ? `${reajuste.percentual}%` : '-'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Data de Aplicação</p>
+                <p className="font-medium">{reajuste.dataAplicacao || '-'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Observações</p>
+                <p className="font-medium">{reajuste.observacoes || '-'}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Coluna Lateral - Indicadores e Timeline */}
+        <div className="space-y-6">
+          {/* Indicadores */}
+          <div className="bg-white p-6 rounded-lg border shadow-sm">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Indicadores</h2>
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                <div>
+                  <p className="text-sm text-gray-500">Status Atual</p>
+                  <p className="font-medium">{reajuste.status}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                <div>
+                  <p className="text-sm text-gray-500">Última Atualização</p>
+                  <p className="font-medium">{fmt(reajuste.updatedAt)}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Histórico de Alterações */}
+          <div className="bg-white p-6 rounded-lg border shadow-sm">
+            <Timeline entityId={id!} entityType="reajuste" />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Componente de Edição Inline
+function EditInline({ reajuste }: { reajuste: any }) {
+  const md = useMasterDataStore()
+  const store = useReajusteStore()
+  const { user } = useAuthStore()
+  const [draft, setDraft] = useState(reajuste)
+  const [confirmOpen, setConfirmOpen] = useState(false)
+
+  useEffect(() => {
+    // Inicializar draft com valores padrão para campos vazios
+    const initialDraft = {
+      ...reajuste,
+      mes: reajuste.mes || '',
+      ano: reajuste.ano || '',
+      dataInicio: reajuste.dataInicio ?? '',
+      dataFim: reajuste.dataFim ?? '',
+      status: reajuste.status || '',
+      operadora: reajuste.operadora || '',
+      qualidade: reajuste.qualidade || '',
+      qualidadeInformacao: reajuste.qualidadeInformacao || '',
+      planos: reajuste.planos || '',
+      responsavelConta: reajuste.responsavelConta || '',
+      filial: reajuste.filial || '',
+      ticket: reajuste.ticket || '',
+      solicitante: reajuste.solicitante || '',
+      responsavelAnalista: reajuste.responsavelAnalista || '',
+      cliente: reajuste.cliente || '',
+      contrato: reajuste.contrato || '',
+      produto: reajuste.produto || '',
+      dataAtualizacao: reajuste.dataAtualizacao || '',
+      itensPendentes: reajuste.itensPendentes ?? undefined,
+      itensConcluidos: reajuste.itensConcluidos ?? undefined
+    }
+    
+    
+    setDraft(initialDraft)
+  }, [reajuste.id])
+
+  const changedKeys = useMemo(() => {
+    const keys = ['mes', 'ano', 'dataInicio', 'dataFim', 'status', 'operadora', 'qualidade', 'qualidadeInformacao', 'planos', 'responsavelConta', 'filial', 'ticket', 'solicitante', 'responsavelAnalista', 'cliente', 'contrato', 'produto', 'dataAtualizacao', 'itensPendentes', 'itensConcluidos'] as const
+    return keys.filter((k) => {
+      const reajusteValue = reajuste[k as keyof typeof reajuste]
+      const draftValue = draft[k as keyof typeof draft]
+      
+      // Normalizar valores para comparação
+      const normalizeValue = (value: any) => {
+        if (value === null || value === undefined || value === '') return ''
+        if (typeof value === 'string') return value.trim()
+        if (typeof value === 'number') return value.toString()
+        return String(value)
+      }
+      
+      const normalizedReajuste = normalizeValue(reajusteValue)
+      const normalizedDraft = normalizeValue(draftValue)
+      
+      // Para campos numéricos, tratar valores vazios como iguais
+      if (['itensPendentes', 'itensConcluidos'].includes(k)) {
+        // Se ambos os valores são vazios (null, undefined, '', 0), não houve alteração
+        const isReajusteEmpty = reajusteValue === null || reajusteValue === undefined || reajusteValue === '' || reajusteValue === 0
+        const isDraftEmpty = draftValue === null || draftValue === undefined || draftValue === '' || draftValue === 0
+        
+        if (isReajusteEmpty && isDraftEmpty) return false
+        
+        // Se um é vazio e outro não, houve alteração
+        if (isReajusteEmpty || isDraftEmpty) return true
+        
+        // Comparar valores numéricos
+        return Number(reajusteValue) !== Number(draftValue)
+      }
+      
+      // Para campos de data, tratar valores vazios como iguais
+      if (['dataInicio', 'dataFim', 'dataAtualizacao'].includes(k)) {
+        // Se ambos os valores são vazios (null, undefined, ''), não houve alteração
+        const isReajusteEmpty = reajusteValue === null || reajusteValue === undefined || reajusteValue === ''
+        const isDraftEmpty = draftValue === null || draftValue === undefined || draftValue === ''
+        
+        if (isReajusteEmpty && isDraftEmpty) return false
+        
+        // Se um é vazio e outro não, houve alteração
+        if (isReajusteEmpty || isDraftEmpty) return true
+        
+        // Comparar valores de data
+        return String(reajusteValue) !== String(draftValue)
+      }
+      
+      // Só considerar alterado se ambos os valores não estiverem vazios e forem diferentes
+      if (normalizedReajuste === '' && normalizedDraft === '') return false
+      if (normalizedReajuste === normalizedDraft) return false
+      
+      return true
+    })
+  }, [reajuste, draft])
+
+  function applySave() {
+    // O reajusteStore.upsert() já registra automaticamente as alterações no histórico
+    // Não precisamos fazer log manual aqui para evitar duplicação
+    store.upsert(draft)
+    setConfirmOpen(false)
+  }
+
+
+  // Filtrar contratos por cliente (igual à página de criação)
+  const selectedClienteId = draft.cliente
+  const grupoDoCliente = md.clientes.find(c => c.id === selectedClienteId)?.grupoEconomico
+  const contratosDoCliente = md.contratos.filter((c: any) => 
+    c.clienteId === selectedClienteId || 
+    (grupoDoCliente && c.grupoEconomico === grupoDoCliente)
+  )
+
+  return (
+    <div className="space-y-6">
+      {/* Informações Básicas */}
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Informações Básicas</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* Mês */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Mês *</label>
+            <select
+              value={draft.mes || ''}
+              onChange={(e) => setDraft({ ...draft, mes: e.target.value || undefined })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              required
+            >
+              <option value="">Selecione o mês</option>
+              <option value="1">Janeiro</option>
+              <option value="2">Fevereiro</option>
+              <option value="3">Março</option>
+              <option value="4">Abril</option>
+              <option value="5">Maio</option>
+              <option value="6">Junho</option>
+              <option value="7">Julho</option>
+              <option value="8">Agosto</option>
+              <option value="9">Setembro</option>
+              <option value="10">Outubro</option>
+              <option value="11">Novembro</option>
+              <option value="12">Dezembro</option>
+            </select>
+          </div>
+
+          {/* Ano */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Ano *</label>
+            <input
+              type="number"
+              min="2000"
+              value={draft.ano || ''}
+              onChange={(e) => setDraft({ ...draft, ano: e.target.value || undefined })}
+              placeholder="Ex: 2024"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              required
+            />
+          </div>
+
+          {/* Status */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Status *</label>
+            <select
+              value={draft.status || ''}
+              onChange={(e) => setDraft({ ...draft, status: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              required
+            >
+              <option value="">Selecione...</option>
+              <option value="Pendente">Pendente</option>
+              <option value="Em Andamento">Em Andamento</option>
+              <option value="Concluído">Concluído</option>
+              <option value="Cancelado">Cancelado</option>
+            </select>
+          </div>
+
+          {/* Ticket */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Ticket</label>
+            <input
+              type="text"
+              value={draft.ticket || ''}
+              onChange={(e) => setDraft({ ...draft, ticket: e.target.value || undefined })}
+              placeholder="Número do ticket"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          {/* Data de Início */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Data de Início</label>
+            <input
+              type="date"
+              value={draft.dataInicio ? draft.dataInicio.split('T')[0] : ''}
+              onChange={(e) => setDraft({ ...draft, dataInicio: e.target.value || undefined })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          {/* Data de Finalização */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Data de Finalização</label>
+            <input
+              type="date"
+              value={draft.dataFim ? draft.dataFim.split('T')[0] : ''}
+              onChange={(e) => setDraft({ ...draft, dataFim: e.target.value || undefined })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Informações do Cliente e Operadora */}
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Informações do Cliente e Operadora</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* Operadora */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Operadora *</label>
+            <select
+              value={draft.operadora || ''}
+              onChange={(e) => setDraft({ ...draft, operadora: e.target.value || undefined })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              required
+            >
+              <option value="">Selecione...</option>
+              {md.operadoras.map(o => <option key={o.id} value={o.id}>{o.nome}</option>)}
+            </select>
+          </div>
+
+          {/* Cliente */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Cliente</label>
+            <select
+              value={draft.cliente || ''}
+              onChange={(e) => setDraft({ ...draft, cliente: e.target.value || undefined, contrato: '' })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">Selecione...</option>
+              {md.clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+            </select>
+          </div>
+
+          {/* Contrato */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Contrato</label>
+            <select
+              value={draft.contrato || ''}
+              onChange={(e) => setDraft({ ...draft, contrato: e.target.value || undefined })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">Selecione...</option>
+              {contratosDoCliente.length > 0 ? (
+                contratosDoCliente.map(ct => <option key={ct.id} value={ct.id}>{(ct as any).codigo || (ct as any).numero}</option>)
+              ) : (
+                <option disabled>
+                  {selectedClienteId ? 'Nenhum contrato encontrado para este cliente' : 'Selecione um cliente primeiro'}
+                </option>
+              )}
+            </select>
+          </div>
+
+          {/* Produto */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Produto</label>
+            <select
+              value={draft.produto || ''}
+              onChange={(e) => setDraft({ ...draft, produto: e.target.value || undefined })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">Selecione...</option>
+              {md.produtos.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Informações de Responsabilidade */}
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Informações de Responsabilidade</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* Analista Responsável */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Analista Responsável *</label>
+            <select
+              value={draft.responsavelAnalista || ''}
+              onChange={(e) => setDraft({ ...draft, responsavelAnalista: e.target.value || undefined })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              required
+            >
+              <option value="">Selecione...</option>
+              {md.analistas.map(a => <option key={a.id} value={a.id}>{a.nome}</option>)}
+            </select>
+          </div>
+
+          {/* Responsável da Conta */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Responsável da Conta</label>
+            <input
+              type="text"
+              value={draft.responsavelConta || ''}
+              onChange={(e) => setDraft({ ...draft, responsavelConta: e.target.value || undefined })}
+              placeholder="Nome do responsável"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          {/* Solicitante */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Solicitante</label>
+            <select
+              value={draft.solicitante || ''}
+              onChange={(e) => setDraft({ ...draft, solicitante: e.target.value || undefined })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">Selecione...</option>
+              {md.solicitantes.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
+            </select>
+          </div>
+
+          {/* Filial */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Filial</label>
+            <input
+              type="text"
+              value={draft.filial || ''}
+              onChange={(e) => setDraft({ ...draft, filial: e.target.value || undefined })}
+              placeholder="Nome da filial"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Informações de Qualidade e Planos */}
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Informações de Qualidade e Planos</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* Qualidade (prazo) */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Qualidade (prazo)</label>
+            <select
+              value={draft.qualidade || ''}
+              onChange={(e) => setDraft({ ...draft, qualidade: e.target.value || undefined })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">Selecione...</option>
+              <option value="ANTIGO">ANTIGO</option>
+              <option value="FORA DO PRAZO">FORA DO PRAZO</option>
+              <option value="NO PRAZO">NO PRAZO</option>
+            </select>
+          </div>
+
+          {/* Qualidade da Informação */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Qualidade da Informação</label>
+            <select
+              value={draft.qualidadeInformacao || ''}
+              onChange={(e) => setDraft({ ...draft, qualidadeInformacao: e.target.value || undefined })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">Selecione...</option>
+              <option value="ERRO NOS DADOS">ERRO NOS DADOS</option>
+              <option value="FALTA DE DADOS">FALTA DE DADOS</option>
+              <option value="OK">OK</option>
+            </select>
+          </div>
+
+          {/* Planos */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Planos</label>
+            <select
+              value={draft.planos || ''}
+              onChange={(e) => setDraft({ ...draft, planos: e.target.value || undefined })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">Selecione...</option>
+              <option value="PENDENTE ATUALIZAÇÃO">PENDENTE ATUALIZAÇÃO</option>
+              <option value="OK">OK</option>
+            </select>
+          </div>
+
+          {/* Data de Atualização */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Data de Atualização</label>
+            <input
+              type="date"
+              value={draft.dataAtualizacao ? draft.dataAtualizacao.split('T')[0] : ''}
+              onChange={(e) => setDraft({ ...draft, dataAtualizacao: e.target.value || undefined })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          {/* Itens Pendentes */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Itens Pendentes</label>
+            <input
+              type="number"
+              min="0"
+              value={draft.itensPendentes || ''}
+              onChange={(e) => setDraft({ ...draft, itensPendentes: e.target.value ? parseInt(e.target.value) : undefined })}
+              placeholder="0"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          {/* Itens Concluídos */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Itens Concluídos</label>
+            <input
+              type="number"
+              min="0"
+              value={draft.itensConcluidos || ''}
+              onChange={(e) => setDraft({ ...draft, itensConcluidos: e.target.value ? parseInt(e.target.value) : undefined })}
+              placeholder="0"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Botão de salvar */}
+      <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+        <button
+          disabled={changedKeys.length === 0}
+          onClick={() => setConfirmOpen(true)}
+          className="px-4 py-2 bg-blue-500 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-600 transition-colors"
+        >
+          <Save className="w-4 h-4 mr-2 inline" />
+          Salvar alterações
+        </button>
+        {changedKeys.length > 0 && (
+          <span className="text-sm text-gray-600">
+            {changedKeys.length} alteração(ões) pendente(s)
+          </span>
+        )}
+      </div>
+
+      {/* Modal de confirmação */}
+      {confirmOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Confirmar alterações</h3>
+            <p className="text-gray-600 mb-6">
+              Aplicar {changedKeys.length} alteração(ões) neste reajuste?
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setConfirmOpen(false)}
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={applySave}
+                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Componente Timeline será importado
+

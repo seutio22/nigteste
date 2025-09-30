@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste de Upload - Contratos</title>
+    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .upload-area { border: 2px dashed #ccc; padding: 20px; text-align: center; margin: 20px 0; }
+        .upload-area.dragover { border-color: #007bff; background-color: #f8f9fa; }
+        .result { margin: 20px 0; padding: 15px; border-radius: 5px; }
+        .success { background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .error { background-color: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+        .info { background-color: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .btn { background-color: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; }
+        .btn:hover { background-color: #0056b3; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Teste de Upload - Contratos</h1>
+        
+        <div class="upload-area" id="uploadArea">
+            <p><strong>Arraste e solte um arquivo Excel aqui</strong></p>
+            <p>ou</p>
+            <input type="file" id="fileInput" accept=".xlsx,.xls" style="display: none;">
+            <button class="btn" onclick="document.getElementById('fileInput').click()">Selecionar Arquivo</button>
+        </div>
+
+        <div id="result"></div>
+        
+        <div id="dataPreview" style="display: none;">
+            <h3>📊 Dados Processados:</h3>
+            <div id="previewContent"></div>
+        </div>
+    </div>
+
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const result = document.getElementById('result');
+        const dataPreview = document.getElementById('dataPreview');
+        const previewContent = document.getElementById('previewContent');
+
+        // Event listeners para drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                processFile(files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                processFile(e.target.files[0]);
+            }
+        });
+
+        function processFile(file) {
+            if (!file.name.match(/\.(xlsx|xls)$/)) {
+                showResult('❌ Por favor, selecione um arquivo Excel (.xlsx ou .xls)', 'error');
+                return;
+            }
+
+            showResult('🔄 Processando arquivo...', 'info');
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    
+                    console.log('📁 Abas encontradas:', workbook.SheetNames);
+                    
+                    // Procurar pela aba de contratos
+                    const contratosSheet = workbook.Sheets['Contratos'] || workbook.Sheets['contratos'];
+                    
+                    if (!contratosSheet) {
+                        showResult('❌ Aba "Contratos" não encontrada no arquivo', 'error');
+                        return;
+                    }
+
+                    const jsonData = XLSX.utils.sheet_to_json(contratosSheet, { header: 1 });
+                    
+                    if (jsonData.length < 2) {
+                        showResult('❌ Aba "Contratos" está vazia ou sem dados', 'error');
+                        return;
+                    }
+
+                    const headers = jsonData[0];
+                    const rows = jsonData.slice(1);
+                    
+                    console.log('📋 Headers:', headers);
+                    console.log('📊 Primeiras linhas:', rows.slice(0, 3));
+                    
+                    // Processar dados de contratos
+                    const contratosData = rows.map((row, index) => {
+                        const contrato = { id: `CTR-${Date.now()}-${index}`, codigo: '', grupoEconomico: '' };
+                        
+                        headers.forEach((header, colIndex) => {
+                            const cleanHeader = header?.toString().toLowerCase().trim().replace(/\s+/g, '');
+                            const value = row[colIndex];
+                            
+                            if (cleanHeader === 'id' && value) {
+                                contrato.id = value;
+                            } else if (cleanHeader === 'codigo') {
+                                contrato.codigo = value;
+                            } else if (cleanHeader === 'grupoeconomico') {
+                                contrato.grupoEconomico = value;
+                            }
+                        });
+                        
+                        return contrato;
+                    }).filter(c => c.codigo && c.grupoEconomico);
+                    
+                    console.log('✅ Contratos válidos:', contratosData);
+                    
+                    if (contratosData.length > 0) {
+                        showResult(`✅ Upload realizado com sucesso! ${contratosData.length} contratos processados.`, 'success');
+                        showDataPreview(contratosData, headers);
+                    } else {
+                        showResult('⚠️ Nenhum contrato válido encontrado. Verifique se os campos "codigo" e "grupoEconomico" estão preenchidos.', 'error');
+                    }
+                    
+                } catch (error) {
+                    console.error('❌ Erro ao processar arquivo:', error);
+                    showResult(`❌ Erro ao processar arquivo: ${error.message}`, 'error');
+                }
+            };
+            
+            reader.readAsArrayBuffer(file);
+        }
+
+        function showResult(message, type) {
+            result.innerHTML = `<div class="result ${type}">${message}</div>`;
+        }
+
+        function showDataPreview(data, headers) {
+            dataPreview.style.display = 'block';
+            
+            let html = '<table><thead><tr>';
+            headers.forEach(header => {
+                html += `<th>${header}</th>`;
+            });
+            html += '</tr></thead><tbody>';
+            
+            data.forEach(row => {
+                html += '<tr>';
+                headers.forEach(header => {
+                    const cleanHeader = header?.toString().toLowerCase().trim().replace(/\s+/g, '');
+                    let value = '';
+                    
+                    if (cleanHeader === 'id') value = row.id;
+                    else if (cleanHeader === 'codigo') value = row.codigo;
+                    else if (cleanHeader === 'grupoeconomico') value = row.grupoEconomico;
+                    else value = row[header] || '';
+                    
+                    html += `<td>${value}</td>`;
+                });
+                html += '</tr>';
+            });
+            
+            html += '</tbody></table>';
+            previewContent.innerHTML = html;
+        }
+    </script>
+</body>
+</html>

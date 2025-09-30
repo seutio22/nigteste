@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug - Persistência do Timeline</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .warning { background-color: #fff3cd; border-color: #ffeaa7; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+        .timeline-event { margin: 10px 0; padding: 10px; border-left: 3px solid #007bff; background: #f8f9fa; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Debug - Persistência do Timeline</h1>
+    
+    <div class="section">
+        <h2>1. Verificar localStorage</h2>
+        <button onclick="checkLocalStorage()">Verificar localStorage</button>
+        <div id="localStorageResult"></div>
+    </div>
+    
+    <div class="section">
+        <h2>2. Simular Timeline</h2>
+        <button onclick="simulateTimeline()">Simular Timeline</button>
+        <div id="timelineResult"></div>
+    </div>
+    
+    <div class="section">
+        <h2>3. Testar Persistência</h2>
+        <button onclick="testPersistence()">Testar Persistência</button>
+        <div id="persistenceResult"></div>
+    </div>
+    
+    <div class="section">
+        <h2>4. Limpar Dados</h2>
+        <button onclick="clearData()">Limpar Dados</button>
+        <div id="clearResult"></div>
+    </div>
+
+    <script>
+        function checkLocalStorage() {
+            const result = document.getElementById('localStorageResult');
+            
+            const demandStore = localStorage.getItem('demandStore');
+            const masterDataStore = localStorage.getItem('masterDataStore');
+            const authStore = localStorage.getItem('authStore');
+            
+            let html = '<h3>Dados no localStorage:</h3>';
+            
+            if (demandStore) {
+                const parsed = JSON.parse(demandStore);
+                html += '<div class="success">✅ demandStore encontrado</div>';
+                html += '<pre>' + JSON.stringify({
+                    items: parsed.state?.items?.length || 0,
+                    timeline: parsed.state?.timeline?.length || 0,
+                    isLoading: parsed.state?.isLoading || false
+                }, null, 2) + '</pre>';
+            } else {
+                html += '<div class="error">❌ demandStore não encontrado</div>';
+            }
+            
+            if (masterDataStore) {
+                const parsed = JSON.parse(masterDataStore);
+                html += '<div class="success">✅ masterDataStore encontrado</div>';
+                html += '<pre>' + JSON.stringify({
+                    clientes: parsed.state?.clientes?.length || 0,
+                    contratos: parsed.state?.contratos?.length || 0,
+                    tiposServico: parsed.state?.tiposServico?.length || 0,
+                    tiposDemanda: parsed.state?.tiposDemanda?.length || 0
+                }, null, 2) + '</pre>';
+            } else {
+                html += '<div class="error">❌ masterDataStore não encontrado</div>';
+            }
+            
+            if (authStore) {
+                const parsed = JSON.parse(authStore);
+                html += '<div class="success">✅ authStore encontrado</div>';
+                html += '<pre>' + JSON.stringify({
+                    user: parsed.state?.user?.name || 'N/A',
+                    hasToken: !!parsed.state?.token
+                }, null, 2) + '</pre>';
+            } else {
+                html += '<div class="error">❌ authStore não encontrado</div>';
+            }
+            
+            result.innerHTML = html;
+        }
+
+        function simulateTimeline() {
+            const result = document.getElementById('timelineResult');
+            
+            // Simular dados do demandStore
+            const mockDemandStore = {
+                state: {
+                    items: [
+                        {
+                            id: '73af20cc-859a-4552-9261-a3d5f227e21d',
+                            ticket: 'DEM-001',
+                            status: 'Em Andamento'
+                        }
+                    ],
+                    timeline: [
+                        {
+                            id: '1',
+                            demandaId: '73af20cc-859a-4552-9261-a3d5f227e21d',
+                            type: 'create',
+                            timestamp: new Date().toISOString(),
+                            user: 'João Silva'
+                        },
+                        {
+                            id: '2',
+                            demandaId: '73af20cc-859a-4552-9261-a3d5f227e21d',
+                            type: 'field_change',
+                            field: 'status',
+                            from: 'Pendente',
+                            to: 'Em Andamento',
+                            timestamp: new Date(Date.now() - 60000).toISOString(),
+                            user: 'Maria Santos'
+                        }
+                    ],
+                    isLoading: false
+                }
+            };
+            
+            // Salvar no localStorage
+            localStorage.setItem('demandStore', JSON.stringify(mockDemandStore));
+            
+            let html = '<div class="success">✅ Timeline simulado e salvo no localStorage</div>';
+            html += '<h3>Eventos do Timeline:</h3>';
+            
+            mockDemandStore.state.timeline.forEach(event => {
+                html += `
+                    <div class="timeline-event">
+                        <strong>${getEventDescription(event)}</strong>
+                        <div style="font-size: 12px; color: #666; margin-top: 5px;">
+                            Por: ${event.user} - ${new Date(event.timestamp).toLocaleString()}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            result.innerHTML = html;
+        }
+
+        function testPersistence() {
+            const result = document.getElementById('persistenceResult');
+            
+            // Verificar se os dados persistiram
+            const demandStore = localStorage.getItem('demandStore');
+            
+            if (demandStore) {
+                const parsed = JSON.parse(demandStore);
+                const timeline = parsed.state?.timeline || [];
+                
+                let html = '<div class="success">✅ Dados persistiram no localStorage</div>';
+                html += '<h3>Timeline persistido:</h3>';
+                html += '<pre>' + JSON.stringify(timeline, null, 2) + '</pre>';
+                
+                // Simular recarregamento da página
+                html += '<h3>Simulando recarregamento da página:</h3>';
+                html += '<div class="warning">🔄 Recarregando dados do localStorage...</div>';
+                
+                setTimeout(() => {
+                    const reloadedData = localStorage.getItem('demandStore');
+                    if (reloadedData) {
+                        const reloadedParsed = JSON.parse(reloadedData);
+                        const reloadedTimeline = reloadedParsed.state?.timeline || [];
+                        html += '<div class="success">✅ Dados carregados após recarregamento</div>';
+                        html += '<pre>' + JSON.stringify(reloadedTimeline, null, 2) + '</pre>';
+                        result.innerHTML = html;
+                    }
+                }, 1000);
+                
+            } else {
+                result.innerHTML = '<div class="error">❌ Nenhum dado encontrado no localStorage</div>';
+            }
+        }
+
+        function clearData() {
+            const result = document.getElementById('clearResult');
+            
+            localStorage.removeItem('demandStore');
+            localStorage.removeItem('masterDataStore');
+            localStorage.removeItem('authStore');
+            
+            result.innerHTML = '<div class="warning">⚠️ Todos os dados foram limpos do localStorage</div>';
+        }
+
+        function getEventDescription(event) {
+            switch (event.type) {
+                case 'create':
+                    return 'Demanda criada';
+                case 'field_change':
+                    return `${event.field} alterado de "${event.from}" para "${event.to}"`;
+                case 'status_change':
+                    return `Status alterado de "${event.from}" para "${event.to}"`;
+                default:
+                    return 'Evento desconhecido';
+            }
+        }
+
+        // Executar verificação inicial
+        window.onload = function() {
+            checkLocalStorage();
+        };
+    </script>
+</body>
+</html>

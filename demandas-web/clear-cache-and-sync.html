@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Limpar Cache e Sincronizar</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .button { background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin: 10px; }
+        .button:hover { background: #0056b3; }
+        .log { background: #f8f9fa; border: 1px solid #dee2e6; padding: 15px; margin: 10px 0; border-radius: 5px; white-space: pre-wrap; max-height: 400px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Ferramenta de Limpeza de Cache</h1>
+    <p><strong>Problema identificado:</strong> O frontend está usando IDs inválidos de dados em cache.</p>
+    
+    <button class="button" onclick="clearAllStorage()">🗑️ Limpar TODO o Cache</button>
+    <button class="button" onclick="syncMasterData()">🔄 Sincronizar Dados Mestres</button>
+    <button class="button" onclick="checkCurrentData()">📊 Verificar Dados Atuais</button>
+    
+    <div id="log" class="log">Aguardando ação...</div>
+
+    <script>
+        const log = document.getElementById('log');
+        
+        function addLog(message) {
+            log.textContent += new Date().toLocaleTimeString() + ': ' + message + '\n';
+            log.scrollTop = log.scrollHeight;
+        }
+        
+        function clearAllStorage() {
+            addLog('🗑️ Limpando localStorage...');
+            
+            // Limpar tudo do localStorage
+            const keys = Object.keys(localStorage);
+            let clearedCount = 0;
+            
+            keys.forEach(key => {
+                if (key.includes('master-data') || key.includes('demand') || key.includes('auth')) {
+                    localStorage.removeItem(key);
+                    clearedCount++;
+                    addLog(`   Removido: ${key}`);
+                }
+            });
+            
+            addLog(`✅ ${clearedCount} itens removidos do cache`);
+            addLog('🔄 Recarregue a página e faça login novamente');
+        }
+        
+        async function syncMasterData() {
+            addLog('🔄 Sincronizando dados mestres do backend...');
+            
+            try {
+                // Verificar se há token
+                const authData = localStorage.getItem('auth-store');
+                if (!authData) {
+                    addLog('❌ Nenhum token de autenticação encontrado. Faça login primeiro.');
+                    return;
+                }
+                
+                const auth = JSON.parse(authData);
+                const token = auth.state?.token;
+                
+                if (!token) {
+                    addLog('❌ Token não encontrado no storage. Faça login novamente.');
+                    return;
+                }
+                
+                addLog('🔐 Token encontrado, buscando dados...');
+                
+                const endpoints = [
+                    'tiposCadastro',
+                    'tiposServico', 
+                    'analistas',
+                    'areas',
+                    'clientes'
+                ];
+                
+                const newData = {};
+                
+                for (const endpoint of endpoints) {
+                    try {
+                        const response = await fetch(`http://localhost:3333/${endpoint}`, {
+                            headers: {
+                                'Authorization': `Bearer ${token}`
+                            }
+                        });
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            newData[endpoint] = data;
+                            addLog(`   ✅ ${endpoint}: ${data.length} registros`);
+                            
+                            // Mostrar primeiros IDs para verificação
+                            if (data.length > 0) {
+                                addLog(`      Primeiro ID: ${data[0].id} (${data[0].nome})`);
+                            }
+                        } else {
+                            addLog(`   ❌ ${endpoint}: Erro ${response.status}`);
+                        }
+                    } catch (error) {
+                        addLog(`   ❌ ${endpoint}: ${error.message}`);
+                    }
+                }
+                
+                // Salvar novos dados no localStorage
+                const masterDataStore = {
+                    state: newData,
+                    version: 0
+                };
+                
+                localStorage.setItem('master-data-store', JSON.stringify(masterDataStore));
+                addLog('✅ Novos dados salvos no cache');
+                addLog('🔄 Recarregue a página para aplicar as mudanças');
+                
+            } catch (error) {
+                addLog(`❌ Erro na sincronização: ${error.message}`);
+            }
+        }
+        
+        async function checkCurrentData() {
+            addLog('📊 Verificando dados atuais no cache...');
+            
+            try {
+                const masterData = localStorage.getItem('master-data-store');
+                if (!masterData) {
+                    addLog('❌ Nenhum dado mestre encontrado no cache');
+                    return;
+                }
+                
+                const data = JSON.parse(masterData);
+                const state = data.state || {};
+                
+                addLog('📋 Dados encontrados no cache:');
+                
+                Object.keys(state).forEach(key => {
+                    const items = state[key] || [];
+                    addLog(`   ${key}: ${items.length} registros`);
+                    
+                    if (items.length > 0 && items[0].id) {
+                        addLog(`      Primeiro ID: ${items[0].id}`);
+                    }
+                });
+                
+                // Verificar IDs problemáticos
+                addLog('\n🔍 Verificando IDs problemáticos do console:');
+                
+                const problematicIds = {
+                    'tipoId em tiposServico': 'fe2a3d88-55ab-4c86-bcb3-1016033e469d',
+                    'tipoServicoId em tiposCadastro': '4b0207aa-8019-4842-b667-87d6c9eb2691'
+                };
+                
+                Object.keys(problematicIds).forEach(description => {
+                    const id = problematicIds[description];
+                    const [field, table] = description.split(' em ');
+                    const items = state[table] || [];
+                    const found = items.find(item => item.id === id);
+                    
+                    if (found) {
+                        addLog(`   ✅ ${description}: ID encontrado - ${found.nome}`);
+                    } else {
+                        addLog(`   ❌ ${description}: ID NÃO ENCONTRADO`);
+                    }
+                });
+                
+            } catch (error) {
+                addLog(`❌ Erro ao verificar dados: ${error.message}`);
+            }
+        }
+        
+        addLog('🔧 Ferramenta carregada. Use os botões acima para diagnosticar e corrigir o problema.');
+    </script>
+</body>
+</html>

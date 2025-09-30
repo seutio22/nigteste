@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Timing Fix - Manutenções</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .warning { background-color: #fff3cd; border-color: #ffeaa7; }
+        button { padding: 10px 15px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .log { background: #f8f9fa; padding: 10px; border-radius: 3px; font-family: monospace; white-space: pre-wrap; max-height: 300px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Teste Timing Fix - Manutenções</h1>
+        
+        <div class="section">
+            <h3>📋 Status do Sistema</h3>
+            <div id="status">Carregando...</div>
+        </div>
+
+        <div class="section">
+            <h3>🎯 Testes</h3>
+            <button onclick="testarTiming()">Testar Timing de Dados Mestres</button>
+            <button onclick="testarCriacao()">Testar Criação de Manutenção</button>
+            <button onclick="testarVisualizacao()">Testar Visualização</button>
+            <button onclick="limparLogs()">Limpar Logs</button>
+        </div>
+
+        <div class="section">
+            <h3>📊 Logs</h3>
+            <div id="logs" class="log"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        let logs = [];
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}`;
+            logs.push(logEntry);
+            
+            const logsDiv = document.getElementById('logs');
+            logsDiv.textContent = logs.join('\n');
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+            
+            console.log(logEntry);
+        }
+
+        function limparLogs() {
+            logs = [];
+            document.getElementById('logs').textContent = '';
+        }
+
+        async function testarTiming() {
+            log('🔍 Iniciando teste de timing...');
+            
+            try {
+                // Simular o problema de timing
+                log('1. Carregando dados mestres...');
+                const response = await fetch('http://localhost:3333/analistas');
+                const analistas = await response.json();
+                log(`✅ Analistas carregados: ${analistas.length}`);
+                
+                log('2. Aguardando 100ms (simulando delay)...');
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                log('3. Verificando se dados ainda estão disponíveis...');
+                const response2 = await fetch('http://localhost:3333/analistas');
+                const analistas2 = await response2.json();
+                log(`✅ Analistas após delay: ${analistas2.length}`);
+                
+                if (analistas.length === analistas2.length) {
+                    log('✅ Teste de timing: SUCESSO - Dados consistentes', 'success');
+                } else {
+                    log('❌ Teste de timing: FALHA - Dados inconsistentes', 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ Erro no teste de timing: ${error.message}`, 'error');
+            }
+        }
+
+        async function testarCriacao() {
+            log('🔍 Iniciando teste de criação...');
+            
+            try {
+                const manutencaoData = {
+                    status: 'Aberta',
+                    ticket: `MAN-${new Date().toISOString().slice(0,10).replace(/-/g, '')}-TEST`,
+                    descricao: 'Teste de timing fix'
+                };
+                
+                log('1. Criando manutenção...');
+                const response = await fetch('http://localhost:3333/manutencoes', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                    },
+                    body: JSON.stringify(manutencaoData)
+                });
+                
+                if (response.ok) {
+                    const manutencao = await response.json();
+                    log(`✅ Manutenção criada: ${manutencao.ticket}`, 'success');
+                    
+                    log('2. Verificando se aparece na listagem...');
+                    const listResponse = await fetch('http://localhost:3333/manutencoes', {
+                        headers: {
+                            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                        }
+                    });
+                    
+                    if (listResponse.ok) {
+                        const manutencoes = await listResponse.json();
+                        const encontrada = manutencoes.find(m => m.id === manutencao.id);
+                        
+                        if (encontrada) {
+                            log('✅ Manutenção encontrada na listagem!', 'success');
+                        } else {
+                            log('❌ Manutenção NÃO encontrada na listagem', 'error');
+                        }
+                    }
+                } else {
+                    const error = await response.text();
+                    log(`❌ Erro na criação: ${error}`, 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ Erro no teste de criação: ${error.message}`, 'error');
+            }
+        }
+
+        async function testarVisualizacao() {
+            log('🔍 Iniciando teste de visualização...');
+            
+            try {
+                log('1. Carregando manutenções...');
+                const response = await fetch('http://localhost:3333/manutencoes', {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const manutencoes = await response.json();
+                    log(`✅ Manutenções carregadas: ${manutencoes.length}`);
+                    
+                    if (manutencoes.length > 0) {
+                        const primeira = manutencoes[0];
+                        log(`📋 Primeira manutenção: ${primeira.ticket}`);
+                        log(`   - Status: ${primeira.status}`);
+                        log(`   - Analista: ${primeira.analistaId || 'N/A'}`);
+                        log(`   - Cliente: ${primeira.clienteId || 'N/A'}`);
+                        
+                        log('2. Carregando dados mestres...');
+                        const [analistas, clientes] = await Promise.all([
+                            fetch('http://localhost:3333/analistas').then(r => r.json()),
+                            fetch('http://localhost:3333/clientes').then(r => r.json())
+                        ]);
+                        
+                        log(`✅ Analistas: ${analistas.length}, Clientes: ${clientes.length}`);
+                        
+                        // Simular mapeamento
+                        const analista = analistas.find(a => a.id === primeira.analistaId);
+                        const cliente = clientes.find(c => c.id === primeira.clienteId);
+                        
+                        log(`📊 Mapeamento:`);
+                        log(`   - Analista: ${analista ? analista.nome : 'N/A'}`);
+                        log(`   - Cliente: ${cliente ? cliente.nome : 'N/A'}`);
+                        
+                        if (analista && cliente) {
+                            log('✅ Teste de visualização: SUCESSO - Dados mapeados corretamente', 'success');
+                        } else {
+                            log('⚠️ Teste de visualização: PARCIAL - Alguns dados não mapeados', 'warning');
+                        }
+                    } else {
+                        log('⚠️ Nenhuma manutenção encontrada para testar', 'warning');
+                    }
+                } else {
+                    log(`❌ Erro ao carregar manutenções: ${response.status}`, 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ Erro no teste de visualização: ${error.message}`, 'error');
+            }
+        }
+
+        // Verificar status inicial
+        async function verificarStatus() {
+            try {
+                const response = await fetch('http://localhost:3333/analistas');
+                if (response.ok) {
+                    document.getElementById('status').innerHTML = 
+                        '<div class="success">✅ API funcionando - Sistema pronto para testes</div>';
+                } else {
+                    document.getElementById('status').innerHTML = 
+                        '<div class="error">❌ API não está respondendo</div>';
+                }
+            } catch (error) {
+                document.getElementById('status').innerHTML = 
+                    '<div class="error">❌ Erro de conexão com a API</div>';
+            }
+        }
+
+        // Tornar funções globais
+        window.testarTiming = testarTiming;
+        window.testarCriacao = testarCriacao;
+        window.testarVisualizacao = testarVisualizacao;
+        window.limparLogs = limparLogs;
+
+        // Inicializar
+        verificarStatus();
+        log('🚀 Sistema de teste carregado');
+    </script>
+</body>
+</html>

@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug - Timeline Usuário Final</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .warning { background-color: #fff3cd; border-color: #ffeaa7; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+        .timeline-event { margin: 10px 0; padding: 15px; border-left: 4px solid #007bff; background: #f8f9fa; border-radius: 3px; }
+        .event-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .event-description { font-weight: 500; color: #333; }
+        .event-timestamp { font-size: 12px; color: #666; }
+        .event-user { font-size: 12px; color: #666; margin-top: 5px; }
+        .event-icon { width: 16px; height: 16px; margin-right: 8px; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Debug - Timeline Usuário Final</h1>
+    
+    <div class="section">
+        <h2>1. Simular Eventos de Timeline com Usuário</h2>
+        <button onclick="simulateTimelineEvents()">Simular Eventos</button>
+        <div id="timelineResult"></div>
+    </div>
+    
+    <div class="section">
+        <h2>2. Testar Diferentes Formatos de Usuário</h2>
+        <button onclick="testUserFormats()">Testar Formatos</button>
+        <div id="formatsResult"></div>
+    </div>
+    
+    <div class="section">
+        <h2>3. Verificar Condições de Exibição</h2>
+        <button onclick="testDisplayConditions()">Testar Condições</button>
+        <div id="conditionsResult"></div>
+    </div>
+
+    <div class="section">
+        <h2>4. Simular Timeline Completa</h2>
+        <button onclick="simulateFullTimeline()">Simular Timeline</button>
+        <div id="fullTimelineResult"></div>
+    </div>
+
+    <script>
+        // Simular eventos de timeline com diferentes formatos de usuário
+        const mockTimelineEvents = [
+            {
+                id: '1',
+                demandaId: '8910a204-3922-4f92-b96f-3c13cb0a0104',
+                type: 'create',
+                timestamp: '2025-09-10T21:30:00.000Z',
+                user: 'Administrador' // Formato correto
+            },
+            {
+                id: '2',
+                demandaId: '8910a204-3922-4f92-b96f-3c13cb0a0104',
+                type: 'status_change',
+                field: 'status',
+                from: 'Aberta',
+                to: 'Em reajuste',
+                timestamp: '2025-09-10T21:45:00.000Z',
+                user: 'Administrador' // Formato correto
+            },
+            {
+                id: '3',
+                demandaId: '8910a204-3922-4f92-b96f-3c13cb0a0104',
+                type: 'field_change',
+                field: 'produto',
+                from: 'Produto A',
+                to: 'Produto B',
+                timestamp: '2025-09-10T21:50:00.000Z',
+                user: 'Administrador' // Formato correto
+            },
+            {
+                id: '4',
+                demandaId: '8910a204-3922-4f92-b96f-3c13cb0a0104',
+                type: 'field_change',
+                field: 'cliente',
+                from: 'Cliente A',
+                to: 'Cliente B',
+                timestamp: '2025-09-10T21:55:00.000Z',
+                userName: 'Administrador' // Formato antigo (para teste)
+            },
+            {
+                id: '5',
+                demandaId: '8910a204-3922-4f92-b96f-3c13cb0a0104',
+                type: 'field_change',
+                field: 'sistema',
+                from: 'Sistema A',
+                to: 'Sistema B',
+                timestamp: '2025-09-10T22:00:00.000Z',
+                user: null, // Sem usuário
+                userId: '2cd1ef91-757e-438f-8e48-c6cf8a05981f'
+            }
+        ];
+
+        function simulateTimelineEvents() {
+            const result = document.getElementById('timelineResult');
+            
+            let html = '<h3>Eventos de Timeline Simulados:</h3>';
+            html += '<div class="success">✅ ' + mockTimelineEvents.length + ' eventos carregados</div>';
+            
+            mockTimelineEvents.forEach((event, index) => {
+                const userDisplay = event.user || event.userName || 'Usuário não encontrado';
+                const hasUser = !!(event.user || event.userName);
+                
+                html += '<div class="timeline-event">';
+                html += '<div class="event-header">';
+                html += '<div class="event-description">';
+                
+                switch (event.type) {
+                    case 'create':
+                        html += 'Item criado';
+                        break;
+                    case 'status_change':
+                        html += `Status alterado de "${event.from}" para "${event.to}"`;
+                        break;
+                    case 'field_change':
+                        html += `Campo "${event.field}" alterado de "${event.from}" para "${event.to}"`;
+                        break;
+                    default:
+                        html += 'Evento registrado';
+                }
+                
+                html += '</div>';
+                html += '<div class="event-timestamp">' + new Date(event.timestamp).toLocaleString('pt-BR') + '</div>';
+                html += '</div>';
+                
+                // Mostrar usuário
+                if (hasUser) {
+                    html += '<div class="event-user">Por: ' + userDisplay + '</div>';
+                } else {
+                    html += '<div class="event-user" style="color: red;">Usuário não encontrado</div>';
+                }
+                
+                html += '</div>';
+            });
+            
+            result.innerHTML = html;
+        }
+
+        function testUserFormats() {
+            const result = document.getElementById('formatsResult');
+            
+            const testCases = [
+                {
+                    name: 'Formato correto: user',
+                    event: { user: 'Administrador', userName: null },
+                    expected: 'Administrador'
+                },
+                {
+                    name: 'Formato antigo: userName',
+                    event: { user: null, userName: 'Administrador' },
+                    expected: 'Administrador'
+                },
+                {
+                    name: 'Ambos preenchidos (user tem prioridade)',
+                    event: { user: 'Administrador', userName: 'Admin' },
+                    expected: 'Administrador'
+                },
+                {
+                    name: 'Nenhum preenchido',
+                    event: { user: null, userName: null },
+                    expected: 'Usuário não encontrado'
+                },
+                {
+                    name: 'user vazio, userName preenchido',
+                    event: { user: '', userName: 'Administrador' },
+                    expected: 'Administrador'
+                }
+            ];
+            
+            let html = '<h3>Teste de Formatos de Usuário:</h3>';
+            
+            testCases.forEach((testCase, index) => {
+                const userDisplay = testCase.event.user || testCase.event.userName || 'Usuário não encontrado';
+                const status = userDisplay === testCase.expected ? 'success' : 'error';
+                
+                html += '<div class="timeline-event">';
+                html += '<h4>' + testCase.name + '</h4>';
+                html += '<p><strong>user:</strong> ' + (testCase.event.user || 'null') + '</p>';
+                html += '<p><strong>userName:</strong> ' + (testCase.event.userName || 'null') + '</p>';
+                html += '<p><strong>Resultado:</strong> <span class="' + status + '">' + userDisplay + '</span></p>';
+                html += '<p><strong>Esperado:</strong> ' + testCase.expected + '</p>';
+                html += '</div>';
+            });
+            
+            result.innerHTML = html;
+        }
+
+        function testDisplayConditions() {
+            const result = document.getElementById('conditionsResult');
+            
+            // Simular diferentes condições de exibição
+            const conditions = [
+                {
+                    name: 'Condição atual: (event.user || event.userName)',
+                    condition: (event) => !!(event.user || event.userName),
+                    events: mockTimelineEvents
+                },
+                {
+                    name: 'Condição antiga: event.user',
+                    condition: (event) => !!event.user,
+                    events: mockTimelineEvents
+                },
+                {
+                    name: 'Condição alternativa: event.userName',
+                    condition: (event) => !!event.userName,
+                    events: mockTimelineEvents
+                }
+            ];
+            
+            let html = '<h3>Teste de Condições de Exibição:</h3>';
+            
+            conditions.forEach((condition, index) => {
+                html += '<div class="timeline-event">';
+                html += '<h4>' + condition.name + '</h4>';
+                
+                const results = condition.events.map(event => {
+                    const shouldShow = condition.condition(event);
+                    const userDisplay = event.user || event.userName || 'N/A';
+                    return {
+                        eventId: event.id,
+                        type: event.type,
+                        user: userDisplay,
+                        shouldShow: shouldShow
+                    };
+                });
+                
+                results.forEach(result => {
+                    const status = result.shouldShow ? 'success' : 'error';
+                    html += '<p><strong>Evento ' + result.eventId + ':</strong> ';
+                    html += '<span class="' + status + '">' + (result.shouldShow ? 'Mostrar' : 'Ocultar') + '</span>';
+                    html += ' - ' + result.user + '</p>';
+                });
+                
+                html += '</div>';
+            });
+            
+            result.innerHTML = html;
+        }
+
+        function simulateFullTimeline() {
+            const result = document.getElementById('fullTimelineResult');
+            
+            // Simular timeline completa com diferentes tipos de eventos
+            const fullTimeline = [
+                {
+                    id: '1',
+                    type: 'create',
+                    description: 'Item criado',
+                    user: 'Administrador',
+                    timestamp: '2025-09-10T21:30:00.000Z',
+                    icon: '➕'
+                },
+                {
+                    id: '2',
+                    type: 'status_change',
+                    description: 'Status alterado de "Aberta" para "Em reajuste"',
+                    user: 'Administrador',
+                    timestamp: '2025-09-10T21:45:00.000Z',
+                    icon: '📈'
+                },
+                {
+                    id: '3',
+                    type: 'field_change',
+                    description: 'Campo "produto" alterado de "Produto A" para "Produto B"',
+                    user: 'Administrador',
+                    timestamp: '2025-09-10T21:50:00.000Z',
+                    icon: '✏️'
+                },
+                {
+                    id: '4',
+                    type: 'field_change',
+                    description: 'Campo "cliente" alterado de "Cliente A" para "Cliente B"',
+                    user: 'Administrador',
+                    timestamp: '2025-09-10T21:55:00.000Z',
+                    icon: '✏️'
+                },
+                {
+                    id: '5',
+                    type: 'comment',
+                    description: 'Comentário adicionado: "Teste de comentário"',
+                    user: 'Administrador',
+                    timestamp: '2025-09-10T22:00:00.000Z',
+                    icon: '💬'
+                }
+            ];
+            
+            let html = '<h3>Timeline Completa Simulada:</h3>';
+            
+            fullTimeline.forEach((event, index) => {
+                html += '<div class="timeline-event">';
+                html += '<div class="event-header">';
+                html += '<div class="event-description">';
+                html += '<span class="event-icon">' + event.icon + '</span>';
+                html += event.description;
+                html += '</div>';
+                html += '<div class="event-timestamp">' + new Date(event.timestamp).toLocaleString('pt-BR') + '</div>';
+                html += '</div>';
+                html += '<div class="event-user">Por: ' + event.user + '</div>';
+                html += '</div>';
+            });
+            
+            html += '<div class="timeline-event">';
+            html += '<h4>Recomendações:</h4>';
+            html += '<ul>';
+            html += '<li>✅ Usar condição (event.user || event.userName) para compatibilidade</li>';
+            html += '<li>✅ Garantir que logs sejam criados com campo user</li>';
+            html += '<li>✅ Verificar se dados do usuário estão sendo obtidos corretamente</li>';
+            html += '<li>✅ Adicionar logs de debug para rastrear problemas</li>';
+            html += '</ul>';
+            html += '</div>';
+            
+            result.innerHTML = html;
+        }
+
+        // Executar simulação inicial
+        window.onload = function() {
+            simulateTimelineEvents();
+        };
+    </script>
+</body>
+</html>

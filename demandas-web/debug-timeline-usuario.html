@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug - Timeline Usuário</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .warning { background-color: #fff3cd; border-color: #ffeaa7; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+        .timeline-event { margin: 10px 0; padding: 15px; border-left: 4px solid #007bff; background: #f8f9fa; border-radius: 3px; }
+        .event-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .event-description { font-weight: 500; color: #333; }
+        .event-timestamp { font-size: 12px; color: #666; }
+        .event-user { font-size: 12px; color: #666; margin-top: 5px; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Debug - Timeline Usuário</h1>
+    
+    <div class="section">
+        <h2>1. Simular Eventos de Timeline</h2>
+        <button onclick="simulateTimelineEvents()">Simular Eventos</button>
+        <div id="timelineEventsResult"></div>
+    </div>
+    
+    <div class="section">
+        <h2>2. Testar Exibição de Usuário</h2>
+        <button onclick="testUserDisplay()">Testar Exibição</button>
+        <div id="userDisplayResult"></div>
+    </div>
+    
+    <div class="section">
+        <h2>3. Verificar Consistência de Campos</h2>
+        <button onclick="checkFieldConsistency()">Verificar Consistência</button>
+        <div id="consistencyResult"></div>
+    </div>
+
+    <script>
+        // Simular eventos de timeline com diferentes formatos de usuário
+        const mockTimelineEvents = [
+            {
+                id: '1',
+                demandaId: '641d3109-7514-4954-93a2-e305c379345a',
+                type: 'create',
+                timestamp: '2025-09-10T21:30:00.000Z',
+                user: 'Administrador' // Formato correto
+            },
+            {
+                id: '2',
+                demandaId: '641d3109-7514-4954-93a2-e305c379345a',
+                type: 'status_change',
+                field: 'status',
+                from: 'Aberta',
+                to: 'Em reajuste',
+                timestamp: '2025-09-10T21:45:00.000Z',
+                user: 'Administrador' // Formato correto
+            },
+            {
+                id: '3',
+                demandaId: '641d3109-7514-4954-93a2-e305c379345a',
+                type: 'field_change',
+                field: 'produto',
+                from: 'Produto A',
+                to: 'Produto B',
+                timestamp: '2025-09-10T21:50:00.000Z',
+                user: 'Administrador' // Formato correto
+            },
+            {
+                id: '4',
+                demandaId: '641d3109-7514-4954-93a2-e305c379345a',
+                type: 'field_change',
+                field: 'cliente',
+                from: 'Cliente A',
+                to: 'Cliente B',
+                timestamp: '2025-09-10T21:55:00.000Z',
+                userName: 'Administrador' // Formato antigo (para teste)
+            }
+        ];
+
+        function simulateTimelineEvents() {
+            const result = document.getElementById('timelineEventsResult');
+            
+            let html = '<h3>Eventos de Timeline Simulados:</h3>';
+            html += '<div class="success">✅ ' + mockTimelineEvents.length + ' eventos carregados</div>';
+            
+            mockTimelineEvents.forEach((event, index) => {
+                html += '<div class="timeline-event">';
+                html += '<div class="event-header">';
+                html += '<div class="event-description">';
+                
+                switch (event.type) {
+                    case 'create':
+                        html += 'Item criado';
+                        break;
+                    case 'status_change':
+                        html += `Status alterado de "${event.from}" para "${event.to}"`;
+                        break;
+                    case 'field_change':
+                        html += `Campo "${event.field}" alterado de "${event.from}" para "${event.to}"`;
+                        break;
+                    default:
+                        html += 'Evento registrado';
+                }
+                
+                html += '</div>';
+                html += '<div class="event-timestamp">' + new Date(event.timestamp).toLocaleString('pt-BR') + '</div>';
+                html += '</div>';
+                
+                // Mostrar usuário
+                if (event.user) {
+                    html += '<div class="event-user">Por: ' + event.user + '</div>';
+                } else if (event.userName) {
+                    html += '<div class="event-user" style="color: orange;">Por: ' + event.userName + ' (formato antigo)</div>';
+                } else {
+                    html += '<div class="event-user" style="color: red;">Usuário não encontrado</div>';
+                }
+                
+                html += '</div>';
+            });
+            
+            result.innerHTML = html;
+        }
+
+        function testUserDisplay() {
+            const result = document.getElementById('userDisplayResult');
+            
+            let html = '<h3>Teste de Exibição de Usuário:</h3>';
+            
+            // Testar diferentes cenários
+            const testCases = [
+                { event: { user: 'Administrador' }, expected: 'Administrador', description: 'Evento com campo "user"' },
+                { event: { userName: 'Administrador' }, expected: 'Administrador', description: 'Evento com campo "userName"' },
+                { event: { user: 'Administrador', userName: 'Admin' }, expected: 'Administrador', description: 'Evento com ambos os campos (user tem prioridade)' },
+                { event: {}, expected: null, description: 'Evento sem campo de usuário' }
+            ];
+            
+            testCases.forEach((testCase, index) => {
+                const user = testCase.event.user || testCase.event.userName;
+                const status = user === testCase.expected ? 'success' : 'error';
+                
+                html += '<div class="timeline-event">';
+                html += '<div class="event-description">Teste ' + (index + 1) + ': ' + testCase.description + '</div>';
+                html += '<div class="event-user">';
+                html += '<strong>Resultado:</strong> ';
+                
+                if (user) {
+                    html += '<span class="' + status + '">' + user + '</span>';
+                } else {
+                    html += '<span class="' + status + '">Usuário não encontrado</span>';
+                }
+                
+                html += '<br><strong>Esperado:</strong> ' + (testCase.expected || 'Usuário não encontrado');
+                html += '</div>';
+                html += '</div>';
+            });
+            
+            result.innerHTML = html;
+        }
+
+        function checkFieldConsistency() {
+            const result = document.getElementById('consistencyResult');
+            
+            let html = '<h3>Verificação de Consistência de Campos:</h3>';
+            
+            // Verificar se todos os eventos têm campo de usuário
+            const eventsWithUser = mockTimelineEvents.filter(e => e.user);
+            const eventsWithUserName = mockTimelineEvents.filter(e => e.userName);
+            const eventsWithoutUser = mockTimelineEvents.filter(e => !e.user && !e.userName);
+            
+            html += '<div class="timeline-event">';
+            html += '<div class="event-description">Estatísticas dos Eventos:</div>';
+            html += '<div class="event-user">';
+            html += '<strong>Eventos com campo "user":</strong> ' + eventsWithUser.length + '<br>';
+            html += '<strong>Eventos com campo "userName":</strong> ' + eventsWithUserName.length + '<br>';
+            html += '<strong>Eventos sem usuário:</strong> ' + eventsWithoutUser.length + '<br>';
+            html += '<strong>Total de eventos:</strong> ' + mockTimelineEvents.length;
+            html += '</div>';
+            html += '</div>';
+            
+            // Recomendações
+            html += '<div class="timeline-event">';
+            html += '<div class="event-description">Recomendações:</div>';
+            html += '<div class="event-user">';
+            html += '1. Usar sempre o campo "user" para consistência<br>';
+            html += '2. Verificar se todos os logs estão sendo criados com o campo correto<br>';
+            html += '3. Atualizar logs antigos que usam "userName" para "user"';
+            html += '</div>';
+            html += '</div>';
+            
+            result.innerHTML = html;
+        }
+
+        // Executar simulação inicial
+        window.onload = function() {
+            simulateTimelineEvents();
+        };
+    </script>
+</body>
+</html>

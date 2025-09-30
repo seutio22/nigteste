@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forçar Sincronização Completa - Sistema de Demandas</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        .section h2 {
+            color: #555;
+            margin-top: 0;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button.danger {
+            background-color: #dc3545;
+        }
+        button.danger:hover {
+            background-color: #c82333;
+        }
+        button.success {
+            background-color: #28a745;
+        }
+        button.success:hover {
+            background-color: #218838;
+        }
+        .status {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .status.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 15px;
+            font-family: monospace;
+            font-size: 14px;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔄 Forçar Sincronização Completa</h1>
+        
+        <div class="section">
+            <h2>🧹 Limpeza de Dados Locais</h2>
+            <p>Limpe todos os dados armazenados localmente para forçar uma sincronização completa com o backend.</p>
+            <button onclick="clearAllLocalData()" class="danger">Limpar Todos os Dados Locais</button>
+            <div id="clearStatus" class="status" style="display: none;"></div>
+        </div>
+
+        <div class="section">
+            <h2>🔄 Sincronização Manual</h2>
+            <p>Force a sincronização de dados mestres com o backend.</p>
+            <button onclick="forceSyncMasterData()" class="success">Sincronizar Dados Mestres</button>
+            <div id="syncStatus" class="status" style="display: none;"></div>
+        </div>
+
+        <div class="section">
+            <h2>📊 Verificação de Dados</h2>
+            <p>Verifique os dados atuais no localStorage e compare com o backend.</p>
+            <button onclick="checkLocalData()" class="success">Verificar Dados Locais</button>
+            <button onclick="checkBackendData()" class="success">Verificar Dados do Backend</button>
+            <div id="checkStatus" class="status" style="display: none;"></div>
+        </div>
+
+        <div class="section">
+            <h2>🔧 Teste de Inserção</h2>
+            <p>Teste a inserção de um novo registro para verificar se a sincronização está funcionando.</p>
+            <button onclick="testInsertion()" class="success">Testar Inserção de Cliente</button>
+            <div id="testStatus" class="status" style="display: none;"></div>
+        </div>
+
+        <div class="section">
+            <h2>📝 Log de Operações</h2>
+            <div id="log" class="log">Aguardando operações...</div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3333';
+        
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}\n`;
+            logDiv.textContent += logEntry;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(message);
+        }
+
+        function showStatus(elementId, message, type = 'info') {
+            const statusDiv = document.getElementById(elementId);
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+            statusDiv.style.display = 'block';
+        }
+
+        async function clearAllLocalData() {
+            try {
+                log('🧹 Iniciando limpeza de dados locais...');
+                
+                // Limpar todos os stores do Zustand
+                const stores = [
+                    'master-data-store',
+                    'dashboard-store', 
+                    'report-store',
+                    'reajuste-store',
+                    'dados-store'
+                ];
+                
+                stores.forEach(storeName => {
+                    localStorage.removeItem(storeName);
+                    log(`✅ Removido: ${storeName}`);
+                });
+                
+                // Limpar outros dados locais
+                const keysToRemove = [];
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && (key.includes('store') || key.includes('cache') || key.includes('sync'))) {
+                        keysToRemove.push(key);
+                    }
+                }
+                
+                keysToRemove.forEach(key => {
+                    localStorage.removeItem(key);
+                    log(`✅ Removido: ${key}`);
+                });
+                
+                showStatus('clearStatus', '✅ Todos os dados locais foram limpos com sucesso!', 'success');
+                log('🎉 Limpeza concluída! Recarregue a página para forçar sincronização completa.');
+                
+            } catch (error) {
+                log(`❌ Erro ao limpar dados locais: ${error.message}`);
+                showStatus('clearStatus', `❌ Erro: ${error.message}`, 'error');
+            }
+        }
+
+        async function forceSyncMasterData() {
+            try {
+                log('🔄 Iniciando sincronização manual...');
+                
+                // Simular a sincronização que o frontend faria
+                const endpoints = [
+                    'clientes',
+                    'contratos', 
+                    'operadoras',
+                    'produtos',
+                    'sistemas',
+                    'areas',
+                    'analistas',
+                    'tiposServico',
+                    'tiposDemanda',
+                    'padrao',
+                    'tiposCadastro'
+                ];
+                
+                const masterData = {};
+                
+                for (const endpoint of endpoints) {
+                    try {
+                        log(`📡 Buscando dados de ${endpoint}...`);
+                        const response = await fetch(`${API_BASE}/${endpoint}`);
+                        const data = await response.json();
+                        masterData[endpoint] = data;
+                        log(`✅ ${endpoint}: ${data.length} registros encontrados`);
+                    } catch (error) {
+                        log(`❌ Erro ao buscar ${endpoint}: ${error.message}`);
+                        masterData[endpoint] = [];
+                    }
+                }
+                
+                // Salvar no localStorage como o store faria
+                const storeData = {
+                    ...masterData,
+                    lastSync: new Date().toISOString(),
+                    isSyncing: false
+                };
+                
+                localStorage.setItem('master-data-store', JSON.stringify(storeData));
+                log('💾 Dados salvos no localStorage');
+                
+                showStatus('syncStatus', '✅ Sincronização manual concluída com sucesso!', 'success');
+                log('🎉 Sincronização concluída! Os dados devem aparecer na página principal.');
+                
+            } catch (error) {
+                log(`❌ Erro na sincronização: ${error.message}`);
+                showStatus('syncStatus', `❌ Erro: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkLocalData() {
+            try {
+                log('📊 Verificando dados locais...');
+                
+                const masterDataStore = localStorage.getItem('master-data-store');
+                if (masterDataStore) {
+                    const data = JSON.parse(masterDataStore);
+                    log('📦 Dados encontrados no localStorage:');
+                    Object.keys(data).forEach(key => {
+                        if (Array.isArray(data[key])) {
+                            log(`  ${key}: ${data[key].length} registros`);
+                        } else {
+                            log(`  ${key}: ${typeof data[key]} = ${data[key]}`);
+                        }
+                    });
+                } else {
+                    log('❌ Nenhum dado encontrado no localStorage');
+                }
+                
+                showStatus('checkStatus', '✅ Verificação de dados locais concluída', 'success');
+                
+            } catch (error) {
+                log(`❌ Erro ao verificar dados locais: ${error.message}`);
+                showStatus('checkStatus', `❌ Erro: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkBackendData() {
+            try {
+                log('📡 Verificando dados do backend...');
+                
+                const endpoints = [
+                    'clientes',
+                    'contratos', 
+                    'operadoras',
+                    'produtos',
+                    'sistemas',
+                    'areas',
+                    'analistas',
+                    'tiposServico',
+                    'tiposDemanda',
+                    'padrao',
+                    'tiposCadastro'
+                ];
+                
+                for (const endpoint of endpoints) {
+                    try {
+                        const response = await fetch(`${API_BASE}/${endpoint}`);
+                        const data = await response.json();
+                        log(`  ${endpoint}: ${data.length} registros`);
+                    } catch (error) {
+                        log(`  ${endpoint}: ❌ Erro - ${error.message}`);
+                    }
+                }
+                
+                showStatus('checkStatus', '✅ Verificação do backend concluída', 'success');
+                
+            } catch (error) {
+                log(`❌ Erro ao verificar backend: ${error.message}`);
+                showStatus('checkStatus', `❌ Erro: ${error.message}`, 'error');
+            }
+        }
+
+        async function testInsertion() {
+            try {
+                log('🧪 Testando inserção de cliente...');
+                
+                const novoCliente = {
+                    id: 'teste-frontend-' + Date.now(),
+                    nome: 'Cliente Teste Frontend',
+                    grupoEconomico: 'Grupo Frontend Teste'
+                };
+                
+                const response = await fetch(`${API_BASE}/clientes`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(novoCliente)
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`✅ Cliente inserido com sucesso: ${data.id}`);
+                    
+                    // Verificar se aparece na listagem
+                    const listResponse = await fetch(`${API_BASE}/clientes`);
+                    const clientes = await listResponse.json();
+                    const clienteEncontrado = clientes.find(c => c.id === data.id);
+                    
+                    if (clienteEncontrado) {
+                        log('✅ Cliente encontrado na listagem do backend');
+                        showStatus('testStatus', '✅ Teste de inserção passou! A sincronização está funcionando.', 'success');
+                    } else {
+                        log('❌ Cliente não encontrado na listagem do backend');
+                        showStatus('testStatus', '❌ Cliente inserido mas não aparece na listagem', 'error');
+                    }
+                } else {
+                    const errorData = await response.json();
+                    log(`❌ Erro ao inserir cliente: ${JSON.stringify(errorData)}`);
+                    showStatus('testStatus', `❌ Erro: ${errorData.message || 'Erro desconhecido'}`, 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ Erro no teste: ${error.message}`);
+                showStatus('testStatus', `❌ Erro: ${error.message}`, 'error');
+            }
+        }
+
+        // Verificar se o backend está rodando
+        window.addEventListener('load', async () => {
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                if (response.ok) {
+                    log('✅ Backend está rodando e acessível');
+                } else {
+                    log('❌ Backend não está respondendo corretamente');
+                }
+            } catch (error) {
+                log('❌ Backend não está acessível. Certifique-se de que está rodando na porta 3333');
+            }
+        });
+    </script>
+</body>
+</html>

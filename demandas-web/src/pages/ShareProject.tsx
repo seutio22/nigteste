@@ -1,0 +1,1240 @@
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import {
+  Box,
+  Container,
+  Typography,
+  Paper,
+  Tabs,
+  Tab,
+  Card,
+  CardContent,
+  Chip,
+  LinearProgress,
+  Grid,
+  Avatar,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemAvatar,
+  Divider,
+  Alert,
+  CircularProgress,
+  Button,
+  IconButton,
+  Tooltip
+} from '@mui/material';
+import {
+  Share as ShareIcon,
+  CalendarToday as CalendarIcon,
+  Person as PersonIcon,
+  Business as BusinessIcon,
+  Assignment as AssignmentIcon,
+  CheckCircle as CheckCircleIcon,
+  Schedule as ScheduleIcon,
+  Warning as WarningIcon,
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon,
+  UnfoldMore as UnfoldMoreIcon,
+  UnfoldLess as UnfoldLessIcon
+} from '@mui/icons-material';
+import { api } from '../lib/api.local';
+import ProjectGantt from '../components/ProjectGantt';
+
+interface ProjectData {
+  id: string;
+  name: string;
+  description: string;
+  status: string;
+  priority: string;
+  startDate: string;
+  endDate: string;
+  progress: number;
+  budget?: number;
+  client?: {
+    id: string;
+    nome: string;
+  };
+  manager: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  members: Array<{
+    id: string;
+    role: string;
+    user: {
+      id: string;
+      name: string;
+      email: string;
+    };
+  }>;
+  externalMembers: Array<{
+    id: string;
+    name: string;
+    email?: string;
+    company?: string;
+    role: string;
+  }>;
+  tasks: Array<{
+    id: string;
+    title: string;
+    description: string;
+    status: string;
+    priority: string;
+    dueDate?: string;
+    assignee?: {
+      id: string;
+      nome: string;
+    };
+    subtaskItems: Array<{
+      id: string;
+      title: string;
+      status: string;
+      progress: number;
+      dueDate?: string;
+    }>;
+  }>;
+  milestones: Array<{
+    id: string;
+    title: string;
+    description: string;
+    dueDate: string;
+    completed: boolean;
+  }>;
+  timeline: {
+    phases: Array<{
+      id: string;
+      name: string;
+      status: string;
+      startDate?: string;
+      endDate?: string;
+      tasks: Array<{
+        id: string;
+        name: string;
+        status: string;
+        priority: string;
+        responsible: string;
+        startDate?: string;
+        dueDate?: string;
+        subtasks: Array<{
+          id: string;
+          title: string;
+          status: string;
+          priority: string;
+          assignee?: string;
+        }>;
+      }>;
+    }>;
+  };
+}
+
+interface ShareInfo {
+  name: string;
+  description?: string;
+  createdAt: string;
+}
+
+const ShareProject: React.FC = () => {
+  const { token } = useParams<{ token: string }>();
+  const navigate = useNavigate();
+  const [project, setProject] = useState<ProjectData | null>(null);
+  const [shareInfo, setShareInfo] = useState<ShareInfo | null>(null);
+  const [allowedViews, setAllowedViews] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState(0);
+  const [expandedPhases, setExpandedPhases] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (token) {
+      fetchProjectData();
+    }
+  }, [token]);
+
+  // Funções para controlar expansão das etapas
+  const togglePhase = (phaseId: string) => {
+    setExpandedPhases(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(phaseId)) {
+        newSet.delete(phaseId);
+      } else {
+        newSet.add(phaseId);
+      }
+      return newSet;
+    });
+  };
+
+  const expandAllPhases = () => {
+    if (project?.timeline?.phases) {
+      setExpandedPhases(new Set(project.timeline.phases.map(phase => phase.id)));
+    }
+  };
+
+  const collapseAllPhases = () => {
+    setExpandedPhases(new Set());
+  };
+
+  const fetchProjectData = async () => {
+    try {
+      setLoading(true);
+      console.log('🔍 Fetching project data for token:', token);
+      const response = await api.get(`/share/${token}`);
+      console.log('📊 API Response:', response);
+      
+      if (response.project) {
+        console.log('✅ Project data received:', response.project);
+        console.log('🔍 Project details:', {
+          id: response.project.id,
+          name: response.project.name,
+          status: response.project.status,
+          priority: response.project.priority,
+          progress: response.project.progress,
+          manager: response.project.manager,
+          client: response.project.client,
+          members: response.project.members?.length || 0,
+          externalMembers: response.project.externalMembers?.length || 0,
+          tasks: response.project.tasks?.length || 0,
+          milestones: response.project.milestones?.length || 0,
+          timelines: response.project.timelines?.length || 0
+        });
+        
+        console.log('🔍 Timeline data:', response.project.timeline);
+        console.log('🔍 Tasks data:', response.project.tasks);
+        console.log('🔍 Milestones data:', response.project.milestones);
+        
+        setProject(response.project);
+        setShareInfo(response.shareInfo);
+        setAllowedViews(response.allowedViews || []);
+        
+        console.log('🔍 Allowed views:', response.allowedViews);
+        console.log('🔍 Share info:', response.shareInfo);
+      }
+    } catch (error: any) {
+      console.error('Erro ao carregar projeto:', error);
+      if (error.response?.status === 404) {
+        setError('Link de compartilhamento inválido ou expirado');
+      } else if (error.response?.status === 410) {
+        setError('Link de compartilhamento expirado');
+      } else {
+        setError('Erro ao carregar projeto compartilhado');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    const statusColors: { [key: string]: string } = {
+      active: '#4caf50',
+      completed: '#2196f3',
+      paused: '#ff9800',
+      cancelled: '#f44336',
+      todo: '#9e9e9e',
+      in_progress: '#2196f3',
+      review: '#ff9800',
+      done: '#4caf50'
+    };
+    return statusColors[status] || '#9e9e9e';
+  };
+
+  const getPriorityColor = (priority: string) => {
+    const priorityColors: { [key: string]: string } = {
+      low: '#4caf50',
+      medium: '#ff9800',
+      high: '#f44336',
+      urgent: '#9c27b0'
+    };
+    return priorityColors[priority] || '#9e9e9e';
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('pt-BR');
+  };
+
+  const formatDateTime = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const getStatusLabel = (status: string) => {
+    const statusLabels: { [key: string]: string } = {
+      active: 'Ativo',
+      completed: 'Concluído',
+      paused: 'Pausado',
+      cancelled: 'Cancelado',
+      todo: 'A fazer',
+      in_progress: 'Em andamento',
+      review: 'Em revisão',
+      done: 'Concluído'
+    };
+    return statusLabels[status] || status;
+  };
+
+  const getPriorityLabel = (priority: string) => {
+    const priorityLabels: { [key: string]: string } = {
+      low: 'Baixa',
+      medium: 'Média',
+      high: 'Alta',
+      urgent: 'Urgente'
+    };
+    return priorityLabels[priority] || priority;
+  };
+
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error || !project) {
+    return (
+      <Container maxWidth="md" sx={{ mt: 4 }}>
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error || 'Projeto não encontrado'}
+        </Alert>
+        <Button variant="contained" onClick={() => navigate('/')}>
+          Voltar ao início
+        </Button>
+      </Container>
+    );
+  }
+
+  const availableTabs = [
+    { key: 'overview', label: 'Visão Geral', allowed: allowedViews.includes('overview') },
+    { key: 'timeline', label: 'Cronograma Detalhado', allowed: allowedViews.includes('timeline') },
+    { key: 'gantt', label: 'Gráfico de Gantt', allowed: allowedViews.includes('gantt') },
+    { key: 'team', label: 'Equipe', allowed: allowedViews.includes('team') },
+    { key: 'resources', label: 'Stakeholders', allowed: allowedViews.includes('resources') }
+  ].filter(tab => tab.allowed);
+
+  const renderOverview = () => (
+    <Box>
+      <Grid container spacing={3}>
+        <Grid item xs={12} md={6}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Informações do Projeto
+              </Typography>
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body2" color="textSecondary">
+                  Status
+                </Typography>
+                <Chip
+                  label={getStatusLabel(project.status)}
+                  sx={{ backgroundColor: getStatusColor(project.status), color: 'white' }}
+                />
+              </Box>
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body2" color="textSecondary">
+                  Prioridade
+                </Typography>
+                <Chip
+                  label={getPriorityLabel(project.priority)}
+                  sx={{ backgroundColor: getPriorityColor(project.priority), color: 'white' }}
+                />
+              </Box>
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body2" color="textSecondary">
+                  Progresso
+                </Typography>
+                <LinearProgress
+                  variant="determinate"
+                  value={project.progress}
+                  sx={{ height: 8, borderRadius: 4 }}
+                />
+                <Typography variant="body2" sx={{ mt: 1 }}>
+                  {project.progress}% concluído
+                </Typography>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12} md={6}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Datas
+              </Typography>
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body2" color="textSecondary">
+                  <CalendarIcon sx={{ mr: 1, fontSize: 16 }} />
+                  Início: {formatDate(project.startDate)}
+                </Typography>
+              </Box>
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body2" color="textSecondary">
+                  <CalendarIcon sx={{ mr: 1, fontSize: 16 }} />
+                  Fim: {formatDate(project.endDate)}
+                </Typography>
+              </Box>
+              {project.budget && (
+                <Box>
+                  <Typography variant="body2" color="textSecondary">
+                    Orçamento: R$ {project.budget ? project.budget.toLocaleString('pt-BR') : 'Não especificado'}
+                  </Typography>
+                </Box>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Descrição
+              </Typography>
+              <Typography variant="body1">
+                {project.description}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+    </Box>
+  );
+
+  const renderTimeline = () => {
+    console.log('🔍 Rendering timeline, project.timeline:', project.timeline);
+    
+    if (!project.timeline || !project.timeline.phases || project.timeline.phases?.length === 0) {
+      return (
+        <Alert severity="info">
+          Nenhum cronograma configurado para este projeto. 
+          {project.timeline ? `Timeline existe: ${!!project.timeline}, Fases: ${project.timeline.phases?.length || 0}` : 'Timeline é null/undefined'}
+        </Alert>
+      );
+    }
+
+    const phases = project.timeline.phases;
+
+    return (
+      <Box>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+          <Typography variant="h6">
+            Cronograma Detalhado do Projeto
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button
+              size="small"
+              startIcon={<UnfoldMoreIcon />}
+              onClick={expandAllPhases}
+              variant="outlined"
+            >
+              Expandir Todas
+            </Button>
+            <Button
+              size="small"
+              startIcon={<UnfoldLessIcon />}
+              onClick={collapseAllPhases}
+              variant="outlined"
+            >
+              Recolher Todas
+            </Button>
+          </Box>
+        </Box>
+        
+                {/* Resumo do Cronograma */}
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          <Grid item xs={12} md={4}>
+            <Card sx={{ height: '100%' }}>
+              <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <Box>
+                  <Typography variant="h6" gutterBottom color="primary">
+                    Datas do Projeto
+                  </Typography>
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="body2" color="textSecondary">
+                      <CalendarIcon sx={{ mr: 1, fontSize: 16 }} />
+                      Início: {formatDate(project.startDate)}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="body2" color="textSecondary">
+                      <CalendarIcon sx={{ mr: 1, fontSize: 16 }} />
+                      Fim: {formatDate(project.endDate)}
+                    </Typography>
+                  </Box>
+                </Box>
+                
+                {/* Espaçador para alinhar com as outras caixas */}
+                <Box sx={{ mt: 'auto', pt: 2 }}>
+                  <Typography variant="body2" color="textSecondary">
+                    Projeto em andamento
+                  </Typography>
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+          
+          <Grid item xs={12} md={4}>
+            <Card sx={{ height: '100%' }}>
+              <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <Box>
+                  <Typography variant="h6" gutterBottom color="primary">
+                    Fases do Projeto
+                  </Typography>
+                  <Typography variant="h4" color="primary" sx={{ fontWeight: 'bold' }}>
+                    {phases.length}
+                  </Typography>
+                  <Typography variant="body2" color="textSecondary">
+                    Fases configuradas
+                  </Typography>
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+          
+          <Grid item xs={12} md={4}>
+            <Card sx={{ height: '100%' }}>
+              <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <Box>
+                  <Typography variant="h6" gutterBottom color="primary">
+                    Tarefas Totais
+                  </Typography>
+                  <Typography variant="h4" color="primary" sx={{ fontWeight: 'bold' }}>
+                    {project.tasks?.length || 0}
+                  </Typography>
+                  <Typography variant="body2" color="textSecondary">
+                    Tarefas planejadas
+                  </Typography>
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+
+        {/* Cronograma Detalhado por Fases */}
+        <Typography variant="h6" gutterBottom sx={{ mt: 4, mb: 2 }}>
+          Detalhamento por Fases
+        </Typography>
+        
+        {/* Filtros e Estatísticas */}
+        <Box sx={{ mb: 3, p: 2, backgroundColor: 'grey.50', borderRadius: 2 }}>
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} md={3}>
+              <Typography variant="subtitle2" color="primary">
+                Fases Ativas: {phases.filter((p: any) => p.status === 'em_andamento').length}
+              </Typography>
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <Typography variant="subtitle2" color="success.main">
+                Fases Concluídas: {phases.filter((p: any) => p.status === 'concluido').length}
+              </Typography>
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <Typography variant="subtitle2" color="warning.main">
+                Fases Pendentes: {phases.filter((p: any) => p.status === 'nao_iniciado').length}
+              </Typography>
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <Typography variant="subtitle2" color="info.main">
+                Total de Tarefas: {phases.reduce((total: number, p: any) => total + (p.tasks?.length || 0), 0)}
+              </Typography>
+            </Grid>
+          </Grid>
+        </Box>
+        
+        {phases.map((phase: any, phaseIndex: number) => {
+          const isExpanded = expandedPhases.has(phase.id);
+          const hasTasks = phase.tasks && phase.tasks.length > 0;
+          
+          return (
+            <Card key={phase.id || phaseIndex} sx={{ mb: 3 }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="h6" color="primary">
+                      {phase.name || `Fase ${phaseIndex + 1}`}
+                    </Typography>
+                    {hasTasks && (
+                      <IconButton
+                        size="small"
+                        onClick={() => togglePhase(phase.id)}
+                        sx={{ ml: 1 }}
+                      >
+                        {isExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                      </IconButton>
+                    )}
+                  </Box>
+                  <Chip
+                    label={phase.status || 'Não iniciado'}
+                    color={
+                      phase.status === 'concluido' ? 'success' :
+                      phase.status === 'em_andamento' ? 'primary' :
+                      phase.status === 'nao_iniciado' ? 'warning' : 'default'
+                    }
+                    size="small"
+                  />
+                </Box>
+              
+              {/* Datas da Fase */}
+              <Grid container spacing={2} sx={{ mb: 2 }}>
+                <Grid item xs={12} md={6}>
+                  <Typography variant="body2" color="textSecondary">
+                    <CalendarIcon sx={{ mr: 1, fontSize: 14 }} />
+                    Início: {phase.startDate ? formatDate(phase.startDate) : 'Não definido'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <Typography variant="body2" color="textSecondary">
+                    <CalendarIcon sx={{ mr: 1, fontSize: 14 }} />
+                    Fim: {phase.endDate ? formatDate(phase.endDate) : 'Não definido'}
+                  </Typography>
+                </Grid>
+              </Grid>
+              
+              {/* Progresso da Fase */}
+              <Box sx={{ mb: 2 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                  <Typography variant="body2" color="textSecondary">
+                    Progresso da Fase
+                  </Typography>
+                  <Typography variant="body2" fontWeight="bold">
+                    {phase.progress || 0}%
+                  </Typography>
+                </Box>
+                <LinearProgress
+                  variant="determinate"
+                  value={phase.progress || 0}
+                  sx={{ height: 8, borderRadius: 4 }}
+                />
+              </Box>
+              
+              {/* Tarefas da Fase */}
+              {phase.tasks && phase.tasks.length > 0 && (
+                <Box>
+                  <Typography variant="subtitle2" gutterBottom color="textSecondary">
+                    Tarefas da Fase ({phase.tasks.length})
+                  </Typography>
+                  {isExpanded && (
+                    <List dense>
+                    {phase.tasks.map((task: any, taskIndex: number) => (
+                      <ListItem key={task.id || taskIndex} sx={{ px: 0 }}>
+                        <ListItemAvatar>
+                          <Avatar sx={{ 
+                            backgroundColor: getStatusColor(task.status),
+                            width: 32,
+                            height: 32
+                          }}>
+                            <AssignmentIcon sx={{ fontSize: 16 }} />
+                          </Avatar>
+                        </ListItemAvatar>
+                        <ListItemText
+                          primary={task.name || `Tarefa ${taskIndex + 1}`}
+                          secondary={
+                            <Box>
+                              <Typography variant="body2" component="span">
+                                {getStatusLabel(task.status)} • {getPriorityLabel(task.priority)}
+                              </Typography>
+                              
+                              {/* Datas da Tarefa */}
+                              <Grid container spacing={1} sx={{ mt: 1 }}>
+                                {task.startDate && (
+                                  <Grid item xs={6}>
+                                    <Typography variant="body2" component="div" color="textSecondary">
+                                      <CalendarIcon sx={{ mr: 0.5, fontSize: 12 }} />
+                                      Início: {formatDate(task.startDate)}
+                                    </Typography>
+                                  </Grid>
+                                )}
+                                {task.plannedEndDate && (
+                                  <Grid item xs={6}>
+                                    <Typography variant="body2" component="div" color="textSecondary">
+                                      <CalendarIcon sx={{ mr: 0.5, fontSize: 12 }} />
+                                      Prazo: {formatDate(task.plannedEndDate)}
+                                    </Typography>
+                                  </Grid>
+                                )}
+                                {task.actualEndDate && (
+                                  <Grid item xs={6}>
+                                    <Typography variant="body2" component="div" color="textSecondary">
+                                      <CheckCircleIcon sx={{ mr: 0.5, fontSize: 12 }} />
+                                      Concluída: {formatDate(task.actualEndDate)}
+                                    </Typography>
+                                  </Grid>
+                                )}
+                                {task.estimatedHours && (
+                                  <Grid item xs={6}>
+                                    <Typography variant="body2" component="div" color="textSecondary">
+                                      <ScheduleIcon sx={{ mr: 0.5, fontSize: 12 }} />
+                                      Estimativa: {task.estimatedHours}h
+                                    </Typography>
+                                  </Grid>
+                                )}
+                              </Grid>
+                              
+                              {/* Responsável */}
+                              {task.assignee && (
+                                <Typography variant="body2" component="div" color="textSecondary" sx={{ mt: 1 }}>
+                                  <PersonIcon sx={{ mr: 0.5, fontSize: 12 }} />
+                                  Responsável: {task.assignee.nome || task.assignee.name}
+                                </Typography>
+                              )}
+                              
+                              {/* Observações */}
+                              {task.observations && (
+                                <Typography variant="body2" component="div" color="textSecondary" sx={{ mt: 1, fontStyle: 'italic' }}>
+                                  "{task.observations}"
+                                </Typography>
+                              )}
+                              
+                              {/* Progresso */}
+                              {task.progress !== undefined && (
+                                <Box sx={{ mt: 1 }}>
+                                  <LinearProgress
+                                    variant="determinate"
+                                    value={task.progress}
+                                    sx={{ height: 6, borderRadius: 3 }}
+                                  />
+                                  <Typography variant="caption" color="textSecondary">
+                                    {task.progress}% concluído
+                                  </Typography>
+                                </Box>
+                              )}
+                              
+                              {/* Subtarefas */}
+                              {task.subtasks && task.subtasks.length > 0 && (
+                                <Box sx={{ mt: 1, pl: 2, borderLeft: '2px solid', borderColor: 'divider' }}>
+                                  <Typography variant="caption" color="textSecondary">
+                                    Subtarefas ({task.subtasks.length}):
+                                  </Typography>
+                                  {task.subtasks.slice(0, 3).map((subtask: any, subtaskIndex: number) => (
+                                    <Typography key={subtaskIndex} variant="caption" component="div" color="textSecondary">
+                                      • {subtask.title || subtask.name} - {getStatusLabel(subtask.status)}
+                                    </Typography>
+                                  ))}
+                                  {task.subtasks.length > 3 && (
+                                    <Typography variant="caption" color="textSecondary">
+                                      ... e mais {task.subtasks.length - 3} subtarefas
+                                    </Typography>
+                                  )}
+                                </Box>
+                              )}
+                            </Box>
+                          }
+                        />
+                      </ListItem>
+                    ))}
+                    </List>
+                  )}
+                </Box>
+              )}
+            </CardContent>
+          </Card>
+          );
+        })}
+        
+        {/* Marcos Importantes do Projeto */}
+        {project.milestones && project.milestones?.length > 0 && (
+          <Box sx={{ mt: 4 }}>
+            <Typography variant="h6" gutterBottom color="primary">
+              Marcos Importantes (Milestones)
+            </Typography>
+            <Grid container spacing={2}>
+              {project.milestones.map((milestone: any, index: number) => (
+                <Grid item xs={12} md={6} key={milestone.id || index}>
+                  <Card sx={{ 
+                    border: milestone.completed ? '2px solid' : '1px solid',
+                    borderColor: milestone.completed ? 'success.main' : 'divider',
+                    backgroundColor: milestone.completed ? 'success.50' : 'background.paper'
+                  }}>
+                    <CardContent>
+                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                        <Avatar sx={{ 
+                          backgroundColor: milestone.completed ? 'success.main' : 'warning.main',
+                          width: 32,
+                          height: 32,
+                          mr: 1
+                        }}>
+                          {milestone.completed ? <CheckCircleIcon /> : <ScheduleIcon />}
+                        </Avatar>
+                        <Box sx={{ flex: 1 }}>
+                          <Typography variant="h6" color={milestone.completed ? 'success.main' : 'text.primary'}>
+                            {milestone.title}
+                          </Typography>
+                          <Typography variant="body2" color="textSecondary">
+                            {milestone.description}
+                          </Typography>
+                        </Box>
+                      </Box>
+                      
+                      <Box sx={{ mt: 2 }}>
+                        <Typography variant="body2" color="textSecondary">
+                          <CalendarIcon sx={{ mr: 1, fontSize: 14 }} />
+                          Prazo: {formatDate(milestone.dueDate)}
+                        </Typography>
+                        <Typography variant="body2" color="textSecondary">
+                          Status: {milestone.completed ? 'Concluído' : 'Pendente'}
+                        </Typography>
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          </Box>
+        )}
+      </Box>
+    );
+  };
+
+  const renderGantt = () => {
+    console.log('🔍 Rendering Gantt, project.timeline:', project.timeline);
+    
+    if (!project.timeline || !project.timeline.phases || project.timeline.phases?.length === 0) {
+      return (
+        <Alert severity="info">
+          Nenhum cronograma configurado para este projeto.
+          {project.timeline ? `Timeline existe: ${!!project.timeline}, Fases: ${project.timeline.phases?.length || 0}` : 'Timeline é null/undefined'}
+        </Alert>
+      );
+    }
+
+    const phases = project.timeline.phases;
+
+    return (
+      <Box>
+        <Typography variant="h6" gutterBottom>
+          Gráfico de Gantt - Cronograma Visual
+        </Typography>
+        
+        {/* Informações do Gantt */}
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          <Grid item xs={12} md={6}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom color="primary">
+                  Informações do Gantt
+                </Typography>
+                <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+                  Visualização gráfica completa do cronograma do projeto, incluindo:
+                </Typography>
+                <List dense>
+                  <ListItem sx={{ px: 0 }}>
+                    <ListItemAvatar>
+                      <Avatar sx={{ backgroundColor: 'primary.main', width: 24, height: 24 }}>
+                        <CalendarIcon sx={{ fontSize: 14 }} />
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary="Fases do projeto"
+                      secondary="Com datas de início e fim"
+                    />
+                  </ListItem>
+                  <ListItem sx={{ px: 0 }}>
+                    <ListItemAvatar>
+                      <Avatar sx={{ backgroundColor: 'secondary.main', width: 24, height: 24 }}>
+                        <AssignmentIcon sx={{ fontSize: 14 }} />
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary="Tarefas e subtarefas"
+                      secondary="Com dependências e responsáveis"
+                    />
+                  </ListItem>
+                  <ListItem sx={{ px: 0 }}>
+                    <ListItemAvatar>
+                      <Avatar sx={{ backgroundColor: 'success.main', width: 24, height: 24 }}>
+                        <CheckCircleIcon sx={{ fontSize: 14 }} />
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary="Marcos importantes"
+                      secondary="Pontos de controle do projeto"
+                    />
+                  </ListItem>
+                </List>
+              </CardContent>
+            </Card>
+          </Grid>
+          
+          <Grid item xs={12} md={6}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom color="primary">
+                  Estatísticas do Cronograma
+                </Typography>
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="body2" color="textSecondary">
+                    Total de Fases: <strong>{phases.length}</strong>
+                  </Typography>
+                </Box>
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="body2" color="textSecondary">
+                    Total de Tarefas: <strong>{project.tasks?.length || 0}</strong>
+                  </Typography>
+                </Box>
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="body2" color="textSecondary">
+                    Marcos: <strong>{project.milestones?.length || 0}</strong>
+                  </Typography>
+                </Box>
+
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+
+        {/* Gráfico de Gantt */}
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <Typography variant="h6" gutterBottom color="primary">
+              Visualização do Cronograma
+        </Typography>
+        <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
+              Gráfico de Gantt interativo mostrando a sequência temporal de todas as atividades do projeto.
+        </Typography>
+        <ProjectGantt
+          phases={phases}
+          projectStartDate={project.startDate}
+          projectEndDate={project.endDate}
+        />
+          </CardContent>
+        </Card>
+
+        {/* Legenda do Gantt */}
+        <Card>
+          <CardContent>
+            <Typography variant="h6" gutterBottom color="primary">
+              Legenda do Gráfico
+            </Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={3}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                  <Box sx={{ width: 20, height: 20, backgroundColor: 'primary.main', mr: 1, borderRadius: 1 }} />
+                  <Typography variant="body2">Fases do Projeto</Typography>
+                </Box>
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                  <Box sx={{ width: 20, height: 20, backgroundColor: 'secondary.main', mr: 1, borderRadius: 1 }} />
+                  <Typography variant="body2">Tarefas Principais</Typography>
+                </Box>
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                  <Box sx={{ width: 20, height: 20, backgroundColor: 'success.main', mr: 1, borderRadius: 1 }} />
+                  <Typography variant="body2">Marcos (Milestones)</Typography>
+                </Box>
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                  <Box sx={{ width: 20, height: 20, backgroundColor: 'warning.main', mr: 1, borderRadius: 1 }} />
+                  <Typography variant="body2">Tarefas em Andamento</Typography>
+                </Box>
+              </Grid>
+            </Grid>
+          </CardContent>
+        </Card>
+      </Box>
+    );
+  };
+
+  const renderTeam = () => (
+    <Box>
+      <Grid container spacing={3}>
+        <Grid item xs={12} md={6}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Gerente do Projeto
+              </Typography>
+              <Box display="flex" alignItems="center" sx={{ mb: 2 }}>
+                <Avatar sx={{ mr: 2 }}>
+                  <PersonIcon />
+                </Avatar>
+                <Box>
+                  <Typography variant="subtitle1">
+                    {project.manager?.name || 'Gerente não especificado'}
+                  </Typography>
+                  <Typography variant="body2" color="textSecondary">
+                    {project.manager?.email || 'Email não disponível'}
+                  </Typography>
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12} md={6}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Cliente
+              </Typography>
+              {project.client ? (
+                <Box display="flex" alignItems="center">
+                  <BusinessIcon sx={{ mr: 2, fontSize: 40 }} />
+                  <Typography variant="subtitle1">
+                    {project.client.nome}
+                  </Typography>
+                </Box>
+              ) : (
+                <Typography variant="body2" color="textSecondary">
+                  Cliente não especificado
+                </Typography>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12} md={6}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Membros da Equipe ({project.members?.length || 0})
+              </Typography>
+              <List>
+                {(project.members || []).map((member, index) => (
+                  <React.Fragment key={member.id}>
+                    <ListItem>
+                      <ListItemAvatar>
+                        <Avatar>
+                          <PersonIcon />
+                        </Avatar>
+                      </ListItemAvatar>
+                      <ListItemText
+                        primary={member.user.name}
+                        secondary={`${member.role} • ${member.user.email}`}
+                      />
+                    </ListItem>
+                    {index < (project.members?.length || 0) - 1 && <Divider />}
+                  </React.Fragment>
+                ))}
+              </List>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12} md={6}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Membros Externos ({project.externalMembers?.length || 0})
+              </Typography>
+              {(project.externalMembers?.length || 0) > 0 ? (
+                <List>
+                  {(project.externalMembers || []).map((member, index) => (
+                    <React.Fragment key={member.id}>
+                      <ListItem>
+                        <ListItemAvatar>
+                          <Avatar>
+                            <PersonIcon />
+                          </Avatar>
+                        </ListItemAvatar>
+                        <ListItemText
+                          primary={member.name}
+                          secondary={`${member.role}${member.company ? ` • ${member.company}` : ''}`}
+                        />
+                      </ListItem>
+                      {index < (project.externalMembers?.length || 0) - 1 && <Divider />}
+                    </React.Fragment>
+                  ))}
+                </List>
+              ) : (
+                <Typography variant="body2" color="textSecondary">
+                  Nenhum membro externo configurado.
+                </Typography>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+    </Box>
+  );
+
+  const renderResources = () => (
+    <Box>
+      <Grid container spacing={3}>
+        <Grid item xs={12} md={6}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Tarefas ({project.tasks?.length || 0})
+              </Typography>
+              {(project.tasks?.length || 0) > 0 ? (
+                <List>
+                  {(project.tasks || []).map((task, index) => (
+                    <React.Fragment key={task.id}>
+                      <ListItem>
+                        <ListItemAvatar>
+                          <Avatar sx={{ backgroundColor: getStatusColor(task.status) }}>
+                            <AssignmentIcon />
+                          </Avatar>
+                        </ListItemAvatar>
+                        <ListItemText
+                          primary={task.title}
+                          secondary={
+                            <Box>
+                              <Typography variant="body2" component="span">
+                                {getStatusLabel(task.status)} • {getPriorityLabel(task.priority)}
+                              </Typography>
+                              {task.dueDate && (
+                                <Typography variant="body2" component="div" color="textSecondary">
+                                  Prazo: {formatDate(task.dueDate)}
+                                </Typography>
+                              )}
+                              {task.assignee && (
+                                <Typography variant="body2" component="div" color="textSecondary">
+                                  Responsável: {task.assignee.nome}
+                                </Typography>
+                              )}
+                            </Box>
+                          }
+                        />
+                      </ListItem>
+                      {index < (project.tasks?.length || 0) - 1 && <Divider />}
+                    </React.Fragment>
+                  ))}
+                </List>
+              ) : (
+                <Typography variant="body2" color="textSecondary">
+                  Nenhuma tarefa configurada.
+                </Typography>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12} md={6}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Marcos ({project.milestones?.length || 0})
+              </Typography>
+              {(project.milestones?.length || 0) > 0 ? (
+                <List>
+                  {(project.milestones || []).map((milestone, index) => (
+                    <React.Fragment key={milestone.id}>
+                      <ListItem>
+                        <ListItemAvatar>
+                          <Avatar sx={{ backgroundColor: milestone.completed ? '#4caf50' : '#ff9800' }}>
+                            {milestone.completed ? <CheckCircleIcon /> : <ScheduleIcon />}
+                          </Avatar>
+                        </ListItemAvatar>
+                        <ListItemText
+                          primary={milestone.title}
+                          secondary={
+                            <Box>
+                              <Typography variant="body2" component="span">
+                                {milestone.completed ? 'Concluído' : 'Pendente'}
+                              </Typography>
+                              <Typography variant="body2" component="div" color="textSecondary">
+                                Prazo: {formatDate(milestone.dueDate)}
+                              </Typography>
+                            </Box>
+                          }
+                        />
+                      </ListItem>
+                      {index < (project.milestones?.length || 0) - 1 && <Divider />}
+                    </React.Fragment>
+                  ))}
+                </List>
+              ) : (
+                <Typography variant="body2" color="textSecondary">
+                  Nenhum marco configurado.
+                </Typography>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+    </Box>
+  );
+
+  const renderTabContent = () => {
+    const currentTab = availableTabs[activeTab];
+    console.log('🔍 Rendering tab:', currentTab?.key, 'Active tab index:', activeTab);
+    console.log('🔍 Available tabs:', availableTabs);
+    console.log('🔍 Current project data:', project);
+    
+    if (!currentTab) return null;
+
+    switch (currentTab.key) {
+      case 'overview':
+        console.log('🎯 Rendering Overview tab');
+        return renderOverview();
+      case 'timeline':
+        console.log('🎯 Rendering Timeline tab');
+        return renderTimeline();
+      case 'gantt':
+        console.log('🎯 Rendering Gantt tab');
+        return renderGantt();
+      case 'team':
+        console.log('🎯 Rendering Team tab');
+        return renderTeam();
+      case 'resources':
+        console.log('🎯 Rendering Resources tab');
+        return renderResources();
+      default:
+        console.log('❌ Unknown tab:', currentTab.key);
+        return null;
+    }
+  };
+
+  return (
+    <Box sx={{ backgroundColor: '#f5f5f5', minHeight: '100vh', py: 3 }}>
+      <Container maxWidth="lg">
+        {/* Header */}
+        <Paper sx={{ p: 3, mb: 3 }}>
+          <Box display="flex" justifyContent="space-between" alignItems="flex-start">
+            <Box>
+              <Typography variant="h4" gutterBottom>
+                {project.name}
+              </Typography>
+              {shareInfo && (
+                <Typography variant="body2" color="textSecondary" sx={{ mb: 1 }}>
+                  Compartilhado por: {shareInfo.name}
+                  {shareInfo.description && ` - ${shareInfo.description}`}
+                </Typography>
+              )}
+              <Typography variant="body2" color="textSecondary">
+                Criado em: {formatDateTime(shareInfo?.createdAt || '')}
+              </Typography>
+            </Box>
+            <Box display="flex" alignItems="center" gap={1}>
+              <ShareIcon color="primary" />
+              <Typography variant="body2" color="primary">
+                Visualização Pública
+              </Typography>
+            </Box>
+          </Box>
+        </Paper>
+
+        {/* Tabs */}
+        {availableTabs.length > 1 && (
+          <Paper sx={{ mb: 3 }}>
+            <Tabs
+              value={activeTab}
+              onChange={(_, newValue) => setActiveTab(newValue)}
+              variant="scrollable"
+              scrollButtons="auto"
+            >
+              {availableTabs.map((tab, index) => (
+                <Tab key={tab.key} label={tab.label} />
+              ))}
+            </Tabs>
+          </Paper>
+        )}
+
+        {/* Tab Content */}
+        <Paper sx={{ p: 3 }}>
+          {renderTabContent()}
+        </Paper>
+      </Container>
+    </Box>
+  );
+};
+
+export default ShareProject;

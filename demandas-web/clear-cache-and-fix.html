@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Limpar Cache e Corrigir Sincronização</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #d32f2f;
+            text-align: center;
+        }
+        .step {
+            background: #e3f2fd;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border-left: 4px solid #2196f3;
+        }
+        .warning {
+            background: #fff3e0;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border-left: 4px solid #ff9800;
+        }
+        .success {
+            background: #e8f5e8;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border-left: 4px solid #4caf50;
+        }
+        button {
+            background: #d32f2f;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #b71c1c;
+        }
+        .info {
+            background: #f3e5f5;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border-left: 4px solid #9c27b0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Correção de Sincronização - Cache vs Banco</h1>
+        
+        <div class="warning">
+            <h3>⚠️ PROBLEMA IDENTIFICADO:</h3>
+            <p>O frontend tem dados em cache (localStorage) que não correspondem ao banco de dados real. 
+            O contrato que o frontend "vê" não existe no banco de dados.</p>
+        </div>
+
+        <div class="step">
+            <h3>📋 Passos para Correção:</h3>
+            <ol>
+                <li><strong>Limpar todo o cache do localStorage</strong></li>
+                <li><strong>Forçar sincronização completa com a API</strong></li>
+                <li><strong>Recarregar a página para aplicar as correções</strong></li>
+            </ol>
+        </div>
+
+        <div class="info">
+            <h3>ℹ️ O que este script faz:</h3>
+            <ul>
+                <li>Remove todos os dados mestres do localStorage</li>
+                <li>Remove dados de contratos específicos</li>
+                <li>Força uma nova sincronização com a API</li>
+                <li>Recarrega a página automaticamente</li>
+            </ul>
+        </div>
+
+        <div style="text-align: center;">
+            <button onclick="clearAllCache()">🧹 LIMPAR CACHE E CORRIGIR</button>
+            <button onclick="window.location.reload()">🔄 APENAS RECARREGAR</button>
+        </div>
+
+        <div id="result" style="margin-top: 20px;"></div>
+    </div>
+
+    <script>
+        function clearAllCache() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '<div class="step">🔄 Executando limpeza...</div>';
+            
+            try {
+                // 1. Limpar dados mestres
+                console.log('🧹 Limpando dados mestres...');
+                localStorage.removeItem('masterDataStore');
+                localStorage.removeItem('demandStore');
+                localStorage.removeItem('comunicadoStore');
+                localStorage.removeItem('validationStore');
+                localStorage.removeItem('manutencaoStore');
+                localStorage.removeItem('projectStore');
+                
+                // 2. Limpar dados específicos de contratos
+                console.log('🧹 Limpando dados de contratos...');
+                const keys = Object.keys(localStorage);
+                keys.forEach(key => {
+                    if (key.includes('contrato') || key.includes('cliente') || key.includes('master')) {
+                        localStorage.removeItem(key);
+                        console.log(`Removido: ${key}`);
+                    }
+                });
+                
+                // 3. Forçar sincronização na próxima carga
+                localStorage.setItem('forceSync', 'true');
+                localStorage.setItem('clearCache', Date.now().toString());
+                
+                resultDiv.innerHTML = `
+                    <div class="success">
+                        <h3>✅ Cache limpo com sucesso!</h3>
+                        <p>Dados mestres removidos do localStorage.</p>
+                        <p>Redirecionando para a página principal...</p>
+                    </div>
+                `;
+                
+                // 4. Redirecionar para a página principal
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 2000);
+                
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="warning">
+                        <h3>❌ Erro ao limpar cache:</h3>
+                        <p>${error.message}</p>
+                        <p>Tente recarregar a página manualmente.</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Verificar se há dados em cache
+        window.onload = function() {
+            const hasMasterData = localStorage.getItem('masterDataStore');
+            const hasDemandData = localStorage.getItem('demandStore');
+            
+            if (hasMasterData || hasDemandData) {
+                document.getElementById('result').innerHTML = `
+                    <div class="warning">
+                        <h3>⚠️ Dados em cache detectados!</h3>
+                        <p>Encontrados dados mestres no localStorage que podem estar desatualizados.</p>
+                        <p>Recomenda-se executar a limpeza.</p>
+                    </div>
+                `;
+            } else {
+                document.getElementById('result').innerHTML = `
+                    <div class="success">
+                        <h3>✅ Cache limpo</h3>
+                        <p>Nenhum dado em cache detectado.</p>
+                    </div>
+                `;
+            }
+        };
+    </script>
+</body>
+</html>

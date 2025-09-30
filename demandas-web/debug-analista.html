@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Analista</title>
+</head>
+<body>
+    <h1>Debug - Busca de Analista</h1>
+    <p>Abra o Console (F12) e execute:</p>
+    <pre>
+// Debug da busca de analista
+const userData = localStorage.getItem('auth-storage');
+const masterData = localStorage.getItem('master-data-storage');
+
+console.log('Usuário:', userData ? JSON.parse(userData) : 'Não encontrado');
+console.log('Analistas:', masterData ? JSON.parse(masterData).state?.analistas : 'Não encontrado');
+    </pre>
+</body>
+</html>

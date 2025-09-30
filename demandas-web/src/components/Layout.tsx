@@ -1,16 +1,41 @@
-import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
-import { AppBar, Box, CssBaseline, Divider, Drawer, IconButton, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Toolbar, Typography } from '@mui/material'
-import MenuIcon from '@mui/icons-material/Menu'
-import DashboardIcon from '@mui/icons-material/Dashboard'
-import AssignmentIcon from '@mui/icons-material/Assignment'
-import CheckCircleIcon from '@mui/icons-material/CheckCircle'
-import PriceChangeIcon from '@mui/icons-material/PriceChange'
-import InsightsIcon from '@mui/icons-material/Insights'
-import TableChartIcon from '@mui/icons-material/TableChart'
-import SettingsIcon from '@mui/icons-material/Settings'
-import { useEffect, useState } from 'react'
-import { useAuthStore } from '@/store/authStore'
-import { useMasterDataStore } from '@/store/masterDataStore'
+import React, { useState, useEffect } from 'react'
+import { 
+  Box, 
+  AppBar, 
+  Toolbar, 
+  Typography, 
+  IconButton, 
+  Avatar, 
+  Menu, 
+  MenuItem, 
+  ListItemIcon, 
+  ListItemText, 
+  Divider,
+  Drawer,
+  List,
+  ListItem,
+  ListItemButton,
+  CssBaseline
+} from '@mui/material'
+import { 
+  AccountCircle, 
+  Settings, 
+  Logout, 
+  Notifications, 
+  Search, 
+  Menu as MenuIcon,
+  Dashboard as DashboardIcon,
+  Assignment as AssignmentIcon,
+  CheckCircle as CheckCircleIcon,
+  PriceChange as PriceChangeIcon,
+  Insights as InsightsIcon,
+  ViewKanban as KanbanIcon
+} from '@mui/icons-material'
+import { useNavigate, useLocation, Outlet, Link } from 'react-router-dom'
+import { motion } from 'framer-motion'
+import { SidebarTrigger } from './SidebarTrigger'
+import { useAuthStore } from '../store/authStore'
+import { useMasterDataStore } from '../store/masterDataStore'
 
 const drawerWidth = 240
 
@@ -22,26 +47,30 @@ export function Layout() {
   const sync = useMasterDataStore((s) => s.syncFromApi)
 
   useEffect(() => {
-    if (auth.token && sync) {
-      sync().catch(() => {})
+    // Sincronizar dados mestres sempre que o Layout carrega
+    if (sync) {
+      console.log('🔄 Layout: Iniciando sincronização automática...')
+      sync().catch((error) => {
+        console.error('❌ Layout: Erro na sincronização automática:', error)
+      })
     }
-  }, [auth.token])
+  }, [sync])
 
   const handleDrawerToggle = () => setMobileOpen(!mobileOpen)
 
   const menu = [
     { to: '/', label: 'Dashboard', icon: <DashboardIcon /> },
     { to: '/cadastro', label: 'Cadastro', icon: <AssignmentIcon /> },
+    { to: '/kanban', label: 'Kanban', icon: <KanbanIcon /> },
     { to: '/validacao', label: 'Validação', icon: <CheckCircleIcon /> },
     { to: '/reajuste', label: 'Reajuste', icon: <PriceChangeIcon /> },
     { to: '/analytics', label: 'Analytics', icon: <InsightsIcon /> },
-    { to: '/matriz', label: 'Matriz', icon: <TableChartIcon /> },
-    { to: '/dados', label: 'Dados', icon: <SettingsIcon /> },
+    { to: '/dados', label: 'Dados', icon: <Settings /> },
+    { to: '/admin/usuarios', label: 'Usuários', icon: <Settings /> },
   ]
 
-  const adminItems = auth.user?.role === 'admin' ? [
-    { to: '/admin/usuarios', label: 'Usuários (Admin)', icon: <SettingsIcon /> },
-  ] : []
+  // As permissões são controladas pelo painel de usuário, não por código
+  // Todos os usuários veem todos os itens do menu
 
   const drawer = (
     <div>
@@ -50,7 +79,7 @@ export function Layout() {
       </Toolbar>
       <Divider />
       <List>
-        {[...menu, ...adminItems].map((item) => (
+        {menu.map((item) => (
           <ListItem key={item.to} disablePadding>
             <ListItemButton component={Link} to={item.to} selected={location.pathname === item.to}>
               <ListItemIcon>{item.icon}</ListItemIcon>
@@ -72,7 +101,7 @@ export function Layout() {
           </IconButton>
           <Typography variant="h6" sx={{ flexGrow: 1 }}>Plataforma de Demandas</Typography>
           {auth.user ? (
-            <Typography variant="body2" onClick={() => { useAuthStore.getState().clear(); navigate('/login') }} sx={{ cursor: 'pointer' }}>Sair</Typography>
+            <Typography variant="body2" onClick={() => { useAuthStore.getState().logout(); navigate('/login') }} sx={{ cursor: 'pointer' }}>Sair</Typography>
           ) : null}
         </Toolbar>
       </AppBar>
@@ -96,9 +125,11 @@ export function Layout() {
         </Drawer>
       </Box>
 
-      <Box component="main" sx={{ flexGrow: 1, p: 3, width: { sm: `calc(100% - ${drawerWidth}px)` } }}>
+      <Box component="main" sx={{ flexGrow: 1, p: 0, width: { sm: `calc(100% - ${drawerWidth}px)` } }}>
         <Toolbar />
-        <Outlet />
+        <Box sx={{ height: '100vh', width: '100%', overflow: 'hidden' }}>
+          <Outlet />
+        </Box>
       </Box>
     </Box>
   )

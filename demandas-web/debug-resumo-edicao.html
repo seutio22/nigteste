@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug - Resumo de Edição</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .warning { background-color: #fff3cd; border-color: #ffeaa7; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+        .field-test { margin: 10px 0; padding: 10px; border-left: 3px solid #007bff; background: #f8f9fa; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Debug - Resumo de Edição</h1>
+    
+    <div class="section">
+        <h2>1. Simular Dados da Demanda</h2>
+        <button onclick="simulateDemandaData()">Simular Dados</button>
+        <div id="demandaDataResult"></div>
+    </div>
+    
+    <div class="section">
+        <h2>2. Testar Mapeamento de Campos</h2>
+        <button onclick="testFieldMapping()">Testar Mapeamento</button>
+        <div id="mappingResult"></div>
+    </div>
+    
+    <div class="section">
+        <h2>3. Verificar Conversão de IDs</h2>
+        <button onclick="testIdConversion()">Testar Conversão</button>
+        <div id="conversionResult"></div>
+    </div>
+
+    <script>
+        // Simular dados mestres
+        const mockMasterData = {
+            tiposServico: [
+                { id: 'tipo-servico-1', nome: 'Desenvolvimento Web' },
+                { id: 'tipo-servico-2', nome: 'Consultoria' }
+            ],
+            tiposDemanda: [
+                { id: 'tipo-demanda-1', nome: 'Desenvolvimento' },
+                { id: 'tipo-demanda-2', nome: 'Manutenção' }
+            ],
+            sistemas: [
+                { id: 'sistema-1', nome: 'Sistema A' },
+                { id: 'sistema-2', nome: 'Sistema B' }
+            ],
+            areas: [
+                { id: 'area-1', nome: 'TI' },
+                { id: 'area-2', nome: 'Comercial' }
+            ],
+            clientes: [
+                { id: 'cliente-1', nome: 'Cliente A' },
+                { id: 'cliente-2', nome: 'Cliente B' }
+            ],
+            contratos: [
+                { id: 'contrato-1', codigo: 'CONT-001', numero: '12345' },
+                { id: 'contrato-2', codigo: 'CONT-002', numero: '67890' }
+            ],
+            analistas: [
+                { id: 'analista-1', nome: 'João Silva' },
+                { id: 'analista-2', nome: 'Maria Santos' }
+            ]
+        };
+
+        // Simular dados da demanda
+        const mockDemanda = {
+            id: '641d3109-7514-4954-93a2-e305c379345a',
+            tipoServicoId: 'tipo-servico-1',
+            tipoId: 'tipo-demanda-1',
+            sistemaId: 'sistema-1',
+            areaId: 'area-1',
+            clienteId: 'cliente-1',
+            contratoId: 'contrato-1',
+            analistaId: 'analista-1',
+            solicitante: 'Denis',
+            descricao: 'Teste de demanda'
+        };
+
+        function simulateDemandaData() {
+            const result = document.getElementById('demandaDataResult');
+            
+            let html = '<div class="success">✅ Dados da demanda simulados</div>';
+            html += '<h3>Dados da Demanda:</h3>';
+            html += '<pre>' + JSON.stringify(mockDemanda, null, 2) + '</pre>';
+            
+            html += '<h3>Dados Mestres:</h3>';
+            html += '<pre>' + JSON.stringify(mockMasterData, null, 2) + '</pre>';
+            
+            result.innerHTML = html;
+        }
+
+        function testFieldMapping() {
+            const result = document.getElementById('mappingResult');
+            
+            // Função label simulada
+            const label = (id, arr) => {
+                if (!id) return '-';
+                return arr?.find(a => a.id === id)?.nome || '-';
+            };
+            
+            const labelContrato = (id) => {
+                if (!id) return '-';
+                const contrato = mockMasterData.contratos.find(c => c.id === id);
+                if (!contrato) return '-';
+                return contrato.codigo || contrato.numero || `ID: ${id.substring(0, 8)}...`;
+            };
+            
+            const mappings = [
+                {
+                    field: 'Tipo de Serviço',
+                    id: mockDemanda.tipoServicoId,
+                    data: mockMasterData.tiposServico,
+                    result: label(mockDemanda.tipoServicoId, mockMasterData.tiposServico)
+                },
+                {
+                    field: 'Tipo de Demanda',
+                    id: mockDemanda.tipoId,
+                    data: mockMasterData.tiposDemanda,
+                    result: label(mockDemanda.tipoId, mockMasterData.tiposDemanda)
+                },
+                {
+                    field: 'Sistema',
+                    id: mockDemanda.sistemaId,
+                    data: mockMasterData.sistemas,
+                    result: label(mockDemanda.sistemaId, mockMasterData.sistemas)
+                },
+                {
+                    field: 'Área',
+                    id: mockDemanda.areaId,
+                    data: mockMasterData.areas,
+                    result: label(mockDemanda.areaId, mockMasterData.areas)
+                },
+                {
+                    field: 'Cliente',
+                    id: mockDemanda.clienteId,
+                    data: mockMasterData.clientes,
+                    result: label(mockDemanda.clienteId, mockMasterData.clientes)
+                },
+                {
+                    field: 'Contrato',
+                    id: mockDemanda.contratoId,
+                    data: mockMasterData.contratos,
+                    result: labelContrato(mockDemanda.contratoId)
+                },
+                {
+                    field: 'Analista',
+                    id: mockDemanda.analistaId,
+                    data: mockMasterData.analistas,
+                    result: label(mockDemanda.analistaId, mockMasterData.analistas)
+                }
+            ];
+            
+            let html = '<h3>Teste de Mapeamento de Campos:</h3>';
+            mappings.forEach(mapping => {
+                const status = mapping.result !== '-' ? 'success' : 'error';
+                html += `
+                    <div class="field-test">
+                        <strong>${mapping.field}:</strong> 
+                        <span class="${status}">${mapping.result}</span>
+                        <br>
+                        <small>ID: ${mapping.id}</small>
+                    </div>
+                `;
+            });
+            
+            result.innerHTML = html;
+        }
+
+        function testIdConversion() {
+            const result = document.getElementById('conversionResult');
+            
+            // Simular problema: campos sem sufixo Id
+            const problemaDemanda = {
+                tipoServico: mockDemanda.tipoServicoId, // ← Campo correto
+                tipo: mockDemanda.tipoId, // ← Campo correto
+                sistema: mockDemanda.sistemaId, // ← Campo correto
+                area: mockDemanda.areaId, // ← Campo correto
+                cliente: mockDemanda.clienteId, // ← Campo correto
+                contrato: mockDemanda.contratoId, // ← Campo correto
+                analista: mockDemanda.analistaId // ← Campo correto
+            };
+            
+            const label = (id, arr) => {
+                if (!id) return '-';
+                return arr?.find(a => a.id === id)?.nome || '-';
+            };
+            
+            let html = '<h3>Teste de Conversão de IDs:</h3>';
+            html += '<div class="warning">⚠️ Simulando problema: campos sem sufixo Id</div>';
+            
+            const fields = [
+                { name: 'Tipo de Serviço', id: problemaDemanda.tipoServico, data: mockMasterData.tiposServico },
+                { name: 'Tipo de Demanda', id: problemaDemanda.tipo, data: mockMasterData.tiposDemanda },
+                { name: 'Sistema', id: problemaDemanda.sistema, data: mockMasterData.sistemas },
+                { name: 'Área', id: problemaDemanda.area, data: mockMasterData.areas },
+                { name: 'Cliente', id: problemaDemanda.cliente, data: mockMasterData.clientes },
+                { name: 'Analista', id: problemaDemanda.analista, data: mockMasterData.analistas }
+            ];
+            
+            fields.forEach(field => {
+                const result = label(field.id, field.data);
+                const status = result !== '-' ? 'success' : 'error';
+                html += `
+                    <div class="field-test">
+                        <strong>${field.name}:</strong> 
+                        <span class="${status}">${result}</span>
+                        <br>
+                        <small>ID: ${field.id}</small>
+                    </div>
+                `;
+            });
+            
+            html += '<div class="success">✅ Todos os campos devem mostrar nomes legíveis</div>';
+            
+            result.innerHTML = html;
+        }
+
+        // Executar simulação inicial
+        window.onload = function() {
+            simulateDemandaData();
+        };
+    </script>
+</body>
+</html>

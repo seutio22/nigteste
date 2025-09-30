@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug - Resumo do Cadastro</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .warning { background-color: #fff3cd; border-color: #ffeaa7; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Debug - Resumo do Cadastro</h1>
+    
+    <div class="section">
+        <h2>1. Verificar Dados Mestres</h2>
+        <button onclick="checkMasterData()">Verificar Dados Mestres</button>
+        <div id="masterDataResult"></div>
+    </div>
+    
+    <div class="section">
+        <h2>2. Verificar Demanda Específica</h2>
+        <button onclick="checkDemanda()">Verificar Demanda</button>
+        <div id="demandaResult"></div>
+    </div>
+    
+    <div class="section">
+        <h2>3. Testar Conversão de IDs</h2>
+        <button onclick="testConversion()">Testar Conversão</button>
+        <div id="conversionResult"></div>
+    </div>
+    
+    <div class="section">
+        <h2>4. Forçar Sincronização</h2>
+        <button onclick="forceSync()">Forçar Sincronização</button>
+        <div id="syncResult"></div>
+    </div>
+
+    <script>
+        // Simular o ambiente do React
+        const mockMasterData = {
+            tiposServico: [],
+            tiposDemanda: [],
+            clientes: [],
+            contratos: [],
+            operadoras: [],
+            produtos: [],
+            sistemas: [],
+            areas: []
+        };
+
+        const mockDemanda = {
+            id: '73af20cc-859a-4552-9261-a3d5f227e21d',
+            tipoServicoId: 'e4751109-8d62-4ca2-8770-06f81b8d8b08',
+            tipoId: 'cab46bd1-f6ef-442a-8994-7a5511f3d577',
+            clienteId: 'cliente-id-123',
+            contratoId: 'contrato-id-456'
+        };
+
+        function checkMasterData() {
+            const result = document.getElementById('masterDataResult');
+            
+            // Simular verificação dos dados mestres
+            const hasData = Object.values(mockMasterData).some(arr => arr.length > 0);
+            
+            if (hasData) {
+                result.innerHTML = '<div class="success">✅ Dados mestres carregados</div>';
+            } else {
+                result.innerHTML = '<div class="error">❌ Dados mestres vazios - precisa sincronizar</div>';
+            }
+            
+            result.innerHTML += '<pre>' + JSON.stringify(mockMasterData, null, 2) + '</pre>';
+        }
+
+        function checkDemanda() {
+            const result = document.getElementById('demandaResult');
+            
+            result.innerHTML = '<div class="warning">⚠️ Dados da demanda:</div>';
+            result.innerHTML += '<pre>' + JSON.stringify(mockDemanda, null, 2) + '</pre>';
+        }
+
+        function testConversion() {
+            const result = document.getElementById('conversionResult');
+            
+            // Simular dados mestres carregados
+            mockMasterData.tiposServico = [
+                { id: 'e4751109-8d62-4ca2-8770-06f81b8d8b08', nome: 'Desenvolvimento' }
+            ];
+            mockMasterData.tiposDemanda = [
+                { id: 'cab46bd1-f6ef-442a-8994-7a5511f3d577', nome: 'Manutenção' }
+            ];
+            mockMasterData.clientes = [
+                { id: 'cliente-id-123', nome: 'Cliente Teste' }
+            ];
+            mockMasterData.contratos = [
+                { id: 'contrato-id-456', codigo: 'CONT-001', numero: '12345' }
+            ];
+            
+            // Testar conversão
+            const label = (id, arr) => {
+                if (!id) return '-';
+                return arr?.find(a => a.id === id)?.nome || '-';
+            };
+            
+            const labelContrato = (id) => {
+                if (!id) return '-';
+                const contrato = mockMasterData.contratos.find(c => c.id === id);
+                if (!contrato) return '-';
+                return contrato.codigo || contrato.numero || `ID: ${id.substring(0, 8)}...`;
+            };
+            
+            const conversoes = {
+                'Tipo de Serviço': label(mockDemanda.tipoServicoId, mockMasterData.tiposServico),
+                'Tipo de Demanda': label(mockDemanda.tipoId, mockMasterData.tiposDemanda),
+                'Cliente': label(mockDemanda.clienteId, mockMasterData.clientes),
+                'Contrato': labelContrato(mockDemanda.contratoId)
+            };
+            
+            result.innerHTML = '<div class="success">✅ Teste de conversão:</div>';
+            result.innerHTML += '<pre>' + JSON.stringify(conversoes, null, 2) + '</pre>';
+        }
+
+        function forceSync() {
+            const result = document.getElementById('syncResult');
+            
+            // Simular sincronização
+            result.innerHTML = '<div class="warning">🔄 Simulando sincronização...</div>';
+            
+            setTimeout(() => {
+                // Simular dados carregados
+                mockMasterData.tiposServico = [
+                    { id: 'e4751109-8d62-4ca2-8770-06f81b8d8b08', nome: 'Desenvolvimento' },
+                    { id: 'outro-id', nome: 'Consultoria' }
+                ];
+                mockMasterData.tiposDemanda = [
+                    { id: 'cab46bd1-f6ef-442a-8994-7a5511f3d577', nome: 'Manutenção' },
+                    { id: 'outro-tipo-id', nome: 'Novo Desenvolvimento' }
+                ];
+                mockMasterData.clientes = [
+                    { id: 'cliente-id-123', nome: 'Cliente Teste' },
+                    { id: 'outro-cliente-id', nome: 'Outro Cliente' }
+                ];
+                mockMasterData.contratos = [
+                    { id: 'contrato-id-456', codigo: 'CONT-001', numero: '12345' },
+                    { id: 'outro-contrato-id', codigo: 'CONT-002', numero: '67890' }
+                ];
+                
+                result.innerHTML = '<div class="success">✅ Sincronização simulada concluída!</div>';
+                result.innerHTML += '<pre>' + JSON.stringify(mockMasterData, null, 2) + '</pre>';
+            }, 1000);
+        }
+
+        // Executar verificação inicial
+        window.onload = function() {
+            checkMasterData();
+            checkDemanda();
+        };
+    </script>
+</body>
+</html>

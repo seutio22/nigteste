@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug - Salvamento de Alterações</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .warning { background-color: #fff3cd; border-color: #ffeaa7; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+        .field-test { margin: 10px 0; padding: 10px; border-left: 3px solid #007bff; background: #f8f9fa; }
+        .log-entry { margin: 5px 0; padding: 8px; background: #f8f9fa; border-radius: 3px; font-family: monospace; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Debug - Salvamento de Alterações</h1>
+    
+    <div class="section">
+        <h2>1. Simular Dados de Usuário</h2>
+        <button onclick="simulateUserData()">Simular Dados do Usuário</button>
+        <div id="userDataResult"></div>
+    </div>
+    
+    <div class="section">
+        <h2>2. Testar Função applySave</h2>
+        <button onclick="testApplySave()">Testar applySave</button>
+        <div id="applySaveResult"></div>
+    </div>
+    
+    <div class="section">
+        <h2>3. Verificar Logs de Timeline</h2>
+        <button onclick="testTimelineLogs()">Testar Logs</button>
+        <div id="timelineResult"></div>
+    </div>
+
+    <div class="section">
+        <h2>4. Simular Alteração de Campo</h2>
+        <button onclick="simulateFieldChange()">Simular Alteração</button>
+        <div id="fieldChangeResult"></div>
+    </div>
+
+    <script>
+        // Simular dados do usuário
+        const mockUser = {
+            id: '2cd1ef91-757e-438f-8e48-c6cf8a05981f',
+            name: 'Administrador',
+            email: 'admin@admin.com',
+            role: 'admin'
+        };
+
+        // Simular dados mestres
+        const mockMasterData = {
+            clientes: [
+                { id: 'acd8580d-4a5b-4234-8b89-a47aec4326fa', nome: 'Cliente A' }
+            ],
+            contratos: [
+                { id: 'dd71b96e-603d-44ea-8990-5a8bedef2d0f', codigo: 'CONT-001', numero: '12345' }
+            ],
+            produtos: [
+                { id: 'b3d9859e-4a44-4498-8186-c8818aba79c1', nome: 'Produto A' },
+                { id: '6bb97e8b-c381-4584-a0ba-f5812a49ee88', nome: 'Produto B' }
+            ]
+        };
+
+        // Simular dados da demanda
+        const mockDemanda = {
+            id: '641d3109-7514-4954-93a2-e305c379345a',
+            status: 'Em reajuste',
+            produtoId: 'b3d9859e-4a44-4498-8186-c8818aba79c1'
+        };
+
+        // Simular draft com alteração
+        const mockDraft = {
+            id: '641d3109-7514-4954-93a2-e305c379345a',
+            status: 'Em reajuste',
+            produtoId: '6bb97e8b-c381-4584-a0ba-f5812a49ee88' // Alterado
+        };
+
+        function simulateUserData() {
+            const result = document.getElementById('userDataResult');
+            
+            let html = '<div class="success">✅ Dados do usuário simulados</div>';
+            html += '<h3>Dados do Usuário:</h3>';
+            html += '<pre>' + JSON.stringify(mockUser, null, 2) + '</pre>';
+            
+            html += '<h3>Teste de Acesso:</h3>';
+            html += '<div class="field-test">';
+            html += '<strong>ID:</strong> ' + mockUser.id + '<br>';
+            html += '<strong>Nome:</strong> ' + mockUser.name + '<br>';
+            html += '<strong>Role:</strong> ' + mockUser.role + '<br>';
+            html += '</div>';
+            
+            result.innerHTML = html;
+        }
+
+        function testApplySave() {
+            const result = document.getElementById('applySaveResult');
+            
+            // Simular função applySave corrigida
+            function simulateApplySave() {
+                try {
+                    // Simular obtenção do usuário atual
+                    const currentUser = mockUser;
+                    
+                    // Simular payload de atualização
+                    const updatePayload = {
+                        status: mockDraft.status,
+                        produtoId: mockDraft.produtoId
+                    };
+                    
+                    // Simular logs
+                    const logs = [];
+                    
+                    // Log de mudança de campo
+                    const fieldMapping = {
+                        'produtoId': 'produto'
+                    };
+                    
+                    const fieldName = fieldMapping['produtoId'] || 'produtoId';
+                    const from = mockMasterData.produtos.find(p => p.id === mockDemanda.produtoId)?.nome || mockDemanda.produtoId;
+                    const to = mockMasterData.produtos.find(p => p.id === mockDraft.produtoId)?.nome || mockDraft.produtoId;
+                    
+                    const logData = {
+                        demandaId: mockDemanda.id,
+                        type: 'field_change',
+                        field: fieldName,
+                        from: from,
+                        to: to,
+                        userId: currentUser?.id,
+                        userName: currentUser?.name,
+                        timestamp: new Date().toISOString()
+                    };
+                    
+                    logs.push(logData);
+                    
+                    return {
+                        success: true,
+                        payload: updatePayload,
+                        logs: logs
+                    };
+                    
+                } catch (error) {
+                    return {
+                        success: false,
+                        error: error.message
+                    };
+                }
+            }
+            
+            const result_data = simulateApplySave();
+            
+            let html = '<h3>Teste da Função applySave:</h3>';
+            
+            if (result_data.success) {
+                html += '<div class="success">✅ Função applySave executada com sucesso</div>';
+                html += '<h4>Payload de Atualização:</h4>';
+                html += '<pre>' + JSON.stringify(result_data.payload, null, 2) + '</pre>';
+                html += '<h4>Logs Gerados:</h4>';
+                result_data.logs.forEach((log, index) => {
+                    html += '<div class="log-entry">';
+                    html += '<strong>Log ' + (index + 1) + ':</strong><br>';
+                    html += JSON.stringify(log, null, 2);
+                    html += '</div>';
+                });
+            } else {
+                html += '<div class="error">❌ Erro na função applySave: ' + result_data.error + '</div>';
+            }
+            
+            result.innerHTML = html;
+        }
+
+        function testTimelineLogs() {
+            const result = document.getElementById('timelineResult');
+            
+            // Simular logs de timeline
+            const timelineLogs = [
+                {
+                    demandaId: mockDemanda.id,
+                    type: 'field_change',
+                    field: 'produto',
+                    from: 'Produto A',
+                    to: 'Produto B',
+                    userId: mockUser.id,
+                    userName: mockUser.name,
+                    timestamp: new Date().toISOString()
+                },
+                {
+                    demandaId: mockDemanda.id,
+                    type: 'status_change',
+                    field: 'status',
+                    from: 'Aberta',
+                    to: 'Em reajuste',
+                    userId: mockUser.id,
+                    userName: mockUser.name,
+                    timestamp: new Date().toISOString()
+                }
+            ];
+            
+            let html = '<h3>Logs de Timeline:</h3>';
+            html += '<div class="success">✅ ' + timelineLogs.length + ' logs simulados</div>';
+            
+            timelineLogs.forEach((log, index) => {
+                html += '<div class="log-entry">';
+                html += '<strong>Log ' + (index + 1) + ':</strong><br>';
+                html += '<strong>Tipo:</strong> ' + log.type + '<br>';
+                html += '<strong>Campo:</strong> ' + log.field + '<br>';
+                html += '<strong>De:</strong> ' + log.from + '<br>';
+                html += '<strong>Para:</strong> ' + log.to + '<br>';
+                html += '<strong>Usuário:</strong> ' + log.userName + ' (' + log.userId + ')<br>';
+                html += '<strong>Timestamp:</strong> ' + log.timestamp + '<br>';
+                html += '</div>';
+            });
+            
+            result.innerHTML = html;
+        }
+
+        function simulateFieldChange() {
+            const result = document.getElementById('fieldChangeResult');
+            
+            // Simular alteração de campo
+            const originalValue = mockDemanda.produtoId;
+            const newValue = mockDraft.produtoId;
+            
+            const originalName = mockMasterData.produtos.find(p => p.id === originalValue)?.nome || originalValue;
+            const newName = mockMasterData.produtos.find(p => p.id === newValue)?.nome || newValue;
+            
+            let html = '<h3>Simulação de Alteração de Campo:</h3>';
+            html += '<div class="field-test">';
+            html += '<strong>Campo:</strong> produtoId<br>';
+            html += '<strong>Valor Original:</strong> ' + originalValue + ' (' + originalName + ')<br>';
+            html += '<strong>Valor Novo:</strong> ' + newValue + ' (' + newName + ')<br>';
+            html += '<strong>Alteração Detectada:</strong> ' + (originalValue !== newValue ? 'Sim' : 'Não') + '<br>';
+            html += '</div>';
+            
+            if (originalValue !== newValue) {
+                html += '<div class="success">✅ Alteração detectada e será logada</div>';
+                
+                // Simular log
+                const logData = {
+                    demandaId: mockDemanda.id,
+                    type: 'field_change',
+                    field: 'produto',
+                    from: originalName,
+                    to: newName,
+                    userId: mockUser.id,
+                    userName: mockUser.name,
+                    timestamp: new Date().toISOString()
+                };
+                
+                html += '<h4>Log que será criado:</h4>';
+                html += '<pre>' + JSON.stringify(logData, null, 2) + '</pre>';
+            } else {
+                html += '<div class="warning">⚠️ Nenhuma alteração detectada</div>';
+            }
+            
+            result.innerHTML = html;
+        }
+
+        // Executar simulação inicial
+        window.onload = function() {
+            simulateUserData();
+        };
+    </script>
+</body>
+</html>

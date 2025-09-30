@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Demand, DemandId } from '@/types/demand'
-import type { TimelineEvent } from '@/types/timeline'
+import type { Demand, DemandId } from '../types/demand'
+import type { TimelineEvent } from '../types/timeline'
 
 interface DemandState2 {
   items: Demand[]

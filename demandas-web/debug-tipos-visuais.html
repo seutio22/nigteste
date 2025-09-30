@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Tipos Visuais</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background: #d4edda; border-color: #c3e6cb; }
+        .warning { background: #fff3cd; border-color: #ffeaa7; }
+        .error { background: #f8d7da; border-color: #f5c6cb; }
+        .info { background: #d1ecf1; border-color: #bee5eb; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto; }
+        button { padding: 10px 20px; margin: 5px; border: none; border-radius: 4px; cursor: pointer; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-warning { background: #ffc107; color: black; }
+        .btn-danger { background: #dc3545; color: white; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Debug Tipos Visuais</h1>
+        
+        <div class="section info">
+            <h3>📊 Status dos Dados</h3>
+            <div id="status"></div>
+        </div>
+        
+        <div class="section">
+            <h3>🔧 Ações</h3>
+            <button class="btn-primary" onclick="verificarDados()">Verificar Dados Atuais</button>
+            <button class="btn-success" onclick="sincronizarDados()">Sincronizar Dados</button>
+            <button class="btn-warning" onclick="testarMapeamento()">Testar Mapeamento</button>
+            <button class="btn-danger" onclick="limparCache()">Limpar Cache</button>
+        </div>
+        
+        <div class="section">
+            <h3>📋 Resultados</h3>
+            <div id="resultados"></div>
+        </div>
+        
+        <div class="section">
+            <h3>🔍 Logs</h3>
+            <div id="logs"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3333';
+        const logs = [];
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}`;
+            logs.push(logEntry);
+            console.log(logEntry);
+            
+            const logsDiv = document.getElementById('logs');
+            logsDiv.innerHTML = `<pre>${logs.slice(-50).join('\n')}</pre>`;
+        }
+
+        function atualizarStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = `<div class="${type}">${message}</div>`;
+        }
+
+        function atualizarResultados(message, type = 'info') {
+            const resultadosDiv = document.getElementById('resultados');
+            resultadosDiv.innerHTML += `<div class="${type}">${message}</div>`;
+        }
+
+        async function verificarDados() {
+            log('🔍 Verificando dados atuais...');
+            
+            // Verificar localStorage
+            const masterDataStorage = localStorage.getItem('master-data-store');
+            const demandasStorage = localStorage.getItem('demandStore');
+            
+            if (masterDataStorage) {
+                const data = JSON.parse(masterDataStorage);
+                const masterData = data.state || {};
+                
+                log(`📊 Dados mestres carregados:`);
+                log(`  - tiposCadastro: ${masterData.tiposCadastro?.length || 0}`);
+                log(`  - tiposServico: ${masterData.tiposServico?.length || 0}`);
+                log(`  - tiposDemanda: ${masterData.tiposDemanda?.length || 0}`);
+                
+                atualizarResultados(`📊 Dados mestres: tiposCadastro=${masterData.tiposCadastro?.length || 0}, tiposServico=${masterData.tiposServico?.length || 0}, tiposDemanda=${masterData.tiposDemanda?.length || 0}`, 'info');
+                
+                if (masterData.tiposCadastro?.length > 0) {
+                    log('📋 Primeiro tipoCadastro: ' + JSON.stringify(masterData.tiposCadastro[0], null, 2));
+                }
+                if (masterData.tiposServico?.length > 0) {
+                    log('📋 Primeiro tipoServico: ' + JSON.stringify(masterData.tiposServico[0], null, 2));
+                }
+                if (masterData.tiposDemanda?.length > 0) {
+                    log('📋 Primeiro tipoDemanda: ' + JSON.stringify(masterData.tiposDemanda[0], null, 2));
+                }
+            } else {
+                log('❌ Nenhum dado mestre encontrado no localStorage');
+                atualizarResultados('❌ Nenhum dado mestre encontrado no localStorage', 'error');
+            }
+            
+            if (demandasStorage) {
+                const data = JSON.parse(demandasStorage);
+                const demandas = data.state?.items || [];
+                
+                log(`📊 Demandas carregadas: ${demandas.length}`);
+                atualizarResultados(`📊 Demandas: ${demandas.length} registros`, 'info');
+                
+                if (demandas.length > 0) {
+                    const primeira = demandas[0];
+                    log('📋 Primeira demanda: ' + JSON.stringify({
+                        id: primeira.id,
+                        ticket: primeira.ticket,
+                        tipoServico: primeira.tipoServico,
+                        tipoServicoId: primeira.tipoServicoId,
+                        tipo: primeira.tipo,
+                        tipoId: primeira.tipoId
+                    }, null, 2));
+                }
+            } else {
+                log('❌ Nenhuma demanda encontrada no localStorage');
+                atualizarResultados('❌ Nenhuma demanda encontrada no localStorage', 'error');
+            }
+        }
+
+        async function sincronizarDados() {
+            log('🔄 Sincronizando dados...');
+            atualizarStatus('🔄 Sincronizando dados...', 'warning');
+            
+            try {
+                // Sincronizar tipos de cadastro
+                const tiposCadastroResponse = await fetch(`${API_BASE}/tiposCadastro`);
+                const tiposCadastro = await tiposCadastroResponse.json();
+                
+                if (tiposCadastroResponse.ok) {
+                    log(`✅ Tipos de cadastro: ${tiposCadastro.length} registros`);
+                    atualizarResultados(`✅ Tipos de cadastro: ${tiposCadastro.length} registros`, 'success');
+                } else {
+                    log(`❌ Erro ao carregar tipos de cadastro: ${tiposCadastroResponse.status}`);
+                    atualizarResultados(`❌ Erro ao carregar tipos de cadastro: ${tiposCadastroResponse.status}`, 'error');
+                }
+                
+                // Sincronizar tipos de serviço
+                const tiposServicoResponse = await fetch(`${API_BASE}/tiposServico`);
+                const tiposServico = await tiposServicoResponse.json();
+                
+                if (tiposServicoResponse.ok) {
+                    log(`✅ Tipos de serviço: ${tiposServico.length} registros`);
+                    atualizarResultados(`✅ Tipos de serviço: ${tiposServico.length} registros`, 'success');
+                } else {
+                    log(`❌ Erro ao carregar tipos de serviço: ${tiposServicoResponse.status}`);
+                    atualizarResultados(`❌ Erro ao carregar tipos de serviço: ${tiposServicoResponse.status}`, 'error');
+                }
+                
+                // Sincronizar tipos de demanda
+                const tiposDemandaResponse = await fetch(`${API_BASE}/tiposDemanda`);
+                const tiposDemanda = await tiposDemandaResponse.json();
+                
+                if (tiposDemandaResponse.ok) {
+                    log(`✅ Tipos de demanda: ${tiposDemanda.length} registros`);
+                    atualizarResultados(`✅ Tipos de demanda: ${tiposDemanda.length} registros`, 'success');
+                } else {
+                    log(`❌ Erro ao carregar tipos de demanda: ${tiposDemandaResponse.status}`);
+                    atualizarResultados(`❌ Erro ao carregar tipos de demanda: ${tiposDemandaResponse.status}`, 'error');
+                }
+                
+                // Atualizar localStorage
+                const masterDataStorage = {
+                    state: {
+                        tiposCadastro: tiposCadastro,
+                        tiposServico: tiposServico,
+                        tiposDemanda: tiposDemanda
+                    },
+                    version: 0
+                };
+                
+                localStorage.setItem('master-data-store', JSON.stringify(masterDataStorage));
+                log('💾 Dados mestres salvos no localStorage');
+                
+                // Recarregar a página
+                setTimeout(() => {
+                    window.location.href = '/cadastro';
+                }, 2000);
+                
+            } catch (error) {
+                log('❌ Erro na sincronização: ' + error.message);
+                atualizarResultados('❌ Erro na sincronização: ' + error.message, 'error');
+            }
+        }
+
+        async function testarMapeamento() {
+            log('🧪 Testando mapeamento de tipos...');
+            
+            // Simular dados de demanda
+            const demandaExemplo = {
+                id: 'test-id',
+                tipoServico: 'tipo-servico-id-1',
+                tipoServicoId: 'tipo-servico-id-1',
+                tipo: 'tipo-demanda-id-1',
+                tipoId: 'tipo-demanda-id-1'
+            };
+            
+            // Simular dados mestres
+            const tiposServico = [
+                { id: 'tipo-servico-id-1', nome: 'Desenvolvimento' },
+                { id: 'tipo-servico-id-2', nome: 'Manutenção' }
+            ];
+            
+            const tiposDemanda = [
+                { id: 'tipo-demanda-id-1', nome: 'Nova Funcionalidade' },
+                { id: 'tipo-demanda-id-2', nome: 'Correção de Bug' }
+            ];
+            
+            // Testar mapeamento
+            const tipoServicoNome = tiposServico.find(t => t.id === demandaExemplo.tipoServicoId)?.nome ?? demandaExemplo.tipoServicoId;
+            const tipoDemandaNome = tiposDemanda.find(t => t.id === demandaExemplo.tipoId)?.nome ?? demandaExemplo.tipoId;
+            
+            log(`🧪 Mapeamento testado:`);
+            log(`  - tipoServico: ${demandaExemplo.tipoServicoId} → ${tipoServicoNome}`);
+            log(`  - tipoDemanda: ${demandaExemplo.tipoId} → ${tipoDemandaNome}`);
+            
+            atualizarResultados(`🧪 Mapeamento: tipoServico=${tipoServicoNome}, tipoDemanda=${tipoDemandaNome}`, 'success');
+        }
+
+        function limparCache() {
+            log('🧹 Limpando cache...');
+            
+            // Limpar localStorage
+            localStorage.removeItem('master-data-store');
+            localStorage.removeItem('demandStore');
+            localStorage.removeItem('demands-list-view-v1');
+            localStorage.removeItem('demands-user-filter-v1');
+            
+            log('✅ Cache limpo');
+            atualizarResultados('✅ Cache limpo', 'success');
+            
+            // Recarregar a página
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        }
+
+        // Executar ao carregar a página
+        window.onload = function() {
+            log('🔍 Página de debug carregada');
+            verificarDados();
+        };
+    </script>
+</body>
+</html>

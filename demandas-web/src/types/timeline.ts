@@ -4,7 +4,13 @@ export type TimelineEventType = 'create' | 'field_change' | 'status_change' | 'c
 
 export interface TimelineEvent {
   id: TimelineEventId
-  demandaId: string
+  // Campos para diferentes tipos de entidades
+  atendimentoId?: string
+  reajusteId?: string
+  demandaId?: string
+  manutencaoId?: string
+  reportId?: string
+  
   timestamp: string // ISO
   user?: string
   type: TimelineEventType

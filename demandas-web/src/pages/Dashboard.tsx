@@ -1,22 +1,64 @@
-import { Box, Card, CardContent, Grid, MenuItem, Stack, TextField, Typography } from '@mui/material'
-import { useMasterDataStore } from '@/store/masterDataStore'
-import { useDemandStore } from '@/store/demandStore'
-import { useValidationStore } from '@/store/validationStore'
-import { useMemo, useState } from 'react'
-import { ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts'
+import React, { useMemo, useState } from 'react'
+import {
+  Box,
+  Paper,
+  Typography,
+  Grid,
+  Card,
+  CardContent,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  TextField,
+  useTheme,
+  alpha,
+  Chip,
+  Divider,
+  IconButton,
+  Tooltip,
+  Button
+} from '@mui/material'
+import {
+  TrendingUp as TrendingUpIcon,
+  Schedule as ScheduleIcon,
+  Warning as WarningIcon,
+  CheckCircle as CheckCircleIcon,
+  Error as ErrorIcon,
+  Business as BusinessIcon,
+  Person as PersonIcon,
+  Assignment as AssignmentIcon,
+  AttachMoney as MoneyIcon,
+  CalendarToday as CalendarIcon,
+  Refresh as RefreshIcon,
+  FilterList as FilterIcon
+} from '@mui/icons-material'
+import { ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend } from 'recharts'
+import { useMasterDataStore } from '../store/masterDataStore'
+import { useDemandStore } from '../store/demandStore'
+import { useValidationStore } from '../store/validationStore'
+import { useReajusteStore } from '../store/reajusteStore'
+import { useMaillingStore } from '../store/maillingStore'
+import { useDashboardStore } from '../store/dashboardStore'
 
-const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#00C49F', '#0088FE', '#FFBB28', '#FF8042']
+const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#84cc16', '#f97316']
 
 export default function DashboardPage() {
-  const md = useMasterDataStore()
-  const { items: demandas } = useDemandStore()
-  const { items: validacoes } = useValidationStore()
+  const theme = useTheme()
+  const masterDataStore = useMasterDataStore()
+  const demandStore = useDemandStore()
+  const validationStore = useValidationStore()
+  const reajusteStore = useReajusteStore()
+  const maillingStore = useMaillingStore()
+  const dashboardStore = useDashboardStore()
 
+  // Filtros
   const [areaId, setAreaId] = useState('')
   const [analistaId, setAnalistaId] = useState('')
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
 
+  // Função para filtrar por data
   const inRange = (iso?: string) => {
     if (!iso) return true
     const t = new Date(iso).getTime()
@@ -25,196 +67,593 @@ export default function DashboardPage() {
     return true
   }
 
-  const demandasFiltradas = useMemo(() => demandas.filter(d => (!areaId || d.area === areaId) && (!analistaId || d.analista === analistaId) && inRange(d.dataInicio || d.createdAt)), [demandas, areaId, analistaId, fromDate, toDate])
-  const validacoesFiltradas = useMemo(() => validacoes.filter(v => (!analistaId || v.analista === analistaId) && inRange(v.dataInicio)), [validacoes, analistaId, fromDate, toDate])
+  // Dados filtrados
+  const demandasFiltradas = useMemo(() => 
+    demandStore.items.filter(d => 
+      (!areaId || d.area === areaId) && 
+      (!analistaId || d.analista === analistaId) && 
+      inRange(d.dataInicio || d.createdAt)
+    ), 
+    [demandStore.items, areaId, analistaId, fromDate, toDate]
+  )
 
+  const validacoesFiltradas = useMemo(() => 
+    validationStore.items.filter(v => 
+      (!analistaId || v.analista === analistaId) && 
+      inRange(v.dataInicio)
+    ), 
+    [validationStore.items, analistaId, fromDate, toDate]
+  )
+
+  const reajustesFiltrados = useMemo(() => 
+    reajusteStore.items.filter(r => 
+      (!analistaId || r.responsavelAnalista === analistaId) && 
+      inRange(r.createdAt)
+    ), 
+    [reajusteStore.items, analistaId, fromDate, toDate]
+  )
+
+  const maillingFiltrados = useMemo(() => 
+    maillingStore.contacts.filter(m => 
+      inRange(m.createdAt)
+    ), 
+    [maillingStore.contacts, fromDate, toDate]
+  )
+
+  // Carregar dados automaticamente quando a página é carregada
+  React.useEffect(() => {
+    console.log('🔍 Dashboard: Carregando dados da API...')
+    
+    // Carregar dados mestres se necessário
+    // Dados mestres são carregados apenas na página Dados Mestres
+    // if (masterDataStore.analistas.length === 0) {
+    //   console.log('🔍 Dashboard: Dados mestres vazios, chamando syncFromApi...')
+    //   masterDataStore.syncFromApi?.()
+    // }
+    
+    // Carregar dados das demandas se necessário
+    if (demandStore.items.length === 0) {
+      console.log('🔍 Dashboard: Demandas vazias, chamando syncFromApi...')
+      demandStore.syncFromApi()
+    }
+    
+    // Carregar dados de validação se necessário
+    if (validationStore.items.length === 0) {
+      console.log('🔍 Dashboard: Validações vazias, chamando syncFromApi...')
+      validationStore.syncFromApi()
+    }
+    
+    // Carregar dados de reajuste se necessário
+    if (reajusteStore.items.length === 0) {
+      console.log('🔍 Dashboard: Reajustes vazios, chamando syncFromApi...')
+      reajusteStore.syncFromApi()
+    }
+    
+    // Carregar dados do dashboard se necessário
+    if (dashboardStore.dashboards.length === 0) {
+      console.log('🔍 Dashboard: Dashboards vazios, chamando syncFromApi...')
+      dashboardStore.syncFromApi()
+    }
+  }, [])
+
+  // Estatísticas principais
   const totalDemandas = demandasFiltradas.length
-  const pendValidacao = demandasFiltradas.filter(d => d.status === 'Aguardando validação').length
-  const emReajuste = demandasFiltradas.filter(d => d.status === 'Em reajuste').length
-  const vencendoSla = 0 // placeholder
+  const totalValidacoes = validacoesFiltradas.length
+  const totalReajustes = reajustesFiltrados.length
+  const totalMailling = maillingFiltrados.length
 
-  const byStatus = useMemo(() => {
+  // Status das demandas
+  const demandasPorStatus = useMemo(() => {
     const map = new Map<string, number>()
     demandasFiltradas.forEach(d => map.set(d.status, (map.get(d.status) || 0) + 1))
     return Array.from(map.entries()).map(([name, value]) => ({ name, value }))
   }, [demandasFiltradas])
 
-  const byArea = useMemo(() => {
+  // Status das validações
+  const validacoesPorStatus = useMemo(() => {
+    const map = new Map<string, number>()
+    validacoesFiltradas.forEach(v => {
+      const key = v.status || 'Pendente'
+      map.set(key, (map.get(key) || 0) + 1)
+    })
+    return Array.from(map.entries()).map(([name, value]) => ({ name, value }))
+  }, [validacoesFiltradas])
+
+  // Status dos reajustes
+  const reajustesPorStatus = useMemo(() => {
+    const map = new Map<string, number>()
+    reajustesFiltrados.forEach(r => {
+      const key = r.status || 'Pendente'
+      map.set(key, (map.get(key) || 0) + 1)
+    })
+    return Array.from(map.entries()).map(([name, value]) => ({ name, value }))
+  }, [reajustesFiltrados])
+
+  // Status do mailling
+  const maillingPorStatus = useMemo(() => {
+    const map = new Map<string, number>()
+    maillingFiltrados.forEach(m => {
+      const key = 'Ativo' // Status padrão para mailling
+      map.set(key, (map.get(key) || 0) + 1)
+    })
+    return Array.from(map.entries()).map(([name, value]) => ({ name, value }))
+  }, [maillingFiltrados])
+
+  // Demandas por área
+  const demandasPorArea = useMemo(() => {
     const map = new Map<string, number>()
     demandasFiltradas.forEach(d => {
-      const name = md.areas.find(a => a.id === d.area)?.nome || '—'
+      const name = masterDataStore.areas.find(a => a.id === d.area)?.nome || 'Sem área'
       map.set(name, (map.get(name) || 0) + 1)
     })
     return Array.from(map.entries()).map(([name, value]) => ({ name, value }))
-  }, [demandasFiltradas, md.areas])
+  }, [demandasFiltradas, masterDataStore.areas])
 
-  const byMonth = useMemo(() => {
+  // Evolução mensal das demandas
+  const evolucaoMensal = useMemo(() => {
     const map = new Map<string, number>()
     demandasFiltradas.forEach(d => {
       const dt = d.dataInicio || d.createdAt
       const k = dt ? new Date(dt).toISOString().slice(0, 7) : '—'
       map.set(k, (map.get(k) || 0) + 1)
     })
-    return Array.from(map.entries()).sort((a,b) => a[0].localeCompare(b[0])).map(([month, total]) => ({ month, total }))
+    return Array.from(map.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([month, total]) => ({ month, total }))
   }, [demandasFiltradas])
 
-  const byTipoServico = useMemo(() => {
-    const map = new Map<string, number>()
-    demandasFiltradas.forEach(d => {
-      const name = md.tiposServico.find(ts => ts.id === (d as any).tipoServico)?.nome || '—'
-      map.set(name, (map.get(name) || 0) + 1)
-    })
-    return Array.from(map.entries()).map(([name, value]) => ({ name, value }))
-  }, [demandasFiltradas, md.tiposServico])
+  // Valores dos reajustes
+  const valoresReajuste = useMemo(() => {
+    const total = reajustesFiltrados.reduce((sum, r) => sum + (r.total || 0), 0)
+    const media = reajustesFiltrados.length > 0 ? total / reajustesFiltrados.length : 0
+    return { total, media }
+  }, [reajustesFiltrados])
 
-  const valByStatus = useMemo(() => {
-    const map = new Map<string, number>()
-    validacoesFiltradas.forEach(v => {
-      const key = v.status || '—'
-      map.set(key, (map.get(key) || 0) + 1)
-    })
-    return Array.from(map.entries()).map(([name, value]) => ({ name, value }))
-  }, [validacoesFiltradas])
+  // Cards de estatísticas
+  const statsCards = [
+    {
+      title: 'Total de Demandas',
+      value: totalDemandas,
+      icon: TrendingUpIcon,
+      color: theme.palette.primary.main,
+      bgColor: alpha(theme.palette.primary.main, 0.1)
+    },
+    {
+      title: 'Validações Pendentes',
+      value: validacoesFiltradas.filter(v => v.status === 'Pendente').length,
+      icon: ScheduleIcon,
+      color: theme.palette.warning.main,
+      bgColor: alpha(theme.palette.warning.main, 0.1)
+    },
+    {
+      title: 'Reajustes Ativos',
+      value: reajustesFiltrados.filter(r => r.status === 'Ativo').length,
+      icon: WarningIcon,
+      color: theme.palette.error.main,
+      bgColor: alpha(theme.palette.error.main, 0.1)
+    },
+    {
+      title: 'Contatos Mailling',
+      value: totalMailling,
+      icon: MoneyIcon,
+      color: theme.palette.info.main,
+      bgColor: alpha(theme.palette.info.main, 0.1)
+    }
+  ]
+
+  const limparFiltros = () => {
+    setAreaId('')
+    setAnalistaId('')
+    setFromDate('')
+    setToDate('')
+  }
 
   return (
-    <>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
-        <Typography variant="h5">Dashboard</Typography>
-      </Stack>
+    <Box sx={{ p: 3, backgroundColor: theme.palette.grey[50], minHeight: '100vh' }}>
+      {/* Header */}
+      <Box sx={{ mb: 4 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h4" sx={{ fontWeight: 700, color: theme.palette.text.primary }}>
+            Dashboard Executivo
+          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="body2" color="text.secondary">
+              Última atualização: {new Date().toLocaleString('pt-BR')}
+            </Typography>
+            <Tooltip title="Atualizar dados">
+              <IconButton size="small">
+                <RefreshIcon />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        </Box>
+        <Typography variant="body1" color="text.secondary">
+          Visão geral do sistema de gestão de demandas, validações e reajustes
+        </Typography>
+      </Box>
 
-      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ mb: 2 }}>
-        <TextField select label="Área" value={areaId} onChange={(e) => setAreaId(e.target.value)} sx={{ minWidth: 200 }}>
-          <MenuItem value="">Todas</MenuItem>
-          {md.areas.map(a => <MenuItem key={a.id} value={a.id}>{a.nome}</MenuItem>)}
-        </TextField>
-        <TextField select label="Analista" value={analistaId} onChange={(e) => setAnalistaId(e.target.value)} sx={{ minWidth: 200 }}>
-          <MenuItem value="">Todos</MenuItem>
-          {md.analistas.map(a => <MenuItem key={a.id} value={a.id}>{a.nome}</MenuItem>)}
-        </TextField>
-        <TextField type="date" label="De" InputLabelProps={{ shrink: true }} value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-        <TextField type="date" label="Até" InputLabelProps={{ shrink: true }} value={toDate} onChange={(e) => setToDate(e.target.value)} />
-      </Stack>
+      {/* Filtros */}
+      <Paper sx={{ p: 3, mb: 4, borderRadius: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+          <FilterIcon color="action" />
+          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+            Filtros
+          </Typography>
+        </Box>
+        <Grid container spacing={3} alignItems="center">
+          <Grid item xs={12} sm={6} md={3}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Área</InputLabel>
+              <Select
+                value={areaId}
+                label="Área"
+                onChange={(e) => setAreaId(e.target.value)}
+              >
+                <MenuItem value="">Todas as áreas</MenuItem>
+                {masterDataStore.areas.map(a => (
+                  <MenuItem key={a.id} value={a.id}>{a.nome}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          
+          <Grid item xs={12} sm={6} md={3}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Analista</InputLabel>
+              <Select
+                value={analistaId}
+                label="Analista"
+                onChange={(e) => setAnalistaId(e.target.value)}
+              >
+                <MenuItem value="">Todos os analistas</MenuItem>
+                {masterDataStore.analistas.map(a => (
+                  <MenuItem key={a.id} value={a.id}>{a.nome}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          
+          <Grid item xs={12} sm={6} md={2}>
+            <TextField
+              fullWidth
+              size="small"
+              type="date"
+              label="Data inicial"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+            />
+          </Grid>
+          
+          <Grid item xs={12} sm={6} md={2}>
+            <TextField
+              fullWidth
+              size="small"
+              type="date"
+              label="Data final"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+            />
+          </Grid>
 
-      <Grid container spacing={2}>
-        {[{ title: 'Total de demandas', value: totalDemandas }, { title: 'Pendentes de validação', value: pendValidacao }, { title: 'Em reajuste', value: emReajuste }, { title: 'Vencendo SLA', value: vencendoSla }].map((c) => (
-          <Grid item xs={12} sm={6} md={3} key={c.title}>
-            <Card>
-              <CardContent>
-                <Typography variant="subtitle2">{c.title}</Typography>
-                <Typography variant="h4">{c.value}</Typography>
+          <Grid item xs={12} sm={6} md={2}>
+            <Button
+              fullWidth
+              variant="outlined"
+              onClick={limparFiltros}
+              size="medium"
+              className="text-primary-600 border-primary-300 hover:text-primary-700 hover:border-primary-400 hover:bg-primary-50 transition-all duration-300 font-medium"
+              sx={{
+                borderRadius: '14px',
+                padding: '10px 20px',
+                textTransform: 'none',
+                fontWeight: 500,
+                fontSize: '0.9rem',
+                height: '44px',
+                borderWidth: '2px',
+                '&:hover': {
+                  borderWidth: '2px',
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 4px 12px 0 rgba(59, 130, 246, 0.15)'
+                }
+              }}
+            >
+              Limpar
+            </Button>
+          </Grid>
+        </Grid>
+      </Paper>
+
+      {/* Cards de Estatísticas */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        {statsCards.map((card, index) => (
+          <Grid item xs={12} sm={6} md={3} key={index}>
+            <Card sx={{ 
+              borderRadius: 3, 
+              height: '100%',
+              transition: 'all 0.3s ease-in-out',
+              '&:hover': {
+                transform: 'translateY(-4px)',
+                boxShadow: theme.shadows[8]
+              }
+            }}>
+              <CardContent sx={{ p: 3 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                  <Box sx={{ 
+                    p: 2, 
+                    backgroundColor: card.bgColor, 
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <card.icon sx={{ fontSize: 24, color: card.color }} />
+                  </Box>
+                  <Chip 
+                    label={`${index + 1}/4`} 
+                    size="small" 
+                    sx={{ backgroundColor: alpha(theme.palette.grey[500], 0.1) }}
+                  />
+                </Box>
+                <Typography variant="h4" sx={{ fontWeight: 700, color: theme.palette.text.primary, mb: 1 }}>
+                  {card.value}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
+                  {card.title}
+                </Typography>
               </CardContent>
             </Card>
           </Grid>
         ))}
       </Grid>
 
-      <Typography variant="subtitle1" sx={{ mt: 3, mb: 1 }}>Cadastro</Typography>
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={4}>
-          <Box sx={{ height: 260 }}>
-            <ResponsiveContainer width="100%" height="100%">
+      {/* Gráficos */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        {/* Gráfico de Status das Demandas */}
+        <Grid item xs={12} lg={6}>
+          <Paper sx={{ p: 3, borderRadius: 2, height: 400 }}>
+            <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>
+              Status das Demandas
+            </Typography>
+            <ResponsiveContainer width="100%" height={300}>
               <PieChart>
-                <Pie data={byStatus} dataKey="value" nameKey="name" outerRadius={80} label>
-                  {byStatus.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                <Pie
+                  data={demandasPorStatus}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {demandasPorStatus.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
                 </Pie>
-                <Tooltip />
-                <Legend />
+                <RechartsTooltip />
               </PieChart>
             </ResponsiveContainer>
-          </Box>
-          <Typography align="center">Status</Typography>
+          </Paper>
         </Grid>
-        <Grid item xs={12} md={4}>
-          <Box sx={{ height: 260 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={byArea}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" hide />
-                <YAxis allowDecimals={false} />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="value" name="Demandas" fill="#8884d8" />
-              </BarChart>
+
+        {/* Gráfico de Status das Validações */}
+        <Grid item xs={12} lg={6}>
+          <Paper sx={{ p: 3, borderRadius: 2, height: 400 }}>
+            <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>
+              Status das Validações
+            </Typography>
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={validacoesPorStatus}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {validacoesPorStatus.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <RechartsTooltip />
+              </PieChart>
             </ResponsiveContainer>
-          </Box>
-          <Typography align="center">Por área</Typography>
-        </Grid>
-        <Grid item xs={12} md={4}>
-          <Box sx={{ height: 260 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={byTipoServico}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis allowDecimals={false} />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="value" name="Demandas" fill="#82ca9d" />
-              </BarChart>
-            </ResponsiveContainer>
-          </Box>
-          <Typography align="center">Por tipo de serviço</Typography>
-        </Grid>
-        <Grid item xs={12}>
-          <Box sx={{ height: 280 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={byMonth}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis allowDecimals={false} />
-                <Tooltip />
-                <Legend />
-                <Line type="monotone" dataKey="total" name="Demandas/mês" stroke="#8884d8" strokeWidth={2} />
-              </LineChart>
-            </ResponsiveContainer>
-          </Box>
+          </Paper>
         </Grid>
       </Grid>
 
-      <Typography variant="subtitle1" sx={{ mt: 3, mb: 1 }}>Validação</Typography>
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={6}>
-          <Box sx={{ height: 280 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={validacoesFiltradas.reduce((acc: any[], v) => {
-                const name = md.analistas.find(a => a.id === v.analista)?.nome || '—'
-                const found = acc.find(x => x.name === name)
-                if (found) found.total += v.total ?? 0
-                else acc.push({ name, total: v.total ?? 0 })
-                return acc
-              }, [])}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" hide />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="total" name="Total" fill="#8884d8" />
-              </BarChart>
-            </ResponsiveContainer>
-          </Box>
-          <Typography align="center">Total por analista</Typography>
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <Box sx={{ height: 280 }}>
-            <ResponsiveContainer width="100%" height="100%">
+      {/* Gráficos de Status - Segunda Linha */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        {/* Gráfico de Status dos Reajustes */}
+        <Grid item xs={12} lg={6}>
+          <Paper sx={{ p: 3, borderRadius: 2, height: 400 }}>
+            <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>
+              Status dos Reajustes
+            </Typography>
+            <ResponsiveContainer width="100%" height={300}>
               <PieChart>
-                <Pie data={validacoesFiltradas.reduce((acc: any[], v) => {
-                  const key = v.status || '—'
-                  const found = acc.find(x => x.name === key)
-                  if (found) found.value += 1
-                  else acc.push({ name: key, value: 1 })
-                  return acc
-                }, [])} dataKey="value" nameKey="name" outerRadius={100} label>
-                  {validacoesFiltradas.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                <Pie
+                  data={reajustesPorStatus}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {reajustesPorStatus.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
                 </Pie>
-                <Tooltip />
-                <Legend />
+                <RechartsTooltip />
               </PieChart>
             </ResponsiveContainer>
-          </Box>
-          <Typography align="center">Validações por status</Typography>
+          </Paper>
+        </Grid>
+
+        {/* Gráfico de Status do Mailling */}
+        <Grid item xs={12} lg={6}>
+          <Paper sx={{ p: 3, borderRadius: 2, height: 400 }}>
+            <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>
+              Status do Mailling
+            </Typography>
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={maillingPorStatus}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {maillingPorStatus.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <RechartsTooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </Paper>
         </Grid>
       </Grid>
-    </>
+
+      {/* Gráficos de Barras */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        {/* Demandas por Área */}
+        <Grid item xs={12} lg={6}>
+          <Paper sx={{ p: 3, borderRadius: 2, height: 400 }}>
+            <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>
+              Demandas por Área
+            </Typography>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={demandasPorArea}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <RechartsTooltip />
+                <Bar dataKey="value" fill={theme.palette.primary.main} />
+              </BarChart>
+            </ResponsiveContainer>
+          </Paper>
+        </Grid>
+
+        {/* Status dos Reajustes */}
+        <Grid item xs={12} lg={6}>
+          <Paper sx={{ p: 3, borderRadius: 2, height: 400 }}>
+            <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>
+              Status dos Reajustes
+            </Typography>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={reajustesPorStatus}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <RechartsTooltip />
+                <Bar dataKey="value" fill={theme.palette.secondary.main} />
+              </BarChart>
+            </ResponsiveContainer>
+          </Paper>
+        </Grid>
+
+        {/* Mailling por Categoria */}
+        <Grid item xs={12} lg={6}>
+          <Paper sx={{ p: 3, borderRadius: 2, height: 400 }}>
+            <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>
+              Mailling por Área
+            </Typography>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={maillingFiltrados.reduce((acc, m) => {
+                const area = m.area || 'Não definido'
+                const existing = acc.find(item => item.area === area)
+                if (existing) {
+                  existing.count++
+                } else {
+                  acc.push({ area, count: 1 })
+                }
+                return acc
+              }, [] as { area: string; count: number }[])}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="area" />
+                <YAxis />
+                <RechartsTooltip />
+                <Bar dataKey="count" fill={theme.palette.info.main} />
+              </BarChart>
+            </ResponsiveContainer>
+          </Paper>
+        </Grid>
+      </Grid>
+
+      {/* Gráfico de Linha - Evolução Mensal */}
+      <Paper sx={{ p: 3, borderRadius: 2, mb: 4 }}>
+        <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>
+          Evolução Mensal das Demandas
+        </Typography>
+        <ResponsiveContainer width="100%" height={300}>
+          <LineChart data={evolucaoMensal}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="month" />
+            <YAxis />
+            <RechartsTooltip />
+            <Legend />
+            <Line 
+              type="monotone" 
+              dataKey="total" 
+              stroke={theme.palette.primary.main} 
+              strokeWidth={3}
+              dot={{ fill: theme.palette.primary.main, strokeWidth: 2, r: 4 }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </Paper>
+
+      {/* Resumo Executivo */}
+      <Paper sx={{ p: 3, borderRadius: 2 }}>
+        <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>
+          Resumo Executivo
+        </Typography>
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={4}>
+            <Box sx={{ textAlign: 'center', p: 2 }}>
+              <Typography variant="h4" sx={{ fontWeight: 700, color: theme.palette.primary.main, mb: 1 }}>
+                {totalDemandas}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Total de Demandas no Sistema
+              </Typography>
+            </Box>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <Box sx={{ textAlign: 'center', p: 2 }}>
+              <Typography variant="h4" sx={{ fontWeight: 700, color: theme.palette.warning.main, mb: 1 }}>
+                {totalValidacoes}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Validações em Andamento
+              </Typography>
+            </Box>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <Box sx={{ textAlign: 'center', p: 2 }}>
+              <Typography variant="h4" sx={{ fontWeight: 700, color: theme.palette.success.main, mb: 1 }}>
+                {totalMailling}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Total de Contatos Mailling
+              </Typography>
+            </Box>
+          </Grid>
+        </Grid>
+      </Paper>
+    </Box>
   )
 }
 

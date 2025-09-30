@@ -1,8 +1,10 @@
 // API utility functions
-const BASE_URL = 'http://localhost:3333'; // URL padrão para desenvolvimento
+import { ApiRequestOptions, ApiResponse, ApiError, LoginCredentials, LoginResponse, UserData, CreateUserData, UpdateUserData } from '../types/api'
+
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3333'; // URL configurável por ambiente
 
 export const api = {
-  async request(endpoint: string, options: RequestInit = {}) {
+  async request<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${BASE_URL}${endpoint}`;
     
     const config: RequestInit = {
@@ -26,7 +28,11 @@ export const api = {
       const response = await fetch(url, config);
       
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorData: ApiError = {
+          message: `HTTP error! status: ${response.status}`,
+          status: response.status,
+        };
+        throw errorData;
       }
       
       return await response.json();
@@ -37,24 +43,40 @@ export const api = {
   },
 
   // GET request
-  get: (endpoint: string) => api.request(endpoint),
+  get: <T = any>(endpoint: string): Promise<T> => api.request<T>(endpoint),
 
   // POST request
-  post: (endpoint: string, data: any) => api.request(endpoint, {
+  post: <T = any>(endpoint: string, data: unknown): Promise<T> => api.request<T>(endpoint, {
     method: 'POST',
     body: JSON.stringify(data),
   }),
 
   // PUT request
-  put: (endpoint: string, data: any) => api.request(endpoint, {
+  put: <T = any>(endpoint: string, data: unknown): Promise<T> => api.request<T>(endpoint, {
     method: 'PUT',
     body: JSON.stringify(data),
   }),
 
   // DELETE request
-  delete: (endpoint: string) => api.request(endpoint, {
+  delete: <T = any>(endpoint: string): Promise<T> => api.request<T>(endpoint, {
     method: 'DELETE',
   }),
+
+  // Métodos específicos
+  login: (credentials: LoginCredentials): Promise<LoginResponse> => 
+    api.post<LoginResponse>('/auth/login', credentials),
+
+  getUsers: (): Promise<UserData[]> => 
+    api.get<UserData[]>('/users'),
+
+  createUser: (userData: CreateUserData): Promise<UserData> => 
+    api.post<UserData>('/users', userData),
+
+  updateUser: (id: string, userData: UpdateUserData): Promise<UserData> => 
+    api.put<UserData>(`/users/${id}`, userData),
+
+  deleteUser: (id: string): Promise<void> => 
+    api.delete<void>(`/users/${id}`),
 };
 
 export function endpoint(resource: string) {
