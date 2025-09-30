@@ -1,6 +1,8 @@
 import { FastifyInstance } from 'fastify';
 import { PrismaClient } from '@prisma/client';
-import * as crypto from 'crypto';
+import { randomBytes } from 'crypto';
+
+declare const process: any;
 
 export default async function shareRoutes(fastify: FastifyInstance, options: { prisma: PrismaClient }) {
   const { prisma } = options;
@@ -26,7 +28,7 @@ export default async function shareRoutes(fastify: FastifyInstance, options: { p
       }
 
       // Gerar token único
-      const token = crypto.randomBytes(32).toString('hex');
+      const token = randomBytes(32).toString('hex');
       
       // Criar token de compartilhamento
       const shareToken = await prisma.projectShareToken.create({

@@ -11,6 +11,8 @@ import shareRoutes from './routes/share'
 import { masterDataRoutes } from './routes/masterData'
 import { PrismaClient } from '@prisma/client'
 
+declare const process: any;
+
 const app = Fastify({ 
   logger: true,
   bodyLimit: 50 * 1024 * 1024 // 50MB
@@ -1265,7 +1267,7 @@ app.delete('/contratos/limpar-orfaos', async () => {
     // Buscar contratos que têm clienteId que não existe
     const contratosOrfaos = await prisma.contrato.findMany({
       where: {
-        cliente: null
+        clienteId: null
       }
     })
     
