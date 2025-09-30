@@ -215,7 +215,7 @@ export const useManutencaoStore = create<ManutencaoState>()(
             throw new Error('Token de autenticação não encontrado')
           }
           
-          const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3333'
+          const baseUrl = 'https://nigteste-production.up.railway.app'
           console.log('🔍 ManutencaoStore: Enviando DELETE para:', `${baseUrl}/manutencoes/${id}`)
           
           const response = await fetch(`${baseUrl}/manutencoes/${id}`, {

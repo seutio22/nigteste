@@ -115,7 +115,7 @@ export default function DemandNewPage() {
     
     for (const endpoint of endpoints) {
       try {
-        const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3333'
+        const baseUrl = 'https://nigteste-production.up.railway.app'
         const response = await fetch(`${baseUrl}/${endpoint}`)
         const data = await response.json()
         console.log(`✅ TESTE: /${endpoint} - ${data.length} registros`)
@@ -356,7 +356,7 @@ export default function DemandNewPage() {
           // Testar Cliente
           if (data.cliente) {
             console.log(`🔍 VERIFICAÇÃO BANCO: Testando cliente ID: ${data.cliente}`)
-            const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3333'
+            const baseUrl = 'https://nigteste-production.up.railway.app'
             const clienteResponse = await fetch(`${baseUrl}/clientes/${data.cliente}`)
             if (clienteResponse.ok) {
               const clienteData = await clienteResponse.json()
@@ -371,7 +371,7 @@ export default function DemandNewPage() {
           // Testar Contrato
           if (data.contrato) {
             console.log(`🔍 VERIFICAÇÃO BANCO: Testando contrato ID: ${data.contrato}`)
-            const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3333'
+            const baseUrl = 'https://nigteste-production.up.railway.app'
             const contratoResponse = await fetch(`${baseUrl}/contratos/${data.contrato}`)
             if (contratoResponse.ok) {
               const contratoData = await contratoResponse.json()

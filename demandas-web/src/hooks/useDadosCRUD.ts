@@ -109,13 +109,13 @@ export const useDadosCRUD = () => {
             nome: form.nome
           }
           
-          const storeKey = activeTab as keyof typeof store
-          if (storeKey in store) {
+          const analistaStoreKey = activeTab as keyof typeof store
+          if (analistaStoreKey in store) {
             // PRIMEIRO: Salvar na API (banco de dados)
             const savedEntity = await api.post(config.endpoint, analistaPayload)
             console.log(`✅ ${activeTab} salvo no banco de dados:`, savedEntity.id)
             // DEPOIS: Salvar no store local (cache) usando o retorno da API
-            store.upsertMany({ [storeKey]: [...(store[storeKey] as any[]), savedEntity] })
+            store.upsertMany({ [analistaStoreKey]: [...(store[analistaStoreKey] as any[]), savedEntity] })
           }
           break
         case 'areasMailling':
@@ -145,13 +145,13 @@ export const useDadosCRUD = () => {
             ativo: form.ativo !== undefined ? form.ativo : true
           }
           
-          const storeKey = activeTab as keyof typeof store
-          if (storeKey in store) {
+          const maillingStoreKey = activeTab as keyof typeof store
+          if (maillingStoreKey in store) {
             // PRIMEIRO: Salvar na API (banco de dados)
             const savedEntity = await api.post(config.endpoint, maillingPayload)
             console.log(`✅ ${activeTab} salvo no banco de dados:`, savedEntity.id)
             // DEPOIS: Salvar no store local (cache) usando o retorno da API
-            store.upsertMany({ [storeKey]: [...(store[storeKey] as any[]), savedEntity] })
+            store.upsertMany({ [maillingStoreKey]: [...(store[maillingStoreKey] as any[]), savedEntity] })
           }
           break
           
@@ -330,13 +330,13 @@ export const useDadosCRUD = () => {
             ativo: form.ativo !== undefined ? form.ativo : true
           }
           
-          const storeKey = activeTab as keyof typeof store
-          if (storeKey in store) {
+          const updateStoreKey = activeTab as keyof typeof store
+          if (updateStoreKey in store) {
             // PRIMEIRO: Atualizar na API
             const savedEntity = await api.put(`${config.endpoint}/${id}`, updateApiPayload)
             // DEPOIS: Atualizar no store local usando o retorno da API
             store.upsertMany({
-              [storeKey]: (store[storeKey] as any[]).map(item => item.id === id ? savedEntity : item)
+              [updateStoreKey]: (store[updateStoreKey] as any[]).map(item => item.id === id ? savedEntity : item)
             })
           }
           break

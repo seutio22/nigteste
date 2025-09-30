@@ -179,7 +179,7 @@ export const useDemandStore = create<DemandState>()(
         try {
           // Excluir do backend primeiro
           const { useAuthStore } = await import('./authStore')
-          const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3333'
+          const baseUrl = 'https://nigteste-production.up.railway.app'
           const response = await fetch(`${baseUrl}/demandas/${id}`, {
             method: 'DELETE',
             headers: {
