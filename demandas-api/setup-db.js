@@ -34,6 +34,11 @@ async function setupDatabase() {
     await prisma.$disconnect();
     console.log('🎉 Banco configurado com sucesso!');
     
+    // 5. Executar seed de dados
+    console.log('🌱 Executando seed de dados...');
+    execSync('node seed-data.js', { stdio: 'inherit' });
+    console.log('✅ Seed de dados executado com sucesso');
+    
   } catch (error) {
     console.error('❌ Erro ao configurar banco:', error);
     process.exit(1);
