@@ -4,6 +4,7 @@ import { useTheme } from './hooks/useTheme'
 import { useAuthStore } from './store/authStore'
 import { useMasterDataStore } from './store/masterDataStore'
 import { useEffect } from 'react'
+import './utils/force-cache-bust' // Force cache bust
 
 function App() {
   // Aplicar tema global
