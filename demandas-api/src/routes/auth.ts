@@ -78,9 +78,9 @@ export async function authRoutes(app: FastifyInstance) {
         user: userResponse
       }
     } catch (error) {
-      app.log.error('Erro no login:', error as any)
+      app.log.error('Erro no login:', error)
       if (error instanceof z.ZodError) {
-        return res.code(400).send({ message: 'Dados inválidos', details: (error as any).errors })
+        return res.code(400).send({ message: 'Dados inválidos', details: error.errors })
       }
       return res.code(500).send({ message: 'Erro interno do servidor' })
     }
