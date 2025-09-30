@@ -1862,7 +1862,7 @@ app.post('/analytics', async (req: any) => {
 // Endpoint para buscar relatórios já está definido acima
 
 // Endpoint especial para criar usuário administrador (apenas para setup inicial)
-app.post('/setup-admin', async (req: any, reply: any) => {
+app.get('/setup-admin', async (req: any, reply: any) => {
   try {
     console.log('🔧 POST /setup-admin - Criando usuário administrador...')
     
