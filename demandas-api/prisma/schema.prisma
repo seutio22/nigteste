@@ -13,7 +13,6 @@ model Area {
   descricao    String?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
-  analistas    Analista[]
   atendimentos Atendimento[]
   demandas     Demanda[]
   manutencoes  Manutencao[]
