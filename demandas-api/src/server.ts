@@ -82,7 +82,14 @@ function crud(entity: keyof PrismaClient) {
             produto: true,
             sistema: true,
             area: true,
-            analista: true,
+            analista: {
+              select: {
+                id: true,
+                nome: true,
+                createdAt: true,
+                updatedAt: true
+              }
+            },
             tipo: true,
             tipoServico: true
           }
@@ -97,7 +104,14 @@ function crud(entity: keyof PrismaClient) {
             contrato: true,
             operadora: true,
             produto: true,
-            analista: true,
+            analista: {
+              select: {
+                id: true,
+                nome: true,
+                createdAt: true,
+                updatedAt: true
+              }
+            },
             demanda: true,
             user: true
           }
@@ -162,7 +176,14 @@ function crud(entity: keyof PrismaClient) {
             produto: true,
             sistema: true,
             area: true,
-            analista: true,
+            analista: {
+              select: {
+                id: true,
+                nome: true,
+                createdAt: true,
+                updatedAt: true
+              }
+            },
             tipo: true,
             tipoServico: true
           }
@@ -178,7 +199,14 @@ function crud(entity: keyof PrismaClient) {
             contrato: true,
             operadora: true,
             produto: true,
-            analista: true,
+            analista: {
+              select: {
+                id: true,
+                nome: true,
+                createdAt: true,
+                updatedAt: true
+              }
+            },
             demanda: true,
             user: true
           }
@@ -1067,7 +1095,14 @@ for (const [path, repo] of Object.entries(resources)) {
             contrato: true,
             operadora: true,
             produto: true,
-            analista: true,
+            analista: {
+              select: {
+                id: true,
+                nome: true,
+                createdAt: true,
+                updatedAt: true
+              }
+            },
             demanda: true,
             user: true
           }
@@ -1886,7 +1921,7 @@ app.get('/setup-admin', async (req: any, reply: any) => {
         password: hashedPassword,
         name: 'Administrador',
         role: 'admin',
-        permissions: {
+        permissions: JSON.stringify({
           canCreate: true,
           canRead: true,
           canUpdate: true,
@@ -1898,7 +1933,7 @@ app.get('/setup-admin', async (req: any, reply: any) => {
           canManageMaintenance: true,
           canViewReports: true,
           canManageMasterData: true
-        }
+        })
       }
     })
     
