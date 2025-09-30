@@ -1869,6 +1869,17 @@ const start = async () => {
     console.log('- NODE_ENV:', process.env.NODE_ENV)
     console.log('- PORT:', process.env.PORT)
     console.log('- JWT_SECRET:', process.env.JWT_SECRET ? '✅ Definido' : '❌ Não definido')
+    console.log('- DATABASE_URL:', process.env.DATABASE_URL ? '✅ Definido' : '❌ Não definido')
+    
+    // Testar conexão com o banco
+    try {
+      console.log('🔌 Testando conexão com o banco...')
+      await prisma.$connect()
+      console.log('✅ Conexão com banco estabelecida')
+    } catch (dbError) {
+      console.error('❌ Erro ao conectar com o banco:', dbError)
+      console.log('⚠️ Continuando sem banco por enquanto...')
+    }
     
     const port = process.env.PORT || 3333
     console.log(`🌐 Tentando iniciar na porta: ${port}`)
