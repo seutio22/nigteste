@@ -406,8 +406,8 @@ export default function ProjectListPageSimple() {
           <div className="flex items-center justify-between">
             <div className="space-y-1">
               <Typography variant="h5" className="font-bold text-slate-800">
-                Projetos
-              </Typography>
+        Projetos
+      </Typography>
               
               {/* Filtro Automático */}
               <div className="flex items-center gap-3 mt-2">
@@ -619,7 +619,7 @@ export default function ProjectListPageSimple() {
                 ? 'Tente ajustar os filtros de busca'
                 : 'Crie seu primeiro projeto para começar'
               }
-            </Typography>
+      </Typography>
             <Button
               variant="contained"
               startIcon={<Add />}
@@ -633,31 +633,31 @@ export default function ProjectListPageSimple() {
         ) : (
           <>
             {viewMode === 'grid' && (
-              <Grid container spacing={3}>
+      <Grid container spacing={3}>
                 {sortedProjects.map((project) => (
-                  <Grid item xs={12} sm={6} lg={4} key={project.id}>
-                    <Card 
-                      sx={{ 
-                        height: '100%',
-                        cursor: 'pointer',
+          <Grid item xs={12} sm={6} lg={4} key={project.id}>
+            <Card 
+              sx={{ 
+                height: '100%',
+                cursor: 'pointer',
                         transition: 'all 0.2s ease-in-out',
-                        '&:hover': {
+                '&:hover': {
                           transform: 'translateY(-4px)',
                           boxShadow: '0 8px 25px rgba(0,0,0,0.15)'
-                        }
-                      }}
-                      onClick={() => navigate(`/projetos/${project.id}`)}
-                    >
+                }
+              }}
+              onClick={() => navigate(`/projetos/${project.id}`)}
+            >
                       <CardContent sx={{ p: 3 }}>
                         {/* Header */}
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
                           <Box sx={{ flex: 1 }}>
                             <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 1 }}>
-                              {project.name || 'Projeto sem nome'}
-                            </Typography>
+                  {project.name || 'Projeto sem nome'}
+                </Typography>
                             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                              {project.description || 'Sem descrição'}
-                            </Typography>
+                  {project.description || 'Sem descrição'}
+                </Typography>
                           </Box>
                           <IconButton
                             size="small"
@@ -734,17 +734,17 @@ export default function ProjectListPageSimple() {
                             </Avatar>
                             <Typography variant="caption" color="text.secondary">
                               {project.manager}
-                            </Typography>
+                </Typography>
                           </Box>
                           <Typography variant="caption" color="text.secondary">
                             {formatTimeAgo(project.createdAt)}
-                          </Typography>
+                </Typography>
                         </Box>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                ))}
-              </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
             )}
             {viewMode === 'list' && (
               <Paper>
@@ -1012,7 +1012,7 @@ export default function ProjectListPageSimple() {
                             <Delete />
                           </IconButton>
                         )}
-                      </Box>
+    </Box>
                       
                       <Grid container spacing={2}>
                         <Grid item xs={12} md={6}>

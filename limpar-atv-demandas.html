@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧹 Limpeza de Atividades Demandas Indevidas</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        .container {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        h1 {
+            text-align: center;
+            color: #d32f2f;
+            margin-bottom: 30px;
+            font-size: 2.2em;
+        }
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .warning h3 {
+            color: #856404;
+            margin: 0 0 10px 0;
+        }
+        .info-box {
+            background: #e3f2fd;
+            border: 1px solid #bbdefb;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .info-box h3 {
+            color: #1976d2;
+            margin: 0 0 10px 0;
+        }
+        .btn {
+            background: #d32f2f;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px;
+            transition: all 0.3s ease;
+        }
+        .btn:hover {
+            background: #b71c1c;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        .btn-secondary {
+            background: #757575;
+        }
+        .btn-secondary:hover {
+            background: #616161;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+        .status.success {
+            background: #c8e6c9;
+            border: 1px solid #81c784;
+            color: #2e7d32;
+        }
+        .status.error {
+            background: #ffcdd2;
+            border: 1px solid #e57373;
+            color: #c62828;
+        }
+        .status.info {
+            background: #bbdefb;
+            border: 1px solid #64b5f6;
+            color: #1976d2;
+        }
+        .demanda-item {
+            background: #f5f5f5;
+            border: 1px solid #e0e0e0;
+            border-radius: 5px;
+            padding: 10px;
+            margin: 5px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .demanda-nome {
+            font-weight: bold;
+        }
+        .demanda-id {
+            color: #666;
+            font-size: 0.9em;
+        }
+        .loading {
+            text-align: center;
+            color: #666;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #d32f2f;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧹 Limpeza de Atividades Demandas Indevidas</h1>
+        
+        <div class="warning">
+            <h3>⚠️ ATENÇÃO!</h3>
+            <p>Esta operação irá remover <strong>TODAS</strong> as demandas simples (atv demandas) que foram inseridas indevidamente na tabela principal de demandas.</p>
+            <p><strong>As demandas serão perdidas permanentemente!</strong></p>
+        </div>
+
+        <div class="info-box">
+            <h3>ℹ️ O que será removido:</h3>
+            <ul>
+                <li>Demandas que têm apenas <strong>nome</strong> e <strong>tipo de serviço</strong></li>
+                <li>Demandas sem ticket, analista, cliente, contrato, etc.</li>
+                <li>Dados que deveriam estar apenas na tabela "Atividades Demandas"</li>
+            </ul>
+        </div>
+
+        <div class="info-box">
+            <h3>🎯 O que NÃO será afetado:</h3>
+            <ul>
+                <li>Demandas operacionais completas (com ticket, analista, etc.)</li>
+                <li>Dados da página demandas principal</li>
+                <li>Outras tabelas do sistema</li>
+            </ul>
+        </div>
+
+        <div style="text-align: center; margin: 30px 0;">
+            <button class="btn btn-secondary" onclick="verificarDemandas()">🔍 Verificar Demandas Simples</button>
+            <button class="btn" onclick="limparDemandas()" id="btnLimpar" disabled>🧹 Limpar Demandas Indevidas</button>
+        </div>
+
+        <div id="status"></div>
+        <div id="demandasList"></div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3333';
+        let demandasSimples = [];
+
+        async function verificarDemandas() {
+            showStatus('info', '🔍 Verificando demandas simples...', true);
+            
+            try {
+                const response = await fetch(`${API_URL}/atv-demandas`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                demandasSimples = await response.json();
+                
+                if (demandasSimples.length === 0) {
+                    showStatus('info', '✅ Nenhuma demanda simples encontrada para remover!');
+                    document.getElementById('btnLimpar').disabled = true;
+                    return;
+                }
+                
+                showStatus('info', `🔍 Encontradas ${demandasSimples.length} demandas simples para remover`);
+                mostrarDemandas(demandasSimples);
+                document.getElementById('btnLimpar').disabled = false;
+                
+            } catch (error) {
+                showStatus('error', `❌ Erro ao verificar demandas: ${error.message}`);
+                console.error('Erro:', error);
+            }
+        }
+
+        function mostrarDemandas(demandas) {
+            const container = document.getElementById('demandasList');
+            container.innerHTML = '<h3>📋 Demandas que serão removidas:</h3>';
+            
+            demandas.forEach(demanda => {
+                const item = document.createElement('div');
+                item.className = 'demanda-item';
+                item.innerHTML = `
+                    <div>
+                        <div class="demanda-nome">${demanda.nome}</div>
+                        <div class="demanda-id">ID: ${demanda.id}</div>
+                    </div>
+                    <div style="color: #666;">
+                        Tipo: ${demanda.tipoServico ? demanda.tipoServico.nome : 'N/A'}
+                    </div>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        async function limparDemandas() {
+            if (demandasSimples.length === 0) {
+                showStatus('error', '❌ Nenhuma demanda para limpar!');
+                return;
+            }
+
+            const confirmacao = confirm(`⚠️ ATENÇÃO!\n\nVocê está prestes a remover ${demandasSimples.length} demandas simples!\n\nEsta ação NÃO pode ser desfeita!\n\nDeseja continuar?`);
+            
+            if (!confirmacao) {
+                showStatus('info', '❌ Operação cancelada pelo usuário');
+                return;
+            }
+
+            showStatus('info', '🧹 Executando limpeza...', true);
+            document.getElementById('btnLimpar').disabled = true;
+            
+            try {
+                const response = await fetch(`${API_URL}/demandas/limpar-atv-demandas`, {
+                    method: 'DELETE'
+                });
+                
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const resultado = await response.json();
+                
+                showStatus('success', `✅ Limpeza concluída com sucesso!\n\n📊 Resultado:\n• ${resultado.removidas} demandas removidas\n• ${resultado.message}`);
+                
+                // Limpar a lista
+                document.getElementById('demandasList').innerHTML = '';
+                demandasSimples = [];
+                document.getElementById('btnLimpar').disabled = true;
+                
+            } catch (error) {
+                showStatus('error', `❌ Erro ao executar limpeza: ${error.message}`);
+                console.error('Erro:', error);
+                document.getElementById('btnLimpar').disabled = false;
+            }
+        }
+
+        function showStatus(type, message, loading = false) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = `status ${type}`;
+            
+            if (loading) {
+                statusDiv.innerHTML = `
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        ${message}
+                    </div>
+                `;
+            } else {
+                statusDiv.innerHTML = message.replace(/\n/g, '<br>');
+            }
+        }
+
+        // Verificar se a API está rodando ao carregar a página
+        window.addEventListener('load', async () => {
+            try {
+                const response = await fetch(`${API_URL}/health`);
+                if (response.ok) {
+                    showStatus('success', '✅ API está rodando e pronta para uso!');
+                } else {
+                    showStatus('error', '❌ API não está respondendo corretamente');
+                }
+            } catch (error) {
+                showStatus('error', '❌ Não foi possível conectar à API. Verifique se o servidor está rodando.');
+            }
+        });
+    </script>
+</body>
+</html>

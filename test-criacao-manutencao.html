@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Criação de Manutenção</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+        }
+        button:hover { background-color: #0056b3; }
+        .success { background-color: #28a745; }
+        .success:hover { background-color: #218838; }
+        .error { background-color: #dc3545; }
+        .error:hover { background-color: #c82333; }
+        .warning { background-color: #ffc107; color: black; }
+        .warning:hover { background-color: #e0a800; }
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 15px 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+            font-size: 12px;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 8px 12px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .form-group {
+            margin: 15px 0;
+            padding: 15px;
+            border: 1px solid #eee;
+            border-radius: 5px;
+        }
+        .form-group label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .form-row {
+            display: flex;
+            gap: 15px;
+        }
+        .form-row > div {
+            flex: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Teste Criação de Manutenção</h1>
+        <p>Este script testa a criação de manutenções com validação de IDs.</p>
+        
+        <div class="form-group">
+            <h3>📝 Formulário de Teste</h3>
+            <div class="form-row">
+                <div>
+                    <label for="status">Status:</label>
+                    <select id="status">
+                        <option value="Aberta">Aberta</option>
+                        <option value="Em Andamento">Em Andamento</option>
+                        <option value="Concluída">Concluída</option>
+                        <option value="Cancelada">Cancelada</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="solicitante">Solicitante:</label>
+                    <input type="text" id="solicitante" placeholder="Nome do solicitante">
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div>
+                    <label for="descricao">Descrição:</label>
+                    <textarea id="descricao" rows="3" placeholder="Descrição da manutenção"></textarea>
+                </div>
+                <div>
+                    <label for="observacoes">Observações:</label>
+                    <textarea id="observacoes" rows="3" placeholder="Observações adicionais"></textarea>
+                </div>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <h3>🔧 Testes</h3>
+            <button onclick="testarCriacaoBasica()" class="success">➕ Teste Básico</button>
+            <button onclick="testarCriacaoCompleta()" class="warning">🔧 Teste Completo</button>
+            <button onclick="testarCriacaoComIDsInvalidos()" class="error">⚠️ Teste com IDs Inválidos</button>
+            <button onclick="verificarManutencoes()" class="success">📋 Ver Manutenções</button>
+            <button onclick="limparManutencoes()" class="error">🗑️ Limpar Tudo</button>
+        </div>
+        
+        <div id="log" class="log" style="display: none;"></div>
+        <div id="resultado" style="margin-top: 20px;"></div>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const resultadoDiv = document.getElementById('resultado');
+            
+            logDiv.style.display = 'block';
+            const timestamp = new Date().toLocaleTimeString();
+            const color = type === 'error' ? 'red' : type === 'success' ? 'green' : type === 'warning' ? 'orange' : 'black';
+            logDiv.innerHTML += `<div style="color: ${color}">[${timestamp}] ${message}</div>`;
+            
+            if (type === 'success') {
+                resultadoDiv.innerHTML = `<div style="color: green; font-weight: bold;">✅ ${message}</div>`;
+            } else if (type === 'error') {
+                resultadoDiv.innerHTML = `<div style="color: red; font-weight: bold;">❌ ${message}</div>`;
+            } else if (type === 'warning') {
+                resultadoDiv.innerHTML = `<div style="color: orange; font-weight: bold;">⚠️ ${message}</div>`;
+            }
+        }
+
+        async function testarCriacaoBasica() {
+            log('🧪 Testando criação básica de manutenção...');
+            
+            try {
+                const payload = {
+                    status: document.getElementById('status').value,
+                    ticket: 'TEST-BASIC-' + Date.now(),
+                    solicitante: document.getElementById('solicitante').value || null,
+                    descricao: document.getElementById('descricao').value || null,
+                    observacoes: document.getElementById('observacoes').value || null
+                };
+                
+                log(`📦 Payload básico: ${JSON.stringify(payload)}`);
+                
+                const response = await fetch('http://localhost:3333/manutencoes', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + getToken()
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    log('✅ Manutenção básica criada com sucesso!', 'success');
+                    log(`📋 ID: ${result.id}`);
+                    log(`📋 Ticket: ${result.ticket}`);
+                } else {
+                    const error = await response.text();
+                    log(`❌ Erro na criação básica: ${response.status} - ${error}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Erro: ${error.message}`, 'error');
+            }
+        }
+
+        async function testarCriacaoCompleta() {
+            log('🔧 Testando criação completa de manutenção...');
+            
+            try {
+                // Primeiro, buscar dados válidos
+                const [clientesRes, contratosRes, operadorasRes, produtosRes, sistemasRes, analistasRes, areasRes, tiposServicoRes, padraoRes] = await Promise.all([
+                    fetch('http://localhost:3333/clientes', { headers: { 'Authorization': 'Bearer ' + getToken() } }),
+                    fetch('http://localhost:3333/contratos', { headers: { 'Authorization': 'Bearer ' + getToken() } }),
+                    fetch('http://localhost:3333/operadoras', { headers: { 'Authorization': 'Bearer ' + getToken() } }),
+                    fetch('http://localhost:3333/produtos', { headers: { 'Authorization': 'Bearer ' + getToken() } }),
+                    fetch('http://localhost:3333/sistemas', { headers: { 'Authorization': 'Bearer ' + getToken() } }),
+                    fetch('http://localhost:3333/analistas', { headers: { 'Authorization': 'Bearer ' + getToken() } }),
+                    fetch('http://localhost:3333/areas', { headers: { 'Authorization': 'Bearer ' + getToken() } }),
+                    fetch('http://localhost:3333/tiposServico', { headers: { 'Authorization': 'Bearer ' + getToken() } }),
+                    fetch('http://localhost:3333/padrao', { headers: { 'Authorization': 'Bearer ' + getToken() } })
+                ]);
+                
+                const [clientes, contratos, operadoras, produtos, sistemas, analistas, areas, tiposServico, padrao] = await Promise.all([
+                    clientesRes.json(), contratosRes.json(), operadorasRes.json(), produtosRes.json(),
+                    sistemasRes.json(), analistasRes.json(), areasRes.json(), tiposServicoRes.json(), padraoRes.json()
+                ]);
+                
+                log(`📊 Dados carregados: Clientes: ${clientes.length}, Contratos: ${contratos.length}, Operadoras: ${operadoras.length}, Produtos: ${produtos.length}, Sistemas: ${sistemas.length}, Analistas: ${analistas.length}, Áreas: ${areas.length}, Tipos Serviço: ${tiposServico.length}, Padrões: ${padrao.length}`);
+                
+                const payload = {
+                    status: document.getElementById('status').value,
+                    ticket: 'TEST-COMPLETE-' + Date.now(),
+                    solicitante: document.getElementById('solicitante').value || null,
+                    descricao: document.getElementById('descricao').value || null,
+                    observacoes: document.getElementById('observacoes').value || null,
+                    // Usar primeiros itens de cada lista
+                    clienteId: clientes[0]?.id || null,
+                    contratoId: contratos[0]?.id || null,
+                    operadoraId: operadoras[0]?.id || null,
+                    produtoId: produtos[0]?.id || null,
+                    sistemaId: sistemas[0]?.id || null,
+                    analistaId: analistas[0]?.id || null,
+                    areaId: areas[0]?.id || null,
+                    tipoServicoId: tiposServico[0]?.id || null,
+                    tipoId: padrao[0]?.id || null
+                };
+                
+                log(`📦 Payload completo: ${JSON.stringify(payload, null, 2)}`);
+                
+                const response = await fetch('http://localhost:3333/manutencoes', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + getToken()
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    log('✅ Manutenção completa criada com sucesso!', 'success');
+                    log(`📋 ID: ${result.id}`);
+                    log(`📋 Ticket: ${result.ticket}`);
+                } else {
+                    const error = await response.text();
+                    log(`❌ Erro na criação completa: ${response.status} - ${error}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Erro: ${error.message}`, 'error');
+            }
+        }
+
+        async function testarCriacaoComIDsInvalidos() {
+            log('⚠️ Testando criação com IDs inválidos...');
+            
+            try {
+                const payload = {
+                    status: document.getElementById('status').value,
+                    ticket: 'TEST-INVALID-' + Date.now(),
+                    solicitante: document.getElementById('solicitante').value || null,
+                    descricao: document.getElementById('descricao').value || null,
+                    observacoes: document.getElementById('observacoes').value || null,
+                    // IDs inválidos propositalmente
+                    clienteId: '00000000-0000-0000-0000-000000000000',
+                    contratoId: '11111111-1111-1111-1111-111111111111',
+                    operadoraId: '22222222-2222-2222-2222-222222222222',
+                    produtoId: '33333333-3333-3333-3333-333333333333',
+                    sistemaId: '44444444-4444-4444-4444-444444444444',
+                    analistaId: '55555555-5555-5555-5555-555555555555',
+                    areaId: '66666666-6666-6666-6666-666666666666',
+                    tipoServicoId: '77777777-7777-7777-7777-777777777777',
+                    tipoId: '88888888-8888-8888-8888-888888888888'
+                };
+                
+                log(`📦 Payload com IDs inválidos: ${JSON.stringify(payload, null, 2)}`);
+                
+                const response = await fetch('http://localhost:3333/manutencoes', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + getToken()
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    log('✅ Manutenção criada mesmo com IDs inválidos!', 'success');
+                    log(`📋 ID: ${result.id}`);
+                    log(`📋 Ticket: ${result.ticket}`);
+                } else {
+                    const error = await response.text();
+                    log(`❌ Erro esperado com IDs inválidos: ${response.status} - ${error}`, 'warning');
+                }
+            } catch (error) {
+                log(`❌ Erro: ${error.message}`, 'error');
+            }
+        }
+
+        async function verificarManutencoes() {
+            log('📋 Verificando manutenções existentes...');
+            
+            try {
+                const response = await fetch('http://localhost:3333/manutencoes', {
+                    headers: {
+                        'Authorization': 'Bearer ' + getToken()
+                    }
+                });
+                
+                if (response.ok) {
+                    const manutencoes = await response.json();
+                    log(`📊 Encontradas ${manutencoes.length} manutenções:`);
+                    
+                    manutencoes.forEach((manutencao, index) => {
+                        log(`  ${index + 1}. ID: ${manutencao.id}`);
+                        log(`     Ticket: ${manutencao.ticket}`);
+                        log(`     Status: ${manutencao.status}`);
+                        log(`     Solicitante: "${manutencao.solicitante}"`);
+                        log(`     Descrição: "${manutencao.descricao}"`);
+                        log('');
+                    });
+                } else {
+                    const error = await response.text();
+                    log(`❌ Erro ao buscar manutenções: ${response.status} - ${error}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Erro: ${error.message}`, 'error');
+            }
+        }
+
+        async function limparManutencoes() {
+            if (!confirm('⚠️ ATENÇÃO: Isso irá excluir TODAS as manutenções. Deseja continuar?')) {
+                log('❌ Operação cancelada', 'warning');
+                return;
+            }
+            
+            log('🧹 Limpando manutenções...');
+            
+            try {
+                const response = await fetch('http://localhost:3333/manutencoes', {
+                    headers: {
+                        'Authorization': 'Bearer ' + getToken()
+                    }
+                });
+                
+                if (response.ok) {
+                    const manutencoes = await response.json();
+                    
+                    for (const manutencao of manutencoes) {
+                        const deleteResponse = await fetch(`http://localhost:3333/manutencoes/${manutencao.id}`, {
+                            method: 'DELETE',
+                            headers: {
+                                'Authorization': 'Bearer ' + getToken()
+                            }
+                        });
+                        
+                        if (deleteResponse.ok) {
+                            log(`✅ Manutenção ${manutencao.id} excluída`);
+                        } else {
+                            log(`❌ Erro ao excluir ${manutencao.id}: ${deleteResponse.status}`);
+                        }
+                    }
+                    
+                    log('🎉 Limpeza concluída!', 'success');
+                } else {
+                    log(`❌ Erro ao buscar manutenções: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Erro: ${error.message}`, 'error');
+            }
+        }
+
+        function getToken() {
+            try {
+                const authStore = localStorage.getItem('auth-store');
+                if (authStore) {
+                    const parsed = JSON.parse(authStore);
+                    return parsed.state?.token || '';
+                }
+            } catch (error) {
+                log(`⚠️ Erro ao obter token: ${error.message}`, 'warning');
+            }
+            return '';
+        }
+
+        // Teste automático ao carregar
+        window.onload = function() {
+            log('🚀 Script de teste carregado. Teste a criação de manutenções!', 'info');
+            log('💡 Dica: Use "Teste Básico" primeiro para verificar se a API está funcionando', 'info');
+        };
+    </script>
+</body>
+</html>

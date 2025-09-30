@@ -1,39 +1,462 @@
+import 'dotenv/config'
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import jwt from '@fastify/jwt'
 import authPlugin from './plugins/auth'
 import { authRoutes } from './routes/auth'
 import { userRoutes } from './routes/users'
+import comunicadosRoutes from './routes/comunicados'
+import projectTeamRoutes from './routes/projectTeam'
+import shareRoutes from './routes/share'
+import { masterDataRoutes } from './routes/masterData'
 import { PrismaClient } from '@prisma/client'
 
-const app = Fastify({ logger: true })
+const app = Fastify({ 
+  logger: true,
+  bodyLimit: 50 * 1024 * 1024 // 50MB
+})
 const prisma = new PrismaClient()
 
-// Configuração de CORS para produção
+// Configuração de CORS mais permissiva para desenvolvimento
 const corsOptions = {
-  origin: process.env.NODE_ENV === 'production' 
-    ? ['https://seu-frontend.vercel.app'] // Substitua pela URL do seu frontend
-    : true,
-  credentials: true
+  origin: true, // Aceitar qualquer origem em desenvolvimento
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept', 'X-Requested-With'],
+  exposedHeaders: ['Content-Length', 'Content-Type'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 }
 
 app.register(cors, corsOptions)
-app.register(jwt, { secret: process.env.JWT_SECRET || 'dev-secret' })
+
+// Configurar parser para resolver problemas de Content-Length
+app.addContentTypeParser('application/json', { parseAs: 'string' }, function (req, body, done) {
+  try {
+    if (body === '' || body === null || body === undefined) {
+      done(null, {})
+    } else {
+      const json = JSON.parse(body as string)
+      done(null, json)
+    }
+  } catch (err) {
+    done(err as Error, {})
+  }
+})
+
+const jwtSecret = process.env.JWT_SECRET;
+if (!jwtSecret) {
+  throw new Error('JWT_SECRET não configurado. Configure a variável de ambiente JWT_SECRET.');
+}
+app.register(jwt, { secret: jwtSecret })
 app.register(authPlugin)
 
 app.get('/health', async () => ({ status: 'ok' }))
 
+// Endpoint público para validação de IDs de usuários (sem autenticação)
+app.get('/users/validate/:id', async (req: any) => {
+  try {
+    const user = await prisma.user.findUnique({ 
+      where: { id: req.params.id },
+      select: { id: true, name: true, role: true }
+    })
+    return user || null
+  } catch (error) {
+    return null
+  }
+})
+
+
 // CRUD genérico simples para entidades mestres
 function crud(entity: keyof PrismaClient) {
-  const anyPrisma = prisma as any
+  const anyPrisma = prisma as any;
   return {
-    list: async () => anyPrisma[entity].findMany(),
-    get: async (id: string) => anyPrisma[entity].findUnique({ where: { id } }),
-    create: async (data: any) => anyPrisma[entity].create({ data }),
-    update: async (id: string, data: any) => anyPrisma[entity].update({ where: { id }, data }),
-    remove: async (id: string) => anyPrisma[entity].delete({ where: { id } }),
+    list: async () => {
+      // Incluir relacionamentos para atendimentos
+      if (entity === 'atendimento') {
+        return anyPrisma[entity].findMany({
+          include: {
+            cliente: true,
+            contrato: true,
+            operadora: true,
+            produto: true,
+            sistema: true,
+            area: true,
+            analista: true,
+            tipo: true,
+            tipoServico: true
+          }
+        });
+      }
+
+      // Incluir relacionamentos para validações
+      if (entity === 'validacao') {
+        return anyPrisma[entity].findMany({
+          include: {
+            cliente: true,
+            contrato: true,
+            operadora: true,
+            produto: true,
+            analista: true,
+            demanda: true,
+            user: true
+          }
+        });
+      }
+      
+      // Filtrar apenas contratos ativos
+      if (entity === 'contrato') {
+        return anyPrisma[entity].findMany({
+          where: { status: 'Ativo' }
+        });
+      }
+      
+      // Tratamento específico para projetos - converter campos JSON
+      if (entity === 'project') {
+        const projects = await anyPrisma[entity].findMany();
+        return projects.map((project: any) => {
+          // Converter campos JSON de volta para objetos
+          if (project.timeline && typeof project.timeline === 'string') {
+            try {
+              project.timeline = JSON.parse(project.timeline);
+            } catch (e) {
+              project.timeline = { phases: [] };
+            }
+          }
+          if (project.activities && typeof project.activities === 'string') {
+            try {
+              project.activities = JSON.parse(project.activities);
+            } catch (e) {
+              project.activities = [];
+            }
+          }
+          if (project.team && typeof project.team === 'string') {
+            try {
+              project.team = JSON.parse(project.team);
+            } catch (e) {
+              project.team = [];
+            }
+          }
+          if (project.tags && typeof project.tags === 'string') {
+            try {
+              project.tags = JSON.parse(project.tags);
+            } catch (e) {
+              project.tags = [];
+            }
+          }
+          return project;
+        });
+      }
+      
+      return anyPrisma[entity].findMany();
+    },
+    get: async (id: string) => {
+      // Incluir relacionamentos para atendimentos
+      if (entity === 'atendimento') {
+        return anyPrisma[entity].findUnique({ 
+          where: { id },
+          include: {
+            cliente: true,
+            contrato: true,
+            operadora: true,
+            produto: true,
+            sistema: true,
+            area: true,
+            analista: true,
+            tipo: true,
+            tipoServico: true
+          }
+        });
+      }
+
+      // Incluir relacionamentos para validações
+      if (entity === 'validacao') {
+        return anyPrisma[entity].findUnique({ 
+          where: { id },
+          include: {
+            cliente: true,
+            contrato: true,
+            operadora: true,
+            produto: true,
+            analista: true,
+            demanda: true,
+            user: true
+          }
+        });
+      }
+      
+      // Filtrar apenas contratos ativos
+      if (entity === 'contrato') {
+        const contrato = await anyPrisma[entity].findFirst({ 
+          where: { id }
+        });
+        // Se não encontrar contrato, retornar null
+        if (!contrato) {
+          return null;
+        }
+        return contrato;
+      }
+      
+      // Tratamento específico para projetos - converter campos JSON
+      if (entity === 'project') {
+        const project = await anyPrisma[entity].findUnique({ where: { id } });
+        if (project) {
+          // Converter campos JSON de volta para objetos
+          if (project.timeline && typeof project.timeline === 'string') {
+            try {
+              project.timeline = JSON.parse(project.timeline);
+            } catch (e) {
+              project.timeline = { phases: [] };
+            }
+          }
+          if (project.activities && typeof project.activities === 'string') {
+            try {
+              project.activities = JSON.parse(project.activities);
+            } catch (e) {
+              project.activities = [];
+            }
+          }
+          if (project.team && typeof project.team === 'string') {
+            try {
+              project.team = JSON.parse(project.team);
+            } catch (e) {
+              project.team = [];
+            }
+          }
+          if (project.tags && typeof project.tags === 'string') {
+            try {
+              project.tags = JSON.parse(project.tags);
+            } catch (e) {
+              project.tags = [];
+            }
+          }
+        }
+        return project;
+      }
+      
+      return anyPrisma[entity].findUnique({ where: { id } });
+    },
+    create: async (data: unknown) => {
+      // Garantir que contratos sejam criados como ativos por padrão
+      if (entity === 'contrato') {
+        const contratoData = { ...data as any, status: 'Ativo' };
+        return anyPrisma[entity].create({ data: contratoData });
+      }
+      return anyPrisma[entity].create({ data });
+    },
+    update: async (id: string, data: unknown) => {
+      // Tratamento específico para projetos
+      if (entity === 'project') {
+        const projectData = data as any;
+        
+        // Remover campos que não existem no schema ou não devem ser atualizados
+        const { 
+          id: _, 
+          createdAt, 
+          updatedAt, 
+          managerId, 
+          clientId, 
+          activities,
+          ...updateData 
+        } = projectData;
+        
+        // Remover campos null/undefined para evitar erros do Prisma
+        Object.keys(updateData).forEach(key => {
+          if (updateData[key] === null || updateData[key] === undefined) {
+            delete updateData[key];
+          }
+        });
+        
+        // Converter datas para o formato correto
+        if (updateData.startDate) {
+          updateData.startDate = new Date(updateData.startDate);
+        }
+        if (updateData.endDate) {
+          updateData.endDate = new Date(updateData.endDate);
+        }
+        
+        // Converter campos String que vêm como Array do frontend
+        if (updateData.team && Array.isArray(updateData.team)) {
+          updateData.team = JSON.stringify(updateData.team);
+        }
+        if (updateData.tags && Array.isArray(updateData.tags)) {
+          updateData.tags = JSON.stringify(updateData.tags);
+        }
+        
+        // Converter campos JSON
+        if (updateData.timeline) {
+          if (typeof updateData.timeline === 'object') {
+            updateData.timeline = JSON.stringify(updateData.timeline);
+          }
+        } else {
+          // Se timeline não existe, criar um objeto vazio
+          updateData.timeline = JSON.stringify({ phases: [] });
+        }
+        
+        if (updateData.activities) {
+          if (Array.isArray(updateData.activities)) {
+            updateData.activities = JSON.stringify(updateData.activities);
+          }
+        } else {
+          // Se activities não existe, criar um array vazio
+          updateData.activities = JSON.stringify([]);
+        }
+        
+        // Adicionar campos de relacionamento se existirem
+        if (managerId) {
+          updateData.manager = { connect: { id: managerId } };
+        }
+        if (clientId) {
+          updateData.client = { connect: { id: clientId } };
+        }
+        
+        return anyPrisma[entity].update({ where: { id }, data: updateData });
+      }
+      
+      return anyPrisma[entity].update({ where: { id }, data });
+    },
+    remove: async (id: string) => {
+      // Verificar dependências antes de excluir
+      const entityName = entity.toString();
+      
+      try {
+        // Verificar se o registro existe primeiro
+        const anyPrisma = prisma as any;
+        const existingRecord = await anyPrisma[entity].findUnique({ where: { id } });
+        if (!existingRecord) {
+          throw new Error(`Registro com ID "${id}" não foi encontrado`);
+        }
+        
+        // Verificar se há registros dependentes
+        let hasDependencies = false;
+        
+        switch (entityName) {
+          case 'cliente':
+            const clienteDeps = await Promise.all([
+              anyPrisma.contrato.count({ where: { clienteId: id } }),
+              anyPrisma.demanda.count({ where: { clienteId: id } }),
+              anyPrisma.atendimento.count({ where: { clienteId: id } }),
+              anyPrisma.project.count({ where: { clientId: id } })
+            ]);
+            hasDependencies = clienteDeps.some(count => count > 0);
+            break;
+            
+          case 'contrato':
+            const contratoDeps = await Promise.all([
+              anyPrisma.demanda.count({ where: { contratoId: id } }),
+              anyPrisma.atendimento.count({ where: { contratoId: id } })
+            ]);
+            hasDependencies = contratoDeps.some(count => count > 0);
+            break;
+            
+          case 'operadora':
+            const operadoraDeps = await Promise.all([
+              anyPrisma.produto.count({ where: { operadoraId: id } }),
+              anyPrisma.demanda.count({ where: { operadoraId: id } }),
+              anyPrisma.atendimento.count({ where: { operadoraId: id } })
+            ]);
+            hasDependencies = operadoraDeps.some(count => count > 0);
+            break;
+            
+          case 'produto':
+            const produtoDeps = await Promise.all([
+              anyPrisma.demanda.count({ where: { produtoId: id } }),
+              anyPrisma.atendimento.count({ where: { produtoId: id } })
+            ]);
+            hasDependencies = produtoDeps.some(count => count > 0);
+            break;
+            
+          case 'sistema':
+            const sistemaDeps = await Promise.all([
+              anyPrisma.demanda.count({ where: { sistemaId: id } }),
+              anyPrisma.atendimento.count({ where: { sistemaId: id } })
+            ]);
+            hasDependencies = sistemaDeps.some(count => count > 0);
+            break;
+            
+          case 'analista':
+            const analistaDeps = await Promise.all([
+              anyPrisma.demanda.count({ where: { analistaId: id } }),
+              anyPrisma.atendimento.count({ where: { analistaId: id } }),
+              anyPrisma.validacao.count({ where: { analistaId: id } }),
+              anyPrisma.reajuste.count({ where: { analistaId: id } })
+            ]);
+            hasDependencies = analistaDeps.some(count => count > 0);
+            break;
+            
+          case 'area':
+            const areaDeps = await Promise.all([
+              anyPrisma.analista.count({ where: { areaId: id } }),
+              anyPrisma.demanda.count({ where: { areaId: id } }),
+              anyPrisma.atendimento.count({ where: { areaId: id } })
+            ]);
+            hasDependencies = areaDeps.some(count => count > 0);
+            break;
+            
+          case 'tipoServico':
+            const tipoServicoDeps = await Promise.all([
+              anyPrisma.demanda.count({ where: { tipoServicoId: id } }),
+              anyPrisma.atendimento.count({ where: { tipoServicoId: id } })
+            ]);
+            hasDependencies = tipoServicoDeps.some(count => count > 0);
+            break;
+            
+          case 'tipoDemanda':
+            const tipoDemandaDeps = await Promise.all([
+              anyPrisma.demanda.count({ where: { tipoId: id } }),
+              anyPrisma.atendimento.count({ where: { tipoId: id } })
+            ]);
+            hasDependencies = tipoDemandaDeps.some(count => count > 0);
+            break;
+            
+          case 'atendimento':
+            // Atendimentos podem ser excluídos diretamente (sem dependências)
+            hasDependencies = false;
+            break;
+            
+          case 'dados':
+            // Dados podem ser excluídos diretamente (sem dependências)
+            hasDependencies = false;
+            break;
+            
+          default:
+            break;
+        }
+        
+        if (hasDependencies) {
+          // Coletar informações específicas sobre as dependências
+          let dependencyInfo = '';
+          if (entityName === 'cliente') {
+            const [contratos, demandas, atendimentos, projetos] = await Promise.all([
+              anyPrisma.contrato.count({ where: { clienteId: id } }),
+              anyPrisma.demanda.count({ where: { clienteId: id } }),
+              anyPrisma.atendimento.count({ where: { clienteId: id } }),
+              anyPrisma.project.count({ where: { clientId: id } })
+            ]);
+            
+            const deps = [];
+            if (contratos > 0) deps.push(`${contratos} contrato(s)`);
+            if (demandas > 0) deps.push(`${demandas} demanda(s)`);
+            if (atendimentos > 0) deps.push(`${atendimentos} atendimento(s)`);
+            if (projetos > 0) deps.push(`${projetos} projeto(s)`);
+            
+            dependencyInfo = ` Dependências encontradas: ${deps.join(', ')}.`;
+          }
+          
+          throw new Error(`Não é possível excluir este ${entityName} pois existem registros dependentes.${dependencyInfo} Remova as dependências primeiro.`);
+        }
+        
+        // Se não há dependências, pode excluir
+        
+        const result = await anyPrisma[entity].delete({ where: { id } });
+        return result;
+      } catch (error) {
+        throw error;
+      }
+    },
   }
 }
+
 
 const resources = {
   areas: crud('area'),
@@ -45,34 +468,1396 @@ const resources = {
   contratos: crud('contrato'),
   tiposServico: crud('tipoServico'),
   tiposDemanda: crud('tipoDemanda'),
-  demandas: crud('demanda'),
+  demandas: {
+    ...crud('demanda'),
+    list: async () => {
+      const anyPrisma = prisma as any;
+      return anyPrisma.demanda.findMany({
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true
+            }
+          },
+          contrato: {
+            where: { status: 'Ativo' }
+          }
+        }
+      });
+    },
+    get: async (id: string) => {
+      const anyPrisma = prisma as any;
+      return anyPrisma.demanda.findUnique({ 
+        where: { id },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true
+            }
+          },
+          contrato: {
+            where: { status: 'Ativo' }
+          }
+        }
+      });
+    }
+  },
+  atendimentos: {
+    ...crud('atendimento'),
+    remove: async (id: string) => {
+      console.log(`🔍 DELETE /atendimentos/${id}: MÉTODO ESPECÍFICO CHAMADO!`);
+      try {
+        const result = await prisma.atendimento.delete({ where: { id } });
+        console.log(`✅ DELETE /atendimentos/${id}: Excluído com sucesso:`, result.id);
+        return { success: true, message: 'Atendimento excluído com sucesso', deletedId: result.id };
+      } catch (error) {
+        console.error(`❌ DELETE /atendimentos/${id}: Erro:`, error);
+        throw error;
+      }
+    }
+  },
+  manutencoes: crud('manutencao'),
   validacoes: crud('validacao'),
+  tiposCadastro: crud('tipoCadastro'),
+  validacoesManutencao: crud('validacaoManutencao'),
   reajustes: crud('reajuste'),
+  reajustesManutencao: crud('reajusteManutencao'),
+  reajusteLancamentos: crud('reajusteLancamento'),
+  projetos: crud('project'),
+  dados: crud('dados'),
 }
 
 for (const [path, repo] of Object.entries(resources)) {
   app.get(`/${path}`, async () => repo.list())
   app.get(`/${path}/:id`, async (req: any) => repo.get(req.params.id))
   app.post(`/${path}`, async (req: any, res) => {
-    const created = await repo.create(req.body)
-    res.code(201)
-    return created
+    console.log(`🔍 POST /${path}: Recebendo requisição`)
+    console.log(`🔍 POST /${path}: Headers:`, req.headers)
+    console.log(`🔍 POST /${path}: Body:`, JSON.stringify(req.body, null, 2))
+    
+    try {
+      // Tratamento especial para demandas
+      if (path === 'demandas') {
+        // Validar e limpar dados antes de criar
+        const cleanedData = { ...req.body }
+        
+        console.log(`🔍 POST /demandas: Dados originais recebidos:`, JSON.stringify(req.body, null, 2))
+        
+        // CUIDADO: Remover apenas campos que são realmente null/undefined/vazio
+        // MAS manter campos com IDs válidos (strings)
+        Object.keys(cleanedData).forEach(key => {
+          const value = cleanedData[key]
+          if (value === null || value === undefined || value === '') {
+            console.log(`🔧 POST /demandas: Removendo campo vazio: ${key} = ${value}`)
+            delete cleanedData[key]
+          } else {
+            console.log(`🔧 POST /demandas: Mantendo campo: ${key} = ${value} (tipo: ${typeof value})`)
+          }
+        })
+        
+        console.log(`🔧 POST /demandas: Dados limpos:`, JSON.stringify(cleanedData, null, 2))
+        
+        // Verificar especificamente clienteId e contratoId
+        if (req.body.clienteId || req.body.contratoId) {
+          console.log(`🔍 POST /demandas: CLIENTE-CONTRATO DEBUG:`)
+          console.log(`  clienteId original: ${req.body.clienteId} (tipo: ${typeof req.body.clienteId})`)
+          console.log(`  contratoId original: ${req.body.contratoId} (tipo: ${typeof req.body.contratoId})`)
+          console.log(`  clienteId limpo: ${cleanedData.clienteId} (tipo: ${typeof cleanedData.clienteId})`)
+          console.log(`  contratoId limpo: ${cleanedData.contratoId} (tipo: ${typeof cleanedData.contratoId})`)
+          
+          // VERIFICAÇÃO ADICIONAL: Validar se IDs existem no banco
+          if (cleanedData.clienteId) {
+            try {
+              const clienteExiste = await prisma.cliente.findUnique({ where: { id: cleanedData.clienteId } })
+              if (!clienteExiste) {
+                console.error(`❌ POST /demandas: Cliente ID "${cleanedData.clienteId}" NÃO EXISTE no banco!`)
+                res.code(400)
+                return { 
+                  error: 'Cliente inválido', 
+                  message: `Cliente com ID "${cleanedData.clienteId}" não foi encontrado no banco de dados.`,
+                  code: 'CLIENTE_NAO_ENCONTRADO'
+                }
+              } else {
+                console.log(`✅ POST /demandas: Cliente ID "${cleanedData.clienteId}" encontrado: ${clienteExiste.nome}`)
+              }
+            } catch (error) {
+              console.error(`❌ POST /demandas: Erro ao verificar cliente:`, error)
+            }
+          }
+          
+          if (cleanedData.contratoId) {
+            try {
+              const contratoExiste = await prisma.contrato.findUnique({ 
+                where: { id: cleanedData.contratoId },
+                include: { cliente: true }
+              })
+              if (!contratoExiste) {
+                console.error(`❌ POST /demandas: Contrato ID "${cleanedData.contratoId}" NÃO EXISTE no banco!`)
+                res.code(400)
+                return { 
+                  error: 'Contrato inválido', 
+                  message: `Contrato com ID "${cleanedData.contratoId}" não foi encontrado no banco de dados.`,
+                  code: 'CONTRATO_NAO_ENCONTRADO'
+                }
+              } else {
+                console.log(`✅ POST /demandas: Contrato ID "${cleanedData.contratoId}" encontrado: ${contratoExiste.numero}`)
+                console.log(`✅ POST /demandas: Cliente do contrato: ${contratoExiste.cliente.nome}`)
+                
+                // Verificar se o cliente do contrato existe
+                if (!contratoExiste.cliente) {
+                  console.error(`❌ POST /demandas: Contrato "${cleanedData.contratoId}" tem clienteId inválido!`)
+                  res.code(400)
+                  return { 
+                    error: 'Dados inconsistentes', 
+                    message: `O contrato selecionado tem um cliente inválido no banco de dados.`,
+                    code: 'CLIENTE_CONTRATO_INCONSISTENTE'
+                  }
+                }
+              }
+            } catch (error) {
+              console.error(`❌ POST /demandas: Erro ao verificar contrato:`, error)
+            }
+          }
+        }
+        
+        const created = await repo.create(cleanedData)
+        console.log(`✅ POST /${path}: Criado com sucesso:`, created.id)
+        res.code(201)
+        return created
+      } else if (path === 'manutencoes') {
+        // Tratamento especial para manutenções - similar ao das demandas
+        const cleanedData = { ...req.body }
+        
+        console.log(`🔍 POST /manutencoes: Dados originais recebidos:`, JSON.stringify(req.body, null, 2))
+        
+        // Limpar campos vazios
+        Object.keys(cleanedData).forEach(key => {
+          const value = cleanedData[key]
+          if (value === null || value === undefined || value === '') {
+            console.log(`🔧 POST /manutencoes: Removendo campo vazio: ${key} = ${value}`)
+            delete cleanedData[key]
+          } else {
+            console.log(`🔧 POST /manutencoes: Mantendo campo: ${key} = ${value} (tipo: ${typeof value})`)
+          }
+        })
+        
+        console.log(`🔧 POST /manutencoes: Dados limpos:`, JSON.stringify(cleanedData, null, 2))
+        
+        // Validar IDs obrigatórios
+        if (cleanedData.clienteId) {
+          try {
+            const clienteExiste = await prisma.cliente.findUnique({ where: { id: cleanedData.clienteId } })
+            if (!clienteExiste) {
+              console.error(`❌ POST /manutencoes: Cliente ID "${cleanedData.clienteId}" NÃO EXISTE no banco!`)
+              res.code(400)
+              return { 
+                error: 'Cliente inválido', 
+                message: `Cliente com ID "${cleanedData.clienteId}" não foi encontrado no banco de dados.`,
+                code: 'CLIENTE_NAO_ENCONTRADO'
+              }
+            } else {
+              console.log(`✅ POST /manutencoes: Cliente ID "${cleanedData.clienteId}" encontrado: ${clienteExiste.nome}`)
+            }
+          } catch (error) {
+            console.error(`❌ POST /manutencoes: Erro ao verificar cliente:`, error)
+          }
+        }
+        
+        if (cleanedData.analistaId) {
+          try {
+            const analistaExiste = await prisma.analista.findUnique({ where: { id: cleanedData.analistaId } })
+            if (!analistaExiste) {
+              console.error(`❌ POST /manutencoes: Analista ID "${cleanedData.analistaId}" NÃO EXISTE no banco!`)
+              res.code(400)
+              return { 
+                error: 'Analista inválido', 
+                message: `Analista com ID "${cleanedData.analistaId}" não foi encontrado no banco de dados.`,
+                code: 'ANALISTA_NAO_ENCONTRADO'
+              }
+            } else {
+              console.log(`✅ POST /manutencoes: Analista ID "${cleanedData.analistaId}" encontrado: ${analistaExiste.nome}`)
+            }
+          } catch (error) {
+            console.error(`❌ POST /manutencoes: Erro ao verificar analista:`, error)
+          }
+        }
+        
+        
+        const created = await repo.create(cleanedData)
+        console.log(`✅ POST /${path}: Criado com sucesso:`, created.id)
+        res.code(201)
+        return created
+      } else if (path === 'validacoes') {
+        // Tratamento especial para validações
+        const cleanedData = { ...req.body }
+        
+        console.log(`🔍 POST /validacoes: Dados originais recebidos:`, JSON.stringify(req.body, null, 2))
+        
+        // Limpar campos vazios
+        Object.keys(cleanedData).forEach(key => {
+          const value = cleanedData[key]
+          if (value === null || value === undefined || value === '') {
+            console.log(`🔧 POST /validacoes: Removendo campo vazio: ${key} = ${value}`)
+            delete cleanedData[key]
+          } else {
+            console.log(`🔧 POST /validacoes: Mantendo campo: ${key} = ${value} (tipo: ${typeof value})`)
+          }
+        })
+        
+        // Converter arrays para JSON strings se necessário
+        if (cleanedData.estruturaEdge !== undefined) {
+          if (Array.isArray(cleanedData.estruturaEdge)) {
+            cleanedData.estruturaEdge = cleanedData.estruturaEdge.length > 0 ? JSON.stringify(cleanedData.estruturaEdge) : null
+          } else if (cleanedData.estruturaEdge === '' || cleanedData.estruturaEdge === '[]') {
+            cleanedData.estruturaEdge = null
+          }
+        }
+        if (cleanedData.estruturaMove !== undefined) {
+          if (Array.isArray(cleanedData.estruturaMove)) {
+            cleanedData.estruturaMove = cleanedData.estruturaMove.length > 0 ? JSON.stringify(cleanedData.estruturaMove) : null
+          } else if (cleanedData.estruturaMove === '' || cleanedData.estruturaMove === '[]') {
+            cleanedData.estruturaMove = null
+          }
+        }
+        
+        console.log(`🔧 POST /validacoes: Dados limpos:`, JSON.stringify(cleanedData, null, 2))
+        
+        // Validar IDs obrigatórios
+        console.log(`🔍 POST /validacoes: Verificando analistaId:`, cleanedData.analistaId)
+        
+        if (cleanedData.analistaId) {
+          try {
+            console.log(`🔍 POST /validacoes: Buscando analista no banco...`)
+            const analistaExiste = await prisma.analista.findUnique({ where: { id: cleanedData.analistaId } })
+            console.log(`🔍 POST /validacoes: Resultado da busca:`, analistaExiste)
+            
+            if (!analistaExiste) {
+              console.error(`❌ POST /validacoes: Analista ID "${cleanedData.analistaId}" NÃO EXISTE no banco!`)
+              
+              // Buscar primeiro analista disponível como fallback
+              const primeiroAnalista = await prisma.analista.findFirst()
+              if (primeiroAnalista) {
+                console.log(`🔄 POST /validacoes: Usando analista fallback: ${primeiroAnalista.nome} (${primeiroAnalista.id})`)
+                cleanedData.analistaId = primeiroAnalista.id
+                console.log(`✅ POST /validacoes: Analista fallback definido: ${primeiroAnalista.nome}`)
+              } else {
+                console.error(`❌ POST /validacoes: Nenhum analista encontrado no banco!`)
+                res.code(400)
+                return { 
+                  error: 'Analista inválido', 
+                  message: `Analista com ID "${cleanedData.analistaId}" não foi encontrado no banco de dados.`,
+                  code: 'ANALISTA_NAO_ENCONTRADO'
+                }
+              }
+            } else {
+              console.log(`✅ POST /validacoes: Analista ID "${cleanedData.analistaId}" encontrado: ${analistaExiste.nome}`)
+            }
+          } catch (error) {
+            console.error(`❌ POST /validacoes: Erro ao verificar analista:`, error)
+            res.code(500)
+            return { 
+              error: 'Erro interno', 
+              message: `Erro ao verificar analista: ${error}`,
+              code: 'INTERNAL_ERROR'
+            }
+          }
+        } else {
+          console.error(`❌ POST /validacoes: analistaId não fornecido!`)
+          res.code(400)
+          return { 
+            error: 'Analista obrigatório', 
+            message: `Campo analistaId é obrigatório.`,
+            code: 'ANALISTA_OBRIGATORIO'
+          }
+        }
+        
+        // Converter datas para objetos Date e filtrar campos válidos
+        const { analistaId, ...dataWithoutAnalistaId } = cleanedData
+        
+        // Filtrar apenas campos que existem no modelo Validacao
+        const validFields = [
+          'id', 'demandaId', 'analistaId', 'userId', 'status', 'dataInicio', 'dataFim', 
+          'observacoes', 'clienteId', 'contratoId', 'operadoraId', 'produtoId',
+          'ticket', 'solicitante', 'tipo', 'descricao', 'qualidade', 'qtdRetornos', 'vigencia',
+          'estruturaEdge', 'estruturaMove', 'formalizacao', 
+          'itensPendentes', 'itensConcluidos', 'total', 'createdAt', 'updatedAt'
+        ]
+        
+        const filteredData = Object.keys(dataWithoutAnalistaId)
+          .filter(key => validFields.includes(key))
+          .reduce((obj: any, key) => {
+            obj[key] = dataWithoutAnalistaId[key]
+            return obj
+          }, {})
+        
+        const dataWithDates: any = { ...filteredData }
+        if (dataWithDates.dataInicio) {
+          dataWithDates.dataInicio = new Date(dataWithDates.dataInicio)
+        }
+        if (dataWithDates.dataFim) {
+          dataWithDates.dataFim = new Date(dataWithDates.dataFim)
+        }
+        
+        // Criar validação com relacionamentos corretos
+        const createData: any = {
+          ...dataWithDates,
+          analista: {
+            connect: { id: analistaId }
+          }
+        }
+
+        // Adicionar relacionamentos se os IDs existirem
+        if (dataWithDates.clienteId) {
+          createData.cliente = { connect: { id: dataWithDates.clienteId } }
+          delete createData.clienteId
+        }
+        if (dataWithDates.contratoId) {
+          createData.contrato = { connect: { id: dataWithDates.contratoId } }
+          delete createData.contratoId
+        }
+        if (dataWithDates.operadoraId) {
+          createData.operadora = { connect: { id: dataWithDates.operadoraId } }
+          delete createData.operadoraId
+        }
+        if (dataWithDates.produtoId) {
+          createData.produto = { connect: { id: dataWithDates.produtoId } }
+          delete createData.produtoId
+        }
+
+        const created = await prisma.validacao.create({
+          data: createData
+        })
+        console.log(`✅ POST /${path}: Criado com sucesso:`, created.id)
+        res.code(201)
+        return created
+      } else if (path === 'atendimentos') {
+        // Tratamento especial para atendimentos - similar ao das demandas
+        const cleanedData = { ...req.body }
+        
+        console.log(`🔍 POST /atendimentos: Dados originais recebidos:`, JSON.stringify(req.body, null, 2))
+        
+        // Limpar campos vazios (exceto campos de data obrigatórios)
+        Object.keys(cleanedData).forEach(key => {
+          const value = cleanedData[key]
+          // Não remover campos de data obrigatórios
+          if (key === 'dataAbertura' && value) {
+            console.log(`🔧 POST /atendimentos: Mantendo campo de data obrigatório: ${key} = ${value} (tipo: ${typeof value})`)
+            return
+          }
+          
+          if (value === null || value === undefined || value === '') {
+            console.log(`🔧 POST /atendimentos: Removendo campo vazio: ${key} = ${value}`)
+            delete cleanedData[key]
+          } else {
+            console.log(`🔧 POST /atendimentos: Mantendo campo: ${key} = ${value} (tipo: ${typeof value})`)
+          }
+        })
+        
+        console.log(`🔧 POST /atendimentos: Dados limpos:`, JSON.stringify(cleanedData, null, 2))
+        
+        // Validar IDs obrigatórios
+        if (cleanedData.analistaId) {
+          try {
+            const analistaExiste = await prisma.analista.findUnique({ where: { id: cleanedData.analistaId } })
+            if (!analistaExiste) {
+              console.error(`❌ POST /atendimentos: Analista ID "${cleanedData.analistaId}" NÃO EXISTE no banco!`)
+              res.code(400)
+              return { 
+                error: 'Analista inválido', 
+                message: `Analista com ID "${cleanedData.analistaId}" não foi encontrado no banco de dados.`,
+                code: 'ANALISTA_NAO_ENCONTRADO'
+              }
+            } else {
+              console.log(`✅ POST /atendimentos: Analista ID "${cleanedData.analistaId}" encontrado: ${analistaExiste.nome}`)
+            }
+          } catch (error) {
+            console.error(`❌ POST /atendimentos: Erro ao verificar analista:`, error)
+          }
+        }
+        
+        if (cleanedData.areaId) {
+          try {
+            const areaExiste = await prisma.area.findUnique({ where: { id: cleanedData.areaId } })
+            if (!areaExiste) {
+              console.error(`❌ POST /atendimentos: Área ID "${cleanedData.areaId}" NÃO EXISTE no banco!`)
+              res.code(400)
+              return { 
+                error: 'Área inválida', 
+                message: `Área com ID "${cleanedData.areaId}" não foi encontrada no banco de dados.`,
+                code: 'AREA_NAO_ENCONTRADA'
+              }
+            } else {
+              console.log(`✅ POST /atendimentos: Área ID "${cleanedData.areaId}" encontrada: ${areaExiste.nome}`)
+            }
+          } catch (error) {
+            console.error(`❌ POST /atendimentos: Erro ao verificar área:`, error)
+          }
+        }
+        
+        if (cleanedData.tipoServicoId) {
+          try {
+            const tipoServicoExiste = await prisma.tipoServico.findUnique({ where: { id: cleanedData.tipoServicoId } })
+            if (!tipoServicoExiste) {
+              console.error(`❌ POST /atendimentos: Tipo de Serviço ID "${cleanedData.tipoServicoId}" NÃO EXISTE no banco!`)
+              res.code(400)
+              return { 
+                error: 'Tipo de Serviço inválido', 
+                message: `Tipo de Serviço com ID "${cleanedData.tipoServicoId}" não foi encontrado no banco de dados.`,
+                code: 'TIPO_SERVICO_NAO_ENCONTRADO'
+              }
+            } else {
+              console.log(`✅ POST /atendimentos: Tipo de Serviço ID "${cleanedData.tipoServicoId}" encontrado: ${tipoServicoExiste.nome}`)
+            }
+          } catch (error) {
+            console.error(`❌ POST /atendimentos: Erro ao verificar tipo de serviço:`, error)
+          }
+        }
+        
+        const created = await repo.create(cleanedData)
+        console.log(`✅ POST /${path}: Criado com sucesso:`, created.id)
+        res.code(201)
+        return created
+      } else {
+        const created = await repo.create(req.body)
+        console.log(`✅ POST /${path}: Criado com sucesso:`, created.id)
+        res.code(201)
+        return created
+      }
+    } catch (error: any) {
+      console.error(`❌ POST /${path}: Erro ao criar:`, error.message)
+      console.error(`❌ POST /${path}: Código do erro:`, error.code)
+      console.error(`❌ POST /${path}: Meta do erro:`, error.meta)
+      
+      // Para erros de FK constraint, fornecer mensagem mais clara
+      if (error.code === 'P2003') {
+        console.error(`❌ POST /${path}: Violação de chave estrangeira. Dados enviados:`, JSON.stringify(req.body, null, 2))
+        console.error(`❌ POST /${path}: Meta do erro P2003:`, JSON.stringify(error.meta, null, 2))
+        
+        let fieldMessage = 'desconhecido'
+        if (error.meta?.field_name) {
+          fieldMessage = error.meta.field_name
+        } else if (error.meta?.constraint) {
+          fieldMessage = error.meta.constraint
+        }
+        
+        res.code(400)
+        return { 
+          error: 'Erro de validação', 
+          message: `Um ou mais IDs referenciados não existem no banco de dados. Campo: ${fieldMessage}. Verifique se todos os dados selecionados são válidos.`,
+          code: 'P2003',
+          details: error.meta
+        }
+      }
+      
+      throw error
+    }
   })
-  app.put(`/${path}/:id`, async (req: any) => repo.update(req.params.id, req.body))
-  app.delete(`/${path}/:id`, async (req: any) => repo.remove(req.params.id))
+  app.put(`/${path}/:id`, async (req: any, res: any) => {
+    try {
+      console.log(`🔍 PUT /${path}/${req.params.id}: Recebendo requisição`)
+      console.log(`🔍 PUT /${path}/${req.params.id}: Body:`, JSON.stringify(req.body, null, 2))
+      
+      let updated
+      
+      // Tratamento especial para validações
+      if (path === 'validacoes') {
+        console.log(`🔧 PUT /validacoes/${req.params.id}: Aplicando tratamento especial para validações`)
+        
+        const cleanedData = { ...req.body }
+        
+        // Limpar campos vazios
+        Object.keys(cleanedData).forEach(key => {
+          const value = cleanedData[key]
+          if (value === null || value === undefined || value === '') {
+            console.log(`🔧 PUT /validacoes: Removendo campo vazio: ${key} = ${value}`)
+            delete cleanedData[key]
+          } else {
+            console.log(`🔧 PUT /validacoes: Mantendo campo: ${key} = ${value} (tipo: ${typeof value})`)
+          }
+        })
+        
+        console.log(`🔧 PUT /validacoes: Dados limpos:`, JSON.stringify(cleanedData, null, 2))
+        
+        // Converter arrays para JSON strings se necessário
+        if (cleanedData.estruturaEdge !== undefined) {
+          if (Array.isArray(cleanedData.estruturaEdge)) {
+            cleanedData.estruturaEdge = cleanedData.estruturaEdge.length > 0 ? JSON.stringify(cleanedData.estruturaEdge) : null
+          } else if (cleanedData.estruturaEdge === '' || cleanedData.estruturaEdge === '[]') {
+            cleanedData.estruturaEdge = null
+          }
+        }
+        if (cleanedData.estruturaMove !== undefined) {
+          if (Array.isArray(cleanedData.estruturaMove)) {
+            cleanedData.estruturaMove = cleanedData.estruturaMove.length > 0 ? JSON.stringify(cleanedData.estruturaMove) : null
+          } else if (cleanedData.estruturaMove === '' || cleanedData.estruturaMove === '[]') {
+            cleanedData.estruturaMove = null
+          }
+        }
+        
+        // Converter datas se fornecidas
+        if (cleanedData.dataInicio) {
+          cleanedData.dataInicio = new Date(cleanedData.dataInicio)
+        }
+        if (cleanedData.dataFim) {
+          cleanedData.dataFim = new Date(cleanedData.dataFim)
+        }
+        
+        // Filtrar apenas campos que existem no modelo Validacao
+        const validFields = [
+          'id', 'demandaId', 'analistaId', 'userId', 'status', 'dataInicio', 'dataFim', 
+          'observacoes', 'clienteId', 'contratoId', 'operadoraId', 'produtoId',
+          'ticket', 'solicitante', 'tipo', 'descricao', 'qualidade', 'qtdRetornos', 'vigencia',
+          'estruturaEdge', 'estruturaMove', 'formalizacao', 
+          'itensPendentes', 'itensConcluidos', 'total', 'createdAt', 'updatedAt'
+        ]
+        
+        const filteredData = Object.keys(cleanedData)
+          .filter(key => validFields.includes(key))
+          .reduce((obj: any, key) => {
+            obj[key] = cleanedData[key]
+            return obj
+          }, {})
+        
+        console.log(`🔧 PUT /validacoes: Dados filtrados:`, JSON.stringify(filteredData, null, 2))
+        
+        // Criar dados de atualização com relacionamentos corretos
+        const updateData: any = { ...filteredData }
+        
+        // Adicionar relacionamentos se os IDs existirem
+        if (filteredData.clienteId) {
+          updateData.cliente = { connect: { id: filteredData.clienteId } }
+          delete updateData.clienteId
+        }
+        if (filteredData.contratoId) {
+          updateData.contrato = { connect: { id: filteredData.contratoId } }
+          delete updateData.contratoId
+        }
+        if (filteredData.operadoraId) {
+          updateData.operadora = { connect: { id: filteredData.operadoraId } }
+          delete updateData.operadoraId
+        }
+        if (filteredData.produtoId) {
+          updateData.produto = { connect: { id: filteredData.produtoId } }
+          delete updateData.produtoId
+        }
+        if (filteredData.analistaId) {
+          updateData.analista = { connect: { id: filteredData.analistaId } }
+          delete updateData.analistaId
+        }
+        if (filteredData.demandaId) {
+          updateData.demanda = { connect: { id: filteredData.demandaId } }
+          delete updateData.demandaId
+        }
+        if (filteredData.userId) {
+          updateData.user = { connect: { id: filteredData.userId } }
+          delete updateData.userId
+        }
+        
+        console.log(`🔧 PUT /validacoes: Dados finais para atualização:`, JSON.stringify(updateData, null, 2))
+        
+        updated = await prisma.validacao.update({
+          where: { id: req.params.id },
+          data: updateData,
+          include: {
+            cliente: true,
+            contrato: true,
+            operadora: true,
+            produto: true,
+            analista: true,
+            demanda: true,
+            user: true
+          }
+        })
+        
+        console.log(`✅ PUT /validacoes: Validação atualizada com sucesso:`, updated.id)
+        res.code(200)
+        return updated
+      }
+      
+      // Tratamento especial para atendimentos - similar ao POST
+      if (path === 'atendimentos') {
+        console.log(`🔧 PUT /atendimentos/${req.params.id}: Aplicando tratamento especial para atendimentos`)
+        
+        const cleanedData = { ...req.body }
+        
+        // Limpar campos vazios
+        Object.keys(cleanedData).forEach(key => {
+          const value = cleanedData[key]
+          if (value === null || value === undefined || value === '') {
+            console.log(`🔧 PUT /atendimentos: Removendo campo vazio: ${key} = ${value}`)
+            delete cleanedData[key]
+          } else {
+            console.log(`🔧 PUT /atendimentos: Mantendo campo: ${key} = ${value} (tipo: ${typeof value})`)
+          }
+        })
+        
+        console.log(`🔧 PUT /atendimentos: Dados limpos:`, JSON.stringify(cleanedData, null, 2))
+        
+        // Validar IDs obrigatórios se fornecidos
+        if (cleanedData.analistaId) {
+          const analistaExiste = await prisma.analista.findUnique({ where: { id: cleanedData.analistaId } })
+          if (!analistaExiste) {
+            console.error(`❌ PUT /atendimentos: Analista ID "${cleanedData.analistaId}" NÃO EXISTE no banco!`)
+            res.code(400)
+            return { 
+              error: 'Analista inválido', 
+              message: `Analista com ID "${cleanedData.analistaId}" não foi encontrado no banco de dados.`,
+              code: 'ANALISTA_NAO_ENCONTRADO'
+            }
+          }
+        }
+        
+        if (cleanedData.areaId) {
+          const areaExiste = await prisma.area.findUnique({ where: { id: cleanedData.areaId } })
+          if (!areaExiste) {
+            console.error(`❌ PUT /atendimentos: Área ID "${cleanedData.areaId}" NÃO EXISTE no banco!`)
+            res.code(400)
+            return { 
+              error: 'Área inválida', 
+              message: `Área com ID "${cleanedData.areaId}" não foi encontrada no banco de dados.`,
+              code: 'AREA_NAO_ENCONTRADA'
+            }
+          }
+        }
+        
+        if (cleanedData.tipoServicoId) {
+          const tipoServicoExiste = await prisma.tipoServico.findUnique({ where: { id: cleanedData.tipoServicoId } })
+          if (!tipoServicoExiste) {
+            console.error(`❌ PUT /atendimentos: Tipo Serviço ID "${cleanedData.tipoServicoId}" NÃO EXISTE no banco!`)
+            res.code(400)
+            return { 
+              error: 'Tipo de Serviço inválido', 
+              message: `Tipo de Serviço com ID "${cleanedData.tipoServicoId}" não foi encontrado no banco de dados.`,
+              code: 'TIPO_SERVICO_NAO_ENCONTRADO'
+            }
+          }
+        }
+        
+        updated = await repo.update(req.params.id, cleanedData)
+      } else {
+        updated = await repo.update(req.params.id, req.body)
+      }
+      
+      console.log(`✅ PUT /${path}/${req.params.id}: Atualizado com sucesso`)
+      return updated
+    } catch (error: any) {
+      console.error(`❌ PUT /${path}/${req.params.id}: Erro ao atualizar:`, error.message)
+      console.error(`❌ PUT /${path}/${req.params.id}: Código do erro:`, error.code)
+      console.error(`❌ PUT /${path}/${req.params.id}: Meta do erro:`, error.meta)
+      
+      // Para erros de FK constraint, fornecer mensagem mais clara
+      if (error.code === 'P2003') {
+        console.error(`❌ PUT /${path}/${req.params.id}: Violação de chave estrangeira. Dados enviados:`, JSON.stringify(req.body, null, 2))
+        console.error(`❌ PUT /${path}/${req.params.id}: Meta do erro P2003:`, JSON.stringify(error.meta, null, 2))
+        res.code(400)
+        return { 
+          error: 'Erro de validação', 
+          message: `Um ou mais IDs referenciados não existem no banco de dados. Campo: ${error.meta?.field_name || 'desconhecido'}. Verifique se todos os dados selecionados são válidos.`,
+          code: 'P2003',
+          details: error.meta
+        }
+      }
+      
+      // Para erros de registro não encontrado
+      if (error.code === 'P2025') {
+        console.error(`❌ PUT /${path}/${req.params.id}: Registro não encontrado. ID: ${req.params.id}`)
+        res.code(404)
+        return { 
+          error: 'Registro não encontrado', 
+          message: `O registro com ID "${req.params.id}" não foi encontrado no banco de dados.`,
+          code: 'P2025'
+        }
+      }
+      
+      throw error
+    }
+  })
+  app.delete(`/${path}/:id`, async (req: any) => {
+    console.log(`🔍 DELETE /${path}/${req.params.id}: Endpoint chamado`);
+    console.log(`🔍 DELETE /${path}/${req.params.id}: Repo:`, typeof repo.remove);
+    const result = await repo.remove(req.params.id);
+    console.log(`🔍 DELETE /${path}/${req.params.id}: Resultado:`, result);
+    return result;
+  })
 }
+
+
+
+// Rota GET específica para demandas removida - usando CRUD genérico
+
+
+
+
+
+app.put('/padrao/:id', async (req: any) => {
+  try {
+    const { id } = req.params
+    const padrao = await prisma.padrao.update({
+      where: { id },
+      data: {
+        nome: req.body.nome,
+        tipoServicoId: req.body.tipoServicoId || null
+      }
+    })
+    return padrao
+  } catch (error) {
+    console.error('❌ Erro ao atualizar padrão:', error)
+    throw error
+  }
+})
+
+app.delete('/padrao/:id', async (req: any) => {
+  try {
+    const { id } = req.params
+    console.log(`🔍 DELETE /padrao/${id}: Verificando se o padrão existe...`)
+    
+    // Verificar se o registro existe primeiro
+    const existingPadrao = await prisma.padrao.findUnique({ where: { id } })
+    if (!existingPadrao) {
+      console.error(`❌ DELETE /padrao/${id}: Padrão não encontrado`)
+      return { 
+        success: false, 
+        error: 'Padrão não encontrado',
+        message: `O padrão com ID "${id}" não foi encontrado no banco de dados.`
+      }
+    }
+    
+    console.log(`✅ DELETE /padrao/${id}: Padrão encontrado: ${existingPadrao.nome}`)
+    
+    // Verificar se há dependências (manutenções que usam este padrão)
+    const dependencias = await prisma.manutencao.count({ 
+      where: { tipoId: id } 
+    })
+    
+    if (dependencias > 0) {
+      console.error(`❌ DELETE /padrao/${id}: Existem ${dependencias} manutenções que dependem deste padrão`)
+      return { 
+        success: false, 
+        error: 'Dependências encontradas',
+        message: `Não é possível excluir este padrão pois existem ${dependencias} manutenção(ões) que dependem dele. Remova as dependências primeiro.`
+      }
+    }
+    
+    // Excluir o padrão
+    await prisma.padrao.delete({ where: { id } })
+    console.log(`✅ DELETE /padrao/${id}: Padrão excluído com sucesso`)
+    
+    return { 
+      success: true, 
+      message: 'Padrão excluído com sucesso',
+      deletedId: id
+    }
+  } catch (error) {
+    console.error('❌ Erro ao deletar padrão:', error)
+    throw error
+  }
+})
+
+// Endpoint para limpar contratos órfãos (com clienteId inválido)
+app.delete('/contratos/limpar-orfaos', async () => {
+  try {
+    console.log('🧹 Iniciando limpeza de contratos órfãos...')
+    
+    // Buscar contratos que têm clienteId que não existe
+    const contratosOrfaos = await prisma.contrato.findMany({
+      where: {
+        cliente: { is: null }
+      }
+    })
+    
+    console.log(`🔍 Encontrados ${contratosOrfaos.length} contratos órfãos`)
+    
+    if (contratosOrfaos.length > 0) {
+      // Deletar contratos órfãos
+      const deleted = await prisma.contrato.deleteMany({
+        where: {
+          id: {
+            in: contratosOrfaos.map(c => c.id)
+          }
+        }
+      })
+      
+      console.log(`✅ ${deleted.count} contratos órfãos removidos`)
+      
+      return {
+        success: true,
+        message: `${deleted.count} contratos órfãos foram removidos`,
+        contratosRemovidos: contratosOrfaos.map(c => ({ id: c.id, numero: c.numero }))
+      }
+    } else {
+      return {
+        success: true,
+        message: 'Nenhum contrato órfão encontrado',
+        contratosRemovidos: []
+      }
+    }
+  } catch (error) {
+    console.error('❌ Erro ao limpar contratos órfãos:', error)
+    throw error
+  }
+})
+
+
+// Endpoint para limpar demandas simples incorretas
+app.delete('/demandas/limpar-atv-demandas', async () => {
+  try {
+    console.log('🧹 Iniciando limpeza de demandas simples incorretas...')
+    
+    // Buscar demandas que são simples (sem dados operacionais)
+    const demandasSimples = await prisma.demanda.findMany({
+      where: {
+        ticket: null,
+        analistaId: null,
+        userId: null,
+        solicitante: null,
+        areaId: null,
+        tipoId: null,
+        descricao: null,
+        clienteId: null,
+        contratoId: null,
+        operadoraId: null,
+        produtoId: null,
+        sistemaId: null,
+        dataInicio: null,
+        dataFinal: null,
+        periodicidade: null,
+        qtdRetornos: null,
+        qualidade: null,
+        observacoes: null
+      }
+    })
+    
+    console.log(`🔍 Encontradas ${demandasSimples.length} demandas simples para limpeza`)
+    
+    if (demandasSimples.length === 0) {
+      return { message: 'Nenhuma demanda simples encontrada para limpeza' }
+    }
+    
+    // Excluir as demandas simples
+    const deletedCount = await prisma.demanda.deleteMany({
+      where: {
+        id: { in: demandasSimples.map(d => d.id) }
+      }
+    })
+    
+    console.log(`✅ ${deletedCount.count} demandas simples foram removidas`)
+    
+    return { 
+      message: `${deletedCount.count} demandas simples foram removidas com sucesso`,
+      deletedCount: deletedCount.count
+    }
+    
+  } catch (error) {
+    console.error('❌ Erro ao limpar demandas simples:', error)
+    throw error
+  }
+})
 
 // Rotas de autenticação e usuários (admin)
 app.register(authRoutes)
-app.register(userRoutes)
+app.register(userRoutes, { prisma })
 
-const port = Number(process.env.PORT || 3333)
-app
-  .listen({ host: '0.0.0.0', port })
-  .then(() => console.log(`API on http://localhost:${port}`))
-  .catch((err) => {
+// Rotas de comunicados
+app.register(comunicadosRoutes, { prefix: '/comunicados' })
+
+// Rotas de equipe de projetos
+app.register(projectTeamRoutes, { prisma })
+
+// Rotas de compartilhamento (DEVEM vir ANTES das rotas genéricas)
+app.register(shareRoutes, { prisma })
+
+// Rotas de dados mestres
+app.register(masterDataRoutes, { prisma })
+
+// Rotas do Kanban
+app.get('/kanban/tickets', async () => {
+  try {
+    console.log('🔍 Buscando tickets do kanban...')
+    
+    const kanbanTickets = await prisma.kanbanTicket.findMany({
+      orderBy: {
+        createdAt: 'desc'
+      }
+    })
+    
+    console.log('🔍 Tickets do kanban encontrados:', kanbanTickets.length)
+    
+    const tickets = kanbanTickets.map(ticket => ({
+      id: ticket.id,
+      title: ticket.title,
+      description: ticket.description,
+      status: ticket.status,
+      priority: ticket.priority,
+      assignee: ticket.assignee || 'unassigned',
+      dueDate: ticket.dueDate,
+      tags: ticket.tags ? JSON.parse(ticket.tags) : [],
+      createdAt: ticket.createdAt,
+      updatedAt: ticket.updatedAt
+    }))
+    
+    console.log('🔍 Total de tickets retornados:', tickets.length)
+    
+    return tickets
+    
+  } catch (error) {
+    console.error('❌ Erro ao buscar tickets do kanban:', error)
+    return []
+  }
+})
+
+app.post('/kanban/tickets', async (req: any) => {
+  try {
+    const ticketData = req.body
+    
+    const kanbanTicket = await prisma.kanbanTicket.create({
+      data: {
+        title: ticketData.title,
+        description: ticketData.description,
+        status: ticketData.status,
+        priority: ticketData.priority,
+        assignee: ticketData.assignee !== 'unassigned' ? ticketData.assignee : null,
+        dueDate: ticketData.dueDate ? new Date(ticketData.dueDate) : null,
+        tags: JSON.stringify(ticketData.tags || [])
+      }
+    })
+    
+    return {
+      id: kanbanTicket.id,
+      title: kanbanTicket.title,
+      description: kanbanTicket.description,
+      status: kanbanTicket.status,
+      priority: kanbanTicket.priority,
+      assignee: kanbanTicket.assignee || 'unassigned',
+      dueDate: kanbanTicket.dueDate,
+      tags: kanbanTicket.tags ? JSON.parse(kanbanTicket.tags) : [],
+      createdAt: kanbanTicket.createdAt,
+      updatedAt: kanbanTicket.updatedAt
+    }
+  } catch (error) {
+    console.error('❌ Erro ao criar ticket do kanban:', error)
+    throw error
+  }
+})
+
+app.put('/kanban/tickets/:id', async (req: any) => {
+  try {
+    const { id } = req.params
+    const updates = req.body
+    
+    const kanbanTicket = await prisma.kanbanTicket.update({
+      where: { id },
+      data: {
+        title: updates.title,
+        description: updates.description,
+        status: updates.status,
+        priority: updates.priority,
+        assignee: updates.assignee !== 'unassigned' ? updates.assignee : null,
+        dueDate: updates.dueDate ? new Date(updates.dueDate) : null,
+        tags: JSON.stringify(updates.tags || [])
+      }
+    })
+    
+    return {
+      id: kanbanTicket.id,
+      title: kanbanTicket.title,
+      description: kanbanTicket.description,
+      status: kanbanTicket.status,
+      priority: kanbanTicket.priority,
+      assignee: kanbanTicket.assignee || 'unassigned',
+      dueDate: kanbanTicket.dueDate,
+      tags: kanbanTicket.tags ? JSON.parse(kanbanTicket.tags) : [],
+      createdAt: kanbanTicket.createdAt,
+      updatedAt: kanbanTicket.updatedAt
+    }
+  } catch (error) {
+    console.error('❌ Erro ao atualizar ticket do kanban:', error)
+    throw error
+  }
+})
+
+app.delete('/kanban/tickets/:id', async (req: any) => {
+  try {
+    const { id } = req.params
+    await prisma.kanbanTicket.delete({ where: { id } })
+    return { message: 'Ticket deletado com sucesso' }
+  } catch (error) {
+    console.error('❌ Erro ao deletar ticket do kanban:', error)
+    throw error
+  }
+})
+
+// Rota para limpar todos os tickets do kanban (apenas para desenvolvimento)
+app.delete('/kanban/tickets', async () => {
+  try {
+    console.log('🧹 Limpando todos os tickets do kanban...')
+    const deletedCount = await prisma.kanbanTicket.deleteMany({})
+    console.log(`✅ ${deletedCount.count} tickets deletados`)
+    return { message: `${deletedCount.count} tickets deletados com sucesso` }
+  } catch (error) {
+    console.error('❌ Erro ao limpar tickets do kanban:', error)
+    throw error
+  }
+})
+
+// Endpoints para Analytics
+app.get('/analytics', async () => {
+  try {
+    console.log('🔍 GET /analytics - INÍCIO da requisição')
+    console.log('🔍 GET /analytics - Buscando dados de analytics...')
+    
+    // Buscar estatísticas gerais
+    const [
+      totalDemandas,
+      totalAtendimentos,
+      totalValidacoes,
+      totalReajustes,
+      totalProjetos,
+      demandasPorStatus,
+      atendimentosPorStatus,
+      validacoesPorStatus,
+      reajustesPorStatus,
+      projetosPorStatus,
+      analistasMaisAtivos,
+      areasMaisAtivas,
+      clientesMaisAtivos,
+      tiposMaisUsados
+    ] = await Promise.all([
+      // Contadores totais
+      prisma.demanda.count(),
+      prisma.atendimento.count(),
+      prisma.validacao.count(),
+      prisma.reajuste.count(),
+      prisma.project.count(),
+      
+      // Demandas por status
+      prisma.demanda.groupBy({
+        by: ['status'],
+        _count: { status: true }
+      }),
+      
+      // Atendimentos por status
+      prisma.atendimento.groupBy({
+        by: ['status'],
+        _count: { status: true }
+      }),
+      
+      // Validações por status
+      prisma.validacao.groupBy({
+        by: ['status'],
+        _count: { status: true }
+      }),
+      
+      // Reajustes por status
+      prisma.reajuste.groupBy({
+        by: ['status'],
+        _count: { status: true }
+      }),
+      
+      // Projetos por status
+      prisma.project.groupBy({
+        by: ['status'],
+        _count: { status: true }
+      }),
+      
+      // Analistas mais ativos
+      prisma.demanda.groupBy({
+        by: ['analistaId'],
+        _count: { analistaId: true },
+        orderBy: { _count: { analistaId: 'desc' } },
+        take: 5
+      }),
+      
+      // Áreas mais ativas
+      prisma.demanda.groupBy({
+        by: ['areaId'],
+        _count: { areaId: true },
+        orderBy: { _count: { areaId: 'desc' } },
+        take: 5
+      }),
+      
+      // Clientes mais ativos
+      prisma.demanda.groupBy({
+        by: ['clienteId'],
+        _count: { clienteId: true },
+        orderBy: { _count: { clienteId: 'desc' } },
+        take: 5
+      }),
+      
+      // Tipos mais usados
+      prisma.demanda.groupBy({
+        by: ['tipoId'],
+        _count: { tipoId: true },
+        orderBy: { _count: { tipoId: 'desc' } },
+        take: 5
+      })
+    ])
+    
+    // Buscar nomes dos analistas, áreas, clientes e tipos
+    const analistaIds = analistasMaisAtivos.map(a => a.analistaId).filter(Boolean)
+    const areaIds = areasMaisAtivas.map(a => a.areaId).filter(Boolean)
+    const clienteIds = clientesMaisAtivos.map(c => c.clienteId).filter(Boolean)
+    const tipoIds = tiposMaisUsados.map(t => t.tipoId).filter(Boolean)
+    
+    const [analistas, areas, clientes, tipos] = await Promise.all([
+      analistaIds.length > 0 ? prisma.analista.findMany({
+        where: { id: { in: analistaIds } },
+        select: { id: true, nome: true }
+      }) : [],
+      areaIds.length > 0 ? prisma.area.findMany({
+        where: { id: { in: areaIds } },
+        select: { id: true, nome: true }
+      }) : [],
+      clienteIds.length > 0 ? prisma.cliente.findMany({
+        where: { id: { in: clienteIds } },
+        select: { id: true, nome: true }
+      }) : [],
+      tipoIds.length > 0 ? prisma.tipoDemanda.findMany({
+        where: { id: { in: tipoIds } },
+        select: { id: true, nome: true }
+      }) : []
+    ])
+    
+    // Mapear dados para formato de analytics
+    const analytics = [
+      {
+        id: 'overview',
+        tipo: 'Visão Geral',
+        categoria: 'overview',
+        status: 'ativo',
+        analistaMaisAtivo: analistas[0]?.nome || 'N/A',
+        areaMaisAtiva: areas[0]?.nome || 'N/A',
+        clienteMaisAtivo: clientes[0]?.nome || 'N/A',
+        periodo: 'geral',
+        descricao: 'Estatísticas gerais do sistema',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        dados: {
+          totalDemandas,
+          totalAtendimentos,
+          totalValidacoes,
+          totalReajustes,
+          totalProjetos,
+          demandasPorStatus,
+          atendimentosPorStatus,
+          validacoesPorStatus,
+          reajustesPorStatus,
+          projetosPorStatus
+        }
+      },
+      {
+        id: 'performance',
+        tipo: 'Performance',
+        categoria: 'performance',
+        status: 'ativo',
+        analistaMaisAtivo: analistas[0]?.nome || 'N/A',
+        areaMaisAtiva: areas[0]?.nome || 'N/A',
+        clienteMaisAtivo: clientes[0]?.nome || 'N/A',
+        periodo: 'mensal',
+        descricao: 'Análise de performance dos analistas e áreas',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        dados: {
+          analistasMaisAtivos: analistasMaisAtivos.map(a => ({
+            ...a,
+            nome: analistas.find(an => an.id === a.analistaId)?.nome || 'N/A'
+          })),
+          areasMaisAtivas: areasMaisAtivas.map(a => ({
+            ...a,
+            nome: areas.find(ar => ar.id === a.areaId)?.nome || 'N/A'
+          }))
+        }
+      },
+      {
+        id: 'clients',
+        tipo: 'Clientes',
+        categoria: 'clients',
+        status: 'ativo',
+        analistaMaisAtivo: analistas[0]?.nome || 'N/A',
+        areaMaisAtiva: areas[0]?.nome || 'N/A',
+        clienteMaisAtivo: clientes[0]?.nome || 'N/A',
+        periodo: 'trimestral',
+        descricao: 'Análise de atividade dos clientes',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        dados: {
+          clientesMaisAtivos: clientesMaisAtivos.map(c => ({
+            ...c,
+            nome: clientes.find(cl => cl.id === c.clienteId)?.nome || 'N/A'
+          }))
+        }
+      },
+      {
+        id: 'types',
+        tipo: 'Tipos de Demanda',
+        categoria: 'types',
+        status: 'ativo',
+        analistaMaisAtivo: analistas[0]?.nome || 'N/A',
+        areaMaisAtiva: areas[0]?.nome || 'N/A',
+        clienteMaisAtivo: clientes[0]?.nome || 'N/A',
+        periodo: 'semestral',
+        descricao: 'Análise dos tipos de demanda mais utilizados',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        dados: {
+          tiposMaisUsados: tiposMaisUsados.map(t => ({
+            ...t,
+            nome: tipos.find(ty => ty.id === t.tipoId)?.nome || 'N/A'
+          }))
+        }
+      }
+    ]
+    
+    // Buscar também os relatórios salvos
+    console.log('🔍 GET /analytics - Buscando relatórios salvos...')
+    console.log('🔍 GET /analytics - Prisma disponível:', !!prisma)
+    console.log('🔍 GET /analytics - Modelo report disponível:', !!prisma.report)
+    
+    const reports = await prisma.report.findMany({
+      orderBy: { createdAt: 'desc' }
+    })
+    
+    console.log('✅ Analytics gerados com sucesso:', analytics.length, 'relatórios')
+    console.log('✅ Relatórios encontrados:', reports.length, 'relatórios salvos')
+    console.log('🔍 GET /analytics - Primeiro relatório:', reports[0] || 'Nenhum')
+    
+    console.log('🔍 GET /analytics - Retornando resposta:')
+    console.log('  - Analytics:', analytics.length, 'itens')
+    console.log('  - Reports:', reports.length, 'itens')
+    
+    return {
+      analytics: analytics,
+      reports: reports
+    }
+    
+  } catch (error) {
+    console.error('❌ Erro ao buscar analytics:', error)
+    console.error('❌ Stack trace:', error.stack)
+    return {
+      analytics: [],
+      reports: []
+    }
+  }
+})
+
+// Endpoints para Padrao
+app.get('/padrao', async () => {
+  try {
+    return await prisma.padrao.findMany({
+      include: {
+        tipoServico: {
+          select: {
+            id: true,
+            nome: true
+          }
+        }
+      }
+    })
+  } catch (error) {
+    console.error('❌ Erro ao buscar padrões:', error)
+    return []
+  }
+})
+
+app.post('/padrao', async (req: any) => {
+  try {
+    console.log('🔍 POST /padrao - Dados recebidos:', req.body)
+    
+    // Validar dados obrigatórios
+    if (!req.body.nome) {
+      console.error('❌ Nome é obrigatório')
+      throw new Error('Nome é obrigatório')
+    }
+    
+    // Se tipoServicoId for fornecido, buscar o ID correto baseado no nome
+    let tipoServicoId = null
+    if (req.body.tipoServicoId) {
+      const tipoServico = await prisma.tipoServico.findFirst({
+        where: { nome: req.body.tipoServicoId }
+      })
+      if (tipoServico) {
+        tipoServicoId = tipoServico.id
+      } else {
+        console.warn(`⚠️ Tipo de serviço não encontrado: ${req.body.tipoServicoId}`)
+      }
+    }
+    
+    // Criar o padrão
+    const padrao = await prisma.padrao.create({
+      data: {
+        nome: req.body.nome,
+        tipoServicoId: tipoServicoId
+      }
+    })
+    
+    console.log('✅ Padrão criado com sucesso:', padrao)
+    return padrao
+  } catch (error) {
+    console.error('❌ Erro ao criar padrão:', error)
+    throw error
+  }
+})
+
+// Endpoints para Relatórios, Solicitantes e Modelos já estão definidos em masterData.ts
+
+// Endpoint para salvar relatórios do Analytics
+app.post('/analytics', async (req: any) => {
+  try {
+    console.log('🔍 POST /analytics - Dados recebidos:', req.body)
+    console.log('🔍 POST /analytics - Prisma disponível:', !!prisma)
+    console.log('🔍 POST /analytics - Modelo report disponível:', !!prisma.report)
+    
+    // Verificar se o modelo report existe
+    if (!prisma.report) {
+      throw new Error('Modelo Report não encontrado. Execute: npx prisma generate && npx prisma db push')
+    }
+    
+    const report = await prisma.report.create({
+      data: {
+        titulo: req.body.titulo,
+        descricao: req.body.descricao,
+        ticket: req.body.ticket,
+        total: req.body.total,
+        tipo: req.body.tipo,
+        status: req.body.status,
+        analista: req.body.analista,
+        area: req.body.area,
+        cliente: req.body.cliente,
+        contrato: req.body.contrato,
+        dataInicio: req.body.dataInicio ? new Date(req.body.dataInicio) : null,
+        dataFinalizacao: req.body.dataFinalizacao ? new Date(req.body.dataFinalizacao) : null,
+        dataEntrega: req.body.dataEntrega ? new Date(req.body.dataEntrega) : null,
+        prioridade: req.body.prioridade,
+        solicitante: req.body.solicitante,
+        solicitacao: req.body.solicitacao,
+        tipoSolicitacao: req.body.tipoSolicitacao,
+        tipoServico: req.body.tipoServico,
+        observacoes: req.body.observacoes
+      }
+    })
+    
+    console.log('✅ Relatório criado:', report)
+    return report
+  } catch (error) {
+    console.error('❌ Erro ao criar relatório:', error)
+    throw error
+  }
+})
+
+// Endpoint para buscar relatórios já está definido acima
+
+// Iniciar servidor
+const start = async () => {
+  try {
+    await app.listen({ port: 3333, host: '0.0.0.0' })
+    console.log('🚀 Servidor rodando em http://localhost:3333')
+  } catch (err) {
     app.log.error(err)
     process.exit(1)
-  })
+  }
+}
 
-
+start()

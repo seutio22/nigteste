@@ -4,7 +4,6 @@ import * as XLSX from 'xlsx'
 import { useMasterDataStore } from '../store/masterDataStore'
 import { useDadosStore } from '../store/dadosStore'
 import { useDadosCRUD } from '../hooks/useDadosCRUD'
-import { useDadosSync } from '../hooks/useDadosSync'
 import { DadosHeader } from '../components/DadosHeader'
 import { DadosTabs } from '../components/DadosTabs'
 import { DadosGrid } from '../components/DadosGrid'
@@ -12,19 +11,22 @@ import { DadosForm } from '../components/DadosForm'
 import { DadosHelpModal } from '../components/DadosHelpModal'
 import { SnackNotification } from '../components/SnackNotification'
 import { UploadModal } from '../components/UploadModal'
+import { SmartImporter } from '../components/SmartImporter'
+import { smartImporterConfigs } from '../config/smartImporterConfigs'
 import type { TabKey, FormData, DataMap } from '../types/dadosTypes'
+import type { ImportResult } from '../types/smartImporter'
 
 export default function DadosPage() {
   const store = useMasterDataStore()
   const dadosStore = useDadosStore()
   const { snack, setSnack, saveEntity, deleteEntity } = useDadosCRUD()
-  const { forceSync, isSyncing, lastSync } = useDadosSync()
   
   const [activeTab, setActiveTab] = useState<TabKey>('clientes')
   const [form, setForm] = useState<FormData>({})
   const [openForm, setOpenForm] = useState(false)
   const [openHelp, setOpenHelp] = useState(false)
   const [uploadModalOpen, setUploadModalOpen] = useState(false)
+  const [smartImporterOpen, setSmartImporterOpen] = useState(false)
 
   // Mapeamento de dados para cada aba
   const dataMap: DataMap = useMemo(() => ({
@@ -88,13 +90,244 @@ export default function DadosPage() {
   }
 
 
-  const handleSync = () => {
-    if (window.confirm('Isso irá recarregar todos os dados do banco. Dados excluídos localmente serão perdidos. Continuar?')) {
-      forceSync()
-    }
-  }
   
 
+
+  const handleSmartImport = async (result: ImportResult) => {
+    try {
+      const { api } = await import('../lib/api.local')
+      let totalImported = 0
+      let totalSavedToDatabase = 0
+      const errors: string[] = []
+
+      // Processar itens válidos
+      for (const item of result.valid) {
+        try {
+          const data = item.isCorrected ? item.correctedData : item.data
+          
+          // Determinar endpoint baseado na aba ativa
+          let endpoint = ''
+          let payload: any = {}
+
+          switch (activeTab) {
+            case 'clientes':
+              endpoint = '/clientes'
+              payload = { nome: data.nome, grupoEconomico: data.grupoEconomico }
+              break
+            case 'contratos':
+              endpoint = '/contratos'
+              payload = { codigo: data.codigo, grupoEconomico: data.grupoEconomico, status: data.status }
+              break
+            case 'operadoras':
+              endpoint = '/operadoras'
+              payload = { nome: data.nome }
+              break
+            case 'produtos':
+              endpoint = '/produtos'
+              payload = { nome: data.nome }
+              break
+            case 'sistemas':
+              endpoint = '/sistemas'
+              payload = { nome: data.nome }
+              break
+            case 'analistas':
+              endpoint = '/analistas'
+              payload = { nome: data.nome, email: data.email }
+              break
+            case 'areas':
+              endpoint = '/areas'
+              payload = { nome: data.nome }
+              break
+            case 'solicitantes':
+              endpoint = '/solicitantes'
+              payload = { nome: data.nome }
+              break
+            case 'relatorios':
+              endpoint = '/relatorios'
+              payload = { nome: data.nome, descricao: data.descricao || '' }
+              break
+            case 'modelos':
+              endpoint = '/modelos'
+              payload = { nome: data.nome, descricao: data.descricao || '' }
+              break
+            case 'areasMailling':
+              endpoint = '/areas-mailling'
+              payload = { nome: data.nome, descricao: data.descricao || '', ativo: data.ativo !== undefined ? data.ativo : true }
+              break
+            case 'cargosMailling':
+              endpoint = '/cargos-mailling'
+              payload = { nome: data.nome, descricao: data.descricao || '', ativo: data.ativo !== undefined ? data.ativo : true }
+              break
+            case 'filiaisMailling':
+              endpoint = '/filiais-mailling'
+              payload = { nome: data.nome, descricao: data.descricao || '', ativo: data.ativo !== undefined ? data.ativo : true }
+              break
+            default:
+              console.warn(`Endpoint não configurado para ${activeTab}`)
+              continue
+          }
+
+          if (endpoint) {
+            await api.post(endpoint, payload)
+            totalSavedToDatabase++
+          }
+
+          totalImported++
+        } catch (apiError) {
+          console.error(`Erro ao salvar item no banco:`, apiError)
+          errors.push(`Erro ao salvar item: ${apiError instanceof Error ? apiError.message : 'Erro desconhecido'}`)
+        }
+      }
+
+      // Atualizar store local
+      const storeKey = activeTab as keyof typeof store
+      if (storeKey in store) {
+        const newItems = result.valid.map(item => ({
+          id: crypto.randomUUID(),
+          ...(item.isCorrected ? item.correctedData : item.data),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }))
+
+        store.upsertMany({ [storeKey]: [...(store[storeKey] as any[]), ...newItems] })
+      }
+
+      // Mostrar resultado
+      const successMessage = totalSavedToDatabase > 0 
+        ? `Importação inteligente concluída! ${totalImported} registros importados e ${totalSavedToDatabase} salvos no banco de dados.`
+        : `Importação inteligente concluída! ${totalImported} registros importados localmente.`
+
+      setSnack({
+        open: true,
+        message: successMessage,
+        severity: totalSavedToDatabase > 0 ? 'success' : 'warning'
+      })
+
+      if (errors.length > 0) {
+        console.warn('⚠️ SMART IMPORT: Alguns erros ocorreram:', errors)
+        setSnack({
+          open: true,
+          message: `${successMessage} ${errors.length} erros ocorreram ao salvar no banco.`,
+          severity: 'warning'
+        })
+      }
+
+      console.log(`✅ SMART IMPORT: Processamento concluído. Total importado: ${totalImported}, Total salvo no banco: ${totalSavedToDatabase}`)
+
+    } catch (error) {
+      console.error('❌ SMART IMPORT: Erro geral:', error)
+      setSnack({
+        open: true,
+        message: 'Erro durante a importação inteligente. Tente novamente.',
+        severity: 'error'
+      })
+    }
+  }
+
+  const handleExportCurrent = () => {
+    try {
+      const currentData = getCurrentData()
+      if (!currentData || currentData.length === 0) {
+        setSnack({
+          open: true,
+          message: 'Nenhum dado para exportar nesta aba',
+          severity: 'warning'
+        })
+        return
+      }
+
+      // Criar workbook
+      const workbook = XLSX.utils.book_new()
+      
+      // Converter dados para worksheet
+      const worksheet = XLSX.utils.json_to_sheet(currentData)
+      
+      // Adicionar worksheet ao workbook
+      XLSX.utils.book_append_sheet(workbook, worksheet, activeTab)
+      
+      // Gerar nome do arquivo
+      const fileName = `dados_${activeTab}_${new Date().toISOString().split('T')[0]}.xlsx`
+      
+      // Fazer download
+      XLSX.writeFile(workbook, fileName)
+      
+      setSnack({
+        open: true,
+        message: `Dados de ${activeTab} exportados com sucesso!`,
+        severity: 'success'
+      })
+    } catch (error) {
+      console.error('❌ Erro ao exportar dados atuais:', error)
+      setSnack({
+        open: true,
+        message: 'Erro ao exportar dados',
+        severity: 'error'
+      })
+    }
+  }
+
+  const handleExportAll = () => {
+    try {
+      const workbook = XLSX.utils.book_new()
+      
+      // Lista de todas as entidades para exportar
+      const entities = [
+        { key: 'clientes', data: store.clientes, name: 'Clientes' },
+        { key: 'contratos', data: store.contratos, name: 'Contratos' },
+        { key: 'operadoras', data: store.operadoras, name: 'Operadoras' },
+        { key: 'produtos', data: store.produtos, name: 'Produtos' },
+        { key: 'sistemas', data: store.sistemas, name: 'Sistemas' },
+        { key: 'analistas', data: store.analistas, name: 'Analistas' },
+        { key: 'areas', data: store.areas, name: 'Areas' },
+        { key: 'areasMailling', data: store.areasMailling, name: 'Areas Mailling' },
+        { key: 'cargosMailling', data: store.cargosMailling, name: 'Cargos Mailling' },
+        { key: 'filiaisMailling', data: store.filiaisMailling, name: 'Filiais Mailling' },
+        { key: 'tipos', data: store.tipos, name: 'Tipos' },
+        { key: 'servicos', data: store.servicos, name: 'Servicos' },
+        { key: 'solicitantes', data: store.solicitantes, name: 'Solicitantes' },
+        { key: 'relatorios', data: store.relatorios, name: 'Relatorios' },
+        { key: 'modelos', data: store.modelos, name: 'Modelos' }
+      ]
+      
+      // Adicionar cada entidade como uma aba
+      entities.forEach(entity => {
+        if (entity.data && entity.data.length > 0) {
+          const worksheet = XLSX.utils.json_to_sheet(entity.data)
+          XLSX.utils.book_append_sheet(workbook, worksheet, entity.name)
+        }
+      })
+      
+      // Verificar se há dados para exportar
+      const hasData = entities.some(entity => entity.data && entity.data.length > 0)
+      if (!hasData) {
+        setSnack({
+          open: true,
+          message: 'Nenhum dado para exportar',
+          severity: 'warning'
+        })
+        return
+      }
+      
+      // Gerar nome do arquivo
+      const fileName = `dados_completos_${new Date().toISOString().split('T')[0]}.xlsx`
+      
+      // Fazer download
+      XLSX.writeFile(workbook, fileName)
+      
+      setSnack({
+        open: true,
+        message: 'Todos os dados exportados com sucesso!',
+        severity: 'success'
+      })
+    } catch (error) {
+      console.error('❌ Erro ao exportar todos os dados:', error)
+      setSnack({
+        open: true,
+        message: 'Erro ao exportar dados',
+        severity: 'error'
+      })
+    }
+  }
 
   const handleUpload = async (file: File) => {
     try {
@@ -876,13 +1109,15 @@ export default function DadosPage() {
 
   return (
     <Paper sx={{ p: 2 }}>
-      <DadosHeader
-        activeTab={activeTab}
-        onUpload={() => setUploadModalOpen(true)}
-        onSync={handleSync}
-        onHelp={() => setOpenHelp(true)}
-        onAdd={handleAdd}
-      />
+        <DadosHeader
+          activeTab={activeTab}
+          onUpload={() => setUploadModalOpen(true)}
+          onSmartImport={() => setSmartImporterOpen(true)}
+          onHelp={() => setOpenHelp(true)}
+          onAdd={handleAdd}
+          onExportAll={handleExportAll}
+          onExportCurrent={handleExportCurrent}
+        />
 
       <Typography variant="body2" sx={{ mb: 2 }}>
         Para importar, utilize o modelo com abas: Clientes, Contratos, Operadoras, Produtos, Sistemas, Analistas, Areas, Areas Mailling, Cargos Mailling, Filiais Mailling, Tipos, Servicos, Solicitantes, Relatorios, Modelos. As colunas devem seguir exatamente os nomes do modelo. Em "Tipos", preencha "tipoServicoId" com CAD (Cadastro) ou MAN (Manutenção).
@@ -891,12 +1126,7 @@ export default function DadosPage() {
       {/* Status de sincronização */}
       <Box sx={{ mb: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1, border: '1px solid', borderColor: 'grey.300' }}>
         <Typography variant="subtitle2" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-          {isSyncing ? '🔄 Sincronizando...' : '✅ Sincronizado'}
-          {lastSync && (
-            <Typography variant="caption" color="text.secondary">
-              (Última sincronização: {new Date(lastSync).toLocaleString('pt-BR')})
-            </Typography>
-          )}
+          ✅ Sincronizado
         </Typography>
         
         <Typography variant="body2" color="text.secondary">
@@ -904,17 +1134,6 @@ export default function DadosPage() {
           {store.clientes.length > 0 || store.contratos.length > 0 ? ' - Dados persistidos localmente' : ' - Nenhum dado local'}
         </Typography>
         
-        <Box sx={{ mt: 1 }}>
-          <Button 
-            variant="outlined" 
-            size="small" 
-            onClick={handleSync}
-            disabled={isSyncing}
-            sx={{ mr: 1 }}
-          >
-            {isSyncing ? '🔄 Sincronizando...' : '🔄 Forçar Sincronização'}
-          </Button>
-        </Box>
       </Box>
 
       <DadosTabs
@@ -951,6 +1170,14 @@ export default function DadosPage() {
         title="Upload de Dados Mestres"
         entityType="dados"
         onUpload={handleUpload}
+      />
+
+      <SmartImporter
+        open={smartImporterOpen}
+        onClose={() => setSmartImporterOpen(false)}
+        onImport={handleSmartImport}
+        config={smartImporterConfigs[activeTab] || smartImporterConfigs.clientes}
+        masterData={store}
       />
     </Paper>
   )

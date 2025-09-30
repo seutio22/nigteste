@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Limpar Manutenção Problemática</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .error { background: #ffebee; border-color: #f44336; }
+        .success { background: #e8f5e8; border-color: #4caf50; }
+        .warning { background: #fff3e0; border-color: #ff9800; }
+        button { padding: 15px 30px; margin: 10px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 16px; }
+        .btn-danger { background: #f44336; color: white; }
+        .btn-warning { background: #ff9800; color: white; }
+        .btn-success { background: #4caf50; color: white; }
+        pre { background: #f5f5f5; padding: 15px; border-radius: 4px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧹 Limpar Manutenção Problemática</h1>
+        <p>Este script remove a manutenção problemática que está causando erro P2003.</p>
+
+        <div class="section warning">
+            <h3>⚠️ Problema Identificado</h3>
+            <p>A manutenção com ID <code>009b199d-4e40-48cd-b4b5-5a801b6a9f3e</code> está causando erro P2003 porque contém IDs inválidos:</p>
+            <ul>
+                <li><strong>tipoServicoId:</strong> d83a1506-b17f-45cc-a94d-64a83cfe86ee</li>
+                <li><strong>tipoId:</strong> 59c770ec-6a05-41b4-89ef-9545ca06ec49</li>
+            </ul>
+            <p>Estes IDs não existem nos dados mestres atuais.</p>
+        </div>
+
+        <div class="section">
+            <h3>🔍 Status Atual</h3>
+            <div id="status"></div>
+        </div>
+
+        <div class="section">
+            <h3>🛠️ Ações Disponíveis</h3>
+            <button class="btn-warning" onclick="verificarManutencao()">Verificar Manutenção Problemática</button>
+            <button class="btn-danger" onclick="removerManutencaoProblematica()">Remover Manutenção Problemática</button>
+            <button class="btn-success" onclick="corrigirManutencao()">Corrigir IDs da Manutenção</button>
+        </div>
+
+        <div class="section">
+            <h3>📊 Resultado</h3>
+            <div id="resultado"></div>
+        </div>
+    </div>
+
+    <script>
+        const MANUTENCAO_PROBLEMATICA_ID = '009b199d-4e40-48cd-b4b5-5a801b6a9f3e';
+
+        function log(message, type = 'info') {
+            console.log(`[${new Date().toLocaleTimeString()}] ${message}`);
+            const statusDiv = document.getElementById('status');
+            const timestamp = new Date().toLocaleTimeString();
+            statusDiv.innerHTML += `<div class="${type}">[${timestamp}] ${message}</div>`;
+        }
+
+        function verificarManutencao() {
+            log('🔍 Verificando manutenção problemática...');
+            
+            try {
+                const manutencoes = JSON.parse(localStorage.getItem('manutencoes-v1') || '{}');
+                const items = manutencoes.state?.items || [];
+                
+                const manutencao = items.find(item => item.id === MANUTENCAO_PROBLEMATICA_ID);
+                
+                if (manutencao) {
+                    log(`✅ Manutenção encontrada: ${manutencao.ticket}`, 'success');
+                    log(`   ID: ${manutencao.id}`, 'info');
+                    log(`   Tipo Serviço ID: ${manutencao.tipoServicoId}`, 'warning');
+                    log(`   Tipo ID: ${manutencao.tipoId}`, 'warning');
+                    log(`   Status: ${manutencao.status}`, 'info');
+                    
+                    document.getElementById('resultado').innerHTML = `
+                        <pre>${JSON.stringify(manutencao, null, 2)}</pre>
+                    `;
+                } else {
+                    log('❌ Manutenção problemática não encontrada nos dados locais', 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ Erro ao verificar manutenção: ${error.message}`, 'error');
+            }
+        }
+
+        function removerManutencaoProblematica() {
+            if (confirm('Tem certeza que deseja remover a manutenção problemática? Esta ação não pode ser desfeita.')) {
+                log('🗑️ Removendo manutenção problemática...');
+                
+                try {
+                    const manutencoes = JSON.parse(localStorage.getItem('manutencoes-v1') || '{}');
+                    const items = manutencoes.state?.items || [];
+                    
+                    const manutencaoOriginal = items.find(item => item.id === MANUTENCAO_PROBLEMATICA_ID);
+                    
+                    if (manutencaoOriginal) {
+                        // Remover a manutenção problemática
+                        const itemsFiltrados = items.filter(item => item.id !== MANUTENCAO_PROBLEMATICA_ID);
+                        
+                        // Atualizar o estado
+                        manutencoes.state.items = itemsFiltrados;
+                        
+                        // Salvar de volta no localStorage
+                        localStorage.setItem('manutencoes-v1', JSON.stringify(manutencoes));
+                        
+                        log(`✅ Manutenção removida: ${manutencaoOriginal.ticket}`, 'success');
+                        log(`   Total de manutenções restantes: ${itemsFiltrados.length}`, 'info');
+                        
+                        document.getElementById('resultado').innerHTML = `
+                            <div class="success">
+                                <h4>✅ Manutenção Removida com Sucesso</h4>
+                                <p><strong>Ticket:</strong> ${manutencaoOriginal.ticket}</p>
+                                <p><strong>ID:</strong> ${manutencaoOriginal.id}</p>
+                                <p><strong>Manutenções restantes:</strong> ${itemsFiltrados.length}</p>
+                            </div>
+                        `;
+                    } else {
+                        log('❌ Manutenção problemática não encontrada', 'error');
+                    }
+                    
+                } catch (error) {
+                    log(`❌ Erro ao remover manutenção: ${error.message}`, 'error');
+                }
+            }
+        }
+
+        function corrigirManutencao() {
+            log('🔧 Corrigindo IDs da manutenção problemática...');
+            
+            try {
+                const manutencoes = JSON.parse(localStorage.getItem('manutencoes-v1') || '{}');
+                const masterData = JSON.parse(localStorage.getItem('masterDataStore') || '{}');
+                
+                const items = manutencoes.state?.items || [];
+                const master = masterData.state || {};
+                
+                const manutencao = items.find(item => item.id === MANUTENCAO_PROBLEMATICA_ID);
+                
+                if (!manutencao) {
+                    log('❌ Manutenção problemática não encontrada', 'error');
+                    return;
+                }
+                
+                // Fazer uma cópia da manutenção
+                const manutencaoCorrigida = { ...manutencao };
+                
+                // Verificar e corrigir tipoServicoId
+                if (manutencaoCorrigida.tipoServicoId) {
+                    const tipoServicoValido = master.tiposCadastro?.find(tc => tc.id === manutencaoCorrigida.tipoServicoId);
+                    if (!tipoServicoValido) {
+                        log(`⚠️ tipoServicoId inválido, removendo: ${manutencaoCorrigida.tipoServicoId}`, 'warning');
+                        manutencaoCorrigida.tipoServicoId = null;
+                    }
+                }
+                
+                // Verificar e corrigir tipoId
+                if (manutencaoCorrigida.tipoId) {
+                    const tipoValido = master.padrao?.find(p => p.id === manutencaoCorrigida.tipoId);
+                    if (!tipoValido) {
+                        log(`⚠️ tipoId inválido, removendo: ${manutencaoCorrigida.tipoId}`, 'warning');
+                        manutencaoCorrigida.tipoId = null;
+                    }
+                }
+                
+                // Atualizar a manutenção na lista
+                const itemsCorrigidos = items.map(item => 
+                    item.id === MANUTENCAO_PROBLEMATICA_ID ? manutencaoCorrigida : item
+                );
+                
+                // Atualizar o estado
+                manutencoes.state.items = itemsCorrigidos;
+                
+                // Salvar de volta no localStorage
+                localStorage.setItem('manutencoes-v1', JSON.stringify(manutencoes));
+                
+                log('✅ Manutenção corrigida com sucesso', 'success');
+                log(`   tipoServicoId: ${manutencaoCorrigida.tipoServicoId || 'removido'}`, 'info');
+                log(`   tipoId: ${manutencaoCorrigida.tipoId || 'removido'}`, 'info');
+                
+                document.getElementById('resultado').innerHTML = `
+                    <div class="success">
+                        <h4>✅ Manutenção Corrigida com Sucesso</h4>
+                        <p><strong>Ticket:</strong> ${manutencaoCorrigida.ticket}</p>
+                        <p><strong>tipoServicoId:</strong> ${manutencaoCorrigida.tipoServicoId || 'removido'}</p>
+                        <p><strong>tipoId:</strong> ${manutencaoCorrigida.tipoId || 'removido'}</p>
+                        <p>Agora você pode editar a manutenção sem problemas.</p>
+                    </div>
+                `;
+                
+            } catch (error) {
+                log(`❌ Erro ao corrigir manutenção: ${error.message}`, 'error');
+            }
+        }
+
+        // Executar verificação inicial
+        window.onload = function() {
+            log('🚀 Script de limpeza carregado');
+            verificarManutencao();
+        };
+    </script>
+</body>
+</html>

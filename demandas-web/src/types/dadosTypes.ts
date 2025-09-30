@@ -14,6 +14,8 @@ export interface FormData {
   categoria?: 'sistema' | 'negocio' | 'interface' | 'seguranca'
   ativo?: boolean
   descricao?: string
+  clienteId?: string
+  status?: string
 }
 
 export interface SnackMessage {

@@ -1,0 +1,549 @@
+import { PrismaClient } from '@prisma/client'
+import bcrypt from 'bcryptjs'
+
+const prisma = new PrismaClient()
+
+async function main() {
+  console.log('🌱 Iniciando seed do banco de dados...')
+
+  // Criar usuário admin padrão
+  const adminPassword = await bcrypt.hash('admin123', 10)
+  
+  const adminUser = await prisma.user.upsert({
+    where: { email: 'admin@admin.com' },
+    update: {},
+    create: {
+      name: 'Administrador',
+      email: 'admin@admin.com',
+      password: adminPassword,
+      role: 'admin',
+      active: true,
+      viewOwnDataOnly: false,
+      permissions: JSON.stringify({
+        home: { view: true, create: true, edit: true, delete: true },
+        dashboard: { view: true, create: true, edit: true, delete: true },
+        cadastro: { view: true, create: true, edit: true, delete: true },
+        manutencao: { view: true, create: true, edit: true, delete: true },
+        atendimento: { view: true, create: true, edit: true, delete: true },
+        comunicados: { view: true, create: true, edit: true, delete: true },
+        validacao: { view: true, create: true, edit: true, delete: true },
+        reajuste: { view: true, create: true, edit: true, delete: true },
+        mailling: { view: true, create: true, edit: true, delete: true },
+        analytics: { view: true, create: true, edit: true, delete: true },
+        kanban: { view: true, create: true, edit: true, delete: true },
+        projetos: { view: true, create: true, edit: true, delete: true },
+        dados: { view: true, create: true, edit: true, delete: true },
+        usuarios: { view: true, create: true, edit: true, delete: true }
+      })
+    }
+  })
+
+  console.log('✅ Usuário admin criado:', adminUser.email)
+
+  // Criar usuário gerente
+  const gerentePassword = await bcrypt.hash('gerente123', 10)
+  
+  const gerenteUser = await prisma.user.upsert({
+    where: { email: 'gerente@empresa.com' },
+    update: {},
+    create: {
+      name: 'Gerente',
+      email: 'gerente@empresa.com',
+      password: gerentePassword,
+      role: 'gerente',
+      active: true,
+      viewOwnDataOnly: false,
+      permissions: JSON.stringify({
+        home: { view: true, create: false, edit: false, delete: false },
+        dashboard: { view: true, create: false, edit: false, delete: false },
+        cadastro: { view: true, create: true, edit: true, delete: false },
+        manutencao: { view: true, create: true, edit: true, delete: false },
+        atendimento: { view: true, create: true, edit: true, delete: false },
+        comunicados: { view: true, create: true, edit: false, delete: false },
+        validacao: { view: true, create: true, edit: true, delete: false },
+        reajuste: { view: true, create: true, edit: true, delete: false },
+        mailling: { view: true, create: true, edit: false, delete: false },
+        analytics: { view: true, create: false, edit: false, delete: false },
+        kanban: { view: true, create: true, edit: true, delete: false },
+        projetos: { view: true, create: true, edit: true, delete: false },
+        dados: { view: true, create: false, edit: false, delete: false },
+        usuarios: { view: true, create: false, edit: false, delete: false }
+      })
+    }
+  })
+
+  console.log('✅ Usuário gerente criado:', gerenteUser.email)
+
+  // Criar usuário analista
+  const analistaPassword = await bcrypt.hash('analista123', 10)
+  
+  const analistaUser = await prisma.user.upsert({
+    where: { email: 'analista@empresa.com' },
+    update: {},
+    create: {
+      name: 'Analista',
+      email: 'analista@empresa.com',
+      password: analistaPassword,
+      role: 'analista',
+      active: true,
+      viewOwnDataOnly: true,
+      permissions: JSON.stringify({
+        home: { view: true, create: false, edit: false, delete: false },
+        dashboard: { view: true, create: false, edit: false, delete: false },
+        cadastro: { view: true, create: true, edit: true, delete: false },
+        manutencao: { view: true, create: true, edit: true, delete: false },
+        atendimento: { view: true, create: true, edit: true, delete: false },
+        comunicados: { view: true, create: false, edit: false, delete: false },
+        validacao: { view: true, create: true, edit: true, delete: false },
+        reajuste: { view: true, create: true, edit: true, delete: false },
+        mailling: { view: true, create: false, edit: false, delete: false },
+        analytics: { view: true, create: false, edit: false, delete: false },
+        kanban: { view: true, create: true, edit: true, delete: false },
+        projetos: { view: true, create: true, edit: true, delete: false },
+        dados: { view: false, create: false, edit: false, delete: false },
+        usuarios: { view: false, create: false, edit: false, delete: false }
+      })
+    }
+  })
+
+  console.log('✅ Usuário analista criado:', analistaUser.email)
+
+  // Criar usuário solicitante
+  const solicitantePassword = await bcrypt.hash('solicitante123', 10)
+  
+  const solicitanteUser = await prisma.user.upsert({
+    where: { email: 'solicitante@empresa.com' },
+    update: {},
+    create: {
+      name: 'Solicitante',
+      email: 'solicitante@empresa.com',
+      password: solicitantePassword,
+      role: 'solicitante',
+      active: true,
+      viewOwnDataOnly: true,
+      permissions: JSON.stringify({
+        home: { view: true, create: false, edit: false, delete: false },
+        dashboard: { view: true, create: false, edit: false, delete: false },
+        demandas: { view: true, create: true, edit: false, delete: false },
+        atendimento: { view: true, create: true, edit: false, delete: false },
+        comunicados: { view: true, create: false, edit: false, delete: false },
+        validacao: { view: false, create: false, edit: false, delete: false },
+        reajuste: { view: false, create: false, edit: false, delete: false },
+        mailling: { view: true, create: false, edit: false, delete: false },
+        analytics: { view: false, create: false, edit: false, delete: false },
+        kanban: { view: true, create: false, edit: false, delete: false },
+        projetos: { view: true, create: false, edit: false, delete: false },
+        dados: { view: false, create: false, edit: false, delete: false },
+        usuarios: { view: false, create: false, edit: false, delete: false }
+      })
+    }
+  })
+
+  console.log('✅ Usuário solicitante criado:', solicitanteUser.email)
+
+  // Criar usuário viewer
+  const viewerPassword = await bcrypt.hash('viewer123', 10)
+  
+  const viewerUser = await prisma.user.upsert({
+    where: { email: 'viewer@empresa.com' },
+    update: {},
+    create: {
+      name: 'Visualizador',
+      email: 'viewer@empresa.com',
+      password: viewerPassword,
+      role: 'viewer',
+      active: true,
+      viewOwnDataOnly: false,
+      permissions: JSON.stringify({
+        home: { view: true, create: false, edit: false, delete: false },
+        dashboard: { view: true, create: false, edit: false, delete: false },
+        demandas: { view: true, create: false, edit: false, delete: false },
+        atendimento: { view: true, create: false, edit: false, delete: false },
+        comunicados: { view: true, create: false, edit: false, delete: false },
+        validacao: { view: true, create: false, edit: false, delete: false },
+        reajuste: { view: true, create: false, edit: false, delete: false },
+        mailling: { view: true, create: false, edit: false, delete: false },
+        analytics: { view: true, create: false, edit: false, delete: false },
+        kanban: { view: true, create: false, edit: false, delete: false },
+        projetos: { view: true, create: false, edit: false, delete: false },
+        dados: { view: false, create: false, edit: false, delete: false },
+        usuarios: { view: false, create: false, edit: false, delete: false }
+      })
+    }
+  })
+
+  console.log('✅ Usuário viewer criado:', viewerUser.email)
+
+  // Criar dados mestres
+  console.log('🏗️ Criando dados mestres...')
+  
+  // Criar áreas
+  const area1 = await prisma.area.upsert({
+    where: { id: 'area-001' },
+    update: {},
+    create: {
+      id: 'area-001',
+      nome: 'Tecnologia da Informação',
+      descricao: 'Área responsável por sistemas e infraestrutura'
+    }
+  })
+
+  const area2 = await prisma.area.upsert({
+    where: { id: 'area-002' },
+    update: {},
+    create: {
+      id: 'area-002',
+      nome: 'Suporte ao Cliente',
+      descricao: 'Área responsável pelo atendimento e suporte'
+    }
+  })
+
+  const area3 = await prisma.area.upsert({
+    where: { id: 'area-003' },
+    update: {},
+    create: {
+      id: 'area-003',
+      nome: 'Operações',
+      descricao: 'Área responsável pelas operações diárias'
+    }
+  })
+
+  // Criar analistas
+  const analista1 = await prisma.analista.upsert({
+    where: { id: 'analista-001' },
+    update: {},
+    create: {
+      id: 'analista-001',
+      nome: 'João Silva'
+    }
+  })
+
+  const analista2 = await prisma.analista.upsert({
+    where: { id: 'analista-002' },
+    update: {},
+    create: {
+      id: 'analista-002',
+      nome: 'Maria Santos'
+    }
+  })
+
+  const analista3 = await prisma.analista.upsert({
+    where: { id: 'analista-003' },
+    update: {},
+    create: {
+      id: 'analista-003',
+      nome: 'Pedro Costa'
+    }
+  })
+
+  // Criar analista para o usuário Administrador
+  const analistaAdmin = await prisma.analista.upsert({
+    where: { id: 'analista-admin' },
+    update: {},
+    create: {
+      id: 'analista-admin',
+      nome: 'ADMINISTRADOR',
+      email: 'admin@admin.com',
+      telefone: '(11) 99999-9999',
+      areaId: area1.id
+    }
+  })
+
+  // Criar operadoras
+  const operadora1 = await prisma.operadora.upsert({
+    where: { id: 'operadora-001' },
+    update: {},
+    create: {
+      id: 'operadora-001',
+      nome: 'Vivo',
+      cnpj: '02.558.157/0001-62',
+      telefone: '(11) 3000-0000',
+      email: 'contato@vivo.com.br',
+      endereco: 'Av. Engenheiro Caetano Álvares, 55 - São Paulo/SP'
+    }
+  })
+
+  const operadora2 = await prisma.operadora.upsert({
+    where: { id: 'operadora-002' },
+    update: {},
+    create: {
+      id: 'operadora-002',
+      nome: 'Claro',
+      cnpj: '40.432.544/0001-47',
+      telefone: '(11) 4000-0000',
+      email: 'contato@claro.com.br',
+      endereco: 'Av. das Nações Unidas, 12901 - São Paulo/SP'
+    }
+  })
+
+  // Criar produtos
+  const produto1 = await prisma.produto.upsert({
+    where: { id: 'produto-001' },
+    update: {},
+    create: {
+      id: 'produto-001',
+      nome: 'Plano Pós-Pago',
+      descricao: 'Plano de telefonia móvel pós-pago',
+      operadoraId: operadora1.id
+    }
+  })
+
+  const produto2 = await prisma.produto.upsert({
+    where: { id: 'produto-002' },
+    update: {},
+    create: {
+      id: 'produto-002',
+      nome: 'Plano Pré-Pago',
+      descricao: 'Plano de telefonia móvel pré-pago',
+      operadoraId: operadora2.id
+    }
+  })
+
+  // Criar sistemas
+  const sistema1 = await prisma.sistema.upsert({
+    where: { id: 'sistema-001' },
+    update: {},
+    create: {
+      id: 'sistema-001',
+      nome: 'Sistema de Gestão',
+      descricao: 'Sistema principal de gestão empresarial',
+      versao: '2.1.0'
+    }
+  })
+
+  const sistema2 = await prisma.sistema.upsert({
+    where: { id: 'sistema-002' },
+    update: {},
+    create: {
+      id: 'sistema-002',
+      nome: 'Portal do Cliente',
+      descricao: 'Portal web para clientes',
+      versao: '1.5.2'
+    }
+  })
+
+  // Criar clientes
+  const cliente1 = await prisma.cliente.upsert({
+    where: { id: 'cliente-001' },
+    update: {},
+    create: {
+      id: 'cliente-001',
+      nome: 'Empresa ABC Ltda',
+      cnpj: '12.345.678/0001-90',
+      telefone: '(11) 3333-4444',
+      email: 'contato@empresaabc.com.br',
+      endereco: 'Rua das Flores, 123 - São Paulo/SP'
+    }
+  })
+
+  const cliente2 = await prisma.cliente.upsert({
+    where: { id: 'cliente-002' },
+    update: {},
+    create: {
+      id: 'cliente-002',
+      nome: 'Comércio XYZ S/A',
+      cnpj: '98.765.432/0001-10',
+      telefone: '(11) 5555-6666',
+      email: 'contato@comercioxyz.com.br',
+      endereco: 'Av. Paulista, 1000 - São Paulo/SP'
+    }
+  })
+
+  // Criar contratos
+  const contrato1 = await prisma.contrato.upsert({
+    where: { id: 'contrato-001' },
+    update: {},
+    create: {
+      id: 'contrato-001',
+      numero: 'CTR-2024-001',
+      clienteId: cliente1.id,
+      valor: 50000.00,
+      dataInicio: new Date('2024-01-01'),
+      dataFim: new Date('2024-12-31'),
+      status: 'Ativo'
+    }
+  })
+
+  const contrato2 = await prisma.contrato.upsert({
+    where: { id: 'contrato-002' },
+    update: {},
+    create: {
+      id: 'contrato-002',
+      numero: 'CTR-2024-002',
+      clienteId: cliente2.id,
+      valor: 75000.00,
+      dataInicio: new Date('2024-02-01'),
+      dataFim: new Date('2024-11-30'),
+      status: 'Ativo'
+    }
+  })
+
+  // Criar tipos de serviço
+  const tipoServico1 = await prisma.tipoServico.upsert({
+    where: { id: 'tipo-servico-001' },
+    update: {},
+    create: {
+      id: 'tipo-servico-001',
+      nome: 'Desenvolvimento',
+      descricao: 'Serviços de desenvolvimento de software'
+    }
+  })
+
+  const tipoServico2 = await prisma.tipoServico.upsert({
+    where: { id: 'tipo-servico-002' },
+    update: {},
+    create: {
+      id: 'tipo-servico-002',
+      nome: 'Suporte',
+      descricao: 'Serviços de suporte técnico'
+    }
+  })
+
+  // Criar tipos de demanda
+  const tipoDemanda1 = await prisma.tipoDemanda.upsert({
+    where: { id: 'tipo-demanda-001' },
+    update: {},
+    create: {
+      id: 'tipo-demanda-001',
+      nome: 'Correção de Bug',
+      descricao: 'Demandas para correção de erros no sistema'
+    }
+  })
+
+  const tipoDemanda2 = await prisma.tipoDemanda.upsert({
+    where: { id: 'tipo-demanda-002' },
+    update: {},
+    create: {
+      id: 'tipo-demanda-002',
+      nome: 'Nova Funcionalidade',
+      descricao: 'Demandas para implementação de novas funcionalidades'
+    }
+  })
+
+  // Criar tipos de cadastro
+  const tipoCadastro1 = await prisma.tipoCadastro.upsert({
+    where: { id: 'tipo-cadastro-001' },
+    update: {},
+    create: {
+      id: 'tipo-cadastro-001',
+      nome: 'Desenvolvimento',
+      descricao: 'Cadastro para serviços de desenvolvimento'
+    }
+  })
+
+  const tipoCadastro2 = await prisma.tipoCadastro.upsert({
+    where: { id: 'tipo-cadastro-002' },
+    update: {},
+    create: {
+      id: 'tipo-cadastro-002',
+      nome: 'Suporte',
+      descricao: 'Cadastro para serviços de suporte'
+    }
+  })
+
+  const tipoCadastro3 = await prisma.tipoCadastro.upsert({
+    where: { id: 'tipo-cadastro-003' },
+    update: {},
+    create: {
+      id: 'tipo-cadastro-003',
+      nome: 'Manutenção',
+      descricao: 'Cadastro para serviços de manutenção'
+    }
+  })
+
+  console.log('✅ Dados mestres criados:')
+  console.log(`   📍 Áreas: ${area1.nome}, ${area2.nome}, ${area3.nome}`)
+  console.log(`   👨‍💼 Analistas: ${analista1.nome}, ${analista2.nome}, ${analista3.nome}, ${analistaAdmin.nome}`)
+  console.log(`   📱 Operadoras: ${operadora1.nome}, ${operadora2.nome}`)
+  console.log(`   📦 Produtos: ${produto1.nome}, ${produto2.nome}`)
+  console.log(`   💻 Sistemas: ${sistema1.nome}, ${sistema2.nome}`)
+  console.log(`   🏢 Clientes: ${cliente1.nome}, ${cliente2.nome}`)
+  console.log(`   📋 Contratos: ${contrato1.numero}, ${contrato2.numero}`)
+  console.log(`   🔧 Tipos de Serviço: ${tipoServico1.nome}, ${tipoServico2.nome}`)
+  console.log(`   📝 Tipos de Demanda: ${tipoDemanda1.nome}, ${tipoDemanda2.nome}`)
+  console.log(`   📋 Tipos de Cadastro: ${tipoCadastro1.nome}, ${tipoCadastro2.nome}, ${tipoCadastro3.nome}`)
+
+  // Criar projetos de exemplo
+  console.log('🏗️ Criando projetos de exemplo...')
+  
+  const projeto1 = await prisma.project.upsert({
+    where: { id: 'proj-001' },
+    update: {},
+    create: {
+      id: 'proj-001',
+      name: 'Sistema de Gestão de Demandas',
+      description: 'Desenvolvimento de um sistema completo para gestão de demandas e atendimentos',
+      status: 'active',
+      priority: 'high',
+      startDate: new Date('2024-01-15'),
+      endDate: new Date('2024-06-30'),
+      progress: 65,
+      budget: 150000.00,
+      managerId: analistaUser.id,
+      team: JSON.stringify([analistaUser.id, gerenteUser.id]),
+      tags: JSON.stringify(['sistema', 'gestão', 'demandas']),
+      color: '#2196F3'
+    }
+  })
+
+  const projeto2 = await prisma.project.upsert({
+    where: { id: 'proj-002' },
+    update: {},
+    create: {
+      id: 'proj-002',
+      name: 'Portal do Cliente',
+      description: 'Portal web para clientes acessarem informações e solicitar suporte',
+      status: 'active',
+      priority: 'medium',
+      startDate: new Date('2024-03-01'),
+      endDate: new Date('2024-08-31'),
+      progress: 35,
+      budget: 80000.00,
+      managerId: gerenteUser.id,
+      team: JSON.stringify([gerenteUser.id, analistaUser.id]),
+      tags: JSON.stringify(['portal', 'cliente', 'web']),
+      color: '#4CAF50'
+    }
+  })
+
+  const projeto3 = await prisma.project.upsert({
+    where: { id: 'proj-003' },
+    update: {},
+    create: {
+      id: 'proj-003',
+      name: 'Migração de Dados',
+      description: 'Migração de dados legados para o novo sistema',
+      status: 'paused',
+      priority: 'low',
+      startDate: new Date('2024-02-01'),
+      endDate: new Date('2024-05-31'),
+      progress: 20,
+      budget: 45000.00,
+      managerId: analistaUser.id,
+      team: JSON.stringify([analistaUser.id]),
+      tags: JSON.stringify(['migração', 'dados', 'legado']),
+      color: '#FF9800'
+    }
+  })
+
+  console.log('✅ Projetos criados:', projeto1.name, projeto2.name, projeto3.name)
+
+  console.log('🎉 Seed concluído com sucesso!')
+  console.log('📋 Usuários criados:')
+  console.log(`   👑 Admin: admin@admin.com / admin123`)
+  console.log(`   👔 Gerente: gerente@empresa.com / gerente123`)
+  console.log(`   👨‍💼 Analista: analista@empresa.com / analista123`)
+  console.log(`   📝 Solicitante: solicitante@empresa.com / solicitante123`)
+  console.log(`   👁️ Viewer: viewer@empresa.com / viewer123`)
+}
+
+main()
+  .catch((e) => {
+    console.error('❌ Erro durante o seed:', e)
+    process.exit(1)
+  })
+  .finally(async () => {
+    await prisma.$disconnect()
+  })
+
+

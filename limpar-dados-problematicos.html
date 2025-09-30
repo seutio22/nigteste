@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Limpar Dados Problemáticos</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .error { background: #ffebee; border-color: #f44336; }
+        .success { background: #e8f5e8; border-color: #4caf50; }
+        .warning { background: #fff3e0; border-color: #ff9800; }
+        button { padding: 15px 30px; margin: 10px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 16px; }
+        .btn-danger { background: #f44336; color: white; }
+        .btn-success { background: #4caf50; color: white; }
+        pre { background: #f5f5f5; padding: 15px; border-radius: 4px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧹 Limpar Dados Problemáticos</h1>
+        <p>Este script remove completamente a manutenção problemática que está causando erro P2003.</p>
+
+        <div class="section warning">
+            <h3>⚠️ Ação Necessária</h3>
+            <p>A manutenção com ID <code>009b199d-4e40-48cd-b4b5-5a801b6a9f3e</code> contém IDs inválidos que não existem no banco de dados atual.</p>
+            <p><strong>Esta ação irá:</strong></p>
+            <ul>
+                <li>Remover a manutenção problemática dos dados locais</li>
+                <li>Limpar o cache do navegador</li>
+                <li>Forçar recarregamento da página</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h3>🛠️ Executar Limpeza</h3>
+            <button class="btn-danger" onclick="executarLimpeza()">🧹 Limpar Dados Problemáticos</button>
+            <button class="btn-success" onclick="recarregarPagina()">🔄 Recarregar Página</button>
+        </div>
+
+        <div class="section">
+            <h3>📊 Status</h3>
+            <div id="status"></div>
+        </div>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            console.log(`[${new Date().toLocaleTimeString()}] ${message}`);
+            const statusDiv = document.getElementById('status');
+            const timestamp = new Date().toLocaleTimeString();
+            statusDiv.innerHTML += `<div class="${type}">[${timestamp}] ${message}</div>`;
+        }
+
+        function executarLimpeza() {
+            if (confirm('⚠️ ATENÇÃO: Isso irá remover a manutenção problemática. Tem certeza?')) {
+                log('🧹 Iniciando limpeza de dados problemáticos...');
+                
+                try {
+                    // 1. Remover manutenção problemática específica
+                    const manutencoes = JSON.parse(localStorage.getItem('manutencoes-v1') || '{}');
+                    if (manutencoes.state && manutencoes.state.items) {
+                        const itemsOriginais = manutencoes.state.items.length;
+                        manutencoes.state.items = manutencoes.state.items.filter(item => 
+                            item.id !== '009b199d-4e40-48cd-b4b5-5a801b6a9f3e'
+                        );
+                        const itemsRestantes = manutencoes.state.items.length;
+                        
+                        localStorage.setItem('manutencoes-v1', JSON.stringify(manutencoes));
+                        log(`✅ Manutenção problemática removida: ${itemsOriginais - itemsRestantes} item(s)`, 'success');
+                    }
+                    
+                    // 2. Limpar timeline relacionada
+                    if (manutencoes.state && manutencoes.state.timeline) {
+                        const timelineOriginal = manutencoes.state.timeline.length;
+                        manutencoes.state.timeline = manutencoes.state.timeline.filter(event => 
+                            event.manutencaoId !== '009b199d-4e40-48cd-b4b5-5a801b6a9f3e'
+                        );
+                        const timelineRestante = manutencoes.state.timeline.length;
+                        
+                        localStorage.setItem('manutencoes-v1', JSON.stringify(manutencoes));
+                        log(`✅ Timeline limpa: ${timelineOriginal - timelineRestante} evento(s) removido(s)`, 'success');
+                    }
+                    
+                    // 3. Limpar cache do navegador
+                    if ('caches' in window) {
+                        caches.keys().then(names => {
+                            names.forEach(name => {
+                                caches.delete(name);
+                            });
+                        });
+                        log('✅ Cache do navegador limpo', 'success');
+                    }
+                    
+                    // 4. Forçar limpeza de dados mestres se necessário
+                    const masterData = JSON.parse(localStorage.getItem('masterDataStore') || '{}');
+                    if (masterData.state) {
+                        // Verificar se os dados estão vazios
+                        const tiposCadastro = masterData.state.tiposCadastro || [];
+                        const padrao = masterData.state.padrao || [];
+                        
+                        if (tiposCadastro.length === 0 || padrao.length === 0) {
+                            log('⚠️ Dados mestres vazios detectados, será necessário recarregar', 'warning');
+                        } else {
+                            log('✅ Dados mestres OK', 'success');
+                        }
+                    }
+                    
+                    log('🎉 Limpeza concluída com sucesso!', 'success');
+                    log('🔄 Recarregue a página para aplicar as mudanças', 'warning');
+                    
+                } catch (error) {
+                    log(`❌ Erro durante a limpeza: ${error.message}`, 'error');
+                }
+            }
+        }
+
+        function recarregarPagina() {
+            log('🔄 Recarregando página...');
+            window.location.reload();
+        }
+
+        // Executar verificação inicial
+        window.onload = function() {
+            log('🚀 Script de limpeza carregado');
+            
+            // Verificar se a manutenção problemática existe
+            try {
+                const manutencoes = JSON.parse(localStorage.getItem('manutencoes-v1') || '{}');
+                const items = manutencoes.state?.items || [];
+                const manutencaoProblematica = items.find(item => item.id === '009b199d-4e40-48cd-b4b5-5a801b6a9f3e');
+                
+                if (manutencaoProblematica) {
+                    log(`⚠️ Manutenção problemática encontrada: ${manutencaoProblematica.ticket}`, 'warning');
+                } else {
+                    log('✅ Nenhuma manutenção problemática encontrada', 'success');
+                }
+            } catch (error) {
+                log(`❌ Erro ao verificar dados: ${error.message}`, 'error');
+            }
+        };
+    </script>
+</body>
+</html>

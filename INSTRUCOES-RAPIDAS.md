@@ -1,105 +1,103 @@
-# 🚀 INSTRUÇÕES RÁPIDAS - Deploy Automático
+# 🚀 INSTRUÇÕES RÁPIDAS - NIGTESTE
 
-## ⚡ **DEPLOY EM 3 PASSOS SIMPLES:**
+## 📁 **ESTRUTURA DE DIRETÓRIOS**
+```
+nigteste/
+└── nigteste/                    ← DIRETÓRIO PRINCIPAL
+    ├── demandas-api/            ← BACKEND (API)
+    └── demandas-web/            ← FRONTEND
+```
 
-### **1️⃣ EXECUTAR SCRIPT PRINCIPAL:**
+## 🔧 **COMANDOS CORRETOS POR DIRETÓRIO**
+
+### **BACKEND (API) - Porta 3333**
 ```bash
-./deploy-completo.sh
-```
-- Escolha opção 1 (Deploy Completo)
-- Siga as instruções na tela
-- O script fará TUDO automaticamente!
+# Navegar para o diretório da API (do diretório principal)
+cd demandas-api
 
-### **2️⃣ CONFIGURAR SECRETS (se necessário):**
+# Instalar dependências
+npm install
+
+# Executar servidor de desenvolvimento
+npm run dev
+
+# Executar seed do banco
+npm run seed
+
+# Verificar se está rodando
+netstat -an | findstr :3333
+```
+
+### **FRONTEND - Porta 5173**
 ```bash
-./setup-secrets.sh
-```
-- Forneça tokens do Railway e Vercel
-- Será configurado automaticamente no GitHub
+# Navegar para o diretório do frontend (do diretório principal)
+cd demandas-web
 
-### **3️⃣ DEPLOY RÁPIDO (para futuras atualizações):**
+# Instalar dependências
+npm install
+
+# Executar servidor de desenvolvimento
+npm run dev
+
+# Verificar se está rodando
+netstat -an | findstr :5173
+```
+
+## ⚠️ **ERROS COMUNS E SOLUÇÕES**
+
+### **Erro: "Could not read package.json"**
+**Causa:** Executando comando do diretório raiz em vez do diretório correto
+**Solução:** Sempre navegar para o diretório específico primeiro
+
 ```bash
-./quick-deploy.sh
-```
-- Ou simplesmente: `git push origin main`
+# ❌ ERRADO (executar do diretório raiz)
+cd nigteste
+npm run dev
 
----
-
-## 🎯 **OPÇÕES DISPONÍVEIS:**
-
-| Script | Função | Quando Usar |
-|--------|--------|-------------|
-| `./deploy-completo.sh` | 🚀 **Deploy completo** | **Primeira vez** |
-| `./setup-secrets.sh` | 🔑 **Configurar secrets** | Configurar tokens |
-| `./setup-railway.sh` | 🔧 **Configurar Railway** | Apenas backend |
-| `./setup-vercel.sh` | 🌐 **Configurar Vercel** | Apenas frontend |
-| `./quick-deploy.sh` | 📤 **Deploy rápido** | Atualizações |
-
----
-
-## 🔑 **TOKENS NECESSÁRIOS:**
-
-### **Railway (Backend):**
-1. Acesse: https://railway.app/account/tokens
-2. Clique em "Create Token"
-3. Copie o token
-
-### **Vercel (Frontend):**
-1. Acesse: https://vercel.com/account/tokens
-2. Clique em "Create"
-3. Copie o token
-
----
-
-## 🚀 **FLUXO AUTOMÁTICO:**
-
-```
-Git Push → GitHub Actions → Deploy Automático
-    ↓              ↓              ↓
-  Frontend    Backend    Banco de Dados
-   (Vercel)   (Railway)   (PostgreSQL)
+# ✅ CORRETO (executar do diretório da API)
+cd nigteste\demandas-api
+npm run dev
 ```
 
----
+### **Erro: "JWT_SECRET não configurado"**
+**Solução:** Copiar arquivo de ambiente
+```bash
+cd nigteste\demandas-api
+copy env.example .env
+```
 
-## 📱 **URLS DE ACESSO:**
+## 🗄️ **BANCO DE DADOS**
+```bash
+cd nigteste\demandas-api
 
-- **Frontend**: https://seu-projeto.vercel.app
-- **Backend**: https://seu-projeto.railway.app
-- **GitHub Actions**: https://github.com/seu-usuario/seu-repo/actions
+# Aplicar schema
+npx prisma db push
 
----
+# Executar seed
+npm run seed
 
-## ⚠️ **IMPORTANTE:**
+# Abrir Prisma Studio
+npx prisma studio --port 5555
+```
 
-1. **Execute sempre na raiz do projeto**
-2. **Tenha o repositório no GitHub**
-3. **Configure os tokens primeiro**
-4. **Use o script principal para primeira vez**
+## 🌐 **URLS LOCAIS**
+- **Backend API:** http://localhost:3333
+- **Frontend:** http://localhost:5173
+- **Prisma Studio:** http://localhost:5555
 
----
+## 📋 **CHECKLIST DE INICIALIZAÇÃO**
+1. ✅ Navegar para `nigteste\demandas-api`
+2. ✅ Executar `npm run dev` (Backend)
+3. ✅ Navegar para `nigteste\demandas-web`
+4. ✅ Executar `npm run dev` (Frontend)
+5. ✅ Verificar portas 3333 e 5173 ativas
 
-## 🆘 **PROBLEMAS COMUNS:**
+## 🔍 **VERIFICAÇÃO RÁPIDA**
+```bash
+# Verificar todas as portas relevantes
+netstat -an | findstr ":3333\|:5173\|:5555"
 
-| Problema | Solução |
-|----------|---------|
-| "GitHub CLI não instalado" | Execute: `winget install GitHub.cli` |
-| "Erro no build" | Verifique se `npm install` foi executado |
-| "Token inválido" | Gere novo token na plataforma |
-| "Deploy falhou" | Verifique logs no GitHub Actions |
-
----
-
-## 📞 **SUPORTE:**
-
-- **README.md**: Instruções detalhadas
-- **GitHub Actions**: Logs de deploy
-- **Railway**: Logs do backend
-- **Vercel**: Logs do frontend
-
----
-
-## 🎉 **PRONTO PARA USAR!**
-
-Execute `./deploy-completo.sh` e siga as instruções na tela!
+# Verificar processos Node.js
+tasklist | findstr node
+```
 

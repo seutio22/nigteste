@@ -1,7 +1,7 @@
 # Script principal para deploy completo automático
 # Este script configura Railway e Vercel automaticamente
 
-Write-Host "🚀 DEPLOY COMPLETO AUTOMÁTICO" -ForegroundColor Green
+Write-Host "🚀 DEPLOY COMPLETO AUTOMATICO" -ForegroundColor Green
 Write-Host "================================" -ForegroundColor Green
 
 # Verificar se estamos no diretório correto
@@ -64,7 +64,7 @@ switch ($opcao) {
         Write-Host "✅ Configurações enviadas para o GitHub!" -ForegroundColor Green
     }
     "5" {
-        Write-Host "👋 Até logo!" -ForegroundColor Yellow
+        Write-Host "👋 Ate logo!" -ForegroundColor Yellow
         exit 0
     }
     default {

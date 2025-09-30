@@ -1,0 +1,453 @@
+// Schema completo para desenvolvimento com SQLite
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./prisma/dev.db"
+}
+
+// Tabelas mestres
+model Area {
+  id          String @id @default(uuid())
+  nome        String
+  descricao   String?
+  analistas   Analista[]
+  demandas    Demanda[]
+  atendimentos Atendimento[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Analista {
+  id          String @id @default(uuid())
+  nome        String
+  email       String @unique
+  telefone    String?
+  areaId      String?
+  area        Area?  @relation(fields: [areaId], references: [id])
+  demandas    Demanda[]
+  validacoes  Validacao[]
+  atendimentos Atendimento[]
+  reajustes   Reajuste[]
+  managedProjects Project[] @relation("ProjectManager")
+  assignedTasks ProjectTask[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Operadora {
+  id          String @id @default(uuid())
+  nome        String
+  cnpj        String? @unique
+  telefone    String?
+  email       String?
+  endereco    String?
+  produtos    Produto[]
+  demandas    Demanda[]
+  atendimentos Atendimento[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Produto {
+  id          String @id @default(uuid())
+  nome        String
+  descricao   String?
+  operadoraId String?
+  operadora   Operadora? @relation(fields: [operadoraId], references: [id])
+  demandas    Demanda[]
+  atendimentos Atendimento[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Sistema {
+  id          String @id @default(uuid())
+  nome        String
+  descricao   String?
+  versao      String?
+  demandas    Demanda[]
+  atendimentos Atendimento[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Cliente {
+  id          String @id @default(uuid())
+  nome        String
+  cnpj        String? @unique
+  telefone    String?
+  email       String?
+  endereco    String?
+  contratos   Contrato[]
+  demandas    Demanda[]
+  atendimentos Atendimento[]
+  projects    Project[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Contrato {
+  id          String @id @default(uuid())
+  numero      String @unique
+  clienteId   String
+  cliente     Cliente @relation(fields: [clienteId], references: [id])
+  valor       Float?
+  dataInicio  DateTime?
+  dataFim     DateTime?
+  status      String @default("Ativo")
+  demandas    Demanda[]
+  atendimentos Atendimento[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model TipoServico {
+  id          String @id @default(uuid())
+  nome        String
+  descricao   String?
+  demandas    Demanda[]
+  atendimentos Atendimento[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model TipoDemanda {
+  id          String @id @default(uuid())
+  nome        String
+  descricao   String?
+  demandas    Demanda[]
+  atendimentos Atendimento[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Tabela principal de demandas
+model Demanda {
+  id              String @id @default(uuid())
+  status          String @default("Pendente")
+  ticket          String? @unique
+  analistaId      String?
+  analista        Analista? @relation(fields: [analistaId], references: [id])
+  solicitante     String?
+  areaId          String?
+  area            Area? @relation(fields: [areaId], references: [id])
+  tipoId          String?
+  tipo            TipoDemanda? @relation(fields: [tipoId], references: [id])
+  descricao       String?
+  clienteId       String
+  cliente         Cliente @relation(fields: [clienteId], references: [id])
+  contratoId      String
+  contrato        Contrato @relation(fields: [contratoId], references: [id])
+  operadoraId     String
+  operadora       Operadora @relation(fields: [operadoraId], references: [id])
+  produtoId       String
+  produto         Produto @relation(fields: [produtoId], references: [id])
+  tipoServicoId   String?
+  tipoServico     TipoServico? @relation(fields: [tipoServicoId], references: [id])
+  sistemaId       String?
+  sistema         Sistema? @relation(fields: [sistemaId], references: [id])
+  dataInicio      DateTime?
+  dataFinal       DateTime?
+  periodicidade   String?
+  qtdRetornos     Int?
+  qualidade       String?
+  observacoes     String?
+  validacoes      Validacao[]
+  reajustes       Reajuste[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// Tabela de atendimento (tickets de suporte)
+model Atendimento {
+  id              String @id @default(uuid())
+  ticket          String @unique
+  titulo          String
+  descricao       String
+  status          String @default("Aberto") // Aberto, Em Andamento, Resolvido, Fechado
+  prioridade      String @default("Média") // Baixa, Média, Alta, Crítica
+  categoria       String // Suporte, Bug, Melhoria, Dúvida
+  solicitante     String
+  emailSolicitante String
+  telefoneSolicitante String?
+  analistaId      String?
+  analista        Analista? @relation(fields: [analistaId], references: [id])
+  areaId          String?
+  area            Area? @relation(fields: [areaId], references: [id])
+  clienteId       String?
+  cliente         Cliente? @relation(fields: [clienteId], references: [id])
+  contratoId      String?
+  contrato        Contrato? @relation(fields: [contratoId], references: [id])
+  operadoraId     String?
+  operadora       Operadora? @relation(fields: [operadoraId], references: [id])
+  produtoId       String?
+  produto         Produto? @relation(fields: [produtoId], references: [id])
+  sistemaId       String?
+  sistema         Sistema? @relation(fields: [sistemaId], references: [id])
+  tipoServicoId   String?
+  tipoServico     TipoServico? @relation(fields: [operadoraId], references: [id])
+  tipoId          String?
+  tipo            TipoDemanda? @relation(fields: [tipoId], references: [id])
+  dataAbertura    DateTime @default(now())
+  dataResolucao   DateTime?
+  dataFechamento  DateTime?
+  tempoResolucao  Int? // em minutos
+  satisfacao      Int? // 1-5 estrelas
+  comentarios     String?
+  anexos          String? // JSON string para URLs de arquivos
+  tags            String? // JSON string para array de tags
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// Tabela de mailling (contatos para comunicação em massa)
+model Mailling {
+  id              String @id @default(uuid())
+  nome            String
+  email           String @unique
+  telefone        String?
+  empresa         String?
+  cargo           String?
+  departamento    String?
+  categoria       String // Cliente, Fornecedor, Parceiro, Prospecto
+  status          String @default("Ativo") // Ativo, Inativo, Unsubscribed
+  origem          String? // Como foi obtido o contato
+  tags            String? // JSON string para array de tags
+  observacoes     String?
+  dataCadastro    DateTime @default(now())
+  ultimoEnvio     DateTime?
+  totalEnvios     Int @default(0)
+  aberturas       Int @default(0)
+  cliques         Int @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// Tabela de analytics (métricas e relatórios)
+model Analytics {
+  id              String @id @default(uuid())
+  tipo            String // Demanda, Atendimento, Validacao, Reajuste
+  categoria       String // Diário, Semanal, Mensal, Trimestral, Anual
+  periodo         String // 2024-01, 2024-Q1, 2024
+  metricas        String // JSON string com todas as métricas
+  totalDemandas   Int @default(0)
+  totalAtendimentos Int @default(0)
+  totalValidacoes Int @default(0)
+  totalReajustes  Int @default(0)
+  demandasAbertas Int @default(0)
+  demandasFechadas Int @default(0)
+  atendimentosAbertos Int @default(0)
+  atendimentosFechados Int @default(0)
+  tempoMedioResolucao Float? // em horas
+  satisfacaoMedia Float? // 1-5 estrelas
+  analistaMaisAtivo String?
+  areaMaisAtiva   String?
+  clienteMaisAtivo String?
+  operadoraMaisAtiva String?
+  produtoMaisUsado String?
+  sistemaMaisUsado String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// Tabela de dados (informações mestras e configurações)
+model Dados {
+  id              String @id @default(uuid())
+  tipo            String // Configuracao, Parametro, ConfiguracaoSistema
+  chave           String @unique
+  valor           String
+  descricao       String?
+  categoria       String? // Sistema, Negocio, Interface, Seguranca
+  ativo           Boolean @default(true)
+  dataInicio      DateTime @default(now())
+  dataFim         DateTime?
+  criadoPor       String?
+  atualizadoPor   String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// Tabela de dashboard (widgets e configurações de tela)
+model Dashboard {
+  id              String @id @default(uuid())
+  usuarioId       String
+  nome            String
+  tipo            String // Personalizado, Padrao
+  layout          String // JSON string com configuração do layout
+  widgets         String // JSON string com lista de widgets
+  filtros         String? // JSON string com filtros aplicados
+  ativo           Boolean @default(true)
+  padrao          Boolean @default(false)
+  ordem           Int @default(0)
+  dashboardWidgets DashboardWidget[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// Tabela de widgets do dashboard
+model DashboardWidget {
+  id              String @id @default(uuid())
+  dashboardId     String
+  dashboard       Dashboard @relation(fields: [dashboardId], references: [id])
+  tipo            String // Grafico, Tabela, Metrica, Lista
+  titulo          String
+  configuracao   String // JSON string com configuração do widget
+  posicaoX        Int
+  posicaoY        Int
+  largura         Int
+  altura          Int
+  ativo           Boolean @default(true)
+  ordem           Int @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// Tabelas de validação e reajuste
+model Validacao {
+  id              String @id @default(uuid())
+  demandaId       String
+  demanda         Demanda @relation(fields: [demandaId], references: [id])
+  analistaId      String
+  analista        Analista @relation(fields: [analistaId], references: [id])
+  status          String @default("Pendente")
+  dataInicio      DateTime?
+  dataFim         DateTime?
+  observacoes     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// Tabela de reajuste (ajustes contratuais)
+model Reajuste {
+  id                  String @id @default(uuid())
+  demandaId           String
+  demanda             Demanda @relation(fields: [demandaId], references: [id])
+  analistaId          String?
+  analista            Analista? @relation(fields: [demandaId], references: [id])
+  motivo              String?
+  aprovado            Boolean @default(false)
+  dataAprovacao       DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+// Tabelas de projetos
+model Project {
+  id          String @id @default(uuid())
+  name        String
+  description String
+  status      String // active, completed, paused, cancelled
+  priority    String // low, medium, high, urgent
+  startDate   DateTime
+  endDate     DateTime
+  progress    Int @default(0) // 0-100
+  budget      Float?
+  clientId    String?
+  client      Cliente? @relation(fields: [clientId], references: [id])
+  managerId   String
+  manager     Analista @relation("ProjectManager", fields: [managerId], references: [id])
+  team        String // JSON string com IDs dos membros
+  tags        String // JSON string com array de tags
+  color       String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  tasks       ProjectTask[]
+  milestones  ProjectMilestone[]
+  timelines   ProjectTimeline[]
+}
+
+model ProjectTask {
+  id              String @id @default(uuid())
+  projectId       String
+  project         Project @relation(fields: [projectId], references: [id])
+  title           String
+  description     String
+  status          String // todo, in_progress, review, done
+  priority        String // low, medium, high, urgent
+  assigneeId      String?
+  assignee        Analista? @relation(fields: [assigneeId], references: [id])
+  dueDate         DateTime?
+  estimatedHours  Float?
+  actualHours     Float?
+  dependencies    String // JSON string com IDs das tarefas dependentes
+  subtasks        String // JSON string com subtarefas
+  attachments     String // JSON string com URLs de arquivos
+  comments        String // JSON string com comentários
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model ProjectMilestone {
+  id          String @id @default(uuid())
+  projectId   String
+  project     Project @relation(fields: [projectId], references: [id])
+  title       String
+  description String
+  dueDate     DateTime
+  completed   Boolean @default(false)
+  tasks       String // JSON string com IDs das tarefas relacionadas
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ProjectTimeline {
+  id        String @id @default(uuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id])
+  startDate DateTime
+  endDate   DateTime
+  phases    String // JSON string com fases do projeto
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Tabelas de comunicados (mantidas do schema original)
+model Comunicado {
+  id              String @id @default(uuid())
+  titulo          String
+  conteudo        String
+  categoria       String // Urgente, Informativo, Evento, Manutenção
+  prioridade      String // Alta, Média, Baixa
+  autor           String
+  autorId         String
+  publicado       Boolean @default(false)
+  dataPublicacao  DateTime?
+  dataExpiracao   DateTime?
+  tags            String // JSON string para armazenar array de tags
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model ComunicadoReacao {
+  id            String @id @default(uuid())
+  comunicadoId  String
+  tipo          String // like, dislike
+  usuarioId     String
+  usuarioNome   String
+  createdAt     DateTime @default(now())
+}
+
+model ComunicadoComentario {
+  id            String @id @default(uuid())
+  comunicadoId  String
+  autor         String
+  autorId       String
+  conteudo      String
+  createdAt     DateTime @default(now())
+}
+
+model ComunicadoVisualizacao {
+  id                String @id @default(uuid())
+  comunicadoId      String
+  usuarioId         String
+  usuarioNome       String
+  usuarioRole       String
+  dataVisualizacao  DateTime @default(now())
+  tempoVisualizacao Int? // em segundos
+  ipAddress         String?
+  userAgent         String?
+}

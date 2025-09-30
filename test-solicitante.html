@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Campo Solicitante</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .success {
+            background-color: #28a745;
+        }
+        .success:hover {
+            background-color: #218838;
+        }
+        .error {
+            background-color: #dc3545;
+        }
+        .error:hover {
+            background-color: #c82333;
+        }
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 15px 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        input {
+            width: 100%;
+            padding: 8px 12px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Teste Campo Solicitante</h1>
+        <p>Este script testa o campo solicitante na edição de manutenção.</p>
+        
+        <div>
+            <label for="solicitante">Solicitante:</label>
+            <input type="text" id="solicitante" placeholder="Digite o nome do solicitante">
+        </div>
+        
+        <div>
+            <button onclick="testarSolicitante()" class="success">🧪 Testar Campo Solicitante</button>
+            <button onclick="testarAPI()" class="error">🔧 Testar API Diretamente</button>
+            <button onclick="limparLog()">🗑️ Limpar Log</button>
+        </div>
+        
+        <div id="log" class="log" style="display: none;"></div>
+        
+        <div id="resultado" style="margin-top: 20px;"></div>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const resultadoDiv = document.getElementById('resultado');
+            
+            logDiv.style.display = 'block';
+            logDiv.innerHTML += `<div style="color: ${type === 'error' ? 'red' : type === 'success' ? 'green' : type === 'warning' ? 'orange' : 'black'}">${new Date().toLocaleTimeString()}: ${message}</div>`;
+            
+            if (type === 'success') {
+                resultadoDiv.innerHTML = `<div style="color: green; font-weight: bold;">✅ ${message}</div>`;
+            } else if (type === 'error') {
+                resultadoDiv.innerHTML = `<div style="color: red; font-weight: bold;">❌ ${message}</div>`;
+            } else if (type === 'warning') {
+                resultadoDiv.innerHTML = `<div style="color: orange; font-weight: bold;">⚠️ ${message}</div>`;
+            }
+        }
+
+        function testarSolicitante() {
+            const solicitante = document.getElementById('solicitante').value;
+            log(`🔍 Testando campo solicitante: "${solicitante}"`);
+            
+            // Simular o comportamento do frontend
+            const draft = {
+                solicitante: solicitante || undefined
+            };
+            
+            log(`📝 Draft criado: ${JSON.stringify(draft)}`);
+            
+            // Simular validação
+            const solicitanteValue = draft.solicitante || null;
+            log(`🔍 Valor para API: "${solicitanteValue}"`);
+            
+            // Simular payload
+            const updatePayload = {
+                solicitante: solicitanteValue
+            };
+            
+            log(`📦 Payload final: ${JSON.stringify(updatePayload)}`);
+            
+            if (solicitante && solicitante.trim()) {
+                log('✅ Campo solicitante preenchido corretamente', 'success');
+            } else {
+                log('⚠️ Campo solicitante vazio ou apenas espaços', 'warning');
+            }
+        }
+
+        async function testarAPI() {
+            log('🔧 Testando API diretamente...');
+            
+            try {
+                // Testar se a API está rodando
+                const response = await fetch('http://localhost:3333/manutencoes');
+                if (response.ok) {
+                    log('✅ API está rodando', 'success');
+                    
+                    // Testar criação de manutenção com solicitante
+                    const solicitante = document.getElementById('solicitante').value;
+                    const testPayload = {
+                        status: 'Aberta',
+                        ticket: 'TEST-' + Date.now(),
+                        solicitante: solicitante || null
+                    };
+                    
+                    log(`📦 Enviando payload de teste: ${JSON.stringify(testPayload)}`);
+                    
+                    const createResponse = await fetch('http://localhost:3333/manutencoes', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + (localStorage.getItem('auth-store') ? JSON.parse(localStorage.getItem('auth-store')).state?.token : '')
+                        },
+                        body: JSON.stringify(testPayload)
+                    });
+                    
+                    if (createResponse.ok) {
+                        const result = await createResponse.json();
+                        log('✅ Manutenção criada com sucesso!', 'success');
+                        log(`📋 Resultado: ${JSON.stringify(result)}`);
+                    } else {
+                        const error = await createResponse.text();
+                        log(`❌ Erro na API: ${createResponse.status} - ${error}`, 'error');
+                    }
+                    
+                } else {
+                    log(`❌ API não está rodando: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Erro ao testar API: ${error.message}`, 'error');
+            }
+        }
+
+        function limparLog() {
+            document.getElementById('log').innerHTML = '';
+            document.getElementById('resultado').innerHTML = '';
+        }
+
+        // Teste automático ao carregar
+        window.onload = function() {
+            log('🚀 Script de teste carregado. Digite um valor no campo solicitante e clique em "Testar Campo Solicitante".', 'info');
+        };
+    </script>
+</body>
+</html>

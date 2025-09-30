@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Manutenção Edição</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .error { background: #ffebee; border-color: #f44336; }
+        .success { background: #e8f5e8; border-color: #4caf50; }
+        .warning { background: #fff3e0; border-color: #ff9800; }
+        .info { background: #e3f2fd; border-color: #2196f3; }
+        button { padding: 10px 20px; margin: 5px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .btn-danger { background: #f44336; color: white; }
+        .btn-warning { background: #ff9800; color: white; }
+        .btn-success { background: #4caf50; color: white; }
+        .btn-info { background: #2196f3; color: white; }
+        pre { background: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .full-width { grid-column: 1 / -1; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Debug Manutenção Edição</h1>
+        <p>Este script ajuda a diagnosticar e corrigir problemas na edição de manutenções.</p>
+
+        <div class="section info">
+            <h3>📊 Status Atual</h3>
+            <div id="status"></div>
+        </div>
+
+        <div class="grid">
+            <div class="section">
+                <h3>🗄️ Dados Locais</h3>
+                <button class="btn-info" onclick="verificarDadosLocais()">Verificar Dados Locais</button>
+                <button class="btn-warning" onclick="limparDadosLocais()">Limpar Dados Locais</button>
+                <div id="dadosLocais"></div>
+            </div>
+
+            <div class="section">
+                <h3>🔍 Dados Mestres</h3>
+                <button class="btn-info" onclick="verificarDadosMestres()">Verificar Dados Mestres</button>
+                <button class="btn-warning" onclick="forcarSincronizacao()">Forçar Sincronização</button>
+                <div id="dadosMestres"></div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>🧪 Teste de Validação</h3>
+            <button class="btn-info" onclick="testarValidacao()">Testar Validação de IDs</button>
+            <div id="testeValidacao"></div>
+        </div>
+
+        <div class="section">
+            <h3>🔄 Ações de Correção</h3>
+            <button class="btn-danger" onclick="limparTudo()">Limpar Tudo</button>
+            <button class="btn-success" onclick="recarregarPagina()">Recarregar Página</button>
+        </div>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            console.log(`[${new Date().toLocaleTimeString()}] ${message}`);
+            const statusDiv = document.getElementById('status');
+            const timestamp = new Date().toLocaleTimeString();
+            statusDiv.innerHTML += `<div class="${type}">[${timestamp}] ${message}</div>`;
+        }
+
+        function verificarDadosLocais() {
+            log('🔍 Verificando dados locais...');
+            
+            try {
+                // Verificar manutenções
+                const manutencoes = JSON.parse(localStorage.getItem('manutencoes-v1') || '{}');
+                const items = manutencoes.state?.items || [];
+                
+                log(`📋 Manutenções encontradas: ${items.length}`);
+                
+                if (items.length > 0) {
+                    const primeira = items[0];
+                    log(`📝 Primeira manutenção:`, 'info');
+                    log(`   ID: ${primeira.id}`, 'info');
+                    log(`   Ticket: ${primeira.ticket}`, 'info');
+                    log(`   Tipo Serviço ID: ${primeira.tipoServicoId}`, 'info');
+                    log(`   Tipo ID: ${primeira.tipoId}`, 'info');
+                    log(`   Status: ${primeira.status}`, 'info');
+                }
+                
+                // Verificar timeline
+                const timeline = manutencoes.state?.timeline || [];
+                log(`📅 Timeline: ${timeline.length} eventos`);
+                
+                document.getElementById('dadosLocais').innerHTML = `
+                    <pre>${JSON.stringify({
+                        manutencoes: items.length,
+                        timeline: timeline.length,
+                        primeiraManutencao: items[0] || null
+                    }, null, 2)}</pre>
+                `;
+                
+            } catch (error) {
+                log(`❌ Erro ao verificar dados locais: ${error.message}`, 'error');
+            }
+        }
+
+        function verificarDadosMestres() {
+            log('🔍 Verificando dados mestres...');
+            
+            try {
+                const masterData = JSON.parse(localStorage.getItem('masterDataStore') || '{}');
+                const state = masterData.state || {};
+                
+                const dados = {
+                    tiposCadastro: state.tiposCadastro?.length || 0,
+                    padrao: state.padrao?.length || 0,
+                    clientes: state.clientes?.length || 0,
+                    contratos: state.contratos?.length || 0,
+                    operadoras: state.operadoras?.length || 0,
+                    produtos: state.produtos?.length || 0,
+                    sistemas: state.sistemas?.length || 0,
+                    areas: state.areas?.length || 0,
+                    analistas: state.analistas?.length || 0
+                };
+                
+                log(`📊 Dados mestres:`, 'info');
+                Object.entries(dados).forEach(([key, value]) => {
+                    log(`   ${key}: ${value}`, value > 0 ? 'success' : 'warning');
+                });
+                
+                document.getElementById('dadosMestres').innerHTML = `
+                    <pre>${JSON.stringify(dados, null, 2)}</pre>
+                `;
+                
+            } catch (error) {
+                log(`❌ Erro ao verificar dados mestres: ${error.message}`, 'error');
+            }
+        }
+
+        function testarValidacao() {
+            log('🧪 Testando validação de IDs...');
+            
+            try {
+                const manutencoes = JSON.parse(localStorage.getItem('manutencoes-v1') || '{}');
+                const masterData = JSON.parse(localStorage.getItem('masterDataStore') || '{}');
+                
+                const items = manutencoes.state?.items || [];
+                const master = masterData.state || {};
+                
+                if (items.length === 0) {
+                    log('❌ Nenhuma manutenção encontrada para testar', 'error');
+                    return;
+                }
+                
+                const manutencao = items[0];
+                const resultados = [];
+                
+                // Testar tipoServicoId
+                if (manutencao.tipoServicoId) {
+                    const tipoServicoValido = master.tiposCadastro?.find(tc => tc.id === manutencao.tipoServicoId);
+                    resultados.push({
+                        campo: 'tipoServicoId',
+                        valor: manutencao.tipoServicoId,
+                        valido: !!tipoServicoValido,
+                        nome: tipoServicoValido?.nome || 'N/A'
+                    });
+                }
+                
+                // Testar tipoId
+                if (manutencao.tipoId) {
+                    const tipoValido = master.padrao?.find(p => p.id === manutencao.tipoId);
+                    resultados.push({
+                        campo: 'tipoId',
+                        valor: manutencao.tipoId,
+                        valido: !!tipoValido,
+                        nome: tipoValido?.nome || 'N/A'
+                    });
+                }
+                
+                log(`🧪 Resultados da validação:`, 'info');
+                resultados.forEach(resultado => {
+                    const status = resultado.valido ? '✅' : '❌';
+                    log(`   ${status} ${resultado.campo}: ${resultado.nome}`, resultado.valido ? 'success' : 'error');
+                });
+                
+                document.getElementById('testeValidacao').innerHTML = `
+                    <pre>${JSON.stringify(resultados, null, 2)}</pre>
+                `;
+                
+            } catch (error) {
+                log(`❌ Erro no teste de validação: ${error.message}`, 'error');
+            }
+        }
+
+        function limparDadosLocais() {
+            if (confirm('Tem certeza que deseja limpar os dados locais de manutenções?')) {
+                log('🗑️ Limpando dados locais de manutenções...');
+                localStorage.removeItem('manutencoes-v1');
+                log('✅ Dados locais de manutenções limpos', 'success');
+                verificarDadosLocais();
+            }
+        }
+
+        function forcarSincronizacao() {
+            log('🔄 Forçando sincronização de dados mestres...');
+            
+            // Simular limpeza e recarregamento
+            const masterData = JSON.parse(localStorage.getItem('masterDataStore') || '{}');
+            if (masterData.state) {
+                masterData.state.tiposCadastro = [];
+                masterData.state.padrao = [];
+                localStorage.setItem('masterDataStore', JSON.stringify(masterData));
+                log('✅ Dados mestres limpos, será necessário recarregar a página', 'warning');
+            }
+        }
+
+        function limparTudo() {
+            if (confirm('⚠️ ATENÇÃO: Isso vai limpar TODOS os dados locais. Tem certeza?')) {
+                log('🗑️ Limpando todos os dados locais...');
+                
+                const keys = Object.keys(localStorage);
+                keys.forEach(key => {
+                    if (key.includes('Store') || key.includes('manutencoes') || key.includes('masterData')) {
+                        localStorage.removeItem(key);
+                        log(`   Removido: ${key}`, 'info');
+                    }
+                });
+                
+                log('✅ Todos os dados locais foram limpos', 'success');
+                log('🔄 Recarregue a página para aplicar as mudanças', 'warning');
+            }
+        }
+
+        function recarregarPagina() {
+            log('🔄 Recarregando página...');
+            window.location.reload();
+        }
+
+        // Executar verificação inicial
+        window.onload = function() {
+            log('🚀 Script de debug carregado');
+            verificarDadosLocais();
+            verificarDadosMestres();
+        };
+    </script>
+</body>
+</html>

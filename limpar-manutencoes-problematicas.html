@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Limpar Manutenções Problemáticas</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        button {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background-color: #c82333;
+        }
+        .success {
+            background-color: #28a745;
+        }
+        .success:hover {
+            background-color: #218838;
+        }
+        .info {
+            background-color: #17a2b8;
+        }
+        .info:hover {
+            background-color: #138496;
+        }
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 15px 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .error {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .success-text {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .warning {
+            color: #ffc107;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧹 Limpeza de Manutenções Problemáticas</h1>
+        <p>Este script irá limpar todas as manutenções locais que estão causando problemas de sincronização.</p>
+        
+        <div>
+            <button onclick="verificarManutencoes()" class="info">🔍 Verificar Manutenções Locais</button>
+            <button onclick="limparManutencoes()" class="success">🗑️ Limpar Todas as Manutenções</button>
+            <button onclick="limparTudo()" class="error">💥 Limpar Tudo (Manutenções + Dados Mestres)</button>
+        </div>
+        
+        <div id="log" class="log" style="display: none;"></div>
+        
+        <div id="resultado" style="margin-top: 20px;"></div>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const resultadoDiv = document.getElementById('resultado');
+            
+            logDiv.style.display = 'block';
+            logDiv.innerHTML += `<div class="${type}">${new Date().toLocaleTimeString()}: ${message}</div>`;
+            
+            if (type === 'success') {
+                resultadoDiv.innerHTML = `<div class="success-text">✅ ${message}</div>`;
+            } else if (type === 'error') {
+                resultadoDiv.innerHTML = `<div class="error">❌ ${message}</div>`;
+            } else if (type === 'warning') {
+                resultadoDiv.innerHTML = `<div class="warning">⚠️ ${message}</div>`;
+            }
+        }
+
+        function verificarManutencoes() {
+            log('🔍 Verificando manutenções locais...');
+            
+            try {
+                // Verificar manutenções
+                const manutencaoStore = localStorage.getItem('manutencao-store');
+                if (manutencaoStore) {
+                    const data = JSON.parse(manutencaoStore);
+                    const manutencoes = data.state?.items || [];
+                    log(`📊 Encontradas ${manutencoes.length} manutenções locais:`, 'info');
+                    
+                    manutencoes.forEach((manutencao, index) => {
+                        log(`  ${index + 1}. ID: ${manutencao.id} | Ticket: ${manutencao.ticket} | Status: ${manutencao.status}`, 'info');
+                    });
+                } else {
+                    log('ℹ️ Nenhuma manutenção local encontrada', 'info');
+                }
+                
+                // Verificar dados mestres
+                const masterDataStore = localStorage.getItem('master-data-store');
+                if (masterDataStore) {
+                    const data = JSON.parse(masterDataStore);
+                    log('📊 Dados mestres encontrados:', 'info');
+                    log(`  - Clientes: ${data.state?.clientes?.length || 0}`, 'info');
+                    log(`  - Contratos: ${data.state?.contratos?.length || 0}`, 'info');
+                    log(`  - Analistas: ${data.state?.analistas?.length || 0}`, 'info');
+                    log(`  - Sistemas: ${data.state?.sistemas?.length || 0}`, 'info');
+                    log(`  - Áreas: ${data.state?.areas?.length || 0}`, 'info');
+                    log(`  - Tipos de Serviço: ${data.state?.tiposServico?.length || 0}`, 'info');
+                    log(`  - Padrões: ${data.state?.padrao?.length || 0}`, 'info');
+                } else {
+                    log('ℹ️ Nenhum dado mestre local encontrado', 'info');
+                }
+                
+            } catch (error) {
+                log(`❌ Erro ao verificar dados: ${error.message}`, 'error');
+            }
+        }
+
+        function limparManutencoes() {
+            log('🗑️ Limpando manutenções locais...');
+            
+            try {
+                // Limpar manutenções
+                localStorage.removeItem('manutencao-store');
+                log('✅ Manutenções locais removidas com sucesso!', 'success');
+                
+                // Verificar se foi removido
+                const manutencaoStore = localStorage.getItem('manutencao-store');
+                if (!manutencaoStore) {
+                    log('✅ Confirmação: manutenções removidas do localStorage', 'success');
+                } else {
+                    log('⚠️ Aviso: manutenções ainda presentes no localStorage', 'warning');
+                }
+                
+            } catch (error) {
+                log(`❌ Erro ao limpar manutenções: ${error.message}`, 'error');
+            }
+        }
+
+        function limparTudo() {
+            if (!confirm('⚠️ ATENÇÃO: Isso irá limpar TODOS os dados locais (manutenções + dados mestres).\n\nIsso pode causar perda de dados não sincronizados.\n\nDeseja continuar?')) {
+                log('❌ Operação cancelada pelo usuário', 'warning');
+                return;
+            }
+            
+            log('💥 Limpando TODOS os dados locais...');
+            
+            try {
+                // Limpar manutenções
+                localStorage.removeItem('manutencao-store');
+                log('✅ Manutenções removidas', 'success');
+                
+                // Limpar dados mestres
+                localStorage.removeItem('master-data-store');
+                log('✅ Dados mestres removidos', 'success');
+                
+                // Limpar outros stores relacionados
+                localStorage.removeItem('demanda-store');
+                localStorage.removeItem('comunicado-store');
+                localStorage.removeItem('validation-store');
+                localStorage.removeItem('project-store');
+                log('✅ Outros stores removidos', 'success');
+                
+                log('🎉 LIMPEZA COMPLETA REALIZADA!', 'success');
+                log('💡 Recarregue a página para aplicar as mudanças', 'info');
+                
+            } catch (error) {
+                log(`❌ Erro durante limpeza: ${error.message}`, 'error');
+            }
+        }
+
+        // Verificar automaticamente ao carregar
+        window.onload = function() {
+            log('🚀 Script de limpeza carregado. Clique em "Verificar Manutenções Locais" para começar.', 'info');
+        };
+    </script>
+</body>
+</html>

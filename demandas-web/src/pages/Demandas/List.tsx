@@ -6,9 +6,12 @@ import { useMasterDataStore } from '../../store/masterDataStore'
 import { useAuthStore } from '../../store/authStore'
 import { StatusBadge } from '../../components/StatusBadge'
 import { UploadModal } from '../../components/UploadModal'
+import { SmartImporter } from '../../components/SmartImporter'
+import { smartImporterConfigs } from '../../config/smartImporterConfigs'
 import { useFilteredData } from '../../lib/utils'
 import { useEffect, useState } from 'react'
 import ExportDataModal from '../../components/ExportDataModal'
+import type { ImportResult } from '../../types/smartImporter'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
@@ -16,6 +19,7 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import FileCopyIcon from '@mui/icons-material/FileCopy'
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf'
 import CloudUploadIcon from '@mui/icons-material/CloudUpload'
+import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
 import EditIcon from '@mui/icons-material/Edit'
 import PersonIcon from '@mui/icons-material/Person'
 import GroupIcon from '@mui/icons-material/Group'
@@ -45,6 +49,7 @@ export default function DemandListPage() {
   const md = useMasterDataStore()
   const { user } = useAuthStore()
   const [uploadModalOpen, setUploadModalOpen] = useState(false)
+  const [smartImporterOpen, setSmartImporterOpen] = useState(false)
   const [showOnlyMyDemands, setShowOnlyMyDemands] = useState(true)
   const [exportModalOpen, setExportModalOpen] = useState(false)
 
@@ -215,6 +220,106 @@ export default function DemandListPage() {
     
     // Simular sucesso
     return Promise.resolve()
+  }
+
+  const handleSmartImport = async (result: ImportResult) => {
+    try {
+      const { api } = await import('../../lib/api.local')
+      let totalImported = 0
+      let totalSavedToDatabase = 0
+      const errors: string[] = []
+
+      console.log('🔍 SMART IMPORT DEMANDAS: Processando resultado:', result)
+
+      // Processar itens válidos
+      for (const item of result.valid) {
+        try {
+          const data = item.isCorrected ? item.correctedData : item.data
+          
+          // Função para encontrar ID por nome
+          const findIdByName = (name: string, items: any[], nameField: string = 'nome') => {
+            if (!name) return ''
+            const item = items.find(item => 
+              item[nameField]?.toLowerCase() === name.toLowerCase() ||
+              item.nome?.toLowerCase() === name.toLowerCase()
+            )
+            console.log(`🔍 SMART IMPORT DEMANDAS: Buscando "${name}" em ${items.length} itens, encontrado:`, item?.id || 'não encontrado')
+            return item?.id || ''
+          }
+
+          // Mapear dados para o formato de demanda
+          const demandaData = {
+            // Campos obrigatórios
+            status: data.status || 'Aberta',
+            tipoServicoId: findIdByName(data.tipoServicoId || data.tipoServico, md.tiposServico) || '',
+            tipo: data.tipo || data.tipoDemanda || '',
+            
+            // Campos opcionais
+            descricao: data.descricao || data.descricaoDemanda || '',
+            analistaId: findIdByName(data.analista || data.analistaId, md.analistas) || '',
+            dataInicio: data.dataInicio || data.dataInicial || new Date().toISOString().split('T')[0],
+            dataFinal: data.dataFinal || data.dataFinalizacao || '',
+            ticket: data.ticket || `DEM-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+            solicitante: data.solicitante || data.solicitanteId || '',
+            areaId: findIdByName(data.area || data.areaId, md.areas) || '',
+            clienteId: findIdByName(data.cliente || data.clienteId, md.clientes) || '',
+            contratoId: findIdByName(data.contrato || data.contratoId, md.contratos, 'codigo') || '',
+            operadoraId: findIdByName(data.operadora || data.operadoraId, md.operadoras) || '',
+            produtoId: findIdByName(data.produto || data.produtoId, md.produtos) || '',
+            sistemaId: findIdByName(data.sistema || data.sistemaId, md.sistemas) || '',
+            analiseQuantitativa: data.analiseQuantitativa || data.analiseQuant || 0,
+            qtdRetornos: data.qtdRetornos || data.quantidadeRetornos || 0,
+            qualidade: data.qualidade || '',
+            qtdClientesVinculados: data.qtdClientesVinculados || data.clientesVinculados || 0,
+            usuariosEmpresa: data.usuariosEmpresa || data.usuarios || 0,
+            observacoes: data.observacoes || data.observacao || ''
+          }
+
+          // Remover campos vazios para evitar problemas com o Prisma
+          Object.keys(demandaData).forEach(key => {
+            if (demandaData[key] === '' || demandaData[key] === null || demandaData[key] === undefined) {
+              delete demandaData[key]
+            }
+          })
+
+          console.log('🔍 SMART IMPORT DEMANDAS: Salvando demanda:', demandaData)
+          console.log('🔍 SMART IMPORT DEMANDAS: Tipo de tipoServicoId:', typeof demandaData.tipoServicoId)
+          console.log('🔍 SMART IMPORT DEMANDAS: Valor de tipoServicoId:', demandaData.tipoServicoId)
+
+          // Salvar na API
+          const savedDemanda = await api.post('/demandas', demandaData)
+          console.log('✅ SMART IMPORT DEMANDAS: Demanda salva:', savedDemanda.id)
+          
+          totalImported++
+          totalSavedToDatabase++
+
+        } catch (error) {
+          console.error('❌ SMART IMPORT DEMANDAS: Erro ao salvar demanda:', error)
+          errors.push(`Erro ao salvar demanda: ${error instanceof Error ? error.message : 'Erro desconhecido'}`)
+        }
+      }
+
+      // Atualizar store local
+      if (totalSavedToDatabase > 0) {
+        await demandStore.syncFromApi()
+      }
+
+      const successMessage = `${totalImported} demandas processadas, ${totalSavedToDatabase} salvas no banco de dados`
+      console.log(`✅ SMART IMPORT DEMANDAS: ${successMessage}`)
+
+      // Mostrar notificação de sucesso
+      if (totalSavedToDatabase > 0) {
+        // Aqui você pode adicionar uma notificação de sucesso
+        console.log('✅ SMART IMPORT DEMANDAS: Importação concluída com sucesso!')
+      }
+
+      if (errors.length > 0) {
+        console.warn('⚠️ SMART IMPORT DEMANDAS: Alguns erros ocorreram:', errors)
+      }
+
+    } catch (error) {
+      console.error('❌ SMART IMPORT DEMANDAS: Erro geral:', error)
+    }
   }
 
   const rows = finalFilteredItems.map((d) => {
@@ -466,6 +571,30 @@ export default function DemandListPage() {
               >
                 Importar
               </Button>
+              
+              <Button 
+                variant="contained" 
+                startIcon={<AutoFixHighIcon />}
+                onClick={() => setSmartImporterOpen(true)}
+                size="medium"
+                className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white transition-all duration-300 font-medium"
+                sx={{
+                  borderRadius: '14px',
+                  padding: '10px 20px',
+                  textTransform: 'none',
+                  fontWeight: 500,
+                  fontSize: '0.9rem',
+                  height: '44px',
+                  background: 'linear-gradient(135deg, #7c3aed 0%, #3b82f6 100%)',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #6d28d9 0%, #2563eb 100%)',
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 8px 25px 0 rgba(124, 58, 237, 0.3)'
+                  }
+                }}
+              >
+                Importador Inteligente
+              </Button>
 
               <Button 
                 variant="outlined" 
@@ -572,6 +701,14 @@ export default function DemandListPage() {
         onUpload={handleUpload}
         title="Importar Cadastros"
         entityType="demandas"
+      />
+
+      <SmartImporter
+        open={smartImporterOpen}
+        onClose={() => setSmartImporterOpen(false)}
+        onImport={handleSmartImport}
+        config={smartImporterConfigs.demandas || smartImporterConfigs.clientes}
+        masterData={md}
       />
 
       {/* Modal de Exportação */}

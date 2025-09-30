@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana-dashboard
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
+    volumes:
+      - grafana-storage:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+    networks:
+      - grafana-network
+    restart: unless-stopped
+
+  # PostgreSQL para conectar com seu banco existente
+  postgres-grafana:
+    image: postgres:15
+    container_name: postgres-grafana
+    environment:
+      - POSTGRES_DB=grafana
+      - POSTGRES_USER=grafana
+      - POSTGRES_PASSWORD=grafana123
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-grafana-storage:/var/lib/postgresql/data
+    networks:
+      - grafana-network
+    restart: unless-stopped
+
+volumes:
+  grafana-storage:
+  postgres-grafana-storage:
+
+networks:
+  grafana-network:
+    driver: bridge

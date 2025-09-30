@@ -1,0 +1,10 @@
+[33m81b97c3[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mgh-pages[m[33m, [m[1;31morigin/gh-pages[m[33m, [m[1;31morigin/HEAD[m[33m)[m Corrigir vercel.json - remover rootDirectory inválido
+[33md491ae7[m Atualizar workflow para branch gh-pages
+[33m8f67ac9[m[33m ([m[1;31morigin/main[m[33m)[m Corrigir erros TypeScript
+[33md4deef9[m  Corrigir erros TypeScript
+[33m53eea86[m �� Forçar atualização
+[33mca50cd6[m 🚀 Configuração GitHub Pages
+[33m9f20a58[m  Corrigindo vercel.json - removendo dependência de secrets
+[33mef0d0e7[m  OPÇÃO 3: Deploy Vercel apenas (mais rápido e simples)
+[33m978cdd9[m  Nova abordagem: Build automático + Deploy manual (Railway + Vercel)
+[33m99565ec[m  Corrigindo sintaxe do Railway CLI (removendo --token inválido)

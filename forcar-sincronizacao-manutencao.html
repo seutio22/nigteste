@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forçar Sincronização de Manutenção</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .error { background: #ffebee; border-color: #f44336; }
+        .success { background: #e8f5e8; border-color: #4caf50; }
+        .warning { background: #fff3e0; border-color: #ff9800; }
+        .info { background: #e3f2fd; border-color: #2196f3; }
+        button { padding: 15px 30px; margin: 10px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 16px; }
+        .btn-danger { background: #f44336; color: white; }
+        .btn-warning { background: #ff9800; color: white; }
+        .btn-success { background: #4caf50; color: white; }
+        .btn-info { background: #2196f3; color: white; }
+        pre { background: #f5f5f5; padding: 15px; border-radius: 4px; overflow-x: auto; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔄 Forçar Sincronização de Manutenção</h1>
+        <p>Este script resolve o problema de sincronização entre frontend e backend.</p>
+
+        <div class="section warning">
+            <h3>⚠️ Problema Identificado</h3>
+            <p>A manutenção existe no frontend mas não no backend, causando erro P2025.</p>
+            <p><strong>Soluções disponíveis:</strong></p>
+            <ul>
+                <li><strong>Opção 1:</strong> Remover manutenção do frontend (mais seguro)</li>
+                <li><strong>Opção 2:</strong> Criar manutenção no backend via API</li>
+                <li><strong>Opção 3:</strong> Limpar tudo e recarregar</li>
+            </ul>
+        </div>
+
+        <div class="grid">
+            <div class="section">
+                <h3>🗑️ Opção 1: Remover do Frontend</h3>
+                <p>Remove a manutenção problemática dos dados locais.</p>
+                <button class="btn-warning" onclick="removerManutencao()">Remover Manutenção</button>
+                <div id="resultado1"></div>
+            </div>
+
+            <div class="section">
+                <h3>🔄 Opção 2: Criar no Backend</h3>
+                <p>Tenta criar a manutenção no backend via API.</p>
+                <button class="btn-info" onclick="criarNoBackend()">Criar no Backend</button>
+                <div id="resultado2"></div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>🧹 Opção 3: Limpeza Completa</h3>
+            <p>Remove todos os dados locais e força recarregamento.</p>
+            <button class="btn-danger" onclick="limpezaCompleta()">Limpeza Completa</button>
+            <div id="resultado3"></div>
+        </div>
+
+        <div class="section">
+            <h3>📊 Status Atual</h3>
+            <div id="status"></div>
+        </div>
+    </div>
+
+    <script>
+        const MANUTENCAO_ID = '009b199d-4e40-48cd-b4b5-5a801b6a9f3e';
+        const API_URL = 'http://localhost:3333';
+
+        function log(message, type = 'info') {
+            console.log(`[${new Date().toLocaleTimeString()}] ${message}`);
+            const statusDiv = document.getElementById('status');
+            const timestamp = new Date().toLocaleTimeString();
+            statusDiv.innerHTML += `<div class="${type}">[${timestamp}] ${message}</div>`;
+        }
+
+        function getManutencaoLocal() {
+            try {
+                const manutencoes = JSON.parse(localStorage.getItem('manutencoes-v1') || '{}');
+                const items = manutencoes.state?.items || [];
+                return items.find(item => item.id === MANUTENCAO_ID);
+            } catch (error) {
+                log(`❌ Erro ao buscar manutenção local: ${error.message}`, 'error');
+                return null;
+            }
+        }
+
+        function removerManutencao() {
+            if (confirm('Tem certeza que deseja remover a manutenção do frontend?')) {
+                log('🗑️ Removendo manutenção do frontend...');
+                
+                try {
+                    const manutencoes = JSON.parse(localStorage.getItem('manutencoes-v1') || '{}');
+                    if (manutencoes.state && manutencoes.state.items) {
+                        const itemsOriginais = manutencoes.state.items.length;
+                        manutencoes.state.items = manutencoes.state.items.filter(item => item.id !== MANUTENCAO_ID);
+                        const itemsRestantes = manutencoes.state.items.length;
+                        
+                        localStorage.setItem('manutencoes-v1', JSON.stringify(manutencoes));
+                        
+                        log(`✅ Manutenção removida: ${itemsOriginais - itemsRestantes} item(s)`, 'success');
+                        document.getElementById('resultado1').innerHTML = `
+                            <div class="success">
+                                <h4>✅ Manutenção Removida</h4>
+                                <p>Manutenções restantes: ${itemsRestantes}</p>
+                                <p>Agora você pode criar uma nova manutenção.</p>
+                            </div>
+                        `;
+                    } else {
+                        log('❌ Nenhuma manutenção encontrada para remover', 'error');
+                    }
+                } catch (error) {
+                    log(`❌ Erro ao remover: ${error.message}`, 'error');
+                }
+            }
+        }
+
+        async function criarNoBackend() {
+            log('🔄 Tentando criar manutenção no backend...');
+            
+            try {
+                const manutencao = getManutencaoLocal();
+                if (!manutencao) {
+                    log('❌ Manutenção não encontrada no frontend', 'error');
+                    return;
+                }
+
+                // Preparar payload para criação
+                const payload = {
+                    status: manutencao.status || 'Aberta',
+                    ticket: manutencao.ticket || null,
+                    solicitante: manutencao.solicitante || null,
+                    descricao: manutencao.descricao || null,
+                    observacoes: manutencao.observacoes || null,
+                    qualidade: manutencao.qualidade || null,
+                    qtdRetornos: manutencao.qtdRetornos || null,
+                    qtdClientesVinculados: manutencao.qtdClientesVinculados || null,
+                    usuariosEmpresa: manutencao.usuariosEmpresa || null,
+                    dataInicio: manutencao.dataInicio || null,
+                    dataFinal: manutencao.dataFinal || null,
+                    analistaId: manutencao.analistaId || null,
+                    clienteId: manutencao.clienteId || null,
+                    contratoId: manutencao.contratoId || null,
+                    operadoraId: manutencao.operadoraId || null,
+                    produtoId: manutencao.produtoId || null,
+                    sistemaId: manutencao.sistemaId || null,
+                    areaId: manutencao.areaId || null,
+                    tipoId: manutencao.tipoId || null,
+                    tipoServicoId: manutencao.tipoServicoId || null
+                };
+
+                log('📤 Enviando payload para API...', 'info');
+                console.log('Payload:', payload);
+
+                // Fazer requisição para criar no backend
+                const response = await fetch(`${API_URL}/manutencoes`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('auth-token') || ''}`
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.ok) {
+                    const novaManutencao = await response.json();
+                    log(`✅ Manutenção criada no backend com ID: ${novaManutencao.id}`, 'success');
+                    
+                    // Atualizar ID no frontend
+                    const manutencoes = JSON.parse(localStorage.getItem('manutencoes-v1') || '{}');
+                    if (manutencoes.state && manutencoes.state.items) {
+                        const itemIndex = manutencoes.state.items.findIndex(item => item.id === MANUTENCAO_ID);
+                        if (itemIndex !== -1) {
+                            manutencoes.state.items[itemIndex].id = novaManutencao.id;
+                            localStorage.setItem('manutencoes-v1', JSON.stringify(manutencoes));
+                            log('✅ ID atualizado no frontend', 'success');
+                        }
+                    }
+                    
+                    document.getElementById('resultado2').innerHTML = `
+                        <div class="success">
+                            <h4>✅ Manutenção Criada no Backend</h4>
+                            <p><strong>Novo ID:</strong> ${novaManutencao.id}</p>
+                            <p>Agora a edição deve funcionar normalmente.</p>
+                        </div>
+                    `;
+                } else {
+                    const errorData = await response.json();
+                    log(`❌ Erro ao criar no backend: ${response.status} - ${JSON.stringify(errorData)}`, 'error');
+                    document.getElementById('resultado2').innerHTML = `
+                        <div class="error">
+                            <h4>❌ Erro ao Criar no Backend</h4>
+                            <p><strong>Status:</strong> ${response.status}</p>
+                            <p><strong>Erro:</strong> ${JSON.stringify(errorData)}</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                log(`❌ Erro na requisição: ${error.message}`, 'error');
+                document.getElementById('resultado2').innerHTML = `
+                    <div class="error">
+                        <h4>❌ Erro na Requisição</h4>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        function limpezaCompleta() {
+            if (confirm('⚠️ ATENÇÃO: Isso irá limpar TODOS os dados locais. Tem certeza?')) {
+                log('🧹 Iniciando limpeza completa...');
+                
+                try {
+                    // Limpar todos os stores
+                    const keys = Object.keys(localStorage);
+                    keys.forEach(key => {
+                        if (key.includes('Store') || key.includes('manutencoes') || key.includes('masterData')) {
+                            localStorage.removeItem(key);
+                            log(`   Removido: ${key}`, 'info');
+                        }
+                    });
+                    
+                    log('✅ Limpeza completa concluída', 'success');
+                    document.getElementById('resultado3').innerHTML = `
+                        <div class="success">
+                            <h4>✅ Limpeza Completa Concluída</h4>
+                            <p>Todos os dados locais foram removidos.</p>
+                            <p>Recarregue a página para aplicar as mudanças.</p>
+                        </div>
+                    `;
+                } catch (error) {
+                    log(`❌ Erro na limpeza: ${error.message}`, 'error');
+                }
+            }
+        }
+
+        // Executar verificação inicial
+        window.onload = function() {
+            log('🚀 Script de sincronização carregado');
+            
+            const manutencao = getManutencaoLocal();
+            if (manutencao) {
+                log(`📋 Manutenção encontrada: ${manutencao.ticket}`, 'info');
+                log(`   ID: ${manutencao.id}`, 'info');
+                log(`   Status: ${manutencao.status}`, 'info');
+            } else {
+                log('❌ Nenhuma manutenção problemática encontrada', 'warning');
+            }
+        };
+    </script>
+</body>
+</html>

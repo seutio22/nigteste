@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Backend P2003</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .error { background: #ffebee; border-color: #f44336; }
+        .success { background: #e8f5e8; border-color: #4caf50; }
+        .warning { background: #fff3e0; border-color: #ff9800; }
+        .info { background: #e3f2fd; border-color: #2196f3; }
+        button { padding: 15px 30px; margin: 10px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 16px; }
+        .btn-danger { background: #f44336; color: white; }
+        .btn-warning { background: #ff9800; color: white; }
+        .btn-success { background: #4caf50; color: white; }
+        .btn-info { background: #2196f3; color: white; }
+        pre { background: #f5f5f5; padding: 15px; border-radius: 4px; overflow-x: auto; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Debug Backend P2003</h1>
+        <p>Este script testa cada ID individualmente para identificar qual está causando o erro P2003.</p>
+
+        <div class="section warning">
+            <h3>⚠️ Problema Identificado</h3>
+            <p>O backend está retornando P2003 (violação de chave estrangeira), mas não sabemos qual ID específico está inválido.</p>
+            <p><strong>Payload problemático:</strong></p>
+            <pre id="problematicPayload"></pre>
+        </div>
+
+        <div class="section">
+            <h3>🧪 Teste Individual de IDs</h3>
+            <p>Testa cada ID individualmente para identificar o problema.</p>
+            <button class="btn-info" onclick="testarIDsIndividuais()">Testar IDs Individuais</button>
+            <div id="resultadoTeste"></div>
+        </div>
+
+        <div class="section">
+            <h3>🔍 Verificar Dados no Backend</h3>
+            <p>Verifica quais IDs existem realmente no backend.</p>
+            <button class="btn-warning" onclick="verificarDadosBackend()">Verificar Dados Backend</button>
+            <div id="resultadoBackend"></div>
+        </div>
+
+        <div class="section">
+            <h3>📊 Status Atual</h3>
+            <div id="status"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3333';
+        
+        // Payload problemático do log
+        const problematicPayload = {
+            "status": "Aberta",
+            "ticket": "MAN-202509-0013",
+            "solicitante": "denis",
+            "descricao": null,
+            "observacoes": null,
+            "qualidade": "0",
+            "qtdRetornos": 12,
+            "qtdClientesVinculados": null,
+            "usuariosEmpresa": null,
+            "dataInicio": null,
+            "dataFinal": null,
+            "analistaId": "9fcd24a1-fa3a-49f2-abef-2deda7be9506",
+            "clienteId": "acd8580d-4a5b-4234-8b89-a47aec4326fa",
+            "contratoId": "dd71b96e-603d-44ea-8990-5a8bedef2d0f",
+            "operadoraId": "d046f2c5-c033-4ac3-ac99-d11930403a54",
+            "produtoId": "b3d9859e-4a44-4498-8186-c8818aba79c1",
+            "sistemaId": "0b55a475-d374-4bbf-9e17-6acec8a39c79",
+            "areaId": "52173ae5-76c2-4f17-a788-728f8af6082e",
+            "tipoId": "10cc6faf-8cea-40d8-b8f2-48ebc97906f4",
+            "tipoServicoId": "a9f02ab5-9eb2-478c-8a8c-a67dd20956ea"
+        };
+
+        function log(message, type = 'info') {
+            console.log(`[${new Date().toLocaleTimeString()}] ${message}`);
+            const statusDiv = document.getElementById('status');
+            const timestamp = new Date().toLocaleTimeString();
+            statusDiv.innerHTML += `<div class="${type}">[${timestamp}] ${message}</div>`;
+        }
+
+        async function testarIDsIndividuais() {
+            log('🧪 Iniciando teste individual de IDs...');
+            
+            const resultadoDiv = document.getElementById('resultadoTeste');
+            resultadoDiv.innerHTML = '<h4>🧪 Testando IDs Individuais...</h4>';
+            
+            const campos = [
+                'analistaId', 'clienteId', 'contratoId', 'operadoraId', 
+                'produtoId', 'sistemaId', 'areaId', 'tipoId', 'tipoServicoId'
+            ];
+            
+            for (const campo of campos) {
+                const id = problematicPayload[campo];
+                if (!id) continue;
+                
+                log(`🔍 Testando ${campo}: ${id}`);
+                
+                try {
+                    // Criar payload mínimo com apenas este ID
+                    const payloadMinimo = {
+                        status: 'Aberta',
+                        ticket: 'TEST-' + Date.now(),
+                        [campo]: id
+                    };
+                    
+                    const response = await fetch(`${API_URL}/manutencoes`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${localStorage.getItem('auth-token') || ''}`
+                        },
+                        body: JSON.stringify(payloadMinimo)
+                    });
+                    
+                    if (response.ok) {
+                        log(`✅ ${campo}: ${id} - VÁLIDO`, 'success');
+                        resultadoDiv.innerHTML += `<div class="success">✅ ${campo}: ${id} - VÁLIDO</div>`;
+                    } else {
+                        const errorData = await response.json();
+                        log(`❌ ${campo}: ${id} - INVÁLIDO (${response.status})`, 'error');
+                        log(`   Erro: ${JSON.stringify(errorData)}`, 'error');
+                        resultadoDiv.innerHTML += `<div class="error">❌ ${campo}: ${id} - INVÁLIDO (${response.status}) - ${JSON.stringify(errorData)}</div>`;
+                    }
+                } catch (error) {
+                    log(`❌ ${campo}: ${id} - ERRO: ${error.message}`, 'error');
+                    resultadoDiv.innerHTML += `<div class="error">❌ ${campo}: ${id} - ERRO: ${error.message}</div>`;
+                }
+                
+                // Pequena pausa entre testes
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+            
+            log('✅ Teste individual concluído');
+        }
+
+        async function verificarDadosBackend() {
+            log('🔍 Verificando dados no backend...');
+            
+            const resultadoDiv = document.getElementById('resultadoBackend');
+            resultadoDiv.innerHTML = '<h4>🔍 Dados no Backend:</h4>';
+            
+            const endpoints = [
+                'analistas', 'clientes', 'contratos', 'operadoras', 
+                'produtos', 'sistemas', 'areas', 'tiposDemanda', 'tiposCadastro'
+            ];
+            
+            for (const endpoint of endpoints) {
+                try {
+                    const response = await fetch(`${API_URL}/${endpoint}`, {
+                        headers: {
+                            'Authorization': `Bearer ${localStorage.getItem('auth-token') || ''}`
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        log(`✅ ${endpoint}: ${data.length} registros`);
+                        resultadoDiv.innerHTML += `<div class="success">✅ ${endpoint}: ${data.length} registros</div>`;
+                        
+                        // Mostrar IDs disponíveis
+                        if (data.length > 0) {
+                            const ids = data.map(item => item.id).slice(0, 5);
+                            resultadoDiv.innerHTML += `<div class="info">   IDs: ${ids.join(', ')}${data.length > 5 ? '...' : ''}</div>`;
+                        }
+                    } else {
+                        log(`❌ ${endpoint}: Erro ${response.status}`, 'error');
+                        resultadoDiv.innerHTML += `<div class="error">❌ ${endpoint}: Erro ${response.status}</div>`;
+                    }
+                } catch (error) {
+                    log(`❌ ${endpoint}: Erro ${error.message}`, 'error');
+                    resultadoDiv.innerHTML += `<div class="error">❌ ${endpoint}: Erro ${error.message}</div>`;
+                }
+            }
+            
+            log('✅ Verificação do backend concluída');
+        }
+
+        // Executar verificação inicial
+        window.onload = function() {
+            log('🚀 Script de debug carregado');
+            document.getElementById('problematicPayload').textContent = JSON.stringify(problematicPayload, null, 2);
+        };
+    </script>
+</body>
+</html>

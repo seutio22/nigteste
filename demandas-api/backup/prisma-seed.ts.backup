@@ -1,0 +1,208 @@
+import { PrismaClient } from '@prisma/client'
+import bcrypt from 'bcryptjs'
+import { generatePermissionsJson } from '../src/config/permissions'
+
+const prisma = new PrismaClient()
+
+async function main() {
+  console.log('🌱 Iniciando seed do banco de dados...')
+
+  // Limpar dados existentes
+  await prisma.user.deleteMany()
+  console.log('🧹 Usuários existentes removidos')
+
+  // Hash da senha padrão
+  const hashedPassword = await bcrypt.hash('admin123', 10)
+
+  // Criar usuários com permissões específicas
+  const users = [
+    {
+      name: 'Administrador',
+      email: 'admin@admin.com',
+      password: hashedPassword,
+      role: 'admin',
+      active: true,
+      viewOwnDataOnly: false,
+      permissions: generatePermissionsJson('admin')
+    },
+    {
+      name: 'Gerente',
+      email: 'gerente@empresa.com',
+      password: hashedPassword,
+      role: 'gerente',
+      active: true,
+      viewOwnDataOnly: false,
+      permissions: generatePermissionsJson('gerente')
+    },
+    {
+      name: 'Analista',
+      email: 'analista@empresa.com',
+      password: hashedPassword,
+      role: 'analista',
+      active: true,
+      viewOwnDataOnly: true,
+      permissions: generatePermissionsJson('analista')
+    },
+    {
+      name: 'Solicitante',
+      email: 'solicitante@empresa.com',
+      password: hashedPassword,
+      role: 'solicitante',
+      active: true,
+      viewOwnDataOnly: true,
+      permissions: generatePermissionsJson('solicitante')
+    },
+    {
+      name: 'Visualizador',
+      email: 'viewer@empresa.com',
+      password: hashedPassword,
+      role: 'viewer',
+      active: true,
+      viewOwnDataOnly: false,
+      permissions: generatePermissionsJson('viewer')
+    }
+  ]
+
+  // Inserir usuários
+  const createdUsers = []
+  for (const userData of users) {
+    const user = await prisma.user.create({
+      data: userData
+    })
+    createdUsers.push(user)
+    console.log(`👤 Usuário criado: ${user.name} (${user.email}) - Role: ${user.role}`)
+  }
+
+  // Criar projetos de exemplo
+  const projects = [
+    {
+      name: 'Sistema de E-commerce',
+      description: 'Desenvolvimento de plataforma completa de e-commerce',
+      status: 'active',
+      priority: 'high',
+      startDate: new Date('2024-01-15'),
+      endDate: new Date('2024-07-30'),
+      progress: 75,
+      budget: 85000,
+      managerId: createdUsers[0].id, // Admin
+      team: JSON.stringify([createdUsers[0].id, createdUsers[1].id]),
+      tags: JSON.stringify(['Frontend', 'Backend', 'Mobile']),
+      color: '#1976d2'
+    },
+    {
+      name: 'App Mobile de Delivery',
+      description: 'Aplicativo mobile para entrega de alimentos',
+      status: 'active',
+      priority: 'medium',
+      startDate: new Date('2024-03-01'),
+      endDate: new Date('2024-09-30'),
+      progress: 45,
+      budget: 65000,
+      managerId: createdUsers[1].id, // Gerente
+      team: JSON.stringify([createdUsers[1].id, createdUsers[2].id]),
+      tags: JSON.stringify(['Mobile', 'React Native', 'API']),
+      color: '#2e7d32'
+    }
+  ]
+
+  const createdProjects = []
+  for (const projectData of projects) {
+    const project = await prisma.project.create({
+      data: projectData
+    })
+    createdProjects.push(project)
+    console.log(`📋 Projeto criado: ${project.name}`)
+  }
+
+  // Adicionar membros internos aos projetos
+  if (createdProjects.length > 0 && createdUsers.length > 0) {
+    // Projeto 1: Sistema de E-commerce
+    await prisma.projectMember.create({
+      data: {
+        projectId: createdProjects[0].id,
+        userId: createdUsers[1].id, // Gerente
+        role: 'Desenvolvedor Full-Stack',
+        permissions: ['view', 'edit', 'comment'],
+        startDate: new Date('2024-01-15'),
+        notes: 'Membro da equipe principal'
+      }
+    })
+
+    await prisma.projectMember.create({
+      data: {
+        projectId: createdProjects[0].id,
+        userId: createdUsers[2].id, // Analista
+        role: 'Analista de Requisitos',
+        permissions: ['view', 'comment'],
+        startDate: new Date('2024-01-20'),
+        notes: 'Responsável pela análise de requisitos'
+      }
+    })
+
+    // Projeto 2: App Mobile
+    await prisma.projectMember.create({
+      data: {
+        projectId: createdProjects[1].id,
+        userId: createdUsers[2].id, // Analista
+        role: 'Desenvolvedor Mobile',
+        permissions: ['view', 'edit'],
+        startDate: new Date('2024-03-01'),
+        notes: 'Desenvolvedor principal do app'
+      }
+    })
+  }
+
+  // Adicionar membros externos aos projetos
+  if (createdProjects.length > 0) {
+    // Membro externo para o projeto de e-commerce
+    await prisma.projectExternalMember.create({
+      data: {
+        projectId: createdProjects[0].id,
+        name: 'João Silva',
+        email: 'joao.silva@cliente.com',
+        phone: '(11) 99999-9999',
+        company: 'E-commerce Ltda',
+        role: 'Cliente',
+        accessLevel: 'view',
+        startDate: new Date('2024-01-15'),
+        notes: 'Cliente principal do projeto'
+      }
+    })
+
+    // Membro externo para o projeto mobile
+    await prisma.projectExternalMember.create({
+      data: {
+        projectId: createdProjects[1].id,
+        name: 'Maria Santos',
+        email: 'maria.santos@fornecedor.com',
+        phone: '(11) 88888-8888',
+        company: 'Tech Solutions',
+        role: 'Fornecedor de API',
+        accessLevel: 'comment',
+        startDate: new Date('2024-03-01'),
+        notes: 'Fornecedor da API de pagamentos'
+      }
+    })
+  }
+
+  console.log('✅ Seed concluído com sucesso!')
+  console.log('🔑 Senha padrão para todos os usuários: admin123')
+  console.log('📋 Usuários disponíveis:')
+  console.log('   - admin@admin.com (Administrador)')
+  console.log('   - gerente@empresa.com (Gerente)')
+  console.log('   - analista@empresa.com (Analista)')
+  console.log('   - solicitante@empresa.com (Solicitante)')
+  console.log('   - viewer@empresa.com (Visualizador)')
+  console.log('📊 Projetos criados:', createdProjects.length)
+  console.log('👥 Membros de equipe adicionados aos projetos')
+}
+
+main()
+  .catch((e) => {
+    console.error('❌ Erro durante o seed:', e)
+    process.exit(1)
+  })
+  .finally(async () => {
+    await prisma.$disconnect()
+  })
+

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Limpar Manutenções Locais</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        button {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background-color: #c82333;
+        }
+        .info {
+            background-color: #e9ecef;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧹 Limpar Manutenções Locais</h1>
+        
+        <div class="info">
+            <h3>⚠️ Atenção!</h3>
+            <p>Esta ferramenta irá limpar todas as manutenções armazenadas localmente no seu navegador.</p>
+            <p><strong>Esta ação não pode ser desfeita!</strong></p>
+        </div>
+
+        <div id="status"></div>
+
+        <button onclick="limparManutencoes()">🗑️ Limpar Todas as Manutenções Locais</button>
+        <button onclick="verificarManutencoes()">👀 Verificar Manutenções Locais</button>
+        <button onclick="voltar()">← Voltar ao Sistema</button>
+
+        <div id="resultado"></div>
+    </div>
+
+    <script>
+        function verificarManutencoes() {
+            const status = document.getElementById('status');
+            const resultado = document.getElementById('resultado');
+            
+            try {
+                // Verificar diferentes chaves possíveis
+                const chaves = [
+                    'manutencoes-v1',
+                    'manutencoes',
+                    'manutencao-store',
+                    'manutencaoStore'
+                ];
+                
+                let encontradas = 0;
+                let total = 0;
+                
+                chaves.forEach(chave => {
+                    const dados = localStorage.getItem(chave);
+                    if (dados) {
+                        try {
+                            const parsed = JSON.parse(dados);
+                            if (parsed.items && Array.isArray(parsed.items)) {
+                                encontradas += parsed.items.length;
+                                total++;
+                                console.log(`Chave ${chave}: ${parsed.items.length} manutenções`);
+                            }
+                        } catch (e) {
+                            console.log(`Chave ${chave}: dados inválidos`);
+                        }
+                    }
+                });
+                
+                resultado.innerHTML = `
+                    <div class="info">
+                        <h3>📊 Status das Manutenções Locais</h3>
+                        <p><strong>Chaves encontradas:</strong> ${total}</p>
+                        <p><strong>Total de manutenções:</strong> ${encontradas}</p>
+                        <p><strong>Status:</strong> ${encontradas > 0 ? 'Há manutenções armazenadas localmente' : 'Nenhuma manutenção local encontrada'}</p>
+                    </div>
+                `;
+                
+            } catch (error) {
+                resultado.innerHTML = `<div style="color: red;">Erro ao verificar: ${error.message}</div>`;
+            }
+        }
+
+        function limparManutencoes() {
+            const status = document.getElementById('status');
+            const resultado = document.getElementById('resultado');
+            
+            if (!confirm('Tem certeza que deseja limpar TODAS as manutenções locais? Esta ação não pode ser desfeita!')) {
+                return;
+            }
+            
+            try {
+                // Lista de chaves possíveis para limpar
+                const chaves = [
+                    'manutencoes-v1',
+                    'manutencoes',
+                    'manutencao-store',
+                    'manutencaoStore',
+                    'manutencao-timeline',
+                    'manutencao-timeline-v1'
+                ];
+                
+                let removidas = 0;
+                
+                chaves.forEach(chave => {
+                    if (localStorage.getItem(chave)) {
+                        localStorage.removeItem(chave);
+                        removidas++;
+                        console.log(`Chave removida: ${chave}`);
+                    }
+                });
+                
+                // Limpar também chaves relacionadas ao ticket
+                const keys = Object.keys(localStorage);
+                keys.forEach(key => {
+                    if (key.includes('ticket-seq-manutencao')) {
+                        localStorage.removeItem(key);
+                        removidas++;
+                        console.log(`Chave de sequência removida: ${key}`);
+                    }
+                });
+                
+                resultado.innerHTML = `
+                    <div class="success">
+                        <h3>✅ Limpeza Concluída!</h3>
+                        <p><strong>Chaves removidas:</strong> ${removidas}</p>
+                        <p>Todas as manutenções locais foram removidas com sucesso!</p>
+                        <p>Você pode agora voltar ao sistema e as manutenções serão carregadas do servidor.</p>
+                    </div>
+                `;
+                
+                status.innerHTML = '<div class="success">✅ Manutenções locais limpas com sucesso!</div>';
+                
+            } catch (error) {
+                resultado.innerHTML = `<div style="color: red;">❌ Erro ao limpar: ${error.message}</div>`;
+                status.innerHTML = '<div style="color: red;">❌ Erro ao limpar manutenções</div>';
+            }
+        }
+
+        function voltar() {
+            window.location.href = 'http://localhost:5173/manutencao';
+        }
+
+        // Verificar automaticamente ao carregar
+        window.onload = function() {
+            verificarManutencoes();
+        };
+    </script>
+</body>
+</html>

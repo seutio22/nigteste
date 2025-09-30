@@ -483,9 +483,55 @@ export const useDadosCRUD = () => {
       return true
     } catch (error) {
       console.error('❌ Erro ao excluir entidade:', error)
+      
+      let errorMessage = 'Erro desconhecido'
+      
+      if (error instanceof Error) {
+        // Verificar se é erro 404 (registro não encontrado)
+        if (error.message.includes('404') || error.message.includes('não foi encontrado')) {
+          errorMessage = 'Registro não encontrado. Pode ter sido excluído por outro usuário.'
+          // Remover do store local mesmo se não existir no backend
+          switch (activeTab) {
+            case 'clientes':
+              store.upsertMany({ clientes: store.clientes.filter(c => c.id !== id) })
+              break
+            case 'contratos':
+              store.upsertMany({ contratos: store.contratos.filter(c => c.id !== id) })
+              break
+            case 'operadoras':
+              store.upsertMany({ operadoras: store.operadoras.filter(o => o.id !== id) })
+              break
+            case 'analistas':
+              store.upsertMany({ analistas: store.analistas.filter(a => a.id !== id) })
+              break
+            case 'solicitantes':
+              store.upsertMany({ solicitantes: store.solicitantes.filter(s => s.id !== id) })
+              break
+            case 'relatorios':
+              store.upsertMany({ relatorios: store.relatorios.filter(r => r.id !== id) })
+              break
+            case 'modelos':
+              store.upsertMany({ modelos: store.modelos.filter(m => m.id !== id) })
+              break
+            case 'areasMailling':
+              store.upsertMany({ areasMailling: store.areasMailling.filter(a => a.id !== id) })
+              break
+            case 'cargosMailling':
+              store.upsertMany({ cargosMailling: store.cargosMailling.filter(c => c.id !== id) })
+              break
+            case 'filiaisMailling':
+              store.upsertMany({ filiaisMailling: store.filiaisMailling.filter(f => f.id !== id) })
+              break
+          }
+          return true // Considerar como sucesso pois removemos do cache
+        } else {
+          errorMessage = error.message
+        }
+      }
+      
       setSnack({
         open: true,
-        message: `Erro ao excluir: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
+        message: `Erro ao excluir: ${errorMessage}`,
         severity: 'error'
       })
       return false
