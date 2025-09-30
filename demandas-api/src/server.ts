@@ -44,9 +44,9 @@ app.addContentTypeParser('application/json', { parseAs: 'string' }, function (re
   }
 })
 
-const jwtSecret = process.env.JWT_SECRET;
-if (!jwtSecret) {
-  throw new Error('JWT_SECRET não configurado. Configure a variável de ambiente JWT_SECRET.');
+const jwtSecret = process.env.JWT_SECRET || 'default-secret-key-for-development-only';
+if (!process.env.JWT_SECRET) {
+  console.warn('⚠️ JWT_SECRET não configurado. Usando chave padrão (NÃO SEGURO PARA PRODUÇÃO)');
 }
 app.register(jwt, { secret: jwtSecret })
 app.register(authPlugin)
