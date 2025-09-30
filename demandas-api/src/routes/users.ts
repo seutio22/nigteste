@@ -122,7 +122,7 @@ export async function userRoutes(app: FastifyInstance, options: { prisma: Prisma
       }
     }
     
-    return defaultPermissions[role] || defaultPermissions.viewer
+    return defaultPermissions[role as keyof typeof defaultPermissions] || defaultPermissions.viewer
   }
 
   // Middleware para verificar se o usuário é admin

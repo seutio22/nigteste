@@ -1265,7 +1265,7 @@ app.delete('/contratos/limpar-orfaos', async () => {
     // Buscar contratos que têm clienteId que não existe
     const contratosOrfaos = await prisma.contrato.findMany({
       where: {
-        cliente: { is: null }
+        cliente: null
       }
     })
     
@@ -1553,8 +1553,8 @@ app.get('/analytics', async () => {
       
       // Reajustes por status
       prisma.reajuste.groupBy({
-        by: ['status'],
-        _count: { status: true }
+        by: ['aprovado'],
+        _count: { aprovado: true }
       }),
       
       // Projetos por status
@@ -1597,10 +1597,10 @@ app.get('/analytics', async () => {
     ])
     
     // Buscar nomes dos analistas, áreas, clientes e tipos
-    const analistaIds = analistasMaisAtivos.map(a => a.analistaId).filter(Boolean)
-    const areaIds = areasMaisAtivas.map(a => a.areaId).filter(Boolean)
-    const clienteIds = clientesMaisAtivos.map(c => c.clienteId).filter(Boolean)
-    const tipoIds = tiposMaisUsados.map(t => t.tipoId).filter(Boolean)
+    const analistaIds = analistasMaisAtivos.map(a => a.analistaId).filter((id): id is string => Boolean(id))
+    const areaIds = areasMaisAtivas.map(a => a.areaId).filter((id): id is string => Boolean(id))
+    const clienteIds = clientesMaisAtivos.map(c => c.clienteId).filter((id): id is string => Boolean(id))
+    const tipoIds = tiposMaisUsados.map(t => t.tipoId).filter((id): id is string => Boolean(id))
     
     const [analistas, areas, clientes, tipos] = await Promise.all([
       analistaIds.length > 0 ? prisma.analista.findMany({
@@ -1733,7 +1733,7 @@ app.get('/analytics', async () => {
       reports: reports
     }
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Erro ao buscar analytics:', error)
     console.error('❌ Stack trace:', error.stack)
     return {

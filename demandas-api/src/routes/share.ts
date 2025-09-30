@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { PrismaClient } from '@prisma/client';
-import crypto from 'crypto';
+import * as crypto from 'crypto';
 
 export default async function shareRoutes(fastify: FastifyInstance, options: { prisma: PrismaClient }) {
   const { prisma } = options;
@@ -149,7 +149,7 @@ export default async function shareRoutes(fastify: FastifyInstance, options: { p
         try {
           processedProject.timeline = JSON.parse(processedProject.timeline);
         } catch (e) {
-          processedProject.timeline = { phases: [] };
+          processedProject.timeline = JSON.stringify({ phases: [] });
         }
       }
 
