@@ -1267,7 +1267,9 @@ app.delete('/contratos/limpar-orfaos', async () => {
     // Buscar contratos que têm clienteId que não existe
     const contratosOrfaos = await prisma.contrato.findMany({
       where: {
-        clienteId: null
+        clienteId: {
+          equals: null
+        }
       }
     })
     
