@@ -179,7 +179,8 @@ export const useDemandStore = create<DemandState>()(
         try {
           // Excluir do backend primeiro
           const { useAuthStore } = await import('./authStore')
-          const response = await fetch(`http://localhost:3333/demandas/${id}`, {
+          const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3333'
+          const response = await fetch(`${baseUrl}/demandas/${id}`, {
             method: 'DELETE',
             headers: {
               'Authorization': `Bearer ${useAuthStore.getState().token}`,

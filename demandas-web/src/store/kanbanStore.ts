@@ -316,7 +316,8 @@ export const useKanbanStore = create<KanbanState>()(
             console.log('🔍 KanbanStore: Iniciando syncFromApi...')
             
             // Buscar tickets do kanban da API (endpoint próprio)
-            const kanbanResponse = await fetch('http://localhost:3333/kanban-tickets')
+            const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3333'
+            const kanbanResponse = await fetch(`${baseUrl}/kanban-tickets`)
             if (!kanbanResponse.ok) {
               // Se não existir endpoint, usar dados locais
               console.log('🔍 KanbanStore: Endpoint não encontrado, usando dados locais')

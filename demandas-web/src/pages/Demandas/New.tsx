@@ -115,7 +115,8 @@ export default function DemandNewPage() {
     
     for (const endpoint of endpoints) {
       try {
-        const response = await fetch(`http://localhost:3333/${endpoint}`)
+        const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3333'
+        const response = await fetch(`${baseUrl}/${endpoint}`)
         const data = await response.json()
         console.log(`✅ TESTE: /${endpoint} - ${data.length} registros`)
       } catch (error) {
@@ -355,7 +356,8 @@ export default function DemandNewPage() {
           // Testar Cliente
           if (data.cliente) {
             console.log(`🔍 VERIFICAÇÃO BANCO: Testando cliente ID: ${data.cliente}`)
-            const clienteResponse = await fetch(`http://localhost:3333/clientes/${data.cliente}`)
+            const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3333'
+            const clienteResponse = await fetch(`${baseUrl}/clientes/${data.cliente}`)
             if (clienteResponse.ok) {
               const clienteData = await clienteResponse.json()
               console.log('✅ VERIFICAÇÃO BANCO: Cliente encontrado no banco:', clienteData)
@@ -369,7 +371,8 @@ export default function DemandNewPage() {
           // Testar Contrato
           if (data.contrato) {
             console.log(`🔍 VERIFICAÇÃO BANCO: Testando contrato ID: ${data.contrato}`)
-            const contratoResponse = await fetch(`http://localhost:3333/contratos/${data.contrato}`)
+            const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3333'
+            const contratoResponse = await fetch(`${baseUrl}/contratos/${data.contrato}`)
             if (contratoResponse.ok) {
               const contratoData = await contratoResponse.json()
               console.log('✅ VERIFICAÇÃO BANCO: Contrato encontrado no banco:', contratoData)

@@ -215,9 +215,10 @@ export const useManutencaoStore = create<ManutencaoState>()(
             throw new Error('Token de autenticação não encontrado')
           }
           
-          console.log('🔍 ManutencaoStore: Enviando DELETE para:', `http://localhost:3333/manutencoes/${id}`)
+          const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3333'
+          console.log('🔍 ManutencaoStore: Enviando DELETE para:', `${baseUrl}/manutencoes/${id}`)
           
-          const response = await fetch(`http://localhost:3333/manutencoes/${id}`, {
+          const response = await fetch(`${baseUrl}/manutencoes/${id}`, {
             method: 'DELETE',
             headers: {
               'Authorization': `Bearer ${token}`,
