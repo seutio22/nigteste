@@ -132,7 +132,7 @@ export default function DadosPage() {
               break
             case 'analistas':
               endpoint = '/analistas'
-              payload = { nome: data.nome, email: data.email }
+              payload = { nome: data.nome }
               break
             case 'areas':
               endpoint = '/areas'

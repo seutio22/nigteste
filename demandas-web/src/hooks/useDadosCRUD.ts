@@ -98,19 +98,15 @@ export const useDadosCRUD = () => {
           }
           break
         case 'analistas':
-          // Payload específico para analistas
+          // Payload específico para analistas - apenas nome
           const analistaPayload: any = { 
-            nome: form.nome,
-            email: form.email || null,
-            telefone: form.telefone || null
+            nome: form.nome
           }
           
           // Entidade completa para o store local (com id)
           newEntity = { 
             id, 
-            nome: form.nome,
-            email: form.email || null,
-            telefone: form.telefone || null
+            nome: form.nome
           }
           
           const storeKey = activeTab as keyof typeof store

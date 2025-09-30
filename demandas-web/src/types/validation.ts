@@ -27,7 +27,7 @@ export interface ValidationEntry {
   produto?: string
   analista?: string
   // Objetos relacionados (populados pela API)
-  analistaObj?: { id: string; nome: string; email?: string; telefone?: string; areaId?: string; createdAt: string; updatedAt: string }
+  analistaObj?: { id: string; nome: string; createdAt: string; updatedAt: string }
   clienteObj?: { id: string; nome: string; grupoEconomico?: string; cnpj?: string; telefone?: string; email?: string; endereco?: string; createdAt: string; updatedAt: string }
   contratoObj?: { id: string; numero: string; codigo?: string; grupoEconomico?: string; clienteId: string; valor?: number; dataInicio?: string; dataFim?: string; status: string; createdAt: string; updatedAt: string }
   operadoraObj?: { id: string; nome: string; cnpj?: string; telefone?: string; email?: string; endereco?: string; createdAt: string; updatedAt: string }
