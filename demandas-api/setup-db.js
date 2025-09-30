@@ -39,7 +39,44 @@ async function setupDatabase() {
     execSync('node seed-data.js', { stdio: 'inherit' });
     console.log('✅ Seed de dados executado com sucesso');
     
-    // 6. Testar e verificar usuário
+    // 6. Criar usuário administrador diretamente
+    console.log('👤 Criando usuário administrador...');
+    const bcrypt = require('bcryptjs');
+    const hashedPassword = await bcrypt.hash('admin123', 10);
+    
+    // Verificar se já existe
+    const existingAdmin = await prisma.user.findUnique({
+      where: { email: 'admin@demandas.com' }
+    });
+    
+    if (!existingAdmin) {
+      const admin = await prisma.user.create({
+        data: {
+          email: 'admin@demandas.com',
+          password: hashedPassword,
+          name: 'Administrador',
+          role: 'admin',
+          permissions: {
+            canCreate: true,
+            canRead: true,
+            canUpdate: true,
+            canDelete: true,
+            canManageUsers: true,
+            canManageProjects: true,
+            canManageDemands: true,
+            canManageValidations: true,
+            canManageMaintenance: true,
+            canViewReports: true,
+            canManageMasterData: true
+          }
+        }
+      });
+      console.log('✅ Usuário administrador criado:', admin.email);
+    } else {
+      console.log('ℹ️ Usuário administrador já existe');
+    }
+    
+    // 7. Testar e verificar usuário
     console.log('🔍 Testando e verificando usuário...');
     execSync('node test-and-create-user.js', { stdio: 'inherit' });
     console.log('✅ Teste de usuário concluído');
