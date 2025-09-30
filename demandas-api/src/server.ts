@@ -1864,10 +1864,20 @@ app.post('/analytics', async (req: any) => {
 // Iniciar servidor
 const start = async () => {
   try {
-    await app.listen({ port: 3333, host: '0.0.0.0' })
-    console.log('🚀 Servidor rodando em http://localhost:3333')
+    console.log('🔄 Iniciando servidor...')
+    console.log('📊 Variáveis de ambiente:')
+    console.log('- NODE_ENV:', process.env.NODE_ENV)
+    console.log('- PORT:', process.env.PORT)
+    console.log('- JWT_SECRET:', process.env.JWT_SECRET ? '✅ Definido' : '❌ Não definido')
+    
+    const port = process.env.PORT || 3333
+    console.log(`🌐 Tentando iniciar na porta: ${port}`)
+    
+    await app.listen({ port: Number(port), host: '0.0.0.0' })
+    console.log(`🚀 Servidor rodando em http://0.0.0.0:${port}`)
+    console.log('✅ Healthcheck disponível em /health')
   } catch (err) {
-    app.log.error(err)
+    console.error('❌ Erro ao iniciar servidor:', err)
     process.exit(1)
   }
 }
