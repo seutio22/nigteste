@@ -1265,13 +1265,23 @@ app.delete('/contratos/limpar-orfaos', async () => {
     console.log('🧹 Iniciando limpeza de contratos órfãos...')
     
     // Buscar contratos que têm clienteId que não existe
-    const contratosOrfaos = await prisma.contrato.findMany({
-      where: {
-        clienteId: {
-          equals: null
+    // Buscar todos os contratos
+    const todosContratos = await prisma.contrato.findMany({
+      select: { id: true, clienteId: true }
+    })
+    
+    // Filtrar contratos órfãos (onde clienteId não existe na tabela cliente)
+    const contratosOrfaos = []
+    for (const contrato of todosContratos) {
+      if (contrato.clienteId) {
+        const clienteExiste = await prisma.cliente.findUnique({
+          where: { id: contrato.clienteId }
+        })
+        if (!clienteExiste) {
+          contratosOrfaos.push(contrato)
         }
       }
-    })
+    }
     
     console.log(`🔍 Encontrados ${contratosOrfaos.length} contratos órfãos`)
     
