@@ -22,12 +22,8 @@ model Area {
 model Analista {
   id                   String                @id @default(uuid())
   nome                 String
-  email                String?               @unique
-  telefone             String?
-  areaId               String?
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
-  area                 Area?                 @relation(fields: [areaId], references: [id])
   atendimentos         Atendimento[]
   demandas             Demanda[]
   manutencoes          Manutencao[]
