@@ -17,6 +17,25 @@ const app = Fastify({
 })
 const prisma = new PrismaClient()
 
+// Aplicar schema automaticamente na inicialização
+async function applySchema() {
+  try {
+    console.log('🔧 Verificando schema do banco...')
+    await prisma.$executeRaw`ALTER TABLE "Analista" ADD COLUMN IF NOT EXISTS "email" TEXT`
+    await prisma.$executeRaw`ALTER TABLE "Analista" ADD COLUMN IF NOT EXISTS "telefone" TEXT`
+    await prisma.$executeRaw`ALTER TABLE "Analista" ADD COLUMN IF NOT EXISTS "cargo" TEXT`
+    console.log('✅ Schema verificado!')
+  } catch (error: any) {
+    if (error.message.includes('already exists')) {
+      console.log('✅ Schema já aplicado!')
+    } else {
+      console.log('ℹ️ Schema check:', error.message)
+    }
+  }
+}
+
+applySchema().catch(console.error)
+
 // Configuração de CORS mais permissiva para desenvolvimento
 const corsOptions = {
   origin: true, // Aceitar qualquer origem em desenvolvimento
