@@ -1861,6 +1861,62 @@ app.post('/analytics', async (req: any) => {
 
 // Endpoint para buscar relatórios já está definido acima
 
+// Endpoint especial para criar usuário administrador (apenas para setup inicial)
+app.post('/setup-admin', async (req: any, reply: any) => {
+  try {
+    console.log('🔧 POST /setup-admin - Criando usuário administrador...')
+    
+    const bcrypt = require('bcryptjs')
+    const hashedPassword = await bcrypt.hash('admin123', 10)
+    
+    // Verificar se já existe
+    const existingAdmin = await prisma.user.findUnique({
+      where: { email: 'admin@demandas.com' }
+    })
+    
+    if (existingAdmin) {
+      console.log('ℹ️ Usuário administrador já existe')
+      return { message: 'Usuário administrador já existe', user: existingAdmin }
+    }
+    
+    // Criar usuário administrador
+    const admin = await prisma.user.create({
+      data: {
+        email: 'admin@demandas.com',
+        password: hashedPassword,
+        name: 'Administrador',
+        role: 'admin',
+        permissions: {
+          canCreate: true,
+          canRead: true,
+          canUpdate: true,
+          canDelete: true,
+          canManageUsers: true,
+          canManageProjects: true,
+          canManageDemands: true,
+          canManageValidations: true,
+          canManageMaintenance: true,
+          canViewReports: true,
+          canManageMasterData: true
+        }
+      }
+    })
+    
+    console.log('✅ Usuário administrador criado:', admin.email)
+    return { 
+      message: 'Usuário administrador criado com sucesso',
+      user: { email: admin.email, name: admin.name, role: admin.role },
+      credentials: {
+        email: 'admin@demandas.com',
+        password: 'admin123'
+      }
+    }
+  } catch (error) {
+    console.error('❌ Erro ao criar usuário administrador:', error)
+    return reply.code(500).send({ error: 'Erro interno do servidor', details: error.message })
+  }
+})
+
 // Iniciar servidor
 const start = async () => {
   try {
