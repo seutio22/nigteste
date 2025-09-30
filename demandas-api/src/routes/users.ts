@@ -154,7 +154,7 @@ export async function userRoutes(app: FastifyInstance, options: { prisma: Prisma
       
       return users
     } catch (error: any) {
-      app.log.error('Erro ao listar usuários:', error)
+      app.log.error('Erro ao listar usuários:', String(error))
       throw new Error('Erro interno ao listar usuários')
     }
   })
@@ -185,7 +185,7 @@ export async function userRoutes(app: FastifyInstance, options: { prisma: Prisma
       
       return user
     } catch (error: any) {
-      app.log.error('Erro ao obter usuário:', error)
+      app.log.error('Erro ao obter usuário:', String(error))
       throw error
     }
   })
@@ -236,9 +236,9 @@ export async function userRoutes(app: FastifyInstance, options: { prisma: Prisma
       res.code(201)
       return created
     } catch (error: any) {
-      app.log.error('Erro ao criar usuário:', error)
+      app.log.error('Erro ao criar usuário:', String(error))
       if (error instanceof z.ZodError) {
-        return res.code(400).send({ error: 'Dados inválidos', details: (error).errors })
+        return res.code(400).send({ error: 'Dados inválidos', details: (error).issues })
       }
       throw new Error('Erro interno ao criar usuário')
     }
@@ -302,9 +302,9 @@ export async function userRoutes(app: FastifyInstance, options: { prisma: Prisma
       
       return updated
     } catch (error: any) {
-      app.log.error('Erro ao atualizar usuário:', error)
+      app.log.error('Erro ao atualizar usuário:', String(error))
       if (error instanceof z.ZodError) {
-        return res.code(400).send({ error: 'Dados inválidos', details: (error).errors })
+        return res.code(400).send({ error: 'Dados inválidos', details: (error).issues })
       }
       throw new Error('Erro interno ao atualizar usuário')
     }
@@ -410,7 +410,7 @@ export async function userRoutes(app: FastifyInstance, options: { prisma: Prisma
       
       return { message: 'Usuário deletado com sucesso' }
     } catch (error: any) {
-      app.log.error('Erro ao deletar usuário:', error)
+      app.log.error('Erro ao deletar usuário:', String(error))
       throw error
     }
   })
@@ -441,7 +441,7 @@ export async function userRoutes(app: FastifyInstance, options: { prisma: Prisma
       
       return updated
     } catch (error: any) {
-      app.log.error('Erro ao alterar status do usuário:', error)
+      app.log.error('Erro ao alterar status do usuário:', String(error))
       throw error
     }
   })
@@ -473,7 +473,7 @@ export async function userRoutes(app: FastifyInstance, options: { prisma: Prisma
       
       return user
     } catch (error: any) {
-      app.log.error('Erro ao obter dados do usuário:', error)
+      app.log.error('Erro ao obter dados do usuário:', String(error))
       throw error
     }
   })
