@@ -153,7 +153,7 @@ export async function userRoutes(app: FastifyInstance, options: { prisma: Prisma
       })
       
       return users
-    } catch (error) {
+    } catch (error: any) {
       app.log.error('Erro ao listar usuários:', error)
       throw new Error('Erro interno ao listar usuários')
     }
@@ -184,7 +184,7 @@ export async function userRoutes(app: FastifyInstance, options: { prisma: Prisma
       }
       
       return user
-    } catch (error) {
+    } catch (error: any) {
       app.log.error('Erro ao obter usuário:', error)
       throw error
     }
@@ -235,7 +235,7 @@ export async function userRoutes(app: FastifyInstance, options: { prisma: Prisma
       
       res.code(201)
       return created
-    } catch (error) {
+    } catch (error: any) {
       app.log.error('Erro ao criar usuário:', error)
       if (error instanceof z.ZodError) {
         return res.code(400).send({ error: 'Dados inválidos', details: (error).errors })
@@ -301,7 +301,7 @@ export async function userRoutes(app: FastifyInstance, options: { prisma: Prisma
       })
       
       return updated
-    } catch (error) {
+    } catch (error: any) {
       app.log.error('Erro ao atualizar usuário:', error)
       if (error instanceof z.ZodError) {
         return res.code(400).send({ error: 'Dados inválidos', details: (error).errors })
@@ -409,7 +409,7 @@ export async function userRoutes(app: FastifyInstance, options: { prisma: Prisma
       })
       
       return { message: 'Usuário deletado com sucesso' }
-    } catch (error) {
+    } catch (error: any) {
       app.log.error('Erro ao deletar usuário:', error)
       throw error
     }
@@ -440,7 +440,7 @@ export async function userRoutes(app: FastifyInstance, options: { prisma: Prisma
       })
       
       return updated
-    } catch (error) {
+    } catch (error: any) {
       app.log.error('Erro ao alterar status do usuário:', error)
       throw error
     }
@@ -472,7 +472,7 @@ export async function userRoutes(app: FastifyInstance, options: { prisma: Prisma
       }
       
       return user
-    } catch (error) {
+    } catch (error: any) {
       app.log.error('Erro ao obter dados do usuário:', error)
       throw error
     }

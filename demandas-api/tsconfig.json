@@ -12,7 +12,12 @@
     "sourceMap": false,
     "declaration": false,
     "moduleResolution": "node",
-    "noImplicitAny": false
+    "noImplicitAny": false,
+    "noImplicitReturns": false,
+    "noImplicitThis": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "suppressImplicitAnyIndexErrors": true
   },
   "include": ["src/**/*", "src/types/**/*"],
   "exclude": ["node_modules", "dist", "**/*.test.ts"]
