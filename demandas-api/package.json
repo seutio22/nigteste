@@ -1,7 +1,7 @@
 {
   "name": "demandas-api",
   "version": "1.0.0",
-  "description": "Backend API - Cache bust 2025-09-30T22:14:44.042Z",
+  "description": "Backend API - Force redeploy 2025-09-30T22:30:00.000Z",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
@@ -19,7 +19,7 @@
   "dependencies": {
     "@fastify/cors": "^11.1.0",
     "@fastify/jwt": "^9.1.0",
-    "@prisma/client": "^6.13.0",
+    "@prisma/client": "^6.16.3",
     "bcryptjs": "^3.0.2",
     "fastify": "^5.4.0",
     "fastify-plugin": "^5.0.1",
