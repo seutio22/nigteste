@@ -817,18 +817,18 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
           <div className="max-h-48 overflow-y-auto border border-gray-300 rounded-lg p-3 space-y-2">
             {[
               { value: "0", label: "0- Sem erros" },
-              { value: "1", label: "1-ERRO CODIGO CONTRATO" },
-              { value: "2", label: "2-ERRO CNPJ" },
-              { value: "3", label: "3-ERRO CODIGO SUB" },
-              { value: "4", label: "4-ERRO VIGENCIA" },
-              { value: "5", label: "5-ERRO ASSOCIAÇÃO NO MOVE" },
-              { value: "6", label: "6-ERRO RAZÃO SOCIAL" },
-              { value: "7", label: "7-ERRO Plano; Cadastrado/Coberturas" },
-              { value: "8", label: "8-ERRO Financeiro" },
-              { value: "9", label: "9-ERRO Limite Técnico" },
-              { value: "10", label: "10-ERRO Coparticipação" },
-              { value: "11", label: "11-ERRO Contribuição" },
-              { value: "12", label: "12-ERRO Dados Gerais" }
+              { value: "1-CODIGO_CONTRATO", label: "1-ERRO CODIGO CONTRATO" },
+              { value: "1-CNPJ", label: "1-ERRO CNPJ" },
+              { value: "1-CODIGO_SUB", label: "1-ERRO CODIGO SUB" },
+              { value: "1-VIGENCIA", label: "1-ERRO VIGENCIA" },
+              { value: "1-ASSOCIACAO_MOVE", label: "1-ERRO ASSOCIAÇÃO NO MOVE" },
+              { value: "1-RAZAO_SOCIAL", label: "1-ERRO RAZÃO SOCIAL" },
+              { value: "1-PLANO_COBERTURAS", label: "1-ERRO Plano; Cadastrado/Coberturas" },
+              { value: "1-FINANCEIRO", label: "1-ERRO Financeiro" },
+              { value: "1-LIMITE_TECNICO", label: "1-ERRO Limite Técnico" },
+              { value: "1-COPARTICIPACAO", label: "1-ERRO Coparticipação" },
+              { value: "1-CONTRIBUICAO", label: "1-ERRO Contribuição" },
+              { value: "1-DADOS_GERAIS", label: "1-ERRO Dados Gerais" }
             ].map((option) => (
               <label key={option.value} className="flex items-center space-x-2 text-sm">
                 <input
@@ -856,12 +856,12 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
           <div className="max-h-48 overflow-y-auto border border-gray-300 rounded-lg p-3 space-y-2">
             {[
               { value: "0", label: "0- Sem erros" },
-              { value: "1", label: "1-ERRO CODIGO CONTRATO" },
-              { value: "2", label: "2-ERRO CNPJ" },
-              { value: "3", label: "3-ERRO CODIGO SUB" },
-              { value: "4", label: "4-ERRO VIGENCIA" },
-              { value: "5", label: "5-ERRO ASSOCIAÇÃO NO MOVE" },
-              { value: "6", label: "6-ERRO RAZÃO SOCIAL" }
+              { value: "1-CODIGO_CONTRATO", label: "1-ERRO CODIGO CONTRATO" },
+              { value: "1-CNPJ", label: "1-ERRO CNPJ" },
+              { value: "1-CODIGO_SUB", label: "1-ERRO CODIGO SUB" },
+              { value: "1-VIGENCIA", label: "1-ERRO VIGENCIA" },
+              { value: "1-ASSOCIACAO_MOVE", label: "1-ERRO ASSOCIAÇÃO NO MOVE" },
+              { value: "1-RAZAO_SOCIAL", label: "1-ERRO RAZÃO SOCIAL" }
             ].map((option) => (
               <label key={option.value} className="flex items-center space-x-2 text-sm">
                 <input
