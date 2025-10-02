@@ -90,7 +90,7 @@ app.get('/users/validate/:id', async (req: any) => {
 function crud(entity: keyof PrismaClient) {
   const anyPrisma = prisma as any;
   return {
-    list: async () => {
+    list: async (queryParams?: any) => {
       // Incluir relacionamentos para atendimentos
       if (entity === 'atendimento') {
         return anyPrisma[entity].findMany({
@@ -137,10 +137,14 @@ function crud(entity: keyof PrismaClient) {
         });
       }
       
-      // Filtrar apenas contratos ativos
+      // Filtrar contratos baseado no parâmetro includeInactive
       if (entity === 'contrato') {
+        const includeInactive = queryParams?.includeInactive === 'true';
+        const whereClause = includeInactive ? {} : { status: 'Ativo' };
+        
         return anyPrisma[entity].findMany({
-          where: { status: 'Ativo' }
+          where: whereClause,
+          orderBy: { createdAt: 'desc' }
         });
       }
       
@@ -284,9 +288,17 @@ function crud(entity: keyof PrismaClient) {
       return anyPrisma[entity].findUnique({ where: { id } });
     },
     create: async (data: unknown) => {
-      // Garantir que contratos sejam criados como ativos por padrão
+      // Garantir que contratos sejam criados como ativos por padrão apenas se não especificado
       if (entity === 'contrato') {
-        const contratoData = { ...data as any, status: 'Ativo' };
+        const contratoData = { ...data as any };
+        // Definir status padrão apenas se não foi especificado
+        if (!contratoData.status) {
+          contratoData.status = 'Ativo';
+        }
+        // Garantir que o campo numero existe
+        if (!contratoData.numero) {
+          contratoData.numero = contratoData.codigo || `CONT-${Date.now()}`;
+        }
         return anyPrisma[entity].create({ data: contratoData });
       }
       return anyPrisma[entity].create({ data });
@@ -580,7 +592,7 @@ const resources = {
 }
 
 for (const [path, repo] of Object.entries(resources)) {
-  app.get(`/${path}`, async () => repo.list())
+  app.get(`/${path}`, async (req: any) => repo.list(req.query))
   app.get(`/${path}/:id`, async (req: any) => repo.get(req.params.id))
   app.post(`/${path}`, async (req: any, res) => {
     console.log(`🔍 POST /${path}: Recebendo requisição`)
