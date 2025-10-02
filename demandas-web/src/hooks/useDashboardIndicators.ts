@@ -69,6 +69,16 @@ const calculatePageMetrics = (items: any[], page: string, period: PeriodType): P
     }
   }
 
+  // Verificar se items é um array válido
+  if (!Array.isArray(items)) {
+    return {
+      page,
+      daily: { total: 0, created: 0, updated: 0, completed: 0 },
+      monthly: { total: 0, created: 0, updated: 0, completed: 0 },
+      quarterly: { total: 0, created: 0, updated: 0, completed: 0 }
+    }
+  }
+
   const calculateForPeriod = (p: PeriodType) => {
     const periodItems = items.filter(item => isInPeriod(item[config.fields.created], p))
     const total = periodItems.length
@@ -102,20 +112,20 @@ export const useDashboardIndicators = (period: PeriodType = 'daily') => {
   const dadosStore = useDadosStore()
   const masterDataStore = useMasterDataStore()
 
-  // Mapeamento de stores por página
+  // Mapeamento de stores por página com verificações de segurança
   const storeMap = {
-    demandas: demandStore.items,
-    atendimentos: atendimentoStore.items,
-    validacoes: validationStore.items,
-    reajustes: reajusteStore.items,
-    manutencoes: manutencaoStore.items,
-    analytics: reportStore.items,
-    mailling: maillingStore.contacts,
-    comunicados: comunicadoStore.items,
-    projetos: projectStore.items,
-    kanban: kanbanStore.items,
-    dados: dadosStore.items,
-    usuarios: masterDataStore.analistas // Usando analistas como proxy para usuários
+    demandas: Array.isArray(demandStore.items) ? demandStore.items : [],
+    atendimentos: Array.isArray(atendimentoStore.items) ? atendimentoStore.items : [],
+    validacoes: Array.isArray(validationStore.items) ? validationStore.items : [],
+    reajustes: Array.isArray(reajusteStore.items) ? reajusteStore.items : [],
+    manutencoes: Array.isArray(manutencaoStore.items) ? manutencaoStore.items : [],
+    analytics: Array.isArray(reportStore.items) ? reportStore.items : [],
+    mailling: Array.isArray(maillingStore.contacts) ? maillingStore.contacts : [],
+    comunicados: Array.isArray(comunicadoStore.items) ? comunicadoStore.items : [],
+    projetos: Array.isArray(projectStore.items) ? projectStore.items : [],
+    kanban: Array.isArray(kanbanStore.items) ? kanbanStore.items : [],
+    dados: Array.isArray(dadosStore.items) ? dadosStore.items : [],
+    usuarios: Array.isArray(masterDataStore.analistas) ? masterDataStore.analistas : [] // Usando analistas como proxy para usuários
   }
 
   // Calcular métricas para todas as páginas
