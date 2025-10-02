@@ -47,7 +47,12 @@ export const useAuthStore = create<AuthState>()(
       
       // Função para inicializar o estado
       initialize: () => {
-        set({ loading: false })
+        const { token, user } = get()
+        if (token && user) {
+          set({ loading: false })
+        } else {
+          set({ loading: false })
+        }
       }
     }),
     { 
@@ -55,9 +60,9 @@ export const useAuthStore = create<AuthState>()(
       version: 8, // Incrementado para forçar limpeza do cache após correção do campo analista
       partialize: (state) => ({ token: state.token, user: state.user }),
       onRehydrateStorage: () => (state) => {
-        // Quando o estado é reidratado do localStorage, definir loading como false
+        // Quando o estado é reidratado do localStorage, inicializar loading
         if (state) {
-          state.loading = false
+          state.initialize()
         }
       }
     }
