@@ -237,10 +237,26 @@ const columns: GridColDef[] = [
   { field: 'descricao', headerName: 'Descrição', flex: 1, minWidth: 220 },
   { field: 'status', headerName: 'Status', width: 150, renderCell: (p) => <StatusBadge status={String(p.value ?? '')} /> },
   { field: 'analista', headerName: 'Analista', width: 160 },
-  { field: 'cliente', headerName: 'Cliente', width: 160 },
-  { field: 'contrato', headerName: 'Contrato', width: 160 },
-  { field: 'operadora', headerName: 'Operadora', width: 160 },
-  { field: 'solicitante', headerName: 'Solicitante', width: 160 },
+  { field: 'cliente', headerName: 'Cliente', width: 160, renderCell: (params) => {
+    const md = useMasterDataStore.getState()
+    const cliente = md.clientes.find(c => c.id === params.value)
+    return cliente ? cliente.nome : params.value || '-'
+  }},
+  { field: 'contrato', headerName: 'Contrato', width: 160, renderCell: (params) => {
+    const md = useMasterDataStore.getState()
+    const contrato = md.contratos.find(c => c.id === params.value)
+    return contrato ? contrato.numero : params.value || '-'
+  }},
+  { field: 'operadora', headerName: 'Operadora', width: 160, renderCell: (params) => {
+    const md = useMasterDataStore.getState()
+    const operadora = md.operadoras.find(o => o.id === params.value)
+    return operadora ? operadora.nome : params.value || '-'
+  }},
+  { field: 'solicitante', headerName: 'Solicitante', width: 160, renderCell: (params) => {
+    const md = useMasterDataStore.getState()
+    const solicitante = md.solicitantes.find(s => s.id === params.value)
+    return solicitante ? solicitante.nome : params.value || '-'
+  }},
   { field: 'dataInicio', headerName: 'Data Início', width: 140 },
   { field: 'dataFinal', headerName: 'Data Final', width: 140 },
   { field: 'updatedAt', headerName: 'Atualizado em', width: 160 },
