@@ -6,7 +6,7 @@ import { useAtendimentoStore } from '../store/atendimentoStore'
 import { useValidationStore } from '../store/validationStore'
 import { useReajusteStore } from '../store/reajusteStore'
 import { useManutencaoStore } from '../store/manutencaoStore'
-import { useDadosStore } from '../store/dadosStore'
+import { useReportStore } from '../store/reportStore'
 import { useMasterDataStore } from '../store/masterDataStore'
 import { 
   Plus, 
@@ -21,8 +21,7 @@ import {
   Calendar,
   Clock,
   Star,
-  Wrench,
-  Database
+  Wrench
 } from 'lucide-react'
 
 export default function HomePage() {
@@ -33,7 +32,7 @@ export default function HomePage() {
   const validationStore = useValidationStore()
   const reajusteStore = useReajusteStore()
   const manutencaoStore = useManutencaoStore()
-  const dadosStore = useDadosStore()
+  const reportStore = useReportStore()
   const masterDataStore = useMasterDataStore()
 
   // Atividades recentes baseadas em dados reais
@@ -100,23 +99,23 @@ export default function HomePage() {
         status: manutencao.status === 'Concluída' ? 'success' : manutencao.status === 'Em Andamento' ? 'warning' : 'info'
       }))
     
-    // Adicionar dados recentes
-    const recentDados = dadosStore.items
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    // Adicionar relatórios recentes (analytics)
+    const recentRelatorios = reportStore.items
+      .sort((a, b) => new Date(b.dataCriacao).getTime() - new Date(a.dataCriacao).getTime())
       .slice(0, 1)
-      .map(dado => ({
-        id: `dado-${dado.id}`,
-        title: `Dado: ${dado.chave || 'Sem chave'}`,
-        time: new Date(dado.createdAt).toLocaleString('pt-BR'),
-        type: 'Dados',
-        status: dado.ativo ? 'success' : 'warning'
+      .map(relatorio => ({
+        id: `relatorio-${relatorio.id}`,
+        title: `Relatório: ${relatorio.titulo || 'Sem título'}`,
+        time: new Date(relatorio.dataCriacao).toLocaleString('pt-BR'),
+        type: 'Analytics',
+        status: relatorio.status === 'concluido' ? 'success' : relatorio.status === 'em_andamento' ? 'warning' : 'info'
       }))
     
     // Combinar todas as atividades e ordenar por data
-    return [...recentDemandas, ...recentAtendimentos, ...recentValidacoes, ...recentReajustes, ...recentManutencoes, ...recentDados]
+    return [...recentDemandas, ...recentAtendimentos, ...recentValidacoes, ...recentReajustes, ...recentManutencoes, ...recentRelatorios]
       .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
       .slice(0, 8) // Limitar a 8 atividades
-  }, [demandStore.items, atendimentoStore.items, validationStore.items, reajusteStore.items, manutencaoStore.items, dadosStore.items])
+  }, [demandStore.items, atendimentoStore.items, validationStore.items, reajusteStore.items, manutencaoStore.items, reportStore.items])
 
   // Carregar dados automaticamente quando a página é carregada
   useEffect(() => {
@@ -165,17 +164,18 @@ export default function HomePage() {
         })
       }
       
-      // Carregar dados de dados
-      if (dadosStore.items.length === 0) {
-        console.log('🔍 Home: Carregando dados...')
-        dadosStore.syncFromApi().catch(error => {
-          console.error('❌ Home: Erro ao carregar dados:', error)
+      // Carregar dados de relatórios (analytics)
+      if (reportStore.items.length === 0) {
+        console.log('🔍 Home: Carregando relatórios...')
+        reportStore.syncFromApi().catch(error => {
+          console.error('❌ Home: Erro ao carregar relatórios:', error)
         })
       }
+      
     } else {
       console.log('🔍 Home: Usuário não logado, aguardando...')
     }
-  }, [user?.id, demandStore, atendimentoStore, validationStore, reajusteStore, manutencaoStore, dadosStore])
+  }, [user?.id, demandStore, atendimentoStore, validationStore, reajusteStore, manutencaoStore, reportStore])
 
   // Estatísticas reais baseadas nos dados carregados
   const stats = useMemo(() => {
@@ -201,9 +201,10 @@ export default function HomePage() {
     const manutencoesEmAndamento = manutencaoStore.items.filter(m => m.status === 'Em Andamento').length
     const manutencoesConcluidas = manutencaoStore.items.filter(m => m.status === 'Concluída').length
     
-    const totalDados = dadosStore.items.length
-    const dadosAtivos = dadosStore.items.filter(d => d.ativo).length
-    const dadosInativos = dadosStore.items.filter(d => !d.ativo).length
+    const totalRelatorios = reportStore.items.length
+    const relatoriosPendentes = reportStore.items.filter(r => r.status === 'pendente').length
+    const relatoriosEmAndamento = reportStore.items.filter(r => r.status === 'em_andamento').length
+    const relatoriosConcluidos = reportStore.items.filter(r => r.status === 'concluido').length
     
     return {
       demandas: { total: totalDemandas, pendentes: demandasPendentes, emAndamento: demandasEmAndamento, concluidas: demandasConcluidas },
@@ -211,9 +212,9 @@ export default function HomePage() {
       validacoes: { total: totalValidacoes, pendentes: validacoesPendentes, aprovadas: validacoesAprovadas },
       reajustes: { total: totalReajustes, pendentes: reajustesPendentes, aprovados: reajustesAprovados },
       manutencoes: { total: totalManutencoes, pendentes: manutencoesPendentes, emAndamento: manutencoesEmAndamento, concluidas: manutencoesConcluidas },
-      dados: { total: totalDados, ativos: dadosAtivos, inativos: dadosInativos }
+      analytics: { total: totalRelatorios, pendentes: relatoriosPendentes, emAndamento: relatoriosEmAndamento, concluidos: relatoriosConcluidos }
     }
-  }, [demandStore.items, atendimentoStore.items, validationStore.items, reajusteStore.items, manutencaoStore.items, dadosStore.items])
+  }, [demandStore.items, atendimentoStore.items, validationStore.items, reajusteStore.items, manutencaoStore.items, reportStore.items])
 
   const quickActions = [
     {
@@ -454,8 +455,8 @@ export default function HomePage() {
                 <div className="text-sm text-teal-800">Manutenções</div>
               </div>
               <div className="text-center p-4 bg-indigo-50 rounded-xl">
-                <div className="text-2xl font-bold text-indigo-600">{stats.dados.total}</div>
-                <div className="text-sm text-indigo-800">Dados</div>
+                <div className="text-2xl font-bold text-indigo-600">{stats.analytics.total}</div>
+                <div className="text-sm text-indigo-800">Analytics</div>
               </div>
             </div>
           </div>
@@ -578,21 +579,25 @@ export default function HomePage() {
 
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
             <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <Database className="w-5 h-5 text-indigo-600" />
-              Dados
+              <BarChart3 className="w-5 h-5 text-indigo-600" />
+              Analytics
             </h3>
             <div className="space-y-2">
               <div className="flex justify-between">
                 <span className="text-gray-600">Total:</span>
-                <span className="font-semibold">{stats.dados.total}</span>
+                <span className="font-semibold">{stats.analytics.total}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Ativos:</span>
-                <span className="font-semibold text-green-600">{stats.dados.ativos}</span>
+                <span className="text-gray-600">Pendentes:</span>
+                <span className="font-semibold text-orange-600">{stats.analytics.pendentes}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Inativos:</span>
-                <span className="font-semibold text-gray-600">{stats.dados.inativos}</span>
+                <span className="text-gray-600">Em Andamento:</span>
+                <span className="font-semibold text-blue-600">{stats.analytics.emAndamento}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Concluídos:</span>
+                <span className="font-semibold text-green-600">{stats.analytics.concluidos}</span>
               </div>
             </div>
           </div>
