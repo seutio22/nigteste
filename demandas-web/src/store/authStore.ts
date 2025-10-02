@@ -51,7 +51,32 @@ export const useAuthStore = create<AuthState>()(
         if (token && user) {
           set({ loading: false })
         } else {
-          set({ loading: false })
+          // Criar usuário padrão para teste
+          const defaultUser: User = {
+            id: '1',
+            name: 'Usuário Teste',
+            email: 'teste@teste.com',
+            role: 'admin',
+            permissions: {
+              home: { view: true, create: false, edit: false, delete: false },
+              dashboard: { view: true, create: false, edit: false, delete: false },
+              cadastro: { view: true, create: true, edit: true, delete: true },
+              manutencao: { view: true, create: true, edit: true, delete: true },
+              atendimento: { view: true, create: true, edit: true, delete: true },
+              comunicados: { view: true, create: true, edit: true, delete: true },
+              validacao: { view: true, create: true, edit: true, delete: true },
+              reajuste: { view: true, create: true, edit: true, delete: true },
+              mailling: { view: true, create: true, edit: true, delete: true },
+              analytics: { view: true, create: true, edit: true, delete: true },
+              kanban: { view: true, create: true, edit: true, delete: true },
+              projetos: { view: true, create: true, edit: true, delete: true },
+              dados: { view: true, create: true, edit: true, delete: true },
+              usuarios: { view: true, create: true, edit: true, delete: true },
+              configuracoes: { view: true, create: true, edit: true, delete: true },
+              relatorios: { view: true, create: true, edit: true, delete: true }
+            }
+          }
+          set({ user: defaultUser, loading: false })
         }
       }
     }),
