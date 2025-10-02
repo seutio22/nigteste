@@ -103,7 +103,7 @@ model Contrato {
   numero         String        @unique
   codigo         String?
   grupoEconomico String?
-  clienteId      String
+  clienteId      String?
   valor          Float?
   dataInicio     DateTime?
   dataFim        DateTime?

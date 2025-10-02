@@ -319,6 +319,13 @@ function crud(entity: keyof PrismaClient) {
           console.log('🔍 CONTRATO CREATE: Codigo definido como numero:', contratoData.codigo);
         }
         
+        // ClienteId é opcional - pode ser definido posteriormente
+        if (contratoData.clienteId) {
+          console.log('🔍 CONTRATO CREATE: ClienteId fornecido:', contratoData.clienteId);
+        } else {
+          console.log('🔍 CONTRATO CREATE: ClienteId não fornecido - contrato será criado sem cliente');
+        }
+        
         console.log('🔍 CONTRATO CREATE: Dados finais para criação:', JSON.stringify(contratoData, null, 2));
         return anyPrisma[entity].create({ data: contratoData });
       }
