@@ -414,7 +414,7 @@ export default function ValidationListPage() {
       cliente: v.cliente,
       contrato: v.contrato,
       operadora: v.operadora,
-      solicitante: md.solicitantes.find(s => s.id === v.solicitante)?.nome ?? v.solicitante ?? '',
+      solicitante: v.solicitante,
       dataInicio: v.dataInicio ?? '',
       dataFinal: v.dataFinal ?? '',
       updatedAt: new Date(v.updatedAt).toLocaleString('pt-BR'),
