@@ -9,6 +9,7 @@ import { fmt } from '../../lib/utils'
 import { useState, useEffect } from 'react'
 import { Save, Edit3, Clock, ArrowLeft } from 'lucide-react'
 import { Demand } from '../../types/demand'
+import { Autocomplete, TextField } from '@mui/material'
 
 // Função para converter código de qualidade em texto legível
 const getQualidadeLabel = (value?: string) => {
@@ -653,14 +654,61 @@ function EditInline({ d }: { d: Demand }) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Cliente</label>
-          <select
-            value={draft.clienteId || ''}
-            onChange={(e) => setDraft({ ...draft, clienteId: e.target.value || undefined })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="">Selecione...</option>
-            {md.clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-          </select>
+          <Autocomplete
+            options={md.clientes}
+            getOptionLabel={(option) => option.nome || ''}
+            isOptionEqualToValue={(option, value) => option.id === value?.id}
+            value={md.clientes.find(c => c.id === draft.clienteId) || null}
+            onChange={(_, newValue) => setDraft({ ...draft, clienteId: newValue?.id || undefined })}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                placeholder="Digite para buscar..."
+                className="w-full"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    padding: '8px 14px',
+                    borderRadius: '8px',
+                    border: '1px solid #d1d5db',
+                    '&:hover': {
+                      borderColor: '#3b82f6'
+                    },
+                    '&.Mui-focused': {
+                      borderColor: '#3b82f6',
+                      boxShadow: '0 0 0 2px rgba(59, 130, 246, 0.1)'
+                    }
+                  },
+                  '& .MuiOutlinedInput-notchedOutline': {
+                    border: 'none'
+                  }
+                }}
+              />
+            )}
+            renderOption={(props, option) => (
+              <li {...props} className="px-3 py-2 hover:bg-gray-50">
+                <div>
+                  <div className="font-medium text-gray-900">
+                    {option.nome}
+                  </div>
+                  {option.grupoEconomico && (
+                    <div className="text-sm text-gray-500">
+                      Grupo: {option.grupoEconomico}
+                    </div>
+                  )}
+                </div>
+              </li>
+            )}
+            noOptionsText="Nenhum cliente encontrado"
+            loading={md.clientes.length === 0}
+            loadingText="Carregando clientes..."
+            filterOptions={(options, { inputValue }) => {
+              const filtered = options.filter(option =>
+                option.nome.toLowerCase().includes(inputValue.toLowerCase()) ||
+                (option.grupoEconomico && option.grupoEconomico.toLowerCase().includes(inputValue.toLowerCase()))
+              )
+              return filtered
+            }}
+          />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Contrato</label>

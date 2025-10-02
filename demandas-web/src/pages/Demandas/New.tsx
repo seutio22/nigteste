@@ -1,7 +1,7 @@
 
 
 import React, { useState, useEffect, useCallback } from 'react'
-import { Box, Button, Container, Paper, Stack, TextField, Typography, MenuItem, FormControl, InputLabel, Select, Grid } from '@mui/material'
+import { Autocomplete, Box, Button, Container, Paper, Stack, TextField, Typography, MenuItem, FormControl, InputLabel, Select, Grid } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 import { useForm, Controller, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -447,7 +447,6 @@ export default function DemandNewPage() {
 
       // DEBUG: Criar versão simplificada do payload para teste incremental
       const debugPayload = {
-        nome: backendPayload.nome,
         status: backendPayload.status,
         tipoId: backendPayload.tipoId,
         tipoServicoId: backendPayload.tipoServicoId,
@@ -464,7 +463,6 @@ export default function DemandNewPage() {
       console.log('🎯 PAYLOAD FINAL ANTES DO ENVIO:')
       console.log('📤 JSON que será enviado:', JSON.stringify(finalPayload, null, 2))
       console.log('🔍 Verificação final de campos obrigatórios:')
-      console.log('  nome:', finalPayload.nome)
       console.log('  status:', finalPayload.status)
       console.log('  tipoId:', finalPayload.tipoId)
       console.log('  tipoServicoId:', finalPayload.tipoServicoId)
@@ -473,16 +471,25 @@ export default function DemandNewPage() {
       const storePayload = {
         status: data.status,
         ticket: data.ticket || generateTicket(),
+        analista: analistaCorrespondente?.nome || null,
         analistaId: analistaCorrespondente?.id || null,
         solicitante: emptyToNull(data.solicitante),
+        area: md.areas.find(a => a.id === sanitizedData.area)?.nome || null,
         areaId: sanitizedData.area,
+        tipo: md.tiposDemanda.find(t => t.id === sanitizedData.tipo)?.nome || null,
         tipoId: sanitizedData.tipo,
         descricao: data.descricao || null,
+        tipoServico: md.tiposServico.find(ts => ts.id === sanitizedData.tipoServico)?.nome || null,
         tipoServicoId: sanitizedData.tipoServico,
+        cliente: md.clientes.find(c => c.id === sanitizedData.cliente)?.nome || null,
         clienteId: sanitizedData.cliente,
+        contrato: md.contratos.find(c => c.id === sanitizedData.contrato)?.codigo || md.contratos.find(c => c.id === sanitizedData.contrato)?.numero || null,
         contratoId: sanitizedData.contrato,
+        operadora: md.operadoras.find(o => o.id === sanitizedData.operadora)?.nome || null,
         operadoraId: sanitizedData.operadora,
+        produto: md.produtos.find(p => p.id === sanitizedData.produto)?.nome || null,
         produtoId: sanitizedData.produto,
+        sistema: md.sistemas.find(s => s.id === sanitizedData.sistema)?.nome || null,
         sistemaId: sanitizedData.sistema,
         dataInicio: data.dataInicio ? new Date(data.dataInicio).toISOString() : null,
         dataFinal: data.dataFinal ? new Date(data.dataFinal).toISOString() : null,
@@ -622,9 +629,48 @@ export default function DemandNewPage() {
           
           <Grid item xs={12} sm={6} md={4}>
             <Controller name="cliente" control={control} render={({ field }) => (
-              <TextField {...field} select label="Cliente" fullWidth error={!!errors.cliente} helperText={errors.cliente?.message}>
-                {md.clientes.map(c => <MenuItem key={c.id} value={c.id}>{c.nome}</MenuItem>)}
-              </TextField>
+              <Autocomplete
+                {...field}
+                options={md.clientes}
+                getOptionLabel={(option) => option.nome || ''}
+                isOptionEqualToValue={(option, value) => option.id === value?.id}
+                value={md.clientes.find(c => c.id === field.value) || null}
+                onChange={(_, newValue) => field.onChange(newValue?.id || '')}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Cliente"
+                    fullWidth
+                    error={!!errors.cliente}
+                    helperText={errors.cliente?.message || 'Digite para buscar um cliente'}
+                    placeholder="Digite para buscar..."
+                  />
+                )}
+                renderOption={(props, option) => (
+                  <Box component="li" {...props}>
+                    <Box>
+                      <Typography variant="body1" fontWeight="medium">
+                        {option.nome}
+                      </Typography>
+                      {option.grupoEconomico && (
+                        <Typography variant="caption" color="text.secondary">
+                          Grupo: {option.grupoEconomico}
+                        </Typography>
+                      )}
+                    </Box>
+                  </Box>
+                )}
+                noOptionsText="Nenhum cliente encontrado"
+                loading={md.clientes.length === 0}
+                loadingText="Carregando clientes..."
+                filterOptions={(options, { inputValue }) => {
+                  const filtered = options.filter(option =>
+                    option.nome.toLowerCase().includes(inputValue.toLowerCase()) ||
+                    (option.grupoEconomico && option.grupoEconomico.toLowerCase().includes(inputValue.toLowerCase()))
+                  )
+                  return filtered
+                }}
+              />
             )} />
           </Grid>
           <Grid item xs={12} sm={6} md={4}>

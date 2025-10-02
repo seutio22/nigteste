@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import {
+  Autocomplete,
   Box,
   Paper,
   Typography,
@@ -34,7 +35,7 @@ export default function AnalyticsNewPage() {
     ticket: '',
     total: '',
     tipo: 'mensal' as const,
-    status: 'PENDENTE' as const,
+    status: 'pendente' as const,
     analista: '',
     area: '',
     cliente: '',
@@ -143,7 +144,6 @@ export default function AnalyticsNewPage() {
         solicitante: form.solicitante,
         solicitacao: form.solicitacao,
         tipoSolicitacao: form.tipoSolicitacao,
-        tipoServico: form.tipoServico,
         observacoes: form.observacoes
       })
 
@@ -320,21 +320,45 @@ export default function AnalyticsNewPage() {
                   </Select>
                 </FormControl>
                 
-                <FormControl fullWidth>
-                  <InputLabel>Cliente</InputLabel>
-                  <Select
-                    value={form.cliente}
-                    label="Cliente"
-                    onChange={(e) => setForm(prev => ({ ...prev, cliente: e.target.value }))}
-                  >
-                    <MenuItem value="">Nenhum</MenuItem>
-                    {md.clientes.map(cliente => (
-                      <MenuItem key={cliente.id} value={cliente.id}>
-                        {cliente.nome}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                <Autocomplete
+                  options={md.clientes}
+                  getOptionLabel={(option) => option.nome || ''}
+                  isOptionEqualToValue={(option, value) => option.id === value?.id}
+                  value={md.clientes.find(c => c.id === form.cliente) || null}
+                  onChange={(_, newValue) => setForm(prev => ({ ...prev, cliente: newValue?.id || '' }))}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Cliente"
+                      fullWidth
+                      placeholder="Digite para buscar..."
+                    />
+                  )}
+                  renderOption={(props, option) => (
+                    <Box component="li" {...props}>
+                      <Box>
+                        <Typography variant="body1" fontWeight="medium">
+                          {option.nome}
+                        </Typography>
+                        {option.grupoEconomico && (
+                          <Typography variant="caption" color="text.secondary">
+                            Grupo: {option.grupoEconomico}
+                          </Typography>
+                        )}
+                      </Box>
+                    </Box>
+                  )}
+                  noOptionsText="Nenhum cliente encontrado"
+                  loading={md.clientes.length === 0}
+                  loadingText="Carregando clientes..."
+                  filterOptions={(options, { inputValue }) => {
+                    const filtered = options.filter(option =>
+                      option.nome.toLowerCase().includes(inputValue.toLowerCase()) ||
+                      (option.grupoEconomico && option.grupoEconomico.toLowerCase().includes(inputValue.toLowerCase()))
+                    )
+                    return filtered
+                  }}
+                />
                 
                 <FormControl fullWidth>
                   <InputLabel>Contrato</InputLabel>

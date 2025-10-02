@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Box, Button, Container, Paper, Stack, TextField, Typography, MenuItem, FormControl, InputLabel, Select, Grid } from '@mui/material'
+import { Autocomplete, Box, Button, Container, Paper, Stack, TextField, Typography, MenuItem, FormControl, InputLabel, Select, Grid } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 import { useForm, Controller, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -343,9 +343,49 @@ export default function ManutencaoNewPage() {
           
           <Grid item xs={12} sm={6} md={4}>
             <Controller name="cliente" control={control} render={({ field }) => (
-              <TextField {...field} select required label="Cliente" fullWidth error={!!errors.cliente} helperText={errors.cliente?.message}>
-                {md.clientes.map(c => <MenuItem key={c.id} value={c.id}>{c.nome}</MenuItem>)}
-              </TextField>
+              <Autocomplete
+                {...field}
+                options={md.clientes}
+                getOptionLabel={(option) => option.nome || ''}
+                isOptionEqualToValue={(option, value) => option.id === value?.id}
+                value={md.clientes.find(c => c.id === field.value) || null}
+                onChange={(_, newValue) => field.onChange(newValue?.id || '')}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Cliente"
+                    fullWidth
+                    required
+                    error={!!errors.cliente}
+                    helperText={errors.cliente?.message || 'Digite para buscar um cliente'}
+                    placeholder="Digite para buscar..."
+                  />
+                )}
+                renderOption={(props, option) => (
+                  <Box component="li" {...props}>
+                    <Box>
+                      <Typography variant="body1" fontWeight="medium">
+                        {option.nome}
+                      </Typography>
+                      {option.grupoEconomico && (
+                        <Typography variant="caption" color="text.secondary">
+                          Grupo: {option.grupoEconomico}
+                        </Typography>
+                      )}
+                    </Box>
+                  </Box>
+                )}
+                noOptionsText="Nenhum cliente encontrado"
+                loading={md.clientes.length === 0}
+                loadingText="Carregando clientes..."
+                filterOptions={(options, { inputValue }) => {
+                  const filtered = options.filter(option =>
+                    option.nome.toLowerCase().includes(inputValue.toLowerCase()) ||
+                    (option.grupoEconomico && option.grupoEconomico.toLowerCase().includes(inputValue.toLowerCase()))
+                  )
+                  return filtered
+                }}
+              />
             )} />
           </Grid>
           <Grid item xs={12} sm={6} md={4}>

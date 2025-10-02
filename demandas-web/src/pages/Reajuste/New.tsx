@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm, Controller, useWatch } from 'react-hook-form'
-import { Box, Button, Grid, MenuItem, Paper, TextField, Typography } from '@mui/material'
+import { Autocomplete, Box, Button, Grid, MenuItem, Paper, TextField, Typography } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 import { useMasterDataStore } from '../../store/masterDataStore'
 import { useReajusteStore } from '../../store/reajusteStore'
@@ -46,7 +46,7 @@ export default function ReajusteNewPage() {
       ano: undefined,
       dataInicio: new Date().toISOString().split('T')[0],
       dataFim: '',
-      status: '',
+      status: 'Em andamento',
       operadora: '',
       qualidade: '',
       qualidadeInformacao: '',
@@ -111,7 +111,6 @@ export default function ReajusteNewPage() {
     if (user && user.name && md.analistas.length > 0) {
       // Encontrar analista correspondente
       const analistaCorrespondente = md.analistas.find(analista => 
-        analista.userId === user.id || // Primeiro tentar por userId
         analista.nome.toLowerCase() === user.name.toLowerCase() ||
         analista.nome.toLowerCase().includes(user.name.toLowerCase()) ||
         user.name.toLowerCase().includes(analista.nome.toLowerCase())
@@ -136,6 +135,9 @@ export default function ReajusteNewPage() {
       ...data,
       mes: String(data.mes),
       ano: String(data.ano),
+      status: data.status || 'Em andamento',
+      operadora: data.operadora || '',
+      responsavelAnalista: data.responsavelAnalista || '',
       updatedAt: new Date().toISOString()
     })
     
@@ -285,9 +287,46 @@ export default function ReajusteNewPage() {
           
           <Grid item xs={12} sm={6} md={3}>
             <Controller name="cliente" control={control} render={({ field }) => (
-              <TextField {...field} select label="Cliente" fullWidth>
-                {md.clientes.map(c => <MenuItem key={c.id} value={c.id}>{c.nome}</MenuItem>)}
-              </TextField>
+              <Autocomplete
+                {...field}
+                options={md.clientes}
+                getOptionLabel={(option) => option.nome || ''}
+                isOptionEqualToValue={(option, value) => option.id === value?.id}
+                value={md.clientes.find(c => c.id === field.value) || null}
+                onChange={(_, newValue) => field.onChange(newValue?.id || '')}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Cliente"
+                    fullWidth
+                    placeholder="Digite para buscar..."
+                  />
+                )}
+                renderOption={(props, option) => (
+                  <Box component="li" {...props}>
+                    <Box>
+                      <Typography variant="body1" fontWeight="medium">
+                        {option.nome}
+                      </Typography>
+                      {option.grupoEconomico && (
+                        <Typography variant="caption" color="text.secondary">
+                          Grupo: {option.grupoEconomico}
+                        </Typography>
+                      )}
+                    </Box>
+                  </Box>
+                )}
+                noOptionsText="Nenhum cliente encontrado"
+                loading={md.clientes.length === 0}
+                loadingText="Carregando clientes..."
+                filterOptions={(options, { inputValue }) => {
+                  const filtered = options.filter(option =>
+                    option.nome.toLowerCase().includes(inputValue.toLowerCase()) ||
+                    (option.grupoEconomico && option.grupoEconomico.toLowerCase().includes(inputValue.toLowerCase()))
+                  )
+                  return filtered
+                }}
+              />
             )} />
           </Grid>
           

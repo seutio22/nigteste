@@ -3,9 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { useForm, Controller, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Button, TextField, FormControl, InputLabel, Select, MenuItem, Grid, Paper, Typography, Box } from '@mui/material'
+import { Autocomplete, Button, TextField, FormControl, InputLabel, Select, MenuItem, Grid, Paper, Typography, Box } from '@mui/material'
 import { ArrowBack, Save } from '@mui/icons-material'
-import { useAtendimentoStore } from '../../store/atendimentoStore'
+import { useAtendimentoStore, type AtendimentoEntry } from '../../store/atendimentoStore'
 import { useMasterDataStore } from '../../store/masterDataStore'
 import { useAuthStore } from '../../store/authStore'
 import { api } from '../../lib/api.local'
@@ -13,18 +13,19 @@ import { api } from '../../lib/api.local'
 
 // Schema de validação com Zod
 const atendimentoSchema = z.object({
+  // Campos obrigatórios conforme AtendimentoEntry
+  ticket: z.string().min(1, 'Ticket é obrigatório'),
+  cliente: z.string().min(1, 'Cliente é obrigatório'),
+  operadora: z.string().min(1, 'Operadora é obrigatória'),
   area: z.string().min(1, 'Área é obrigatória'),
   analista: z.string().min(1, 'Analista é obrigatório'),
+  tipo: z.string().min(1, 'Tipo é obrigatório'),
   tipoServico: z.string().min(1, 'Tipo de Serviço é obrigatório'),
-  tipo: z.string().optional(),
   descricao: z.string().min(1, 'Descrição é obrigatória'),
   solicitante: z.string().min(1, 'Solicitante é obrigatório'),
   dataInicio: z.string().min(1, 'Data de início é obrigatória'),
   // Campos opcionais
-  ticket: z.string().optional(),
-  cliente: z.string().optional(),
   contrato: z.string().optional(),
-  operadora: z.string().optional(),
   produto: z.string().optional(),
   sistema: z.string().optional(),
   dataFinal: z.string().optional(),
@@ -45,18 +46,18 @@ export default function AtendimentoNewPage() {
   const { control, handleSubmit, watch, formState: { errors }, setValue } = useForm<AtendimentoFormData>({
     resolver: zodResolver(atendimentoSchema),
     defaultValues: {
-      ticket: '',
+      ticket: 'TICKET-' + Date.now(),
       cliente: '',
       contrato: '',
-      operadora: '',
+      operadora: 'Claro',
       produto: '',
       sistema: '',
-      area: '',
+      area: 'Suporte',
       analista: '',
       tipoServico: '',
-      tipo: '',
-      descricao: '',
-      solicitante: '',
+      tipo: 'Suporte',
+      descricao: 'Descrição do atendimento',
+      solicitante: 'Sistema',
       dataInicio: new Date().toISOString().split('T')[0],
       dataFinal: '',
       periodicidade: '',
@@ -105,7 +106,7 @@ export default function AtendimentoNewPage() {
   const onSubmit = async (data: AtendimentoFormData) => {
     try {
       // Usar o store para criar o atendimento (simplificado como na página de demandas)
-      const createdAtendimento = await atendimentoStore.add(data, user)
+      const createdAtendimento = await atendimentoStore.add(data as Omit<AtendimentoEntry, 'id' | 'createdAt' | 'updatedAt'>, user)
       
       // Redirecionar imediatamente como na página de demandas
       navigate('/atendimento')
@@ -258,7 +259,6 @@ export default function AtendimentoNewPage() {
                     <InputLabel>Tipo de Demanda</InputLabel>
                     <Select {...field} label="Tipo de Demanda">
                       {masterDataStore.tiposDemanda
-                        .filter(td => !tipoServicoValue || td.tipoServicoId === tipoServicoValue)
                         .map(tipo => (
                           <MenuItem key={tipo.id} value={tipo.id}>
                             {tipo.nome}
@@ -342,16 +342,48 @@ export default function AtendimentoNewPage() {
                 name="cliente"
                 control={control}
                 render={({ field }) => (
-                  <FormControl fullWidth error={!!errors.cliente}>
-                    <InputLabel>Cliente</InputLabel>
-                    <Select {...field} label="Cliente">
-                      {masterDataStore.clientes.map(cliente => (
-                        <MenuItem key={cliente.id} value={cliente.id}>
-                          {cliente.nome}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                  <Autocomplete
+                    {...field}
+                    options={masterDataStore.clientes}
+                    getOptionLabel={(option) => option.nome || ''}
+                    isOptionEqualToValue={(option, value) => option.id === value?.id}
+                    value={masterDataStore.clientes.find(c => c.id === field.value) || null}
+                    onChange={(_, newValue) => field.onChange(newValue?.id || '')}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Cliente"
+                        fullWidth
+                        error={!!errors.cliente}
+                        helperText={errors.cliente?.message || 'Digite para buscar um cliente'}
+                        placeholder="Digite para buscar..."
+                      />
+                    )}
+                    renderOption={(props, option) => (
+                      <Box component="li" {...props}>
+                        <Box>
+                          <Typography variant="body1" fontWeight="medium">
+                            {option.nome}
+                          </Typography>
+                          {option.grupoEconomico && (
+                            <Typography variant="caption" color="text.secondary">
+                              Grupo: {option.grupoEconomico}
+                            </Typography>
+                          )}
+                        </Box>
+                      </Box>
+                    )}
+                    noOptionsText="Nenhum cliente encontrado"
+                    loading={masterDataStore.clientes.length === 0}
+                    loadingText="Carregando clientes..."
+                    filterOptions={(options, { inputValue }) => {
+                      const filtered = options.filter(option =>
+                        option.nome.toLowerCase().includes(inputValue.toLowerCase()) ||
+                        (option.grupoEconomico && option.grupoEconomico.toLowerCase().includes(inputValue.toLowerCase()))
+                      )
+                      return filtered
+                    }}
+                  />
                 )}
               />
             </Grid>
