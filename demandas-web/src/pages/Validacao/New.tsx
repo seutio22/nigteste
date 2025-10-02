@@ -496,12 +496,18 @@ export default function ValidationNewPage() {
                 helperText={`${field.value?.length || 0} item(s) selecionado(s)`}
               >
                 <MenuItem value="0">0- Sem erros</MenuItem>
-                <MenuItem value="1">1-ERRO CODIGO CONTRATO</MenuItem>
-                <MenuItem value="2">2-ERRO CNPJ</MenuItem>
-                <MenuItem value="3">3-ERRO CODIGO SUB</MenuItem>
-                <MenuItem value="4">4-ERRO VIGENCIA</MenuItem>
-                <MenuItem value="5">5-ERRO ASSOCIAÇÃO NO MOVE</MenuItem>
-                <MenuItem value="6">6-ERRO RAZÃO SOCIAL</MenuItem>
+                <MenuItem value="1-CODIGO_CONTRATO">1-ERRO CODIGO CONTRATO</MenuItem>
+                <MenuItem value="1-CNPJ">1-ERRO CNPJ</MenuItem>
+                <MenuItem value="1-CODIGO_SUB">1-ERRO CODIGO SUB</MenuItem>
+                <MenuItem value="1-VIGENCIA">1-ERRO VIGENCIA</MenuItem>
+                <MenuItem value="1-ASSOCIACAO_MOVE">1-ERRO ASSOCIAÇÃO NO MOVE</MenuItem>
+                <MenuItem value="1-RAZAO_SOCIAL">1-ERRO RAZÃO SOCIAL</MenuItem>
+                <MenuItem value="1-PLANO_COBERTURAS">1-ERRO Plano; Cadastrado/Coberturas</MenuItem>
+                <MenuItem value="1-FINANCEIRO">1-ERRO Financeiro</MenuItem>
+                <MenuItem value="1-LIMITE_TECNICO">1-ERRO Limite Técnico</MenuItem>
+                <MenuItem value="1-COPARTICIPACAO">1-ERRO Coparticipação</MenuItem>
+                <MenuItem value="1-CONTRIBUICAO">1-ERRO Contribuição</MenuItem>
+                <MenuItem value="1-DADOS_GERAIS">1-ERRO Dados Gerais</MenuItem>
               </TextField>
             )} />
           </Grid>
