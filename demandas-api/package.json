@@ -1,7 +1,7 @@
 {
   "name": "demandas-api",
-  "version": "0.1.2",
-  "description": "Backend API - v0.1.2 - Página Home completa com estatísticas de Manutenção e Analytics",
+  "version": "0.1.3",
+  "description": "Backend API - v0.1.3 - Funcionalidade de foto do usuário no painel de configurações",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
