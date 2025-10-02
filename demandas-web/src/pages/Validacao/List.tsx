@@ -697,9 +697,9 @@ export default function ValidationListPage() {
           // Usar objetos relacionados diretamente
           analista: v.analista?.nome ?? 'N/A',
           area: md.areas.find(ar => ar.id === v.area)?.nome ?? v.area ?? 'N/A',
-          cliente: v.cliente?.nome ?? 'N/A',
-          contrato: v.contrato?.numero ?? 'N/A',
-          operadora: v.operadora?.nome ?? 'N/A',
+          cliente: v.cliente,
+          contrato: v.contrato,
+          operadora: v.operadora,
           produto: v.produto?.nome ?? 'N/A',
           sistema: md.sistemas.find(s => s.id === v.sistema)?.nome ?? v.sistema ?? 'N/A',
           tipo: md.tiposDemanda.find(t => t.id === v.tipo)?.nome ?? v.tipo ?? 'N/A',
