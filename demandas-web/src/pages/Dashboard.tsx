@@ -42,6 +42,7 @@ import { useMaillingStore } from '../store/maillingStore'
 import { useDashboardStore } from '../store/dashboardStore'
 import { DashboardIndicators } from '../components/dashboard/DashboardIndicators'
 import { DashboardCharts } from '../components/dashboard/DashboardCharts'
+import { ExportButton } from '../components/dashboard/ExportButton'
 import { PeriodSelector } from '../components/dashboard/PeriodSelector'
 import type { PeriodType } from '../types/dashboardIndicators'
 
@@ -287,11 +288,17 @@ export default function DashboardPage() {
         </Box>
         
         {/* Seletor de Período para Indicadores */}
-        <Box sx={{ mb: 3 }}>
+        <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <PeriodSelector
             period={indicatorPeriod}
             onChange={setIndicatorPeriod}
             showLabel={true}
+          />
+          <ExportButton
+            indicators={indicators}
+            pageMetrics={pageMetrics}
+            generalStats={generalStats}
+            period={indicatorPeriod}
           />
         </Box>
         <Grid container spacing={3} alignItems="center">

@@ -174,19 +174,6 @@ export const PAGE_CONFIGS: IndicatorConfig[] = [
       updated: 'updatedAt',
       completed: 'status'
     }
-  },
-  {
-    page: 'kanban',
-    title: 'Kanban',
-    icon: 'ViewKanban',
-    color: '#ec4899',
-    category: 'secondary',
-    fields: {
-      total: 'status',
-      created: 'createdAt',
-      updated: 'updatedAt',
-      completed: 'status'
-    }
   }
 ]
 
@@ -200,6 +187,5 @@ export const COMPLETION_STATUS = {
   analytics: ['Concluído', 'Finalizado', 'Gerado'],
   mailling: ['Ativo', 'Enviado', 'Processado'],
   comunicados: ['Enviado', 'Lido', 'Processado'],
-  projetos: ['Concluído', 'Finalizado', 'Entregue'],
-  kanban: ['Concluído', 'Finalizado', 'Resolvido']
+  projetos: ['Concluído', 'Finalizado', 'Entregue']
 }
