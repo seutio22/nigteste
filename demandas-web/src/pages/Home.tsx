@@ -29,6 +29,9 @@ export default function HomePage() {
   const validationStore = useValidationStore()
   const reajusteStore = useReajusteStore()
   const masterDataStore = useMasterDataStore()
+  
+  // Estado para controlar o carregamento
+  const [isLoading, setIsLoading] = React.useState(true)
 
   // Atividades recentes baseadas em dados reais
   const recentActivities = useMemo(() => {
@@ -91,41 +94,36 @@ export default function HomePage() {
   // Carregar dados automaticamente quando a página é carregada
   useEffect(() => {
     console.log('🔍 Home: Carregando dados da API...')
+    console.log('🔍 Home: Timestamp:', new Date().toISOString())
     
     if (user?.id) {
       console.log('🔍 Home: Usuário logado, carregando dados...')
       
-      // Carregar dados das demandas
-      if (demandStore.items.length === 0) {
-        console.log('🔍 Home: Carregando demandas...')
-        demandStore.syncFromApi().catch(error => {
-          console.error('❌ Home: Erro ao carregar demandas:', error)
-        })
+      // Forçar recarregamento dos dados para garantir que estão atualizados
+      const loadData = async () => {
+        try {
+          setIsLoading(true)
+          console.log('🔍 Home: Carregando demandas...')
+          await demandStore.syncFromApi()
+          
+          console.log('🔍 Home: Carregando atendimentos...')
+          await atendimentoStore.syncFromApi()
+          
+          console.log('🔍 Home: Carregando validações...')
+          await validationStore.syncFromApi()
+          
+          console.log('🔍 Home: Carregando reajustes...')
+          await reajusteStore.syncFromApi()
+          
+          console.log('✅ Home: Todos os dados carregados com sucesso')
+        } catch (error) {
+          console.error('❌ Home: Erro ao carregar dados:', error)
+        } finally {
+          setIsLoading(false)
+        }
       }
       
-      // Carregar dados de atendimento
-      if (atendimentoStore.items.length === 0) {
-        console.log('🔍 Home: Carregando atendimentos...')
-        atendimentoStore.syncFromApi().catch(error => {
-          console.error('❌ Home: Erro ao carregar atendimentos:', error)
-        })
-      }
-      
-      // Carregar dados de validação
-      if (validationStore.items.length === 0) {
-        console.log('🔍 Home: Carregando validações...')
-        validationStore.syncFromApi().catch(error => {
-          console.error('❌ Home: Erro ao carregar validações:', error)
-        })
-      }
-      
-      // Carregar dados de reajuste
-      if (reajusteStore.items.length === 0) {
-        console.log('🔍 Home: Carregando reajustes...')
-        reajusteStore.syncFromApi().catch(error => {
-          console.error('❌ Home: Erro ao carregar reajustes:', error)
-        })
-      }
+      loadData()
     } else {
       console.log('🔍 Home: Usuário não logado, aguardando...')
     }
@@ -262,6 +260,18 @@ export default function HomePage() {
       default:
         return 'bg-gray-100 text-gray-800'
     }
+  }
+
+  // Mostrar loading se estiver carregando
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Carregando dados atualizados...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
