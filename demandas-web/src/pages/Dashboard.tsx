@@ -44,6 +44,7 @@ import { DashboardIndicators } from '../components/dashboard/DashboardIndicators
 import { DashboardCharts } from '../components/dashboard/DashboardCharts'
 import { ExportButton } from '../components/dashboard/ExportButton'
 import { PeriodSelector } from '../components/dashboard/PeriodSelector'
+import { useDashboardIndicators } from '../hooks/useDashboardIndicators'
 import type { PeriodType } from '../types/dashboardIndicators'
 
 const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#84cc16', '#f97316']
@@ -63,6 +64,9 @@ export default function DashboardPage() {
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
   const [indicatorPeriod, setIndicatorPeriod] = useState<PeriodType>('daily')
+  
+  // Hook para indicadores do dashboard
+  const { indicators, pageMetrics, generalStats } = useDashboardIndicators(indicatorPeriod)
 
   // Função para filtrar por data
   const inRange = (iso?: string) => {
