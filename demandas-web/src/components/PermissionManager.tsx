@@ -33,7 +33,8 @@ interface PermissionManagerProps {
 const MODULE_LABELS: Record<keyof SystemPermissions, string> = {
   home: 'Página Inicial',
   dashboard: 'Dashboard',
-  demandas: 'Demandas',
+  cadastro: 'Cadastro',
+  manutencao: 'Manutenção',
   atendimento: 'Atendimento',
   comunicados: 'Comunicados',
   validacao: 'Validação',
@@ -41,6 +42,7 @@ const MODULE_LABELS: Record<keyof SystemPermissions, string> = {
   mailling: 'Mailing',
   analytics: 'Analytics',
   kanban: 'Kanban',
+  projetos: 'Projetos',
   dados: 'Dados',
   usuarios: 'Usuários',
   configuracoes: 'Configurações',

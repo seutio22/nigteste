@@ -136,7 +136,7 @@ export function isManager(userPermissions: SystemPermissions | null): boolean {
   
   // Verifica se tem acesso de visualização a todos os módulos e criação/edição em módulos principais
   const canViewAll = Object.values(userPermissions).every(module => module.view);
-  const canManageMain = userPermissions.demandas.create && 
+  const canManageMain = userPermissions.cadastro.create && 
                         userPermissions.atendimento.create && 
                         userPermissions.validacao.create;
   
