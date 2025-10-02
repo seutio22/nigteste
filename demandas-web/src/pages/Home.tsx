@@ -31,9 +31,62 @@ export default function HomePage() {
   const masterDataStore = useMasterDataStore()
 
   // Atividades recentes baseadas em dados reais
-  const recentActivities = [
-    // Será preenchido com dados reais do sistema
-  ]
+  const recentActivities = useMemo(() => {
+    const activities = []
+    
+    // Adicionar demandas recentes
+    const recentDemandas = demandStore.items
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 3)
+      .map(demanda => ({
+        id: `demanda-${demanda.id}`,
+        title: `Nova demanda: ${demanda.descricao || 'Sem descrição'}`,
+        time: new Date(demanda.createdAt).toLocaleString('pt-BR'),
+        type: 'Demanda',
+        status: demanda.status === 'Concluída' ? 'success' : demanda.status === 'Em Andamento' ? 'warning' : 'info'
+      }))
+    
+    // Adicionar atendimentos recentes
+    const recentAtendimentos = atendimentoStore.items
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 2)
+      .map(atendimento => ({
+        id: `atendimento-${atendimento.id}`,
+        title: `Atendimento: ${atendimento.titulo || 'Sem título'}`,
+        time: new Date(atendimento.createdAt).toLocaleString('pt-BR'),
+        type: 'Atendimento',
+        status: atendimento.status === 'Resolvido' ? 'success' : atendimento.status === 'Em Andamento' ? 'warning' : 'info'
+      }))
+    
+    // Adicionar validações recentes
+    const recentValidacoes = validationStore.items
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 2)
+      .map(validacao => ({
+        id: `validacao-${validacao.id}`,
+        title: `Validação: ${validacao.observacoes || 'Sem observações'}`,
+        time: new Date(validacao.createdAt).toLocaleString('pt-BR'),
+        type: 'Validação',
+        status: validacao.status === 'Aprovada' ? 'success' : validacao.status === 'Pendente' ? 'warning' : 'info'
+      }))
+    
+    // Adicionar reajustes recentes
+    const recentReajustes = reajusteStore.items
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 1)
+      .map(reajuste => ({
+        id: `reajuste-${reajuste.id}`,
+        title: `Reajuste: ${reajuste.motivo || 'Sem motivo'}`,
+        time: new Date(reajuste.createdAt).toLocaleString('pt-BR'),
+        type: 'Reajuste',
+        status: reajuste.aprovado ? 'success' : 'warning'
+      }))
+    
+    // Combinar todas as atividades e ordenar por data
+    return [...recentDemandas, ...recentAtendimentos, ...recentValidacoes, ...recentReajustes]
+      .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
+      .slice(0, 8) // Limitar a 8 atividades
+  }, [demandStore.items, atendimentoStore.items, validationStore.items, reajusteStore.items])
 
   // Carregar dados automaticamente quando a página é carregada
   useEffect(() => {
@@ -42,35 +95,41 @@ export default function HomePage() {
     if (user?.id) {
       console.log('🔍 Home: Usuário logado, carregando dados...')
       
-      // Carregar dados mestres se necessário
-          // Dados mestres são carregados apenas na página Dados Mestres
-    // if (masterDataStore.analistas.length === 0) {
-    //   masterDataStore.syncFromApi?.()
-    // }
-      
-      // Carregar dados das demandas se necessário
+      // Carregar dados das demandas
       if (demandStore.items.length === 0) {
-        demandStore.syncFromApi()
+        console.log('🔍 Home: Carregando demandas...')
+        demandStore.syncFromApi().catch(error => {
+          console.error('❌ Home: Erro ao carregar demandas:', error)
+        })
       }
       
-      // Carregar dados de atendimento se necessário
+      // Carregar dados de atendimento
       if (atendimentoStore.items.length === 0) {
-        atendimentoStore.syncFromApi()
+        console.log('🔍 Home: Carregando atendimentos...')
+        atendimentoStore.syncFromApi().catch(error => {
+          console.error('❌ Home: Erro ao carregar atendimentos:', error)
+        })
       }
       
-      // Carregar dados de validação se necessário
+      // Carregar dados de validação
       if (validationStore.items.length === 0) {
-        validationStore.syncFromApi()
+        console.log('🔍 Home: Carregando validações...')
+        validationStore.syncFromApi().catch(error => {
+          console.error('❌ Home: Erro ao carregar validações:', error)
+        })
       }
       
-      // Carregar dados de reajuste se necessário
+      // Carregar dados de reajuste
       if (reajusteStore.items.length === 0) {
-        reajusteStore.syncFromApi()
+        console.log('🔍 Home: Carregando reajustes...')
+        reajusteStore.syncFromApi().catch(error => {
+          console.error('❌ Home: Erro ao carregar reajustes:', error)
+        })
       }
     } else {
       console.log('🔍 Home: Usuário não logado, aguardando...')
     }
-  }, [user?.id])
+  }, [user?.id, demandStore, atendimentoStore, validationStore, reajusteStore])
 
   // Estatísticas reais baseadas nos dados carregados
   const stats = useMemo(() => {
@@ -241,11 +300,15 @@ export default function HomePage() {
             </div>
             <div className="flex items-center space-x-4">
               <div className="text-center">
-                <div className="text-3xl font-bold">12</div>
-                <div className="text-blue-100 text-sm">Tarefas Hoje</div>
+                <div className="text-3xl font-bold">{stats.demandas.total + stats.atendimentos.total}</div>
+                <div className="text-blue-100 text-sm">Total Hoje</div>
               </div>
               <div className="text-center">
-                <div className="text-3xl font-bold">85%</div>
+                <div className="text-3xl font-bold">
+                  {stats.demandas.total > 0 
+                    ? Math.round((stats.demandas.concluidas / stats.demandas.total) * 100)
+                    : 0}%
+                </div>
                 <div className="text-blue-100 text-sm">Concluídas</div>
               </div>
             </div>
@@ -314,20 +377,111 @@ export default function HomePage() {
             </h3>
             <div className="grid grid-cols-2 gap-4">
               <div className="text-center p-4 bg-blue-50 rounded-xl">
-                <div className="text-2xl font-bold text-blue-600">24</div>
+                <div className="text-2xl font-bold text-blue-600">{stats.demandas.total}</div>
                 <div className="text-sm text-blue-800">Demandas</div>
               </div>
               <div className="text-center p-4 bg-green-50 rounded-xl">
-                <div className="text-2xl font-bold text-green-600">18</div>
+                <div className="text-2xl font-bold text-green-600">{stats.validacoes.aprovadas}</div>
                 <div className="text-sm text-green-800">Aprovadas</div>
               </div>
               <div className="text-center p-4 bg-orange-50 rounded-xl">
-                <div className="text-2xl font-bold text-orange-600">6</div>
+                <div className="text-2xl font-bold text-orange-600">{stats.demandas.pendentes + stats.validacoes.pendentes}</div>
                 <div className="text-sm text-orange-800">Pendentes</div>
               </div>
               <div className="text-center p-4 bg-purple-50 rounded-xl">
-                <div className="text-2xl font-bold text-purple-600">3</div>
+                <div className="text-2xl font-bold text-purple-600">{stats.reajustes.total}</div>
                 <div className="text-sm text-purple-800">Reajustes</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Estatísticas Detalhadas */}
+        <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <FileText className="w-5 h-5 text-blue-600" />
+              Demandas
+            </h3>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Total:</span>
+                <span className="font-semibold">{stats.demandas.total}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Pendentes:</span>
+                <span className="font-semibold text-orange-600">{stats.demandas.pendentes}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Em Andamento:</span>
+                <span className="font-semibold text-blue-600">{stats.demandas.emAndamento}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Concluídas:</span>
+                <span className="font-semibold text-green-600">{stats.demandas.concluidas}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <Users className="w-5 h-5 text-teal-600" />
+              Atendimentos
+            </h3>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Total:</span>
+                <span className="font-semibold">{stats.atendimentos.total}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Abertos:</span>
+                <span className="font-semibold text-red-600">{stats.atendimentos.abertos}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Resolvidos:</span>
+                <span className="font-semibold text-green-600">{stats.atendimentos.resolvidos}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <CheckCircle className="w-5 h-5 text-green-600" />
+              Validações
+            </h3>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Total:</span>
+                <span className="font-semibold">{stats.validacoes.total}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Pendentes:</span>
+                <span className="font-semibold text-orange-600">{stats.validacoes.pendentes}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Aprovadas:</span>
+                <span className="font-semibold text-green-600">{stats.validacoes.aprovadas}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-purple-600" />
+              Reajustes
+            </h3>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Total:</span>
+                <span className="font-semibold">{stats.reajustes.total}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Pendentes:</span>
+                <span className="font-semibold text-orange-600">{stats.reajustes.pendentes}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Aprovados:</span>
+                <span className="font-semibold text-green-600">{stats.reajustes.aprovados}</span>
               </div>
             </div>
           </div>
