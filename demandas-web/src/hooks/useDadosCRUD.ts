@@ -96,6 +96,21 @@ export const useDadosCRUD = () => {
           const apiPayload: any = { 
             nome: form.nome
           }
+          
+          // Entidade completa para o store local (com id)
+          newEntity = { 
+            id, 
+            nome: form.nome
+          }
+          
+          const storeKey = activeTab as keyof typeof store
+          if (storeKey in store) {
+            // PRIMEIRO: Salvar na API (banco de dados)
+            const savedEntity = await api.post(config.endpoint, apiPayload)
+            console.log(`✅ ${activeTab} salvo no banco de dados:`, savedEntity.id)
+            // DEPOIS: Salvar no store local (cache) usando o retorno da API
+            store.upsertMany({ [storeKey]: [...(store[storeKey] as any[]), savedEntity] })
+          }
           break
         case 'analistas':
           // Payload específico para analistas - apenas nome
