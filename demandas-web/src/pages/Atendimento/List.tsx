@@ -140,7 +140,10 @@ export default function AtendimentoListPage() {
       const cliente = masterDataStore.clientes.find(c => c.id === p.value)
       return cliente ? cliente.nome : p.value || '-'
     }},
-    { field: 'solicitante', headerName: 'Solicitante', width: 160 },
+    { field: 'solicitante', headerName: 'Solicitante', width: 160, renderCell: (p) => {
+      const solicitante = masterDataStore.solicitantes.find(s => s.id === p.value)
+      return solicitante ? solicitante.nome : p.value || '-'
+    }},
     { field: 'status', headerName: 'Status', width: 150, renderCell: (p) => (
       <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(p.value)}`}>
         {p.value}
