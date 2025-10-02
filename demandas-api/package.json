@@ -1,7 +1,7 @@
 {
   "name": "demandas-api",
-  "version": "0.1.1",
-  "description": "Backend API - v0.1.1 - Correção campos em branco na página de permissões",
+  "version": "0.1.2",
+  "description": "Backend API - v0.1.2 - Página Home completa com estatísticas de Manutenção e Analytics",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
