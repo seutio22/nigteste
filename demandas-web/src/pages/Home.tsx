@@ -5,6 +5,8 @@ import { useDemandStore } from '../store/demandStore'
 import { useAtendimentoStore } from '../store/atendimentoStore'
 import { useValidationStore } from '../store/validationStore'
 import { useReajusteStore } from '../store/reajusteStore'
+import { useManutencaoStore } from '../store/manutencaoStore'
+import { useDadosStore } from '../store/dadosStore'
 import { useMasterDataStore } from '../store/masterDataStore'
 import { 
   Plus, 
@@ -18,7 +20,9 @@ import {
   Bell,
   Calendar,
   Clock,
-  Star
+  Star,
+  Wrench,
+  Database
 } from 'lucide-react'
 
 export default function HomePage() {
@@ -28,6 +32,8 @@ export default function HomePage() {
   const atendimentoStore = useAtendimentoStore()
   const validationStore = useValidationStore()
   const reajusteStore = useReajusteStore()
+  const manutencaoStore = useManutencaoStore()
+  const dadosStore = useDadosStore()
   const masterDataStore = useMasterDataStore()
 
   // Atividades recentes baseadas em dados reais
@@ -82,11 +88,35 @@ export default function HomePage() {
         status: reajuste.aprovado ? 'success' : 'warning'
       }))
     
+    // Adicionar manutenções recentes
+    const recentManutencoes = manutencaoStore.items
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 1)
+      .map(manutencao => ({
+        id: `manutencao-${manutencao.id}`,
+        title: `Manutenção: ${manutencao.descricao || 'Sem descrição'}`,
+        time: new Date(manutencao.createdAt).toLocaleString('pt-BR'),
+        type: 'Manutenção',
+        status: manutencao.status === 'Concluída' ? 'success' : manutencao.status === 'Em Andamento' ? 'warning' : 'info'
+      }))
+    
+    // Adicionar dados recentes
+    const recentDados = dadosStore.items
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 1)
+      .map(dado => ({
+        id: `dado-${dado.id}`,
+        title: `Dado: ${dado.chave || 'Sem chave'}`,
+        time: new Date(dado.createdAt).toLocaleString('pt-BR'),
+        type: 'Dados',
+        status: dado.ativo ? 'success' : 'warning'
+      }))
+    
     // Combinar todas as atividades e ordenar por data
-    return [...recentDemandas, ...recentAtendimentos, ...recentValidacoes, ...recentReajustes]
+    return [...recentDemandas, ...recentAtendimentos, ...recentValidacoes, ...recentReajustes, ...recentManutencoes, ...recentDados]
       .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
       .slice(0, 8) // Limitar a 8 atividades
-  }, [demandStore.items, atendimentoStore.items, validationStore.items, reajusteStore.items])
+  }, [demandStore.items, atendimentoStore.items, validationStore.items, reajusteStore.items, manutencaoStore.items, dadosStore.items])
 
   // Carregar dados automaticamente quando a página é carregada
   useEffect(() => {
@@ -126,10 +156,26 @@ export default function HomePage() {
           console.error('❌ Home: Erro ao carregar reajustes:', error)
         })
       }
+      
+      // Carregar dados de manutenção
+      if (manutencaoStore.items.length === 0) {
+        console.log('🔍 Home: Carregando manutenções...')
+        manutencaoStore.syncFromApi().catch(error => {
+          console.error('❌ Home: Erro ao carregar manutenções:', error)
+        })
+      }
+      
+      // Carregar dados de dados
+      if (dadosStore.items.length === 0) {
+        console.log('🔍 Home: Carregando dados...')
+        dadosStore.syncFromApi().catch(error => {
+          console.error('❌ Home: Erro ao carregar dados:', error)
+        })
+      }
     } else {
       console.log('🔍 Home: Usuário não logado, aguardando...')
     }
-  }, [user?.id, demandStore, atendimentoStore, validationStore, reajusteStore])
+  }, [user?.id, demandStore, atendimentoStore, validationStore, reajusteStore, manutencaoStore, dadosStore])
 
   // Estatísticas reais baseadas nos dados carregados
   const stats = useMemo(() => {
@@ -150,13 +196,24 @@ export default function HomePage() {
     const reajustesPendentes = reajusteStore.items.filter(r => !r.aprovado).length
     const reajustesAprovados = reajusteStore.items.filter(r => r.aprovado).length
     
+    const totalManutencoes = manutencaoStore.items.length
+    const manutencoesPendentes = manutencaoStore.items.filter(m => m.status === 'Pendente').length
+    const manutencoesEmAndamento = manutencaoStore.items.filter(m => m.status === 'Em Andamento').length
+    const manutencoesConcluidas = manutencaoStore.items.filter(m => m.status === 'Concluída').length
+    
+    const totalDados = dadosStore.items.length
+    const dadosAtivos = dadosStore.items.filter(d => d.ativo).length
+    const dadosInativos = dadosStore.items.filter(d => !d.ativo).length
+    
     return {
       demandas: { total: totalDemandas, pendentes: demandasPendentes, emAndamento: demandasEmAndamento, concluidas: demandasConcluidas },
       atendimentos: { total: totalAtendimentos, abertos: atendimentosAbertos, resolvidos: atendimentosResolvidos },
       validacoes: { total: totalValidacoes, pendentes: validacoesPendentes, aprovadas: validacoesAprovadas },
-      reajustes: { total: totalReajustes, pendentes: reajustesPendentes, aprovados: reajustesAprovados }
+      reajustes: { total: totalReajustes, pendentes: reajustesPendentes, aprovados: reajustesAprovados },
+      manutencoes: { total: totalManutencoes, pendentes: manutencoesPendentes, emAndamento: manutencoesEmAndamento, concluidas: manutencoesConcluidas },
+      dados: { total: totalDados, ativos: dadosAtivos, inativos: dadosInativos }
     }
-  }, [demandStore.items, atendimentoStore.items, validationStore.items, reajusteStore.items])
+  }, [demandStore.items, atendimentoStore.items, validationStore.items, reajusteStore.items, manutencaoStore.items, dadosStore.items])
 
   const quickActions = [
     {
@@ -299,18 +356,18 @@ export default function HomePage() {
               </div>
             </div>
             <div className="flex items-center space-x-4">
-              <div className="text-center">
-                <div className="text-3xl font-bold">{stats.demandas.total + stats.atendimentos.total}</div>
-                <div className="text-blue-100 text-sm">Total Hoje</div>
+            <div className="text-center">
+              <div className="text-3xl font-bold">{stats.demandas.total + stats.atendimentos.total + stats.manutencoes.total}</div>
+              <div className="text-blue-100 text-sm">Total Hoje</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl font-bold">
+                {stats.demandas.total > 0 
+                  ? Math.round((stats.demandas.concluidas / stats.demandas.total) * 100)
+                  : 0}%
               </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold">
-                  {stats.demandas.total > 0 
-                    ? Math.round((stats.demandas.concluidas / stats.demandas.total) * 100)
-                    : 0}%
-                </div>
-                <div className="text-blue-100 text-sm">Concluídas</div>
-              </div>
+              <div className="text-blue-100 text-sm">Concluídas</div>
+            </div>
             </div>
           </div>
         </div>
@@ -385,12 +442,20 @@ export default function HomePage() {
                 <div className="text-sm text-green-800">Aprovadas</div>
               </div>
               <div className="text-center p-4 bg-orange-50 rounded-xl">
-                <div className="text-2xl font-bold text-orange-600">{stats.demandas.pendentes + stats.validacoes.pendentes}</div>
+                <div className="text-2xl font-bold text-orange-600">{stats.demandas.pendentes + stats.validacoes.pendentes + stats.manutencoes.pendentes}</div>
                 <div className="text-sm text-orange-800">Pendentes</div>
               </div>
               <div className="text-center p-4 bg-purple-50 rounded-xl">
                 <div className="text-2xl font-bold text-purple-600">{stats.reajustes.total}</div>
                 <div className="text-sm text-purple-800">Reajustes</div>
+              </div>
+              <div className="text-center p-4 bg-teal-50 rounded-xl">
+                <div className="text-2xl font-bold text-teal-600">{stats.manutencoes.total}</div>
+                <div className="text-sm text-teal-800">Manutenções</div>
+              </div>
+              <div className="text-center p-4 bg-indigo-50 rounded-xl">
+                <div className="text-2xl font-bold text-indigo-600">{stats.dados.total}</div>
+                <div className="text-sm text-indigo-800">Dados</div>
               </div>
             </div>
           </div>
@@ -482,6 +547,52 @@ export default function HomePage() {
               <div className="flex justify-between">
                 <span className="text-gray-600">Aprovados:</span>
                 <span className="font-semibold text-green-600">{stats.reajustes.aprovados}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <Wrench className="w-5 h-5 text-teal-600" />
+              Manutenções
+            </h3>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Total:</span>
+                <span className="font-semibold">{stats.manutencoes.total}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Pendentes:</span>
+                <span className="font-semibold text-orange-600">{stats.manutencoes.pendentes}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Em Andamento:</span>
+                <span className="font-semibold text-blue-600">{stats.manutencoes.emAndamento}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Concluídas:</span>
+                <span className="font-semibold text-green-600">{stats.manutencoes.concluidas}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <Database className="w-5 h-5 text-indigo-600" />
+              Dados
+            </h3>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Total:</span>
+                <span className="font-semibold">{stats.dados.total}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Ativos:</span>
+                <span className="font-semibold text-green-600">{stats.dados.ativos}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Inativos:</span>
+                <span className="font-semibold text-gray-600">{stats.dados.inativos}</span>
               </div>
             </div>
           </div>
