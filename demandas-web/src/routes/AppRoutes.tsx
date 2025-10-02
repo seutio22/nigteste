@@ -3,9 +3,10 @@ import { Route, Routes, Navigate } from 'react-router-dom'
 import { AppLayout } from '../components/AppLayout'
 import { ProtectedRoute } from '../components/ProtectedRoute'
 
-const LoginPage = lazy(() => import('../pages/Login'))
-const HomePage = lazy(() => import('../pages/Home'))
-const DashboardPage = lazy(() => import('../pages/Dashboard'))
+// Importações diretas para teste
+import LoginPage from '../pages/Login'
+import HomePage from '../pages/Home'
+import DashboardPage from '../pages/Dashboard'
 const DemandListPage = lazy(() => import('../pages/Demandas/List'))
 const DemandNewPage = lazy(() => import('../pages/Demandas/New'))
 const DemandDetailPage = lazy(() => import('../pages/Demandas/Detail'))
