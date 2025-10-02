@@ -631,7 +631,7 @@ export default function MaillingListPage() {
         
         {/* Tabela de Contatos */}
         <Paper sx={{ p: 1 }}>
-          <TableContainer sx={{ maxHeight: 'calc(100vh - 350px)', minHeight: '400px' }}>
+          <TableContainer sx={{ maxHeight: 'calc(100vh - 200px)', minHeight: '600px' }}>
             <Table size="small" stickyHeader>
               <TableHead>
                 <TableRow sx={{ backgroundColor: 'grey.50' }}>
