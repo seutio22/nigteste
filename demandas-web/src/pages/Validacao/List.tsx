@@ -340,6 +340,13 @@ export default function ValidationListPage() {
       }
   }, [user?.id]) // Depender do ID do usuário para carregar dados
 
+  // Garantir que os dados mestres sejam carregados
+  useEffect(() => {
+    if (md.clientes.length === 0) {
+      console.log('🔍 Validacao: Dados mestres vazios, chamando syncFromApi...')
+      md.syncFromApi?.()
+    }
+  }, []) // Removido as dependências que causavam o loop
 
   // Persistir preferência do filtro de usuário
   useEffect(() => {
