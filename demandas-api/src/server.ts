@@ -1459,6 +1459,7 @@ app.get('/kanban/tickets', async () => {
       status: ticket.status,
       priority: ticket.priority,
       assignee: ticket.assignee || 'unassigned',
+      startDate: ticket.startDate,
       dueDate: ticket.dueDate,
       tags: ticket.tags ? JSON.parse(ticket.tags) : [],
       createdAt: ticket.createdAt,
@@ -1486,6 +1487,7 @@ app.post('/kanban/tickets', async (req: any) => {
         status: ticketData.status,
         priority: ticketData.priority,
         assignee: ticketData.assignee !== 'unassigned' ? ticketData.assignee : null,
+        startDate: ticketData.startDate ? new Date(ticketData.startDate) : null,
         dueDate: ticketData.dueDate ? new Date(ticketData.dueDate) : null,
         tags: JSON.stringify(ticketData.tags || [])
       }
@@ -1498,6 +1500,7 @@ app.post('/kanban/tickets', async (req: any) => {
       status: kanbanTicket.status,
       priority: kanbanTicket.priority,
       assignee: kanbanTicket.assignee || 'unassigned',
+      startDate: kanbanTicket.startDate,
       dueDate: kanbanTicket.dueDate,
       tags: kanbanTicket.tags ? JSON.parse(kanbanTicket.tags) : [],
       createdAt: kanbanTicket.createdAt,
@@ -1522,6 +1525,7 @@ app.put('/kanban/tickets/:id', async (req: any) => {
         status: updates.status,
         priority: updates.priority,
         assignee: updates.assignee !== 'unassigned' ? updates.assignee : null,
+        startDate: updates.startDate ? new Date(updates.startDate) : null,
         dueDate: updates.dueDate ? new Date(updates.dueDate) : null,
         tags: JSON.stringify(updates.tags || [])
       }
@@ -1534,6 +1538,7 @@ app.put('/kanban/tickets/:id', async (req: any) => {
       status: kanbanTicket.status,
       priority: kanbanTicket.priority,
       assignee: kanbanTicket.assignee || 'unassigned',
+      startDate: kanbanTicket.startDate,
       dueDate: kanbanTicket.dueDate,
       tags: kanbanTicket.tags ? JSON.parse(kanbanTicket.tags) : [],
       createdAt: kanbanTicket.createdAt,

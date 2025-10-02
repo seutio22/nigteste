@@ -91,29 +91,54 @@ export const KanbanBoard: React.FC = () => {
     console.log('🔍 KanbanBoard: Tickets do usuário:', userTickets.length)
     
     const checkOverdueTasks = () => {
+      // Usar data atual em UTC para evitar problemas de fuso horário
       const today = new Date()
-      today.setHours(0, 0, 0, 0)
+      const todayUTC = new Date(today.getFullYear(), today.getMonth(), today.getDate())
       
       const overdueTasks: string[] = []
       const dueTodayTasks: string[] = []
+      const dueTomorrowTasks: string[] = []
       const dueSoonTasks: string[] = []
       
       // Usar apenas os tickets do usuário logado
       userTickets.forEach(ticket => {
         if (ticket.dueDate && ticket.status !== 'done') {
-          const dueDate = new Date(ticket.dueDate)
-          dueDate.setHours(0, 0, 0, 0)
+          // Criar data de vencimento em UTC para comparação precisa
+          // Se a data está em formato ISO com Z, extrair apenas a parte da data
+          let dateString = ticket.dueDate
+          if (dateString.includes('T') && dateString.includes('Z')) {
+            // Extrair apenas a parte da data (YYYY-MM-DD)
+            dateString = dateString.split('T')[0]
+          }
           
-          const diffTime = dueDate.getTime() - today.getTime()
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+          // Criar data usando apenas a parte da data para evitar problemas de timezone
+          const dueDate = new Date(dateString + 'T00:00:00')
+          // Verificar se a data é válida
+          if (isNaN(dueDate.getTime())) {
+            console.warn('⚠️ KanbanBoard: Data de vencimento inválida:', ticket.dueDate)
+            return
+          }
+          const dueDateUTC = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate())
           
-          console.log('🔍 KanbanBoard: Verificando ticket:', ticket.title, 'Status:', ticket.status, 'Start Date:', ticket.startDate, 'Due Date:', ticket.dueDate, 'Diff Days:', diffDays)
+          // Calcular diferença em dias usando UTC
+          const diffTime = dueDateUTC.getTime() - todayUTC.getTime()
+          const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24))
+          
+          console.log('🔍 KanbanBoard: Verificando ticket:', ticket.title, 'Status:', ticket.status)
+          console.log('🔍 KanbanBoard: Start Date raw:', ticket.startDate, 'Due Date raw:', ticket.dueDate)
+          console.log('🔍 KanbanBoard: Due Date parsed:', dueDate, 'Due Date UTC:', dueDateUTC)
+          console.log('🔍 KanbanBoard: Today UTC:', todayUTC.toISOString().split('T')[0], 'Due UTC:', dueDateUTC.toISOString().split('T')[0], 'Diff Days:', diffDays)
           
           // Verificar se a tarefa já deve ter iniciado (se tem data de início)
           const shouldStartAlert = ticket.startDate ? (() => {
-            const startDate = new Date(ticket.startDate)
-            startDate.setHours(0, 0, 0, 0)
-            const startDiffDays = Math.ceil((startDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+            // Aplicar mesma lógica de parsing para startDate
+            let startDateString = ticket.startDate
+            if (startDateString.includes('T') && startDateString.includes('Z')) {
+              startDateString = startDateString.split('T')[0]
+            }
+            const startDate = new Date(startDateString + 'T00:00:00')
+            const startDateUTC = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate())
+            const startDiffDays = Math.round((startDateUTC.getTime() - todayUTC.getTime()) / (1000 * 60 * 60 * 24))
             return startDiffDays <= 0 // Já deveria ter iniciado
           })() : true // Se não tem data de início, sempre pode ter alerta
           
@@ -123,6 +148,8 @@ export const KanbanBoard: React.FC = () => {
               overdueTasks.push(ticket.title)
             } else if (diffDays === 0) {
               dueTodayTasks.push(ticket.title)
+            } else if (diffDays === 1) {
+              dueTomorrowTasks.push(ticket.title)
             } else if (diffDays <= 3) {
               dueSoonTasks.push(ticket.title)
             }
@@ -134,6 +161,7 @@ export const KanbanBoard: React.FC = () => {
       
       console.log('🔍 KanbanBoard: Tarefas vencidas:', overdueTasks)
       console.log('🔍 KanbanBoard: Tarefas que vencem hoje:', dueTodayTasks)
+      console.log('🔍 KanbanBoard: Tarefas que vencem amanhã:', dueTomorrowTasks)
       console.log('🔍 KanbanBoard: Tarefas que vencem em breve:', dueSoonTasks)
       
       // Criar notificações para tarefas vencidas
@@ -186,6 +214,37 @@ export const KanbanBoard: React.FC = () => {
             prioridade: 'alta' as const,
             dados: {
               categoria: 'kanban-due-today',
+              kanbanTicketId: task.id
+            }
+          }
+          
+          console.log('🔍 KanbanBoard: Adicionando notificação:', notification)
+          notificationStore.add(notification)
+          console.log('🔍 KanbanBoard: Notificação adicionada. Total no store:', notificationStore.notifications.length)
+        } else {
+          console.log('🔍 KanbanBoard: Notificação já existe para:', taskTitle)
+        }
+      })
+      
+      // Criar notificações para tarefas que vencem amanhã
+      dueTomorrowTasks.forEach(taskTitle => {
+        const task = userTickets.find(t => t.title === taskTitle)
+        if (!task) return
+        
+        console.log('🔍 KanbanBoard: Criando notificação para tarefa que vence amanhã:', task.title, 'ID:', task.id)
+        
+        const existingNotification = notificationStore.notifications.find(
+          n => n.mensagem.includes(taskTitle) && n.tipo === 'sistema'
+        )
+        
+        if (!existingNotification) {
+          const notification = {
+            titulo: 'Tarefa Vence Amanhã',
+            mensagem: `A tarefa "${taskTitle}" vence amanhã!`,
+            tipo: 'sistema' as const,
+            prioridade: 'alta' as const,
+            dados: {
+              categoria: 'kanban-due-tomorrow',
               kanbanTicketId: task.id
             }
           }
@@ -363,8 +422,8 @@ export const KanbanBoard: React.FC = () => {
         description: newTicket.description,
         priority: newTicket.priority,
         assignee: newTicket.assignee || undefined,
-        startDate: newTicket.startDate || undefined,
-        dueDate: newTicket.dueDate || undefined,
+        startDate: newTicket.startDate ? newTicket.startDate + 'T00:00:00.000Z' : undefined, // Converter para ISO com UTC
+        dueDate: newTicket.dueDate ? newTicket.dueDate + 'T00:00:00.000Z' : undefined, // Converter para ISO com UTC
         tags: newTicket.tags ? newTicket.tags.split(',').map(tag => tag.trim()).filter(tag => tag) : []
       })
     } else {
@@ -375,9 +434,9 @@ export const KanbanBoard: React.FC = () => {
         description: newTicket.description,
         status: selectedColumn as KanbanTicket['status'],
         priority: newTicket.priority,
-        assignee: newTicket.assignee || user?.name || 'unassigned', // Garantir que sempre tenha um nome
-        startDate: newTicket.startDate || undefined,
-        dueDate: newTicket.dueDate || undefined,
+        assignee: 'unassigned', // Usar string fixa para evitar problemas de constraint
+        startDate: newTicket.startDate ? newTicket.startDate + 'T00:00:00.000Z' : undefined, // Converter para ISO com UTC
+        dueDate: newTicket.dueDate ? newTicket.dueDate + 'T00:00:00.000Z' : undefined, // Converter para ISO com UTC
         tags: newTicket.tags ? newTicket.tags.split(',').map(tag => tag.trim()).filter(tag => tag) : []
       }
       
@@ -1192,14 +1251,21 @@ const QuickMoveButtons: React.FC<{
 
 // Componente para exibir data de início com indicadores visuais
 const StartDateDisplay: React.FC<{ startDate: string }> = ({ startDate }) => {
+  // Usar data atual em UTC para evitar problemas de fuso horário
   const today = new Date()
-  today.setHours(0, 0, 0, 0)
+  const todayUTC = new Date(today.getFullYear(), today.getMonth(), today.getDate())
   
-  const startDateObj = new Date(startDate)
-  startDateObj.setHours(0, 0, 0, 0)
+  // Criar data de início em UTC para comparação precisa
+  // Aplicar mesma lógica de parsing para evitar problemas de timezone
+  let dateString = startDate
+  if (dateString.includes('T') && dateString.includes('Z')) {
+    dateString = dateString.split('T')[0]
+  }
+  const startDateObj = new Date(dateString + 'T00:00:00')
+  const startDateUTC = new Date(startDateObj.getFullYear(), startDateObj.getMonth(), startDateObj.getDate())
   
-  const diffTime = startDateObj.getTime() - today.getTime()
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+  const diffTime = startDateUTC.getTime() - todayUTC.getTime()
+  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24))
   
   let status: 'not-started' | 'start-today' | 'start-soon' | 'started' = 'not-started'
   let color = 'text.secondary'
@@ -1269,14 +1335,21 @@ const StartDateDisplay: React.FC<{ startDate: string }> = ({ startDate }) => {
 
 // Componente para exibir data de entrega com indicadores visuais
 const DueDateDisplay: React.FC<{ dueDate: string }> = ({ dueDate }) => {
+  // Usar data atual em UTC para evitar problemas de fuso horário
   const today = new Date()
-  today.setHours(0, 0, 0, 0)
+  const todayUTC = new Date(today.getFullYear(), today.getMonth(), today.getDate())
   
-  const dueDateObj = new Date(dueDate)
-  dueDateObj.setHours(0, 0, 0, 0)
+  // Criar data de vencimento em UTC para comparação precisa
+  // Aplicar mesma lógica de parsing para evitar problemas de timezone
+  let dateString = dueDate
+  if (dateString.includes('T') && dateString.includes('Z')) {
+    dateString = dateString.split('T')[0]
+  }
+  const dueDateObj = new Date(dateString + 'T00:00:00')
+  const dueDateUTC = new Date(dueDateObj.getFullYear(), dueDateObj.getMonth(), dueDateObj.getDate())
   
-  const diffTime = dueDateObj.getTime() - today.getTime()
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+  const diffTime = dueDateUTC.getTime() - todayUTC.getTime()
+  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24))
   
   let status: 'overdue' | 'due-today' | 'due-soon' | 'due-later' = 'due-later'
   let color = 'text.secondary'
