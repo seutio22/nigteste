@@ -184,6 +184,10 @@ export default function ValidationNewPage() {
       console.log('🔍 ValidationNewPage: Dados do formulário:', data)
       console.log('🔍 ValidationNewPage: Campo analista:', data.analista)
       console.log('🔍 ValidationNewPage: Tipo do campo analista:', typeof data.analista)
+      console.log('🔍 ValidationNewPage: Estrutura EDGE:', data.estruturaEdge)
+      console.log('🔍 ValidationNewPage: Estrutura MOVE:', data.estruturaMove)
+      console.log('🔍 ValidationNewPage: Tipo estruturaEdge:', typeof data.estruturaEdge)
+      console.log('🔍 ValidationNewPage: Tipo estruturaMove:', typeof data.estruturaMove)
       
       // Verificar se o analista foi selecionado
       if (!data.analista) {

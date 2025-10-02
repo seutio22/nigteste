@@ -39,6 +39,8 @@ export const useValidationStore = create<ValidationState>()(
       add: async (payload: Omit<ValidationEntry, 'id' | 'createdAt'>) => {
         try {
           console.log('🔄 Adicionando nova validação:', payload)
+          console.log('🔄 Estrutura EDGE no payload:', payload.estruturaEdge)
+          console.log('🔄 Estrutura MOVE no payload:', payload.estruturaMove)
           
           const entry: ValidationEntry = { 
             id: crypto.randomUUID(), 
@@ -47,6 +49,8 @@ export const useValidationStore = create<ValidationState>()(
           }
           
           console.log('📝 Validação criada localmente:', entry.id)
+          console.log('📝 Estrutura EDGE na entrada:', entry.estruturaEdge)
+          console.log('📝 Estrutura MOVE na entrada:', entry.estruturaMove)
           set((s) => ({ items: [entry, ...s.items] }))
           
           // Salvar no banco de dados
@@ -314,8 +318,36 @@ export const useValidationStore = create<ValidationState>()(
             operadoraId: validacao.operadoraId,
             produtoId: validacao.produtoId,
             // Novos campos para estruturas EDGE, MOVE e formalização
-            estruturaEdge: validacao.estruturaEdge ? JSON.parse(validacao.estruturaEdge) : [],
-            estruturaMove: validacao.estruturaMove ? JSON.parse(validacao.estruturaMove) : [],
+            estruturaEdge: (() => {
+              console.log('🔍 Estrutura EDGE da API:', validacao.estruturaEdge, 'Tipo:', typeof validacao.estruturaEdge)
+              if (!validacao.estruturaEdge) return []
+              if (typeof validacao.estruturaEdge === 'string') {
+                try {
+                  const parsed = JSON.parse(validacao.estruturaEdge)
+                  console.log('✅ Estrutura EDGE parseada:', parsed)
+                  return parsed
+                } catch (e) {
+                  console.error('❌ Erro ao fazer parse da estrutura EDGE:', e)
+                  return []
+                }
+              }
+              return validacao.estruturaEdge
+            })(),
+            estruturaMove: (() => {
+              console.log('🔍 Estrutura MOVE da API:', validacao.estruturaMove, 'Tipo:', typeof validacao.estruturaMove)
+              if (!validacao.estruturaMove) return []
+              if (typeof validacao.estruturaMove === 'string') {
+                try {
+                  const parsed = JSON.parse(validacao.estruturaMove)
+                  console.log('✅ Estrutura MOVE parseada:', parsed)
+                  return parsed
+                } catch (e) {
+                  console.error('❌ Erro ao fazer parse da estrutura MOVE:', e)
+                  return []
+                }
+              }
+              return validacao.estruturaMove
+            })(),
             formalizacao: validacao.formalizacao,
             itensPendentes: validacao.itensPendentes,
             itensConcluidos: validacao.itensConcluidos,
