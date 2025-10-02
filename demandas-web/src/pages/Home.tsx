@@ -91,6 +91,7 @@ export default function HomePage() {
   // Carregar dados automaticamente quando a página é carregada
   useEffect(() => {
     console.log('🔍 Home: Carregando dados da API...')
+    console.log('🔍 Home: Timestamp:', new Date().toISOString())
     
     if (user?.id) {
       console.log('🔍 Home: Usuário logado, carregando dados...')
