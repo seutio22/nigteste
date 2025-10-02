@@ -432,6 +432,7 @@ function crud(entity: keyof PrismaClient) {
             break;
             
           case 'area':
+            // Verificar dependências corretas para áreas (sem analista.areaId)
             const areaDeps = await Promise.all([
               anyPrisma.demanda.count({ where: { areaId: id } }),
               anyPrisma.atendimento.count({ where: { areaId: id } }),
