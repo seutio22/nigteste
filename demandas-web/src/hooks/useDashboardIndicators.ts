@@ -9,8 +9,6 @@ import { useMaillingStore } from '../store/maillingStore'
 import { useComunicadoStore } from '../store/comunicadoStore'
 import { useProjectStore } from '../store/projectStore'
 import { useKanbanStore } from '../store/kanbanStore'
-import { useDadosStore } from '../store/dadosStore'
-import { useMasterDataStore } from '../store/masterDataStore'
 import type { DashboardIndicator, PageMetrics, PeriodType } from '../types/dashboardIndicators'
 import { PAGE_CONFIGS, COMPLETION_STATUS } from '../types/dashboardIndicators'
 
@@ -109,8 +107,6 @@ export const useDashboardIndicators = (period: PeriodType = 'daily') => {
   const comunicadoStore = useComunicadoStore()
   const projectStore = useProjectStore()
   const kanbanStore = useKanbanStore()
-  const dadosStore = useDadosStore()
-  const masterDataStore = useMasterDataStore()
 
   // Mapeamento de stores por página com verificações de segurança
   const storeMap = {
@@ -123,9 +119,7 @@ export const useDashboardIndicators = (period: PeriodType = 'daily') => {
     mailling: Array.isArray(maillingStore.contacts) ? maillingStore.contacts : [],
     comunicados: Array.isArray(comunicadoStore.items) ? comunicadoStore.items : [],
     projetos: Array.isArray(projectStore.items) ? projectStore.items : [],
-    kanban: Array.isArray(kanbanStore.items) ? kanbanStore.items : [],
-    dados: Array.isArray(dadosStore.items) ? dadosStore.items : [],
-    usuarios: Array.isArray(masterDataStore.analistas) ? masterDataStore.analistas : [] // Usando analistas como proxy para usuários
+    kanban: Array.isArray(kanbanStore.items) ? kanbanStore.items : []
   }
 
   // Calcular métricas para todas as páginas

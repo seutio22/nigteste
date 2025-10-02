@@ -187,33 +187,6 @@ export const PAGE_CONFIGS: IndicatorConfig[] = [
       updated: 'updatedAt',
       completed: 'status'
     }
-  },
-  // Páginas Terciárias (Tertiary)
-  {
-    page: 'dados',
-    title: 'Dados',
-    icon: 'Storage',
-    color: '#6b7280',
-    category: 'tertiary',
-    fields: {
-      total: 'ativo',
-      created: 'createdAt',
-      updated: 'updatedAt',
-      completed: 'ativo'
-    }
-  },
-  {
-    page: 'usuarios',
-    title: 'Usuários',
-    icon: 'People',
-    color: '#6b7280',
-    category: 'tertiary',
-    fields: {
-      total: 'role',
-      created: 'createdAt',
-      updated: 'updatedAt',
-      completed: 'role'
-    }
   }
 ]
 
@@ -228,7 +201,5 @@ export const COMPLETION_STATUS = {
   mailling: ['Ativo', 'Enviado', 'Processado'],
   comunicados: ['Enviado', 'Lido', 'Processado'],
   projetos: ['Concluído', 'Finalizado', 'Entregue'],
-  kanban: ['Concluído', 'Finalizado', 'Resolvido'],
-  dados: ['Ativo', 'Configurado', 'Aplicado'],
-  usuarios: ['Ativo', 'Habilitado', 'Configurado']
+  kanban: ['Concluído', 'Finalizado', 'Resolvido']
 }
