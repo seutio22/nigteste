@@ -522,6 +522,18 @@ export const useDadosCRUD = () => {
       } catch (apiError) {
         console.log(`⚠️ Erro ao excluir do backend:`, apiError)
         
+        // Verificar se é erro de dependências (não pode excluir)
+        if (apiError instanceof Error && apiError.message.includes('registros dependentes')) {
+          console.log(`⚠️ Registro ${id} não pode ser excluído - possui dependências`)
+          
+          setSnack({
+            open: true,
+            message: `${config.displayName} não pode ser excluído pois possui registros dependentes. Remova as dependências primeiro.`,
+            severity: 'warning'
+          })
+          return false
+        }
+        
         // Verificar se é erro de registro não encontrado (500 ou 404)
         // Tratamento especial para áreas com erro 500 (bug no backend)
         if (apiError instanceof Error && (

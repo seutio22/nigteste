@@ -606,4 +606,5 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
     }
   })
 
+
 }
