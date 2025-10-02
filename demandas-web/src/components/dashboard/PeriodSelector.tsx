@@ -10,7 +10,7 @@ import {
 import {
   Today as TodayIcon,
   CalendarMonth as MonthIcon,
-  CalendarViewQuarter as QuarterIcon
+  CalendarViewWeek as QuarterIcon
 } from '@mui/icons-material'
 import type { PeriodType } from '../../types/dashboardIndicators'
 
