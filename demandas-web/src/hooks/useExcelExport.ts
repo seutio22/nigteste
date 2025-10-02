@@ -229,10 +229,10 @@ export const useExcelExport = () => {
     
     // Gerar arquivo Excel
     const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })
-    const data = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const excelBlob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
     
     const fileName = `Dashboard_${period === 'daily' ? 'Diario' : period === 'monthly' ? 'Mensal' : 'Trimestral'}_${new Date().toISOString().split('T')[0]}.xlsx`
-    saveAs(data, fileName)
+    saveAs(excelBlob, fileName)
   }, [])
   
   return { exportToExcel }
