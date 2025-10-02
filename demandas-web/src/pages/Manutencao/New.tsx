@@ -397,9 +397,41 @@ export default function ManutencaoNewPage() {
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
             <Controller name="operadora" control={control} render={({ field }) => (
-              <TextField {...field} select required label="Operadora" fullWidth error={!!errors.operadora} helperText={errors.operadora?.message}>
-                {md.operadoras.map(o => <MenuItem key={o.id} value={o.id}>{o.nome}</MenuItem>)}
-              </TextField>
+              <Autocomplete
+                {...field}
+                options={md.operadoras}
+                getOptionLabel={(option) => option.nome || ''}
+                isOptionEqualToValue={(option, value) => option.id === value?.id}
+                value={md.operadoras.find(o => o.id === field.value) || null}
+                onChange={(_, newValue) => field.onChange(newValue?.id || '')}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Operadora"
+                    required
+                    fullWidth
+                    error={!!errors.operadora}
+                    helperText={errors.operadora?.message || 'Digite para buscar uma operadora'}
+                    placeholder="Digite para buscar..."
+                  />
+                )}
+                renderOption={(props, option) => (
+                  <Box component="li" {...props}>
+                    <Typography variant="body1" fontWeight="medium">
+                      {option.nome}
+                    </Typography>
+                  </Box>
+                )}
+                noOptionsText="Nenhuma operadora encontrada"
+                loading={md.operadoras.length === 0}
+                loadingText="Carregando operadoras..."
+                filterOptions={(options, { inputValue }) => {
+                  const filtered = options.filter(option =>
+                    option.nome.toLowerCase().includes(inputValue.toLowerCase())
+                  )
+                  return filtered
+                }}
+              />
             )} />
           </Grid>
           <Grid item xs={12} sm={6} md={4}>

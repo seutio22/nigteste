@@ -413,16 +413,40 @@ export default function AtendimentoNewPage() {
                 name="operadora"
                 control={control}
                 render={({ field }) => (
-                  <FormControl fullWidth error={!!errors.operadora}>
-                    <InputLabel>Operadora</InputLabel>
-                    <Select {...field} label="Operadora">
-                      {masterDataStore.operadoras.map(operadora => (
-                        <MenuItem key={operadora.id} value={operadora.id}>
-                          {operadora.nome}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                  <Autocomplete
+                    {...field}
+                    options={masterDataStore.operadoras}
+                    getOptionLabel={(option) => option.nome || ''}
+                    isOptionEqualToValue={(option, value) => option.id === value?.id}
+                    value={masterDataStore.operadoras.find(o => o.id === field.value) || null}
+                    onChange={(_, newValue) => field.onChange(newValue?.id || '')}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Operadora"
+                        fullWidth
+                        error={!!errors.operadora}
+                        helperText={errors.operadora?.message || 'Digite para buscar uma operadora'}
+                        placeholder="Digite para buscar..."
+                      />
+                    )}
+                    renderOption={(props, option) => (
+                      <Box component="li" {...props}>
+                        <Typography variant="body1" fontWeight="medium">
+                          {option.nome}
+                        </Typography>
+                      </Box>
+                    )}
+                    noOptionsText="Nenhuma operadora encontrada"
+                    loading={masterDataStore.operadoras.length === 0}
+                    loadingText="Carregando operadoras..."
+                    filterOptions={(options, { inputValue }) => {
+                      const filtered = options.filter(option =>
+                        option.nome.toLowerCase().includes(inputValue.toLowerCase())
+                      )
+                      return filtered
+                    }}
+                  />
                 )}
               />
             </Grid>

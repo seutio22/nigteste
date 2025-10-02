@@ -9,7 +9,7 @@ import { fmt } from '../../lib/utils'
 import { useState, useEffect } from 'react'
 import { Save, Edit3, Clock, ArrowLeft } from 'lucide-react'
 import { Demand } from '../../types/demand'
-import { Autocomplete, TextField } from '@mui/material'
+import { Autocomplete, TextField, Box, Typography } from '@mui/material'
 
 // Função para converter código de qualidade em texto legível
 const getQualidadeLabel = (value?: string) => {
@@ -727,14 +727,36 @@ function EditInline({ d }: { d: Demand }) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Operadora</label>
-          <select
-            value={draft.operadoraId || ''}
-            onChange={(e) => setDraft({ ...draft, operadoraId: e.target.value || undefined })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="">Selecione...</option>
-            {md.operadoras.map(o => <option key={o.id} value={o.id}>{o.nome}</option>)}
-          </select>
+          <Autocomplete
+            options={md.operadoras}
+            getOptionLabel={(option) => option.nome || ''}
+            isOptionEqualToValue={(option, value) => option.id === value?.id}
+            value={md.operadoras.find(o => o.id === draft.operadoraId) || null}
+            onChange={(_, newValue) => setDraft({ ...draft, operadoraId: newValue?.id || undefined })}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                placeholder="Digite para buscar..."
+                className="w-full"
+              />
+            )}
+            renderOption={(props, option) => (
+              <Box component="li" {...props}>
+                <Typography variant="body1" fontWeight="medium">
+                  {option.nome}
+                </Typography>
+              </Box>
+            )}
+            noOptionsText="Nenhuma operadora encontrada"
+            loading={md.operadoras.length === 0}
+            loadingText="Carregando operadoras..."
+            filterOptions={(options, { inputValue }) => {
+              const filtered = options.filter(option =>
+                option.nome.toLowerCase().includes(inputValue.toLowerCase())
+              )
+              return filtered
+            }}
+          />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Produto</label>

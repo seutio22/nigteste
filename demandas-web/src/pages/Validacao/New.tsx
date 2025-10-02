@@ -383,24 +383,44 @@ export default function ValidationNewPage() {
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
             <Controller name="operadora" control={control} render={({ field }) => (
-              <TextField 
-                {...field} 
-                select 
-                label="Operadora" 
-                fullWidth 
-                error={!!errors.operadora} 
-                helperText={errors.operadora?.message}
-                onChange={(e) => {
-                  field.onChange(e)
+              <Autocomplete
+                {...field}
+                options={md.operadoras}
+                getOptionLabel={(option) => option.nome || ''}
+                isOptionEqualToValue={(option, value) => option.id === value?.id}
+                value={md.operadoras.find(o => o.id === field.value) || null}
+                onChange={(_, newValue) => {
+                  field.onChange(newValue?.id || '')
                   // Limpar produto quando operadora mudar
                   control._formValues.produto = ''
                 }}
-              >
-                <MenuItem value="">
-                  <em>Selecione uma operadora</em>
-                </MenuItem>
-                {md.operadoras.map(op => <MenuItem key={op.id} value={op.id}>{op.nome}</MenuItem>)}
-              </TextField>
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Operadora"
+                    fullWidth
+                    error={!!errors.operadora}
+                    helperText={errors.operadora?.message || 'Digite para buscar uma operadora'}
+                    placeholder="Digite para buscar..."
+                  />
+                )}
+                renderOption={(props, option) => (
+                  <Box component="li" {...props}>
+                    <Typography variant="body1" fontWeight="medium">
+                      {option.nome}
+                    </Typography>
+                  </Box>
+                )}
+                noOptionsText="Nenhuma operadora encontrada"
+                loading={md.operadoras.length === 0}
+                loadingText="Carregando operadoras..."
+                filterOptions={(options, { inputValue }) => {
+                  const filtered = options.filter(option =>
+                    option.nome.toLowerCase().includes(inputValue.toLowerCase())
+                  )
+                  return filtered
+                }}
+              />
             )} />
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
