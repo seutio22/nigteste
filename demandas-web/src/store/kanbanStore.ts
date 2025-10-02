@@ -8,6 +8,7 @@ export interface KanbanTicket {
   status: 'backlog' | 'todo' | 'in-progress' | 'done'
   priority: 'low' | 'medium' | 'high'
   assignee: string // Campo obrigatório para controle de acesso
+  startDate?: string
   dueDate?: string
   tags: string[]
   createdAt: string

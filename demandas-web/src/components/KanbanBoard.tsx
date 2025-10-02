@@ -48,6 +48,7 @@ export const KanbanBoard: React.FC = () => {
     description: '',
     priority: 'medium' as 'low' | 'medium' | 'high',
     assignee: user?.name || 'unassigned', // Usar NOME do usuário logado ou 'unassigned'
+    startDate: '',
     dueDate: '',
     tags: ''
   })
@@ -106,14 +107,27 @@ export const KanbanBoard: React.FC = () => {
           const diffTime = dueDate.getTime() - today.getTime()
           const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
           
-          console.log('🔍 KanbanBoard: Verificando ticket:', ticket.title, 'Status:', ticket.status, 'Due Date:', ticket.dueDate, 'Diff Days:', diffDays)
+          console.log('🔍 KanbanBoard: Verificando ticket:', ticket.title, 'Status:', ticket.status, 'Start Date:', ticket.startDate, 'Due Date:', ticket.dueDate, 'Diff Days:', diffDays)
           
-          if (diffDays < 0) {
-            overdueTasks.push(ticket.title)
-          } else if (diffDays === 0) {
-            dueTodayTasks.push(ticket.title)
-          } else if (diffDays <= 3) {
-            dueSoonTasks.push(ticket.title)
+          // Verificar se a tarefa já deve ter iniciado (se tem data de início)
+          const shouldStartAlert = ticket.startDate ? (() => {
+            const startDate = new Date(ticket.startDate)
+            startDate.setHours(0, 0, 0, 0)
+            const startDiffDays = Math.ceil((startDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+            return startDiffDays <= 0 // Já deveria ter iniciado
+          })() : true // Se não tem data de início, sempre pode ter alerta
+          
+          // Só criar alertas se a tarefa já deveria ter iniciado (ou não tem data de início)
+          if (shouldStartAlert) {
+            if (diffDays < 0) {
+              overdueTasks.push(ticket.title)
+            } else if (diffDays === 0) {
+              dueTodayTasks.push(ticket.title)
+            } else if (diffDays <= 3) {
+              dueSoonTasks.push(ticket.title)
+            }
+          } else {
+            console.log('🔍 KanbanBoard: Tarefa ainda não deve iniciar:', ticket.title, 'Start Date:', ticket.startDate)
           }
         }
       })
@@ -319,6 +333,7 @@ export const KanbanBoard: React.FC = () => {
       description: ticket.description,
       priority: ticket.priority,
       assignee: ticket.assignee || user?.name || 'unassigned', // Usar nome do usuário se não houver assignee
+      startDate: ticket.startDate || '',
       dueDate: ticket.dueDate || '',
       tags: ticket.tags.join(', ')
     })
@@ -348,6 +363,7 @@ export const KanbanBoard: React.FC = () => {
         description: newTicket.description,
         priority: newTicket.priority,
         assignee: newTicket.assignee || undefined,
+        startDate: newTicket.startDate || undefined,
         dueDate: newTicket.dueDate || undefined,
         tags: newTicket.tags ? newTicket.tags.split(',').map(tag => tag.trim()).filter(tag => tag) : []
       })
@@ -360,6 +376,7 @@ export const KanbanBoard: React.FC = () => {
         status: selectedColumn as KanbanTicket['status'],
         priority: newTicket.priority,
         assignee: newTicket.assignee || user?.name || 'unassigned', // Garantir que sempre tenha um nome
+        startDate: newTicket.startDate || undefined,
         dueDate: newTicket.dueDate || undefined,
         tags: newTicket.tags ? newTicket.tags.split(',').map(tag => tag.trim()).filter(tag => tag) : []
       }
@@ -382,6 +399,7 @@ export const KanbanBoard: React.FC = () => {
       description: '',
       priority: 'medium' as 'low' | 'medium' | 'high',
       assignee: user?.name || 'unassigned', // Usar NOME do usuário logado ou 'unassigned'
+      startDate: '',
       dueDate: '',
       tags: ''
     })
@@ -774,6 +792,13 @@ export const KanbanBoard: React.FC = () => {
                           📅 Criado em: {new Date(ticket.createdAt).toLocaleDateString('pt-BR')}
                         </Typography>
                         
+                        {/* Data de Início */}
+                        {ticket.startDate && (
+                          <Box sx={{ mt: 0.5 }}>
+                            <StartDateDisplay startDate={ticket.startDate} />
+                          </Box>
+                        )}
+                        
                         {/* Data Final de Entrega */}
                         {ticket.dueDate && (
                           <Box sx={{ mt: 0.5 }}>
@@ -853,11 +878,21 @@ export const KanbanBoard: React.FC = () => {
             />
             <TextField
               type="date"
+              label="Data de Início (Opcional)"
+              value={newTicket.startDate}
+              onChange={(e) => setNewTicket({ ...newTicket, startDate: e.target.value })}
+              InputLabelProps={{ shrink: true }}
+              fullWidth
+              helperText="Data em que a tarefa deve ser iniciada"
+            />
+            <TextField
+              type="date"
               label="Data de Vencimento (Opcional)"
               value={newTicket.dueDate}
               onChange={(e) => setNewTicket({ ...newTicket, dueDate: e.target.value })}
               InputLabelProps={{ shrink: true }}
               fullWidth
+              helperText="Data limite para conclusão da tarefa"
             />
           </Box>
         </DialogContent>
@@ -931,6 +966,14 @@ export const KanbanBoard: React.FC = () => {
                     <Typography variant="body2" color="text.secondary">Responsável:</Typography>
                     <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
                       {viewDescriptionTicket.assignee}
+                    </Typography>
+                  </Box>
+                )}
+                {viewDescriptionTicket?.startDate && (
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography variant="body2" color="text.secondary">Início:</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
+                      {new Date(viewDescriptionTicket.startDate).toLocaleDateString('pt-BR')}
                     </Typography>
                   </Box>
                 )}
@@ -1143,6 +1186,83 @@ const QuickMoveButtons: React.FC<{
           ➡️
         </Button>
       )}
+    </Box>
+  )
+}
+
+// Componente para exibir data de início com indicadores visuais
+const StartDateDisplay: React.FC<{ startDate: string }> = ({ startDate }) => {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  
+  const startDateObj = new Date(startDate)
+  startDateObj.setHours(0, 0, 0, 0)
+  
+  const diffTime = startDateObj.getTime() - today.getTime()
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+  
+  let status: 'not-started' | 'start-today' | 'start-soon' | 'started' = 'not-started'
+  let color = 'text.secondary'
+  let icon = '📅'
+  let label = ''
+  
+  if (diffDays < 0) {
+    status = 'started'
+    color = 'success.main'
+    icon = '✅'
+    label = `Iniciada há ${Math.abs(diffDays)} dia${Math.abs(diffDays) !== 1 ? 's' : ''}`
+  } else if (diffDays === 0) {
+    status = 'start-today'
+    color = 'info.main'
+    icon = '🚀'
+    label = 'Inicia hoje!'
+  } else if (diffDays <= 3) {
+    status = 'start-soon'
+    color = 'info.main'
+    icon = '⏰'
+    label = `Inicia em ${diffDays} dia${diffDays !== 1 ? 's' : ''}`
+  } else {
+    status = 'not-started'
+    color = 'text.secondary'
+    icon = '📅'
+    label = `Inicia em ${diffDays} dia${diffDays !== 1 ? 's' : ''}`
+  }
+  
+  return (
+    <Box sx={{ 
+      display: 'flex', 
+      alignItems: 'center', 
+      gap: 0.5,
+      p: 0.5,
+      borderRadius: 1,
+      backgroundColor: status === 'start-today' ? 'info.light' : 
+                     status === 'start-soon' ? 'info.light' : 'transparent',
+      border: `1px solid ${status === 'start-today' ? 'info.main' : 
+                          status === 'start-soon' ? 'info.main' : 'transparent'}`
+    }}>
+      <Typography variant="caption" sx={{ fontSize: '0.8rem' }}>
+        {icon}
+      </Typography>
+      <Typography 
+        variant="caption" 
+        sx={{ 
+          fontWeight: 'medium', 
+          fontSize: '0.7rem',
+          color: color
+        }}
+      >
+        {label}
+      </Typography>
+      <Typography 
+        variant="caption" 
+        sx={{ 
+          fontSize: '0.65rem',
+          color: 'text.secondary',
+          ml: 'auto'
+        }}
+      >
+        {startDateObj.toLocaleDateString('pt-BR')}
+      </Typography>
     </Box>
   )
 }

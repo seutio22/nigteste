@@ -67,7 +67,13 @@ export async function apiRequest<T = any>(
       } else {
         const errorText = await response.text()
         console.error('Erro HTTP DELETE:', response.status, errorText)
-        throw new Error(`HTTP error! status: ${response.status}`)
+        
+        // Para erros 500, incluir o texto do erro na mensagem
+        if (response.status === 500) {
+          throw new Error(`HTTP error! status: ${response.status} ${errorText}`)
+        } else {
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
       }
     }
     

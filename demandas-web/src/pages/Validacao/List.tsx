@@ -364,7 +364,7 @@ export default function ValidationListPage() {
       cliente: v.cliente?.nome ?? '',
       contrato: v.contrato?.numero ?? '',
       operadora: v.operadora?.nome ?? '',
-      solicitante: v.solicitante ?? '',
+      solicitante: md.solicitantes.find(s => s.id === v.solicitante)?.nome ?? v.solicitante ?? '',
       dataInicio: v.dataInicio ?? '',
       dataFinal: v.dataFinal ?? '',
       updatedAt: new Date(v.updatedAt).toLocaleString('pt-BR'),
@@ -654,6 +654,7 @@ export default function ValidationListPage() {
           sistema: md.sistemas.find(s => s.id === v.sistema)?.nome ?? v.sistema ?? 'N/A',
           tipo: md.tiposDemanda.find(t => t.id === v.tipo)?.nome ?? v.tipo ?? 'N/A',
           tipoServico: md.tiposServico.find(ts => ts.id === v.tipoServico)?.nome ?? v.tipoServico ?? 'N/A',
+          solicitante: md.solicitantes.find(s => s.id === v.solicitante)?.nome ?? v.solicitante ?? 'N/A',
           // Formatar datas
           dataInicio: v.dataInicio ? new Date(v.dataInicio).toLocaleString('pt-BR') : 'N/A',
           dataFinal: v.dataFinal ? new Date(v.dataFinal).toLocaleString('pt-BR') : 'N/A',

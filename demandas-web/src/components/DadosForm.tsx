@@ -76,8 +76,19 @@ export const DadosForm: React.FC<DadosFormProps> = ({
       case 'operadoras':
       case 'produtos':
       case 'sistemas':
-      case 'analistas':
       case 'areas':
+        return (
+          <Stack gap={2} mt={1}>
+            <TextField 
+              label="Nome" 
+              value={form.nome ?? ''} 
+              onChange={(e) => handleFieldChange('nome', e.target.value)}
+              required
+            />
+          </Stack>
+        )
+
+      case 'analistas':
       case 'servicos':
         return (
           <Stack gap={2} mt={1}>

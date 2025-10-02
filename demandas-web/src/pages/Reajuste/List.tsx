@@ -61,14 +61,45 @@ export default function ReajusteListPage() {
   const finalFilteredItems = showOnlyMyReajustes 
     ? filteredItems.filter(reajuste => {
         // Buscar o analista correspondente ao usuário logado
-        const analista = md.analistas.find(a => a.id === reajuste.responsavelAnalista)
-        const isMyReajuste = reajuste.responsavelAnalista === user?.id || 
-                             (analista && analista.nome === user?.name) ||
-                             (user?.role === 'admin' && reajuste.responsavelAnalista === 'analista-admin')
+        const analistaCorrespondente = md.analistas.find(analista => 
+          analista.nome.toLowerCase() === user?.name?.toLowerCase() ||
+          analista.nome.toLowerCase().includes(user?.name?.toLowerCase() || '') ||
+          (user?.name?.toLowerCase() || '').includes(analista.nome.toLowerCase())
+        )
         
-        return isMyReajuste
+        // Se encontrou o analista correspondente, comparar IDs
+        if (analistaCorrespondente) {
+          return reajuste.responsavelAnalista === analistaCorrespondente.id
+        }
+        
+        // Se não encontrou correspondência, retornar false (não mostrar)
+        return false
       })
     : filteredItems
+
+  // Debug logs
+  console.log('🔍 ReajustePage: Total de items:', items.length)
+  console.log('🔍 ReajustePage: FilteredItems:', filteredItems.length)
+  console.log('🔍 ReajustePage: User:', user)
+  console.log('🔍 ReajustePage: ShowOnlyMyReajustes:', showOnlyMyReajustes)
+  console.log('🔍 ReajustePage: Analistas disponíveis:', md.analistas)
+  
+  // Debug do filtro
+  if (showOnlyMyReajustes && user?.name) {
+    const analistaCorrespondente = md.analistas.find(analista => 
+      analista.nome.toLowerCase() === user?.name?.toLowerCase() ||
+      analista.nome.toLowerCase().includes(user?.name?.toLowerCase() || '') ||
+      (user?.name?.toLowerCase() || '').includes(analista.nome.toLowerCase())
+    )
+    console.log('🔍 ReajustePage: Analista correspondente ao usuário:', analistaCorrespondente)
+    
+    if (analistaCorrespondente) {
+      const meusReajustes = filteredItems.filter(reajuste => reajuste.responsavelAnalista === analistaCorrespondente.id)
+      console.log('🔍 ReajustePage: Reajustes do analista correspondente:', meusReajustes.length, meusReajustes)
+    }
+  }
+  
+  console.log('🔍 ReajustePage: FinalFilteredItems:', finalFilteredItems.length)
 
 
   // carregar preferências

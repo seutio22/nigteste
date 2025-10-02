@@ -62,13 +62,48 @@ export default function AnalyticsPage() {
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({ page: 0, pageSize: 10 })
   const [showOnlyMyReports, setShowOnlyMyReports] = useState(true) // SEMPRE inicia como "Meus relatórios"
 
-  // TEMPORÁRIO: Desabilitar todos os filtros para debug
-  const finalFilteredItems = items
+  // Aplicar filtro "Meus relatórios" baseado no usuário logado
+  const finalFilteredItems = showOnlyMyReports 
+    ? items.filter(item => {
+        // Buscar o analista correspondente ao usuário logado
+        const analistaCorrespondente = md.analistas.find(analista => 
+          analista.nome.toLowerCase() === user?.name?.toLowerCase() ||
+          analista.nome.toLowerCase().includes(user?.name?.toLowerCase() || '') ||
+          (user?.name?.toLowerCase() || '').includes(analista.nome.toLowerCase())
+        )
+        
+        // Se encontrou o analista correspondente, comparar IDs
+        if (analistaCorrespondente) {
+          return item.analista === analistaCorrespondente.id
+        }
+        
+        // Se não encontrou correspondência, retornar false (não mostrar)
+        return false
+      })
+    : items
   
   // Debug logs
   console.log('🔍 AnalyticsPage: Total de items:', items.length)
   console.log('🔍 AnalyticsPage: Items:', items)
   console.log('🔍 AnalyticsPage: User:', user)
+  console.log('🔍 AnalyticsPage: ShowOnlyMyReports:', showOnlyMyReports)
+  console.log('🔍 AnalyticsPage: Analistas disponíveis:', md.analistas)
+  
+  // Debug do filtro
+  if (showOnlyMyReports && user?.name) {
+    const analistaCorrespondente = md.analistas.find(analista => 
+      analista.nome.toLowerCase() === user?.name?.toLowerCase() ||
+      analista.nome.toLowerCase().includes(user?.name?.toLowerCase() || '') ||
+      (user?.name?.toLowerCase() || '').includes(analista.nome.toLowerCase())
+    )
+    console.log('🔍 AnalyticsPage: Analista correspondente ao usuário:', analistaCorrespondente)
+    
+    if (analistaCorrespondente) {
+      const meusRelatorios = items.filter(item => item.analista === analistaCorrespondente.id)
+      console.log('🔍 AnalyticsPage: Relatórios do analista correspondente:', meusRelatorios.length, meusRelatorios)
+    }
+  }
+  
   console.log('🔍 AnalyticsPage: FinalFilteredItems:', finalFilteredItems.length)
 
   // carregar preferências
