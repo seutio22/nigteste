@@ -1971,7 +1971,8 @@ app.post('/analytics', async (req: any) => {
         solicitacao: req.body.solicitacao,
         tipoSolicitacao: req.body.tipoSolicitacao,
         tipoServico: req.body.tipoServico,
-        observacoes: req.body.observacoes
+        observacoes: req.body.observacoes,
+        userId: req.body.userId // Incluir userId do usuário que criou o relatório
       }
     })
     
@@ -1979,6 +1980,49 @@ app.post('/analytics', async (req: any) => {
     return report
   } catch (error) {
     console.error('❌ Erro ao criar relatório:', error)
+    throw error
+  }
+})
+
+// Rota de exclusão para relatórios
+app.delete('/analytics/:id', async (req: any) => {
+  try {
+    const { id } = req.params
+    console.log(`🔍 DELETE /analytics/${id}: Excluindo relatório`)
+    
+    // Verificar se o relatório existe
+    const existingReport = await prisma.report.findUnique({ where: { id } })
+    if (!existingReport) {
+      return { 
+        statusCode: 404, 
+        error: 'Not Found', 
+        message: `Relatório com ID "${id}" não foi encontrado.` 
+      }
+    }
+    
+    // TODO: Implementar validação de permissões quando o sistema de auth estiver completo
+    // Por enquanto, permitir exclusão para todos os usuários autenticados
+    // const userId = req.user?.id
+    // const userRole = req.user?.role
+    // if (existingReport.userId !== userId && userRole !== 'admin') {
+    //   return {
+    //     statusCode: 403,
+    //     error: 'Forbidden',
+    //     message: 'Você não tem permissão para excluir este relatório.'
+    //   }
+    // }
+    
+    // Excluir o relatório
+    const deletedReport = await prisma.report.delete({ where: { id } })
+    console.log(`✅ DELETE /analytics/${id}: Relatório excluído com sucesso:`, deletedReport.id)
+    
+    return { 
+      success: true, 
+      message: 'Relatório excluído com sucesso', 
+      deletedId: deletedReport.id 
+    }
+  } catch (error) {
+    console.error(`❌ DELETE /analytics/${id}: Erro:`, error)
     throw error
   }
 })
