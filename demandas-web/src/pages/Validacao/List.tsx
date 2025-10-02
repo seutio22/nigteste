@@ -238,13 +238,19 @@ const columns: GridColDef[] = [
   { field: 'status', headerName: 'Status', width: 150, renderCell: (p) => <StatusBadge status={String(p.value ?? '')} /> },
   { field: 'analista', headerName: 'Analista', width: 160 },
   { field: 'cliente', headerName: 'Cliente', width: 160, renderCell: (params) => {
+    console.log('🔍 CLIENTE renderCell - params.value:', params.value, 'tipo:', typeof params.value)
+    console.log('🔍 CLIENTE renderCell - params.value.nome:', params.value?.nome)
+    
     // Se já é um objeto, usar diretamente
     if (typeof params.value === 'object' && params.value?.nome) {
+      console.log('✅ CLIENTE: Usando objeto direto:', params.value.nome)
       return params.value.nome
     }
     // Se é ID, buscar nos dados mestres (fallback)
     const md = useMasterDataStore.getState()
+    console.log('🔍 CLIENTE: Buscando ID nos dados mestres. ID:', params.value, 'Clientes disponíveis:', md.clientes.length)
     const cliente = md.clientes.find(c => c.id === params.value)
+    console.log('🔍 CLIENTE: Cliente encontrado:', cliente)
     return cliente ? cliente.nome : '-'
   }},
   { field: 'contrato', headerName: 'Contrato', width: 160, renderCell: (params) => {

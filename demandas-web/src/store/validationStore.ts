@@ -308,9 +308,18 @@ export const useValidationStore = create<ValidationState>()(
             sistema: validacao.sistema || 'N/A',
             localizacao: validacao.localizacao || 'N/A',
             // Objetos completos dos relacionamentos - API já retorna com include
-            cliente: validacao.cliente,
-            contrato: validacao.contrato,
-            operadora: validacao.operadora,
+            cliente: (() => {
+              console.log('🔍 STORE: Cliente da API:', validacao.cliente, 'Tipo:', typeof validacao.cliente)
+              return validacao.cliente
+            })(),
+            contrato: (() => {
+              console.log('🔍 STORE: Contrato da API:', validacao.contrato, 'Tipo:', typeof validacao.contrato)
+              return validacao.contrato
+            })(),
+            operadora: (() => {
+              console.log('🔍 STORE: Operadora da API:', validacao.operadora, 'Tipo:', typeof validacao.operadora)
+              return validacao.operadora
+            })(),
             produto: validacao.produto,
             // Campos para compatibilidade com formulário
             clienteId: validacao.clienteId,
