@@ -240,10 +240,37 @@ body {
   
   .sidebar-item {
     @apply flex items-center gap-3 px-4 py-3 text-white hover:text-primary-200 hover:bg-white/10 rounded-lg transition-all duration-200;
+    min-height: 48px; /* Garantir altura mínima para touch */
   }
   
   .sidebar-item.active {
     @apply text-white bg-white/20 border-r-2 border-primary-400;
+  }
+
+  /* Scrollbar personalizada para o menu */
+  .sidebar-nav::-webkit-scrollbar {
+    width: 4px;
+  }
+  
+  .sidebar-nav::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+  }
+  
+  .sidebar-nav::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 2px;
+  }
+  
+  .sidebar-nav::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.5);
+  }
+
+  /* Melhorar responsividade em telas pequenas */
+  @media (max-width: 1024px) {
+    .sidebar-mobile-overlay {
+      backdrop-filter: blur(4px);
+    }
   }
   
   .btn-primary {

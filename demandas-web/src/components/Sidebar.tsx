@@ -39,7 +39,7 @@ const menuItems = [
 ]
 
 export function Sidebar() {
-  const { isCollapsed, toggleSidebar } = useSidebar()
+  const { isCollapsed, toggleSidebar, isMobile } = useSidebar()
   const { user } = useAuthStore()
 
   // Filtrar itens do menu baseado nas permissões do usuário
@@ -52,13 +52,27 @@ export function Sidebar() {
   })
 
   return (
-    <motion.div
-      initial={{ x: -280 }}
-      animate={{ x: 0 }}
-      className={`fixed left-0 top-0 h-full bg-gradient-dark text-white z-50 transition-all duration-300 ease-in-out ${
-        isCollapsed ? 'w-16' : 'w-70'
-      }`}
-    >
+    <>
+      {/* Overlay para mobile quando menu está aberto */}
+      {isMobile && !isCollapsed && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={toggleSidebar}
+          className="sidebar-mobile-overlay fixed inset-0 bg-black/50 z-40 lg:hidden"
+        />
+      )}
+      
+      <motion.div
+        initial={{ x: isMobile ? -280 : 0 }}
+        animate={{ x: 0 }}
+        className={`fixed left-0 top-0 h-full bg-gradient-dark text-white z-50 transition-all duration-300 ease-in-out ${
+          isMobile 
+            ? (isCollapsed ? 'w-16' : 'w-80') // Mobile: 16 ou 320px
+            : (isCollapsed ? 'w-16' : 'w-70') // Desktop: 16 ou 280px
+        }`}
+      >
       {/* Header da Sidebar */}
       <div className="flex items-center justify-between p-4 border-b border-white/10">
         <AnimatePresence mode="wait">
@@ -91,33 +105,35 @@ export function Sidebar() {
       </div>
 
       {/* Menu Items */}
-      <nav className="mt-6 px-2">
-        {filteredMenuItems.map((item) => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            className={({ isActive }) =>
-              `sidebar-item ${isActive ? 'active' : ''} ${
-                isCollapsed ? 'justify-center px-2' : ''
-              }`
-            }
-          >
-            <item.icon className="w-5 h-5" />
-            <AnimatePresence mode="wait">
-              {!isCollapsed && (
-                <motion.span
-                  key="label"
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -10 }}
-                  className="font-medium"
-                >
-                  {item.label}
-                </motion.span>
-              )}
-            </AnimatePresence>
-          </NavLink>
-        ))}
+      <nav className="sidebar-nav flex-1 mt-6 px-2 overflow-y-auto max-h-[calc(100vh-200px)]">
+        <div className="space-y-1">
+          {filteredMenuItems.map((item) => (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              className={({ isActive }) =>
+                `sidebar-item ${isActive ? 'active' : ''} ${
+                  isCollapsed ? 'justify-center px-2' : ''
+                }`
+              }
+            >
+              <item.icon className="w-5 h-5 flex-shrink-0" />
+              <AnimatePresence mode="wait">
+                {!isCollapsed && (
+                  <motion.span
+                    key="label"
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -10 }}
+                    className="font-medium truncate"
+                  >
+                    {item.label}
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            </NavLink>
+          ))}
+        </div>
       </nav>
 
       {/* Footer da Sidebar */}
@@ -142,6 +158,7 @@ export function Sidebar() {
           )}
         </AnimatePresence>
       </div>
-    </motion.div>
+      </motion.div>
+    </>
   )
 }

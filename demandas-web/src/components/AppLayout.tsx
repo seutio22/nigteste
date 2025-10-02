@@ -12,7 +12,7 @@ import { useProjectStore } from '../store/projectStore'
 import { motion } from 'framer-motion'
 
 export function AppLayout() {
-  const { isCollapsed } = useSidebar()
+  const { isCollapsed, isMobile } = useSidebar()
   const syncMasterData = useMasterDataStore((s) => s.syncFromApi)
   const syncComunicados = useComunicadoStore((s) => s.syncFromApi)
   const syncValidacoes = useValidationStore((s) => s.syncFromApi)
@@ -70,7 +70,9 @@ export function AppLayout() {
       <motion.div
         initial={{ marginLeft: 0 }}
         animate={{ 
-          marginLeft: isCollapsed ? '4rem' : '17.5rem' 
+          marginLeft: isMobile 
+            ? 0 // Mobile: sem margin (menu é overlay)
+            : isCollapsed ? '4rem' : '17.5rem' // Desktop: margin normal
         }}
         transition={{ duration: 0.3, ease: 'easeInOut' }}
         className="min-h-screen"

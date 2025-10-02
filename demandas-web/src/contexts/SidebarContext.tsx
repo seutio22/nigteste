@@ -1,16 +1,35 @@
-import { createContext, useContext, useState, ReactNode } from 'react'
+import { createContext, useContext, useState, ReactNode, useEffect } from 'react'
 
 interface SidebarContextType {
   isCollapsed: boolean
   toggleSidebar: () => void
   collapseSidebar: () => void
   expandSidebar: () => void
+  isMobile: boolean
 }
 
 const SidebarContext = createContext<SidebarContextType | undefined>(undefined)
 
 export function SidebarProvider({ children }: { children: ReactNode }) {
   const [isCollapsed, setIsCollapsed] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
+
+  // Detectar se é mobile/tablet
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 1024 // lg breakpoint do Tailwind
+      setIsMobile(mobile)
+      
+      // Em mobile, iniciar com menu fechado
+      if (mobile && !isCollapsed) {
+        setIsCollapsed(true)
+      }
+    }
+    
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [isCollapsed])
 
   const toggleSidebar = () => setIsCollapsed(!isCollapsed)
   const collapseSidebar = () => setIsCollapsed(true)
@@ -21,7 +40,8 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
       isCollapsed,
       toggleSidebar,
       collapseSidebar,
-      expandSidebar
+      expandSidebar,
+      isMobile
     }}>
       {children}
     </SidebarContext.Provider>
