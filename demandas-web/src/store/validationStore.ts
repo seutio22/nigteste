@@ -308,18 +308,9 @@ export const useValidationStore = create<ValidationState>()(
             sistema: validacao.sistema || 'N/A',
             localizacao: validacao.localizacao || 'N/A',
             // IDs dos relacionamentos - seguindo padrão do demandStore
-            cliente: (() => {
-              console.log('🔍 Cliente da API:', validacao.clienteId, 'Tipo:', typeof validacao.clienteId)
-              return validacao.clienteId
-            })(),
-            contrato: (() => {
-              console.log('🔍 Contrato da API:', validacao.contratoId, 'Tipo:', typeof validacao.contratoId)
-              return validacao.contratoId
-            })(),
-            operadora: (() => {
-              console.log('🔍 Operadora da API:', validacao.operadoraId, 'Tipo:', typeof validacao.operadoraId)
-              return validacao.operadoraId
-            })(),
+            cliente: validacao.clienteId,
+            contrato: validacao.contratoId,
+            operadora: validacao.operadoraId,
             produto: validacao.produtoId,
             // Campos para compatibilidade com formulário
             clienteId: validacao.clienteId,

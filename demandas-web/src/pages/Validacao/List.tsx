@@ -239,43 +239,23 @@ const columns: GridColDef[] = [
   { field: 'analista', headerName: 'Analista', width: 160 },
   { field: 'cliente', headerName: 'Cliente', width: 160, renderCell: (params) => {
     const md = useMasterDataStore.getState()
-    // Se já é um objeto, usar diretamente
-    if (typeof params.value === 'object' && params.value?.nome) {
-      return params.value.nome
-    }
-    // Se é ID, buscar nos dados mestres
     const cliente = md.clientes.find(c => c.id === params.value)
-    return cliente ? cliente.nome : params.value || '-'
+    return cliente ? cliente.nome : '-'
   }},
   { field: 'contrato', headerName: 'Contrato', width: 160, renderCell: (params) => {
     const md = useMasterDataStore.getState()
-    // Se já é um objeto, usar diretamente
-    if (typeof params.value === 'object' && params.value?.numero) {
-      return params.value.numero
-    }
-    // Se é ID, buscar nos dados mestres
     const contrato = md.contratos.find(c => c.id === params.value)
-    return contrato ? contrato.numero : params.value || '-'
+    return contrato ? contrato.numero : '-'
   }},
   { field: 'operadora', headerName: 'Operadora', width: 160, renderCell: (params) => {
     const md = useMasterDataStore.getState()
-    // Se já é um objeto, usar diretamente
-    if (typeof params.value === 'object' && params.value?.nome) {
-      return params.value.nome
-    }
-    // Se é ID, buscar nos dados mestres
     const operadora = md.operadoras.find(o => o.id === params.value)
-    return operadora ? operadora.nome : params.value || '-'
+    return operadora ? operadora.nome : '-'
   }},
   { field: 'solicitante', headerName: 'Solicitante', width: 160, renderCell: (params) => {
     const md = useMasterDataStore.getState()
-    // Se já é um objeto, usar diretamente
-    if (typeof params.value === 'object' && params.value?.nome) {
-      return params.value.nome
-    }
-    // Se é ID, buscar nos dados mestres
     const solicitante = md.solicitantes.find(s => s.id === params.value)
-    return solicitante ? solicitante.nome : params.value || '-'
+    return solicitante ? solicitante.nome : '-'
   }},
   { field: 'dataInicio', headerName: 'Data Início', width: 140 },
   { field: 'dataFinal', headerName: 'Data Final', width: 140 },
