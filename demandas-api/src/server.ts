@@ -305,9 +305,18 @@ function crud(entity: keyof PrismaClient) {
           contratoData.status = 'Ativo';
         }
         
-        // Garantir que o campo numero existe
-        if (!contratoData.numero) {
+        // Garantir que o campo numero existe - é obrigatório no schema
+        if (!contratoData.numero || contratoData.numero === '' || contratoData.numero === null || contratoData.numero === undefined) {
           contratoData.numero = contratoData.codigo || `CONT-${Date.now()}`;
+          console.log('🔍 CONTRATO CREATE: Numero gerado automaticamente:', contratoData.numero);
+        } else {
+          console.log('🔍 CONTRATO CREATE: Numero fornecido:', contratoData.numero);
+        }
+        
+        // Garantir que o campo codigo existe se não foi fornecido
+        if (!contratoData.codigo || contratoData.codigo === '' || contratoData.codigo === null || contratoData.codigo === undefined) {
+          contratoData.codigo = contratoData.numero;
+          console.log('🔍 CONTRATO CREATE: Codigo definido como numero:', contratoData.codigo);
         }
         
         console.log('🔍 CONTRATO CREATE: Dados finais para criação:', JSON.stringify(contratoData, null, 2));

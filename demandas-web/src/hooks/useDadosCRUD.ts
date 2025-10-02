@@ -74,9 +74,11 @@ export const useDadosCRUD = () => {
             codigo: form.codigo, 
             grupoEconomico: form.grupoEconomico,
             clienteId: form.clienteId || clienteDefault, // Usar cliente especificado ou padrão
-            status: form.status || 'Ativo' // Status padrão é Ativo
+            status: form.status !== undefined && form.status !== null && form.status !== '' ? form.status : 'Ativo' // Respeitar status escolhido pelo usuário
           }
           
+          console.log('🔍 CONTRATO: Form status recebido:', form.status, 'Tipo:', typeof form.status)
+          console.log('🔍 CONTRATO: Status final calculado:', contratoData.status)
           console.log('🔍 CONTRATO: Dados que serão enviados para API:', contratoData)
           
           newEntity = { id, ...contratoData } as Contrato
@@ -308,7 +310,7 @@ export const useDadosCRUD = () => {
             grupoEconomico: form.grupoEconomico,
             numero: contratoExistente?.numero || form.codigo || `CONT-${Date.now()}`,
             clienteId: form.clienteId || contratoExistente?.clienteId || store.clientes[0]?.id || 'cliente-001',
-            status: form.status || contratoExistente?.status || 'Ativo'
+            status: form.status !== undefined && form.status !== null && form.status !== '' ? form.status : (contratoExistente?.status || 'Ativo')
           } as Contrato
           store.upsertMany({
             contratos: store.contratos.map(c => c.id === id ? updatedContrato : c)

@@ -51,7 +51,19 @@ export default function DadosPage() {
   }), [store, dadosStore])
 
   // Dados atuais da aba selecionada
-  const currentData = dataMap[activeTab] || []
+  const currentData = useMemo(() => {
+    const data = dataMap[activeTab] || []
+    
+    // Aplicar filtro de contratos ativos apenas se estiver na aba de contratos
+    if (activeTab === 'contratos') {
+      const { showOnlyActiveContracts } = store
+      if (showOnlyActiveContracts) {
+        return data.filter((contrato: any) => contrato.status === 'Ativo')
+      }
+    }
+    
+    return data
+  }, [dataMap, activeTab, store.showOnlyActiveContracts])
   
 
   // Handlers
@@ -59,12 +71,18 @@ export default function DadosPage() {
     // Inicializar formulário com valores padrão baseado na aba ativa
     const defaultForm: FormData = {}
     
+    // Para contratos, definir status padrão como Ativo
+    if (activeTab === 'contratos') {
+      defaultForm.status = 'Ativo'
+    }
+    
     // Para entidades de mailling, definir ativo como true por padrão e descricao como string vazia
     if (['areasMailling', 'cargosMailling', 'filiaisMailling'].includes(activeTab)) {
       defaultForm.ativo = true
       defaultForm.descricao = ''
     }
     
+    console.log('🔍 DADOS: Formulário inicializado para', activeTab, ':', defaultForm)
     setForm(defaultForm)
     setOpenForm(true)
   }
@@ -82,6 +100,7 @@ export default function DadosPage() {
   }
 
   const handleSave = async () => {
+    console.log('🔍 DADOS: Salvando formulário para', activeTab, ':', form)
     const success = await saveEntity(activeTab, form)
     if (success) {
       setOpenForm(false)
@@ -116,7 +135,12 @@ export default function DadosPage() {
               break
             case 'contratos':
               endpoint = '/contratos'
-              payload = { codigo: data.codigo, grupoEconomico: data.grupoEconomico, status: data.status }
+              payload = { 
+                codigo: data.codigo, 
+                numero: data.numero || data.codigo || `CONT-${Date.now()}`, // Garantir que numero existe
+                grupoEconomico: data.grupoEconomico, 
+                status: data.status || 'Ativo' // Garantir que status existe
+              }
               break
             case 'operadoras':
               endpoint = '/operadoras'
@@ -226,7 +250,7 @@ export default function DadosPage() {
 
   const handleExportCurrent = () => {
     try {
-      const currentData = getCurrentData()
+      const currentData = dataMap[activeTab] || []
       if (!currentData || currentData.length === 0) {
         setSnack({
           open: true,
@@ -282,8 +306,8 @@ export default function DadosPage() {
         { key: 'areasMailling', data: store.areasMailling, name: 'Areas Mailling' },
         { key: 'cargosMailling', data: store.cargosMailling, name: 'Cargos Mailling' },
         { key: 'filiaisMailling', data: store.filiaisMailling, name: 'Filiais Mailling' },
-        { key: 'tipos', data: store.tipos, name: 'Tipos' },
-        { key: 'servicos', data: store.servicos, name: 'Servicos' },
+        { key: 'tipos', data: store.tiposDemanda, name: 'Tipos' },
+        { key: 'servicos', data: store.tiposServico, name: 'Servicos' },
         { key: 'solicitantes', data: store.solicitantes, name: 'Solicitantes' },
         { key: 'relatorios', data: store.relatorios, name: 'Relatorios' },
         { key: 'modelos', data: store.modelos, name: 'Modelos' }

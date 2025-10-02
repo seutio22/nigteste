@@ -32,6 +32,9 @@ export interface MasterDataState {
   // Estado de sincronização
   isSyncing: boolean
   lastSync: string | null
+  // Controle de filtro de contratos
+  showOnlyActiveContracts: boolean
+  toggleActiveContractsFilter: () => void
 }
 
 export const useMasterDataStore = create<MasterDataState>()(
@@ -62,6 +65,9 @@ export const useMasterDataStore = create<MasterDataState>()(
         // Estado de sincronização
         isSyncing: false,
         lastSync: null,
+        // Controle de filtro de contratos
+        showOnlyActiveContracts: false,
+        toggleActiveContractsFilter: () => set((state) => ({ showOnlyActiveContracts: !state.showOnlyActiveContracts })),
         
         upsertMany: (payload) => {
           console.log('🔍 MasterDataStore: Estado atual antes de upsertMany:', {
@@ -141,40 +147,9 @@ export const useMasterDataStore = create<MasterDataState>()(
             // console.log('🔍 MasterDataStore: Iniciando syncFromApi...')
             set({ isSyncing: true })
             
-            // Verificar se há dados locais importantes antes de sincronizar
-            const currentState = get()
-            const hasImportantLocalData = currentState.clientes.length > 0 || 
-                                         currentState.contratos.length > 0 ||
-                                         currentState.analistas.length > 0 ||
-                                         currentState.tiposCadastro.length > 0
-            
-            // Só limpar se não há dados recentes (última sincronização há mais de 5 minutos)
-            const lastSync = currentState.lastSync
-            const shouldForceSync = !lastSync || 
-                                  (new Date().getTime() - new Date(lastSync).getTime()) > 5 * 60 * 1000
-            
-            if (hasImportantLocalData && shouldForceSync) {
-              
-              // Limpar dados locais inconsistentes
-              set({
-                clientes: [],
-                contratos: [],
-                operadoras: [],
-                produtos: [],
-                sistemas: [],
-                analistas: [],
-                areas: [],
-                tiposCadastro: [],
-                tiposServico: [],
-                tiposDemanda: [],
-                padrao: []
-              })
-              
-              // Forçar limpeza do localStorage
-              localStorage.removeItem('masterDataStore')
-            } else if (hasImportantLocalData) {
-              // Dados locais recentes encontrados, mantendo
-            }
+            // NÃO limpar dados locais automaticamente - isso estava causando perda de contratos inativos
+            // A lógica de merge inteligente abaixo já cuida de priorizar dados da API quando disponíveis
+            console.log('🔍 MasterDataStore: Sincronizando com API sem limpar dados locais...')
             
             // Importar API dinamicamente
             const { api } = await import('../lib/api.local')
@@ -224,7 +199,7 @@ export const useMasterDataStore = create<MasterDataState>()(
             const mergeData = (apiData: any[], localData: any[], entityName: string) => {
               // Se API retornou dados, usar API
               if (apiData && apiData.length > 0) {
-                // console.log(`✅ MasterDataStore: Usando dados da API para ${entityName}: ${apiData.length} registros`)
+                console.log(`✅ MasterDataStore: Usando dados da API para ${entityName}: ${apiData.length} registros`)
                 return apiData
               }
               // Se não há dados da API mas há dados locais, manter locais
@@ -237,10 +212,37 @@ export const useMasterDataStore = create<MasterDataState>()(
               return []
             }
             
+            // Merge especial para contratos - preservar contratos inativos locais
+            const mergeContratos = (apiContratos: any[], localContratos: any[]) => {
+              console.log(`🔍 MasterDataStore: Merge contratos - API: ${apiContratos?.length || 0}, Locais: ${localContratos?.length || 0}`)
+              
+              if (apiContratos && apiContratos.length > 0) {
+                // Se há dados da API, usar como base
+                const apiIds = new Set(apiContratos.map(c => c.id))
+                
+                // Adicionar contratos locais que não existem na API (ex: contratos inativos recém-criados)
+                const contratosLocaisNaoNaApi = localContratos.filter(local => !apiIds.has(local.id))
+                
+                // Log detalhado dos contratos locais únicos
+                if (contratosLocaisNaoNaApi.length > 0) {
+                  console.log(`🔍 MasterDataStore: Contratos locais únicos encontrados:`, contratosLocaisNaoNaApi.map(c => ({ id: c.id, status: c.status, codigo: c.codigo })))
+                }
+                
+                const resultado = [...apiContratos, ...contratosLocaisNaoNaApi]
+                console.log(`🔍 MasterDataStore: Merge contratos - API: ${apiContratos.length}, Locais únicos: ${contratosLocaisNaoNaApi.length}, Total: ${resultado.length}`)
+                
+                return resultado
+              }
+              
+              // Se não há dados da API, manter locais
+              console.log(`🔍 MasterDataStore: Nenhum dado da API, mantendo contratos locais: ${localContratos?.length || 0}`)
+              return localContratos
+            }
+            
             // Atualizar store com dados do backend
             set({
               clientes: mergeData(clientes, localState.clientes, 'clientes'),
-              contratos: mergeData(contratos, localState.contratos, 'contratos'),
+              contratos: mergeContratos(contratos, localState.contratos),
               operadoras: mergeData(operadoras, localState.operadoras, 'operadoras'),
               produtos: mergeData(produtos, localState.produtos, 'produtos'),
               sistemas: mergeData(sistemas, localState.sistemas, 'sistemas'),

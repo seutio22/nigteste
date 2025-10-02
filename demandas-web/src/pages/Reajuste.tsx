@@ -1,4 +1,0 @@
-import { Box } from '@mui/material'
-export default function ReajustePage() { return <Box /> }
-
-

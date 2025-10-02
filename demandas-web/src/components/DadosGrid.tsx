@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react'
 import { DataGrid, GridColDef } from '@mui/x-data-grid'
-import { IconButton, Chip } from '@mui/material'
+import { IconButton, Chip, FormControlLabel, Switch, Box, Typography } from '@mui/material'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import { useMasterDataStore } from '../store/masterDataStore'
@@ -19,6 +19,17 @@ export const DadosGrid: React.FC<DadosGridProps> = ({
   onEdit,
   onDelete
 }) => {
+  const { showOnlyActiveContracts, toggleActiveContractsFilter, syncFromApi } = useMasterDataStore()
+  
+  // Função para lidar com mudança do toggle
+  const handleToggleChange = async () => {
+    toggleActiveContractsFilter()
+    // Recarregar dados quando o toggle mudar
+    if (syncFromApi) {
+      await syncFromApi()
+    }
+  }
+  
   // Debug: Log dos dados recebidos
   console.log('🔍 DadosGrid: activeTab:', activeTab)
   console.log('🔍 DadosGrid: data length:', data.length)
@@ -170,6 +181,34 @@ export const DadosGrid: React.FC<DadosGridProps> = ({
 
   return (
     <div style={{ height: 600, width: '100%' }}>
+      {/* Toggle para filtrar apenas contratos ativos - apenas na aba de contratos */}
+      {activeTab === 'contratos' && (
+        <Box sx={{ mb: 2, p: 2, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={showOnlyActiveContracts}
+                onChange={handleToggleChange}
+                color="primary"
+              />
+            }
+            label={
+              <Box>
+                <Typography variant="body2" fontWeight="medium">
+                  Mostrar apenas contratos ativos
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {showOnlyActiveContracts 
+                    ? 'Mostrando apenas contratos ativos' 
+                    : 'Mostrando todos os contratos (ativos e inativos)'
+                  }
+                </Typography>
+              </Box>
+            }
+          />
+        </Box>
+      )}
+      
       <DataGrid
         rows={data}
         columns={columns}

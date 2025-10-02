@@ -15,7 +15,6 @@ const ManutencaoDetailPage = lazy(() => import('../pages/Manutencao/Detail'))
 const AtendimentoListPage = lazy(() => import('../pages/Atendimento/List'))
 const AtendimentoNewPage = lazy(() => import('../pages/Atendimento/New'))
 const AtendimentoDetailPage = lazy(() => import('../pages/Atendimento/Detail'))
-const AtendimentoTestPage = lazy(() => import('../pages/Atendimento/Test'))
 const ComunicadoListPage = lazy(() => import('../pages/Comunicados/List'))
 const ComunicadoNewPage = lazy(() => import('../pages/Comunicados/New'))
 const ComunicadoDetailPage = lazy(() => import('../pages/Comunicados/Detail'))
@@ -120,11 +119,6 @@ export function AppRoutes() {
             <Route path=":id/edit" element={
               <ProtectedRoute module="atendimento" action="edit">
                 <AtendimentoDetailPage />
-              </ProtectedRoute>
-            } />
-            <Route path="test" element={
-              <ProtectedRoute module="atendimento">
-                <AtendimentoTestPage />
               </ProtectedRoute>
             } />
           </Route>
