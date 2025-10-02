@@ -433,9 +433,9 @@ function crud(entity: keyof PrismaClient) {
             
           case 'area':
             const areaDeps = await Promise.all([
-              anyPrisma.analista.count({ where: { areaId: id } }),
               anyPrisma.demanda.count({ where: { areaId: id } }),
-              anyPrisma.atendimento.count({ where: { areaId: id } })
+              anyPrisma.atendimento.count({ where: { areaId: id } }),
+              anyPrisma.manutencao.count({ where: { areaId: id } })
             ]);
             hasDependencies = areaDeps.some(count => count > 0);
             break;
