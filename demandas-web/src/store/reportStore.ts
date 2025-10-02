@@ -24,6 +24,7 @@ export interface Report {
   tipoSolicitacao?: string
   observacoes?: string
   arquivo?: string
+  userId?: string // ID do usuário que criou o relatório
 }
 
 export interface TimelineEvent {
@@ -43,7 +44,7 @@ interface ReportState {
   timeline: TimelineEvent[]
   add: (report: Omit<Report, 'id' | 'dataCriacao' | 'dataAtualizacao'>) => Promise<Report>
   update: (id: string, updates: Partial<Report>) => void
-  remove: (id: string) => void
+  remove: (id: string) => Promise<void>
   upsert: (report: Report) => void
   log: (entry: { reportId: string; type: string; field: string; from: any; to: any }) => void
   addTimelineEvent: (event: Omit<TimelineEvent, 'id' | 'timestamp'>) => void
@@ -61,15 +62,20 @@ export const useReportStore = create<ReportState>()(
         try {
           // Importar API dinamicamente
           const { api } = await import('../lib/api.local')
+          const { useAuthStore } = await import('./authStore')
+          
+          // Adicionar userId do usuário logado
+          const userId = useAuthStore.getState().user?.id
+          const payloadWithUserId = { ...payload, userId }
           
           // Enviar dados para o backend
-          const response = await api.post('/analytics', payload)
+          const response = await api.post('/analytics', payloadWithUserId)
           
               const report: Report = {
                 id: response.id,
                 dataCriacao: response.createdAt,
                 dataAtualizacao: response.updatedAt,
-                ...payload
+                ...payloadWithUserId
               }
               
               set((state) => ({ items: [report, ...state.items] }))
@@ -88,8 +94,21 @@ export const useReportStore = create<ReportState>()(
           )
         }))
       },
-      remove: (id) => {
-        set((state) => ({ items: state.items.filter((report) => report.id !== id) }))
+      remove: async (id) => {
+        try {
+          // Importar API dinamicamente
+          const { api } = await import('../lib/api.local')
+          
+          // Excluir do backend primeiro
+          await api.delete(`/analytics/${id}`)
+          
+          // Se excluiu do backend, excluir do frontend
+          set((state) => ({ items: state.items.filter((report) => report.id !== id) }))
+          console.log('✅ ReportStore: Relatório excluído do backend e frontend:', id)
+        } catch (error) {
+          console.error('❌ ReportStore: Erro ao excluir relatório:', error)
+          throw error
+        }
       },
       upsert: (report) => {
         const existing = get().items.find((r) => r.id === report.id)
@@ -147,6 +166,7 @@ export const useReportStore = create<ReportState>()(
               dataAtualizacao: report.updatedAt || new Date().toISOString(),
               prioridade: report.prioridade as any,
               solicitante: report.solicitante,
+              userId: report.userId, // Incluir userId do backend
               solicitacao: report.solicitacao,
               tipoSolicitacao: report.tipoSolicitacao,
               observacoes: report.observacoes,

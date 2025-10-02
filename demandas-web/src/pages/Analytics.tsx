@@ -417,12 +417,7 @@ export default function AnalyticsPage() {
           analista: md.analistas.find(a => a.id === r.analista)?.nome ?? r.analista ?? 'N/A',
           area: md.areas.find(ar => ar.id === r.area)?.nome ?? r.area ?? 'N/A',
           cliente: md.clientes.find(c => c.id === r.cliente)?.nome ?? r.cliente ?? 'N/A',
-          contrato: md.contratos.find(c => c.id === r.contrato)?.numero ?? r.contrato ?? 'N/A',
-          operadora: md.operadoras.find(o => o.id === r.operadora)?.nome ?? r.operadora ?? 'N/A',
-          produto: md.produtos.find(p => p.id === r.produto)?.nome ?? r.produto ?? 'N/A',
-          sistema: md.sistemas.find(s => s.id === r.sistema)?.nome ?? r.sistema ?? 'N/A',
-          tipo: md.tiposDemanda.find(t => t.id === r.tipo)?.nome ?? r.tipo ?? 'N/A',
-          tipoServico: md.tiposServico.find(ts => ts.id === r.tipoServico)?.nome ?? r.tipoServico ?? 'N/A',
+          contrato: r.contrato ?? 'N/A',
           // Formatar datas
           dataEntrega: r.dataEntrega ? new Date(r.dataEntrega).toLocaleString('pt-BR') : 'N/A',
           dataCriacao: r.dataCriacao ? new Date(r.dataCriacao).toLocaleString('pt-BR') : 'N/A',
@@ -454,10 +449,15 @@ export default function AnalyticsPage() {
 function ActionCell({ id, status }: { id: string, status: string }) {
   const navigate = useNavigate()
   const store = useReportStore()
+  const { user } = useAuthStore()
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
   const [openStatus, setOpenStatus] = useState(false)
   const [newStatus, setNewStatus] = useState(status)
   const [openDelete, setOpenDelete] = useState(false)
+  
+  // Verificar se o usuário pode excluir este relatório
+  const report = store.items.find((r) => r.id === id)
+  const canDelete = report?.userId === user?.id || user?.role === 'admin'
 
   const handleMenuOpen = (e: React.MouseEvent<HTMLElement>) => setAnchorEl(e.currentTarget)
   const handleMenuClose = () => setAnchorEl(null)
@@ -472,16 +472,21 @@ function ActionCell({ id, status }: { id: string, status: string }) {
     setOpenStatus(false)
   }
 
-  const doDelete = () => {
-    store.remove(id)
-    setOpenDelete(false)
+  const doDelete = async () => {
+    try {
+      await store.remove(id)
+      setOpenDelete(false)
+    } catch (error) {
+      console.error('Erro ao excluir relatório:', error)
+      alert('Erro ao excluir relatório. Verifique o console para mais detalhes.')
+    }
   }
 
-  const doDuplicate = () => {
+  const doDuplicate = async () => {
     const r = store.items.find((x) => x.id === id)
     if (!r) return
     const { id: _omit, dataCriacao: _c, dataAtualizacao: _u, ...rest } = r
-    const duplicated = store.add({ ...rest, status: 'pendente' })
+    const duplicated = await store.add({ ...rest, status: 'pendente' })
     navigate(`/analytics/${duplicated.id}`)
   }
 
@@ -531,10 +536,12 @@ function ActionCell({ id, status }: { id: string, status: string }) {
           <ListItemIcon><PictureAsPdfIcon fontSize="small" /></ListItemIcon>
           <ListItemText>Exportar PDF</ListItemText>
         </MenuItem>
-        <MenuItem onClick={() => { handleMenuClose(); setOpenDelete(true) }}>
-          <ListItemIcon><DeleteIcon fontSize="small" color="error" /></ListItemIcon>
-          <ListItemText>Excluir</ListItemText>
-        </MenuItem>
+        {canDelete && (
+          <MenuItem onClick={() => { handleMenuClose(); setOpenDelete(true) }}>
+            <ListItemIcon><DeleteIcon fontSize="small" color="error" /></ListItemIcon>
+            <ListItemText>Excluir</ListItemText>
+          </MenuItem>
+        )}
       </Menu>
 
       <Dialog open={openStatus} onClose={() => setOpenStatus(false)}>
