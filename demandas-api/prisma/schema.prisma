@@ -107,7 +107,7 @@ model Contrato {
   valor          Float?
   dataInicio     DateTime?
   dataFim        DateTime?
-  status         String        @default("Ativo")
+  status         String?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   atendimentos   Atendimento[]

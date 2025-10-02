@@ -137,15 +137,16 @@ function crud(entity: keyof PrismaClient) {
         });
       }
       
-      // Filtrar contratos baseado no parâmetro includeInactive
+      // Contratos - sempre retornar todos (ativos e inativos)
       if (entity === 'contrato') {
-        const includeInactive = queryParams?.includeInactive === 'true';
-        const whereClause = includeInactive ? {} : { status: 'Ativo' };
+        console.log('🔍 Contratos - buscando todos os contratos (ativos e inativos)');
         
-        return anyPrisma[entity].findMany({
-          where: whereClause,
+        const contratos = await anyPrisma[entity].findMany({
           orderBy: { createdAt: 'desc' }
         });
+        
+        console.log('🔍 Contratos - encontrados:', contratos.length, 'contratos');
+        return contratos;
       }
       
       // Tratamento específico para projetos - converter campos JSON
@@ -236,15 +237,11 @@ function crud(entity: keyof PrismaClient) {
         });
       }
       
-      // Filtrar apenas contratos ativos
+      // Contratos - buscar por ID (ativos e inativos)
       if (entity === 'contrato') {
-        const contrato = await anyPrisma[entity].findFirst({ 
+        const contrato = await anyPrisma[entity].findUnique({ 
           where: { id }
         });
-        // Se não encontrar contrato, retornar null
-        if (!contrato) {
-          return null;
-        }
         return contrato;
       }
       
@@ -291,19 +288,58 @@ function crud(entity: keyof PrismaClient) {
       // Garantir que contratos sejam criados como ativos por padrão apenas se não especificado
       if (entity === 'contrato') {
         const contratoData = { ...data as any };
-        // Definir status padrão apenas se não foi especificado
-        if (!contratoData.status) {
+        console.log('🔍 CONTRATO CREATE: Dados recebidos:', JSON.stringify(contratoData, null, 2));
+        console.log('🔍 CONTRATO CREATE: Status recebido:', contratoData.status, 'Tipo:', typeof contratoData.status);
+        
+        // Garantir que o status seja sempre definido
+        if (!contratoData.status || contratoData.status === '' || contratoData.status === null || contratoData.status === undefined) {
+          console.log('🔍 CONTRATO CREATE: Status não especificado, definindo como Ativo');
+          contratoData.status = 'Ativo';
+        } else {
+          console.log('🔍 CONTRATO CREATE: Status especificado pelo usuário:', contratoData.status);
+        }
+        
+        // Garantir que o status seja válido
+        if (!['Ativo', 'Inativo'].includes(contratoData.status)) {
+          console.log('🔍 CONTRATO CREATE: Status inválido, definindo como Ativo');
           contratoData.status = 'Ativo';
         }
+        
         // Garantir que o campo numero existe
         if (!contratoData.numero) {
           contratoData.numero = contratoData.codigo || `CONT-${Date.now()}`;
         }
+        
+        console.log('🔍 CONTRATO CREATE: Dados finais para criação:', JSON.stringify(contratoData, null, 2));
         return anyPrisma[entity].create({ data: contratoData });
       }
       return anyPrisma[entity].create({ data });
     },
     update: async (id: string, data: unknown) => {
+      // Tratamento específico para contratos
+      if (entity === 'contrato') {
+        const contratoData = { ...data as any };
+        console.log('🔍 CONTRATO UPDATE: Dados recebidos:', JSON.stringify(contratoData, null, 2));
+        console.log('🔍 CONTRATO UPDATE: Status recebido:', contratoData.status, 'Tipo:', typeof contratoData.status);
+        
+        // Garantir que o status seja sempre definido
+        if (!contratoData.status || contratoData.status === '' || contratoData.status === null || contratoData.status === undefined) {
+          console.log('🔍 CONTRATO UPDATE: Status não especificado, mantendo existente');
+          // Não alterar o status se não foi especificado
+        } else {
+          console.log('🔍 CONTRATO UPDATE: Status especificado pelo usuário:', contratoData.status);
+          
+          // Garantir que o status seja válido
+          if (!['Ativo', 'Inativo'].includes(contratoData.status)) {
+            console.log('🔍 CONTRATO UPDATE: Status inválido, mantendo existente');
+            delete contratoData.status; // Remover status inválido
+          }
+        }
+        
+        console.log('🔍 CONTRATO UPDATE: Dados finais para atualização:', JSON.stringify(contratoData, null, 2));
+        return anyPrisma[entity].update({ where: { id }, data: contratoData });
+      }
+      
       // Tratamento específico para projetos
       if (entity === 'project') {
         const projectData = data as any;
