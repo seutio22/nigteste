@@ -7,6 +7,7 @@ interface User {
   name: string
   email: string
   role: string
+  photo?: string
   permissions?: SystemPermissions
 }
 
@@ -15,6 +16,7 @@ interface AuthState {
   user: User | null
   loading: boolean
   setAuth: (token: string, user: User) => void
+  updateUserPhoto: (photo: string) => void
   logout: () => void
   setLoading: (loading: boolean) => void
   isAdmin: () => boolean
@@ -30,6 +32,13 @@ export const useAuthStore = create<AuthState>()(
       
       setAuth: (token: string, user: User) => {
         set({ token, user, loading: false })
+      },
+      
+      updateUserPhoto: (photo: string) => {
+        const { user } = get()
+        if (user) {
+          set({ user: { ...user, photo } })
+        }
       },
       
       logout: () => {

@@ -33,7 +33,7 @@ export function SettingsDropdown() {
   const [changeUserLoading, setChangeUserLoading] = useState(false)
   
   const dropdownRef = useRef<HTMLDivElement>(null)
-  const { user, logout: clearAuth, setAuth } = useAuthStore()
+  const { user, logout: clearAuth, setAuth, updateUserPhoto } = useAuthStore()
   const { clear: clearNotifications } = useNotificationStore()
   
   // Fechar dropdown ao clicar fora
@@ -202,6 +202,33 @@ export function SettingsDropdown() {
     }
   }
 
+  const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file) {
+      // Validar tipo de arquivo
+      if (!file.type.startsWith('image/')) {
+        alert('Por favor, selecione apenas arquivos de imagem.')
+        return
+      }
+      
+      // Validar tamanho (máximo 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('A imagem deve ter no máximo 5MB.')
+        return
+      }
+      
+      // Converter para base64
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const result = e.target?.result as string
+        if (result) {
+          updateUserPhoto(result)
+        }
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
   const sections = [
     { id: 'general', label: 'Geral', icon: Settings },
     { id: 'appearance', label: 'Aparência', icon: Palette },
@@ -342,8 +369,32 @@ export function SettingsDropdown() {
           <div className="space-y-6">
             {/* Perfil do usuário */}
             <div className="bg-gradient-to-r from-violet-50 to-purple-50 p-6 rounded-xl border border-violet-100 text-center">
-              <div className="w-20 h-20 bg-gradient-to-br from-violet-400 to-purple-600 rounded-full mx-auto mb-4 flex items-center justify-center">
-                <User className="w-10 h-10 text-white" />
+              <div className="relative inline-block">
+                <div className="w-20 h-20 bg-gradient-to-br from-violet-400 to-purple-600 rounded-full mx-auto mb-4 flex items-center justify-center overflow-hidden">
+                  {user?.photo ? (
+                    <img 
+                      src={user.photo} 
+                      alt="Foto do usuário" 
+                      className="w-full h-full object-cover rounded-full"
+                    />
+                  ) : (
+                    <User className="w-10 h-10 text-white" />
+                  )}
+                </div>
+                <button
+                  onClick={() => document.getElementById('photo-upload')?.click()}
+                  className="absolute -bottom-1 -right-1 w-8 h-8 bg-white border-2 border-violet-300 rounded-full flex items-center justify-center hover:bg-violet-50 transition-colors shadow-lg"
+                  title="Alterar foto"
+                >
+                  <Settings className="w-4 h-4 text-violet-600" />
+                </button>
+                <input
+                  id="photo-upload"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handlePhotoUpload}
+                />
               </div>
               <h3 className="text-xl font-bold text-violet-900 mb-1">{user?.name || 'Usuário'}</h3>
               <p className="text-violet-700 mb-2">{user?.email || 'user@example.com'}</p>
@@ -428,8 +479,16 @@ export function SettingsDropdown() {
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-3 p-2.5 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 rounded-xl transition-all duration-200 border border-transparent hover:border-blue-200"
       >
-        <div className="w-8 h-8 bg-gradient-to-br from-violet-400 to-purple-600 rounded-full flex items-center justify-center">
-          <User className="w-4 h-4 text-white" />
+        <div className="w-8 h-8 bg-gradient-to-br from-violet-400 to-purple-600 rounded-full flex items-center justify-center overflow-hidden">
+          {user?.photo ? (
+            <img 
+              src={user.photo} 
+              alt="Foto do usuário" 
+              className="w-full h-full object-cover rounded-full"
+            />
+          ) : (
+            <User className="w-4 h-4 text-white" />
+          )}
         </div>
         <div className="hidden md:block text-left">
           <p className="text-sm font-medium text-slate-900">{user?.name || 'Usuário'}</p>
