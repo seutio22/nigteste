@@ -92,6 +92,7 @@ export const useKanbanStore = create<KanbanState>()(
         addTicket: async (ticketData: Omit<KanbanTicket, 'id' | 'createdAt' | 'updatedAt'>) => {
           try {
             console.log('🔍 KanbanStore: addTicket iniciado com dados:', ticketData)
+            console.log('🔍 KanbanStore: startDate recebido:', ticketData.startDate, 'dueDate recebido:', ticketData.dueDate)
             set({ loading: true, error: null })
             
             const newTicket: KanbanTicket = {

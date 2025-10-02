@@ -367,7 +367,8 @@ export default function ReajusteListPage() {
           paginationModel={paginationModel}
           onPaginationModelChange={(m) => { setPaginationModel(m); persist({ paginationModel: m }) }}
           sx={{
-            height: '600px', // Altura fixa para o DataGrid
+            height: '100%',
+            minHeight: '500px', // Altura mínima aumentada para caber mais itens
             '& .MuiDataGrid-row:nth-of-type(odd)': { backgroundColor: (t) => t.palette.action.hover },
             '& .MuiDataGrid-toolbarContainer': {
               padding: '8px',

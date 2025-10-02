@@ -2,6 +2,12 @@
   "env": {
     "VITE_API_URL": "https://nigteste-production.up.railway.app"
   },
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",
