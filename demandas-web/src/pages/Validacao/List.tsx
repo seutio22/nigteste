@@ -239,17 +239,23 @@ const columns: GridColDef[] = [
   { field: 'analista', headerName: 'Analista', width: 160 },
   { field: 'cliente', headerName: 'Cliente', width: 160, renderCell: (params) => {
     const md = useMasterDataStore.getState()
+    console.log('🔍 Cliente renderCell - ID:', params.value, 'Clientes disponíveis:', md.clientes.length)
     const cliente = md.clientes.find(c => c.id === params.value)
+    console.log('🔍 Cliente encontrado:', cliente)
     return cliente ? cliente.nome : params.value || '-'
   }},
   { field: 'contrato', headerName: 'Contrato', width: 160, renderCell: (params) => {
     const md = useMasterDataStore.getState()
+    console.log('🔍 Contrato renderCell - ID:', params.value, 'Contratos disponíveis:', md.contratos.length)
     const contrato = md.contratos.find(c => c.id === params.value)
+    console.log('🔍 Contrato encontrado:', contrato)
     return contrato ? contrato.numero : params.value || '-'
   }},
   { field: 'operadora', headerName: 'Operadora', width: 160, renderCell: (params) => {
     const md = useMasterDataStore.getState()
+    console.log('🔍 Operadora renderCell - ID:', params.value, 'Operadoras disponíveis:', md.operadoras.length)
     const operadora = md.operadoras.find(o => o.id === params.value)
+    console.log('🔍 Operadora encontrada:', operadora)
     return operadora ? operadora.nome : params.value || '-'
   }},
   { field: 'solicitante', headerName: 'Solicitante', width: 160, renderCell: (params) => {
@@ -339,6 +345,14 @@ export default function ValidationListPage() {
     } else {
       }
   }, [user?.id]) // Depender do ID do usuário para carregar dados
+
+  // Sincronizar dados mestres quando a página carregar
+  useEffect(() => {
+    console.log('🔍 ValidacaoList: Sincronizando dados mestres...')
+    if (md.syncFromApi) {
+      md.syncFromApi()
+    }
+  }, [md.syncFromApi])
 
   // Persistir preferência do filtro de usuário
   useEffect(() => {
