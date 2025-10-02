@@ -307,11 +307,11 @@ export const useValidationStore = create<ValidationState>()(
             area: validacao.area || 'N/A',
             sistema: validacao.sistema || 'N/A',
             localizacao: validacao.localizacao || 'N/A',
-            // IDs dos relacionamentos - seguindo padrão do demandStore
-            cliente: validacao.clienteId,
-            contrato: validacao.contratoId,
-            operadora: validacao.operadoraId,
-            produto: validacao.produtoId,
+            // Objetos completos dos relacionamentos - API já retorna com include
+            cliente: validacao.cliente,
+            contrato: validacao.contrato,
+            operadora: validacao.operadora,
+            produto: validacao.produto,
             // Campos para compatibilidade com formulário
             clienteId: validacao.clienteId,
             contratoId: validacao.contratoId,

@@ -238,21 +238,41 @@ const columns: GridColDef[] = [
   { field: 'status', headerName: 'Status', width: 150, renderCell: (p) => <StatusBadge status={String(p.value ?? '')} /> },
   { field: 'analista', headerName: 'Analista', width: 160 },
   { field: 'cliente', headerName: 'Cliente', width: 160, renderCell: (params) => {
+    // Se já é um objeto, usar diretamente
+    if (typeof params.value === 'object' && params.value?.nome) {
+      return params.value.nome
+    }
+    // Se é ID, buscar nos dados mestres (fallback)
     const md = useMasterDataStore.getState()
     const cliente = md.clientes.find(c => c.id === params.value)
     return cliente ? cliente.nome : '-'
   }},
   { field: 'contrato', headerName: 'Contrato', width: 160, renderCell: (params) => {
+    // Se já é um objeto, usar diretamente
+    if (typeof params.value === 'object' && params.value?.numero) {
+      return params.value.numero
+    }
+    // Se é ID, buscar nos dados mestres (fallback)
     const md = useMasterDataStore.getState()
     const contrato = md.contratos.find(c => c.id === params.value)
     return contrato ? contrato.numero : '-'
   }},
   { field: 'operadora', headerName: 'Operadora', width: 160, renderCell: (params) => {
+    // Se já é um objeto, usar diretamente
+    if (typeof params.value === 'object' && params.value?.nome) {
+      return params.value.nome
+    }
+    // Se é ID, buscar nos dados mestres (fallback)
     const md = useMasterDataStore.getState()
     const operadora = md.operadoras.find(o => o.id === params.value)
     return operadora ? operadora.nome : '-'
   }},
   { field: 'solicitante', headerName: 'Solicitante', width: 160, renderCell: (params) => {
+    // Se já é um objeto, usar diretamente
+    if (typeof params.value === 'object' && params.value?.nome) {
+      return params.value.nome
+    }
+    // Se é ID, buscar nos dados mestres (fallback)
     const md = useMasterDataStore.getState()
     const solicitante = md.solicitantes.find(s => s.id === params.value)
     return solicitante ? solicitante.nome : '-'
