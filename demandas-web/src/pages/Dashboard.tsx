@@ -532,7 +532,7 @@ export default function DashboardPage() {
         <Grid item xs={12} lg={6}>
           <Paper sx={{ p: 3, borderRadius: 2, height: 400 }}>
             <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>
-              Demandas por Área
+              Demandas por área
             </Typography>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={demandasPorArea}>
@@ -656,5 +656,3 @@ export default function DashboardPage() {
     </Box>
   )
 }
-
-
