@@ -102,27 +102,15 @@ export const useDashboardStore = create<DashboardState>()(
       async syncFromApi() {
         try {
           console.log('🔍 DashboardStore: Iniciando syncFromApi...')
-          const { api } = await import('../lib/api.local')
           
-          console.log('🔍 DashboardStore: Chamando APIs...')
-          const [dashboards, widgets] = await Promise.all([
-            api.getDashboards().catch(() => []),
-            api.getDashboardWidgets().catch(() => [])
-          ])
+          // Dashboard não tem endpoints específicos na API ainda
+          // Manter arrays vazios por enquanto
+          console.log('🔍 DashboardStore: Dashboard sem endpoints específicos, mantendo vazio...')
           
-          console.log('🔍 DashboardStore: Dados recebidos:', {
-            dashboards: dashboards.length,
-            widgets: widgets.length
-          })
-          
-          // Usar dados da API ou arrays vazios
-          // Não criar dados de exemplo automaticamente
-          
-          console.log('🔍 DashboardStore: Aplicando dados ao store...')
           set({ 
-            dashboards: dashboards,
-            widgets: widgets,
-            currentDashboard: dashboards.find(d => d.padrao) || dashboards[0] || null
+            dashboards: [],
+            widgets: [],
+            currentDashboard: null
           })
           
           console.log('✅ DashboardStore: syncFromApi concluído com sucesso!')
