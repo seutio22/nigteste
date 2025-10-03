@@ -108,11 +108,13 @@ export default function ValidationNewPage() {
   const produtosFiltrados = md.produtos
 
 
-  // Sincronizar dados mestres quando a página carregar
+  // Sincronização desabilitada - causando problemas de memória
   React.useEffect(() => {
-    if (md.syncFromApi) {
-      md.syncFromApi()
-    }
+    console.log('🔧 ValidacaoNewPage: Sincronização desabilitada - causando problemas de memória')
+    // TODO: Implementar sistema mais leve no futuro
+    // if (md.syncFromApi) {
+    //   md.syncFromApi()
+    // }
   }, [md.syncFromApi])
 
   // LÓGICA ATUALIZADA: Preencher com o analista correspondente ao usuário logado

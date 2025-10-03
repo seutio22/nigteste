@@ -78,10 +78,12 @@ export default function AtendimentoNewPage() {
   }, [errors])
 
   useEffect(() => {
-    if (masterDataStore.syncFromApi) {
-      masterDataStore.syncFromApi()
-    }
-  }, []) // Removido a dependência que causava o loop
+    console.log('🔧 AtendimentoNewPage: Sincronização desabilitada - causando problemas de memória')
+    // TODO: Implementar sistema mais leve no futuro
+    // if (masterDataStore.syncFromApi) {
+    //   masterDataStore.syncFromApi()
+    // }
+  }, [])
 
   // Preencher automaticamente o analista correspondente ao usuário logado
   useEffect(() => {
