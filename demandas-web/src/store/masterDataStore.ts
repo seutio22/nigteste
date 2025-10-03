@@ -175,17 +175,53 @@ export const useMasterDataStore = create<MasterDataState>()(
         },
         
         async syncFromApi(force = false) {
-          // SINCRONIZAÇÃO COMPLETAMENTE DESABILITADA - CAUSANDO PROBLEMAS DE MEMÓRIA
-          console.log('🔧 MasterDataStore: Sincronização desabilitada - causando problemas de memória')
-          return
+          console.log('🔄 MasterDataStore: Iniciando sincronização com API...')
           
-          // TODO: Implementar sistema mais leve no futuro
-          // const state = get()
-          // if (state.isSyncing) {
-          //   console.log('🔍 MasterDataStore: Sincronização já em andamento, ignorando...')
-          //   return
-          // }
-          // ... resto do código comentado
+          const state = get()
+          if (state.isSyncing) {
+            console.log('🔍 MasterDataStore: Sincronização já em andamento, ignorando...')
+            return
+          }
+          
+          set({ isSyncing: true })
+          
+          try {
+            console.log('🔍 MasterDataStore: Fazendo requisições para API...')
+            
+            // Fazer requisições paralelas para todos os endpoints
+            const [
+              clientes, contratos, operadoras, produtos, sistemas, analistas, areas,
+              tiposCadastro, tiposServico, tiposDemanda, solicitantes, relatorios, modelos, padrao,
+              areasMailling, cargosMailling, filiaisMailling
+            ] = await Promise.all([
+              fetch('https://nigteste-production.up.railway.app/clientes').then(r => r.json()).catch(() => []),
+              fetch('https://nigteste-production.up.railway.app/contratos').then(r => r.json()).catch(() => []),
+              fetch('https://nigteste-production.up.railway.app/operadoras').then(r => r.json()).catch(() => []),
+              fetch('https://nigteste-production.up.railway.app/produtos').then(r => r.json()).catch(() => []),
+              fetch('https://nigteste-production.up.railway.app/sistemas').then(r => r.json()).catch(() => []),
+              fetch('https://nigteste-production.up.railway.app/analistas').then(r => r.json()).catch(() => []),
+              fetch('https://nigteste-production.up.railway.app/areas').then(r => r.json()).catch(() => []),
+              fetch('https://nigteste-production.up.railway.app/tiposCadastro').then(r => r.json()).catch(() => []),
+              fetch('https://nigteste-production.up.railway.app/tiposServico').then(r => r.json()).catch(() => []),
+              fetch('https://nigteste-production.up.railway.app/tiposDemanda').then(r => r.json()).catch(() => []),
+              fetch('https://nigteste-production.up.railway.app/solicitantes').then(r => r.json()).catch(() => []),
+              fetch('https://nigteste-production.up.railway.app/relatorios').then(r => r.json()).catch(() => []),
+              fetch('https://nigteste-production.up.railway.app/modelos').then(r => r.json()).catch(() => []),
+              fetch('https://nigteste-production.up.railway.app/padrao').then(r => r.json()).catch(() => []),
+              fetch('https://nigteste-production.up.railway.app/areasMailling').then(r => r.json()).catch(() => []),
+              fetch('https://nigteste-production.up.railway.app/cargosMailling').then(r => r.json()).catch(() => []),
+              fetch('https://nigteste-production.up.railway.app/filiaisMailling').then(r => r.json()).catch(() => [])
+            ])
+            
+            console.log('✅ MasterDataStore: Dados recebidos da API:', {
+              clientes: clientes?.length || 0,
+              contratos: contratos?.length || 0,
+              operadoras: operadoras?.length || 0,
+              produtos: produtos?.length || 0,
+              sistemas: sistemas?.length || 0,
+              analistas: analistas?.length || 0,
+              areas: areas?.length || 0
+            })
             
             // Fazer merge inteligente dos dados
             const localState = get()
@@ -275,6 +311,12 @@ export const useMasterDataStore = create<MasterDataState>()(
             })
             
             // Sincronização concluída
+            console.log('✅ MasterDataStore: Sincronização concluída com sucesso!')
+            
+          } catch (error) {
+            console.error('❌ MasterDataStore: Erro na sincronização:', error)
+            set({ isSyncing: false })
+          }
         }
     }),
     {

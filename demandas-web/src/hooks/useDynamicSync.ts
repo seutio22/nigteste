@@ -69,12 +69,31 @@ export function useDynamicSync() {
   const [showSyncIndicator, setShowSyncIndicator] = useState(false)
 
   useEffect(() => {
-    // SINCRONIZAÇÃO COMPLETAMENTE DESABILITADA - CAUSANDO PROBLEMAS DE MEMÓRIA
-    console.log('🔧 useDynamicSync: Sincronização dinâmica desabilitada - causando problemas de memória')
-    // TODO: Implementar sistema mais leve no futuro
-    // const currentPath = location.pathname
-    // const config = ROUTE_SYNC_CONFIG[currentPath as keyof typeof ROUTE_SYNC_CONFIG]
-    // ... resto do código comentado
+    const currentPath = location.pathname
+    const config = ROUTE_SYNC_CONFIG[currentPath as keyof typeof ROUTE_SYNC_CONFIG]
+    
+    if (!config || !syncFromApi || isSyncing) {
+      return
+    }
+    
+    // Verificar cache
+    const cached = syncCache.get(currentPath)
+    const now = Date.now()
+    
+    if (cached && (now - cached.timestamp) < CACHE_DURATION) {
+      console.log(`🔍 useDynamicSync: Cache válido para ${currentPath}`)
+      return
+    }
+    
+    console.log(`🔄 useDynamicSync: Sincronizando dados para ${currentPath} (${config.priority})`)
+    
+    // Executar sincronização
+    syncFromApi().then(() => {
+      syncCache.set(currentPath, { timestamp: now, entities: config.entities })
+      console.log(`✅ useDynamicSync: Sincronização concluída para ${currentPath}`)
+    }).catch(error => {
+      console.error(`❌ useDynamicSync: Erro na sincronização para ${currentPath}:`, error)
+    })
   }, [location.pathname, syncFromApi, isSyncing])
 
   // Função para forçar sincronização (útil para botões de refresh)

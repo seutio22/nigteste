@@ -1,7 +1,7 @@
 # deploy-ultra-rapido.ps1
 $ErrorActionPreference = "Stop"
 
-Write-Host "⚡ Deploy Ultra Rápido (30-60 segundos)" -ForegroundColor Magenta
+Write-Host "Deploy Ultra Rapido (30-60 segundos)" -ForegroundColor Magenta
 
 # Verificar se está logado nos CLIs
 $railwayLoggedIn = $false
@@ -18,55 +18,56 @@ try {
 } catch { }
 
 if (-not $railwayLoggedIn -or -not $vercelLoggedIn) {
-    Write-Host "❌ Login necessário nos CLIs:" -ForegroundColor Red
+    Write-Host "Login necessario nos CLIs:" -ForegroundColor Red
     if (-not $railwayLoggedIn) {
         Write-Host "   - Execute: railway login" -ForegroundColor Yellow
     }
     if (-not $vercelLoggedIn) {
         Write-Host "   - Execute: vercel login" -ForegroundColor Yellow
     }
-    Write-Host "`n💡 Após fazer login, execute este script novamente" -ForegroundColor Cyan
+    Write-Host "Apos fazer login, execute este script novamente" -ForegroundColor Cyan
     exit 1
 }
 
-Write-Host "✅ Ambos CLIs logados - iniciando deploy ultra rápido..." -ForegroundColor Green
+Write-Host "Iniciando deploy..." -ForegroundColor Yellow
 
-# Deploy paralelo (Railway e Vercel ao mesmo tempo)
-$railwayJob = Start-Job -ScriptBlock {
-    Set-Location "demandas-api"
-    railway deploy --service nigteste-backend
+# Deploy Railway (Backend)
+Write-Host "Deploy Railway (Backend)..." -ForegroundColor Blue
+$railwaySuccess = $false
+try {
+    cd demandas-api
+    railway up --detach
+    $railwaySuccess = $true
+    cd ..
+} catch {
+    Write-Host "Erro no deploy Railway: $($_.Exception.Message)" -ForegroundColor Red
 }
 
-$vercelJob = Start-Job -ScriptBlock {
-    Set-Location "demandas-web"
-    vercel deploy --prod --confirm
+# Deploy Vercel (Frontend)
+Write-Host "Deploy Vercel (Frontend)..." -ForegroundColor Blue
+$vercelSuccess = $false
+try {
+    cd demandas-web
+    vercel --prod --yes
+    $vercelSuccess = $true
+    cd ..
+} catch {
+    Write-Host "Erro no deploy Vercel: $($_.Exception.Message)" -ForegroundColor Red
 }
 
-Write-Host "🚀 Deploy paralelo iniciado..." -ForegroundColor Cyan
-
-# Aguardar ambos os jobs
-$railwayResult = Wait-Job $railwayJob | Receive-Job
-$vercelResult = Wait-Job $vercelJob | Receive-Job
-
-# Limpar jobs
-Remove-Job $railwayJob, $vercelJob
-
-# Verificar resultados
-$railwaySuccess = $railwayJob.State -eq "Completed" -and $railwayJob.ChildJobs[0].Output -notcontains "error"
-$vercelSuccess = $vercelJob.State -eq "Completed" -and $vercelJob.ChildJobs[0].Output -notcontains "error"
-
-Write-Host "`n📊 RESULTADO:" -ForegroundColor Yellow
+# Resultado
+Write-Host "Resultado do deploy:" -ForegroundColor Yellow
 if ($railwaySuccess) {
-    Write-Host "✅ Railway: Sucesso" -ForegroundColor Green
+    Write-Host "Railway: Sucesso" -ForegroundColor Green
 } else {
-    Write-Host "❌ Railway: Erro" -ForegroundColor Red
+    Write-Host "Railway: Erro" -ForegroundColor Red
 }
 
 if ($vercelSuccess) {
-    Write-Host "✅ Vercel: Sucesso" -ForegroundColor Green
+    Write-Host "Vercel: Sucesso" -ForegroundColor Green
 } else {
-    Write-Host "❌ Vercel: Erro" -ForegroundColor Red
+    Write-Host "Vercel: Erro" -ForegroundColor Red
 }
 
-Write-Host "`n⚡ Deploy ultra rápido concluído!" -ForegroundColor Magenta
+Write-Host "Deploy ultra rapido concluido!" -ForegroundColor Magenta
 Write-Host "Tempo total: ~30-60 segundos" -ForegroundColor Cyan

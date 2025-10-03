@@ -2,7 +2,7 @@
 import { useAuthStore } from '../store/authStore'
 
 export const API_CONFIG = {
-  BASE_URL: 'https://nigteste-production.up.railway.app',
+  BASE_URL: 'http://localhost:3001',
   TIMEOUT: 10000,
   ENDPOINTS: {
     AUTH: '/auth',
@@ -309,4 +309,18 @@ export const api = {
   
   // Analytics
   getAnalytics: () => apiRequest('/analytics'),
+
+  // Limpeza de dados
+  limparDuplicatasClientes: () => 
+    apiRequest('/clientes/limpar-duplicatas', {
+      method: 'DELETE',
+    }),
+  limparDemandasSimples: () => 
+    apiRequest('/demandas/limpar-atv-demandas', {
+      method: 'DELETE',
+    }),
+  limparContratosOrfaos: () => 
+    apiRequest('/contratos/limpar-orfaos', {
+      method: 'DELETE',
+    }),
 }
