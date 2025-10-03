@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Analytics - Debug</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Teste de Debug - Analytics</h1>
+    
+    <div class="test-section info">
+        <h3>📋 Instruções:</h3>
+        <ol>
+            <li>Abra o console do navegador (F12)</li>
+            <li>Navegue para a página Analytics</li>
+            <li>Clique no menu de ações (3 pontos) de qualquer relatório</li>
+            <li>Verifique se o botão "Excluir" aparece</li>
+            <li>Observe os logs no console</li>
+        </ol>
+    </div>
+
+    <div class="test-section">
+        <h3>🧪 Testes a Realizar:</h3>
+        <button onclick="testBackend()">1. Testar Backend</button>
+        <button onclick="testFrontend()">2. Testar Frontend</button>
+        <button onclick="testPermissions()">3. Testar Permissões</button>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+        async function testBackend() {
+            const results = document.getElementById('results');
+            try {
+                const response = await fetch('http://localhost:3333/analytics');
+                const data = await response.json();
+                
+                results.innerHTML += `
+                    <div class="test-section success">
+                        <h4>✅ Backend Test - SUCESSO</h4>
+                        <p>Status: ${response.status}</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    </div>
+                `;
+            } catch (error) {
+                results.innerHTML += `
+                    <div class="test-section error">
+                        <h4>❌ Backend Test - ERRO</h4>
+                        <p>Erro: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        async function testFrontend() {
+            const results = document.getElementById('results');
+            try {
+                const response = await fetch('http://localhost:5173');
+                if (response.ok) {
+                    results.innerHTML += `
+                        <div class="test-section success">
+                            <h4>✅ Frontend Test - SUCESSO</h4>
+                            <p>Frontend está rodando na porta 5173</p>
+                        </div>
+                    `;
+                } else {
+                    throw new Error(`Status: ${response.status}`);
+                }
+            } catch (error) {
+                results.innerHTML += `
+                    <div class="test-section error">
+                        <h4>❌ Frontend Test - ERRO</h4>
+                        <p>Erro: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        function testPermissions() {
+            const results = document.getElementById('results');
+            results.innerHTML += `
+                <div class="test-section info">
+                    <h4>🔍 Teste de Permissões</h4>
+                    <p>Para testar as permissões:</p>
+                    <ol>
+                        <li>Abra <a href="http://localhost:5173" target="_blank">http://localhost:5173</a></li>
+                        <li>Navegue para Analytics</li>
+                        <li>Abra o console (F12)</li>
+                        <li>Clique no menu de ações de um relatório</li>
+                        <li>Verifique os logs de debug no console</li>
+                    </ol>
+                    <p><strong>Logs esperados:</strong></p>
+                    <pre>🔍 Analytics ActionCell Debug: {
+  reportId: "...",
+  reportUserId: "...",
+  currentUserId: "...",
+  userRole: "...",
+  canDelete: true/false,
+  report: {...}
+}</pre>
+                </div>
+            `;
+        }
+
+        // Auto-executar teste do backend
+        testBackend();
+    </script>
+</body>
+</html>

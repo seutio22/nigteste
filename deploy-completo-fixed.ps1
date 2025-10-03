@@ -22,7 +22,7 @@ function Deploy-WithFallback {
             return $false
         }
     } catch {
-        Write-Host "❌ Erro no deploy $Platform: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "❌ Erro no deploy $Platform" -ForegroundColor Red
         return $false
     }
 }
