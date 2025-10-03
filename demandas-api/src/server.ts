@@ -337,6 +337,22 @@ function crud(entity: keyof PrismaClient) {
         // ClienteId é opcional - pode ser definido posteriormente
         if (contratoData.clienteId) {
           console.log('🔍 CONTRATO CREATE: ClienteId fornecido:', contratoData.clienteId);
+          // Verificar se o cliente existe antes de conectar
+          try {
+            const clienteExiste = await prisma.cliente.findUnique({ where: { id: contratoData.clienteId } });
+            if (clienteExiste) {
+              // Usar sintaxe de connect para relacionamento
+              contratoData.cliente = { connect: { id: contratoData.clienteId } };
+              delete contratoData.clienteId; // Remover clienteId pois usamos connect
+              console.log('✅ CONTRATO CREATE: Cliente conectado:', clienteExiste.nome);
+            } else {
+              console.warn('⚠️ CONTRATO CREATE: Cliente ID não encontrado, removendo clienteId');
+              delete contratoData.clienteId;
+            }
+          } catch (error) {
+            console.warn('⚠️ CONTRATO CREATE: Erro ao verificar cliente, removendo clienteId:', error);
+            delete contratoData.clienteId;
+          }
         } else {
           console.log('🔍 CONTRATO CREATE: ClienteId não fornecido - contrato será criado sem cliente');
         }
