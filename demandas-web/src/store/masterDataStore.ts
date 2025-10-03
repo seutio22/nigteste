@@ -208,7 +208,7 @@ export const useMasterDataStore = create<MasterDataState>()(
               fetch('https://nigteste-production.up.railway.app/relatorios').then(r => r.json()).catch(() => []),
               fetch('https://nigteste-production.up.railway.app/modelos').then(r => r.json()).catch(() => []),
               fetch('https://nigteste-production.up.railway.app/padrao').then(r => r.json()).catch(() => []),
-              // Endpoints de Mailling não implementados no backend - retornar arrays vazios
+              // TEMPORÁRIO: Suprimir erros 404 dos endpoints Mailling até Railway aplicar correções
               Promise.resolve([]), // areasMailling
               Promise.resolve([]), // cargosMailling  
               Promise.resolve([])  // filiaisMailling
