@@ -1785,7 +1785,12 @@ app.delete('/clientes/limpar-duplicatas', async () => {
     
   } catch (error) {
     console.error('❌ Erro ao limpar grupos econômicos duplicados:', error)
-    throw error
+    return {
+      error: 'Erro interno do servidor',
+      message: error instanceof Error ? error.message : 'Erro desconhecido',
+      duplicatasRemovidas: 0,
+      duplicatasComDependencias: 0
+    }
   }
 })
 
