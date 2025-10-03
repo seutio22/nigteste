@@ -1,6 +1,7 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useMasterDataStore } from '../store/masterDataStore'
+import { DataLoading } from '../components/BeautifulLoading'
 
 // Configuração de sincronização por rota
 const ROUTE_SYNC_CONFIG = {
@@ -66,6 +67,7 @@ export function useDynamicSync() {
   const location = useLocation()
   const { syncFromApi, isSyncing } = useMasterDataStore()
   const lastSyncRef = useRef<string>('')
+  const [showSyncIndicator, setShowSyncIndicator] = useState(false)
 
   useEffect(() => {
     const currentPath = location.pathname
@@ -100,6 +102,7 @@ export function useDynamicSync() {
     
     // Marcar como sincronizando
     lastSyncRef.current = currentPath
+    setShowSyncIndicator(true)
     
     // Sincronizar com delay baseado na prioridade
     const delay = config.priority === 'high' ? 0 : config.priority === 'medium' ? 500 : 1000
@@ -118,12 +121,13 @@ export function useDynamicSync() {
       } catch (error) {
         console.error(`❌ useDynamicSync: Erro na sincronização para ${currentPath}:`, error)
       } finally {
-        // Limpar referência após um tempo
+        // Esconder indicador após um tempo
         setTimeout(() => {
+          setShowSyncIndicator(false)
           if (lastSyncRef.current === currentPath) {
             lastSyncRef.current = ''
           }
-        }, 5000)
+        }, 1000)
       }
     }, delay)
 
@@ -145,5 +149,12 @@ export function useDynamicSync() {
     }
   }
 
-  return { forceSync, isSyncing }
+  return { 
+    forceSync, 
+    isSyncing, 
+    showSyncIndicator,
+    SyncIndicator: showSyncIndicator ? () => (
+      <DataLoading message="Sincronizando dados..." />
+    ) : null
+  }
 }

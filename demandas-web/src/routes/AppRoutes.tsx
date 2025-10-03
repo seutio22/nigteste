@@ -2,6 +2,7 @@ import { Suspense, lazy } from 'react'
 import { Route, Routes, Navigate } from 'react-router-dom'
 import { AppLayout } from '../components/AppLayout'
 import { ProtectedRoute } from '../components/ProtectedRoute'
+import { PageLoading } from '../components/BeautifulLoading'
 
 const LoginPage = lazy(() => import('../pages/Login'))
 const HomePage = lazy(() => import('../pages/Home'))
@@ -39,7 +40,7 @@ const ShareProjectPage = lazy(() => import('../pages/ShareProject'))
 
 export function AppRoutes() {
   return (
-    <Suspense fallback={<div>Carregando...</div>}>
+    <Suspense fallback={<PageLoading message="Carregando página..." />}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/" element={<AppLayout />}>          

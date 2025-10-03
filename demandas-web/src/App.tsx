@@ -4,6 +4,7 @@ import { useTheme } from './hooks/useTheme'
 import { useAuthStore } from './store/authStore'
 import { useMasterDataStore } from './store/masterDataStore'
 import { useDynamicSync } from './hooks/useDynamicSync'
+import { FullScreenLoading } from './components/BeautifulLoading'
 import { useEffect } from 'react'
 import './utils/force-cache-bust' // Force cache bust
 
@@ -21,6 +22,11 @@ function App() {
     initialize()
   }, [initialize])
   
+  // Mostrar loading bonito enquanto carrega
+  if (loading) {
+    return <FullScreenLoading message="Inicializando sistema..." />
+  }
+
   return (
     <SidebarProvider>
       <AppRoutes />
