@@ -29,7 +29,7 @@ const AnalyticsPage = lazy(() => import('../pages/Analytics'))
 const AnalyticsNewPage = lazy(() => import('../pages/Analytics/New'))
 const AnalyticsDetailPage = lazy(() => import('../pages/Analytics/Detail'))
 const DadosPage = lazy(() => import('../pages/Dados'))
-const DadosOptimizedPage = lazy(() => import('../pages/DadosOptimized'))
+const DataCleanupPage = lazy(() => import('../pages/DataCleanup'))
 const AdminUsersPage = lazy(() => import('../pages/Admin/Users'))
 const KanbanPage = lazy(() => import('../pages/Kanban'))
 const ProjectListPage = lazy(() => import('../pages/Projetos/ListSimple'))
@@ -214,9 +214,9 @@ export function AppRoutes() {
             </ProtectedRoute>
           } />
           
-          <Route path="dados-otimizados" element={
-            <ProtectedRoute module="dados">
-              <DadosOptimizedPage />
+          <Route path="admin/limpeza" element={
+            <ProtectedRoute module="admin">
+              <DataCleanupPage />
             </ProtectedRoute>
           } />
           
