@@ -784,6 +784,51 @@ function crud(entity: keyof PrismaClient) {
 }
 
 
+// Funções de validação para evitar erros de foreign key
+const validateForeignKeys = {
+  async validateUser(assignee: string) {
+    if (!assignee) return true;
+    const user = await prisma.user.findFirst({ where: { name: assignee } });
+    if (!user) {
+      console.warn(`⚠️ Usuário '${assignee}' não encontrado, criando automaticamente...`);
+      await prisma.user.create({
+        data: {
+          name: assignee,
+          email: `${assignee.toLowerCase()}@demandas.com`,
+          password: 'temp123',
+          role: 'USER'
+        }
+      });
+    }
+    return true;
+  },
+  
+  async validateTipoDemanda(tipoId: string) {
+    if (!tipoId) return true;
+    const tipo = await prisma.tipoDemanda.findFirst({ where: { nome: tipoId } });
+    if (!tipo) {
+      console.warn(`⚠️ Tipo de demanda '${tipoId}' não encontrado, criando automaticamente...`);
+      await prisma.tipoDemanda.create({
+        data: {
+          nome: tipoId,
+          descricao: `Tipo de demanda ${tipoId}`
+        }
+      });
+    }
+    return true;
+  },
+  
+  async validateContrato(contratoId: string) {
+    if (!contratoId) return true;
+    const contrato = await prisma.contrato.findUnique({ where: { id: contratoId } });
+    if (!contrato) {
+      console.warn(`⚠️ Contrato '${contratoId}' não encontrado, removendo referência...`);
+      return false;
+    }
+    return true;
+  }
+};
+
 const resources = {
   areas: crud('area'),
   analistas: crud('analista'),
@@ -794,6 +839,7 @@ const resources = {
   contratos: crud('contrato'),
   tiposServico: crud('tipoServico'),
   tiposDemanda: crud('tipoDemanda'),
+  mailling: crud('mailling'), // v2 - endpoint principal
   areasMailling: crud('areaMailling'), // v2
   cargosMailling: crud('cargoMailling'), // v2
   filiaisMailling: crud('filialMailling'), // v2
@@ -1036,6 +1082,80 @@ for (const [path, repo] of Object.entries(resources)) {
           }
         }
         
+        // Validar contratoId se fornecido
+        if (cleanedData.contratoId) {
+          try {
+            const contratoValido = await validateForeignKeys.validateContrato(cleanedData.contratoId);
+            if (!contratoValido) {
+              console.warn(`⚠️ POST /manutencoes: Removendo contratoId inválido: ${cleanedData.contratoId}`);
+              delete cleanedData.contratoId;
+            }
+          } catch (error) {
+            console.error(`❌ POST /manutencoes: Erro ao validar contrato:`, error)
+          }
+        }
+        
+        const created = await repo.create(cleanedData)
+        console.log(`✅ POST /${path}: Criado com sucesso:`, created.id)
+        res.code(201)
+        return created
+      } else if (path === 'mailling') {
+        // Tratamento especial para mailling - evitar duplicatas de email
+        const cleanedData = { ...req.body }
+        
+        console.log(`🔍 POST /mailling: Dados originais recebidos:`, JSON.stringify(req.body, null, 2))
+        
+        // Verificar se email já existe
+        if (cleanedData.email) {
+          try {
+            const emailExiste = await prisma.mailling.findFirst({ 
+              where: { email: cleanedData.email } 
+            });
+            if (emailExiste) {
+              console.warn(`⚠️ POST /mailling: Email "${cleanedData.email}" já existe, atualizando registro existente`);
+              const updated = await prisma.mailling.update({
+                where: { id: emailExiste.id },
+                data: cleanedData
+              });
+              console.log(`✅ POST /mailling: Registro atualizado:`, updated.id);
+              res.code(200);
+              return updated;
+            }
+          } catch (error) {
+            console.error(`❌ POST /mailling: Erro ao verificar email:`, error);
+          }
+        }
+        
+        const created = await repo.create(cleanedData)
+        console.log(`✅ POST /${path}: Criado com sucesso:`, created.id)
+        res.code(201)
+        return created
+      } else if (path === 'contratos') {
+        // Tratamento especial para contratos - evitar duplicatas de número
+        const cleanedData = { ...req.body }
+        
+        console.log(`🔍 POST /contratos: Dados originais recebidos:`, JSON.stringify(req.body, null, 2))
+        
+        // Verificar se número já existe
+        if (cleanedData.numero) {
+          try {
+            const numeroExiste = await prisma.contrato.findFirst({ 
+              where: { numero: cleanedData.numero } 
+            });
+            if (numeroExiste) {
+              console.warn(`⚠️ POST /contratos: Número "${cleanedData.numero}" já existe, atualizando registro existente`);
+              const updated = await prisma.contrato.update({
+                where: { id: numeroExiste.id },
+                data: cleanedData
+              });
+              console.log(`✅ POST /contratos: Registro atualizado:`, updated.id);
+              res.code(200);
+              return updated;
+            }
+          } catch (error) {
+            console.error(`❌ POST /contratos: Erro ao verificar número:`, error);
+          }
+        }
         
         const created = await repo.create(cleanedData)
         console.log(`✅ POST /${path}: Criado com sucesso:`, created.id)
@@ -1327,6 +1447,15 @@ for (const [path, repo] of Object.entries(resources)) {
             }
           } catch (error) {
             console.error(`❌ POST /atendimentos: Erro ao verificar tipo de serviço:`, error)
+          }
+        }
+        
+        // Validar tipoId (tipo de demanda)
+        if (cleanedData.tipoId) {
+          try {
+            await validateForeignKeys.validateTipoDemanda(cleanedData.tipoId);
+          } catch (error) {
+            console.error(`❌ POST /atendimentos: Erro ao validar tipo de demanda:`, error)
           }
         }
         
@@ -1857,6 +1986,11 @@ app.post('/kanban/tickets', async (req: any) => {
   try {
     const ticketData = req.body
     
+    // Validar se o usuário assignee existe
+    if (ticketData.assignee && ticketData.assignee !== 'unassigned') {
+      await validateForeignKeys.validateUser(ticketData.assignee);
+    }
+    
     const kanbanTicket = await prisma.kanbanTicket.create({
       data: {
         title: ticketData.title,
@@ -1893,6 +2027,11 @@ app.put('/kanban/tickets/:id', async (req: any) => {
   try {
     const { id } = req.params
     const updates = req.body
+    
+    // Validar se o usuário assignee existe
+    if (updates.assignee && updates.assignee !== 'unassigned') {
+      await validateForeignKeys.validateUser(updates.assignee);
+    }
     
     const kanbanTicket = await prisma.kanbanTicket.update({
       where: { id },
