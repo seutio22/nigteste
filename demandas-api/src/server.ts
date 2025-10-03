@@ -1874,33 +1874,70 @@ app.delete('/contratos/limpar-orfaos', async () => {
 
 
 // Endpoint específico para exclusão de demandas individuais
-app.delete('/demandas/:id', async (req: any) => {
+app.delete('/demandas/:id', async (req: any, reply: any) => {
   try {
     const { id } = req.params
     console.log(`🔍 DELETE /demandas/${id}: Iniciando exclusão...`)
     
     // Verificar se a demanda existe
-    const demanda = await prisma.demanda.findUnique({ where: { id } })
+    const demanda = await prisma.demanda.findUnique({ 
+      where: { id },
+      include: {
+        reajustes: true,
+        validacoes: true
+      }
+    })
+    
     if (!demanda) {
       console.log(`❌ DELETE /demandas/${id}: Demanda não encontrada`)
-      return { error: 'Demanda não encontrada', status: 404 }
+      reply.code(404)
+      return { error: 'Demanda não encontrada' }
+    }
+    
+    console.log(`📊 DELETE /demandas/${id}: Demanda encontrada com ${demanda.reajustes.length} reajustes e ${demanda.validacoes.length} validações`)
+    
+    // Verificar se há dependências que impedem a exclusão
+    if (demanda.reajustes.length > 0) {
+      console.log(`⚠️ DELETE /demandas/${id}: Demanda possui ${demanda.reajustes.length} reajustes vinculados`)
+      reply.code(400)
+      return { 
+        error: 'Não é possível excluir demanda com reajustes vinculados',
+        reajustesCount: demanda.reajustes.length
+      }
+    }
+    
+    if (demanda.validacoes.length > 0) {
+      console.log(`⚠️ DELETE /demandas/${id}: Demanda possui ${demanda.validacoes.length} validações vinculadas`)
+      reply.code(400)
+      return { 
+        error: 'Não é possível excluir demanda com validações vinculadas',
+        validacoesCount: demanda.validacoes.length
+      }
     }
     
     // Excluir a demanda
     await prisma.demanda.delete({ where: { id } })
     console.log(`✅ DELETE /demandas/${id}: Demanda excluída com sucesso`)
     
+    reply.code(200)
     return { 
       message: 'Demanda excluída com sucesso',
       deletedId: id
     }
     
   } catch (error: any) {
-    console.error(`❌ DELETE /demandas/${req.params.id}: Erro:`, error.message)
-    return { 
-      error: 'Erro ao excluir demanda',
+    console.error(`❌ DELETE /demandas/${req.params.id}: Erro detalhado:`, {
       message: error.message,
-      status: 500
+      code: error.code,
+      meta: error.meta,
+      stack: error.stack
+    })
+    
+    reply.code(500)
+    return { 
+      error: 'Erro interno ao excluir demanda',
+      message: error.message,
+      code: error.code
     }
   }
 })
