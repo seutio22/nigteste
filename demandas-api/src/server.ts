@@ -853,7 +853,7 @@ const resources = {
   operadoras: crud('operadora'),
   produtos: crud('produto'),
   sistemas: crud('sistema'),
-  clientes: crud('cliente'),
+  // clientes: crud('cliente'), // TEMPORARIAMENTE DESABILITADO PARA RESOLVER CONFLITO
   contratos: crud('contrato'),
   tiposServico: crud('tipoServico'),
   tiposDemanda: crud('tipoDemanda'),
