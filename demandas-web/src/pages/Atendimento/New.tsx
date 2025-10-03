@@ -49,15 +49,15 @@ export default function AtendimentoNewPage() {
       ticket: 'TICKET-' + Date.now(),
       cliente: '',
       contrato: '',
-      operadora: 'Claro',
+      operadora: '',
       produto: '',
       sistema: '',
-      area: 'Suporte',
+      area: '',
       analista: '',
       tipoServico: '',
-      tipo: 'Suporte',
-      descricao: 'Descrição do atendimento',
-      solicitante: 'Sistema',
+      tipo: '',
+      descricao: '',
+      solicitante: '',
       dataInicio: new Date().toISOString().split('T')[0],
       dataFinal: '',
       periodicidade: '',
@@ -306,26 +306,6 @@ export default function AtendimentoNewPage() {
                     label="Data Final"
                     InputLabelProps={{ shrink: true }}
                   />
-                )}
-              />
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <Controller
-                name="area"
-                control={control}
-                rules={{ required: 'Área é obrigatória' }}
-                render={({ field }) => (
-                  <FormControl fullWidth error={!!errors.area}>
-                    <InputLabel>Área *</InputLabel>
-                    <Select {...field} label="Área *">
-                      {masterDataStore.areas.map(area => (
-                        <MenuItem key={area.id} value={area.id}>
-                          {area.nome}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
                 )}
               />
             </Grid>
