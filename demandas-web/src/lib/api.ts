@@ -90,6 +90,36 @@ export const api = {
 
   deleteUser: (id: string): Promise<void> => 
     api.delete<void>(`/users/${id}`),
+
+  // Dados mestres
+  getAreas: (): Promise<any[]> => 
+    api.get<any[]>('/areas'),
+  getAnalistas: (): Promise<any[]> => 
+    api.get<any[]>('/analistas'),
+  getOperadoras: (): Promise<any[]> => 
+    api.get<any[]>('/operadoras'),
+  getProdutos: (): Promise<any[]> => 
+    api.get<any[]>('/produtos'),
+  getSistemas: (): Promise<any[]> => 
+    api.get<any[]>('/sistemas'),
+  getClientes: (): Promise<any[]> => 
+    api.get<any[]>('/clientes'),
+  getContratos: (): Promise<any[]> => 
+    api.get<any[]>('/contratos'),
+  getTiposDemanda: (): Promise<any[]> => 
+    api.get<any[]>('/tiposDemanda'),
+  getTiposServico: (): Promise<any[]> => 
+    api.get<any[]>('/tiposServico'),
+  getPadrao: (): Promise<any[]> => 
+    api.get<any[]>('/padrao'),
+
+  // Limpeza de dados
+  limparDuplicatasClientes: (): Promise<any> => 
+    api.delete<any>('/clientes/limpar-duplicatas'),
+  limparDemandasSimples: (): Promise<any> => 
+    api.delete<any>('/demandas/limpar-atv-demandas'),
+  limparContratosOrfaos: (): Promise<any> => 
+    api.delete<any>('/contratos/limpar-orfaos'),
 };
 
 export function endpoint(resource: string) {
