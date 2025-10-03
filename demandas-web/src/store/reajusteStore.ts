@@ -8,7 +8,7 @@ import { api } from '../lib/api'
 interface ReajusteState {
   items: ReajusteEntry[]
   add: (e: Omit<ReajusteEntry, 'id' | 'createdAt'>) => ReajusteEntry
-  remove: (id: string) => void
+  remove: (id: string) => Promise<void>
   upsert: (entry: ReajusteEntry) => void
   log: (entry: { reajusteId: string; type: string; field: string; from: unknown; to: unknown }) => void
   syncFromApi: () => Promise<void>
@@ -39,21 +39,38 @@ export const useReajusteStore = create<ReajusteState>()(
         return entry
       },
       
-      remove: (id) => {
-        const currentItem = get().items.find(item => item.id === id)
-        if (currentItem) {
+      remove: async (id) => {
+        try {
+          console.log('🗑️ Removendo reajuste:', id)
+          
+          // Importar API dinamicamente
+          const { api } = await import('../lib/api.local')
+          
+          // Excluir do backend primeiro
+          await api.deleteReajuste(id)
+          console.log('✅ Reajuste excluído com sucesso no backend')
+          
           // Registrar evento de remoção
-          const timelineStore = useTimelineStore.getState()
-          const authStore = useAuthStore.getState()
-          timelineStore.addEvent({
-            reajusteId: id,
-            type: 'comment',
-            comment: `Reajuste removido: ${currentItem.mes}/${currentItem.ano}`,
-            user: authStore.user?.name || 'Administrador'
-          })
+          const currentItem = get().items.find(item => item.id === id)
+          if (currentItem) {
+            const timelineStore = useTimelineStore.getState()
+            const authStore = useAuthStore.getState()
+            timelineStore.addEvent({
+              reajusteId: id,
+              type: 'comment',
+              comment: `Reajuste removido: ${currentItem.mes}/${currentItem.ano}`,
+              user: authStore.user?.name || 'Administrador'
+            })
+          }
+          
+          // Remover do estado local
+          set((s) => ({ items: s.items.filter((x) => x.id !== id) }))
+          console.log('✅ Reajuste removido do estado local')
+          
+        } catch (error) {
+          console.error('❌ Erro ao excluir reajuste:', error)
+          throw error
         }
-        
-        set((s) => ({ items: s.items.filter((x) => x.id !== id) }))
       },
       
       upsert: (entry) => {
@@ -158,7 +175,10 @@ export const useReajusteStore = create<ReajusteState>()(
       
       log: (entry) => {
         const timelineStore = useTimelineStore.getState()
-        timelineStore.addEvent(entry)
+        timelineStore.addEvent({
+          ...entry,
+          type: 'comment' as const
+        })
       },
       
       syncFromApi: async () => {

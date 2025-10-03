@@ -473,9 +473,14 @@ function ActionCell({ id, status }: { id: string, status: string }) {
     setOpenStatus(false)
   }
 
-  const doDelete = () => {
-    store.remove(id)
-    setOpenDelete(false)
+  const doDelete = async () => {
+    try {
+      await store.remove(id)
+      setOpenDelete(false)
+    } catch (error) {
+      console.error('Erro ao excluir reajuste:', error)
+      alert('Erro ao excluir reajuste. Verifique o console para mais detalhes.')
+    }
   }
 
   const doDuplicate = () => {

@@ -21,16 +21,31 @@ const prisma = new PrismaClient()
 async function applySchema() {
   try {
     console.log('🔧 Verificando schema do banco...')
-    await prisma.$executeRaw`ALTER TABLE "Analista" ADD COLUMN IF NOT EXISTS "email" TEXT`
-    await prisma.$executeRaw`ALTER TABLE "Analista" ADD COLUMN IF NOT EXISTS "telefone" TEXT`
-    await prisma.$executeRaw`ALTER TABLE "Analista" ADD COLUMN IF NOT EXISTS "cargo" TEXT`
+    // SQLite não suporta ADD COLUMN IF NOT EXISTS, então vamos tentar e ignorar erros
+    try {
+      await prisma.$executeRaw`ALTER TABLE "Analista" ADD COLUMN "email" TEXT`
+    } catch (e: any) {
+      if (e.message.includes('duplicate column name')) {
+        console.log('✅ Coluna email já existe')
+      }
+    }
+    try {
+      await prisma.$executeRaw`ALTER TABLE "Analista" ADD COLUMN "telefone" TEXT`
+    } catch (e: any) {
+      if (e.message.includes('duplicate column name')) {
+        console.log('✅ Coluna telefone já existe')
+      }
+    }
+    try {
+      await prisma.$executeRaw`ALTER TABLE "Analista" ADD COLUMN "cargo" TEXT`
+    } catch (e: any) {
+      if (e.message.includes('duplicate column name')) {
+        console.log('✅ Coluna cargo já existe')
+      }
+    }
     console.log('✅ Schema verificado!')
   } catch (error: any) {
-    if (error.message.includes('already exists')) {
-      console.log('✅ Schema já aplicado!')
-    } else {
-      console.log('ℹ️ Schema check:', error.message)
-    }
+    console.log('ℹ️ Schema check:', error.message)
   }
 }
 
@@ -523,6 +538,21 @@ function crud(entity: keyof PrismaClient) {
             
           case 'atendimento':
             // Atendimentos podem ser excluídos diretamente (sem dependências)
+            hasDependencies = false;
+            break;
+            
+          case 'reajuste':
+            // Reajustes podem ser excluídos diretamente (sem dependências)
+            hasDependencies = false;
+            break;
+            
+          case 'validacao':
+            // Validações podem ser excluídas diretamente (sem dependências)
+            hasDependencies = false;
+            break;
+            
+          case 'manutencao':
+            // Manutenções podem ser excluídas diretamente (sem dependências)
             hasDependencies = false;
             break;
             

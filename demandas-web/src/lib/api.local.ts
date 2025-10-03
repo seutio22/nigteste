@@ -202,6 +202,10 @@ export const api = {
   // Reajustes
   getReajustes: () => apiRequest(API_CONFIG.ENDPOINTS.REAJUSTES),
   getReajuste: (id: string) => apiRequest(`${API_CONFIG.ENDPOINTS.REAJUSTES}/${id}`),
+  deleteReajuste: (id: string) =>
+    apiRequest(`${API_CONFIG.ENDPOINTS.REAJUSTES}/${id}`, {
+      method: 'DELETE',
+    }),
 
   // Dados mestres
   getAreas: () => apiRequest(API_CONFIG.ENDPOINTS.AREAS),

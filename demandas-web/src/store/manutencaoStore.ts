@@ -204,54 +204,23 @@ export const useManutencaoStore = create<ManutencaoState>()(
         return { items: [{ ...manutencao, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }, ...s.items] }
       }),
       remove: async (id) => {
-        console.log('🔍 ManutencaoStore: Removendo manutenção:', id)
-        
         try {
+          console.log('🗑️ Removendo manutenção:', id)
+          
+          // Importar API dinamicamente
+          const { api } = await import('../lib/api.local')
+          
           // Excluir do backend primeiro
-          const { useAuthStore } = await import('./authStore')
-          const token = useAuthStore.getState().token
+          await api.deleteManutencao(id)
+          console.log('✅ Manutenção excluída com sucesso no backend')
           
-          if (!token) {
-            throw new Error('Token de autenticação não encontrado')
-          }
-          
-          const baseUrl = 'https://nigteste-production.up.railway.app'
-          console.log('🔍 ManutencaoStore: Enviando DELETE para:', `${baseUrl}/manutencoes/${id}`)
-          
-          const response = await fetch(`${baseUrl}/manutencoes/${id}`, {
-            method: 'DELETE',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-          })
-
-          console.log('🔍 ManutencaoStore: Resposta do DELETE:', response.status, response.statusText)
-
-          if (response.ok) {
-            // Se excluiu do backend, excluir do frontend
-            set((s) => ({ items: s.items.filter((d) => d.id !== id) }))
-            console.log('✅ ManutencaoStore: Manutenção excluída do backend e frontend:', id)
-          } else {
-            const errorText = await response.text()
-            console.error('❌ ManutencaoStore: Erro ao excluir do backend:', response.status, errorText)
-            
-            // Se o registro não existe no backend (404), excluir apenas do frontend
-            if (response.status === 404) {
-              console.log('🔍 ManutencaoStore: Registro não existe no backend, excluindo apenas do frontend')
-              set((s) => ({ items: s.items.filter((d) => d.id !== id) }))
-              return
-            }
-            
-            throw new Error(`Erro ao excluir: ${response.status} - ${errorText}`)
-          }
-        } catch (error) {
-          console.error('❌ ManutencaoStore: Erro ao excluir manutenção:', error)
-          
-          // Se houver erro de rede ou outro problema, tentar excluir apenas do frontend
-          console.log('🔍 ManutencaoStore: Tentando excluir apenas do frontend devido ao erro')
+          // Remover do estado local
           set((s) => ({ items: s.items.filter((d) => d.id !== id) }))
-          console.log('✅ ManutencaoStore: Manutenção excluída apenas do frontend:', id)
+          console.log('✅ Manutenção removida do estado local')
+          
+        } catch (error) {
+          console.error('❌ Erro ao excluir manutenção:', error)
+          throw error
         }
       },
       clear: () => set({ items: [] }),

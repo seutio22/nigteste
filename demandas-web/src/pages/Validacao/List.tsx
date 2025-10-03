@@ -42,8 +42,13 @@ function ActionCell({ id, status }: { id: string, status: string }) {
   }
 
   const doDelete = async () => {
-    await store.remove(id)
-    setOpenDelete(false)
+    try {
+      await store.remove(id)
+      setOpenDelete(false)
+    } catch (error) {
+      console.error('Erro ao excluir validação:', error)
+      alert('Erro ao excluir validação. Verifique o console para mais detalhes.')
+    }
   }
 
   const doDuplicate = async () => {

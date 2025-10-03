@@ -457,7 +457,18 @@ function ActionCell({ id, status }: { id: string, status: string }) {
   
   // Verificar se o usuário pode excluir este relatório
   const report = store.items.find((r) => r.id === id)
-  const canDelete = report?.userId === user?.id || user?.role === 'admin'
+  // Fallback: Se não tem userId, permitir exclusão (relatórios antigos)
+  const canDelete = report?.userId === user?.id || user?.role === 'admin' || !report?.userId
+  
+  // Debug: Log para verificar dados
+  console.log('🔍 Analytics ActionCell Debug:', {
+    reportId: id,
+    reportUserId: report?.userId,
+    currentUserId: user?.id,
+    userRole: user?.role,
+    canDelete,
+    report: report
+  })
 
   const handleMenuOpen = (e: React.MouseEvent<HTMLElement>) => setAnchorEl(e.currentTarget)
   const handleMenuClose = () => setAnchorEl(null)
