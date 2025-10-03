@@ -68,6 +68,8 @@ app.register(cors, corsOptions)
 console.log('🚀 REGISTRANDO ROTA: /limpeza/clientes-duplicatas')
 console.log('🚀 VERIFICAR SE ROTA ESTÁ SENDO REGISTRADA CORRETAMENTE')
 console.log('🚀 CORREÇÃO: Removido areaId do modelo Analista - v10')
+console.log('🚀 FORÇAR DEPLOY RAILWAY v11 - MUDANÇA DRÁSTICA - CÓDIGO NOVO')
+console.log('🚀 VERSÃO: 2025-10-03-23:45 - CÓDIGO ATUALIZADO')
 
 // ROTA COMPLETAMENTE NOVA PARA LIMPEZA DE DUPLICATAS - SEM CONFLITO
 // FORÇAR REDEPLOY RAILWAY - v8 - URGENTE - ROTA 404 - TOKEN RAILWAY
@@ -1003,7 +1005,59 @@ const validateForeignKeys = {
 };
 
 const resources = {
-  areas: crud('area'),
+  areas: {
+    ...crud('area'),
+    delete: async (id: string) => {
+      console.log('🚀 DELETE AREA v11 - CÓDIGO NOVO EXECUTANDO')
+      console.log('🚀 VERSÃO: 2025-10-03-23:45 - RAILWAY ATUALIZADO')
+      console.log(`🚀 Excluindo área ID: ${id}`)
+      
+      try {
+        // Verificar se a área existe
+        const area = await prisma.area.findUnique({
+          where: { id },
+          include: {
+            demandas: true,
+            atendimentos: true,
+            manutencoes: true
+          }
+        })
+
+        if (!area) {
+          console.log(`❌ Área ${id} não encontrada`)
+          throw new Error('Área não encontrada')
+        }
+
+        console.log(`📊 Área encontrada: ${area.nome}`)
+        console.log(`📊 Dependências: ${area.demandas.length} demandas, ${area.atendimentos.length} atendimentos, ${area.manutencoes.length} manutenções`)
+
+        // Verificar dependências
+        if (area.demandas.length > 0) {
+          console.log(`⚠️ Área possui ${area.demandas.length} demandas vinculadas`)
+          throw new Error(`Não é possível excluir área com ${area.demandas.length} demandas vinculadas`)
+        }
+
+        if (area.atendimentos.length > 0) {
+          console.log(`⚠️ Área possui ${area.atendimentos.length} atendimentos vinculados`)
+          throw new Error(`Não é possível excluir área com ${area.atendimentos.length} atendimentos vinculados`)
+        }
+
+        if (area.manutencoes.length > 0) {
+          console.log(`⚠️ Área possui ${area.manutencoes.length} manutenções vinculadas`)
+          throw new Error(`Não é possível excluir área com ${area.manutencoes.length} manutenções vinculadas`)
+        }
+
+        // Excluir a área
+        await prisma.area.delete({ where: { id } })
+        console.log(`✅ Área ${id} excluída com sucesso`)
+        
+        return { message: 'Área excluída com sucesso', deletedId: id }
+      } catch (error: any) {
+        console.error(`❌ Erro ao excluir área ${id}:`, error)
+        throw error
+      }
+    }
+  },
   analistas: crud('analista'),
   operadoras: crud('operadora'),
   produtos: crud('produto'),

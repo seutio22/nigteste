@@ -57,12 +57,35 @@ export const useDemandStore = create<DemandState>()(
         const existing = get().items
         const ticket = generateTicket(existing)
         
+        // Filtrar apenas campos válidos para o backend (remover strings, manter apenas IDs)
         const apiPayload = {
-          ...payload,
+          status: payload.status,
           ticket,
+          analistaId: payload.analistaId,
+          userId: payload.userId,
+          solicitante: payload.solicitante,
+          areaId: payload.areaId,
+          tipoId: payload.tipoId,
+          descricao: payload.descricao,
+          tipoServicoId: payload.tipoServicoId,
+          clienteId: payload.clienteId,
+          contratoId: payload.contratoId,
+          operadoraId: payload.operadoraId,
+          produtoId: payload.produtoId,
+          sistemaId: payload.sistemaId,
+          dataInicio: payload.dataInicio,
+          dataFinal: payload.dataFinal,
+          periodicidade: payload.periodicidade,
+          qtdRetornos: payload.qtdRetornos,
+          qualidade: payload.qualidade,
+          qtdClientesVinculados: payload.qtdClientesVinculados,
+          usuariosEmpresa: payload.usuariosEmpresa,
+          observacoes: payload.observacoes,
           createdAt: now,
           updatedAt: now
         }
+        
+        console.log('🔍 DemandStore.add: Payload filtrado para API:', apiPayload)
         
         try {
           // Tentar criar na API primeiro
@@ -216,35 +239,56 @@ export const useDemandStore = create<DemandState>()(
           
           const demandas = await api.getDemandas()
           
+          console.log('🔍 DemandStore: Dados recebidos da API:', demandas)
+          console.log('🔍 DemandStore: Quantidade de demandas:', demandas?.length || 0)
           
           // Mapear dados da API para o formato do frontend
-          const demandasMapeadas: Demand[] = demandas.map((d: any) => ({
-            id: d.id,
-            ticket: d.ticket,
-            status: d.status,
-            solicitante: d.solicitante,
-            descricao: d.descricao,
-            observacoes: d.observacoes,
-            qualidade: d.qualidade,
-            periodicidade: d.periodicidade,
-            qtdRetornos: d.qtdRetornos,
-            qtdClientesVinculados: d.qtdClientesVinculados,
-            usuariosEmpresa: d.usuariosEmpresa,
-            dataInicio: d.dataInicio,
-            dataFinal: d.dataFinal,
-            createdAt: d.createdAt,
-            updatedAt: d.updatedAt,
-            // IDs para edição
-            clienteId: d.clienteId,
-            contratoId: d.contratoId,
-            operadoraId: d.operadoraId,
-            produtoId: d.produtoId,
-            sistemaId: d.sistemaId,
-            areaId: d.areaId,
-            tipoId: d.tipoId,
-            tipoServicoId: d.tipoServicoId,
-            analistaId: d.analistaId
-          }))
+          const demandasMapeadas: Demand[] = demandas.map((d: any) => {
+            console.log('🔍 DemandStore: Mapeando demanda:', d)
+            
+            const demandaMapeada = {
+              id: d.id,
+              ticket: d.ticket,
+              status: d.status,
+              solicitante: d.solicitante,
+              descricao: d.descricao,
+              observacoes: d.observacoes,
+              qualidade: d.qualidade,
+              periodicidade: d.periodicidade,
+              qtdRetornos: d.qtdRetornos,
+              qtdClientesVinculados: d.qtdClientesVinculados,
+              usuariosEmpresa: d.usuariosEmpresa,
+              dataInicio: d.dataInicio,
+              dataFinal: d.dataFinal,
+              createdAt: d.createdAt,
+              updatedAt: d.updatedAt,
+              // IDs para edição
+              clienteId: d.clienteId,
+              contratoId: d.contratoId,
+              operadoraId: d.operadoraId,
+              produtoId: d.produtoId,
+              sistemaId: d.sistemaId,
+              areaId: d.areaId,
+              tipoId: d.tipoId,
+              tipoServicoId: d.tipoServicoId,
+              analistaId: d.analistaId,
+              // Campos adicionais para compatibilidade
+              analista: d.analista || d.analistaId,
+              area: d.area || d.areaId,
+              cliente: d.cliente || d.clienteId,
+              operadora: d.operadora || d.operadoraId,
+              produto: d.produto || d.produtoId,
+              sistema: d.sistema || d.sistemaId,
+              tipo: d.tipo || d.tipoId,
+              tipoServico: d.tipoServico || d.tipoServicoId
+            }
+            
+            console.log('🔍 DemandStore: Demanda mapeada:', demandaMapeada)
+            return demandaMapeada
+          })
+          
+          console.log('🔍 DemandStore: Total de demandas mapeadas:', demandasMapeadas.length)
+          console.log('🔍 DemandStore: Demandas mapeadas:', demandasMapeadas)
           
           set({ items: demandasMapeadas, isLoading: false })
         } catch (error) {

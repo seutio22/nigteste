@@ -2,7 +2,7 @@
 import { useAuthStore } from '../store/authStore'
 
 export const API_CONFIG = {
-  BASE_URL: 'http://localhost:3001',
+  BASE_URL: 'https://nigteste-production.up.railway.app',
   TIMEOUT: 10000,
   ENDPOINTS: {
     AUTH: '/auth',

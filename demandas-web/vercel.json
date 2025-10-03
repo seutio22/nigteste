@@ -34,10 +34,5 @@
   ],
   "env": {
     "VITE_API_URL": "https://nigteste-production.up.railway.app"
-  },
-  "functions": {
-    "app/api/**/*.js": {
-      "runtime": "nodejs18.x"
-    }
   }
 }
