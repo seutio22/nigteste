@@ -300,11 +300,79 @@ function crud(entity: keyof PrismaClient) {
       return anyPrisma[entity].findUnique({ where: { id } });
     },
     create: async (data: unknown) => {
+      // Validação de duplicatas para clientes
+      if (entity === 'cliente') {
+        const clienteData = data as any;
+        console.log('🔍 CLIENTE CREATE: Dados recebidos:', JSON.stringify(clienteData, null, 2));
+        
+        // Verificar se já existe um cliente com o mesmo nome
+        if (clienteData.nome) {
+          const existingCliente = await prisma.cliente.findFirst({
+            where: {
+              nome: {
+                equals: clienteData.nome,
+                mode: 'insensitive' // Case insensitive para SQLite
+              }
+            }
+          });
+          
+          if (existingCliente) {
+            console.error(`❌ CLIENTE CREATE: Cliente duplicado encontrado: "${clienteData.nome}" (ID: ${existingCliente.id})`);
+            throw new Error(`Já existe um cliente com o nome "${clienteData.nome}". Use um nome diferente ou edite o cliente existente.`);
+          }
+        }
+        
+        console.log('✅ CLIENTE CREATE: Nenhum cliente duplicado encontrado, criando novo cliente');
+        return anyPrisma[entity].create({ data: clienteData });
+      }
+      
+      // Validação de duplicatas para outras entidades com nomes únicos
+      if (['analista', 'operadora', 'produto', 'sistema', 'area', 'tipoServico', 'tipoDemanda'].includes(entity)) {
+        const entityData = data as any;
+        console.log(`🔍 ${entity.toUpperCase()} CREATE: Dados recebidos:`, JSON.stringify(entityData, null, 2));
+        
+        // Verificar se já existe uma entidade com o mesmo nome
+        if (entityData.nome) {
+          const existingEntity = await anyPrisma[entity].findFirst({
+            where: {
+              nome: {
+                equals: entityData.nome,
+                mode: 'insensitive' // Case insensitive para SQLite
+              }
+            }
+          });
+          
+          if (existingEntity) {
+            console.error(`❌ ${entity.toUpperCase()} CREATE: ${entity} duplicado encontrado: "${entityData.nome}" (ID: ${existingEntity.id})`);
+            throw new Error(`Já existe um(a) ${entity} com o nome "${entityData.nome}". Use um nome diferente ou edite o(a) ${entity} existente.`);
+          }
+        }
+        
+        console.log(`✅ ${entity.toUpperCase()} CREATE: Nenhum(a) ${entity} duplicado(a) encontrado(a), criando novo(a) ${entity}`);
+      }
+      
       // Garantir que contratos sejam criados como ativos por padrão apenas se não especificado
       if (entity === 'contrato') {
         const contratoData = { ...data as any };
         console.log('🔍 CONTRATO CREATE: Dados recebidos:', JSON.stringify(contratoData, null, 2));
         console.log('🔍 CONTRATO CREATE: Status recebido:', contratoData.status, 'Tipo:', typeof contratoData.status);
+        
+        // Verificar se já existe um contrato com o mesmo código
+        if (contratoData.codigo) {
+          const existingContrato = await prisma.contrato.findFirst({
+            where: {
+              codigo: {
+                equals: contratoData.codigo,
+                mode: 'insensitive' // Case insensitive para SQLite
+              }
+            }
+          });
+          
+          if (existingContrato) {
+            console.error(`❌ CONTRATO CREATE: Contrato duplicado encontrado: "${contratoData.codigo}" (ID: ${existingContrato.id})`);
+            throw new Error(`Já existe um contrato com o código "${contratoData.codigo}". Use um código diferente ou edite o contrato existente.`);
+          }
+        }
         
         // Garantir que o status seja sempre definido
         if (!contratoData.status || contratoData.status === '' || contratoData.status === null || contratoData.status === undefined) {
