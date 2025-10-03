@@ -794,9 +794,9 @@ const resources = {
   contratos: crud('contrato'),
   tiposServico: crud('tipoServico'),
   tiposDemanda: crud('tipoDemanda'),
-  areasMailling: crud('areaMailling'),
-  cargosMailling: crud('cargoMailling'),
-  filiaisMailling: crud('filialMailling'),
+  areasMailling: crud('areaMailling'), // v2
+  cargosMailling: crud('cargoMailling'), // v2
+  filiaisMailling: crud('filialMailling'), // v2
   demandas: {
     ...crud('demanda'),
     list: async () => {
