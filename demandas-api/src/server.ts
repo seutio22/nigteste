@@ -701,6 +701,16 @@ for (const [path, repo] of Object.entries(resources)) {
           }
         })
         
+        // CORREÇÃO: Remover campos de texto que causam erro no Prisma
+        // O Prisma espera apenas IDs para relacionamentos, não os nomes/textos
+        const camposParaRemover = ['analista', 'tipo', 'tipoServico', 'cliente', 'contrato', 'operadora', 'produto', 'sistema', 'area']
+        camposParaRemover.forEach(campo => {
+          if (cleanedData[campo]) {
+            console.log(`🔧 POST /demandas: Removendo campo de texto que causa erro: ${campo} = ${cleanedData[campo]}`)
+            delete cleanedData[campo]
+          }
+        })
+        
         console.log(`🔧 POST /demandas: Dados limpos:`, JSON.stringify(cleanedData, null, 2))
         
         // Verificar especificamente clienteId e contratoId
@@ -784,6 +794,16 @@ for (const [path, repo] of Object.entries(resources)) {
             delete cleanedData[key]
           } else {
             console.log(`🔧 POST /manutencoes: Mantendo campo: ${key} = ${value} (tipo: ${typeof value})`)
+          }
+        })
+        
+        // CORREÇÃO: Remover campos de texto que causam erro no Prisma
+        // O Prisma espera apenas IDs para relacionamentos, não os nomes/textos
+        const camposParaRemover = ['analista', 'tipo', 'tipoServico', 'cliente', 'contrato', 'operadora', 'produto', 'sistema', 'area']
+        camposParaRemover.forEach(campo => {
+          if (cleanedData[campo]) {
+            console.log(`🔧 POST /manutencoes: Removendo campo de texto que causa erro: ${campo} = ${cleanedData[campo]}`)
+            delete cleanedData[campo]
           }
         })
         
