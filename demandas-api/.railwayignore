@@ -1,0 +1,10 @@
+node_modules
+.git
+*.log
+.env.local
+.env.development
+.env.test
+coverage
+.nyc_output
+dist
+build
