@@ -1873,6 +1873,38 @@ app.delete('/contratos/limpar-orfaos', async () => {
 })
 
 
+// Endpoint específico para exclusão de demandas individuais
+app.delete('/demandas/:id', async (req: any) => {
+  try {
+    const { id } = req.params
+    console.log(`🔍 DELETE /demandas/${id}: Iniciando exclusão...`)
+    
+    // Verificar se a demanda existe
+    const demanda = await prisma.demanda.findUnique({ where: { id } })
+    if (!demanda) {
+      console.log(`❌ DELETE /demandas/${id}: Demanda não encontrada`)
+      return { error: 'Demanda não encontrada', status: 404 }
+    }
+    
+    // Excluir a demanda
+    await prisma.demanda.delete({ where: { id } })
+    console.log(`✅ DELETE /demandas/${id}: Demanda excluída com sucesso`)
+    
+    return { 
+      message: 'Demanda excluída com sucesso',
+      deletedId: id
+    }
+    
+  } catch (error: any) {
+    console.error(`❌ DELETE /demandas/${req.params.id}: Erro:`, error.message)
+    return { 
+      error: 'Erro ao excluir demanda',
+      message: error.message,
+      status: 500
+    }
+  }
+})
+
 // Endpoint para limpar demandas simples incorretas
 app.delete('/demandas/limpar-atv-demandas', async () => {
   try {
