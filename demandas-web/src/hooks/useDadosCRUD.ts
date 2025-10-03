@@ -535,25 +535,19 @@ export const useDadosCRUD = () => {
         }
         
         // Verificar se é erro de registro não encontrado (500 ou 404)
-        // Tratamento especial para áreas com erro 500 (bug no backend)
         if (apiError instanceof Error && (
           apiError.message.includes('500') || 
           apiError.message.includes('não foi encontrado') ||
-          apiError.message.includes('404') ||
-          (activeTab === 'areas' && apiError.message.includes('areaId'))
+          apiError.message.includes('404')
         )) {
-          console.log(`ℹ️ Registro ${id} não existe no backend ou erro conhecido, removendo do cache local`)
+          console.log(`ℹ️ Registro ${id} não existe no backend, removendo do cache local`)
           // Remover do store local mesmo se não existir no backend
           removeFromStore()
           
-          const message = activeTab === 'areas' && apiError.message.includes('areaId') 
-            ? `${config.displayName} removido com sucesso (erro temporário no servidor)`
-            : `${config.displayName} removido do cache local (não existia no servidor)`
-          
           setSnack({
             open: true,
-            message: message,
-            severity: activeTab === 'areas' ? 'success' : 'info'
+            message: `${config.displayName} removido do cache local (não existia no servidor)`,
+            severity: 'info'
           })
           return true
         } else {
