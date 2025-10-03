@@ -1965,7 +1965,9 @@ for (const [path, repo] of Object.entries(resources)) {
   app.delete(`/${path}/:id`, async (req: any) => {
     console.log(`🔍 DELETE /${path}/${req.params.id}: Endpoint chamado`);
     console.log(`🔍 DELETE /${path}/${req.params.id}: Repo:`, typeof repo.remove);
-    const result = await repo.remove(req.params.id);
+    
+    // Usar método customizado se existir, senão usar o padrão
+    const result = repo.delete ? await repo.delete(req.params.id) : await repo.remove(req.params.id);
     console.log(`🔍 DELETE /${path}/${req.params.id}: Resultado:`, result);
     return result;
   })
