@@ -1,7 +1,8 @@
-import React, { useEffect } from 'react'
-import { Outlet } from 'react-router-dom'
+import React, { useEffect, useState } from 'react'
+import { Outlet, useNavigate } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
+import { TimeoutWarning } from './TimeoutWarning'
 import { useSidebar } from '../contexts/SidebarContext'
 import { useMasterDataStore } from '../store/masterDataStore'
 import { useComunicadoStore } from '../store/comunicadoStore'
@@ -9,10 +10,16 @@ import { useValidationStore } from '../store/validationStore'
 import { useDemandStore } from '../store/demandStore'
 import { useManutencaoStore } from '../store/manutencaoStore'
 import { useProjectStore } from '../store/projectStore'
+import { useInactivityTimeout } from '../hooks/useInactivityTimeout'
+import { useAuthStore } from '../store/authStore'
 import { motion } from 'framer-motion'
 
 export function AppLayout() {
   const { isCollapsed, isMobile } = useSidebar()
+  const navigate = useNavigate()
+  const { logout } = useAuthStore()
+  const [showTimeoutWarning, setShowTimeoutWarning] = useState(false)
+  
   const syncMasterData = useMasterDataStore((s) => s.syncFromApi)
   const syncComunicados = useComunicadoStore((s) => s.syncFromApi)
   const syncValidacoes = useValidationStore((s) => s.syncFromApi)
@@ -20,6 +27,31 @@ export function AppLayout() {
   const syncManutencoes = useManutencaoStore((s) => s.syncFromApi)
   const syncProjetos = useProjectStore((s) => s.syncFromApi)
   const comunicadoCount = useComunicadoStore((s) => s.items.length)
+
+  // Sistema de timeout por inatividade
+  const { resetTimeout } = useInactivityTimeout({
+    timeout: 30 * 60 * 1000, // 30 minutos
+    warningTime: 5 * 60 * 1000, // 5 minutos de aviso
+    onWarning: () => {
+      console.log('⚠️ Aviso: Sessão expirando em 5 minutos')
+      setShowTimeoutWarning(true)
+    },
+    onTimeout: () => {
+      console.log('🔒 Timeout: Fazendo logout automático por inatividade')
+      handleLogout()
+    }
+  })
+
+  const handleLogout = () => {
+    logout()
+    navigate('/login')
+  }
+
+  const handleExtendSession = () => {
+    console.log('✅ Sessão estendida pelo usuário')
+    setShowTimeoutWarning(false)
+    resetTimeout()
+  }
 
   useEffect(() => {
     
@@ -89,6 +121,14 @@ export function AppLayout() {
           </motion.div>
         </main>
       </motion.div>
+
+      {/* Modal de aviso de timeout */}
+      <TimeoutWarning
+        open={showTimeoutWarning}
+        onExtend={handleExtendSession}
+        onLogout={handleLogout}
+        timeRemaining={5 * 60} // 5 minutos em segundos
+      />
     </div>
   )
 }

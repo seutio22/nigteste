@@ -1,7 +1,7 @@
 {
   "name": "demandas-api",
-  "version": "0.1.9",
-  "description": "Backend API - v0.1.9 - Correção de relacionamentos inválidos em validações",
+  "version": "0.2.0",
+  "description": "Backend API - v0.2.0 - Sistema de timeout automático com JWT expiração",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",

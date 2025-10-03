@@ -56,12 +56,14 @@ export async function authRoutes(app: FastifyInstance) {
         data: { lastLogin: new Date() }
       })
 
-      // Gerar token JWT
+      // Gerar token JWT com expiração de 8 horas
       const token = app.jwt.sign({ 
         sub: user.id, 
         role: user.role, 
         name: user.name,
         email: user.email
+      }, { 
+        expiresIn: '8h' // Token expira em 8 horas
       })
 
       const userResponse = { 

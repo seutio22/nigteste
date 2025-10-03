@@ -29,6 +29,18 @@ export const api = {
       const response = await fetch(url, config);
       
       if (!response.ok) {
+        // Interceptor para erro 401 (Token expirado/inválido)
+        if (response.status === 401) {
+          console.warn('🔒 Token expirado ou inválido - fazendo logout automático');
+          
+          // Importar dinamicamente para evitar dependência circular
+          import('../store/authStore').then(({ useAuthStore }) => {
+            useAuthStore.getState().logout();
+            // Redirecionar para login após logout
+            window.location.href = '/login';
+          });
+        }
+        
         const errorData: ApiError = {
           message: `HTTP error! status: ${response.status}`,
           status: response.status,
