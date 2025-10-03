@@ -184,6 +184,7 @@ export const DataLoading: React.FC<{ message?: string }> = ({ message = 'Sincron
     showDots={true}
   />
 )
+// Forçar atualização para sincronizar Vercel
 
 // Componente para loading full screen
 export const FullScreenLoading: React.FC<{ message?: string }> = ({ message = 'Carregando sistema...' }) => (
