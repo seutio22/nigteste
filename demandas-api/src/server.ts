@@ -725,7 +725,7 @@ const resources = {
   dados: crud('dados'),
 }
 
-// Endpoint específico para limpar grupos econômicos duplicados (deve vir antes das rotas CRUD)
+// Endpoint específico para limpar grupos econômicos duplicados (deve vir antes das rotas CRUD) - v2
 app.delete('/clientes/limpar-duplicatas', async () => {
   try {
     console.log('🧹 Iniciando limpeza de grupos econômicos duplicados...')
