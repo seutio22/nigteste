@@ -98,7 +98,7 @@ import {
 } from '@mui/icons-material'
 import { useProjectStore } from '../../store/projectStore'
 import { useAuthStore } from '../../store/authStore'
-import { api } from '../../lib/api'
+import { getApi } from '../../lib/apiConfig'
 
 export default function ProjectListPageSimple() {
   const navigate = useNavigate()
@@ -137,6 +137,9 @@ export default function ProjectListPageSimple() {
   // Função para remover projeto com tratamento de erro
   const handleRemoveProject = async (id: string) => {
     try {
+      // Importar API dinamicamente
+      const api = getApi()
+      
       // Remover da API primeiro
       await api.delete(`/projetos/${id}`)
       

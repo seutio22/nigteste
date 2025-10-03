@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { Project } from '../types/project'
 import type { ProjectTask, ProjectSubtask, ProjectMilestone, ProjectTimeline } from '../types/project'
-import { api } from '../lib/api.local'
+import { getApi } from '../lib/apiConfig'
 
 type ProjectId = string
 
@@ -335,6 +335,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   syncFromApi: async () => {
     set({ loading: true, error: null })
     try {
+      // Importar API dinamicamente baseado no ambiente
+      const api = getApi()
+      
       // Carregar apenas projetos da API por enquanto
       const response = await api.get('/projetos')
       
@@ -347,11 +350,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         loading: false 
       })
       
-      
-      // Garantir que o loading seja false após um pequeno delay
-      setTimeout(() => {
-        set({ loading: false })
-      }, 100)
+      console.log('✅ ProjectStore: Dados sincronizados com sucesso:', projects.length, 'projetos')
       
     } catch (error) {
       console.error('ProjectStore: erro durante syncFromApi:', error)

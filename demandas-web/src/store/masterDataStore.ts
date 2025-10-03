@@ -28,6 +28,7 @@ export interface MasterDataState {
   upsertMany: (payload: Partial<MasterDataState>) => void
   clearAll: () => void
   forceCleanSync: () => Promise<void>
+  clearAreasLocalData: () => void
   syncFromApi?: () => Promise<void>
   // Estado de sincronização
   isSyncing: boolean
@@ -35,6 +36,11 @@ export interface MasterDataState {
   // Controle de filtro de contratos
   showOnlyActiveContracts: boolean
   toggleActiveContractsFilter: () => void
+  // Lista de exclusões locais permanentes
+  localExclusions: Record<string, string[]>
+  addLocalExclusion: (entity: string, id: string) => void
+  removeLocalExclusion: (entity: string, id: string) => void
+  isLocallyExcluded: (entity: string, id: string) => boolean
 }
 
 export const useMasterDataStore = create<MasterDataState>()(
@@ -68,6 +74,29 @@ export const useMasterDataStore = create<MasterDataState>()(
         // Controle de filtro de contratos
         showOnlyActiveContracts: false,
         toggleActiveContractsFilter: () => set((state) => ({ showOnlyActiveContracts: !state.showOnlyActiveContracts })),
+        
+        // Lista de exclusões locais permanentes
+        localExclusions: {},
+        addLocalExclusion: (entity: string, id: string) => {
+          set((state) => ({
+            localExclusions: {
+              ...state.localExclusions,
+              [entity]: [...(state.localExclusions[entity] || []), id]
+            }
+          }))
+        },
+        removeLocalExclusion: (entity: string, id: string) => {
+          set((state) => ({
+            localExclusions: {
+              ...state.localExclusions,
+              [entity]: (state.localExclusions[entity] || []).filter(excludedId => excludedId !== id)
+            }
+          }))
+        },
+        isLocallyExcluded: (entity: string, id: string) => {
+          const state = get()
+          return (state.localExclusions[entity] || []).includes(id)
+        },
         
         upsertMany: (payload) => {
           console.log('🔍 MasterDataStore: Estado atual antes de upsertMany:', {
@@ -137,6 +166,14 @@ export const useMasterDataStore = create<MasterDataState>()(
           }
         },
         
+        // Função específica para limpar dados locais das áreas
+        clearAreasLocalData: () => {
+          console.log('🧹 MasterDataStore: Limpando dados locais das áreas...')
+          set((state) => ({
+            areas: [] // Limpar apenas dados locais das áreas
+          }))
+        },
+        
         async syncFromApi() {
           const state = get()
           if (state.isSyncing) {
@@ -151,8 +188,9 @@ export const useMasterDataStore = create<MasterDataState>()(
             // A lógica de merge inteligente abaixo já cuida de priorizar dados da API quando disponíveis
             console.log('🔍 MasterDataStore: Sincronizando com API sem limpar dados locais...')
             
-            // Importar API dinamicamente
-            const { api } = await import('../lib/api.local')
+            // Importar API dinamicamente baseado no ambiente
+            const { getApi } = await import('../lib/apiConfig')
+            const api = getApi()
             
             
             // Sincronizar todas as entidades em paralelo
@@ -197,18 +235,37 @@ export const useMasterDataStore = create<MasterDataState>()(
             // Fazer merge inteligente dos dados
             const localState = get()
             const mergeData = (apiData: any[], localData: any[], entityName: string) => {
-              // Se API retornou dados, usar API
+              // Filtrar dados excluídos localmente
+              const excludedIds = get().localExclusions[entityName] || []
+              
+              // Se API retornou dados, usar API (filtrando exclusões locais)
               if (apiData && apiData.length > 0) {
-                console.log(`✅ MasterDataStore: Usando dados da API para ${entityName}: ${apiData.length} registros`)
-                return apiData
+                const filteredApiData = apiData.filter(item => !excludedIds.includes(item.id))
+                console.log(`✅ MasterDataStore: Usando dados da API para ${entityName}: ${filteredApiData.length} registros (${excludedIds.length} excluídos localmente)`)
+                return filteredApiData
               }
-              // Se não há dados da API mas há dados locais, manter locais
+              // Se não há dados da API mas há dados locais, manter locais (filtrando exclusões locais)
               if (localData && localData.length > 0) {
-                console.log(`⚠️ MasterDataStore: API vazia para ${entityName}, mantendo dados locais: ${localData.length} registros`)
-                return localData
+                const filteredLocalData = localData.filter(item => !excludedIds.includes(item.id))
+                console.log(`⚠️ MasterDataStore: API vazia para ${entityName}, mantendo dados locais: ${filteredLocalData.length} registros (${excludedIds.length} excluídos localmente)`)
+                return filteredLocalData
               }
               // Se não há dados nem da API nem locais, retornar array vazio
               console.log(`❌ MasterDataStore: Nenhum dado disponível para ${entityName}`)
+              return []
+            }
+            
+            // Função para usar apenas dados da API (sem merge com dados locais)
+            const useOnlyApiData = (apiData: any[], entityName: string) => {
+              if (apiData && apiData.length > 0) {
+                // Filtrar dados excluídos localmente
+                const excludedIds = get().localExclusions[entityName] || []
+                const filteredData = apiData.filter(item => !excludedIds.includes(item.id))
+                
+                console.log(`✅ MasterDataStore: Usando APENAS dados da API para ${entityName}: ${filteredData.length} registros (${excludedIds.length} excluídos localmente)`)
+                return filteredData
+              }
+              console.log(`❌ MasterDataStore: API vazia para ${entityName}, retornando array vazio`)
               return []
             }
             

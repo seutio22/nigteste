@@ -56,7 +56,7 @@ export const DataCleanup: React.FC = () => {
     
     try {
       console.log(`🧹 Iniciando limpeza: ${type}`)
-      const api = await getApi()
+      const api = getApi()
       const result = await api[endpoint]()
       
       console.log(`✅ Resultado da limpeza ${type}:`, result)

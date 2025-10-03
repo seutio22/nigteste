@@ -60,7 +60,7 @@ export const CleanupModal: React.FC<CleanupModalProps> = ({
     
     try {
       console.log('🧹 Iniciando limpeza de grupos econômicos duplicados...')
-      const api = await getApi()
+      const api = getApi()
       const cleanupResult = await api.limparDuplicatasClientes()
       
       console.log('✅ Resultado da limpeza:', cleanupResult)

@@ -49,7 +49,7 @@ export const useDadosCRUD = () => {
       const id = crypto.randomUUID()
       console.log('🔍 CRIAÇÃO MANUAL: ID gerado:', id)
       
-      const api = await getApi()
+      const api = getApi()
       console.log('🔍 CRIAÇÃO MANUAL: API obtida:', !!api)
       
       console.log('🔍 CRIAÇÃO MANUAL: Endpoint da API:', config.endpoint)
@@ -330,7 +330,7 @@ export const useDadosCRUD = () => {
     try {
       const config = ENTITY_CONFIGS[activeTab]
       const id = form.id!
-      const api = await getApi()
+      const api = getApi()
       
       switch (activeTab) {
         case 'clientes':
@@ -576,7 +576,7 @@ export const useDadosCRUD = () => {
       
       // Tentar excluir do backend primeiro
       try {
-        const api = await getApi()
+        const api = getApi()
         await api.delete(`${config.endpoint}/${id}`)
         console.log(`✅ Registro ${id} excluído do backend com sucesso`)
       } catch (apiError) {
