@@ -2002,7 +2002,7 @@ app.post('/analytics', async (req: any) => {
         tipoSolicitacao: req.body.tipoSolicitacao,
         tipoServico: req.body.tipoServico,
         observacoes: req.body.observacoes,
-        userId: req.body.userId // Incluir userId do usuário que criou o relatório
+        // userId: req.body.userId // Campo não existe no modelo Report
       }
     })
     
@@ -2052,7 +2052,7 @@ app.delete('/analytics/:id', async (req: any) => {
       deletedId: deletedReport.id 
     }
   } catch (error) {
-    console.error(`❌ DELETE /analytics/${id}: Erro:`, error)
+    console.error(`❌ DELETE /analytics/${req.params.id}: Erro:`, error)
     throw error
   }
 })

@@ -1,7 +1,7 @@
 {
   "name": "demandas-api",
-  "version": "0.1.5",
-  "description": "Backend API - v0.1.5 - Correção do problema de status de contratos sendo alterado automaticamente",
+  "version": "0.1.6",
+  "description": "Backend API - v0.1.6 - Correção de erros TypeScript e regeneração do Prisma Client",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
