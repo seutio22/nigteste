@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "dev:local": "vite --config vite.config.simple.ts",
-    "build": "vite build --config vite.config.prod.ts",
+    "build": "vite build --config vite.config.vercel.ts",
     "build:prod": "vite build --config vite.config.prod.ts",
     "build:local": "vite build --config vite.config.simple.ts",
     "preview": "vite preview --port 5173",

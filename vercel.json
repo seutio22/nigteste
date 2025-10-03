@@ -17,5 +17,6 @@
   ],
   "env": {
     "VITE_API_URL": "https://nigteste-production.up.railway.app"
-  }
+  },
+  "buildCommand": "cd demandas-web && npm run build"
 }
