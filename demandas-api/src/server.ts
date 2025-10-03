@@ -65,6 +65,7 @@ const corsOptions = {
 app.register(cors, corsOptions)
 
 // ROTA ESPECÍFICA PARA LIMPEZA DE DUPLICATAS - DEVE VIR ANTES DE TODAS AS OUTRAS ROTAS
+// FORÇAR REDEPLOY RAILWAY - v4 - CORREÇÃO URL ENDPOINT
 app.delete('/clientes/cleanup-duplicatas', async (request, reply) => {
   try {
     console.log('🧹 [DEBUG] Endpoint limpar-duplicatas chamado - EARLY ROUTE')
