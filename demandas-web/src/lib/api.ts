@@ -115,7 +115,7 @@ export const api = {
 
   // Limpeza de dados
   limparDuplicatasClientes: (): Promise<any> => 
-    api.delete<any>('/limpeza/clientes-duplicatas'),
+    api.delete<any>('/api/limpeza/clientes-duplicatas'),
   limparDemandasSimples: (): Promise<any> => 
     api.delete<any>('/demandas/limpar-atv-demandas'),
   limparContratosOrfaos: (): Promise<any> => 

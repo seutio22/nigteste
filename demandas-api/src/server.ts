@@ -1826,10 +1826,10 @@ for (const [path, repo] of Object.entries(resources)) {
 }
 
 // ROTA COMPLETAMENTE NOVA PARA LIMPEZA DE DUPLICATAS - REGISTRADA DEPOIS DO LOOP CRUD
-// FORÇAR REDEPLOY RAILWAY v12 - ROTA MOVIDA PARA EVITAR CONFLITOS
-app.delete('/limpeza/clientes-duplicatas', async (request, reply) => {
+// FORÇAR REDEPLOY RAILWAY v13 - ROTA NOVA COM NOME DIFERENTE
+app.delete('/api/limpeza/clientes-duplicatas', async (request, reply) => {
   try {
-    console.log('🧹 [DEBUG] Endpoint limpeza/clientes-duplicatas chamado - ROTA NOVA v12')
+    console.log('🧹 [DEBUG] Endpoint /api/limpeza/clientes-duplicatas chamado - ROTA NOVA v13')
     console.log('🧹 [DEBUG] ROTA ESPECÍFICA FUNCIONANDO - NÃO É CRUD GENÉRICO')
     console.log('🧹 Iniciando limpeza de grupos econômicos duplicados...')
     
