@@ -685,7 +685,7 @@ function EditInline({ d }: { d: Demand }) {
               />
             )}
             renderOption={(props, option) => (
-              <li {...props} className="px-3 py-2 hover:bg-gray-50">
+              <li {...props} key={option.id} className="px-3 py-2 hover:bg-gray-50">
                 <div>
                   <div className="font-medium text-gray-900">
                     {option.nome}
@@ -741,7 +741,7 @@ function EditInline({ d }: { d: Demand }) {
               />
             )}
             renderOption={(props, option) => (
-              <Box component="li" {...props}>
+              <Box component="li" {...props} key={option.id}>
                 <Typography variant="body1" fontWeight="medium">
                   {option.nome}
                 </Typography>

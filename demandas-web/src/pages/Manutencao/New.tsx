@@ -362,7 +362,7 @@ export default function ManutencaoNewPage() {
                   />
                 )}
                 renderOption={(props, option) => (
-                  <Box component="li" {...props}>
+                  <Box component="li" {...props} key={option.id}>
                     <Box>
                       <Typography variant="body1" fontWeight="medium">
                         {option.nome}
@@ -416,7 +416,7 @@ export default function ManutencaoNewPage() {
                   />
                 )}
                 renderOption={(props, option) => (
-                  <Box component="li" {...props}>
+                  <Box component="li" {...props} key={option.id}>
                     <Typography variant="body1" fontWeight="medium">
                       {option.nome}
                     </Typography>
