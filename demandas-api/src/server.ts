@@ -65,10 +65,11 @@ const corsOptions = {
 app.register(cors, corsOptions)
 
 // ROTA ESPECÍFICA PARA LIMPEZA DE DUPLICATAS - DEVE VIR ANTES DE TODAS AS OUTRAS ROTAS
-// FORÇAR REDEPLOY RAILWAY - v5 - CORREÇÃO URL ENDPOINT - URGENTE
+// FORÇAR REDEPLOY RAILWAY - v6 - CORREÇÃO URL ENDPOINT - URGENTE - LOGS CONFIRMAM PROBLEMA
 app.delete('/clientes/cleanup-duplicatas', async (request, reply) => {
   try {
-    console.log('🧹 [DEBUG] Endpoint limpar-duplicatas chamado - EARLY ROUTE')
+    console.log('🧹 [DEBUG] Endpoint limpar-duplicatas chamado - EARLY ROUTE - v6')
+    console.log('🧹 [DEBUG] ROTA ESPECÍFICA FUNCIONANDO - NÃO É CRUD GENÉRICO')
     console.log('🧹 Iniciando limpeza de grupos econômicos duplicados...')
     
     // Buscar todos os clientes com grupos econômicos
