@@ -886,6 +886,16 @@ for (const [path, repo] of Object.entries(resources)) {
           }
         }
         
+        // CORREÇÃO: Remover campos de texto que causam erro no Prisma
+        // O Prisma espera apenas IDs para relacionamentos, não os nomes/textos
+        const camposParaRemover = ['analista', 'tipo', 'tipoServico', 'cliente', 'contrato', 'operadora', 'produto', 'sistema', 'area']
+        camposParaRemover.forEach(campo => {
+          if (cleanedData[campo]) {
+            console.log(`🔧 POST /validacoes: Removendo campo de texto que causa erro: ${campo} = ${cleanedData[campo]}`)
+            delete cleanedData[campo]
+          }
+        })
+        
         console.log(`🔧 POST /validacoes: Dados limpos:`, JSON.stringify(cleanedData, null, 2))
         
         // Validar IDs obrigatórios
@@ -972,21 +982,64 @@ for (const [path, repo] of Object.entries(resources)) {
           }
         }
 
-        // Adicionar relacionamentos se os IDs existirem
+        // Adicionar relacionamentos se os IDs existirem e forem válidos
         if (dataWithDates.clienteId) {
-          createData.cliente = { connect: { id: dataWithDates.clienteId } }
+          try {
+            const clienteExiste = await prisma.cliente.findUnique({ where: { id: dataWithDates.clienteId } })
+            if (clienteExiste) {
+              createData.cliente = { connect: { id: dataWithDates.clienteId } }
+              console.log(`✅ POST /validacoes: Cliente conectado: ${clienteExiste.nome}`)
+            } else {
+              console.warn(`⚠️ POST /validacoes: Cliente ID "${dataWithDates.clienteId}" não encontrado, ignorando`)
+            }
+          } catch (error) {
+            console.error(`❌ POST /validacoes: Erro ao verificar cliente:`, error)
+          }
           delete createData.clienteId
         }
+        
         if (dataWithDates.contratoId) {
-          createData.contrato = { connect: { id: dataWithDates.contratoId } }
+          try {
+            const contratoExiste = await prisma.contrato.findUnique({ where: { id: dataWithDates.contratoId } })
+            if (contratoExiste) {
+              createData.contrato = { connect: { id: dataWithDates.contratoId } }
+              console.log(`✅ POST /validacoes: Contrato conectado: ${contratoExiste.numero}`)
+            } else {
+              console.warn(`⚠️ POST /validacoes: Contrato ID "${dataWithDates.contratoId}" não encontrado, ignorando`)
+            }
+          } catch (error) {
+            console.error(`❌ POST /validacoes: Erro ao verificar contrato:`, error)
+          }
           delete createData.contratoId
         }
+        
         if (dataWithDates.operadoraId) {
-          createData.operadora = { connect: { id: dataWithDates.operadoraId } }
+          try {
+            const operadoraExiste = await prisma.operadora.findUnique({ where: { id: dataWithDates.operadoraId } })
+            if (operadoraExiste) {
+              createData.operadora = { connect: { id: dataWithDates.operadoraId } }
+              console.log(`✅ POST /validacoes: Operadora conectada: ${operadoraExiste.nome}`)
+            } else {
+              console.warn(`⚠️ POST /validacoes: Operadora ID "${dataWithDates.operadoraId}" não encontrada, ignorando`)
+            }
+          } catch (error) {
+            console.error(`❌ POST /validacoes: Erro ao verificar operadora:`, error)
+          }
           delete createData.operadoraId
         }
+        
         if (dataWithDates.produtoId) {
-          createData.produto = { connect: { id: dataWithDates.produtoId } }
+          try {
+            const produtoExiste = await prisma.produto.findUnique({ where: { id: dataWithDates.produtoId } })
+            if (produtoExiste) {
+              createData.produto = { connect: { id: dataWithDates.produtoId } }
+              console.log(`✅ POST /validacoes: Produto conectado: ${produtoExiste.nome}`)
+            } else {
+              console.warn(`⚠️ POST /validacoes: Produto ID "${dataWithDates.produtoId}" não encontrado, ignorando`)
+            }
+          } catch (error) {
+            console.error(`❌ POST /validacoes: Erro ao verificar produto:`, error)
+          }
           delete createData.produtoId
         }
 
@@ -1016,6 +1069,16 @@ for (const [path, repo] of Object.entries(resources)) {
             delete cleanedData[key]
           } else {
             console.log(`🔧 POST /atendimentos: Mantendo campo: ${key} = ${value} (tipo: ${typeof value})`)
+          }
+        })
+        
+        // CORREÇÃO: Remover campos de texto que causam erro no Prisma
+        // O Prisma espera apenas IDs para relacionamentos, não os nomes/textos
+        const camposParaRemover = ['analista', 'tipo', 'tipoServico', 'cliente', 'contrato', 'operadora', 'produto', 'sistema', 'area']
+        camposParaRemover.forEach(campo => {
+          if (cleanedData[campo]) {
+            console.log(`🔧 POST /atendimentos: Removendo campo de texto que causa erro: ${campo} = ${cleanedData[campo]}`)
+            delete cleanedData[campo]
           }
         })
         
@@ -1261,6 +1324,16 @@ for (const [path, repo] of Object.entries(resources)) {
             delete cleanedData[key]
           } else {
             console.log(`🔧 PUT /atendimentos: Mantendo campo: ${key} = ${value} (tipo: ${typeof value})`)
+          }
+        })
+        
+        // CORREÇÃO: Remover campos de texto que causam erro no Prisma
+        // O Prisma espera apenas IDs para relacionamentos, não os nomes/textos
+        const camposParaRemover = ['analista', 'tipo', 'tipoServico', 'cliente', 'contrato', 'operadora', 'produto', 'sistema', 'area']
+        camposParaRemover.forEach(campo => {
+          if (cleanedData[campo]) {
+            console.log(`🔧 PUT /atendimentos: Removendo campo de texto que causa erro: ${campo} = ${cleanedData[campo]}`)
+            delete cleanedData[campo]
           }
         })
         

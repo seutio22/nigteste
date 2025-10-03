@@ -1,7 +1,7 @@
 {
   "name": "demandas-api",
-  "version": "0.1.7",
-  "description": "Backend API - v0.1.7 - Correção de campos incorretos na criação de demandas e manutenções",
+  "version": "0.1.9",
+  "description": "Backend API - v0.1.9 - Correção de relacionamentos inválidos em validações",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
