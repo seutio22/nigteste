@@ -65,6 +65,7 @@ const corsOptions = {
 app.register(cors, corsOptions)
 
 // ROTA COMPLETAMENTE NOVA PARA LIMPEZA DE DUPLICATAS - SEM CONFLITO
+// FORÇAR REDEPLOY RAILWAY - v7 - URGENTE - ROTA 404
 app.delete('/limpeza/clientes-duplicatas', async (request, reply) => {
   try {
     console.log('🧹 [DEBUG] Endpoint limpeza/clientes-duplicatas chamado - ROTA NOVA')
