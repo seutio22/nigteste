@@ -11,7 +11,7 @@ import {
   CircularProgress,
   Chip
 } from '@mui/material'
-import { getApi } from '../lib/apiConfig'
+import { api } from '../lib/api.local'
 
 interface CleanupModalProps {
   open: boolean
@@ -60,7 +60,7 @@ export const CleanupModal: React.FC<CleanupModalProps> = ({
     
     try {
       console.log('🧹 Iniciando limpeza de grupos econômicos duplicados...')
-      const api = getApi()
+      // Usar a API importada diretamente
       const cleanupResult = await api.limparDuplicatasClientes()
       
       console.log('✅ Resultado da limpeza:', cleanupResult)
