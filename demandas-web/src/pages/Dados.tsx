@@ -30,21 +30,9 @@ export default function DadosPage() {
   const [smartImporterOpen, setSmartImporterOpen] = useState(false)
   const [cleanupModalOpen, setCleanupModalOpen] = useState(false)
 
-  // Sincronização otimizada reabilitada
+  // Sincronização dinâmica ativada - será feita automaticamente pelo useDynamicSync
   useEffect(() => {
-    const initializeData = async () => {
-      console.log('🔍 DadosPage: Inicializando dados com sincronização otimizada...')
-      if (store.syncFromApi) {
-        try {
-          await store.syncFromApi()
-          console.log('✅ DadosPage: Dados sincronizados com sucesso')
-        } catch (error) {
-          console.error('❌ DadosPage: Erro ao sincronizar dados:', error)
-        }
-      }
-    }
-    
-    initializeData()
+    console.log('🔧 DadosPage: Sincronização dinâmica ativada - dados serão carregados automaticamente')
   }, [store])
 
 

@@ -3,6 +3,7 @@ import { AppRoutes } from './routes/AppRoutes'
 import { useTheme } from './hooks/useTheme'
 import { useAuthStore } from './store/authStore'
 import { useMasterDataStore } from './store/masterDataStore'
+import { useDynamicSync } from './hooks/useDynamicSync'
 import { useEffect } from 'react'
 import './utils/force-cache-bust' // Force cache bust
 
@@ -13,22 +14,12 @@ function App() {
   // Inicializar store de autenticação
   const { initialize, user, loading } = useAuthStore()
   
-  // Inicializar sincronização de dados mestres
-  const syncFromApi = useMasterDataStore((state) => state.syncFromApi)
+  // Sistema de sincronização dinâmica baseado na navegação
+  useDynamicSync()
   
   useEffect(() => {
     initialize()
   }, [initialize])
-  
-  useEffect(() => {
-    // Sincronização otimizada reabilitada
-    if (syncFromApi) {
-      console.log('🔍 App: Iniciando sincronização otimizada...')
-      syncFromApi().catch((error) => {
-        console.error('❌ App: Erro na sincronização inicial:', error)
-      })
-    }
-  }, [syncFromApi])
   
   return (
     <SidebarProvider>
