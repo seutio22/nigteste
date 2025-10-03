@@ -5,7 +5,7 @@
       "src": "demandas-web/package.json",
       "use": "@vercel/static-build",
       "config": {
-        "distDir": "dist"
+        "distDir": "demandas-web/dist"
       }
     }
   ],
@@ -18,5 +18,5 @@
   "env": {
     "VITE_API_URL": "https://nigteste-production.up.railway.app"
   },
-  "buildCommand": "cd demandas-web && npm run build"
+  "buildCommand": "cd demandas-web && npm install && npm run build"
 }
