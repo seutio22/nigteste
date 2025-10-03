@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
 import { useMasterDataStore } from '../store/masterDataStore'
 import { useDadosStore } from '../store/dadosStore'
-import { api } from '../lib/api.local'
+import { getApi } from '../lib/apiConfig'
 import { ENTITY_CONFIGS } from '../config/entityConfigs'
 import type { TabKey, FormData, SnackMessage } from '../types/dadosTypes'
 import type { Cliente, Contrato, Operadora, Produto, Sistema, Analista, Area, TipoDemanda, TipoServico, Solicitante, Relatorio, Modelo } from '../types/masterData'
@@ -41,25 +41,54 @@ export const useDadosCRUD = () => {
     try {
       console.log('🔍 CRIAÇÃO MANUAL: Iniciando processo de salvamento')
       console.log('🔍 CRIAÇÃO MANUAL: Aba ativa:', activeTab)
-                console.log('🔍 CRIAÇÃO MANUAL: Dados do formulário:', form)
+      console.log('🔍 CRIAÇÃO MANUAL: Dados do formulário:', form)
       
       const config = ENTITY_CONFIGS[activeTab]
+      console.log('🔍 CRIAÇÃO MANUAL: Config encontrada:', config)
+      
       const id = crypto.randomUUID()
+      console.log('🔍 CRIAÇÃO MANUAL: ID gerado:', id)
+      
+      const api = await getApi()
+      console.log('🔍 CRIAÇÃO MANUAL: API obtida:', !!api)
       
       console.log('🔍 CRIAÇÃO MANUAL: Endpoint da API:', config.endpoint)
-      console.log('🔍 CRIAÇÃO MANUAL: ID gerado:', id)
       console.log('🔍 CRIAÇÃO MANUAL: Campos obrigatórios:', config.requiredFields)
       
       let newEntity: any
       
       switch (activeTab) {
         case 'clientes':
-          newEntity = { id, nome: form.nome, grupoEconomico: form.grupoEconomico } as Cliente
+          console.log('🔍 CLIENTE CREATE: Dados do formulário:', form)
+          console.log('🔍 CLIENTE CREATE: Clientes no store:', store.clientes.length)
+          
+          // Validar se o grupo econômico já existe (apenas se for preenchido)
+          if (form.grupoEconomico && form.grupoEconomico.trim() !== '') {
+            const existingClient = store.clientes.find(c => 
+              c.grupoEconomico && 
+              c.grupoEconomico.trim() !== '' &&
+              c.grupoEconomico.toLowerCase().trim() === form.grupoEconomico.toLowerCase().trim()
+            )
+            console.log('🔍 CLIENTE CREATE: Cliente existente com mesmo grupo:', existingClient)
+            if (existingClient) {
+              setSnack({
+                message: `Grupo econômico "${form.grupoEconomico}" já existe para o cliente "${existingClient.nome}". Por favor, escolha um grupo econômico único.`,
+                severity: 'error'
+              })
+              throw new Error(`Grupo econômico "${form.grupoEconomico}" já existe para o cliente "${existingClient.nome}". Por favor, escolha um grupo econômico único.`)
+            }
+          }
+          
+          newEntity = { id, nome: form.nome, grupoEconomico: form.grupoEconomico || '' } as Cliente
+          console.log('🔍 CLIENTE CREATE: Nova entidade:', newEntity)
+          
           // PRIMEIRO: Salvar na API (banco de dados)
           await api.post(config.endpoint, newEntity)
           console.log('✅ Cliente salvo no banco de dados:', newEntity.id)
+          
           // DEPOIS: Salvar no store local (cache)
           store.upsertMany({ clientes: [...store.clientes, newEntity] })
+          console.log('✅ Cliente salvo no store local')
           break
           
         case 'contratos':
@@ -173,12 +202,22 @@ export const useDadosCRUD = () => {
           break
           
         case 'tipos':
-          newEntity = { id, nome: form.nome, tipoServicoId: form.tipoServicoId } as TipoDemanda
+          // Payload para a API (apenas nome, conforme configuração)
+          const tipoPayload: any = { 
+            nome: form.nome
+          }
+          
+          // Entidade completa para o store local (com id)
+          newEntity = { 
+            id, 
+            nome: form.nome
+          }
+          
           // PRIMEIRO: Salvar na API (banco de dados)
-          await api.post(config.endpoint, { nome: form.nome, tipoServicoId: form.tipoServicoId })
-          console.log('✅ Tipo salvo no banco de dados:', newEntity.id)
-          // DEPOIS: Salvar no store local (cache)
-          store.upsertMany({ tiposDemanda: [...store.tiposDemanda, newEntity] })
+          const savedTipo = await api.post(config.endpoint, tipoPayload)
+          console.log('✅ Tipo salvo no banco de dados:', savedTipo.id)
+          // DEPOIS: Salvar no store local (cache) usando o retorno da API
+          store.upsertMany({ tiposDemanda: [...store.tiposDemanda, savedTipo] })
           break
           
         case 'tiposCadastro':
@@ -279,12 +318,11 @@ export const useDadosCRUD = () => {
       // Se o erro foi na API, o dado não foi salvo no banco
       // Não salvar no store local para evitar inconsistências
       
-      setSnack({
-        open: true,
-        message: `❌ ERRO ao salvar no banco de dados: ${error instanceof Error ? error.message : 'Erro desconhecido'}. Verifique sua conexão e tente novamente.`,
-        severity: 'error'
-      })
-      return false
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido'
+      console.error('❌ ERRO FINAL:', errorMessage)
+      
+      // Re-lançar o erro para que seja capturado pelo componente
+      throw new Error(errorMessage)
     }
   }, [store, dadosStore])
 
@@ -292,9 +330,22 @@ export const useDadosCRUD = () => {
     try {
       const config = ENTITY_CONFIGS[activeTab]
       const id = form.id!
+      const api = await getApi()
       
       switch (activeTab) {
         case 'clientes':
+          // Validar se o grupo econômico já existe (excluindo o próprio cliente)
+          if (form.grupoEconomico && form.grupoEconomico.trim()) {
+            const existingClient = store.clientes.find(c => 
+              c.id !== id && 
+              c.grupoEconomico && 
+              c.grupoEconomico.toLowerCase().trim() === form.grupoEconomico.toLowerCase().trim()
+            )
+            if (existingClient) {
+              throw new Error(`Grupo econômico "${form.grupoEconomico}" já existe para o cliente "${existingClient.nome}". Por favor, escolha um grupo econômico único.`)
+            }
+          }
+          
           const updatedCliente = { id, nome: form.nome, grupoEconomico: form.grupoEconomico } as Cliente
           store.upsertMany({
             clientes: store.clientes.map(c => c.id === id ? updatedCliente : c)
@@ -359,11 +410,11 @@ export const useDadosCRUD = () => {
           break
           
         case 'tipos':
-          const updatedTipo = { id, nome: form.nome, tipoServicoId: form.tipoServicoId } as TipoDemanda
+          const updatedTipo = { id, nome: form.nome } as TipoDemanda
           store.upsertMany({
             tiposDemanda: store.tiposDemanda.map(t => t.id === id ? updatedTipo : t)
           })
-          await api.put(`${config.endpoint}/${id}`, { nome: form.nome, tipoServicoId: form.tipoServicoId })
+          await api.put(`${config.endpoint}/${id}`, { nome: form.nome })
           break
           
         case 'tiposCadastro':
@@ -456,58 +507,66 @@ export const useDadosCRUD = () => {
       const config = ENTITY_CONFIGS[activeTab]
       
       // Função auxiliar para remover do store local
-      const removeFromStore = () => {
+      const removeFromStore = (itemId: string) => {
+        console.log(`🔍 removeFromStore: Removendo ${itemId} de ${activeTab}`)
+        console.log(`🔍 removeFromStore: Estado antes:`, {
+          areas: store.areas.length,
+          areasIds: store.areas.map(a => a.id)
+        })
+        
         switch (activeTab) {
           case 'clientes':
-            store.upsertMany({ clientes: store.clientes.filter(c => c.id !== id) })
+            store.upsertMany({ clientes: store.clientes.filter(c => c.id !== itemId) })
             break
           case 'contratos':
-            store.upsertMany({ contratos: store.contratos.filter(c => c.id !== id) })
+            store.upsertMany({ contratos: store.contratos.filter(c => c.id !== itemId) })
             break
           case 'operadoras':
-            store.upsertMany({ operadoras: store.operadoras.filter(o => o.id !== id) })
+            store.upsertMany({ operadoras: store.operadoras.filter(o => o.id !== itemId) })
             break
           case 'produtos':
-            store.upsertMany({ produtos: store.produtos.filter(p => p.id !== id) })
+            store.upsertMany({ produtos: store.produtos.filter(p => p.id !== itemId) })
             break
           case 'sistemas':
-            store.upsertMany({ sistemas: store.sistemas.filter(s => s.id !== id) })
+            store.upsertMany({ sistemas: store.sistemas.filter(s => s.id !== itemId) })
             break
           case 'analistas':
-            store.upsertMany({ analistas: store.analistas.filter(a => a.id !== id) })
+            store.upsertMany({ analistas: store.analistas.filter(a => a.id !== itemId) })
             break
           case 'areas':
-            store.upsertMany({ areas: store.areas.filter(a => a.id !== id) })
+            const filteredAreas = store.areas.filter(a => a.id !== itemId)
+            console.log(`🔍 removeFromStore: Áreas filtradas: ${filteredAreas.length} (era ${store.areas.length})`)
+            store.upsertMany({ areas: filteredAreas })
             break
           case 'areasMailling':
-            store.upsertMany({ areasMailling: store.areasMailling.filter(a => a.id !== id) })
+            store.upsertMany({ areasMailling: store.areasMailling.filter(a => a.id !== itemId) })
             break
           case 'cargosMailling':
-            store.upsertMany({ cargosMailling: store.cargosMailling.filter(c => c.id !== id) })
+            store.upsertMany({ cargosMailling: store.cargosMailling.filter(c => c.id !== itemId) })
             break
           case 'filiaisMailling':
-            store.upsertMany({ filiaisMailling: store.filiaisMailling.filter(f => f.id !== id) })
+            store.upsertMany({ filiaisMailling: store.filiaisMailling.filter(f => f.id !== itemId) })
             break
           case 'tipos':
-            store.upsertMany({ tiposDemanda: store.tiposDemanda.filter(t => t.id !== id) })
+            store.upsertMany({ tiposDemanda: store.tiposDemanda.filter(t => t.id !== itemId) })
             break
           case 'tiposCadastro':
-            store.upsertMany({ tiposCadastro: store.tiposCadastro.filter(t => t.id !== id) })
+            store.upsertMany({ tiposCadastro: store.tiposCadastro.filter(t => t.id !== itemId) })
             break
           case 'servicos':
-            store.upsertMany({ tiposServico: store.tiposServico.filter(t => t.id !== id) })
+            store.upsertMany({ tiposServico: store.tiposServico.filter(t => t.id !== itemId) })
             break
           case 'solicitantes':
-            store.upsertMany({ solicitantes: store.solicitantes.filter(s => s.id !== id) })
+            store.upsertMany({ solicitantes: store.solicitantes.filter(s => s.id !== itemId) })
             break
           case 'relatorios':
-            store.upsertMany({ relatorios: store.relatorios.filter(r => r.id !== id) })
+            store.upsertMany({ relatorios: store.relatorios.filter(r => r.id !== itemId) })
             break
           case 'modelos':
-            store.upsertMany({ modelos: store.modelos.filter(m => m.id !== id) })
+            store.upsertMany({ modelos: store.modelos.filter(m => m.id !== itemId) })
             break
           case 'padrao':
-            store.upsertMany({ padrao: store.padrao.filter(d => d.id !== id) })
+            store.upsertMany({ padrao: store.padrao.filter(d => d.id !== itemId) })
             break
           case 'configuracoes':
             dadosStore.remove(id)
@@ -517,6 +576,7 @@ export const useDadosCRUD = () => {
       
       // Tentar excluir do backend primeiro
       try {
+        const api = await getApi()
         await api.delete(`${config.endpoint}/${id}`)
         console.log(`✅ Registro ${id} excluído do backend com sucesso`)
       } catch (apiError) {
@@ -534,6 +594,7 @@ export const useDadosCRUD = () => {
           return false
         }
         
+        
         // Verificar se é erro de registro não encontrado (500 ou 404)
         if (apiError instanceof Error && (
           apiError.message.includes('500') || 
@@ -542,7 +603,7 @@ export const useDadosCRUD = () => {
         )) {
           console.log(`ℹ️ Registro ${id} não existe no backend, removendo do cache local`)
           // Remover do store local mesmo se não existir no backend
-          removeFromStore()
+          removeFromStore(id)
           
           setSnack({
             open: true,
@@ -558,7 +619,7 @@ export const useDadosCRUD = () => {
       
       // Se chegou até aqui, a exclusão foi bem-sucedida no backend
       // Remover do store local
-      removeFromStore()
+      removeFromStore(id)
       
       setSnack({
         open: true,

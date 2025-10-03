@@ -1,29 +1,78 @@
 import React from 'react'
 import { Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField, Button, MenuItem } from '@mui/material'
 import { useMasterDataStore } from '../store/masterDataStore'
+import { useDadosCRUD } from '../hooks/useDadosCRUD'
 import type { TabKey, FormData } from '../types/dadosTypes'
 
 interface DadosFormProps {
   open: boolean
   onClose: () => void
   activeTab: TabKey
-  form: FormData
-  onFormChange: (form: FormData) => void
-  onSave: () => void
+  editingItem?: any
+  onSuccess?: () => void
 }
 
 export const DadosForm: React.FC<DadosFormProps> = ({
   open,
   onClose,
   activeTab,
-  form,
-  onFormChange,
-  onSave
+  editingItem,
+  onSuccess
 }) => {
   const store = useMasterDataStore()
+  const { saveEntity } = useDadosCRUD()
+  
+  // Estado local do formulário
+  const [form, setForm] = React.useState<FormData>({})
+
+  // Inicializar formulário quando editingItem mudar
+  React.useEffect(() => {
+    if (editingItem) {
+      setForm(editingItem)
+    } else {
+      setForm({})
+    }
+  }, [editingItem])
 
   const handleFieldChange = (field: keyof FormData, value: any) => {
-    onFormChange({ ...form, [field]: value })
+    setForm(prev => ({ ...prev, [field]: value }))
+  }
+
+  const handleSave = async () => {
+    try {
+      console.log('🔍 DADOS FORM: Salvando formulário para', activeTab, ':', form)
+      console.log('🔍 DADOS FORM: Iniciando salvamento...')
+      
+      const success = await saveEntity(activeTab, form)
+      
+      console.log('🔍 DADOS FORM: Resultado do salvamento:', success)
+      
+      if (success) {
+        console.log('✅ DADOS FORM: Salvamento bem-sucedido')
+        alert('✅ Dados salvos com sucesso!')
+        if (onSuccess) {
+          onSuccess()
+        }
+        onClose()
+      } else {
+        console.error('❌ DADOS FORM: Falha no salvamento')
+        alert('❌ Erro ao salvar os dados. Por favor, tente novamente.')
+      }
+    } catch (error) {
+      console.error('❌ DADOS FORM: Erro ao salvar:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido'
+      
+      // Tratamento específico para diferentes tipos de erro
+      if (errorMessage.includes('Grupo econômico') && errorMessage.includes('já existe')) {
+        alert(`⚠️ ${errorMessage}`)
+      } else if (errorMessage.includes('Campos obrigatórios')) {
+        alert(`⚠️ ${errorMessage}`)
+      } else if (errorMessage.includes('banco de dados')) {
+        alert(`❌ Erro de conexão: ${errorMessage}`)
+      } else {
+        alert(`❌ Erro ao salvar: ${errorMessage}`)
+      }
+    }
   }
 
   const renderFormFields = () => {
@@ -295,7 +344,7 @@ export const DadosForm: React.FC<DadosFormProps> = ({
         </Button>
         <Button 
           variant="contained" 
-          onClick={onSave}
+          onClick={handleSave}
           size="medium"
           className="bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-800 hover:to-slate-900 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 font-semibold"
           sx={{

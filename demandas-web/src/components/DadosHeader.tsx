@@ -5,6 +5,7 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload'
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
 import DownloadIcon from '@mui/icons-material/Download'
 import FileDownloadIcon from '@mui/icons-material/FileDownload'
+import CleaningServicesIcon from '@mui/icons-material/CleaningServices'
 import type { TabKey } from '../types/dadosTypes'
 
 interface DadosHeaderProps {
@@ -15,6 +16,7 @@ interface DadosHeaderProps {
   onAdd: () => void
   onExportAll: () => void
   onExportCurrent: () => void
+  onCleanup?: () => void
 }
 
 export const DadosHeader: React.FC<DadosHeaderProps> = ({
@@ -24,7 +26,8 @@ export const DadosHeader: React.FC<DadosHeaderProps> = ({
   onHelp,
   onAdd,
   onExportAll,
-  onExportCurrent
+  onExportCurrent,
+  onCleanup
 }) => {
   return (
     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 2 }}>
@@ -133,6 +136,34 @@ export const DadosHeader: React.FC<DadosHeaderProps> = ({
           Exportar Tudo
         </Button>
         
+        {onCleanup && (
+          <Button 
+            variant="outlined" 
+            startIcon={<CleaningServicesIcon />}
+            onClick={onCleanup}
+            size="medium"
+            className="text-red-600 border-red-300 hover:text-red-700 hover:border-red-400 hover:bg-red-50 transition-all duration-300 font-medium"
+            sx={{
+              borderRadius: '14px',
+              padding: '10px 20px',
+              textTransform: 'none',
+              fontWeight: 500,
+              fontSize: '0.9rem',
+              height: '44px',
+              borderWidth: '2px',
+              color: '#dc2626',
+              borderColor: '#ef4444',
+              '&:hover': {
+                borderWidth: '2px',
+                transform: 'translateY(-2px)',
+                boxShadow: '0 4px 12px 0 rgba(239, 68, 68, 0.15)',
+                backgroundColor: '#fef2f2'
+              }
+            }}
+          >
+            Limpar Duplicatas
+          </Button>
+        )}
         
         <Button 
           onClick={onHelp}

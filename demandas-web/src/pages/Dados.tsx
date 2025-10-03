@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react'
-import { Paper, Typography, Box, Button } from '@mui/material'
+import { Paper, Typography, Box, Button, Alert } from '@mui/material'
 import * as XLSX from 'xlsx'
 import { useMasterDataStore } from '../store/masterDataStore'
 import { useDadosStore } from '../store/dadosStore'
@@ -12,6 +12,7 @@ import { DadosHelpModal } from '../components/DadosHelpModal'
 import { SnackNotification } from '../components/SnackNotification'
 import { UploadModal } from '../components/UploadModal'
 import { SmartImporter } from '../components/SmartImporter'
+import { CleanupModal } from '../components/CleanupModal'
 import { smartImporterConfigs } from '../config/smartImporterConfigs'
 import type { TabKey, FormData, DataMap } from '../types/dadosTypes'
 import type { ImportResult } from '../types/smartImporter'
@@ -27,6 +28,25 @@ export default function DadosPage() {
   const [openHelp, setOpenHelp] = useState(false)
   const [uploadModalOpen, setUploadModalOpen] = useState(false)
   const [smartImporterOpen, setSmartImporterOpen] = useState(false)
+  const [cleanupModalOpen, setCleanupModalOpen] = useState(false)
+
+  // Sincronizar dados com a API quando a página é carregada
+  useEffect(() => {
+    const initializeData = async () => {
+      console.log('🔍 DadosPage: Inicializando dados...')
+      if (store.syncFromApi) {
+        try {
+          await store.syncFromApi()
+          console.log('✅ DadosPage: Dados sincronizados com sucesso')
+        } catch (error) {
+          console.error('❌ DadosPage: Erro ao sincronizar dados:', error)
+        }
+      }
+    }
+    
+    initializeData()
+  }, [store])
+
 
   // Mapeamento de dados para cada aba
   const dataMap: DataMap = useMemo(() => ({
@@ -99,6 +119,17 @@ export default function DadosPage() {
     }
   }
 
+  // Função para limpar dados locais das áreas e forçar sincronização
+  const handleClearAreasLocalData = async () => {
+    if (activeTab === 'areas') {
+      console.log('🧹 Limpando dados locais das áreas...')
+      store.clearAreasLocalData()
+      // Forçar nova sincronização
+      await store.syncFromApi?.()
+      console.log('✅ Dados locais das áreas limpos e sincronizados com API')
+    }
+  }
+
   const handleSave = async () => {
     console.log('🔍 DADOS: Salvando formulário para', activeTab, ':', form)
     const success = await saveEntity(activeTab, form)
@@ -106,6 +137,19 @@ export default function DadosPage() {
       setOpenForm(false)
       setForm({})
     }
+  }
+
+  const handleCleanupSuccess = async () => {
+    // Recarregar dados após limpeza
+    if (store.syncFromApi) {
+      await store.syncFromApi()
+    }
+  }
+
+
+  const handleFormClose = () => {
+    setOpenForm(false)
+    setForm({})
   }
 
 
@@ -1141,7 +1185,9 @@ export default function DadosPage() {
           onAdd={handleAdd}
           onExportAll={handleExportAll}
           onExportCurrent={handleExportCurrent}
+          onCleanup={() => setCleanupModalOpen(true)}
         />
+
 
       <Typography variant="body2" sx={{ mb: 2 }}>
         Para importar, utilize o modelo com abas: Clientes, Contratos, Operadoras, Produtos, Sistemas, Analistas, Areas, Areas Mailling, Cargos Mailling, Filiais Mailling, Tipos, Servicos, Solicitantes, Relatorios, Modelos. As colunas devem seguir exatamente os nomes do modelo. Em "Tipos", preencha "tipoServicoId" com CAD (Cadastro) ou MAN (Manutenção).
@@ -1174,11 +1220,9 @@ export default function DadosPage() {
 
       <DadosForm
         open={openForm}
-        onClose={() => setOpenForm(false)}
+        onClose={handleFormClose}
         activeTab={activeTab}
-        form={form}
-        onFormChange={setForm}
-        onSave={handleSave}
+        onSuccess={handleFormClose}
       />
 
       <DadosHelpModal
@@ -1202,6 +1246,12 @@ export default function DadosPage() {
         onImport={handleSmartImport}
         config={smartImporterConfigs[activeTab] || smartImporterConfigs.clientes}
         masterData={store}
+      />
+
+      <CleanupModal
+        open={cleanupModalOpen}
+        onClose={() => setCleanupModalOpen(false)}
+        onSuccess={handleCleanupSuccess}
       />
     </Paper>
   )
