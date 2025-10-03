@@ -300,79 +300,11 @@ function crud(entity: keyof PrismaClient) {
       return anyPrisma[entity].findUnique({ where: { id } });
     },
     create: async (data: unknown) => {
-      // Validação de duplicatas para clientes
-      if (entity === 'cliente') {
-        const clienteData = data as any;
-        console.log('🔍 CLIENTE CREATE: Dados recebidos:', JSON.stringify(clienteData, null, 2));
-        
-        // Verificar se já existe um cliente com o mesmo nome
-        if (clienteData.nome) {
-          const existingCliente = await prisma.cliente.findFirst({
-            where: {
-              nome: {
-                equals: clienteData.nome,
-                mode: 'insensitive' // Case insensitive para SQLite
-              }
-            }
-          });
-          
-          if (existingCliente) {
-            console.error(`❌ CLIENTE CREATE: Cliente duplicado encontrado: "${clienteData.nome}" (ID: ${existingCliente.id})`);
-            throw new Error(`Já existe um cliente com o nome "${clienteData.nome}". Use um nome diferente ou edite o cliente existente.`);
-          }
-        }
-        
-        console.log('✅ CLIENTE CREATE: Nenhum cliente duplicado encontrado, criando novo cliente');
-        return anyPrisma[entity].create({ data: clienteData });
-      }
-      
-      // Validação de duplicatas para outras entidades com nomes únicos
-      if (['analista', 'operadora', 'produto', 'sistema', 'area', 'tipoServico', 'tipoDemanda'].includes(entity)) {
-        const entityData = data as any;
-        console.log(`🔍 ${entity.toUpperCase()} CREATE: Dados recebidos:`, JSON.stringify(entityData, null, 2));
-        
-        // Verificar se já existe uma entidade com o mesmo nome
-        if (entityData.nome) {
-          const existingEntity = await anyPrisma[entity].findFirst({
-            where: {
-              nome: {
-                equals: entityData.nome,
-                mode: 'insensitive' // Case insensitive para SQLite
-              }
-            }
-          });
-          
-          if (existingEntity) {
-            console.error(`❌ ${entity.toUpperCase()} CREATE: ${entity} duplicado encontrado: "${entityData.nome}" (ID: ${existingEntity.id})`);
-            throw new Error(`Já existe um(a) ${entity} com o nome "${entityData.nome}". Use um nome diferente ou edite o(a) ${entity} existente.`);
-          }
-        }
-        
-        console.log(`✅ ${entity.toUpperCase()} CREATE: Nenhum(a) ${entity} duplicado(a) encontrado(a), criando novo(a) ${entity}`);
-      }
-      
       // Garantir que contratos sejam criados como ativos por padrão apenas se não especificado
       if (entity === 'contrato') {
         const contratoData = { ...data as any };
         console.log('🔍 CONTRATO CREATE: Dados recebidos:', JSON.stringify(contratoData, null, 2));
         console.log('🔍 CONTRATO CREATE: Status recebido:', contratoData.status, 'Tipo:', typeof contratoData.status);
-        
-        // Verificar se já existe um contrato com o mesmo código
-        if (contratoData.codigo) {
-          const existingContrato = await prisma.contrato.findFirst({
-            where: {
-              codigo: {
-                equals: contratoData.codigo,
-                mode: 'insensitive' // Case insensitive para SQLite
-              }
-            }
-          });
-          
-          if (existingContrato) {
-            console.error(`❌ CONTRATO CREATE: Contrato duplicado encontrado: "${contratoData.codigo}" (ID: ${existingContrato.id})`);
-            throw new Error(`Já existe um contrato com o código "${contratoData.codigo}". Use um código diferente ou edite o contrato existente.`);
-          }
-        }
         
         // Garantir que o status seja sempre definido
         if (!contratoData.status || contratoData.status === '' || contratoData.status === null || contratoData.status === undefined) {
@@ -428,6 +360,25 @@ function crud(entity: keyof PrismaClient) {
         console.log('🔍 CONTRATO CREATE: Dados finais para criação:', JSON.stringify(contratoData, null, 2));
         return anyPrisma[entity].create({ data: contratoData });
       }
+      
+      // Validação para clientes - evitar grupos econômicos duplicados
+      if (entity === 'cliente') {
+        const clienteData = data as any;
+        console.log('🔍 CLIENTE CREATE: Validando grupo econômico:', clienteData.grupoEconomico);
+        if (clienteData.grupoEconomico && clienteData.grupoEconomico.trim()) {
+          const existingClient = await anyPrisma.cliente.findFirst({
+            where: {
+              grupoEconomico: clienteData.grupoEconomico.trim()
+            }
+          });
+          
+          console.log('🔍 CLIENTE CREATE: Cliente existente encontrado:', existingClient);
+          if (existingClient) {
+            throw new Error(`Grupo econômico "${clienteData.grupoEconomico}" já existe para o cliente "${existingClient.nome}". Por favor, escolha um grupo econômico único.`);
+          }
+        }
+      }
+      
       return anyPrisma[entity].create({ data });
     },
     update: async (id: string, data: unknown) => {
@@ -521,6 +472,23 @@ function crud(entity: keyof PrismaClient) {
         }
         
         return anyPrisma[entity].update({ where: { id }, data: updateData });
+      }
+      
+      // Validação para clientes - evitar grupos econômicos duplicados
+      if (entity === 'cliente') {
+        const clienteData = data as any;
+        if (clienteData.grupoEconomico && clienteData.grupoEconomico.trim()) {
+          const existingClient = await anyPrisma.cliente.findFirst({
+            where: {
+              id: { not: id }, // Excluir o próprio cliente
+              grupoEconomico: clienteData.grupoEconomico.trim()
+            }
+          });
+          
+          if (existingClient) {
+            throw new Error(`Grupo econômico "${clienteData.grupoEconomico}" já existe para o cliente "${existingClient.nome}". Por favor, escolha um grupo econômico único.`);
+          }
+        }
       }
       
       return anyPrisma[entity].update({ where: { id }, data });
@@ -1691,6 +1659,132 @@ app.delete('/demandas/limpar-atv-demandas', async () => {
     
   } catch (error) {
     console.error('❌ Erro ao limpar demandas simples:', error)
+    throw error
+  }
+})
+
+// Endpoint para limpar grupos econômicos duplicados
+app.delete('/clientes/limpar-duplicatas', async () => {
+  try {
+    console.log('🧹 Iniciando limpeza de grupos econômicos duplicados...')
+    
+    // Buscar todos os clientes com grupos econômicos
+    const clientes = await prisma.cliente.findMany({
+      where: {
+        grupoEconomico: { not: null }
+      },
+      orderBy: { createdAt: 'asc' } // Manter os mais antigos
+    })
+    
+    console.log(`🔍 Encontrados ${clientes.length} clientes com grupos econômicos`)
+    
+    // Agrupar por grupo econômico
+    const gruposMap = new Map()
+    const duplicatas = []
+    
+    for (const cliente of clientes) {
+      const grupoKey = cliente.grupoEconomico?.toLowerCase().trim()
+      
+      if (grupoKey && grupoKey !== '') {
+        if (gruposMap.has(grupoKey)) {
+          // Cliente duplicado - adicionar à lista de duplicatas
+          duplicatas.push({
+            id: cliente.id,
+            nome: cliente.nome,
+            grupoEconomico: cliente.grupoEconomico,
+            createdAt: cliente.createdAt
+          })
+        } else {
+          // Primeiro cliente com este grupo - manter
+          gruposMap.set(grupoKey, cliente)
+        }
+      }
+    }
+    
+    console.log(`🔍 Encontradas ${duplicatas.length} duplicatas de grupos econômicos`)
+    
+    if (duplicatas.length === 0) {
+      return { 
+        message: 'Nenhuma duplicata de grupo econômico encontrada',
+        duplicatasRemovidas: []
+      }
+    }
+    
+    // Verificar se há dependências antes de excluir
+    const duplicatasComDependencias = []
+    const duplicatasParaRemover = []
+    
+    for (const duplicata of duplicatas) {
+      // Verificar dependências
+      const [contratos, demandas, atendimentos, projetos] = await Promise.all([
+        prisma.contrato.count({ where: { clienteId: duplicata.id } }),
+        prisma.demanda.count({ where: { clienteId: duplicata.id } }),
+        prisma.atendimento.count({ where: { clienteId: duplicata.id } }),
+        prisma.project.count({ where: { clientId: duplicata.id } })
+      ])
+      
+      const totalDependencias = contratos + demandas + atendimentos + projetos
+      
+      if (totalDependencias > 0) {
+        duplicatasComDependencias.push({
+          ...duplicata,
+          dependencias: {
+            contratos,
+            demandas,
+            atendimentos,
+            projetos,
+            total: totalDependencias
+          }
+        })
+      } else {
+        duplicatasParaRemover.push(duplicata)
+      }
+    }
+    
+    console.log(`🔍 ${duplicatasParaRemover.length} duplicatas podem ser removidas (sem dependências)`)
+    console.log(`🔍 ${duplicatasComDependencias.length} duplicatas têm dependências e não podem ser removidas`)
+    
+    // Remover apenas as duplicatas sem dependências
+    let removedCount = 0
+    const removedIds = []
+    
+    if (duplicatasParaRemover.length > 0) {
+      const idsParaRemover = duplicatasParaRemover.map(d => d.id)
+      
+      // Excluir em lote
+      const deleteResult = await prisma.cliente.deleteMany({
+        where: {
+          id: { in: idsParaRemover }
+        }
+      })
+      
+      removedCount = deleteResult.count
+      removedIds.push(...idsParaRemover)
+      
+      console.log(`✅ ${removedCount} duplicatas removidas com sucesso`)
+    }
+    
+    return {
+      message: `Limpeza concluída: ${removedCount} duplicatas removidas`,
+      duplicatasRemovidas: removedCount,
+      duplicatasComDependencias: duplicatasComDependencias.length,
+      detalhes: {
+        removidas: duplicatasParaRemover.map(d => ({
+          id: d.id,
+          nome: d.nome,
+          grupoEconomico: d.grupoEconomico
+        })),
+        comDependencias: duplicatasComDependencias.map(d => ({
+          id: d.id,
+          nome: d.nome,
+          grupoEconomico: d.grupoEconomico,
+          dependencias: d.dependencias
+        }))
+      }
+    }
+    
+  } catch (error) {
+    console.error('❌ Erro ao limpar grupos econômicos duplicados:', error)
     throw error
   }
 })
