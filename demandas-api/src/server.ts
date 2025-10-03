@@ -67,6 +67,7 @@ app.register(cors, corsOptions)
 // LOG PARA CONFIRMAR QUE A ROTA ESTÁ SENDO REGISTRADA
 console.log('🚀 REGISTRANDO ROTA: /limpeza/clientes-duplicatas')
 console.log('🚀 VERIFICAR SE ROTA ESTÁ SENDO REGISTRADA CORRETAMENTE')
+console.log('🚀 CORREÇÃO: Removido areaId do modelo Analista - v10')
 
 // ROTA COMPLETAMENTE NOVA PARA LIMPEZA DE DUPLICATAS - SEM CONFLITO
 // FORÇAR REDEPLOY RAILWAY - v8 - URGENTE - ROTA 404 - TOKEN RAILWAY
