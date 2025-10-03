@@ -839,10 +839,10 @@ const resources = {
   contratos: crud('contrato'),
   tiposServico: crud('tipoServico'),
   tiposDemanda: crud('tipoDemanda'),
-  mailling: crud('mailling'), // v2 - endpoint principal
-  areasMailling: crud('areaMailling'), // v2
-  cargosMailling: crud('cargoMailling'), // v2
-  filiaisMailling: crud('filialMailling'), // v2
+  mailling: crud('mailling'), // v3 - endpoint principal - FORÇAR DEPLOY
+  areasMailling: crud('areaMailling'), // v3 - FORÇAR DEPLOY
+  cargosMailling: crud('cargoMailling'), // v3 - FORÇAR DEPLOY
+  filiaisMailling: crud('filialMailling'), // v3 - FORÇAR DEPLOY
   demandas: {
     ...crud('demanda'),
     list: async () => {
