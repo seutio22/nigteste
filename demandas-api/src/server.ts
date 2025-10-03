@@ -64,6 +64,138 @@ const corsOptions = {
 
 app.register(cors, corsOptions)
 
+// ROTA ESPECÍFICA PARA LIMPEZA DE DUPLICATAS - DEVE VIR ANTES DE TODAS AS OUTRAS ROTAS
+app.delete('/clientes/limpar-duplicatas', async (request, reply) => {
+  try {
+    console.log('🧹 [DEBUG] Endpoint limpar-duplicatas chamado - EARLY ROUTE')
+    console.log('🧹 Iniciando limpeza de grupos econômicos duplicados...')
+    
+    // Buscar todos os clientes com grupos econômicos
+    const clientes = await prisma.cliente.findMany({
+      where: {
+        grupoEconomico: { not: null }
+      },
+      orderBy: { createdAt: 'asc' } // Manter os mais antigos
+    })
+    
+    console.log(`🔍 Encontrados ${clientes.length} clientes com grupos econômicos`)
+    
+    // Agrupar por grupo econômico
+    const gruposMap = new Map()
+    const duplicatas = []
+    
+    for (const cliente of clientes) {
+      const grupoKey = cliente.grupoEconomico?.toLowerCase().trim()
+      
+      if (grupoKey && grupoKey !== '') {
+        if (gruposMap.has(grupoKey)) {
+          // Cliente duplicado - adicionar à lista de duplicatas
+          duplicatas.push({
+            id: cliente.id,
+            nome: cliente.nome,
+            grupoEconomico: cliente.grupoEconomico,
+            createdAt: cliente.createdAt
+          })
+        } else {
+          // Primeiro cliente com este grupo - manter
+          gruposMap.set(grupoKey, cliente)
+        }
+      }
+    }
+    
+    console.log(`🔍 Encontradas ${duplicatas.length} duplicatas de grupos econômicos`)
+    
+    if (duplicatas.length === 0) {
+      return { 
+        message: 'Nenhuma duplicata de grupo econômico encontrada',
+        duplicatasRemovidas: []
+      }
+    }
+    
+    // Verificar se há dependências antes de excluir
+    const duplicatasComDependencias = []
+    const duplicatasParaRemover = []
+    
+    for (const duplicata of duplicatas) {
+      // Verificar dependências
+      const [contratos, demandas, atendimentos, projetos] = await Promise.all([
+        prisma.contrato.count({ where: { clienteId: duplicata.id } }),
+        prisma.demanda.count({ where: { clienteId: duplicata.id } }),
+        prisma.atendimento.count({ where: { clienteId: duplicata.id } }),
+        prisma.project.count({ where: { clientId: duplicata.id } })
+      ])
+      
+      const totalDependencias = contratos + demandas + atendimentos + projetos
+      
+      if (totalDependencias > 0) {
+        duplicatasComDependencias.push({
+          ...duplicata,
+          dependencias: {
+            contratos,
+            demandas,
+            atendimentos,
+            projetos,
+            total: totalDependencias
+          }
+        })
+      } else {
+        duplicatasParaRemover.push(duplicata)
+      }
+    }
+    
+    console.log(`🔍 ${duplicatasParaRemover.length} duplicatas podem ser removidas (sem dependências)`)
+    console.log(`🔍 ${duplicatasComDependencias.length} duplicatas têm dependências e não podem ser removidas`)
+    
+    // Remover apenas as duplicatas sem dependências
+    let removedCount = 0
+    const removedIds = []
+    
+    if (duplicatasParaRemover.length > 0) {
+      const idsParaRemover = duplicatasParaRemover.map(d => d.id)
+      
+      // Excluir em lote
+      const deleteResult = await prisma.cliente.deleteMany({
+        where: {
+          id: { in: idsParaRemover }
+        }
+      })
+      
+      removedCount = deleteResult.count
+      removedIds.push(...idsParaRemover)
+      
+      console.log(`✅ ${removedCount} duplicatas removidas com sucesso`)
+    }
+    
+    return {
+      message: `Limpeza concluída: ${removedCount} duplicatas removidas`,
+      duplicatasRemovidas: removedCount,
+      duplicatasComDependencias: duplicatasComDependencias.length,
+      detalhes: {
+        removidas: duplicatasParaRemover.map(d => ({
+          id: d.id,
+          nome: d.nome,
+          grupoEconomico: d.grupoEconomico
+        })),
+        comDependencias: duplicatasComDependencias.map(d => ({
+          id: d.id,
+          nome: d.nome,
+          grupoEconomico: d.grupoEconomico,
+          dependencias: d.dependencias
+        }))
+      }
+    }
+    
+  } catch (error) {
+    console.error('❌ Erro ao limpar grupos econômicos duplicados:', error)
+    return {
+      error: 'Erro interno do servidor',
+      message: error instanceof Error ? error.message : 'Erro desconhecido',
+      duplicatasRemovidas: 0,
+      duplicatasComDependencias: 0
+    }
+  }
+})
+
 // Configurar parser para resolver problemas de Content-Length
 app.addContentTypeParser('application/json', { parseAs: 'string' }, function (req, body, done) {
   try {
@@ -725,136 +857,6 @@ const resources = {
   dados: crud('dados'),
 }
 
-// Endpoint específico para limpar grupos econômicos duplicados (deve vir antes das rotas CRUD) - v2
-app.delete('/clientes/limpar-duplicatas', async () => {
-  try {
-    console.log('🧹 Iniciando limpeza de grupos econômicos duplicados...')
-    
-    // Buscar todos os clientes com grupos econômicos
-    const clientes = await prisma.cliente.findMany({
-      where: {
-        grupoEconomico: { not: null }
-      },
-      orderBy: { createdAt: 'asc' } // Manter os mais antigos
-    })
-    
-    console.log(`🔍 Encontrados ${clientes.length} clientes com grupos econômicos`)
-    
-    // Agrupar por grupo econômico
-    const gruposMap = new Map()
-    const duplicatas = []
-    
-    for (const cliente of clientes) {
-      const grupoKey = cliente.grupoEconomico?.toLowerCase().trim()
-      
-      if (grupoKey && grupoKey !== '') {
-        if (gruposMap.has(grupoKey)) {
-          // Cliente duplicado - adicionar à lista de duplicatas
-          duplicatas.push({
-            id: cliente.id,
-            nome: cliente.nome,
-            grupoEconomico: cliente.grupoEconomico,
-            createdAt: cliente.createdAt
-          })
-        } else {
-          // Primeiro cliente com este grupo - manter
-          gruposMap.set(grupoKey, cliente)
-        }
-      }
-    }
-    
-    console.log(`🔍 Encontradas ${duplicatas.length} duplicatas de grupos econômicos`)
-    
-    if (duplicatas.length === 0) {
-      return { 
-        message: 'Nenhuma duplicata de grupo econômico encontrada',
-        duplicatasRemovidas: []
-      }
-    }
-    
-    // Verificar se há dependências antes de excluir
-    const duplicatasComDependencias = []
-    const duplicatasParaRemover = []
-    
-    for (const duplicata of duplicatas) {
-      // Verificar dependências
-      const [contratos, demandas, atendimentos, projetos] = await Promise.all([
-        prisma.contrato.count({ where: { clienteId: duplicata.id } }),
-        prisma.demanda.count({ where: { clienteId: duplicata.id } }),
-        prisma.atendimento.count({ where: { clienteId: duplicata.id } }),
-        prisma.project.count({ where: { clientId: duplicata.id } })
-      ])
-      
-      const totalDependencias = contratos + demandas + atendimentos + projetos
-      
-      if (totalDependencias > 0) {
-        duplicatasComDependencias.push({
-          ...duplicata,
-          dependencias: {
-            contratos,
-            demandas,
-            atendimentos,
-            projetos,
-            total: totalDependencias
-          }
-        })
-      } else {
-        duplicatasParaRemover.push(duplicata)
-      }
-    }
-    
-    console.log(`🔍 ${duplicatasParaRemover.length} duplicatas podem ser removidas (sem dependências)`)
-    console.log(`🔍 ${duplicatasComDependencias.length} duplicatas têm dependências e não podem ser removidas`)
-    
-    // Remover apenas as duplicatas sem dependências
-    let removedCount = 0
-    const removedIds = []
-    
-    if (duplicatasParaRemover.length > 0) {
-      const idsParaRemover = duplicatasParaRemover.map(d => d.id)
-      
-      // Excluir em lote
-      const deleteResult = await prisma.cliente.deleteMany({
-        where: {
-          id: { in: idsParaRemover }
-        }
-      })
-      
-      removedCount = deleteResult.count
-      removedIds.push(...idsParaRemover)
-      
-      console.log(`✅ ${removedCount} duplicatas removidas com sucesso`)
-    }
-    
-    return {
-      message: `Limpeza concluída: ${removedCount} duplicatas removidas`,
-      duplicatasRemovidas: removedCount,
-      duplicatasComDependencias: duplicatasComDependencias.length,
-      detalhes: {
-        removidas: duplicatasParaRemover.map(d => ({
-          id: d.id,
-          nome: d.nome,
-          grupoEconomico: d.grupoEconomico
-        })),
-        comDependencias: duplicatasComDependencias.map(d => ({
-          id: d.id,
-          nome: d.nome,
-          grupoEconomico: d.grupoEconomico,
-          dependencias: d.dependencias
-        }))
-      }
-    }
-    
-  } catch (error) {
-    console.error('❌ Erro ao limpar grupos econômicos duplicados:', error)
-    return {
-      error: 'Erro interno do servidor',
-      message: error instanceof Error ? error.message : 'Erro desconhecido',
-      duplicatasRemovidas: 0,
-      duplicatasComDependencias: 0
-    }
-  }
-})
 
 for (const [path, repo] of Object.entries(resources)) {
   app.get(`/${path}`, async (req: any) => repo.list(req.query))
