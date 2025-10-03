@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useMasterDataStore } from '../store/masterDataStore'
-import { DataLoading } from '../components/BeautifulLoading'
 
 // Configuração de sincronização por rota
 const ROUTE_SYNC_CONFIG = {
@@ -97,9 +96,6 @@ export function useDynamicSync() {
   return { 
     forceSync, 
     isSyncing, 
-    showSyncIndicator,
-    SyncIndicator: showSyncIndicator ? () => (
-      <DataLoading message="Sincronizando dados..." />
-    ) : null
+    showSyncIndicator
   }
 }
