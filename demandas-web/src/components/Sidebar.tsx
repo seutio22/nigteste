@@ -145,14 +145,24 @@ export function Sidebar() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 10 }}
-              className="flex items-center gap-3"
+              className="space-y-3"
             >
-              <div className="w-8 h-8 bg-gradient-primary rounded-full flex items-center justify-center">
-                <span className="text-white font-bold text-sm">U</span>
+              {/* Versão do Sistema */}
+              <div className="text-center">
+                <div className="inline-flex items-center px-2 py-1 bg-white/10 rounded-full">
+                  <span className="text-xs font-medium text-white/80">v0.2.0</span>
+                </div>
               </div>
-              <div>
-                <p className="text-sm font-medium">{user?.name || 'Usuário'}</p>
-                <p className="text-xs text-white/60">{user?.role || 'Usuário'}</p>
+              
+              {/* Informações do Usuário */}
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-gradient-primary rounded-full flex items-center justify-center">
+                  <span className="text-white font-bold text-sm">U</span>
+                </div>
+                <div>
+                  <p className="text-sm font-medium">{user?.name || 'Usuário'}</p>
+                  <p className="text-xs text-white/60">{user?.role || 'Usuário'}</p>
+                </div>
               </div>
             </motion.div>
           )}
