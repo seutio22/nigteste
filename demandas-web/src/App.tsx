@@ -21,12 +21,14 @@ function App() {
   }, [initialize])
   
   useEffect(() => {
-    // Sincronizar dados mestres quando a aplicação inicia
-    if (syncFromApi) {
-      syncFromApi().catch((error) => {
-        console.error('❌ App: Erro na sincronização inicial:', error)
-      })
-    }
+    // Sincronização desabilitada temporariamente para evitar problemas de memória
+    // TODO: Reabilitar após otimização completa
+    console.log('🔧 App: Sincronização automática desabilitada temporariamente')
+    // if (syncFromApi) {
+    //   syncFromApi().catch((error) => {
+    //     console.error('❌ App: Erro na sincronização inicial:', error)
+    //   })
+    // }
   }, [syncFromApi])
   
   return (

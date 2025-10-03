@@ -193,40 +193,37 @@ export const useMasterDataStore = create<MasterDataState>()(
             const api = getApi()
             
             
-            // Sincronizar todas as entidades em paralelo
-            const [
-              clientes,
-              contratos,
-              operadoras,
-              produtos,
-              sistemas,
-              analistas,
-              areas,
-              tiposCadastro,
-              tiposServico,
-              tiposDemanda,
-              solicitantes,
-              relatorios,
-              modelos,
-              padrao,
-              areasMailling,
-              cargosMailling,
-              filiaisMailling
-            ] = await Promise.all([
+            // Sincronizar entidades em lotes para economizar memória
+            console.log('🔍 MasterDataStore: Carregando dados em lotes...')
+            
+            // Lote 1: Dados principais (5 chamadas)
+            const [clientes, contratos, operadoras, produtos, sistemas] = await Promise.all([
               api.getClientes().catch(() => []),
               api.getContratos().catch(() => []),
               api.getOperadoras().catch(() => []),
               api.getProdutos().catch(() => []),
-              api.getSistemas().catch(() => []),
+              api.getSistemas().catch(() => [])
+            ])
+            
+            // Lote 2: Dados secundários (5 chamadas)
+            const [analistas, areas, tiposCadastro, tiposServico, tiposDemanda] = await Promise.all([
               api.getAnalistas().catch(() => []),
               api.getAreas().catch(() => []),
               api.get('/tiposCadastro').catch(() => []),
               api.getTiposServico().catch(() => []),
-              api.getTiposDemanda().catch(() => []),
+              api.getTiposDemanda().catch(() => [])
+            ])
+            
+            // Lote 3: Dados auxiliares (4 chamadas)
+            const [solicitantes, relatorios, modelos, padrao] = await Promise.all([
               api.get('/solicitantes').catch(() => []),
               api.get('/relatorios').catch(() => []),
               api.get('/modelos').catch(() => []),
-              api.getPadrao().catch(() => []),
+              api.getPadrao().catch(() => [])
+            ])
+            
+            // Lote 4: Dados de Mailling (3 chamadas)
+            const [areasMailling, cargosMailling, filiaisMailling] = await Promise.all([
               api.get('/areas-mailling').catch(() => []),
               api.get('/cargos-mailling').catch(() => []),
               api.get('/filiais-mailling').catch(() => [])
