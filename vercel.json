@@ -12,7 +12,10 @@
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "/demandas-web/$1"
+      "dest": "/index.html"
     }
-  ]
+  ],
+  "env": {
+    "VITE_API_URL": "https://nigteste-production.up.railway.app"
+  }
 }
