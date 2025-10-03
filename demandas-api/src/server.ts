@@ -1825,6 +1825,11 @@ for (const [path, repo] of Object.entries(resources)) {
   })
 }
 
+// TESTE SIMPLES - ROTA BÁSICA PARA VERIFICAR SE FASTIFY ESTÁ FUNCIONANDO
+app.get('/teste-route', async (request, reply) => {
+  return { message: 'Rota de teste funcionando!', timestamp: new Date().toISOString() }
+})
+
 // ROTA COMPLETAMENTE NOVA PARA LIMPEZA DE DUPLICATAS - REGISTRADA DEPOIS DO LOOP CRUD
 // FORÇAR REDEPLOY RAILWAY v13 - ROTA NOVA COM NOME DIFERENTE
 app.delete('/api/limpeza/clientes-duplicatas', async (request, reply) => {
