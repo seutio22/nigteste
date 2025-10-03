@@ -312,7 +312,7 @@ export const api = {
 
   // Limpeza de dados
   limparDuplicatasClientes: () => 
-    apiRequest('/clientes/limpar-duplicatas', {
+    apiRequest('/clientes/cleanup-duplicatas', {
       method: 'DELETE',
     }),
   limparDemandasSimples: () => 

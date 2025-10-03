@@ -65,7 +65,7 @@ const corsOptions = {
 app.register(cors, corsOptions)
 
 // ROTA ESPECÍFICA PARA LIMPEZA DE DUPLICATAS - DEVE VIR ANTES DE TODAS AS OUTRAS ROTAS
-app.delete('/clientes/limpar-duplicatas', async (request, reply) => {
+app.delete('/clientes/cleanup-duplicatas', async (request, reply) => {
   try {
     console.log('🧹 [DEBUG] Endpoint limpar-duplicatas chamado - EARLY ROUTE')
     console.log('🧹 Iniciando limpeza de grupos econômicos duplicados...')
