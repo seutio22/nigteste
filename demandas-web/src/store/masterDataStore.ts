@@ -275,12 +275,6 @@ export const useMasterDataStore = create<MasterDataState>()(
             })
             
             // Sincronização concluída
-            
-            
-          } catch (error) {
-            console.error('❌ MasterDataStore: Erro na sincronização:', error)
-            set({ isSyncing: false })
-          }
         }
     }),
     {
