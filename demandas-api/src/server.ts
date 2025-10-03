@@ -117,29 +117,45 @@ app.delete('/clientes/cleanup-duplicatas', async (request, reply) => {
     const duplicatasParaRemover = []
     
     for (const duplicata of duplicatas) {
-      // Verificar dependências
-      const [contratos, demandas, atendimentos, projetos] = await Promise.all([
-        prisma.contrato.count({ where: { clienteId: duplicata.id } }),
-        prisma.demanda.count({ where: { clienteId: duplicata.id } }),
-        prisma.atendimento.count({ where: { clienteId: duplicata.id } }),
-        prisma.project.count({ where: { clientId: duplicata.id } })
-      ])
+      try {
+        // Verificar dependências
+        const [contratos, demandas, atendimentos, projetos] = await Promise.all([
+          prisma.contrato.count({ where: { clienteId: duplicata.id } }),
+          prisma.demanda.count({ where: { clienteId: duplicata.id } }),
+          prisma.atendimento.count({ where: { clienteId: duplicata.id } }),
+          prisma.project.count({ where: { clientId: duplicata.id } })
+        ])
       
-      const totalDependencias = contratos + demandas + atendimentos + projetos
-      
-      if (totalDependencias > 0) {
+        const totalDependencias = contratos + demandas + atendimentos + projetos
+        
+        if (totalDependencias > 0) {
+          duplicatasComDependencias.push({
+            ...duplicata,
+            dependencias: {
+              contratos,
+              demandas,
+              atendimentos,
+              projetos,
+              total: totalDependencias
+            }
+          })
+        } else {
+          duplicatasParaRemover.push(duplicata)
+        }
+      } catch (error) {
+        console.error(`❌ Erro ao verificar dependências do cliente ${duplicata.id}:`, error)
+        // Em caso de erro, considerar como tendo dependências para segurança
         duplicatasComDependencias.push({
           ...duplicata,
           dependencias: {
-            contratos,
-            demandas,
-            atendimentos,
-            projetos,
-            total: totalDependencias
+            contratos: 0,
+            demandas: 0,
+            atendimentos: 0,
+            projetos: 0,
+            total: 1, // Considerar como tendo dependência para não excluir
+            erro: error instanceof Error ? error.message : 'Erro desconhecido'
           }
         })
-      } else {
-        duplicatasParaRemover.push(duplicata)
       }
     }
     
