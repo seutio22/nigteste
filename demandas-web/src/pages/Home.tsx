@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { useDemandStore } from '../store/demandStore'
@@ -117,65 +117,34 @@ export default function HomePage() {
       .slice(0, 8) // Limitar a 8 atividades
   }, [demandStore.items, atendimentoStore.items, validationStore.items, reajusteStore.items, manutencaoStore.items, reportStore.items])
 
+  // Estado para controlar se os dados já foram carregados
+  const [dataLoaded, setDataLoaded] = useState(false)
+
   // Carregar dados automaticamente quando a página é carregada
   useEffect(() => {
+    if (dataLoaded) return // Evitar múltiplas chamadas
+    
     console.log('🔍 Home: Carregando dados da API...')
     
     if (user?.id) {
       console.log('🔍 Home: Usuário logado, carregando dados...')
+      setDataLoaded(true)
       
-      // Carregar dados das demandas
-      if (demandStore.items.length === 0) {
-        console.log('🔍 Home: Carregando demandas...')
-        demandStore.syncFromApi().catch(error => {
-          console.error('❌ Home: Erro ao carregar demandas:', error)
-        })
-      }
-      
-      // Carregar dados de atendimento
-      if (atendimentoStore.items.length === 0) {
-        console.log('🔍 Home: Carregando atendimentos...')
-        atendimentoStore.syncFromApi().catch(error => {
-          console.error('❌ Home: Erro ao carregar atendimentos:', error)
-        })
-      }
-      
-      // Carregar dados de validação
-      if (validationStore.items.length === 0) {
-        console.log('🔍 Home: Carregando validações...')
-        validationStore.syncFromApi().catch(error => {
-          console.error('❌ Home: Erro ao carregar validações:', error)
-        })
-      }
-      
-      // Carregar dados de reajuste
-      if (reajusteStore.items.length === 0) {
-        console.log('🔍 Home: Carregando reajustes...')
-        reajusteStore.syncFromApi().catch(error => {
-          console.error('❌ Home: Erro ao carregar reajustes:', error)
-        })
-      }
-      
-      // Carregar dados de manutenção
-      if (manutencaoStore.items.length === 0) {
-        console.log('🔍 Home: Carregando manutenções...')
-        manutencaoStore.syncFromApi().catch(error => {
-          console.error('❌ Home: Erro ao carregar manutenções:', error)
-        })
-      }
-      
-      // Carregar dados de relatórios (analytics)
-      if (reportStore.items.length === 0) {
-        console.log('🔍 Home: Carregando relatórios...')
-        reportStore.syncFromApi().catch(error => {
-          console.error('❌ Home: Erro ao carregar relatórios:', error)
-        })
-      }
+      // Sincronizações desabilitadas temporariamente para evitar travamento
+      console.log('🔧 Home: Sincronizações automáticas desabilitadas temporariamente')
+      // TODO: Reabilitar após otimização completa
+      // if (demandStore.items.length === 0) {
+      //   console.log('🔍 Home: Carregando demandas...')
+      //   demandStore.syncFromApi().catch(error => {
+      //     console.error('❌ Home: Erro ao carregar demandas:', error)
+      //   })
+      // }
+      // ... outras sincronizações comentadas
       
     } else {
       console.log('🔍 Home: Usuário não logado, aguardando...')
     }
-  }, [user?.id, demandStore, atendimentoStore, validationStore, reajusteStore, manutencaoStore, reportStore])
+  }, [user?.id, dataLoaded])
 
   // Estatísticas reais baseadas nos dados carregados
   const stats = useMemo(() => {

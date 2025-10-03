@@ -24,10 +24,12 @@ export const DadosGrid: React.FC<DadosGridProps> = ({
   // Função para lidar com mudança do toggle
   const handleToggleChange = async () => {
     toggleActiveContractsFilter()
-    // Recarregar dados quando o toggle mudar
-    if (syncFromApi) {
-      await syncFromApi()
-    }
+    // Sincronização desabilitada temporariamente para evitar travamento
+    console.log('🔧 DadosGrid: Sincronização automática desabilitada temporariamente')
+    // TODO: Reabilitar após otimização completa
+    // if (syncFromApi) {
+    //   await syncFromApi()
+    // }
   }
   
   // Debug: Log dos dados recebidos

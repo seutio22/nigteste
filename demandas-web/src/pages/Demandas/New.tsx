@@ -100,13 +100,15 @@ export default function DemandNewPage() {
   console.log('🔍 CONTRATO: Contratos disponíveis para o cliente:', contratosDoCliente.map(c => ({ id: c.id, codigo: c.codigo, clienteId: c.clienteId, grupoEconomico: c.grupoEconomico })))
   const selectedTipoId = useWatch({ control, name: 'tipo' })
 
-  // Sincronizar dados mestres quando a página carregar
+  // Sincronização desabilitada temporariamente para evitar travamento
   useEffect(() => {
-    if (md.syncFromApi) {
-      console.log('🔍 DemandNewPage: Sincronizando dados mestres...')
-      md.syncFromApi()
-    }
-  }, []) // Removido a dependência que causava o loop
+    console.log('🔧 DemandNewPage: Sincronização automática desabilitada temporariamente')
+    // TODO: Reabilitar após otimização completa
+    // if (md.syncFromApi) {
+    //   console.log('🔍 DemandNewPage: Sincronizando dados mestres...')
+    //   md.syncFromApi()
+    // }
+  }, [])
 
   // Função para testar conectividade com todos os endpoints
   const testAllEndpoints = async () => {
