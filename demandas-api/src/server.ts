@@ -64,8 +64,11 @@ const corsOptions = {
 
 app.register(cors, corsOptions)
 
+// LOG PARA CONFIRMAR QUE A ROTA ESTÁ SENDO REGISTRADA
+console.log('🚀 REGISTRANDO ROTA: /limpeza/clientes-duplicatas')
+
 // ROTA COMPLETAMENTE NOVA PARA LIMPEZA DE DUPLICATAS - SEM CONFLITO
-// FORÇAR REDEPLOY RAILWAY - v7 - URGENTE - ROTA 404
+// FORÇAR REDEPLOY RAILWAY - v8 - URGENTE - ROTA 404 - TOKEN RAILWAY
 app.delete('/limpeza/clientes-duplicatas', async (request, reply) => {
   try {
     console.log('🧹 [DEBUG] Endpoint limpeza/clientes-duplicatas chamado - ROTA NOVA')
