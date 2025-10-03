@@ -21,14 +21,13 @@ function App() {
   }, [initialize])
   
   useEffect(() => {
-    // Sincronização desabilitada temporariamente para evitar problemas de memória
-    // TODO: Reabilitar após otimização completa
-    console.log('🔧 App: Sincronização automática desabilitada temporariamente')
-    // if (syncFromApi) {
-    //   syncFromApi().catch((error) => {
-    //     console.error('❌ App: Erro na sincronização inicial:', error)
-    //   })
-    // }
+    // Sincronização otimizada reabilitada
+    if (syncFromApi) {
+      console.log('🔍 App: Iniciando sincronização otimizada...')
+      syncFromApi().catch((error) => {
+        console.error('❌ App: Erro na sincronização inicial:', error)
+      })
+    }
   }, [syncFromApi])
   
   return (

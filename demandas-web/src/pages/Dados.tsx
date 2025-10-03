@@ -30,22 +30,21 @@ export default function DadosPage() {
   const [smartImporterOpen, setSmartImporterOpen] = useState(false)
   const [cleanupModalOpen, setCleanupModalOpen] = useState(false)
 
-  // Sincronização desabilitada temporariamente para evitar travamento
+  // Sincronização otimizada reabilitada
   useEffect(() => {
-    console.log('🔧 DadosPage: Sincronização automática desabilitada temporariamente')
-    // TODO: Reabilitar após otimização completa
-    // const initializeData = async () => {
-    //   console.log('🔍 DadosPage: Inicializando dados...')
-    //   if (store.syncFromApi) {
-    //     try {
-    //       await store.syncFromApi()
-    //       console.log('✅ DadosPage: Dados sincronizados com sucesso')
-    //     } catch (error) {
-    //       console.error('❌ DadosPage: Erro ao sincronizar dados:', error)
-    //     }
-    //   }
-    // }
-    // initializeData()
+    const initializeData = async () => {
+      console.log('🔍 DadosPage: Inicializando dados com sincronização otimizada...')
+      if (store.syncFromApi) {
+        try {
+          await store.syncFromApi()
+          console.log('✅ DadosPage: Dados sincronizados com sucesso')
+        } catch (error) {
+          console.error('❌ DadosPage: Erro ao sincronizar dados:', error)
+        }
+      }
+    }
+    
+    initializeData()
   }, [store])
 
 

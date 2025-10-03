@@ -174,60 +174,93 @@ export const useMasterDataStore = create<MasterDataState>()(
           }))
         },
         
-        async syncFromApi() {
+        async syncFromApi(force = false) {
           const state = get()
           if (state.isSyncing) {
+            console.log('🔍 MasterDataStore: Sincronização já em andamento, ignorando...')
+            return
+          }
+          
+          // Verificar se precisa sincronizar (evitar sincronizações desnecessárias)
+          const now = Date.now()
+          const lastSync = state.lastSync ? new Date(state.lastSync).getTime() : 0
+          const timeSinceLastSync = now - lastSync
+          const syncInterval = 5 * 60 * 1000 // 5 minutos
+          
+          if (!force && timeSinceLastSync < syncInterval) {
+            console.log('🔍 MasterDataStore: Sincronização recente, ignorando...')
             return
           }
           
           try {
-            // console.log('🔍 MasterDataStore: Iniciando syncFromApi...')
+            console.log('🔍 MasterDataStore: Iniciando sincronização otimizada...')
             set({ isSyncing: true })
-            
-            // NÃO limpar dados locais automaticamente - isso estava causando perda de contratos inativos
-            // A lógica de merge inteligente abaixo já cuida de priorizar dados da API quando disponíveis
-            console.log('🔍 MasterDataStore: Sincronizando com API sem limpar dados locais...')
             
             // Importar API dinamicamente baseado no ambiente
             const { getApi } = await import('../lib/apiConfig')
             const api = getApi()
             
-            
-            // Sincronizar entidades em lotes para economizar memória
-            console.log('🔍 MasterDataStore: Carregando dados em lotes...')
-            
-            // Lote 1: Dados principais (5 chamadas)
-            const [clientes, contratos, operadoras, produtos, sistemas] = await Promise.all([
+            // Sincronizar apenas dados essenciais primeiro (3 chamadas)
+            console.log('🔍 MasterDataStore: Carregando dados essenciais...')
+            const [clientes, contratos, analistas] = await Promise.all([
               api.getClientes().catch(() => []),
               api.getContratos().catch(() => []),
-              api.getOperadoras().catch(() => []),
-              api.getProdutos().catch(() => []),
-              api.getSistemas().catch(() => [])
+              api.getAnalistas().catch(() => [])
             ])
             
-            // Lote 2: Dados secundários (5 chamadas)
-            const [analistas, areas, tiposCadastro, tiposServico, tiposDemanda] = await Promise.all([
-              api.getAnalistas().catch(() => []),
-              api.getAreas().catch(() => []),
-              api.get('/tiposCadastro').catch(() => []),
-              api.getTiposServico().catch(() => []),
-              api.getTiposDemanda().catch(() => [])
-            ])
+            // Atualizar dados essenciais imediatamente
+            set({
+              clientes,
+              contratos,
+              analistas,
+              lastSync: new Date().toISOString()
+            })
             
-            // Lote 3: Dados auxiliares (4 chamadas)
-            const [solicitantes, relatorios, modelos, padrao] = await Promise.all([
-              api.get('/solicitantes').catch(() => []),
-              api.get('/relatorios').catch(() => []),
-              api.get('/modelos').catch(() => []),
-              api.getPadrao().catch(() => [])
-            ])
+            // Carregar dados secundários em background (sem bloquear UI)
+            setTimeout(async () => {
+              try {
+                console.log('🔍 MasterDataStore: Carregando dados secundários em background...')
+                const [operadoras, produtos, sistemas, areas] = await Promise.all([
+                  api.getOperadoras().catch(() => []),
+                  api.getProdutos().catch(() => []),
+                  api.getSistemas().catch(() => []),
+                  api.getAreas().catch(() => [])
+                ])
+                
+                set({
+                  operadoras,
+                  produtos,
+                  sistemas,
+                  areas
+                })
+                
+                console.log('✅ MasterDataStore: Dados secundários carregados em background')
+              } catch (error) {
+                console.error('❌ MasterDataStore: Erro ao carregar dados secundários:', error)
+              }
+            }, 1000)
             
-            // Lote 4: Dados de Mailling (3 chamadas)
-            const [areasMailling, cargosMailling, filiaisMailling] = await Promise.all([
-              api.get('/areas-mailling').catch(() => []),
-              api.get('/cargos-mailling').catch(() => []),
-              api.get('/filiais-mailling').catch(() => [])
-            ])
+            // Carregar dados auxiliares em background (sem bloquear UI)
+            setTimeout(async () => {
+              try {
+                console.log('🔍 MasterDataStore: Carregando dados auxiliares em background...')
+                const [tiposServico, tiposDemanda, solicitantes] = await Promise.all([
+                  api.getTiposServico().catch(() => []),
+                  api.getTiposDemanda().catch(() => []),
+                  api.get('/solicitantes').catch(() => [])
+                ])
+                
+                set({
+                  tiposServico,
+                  tiposDemanda,
+                  solicitantes
+                })
+                
+                console.log('✅ MasterDataStore: Dados auxiliares carregados em background')
+              } catch (error) {
+                console.error('❌ MasterDataStore: Erro ao carregar dados auxiliares:', error)
+              }
+            }, 2000)
             
             // Fazer merge inteligente dos dados
             const localState = get()
