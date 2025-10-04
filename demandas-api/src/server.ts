@@ -81,6 +81,31 @@ app.get('/teste-versao-v212', async (request, reply) => {
   }
 })
 
+// Endpoint para aplicar schema do banco
+app.post('/setup-schema', async (request, reply) => {
+  try {
+    console.log('📊 Aplicando schema do banco...')
+    
+    await prisma.$executeRaw`CREATE TABLE IF NOT EXISTS "User" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "name" TEXT NOT NULL,
+      "email" TEXT NOT NULL UNIQUE,
+      "password" TEXT NOT NULL,
+      "role" TEXT NOT NULL DEFAULT 'user',
+      "active" BOOLEAN NOT NULL DEFAULT true,
+      "permissions" TEXT,
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TIMESTAMP(3) NOT NULL
+    )`
+    
+    console.log('✅ Schema aplicado com sucesso!')
+    return { message: 'Schema aplicado com sucesso!', success: true }
+  } catch (error: any) {
+    console.error('❌ Erro ao aplicar schema:', error.message)
+    return { message: 'Erro ao aplicar schema', error: error.message, success: false }
+  }
+})
+
 // Endpoint de login temporário (sem banco) - EMERGÊNCIA
 app.post('/auth/login-temp', async (request, reply) => {
   try {
