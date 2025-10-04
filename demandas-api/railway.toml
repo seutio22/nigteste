@@ -1,6 +1,6 @@
 [build]
 builder = "nixpacks"
-buildCommand = "npm run build && echo 'BUILD COMPLETED - FORCING RECOGNITION'"
+buildCommand = "npm run build && echo 'BUILD COMPLETED v21 - FORCING RECOGNITION'"
 
 [deploy]
 startCommand = "npm start"
