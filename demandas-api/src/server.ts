@@ -170,6 +170,155 @@ app.post('/setup-admin', async (request, reply) => {
     throw error
   }
 })
+
+// Endpoint público para obter dados do usuário para edição (sem autenticação)
+app.get('/usuario-edicao/:id', async (request, reply) => {
+  try {
+    const { id } = request.params as { id: string }
+    console.log(`🔍 GET /usuario-edicao/${id}: Buscando dados do usuário para edição`)
+    
+    const user = await prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        active: true,
+        viewOwnDataOnly: true,
+        permissions: true,
+        lastLogin: true,
+        createdAt: true,
+        updatedAt: true
+      }
+    })
+    
+    if (!user) {
+      console.log(`❌ Usuário com ID ${id} não encontrado`)
+      return { error: 'Usuário não encontrado' }
+    }
+    
+    // Se permissions está vazio, gerar permissões padrão baseadas no role
+    let permissions = user.permissions
+    if (!permissions || permissions === '{}' || permissions === '') {
+      console.log(`🔧 Gerando permissões padrão para role: ${user.role}`)
+      
+      const defaultPermissions = {
+        admin: {
+          home: { view: true, create: true, edit: true, delete: true },
+          dashboard: { view: true, create: true, edit: true, delete: true },
+          cadastro: { view: true, create: true, edit: true, delete: true },
+          manutencao: { view: true, create: true, edit: true, delete: true },
+          atendimento: { view: true, create: true, edit: true, delete: true },
+          comunicados: { view: true, create: true, edit: true, delete: true },
+          validacao: { view: true, create: true, edit: true, delete: true },
+          reajuste: { view: true, create: true, edit: true, delete: true },
+          mailling: { view: true, create: true, edit: true, delete: true },
+          analytics: { view: true, create: true, edit: true, delete: true },
+          kanban: { view: true, create: true, edit: true, delete: true },
+          projetos: { view: true, create: true, edit: true, delete: true },
+          dados: { view: true, create: true, edit: true, delete: true },
+          usuarios: { view: true, create: true, edit: true, delete: true },
+          configuracoes: { view: true, create: true, edit: true, delete: true },
+          relatorios: { view: true, create: true, edit: true, delete: true }
+        },
+        gerente: {
+          home: { view: true, create: false, edit: false, delete: false },
+          dashboard: { view: true, create: true, edit: true, delete: true },
+          cadastro: { view: true, create: true, edit: true, delete: true },
+          manutencao: { view: true, create: true, edit: true, delete: true },
+          atendimento: { view: true, create: true, edit: true, delete: true },
+          comunicados: { view: true, create: true, edit: true, delete: true },
+          validacao: { view: true, create: true, edit: true, delete: true },
+          reajuste: { view: true, create: true, edit: true, delete: true },
+          mailling: { view: true, create: true, edit: true, delete: true },
+          analytics: { view: true, create: true, edit: true, delete: true },
+          kanban: { view: true, create: true, edit: true, delete: true },
+          projetos: { view: true, create: true, edit: true, delete: true },
+          dados: { view: true, create: true, edit: true, delete: true },
+          usuarios: { view: true, create: false, edit: false, delete: false },
+          configuracoes: { view: true, create: false, edit: false, delete: false },
+          relatorios: { view: true, create: true, edit: true, delete: true }
+        },
+        analista: {
+          home: { view: true, create: false, edit: false, delete: false },
+          dashboard: { view: true, create: false, edit: false, delete: false },
+          cadastro: { view: true, create: true, edit: true, delete: false },
+          manutencao: { view: true, create: true, edit: true, delete: false },
+          atendimento: { view: true, create: true, edit: true, delete: false },
+          comunicados: { view: true, create: false, edit: false, delete: false },
+          validacao: { view: true, create: true, edit: true, delete: false },
+          reajuste: { view: true, create: true, edit: true, delete: false },
+          mailling: { view: true, create: false, edit: false, delete: false },
+          analytics: { view: true, create: false, edit: false, delete: false },
+          kanban: { view: true, create: true, edit: true, delete: false },
+          projetos: { view: true, create: true, edit: true, delete: false },
+          dados: { view: true, create: true, edit: true, delete: false },
+          usuarios: { view: false, create: false, edit: false, delete: false },
+          configuracoes: { view: false, create: false, edit: false, delete: false },
+          relatorios: { view: true, create: false, edit: false, delete: false }
+        },
+        solicitante: {
+          home: { view: true, create: false, edit: false, delete: false },
+          dashboard: { view: true, create: false, edit: false, delete: false },
+          cadastro: { view: true, create: true, edit: false, delete: false },
+          manutencao: { view: false, create: false, edit: false, delete: false },
+          atendimento: { view: true, create: true, edit: false, delete: false },
+          comunicados: { view: true, create: false, edit: false, delete: false },
+          validacao: { view: false, create: false, edit: false, delete: false },
+          reajuste: { view: false, create: false, edit: false, delete: false },
+          mailling: { view: false, create: false, edit: false, delete: false },
+          analytics: { view: false, create: false, edit: false, delete: false },
+          kanban: { view: true, create: true, edit: false, delete: false },
+          projetos: { view: true, create: false, edit: false, delete: false },
+          dados: { view: true, create: true, edit: false, delete: false },
+          usuarios: { view: false, create: false, edit: false, delete: false },
+          configuracoes: { view: false, create: false, edit: false, delete: false },
+          relatorios: { view: false, create: false, edit: false, delete: false }
+        },
+        viewer: {
+          home: { view: true, create: false, edit: false, delete: false },
+          dashboard: { view: true, create: false, edit: false, delete: false },
+          cadastro: { view: true, create: false, edit: false, delete: false },
+          manutencao: { view: true, create: false, edit: false, delete: false },
+          atendimento: { view: true, create: false, edit: false, delete: false },
+          comunicados: { view: true, create: false, edit: false, delete: false },
+          validacao: { view: true, create: false, edit: false, delete: false },
+          reajuste: { view: true, create: false, edit: false, delete: false },
+          mailling: { view: true, create: false, edit: false, delete: false },
+          analytics: { view: true, create: false, edit: false, delete: false },
+          kanban: { view: true, create: false, edit: false, delete: false },
+          projetos: { view: true, create: false, edit: false, delete: false },
+          dados: { view: true, create: false, edit: false, delete: false },
+          usuarios: { view: false, create: false, edit: false, delete: false },
+          configuracoes: { view: false, create: false, edit: false, delete: false },
+          relatorios: { view: true, create: false, edit: false, delete: false }
+        }
+      }
+      
+      permissions = JSON.stringify(defaultPermissions[user.role as keyof typeof defaultPermissions] || {})
+    }
+    
+    // Parse das permissões se for string
+    let parsedPermissions = {}
+    try {
+      parsedPermissions = typeof permissions === 'string' ? JSON.parse(permissions) : permissions
+    } catch (e) {
+      console.log('⚠️ Erro ao fazer parse das permissões, usando objeto vazio')
+      parsedPermissions = {}
+    }
+    
+    console.log(`✅ GET /usuario-edicao/${id}: Usuário encontrado com permissões`)
+    
+    return {
+      ...user,
+      permissions: parsedPermissions
+    }
+  } catch (error) {
+    console.error('❌ Erro ao obter usuário para edição:', error)
+    throw error
+  }
+})
 console.log('🚀 ROTA DE TESTE v23 REGISTRADA - CÓDIGO NOVO!')
 
 // LOG PARA CONFIRMAR QUE A ROTA ESTÁ SENDO REGISTRADA
