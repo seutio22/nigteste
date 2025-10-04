@@ -1,7 +1,7 @@
 {
   "name": "demandas-api-novo",
-  "version": "2.1.7",
-  "description": "Backend API - 2.1.7 - PG CLIENT DIRETO - EXPORTAR DADOS ANTIGOS",
+  "version": "2.1.8",
+  "description": "Backend API - 2.1.8 - VERIFICAR TABELAS CRIADAS - CHECK SCHEMA",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",

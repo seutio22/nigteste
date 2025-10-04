@@ -169,6 +169,60 @@ app.post('/setup-schema', async (request, reply) => {
   }
 })
 
+// Endpoint para verificar tabelas criadas
+app.get('/check-tables', async (request, reply) => {
+  try {
+    console.log('📋 Verificando tabelas criadas no banco...')
+    
+    // Listar todas as tabelas no banco
+    const tables = await prisma.$queryRaw`
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_schema = 'public' 
+      AND table_type = 'BASE TABLE'
+      ORDER BY table_name
+    `
+    
+    // Lista esperada de tabelas do schema
+    const expectedTables = [
+      'Analytics', 'Area', 'AreaMailling', 'Analista', 'Atendimento',
+      'CargoMailling', 'Cliente', 'Comunicado', 'ComunicadoComentario', 
+      'ComunicadoVisualizacao', 'Contrato', 'Dashboard', 'DashboardWidget',
+      'Dados', 'Demanda', 'FilialMailling', 'KanbanTicket', 'Mailling',
+      'Manutencao', 'Modelo', 'Operadora', 'Padrao', 'Permission',
+      'Produto', 'Project', 'ProjectExternalMember', 'ProjectMember',
+      'ProjectMilestone', 'ProjectShareToken', 'ProjectSubtask', 'ProjectTask',
+      'ProjectTimeline', 'Reajuste', 'ReajusteLancamento', 'ReajusteManutencao',
+      'Relatorio', 'Report', 'Sistema', 'Solicitante', 'TimelineEvent',
+      'TipoCadastro', 'TipoDemanda', 'TipoServico', 'User', 'UserPermission',
+      'Validacao', 'ValidacaoManutencao'
+    ]
+    
+    const createdTables = (tables as any[]).map(t => t.table_name)
+    const missingTables = expectedTables.filter(table => !createdTables.includes(table))
+    const extraTables = createdTables.filter(table => !expectedTables.includes(table))
+    
+    console.log(`📊 Tabelas criadas: ${createdTables.length}`)
+    console.log(`📊 Tabelas esperadas: ${expectedTables.length}`)
+    console.log(`❌ Tabelas faltando: ${missingTables.length}`)
+    
+    return {
+      message: 'Verificação de tabelas concluída',
+      success: true,
+      totalCreated: createdTables.length,
+      totalExpected: expectedTables.length,
+      createdTables: createdTables,
+      missingTables: missingTables,
+      extraTables: extraTables,
+      allTablesCreated: missingTables.length === 0
+    }
+    
+  } catch (error: any) {
+    console.error('❌ Erro ao verificar tabelas:', error.message)
+    return { message: 'Erro ao verificar tabelas', error: error.message, success: false }
+  }
+})
+
 // Endpoint de login temporário (sem banco) - EMERGÊNCIA
 app.post('/auth/login-temp', async (request, reply) => {
   try {
