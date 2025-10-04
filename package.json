@@ -1,7 +1,7 @@
 {
   "name": "demandas-api-novo",
-  "version": "0.4.0",
-  "description": "Backend API - 0.4.0 - VOLTAR SQLITE - RESOLVER PROBLEMA POSTGRES",
+  "version": "0.4.1",
+  "description": "Backend API - 0.4.1 - TESTE DEPLOY RAILWAY - POSTGRES FUNCIONANDO",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
