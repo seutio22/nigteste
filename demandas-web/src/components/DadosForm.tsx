@@ -38,6 +38,12 @@ export const DadosForm: React.FC<DadosFormProps> = ({
     setForm(prev => ({ ...prev, [field]: value }))
   }
 
+  const handleClose = () => {
+    // Limpar formulário antes de fechar
+    setForm({})
+    onClose()
+  }
+
   const handleSave = async () => {
     try {
       console.log('🔍 DADOS FORM: Salvando formulário para', activeTab, ':', form)
@@ -50,10 +56,16 @@ export const DadosForm: React.FC<DadosFormProps> = ({
       if (success) {
         console.log('✅ DADOS FORM: Salvamento bem-sucedido')
         alert('✅ Dados salvos com sucesso!')
+        
+        // Limpar formulário após salvamento bem-sucedido
+        setForm({})
+        
+        // Usar onSuccess em vez de onClose para garantir limpeza adequada
         if (onSuccess) {
           onSuccess()
+        } else {
+          handleClose()
         }
-        onClose()
       } else {
         console.error('❌ DADOS FORM: Falha no salvamento')
         alert('❌ Erro ao salvar os dados. Por favor, tente novamente.')
@@ -309,7 +321,7 @@ export const DadosForm: React.FC<DadosFormProps> = ({
   return (
     <Dialog 
       open={open} 
-      onClose={onClose} 
+      onClose={handleClose} 
       fullWidth 
       maxWidth="sm"
       disableEnforceFocus
@@ -322,7 +334,7 @@ export const DadosForm: React.FC<DadosFormProps> = ({
       </DialogContent>
       <DialogActions>
         <Button 
-          onClick={onClose}
+          onClick={handleClose}
           size="medium"
           className="text-primary-600 border-primary-300 hover:text-primary-700 hover:border-primary-400 hover:bg-primary-50 transition-all duration-300 font-medium"
           sx={{
