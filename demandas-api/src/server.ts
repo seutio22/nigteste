@@ -106,16 +106,26 @@ app.post('/setup-admin', async (request, reply) => {
     const password = body.password || 'admin'
     const name = body.name || 'Administrador'
     
-    console.log('📧 Email:', email)
-    console.log('🔑 Senha:', password)
+    console.log('📧 Email recebido:', email)
+    console.log('🔑 Senha recebida:', password)
+    console.log('👤 Nome recebido:', name)
+    console.log('📄 Body completo:', JSON.stringify(body, null, 2))
     
     // Verificar se já existe usuário com este email
     const existingAdmin = await prisma.user.findUnique({
       where: { email: email }
     })
     
+    console.log('🔍 Usuário existente encontrado:', existingAdmin ? 'Sim' : 'Não')
+    if (existingAdmin) {
+      console.log('   - ID:', existingAdmin.id)
+      console.log('   - Email:', existingAdmin.email)
+      console.log('   - Tem senha:', existingAdmin.password ? 'Sim' : 'Não')
+    }
+    
     const bcrypt = require('bcryptjs')
     const hashedPassword = await bcrypt.hash(password, 10)
+    console.log('🔐 Hash da senha gerado:', hashedPassword.substring(0, 20) + '...')
     
     let adminUser
     
@@ -209,6 +219,120 @@ app.post('/setup-admin', async (request, reply) => {
   } catch (error) {
     console.error('❌ Erro ao configurar usuário admin:', error)
     throw error
+  }
+})
+
+// Endpoint adicional para criar usuário admin específico
+app.post('/create-admin', async (request, reply) => {
+  try {
+    console.log('🔧 POST /create-admin: Criando usuário admin específico')
+    
+    const { email, password, name } = request.body as any
+    
+    if (!email || !password) {
+      return reply.code(400).send({ error: 'Email e senha são obrigatórios' })
+    }
+    
+    console.log('📧 Email:', email)
+    console.log('🔑 Senha:', password)
+    console.log('👤 Nome:', name || 'Administrador')
+    
+    const bcrypt = require('bcryptjs')
+    const hashedPassword = await bcrypt.hash(password, 10)
+    
+    // Verificar se já existe
+    const existingUser = await prisma.user.findUnique({
+      where: { email: email }
+    })
+    
+    let adminUser
+    
+    if (existingUser) {
+      console.log('⚠️ Usuário já existe, atualizando...')
+      
+      adminUser = await prisma.user.update({
+        where: { email: email },
+        data: {
+          name: name || 'Administrador',
+          password: hashedPassword,
+          role: 'admin',
+          active: true,
+          permissions: JSON.stringify({
+            home: { view: true, create: true, edit: true, delete: true },
+            dashboard: { view: true, create: true, edit: true, delete: true },
+            cadastro: { view: true, create: true, edit: true, delete: true },
+            manutencao: { view: true, create: true, edit: true, delete: true },
+            atendimento: { view: true, create: true, edit: true, delete: true },
+            comunicados: { view: true, create: true, edit: true, delete: true },
+            validacao: { view: true, create: true, edit: true, delete: true },
+            reajuste: { view: true, create: true, edit: true, delete: true },
+            mailling: { view: true, create: true, edit: true, delete: true },
+            analytics: { view: true, create: true, edit: true, delete: true },
+            kanban: { view: true, create: true, edit: true, delete: true },
+            projetos: { view: true, create: true, edit: true, delete: true },
+            dados: { view: true, create: true, edit: true, delete: true },
+            usuarios: { view: true, create: true, edit: true, delete: true },
+            configuracoes: { view: true, create: true, edit: true, delete: true },
+            relatorios: { view: true, create: true, edit: true, delete: true }
+          })
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          active: true
+        }
+      })
+      
+      console.log('✅ Usuário admin atualizado:', adminUser.email)
+      return { message: 'Usuário admin atualizado com sucesso', user: adminUser }
+      
+    } else {
+      console.log('🆕 Criando novo usuário admin...')
+      
+      adminUser = await prisma.user.create({
+        data: {
+          name: name || 'Administrador',
+          email: email,
+          password: hashedPassword,
+          role: 'admin',
+          active: true,
+          permissions: JSON.stringify({
+            home: { view: true, create: true, edit: true, delete: true },
+            dashboard: { view: true, create: true, edit: true, delete: true },
+            cadastro: { view: true, create: true, edit: true, delete: true },
+            manutencao: { view: true, create: true, edit: true, delete: true },
+            atendimento: { view: true, create: true, edit: true, delete: true },
+            comunicados: { view: true, create: true, edit: true, delete: true },
+            validacao: { view: true, create: true, edit: true, delete: true },
+            reajuste: { view: true, create: true, edit: true, delete: true },
+            mailling: { view: true, create: true, edit: true, delete: true },
+            analytics: { view: true, create: true, edit: true, delete: true },
+            kanban: { view: true, create: true, edit: true, delete: true },
+            projetos: { view: true, create: true, edit: true, delete: true },
+            dados: { view: true, create: true, edit: true, delete: true },
+            usuarios: { view: true, create: true, edit: true, delete: true },
+            configuracoes: { view: true, create: true, edit: true, delete: true },
+            relatorios: { view: true, create: true, edit: true, delete: true }
+          })
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          active: true
+        }
+      })
+      
+      console.log('✅ Usuário admin criado:', adminUser.email)
+      return { message: 'Usuário admin criado com sucesso', user: adminUser }
+    }
+    
+  } catch (error) {
+    console.error('❌ Erro ao criar usuário admin:', error)
+    return reply.code(500).send({ error: 'Erro interno do servidor', details: error.message })
   }
 })
 
