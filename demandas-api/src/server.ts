@@ -171,6 +171,158 @@ app.post('/setup-admin', async (request, reply) => {
   }
 })
 
+// Endpoint para importação em lote de clientes (importador inteligente)
+app.post('/clientes/import-bulk', async (request, reply) => {
+  try {
+    console.log('📥 POST /clientes/import-bulk: Iniciando importação em lote')
+    
+    const { clientes } = request.body as { clientes: any[] }
+    
+    if (!clientes || !Array.isArray(clientes)) {
+      return reply.code(400).send({
+        error: 'Dados inválidos',
+        message: 'É necessário enviar um array de clientes no campo "clientes"'
+      })
+    }
+    
+    if (clientes.length === 0) {
+      return reply.code(400).send({
+        error: 'Array vazio',
+        message: 'É necessário enviar pelo menos um cliente para importação'
+      })
+    }
+    
+    console.log(`📊 Importando ${clientes.length} clientes`)
+    
+    const resultados = {
+      sucessos: [] as any[],
+      falhas: [] as any[],
+      duplicatas: [] as any[],
+      total: clientes.length,
+      processados: 0
+    }
+    
+    // Processar cada cliente individualmente
+    for (let i = 0; i < clientes.length; i++) {
+      const cliente = clientes[i]
+      resultados.processados++
+      
+      try {
+        console.log(`🔍 Processando cliente ${i + 1}/${clientes.length}: ${cliente.nome || 'Sem nome'}`)
+        
+        // Validar dados obrigatórios
+        if (!cliente.nome || !cliente.nome.trim()) {
+          resultados.falhas.push({
+            indice: i,
+            cliente: cliente,
+            erro: 'Nome é obrigatório',
+            tipo: 'VALIDACAO'
+          })
+          continue
+        }
+        
+        // Aplicar mesma validação do cadastro manual
+        if (cliente.grupoEconomico && cliente.grupoEconomico.trim()) {
+          const existingClient = await prisma.cliente.findFirst({
+            where: {
+              grupoEconomico: cliente.grupoEconomico.trim()
+            }
+          })
+          
+          if (existingClient) {
+            resultados.duplicatas.push({
+              indice: i,
+              cliente: cliente,
+              clienteExistente: {
+                id: existingClient.id,
+                nome: existingClient.nome,
+                grupoEconomico: existingClient.grupoEconomico
+              },
+              erro: `Grupo econômico "${cliente.grupoEconomico}" já existe para o cliente "${existingClient.nome}"`,
+              tipo: 'DUPLICATA'
+            })
+            continue
+          }
+        }
+        
+        // Limpar dados (remover campos vazios)
+        const clienteLimpo = { ...cliente }
+        Object.keys(clienteLimpo).forEach(key => {
+          const value = clienteLimpo[key]
+          if (value === null || value === undefined || value === '') {
+            delete clienteLimpo[key]
+          }
+        })
+        
+        // Criar cliente
+        const clienteCriado = await prisma.cliente.create({
+          data: clienteLimpo
+        })
+        
+        resultados.sucessos.push({
+          indice: i,
+          cliente: cliente,
+          clienteCriado: {
+            id: clienteCriado.id,
+            nome: clienteCriado.nome,
+            grupoEconomico: clienteCriado.grupoEconomico
+          },
+          tipo: 'SUCESSO'
+        })
+        
+        console.log(`✅ Cliente ${i + 1} criado com sucesso: ${clienteCriado.id}`)
+        
+      } catch (error: any) {
+        console.error(`❌ Erro ao processar cliente ${i + 1}:`, error.message)
+        
+        resultados.falhas.push({
+          indice: i,
+          cliente: cliente,
+          erro: error.message || 'Erro desconhecido',
+          tipo: 'ERRO',
+          codigo: error.code || 'UNKNOWN'
+        })
+      }
+    }
+    
+    // Calcular estatísticas finais
+    const estatisticas = {
+      total: resultados.total,
+      sucessos: resultados.sucessos.length,
+      falhas: resultados.falhas.length,
+      duplicatas: resultados.duplicatas.length,
+      taxaSucesso: ((resultados.sucessos.length / resultados.total) * 100).toFixed(2) + '%'
+    }
+    
+    console.log(`📊 Importação concluída:`, estatisticas)
+    
+    // Determinar código de resposta
+    let statusCode = 200
+    if (resultados.sucessos.length === 0) {
+      statusCode = 400 // Todos falharam
+    } else if (resultados.falhas.length > 0 || resultados.duplicatas.length > 0) {
+      statusCode = 207 // Sucesso parcial
+    }
+    
+    return reply.code(statusCode).send({
+      message: 'Importação em lote concluída',
+      estatisticas,
+      resultados: {
+        sucessos: resultados.sucessos,
+        falhas: resultados.falhas,
+        duplicatas: resultados.duplicatas
+      }
+    })
+    
+  } catch (error: any) {
+    console.error('❌ Erro geral na importação em lote:', error)
+    return reply.code(500).send({
+      error: 'Erro interno do servidor',
+      message: error.message || 'Erro desconhecido na importação'
+    })
+  }
+})
+
 // Endpoint para criar dados de teste (apenas para debug)
 app.post('/setup-dados-teste', async (request, reply) => {
   try {
