@@ -56,13 +56,13 @@ console.log('🚀 CONFIGURAÇÃO CORRIGIDA - SEM BUILD DUPLICADO!')
 console.log('🚀 NO_CACHE=1 ADICIONADO - CACHE DESABILITADO!')
 console.log('🚀 DIST LIMPO - ROTA DUPLICADA RESOLVIDA!')
 
-app.get('/teste-versao-v203', async (request, reply) => {
-  console.log('🚀 ROTA DE TESTE v2.0.3 CHAMADA - MENU LATERAL E PERMISSÕES CORRIGIDAS!')
+app.get('/teste-versao-v204', async (request, reply) => {
+  console.log('🚀 ROTA DE TESTE v2.0.4 CHAMADA - POSTGRESQL CONECTIVIDADE CORRIGIDA!')
   return { 
-    message: 'Rota de teste v2.0.3 funcionando! MENU LATERAL E PERMISSÕES CORRIGIDAS!',
+    message: 'Rota de teste v2.0.4 funcionando! POSTGRESQL CONECTIVIDADE CORRIGIDA!',
     timestamp: new Date().toISOString(),
-    version: 'v2.0.3',
-    packageVersion: '2.0.3',
+    version: 'v2.0.4',
+    packageVersion: '2.0.4',
     buildForced: true,
     cacheDisabled: true,
     distCleaned: true,
@@ -72,7 +72,9 @@ app.get('/teste-versao-v203', async (request, reply) => {
     setupAdminFixed: true,
     menuLateralFixed: true,
     permissionsFixed: true,
-    endpointsAdded: true
+    endpointsAdded: true,
+    postgresqlConnectivityFixed: true,
+    setupScriptImproved: true
   }
 })
 
@@ -294,7 +296,7 @@ app.post('/create-new-user', async (request, reply) => {
     })
     
     console.log('✅ Novo usuário criado:', newUser.email)
-    return { 
+      return { 
       message: 'Novo usuário criado com sucesso', 
       user: newUser,
       credentials: {

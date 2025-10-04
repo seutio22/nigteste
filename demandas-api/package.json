@@ -1,7 +1,7 @@
 {
   "name": "demandas-api-novo",
-  "version": "2.0.3",
-  "description": "Backend API - 2.0.3 - MENU LATERAL E PERMISSÕES CORRIGIDAS",
+  "version": "2.0.4",
+  "description": "Backend API - 2.0.4 - POSTGRESQL CONECTIVIDADE CORRIGIDA",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",

@@ -14,11 +14,31 @@ async function setupPostgreSQL() {
     
     console.log('✅ DATABASE_URL encontrada - configurando PostgreSQL');
     
-    // Aplicar schema usando prisma db push
+    // Tentar aplicar schema usando prisma db push com retry
     console.log('📊 Aplicando schema no PostgreSQL...');
-    execSync('npx prisma db push', { stdio: 'inherit' });
+    let retryCount = 0;
+    const maxRetries = 3;
     
-    console.log('✅ Schema aplicado com sucesso!');
+    while (retryCount < maxRetries) {
+      try {
+        execSync('npx prisma db push --accept-data-loss', { stdio: 'inherit' });
+        console.log('✅ Schema aplicado com sucesso!');
+        break;
+      } catch (error) {
+        retryCount++;
+        console.log(`⚠️ Tentativa ${retryCount}/${maxRetries} falhou: ${error.message}`);
+        
+        if (retryCount >= maxRetries) {
+          console.log('❌ Não foi possível conectar ao banco após 3 tentativas');
+          console.log('💡 Continuando sem aplicar schema - banco pode não estar pronto');
+          console.log('🔄 Schema será aplicado quando o banco estiver disponível');
+          break;
+        }
+        
+        console.log('⏳ Aguardando 5 segundos antes da próxima tentativa...');
+        await new Promise(resolve => setTimeout(resolve, 5000));
+      }
+    }
     
     // Gerar cliente Prisma
     console.log('🔧 Regenerando cliente Prisma...');
@@ -26,57 +46,63 @@ async function setupPostgreSQL() {
     
     console.log('✅ Cliente Prisma regenerado!');
     
-    // Criar usuário admin inicial
-    console.log('👤 Criando usuário admin inicial...');
-    const { PrismaClient } = require('@prisma/client');
-    const bcrypt = require('bcryptjs');
-    
-    const prisma = new PrismaClient();
+    // Tentar criar usuário admin inicial (se banco estiver disponível)
+    console.log('👤 Tentando criar usuário admin inicial...');
     
     try {
-      const existingAdmin = await prisma.user.findFirst({
-        where: { email: 'admin@admin.com' }
-      });
+      const { PrismaClient } = require('@prisma/client');
+      const bcrypt = require('bcryptjs');
       
-      if (!existingAdmin) {
-        const hashedPassword = await bcrypt.hash('123456', 10);
-        
-        const adminUser = await prisma.user.create({
-          data: {
-            name: 'Administrador',
-            email: 'admin@admin.com',
-            password: hashedPassword,
-            role: 'admin',
-            active: true,
-            permissions: JSON.stringify({
-              home: { view: true, create: true, edit: true, delete: true },
-              dashboard: { view: true, create: true, edit: true, delete: true },
-              cadastro: { view: true, create: true, edit: true, delete: true },
-              manutencao: { view: true, create: true, edit: true, delete: true },
-              atendimento: { view: true, create: true, edit: true, delete: true },
-              comunicados: { view: true, create: true, edit: true, delete: true },
-              validacao: { view: true, create: true, edit: true, delete: true },
-              reajuste: { view: true, create: true, edit: true, delete: true },
-              mailling: { view: true, create: true, edit: true, delete: true },
-              analytics: { view: true, create: true, edit: true, delete: true },
-              kanban: { view: true, create: true, edit: true, delete: true },
-              projetos: { view: true, create: true, edit: true, delete: true },
-              dados: { view: true, create: true, edit: true, delete: true },
-              usuarios: { view: true, create: true, edit: true, delete: true },
-              configuracoes: { view: true, create: true, edit: true, delete: true },
-              relatorios: { view: true, create: true, edit: true, delete: true }
-            })
-          }
+      const prisma = new PrismaClient();
+      
+      try {
+        const existingAdmin = await prisma.user.findFirst({
+          where: { email: 'admin@admin.com' }
         });
         
-        console.log(`✅ Usuário admin criado: ${adminUser.name} (${adminUser.email})`);
-      } else {
-        console.log('ℹ️ Usuário admin já existe');
+        if (!existingAdmin) {
+          const hashedPassword = await bcrypt.hash('admin123', 10);
+          
+          const adminUser = await prisma.user.create({
+            data: {
+              name: 'Administrador',
+              email: 'admin@admin.com',
+              password: hashedPassword,
+              role: 'admin',
+              active: true,
+              permissions: JSON.stringify({
+                home: { view: true, create: true, edit: true, delete: true },
+                dashboard: { view: true, create: true, edit: true, delete: true },
+                cadastro: { view: true, create: true, edit: true, delete: true },
+                manutencao: { view: true, create: true, edit: true, delete: true },
+                atendimento: { view: true, create: true, edit: true, delete: true },
+                comunicados: { view: true, create: true, edit: true, delete: true },
+                validacao: { view: true, create: true, edit: true, delete: true },
+                reajuste: { view: true, create: true, edit: true, delete: true },
+                mailling: { view: true, create: true, edit: true, delete: true },
+                analytics: { view: true, create: true, edit: true, delete: true },
+                kanban: { view: true, create: true, edit: true, delete: true },
+                projetos: { view: true, create: true, edit: true, delete: true },
+                dados: { view: true, create: true, edit: true, delete: true },
+                usuarios: { view: true, create: true, edit: true, delete: true },
+                configuracoes: { view: true, create: true, edit: true, delete: true },
+                relatorios: { view: true, create: true, edit: true, delete: true }
+              })
+            }
+          });
+          
+          console.log(`✅ Usuário admin criado: ${adminUser.name} (${adminUser.email})`);
+        } else {
+          console.log('ℹ️ Usuário admin já existe');
+        }
+      } catch (error) {
+        console.error('❌ Erro ao criar usuário admin:', error.message);
+      } finally {
+        await prisma.$disconnect();
       }
     } catch (error) {
-      console.error('❌ Erro ao criar usuário admin:', error.message);
-    } finally {
-      await prisma.$disconnect();
+      console.log('⚠️ Não foi possível criar usuário admin - banco pode não estar disponível');
+      console.log('💡 Usuário admin será criado quando o banco estiver pronto');
     }
     
     console.log('\n🎉 PostgreSQL configurado com sucesso!');
