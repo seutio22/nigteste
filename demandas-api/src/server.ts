@@ -125,6 +125,51 @@ app.get('/usuarios-publicos', async (request, reply) => {
     throw error
   }
 })
+
+// Endpoint para criar usuário admin inicial (apenas para setup)
+app.post('/setup-admin', async (request, reply) => {
+  try {
+    console.log('🔧 POST /setup-admin: Criando usuário admin inicial')
+    
+    // Verificar se já existe usuário admin
+    const existingAdmin = await prisma.user.findFirst({
+      where: { role: 'admin' }
+    })
+    
+    if (existingAdmin) {
+      console.log('⚠️ Usuário admin já existe:', existingAdmin.email)
+      return { message: 'Usuário admin já existe', user: existingAdmin }
+    }
+    
+    // Criar usuário admin
+    const bcrypt = require('bcryptjs')
+    const hashedPassword = await bcrypt.hash('admin123', 10)
+    
+    const adminUser = await prisma.user.create({
+      data: {
+        name: 'Administrador',
+        email: 'admin@admin.com',
+        password: hashedPassword,
+        role: 'admin',
+        active: true
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        active: true,
+        createdAt: true
+      }
+    })
+    
+    console.log('✅ Usuário admin criado:', adminUser.email)
+    return { message: 'Usuário admin criado com sucesso', user: adminUser }
+  } catch (error) {
+    console.error('❌ Erro ao criar usuário admin:', error)
+    throw error
+  }
+})
 console.log('🚀 ROTA DE TESTE v23 REGISTRADA - CÓDIGO NOVO!')
 
 // LOG PARA CONFIRMAR QUE A ROTA ESTÁ SENDO REGISTRADA
