@@ -311,10 +311,7 @@ export const api = {
   getAnalytics: () => apiRequest('/analytics'),
 
   // Limpeza de dados
-  limparDuplicatasClientes: () => 
-    apiRequest('/clientes/cleanup-duplicatas', {
-      method: 'DELETE',
-    }),
+  // limparDuplicatasClientes removido - função de limpeza de duplicatas removida
   limparDemandasSimples: () => 
     apiRequest('/demandas/limpar-atv-demandas', {
       method: 'DELETE',

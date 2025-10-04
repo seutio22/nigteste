@@ -12,7 +12,7 @@ import { DadosHelpModal } from '../components/DadosHelpModal'
 import { SnackNotification } from '../components/SnackNotification'
 import { UploadModal } from '../components/UploadModal'
 import { SmartImporter } from '../components/SmartImporter'
-import { CleanupModal } from '../components/CleanupModal'
+// CleanupModal removido - função de limpeza de duplicatas removida
 import { smartImporterConfigs } from '../config/smartImporterConfigs'
 import type { TabKey, FormData, DataMap } from '../types/dadosTypes'
 import type { ImportResult } from '../types/smartImporter'
@@ -28,7 +28,7 @@ export default function DadosPage() {
   const [openHelp, setOpenHelp] = useState(false)
   const [uploadModalOpen, setUploadModalOpen] = useState(false)
   const [smartImporterOpen, setSmartImporterOpen] = useState(false)
-  const [cleanupModalOpen, setCleanupModalOpen] = useState(false)
+  // cleanupModalOpen removido - modal de limpeza de duplicatas removido
 
   // Sincronização dinâmica ativada - será feita automaticamente pelo useDynamicSync
   useEffect(() => {
@@ -127,12 +127,7 @@ export default function DadosPage() {
     }
   }
 
-  const handleCleanupSuccess = async () => {
-    // Recarregar dados após limpeza
-    if (store.syncFromApi) {
-      await store.syncFromApi()
-    }
-  }
+  // handleCleanupSuccess removido - função de limpeza de duplicatas removida
 
 
   const handleFormClose = () => {
@@ -1173,7 +1168,7 @@ export default function DadosPage() {
           onAdd={handleAdd}
           onExportAll={handleExportAll}
           onExportCurrent={handleExportCurrent}
-          onCleanup={() => setCleanupModalOpen(true)}
+          // onCleanup removido - função de limpeza de duplicatas removida
         />
 
 
@@ -1236,11 +1231,7 @@ export default function DadosPage() {
         masterData={store}
       />
 
-      <CleanupModal
-        open={cleanupModalOpen}
-        onClose={() => setCleanupModalOpen(false)}
-        onSuccess={handleCleanupSuccess}
-      />
+      {/* CleanupModal removido - modal de limpeza de duplicatas removido */}
     </Paper>
   )
 }
