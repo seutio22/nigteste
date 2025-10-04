@@ -786,7 +786,7 @@ app.get('/usuario-edicao/me', async (request, reply) => {
     }
     
     // Decodificar token para obter ID do usuário
-    const decoded = jwt.verify(token)
+    const decoded = app.jwt.verify(token)
     const userId = (decoded as any).userId
     
     if (!userId) {
