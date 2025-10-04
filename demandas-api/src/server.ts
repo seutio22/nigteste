@@ -64,21 +64,23 @@ const corsOptions = {
 
 app.register(cors, corsOptions)
 
-// FORÇAR REDEPLOY RAILWAY v14 - MUDANÇA DRÁSTICA PARA QUEBRAR CACHE
-console.log('🚀 FORÇANDO REDEPLOY RAILWAY v14 - CÓDIGO NOVO EXECUTANDO!')
-console.log('🚀 TIMESTAMP: 2025-10-04-00:10 - VERSÃO ATUALIZADA!')
+// FORÇAR REDEPLOY RAILWAY v15 - MUDANÇA ULTRA DRÁSTICA PARA QUEBRAR CACHE
+console.log('🚀 FORÇANDO REDEPLOY RAILWAY v15 - CÓDIGO NOVO EXECUTANDO!')
+console.log('🚀 TIMESTAMP: 2025-10-04-00:12 - VERSÃO ATUALIZADA!')
 console.log('🚀 BREAKING CACHE - NOVA VERSÃO DO CÓDIGO!')
+console.log('🚀 PACKAGE.JSON VERSION: 0.2.1 - FORÇANDO RECONHECIMENTO!')
 
-app.get('/teste-route-v14', async (request, reply) => {
-  console.log('🚀 ROTA DE TESTE v14 CHAMADA - CÓDIGO NOVO!')
+app.get('/teste-route-v15', async (request, reply) => {
+  console.log('🚀 ROTA DE TESTE v15 CHAMADA - CÓDIGO NOVO!')
   return { 
-    message: 'Rota de teste v14 funcionando! CÓDIGO NOVO EXECUTANDO!', 
+    message: 'Rota de teste v15 funcionando! CÓDIGO NOVO EXECUTANDO!', 
     timestamp: new Date().toISOString(),
-    version: 'v14',
+    version: 'v15',
+    packageVersion: '0.2.1',
     cacheBuster: Math.random()
   }
 })
-console.log('🚀 ROTA DE TESTE v14 REGISTRADA - CÓDIGO NOVO!')
+console.log('🚀 ROTA DE TESTE v15 REGISTRADA - CÓDIGO NOVO!')
 
 // LOG PARA CONFIRMAR QUE A ROTA ESTÁ SENDO REGISTRADA
 console.log('🚀 REGISTRANDO ROTA: /limpeza/clientes-duplicatas')
@@ -876,9 +878,10 @@ const resources = {
          areas: {
            ...crud('area'),
            delete: async (id: string) => {
-             console.log('🚀 DELETE AREA v14 - CÓDIGO NOVO EXECUTANDO')
-             console.log('🚀 VERSÃO: 2025-10-04-00:10 - RAILWAY ATUALIZADO v14')
+             console.log('🚀 DELETE AREA v15 - CÓDIGO NOVO EXECUTANDO')
+             console.log('🚀 VERSÃO: 2025-10-04-00:12 - RAILWAY ATUALIZADO v15')
              console.log('🚀 CACHE QUEBRADO - NOVA VERSÃO DO CÓDIGO!')
+             console.log('🚀 PACKAGE VERSION: 0.2.1 - FORÇANDO RECONHECIMENTO!')
              console.log(`🚀 Excluindo área ID: ${id}`)
       
       try {
@@ -1851,9 +1854,10 @@ app.get('/teste-route', async (request, reply) => {
 // FORÇAR REDEPLOY RAILWAY v14 - ROTA NOVA COM NOME DIFERENTE - CÓDIGO NOVO
 app.delete('/api/limpeza/clientes-duplicatas', async (request, reply) => {
   try {
-    console.log('🧹 [DEBUG] Endpoint /api/limpeza/clientes-duplicatas chamado - ROTA NOVA v14')
+    console.log('🧹 [DEBUG] Endpoint /api/limpeza/clientes-duplicatas chamado - ROTA NOVA v15')
     console.log('🧹 [DEBUG] ROTA ESPECÍFICA FUNCIONANDO - NÃO É CRUD GENÉRICO')
-    console.log('🧹 [DEBUG] CÓDIGO NOVO EXECUTANDO - v14 - CACHE QUEBRADO!')
+    console.log('🧹 [DEBUG] CÓDIGO NOVO EXECUTANDO - v15 - CACHE QUEBRADO!')
+    console.log('🧹 [DEBUG] PACKAGE VERSION: 0.2.1 - FORÇANDO RECONHECIMENTO!')
     console.log('🧹 Iniciando limpeza de grupos econômicos duplicados...')
     
     // Buscar todos os clientes com grupos econômicos
