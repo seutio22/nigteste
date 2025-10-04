@@ -224,6 +224,88 @@ app.post('/setup-admin', async (request, reply) => {
   }
 })
 
+// Endpoint para criar usuário completamente novo
+app.post('/create-new-user', async (request, reply) => {
+  try {
+    console.log('🔧 POST /create-new-user: Criando usuário completamente novo')
+    
+    const { email, password, name, role } = request.body as any
+    
+    if (!email || !password || !name) {
+      return reply.code(400).send({ error: 'Email, senha e nome são obrigatórios' })
+    }
+    
+    console.log('📧 Email:', email)
+    console.log('🔑 Senha:', password)
+    console.log('👤 Nome:', name)
+    console.log('👑 Role:', role || 'admin')
+    
+    const bcrypt = require('bcryptjs')
+    const hashedPassword = await bcrypt.hash(password, 10)
+    
+    // Verificar se já existe usuário com este email
+    const existingUser = await prisma.user.findUnique({
+      where: { email: email }
+    })
+    
+    if (existingUser) {
+      console.log('❌ Usuário já existe com este email:', email)
+      return reply.code(409).send({ error: 'Usuário já existe com este email', user: existingUser })
+    }
+    
+    console.log('🆕 Criando novo usuário...')
+    
+    const newUser = await prisma.user.create({
+      data: {
+        name: name,
+        email: email,
+        password: hashedPassword,
+        role: role || 'admin',
+        active: true,
+        permissions: JSON.stringify({
+          home: { view: true, create: true, edit: true, delete: true },
+          dashboard: { view: true, create: true, edit: true, delete: true },
+          cadastro: { view: true, create: true, edit: true, delete: true },
+          manutencao: { view: true, create: true, edit: true, delete: true },
+          atendimento: { view: true, create: true, edit: true, delete: true },
+          comunicados: { view: true, create: true, edit: true, delete: true },
+          validacao: { view: true, create: true, edit: true, delete: true },
+          reajuste: { view: true, create: true, edit: true, delete: true },
+          mailling: { view: true, create: true, edit: true, delete: true },
+          analytics: { view: true, create: true, edit: true, delete: true },
+          kanban: { view: true, create: true, edit: true, delete: true },
+          projetos: { view: true, create: true, edit: true, delete: true },
+          dados: { view: true, create: true, edit: true, delete: true },
+          usuarios: { view: true, create: true, edit: true, delete: true },
+          configuracoes: { view: true, create: true, edit: true, delete: true },
+          relatorios: { view: true, create: true, edit: true, delete: true }
+        })
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        active: true
+      }
+    })
+    
+    console.log('✅ Novo usuário criado:', newUser.email)
+    return { 
+      message: 'Novo usuário criado com sucesso', 
+      user: newUser,
+      credentials: {
+        email: email,
+        password: password
+      }
+    }
+    
+  } catch (error) {
+    console.error('❌ Erro ao criar novo usuário:', error)
+    return reply.code(500).send({ error: 'Erro interno do servidor', details: error.message })
+  }
+})
+
 // Endpoint adicional para criar usuário admin específico
 app.post('/create-admin', async (request, reply) => {
   try {
