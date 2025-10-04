@@ -2050,6 +2050,10 @@ const resources = {
   projetos: crud('project'),
   dados: crud('dados'),
   usuarios: crud('user'), // Adicionado endpoint para usuários
+  // Aliases para compatibilidade com frontend
+  projects: crud('project'), // Alias para /projects
+  types: crud('tipoDemanda'), // Alias para /types
+  services: crud('tipoServico'), // Alias para /services
 }
 
 
