@@ -3585,14 +3585,29 @@ const start = async () => {
     console.log('- JWT_SECRET:', process.env.JWT_SECRET ? '✅ Definido' : '❌ Não definido')
     console.log('- DATABASE_URL:', process.env.DATABASE_URL ? '✅ Definido' : '❌ Não definido')
     
-    // Testar conexão com o banco
-    try {
-      console.log('🔌 Testando conexão com o banco...')
-      await prisma.$connect()
-      console.log('✅ Conexão com banco estabelecida')
-    } catch (dbError) {
-      console.error('❌ Erro ao conectar com o banco:', dbError)
-      console.log('⚠️ Continuando sem banco por enquanto...')
+    // Testar conexão com o banco com retry
+    console.log('🔌 Testando conexão com o banco...')
+    let connectedToDatabase = false
+    
+    for (let attempt = 1; attempt <= 5; attempt++) {
+      try {
+        console.log(`🔄 Tentativa ${attempt}/5 de conexão com o banco...`)
+        await prisma.$connect()
+        console.log('✅ Conexão com banco estabelecida!')
+        connectedToDatabase = true
+        break
+      } catch (error) {
+        console.error(`❌ Tentativa ${attempt}/5 falhou:`, error.message)
+        if (attempt < 5) {
+          console.log(`⏳ Aguardando 3 segundos antes da próxima tentativa...`)
+          await new Promise(resolve => setTimeout(resolve, 3000))
+        }
+      }
+    }
+    
+    if (!connectedToDatabase) {
+      console.log('⚠️ Não foi possível conectar ao banco após 5 tentativas')
+      console.log('⚠️ Continuando sem banco - aplicação funcionará com limitações')
     }
     
     const port = process.env.PORT || 3333
