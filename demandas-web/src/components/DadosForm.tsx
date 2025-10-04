@@ -34,6 +34,13 @@ export const DadosForm: React.FC<DadosFormProps> = ({
     }
   }, [editingItem])
 
+  // Limpar formulário quando modal abrir (sem editingItem)
+  React.useEffect(() => {
+    if (open && !editingItem) {
+      setForm({})
+    }
+  }, [open, editingItem])
+
   const handleFieldChange = (field: keyof FormData, value: any) => {
     setForm(prev => ({ ...prev, [field]: value }))
   }

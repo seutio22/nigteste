@@ -1205,6 +1205,7 @@ export default function DadosPage() {
         open={openForm}
         onClose={handleFormClose}
         activeTab={activeTab}
+        editingItem={undefined}
         onSuccess={handleFormClose}
       />
 
