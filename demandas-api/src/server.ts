@@ -86,8 +86,8 @@ app.post('/export-old-data', async (request, reply) => {
   try {
     console.log('📊 Tentando conectar ao banco antigo para exportar dados...')
     
-    // Tentar conectar ao banco antigo
-    const oldDatabaseUrl = 'postgresql://postgres:senha@caboose.proxy.rlwy.net:14005/railway'
+    // Tentar conectar ao banco antigo com a URL correta
+    const oldDatabaseUrl = 'postgresql://postgres:bmMmEyxMQtWnuUNpCHurVgavceYvAaeR@caboose.proxy.rlwy.net:14005/railway'
     const { PrismaClient } = require('@prisma/client')
     
     const oldPrisma = new PrismaClient({
@@ -3667,13 +3667,13 @@ const start = async () => {
     console.log('- DATABASE_URL:', process.env.DATABASE_URL ? '✅ Definido' : '❌ Não definido')
     
     // Testar conexão com o banco com retry
-    console.log('🔌 Testando conexão com o banco...')
+      console.log('🔌 Testando conexão com o banco...')
     let connectedToDatabase = false
     
     for (let attempt = 1; attempt <= 5; attempt++) {
       try {
         console.log(`🔄 Tentativa ${attempt}/5 de conexão com o banco...`)
-        await prisma.$connect()
+      await prisma.$connect()
         console.log('✅ Conexão com banco estabelecida!')
         connectedToDatabase = true
         break
