@@ -56,18 +56,20 @@ console.log('🚀 CONFIGURAÇÃO CORRIGIDA - SEM BUILD DUPLICADO!')
 console.log('🚀 NO_CACHE=1 ADICIONADO - CACHE DESABILITADO!')
 console.log('🚀 DIST LIMPO - ROTA DUPLICADA RESOLVIDA!')
 
-app.get('/teste-versao-v200', async (request, reply) => {
-  console.log('🚀 ROTA DE TESTE v2.0.1 CHAMADA - CORREÇÃO DELETE 404 APLICADA!')
+app.get('/teste-versao-v202', async (request, reply) => {
+  console.log('🚀 ROTA DE TESTE v2.0.2 CHAMADA - ENDPOINT CREATE-ADMIN E CORREÇÕES!')
   return { 
-    message: 'Rota de teste v2.0.1 funcionando! CORREÇÃO DELETE 404 APLICADA!',
+    message: 'Rota de teste v2.0.2 funcionando! ENDPOINT CREATE-ADMIN E CORREÇÕES!',
     timestamp: new Date().toISOString(),
-    version: 'v2.0.1',
-    packageVersion: '2.0.1',
+    version: 'v2.0.2',
+    packageVersion: '2.0.2',
     buildForced: true,
     cacheDisabled: true,
     distCleaned: true,
     cacheBuster: Math.random(),
-    deleteFixApplied: true
+    deleteFixApplied: true,
+    createAdminEndpointAdded: true,
+    setupAdminFixed: true
   }
 })
 
