@@ -1,6 +1,6 @@
 [build]
 builder = "nixpacks"
-buildCommand = "echo 'FORCING CACHE CLEAR v22' && npm run build && echo 'BUILD COMPLETED v22 - CACHE CLEARED'"
+buildCommand = "echo 'FORCING CACHE CLEAR v23' && rm -rf dist && npm run build && echo 'BUILD COMPLETED v23 - DIST CLEANED'"
 
 [deploy]
 startCommand = "npm start"

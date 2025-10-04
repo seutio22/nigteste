@@ -64,32 +64,33 @@ const corsOptions = {
 
 app.register(cors, corsOptions)
 
-// FORÇAR RECOMPILAÇÃO RAILWAY v22 - CACHE DESABILITADO
-console.log('🚀 FORÇANDO RECOMPILAÇÃO RAILWAY v22 - CÓDIGO NOVO EXECUTANDO!')
-console.log('🚀 TIMESTAMP: 2025-10-04-00:40 - VERSÃO ATUALIZADA!')
-console.log('🚀 CACHE DESABILITADO - NO_CACHE=1!')
-console.log('🚀 PACKAGE.JSON VERSION: 0.2.5 - BUILD FORÇADO!')
-console.log('🚀 START SCRIPT: npm run build - RECOMPILAÇÃO FORÇADA!')
-console.log('🚀 ULTIMA TENTATIVA - CACHE DEVE SER QUEBRADO!')
-console.log('🚀 PROBLEMA CRÍTICO: Railway não reconhece mudanças!')
+// FORÇAR RECOMPILAÇÃO RAILWAY v23 - DIST LIMPO
+console.log('🚀 FORÇANDO RECOMPILAÇÃO RAILWAY v23 - CÓDIGO NOVO EXECUTANDO!')
+console.log('🚀 TIMESTAMP: 2025-10-04-01:00 - VERSÃO ATUALIZADA!')
+console.log('🚀 DIST LIMPO - rm -rf dist ADICIONADO!')
+console.log('🚀 PACKAGE.JSON VERSION: 0.2.6 - BUILD FORÇADO!')
+console.log('🚀 BUILD COMMAND: rm -rf dist && npm run build!')
+console.log('🚀 PROBLEMA: Rota /mailling duplicada resolvida!')
 console.log('🚀 BRANCH MAIN CONFIGURADA - DEVE FUNCIONAR AGORA!')
 console.log('🚀 RAILWAY.TOML CORRIGIDO - BUILD COMMAND ADICIONADO!')
 console.log('🚀 CONFIGURAÇÃO CORRIGIDA - SEM BUILD DUPLICADO!')
 console.log('🚀 NO_CACHE=1 ADICIONADO - CACHE DESABILITADO!')
+console.log('🚀 DIST LIMPO - ROTA DUPLICADA RESOLVIDA!')
 
-app.get('/teste-route-v22', async (request, reply) => {
-  console.log('🚀 ROTA DE TESTE v22 CHAMADA - CÓDIGO NOVO!')
-  return { 
-    message: 'Rota de teste v22 funcionando! CÓDIGO NOVO EXECUTANDO!', 
+app.get('/teste-route-v23', async (request, reply) => {
+  console.log('🚀 ROTA DE TESTE v23 CHAMADA - CÓDIGO NOVO!')
+  return {
+    message: 'Rota de teste v23 funcionando! CÓDIGO NOVO EXECUTANDO!',
     timestamp: new Date().toISOString(),
-    version: 'v22',
-    packageVersion: '0.2.5',
+    version: 'v23',
+    packageVersion: '0.2.6',
     buildForced: true,
     cacheDisabled: true,
+    distCleaned: true,
     cacheBuster: Math.random()
   }
 })
-console.log('🚀 ROTA DE TESTE v22 REGISTRADA - CÓDIGO NOVO!')
+console.log('🚀 ROTA DE TESTE v23 REGISTRADA - CÓDIGO NOVO!')
 
 // LOG PARA CONFIRMAR QUE A ROTA ESTÁ SENDO REGISTRADA
 console.log('🚀 REGISTRANDO ROTA: /limpeza/clientes-duplicatas')
