@@ -1,7 +1,7 @@
 {
   "name": "demandas-api-novo",
-  "version": "1.0.2",
-  "description": "Backend API - v1.0.2 - FORCAR DEPLOY RAILWAY - ENDPOINT TESTE ADICIONADO",
+  "version": "1.0.3",
+  "description": "Backend API - v1.0.3 - FORCAR REDEPLOY COMPLETO - CONFIGURACAO RAILWAY ATUALIZADA",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
