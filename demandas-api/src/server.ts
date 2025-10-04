@@ -87,13 +87,13 @@ console.log('🚀 CONFIGURAÇÃO CORRIGIDA - SEM BUILD DUPLICADO!')
 console.log('🚀 NO_CACHE=1 ADICIONADO - CACHE DESABILITADO!')
 console.log('🚀 DIST LIMPO - ROTA DUPLICADA RESOLVIDA!')
 
-app.get('/teste-route-v26', async (request, reply) => {
-  console.log('🚀 ROTA DE TESTE v24 CHAMADA - PRISMA REGENERADO!')
+app.get('/teste-versao-v200', async (request, reply) => {
+  console.log('🚀 ROTA DE TESTE v2.0.0 CHAMADA - VERSÃO NOVA APLICADA!')
   return {
-    message: 'Rota de teste v26 funcionando! SIMPLIFICADO!',
+    message: 'Rota de teste v2.0.0 funcionando! VERSÃO MAJOR APLICADA!',
     timestamp: new Date().toISOString(),
-    version: 'v26',
-    packageVersion: '0.2.9',
+    version: 'v2.0.0',
+    packageVersion: '2.0.0',
     buildForced: true,
     cacheDisabled: true,
     distCleaned: true,
