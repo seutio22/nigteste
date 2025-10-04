@@ -2054,6 +2054,32 @@ const resources = {
   projects: crud('project'), // Alias para /projects
   types: crud('tipoDemanda'), // Alias para /types
   services: crud('tipoServico'), // Alias para /services
+  'kanban-tickets': crud('kanbanTicket'), // Endpoint para kanban tickets
+  // Endpoints adicionais que estavam faltando
+  analytics: crud('analytics'),
+  reports: crud('report'),
+  solicitantes: crud('solicitante'),
+  relatorios: crud('relatorio'),
+  modelos: crud('modelo'),
+  areasMailling: crud('areaMailling'),
+  cargosMailling: crud('cargoMailling'),
+  filiaisMailling: crud('filialMailling'),
+  dashboards: crud('dashboard'),
+  dashboardWidgets: crud('dashboardWidget'),
+  permissions: crud('permission'),
+  userPermissions: crud('userPermission'),
+  comunicados: crud('comunicado'),
+  comunicadoVisualizacoes: crud('comunicadoVisualizacao'),
+  comunicadoComentarios: crud('comunicadoComentario'),
+  timelineEvents: crud('timelineEvent'),
+  projectMembers: crud('projectMember'),
+  projectExternalMembers: crud('projectExternalMember'),
+  projectTasks: crud('projectTask'),
+  projectSubtasks: crud('projectSubtask'),
+  projectMilestones: crud('projectMilestone'),
+  projectTimelines: crud('projectTimeline'),
+  projectShareTokens: crud('projectShareToken'),
+  padroes: crud('padrao')
 }
 
 

@@ -1,7 +1,7 @@
 {
   "name": "demandas-api-novo",
-  "version": "2.1.9",
-  "description": "Backend API - 2.1.9 - ALIASES FRONTEND - PROJECTS ENDPOINTS",
+  "version": "2.2.0",
+  "description": "Backend API - 2.2.0 - TODOS OS ENDPOINTS - KANBAN E OUTROS",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
