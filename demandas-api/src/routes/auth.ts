@@ -10,7 +10,10 @@ export async function authRoutes(app: FastifyInstance) {
     try {
       // Validar dados de entrada
       const bodySchema = z.object({ 
-        email: z.string().email('E-mail inválido'), 
+        email: z.string().min(1, 'E-mail é obrigatório').refine(
+          (email) => email.includes('@') && email.includes('.'),
+          'E-mail deve conter @ e .'
+        ), 
         password: z.string().min(1, 'Senha é obrigatória') 
       })
       const body = bodySchema.parse(req.body)
