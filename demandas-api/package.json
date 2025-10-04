@@ -1,7 +1,7 @@
 {
   "name": "demandas-api-novo",
-  "version": "2.1.0",
-  "description": "Backend API - 2.1.0 - RETRY CONEXAO POSTGRESQL",
+  "version": "2.1.1",
+  "description": "Backend API - 2.1.1 - POSTGRESQL FUNCIONANDO - FORCAR DEPLOY",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
