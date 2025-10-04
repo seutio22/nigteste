@@ -64,10 +64,12 @@ const corsOptions = {
 
 
 
-console.log('🔧 CORRIGINDO DEPLOY RAILWAY - PROBLEMA PRISMA!');
+
+console.log('🔧 DEPLOY SIMPLIFICADO - EVITAR PROBLEMAS!');
 console.log('🔧 PROBLEMA: Deploy falhando no Railway!');
-console.log('🔧 SOLUÇÃO: Corrigir geração do Prisma Client!');
-console.log('🔧 RAILWAY: Verificar build process!');
+console.log('🔧 SOLUÇÃO: Simplificar processo de build!');
+console.log('🔧 RAILWAY: Build mais simples e direto!');
+
 
 
 app.register(cors, corsOptions)
@@ -85,13 +87,13 @@ console.log('🚀 CONFIGURAÇÃO CORRIGIDA - SEM BUILD DUPLICADO!')
 console.log('🚀 NO_CACHE=1 ADICIONADO - CACHE DESABILITADO!')
 console.log('🚀 DIST LIMPO - ROTA DUPLICADA RESOLVIDA!')
 
-app.get('/teste-route-v25', async (request, reply) => {
+app.get('/teste-route-v26', async (request, reply) => {
   console.log('🚀 ROTA DE TESTE v24 CHAMADA - PRISMA REGENERADO!')
   return {
-    message: 'Rota de teste v25 funcionando! DEPLOY CORRIGIDO!',
+    message: 'Rota de teste v26 funcionando! SIMPLIFICADO!',
     timestamp: new Date().toISOString(),
-    version: 'v25',
-    packageVersion: '0.2.8',
+    version: 'v26',
+    packageVersion: '0.2.9',
     buildForced: true,
     cacheDisabled: true,
     distCleaned: true,

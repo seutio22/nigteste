@@ -1,12 +1,12 @@
 {
   "name": "demandas-api-novo",
-  "version": "0.2.8",
-  "description": "Backend API - 0.2.8 - CORRIGIR PRISMA DEPLOY",
+  "version": "0.2.9",
+  "description": "Backend API - 0.2.9 - DEPLOY SIMPLIFICADO",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
-    "start": "npx prisma generate && node dist/server.js",
+    "start": "node dist/server.js",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate deploy",
     "db:generate": "prisma generate",
