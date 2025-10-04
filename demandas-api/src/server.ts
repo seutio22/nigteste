@@ -323,6 +323,155 @@ app.post('/clientes/import-bulk', async (request, reply) => {
   }
 })
 
+// Função genérica para importação em lote de qualquer entidade
+function createBulkImportEndpoint(entityName: string, entityKey: string, validationRules?: (item: any) => string | null) {
+  return async (request: any, reply: any) => {
+    try {
+      console.log(`📥 POST /${entityKey}/import-bulk: Iniciando importação em lote`)
+      
+      const { [entityKey]: items } = request.body as { [key: string]: any[] }
+      
+      if (!items || !Array.isArray(items)) {
+        return reply.code(400).send({
+          error: 'Dados inválidos',
+          message: `É necessário enviar um array de ${entityKey} no campo "${entityKey}"`
+        })
+      }
+      
+      if (items.length === 0) {
+        return reply.code(400).send({
+          error: 'Array vazio',
+          message: `É necessário enviar pelo menos um ${entityKey} para importação`
+        })
+      }
+      
+      console.log(`📊 Importando ${items.length} ${entityKey}`)
+      
+      const resultados = {
+        sucessos: [] as any[],
+        falhas: [] as any[],
+        duplicatas: [] as any[],
+        total: items.length,
+        processados: 0
+      }
+      
+      const anyPrisma = prisma as any
+      
+      // Processar cada item individualmente
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i]
+        resultados.processados++
+        
+        try {
+          console.log(`🔍 Processando ${entityKey} ${i + 1}/${items.length}: ${item.nome || item.name || 'Sem nome'}`)
+          
+          // Aplicar validações específicas se fornecidas
+          if (validationRules) {
+            const validationError = validationRules(item)
+            if (validationError) {
+              resultados.falhas.push({
+                indice: i,
+                item: item,
+                erro: validationError,
+                tipo: 'VALIDACAO'
+              })
+              continue
+            }
+          }
+          
+          // Limpar dados (remover campos vazios)
+          const itemLimpo = { ...item }
+          Object.keys(itemLimpo).forEach(key => {
+            const value = itemLimpo[key]
+            if (value === null || value === undefined || value === '') {
+              delete itemLimpo[key]
+            }
+          })
+          
+          // Criar item
+          const itemCriado = await anyPrisma[entityName].create({
+            data: itemLimpo
+          })
+          
+          resultados.sucessos.push({
+            indice: i,
+            item: item,
+            itemCriado: {
+              id: itemCriado.id,
+              nome: itemCriado.nome || itemCriado.name || 'Sem nome'
+            },
+            tipo: 'SUCESSO'
+          })
+          
+          console.log(`✅ ${entityKey} ${i + 1} criado com sucesso: ${itemCriado.id}`)
+          
+        } catch (error: any) {
+          console.error(`❌ Erro ao processar ${entityKey} ${i + 1}:`, error.message)
+          
+          resultados.falhas.push({
+            indice: i,
+            item: item,
+            erro: error.message || 'Erro desconhecido',
+            tipo: 'ERRO',
+            codigo: error.code || 'UNKNOWN'
+          })
+        }
+      }
+      
+      // Calcular estatísticas finais
+      const estatisticas = {
+        total: resultados.total,
+        sucessos: resultados.sucessos.length,
+        falhas: resultados.falhas.length,
+        duplicatas: resultados.duplicatas.length,
+        taxaSucesso: ((resultados.sucessos.length / resultados.total) * 100).toFixed(2) + '%'
+      }
+      
+      console.log(`📊 Importação de ${entityKey} concluída:`, estatisticas)
+      
+      // Determinar código de resposta
+      let statusCode = 200
+      if (resultados.sucessos.length === 0) {
+        statusCode = 400 // Todos falharam
+      } else if (resultados.falhas.length > 0 || resultados.duplicatas.length > 0) {
+        statusCode = 207 // Sucesso parcial
+      }
+      
+      return reply.code(statusCode).send({
+        message: `Importação em lote de ${entityKey} concluída`,
+        estatisticas,
+        resultados: {
+          sucessos: resultados.sucessos,
+          falhas: resultados.falhas,
+          duplicatas: resultados.duplicatas
+        }
+      })
+      
+    } catch (error: any) {
+      console.error(`❌ Erro geral na importação em lote de ${entityKey}:`, error)
+      return reply.code(500).send({
+        error: 'Erro interno do servidor',
+        message: error.message || `Erro desconhecido na importação de ${entityKey}`
+      })
+    }
+  }
+}
+
+// Endpoints de importação em lote para diferentes entidades
+app.post('/analistas/import-bulk', createBulkImportEndpoint('analista', 'analistas'))
+app.post('/operadoras/import-bulk', createBulkImportEndpoint('operadora', 'operadoras'))
+app.post('/produtos/import-bulk', createBulkImportEndpoint('produto', 'produtos'))
+app.post('/sistemas/import-bulk', createBulkImportEndpoint('sistema', 'sistemas'))
+app.post('/contratos/import-bulk', createBulkImportEndpoint('contrato', 'contratos'))
+app.post('/tipos-servico/import-bulk', createBulkImportEndpoint('tipoServico', 'tiposServico'))
+app.post('/tipos-demanda/import-bulk', createBulkImportEndpoint('tipoDemanda', 'tiposDemanda'))
+app.post('/manutencoes/import-bulk', createBulkImportEndpoint('manutencao', 'manutencoes'))
+app.post('/validacoes/import-bulk', createBulkImportEndpoint('validacao', 'validacoes'))
+app.post('/tipos-cadastro/import-bulk', createBulkImportEndpoint('tipoCadastro', 'tiposCadastro'))
+app.post('/reajustes/import-bulk', createBulkImportEndpoint('reajuste', 'reajustes'))
+app.post('/projetos/import-bulk', createBulkImportEndpoint('project', 'projetos'))
+app.post('/dados/import-bulk', createBulkImportEndpoint('dados', 'dados'))
+
 // Endpoint para criar dados de teste (apenas para debug)
 app.post('/setup-dados-teste', async (request, reply) => {
   try {
