@@ -2138,7 +2138,8 @@ app.delete('/contratos/limpar-orfaos', async () => {
 })
 
 
-// Endpoint específico para exclusão de demandas individuais
+// Endpoint específico para exclusão de demandas individuais - TEMPORARIAMENTE DESABILITADO PARA EVITAR CONFLITO
+/*
 app.delete('/demandas/:id', async (req: any, reply: any) => {
   try {
     const { id } = req.params
@@ -2206,6 +2207,7 @@ app.delete('/demandas/:id', async (req: any, reply: any) => {
     }
   }
 })
+*/
 
 // Endpoint para limpar demandas simples incorretas
 app.delete('/demandas/limpar-atv-demandas', async () => {
