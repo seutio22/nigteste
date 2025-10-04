@@ -75,8 +75,8 @@ console.log('🔧 RAILWAY: Build mais simples e direto!');
 app.register(cors, corsOptions)
 
 // FORÇAR RECOMPILAÇÃO RAILWAY v23 - DIST LIMPO
-console.log('🚀 FORÇANDO RECOMPILAÇÃO RAILWAY v23 - CÓDIGO NOVO EXECUTANDO!')
-console.log('🚀 TIMESTAMP: 2025-10-04-01:00 - VERSÃO ATUALIZADA!')
+console.log('🚀 NOVA VERSÃO v0.4.0 - ENDPOINT CLIENTES HABILITADO!')
+console.log('🚀 TIMESTAMP: 2025-10-04-01:45 - VERSÃO ATUALIZADA!')
 console.log('🚀 DIST LIMPO - rm -rf dist ADICIONADO!')
 console.log('🚀 PACKAGE.JSON VERSION: 0.2.6 - BUILD FORÇADO!')
 console.log('🚀 BUILD COMMAND: rm -rf dist && npm run build!')
