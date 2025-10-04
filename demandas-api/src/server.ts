@@ -1848,7 +1848,7 @@ for (const [path, repo] of Object.entries(resources)) {
     console.log(`🔍 DELETE /${path}/${req.params.id}: Repo:`, typeof repo.remove);
     
     // Usar método customizado se existir, senão usar o padrão
-    const result = repo.delete ? await repo.delete(req.params.id) : await repo.remove(req.params.id);
+    const result = (repo as any).delete ? await (repo as any).delete(req.params.id) : await repo.remove(req.params.id);
     console.log(`🔍 DELETE /${path}/${req.params.id}: Resultado:`, result);
     return result;
   })
