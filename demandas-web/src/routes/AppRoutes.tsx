@@ -1,47 +1,44 @@
-import { Suspense, lazy } from 'react'
 import { Route, Routes, Navigate } from 'react-router-dom'
 import { AppLayout } from '../components/AppLayout'
 import { ProtectedRoute } from '../components/ProtectedRoute'
-import { PageLoading } from '../components/BeautifulLoading'
 
-const LoginPage = lazy(() => import('../pages/Login'))
-const HomePage = lazy(() => import('../pages/Home'))
-const DashboardPage = lazy(() => import('../pages/Dashboard'))
-const DemandListPage = lazy(() => import('../pages/Demandas/List'))
-const DemandNewPage = lazy(() => import('../pages/Demandas/New'))
-const DemandDetailPage = lazy(() => import('../pages/Demandas/Detail'))
-const ManutencaoListPage = lazy(() => import('../pages/Manutencao/List'))
-const ManutencaoNewPage = lazy(() => import('../pages/Manutencao/New'))
-const ManutencaoDetailPage = lazy(() => import('../pages/Manutencao/Detail'))
-const AtendimentoListPage = lazy(() => import('../pages/Atendimento/List'))
-const AtendimentoNewPage = lazy(() => import('../pages/Atendimento/New'))
-const AtendimentoDetailPage = lazy(() => import('../pages/Atendimento/Detail'))
-const ComunicadoListPage = lazy(() => import('../pages/Comunicados/List'))
-const ComunicadoNewPage = lazy(() => import('../pages/Comunicados/New'))
-const ComunicadoDetailPage = lazy(() => import('../pages/Comunicados/Detail'))
-const ValidationListPage = lazy(() => import('../pages/Validacao/List'))
-const ValidationNewPage = lazy(() => import('../pages/Validacao/New'))
-const ValidationDetailPage = lazy(() => import('../pages/Validacao/Detail'))
-const ReajusteListPage = lazy(() => import('../pages/Reajuste/List'))
-const ReajusteNewPage = lazy(() => import('../pages/Reajuste/New'))
-const ReajusteDetailPage = lazy(() => import('../pages/Reajuste/Detail'))
-const MaillingListPage = lazy(() => import('../pages/Mailling/List'))
-const AnalyticsPage = lazy(() => import('../pages/Analytics'))
-const AnalyticsNewPage = lazy(() => import('../pages/Analytics/New'))
-const AnalyticsDetailPage = lazy(() => import('../pages/Analytics/Detail'))
-const DadosPage = lazy(() => import('../pages/Dados'))
-// DataCleanupPage removido - página de limpeza de duplicatas removida
-const AdminUsersPage = lazy(() => import('../pages/Admin/Users'))
-const KanbanPage = lazy(() => import('../pages/Kanban'))
-const ProjectListPage = lazy(() => import('../pages/Projetos/ListSimple'))
-const ProjectNewPage = lazy(() => import('../pages/Projetos/New'))
-const ProjectDetailPage = lazy(() => import('../pages/Projetos/Detail'))
-const ShareProjectPage = lazy(() => import('../pages/ShareProject'))
+// Importações estáticas para evitar problemas de importação dinâmica no Vercel
+import LoginPage from '../pages/Login'
+import HomePage from '../pages/Home'
+import DashboardPage from '../pages/Dashboard'
+import DemandListPage from '../pages/Demandas/List'
+import DemandNewPage from '../pages/Demandas/New'
+import DemandDetailPage from '../pages/Demandas/Detail'
+import ManutencaoListPage from '../pages/Manutencao/List'
+import ManutencaoNewPage from '../pages/Manutencao/New'
+import ManutencaoDetailPage from '../pages/Manutencao/Detail'
+import AtendimentoListPage from '../pages/Atendimento/List'
+import AtendimentoNewPage from '../pages/Atendimento/New'
+import AtendimentoDetailPage from '../pages/Atendimento/Detail'
+import ComunicadoListPage from '../pages/Comunicados/List'
+import ComunicadoNewPage from '../pages/Comunicados/New'
+import ComunicadoDetailPage from '../pages/Comunicados/Detail'
+import ValidationListPage from '../pages/Validacao/List'
+import ValidationNewPage from '../pages/Validacao/New'
+import ValidationDetailPage from '../pages/Validacao/Detail'
+import ReajusteListPage from '../pages/Reajuste/List'
+import ReajusteNewPage from '../pages/Reajuste/New'
+import ReajusteDetailPage from '../pages/Reajuste/Detail'
+import MaillingListPage from '../pages/Mailling/List'
+import AnalyticsPage from '../pages/Analytics'
+import AnalyticsNewPage from '../pages/Analytics/New'
+import AnalyticsDetailPage from '../pages/Analytics/Detail'
+import DadosPage from '../pages/Dados'
+import AdminUsersPage from '../pages/Admin/Users'
+import KanbanPage from '../pages/Kanban'
+import ProjectListPage from '../pages/Projetos/ListSimple'
+import ProjectNewPage from '../pages/Projetos/New'
+import ProjectDetailPage from '../pages/Projetos/Detail'
+import ShareProjectPage from '../pages/ShareProject'
 
 export function AppRoutes() {
   return (
-    <Suspense fallback={<PageLoading message="Carregando página..." />}>
-      <Routes>
+    <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/" element={<AppLayout />}>          
           <Route index element={
@@ -249,7 +246,6 @@ export function AppRoutes() {
         
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </Suspense>
   )
 }
 

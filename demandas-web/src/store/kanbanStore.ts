@@ -159,8 +159,9 @@ export const useKanbanStore = create<KanbanState>()(
             
             // Tentar atualizar na API
             try {
-              const { api } = await import('../lib/api.local')
-              await api.updateKanbanTicket(id, updatedTicket)
+              const { getApi } = await import('../lib/apiConfig')
+              const api = getApi()
+              await api.put(`/kanban/tickets/${id}`, updatedTicket)
               console.log('✅ Ticket atualizado na API:', id)
             } catch (apiError) {
               console.warn('⚠️ Erro ao atualizar na API, mantendo apenas local:', apiError)
@@ -192,8 +193,9 @@ export const useKanbanStore = create<KanbanState>()(
             
             // Tentar atualizar na API
             try {
-              const { api } = await import('../lib/api.local')
-              await api.updateKanbanTicket(ticketId, updatedTicket)
+              const { getApi } = await import('../lib/apiConfig')
+              const api = getApi()
+              await api.put(`/kanban/tickets/${ticketId}`, updatedTicket)
               console.log('✅ Ticket movido na API:', ticketId, '->', newStatus)
             } catch (apiError) {
               console.warn('⚠️ Erro ao mover na API, mantendo apenas local:', apiError)
@@ -219,8 +221,9 @@ export const useKanbanStore = create<KanbanState>()(
             
             // Tentar remover da API
             try {
-              const { api } = await import('../lib/api.local')
-              await api.deleteKanbanTicket(id)
+              const { getApi } = await import('../lib/apiConfig')
+              const api = getApi()
+              await api.delete(`/kanban/tickets/${id}`)
               console.log('✅ Ticket removido da API:', id)
             } catch (apiError) {
               console.warn('⚠️ Erro ao remover da API, mantendo apenas local:', apiError)
@@ -244,8 +247,9 @@ export const useKanbanStore = create<KanbanState>()(
             
             // Tentar limpar na API
             try {
-              const { api } = await import('../lib/api.local')
-              await api.clearAllKanbanTickets()
+              const { getApi } = await import('../lib/apiConfig')
+              const api = getApi()
+              await api.delete('/kanban/tickets')
               console.log('✅ Todos os tickets removidos da API')
             } catch (apiError) {
               console.warn('⚠️ Erro ao limpar API, mantendo apenas local:', apiError)
