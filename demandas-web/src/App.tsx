@@ -4,6 +4,7 @@ import { useTheme } from './hooks/useTheme'
 import { useAuthStore } from './store/authStore'
 import { useMasterDataStore } from './store/masterDataStore'
 import { useDynamicSync } from './hooks/useDynamicSync'
+import { useDeadlineNotifications } from './hooks/useDeadlineNotifications'
 import { FullScreenLoading } from './components/BeautifulLoading'
 import { useEffect } from 'react'
 import './utils/force-cache-bust' // Force cache bust
@@ -17,6 +18,9 @@ function App() {
   
   // Sistema de sincronização dinâmica baseado na navegação
   useDynamicSync()
+  
+  // Sistema de notificações de vencimento (1 dia antes)
+  useDeadlineNotifications()
   
   useEffect(() => {
     initialize()

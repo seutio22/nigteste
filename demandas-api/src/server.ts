@@ -3269,6 +3269,26 @@ app.post('/kanban/tickets', async (req: any) => {
       }
     })
     
+    // Se o ticket tem data de vencimento, programar notificação
+    if (kanbanTicket.dueDate) {
+      try {
+        const notificationDate = new Date(kanbanTicket.dueDate.getTime() - (24 * 60 * 60 * 1000)) // 1 dia antes
+        
+        console.log('📅 Programando notificação para ticket:', {
+          ticketId: kanbanTicket.id,
+          ticketTitle: kanbanTicket.title,
+          dueDate: kanbanTicket.dueDate,
+          notificationDate: notificationDate.toISOString()
+        })
+        
+        // A notificação será verificada pelo endpoint /notifications/scheduled
+        // quando o frontend fizer a verificação diária
+      } catch (notificationError) {
+        console.warn('⚠️ Erro ao programar notificação:', notificationError)
+        // Não falhar a criação do ticket por causa da notificação
+      }
+    }
+    
     return {
       id: kanbanTicket.id,
       title: kanbanTicket.title,
@@ -3352,6 +3372,124 @@ app.delete('/kanban/tickets', async () => {
   } catch (error) {
     console.error('❌ Erro ao limpar tickets do kanban:', error)
     throw error
+  }
+})
+
+// Endpoint para notificações programadas de vencimento
+app.post('/kanban/tickets/:id/schedule-notification', async (req: any, reply: any) => {
+  try {
+    const { id } = req.params
+    const { dueDate } = req.body
+    
+    if (!dueDate) {
+      return reply.code(400).send({ error: 'Data de vencimento é obrigatória' })
+    }
+    
+    // Calcular data da notificação (1 dia antes do vencimento)
+    const dueDateObj = new Date(dueDate)
+    const notificationDate = new Date(dueDateObj.getTime() - (24 * 60 * 60 * 1000)) // 1 dia antes
+    
+    // Buscar o ticket para obter informações
+    const ticket = await prisma.kanbanTicket.findUnique({
+      where: { id }
+    })
+    
+    if (!ticket) {
+      return reply.code(404).send({ error: 'Ticket não encontrado' })
+    }
+    
+    // Criar notificação programada
+    const notification = {
+      id: crypto.randomUUID(),
+      titulo: 'Tarefa próxima do vencimento',
+      mensagem: `A tarefa "${ticket.title}" vence amanhã (${dueDateObj.toLocaleDateString('pt-BR')})`,
+      tipo: 'sistema',
+      prioridade: 'alta',
+      lida: false,
+      dataCriacao: new Date().toISOString(),
+      dataProgramada: notificationDate.toISOString(), // Data para exibir a notificação
+      dados: {
+        kanbanTicketId: ticket.id,
+        dueDate: dueDate,
+        assignee: ticket.assignee
+      }
+    }
+    
+    // Salvar notificação programada (você pode criar uma tabela específica para isso)
+    // Por enquanto, vamos usar uma abordagem simples com localStorage no frontend
+    
+    console.log('📅 Notificação programada criada:', {
+      ticketId: ticket.id,
+      ticketTitle: ticket.title,
+      dueDate: dueDate,
+      notificationDate: notificationDate.toISOString()
+    })
+    
+    return {
+      message: 'Notificação programada criada com sucesso',
+      notification,
+      ticket: {
+        id: ticket.id,
+        title: ticket.title,
+        dueDate: ticket.dueDate
+      }
+    }
+    
+  } catch (error) {
+    console.error('❌ Erro ao programar notificação:', error)
+    return reply.code(500).send({ error: 'Erro interno do servidor' })
+  }
+})
+
+// Endpoint para verificar notificações programadas (chamado pelo frontend)
+app.get('/notifications/scheduled', async (req: any, reply: any) => {
+  try {
+    const now = new Date()
+    
+    // Buscar tickets com vencimento em 1 dia
+    const tomorrow = new Date(now.getTime() + (24 * 60 * 60 * 1000))
+    const startOfTomorrow = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate())
+    const endOfTomorrow = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate() + 1)
+    
+    const ticketsDueTomorrow = await prisma.kanbanTicket.findMany({
+      where: {
+        dueDate: {
+          gte: startOfTomorrow,
+          lt: endOfTomorrow
+        },
+        status: {
+          not: 'done' // Apenas tickets não concluídos
+        }
+      }
+    })
+    
+    // Gerar notificações para tickets que vencem amanhã
+    const notifications = ticketsDueTomorrow.map(ticket => ({
+      id: `deadline-${ticket.id}-${now.getTime()}`,
+      titulo: 'Tarefa próxima do vencimento',
+      mensagem: `A tarefa "${ticket.title}" vence amanhã (${ticket.dueDate?.toLocaleDateString('pt-BR')})`,
+      tipo: 'sistema',
+      prioridade: 'alta',
+      lida: false,
+      dataCriacao: now.toISOString(),
+      dados: {
+        kanbanTicketId: ticket.id,
+        dueDate: ticket.dueDate,
+        assignee: ticket.assignee
+      }
+    }))
+    
+    console.log(`🔔 ${notifications.length} notificações de vencimento geradas`)
+    
+    return {
+      notifications,
+      count: notifications.length,
+      date: now.toISOString()
+    }
+    
+  } catch (error) {
+    console.error('❌ Erro ao verificar notificações programadas:', error)
+    return reply.code(500).send({ error: 'Erro interno do servidor' })
   }
 })
 
