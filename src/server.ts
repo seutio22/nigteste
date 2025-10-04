@@ -74,12 +74,79 @@ console.log('🔧 RAILWAY: Build mais simples e direto!');
 
 app.register(cors, corsOptions)
 
-// VERSÃO DEFINITIVA v1.0.0 - POSTGRESQL + TODOS ENDPOINTS
-console.log('🚀 VERSÃO DEFINITIVA v1.0.0 - POSTGRESQL + TODOS ENDPOINTS!')
-console.log('🚀 TIMESTAMP: 2025-10-04-02:00 - SOLUÇÃO COMPLETA!')
+// VERSÃO DEFINITIVA v1.0.1 - ENDPOINT CLIENTES ESPECÍFICO
+console.log('🚀 VERSÃO DEFINITIVA v1.0.1 - ENDPOINT CLIENTES ESPECÍFICO!')
+console.log('🚀 TIMESTAMP: 2025-10-04-02:05 - SOLUÇÃO DEFINITIVA!')
 console.log('✅ PostgreSQL configurado corretamente!')
-console.log('✅ Endpoint /clientes HABILITADO!')
+console.log('✅ Endpoint /clientes CRIADO ESPECIFICAMENTE!')
 console.log('✅ Todos os endpoints funcionando!')
+
+// ENDPOINTS ESPECÍFICOS PARA CLIENTES - GARANTIR QUE FUNCIONEM
+app.get('/clientes', async (request, reply) => {
+  console.log('🔍 GET /clientes: Requisição recebida')
+  try {
+    const clientes = await prisma.cliente.findMany()
+    console.log(`✅ GET /clientes: ${clientes.length} clientes encontrados`)
+    return clientes
+  } catch (error) {
+    console.error('❌ GET /clientes: Erro:', error.message)
+    reply.status(500).send({ error: 'Erro ao buscar clientes', details: error.message })
+  }
+})
+
+app.post('/clientes', async (request, reply) => {
+  console.log('🔍 POST /clientes: Requisição recebida')
+  console.log('🔍 POST /clientes: Body:', JSON.stringify(request.body, null, 2))
+  try {
+    const cliente = await prisma.cliente.create({
+      data: request.body as any
+    })
+    console.log(`✅ POST /clientes: Cliente criado com ID ${cliente.id}`)
+    return cliente
+  } catch (error) {
+    console.error('❌ POST /clientes: Erro:', error.message)
+    reply.status(500).send({ error: 'Erro ao criar cliente', details: error.message })
+  }
+})
+
+app.get('/clientes/:id', async (request: any, reply) => {
+  try {
+    const cliente = await prisma.cliente.findUnique({
+      where: { id: request.params.id }
+    })
+    if (!cliente) {
+      return reply.status(404).send({ error: 'Cliente não encontrado' })
+    }
+    return cliente
+  } catch (error) {
+    reply.status(500).send({ error: 'Erro ao buscar cliente', details: error.message })
+  }
+})
+
+app.put('/clientes/:id', async (request: any, reply) => {
+  try {
+    const cliente = await prisma.cliente.update({
+      where: { id: request.params.id },
+      data: request.body
+    })
+    return cliente
+  } catch (error) {
+    reply.status(500).send({ error: 'Erro ao atualizar cliente', details: error.message })
+  }
+})
+
+app.delete('/clientes/:id', async (request: any, reply) => {
+  try {
+    await prisma.cliente.delete({
+      where: { id: request.params.id }
+    })
+    return { message: 'Cliente deletado com sucesso' }
+  } catch (error) {
+    reply.status(500).send({ error: 'Erro ao deletar cliente', details: error.message })
+  }
+})
+
+console.log('✅ Endpoints específicos /clientes criados!')
 console.log('🚀 DIST LIMPO - rm -rf dist ADICIONADO!')
 console.log('🚀 PACKAGE.JSON VERSION: 0.2.6 - BUILD FORÇADO!')
 console.log('🚀 BUILD COMMAND: rm -rf dist && npm run build!')

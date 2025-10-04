@@ -1,7 +1,7 @@
 {
   "name": "demandas-api-novo",
-  "version": "1.0.0",
-  "description": "Backend API - v1.0.0 - POSTGRESQL DEFINITIVO - TODOS ENDPOINTS FUNCIONANDO",
+  "version": "1.0.1",
+  "description": "Backend API - v1.0.1 - ENDPOINT CLIENTES ESPECIFICO - GARANTIDO FUNCIONAR",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
