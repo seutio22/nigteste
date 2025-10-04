@@ -1,7 +1,7 @@
 {
   "name": "demandas-api-novo",
-  "version": "2.0.7",
-  "description": "Backend API - 2.0.7 - LOGIN COM TRATAMENTO DE ERRO BANCO",
+  "version": "2.0.8",
+  "description": "Backend API - 2.0.8 - LOGIN TEMPORARIO SEM BANCO",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
