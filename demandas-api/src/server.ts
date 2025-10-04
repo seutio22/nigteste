@@ -65,9 +65,12 @@ const corsOptions = {
 app.register(cors, corsOptions)
 
 // TESTE SIMPLES - ROTA BÁSICA PARA VERIFICAR SE FASTIFY ESTÁ FUNCIONANDO
+console.log('🔍 REGISTRANDO ROTA DE TESTE EARLY...')
 app.get('/teste-route-early', async (request, reply) => {
+  console.log('🔍 ROTA DE TESTE EARLY CHAMADA!')
   return { message: 'Rota de teste EARLY funcionando!', timestamp: new Date().toISOString() }
 })
+console.log('🔍 ROTA DE TESTE EARLY REGISTRADA!')
 
 // LOG PARA CONFIRMAR QUE A ROTA ESTÁ SENDO REGISTRADA
 console.log('🚀 REGISTRANDO ROTA: /limpeza/clientes-duplicatas')
