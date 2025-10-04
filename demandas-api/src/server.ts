@@ -947,10 +947,10 @@ const resources = {
   contratos: crud('contrato'),
   tiposServico: crud('tipoServico'),
   tiposDemanda: crud('tipoDemanda'),
-  mailling: crud('mailling'), // v3 - endpoint principal - FORÇAR DEPLOY
-  areasMailling: crud('areaMailling'), // v3 - FORÇAR DEPLOY
-  cargosMailling: crud('cargoMailling'), // v3 - FORÇAR DEPLOY
-  filiaisMailling: crud('filialMailling'), // v3 - FORÇAR DEPLOY
+  // mailling: crud('mailling'), // REMOVIDO - CONFLITO COM masterData.ts
+  // areasMailling: crud('areaMailling'), // REMOVIDO - CONFLITO COM masterData.ts
+  // cargosMailling: crud('cargoMailling'), // REMOVIDO - CONFLITO COM masterData.ts
+  // filiaisMailling: crud('filialMailling'), // REMOVIDO - CONFLITO COM masterData.ts
   demandas: {
     ...crud('demanda'),
     list: async () => {
@@ -1207,37 +1207,12 @@ for (const [path, repo] of Object.entries(resources)) {
         console.log(`✅ POST /${path}: Criado com sucesso:`, created.id)
         res.code(201)
         return created
-      } else if (path === 'mailling') {
-        // Tratamento especial para mailling - evitar duplicatas de email
-        const cleanedData = { ...req.body }
-        
-        console.log(`🔍 POST /mailling: Dados originais recebidos:`, JSON.stringify(req.body, null, 2))
-        
-        // Verificar se email já existe
-        if (cleanedData.email) {
-          try {
-            const emailExiste = await prisma.mailling.findFirst({ 
-              where: { email: cleanedData.email } 
-            });
-            if (emailExiste) {
-              console.warn(`⚠️ POST /mailling: Email "${cleanedData.email}" já existe, atualizando registro existente`);
-              const updated = await prisma.mailling.update({
-                where: { id: emailExiste.id },
-                data: cleanedData
-              });
-              console.log(`✅ POST /mailling: Registro atualizado:`, updated.id);
-              res.code(200);
-              return updated;
-            }
-          } catch (error) {
-            console.error(`❌ POST /mailling: Erro ao verificar email:`, error);
-          }
-        }
-        
-        const created = await repo.create(cleanedData)
-        console.log(`✅ POST /${path}: Criado com sucesso:`, created.id)
-        res.code(201)
-        return created
+      // } else if (path === 'mailling') {
+      //   // REMOVIDO - AGORA TRATADO EM masterData.ts
+      //   const created = await repo.create(cleanedData)
+      //   console.log(`✅ POST /${path}: Criado com sucesso:`, created.id)
+      //   res.code(201)
+      //   return created
       } else if (path === 'contratos') {
         // Tratamento especial para contratos - evitar duplicatas de número
         const cleanedData = { ...req.body }
