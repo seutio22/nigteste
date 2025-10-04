@@ -3235,16 +3235,12 @@ app.get('/kanban/tickets', async (req: any, reply: any) => {
       return reply.code(401).send({ error: 'Usuário deve estar logado para ver tickets' })
     }
     
-    // Construir filtro baseado no role do usuário
-    let whereClause: any = {}
-    
-    // Se não é admin, filtrar apenas tickets do usuário
-    if (userRole !== 'admin') {
-      whereClause.assignee = userId
-      console.log('🔍 Filtrando tickets apenas do usuário:', userId)
-    } else {
-      console.log('🔍 Admin visualizando todos os tickets')
+    // Construir filtro - TODOS os usuários veem apenas seus próprios tickets
+    let whereClause: any = {
+      assignee: userId // Sempre filtrar pelo usuário logado
     }
+    
+    console.log('🔍 Filtrando tickets apenas do usuário:', userId, 'Role:', userRole)
     
     const kanbanTickets = await prisma.kanbanTicket.findMany({
       where: whereClause,
@@ -3387,8 +3383,8 @@ app.put('/kanban/tickets/:id', async (req: any, reply: any) => {
       return reply.code(404).send({ error: 'Ticket não encontrado' })
     }
     
-    // Verificar se o usuário pode editar este ticket
-    if (userRole !== 'admin' && currentTicket.assignee !== userId) {
+    // Verificar se o usuário pode editar este ticket (TODOS os usuários só podem editar os próprios)
+    if (currentTicket.assignee !== userId) {
       return reply.code(403).send({ error: 'Você só pode editar seus próprios tickets' })
     }
     
@@ -3462,8 +3458,8 @@ app.delete('/kanban/tickets/:id', async (req: any, reply: any) => {
       return reply.code(404).send({ error: 'Ticket não encontrado' })
     }
     
-    // Verificar se o usuário pode deletar este ticket
-    if (userRole !== 'admin' && currentTicket.assignee !== userId) {
+    // Verificar se o usuário pode deletar este ticket (TODOS os usuários só podem deletar os próprios)
+    if (currentTicket.assignee !== userId) {
       return reply.code(403).send({ error: 'Você só pode deletar seus próprios tickets' })
     }
     
@@ -3560,13 +3556,32 @@ app.get('/notifications/scheduled', async (req: any, reply: any) => {
   try {
     const now = new Date()
     
-    // Buscar tickets com vencimento em 1 dia
+    // Verificar se o usuário está autenticado
+    let userId: string | null = null
+    try {
+      const token = req.headers.authorization?.replace('Bearer ', '')
+      if (token) {
+        const decoded = app.jwt.verify(token) as any
+        userId = decoded.userId
+        console.log('🔐 Usuário logado verificando notificações:', userId)
+      }
+    } catch (authError) {
+      console.warn('⚠️ Erro na autenticação:', authError)
+    }
+    
+    // Se não há usuário logado, retornar erro
+    if (!userId) {
+      return reply.code(401).send({ error: 'Usuário deve estar logado para ver notificações' })
+    }
+    
+    // Buscar tickets com vencimento em 1 dia APENAS do usuário logado
     const tomorrow = new Date(now.getTime() + (24 * 60 * 60 * 1000))
     const startOfTomorrow = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate())
     const endOfTomorrow = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate() + 1)
     
     const ticketsDueTomorrow = await prisma.kanbanTicket.findMany({
       where: {
+        assignee: userId, // Filtrar apenas tickets do usuário logado
         dueDate: {
           gte: startOfTomorrow,
           lt: endOfTomorrow

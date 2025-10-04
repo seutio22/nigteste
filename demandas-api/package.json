@@ -1,7 +1,7 @@
 {
   "name": "demandas-api-novo",
-  "version": "2.2.3",
-  "description": "Backend API - 2.2.3 - CONTROLE ACESSO KANBAN - USUARIO LOGADO",
+  "version": "2.2.4",
+  "description": "Backend API - 2.2.4 - ACESSO RESTRITO KANBAN - APENAS PROPIOS TICKETS",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
