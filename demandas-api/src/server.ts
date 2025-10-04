@@ -86,52 +86,59 @@ app.post('/export-old-data', async (request, reply) => {
   try {
     console.log('📊 Tentando conectar ao banco antigo para exportar dados...')
     
-    // Tentar conectar ao banco antigo com a URL correta
-    const oldDatabaseUrl = 'postgresql://postgres:bmMmEyxMQtWnuUNpCHurVgavceYvAaeR@caboose.proxy.rlwy.net:14005/railway'
-    const { PrismaClient } = require('@prisma/client')
+    // Usar pg diretamente para conectar ao banco antigo
+    const { Client } = require('pg')
     
-    const oldPrisma = new PrismaClient({
-      datasources: {
-        db: {
-          url: oldDatabaseUrl
-        }
-      }
+    const client = new Client({
+      connectionString: 'postgresql://postgres:bmMmEyxMQtWnuUNpCHurVgavceYvAaeR@caboose.proxy.rlwy.net:14005/railway'
     })
     
-    await oldPrisma.$connect()
+    await client.connect()
     console.log('✅ Conectado ao banco antigo!')
     
     // Tentar listar tabelas
-    const tables = await oldPrisma.$queryRaw`
+    const tablesResult = await client.query(`
       SELECT table_name 
       FROM information_schema.tables 
       WHERE table_schema = 'public' 
       AND table_type = 'BASE TABLE'
-    `
+      ORDER BY table_name
+    `)
     
+    const tables = tablesResult.rows
     console.log('📋 Tabelas encontradas:', tables)
     
     // Tentar exportar dados de cada tabela
     const exportedData: any = {}
+    let totalRecords = 0
     
-    for (const table of tables as any[]) {
+    for (const table of tables) {
       try {
         const tableName = table.table_name
-        const data = await oldPrisma.$queryRawUnsafe(`SELECT * FROM "${tableName}"`)
+        console.log(`📤 Exportando tabela: ${tableName}`)
+        
+        const dataResult = await client.query(`SELECT * FROM "${tableName}"`)
+        const data = dataResult.rows
+        const recordCount = data.length
+        
         exportedData[tableName] = data
-        console.log(`✅ Dados exportados da tabela ${tableName}: ${Array.isArray(data) ? data.length : 0} registros`)
+        totalRecords += recordCount
+        
+        console.log(`✅ Dados exportados da tabela ${tableName}: ${recordCount} registros`)
       } catch (tableError: any) {
         console.log(`⚠️ Erro ao exportar tabela ${table.table_name}:`, tableError.message)
         exportedData[table.table_name] = { error: tableError.message }
       }
     }
     
-    await oldPrisma.$disconnect()
+    await client.end()
     
     return { 
       message: 'Dados exportados com sucesso!', 
       success: true, 
-      tables: tables,
+      totalTables: tables.length,
+      totalRecords: totalRecords,
+      tables: tables.map(t => t.table_name),
       data: exportedData 
     }
     
