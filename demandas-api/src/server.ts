@@ -100,6 +100,31 @@ app.get('/teste-versao-v200', async (request, reply) => {
     cacheBuster: Math.random()
   }
 })
+
+// Endpoint público para listar usuários (sem autenticação)
+app.get('/usuarios-publicos', async (request, reply) => {
+  try {
+    console.log('🔍 GET /usuarios-publicos: Listando usuários sem autenticação')
+    
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        active: true,
+        createdAt: true,
+        updatedAt: true
+      }
+    })
+    
+    console.log(`✅ GET /usuarios-publicos: ${users.length} usuários encontrados`)
+    return users
+  } catch (error) {
+    console.error('❌ Erro ao listar usuários:', error)
+    throw error
+  }
+})
 console.log('🚀 ROTA DE TESTE v23 REGISTRADA - CÓDIGO NOVO!')
 
 // LOG PARA CONFIRMAR QUE A ROTA ESTÁ SENDO REGISTRADA
