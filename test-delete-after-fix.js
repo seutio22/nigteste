@@ -1,34 +1,33 @@
-// Script para testar o erro de DELETE na API
+// Script para testar se a correção do DELETE foi aplicada
 const https = require('https');
 
-async function testDeleteError() {
-  console.log('🔍 TESTE: ERRO DE DELETE - MANUTENÇÃO');
-  console.log('=====================================');
+async function testDeleteAfterFix() {
+  console.log('🔍 TESTE: VERIFICANDO SE CORREÇÃO DO DELETE FOI APLICADA');
+  console.log('======================================================');
   
   try {
-    // 1. Verificar se a API está funcionando
-    console.log('\n📊 1. VERIFICANDO CONECTIVIDADE');
+    // 1. Verificar versão atual da API
+    console.log('\n📊 1. VERIFICANDO VERSÃO DA API');
     console.log('-------------------------------');
-    await testConnectivity();
+    await checkApiVersion();
     
-    // 2. Listar manutenções existentes
-    console.log('\n📋 2. LISTANDO MANUTENÇÕES EXISTENTES');
-    console.log('-------------------------------------');
-    const manutencoes = await listManutencoes();
-    
-    // 3. Testar DELETE com ID inexistente
-    console.log('\n❌ 3. TESTANDO DELETE COM ID INEXISTENTE');
+    // 2. Testar DELETE com ID inexistente
+    console.log('\n❌ 2. TESTANDO DELETE COM ID INEXISTENTE');
     console.log('---------------------------------------');
     await testDeleteNonExistent();
     
-    // 4. Se houver manutenções, testar DELETE com ID existente
+    // 3. Verificar se há manutenções para testar
+    console.log('\n📋 3. VERIFICANDO MANUTENÇÕES EXISTENTES');
+    console.log('---------------------------------------');
+    const manutencoes = await listManutencoes();
+    
     if (manutencoes.length > 0) {
       console.log('\n✅ 4. TESTANDO DELETE COM ID EXISTENTE');
       console.log('------------------------------------');
       await testDeleteExistent(manutencoes[0].id);
     }
     
-    console.log('\n🎯 DIAGNÓSTICO:');
+    console.log('\n🎯 RESULTADO:');
     console.log('================');
     
   } catch (error) {
@@ -36,14 +35,21 @@ async function testDeleteError() {
   }
 }
 
-async function testConnectivity() {
+async function checkApiVersion() {
   try {
-    const health = await makeRequest('/health');
-    console.log('✅ API: OK');
-    console.log('📊 Status:', health.status);
+    // Testar rota de versão
+    const version = await makeRequest('/teste-versao-v200');
+    console.log('✅ Versão da API:', version.version);
+    console.log('📊 Timestamp:', version.timestamp);
+    console.log('🔧 Build Forçado:', version.buildForced);
   } catch (error) {
-    console.log('❌ API: ERRO -', error.message);
-    throw error;
+    console.log('⚠️ Rota de versão não disponível, testando health...');
+    try {
+      const health = await makeRequest('/health');
+      console.log('✅ API funcionando - Status:', health.status);
+    } catch (healthError) {
+      console.log('❌ API não está respondendo:', healthError.message);
+    }
   }
 }
 
@@ -80,11 +86,13 @@ async function testDeleteNonExistent() {
   } catch (error) {
     if (error.message.includes('404')) {
       console.log('✅ CORRETO: Retornou 404 para ID inexistente');
+      console.log('🎉 CORREÇÃO APLICADA COM SUCESSO!');
     } else if (error.message.includes('500')) {
-      console.log('⚠️ PROBLEMA: Retornou 500 em vez de 404');
+      console.log('❌ PROBLEMA: Ainda retorna 500 - correção não aplicada');
       console.log('📝 Erro:', error.message);
+      console.log('⏰ Pode ser que o deploy ainda não foi concluído');
     } else {
-      console.log('❌ ERRO INESPERADO:', error.message);
+      console.log('❓ ERRO INESPERADO:', error.message);
     }
   }
 }
@@ -161,4 +169,4 @@ function makeRequest(path, method = 'GET', data = null) {
   });
 }
 
-testDeleteError().catch(console.error);
+testDeleteAfterFix().catch(console.error);

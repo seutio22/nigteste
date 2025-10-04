@@ -1081,7 +1081,12 @@ function crud(entity: keyof PrismaClient) {
         const anyPrisma = prisma as any;
         const existingRecord = await anyPrisma[entity].findUnique({ where: { id } });
         if (!existingRecord) {
-          throw new Error(`Registro com ID "${id}" não foi encontrado`);
+          // Retornar erro estruturado em vez de lançar exceção
+          return {
+            statusCode: 404,
+            error: 'Not Found',
+            message: `Registro com ID "${id}" não foi encontrado`
+          };
         }
         
         // Verificar se há registros dependentes
@@ -2219,6 +2224,12 @@ for (const [path, repo] of Object.entries(resources)) {
       // Usar método customizado se existir, senão usar o padrão
       const result = (repo as any).delete ? await (repo as any).delete(req.params.id) : await repo.remove(req.params.id);
       console.log(`🔍 DELETE /${path}/${req.params.id}: Resultado:`, result);
+      
+      // Verificar se o resultado é um erro estruturado (404)
+      if (result && typeof result === 'object' && result.statusCode === 404) {
+        return reply.code(404).send(result);
+      }
+      
       return result;
     } catch (error: any) {
       console.error(`❌ DELETE /${path}/${req.params.id}: Erro:`, error.message);
