@@ -954,7 +954,7 @@ const resources = {
   operadoras: crud('operadora'),
   produtos: crud('produto'),
   sistemas: crud('sistema'),
-  // clientes: crud('cliente'), // TEMPORARIAMENTE DESABILITADO PARA RESOLVER CONFLITO
+  clientes: crud('cliente'), // HABILITADO - CONFLITO RESOLVIDO
   contratos: crud('contrato'),
   tiposServico: crud('tipoServico'),
   tiposDemanda: crud('tipoDemanda'),
