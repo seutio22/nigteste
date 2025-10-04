@@ -81,6 +81,64 @@ app.get('/teste-versao-v206', async (request, reply) => {
   }
 })
 
+// Endpoint para criar admin temporário (sem banco)
+app.post('/create-admin-temp', async (request, reply) => {
+  try {
+    console.log('🔧 POST /create-admin-temp: Criando admin temporário')
+    
+    const { email, password } = request.body as any
+    
+    if (!email || !password) {
+      return reply.code(400).send({ error: 'Email e senha são obrigatórios' })
+    }
+    
+    const bcrypt = require('bcryptjs')
+    const hashedPassword = await bcrypt.hash(password, 10)
+    
+    // Criar token JWT diretamente
+    const token = app.jwt.sign({ 
+      userId: 'temp-admin-id',
+      email: email,
+      role: 'admin'
+    })
+    
+    console.log('✅ Admin temporário criado:', email)
+    
+    return {
+      message: 'Admin temporário criado com sucesso',
+      token: token,
+      user: {
+        id: 'temp-admin-id',
+        name: 'Administrador',
+        email: email,
+        role: 'admin',
+        active: true,
+        permissions: {
+          home: { view: true, create: true, edit: true, delete: true },
+          dashboard: { view: true, create: true, edit: true, delete: true },
+          cadastro: { view: true, create: true, edit: true, delete: true },
+          manutencao: { view: true, create: true, edit: true, delete: true },
+          atendimento: { view: true, create: true, edit: true, delete: true },
+          comunicados: { view: true, create: true, edit: true, delete: true },
+          validacao: { view: true, create: true, edit: true, delete: true },
+          reajuste: { view: true, create: true, edit: true, delete: true },
+          mailling: { view: true, create: true, edit: true, delete: true },
+          analytics: { view: true, create: true, edit: true, delete: true },
+          kanban: { view: true, create: true, edit: true, delete: true },
+          projetos: { view: true, create: true, edit: true, delete: true },
+          dados: { view: true, create: true, edit: true, delete: true },
+          usuarios: { view: true, create: true, edit: true, delete: true },
+          configuracoes: { view: true, create: true, edit: true, delete: true },
+          relatorios: { view: true, create: true, edit: true, delete: true }
+        }
+      }
+    }
+  } catch (error) {
+    console.error('❌ Erro ao criar admin temporário:', error)
+    return reply.code(500).send({ error: 'Erro interno do servidor', details: error.message })
+  }
+})
+
 // Endpoint público para listar usuários (sem autenticação)
 app.get('/usuarios-publicos', async (request, reply) => {
   try {

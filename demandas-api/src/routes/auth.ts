@@ -18,19 +18,40 @@ export async function authRoutes(app: FastifyInstance) {
       })
       const body = bodySchema.parse(req.body)
 
-      // Buscar usuário por email
-      const user = await prisma.user.findUnique({ 
-        where: { email: body.email },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          password: true,
-          role: true,
-          active: true,
-          permissions: true
-        }
-      })
+      console.log('🔐 Tentando login para:', body.email)
+
+      // Tentar conectar ao banco primeiro
+      let user = null
+      try {
+        // Testar conexão com banco
+        await prisma.$connect()
+        console.log('✅ Conexão com banco OK')
+        
+        // Buscar usuário por email
+        user = await prisma.user.findUnique({ 
+          where: { email: body.email },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            password: true,
+            role: true,
+            active: true,
+            permissions: true
+          }
+        })
+        console.log('👤 Usuário encontrado:', user ? 'Sim' : 'Não')
+      } catch (dbError) {
+        console.error('❌ Erro de conexão com banco:', dbError.message)
+        console.log('⚠️ Continuando sem banco...')
+        
+        // Se não conseguir conectar ao banco, retornar erro
+        return res.code(503).send({ 
+          message: 'Banco de dados temporariamente indisponível',
+          error: 'DATABASE_CONNECTION_FAILED',
+          details: dbError.message
+        })
+      }
 
       if (!user) {
         return res.code(401).send({ message: 'Credenciais inválidas' })
