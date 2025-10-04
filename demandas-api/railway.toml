@@ -1,6 +1,6 @@
 [build]
 builder = "nixpacks"
-buildCommand = "npm run build && echo 'BUILD COMPLETED v21 - FORCING RECOGNITION'"
+buildCommand = "echo 'FORCING CACHE CLEAR v22' && npm run build && echo 'BUILD COMPLETED v22 - CACHE CLEARED'"
 
 [deploy]
 startCommand = "npm start"
@@ -10,4 +10,5 @@ restartPolicyType = "on_failure"
 
 [env]
 NODE_ENV = "production"
+NO_CACHE = "1"
 
