@@ -174,7 +174,7 @@ app.post('/setup-admin', async (request, reply) => {
       console.log('✅ Usuário admin atualizado:', adminUser.email)
       return { message: 'Usuário admin atualizado com sucesso', user: adminUser }
       
-    } else {
+        } else {
       console.log('🆕 Criando novo usuário admin...')
       
       // Criar novo usuário admin
@@ -290,7 +290,7 @@ app.post('/create-admin', async (request, reply) => {
       console.log('✅ Usuário admin atualizado:', adminUser.email)
       return { message: 'Usuário admin atualizado com sucesso', user: adminUser }
       
-    } else {
+        } else {
       console.log('🆕 Criando novo usuário admin...')
       
       adminUser = await prisma.user.create({
@@ -332,7 +332,7 @@ app.post('/create-admin', async (request, reply) => {
       return { message: 'Usuário admin criado com sucesso', user: adminUser }
     }
     
-  } catch (error) {
+      } catch (error) {
     console.error('❌ Erro ao criar usuário admin:', error)
     return reply.code(500).send({ error: 'Erro interno do servidor', details: error.message })
   }
@@ -391,7 +391,7 @@ app.post('/clientes/import-bulk', async (request, reply) => {
         // Aplicar mesma validação do cadastro manual
         if (cliente.grupoEconomico && cliente.grupoEconomico.trim()) {
           const existingClient = await prisma.cliente.findFirst({
-      where: {
+        where: {
               grupoEconomico: cliente.grupoEconomico.trim()
             }
           })
@@ -685,6 +685,99 @@ app.post('/setup-dados-teste', async (request, reply) => {
     return { message: `${dadosTeste.length} dados de teste criados`, dados: dadosTeste }
   } catch (error) {
     console.error('❌ Erro ao criar dados de teste:', error)
+    throw error
+  }
+})
+
+// Endpoint para obter dados do usuário atual (com autenticação)
+app.get('/usuario-edicao/me', async (request, reply) => {
+  try {
+    console.log('🔍 GET /usuario-edicao/me: Buscando dados do usuário atual')
+    
+    // Verificar token de autenticação
+    const token = request.headers.authorization?.replace('Bearer ', '')
+    if (!token) {
+      return reply.code(401).send({ error: 'Token de autenticação necessário' })
+    }
+    
+    // Decodificar token para obter ID do usuário
+    const decoded = jwt.verify(token)
+    const userId = (decoded as any).userId
+    
+    if (!userId) {
+      return reply.code(401).send({ error: 'Token inválido' })
+    }
+    
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        active: true,
+        viewOwnDataOnly: true,
+        permissions: true
+      }
+    })
+    
+    if (!user) {
+      return reply.code(404).send({ error: 'Usuário não encontrado' })
+    }
+    
+    // Gerar permissões padrão se não existirem
+    let parsedPermissions = {}
+    if (user.permissions) {
+      try {
+        parsedPermissions = JSON.parse(user.permissions)
+      } catch (e) {
+        console.log('⚠️ Erro ao fazer parse das permissões, usando objeto vazio')
+        parsedPermissions = {}
+      }
+    }
+    
+    // Se não há permissões, gerar padrão baseado no role
+    if (!user.permissions || Object.keys(parsedPermissions).length === 0) {
+      const defaultPermissions = {
+        admin: {
+          home: { view: true, create: true, edit: true, delete: true },
+          dashboard: { view: true, create: true, edit: true, delete: true },
+          cadastro: { view: true, create: true, edit: true, delete: true },
+          manutencao: { view: true, create: true, edit: true, delete: true },
+          atendimento: { view: true, create: true, edit: true, delete: true },
+          comunicados: { view: true, create: true, edit: true, delete: true },
+          validacao: { view: true, create: true, edit: true, delete: true },
+          reajuste: { view: true, create: true, edit: true, delete: true },
+          mailling: { view: true, create: true, edit: true, delete: true },
+          analytics: { view: true, create: true, edit: true, delete: true },
+          kanban: { view: true, create: true, edit: true, delete: true },
+          projetos: { view: true, create: true, edit: true, delete: true },
+          dados: { view: true, create: true, edit: true, delete: true },
+          usuarios: { view: true, create: true, edit: true, delete: true },
+          configuracoes: { view: true, create: true, edit: true, delete: true },
+          relatorios: { view: true, create: true, edit: true, delete: true }
+        }
+      }
+      
+      parsedPermissions = defaultPermissions[user.role as keyof typeof defaultPermissions] || {}
+      
+      // Salvar permissões geradas no banco
+      await prisma.user.update({
+        where: { id: userId },
+        data: { permissions: JSON.stringify(parsedPermissions) }
+      })
+      
+      console.log('✅ Permissões padrão geradas e salvas para o usuário')
+    }
+    
+    console.log('✅ GET /usuario-edicao/me: Usuário encontrado com permissões')
+    
+    return {
+      ...user,
+      permissions: parsedPermissions
+    }
+  } catch (error) {
+    console.error('❌ Erro ao obter usuário atual:', error)
     throw error
   }
 })
@@ -1608,12 +1701,23 @@ const resources = {
   reajusteLancamentos: crud('reajusteLancamento'),
   projetos: crud('project'),
   dados: crud('dados'),
+  usuarios: crud('user'), // Adicionado endpoint para usuários
 }
 
 
 for (const [path, repo] of Object.entries(resources)) {
   app.get(`/${path}`, async (req: any) => repo.list(req.query))
   app.get(`/${path}/:id`, async (req: any) => repo.get(req.params.id))
+  
+  // Adicionar aliases para endpoints com hífens
+  if (path === 'tiposDemanda') {
+    app.get('/tipos-demanda', async (req: any) => repo.list(req.query))
+    app.get('/tipos-demanda/:id', async (req: any) => repo.get(req.params.id))
+  }
+  if (path === 'tiposServico') {
+    app.get('/tipos-servico', async (req: any) => repo.list(req.query))
+    app.get('/tipos-servico/:id', async (req: any) => repo.get(req.params.id))
+  }
   app.post(`/${path}`, async (req: any, res) => {
     console.log(`🔍 POST /${path}: Recebendo requisição`)
     console.log(`🔍 POST /${path}: Headers:`, req.headers)
