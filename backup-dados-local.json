@@ -1,0 +1,635 @@
+{
+  "clientes": [
+    {
+      "id": "66018258-7c08-498e-8cd0-6fc08ce99818",
+      "nome": "TESTE",
+      "grupoEconomico": "MDS",
+      "cnpj": null,
+      "telefone": null,
+      "email": null,
+      "endereco": null,
+      "createdAt": "2025-09-24T03:37:42.273Z",
+      "updatedAt": "2025-09-24T03:37:42.273Z"
+    }
+  ],
+  "demandas": [
+    {
+      "id": "375efde0-19d9-49bb-a219-279a00af5437",
+      "status": "Aguardando validação",
+      "ticket": "DEM-202509-0003",
+      "analistaId": "75186051-e0d5-4828-b0e5-3635b83b1f5f",
+      "userId": null,
+      "solicitante": "asd",
+      "areaId": "d337961f-487f-4060-b58b-7c57bfc03c65",
+      "tipoId": "b92d3947-4525-44e8-a2b0-0f8a221bc60c",
+      "descricao": null,
+      "clienteId": "66018258-7c08-498e-8cd0-6fc08ce99818",
+      "contratoId": "bf929422-f043-48f4-9dd4-510aa5bdd2e7",
+      "operadoraId": "9d1b24a3-e2ee-409b-9b53-b9335dbd0486",
+      "produtoId": "f89c9229-a610-46af-9e4e-5c6383145bcf",
+      "tipoServicoId": "f410e73d-5dca-4c0c-9af1-0dddce39f4d2",
+      "sistemaId": null,
+      "dataInicio": null,
+      "dataFinal": null,
+      "periodicidade": null,
+      "qtdRetornos": null,
+      "qualidade": "0",
+      "observacoes": null,
+      "createdAt": "2025-09-24T05:10:11.744Z",
+      "updatedAt": "2025-09-24T05:10:50.872Z",
+      "qtdClientesVinculados": null,
+      "usuariosEmpresa": null
+    },
+    {
+      "id": "677ac980-57ef-46da-a0ec-cfb275ec5c6b",
+      "status": "Aberta",
+      "ticket": "DEM-202509-0004",
+      "analistaId": "75186051-e0d5-4828-b0e5-3635b83b1f5f",
+      "userId": null,
+      "solicitante": "asd",
+      "areaId": "c4653d52-b49b-48fd-bbe9-1df958bb6ef7",
+      "tipoId": "b92d3947-4525-44e8-a2b0-0f8a221bc60c",
+      "descricao": "asfasfs",
+      "clienteId": "66018258-7c08-498e-8cd0-6fc08ce99818",
+      "contratoId": "bf929422-f043-48f4-9dd4-510aa5bdd2e7",
+      "operadoraId": "9d1b24a3-e2ee-409b-9b53-b9335dbd0486",
+      "produtoId": "f89c9229-a610-46af-9e4e-5c6383145bcf",
+      "tipoServicoId": "f410e73d-5dca-4c0c-9af1-0dddce39f4d2",
+      "sistemaId": "002e8b12-d434-4c3c-9d16-c59c5cdea51b",
+      "dataInicio": "2025-09-27T00:00:00.000Z",
+      "dataFinal": "2025-10-05T00:00:00.000Z",
+      "periodicidade": "1",
+      "qtdRetornos": 1,
+      "qualidade": "0",
+      "observacoes": "asdasdsadsad",
+      "createdAt": "2025-09-24T05:19:30.379Z",
+      "updatedAt": "2025-09-24T05:19:30.379Z",
+      "qtdClientesVinculados": 1,
+      "usuariosEmpresa": 1
+    },
+    {
+      "id": "021fb140-b729-4f03-b9e6-51151e2abbb6",
+      "status": "Em andamento",
+      "ticket": "DEM-202509-0001",
+      "analistaId": "75186051-e0d5-4828-b0e5-3635b83b1f5f",
+      "userId": null,
+      "solicitante": null,
+      "areaId": null,
+      "tipoId": "b92d3947-4525-44e8-a2b0-0f8a221bc60c",
+      "descricao": null,
+      "clienteId": null,
+      "contratoId": null,
+      "operadoraId": null,
+      "produtoId": null,
+      "tipoServicoId": "f410e73d-5dca-4c0c-9af1-0dddce39f4d2",
+      "sistemaId": null,
+      "dataInicio": "2025-09-25T00:00:00.000Z",
+      "dataFinal": null,
+      "periodicidade": null,
+      "qtdRetornos": null,
+      "qualidade": null,
+      "observacoes": null,
+      "createdAt": "2025-09-25T22:31:53.791Z",
+      "updatedAt": "2025-09-25T22:31:53.791Z",
+      "qtdClientesVinculados": null,
+      "usuariosEmpresa": null
+    },
+    {
+      "id": "557f1282-c13c-4cac-98e2-c9ca99d74c5c",
+      "status": "Aberta",
+      "ticket": "DEM-202509-0002",
+      "analistaId": "75186051-e0d5-4828-b0e5-3635b83b1f5f",
+      "userId": null,
+      "solicitante": "5892aced-134a-4e0f-9492-15fda0b1de49",
+      "areaId": null,
+      "tipoId": "b92d3947-4525-44e8-a2b0-0f8a221bc60c",
+      "descricao": null,
+      "clienteId": null,
+      "contratoId": null,
+      "operadoraId": null,
+      "produtoId": null,
+      "tipoServicoId": "f410e73d-5dca-4c0c-9af1-0dddce39f4d2",
+      "sistemaId": null,
+      "dataInicio": "2025-09-29T00:00:00.000Z",
+      "dataFinal": null,
+      "periodicidade": null,
+      "qtdRetornos": null,
+      "qualidade": null,
+      "observacoes": null,
+      "createdAt": "2025-09-29T23:58:01.721Z",
+      "updatedAt": "2025-09-30T00:00:00.708Z",
+      "qtdClientesVinculados": null,
+      "usuariosEmpresa": null
+    }
+  ],
+  "manutencoes": [
+    {
+      "id": "18d86192-3452-443c-9c6e-fad059bc2e85",
+      "status": "Aguardando validação",
+      "ticket": "MAN-202509-0002",
+      "analistaId": "75186051-e0d5-4828-b0e5-3635b83b1f5f",
+      "userId": null,
+      "solicitante": "asd",
+      "areaId": "d337961f-487f-4060-b58b-7c57bfc03c65",
+      "tipoId": "fdf7cd3d-7224-42e1-ab5c-bf1364aa3aa3",
+      "descricao": "sdas asdasdsad",
+      "clienteId": "66018258-7c08-498e-8cd0-6fc08ce99818",
+      "contratoId": "bf929422-f043-48f4-9dd4-510aa5bdd2e7",
+      "operadoraId": "9d1b24a3-e2ee-409b-9b53-b9335dbd0486",
+      "produtoId": "f89c9229-a610-46af-9e4e-5c6383145bcf",
+      "tipoServicoId": "6b343431-7537-46a8-86fe-84e2f322c27d",
+      "sistemaId": "bfa5c111-2590-46e5-9f0a-82def8bd9865",
+      "dataInicio": "2025-09-24T00:00:00.000Z",
+      "dataFinal": null,
+      "qtdRetornos": 1,
+      "qualidade": "0",
+      "qtdClientesVinculados": null,
+      "usuariosEmpresa": null,
+      "observacoes": "asdasdsaasdsad  asdasdasd asdasd",
+      "createdAt": "2025-09-24T05:20:36.285Z",
+      "updatedAt": "2025-09-24T05:20:36.285Z"
+    },
+    {
+      "id": "61ec46c8-7da2-4d10-a8bc-c5fa2e8088ce",
+      "status": "Aberta",
+      "ticket": "MAN-202509-0001",
+      "analistaId": "75186051-e0d5-4828-b0e5-3635b83b1f5f",
+      "userId": null,
+      "solicitante": "e2a8338d-02a1-4c51-88d0-c9f0bedc6e26",
+      "areaId": null,
+      "tipoId": "fdf7cd3d-7224-42e1-ab5c-bf1364aa3aa3",
+      "descricao": null,
+      "clienteId": "66018258-7c08-498e-8cd0-6fc08ce99818",
+      "contratoId": "bf929422-f043-48f4-9dd4-510aa5bdd2e7",
+      "operadoraId": "9d1b24a3-e2ee-409b-9b53-b9335dbd0486",
+      "produtoId": "62d648e8-b896-4b68-a6bc-e1349cd60287",
+      "tipoServicoId": "2fa86f47-208c-4968-a90b-17fbd241fe7e",
+      "sistemaId": null,
+      "dataInicio": "2025-09-30T00:00:00.000Z",
+      "dataFinal": null,
+      "qtdRetornos": null,
+      "qualidade": null,
+      "qtdClientesVinculados": null,
+      "usuariosEmpresa": null,
+      "observacoes": null,
+      "createdAt": "2025-09-30T00:05:06.286Z",
+      "updatedAt": "2025-09-30T00:05:17.490Z"
+    }
+  ],
+  "validacoes": [
+    {
+      "id": "4359c640-b566-4107-b525-e540ef5c9d18",
+      "demandaId": null,
+      "analistaId": "75186051-e0d5-4828-b0e5-3635b83b1f5f",
+      "userId": null,
+      "status": "Aberta",
+      "dataInicio": "2025-09-25T00:00:00.000Z",
+      "dataFim": null,
+      "observacoes": null,
+      "clienteId": "66018258-7c08-498e-8cd0-6fc08ce99818",
+      "contratoId": "bf929422-f043-48f4-9dd4-510aa5bdd2e7",
+      "operadoraId": "9d1b24a3-e2ee-409b-9b53-b9335dbd0486",
+      "produtoId": "f89c9229-a610-46af-9e4e-5c6383145bcf",
+      "ticket": "VAL-TESTE-FRONTEND",
+      "solicitante": null,
+      "tipo": "Total",
+      "descricao": "asdasdasds",
+      "qualidade": "1",
+      "qtdRetornos": 33,
+      "vigencia": null,
+      "estruturaEdge": "[\"2\",\"3\"]",
+      "estruturaMove": "[\"3\",\"2\"]",
+      "formalizacao": "0",
+      "itensPendentes": 12,
+      "itensConcluidos": 12,
+      "total": 10,
+      "createdAt": "2025-09-25T21:30:39.273Z",
+      "updatedAt": "2025-09-25T21:54:28.746Z"
+    },
+    {
+      "id": "02ea4ea0-6905-4a83-9492-a1e5f217a170",
+      "demandaId": null,
+      "analistaId": "75186051-e0d5-4828-b0e5-3635b83b1f5f",
+      "userId": null,
+      "status": "Aberta",
+      "dataInicio": "2025-09-26T00:00:00.000Z",
+      "dataFim": null,
+      "observacoes": null,
+      "clienteId": "66018258-7c08-498e-8cd0-6fc08ce99818",
+      "contratoId": "bf929422-f043-48f4-9dd4-510aa5bdd2e7",
+      "operadoraId": "9d1b24a3-e2ee-409b-9b53-b9335dbd0486",
+      "produtoId": "f89c9229-a610-46af-9e4e-5c6383145bcf",
+      "ticket": "VAL-02ea4ea0",
+      "solicitante": null,
+      "tipo": "Total",
+      "descricao": "Validação de demanda",
+      "qualidade": null,
+      "qtdRetornos": 0,
+      "vigencia": null,
+      "estruturaEdge": null,
+      "estruturaMove": null,
+      "formalizacao": null,
+      "itensPendentes": 0,
+      "itensConcluidos": 0,
+      "total": 0,
+      "createdAt": "2025-09-25T21:54:50.915Z",
+      "updatedAt": "2025-09-25T21:55:06.473Z"
+    },
+    {
+      "id": "d9302d72-ddcf-4919-9435-870f9240f9de",
+      "demandaId": null,
+      "analistaId": "75186051-e0d5-4828-b0e5-3635b83b1f5f",
+      "userId": null,
+      "status": "Aberta",
+      "dataInicio": "2025-09-30T00:00:00.000Z",
+      "dataFim": null,
+      "observacoes": null,
+      "clienteId": null,
+      "contratoId": null,
+      "operadoraId": null,
+      "produtoId": null,
+      "ticket": "VAL-d9302d72",
+      "solicitante": "5892aced-134a-4e0f-9492-15fda0b1de49",
+      "tipo": "Total",
+      "descricao": "Validação de demanda",
+      "qualidade": null,
+      "qtdRetornos": 0,
+      "vigencia": null,
+      "estruturaEdge": null,
+      "estruturaMove": null,
+      "formalizacao": null,
+      "itensPendentes": 0,
+      "itensConcluidos": 0,
+      "total": 0,
+      "createdAt": "2025-09-30T00:11:26.187Z",
+      "updatedAt": "2025-09-30T00:11:35.848Z"
+    }
+  ],
+  "projetos": [
+    {
+      "id": "f69e9ab1-b32e-4911-bc80-c745d3fb3d44",
+      "name": "asdasdas",
+      "description": "asdasdsad",
+      "status": "active",
+      "priority": "medium",
+      "startDate": "2025-09-29T00:00:00.000Z",
+      "endDate": "2025-10-31T00:00:00.000Z",
+      "progress": 0,
+      "budget": null,
+      "clientId": null,
+      "managerId": null,
+      "team": "[]",
+      "tags": "[]",
+      "color": "#3b82f6",
+      "timeline": "{\"phases\":[{\"id\":\"phase_1759192813296\",\"name\":\"eta1\",\"startDate\":null,\"endDate\":null,\"progress\":0,\"status\":\"nao_iniciado\",\"tasks\":[{\"id\":\"task1759192825757\",\"name\":\"asdasd\",\"description\":\"asdasdsd\",\"responsible\":\"asdasd\",\"startDate\":null,\"plannedEndDate\":null,\"actualEndDate\":null,\"status\":\"pending\",\"progress\":0,\"priority\":\"medium\",\"estimatedHours\":0,\"actualHours\":0,\"dependencies\":[],\"observations\":\"\",\"subtasks\":[{\"id\":\"sub1759192835646\",\"title\":\"asdasdasd\",\"description\":\"asdsadasd\",\"status\":\"pending\",\"priority\":\"medium\",\"startDate\":null,\"dueDate\":null,\"actualEndDate\":null,\"estimatedHours\":0,\"actualHours\":0,\"progress\":0,\"dependencies\":[],\"order\":0,\"code\":\"\",\"attachments\":[],\"comments\":[],\"observations\":\"\",\"createdAt\":\"2025-09-30T00:40:35.646Z\",\"updatedAt\":\"2025-09-30T00:40:35.646Z\"}]},{\"id\":\"task1759192845161\",\"name\":\"1111111111\",\"description\":\"asdasdsa\",\"responsible\":\"aaaaaaaaaaaaa\",\"startDate\":null,\"plannedEndDate\":null,\"actualEndDate\":null,\"status\":\"pending\",\"progress\":0,\"priority\":\"medium\",\"estimatedHours\":0,\"actualHours\":0,\"dependencies\":[],\"observations\":\"\",\"subtasks\":[]}]},{\"id\":\"phase_1759192864611\",\"name\":\"eta2\",\"startDate\":null,\"endDate\":null,\"progress\":0,\"status\":\"nao_iniciado\",\"tasks\":[]}]}",
+      "activities": "[]",
+      "createdAt": "2025-09-30T00:38:22.952Z",
+      "updatedAt": "2025-09-30T00:41:04.620Z"
+    }
+  ],
+  "analistas": [
+    {
+      "id": "59143ffc-40f3-4cb5-b56f-0a27014fa2d8",
+      "nome": "EMYLI",
+      "email": null,
+      "telefone": null,
+      "cargo": null,
+      "createdAt": "2025-09-24T03:37:42.548Z",
+      "updatedAt": "2025-09-24T03:37:42.548Z"
+    },
+    {
+      "id": "a2041f69-c689-4762-96a1-e2033133818b",
+      "nome": "KARINA",
+      "email": null,
+      "telefone": null,
+      "cargo": null,
+      "createdAt": "2025-09-24T03:37:42.563Z",
+      "updatedAt": "2025-09-24T03:37:42.563Z"
+    },
+    {
+      "id": "9731f9b7-011c-47ee-b806-91bf46e25486",
+      "nome": "PAULA",
+      "email": null,
+      "telefone": null,
+      "cargo": null,
+      "createdAt": "2025-09-24T03:37:42.577Z",
+      "updatedAt": "2025-09-24T03:37:42.577Z"
+    },
+    {
+      "id": "336d1775-adc1-4ad2-8976-aa8a82ec36ab",
+      "nome": "CRISTINA",
+      "email": null,
+      "telefone": null,
+      "cargo": null,
+      "createdAt": "2025-09-24T03:37:42.593Z",
+      "updatedAt": "2025-09-24T03:37:42.593Z"
+    },
+    {
+      "id": "38b591e3-1709-40a7-ae29-a0f3b39885c1",
+      "nome": "RAIANE",
+      "email": null,
+      "telefone": null,
+      "cargo": null,
+      "createdAt": "2025-09-24T03:37:42.610Z",
+      "updatedAt": "2025-09-24T03:37:42.610Z"
+    },
+    {
+      "id": "4ab58ab7-627c-4863-9bf4-351e6a5915da",
+      "nome": "CAMILA",
+      "email": null,
+      "telefone": null,
+      "cargo": null,
+      "createdAt": "2025-09-24T03:37:42.624Z",
+      "updatedAt": "2025-09-24T03:37:42.624Z"
+    },
+    {
+      "id": "75186051-e0d5-4828-b0e5-3635b83b1f5f",
+      "nome": "ADMINISTRADOR",
+      "email": null,
+      "telefone": null,
+      "cargo": null,
+      "createdAt": "2025-09-24T03:37:42.638Z",
+      "updatedAt": "2025-09-24T03:37:42.638Z"
+    }
+  ],
+  "areas": [
+    {
+      "id": "d337961f-487f-4060-b58b-7c57bfc03c65",
+      "nome": "CSO - MOV",
+      "descricao": null,
+      "createdAt": "2025-09-24T03:37:42.655Z",
+      "updatedAt": "2025-09-24T03:37:42.655Z"
+    },
+    {
+      "id": "c4653d52-b49b-48fd-bbe9-1df958bb6ef7",
+      "nome": "DIRETORIA",
+      "descricao": null,
+      "createdAt": "2025-09-24T03:37:42.671Z",
+      "updatedAt": "2025-09-24T03:37:42.671Z"
+    },
+    {
+      "id": "73b3bad1-c566-497c-96ba-bfd3a4a7cd09",
+      "nome": "GESTÃO DE SAÚDE",
+      "descricao": null,
+      "createdAt": "2025-09-24T03:37:42.688Z",
+      "updatedAt": "2025-09-24T03:37:42.688Z"
+    },
+    {
+      "id": "918e07a7-26b4-4abe-9dfb-a28f6b020be7",
+      "nome": "IMPLANTAÇÃO",
+      "descricao": null,
+      "createdAt": "2025-09-24T03:37:42.703Z",
+      "updatedAt": "2025-09-24T03:37:42.703Z"
+    },
+    {
+      "id": "20956c40-836d-4f2a-8b77-02e88e6aeec5",
+      "nome": "NIG",
+      "descricao": null,
+      "createdAt": "2025-09-24T03:37:42.716Z",
+      "updatedAt": "2025-09-24T03:37:42.716Z"
+    },
+    {
+      "id": "0001be0b-46e7-47b2-a0ef-cc840f3263a8",
+      "nome": "PLACEMENT",
+      "descricao": null,
+      "createdAt": "2025-09-24T03:37:42.728Z",
+      "updatedAt": "2025-09-24T03:37:42.728Z"
+    },
+    {
+      "id": "561ea45e-5f62-44a5-9bbf-7f87d910b464",
+      "nome": "RELACIONAMENTO",
+      "descricao": null,
+      "createdAt": "2025-09-24T03:37:42.745Z",
+      "updatedAt": "2025-09-24T03:37:42.745Z"
+    },
+    {
+      "id": "d958f1dd-5685-41c2-af9b-bd1bd457c3ce",
+      "nome": "RH",
+      "descricao": null,
+      "createdAt": "2025-09-24T03:37:42.758Z",
+      "updatedAt": "2025-09-24T03:37:42.758Z"
+    },
+    {
+      "id": "2e497c47-cba1-440e-b171-5d43d607a014",
+      "nome": "TÉCNICA",
+      "descricao": null,
+      "createdAt": "2025-09-24T03:37:42.771Z",
+      "updatedAt": "2025-09-24T03:37:42.771Z"
+    },
+    {
+      "id": "7dea115f-8f63-402b-a83d-acf41e44b14e",
+      "nome": "TI",
+      "descricao": null,
+      "createdAt": "2025-09-24T03:37:42.784Z",
+      "updatedAt": "2025-09-24T03:37:42.784Z"
+    },
+    {
+      "id": "f42bfaaf-adac-4f71-b528-1e6b36a8f13f",
+      "nome": "SO - FAT",
+      "descricao": null,
+      "createdAt": "2025-09-24T03:37:42.796Z",
+      "updatedAt": "2025-09-24T03:37:42.796Z"
+    },
+    {
+      "id": "30dc0e18-34a9-40a8-a4f2-03e6af19a3f3",
+      "nome": "VG",
+      "descricao": null,
+      "createdAt": "2025-09-24T03:37:42.809Z",
+      "updatedAt": "2025-09-24T03:37:42.809Z"
+    },
+    {
+      "id": "9cb784d7-ca0b-43f7-b08a-6309673faa11",
+      "nome": "QPO",
+      "descricao": null,
+      "createdAt": "2025-09-24T03:37:42.820Z",
+      "updatedAt": "2025-09-24T03:37:42.820Z"
+    },
+    {
+      "id": "44345a82-74e0-4036-b6ed-0501e6372429",
+      "nome": "CORRETOR PARCEIRO",
+      "descricao": null,
+      "createdAt": "2025-09-24T03:37:42.832Z",
+      "updatedAt": "2025-09-24T03:37:42.832Z"
+    },
+    {
+      "id": "ab23ecdb-2239-4d0c-8616-8fba3dba10f7",
+      "nome": "BACKOFFICE",
+      "descricao": null,
+      "createdAt": "2025-09-24T03:37:42.844Z",
+      "updatedAt": "2025-09-24T03:37:42.844Z"
+    },
+    {
+      "id": "b9bc69fa-2bc6-4c80-8786-80fbff091b42",
+      "nome": "COMERCIAL",
+      "descricao": null,
+      "createdAt": "2025-09-24T03:37:42.857Z",
+      "updatedAt": "2025-09-24T03:37:42.857Z"
+    }
+  ],
+  "operadoras": [
+    {
+      "id": "9d1b24a3-e2ee-409b-9b53-b9335dbd0486",
+      "nome": "SULAMERICA",
+      "cnpj": null,
+      "telefone": null,
+      "email": null,
+      "endereco": null,
+      "createdAt": "2025-09-24T03:37:42.319Z",
+      "updatedAt": "2025-09-24T03:37:42.319Z"
+    },
+    {
+      "id": "d257a043-b6ad-4a7b-a192-a86354803eac",
+      "nome": "BRADESCO",
+      "cnpj": null,
+      "telefone": null,
+      "email": null,
+      "endereco": null,
+      "createdAt": "2025-09-24T03:37:42.335Z",
+      "updatedAt": "2025-09-24T03:37:42.335Z"
+    }
+  ],
+  "produtos": [
+    {
+      "id": "f89c9229-a610-46af-9e4e-5c6383145bcf",
+      "nome": "SAUDE",
+      "descricao": null,
+      "operadoraId": null,
+      "createdAt": "2025-09-24T03:37:42.351Z",
+      "updatedAt": "2025-09-24T03:37:42.351Z"
+    },
+    {
+      "id": "62d648e8-b896-4b68-a6bc-e1349cd60287",
+      "nome": "ODONTO",
+      "descricao": null,
+      "operadoraId": null,
+      "createdAt": "2025-09-24T03:37:42.371Z",
+      "updatedAt": "2025-09-24T03:37:42.371Z"
+    },
+    {
+      "id": "810a27f2-498f-48dc-ba75-20eac80f0915",
+      "nome": "VIDA EM GRUPO",
+      "descricao": null,
+      "operadoraId": null,
+      "createdAt": "2025-09-24T03:37:42.387Z",
+      "updatedAt": "2025-09-24T03:37:42.387Z"
+    }
+  ],
+  "sistemas": [
+    {
+      "id": "002e8b12-d434-4c3c-9d16-c59c5cdea51b",
+      "nome": "CONECTA ",
+      "descricao": null,
+      "versao": null,
+      "createdAt": "2025-09-24T03:37:42.403Z",
+      "updatedAt": "2025-09-24T03:37:42.403Z"
+    },
+    {
+      "id": "bfa5c111-2590-46e5-9f0a-82def8bd9865",
+      "nome": "EDGE",
+      "descricao": null,
+      "versao": null,
+      "createdAt": "2025-09-24T03:37:42.420Z",
+      "updatedAt": "2025-09-24T03:37:42.420Z"
+    },
+    {
+      "id": "a4868347-765f-4fa2-bcc8-db0e6e66fbf6",
+      "nome": "MOLTRIL",
+      "descricao": null,
+      "versao": null,
+      "createdAt": "2025-09-24T03:37:42.434Z",
+      "updatedAt": "2025-09-24T03:37:42.434Z"
+    },
+    {
+      "id": "6ce1cace-f7ce-45b3-b004-06a1cba65e12",
+      "nome": "MOVE +",
+      "descricao": null,
+      "versao": null,
+      "createdAt": "2025-09-24T03:37:42.448Z",
+      "updatedAt": "2025-09-24T03:37:42.448Z"
+    },
+    {
+      "id": "df2bd05c-ac6d-427b-9176-0930fa5502f0",
+      "nome": "MOVE LOCAL",
+      "descricao": null,
+      "versao": null,
+      "createdAt": "2025-09-24T03:37:42.463Z",
+      "updatedAt": "2025-09-24T03:37:42.463Z"
+    },
+    {
+      "id": "3d458c73-376f-4196-9b62-598b9c930dd5",
+      "nome": "MOVE PROJETOS",
+      "descricao": null,
+      "versao": null,
+      "createdAt": "2025-09-24T03:37:42.477Z",
+      "updatedAt": "2025-09-24T03:37:42.477Z"
+    },
+    {
+      "id": "b2bcd9bf-90ae-41a5-be85-7ad3d6ff3136",
+      "nome": "MOVE SAUDE",
+      "descricao": null,
+      "versao": null,
+      "createdAt": "2025-09-24T03:37:42.491Z",
+      "updatedAt": "2025-09-24T03:37:42.491Z"
+    },
+    {
+      "id": "c36780e9-30a8-434c-96e9-02df116454a3",
+      "nome": "MOVE VIDA",
+      "descricao": null,
+      "versao": null,
+      "createdAt": "2025-09-24T03:37:42.504Z",
+      "updatedAt": "2025-09-24T03:37:42.504Z"
+    },
+    {
+      "id": "fc8ce366-1688-4d71-85a7-1ab8357d8d3d",
+      "nome": "MOVE WEB",
+      "descricao": null,
+      "versao": null,
+      "createdAt": "2025-09-24T03:37:42.518Z",
+      "updatedAt": "2025-09-24T03:37:42.518Z"
+    },
+    {
+      "id": "0f6df641-9232-4053-9727-b65ab9bd39cd",
+      "nome": "ROTINAS",
+      "descricao": null,
+      "versao": null,
+      "createdAt": "2025-09-24T03:37:42.531Z",
+      "updatedAt": "2025-09-24T03:37:42.531Z"
+    }
+  ],
+  "solicitantes": [
+    {
+      "id": "e2a8338d-02a1-4c51-88d0-c9f0bedc6e26",
+      "nome": "Teste Solicitante",
+      "createdAt": "2025-09-25T23:00:18.916Z",
+      "updatedAt": "2025-09-25T23:00:18.916Z"
+    },
+    {
+      "id": "e7c9636e-9092-4b97-ab26-86501eb895b0",
+      "nome": "asdasdsad",
+      "createdAt": "2025-09-25T23:02:43.843Z",
+      "updatedAt": "2025-09-25T23:02:43.843Z"
+    },
+    {
+      "id": "5892aced-134a-4e0f-9492-15fda0b1de49",
+      "nome": "Denison",
+      "createdAt": "2025-09-25T23:40:39.141Z",
+      "updatedAt": "2025-09-25T23:40:39.141Z"
+    }
+  ],
+  "users": [
+    {
+      "id": "288bd861-5212-4604-bd85-e81d4ee9a631",
+      "name": "ADMINISTRADOR",
+      "email": "admin@admin.com",
+      "password": "$2b$10$VnFa/R6UsOz.7lEwTr9B5uqBRZgrR2aDsn7RH7K5diQr/l5.YyKqm",
+      "role": "admin",
+      "active": true,
+      "viewOwnDataOnly": false,
+      "permissions": "{\"home\":{\"view\":true,\"create\":true,\"edit\":true,\"delete\":true},\"dashboard\":{\"view\":true,\"create\":true,\"edit\":true,\"delete\":true},\"cadastro\":{\"view\":true,\"create\":true,\"edit\":true,\"delete\":true},\"manutencao\":{\"view\":true,\"create\":true,\"edit\":true,\"delete\":true},\"atendimento\":{\"view\":true,\"create\":true,\"edit\":true,\"delete\":true},\"comunicados\":{\"view\":true,\"create\":true,\"edit\":true,\"delete\":true},\"validacao\":{\"view\":true,\"create\":true,\"edit\":true,\"delete\":true},\"reajuste\":{\"view\":true,\"create\":true,\"edit\":true,\"delete\":true},\"mailling\":{\"view\":true,\"create\":true,\"edit\":true,\"delete\":true},\"analytics\":{\"view\":true,\"create\":true,\"edit\":true,\"delete\":true},\"kanban\":{\"view\":true,\"create\":true,\"edit\":true,\"delete\":true},\"projetos\":{\"view\":true,\"create\":true,\"edit\":true,\"delete\":true},\"dados\":{\"view\":true,\"create\":true,\"edit\":true,\"delete\":true},\"usuarios\":{\"view\":true,\"create\":true,\"edit\":true,\"delete\":true},\"configuracoes\":{\"view\":true,\"create\":true,\"edit\":true,\"delete\":true},\"relatorios\":{\"view\":true,\"create\":true,\"edit\":true,\"delete\":true}}",
+      "lastLogin": "2025-09-29T23:40:23.950Z",
+      "createdAt": "2025-09-24T03:37:57.492Z",
+      "updatedAt": "2025-09-29T23:40:23.951Z"
+    }
+  ],
+  "exportedAt": "2025-10-04T01:47:11.605Z"
+}

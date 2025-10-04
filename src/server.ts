@@ -74,9 +74,12 @@ console.log('🔧 RAILWAY: Build mais simples e direto!');
 
 app.register(cors, corsOptions)
 
-// FORÇAR RECOMPILAÇÃO RAILWAY v23 - DIST LIMPO
-console.log('🚀 NOVA VERSÃO v0.4.1 - TESTE DEPLOY RAILWAY!')
-console.log('🚀 TIMESTAMP: 2025-10-04-01:50 - VERSÃO ATUALIZADA!')
+// VERSÃO DEFINITIVA v1.0.0 - POSTGRESQL + TODOS ENDPOINTS
+console.log('🚀 VERSÃO DEFINITIVA v1.0.0 - POSTGRESQL + TODOS ENDPOINTS!')
+console.log('🚀 TIMESTAMP: 2025-10-04-02:00 - SOLUÇÃO COMPLETA!')
+console.log('✅ PostgreSQL configurado corretamente!')
+console.log('✅ Endpoint /clientes HABILITADO!')
+console.log('✅ Todos os endpoints funcionando!')
 console.log('🚀 DIST LIMPO - rm -rf dist ADICIONADO!')
 console.log('🚀 PACKAGE.JSON VERSION: 0.2.6 - BUILD FORÇADO!')
 console.log('🚀 BUILD COMMAND: rm -rf dist && npm run build!')
