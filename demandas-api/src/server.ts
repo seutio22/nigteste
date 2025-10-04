@@ -17,39 +17,8 @@ const app = Fastify({
 })
 const prisma = new PrismaClient()
 
-// Aplicar schema automaticamente na inicialização
-async function applySchema() {
-  try {
-    console.log('🔧 Verificando schema do banco...')
-    // SQLite não suporta ADD COLUMN IF NOT EXISTS, então vamos tentar e ignorar erros
-    try {
-      await prisma.$executeRaw`ALTER TABLE "Analista" ADD COLUMN "email" TEXT`
-    } catch (e: any) {
-      if (e.message.includes('duplicate column name')) {
-        console.log('✅ Coluna email já existe')
-      }
-    }
-    try {
-      await prisma.$executeRaw`ALTER TABLE "Analista" ADD COLUMN "telefone" TEXT`
-    } catch (e: any) {
-      if (e.message.includes('duplicate column name')) {
-        console.log('✅ Coluna telefone já existe')
-      }
-    }
-    try {
-      await prisma.$executeRaw`ALTER TABLE "Analista" ADD COLUMN "cargo" TEXT`
-    } catch (e: any) {
-      if (e.message.includes('duplicate column name')) {
-        console.log('✅ Coluna cargo já existe')
-      }
-    }
-    console.log('✅ Schema verificado!')
-  } catch (error: any) {
-    console.log('ℹ️ Schema check:', error.message)
-  }
-}
-
-applySchema().catch(console.error)
+// Schema PostgreSQL gerenciado pelo Prisma migrations
+console.log('🔧 PostgreSQL configurado - schema gerenciado por migrations')
 
 // Configuração de CORS mais permissiva para desenvolvimento
 const corsOptions = {
