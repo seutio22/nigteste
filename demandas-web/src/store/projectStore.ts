@@ -106,6 +106,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       
       
       // Criar projeto na API
+      const api = getApi()
       const response = await api.post('/projetos', apiData)
       
       // Adicionar ao store local
