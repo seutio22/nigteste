@@ -56,13 +56,13 @@ console.log('🚀 CONFIGURAÇÃO CORRIGIDA - SEM BUILD DUPLICADO!')
 console.log('🚀 NO_CACHE=1 ADICIONADO - CACHE DESABILITADO!')
 console.log('🚀 DIST LIMPO - ROTA DUPLICADA RESOLVIDA!')
 
-app.get('/teste-versao-v206', async (request, reply) => {
-  console.log('🚀 ROTA DE TESTE v2.0.6 CHAMADA - START DIRETO SEM POSTGRESQL!')
+app.get('/teste-versao-v212', async (request, reply) => {
+  console.log('🚀 ROTA DE TESTE v2.1.2 CHAMADA - FORCAR REDEPLOY POSTGRESQL!')
   return { 
-    message: 'Rota de teste v2.0.6 funcionando! START DIRETO SEM POSTGRESQL!',
+    message: 'Rota de teste v2.1.2 funcionando! FORCAR REDEPLOY POSTGRESQL!',
     timestamp: new Date().toISOString(),
-    version: 'v2.0.6',
-    packageVersion: '2.0.6',
+    version: 'v2.1.2',
+    packageVersion: '2.1.2',
     buildForced: true,
     cacheDisabled: true,
     distCleaned: true,
