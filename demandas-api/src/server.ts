@@ -62,6 +62,12 @@ const corsOptions = {
   optionsSuccessStatus: 204
 }
 
+
+console.log('🔧 REGENERANDO PRISMA CLIENT - RESOLVER ERRO P1001!');
+console.log('🔧 PROBLEMA: Can\'t reach database server!');
+console.log('🔧 SOLUÇÃO: Forçar regeneração do Prisma Client!');
+console.log('🔧 RAILWAY: Verificar variável DATABASE_URL!');
+
 app.register(cors, corsOptions)
 
 // FORÇAR RECOMPILAÇÃO RAILWAY v23 - DIST LIMPO
@@ -77,13 +83,13 @@ console.log('🚀 CONFIGURAÇÃO CORRIGIDA - SEM BUILD DUPLICADO!')
 console.log('🚀 NO_CACHE=1 ADICIONADO - CACHE DESABILITADO!')
 console.log('🚀 DIST LIMPO - ROTA DUPLICADA RESOLVIDA!')
 
-app.get('/teste-route-v23', async (request, reply) => {
+app.get('/teste-route-v24', async (request, reply) => {
   console.log('🚀 ROTA DE TESTE v23 CHAMADA - CÓDIGO NOVO!')
   return {
-    message: 'Rota de teste v23 funcionando! CÓDIGO NOVO EXECUTANDO!',
+    message: 'Rota de teste v24 funcionando! PRISMA REGENERADO!',
     timestamp: new Date().toISOString(),
-    version: 'v23',
-    packageVersion: '0.2.6',
+    version: 'v24',
+    packageVersion: '0.2.7',
     buildForced: true,
     cacheDisabled: true,
     distCleaned: true,
