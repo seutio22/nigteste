@@ -81,6 +81,70 @@ app.get('/teste-versao-v212', async (request, reply) => {
   }
 })
 
+// Endpoint para tentar conectar ao banco antigo e exportar dados
+app.post('/export-old-data', async (request, reply) => {
+  try {
+    console.log('📊 Tentando conectar ao banco antigo para exportar dados...')
+    
+    // Tentar conectar ao banco antigo
+    const oldDatabaseUrl = 'postgresql://postgres:senha@caboose.proxy.rlwy.net:14005/railway'
+    const { PrismaClient } = require('@prisma/client')
+    
+    const oldPrisma = new PrismaClient({
+      datasources: {
+        db: {
+          url: oldDatabaseUrl
+        }
+      }
+    })
+    
+    await oldPrisma.$connect()
+    console.log('✅ Conectado ao banco antigo!')
+    
+    // Tentar listar tabelas
+    const tables = await oldPrisma.$queryRaw`
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_schema = 'public' 
+      AND table_type = 'BASE TABLE'
+    `
+    
+    console.log('📋 Tabelas encontradas:', tables)
+    
+    // Tentar exportar dados de cada tabela
+    const exportedData: any = {}
+    
+    for (const table of tables as any[]) {
+      try {
+        const tableName = table.table_name
+        const data = await oldPrisma.$queryRawUnsafe(`SELECT * FROM "${tableName}"`)
+        exportedData[tableName] = data
+        console.log(`✅ Dados exportados da tabela ${tableName}: ${Array.isArray(data) ? data.length : 0} registros`)
+      } catch (tableError: any) {
+        console.log(`⚠️ Erro ao exportar tabela ${table.table_name}:`, tableError.message)
+        exportedData[table.table_name] = { error: tableError.message }
+      }
+    }
+    
+    await oldPrisma.$disconnect()
+    
+    return { 
+      message: 'Dados exportados com sucesso!', 
+      success: true, 
+      tables: tables,
+      data: exportedData 
+    }
+    
+  } catch (error: any) {
+    console.error('❌ Erro ao conectar ao banco antigo:', error.message)
+    return { 
+      message: 'Erro ao conectar ao banco antigo', 
+      error: error.message, 
+      success: false 
+    }
+  }
+})
+
 // Endpoint para aplicar schema do banco
 app.post('/setup-schema', async (request, reply) => {
   try {
