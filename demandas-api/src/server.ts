@@ -57,16 +57,17 @@ console.log('🚀 NO_CACHE=1 ADICIONADO - CACHE DESABILITADO!')
 console.log('🚀 DIST LIMPO - ROTA DUPLICADA RESOLVIDA!')
 
 app.get('/teste-versao-v200', async (request, reply) => {
-  console.log('🚀 ROTA DE TESTE v2.0.0 CHAMADA - VERSÃO NOVA APLICADA!')
-  return {
-    message: 'Rota de teste v2.0.0 funcionando! VERSÃO MAJOR APLICADA!',
+  console.log('🚀 ROTA DE TESTE v2.0.1 CHAMADA - CORREÇÃO DELETE 404 APLICADA!')
+  return { 
+    message: 'Rota de teste v2.0.1 funcionando! CORREÇÃO DELETE 404 APLICADA!',
     timestamp: new Date().toISOString(),
-    version: 'v2.0.0',
-    packageVersion: '2.0.0',
+    version: 'v2.0.1',
+    packageVersion: '2.0.1',
     buildForced: true,
     cacheDisabled: true,
     distCleaned: true,
-    cacheBuster: Math.random()
+    cacheBuster: Math.random(),
+    deleteFixApplied: true
   }
 })
 
@@ -193,7 +194,7 @@ app.post('/clientes/import-bulk', async (request, reply) => {
         // Aplicar mesma validação do cadastro manual
         if (cliente.grupoEconomico && cliente.grupoEconomico.trim()) {
           const existingClient = await prisma.cliente.findFirst({
-            where: {
+      where: {
               grupoEconomico: cliente.grupoEconomico.trim()
             }
           })
@@ -2218,12 +2219,12 @@ for (const [path, repo] of Object.entries(resources)) {
   })
   app.delete(`/${path}/:id`, async (req: any, reply: any) => {
     try {
-      console.log(`🔍 DELETE /${path}/${req.params.id}: Endpoint chamado`);
-      console.log(`🔍 DELETE /${path}/${req.params.id}: Repo:`, typeof repo.remove);
-      
-      // Usar método customizado se existir, senão usar o padrão
-      const result = (repo as any).delete ? await (repo as any).delete(req.params.id) : await repo.remove(req.params.id);
-      console.log(`🔍 DELETE /${path}/${req.params.id}: Resultado:`, result);
+    console.log(`🔍 DELETE /${path}/${req.params.id}: Endpoint chamado`);
+    console.log(`🔍 DELETE /${path}/${req.params.id}: Repo:`, typeof repo.remove);
+    
+    // Usar método customizado se existir, senão usar o padrão
+    const result = (repo as any).delete ? await (repo as any).delete(req.params.id) : await repo.remove(req.params.id);
+    console.log(`🔍 DELETE /${path}/${req.params.id}: Resultado:`, result);
       
       // Verificar se o resultado é um erro estruturado (404)
       if (result && typeof result === 'object' && result.statusCode === 404) {
