@@ -84,19 +84,11 @@ app.get('/teste-versao-v212', async (request, reply) => {
 // Endpoint para aplicar schema do banco
 app.post('/setup-schema', async (request, reply) => {
   try {
-    console.log('📊 Aplicando schema do banco...')
+    console.log('📊 Aplicando schema do banco usando Prisma...')
     
-    await prisma.$executeRaw`CREATE TABLE IF NOT EXISTS "User" (
-      "id" TEXT NOT NULL PRIMARY KEY,
-      "name" TEXT NOT NULL,
-      "email" TEXT NOT NULL UNIQUE,
-      "password" TEXT NOT NULL,
-      "role" TEXT NOT NULL DEFAULT 'user',
-      "active" BOOLEAN NOT NULL DEFAULT true,
-      "permissions" TEXT,
-      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      "updatedAt" TIMESTAMP(3) NOT NULL
-    )`
+    // Usar prisma db push para aplicar o schema completo
+    const { execSync } = require('child_process')
+    execSync('npx prisma db push --accept-data-loss', { stdio: 'inherit' })
     
     console.log('✅ Schema aplicado com sucesso!')
     return { message: 'Schema aplicado com sucesso!', success: true }
