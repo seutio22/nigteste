@@ -2211,14 +2211,34 @@ for (const [path, repo] of Object.entries(resources)) {
       throw error
     }
   })
-  app.delete(`/${path}/:id`, async (req: any) => {
-    console.log(`🔍 DELETE /${path}/${req.params.id}: Endpoint chamado`);
-    console.log(`🔍 DELETE /${path}/${req.params.id}: Repo:`, typeof repo.remove);
-    
-    // Usar método customizado se existir, senão usar o padrão
-    const result = (repo as any).delete ? await (repo as any).delete(req.params.id) : await repo.remove(req.params.id);
-    console.log(`🔍 DELETE /${path}/${req.params.id}: Resultado:`, result);
-    return result;
+  app.delete(`/${path}/:id`, async (req: any, reply: any) => {
+    try {
+      console.log(`🔍 DELETE /${path}/${req.params.id}: Endpoint chamado`);
+      console.log(`🔍 DELETE /${path}/${req.params.id}: Repo:`, typeof repo.remove);
+      
+      // Usar método customizado se existir, senão usar o padrão
+      const result = (repo as any).delete ? await (repo as any).delete(req.params.id) : await repo.remove(req.params.id);
+      console.log(`🔍 DELETE /${path}/${req.params.id}: Resultado:`, result);
+      return result;
+    } catch (error: any) {
+      console.error(`❌ DELETE /${path}/${req.params.id}: Erro:`, error.message);
+      
+      // Se o registro não foi encontrado, retornar 404
+      if (error.code === 'P2025' || error.message.includes('não foi encontrado') || error.message.includes('Record to delete does not exist')) {
+        return reply.code(404).send({
+          statusCode: 404,
+          error: 'Not Found',
+          message: `Registro com ID "${req.params.id}" não foi encontrado`
+        });
+      }
+      
+      // Para outros erros, retornar 500
+      return reply.code(500).send({
+        statusCode: 500,
+        error: 'Internal Server Error',
+        message: error.message || 'Erro interno do servidor'
+      });
+    }
   })
 }
 
