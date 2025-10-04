@@ -147,6 +147,17 @@ app.delete('/clientes/:id', async (request: any, reply) => {
 })
 
 console.log('✅ Endpoints específicos /clientes criados!')
+
+// ENDPOINT DE TESTE PARA FORÇAR RECONHECIMENTO DE MUDANÇAS
+app.get('/teste-versao-v101', async (request, reply) => {
+  return { 
+    message: 'VERSÃO v1.0.1 APLICADA COM SUCESSO!', 
+    timestamp: new Date().toISOString(),
+    endpoints: ['/clientes', '/teste-versao-v101']
+  }
+})
+
+console.log('✅ Endpoint de teste /teste-versao-v101 criado!')
 console.log('🚀 DIST LIMPO - rm -rf dist ADICIONADO!')
 console.log('🚀 PACKAGE.JSON VERSION: 0.2.6 - BUILD FORÇADO!')
 console.log('🚀 BUILD COMMAND: rm -rf dist && npm run build!')
