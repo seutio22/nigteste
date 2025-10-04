@@ -47,7 +47,7 @@ export const KanbanBoard: React.FC = () => {
     title: '',
     description: '',
     priority: 'medium' as 'low' | 'medium' | 'high',
-    assignee: user?.name || 'unassigned', // Usar NOME do usuário logado ou 'unassigned'
+    assignee: user?.id || 'unassigned', // Usar ID do usuário logado (não editável)
     startDate: '',
     dueDate: '',
     tags: ''
@@ -928,12 +928,11 @@ export const KanbanBoard: React.FC = () => {
               placeholder="Descreva detalhes da tarefa..."
             />
             <TextField
-              label="Responsável (Opcional)"
-              value={newTicket.assignee}
-              onChange={(e) => setNewTicket({ ...newTicket, assignee: e.target.value })}
+              label="Responsável"
+              value={user?.name || 'Usuário não identificado'}
               fullWidth
-              placeholder="Nome da pessoa responsável"
-              helperText="Deixe vazio para usar seu nome ou digite outro nome"
+              disabled
+              helperText="Você é automaticamente o responsável por este ticket"
             />
             <TextField
               type="date"

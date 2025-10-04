@@ -119,8 +119,9 @@ export const useKanbanStore = create<KanbanState>()(
             // Tentar salvar na API
             try {
               console.log('🔍 KanbanStore: Tentando salvar na API...')
-              const { api } = await import('../lib/api.local')
-              await api.createKanbanTicket(newTicket)
+              const { getApi } = await import('../lib/apiConfig')
+              const api = getApi()
+              await api.post('/kanban/tickets', newTicket)
               console.log('✅ Ticket salvo na API:', newTicket.id)
             } catch (apiError) {
               console.warn('⚠️ Erro ao salvar na API, mantendo apenas local:', apiError)
@@ -311,23 +312,18 @@ export const useKanbanStore = create<KanbanState>()(
           return get().tickets
         },
         
-        // Sincronização com API - KANBAN INDEPENDENTE
+        // Sincronização com API - KANBAN COM AUTENTICAÇÃO
         syncFromApi: async () => {
           try {
             set({ loading: true, error: null })
             console.log('🔍 KanbanStore: Iniciando syncFromApi...')
             
-            // Buscar tickets do kanban da API (endpoint próprio)
-            const baseUrl = 'https://nigteste-production.up.railway.app'
-            const kanbanResponse = await fetch(`${baseUrl}/kanban-tickets`)
-            if (!kanbanResponse.ok) {
-              // Se não existir endpoint, usar dados locais
-              console.log('🔍 KanbanStore: Endpoint não encontrado, usando dados locais')
-              set({ loading: false })
-              return
-            }
+            // Importar API com autenticação
+            const { getApi } = await import('../lib/apiConfig')
+            const api = getApi()
             
-            const kanbanTickets = await kanbanResponse.json()
+            // Buscar tickets do kanban da API (com autenticação)
+            const kanbanTickets = await api.get('/kanban/tickets')
             console.log('🔍 KanbanStore: Tickets carregados da API:', kanbanTickets.length)
             
             // Aplicar tickets ao store

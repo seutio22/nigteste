@@ -3211,11 +3211,43 @@ app.register(shareRoutes, { prisma })
 app.register(masterDataRoutes, { prisma })
 
 // Rotas do Kanban
-app.get('/kanban/tickets', async () => {
+app.get('/kanban/tickets', async (req: any, reply: any) => {
   try {
     console.log('🔍 Buscando tickets do kanban...')
     
+    // Verificar se o usuário está autenticado
+    let userId: string | null = null
+    let userRole: string | null = null
+    try {
+      const token = req.headers.authorization?.replace('Bearer ', '')
+      if (token) {
+        const decoded = app.jwt.verify(token) as any
+        userId = decoded.userId
+        userRole = decoded.role
+        console.log('🔐 Usuário logado:', userId, 'Role:', userRole)
+      }
+    } catch (authError) {
+      console.warn('⚠️ Erro na autenticação:', authError)
+    }
+    
+    // Se não há usuário logado, retornar erro
+    if (!userId) {
+      return reply.code(401).send({ error: 'Usuário deve estar logado para ver tickets' })
+    }
+    
+    // Construir filtro baseado no role do usuário
+    let whereClause: any = {}
+    
+    // Se não é admin, filtrar apenas tickets do usuário
+    if (userRole !== 'admin') {
+      whereClause.assignee = userId
+      console.log('🔍 Filtrando tickets apenas do usuário:', userId)
+    } else {
+      console.log('🔍 Admin visualizando todos os tickets')
+    }
+    
     const kanbanTickets = await prisma.kanbanTicket.findMany({
+      where: whereClause,
       orderBy: {
         createdAt: 'desc'
       }
@@ -3247,13 +3279,26 @@ app.get('/kanban/tickets', async () => {
   }
 })
 
-app.post('/kanban/tickets', async (req: any) => {
+app.post('/kanban/tickets', async (req: any, reply: any) => {
   try {
     const ticketData = req.body
     
-    // Validar se o usuário assignee existe
-    if (ticketData.assignee && ticketData.assignee !== 'unassigned') {
-      await validateForeignKeys.validateUser(ticketData.assignee);
+    // Verificar se o usuário está autenticado
+    let userId: string | null = null
+    try {
+      const token = req.headers.authorization?.replace('Bearer ', '')
+      if (token) {
+        const decoded = app.jwt.verify(token) as any
+        userId = decoded.userId
+        console.log('🔐 Usuário logado criando ticket:', userId)
+      }
+    } catch (authError) {
+      console.warn('⚠️ Erro na autenticação, criando ticket sem usuário:', authError)
+    }
+    
+    // Se não há usuário logado, retornar erro
+    if (!userId) {
+      return reply.code(401).send({ error: 'Usuário deve estar logado para criar tickets' })
     }
     
     const kanbanTicket = await prisma.kanbanTicket.create({
@@ -3262,7 +3307,7 @@ app.post('/kanban/tickets', async (req: any) => {
         description: ticketData.description,
         status: ticketData.status,
         priority: ticketData.priority,
-        assignee: ticketData.assignee !== 'unassigned' ? ticketData.assignee : null,
+        assignee: userId, // Sempre vincular ao usuário logado
         startDate: ticketData.startDate ? new Date(ticketData.startDate) : null,
         dueDate: ticketData.dueDate ? new Date(ticketData.dueDate) : null,
         tags: JSON.stringify(ticketData.tags || [])
@@ -3308,27 +3353,60 @@ app.post('/kanban/tickets', async (req: any) => {
   }
 })
 
-app.put('/kanban/tickets/:id', async (req: any) => {
+app.put('/kanban/tickets/:id', async (req: any, reply: any) => {
   try {
     const { id } = req.params
     const updates = req.body
     
-    // Validar se o usuário assignee existe
-    if (updates.assignee && updates.assignee !== 'unassigned') {
-      await validateForeignKeys.validateUser(updates.assignee);
+    // Verificar se o usuário está autenticado
+    let userId: string | null = null
+    let userRole: string | null = null
+    try {
+      const token = req.headers.authorization?.replace('Bearer ', '')
+      if (token) {
+        const decoded = app.jwt.verify(token) as any
+        userId = decoded.userId
+        userRole = decoded.role
+        console.log('🔐 Usuário logado atualizando ticket:', userId, 'Role:', userRole)
+      }
+    } catch (authError) {
+      console.warn('⚠️ Erro na autenticação:', authError)
     }
+    
+    // Se não há usuário logado, retornar erro
+    if (!userId) {
+      return reply.code(401).send({ error: 'Usuário deve estar logado para atualizar tickets' })
+    }
+    
+    // Buscar o ticket atual para verificar permissões
+    const currentTicket = await prisma.kanbanTicket.findUnique({
+      where: { id }
+    })
+    
+    if (!currentTicket) {
+      return reply.code(404).send({ error: 'Ticket não encontrado' })
+    }
+    
+    // Verificar se o usuário pode editar este ticket
+    if (userRole !== 'admin' && currentTicket.assignee !== userId) {
+      return reply.code(403).send({ error: 'Você só pode editar seus próprios tickets' })
+    }
+    
+    // Remover assignee dos updates para evitar mudança de responsável
+    const { assignee, ...safeUpdates } = updates
+    console.log('🔒 Campo assignee removido dos updates para manter responsável original')
     
     const kanbanTicket = await prisma.kanbanTicket.update({
       where: { id },
       data: {
-        title: updates.title,
-        description: updates.description,
-        status: updates.status,
-        priority: updates.priority,
-        assignee: updates.assignee !== 'unassigned' ? updates.assignee : null,
-        startDate: updates.startDate ? new Date(updates.startDate) : null,
-        dueDate: updates.dueDate ? new Date(updates.dueDate) : null,
-        tags: JSON.stringify(updates.tags || [])
+        title: safeUpdates.title,
+        description: safeUpdates.description,
+        status: safeUpdates.status,
+        priority: safeUpdates.priority,
+        // assignee não é alterado - mantém o responsável original
+        startDate: safeUpdates.startDate ? new Date(safeUpdates.startDate) : null,
+        dueDate: safeUpdates.dueDate ? new Date(safeUpdates.dueDate) : null,
+        tags: JSON.stringify(safeUpdates.tags || [])
       }
     })
     
@@ -3351,10 +3429,46 @@ app.put('/kanban/tickets/:id', async (req: any) => {
   }
 })
 
-app.delete('/kanban/tickets/:id', async (req: any) => {
+app.delete('/kanban/tickets/:id', async (req: any, reply: any) => {
   try {
     const { id } = req.params
+    
+    // Verificar se o usuário está autenticado
+    let userId: string | null = null
+    let userRole: string | null = null
+    try {
+      const token = req.headers.authorization?.replace('Bearer ', '')
+      if (token) {
+        const decoded = app.jwt.verify(token) as any
+        userId = decoded.userId
+        userRole = decoded.role
+        console.log('🔐 Usuário logado deletando ticket:', userId, 'Role:', userRole)
+      }
+    } catch (authError) {
+      console.warn('⚠️ Erro na autenticação:', authError)
+    }
+    
+    // Se não há usuário logado, retornar erro
+    if (!userId) {
+      return reply.code(401).send({ error: 'Usuário deve estar logado para deletar tickets' })
+    }
+    
+    // Buscar o ticket atual para verificar permissões
+    const currentTicket = await prisma.kanbanTicket.findUnique({
+      where: { id }
+    })
+    
+    if (!currentTicket) {
+      return reply.code(404).send({ error: 'Ticket não encontrado' })
+    }
+    
+    // Verificar se o usuário pode deletar este ticket
+    if (userRole !== 'admin' && currentTicket.assignee !== userId) {
+      return reply.code(403).send({ error: 'Você só pode deletar seus próprios tickets' })
+    }
+    
     await prisma.kanbanTicket.delete({ where: { id } })
+    console.log('✅ Ticket deletado com sucesso:', id)
     return { message: 'Ticket deletado com sucesso' }
   } catch (error) {
     console.error('❌ Erro ao deletar ticket do kanban:', error)
