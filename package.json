@@ -1,7 +1,7 @@
 {
   "name": "demandas-api-railway-fix",
-  "version": "1.0.3",
-  "description": "Backend API - v1.0.3 - NOME PROJETO ALTERADO - FORCAR RECONHECIMENTO RAILWAY",
+  "version": "2.0.0",
+  "description": "Backend API - v2.0.0 - MUDANCA DRÁSTICA - FORCAR RAILWAY RECONHECER",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",

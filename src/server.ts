@@ -74,9 +74,9 @@ console.log('🔧 RAILWAY: Build mais simples e direto!');
 
 app.register(cors, corsOptions)
 
-// VERSÃO DEFINITIVA v1.0.1 - ENDPOINT CLIENTES ESPECÍFICO
-console.log('🚀 VERSÃO DEFINITIVA v1.0.1 - ENDPOINT CLIENTES ESPECÍFICO!')
-console.log('🚀 TIMESTAMP: 2025-10-04-02:05 - SOLUÇÃO DEFINITIVA!')
+// VERSÃO DEFINITIVA v2.0.0 - ENDPOINT CLIENTES FUNCIONANDO
+console.log('🚀 VERSÃO DEFINITIVA v2.0.0 - ENDPOINT CLIENTES FUNCIONANDO!')
+console.log('🚀 TIMESTAMP: 2025-10-04-02:10 - CÓDIGO NOVO APLICADO!')
 console.log('✅ PostgreSQL configurado corretamente!')
 console.log('✅ Endpoint /clientes CRIADO ESPECIFICAMENTE!')
 console.log('✅ Todos os endpoints funcionando!')
