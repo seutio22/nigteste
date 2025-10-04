@@ -1,7 +1,7 @@
 {
   "name": "demandas-api-novo",
-  "version": "0.3.0",
-  "description": "Backend API - 0.3.0 - ENDPOINT CLIENTES HABILITADO",
+  "version": "0.3.1",
+  "description": "Backend API - 0.3.1 - FORCAR DEPLOY ENDPOINT CLIENTES",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
