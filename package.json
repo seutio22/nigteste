@@ -1,7 +1,7 @@
 {
   "name": "demandas-api-novo",
-  "version": "0.3.1",
-  "description": "Backend API - 0.3.1 - FORCAR DEPLOY ENDPOINT CLIENTES",
+  "version": "0.3.2",
+  "description": "Backend API - 0.3.2 - DEBUG CLIENTES LOCAL OK - DEPLOY RAILWAY",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",

@@ -1027,7 +1027,10 @@ const resources = {
 
 
 for (const [path, repo] of Object.entries(resources)) {
-  app.get(`/${path}`, async (req: any) => repo.list(req.query))
+  app.get(`/${path}`, async (req: any) => {
+    console.log(`🔍 GET /${path}: Requisição recebida`)
+    return repo.list(req.query)
+  })
   app.get(`/${path}/:id`, async (req: any) => repo.get(req.params.id))
   app.post(`/${path}`, async (req: any, res) => {
     console.log(`🔍 POST /${path}: Recebendo requisição`)
