@@ -99,44 +99,115 @@ app.get('/usuarios-publicos', async (request, reply) => {
 // Endpoint para criar usuário admin inicial (apenas para setup)
 app.post('/setup-admin', async (request, reply) => {
   try {
-    console.log('🔧 POST /setup-admin: Criando usuário admin inicial')
+    console.log('🔧 POST /setup-admin: Configurando usuário admin')
     
-    // Verificar se já existe usuário admin
-    const existingAdmin = await prisma.user.findFirst({
-      where: { role: 'admin' }
+    const body = request.body as any || {}
+    const email = body.email || 'admin@admin.com'
+    const password = body.password || 'admin'
+    const name = body.name || 'Administrador'
+    
+    console.log('📧 Email:', email)
+    console.log('🔑 Senha:', password)
+    
+    // Verificar se já existe usuário com este email
+    const existingAdmin = await prisma.user.findUnique({
+      where: { email: email }
     })
+    
+    const bcrypt = require('bcryptjs')
+    const hashedPassword = await bcrypt.hash(password, 10)
+    
+    let adminUser
     
     if (existingAdmin) {
-      console.log('⚠️ Usuário admin já existe:', existingAdmin.email)
-      return { message: 'Usuário admin já existe', user: existingAdmin }
+      console.log('⚠️ Usuário admin já existe, atualizando senha...')
+      
+      // Atualizar senha do usuário existente
+      adminUser = await prisma.user.update({
+        where: { email: email },
+        data: {
+          password: hashedPassword,
+          role: 'admin',
+          active: true,
+          permissions: JSON.stringify({
+            home: { view: true, create: true, edit: true, delete: true },
+            dashboard: { view: true, create: true, edit: true, delete: true },
+            cadastro: { view: true, create: true, edit: true, delete: true },
+            manutencao: { view: true, create: true, edit: true, delete: true },
+            atendimento: { view: true, create: true, edit: true, delete: true },
+            comunicados: { view: true, create: true, edit: true, delete: true },
+            validacao: { view: true, create: true, edit: true, delete: true },
+            reajuste: { view: true, create: true, edit: true, delete: true },
+            mailling: { view: true, create: true, edit: true, delete: true },
+            analytics: { view: true, create: true, edit: true, delete: true },
+            kanban: { view: true, create: true, edit: true, delete: true },
+            projetos: { view: true, create: true, edit: true, delete: true },
+            dados: { view: true, create: true, edit: true, delete: true },
+            usuarios: { view: true, create: true, edit: true, delete: true },
+            configuracoes: { view: true, create: true, edit: true, delete: true },
+            relatorios: { view: true, create: true, edit: true, delete: true }
+          })
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          active: true,
+          createdAt: true,
+          updatedAt: true
+        }
+      })
+      
+      console.log('✅ Usuário admin atualizado:', adminUser.email)
+      return { message: 'Usuário admin atualizado com sucesso', user: adminUser }
+      
+    } else {
+      console.log('🆕 Criando novo usuário admin...')
+      
+      // Criar novo usuário admin
+      adminUser = await prisma.user.create({
+        data: {
+          name: name,
+          email: email,
+          password: hashedPassword,
+          role: 'admin',
+          active: true,
+          permissions: JSON.stringify({
+            home: { view: true, create: true, edit: true, delete: true },
+            dashboard: { view: true, create: true, edit: true, delete: true },
+            cadastro: { view: true, create: true, edit: true, delete: true },
+            manutencao: { view: true, create: true, edit: true, delete: true },
+            atendimento: { view: true, create: true, edit: true, delete: true },
+            comunicados: { view: true, create: true, edit: true, delete: true },
+            validacao: { view: true, create: true, edit: true, delete: true },
+            reajuste: { view: true, create: true, edit: true, delete: true },
+            mailling: { view: true, create: true, edit: true, delete: true },
+            analytics: { view: true, create: true, edit: true, delete: true },
+            kanban: { view: true, create: true, edit: true, delete: true },
+            projetos: { view: true, create: true, edit: true, delete: true },
+            dados: { view: true, create: true, edit: true, delete: true },
+            usuarios: { view: true, create: true, edit: true, delete: true },
+            configuracoes: { view: true, create: true, edit: true, delete: true },
+            relatorios: { view: true, create: true, edit: true, delete: true }
+          })
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          active: true,
+          createdAt: true
+        }
+      })
+      
+      console.log('✅ Usuário admin criado:', adminUser.email)
+      return { message: 'Usuário admin criado com sucesso', user: adminUser }
     }
     
-    // Criar usuário admin
-    const bcrypt = require('bcryptjs')
-    const hashedPassword = await bcrypt.hash('admin123', 10)
-    
-    const adminUser = await prisma.user.create({
-      data: {
-        name: 'Administrador',
-        email: 'admin@admin.com',
-        password: hashedPassword,
-        role: 'admin',
-        active: true
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        active: true,
-        createdAt: true
-      }
-    })
-    
-    console.log('✅ Usuário admin criado:', adminUser.email)
-    return { message: 'Usuário admin criado com sucesso', user: adminUser }
   } catch (error) {
-    console.error('❌ Erro ao criar usuário admin:', error)
+    console.error('❌ Erro ao configurar usuário admin:', error)
     throw error
   }
 })
@@ -3066,61 +3137,7 @@ app.delete('/analytics/:id', async (req: any) => {
 
 // Endpoint para buscar relatórios já está definido acima
 
-// Endpoint especial para criar usuário administrador (apenas para setup inicial)
-app.get('/setup-admin', async (req: any, reply: any) => {
-  try {
-    console.log('🔧 POST /setup-admin - Criando usuário administrador...')
-    
-    const bcrypt = require('bcryptjs')
-    const hashedPassword = await bcrypt.hash('admin123', 10)
-    
-    // Verificar se já existe
-    const existingAdmin = await prisma.user.findUnique({
-      where: { email: 'admin@demandas.com' }
-    })
-    
-    if (existingAdmin) {
-      console.log('ℹ️ Usuário administrador já existe')
-      return { message: 'Usuário administrador já existe', user: existingAdmin }
-    }
-    
-    // Criar usuário administrador
-    const admin = await prisma.user.create({
-      data: {
-        email: 'admin@demandas.com',
-        password: hashedPassword,
-        name: 'Administrador',
-        role: 'admin',
-        permissions: JSON.stringify({
-          canCreate: true,
-          canRead: true,
-          canUpdate: true,
-          canDelete: true,
-          canManageUsers: true,
-          canManageProjects: true,
-          canManageDemands: true,
-          canManageValidations: true,
-          canManageMaintenance: true,
-          canViewReports: true,
-          canManageMasterData: true
-        })
-      }
-    })
-    
-    console.log('✅ Usuário administrador criado:', admin.email)
-    return { 
-      message: 'Usuário administrador criado com sucesso',
-      user: { email: admin.email, name: admin.name, role: admin.role },
-      credentials: {
-        email: 'admin@demandas.com',
-        password: 'admin123'
-      }
-    }
-  } catch (error) {
-    console.error('❌ Erro ao criar usuário administrador:', error)
-    return reply.code(500).send({ error: 'Erro interno do servidor', details: error.message })
-  }
-})
+// Endpoint GET /setup-admin removido - usando apenas POST para evitar conflitos
 
 // Iniciar servidor
 const start = async () => {
