@@ -64,25 +64,26 @@ const corsOptions = {
 
 app.register(cors, corsOptions)
 
-// FORÇAR RECOMPILAÇÃO RAILWAY v16 - BUILD FORÇADO PARA QUEBRAR CACHE
-console.log('🚀 FORÇANDO RECOMPILAÇÃO RAILWAY v16 - CÓDIGO NOVO EXECUTANDO!')
-console.log('🚀 TIMESTAMP: 2025-10-04-00:16 - VERSÃO ATUALIZADA!')
+// FORÇAR RECOMPILAÇÃO RAILWAY v17 - BUILD FORÇADO PARA QUEBRAR CACHE
+console.log('🚀 FORÇANDO RECOMPILAÇÃO RAILWAY v17 - CÓDIGO NOVO EXECUTANDO!')
+console.log('🚀 TIMESTAMP: 2025-10-04-00:18 - VERSÃO ATUALIZADA!')
 console.log('🚀 BREAKING CACHE - NOVA VERSÃO DO CÓDIGO!')
-console.log('🚀 PACKAGE.JSON VERSION: 0.2.2 - BUILD FORÇADO!')
+console.log('🚀 PACKAGE.JSON VERSION: 0.2.3 - BUILD FORÇADO!')
 console.log('🚀 START SCRIPT: npm run build - RECOMPILAÇÃO FORÇADA!')
+console.log('🚀 ULTIMA TENTATIVA - CACHE DEVE SER QUEBRADO!')
 
-app.get('/teste-route-v16', async (request, reply) => {
-  console.log('🚀 ROTA DE TESTE v16 CHAMADA - CÓDIGO NOVO!')
+app.get('/teste-route-v17', async (request, reply) => {
+  console.log('🚀 ROTA DE TESTE v17 CHAMADA - CÓDIGO NOVO!')
   return { 
-    message: 'Rota de teste v16 funcionando! CÓDIGO NOVO EXECUTANDO!', 
+    message: 'Rota de teste v17 funcionando! CÓDIGO NOVO EXECUTANDO!', 
     timestamp: new Date().toISOString(),
-    version: 'v16',
-    packageVersion: '0.2.2',
+    version: 'v17',
+    packageVersion: '0.2.3',
     buildForced: true,
     cacheBuster: Math.random()
   }
 })
-console.log('🚀 ROTA DE TESTE v16 REGISTRADA - CÓDIGO NOVO!')
+console.log('🚀 ROTA DE TESTE v17 REGISTRADA - CÓDIGO NOVO!')
 
 // LOG PARA CONFIRMAR QUE A ROTA ESTÁ SENDO REGISTRADA
 console.log('🚀 REGISTRANDO ROTA: /limpeza/clientes-duplicatas')

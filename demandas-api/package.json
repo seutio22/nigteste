@@ -1,7 +1,7 @@
 {
   "name": "demandas-api",
-  "version": "0.2.2",
-  "description": "Backend API - v0.2.2 - FORÇAR RECOMPILAÇÃO RAILWAY v16 - BUILD FORÇADO",
+  "version": "0.2.3",
+  "description": "Backend API - v0.2.3 - FORÇAR RECOMPILAÇÃO RAILWAY v17 - BUILD FORÇADO",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
