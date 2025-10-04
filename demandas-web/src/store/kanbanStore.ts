@@ -121,7 +121,12 @@ export const useKanbanStore = create<KanbanState>()(
               console.log('🔍 KanbanStore: Tentando salvar na API...')
               const { getApi } = await import('../lib/apiConfig')
               const api = getApi()
-              await api.post('/kanban/tickets', newTicket)
+              
+              // Remover assignee do payload - será definido pelo backend
+              const { assignee, ...ticketPayload } = newTicket
+              console.log('🔍 KanbanStore: Payload enviado para API (sem assignee):', ticketPayload)
+              
+              await api.post('/kanban/tickets', ticketPayload)
               console.log('✅ Ticket salvo na API:', newTicket.id)
             } catch (apiError) {
               console.warn('⚠️ Erro ao salvar na API, mantendo apenas local:', apiError)

@@ -47,7 +47,7 @@ export const KanbanBoard: React.FC = () => {
     title: '',
     description: '',
     priority: 'medium' as 'low' | 'medium' | 'high',
-    assignee: user?.id || 'unassigned', // Usar ID do usuário logado (não editável)
+    // assignee será definido pelo backend automaticamente
     startDate: '',
     dueDate: '',
     tags: ''

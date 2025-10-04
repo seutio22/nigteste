@@ -3278,15 +3278,18 @@ app.get('/kanban/tickets', async (req: any, reply: any) => {
 app.post('/kanban/tickets', async (req: any, reply: any) => {
   try {
     const ticketData = req.body
+    console.log('🔍 Payload recebido para criação de ticket:', ticketData)
     
     // Verificar se o usuário está autenticado
     let userId: string | null = null
     try {
       const token = req.headers.authorization?.replace('Bearer ', '')
+      console.log('🔍 Token recebido:', token ? 'Presente' : 'Ausente')
       if (token) {
         const decoded = app.jwt.verify(token) as any
         userId = decoded.userId
         console.log('🔐 Usuário logado criando ticket:', userId)
+        console.log('🔍 Dados do token:', { userId: decoded.userId, role: decoded.role, name: decoded.name })
       }
     } catch (authError) {
       console.warn('⚠️ Erro na autenticação, criando ticket sem usuário:', authError)
