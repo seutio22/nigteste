@@ -56,13 +56,13 @@ console.log('🚀 CONFIGURAÇÃO CORRIGIDA - SEM BUILD DUPLICADO!')
 console.log('🚀 NO_CACHE=1 ADICIONADO - CACHE DESABILITADO!')
 console.log('🚀 DIST LIMPO - ROTA DUPLICADA RESOLVIDA!')
 
-app.get('/teste-versao-v205', async (request, reply) => {
-  console.log('🚀 ROTA DE TESTE v2.0.5 CHAMADA - APLICAÇÃO SEMPRE INICIA!')
+app.get('/teste-versao-v206', async (request, reply) => {
+  console.log('🚀 ROTA DE TESTE v2.0.6 CHAMADA - START DIRETO SEM POSTGRESQL!')
   return { 
-    message: 'Rota de teste v2.0.5 funcionando! APLICAÇÃO SEMPRE INICIA!',
+    message: 'Rota de teste v2.0.6 funcionando! START DIRETO SEM POSTGRESQL!',
     timestamp: new Date().toISOString(),
-    version: 'v2.0.5',
-    packageVersion: '2.0.5',
+    version: 'v2.0.6',
+    packageVersion: '2.0.6',
     buildForced: true,
     cacheDisabled: true,
     distCleaned: true,
@@ -76,7 +76,8 @@ app.get('/teste-versao-v205', async (request, reply) => {
     postgresqlConnectivityFixed: true,
     setupScriptImproved: true,
     applicationAlwaysStarts: true,
-    startCommandFixed: true
+    startCommandFixed: true,
+    directStartWithoutPostgreSQL: true
   }
 })
 
