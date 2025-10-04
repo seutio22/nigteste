@@ -171,6 +171,50 @@ app.post('/setup-admin', async (request, reply) => {
   }
 })
 
+// Endpoint para criar dados de teste (apenas para debug)
+app.post('/setup-dados-teste', async (request, reply) => {
+  try {
+    console.log('🔧 POST /setup-dados-teste: Criando dados de teste')
+    
+    // Criar alguns registros de dados de teste
+    const dadosTeste = await Promise.all([
+      prisma.dados.create({
+        data: {
+          id: 'dados-teste-1',
+          tipo: 'Teste',
+          categoria: 'debug',
+          status: 'ativo',
+          descricao: 'Dados de teste para verificar exclusão'
+        }
+      }),
+      prisma.dados.create({
+        data: {
+          id: 'dados-teste-2',
+          tipo: 'Teste',
+          categoria: 'debug',
+          status: 'ativo',
+          descricao: 'Segundo registro de teste'
+        }
+      }),
+      prisma.dados.create({
+        data: {
+          id: 'dados-teste-3',
+          tipo: 'Teste',
+          categoria: 'debug',
+          status: 'ativo',
+          descricao: 'Terceiro registro de teste'
+        }
+      })
+    ])
+    
+    console.log('✅ Dados de teste criados:', dadosTeste.length)
+    return { message: `${dadosTeste.length} dados de teste criados`, dados: dadosTeste }
+  } catch (error) {
+    console.error('❌ Erro ao criar dados de teste:', error)
+    throw error
+  }
+})
+
 // Endpoint público para obter dados do usuário para edição (sem autenticação)
 app.get('/usuario-edicao/:id', async (request, reply) => {
   try {
