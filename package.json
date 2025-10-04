@@ -1,7 +1,7 @@
 {
   "name": "demandas-api-novo",
-  "version": "0.2.9",
-  "description": "Backend API - 0.2.9 - DEPLOY SIMPLIFICADO",
+  "version": "0.3.0",
+  "description": "Backend API - 0.3.0 - ENDPOINT CLIENTES HABILITADO",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
