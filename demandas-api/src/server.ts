@@ -56,20 +56,23 @@ console.log('🚀 CONFIGURAÇÃO CORRIGIDA - SEM BUILD DUPLICADO!')
 console.log('🚀 NO_CACHE=1 ADICIONADO - CACHE DESABILITADO!')
 console.log('🚀 DIST LIMPO - ROTA DUPLICADA RESOLVIDA!')
 
-app.get('/teste-versao-v202', async (request, reply) => {
-  console.log('🚀 ROTA DE TESTE v2.0.2 CHAMADA - ENDPOINT CREATE-ADMIN E CORREÇÕES!')
+app.get('/teste-versao-v203', async (request, reply) => {
+  console.log('🚀 ROTA DE TESTE v2.0.3 CHAMADA - MENU LATERAL E PERMISSÕES CORRIGIDAS!')
   return { 
-    message: 'Rota de teste v2.0.2 funcionando! ENDPOINT CREATE-ADMIN E CORREÇÕES!',
+    message: 'Rota de teste v2.0.3 funcionando! MENU LATERAL E PERMISSÕES CORRIGIDAS!',
     timestamp: new Date().toISOString(),
-    version: 'v2.0.2',
-    packageVersion: '2.0.2',
+    version: 'v2.0.3',
+    packageVersion: '2.0.3',
     buildForced: true,
     cacheDisabled: true,
     distCleaned: true,
     cacheBuster: Math.random(),
     deleteFixApplied: true,
     createAdminEndpointAdded: true,
-    setupAdminFixed: true
+    setupAdminFixed: true,
+    menuLateralFixed: true,
+    permissionsFixed: true,
+    endpointsAdded: true
   }
 })
 

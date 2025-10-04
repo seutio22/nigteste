@@ -1,7 +1,7 @@
 {
   "name": "demandas-api-novo",
-  "version": "2.0.2",
-  "description": "Backend API - 2.0.2 - ENDPOINT CREATE-ADMIN E CORREÇÕES",
+  "version": "2.0.3",
+  "description": "Backend API - 2.0.3 - MENU LATERAL E PERMISSÕES CORRIGIDAS",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
