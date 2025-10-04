@@ -1,7 +1,7 @@
 {
-  "name": "demandas-api-novo",
+  "name": "demandas-api-railway-fix",
   "version": "1.0.3",
-  "description": "Backend API - v1.0.3 - FORCAR REDEPLOY COMPLETO - CONFIGURACAO RAILWAY ATUALIZADA",
+  "description": "Backend API - v1.0.3 - NOME PROJETO ALTERADO - FORCAR RECONHECIMENTO RAILWAY",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
