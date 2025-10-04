@@ -1,0 +1,41 @@
+{
+  "name": "demandas-api-novo",
+  "version": "0.2.9",
+  "description": "Backend API - 0.2.9 - DEPLOY SIMPLIFICADO",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate deploy",
+    "db:generate": "prisma generate",
+    "postinstall": "prisma generate",
+    "railway:build": "npm run build",
+    "railway:start": "npm run start"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@fastify/cors": "^11.1.0",
+    "@fastify/jwt": "^9.1.0",
+    "@prisma/client": "^6.16.3",
+    "bcryptjs": "^3.0.2",
+    "fastify": "^5.4.0",
+    "fastify-plugin": "^5.0.1",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.11.3",
+    "zod": "^4.0.16"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^24.2.1",
+    "@types/pg": "^8.10.9",
+    "prisma": "^6.13.0",
+    "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.9.2"
+  }
+}

@@ -1,0 +1,34 @@
+# Ignorar arquivos de documentação
+*.md
+!README.md
+
+# Ignorar scripts de deploy
+*.ps1
+*.bat
+*.sh
+*.js
+!demandas-api/**/*.js
+
+# Ignorar arquivos de teste
+test-*.html
+test-*.js
+debug-*.html
+limpar-*.html
+limpar-*.ps1
+
+# Ignorar configurações locais
+.github/
+grafana/
+demandas-web/
+
+# Ignorar arquivos temporários
+*.tmp
+*.log
+node_modules/
+.git/
+.gitignore
+
+# Manter apenas o diretório demandas-api
+demandas-api/
+railway.json
+.railwayignore
