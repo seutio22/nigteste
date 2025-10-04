@@ -334,8 +334,10 @@ app.post('/setup-dados-teste', async (request, reply) => {
         data: {
           id: 'dados-teste-1',
           tipo: 'Teste',
+          chave: 'teste-1',
+          valor: 'valor-teste-1',
           categoria: 'debug',
-          status: 'ativo',
+          ativo: true,
           descricao: 'Dados de teste para verificar exclusão'
         }
       }),
@@ -343,8 +345,10 @@ app.post('/setup-dados-teste', async (request, reply) => {
         data: {
           id: 'dados-teste-2',
           tipo: 'Teste',
+          chave: 'teste-2',
+          valor: 'valor-teste-2',
           categoria: 'debug',
-          status: 'ativo',
+          ativo: true,
           descricao: 'Segundo registro de teste'
         }
       }),
@@ -352,8 +356,10 @@ app.post('/setup-dados-teste', async (request, reply) => {
         data: {
           id: 'dados-teste-3',
           tipo: 'Teste',
+          chave: 'teste-3',
+          valor: 'valor-teste-3',
           categoria: 'debug',
-          status: 'ativo',
+          ativo: true,
           descricao: 'Terceiro registro de teste'
         }
       })
