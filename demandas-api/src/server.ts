@@ -64,14 +64,15 @@ const corsOptions = {
 
 app.register(cors, corsOptions)
 
-// FORÇAR RECOMPILAÇÃO RAILWAY v18 - BUILD FORÇADO PARA QUEBRAR CACHE
-console.log('🚀 FORÇANDO RECOMPILAÇÃO RAILWAY v18 - CÓDIGO NOVO EXECUTANDO!')
-console.log('🚀 TIMESTAMP: 2025-10-04-00:20 - VERSÃO ATUALIZADA!')
+// FORÇAR RECOMPILAÇÃO RAILWAY v19 - BUILD FORÇADO PARA QUEBRAR CACHE
+console.log('🚀 FORÇANDO RECOMPILAÇÃO RAILWAY v19 - CÓDIGO NOVO EXECUTANDO!')
+console.log('🚀 TIMESTAMP: 2025-10-04-00:27 - VERSÃO ATUALIZADA!')
 console.log('🚀 BREAKING CACHE - NOVA VERSÃO DO CÓDIGO!')
 console.log('🚀 PACKAGE.JSON VERSION: 0.2.4 - BUILD FORÇADO!')
 console.log('🚀 START SCRIPT: npm run build - RECOMPILAÇÃO FORÇADA!')
 console.log('🚀 ULTIMA TENTATIVA - CACHE DEVE SER QUEBRADO!')
 console.log('🚀 PROBLEMA CRÍTICO: Railway não reconhece mudanças!')
+console.log('🚀 BRANCH MAIN CONFIGURADA - DEVE FUNCIONAR AGORA!')
 
 app.get('/teste-route-v18', async (request, reply) => {
   console.log('🚀 ROTA DE TESTE v18 CHAMADA - CÓDIGO NOVO!')

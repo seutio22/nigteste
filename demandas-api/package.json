@@ -1,5 +1,5 @@
 {
-  "name": "demandas-api",
+  "name": "demandas-api-novo",
   "version": "0.2.4",
   "description": "Backend API - v0.2.4 - FORÇAR RECOMPILAÇÃO RAILWAY v18 - BUILD FORÇADO",
   "main": "dist/server.js",
