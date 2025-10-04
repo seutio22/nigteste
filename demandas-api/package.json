@@ -1,7 +1,7 @@
 {
   "name": "demandas-api-novo",
-  "version": "2.2.0",
-  "description": "Backend API - 2.2.0 - TODOS OS ENDPOINTS - KANBAN E OUTROS",
+  "version": "2.2.1",
+  "description": "Backend API - 2.2.1 - FORCAR DEPLOY - ENDPOINTS PROJETOS",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
