@@ -17,7 +17,7 @@ import {
   Megaphone,
   FolderOpen,
   Wrench,
-  Trash2
+  // Trash2 removido - ícone não mais usado
 } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -36,7 +36,7 @@ const menuItems = [
   { icon: Mail, label: 'Mailling', path: '/mailling', module: 'mailling' },
   { icon: Grid3X3, label: 'Kanban', path: '/kanban', module: 'kanban' },
   { icon: Database, label: 'Dados', path: '/dados', module: 'dados' },
-  { icon: Trash2, label: 'Limpeza', path: '/admin/limpeza', module: 'admin' },
+  // Item de menu 'Limpeza' removido - funcionalidade de limpeza de duplicatas removida
   { icon: Users, label: 'Usuários', path: '/admin/usuarios', module: 'usuarios' },
 ]
 

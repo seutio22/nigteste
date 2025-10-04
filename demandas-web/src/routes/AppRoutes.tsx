@@ -30,7 +30,7 @@ const AnalyticsPage = lazy(() => import('../pages/Analytics'))
 const AnalyticsNewPage = lazy(() => import('../pages/Analytics/New'))
 const AnalyticsDetailPage = lazy(() => import('../pages/Analytics/Detail'))
 const DadosPage = lazy(() => import('../pages/Dados'))
-const DataCleanupPage = lazy(() => import('../pages/DataCleanup'))
+// DataCleanupPage removido - página de limpeza de duplicatas removida
 const AdminUsersPage = lazy(() => import('../pages/Admin/Users'))
 const KanbanPage = lazy(() => import('../pages/Kanban'))
 const ProjectListPage = lazy(() => import('../pages/Projetos/ListSimple'))
@@ -215,11 +215,7 @@ export function AppRoutes() {
             </ProtectedRoute>
           } />
           
-          <Route path="admin/limpeza" element={
-            <ProtectedRoute module="admin">
-              <DataCleanupPage />
-            </ProtectedRoute>
-          } />
+          {/* Rota admin/limpeza removida - página de limpeza de duplicatas removida */}
           
           <Route path="admin">
             <Route path="usuarios" element={
