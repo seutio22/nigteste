@@ -1,7 +1,7 @@
 {
   "name": "demandas-api-novo",
-  "version": "0.2.7",
-  "description": "Backend API - 0.2.7 - FORÇAR REGENERAÇÃO PRISMA CLIENT",
+  "version": "0.2.8",
+  "description": "Backend API - 0.2.8 - CORRIGIR PRISMA DEPLOY",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
@@ -10,7 +10,9 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate deploy",
     "db:generate": "prisma generate",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "railway:build": "npm run build",
+    "railway:start": "npm run start"
   },
   "keywords": [],
   "author": "",
