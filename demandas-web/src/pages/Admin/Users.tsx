@@ -25,7 +25,9 @@ import {
   Alert,
   Snackbar,
   CircularProgress,
-  Tooltip
+  Tooltip,
+  Tabs,
+  Tab
 } from '@mui/material'
 import {
   Add,
@@ -37,10 +39,13 @@ import {
   SupervisorAccount,
   Engineering,
   Assignment,
-  Visibility
+  Visibility,
+  QueryStats,
+  People
 } from '@mui/icons-material'
 import { useAuthStore } from '../../store/authStore'
 import PermissionManager from '../../components/PermissionManager'
+import UserMonitoring from '../../components/UserMonitoring'
 import { SystemPermissions } from '../../types/permissions'
 
 interface User {
@@ -63,6 +68,7 @@ export default function UsersPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [userToDelete, setUserToDelete] = useState<User | null>(null)
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' })
+  const [tabValue, setTabValue] = useState(0)
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -356,6 +362,11 @@ export default function UsersPage() {
     }
   }
 
+  // Controlar mudança de abas
+  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+    setTabValue(newValue)
+  }
+
   if (loading) {
     return (
       <Box sx={{ p: 3, textAlign: 'center' }}>
@@ -380,91 +391,115 @@ export default function UsersPage() {
               {users.length} usuário{users.length !== 1 ? 's' : ''} no sistema
             </Typography>
           </Box>
-          <Button
-            variant="contained"
-            startIcon={<Add />}
-            onClick={() => handleOpenDialog()}
-            size="large"
-          >
-            Novo Usuário
-          </Button>
+          {tabValue === 0 && (
+            <Button
+              variant="contained"
+              startIcon={<Add />}
+              onClick={() => handleOpenDialog()}
+              size="large"
+            >
+              Novo Usuário
+            </Button>
+          )}
         </Stack>
       </Paper>
 
-      {/* Lista de Usuários */}
-      <Grid container spacing={3}>
-        {users.map((user) => (
-          <Grid item xs={12} md={6} lg={4} key={user.id}>
-            <Card sx={{ 
-              height: '100%',
-              border: user.active ? '2px solid transparent' : '2px solid #f44336',
-              opacity: user.active ? 1 : 0.7
-            }}>
-              <CardContent>
-                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
-                  <Avatar sx={{ bgcolor: `${getRoleColor(user.role)}.main`, width: 56, height: 56 }}>
-                    {getRoleIcon(user.role)}
-                  </Avatar>
+      {/* Tabs de Navegação */}
+      <Paper sx={{ mb: 3 }}>
+        <Tabs value={tabValue} onChange={handleTabChange} variant="fullWidth">
+          <Tab 
+            label="Lista de Usuários" 
+            icon={<People />} 
+            iconPosition="start"
+          />
+          <Tab 
+            label="Monitoramento" 
+            icon={<QueryStats />} 
+            iconPosition="start"
+          />
+        </Tabs>
+      </Paper>
+
+      {/* Conteúdo das Abas */}
+      {tabValue === 0 && (
+        <Grid container spacing={3}>
+          {users.map((user) => (
+            <Grid item xs={12} md={6} lg={4} key={user.id}>
+              <Card sx={{ 
+                height: '100%',
+                border: user.active ? '2px solid transparent' : '2px solid #f44336',
+                opacity: user.active ? 1 : 0.7
+              }}>
+                <CardContent>
+                  <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+                    <Avatar sx={{ bgcolor: `${getRoleColor(user.role)}.main`, width: 56, height: 56 }}>
+                      {getRoleIcon(user.role)}
+                    </Avatar>
+                    <Chip
+                      label={user.active ? 'Ativo' : 'Inativo'}
+                      color={user.active ? 'success' : 'error'}
+                      size="small"
+                    />
+                  </Stack>
+                  
+                  <Typography variant="h6" gutterBottom>
+                    {user.name}
+                  </Typography>
+                  
+                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                    {user.email}
+                  </Typography>
+                  
                   <Chip
-                    label={user.active ? 'Ativo' : 'Inativo'}
-                    color={user.active ? 'success' : 'error'}
+                    label={getRoleLabel(user.role)}
+                    color={getRoleColor(user.role) as any}
                     size="small"
+                    sx={{ mb: 2 }}
                   />
-                </Stack>
-                
-                <Typography variant="h6" gutterBottom>
-                  {user.name}
-                </Typography>
-                
-                <Typography variant="body2" color="text.secondary" gutterBottom>
-                  {user.email}
-                </Typography>
-                
-                <Chip
-                  label={getRoleLabel(user.role)}
-                  color={getRoleColor(user.role) as any}
-                  size="small"
-                  sx={{ mb: 2 }}
-                />
-                
-                <Typography variant="caption" color="text.secondary" display="block">
-                  Criado em: {new Date(user.createdAt).toLocaleDateString('pt-BR')}
-                </Typography>
-                
-                <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
-                  <Tooltip title="Editar usuário">
-                    <IconButton
-                      size="small"
-                      onClick={() => handleOpenDialog(user)}
-                      color="primary"
-                    >
-                      <Edit />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Gerenciar permissões">
-                    <IconButton
-                      size="small"
-                      onClick={() => handleOpenPermissions(user)}
-                      color="info"
-                    >
-                      <Settings />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Excluir usuário">
-                    <IconButton
-                      size="small"
-                      onClick={() => handleOpenDeleteDialog(user)}
-                      color="error"
-                    >
-                      <Delete />
-                    </IconButton>
-                  </Tooltip>
-                </Stack>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
+                  
+                  <Typography variant="caption" color="text.secondary" display="block">
+                    Criado em: {new Date(user.createdAt).toLocaleDateString('pt-BR')}
+                  </Typography>
+                  
+                  <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
+                    <Tooltip title="Editar usuário">
+                      <IconButton
+                        size="small"
+                        onClick={() => handleOpenDialog(user)}
+                        color="primary"
+                      >
+                        <Edit />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Gerenciar permissões">
+                      <IconButton
+                        size="small"
+                        onClick={() => handleOpenPermissions(user)}
+                        color="info"
+                      >
+                        <Settings />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Excluir usuário">
+                      <IconButton
+                        size="small"
+                        onClick={() => handleOpenDeleteDialog(user)}
+                        color="error"
+                      >
+                        <Delete />
+                      </IconButton>
+                    </Tooltip>
+                  </Stack>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+      )}
+
+      {tabValue === 1 && (
+        <UserMonitoring />
+      )}
 
       {/* Dialog para Criar/Editar Usuário */}
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>

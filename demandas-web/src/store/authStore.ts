@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { SystemPermissions } from '../types/permissions'
+import { clearAllSystemData } from '../utils/logoutCleanup'
 
 interface User {
   id: string
@@ -42,7 +43,15 @@ export const useAuthStore = create<AuthState>()(
       },
       
       logout: () => {
+        console.log('🔒 Iniciando logout seguro...')
+        
+        // 1. Limpar estado do auth
         set({ token: null, user: null, loading: false })
+        
+        // 2. Limpar TODOS os dados do localStorage
+        clearAllSystemData()
+        
+        console.log('✅ Logout seguro concluído - todos os dados foram removidos')
       },
       
       setLoading: (loading: boolean) => {

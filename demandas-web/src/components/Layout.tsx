@@ -101,7 +101,17 @@ export function Layout() {
           </IconButton>
           <Typography variant="h6" sx={{ flexGrow: 1 }}>Demandas - v0.2.0</Typography>
           {auth.user ? (
-            <Typography variant="body2" onClick={() => { useAuthStore.getState().logout(); navigate('/login') }} sx={{ cursor: 'pointer' }}>Sair</Typography>
+            <Typography 
+              variant="body2" 
+              onClick={() => { 
+                console.log('🔒 Logout manual pelo usuário')
+                useAuthStore.getState().logout()
+                navigate('/login') 
+              }} 
+              sx={{ cursor: 'pointer' }}
+            >
+              Sair
+            </Typography>
           ) : null}
         </Toolbar>
       </AppBar>

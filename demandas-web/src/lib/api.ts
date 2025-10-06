@@ -35,6 +35,7 @@ export const api = {
           
           // Importar dinamicamente para evitar dependência circular
           import('../store/authStore').then(({ useAuthStore }) => {
+            // O logout já limpa todos os dados automaticamente
             useAuthStore.getState().logout();
             // Redirecionar para login após logout
             window.location.href = '/login';
