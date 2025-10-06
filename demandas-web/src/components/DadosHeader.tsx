@@ -5,6 +5,7 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload'
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
 import DownloadIcon from '@mui/icons-material/Download'
 import FileDownloadIcon from '@mui/icons-material/FileDownload'
+import DeleteIcon from '@mui/icons-material/Delete'
 // CleaningServicesIcon removido - botão de limpeza de duplicatas removido
 import type { TabKey } from '../types/dadosTypes'
 
@@ -12,6 +13,7 @@ interface DadosHeaderProps {
   activeTab: TabKey
   onUpload: () => void
   onSmartImport: () => void
+  onBulkDelete: () => void
   onHelp: () => void
   onAdd: () => void
   onExportAll: () => void
@@ -23,6 +25,7 @@ export const DadosHeader: React.FC<DadosHeaderProps> = ({
   activeTab,
   onUpload,
   onSmartImport,
+  onBulkDelete,
   onHelp,
   onAdd,
   onExportAll,
@@ -80,6 +83,33 @@ export const DadosHeader: React.FC<DadosHeaderProps> = ({
           }}
         >
           Importador Inteligente
+        </Button>
+        
+        <Button 
+          variant="outlined" 
+          startIcon={<DeleteIcon />}
+          onClick={onBulkDelete}
+          size="medium"
+          className="text-red-600 border-red-300 hover:text-red-700 hover:border-red-400 hover:bg-red-50 transition-all duration-300 font-medium"
+          sx={{
+            borderRadius: '14px',
+            padding: '10px 20px',
+            textTransform: 'none',
+            fontWeight: 500,
+            fontSize: '0.9rem',
+            height: '44px',
+            borderWidth: '2px',
+            color: '#dc2626',
+            borderColor: '#ef4444',
+            '&:hover': {
+              borderWidth: '2px',
+              transform: 'translateY(-2px)',
+              boxShadow: '0 4px 12px 0 rgba(239, 68, 68, 0.15)',
+              backgroundColor: '#fef2f2'
+            }
+          }}
+        >
+          Exclusão em Massa
         </Button>
         
         <Button 

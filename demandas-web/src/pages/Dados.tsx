@@ -12,6 +12,8 @@ import { DadosHelpModal } from '../components/DadosHelpModal'
 import { SnackNotification } from '../components/SnackNotification'
 import { UploadModal } from '../components/UploadModal'
 import { SmartImporter } from '../components/SmartImporter'
+import { BulkDeleteModal } from '../components/BulkDeleteModal'
+import { useBulkDelete } from '../hooks/useBulkDelete'
 // CleanupModal removido - função de limpeza de duplicatas removida
 import { smartImporterConfigs } from '../config/smartImporterConfigs'
 import type { TabKey, FormData, DataMap } from '../types/dadosTypes'
@@ -21,6 +23,7 @@ export default function DadosPage() {
   const store = useMasterDataStore()
   const dadosStore = useDadosStore()
   const { snack, setSnack, saveEntity, deleteEntity } = useDadosCRUD()
+  const { bulkDelete, isDeleting } = useBulkDelete()
   
   const [activeTab, setActiveTab] = useState<TabKey>('clientes')
   const [form, setForm] = useState<FormData>({})
@@ -28,6 +31,7 @@ export default function DadosPage() {
   const [openHelp, setOpenHelp] = useState(false)
   const [uploadModalOpen, setUploadModalOpen] = useState(false)
   const [smartImporterOpen, setSmartImporterOpen] = useState(false)
+  const [bulkDeleteModalOpen, setBulkDeleteModalOpen] = useState(false)
   // cleanupModalOpen removido - modal de limpeza de duplicatas removido
 
   // Sincronização dinâmica ativada - será feita automaticamente pelo useDynamicSync
@@ -375,6 +379,38 @@ export default function DadosPage() {
       setSnack({
         open: true,
         message: 'Erro ao exportar dados',
+        severity: 'error'
+      })
+    }
+  }
+
+  const handleBulkDelete = async (column: string, records: any[]) => {
+    try {
+      const result = await bulkDelete(column, records)
+      
+      if (result.success) {
+        setSnack({
+          open: true,
+          message: `Exclusão em massa concluída! ${result.deletedCount} registros excluídos e arquivados por 3 meses.`,
+          severity: 'success'
+        })
+        
+        // Forçar sincronização para atualizar a interface
+        if (store.syncFromApi) {
+          await store.syncFromApi()
+        }
+      } else {
+        setSnack({
+          open: true,
+          message: `Erro na exclusão em massa: ${result.errors.join(', ')}`,
+          severity: 'error'
+        })
+      }
+    } catch (error) {
+      console.error('❌ Erro na exclusão em massa:', error)
+      setSnack({
+        open: true,
+        message: 'Erro inesperado na exclusão em massa',
         severity: 'error'
       })
     }
@@ -1164,6 +1200,7 @@ export default function DadosPage() {
           activeTab={activeTab}
           onUpload={() => setUploadModalOpen(true)}
           onSmartImport={() => setSmartImporterOpen(true)}
+          onBulkDelete={() => setBulkDeleteModalOpen(true)}
           onHelp={() => setOpenHelp(true)}
           onAdd={handleAdd}
           onExportAll={handleExportAll}
@@ -1229,6 +1266,13 @@ export default function DadosPage() {
         onClose={() => setSmartImporterOpen(false)}
         onImport={handleSmartImport}
         config={smartImporterConfigs[activeTab] || smartImporterConfigs.clientes}
+        masterData={store}
+      />
+
+      <BulkDeleteModal
+        open={bulkDeleteModalOpen}
+        onClose={() => setBulkDeleteModalOpen(false)}
+        onBulkDelete={handleBulkDelete}
         masterData={store}
       />
 
