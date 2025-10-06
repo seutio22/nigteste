@@ -183,6 +183,7 @@ export default function UserMonitoring() {
       })
 
       console.log(`✅ Dados de monitoramento baseados em usuários reais: ${monitoringData.length} registros`)
+      console.log('🎯 CONTAGEM ZERADA - Sistema começando a contar a partir de agora!')
 
       // Usar dados baseados em usuários reais
       setActivities(monitoringData)
@@ -375,6 +376,9 @@ export default function UserMonitoring() {
             </Typography>
             <Typography variant="body1" color="text.secondary">
               Acompanhe a atividade e tempo online dos usuários
+            </Typography>
+            <Typography variant="body2" color="success.main" sx={{ fontWeight: 'bold', mt: 1 }}>
+              🎯 CONTAGEM ZERADA - Sistema começando a contar a partir de agora!
             </Typography>
           </Box>
           <IconButton onClick={loadMonitoringData} color="primary" size="large">
