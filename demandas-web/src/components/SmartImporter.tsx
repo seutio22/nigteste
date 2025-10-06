@@ -325,6 +325,12 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
     // Gerar template baseado na configuração com exemplos realistas
     const allFields = [...config.requiredFields, ...config.optionalFields]
     
+    console.log('🔍 TEMPLATE DEBUG: entityType:', config.entityType)
+    console.log('🔍 TEMPLATE DEBUG: entityType lowercase:', config.entityType.toLowerCase())
+    console.log('🔍 TEMPLATE DEBUG: includes tipos de cadastro:', config.entityType.toLowerCase().includes('tipos de cadastro'))
+    console.log('🔍 TEMPLATE DEBUG: includes tipos-cadastro:', config.entityType.toLowerCase().includes('tipos-cadastro'))
+    console.log('🔍 TEMPLATE DEBUG: includes cadastro:', config.entityType.toLowerCase().includes('cadastro'))
+    
     // Exemplos específicos por tipo de entidade
     let templateData: any[] = []
     
@@ -442,7 +448,7 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
           ativo: 'false'
         }
       ]
-    } else if (config.entityType.toLowerCase().includes('tipos de cadastro') || config.entityType.toLowerCase().includes('tipos-cadastro')) {
+    } else if (config.entityType.toLowerCase().includes('tipos de cadastro') || config.entityType.toLowerCase().includes('tipos-cadastro') || config.entityType.toLowerCase().includes('cadastro')) {
       templateData = [
         { 
           nome: 'Pessoa Física',
