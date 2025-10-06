@@ -424,6 +424,63 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
           documentacaoContratual: 'sim'
         }
       ]
+    } else if (config.entityType.toLowerCase().includes('tipos de demanda') || config.entityType.toLowerCase().includes('tipos')) {
+      templateData = [
+        { 
+          nome: 'Cadastro de Cliente',
+          descricao: 'Tipo de demanda para cadastro de novos clientes',
+          ativo: 'true'
+        },
+        { 
+          nome: 'Manutenção de Sistema',
+          descricao: 'Tipo de demanda para manutenção de sistemas existentes',
+          ativo: 'true'
+        },
+        { 
+          nome: 'Relatório Personalizado',
+          descricao: 'Tipo de demanda para criação de relatórios personalizados',
+          ativo: 'false'
+        }
+      ]
+    } else if (config.entityType.toLowerCase().includes('tipos de cadastro') || config.entityType.toLowerCase().includes('tipos-cadastro')) {
+      templateData = [
+        { 
+          nome: 'Pessoa Física',
+          descricao: 'Tipo de cadastro para pessoa física',
+          ativo: 'true'
+        },
+        { 
+          nome: 'Pessoa Jurídica',
+          descricao: 'Tipo de cadastro para pessoa jurídica',
+          ativo: 'true'
+        }
+      ]
+    } else if (config.entityType.toLowerCase().includes('serviços') || config.entityType.toLowerCase().includes('servicos')) {
+      templateData = [
+        { 
+          nome: 'CAD',
+          descricao: 'Serviço de cadastro',
+          ativo: 'true'
+        },
+        { 
+          nome: 'MAN',
+          descricao: 'Serviço de manutenção',
+          ativo: 'true'
+        }
+      ]
+    } else if (config.entityType.toLowerCase().includes('padrão') || config.entityType.toLowerCase().includes('padrao')) {
+      templateData = [
+        { 
+          nome: 'ACESSO OPERADORA',
+          descricao: 'Padrão para acesso à operadora',
+          ativo: 'true'
+        },
+        { 
+          nome: 'CONFIGURAÇÃO SISTEMA',
+          descricao: 'Padrão para configuração do sistema',
+          ativo: 'true'
+        }
+      ]
     } else if (config.entityType.toLowerCase().includes('demanda')) {
       templateData = [
         { 
