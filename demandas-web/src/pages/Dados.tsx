@@ -49,7 +49,7 @@ export default function DadosPage() {
     cargosMailling: store.cargosMailling,
     filiaisMailling: store.filiaisMailling,
     tipos: store.tiposDemanda,
-    tiposCadastro: store.tiposCadastro, // Fonte de dados separada
+    'tipos-cadastro': store.tiposCadastro, // Fonte de dados separada
     servicos: store.tiposServico,
     solicitantes: store.solicitantes,
     relatorios: store.relatorios,
