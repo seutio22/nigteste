@@ -127,6 +127,27 @@ export const smartImporterConfigs: { [key: string]: SmartImporterConfig } = {
     referenceFields: []
   },
 
+  tipos: {
+    entityType: 'Tipos de Demanda',
+    requiredFields: ['nome'],
+    optionalFields: ['descricao', 'ativo'],
+    duplicateCheckFields: ['nome'],
+    validationRules: [
+      {
+        field: 'nome',
+        type: 'required',
+        message: 'Nome é obrigatório'
+      },
+      {
+        field: 'ativo',
+        type: 'custom',
+        message: 'Ativo deve ser true ou false',
+        validator: (value) => !value || value === true || value === false || value === 'true' || value === 'false'
+      }
+    ],
+    referenceFields: []
+  },
+
   solicitantes: {
     entityType: 'Solicitantes',
     requiredFields: ['nome'],
