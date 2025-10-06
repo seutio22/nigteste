@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧪 Teste de Correção de Segurança - Logout</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .container {
+            background: white;
+            color: #333;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            background: #f9f9f9;
+        }
+        .success { border-color: #4caf50; background: #e8f5e8; }
+        .warning { border-color: #ff9800; background: #fff3e0; }
+        .error { border-color: #f44336; background: #ffebee; }
+        button {
+            background: #2196f3;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        button:hover { background: #1976d2; }
+        button.danger { background: #f44336; }
+        button.danger:hover { background: #d32f2f; }
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .log {
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 4px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔒 Teste de Correção de Segurança - Logout</h1>
+            <p>Este teste verifica se a correção crítica de segurança está funcionando corretamente.</p>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 Status Atual do localStorage</h3>
+            <button onclick="checkCurrentStorage()">Verificar localStorage Atual</button>
+            <div id="currentStatus" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🧪 Simular Dados do Sistema</h3>
+            <p>Adiciona dados simulados do sistema para testar a limpeza:</p>
+            <button onclick="simulateSystemData()">Adicionar Dados Simulados</button>
+            <div id="simulationResult" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🧹 Testar Limpeza Completa</h3>
+            <p>Testa a função de limpeza completa do logout:</p>
+            <button onclick="testCompleteCleanup()" class="danger">Testar Limpeza Completa</button>
+            <div id="cleanupResult" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔍 Verificar Chaves do Sistema</h3>
+            <p>Lista todas as chaves relacionadas ao sistema no localStorage:</p>
+            <button onclick="listSystemKeys()">Listar Chaves do Sistema</button>
+            <div id="systemKeys" class="result"></div>
+        </div>
+
+
+        <div class="test-section">
+            <h3>📝 Log de Testes</h3>
+            <div id="testLog" class="log"></div>
+            <button onclick="clearLog()">Limpar Log</button>
+        </div>
+
+        <div class="test-section">
+            <h3>✅ Instruções de Teste</h3>
+            <ol>
+                <li><strong>Verificar localStorage Atual:</strong> Veja quantos dados do sistema existem</li>
+                <li><strong>Adicionar Dados Simulados:</strong> Simula dados que deveriam ser limpos</li>
+                <li><strong>Testar Limpeza Completa:</strong> Executa a função de limpeza manual</li>
+                <li><strong>Verificar Resultado:</strong> Confirma se todos os dados foram removidos</li>
+            </ol>
+            <p><strong>Resultado Esperado:</strong> Após a limpeza, deve haver 0 chaves do sistema no localStorage.</p>
+            <p><strong>Limpeza Automática:</strong> Executa automaticamente a cada 5 minutos em background.</p>
+        </div>
+    </div>
+
+    <script>
+        // Simular as funções do sistema
+        const SYSTEM_KEYS = [
+            'auth-store', 'demands-v1', 'validations-v1', 'manutencoes-v1',
+            'atendimentos-v1', 'comunicados-v1', 'mailling-v1', 'master-data-store',
+            'kanban-store-v1', 'tickets-v1', 'reports-v1', 'timeline-store-v1',
+            'notifications-store-v1', 'dashboard-v1', 'demands-v2'
+        ];
+
+        const PAGE_CONFIG_KEYS = [
+            'demands-list-view-v1', 'validations-list-view-v1', 'reajustes-list-view-v1',
+            'manutencoes-list-view-v1', 'atendimento-user-filter-v1', 'analytics-list-view-v1'
+        ];
+
+        const SYSTEM_CONFIG_KEYS = ['theme', 'language', 'notifications-enabled', 'auto-save'];
+
+        function log(message) {
+            const logDiv = document.getElementById('testLog');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.textContent += `[${timestamp}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('testLog').textContent = '';
+        }
+
+        function checkSystemKeys() {
+            const allKeys = Object.keys(localStorage);
+            return allKeys.filter(key => 
+                SYSTEM_KEYS.includes(key) ||
+                PAGE_CONFIG_KEYS.includes(key) ||
+                SYSTEM_CONFIG_KEYS.includes(key) ||
+                key.includes('store') ||
+                key.includes('demand') ||
+                key.includes('validation') ||
+                key.includes('manutencao') ||
+                key.includes('atendimento') ||
+                key.includes('comunicado') ||
+                key.includes('mailling') ||
+                key.includes('kanban') ||
+                key.includes('ticket') ||
+                key.includes('report') ||
+                key.includes('timeline') ||
+                key.includes('notification') ||
+                key.includes('dashboard') ||
+                key.includes('auth')
+            );
+        }
+
+        function clearAllSystemData() {
+            log('🧹 Iniciando limpeza completa do localStorage...');
+            let removedCount = 0;
+
+            // Limpar stores
+            SYSTEM_KEYS.forEach(key => {
+                if (localStorage.getItem(key)) {
+                    localStorage.removeItem(key);
+                    removedCount++;
+                    log(`🗑️ Removido store: ${key}`);
+                }
+            });
+
+            // Limpar configurações de páginas
+            PAGE_CONFIG_KEYS.forEach(key => {
+                if (localStorage.getItem(key)) {
+                    localStorage.removeItem(key);
+                    removedCount++;
+                    log(`🗑️ Removido config de página: ${key}`);
+                }
+            });
+
+            // Limpar configurações do sistema
+            SYSTEM_CONFIG_KEYS.forEach(key => {
+                if (localStorage.getItem(key)) {
+                    localStorage.removeItem(key);
+                    removedCount++;
+                    log(`🗑️ Removido config do sistema: ${key}`);
+                }
+            });
+
+            // Limpar notificações dinâmicas
+            const allKeys = Object.keys(localStorage);
+            allKeys.forEach(key => {
+                if (key.startsWith('deadline-notification-')) {
+                    localStorage.removeItem(key);
+                    removedCount++;
+                    log(`🗑️ Removido notificação: ${key}`);
+                }
+            });
+
+            log(`✅ Limpeza concluída! ${removedCount} itens removidos`);
+            return removedCount;
+        }
+
+        function checkCurrentStorage() {
+            log('🔍 Verificando localStorage atual...');
+            const systemKeys = checkSystemKeys();
+            const result = document.getElementById('currentStatus');
+            
+            if (systemKeys.length === 0) {
+                result.innerHTML = '<div class="success">✅ Perfeito! Nenhum dado do sistema encontrado no localStorage.</div>';
+                result.className = 'result success';
+            } else {
+                result.innerHTML = `<div class="warning">⚠️ Encontrados ${systemKeys.length} itens do sistema no localStorage:<br/>${systemKeys.join(', ')}</div>`;
+                result.className = 'result warning';
+            }
+            
+            log(`📊 Status: ${systemKeys.length} chaves do sistema encontradas`);
+        }
+
+        function simulateSystemData() {
+            log('🧪 Simulando dados do sistema...');
+            const testData = {
+                'auth-store': JSON.stringify({token: 'test-token', user: {id: '1', name: 'Test'}}),
+                'demands-v1': JSON.stringify([{id: '1', descricao: 'Teste'}]),
+                'validations-v1': JSON.stringify([{id: '1', status: 'Pendente'}]),
+                'theme': 'dark',
+                'language': 'pt-BR',
+                'demands-list-view-v1': JSON.stringify({page: 1, filters: {}})
+            };
+
+            Object.entries(testData).forEach(([key, value]) => {
+                localStorage.setItem(key, value);
+                log(`➕ Adicionado: ${key}`);
+            });
+
+            document.getElementById('simulationResult').innerHTML = 
+                '<div class="success">✅ Dados simulados adicionados com sucesso!</div>';
+            log('✅ Simulação concluída');
+        }
+
+        function testCompleteCleanup() {
+            log('🧹 Testando limpeza completa...');
+            const beforeCount = checkSystemKeys().length;
+            const removedCount = clearAllSystemData();
+            const afterCount = checkSystemKeys().length;
+            
+            const result = document.getElementById('cleanupResult');
+            
+            if (afterCount === 0) {
+                result.innerHTML = '<div class="success">✅ Sucesso! Todos os dados foram removidos com sucesso.</div>';
+                result.className = 'result success';
+            } else {
+                result.innerHTML = `<div class="error">❌ Erro! Ainda existem ${afterCount} chaves do sistema no localStorage.</div>`;
+                result.className = 'result error';
+            }
+            
+            log(`📊 Resultado: ${beforeCount} → ${afterCount} (${removedCount} removidos)`);
+        }
+
+        function listSystemKeys() {
+            log('🔍 Listando chaves do sistema...');
+            const systemKeys = checkSystemKeys();
+            const result = document.getElementById('systemKeys');
+            
+            if (systemKeys.length === 0) {
+                result.innerHTML = '<div class="success">✅ Nenhuma chave do sistema encontrada.</div>';
+            } else {
+                result.innerHTML = `<div class="warning">📋 Chaves encontradas (${systemKeys.length}):<br/>${systemKeys.map(key => `• ${key}`).join('<br/>')}</div>`;
+            }
+            
+            log(`📋 Lista: ${systemKeys.join(', ')}`);
+        }
+
+        // Limpeza automática - executa a cada 5 minutos
+        const CLEANUP_INTERVAL_MINUTES = 5;
+        const intervalMs = CLEANUP_INTERVAL_MINUTES * 60 * 1000;
+
+        setInterval(() => {
+            const beforeCount = checkSystemKeys().length;
+            
+            if (beforeCount > 0) {
+                const removedCount = clearAllSystemData();
+                log(`🔄 Limpeza automática: ${removedCount} itens removidos`);
+            }
+        }, intervalMs);
+
+        // Inicializar
+        log('🚀 Teste de correção de segurança iniciado');
+        checkCurrentStorage();
+    </script>
+</body>
+</html>

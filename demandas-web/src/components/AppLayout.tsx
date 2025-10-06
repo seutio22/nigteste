@@ -12,6 +12,7 @@ import { useManutencaoStore } from '../store/manutencaoStore'
 import { useProjectStore } from '../store/projectStore'
 import { useInactivityTimeout } from '../hooks/useInactivityTimeout'
 import { useAuthStore } from '../store/authStore'
+import { useSimpleAutoCleanup } from '../hooks/useAutoCleanup'
 import { motion } from 'framer-motion'
 
 export function AppLayout() {
@@ -28,6 +29,9 @@ export function AppLayout() {
   const syncProjetos = useProjectStore((s) => s.syncFromApi)
   const comunicadoCount = useComunicadoStore((s) => s.items.length)
 
+  // Limpeza automática do localStorage a cada 5 minutos
+  useSimpleAutoCleanup(5)
+
   // Sistema de timeout por inatividade
   const { resetTimeout } = useInactivityTimeout({
     timeout: 30 * 60 * 1000, // 30 minutos
@@ -43,6 +47,8 @@ export function AppLayout() {
   })
 
   const handleLogout = () => {
+    console.log('🔒 Timeout: Executando logout automático por inatividade')
+    // O logout já limpa todos os dados automaticamente
     logout()
     navigate('/login')
   }

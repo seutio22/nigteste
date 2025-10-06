@@ -1,12 +1,12 @@
-// Configuração da API - Força URL do Railway
+// Configuração da API - Railway para funcionamento
 export const API_CONFIG = {
   BASE_URL: 'https://nigteste-production.up.railway.app',
   TIMEOUT: 10000
 };
 
-// Função para obter a URL base - SEMPRE usa Railway
+// Função para obter a URL base - Railway para funcionamento
 export function getBaseUrl(): string {
-  // SEMPRE usa a URL do Railway, ignorando variáveis de ambiente
+  // Usa Railway para funcionamento
   return API_CONFIG.BASE_URL;
 }
 
