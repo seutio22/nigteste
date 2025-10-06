@@ -111,11 +111,11 @@ export default function UserMonitoring() {
 
   const { token } = useAuthStore()
   
-  // Tracking de atividade na página de monitoramento (desabilitado temporariamente)
-  // useActivityTracking({
-  //   page: '/users/monitoring',
-  //   action: 'page_view'
-  // })
+  // Tracking de atividade na página de monitoramento
+  useActivityTracking({
+    page: '/users/monitoring',
+    action: 'page_view'
+  })
 
 
   // Carregar dados de monitoramento
@@ -131,121 +131,48 @@ export default function UserMonitoring() {
 
       console.log('🔍 Carregando dados de monitoramento dos usuários reais...')
       
-      try {
-        // Tentar buscar dados da API de monitoramento
-        const response = await fetch(`https://nigteste-production.up.railway.app/monitoring/users`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        })
-
-        if (response.ok) {
-          const monitoringData = await response.json()
-          console.log(`✅ Encontrados ${monitoringData.length} registros de monitoramento REAIS`)
-
-          // Usar dados reais da API
-          setActivities(monitoringData)
-
-          // Calcular estatísticas
-          const totalUsers = monitoringData.length
-          const onlineUsers = monitoringData.filter(u => u.isOnline).length
-          const offlineUsers = totalUsers - onlineUsers
-          const averageTimeToday = totalUsers > 0 ? monitoringData.reduce((sum, u) => sum + u.totalTimeToday, 0) / totalUsers : 0
-          const averageTimeThisMonth = totalUsers > 0 ? monitoringData.reduce((sum, u) => sum + u.totalTimeThisMonth, 0) / totalUsers : 0
-          
-          const mostActive = monitoringData.length > 0 ? monitoringData.reduce((max, u) => u.totalTimeToday > max.totalTimeToday ? u : max) : null
-          const leastActive = monitoringData.length > 0 ? monitoringData.reduce((min, u) => u.totalTimeToday < min.totalTimeToday ? u : min) : null
-          
-          const totalSessionsToday = monitoringData.reduce((sum, u) => sum + u.sessionCount, 0)
-          const totalSessionsThisMonth = monitoringData.reduce((sum, u) => sum + u.loginCount, 0)
-
-          setStats({
-            totalUsers,
-            onlineUsers,
-            offlineUsers,
-            averageTimeToday: Math.round(averageTimeToday),
-            averageTimeThisMonth: Math.round(averageTimeThisMonth),
-            mostActiveUser: mostActive ? mostActive.userName : 'N/A',
-            leastActiveUser: leastActive ? leastActive.userName : 'N/A',
-            totalSessionsToday,
-            totalSessionsThisMonth
-          })
-        } else {
-          throw new Error(`API não disponível: ${response.status}`)
+      // Buscar dados REAIS da API de monitoramento
+      const response = await fetch(`https://nigteste-production.up.railway.app/monitoring/users`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
-      } catch (apiError) {
-        console.warn('⚠️ API de monitoramento não disponível, usando dados baseados em usuários reais:', apiError)
-        
-        // Fallback: buscar usuários reais e gerar métricas simuladas
-        const usersResponse = await fetch(`https://nigteste-production.up.railway.app/users`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        })
+      })
 
-        if (!usersResponse.ok) {
-          throw new Error(`Erro ao buscar usuários: ${usersResponse.status}`)
-        }
-
-        const users = await usersResponse.json()
-        console.log(`✅ Encontrados ${users.length} usuários reais para simulação`)
-
-        // Criar dados de monitoramento simulados baseados nos usuários reais
-        const simulatedData = users.map((user: any) => {
-          const now = new Date()
-          const lastAccess = user.lastLogin ? new Date(user.lastLogin) : new Date(user.createdAt)
-          
-          return {
-            id: user.id,
-            userId: user.id,
-            userName: user.name,
-            userEmail: user.email,
-            userRole: user.role,
-            lastAccess: lastAccess.toISOString(),
-            isOnline: Math.random() > 0.3,
-            totalTimeToday: Math.floor(Math.random() * 480) + 30,
-            totalTimeThisWeek: Math.floor(Math.random() * 2000) + 200,
-            totalTimeThisMonth: Math.floor(Math.random() * 8000) + 1000,
-            totalTimeThisQuarter: Math.floor(Math.random() * 24000) + 3000,
-            sessionCount: Math.floor(Math.random() * 20) + 1,
-            averageSessionTime: Math.floor(Math.random() * 120) + 15,
-            lastActivity: lastAccess.toISOString(),
-            loginCount: Math.floor(Math.random() * 50) + 10,
-            logoutCount: Math.floor(Math.random() * 45) + 5,
-            pageViewCount: Math.floor(Math.random() * 100) + 10,
-            apiCallCount: Math.floor(Math.random() * 200) + 20
-          }
-        })
-
-        setActivities(simulatedData)
-
-        // Calcular estatísticas dos dados simulados
-        const totalUsers = simulatedData.length
-        const onlineUsers = simulatedData.filter(u => u.isOnline).length
-        const offlineUsers = totalUsers - onlineUsers
-        const averageTimeToday = totalUsers > 0 ? simulatedData.reduce((sum, u) => sum + u.totalTimeToday, 0) / totalUsers : 0
-        const averageTimeThisMonth = totalUsers > 0 ? simulatedData.reduce((sum, u) => sum + u.totalTimeThisMonth, 0) / totalUsers : 0
-        
-        const mostActive = simulatedData.length > 0 ? simulatedData.reduce((max, u) => u.totalTimeToday > max.totalTimeToday ? u : max) : null
-        const leastActive = simulatedData.length > 0 ? simulatedData.reduce((min, u) => u.totalTimeToday < min.totalTimeToday ? u : min) : null
-        
-        const totalSessionsToday = simulatedData.reduce((sum, u) => sum + u.sessionCount, 0)
-        const totalSessionsThisMonth = simulatedData.reduce((sum, u) => sum + u.loginCount, 0)
-
-        setStats({
-          totalUsers,
-          onlineUsers,
-          offlineUsers,
-          averageTimeToday: Math.round(averageTimeToday),
-          averageTimeThisMonth: Math.round(averageTimeThisMonth),
-          mostActiveUser: mostActive ? mostActive.userName : 'N/A',
-          leastActiveUser: leastActive ? leastActive.userName : 'N/A',
-          totalSessionsToday,
-          totalSessionsThisMonth
-        })
+      if (!response.ok) {
+        throw new Error(`Erro ${response.status}: ${response.statusText}`)
       }
+
+      const monitoringData = await response.json()
+      console.log(`✅ Encontrados ${monitoringData.length} registros de monitoramento REAIS`)
+
+      // Usar dados reais da API
+      setActivities(monitoringData)
+
+      // Calcular estatísticas
+      const totalUsers = monitoringData.length
+      const onlineUsers = monitoringData.filter(u => u.isOnline).length
+      const offlineUsers = totalUsers - onlineUsers
+      const averageTimeToday = totalUsers > 0 ? monitoringData.reduce((sum, u) => sum + u.totalTimeToday, 0) / totalUsers : 0
+      const averageTimeThisMonth = totalUsers > 0 ? monitoringData.reduce((sum, u) => sum + u.totalTimeThisMonth, 0) / totalUsers : 0
+      
+      const mostActive = monitoringData.length > 0 ? monitoringData.reduce((max, u) => u.totalTimeToday > max.totalTimeToday ? u : max) : null
+      const leastActive = monitoringData.length > 0 ? monitoringData.reduce((min, u) => u.totalTimeToday < min.totalTimeToday ? u : min) : null
+      
+      const totalSessionsToday = monitoringData.reduce((sum, u) => sum + u.sessionCount, 0)
+      const totalSessionsThisMonth = monitoringData.reduce((sum, u) => sum + u.loginCount, 0)
+
+      setStats({
+        totalUsers,
+        onlineUsers,
+        offlineUsers,
+        averageTimeToday: Math.round(averageTimeToday),
+        averageTimeThisMonth: Math.round(averageTimeThisMonth),
+        mostActiveUser: mostActive ? mostActive.userName : 'N/A',
+        leastActiveUser: leastActive ? leastActive.userName : 'N/A',
+        totalSessionsToday,
+        totalSessionsThisMonth
+      })
 
     } catch (err) {
       setError('Erro ao carregar dados de monitoramento')
