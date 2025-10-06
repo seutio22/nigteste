@@ -11,6 +11,7 @@ import shareRoutes from './routes/share'
 import { masterDataRoutes } from './routes/masterData'
 import monitoringRoutes from './routes/monitoring'
 import { PrismaClient } from '@prisma/client'
+import { trackUserActivity, trackSessionStart, trackSessionEnd } from './middleware/activityTracker'
 
 const app = Fastify({ 
   logger: true,
@@ -1303,6 +1304,22 @@ if (!process.env.JWT_SECRET) {
 }
 app.register(jwt, { secret: jwtSecret })
 app.register(authPlugin)
+
+// Middleware de tracking de atividades
+app.addHook('onRequest', async (request, reply) => {
+  // Rastrear atividade do usuário
+  await trackUserActivity(request as any, reply)
+})
+
+// Middleware para rastrear início de sessão no login
+app.addHook('onSend', async (request, reply, payload) => {
+  if (request.url.includes('/auth/login') && reply.statusCode === 200) {
+    await trackSessionStart(request as any, reply)
+  }
+  if (request.url.includes('/auth/logout') && reply.statusCode === 200) {
+    await trackSessionEnd(request as any, reply)
+  }
+})
 
 app.get('/health', async () => ({ status: 'ok' }))
 

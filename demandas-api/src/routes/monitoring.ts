@@ -9,51 +9,117 @@ export default async function monitoringRoutes(fastify: FastifyInstance) {
   // GET /users - Obter dados de monitoramento de todos os usuários
   fastify.get('/users', async (request, reply) => {
     try {
-      console.log('🔍 Buscando dados de monitoramento...')
+      console.log('🔍 Buscando dados de monitoramento reais...')
       
-      // Dados simulados para teste
-      const monitoringData = [
-        {
-          id: '1',
-          userId: '1',
-          userName: 'Admin User',
-          userEmail: 'admin@admin.com',
-          userRole: 'admin',
-          lastAccess: new Date().toISOString(),
-          isOnline: true,
-          totalTimeToday: 240,
-          totalTimeThisWeek: 1200,
-          totalTimeThisMonth: 4800,
-          totalTimeThisQuarter: 14400,
-          sessionCount: 5,
-          averageSessionTime: 48,
-          lastActivity: new Date().toISOString(),
-          loginCount: 25,
-          logoutCount: 20,
-          pageViewCount: 150,
-          apiCallCount: 300
-        },
-        {
-          id: '2',
-          userId: '2',
-          userName: 'João Silva',
-          userEmail: 'joao@empresa.com',
-          userRole: 'gerente',
-          lastAccess: new Date(Date.now() - 3600000).toISOString(),
-          isOnline: false,
-          totalTimeToday: 180,
-          totalTimeThisWeek: 900,
-          totalTimeThisMonth: 3600,
-          totalTimeThisQuarter: 10800,
-          sessionCount: 3,
-          averageSessionTime: 60,
-          lastActivity: new Date(Date.now() - 3600000).toISOString(),
-          loginCount: 15,
-          logoutCount: 12,
-          pageViewCount: 80,
-          apiCallCount: 200
+      // Buscar usuários reais
+      const users = await prisma.user.findMany({
+        where: { active: true },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          lastLogin: true,
+          createdAt: true
         }
-      ]
+      })
+
+      console.log(`✅ Encontrados ${users.length} usuários reais`)
+
+      // Buscar dados de monitoramento para cada usuário
+      const monitoringData = await Promise.all(users.map(async (user) => {
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        
+        const weekAgo = new Date(today)
+        weekAgo.setDate(weekAgo.getDate() - 7)
+        
+        const monthAgo = new Date(today)
+        monthAgo.setDate(monthAgo.getDate() - 30)
+        
+        const quarterAgo = new Date(today)
+        quarterAgo.setDate(quarterAgo.getDate() - 90)
+
+        // Buscar atividades do usuário
+        const activities = await prisma.userActivity.findMany({
+          where: {
+            userId: user.id,
+            createdAt: {
+              gte: quarterAgo
+            }
+          },
+          orderBy: { createdAt: 'desc' }
+        })
+
+        // Buscar sessões do usuário
+        const sessions = await prisma.userSession.findMany({
+          where: {
+            userId: user.id,
+            loginTime: {
+              gte: quarterAgo
+            }
+          },
+          orderBy: { loginTime: 'desc' }
+        })
+
+        // Buscar dados de monitoramento agregados
+        const monitoring = await prisma.userMonitoring.findFirst({
+          where: {
+            userId: user.id,
+            date: {
+              gte: today
+            }
+          },
+          orderBy: { date: 'desc' }
+        })
+
+        // Calcular métricas reais
+        const todayActivities = activities.filter(a => a.createdAt >= today)
+        const weekActivities = activities.filter(a => a.createdAt >= weekAgo)
+        const monthActivities = activities.filter(a => a.createdAt >= monthAgo)
+        const quarterActivities = activities.filter(a => a.createdAt >= quarterAgo)
+
+        const todaySessions = sessions.filter(s => s.loginTime >= today)
+        const activeSession = sessions.find(s => s.isActive)
+
+        // Calcular tempo online baseado nas atividades
+        const totalTimeToday = todayActivities.reduce((sum, a) => sum + (a.duration || 0), 0) / 60 // converter para minutos
+        const totalTimeThisWeek = weekActivities.reduce((sum, a) => sum + (a.duration || 0), 0) / 60
+        const totalTimeThisMonth = monthActivities.reduce((sum, a) => sum + (a.duration || 0), 0) / 60
+        const totalTimeThisQuarter = quarterActivities.reduce((sum, a) => sum + (a.duration || 0), 0) / 60
+
+        // Calcular estatísticas de sessão
+        const sessionCount = todaySessions.length
+        const loginCount = activities.filter(a => a.action === 'login').length
+        const logoutCount = activities.filter(a => a.action === 'logout').length
+        const pageViewCount = activities.filter(a => a.action === 'page_view').length
+        const apiCallCount = activities.filter(a => a.action === 'api_call').length
+        const averageSessionTime = sessionCount > 0 ? totalTimeToday / sessionCount : 0
+
+        // Última atividade
+        const lastActivity = activities[0]?.createdAt || user.lastLogin || user.createdAt
+
+        return {
+          id: user.id,
+          userId: user.id,
+          userName: user.name,
+          userEmail: user.email,
+          userRole: user.role,
+          lastAccess: lastActivity.toISOString(),
+          isOnline: !!activeSession,
+          totalTimeToday: Math.round(totalTimeToday),
+          totalTimeThisWeek: Math.round(totalTimeThisWeek),
+          totalTimeThisMonth: Math.round(totalTimeThisMonth),
+          totalTimeThisQuarter: Math.round(totalTimeThisQuarter),
+          sessionCount,
+          averageSessionTime: Math.round(averageSessionTime),
+          lastActivity: lastActivity.toISOString(),
+          loginCount,
+          logoutCount,
+          pageViewCount,
+          apiCallCount
+        }
+      }))
 
       console.log(`✅ Dados de monitoramento processados: ${monitoringData.length} registros`)
       return reply.send(monitoringData)
