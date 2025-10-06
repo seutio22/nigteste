@@ -1338,6 +1338,62 @@ app.get('/monitoring/test', async (req: any, reply: any) => {
   }
 })
 
+// Rota de monitoramento de usuários
+app.get('/monitoring/users', async (req: any, reply: any) => {
+  try {
+    console.log('🔍 Buscando dados de monitoramento...')
+    
+    // Buscar usuários reais
+    const users = await prisma.user.findMany({
+      where: { active: true },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        lastLogin: true,
+        createdAt: true
+      }
+    })
+
+    console.log(`✅ Encontrados ${users.length} usuários reais`)
+
+    // Criar dados de monitoramento básicos
+    const monitoringData = users.map(user => {
+      const now = new Date()
+      const lastAccess = user.lastLogin || user.createdAt
+      
+      return {
+        id: user.id,
+        userId: user.id,
+        userName: user.name,
+        userEmail: user.email,
+        userRole: user.role,
+        lastAccess: lastAccess.toISOString(),
+        isOnline: Math.random() > 0.3, // Simular status online/offline
+        totalTimeToday: Math.floor(Math.random() * 480) + 30, // 30-510 minutos
+        totalTimeThisWeek: Math.floor(Math.random() * 2000) + 200,
+        totalTimeThisMonth: Math.floor(Math.random() * 8000) + 1000,
+        totalTimeThisQuarter: Math.floor(Math.random() * 24000) + 3000,
+        sessionCount: Math.floor(Math.random() * 20) + 1,
+        averageSessionTime: Math.floor(Math.random() * 120) + 15,
+        lastActivity: lastAccess.toISOString(),
+        loginCount: Math.floor(Math.random() * 50) + 10,
+        logoutCount: Math.floor(Math.random() * 45) + 5,
+        pageViewCount: Math.floor(Math.random() * 100) + 10,
+        apiCallCount: Math.floor(Math.random() * 200) + 20
+      }
+    })
+
+    console.log(`✅ Dados de monitoramento processados: ${monitoringData.length} registros`)
+    return reply.send(monitoringData)
+  } catch (error) {
+    console.error('❌ Erro ao buscar dados de monitoramento:', error)
+    return reply.status(500).send({ message: 'Erro interno do servidor' })
+  }
+})
+
+
 // Endpoint público para validação de IDs de usuários (sem autenticação)
 app.get('/users/validate/:id', async (req: any) => {
   try {
@@ -3260,60 +3316,6 @@ app.get('/monitoring/test', async (req: any, reply: any) => {
   }
 })
 
-// Rota de monitoramento de usuários (versão simplificada)
-app.get('/monitoring/users', async (req: any, reply: any) => {
-  try {
-    console.log('🔍 Buscando dados de monitoramento...')
-    
-    // Buscar usuários reais
-    const users = await prisma.user.findMany({
-      where: { active: true },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        lastLogin: true,
-        createdAt: true
-      }
-    })
-
-    console.log(`✅ Encontrados ${users.length} usuários reais`)
-
-    // Criar dados de monitoramento básicos
-    const monitoringData = users.map(user => {
-      const now = new Date()
-      const lastAccess = user.lastLogin || user.createdAt
-      
-      return {
-        id: user.id,
-        userId: user.id,
-        userName: user.name,
-        userEmail: user.email,
-        userRole: user.role,
-        lastAccess: lastAccess.toISOString(),
-        isOnline: Math.random() > 0.3, // Simular status online/offline
-        totalTimeToday: Math.floor(Math.random() * 480) + 30, // 30-510 minutos
-        totalTimeThisWeek: Math.floor(Math.random() * 2000) + 200,
-        totalTimeThisMonth: Math.floor(Math.random() * 8000) + 1000,
-        totalTimeThisQuarter: Math.floor(Math.random() * 24000) + 3000,
-        sessionCount: Math.floor(Math.random() * 20) + 1,
-        averageSessionTime: Math.floor(Math.random() * 120) + 15,
-        lastActivity: lastAccess.toISOString(),
-        loginCount: Math.floor(Math.random() * 50) + 10,
-        logoutCount: Math.floor(Math.random() * 45) + 5,
-        pageViewCount: Math.floor(Math.random() * 100) + 10,
-        apiCallCount: Math.floor(Math.random() * 200) + 20
-      }
-    })
-
-    console.log(`✅ Dados de monitoramento processados: ${monitoringData.length} registros`)
-    return reply.send(monitoringData)
-  } catch (error) {
-    console.error('❌ Erro ao buscar dados de monitoramento:', error)
-    return reply.status(500).send({ message: 'Erro interno do servidor' })
-  }
-})
 
 // Rotas do Kanban
 app.get('/kanban/tickets', async (req: any, reply: any) => {

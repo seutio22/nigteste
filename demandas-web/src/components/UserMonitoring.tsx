@@ -128,8 +128,7 @@ export default function UserMonitoring() {
       const response = await fetch(`https://nigteste-production.up.railway.app/monitoring/users`, {
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'X-Session-ID': `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+          'Content-Type': 'application/json'
         }
       })
 
