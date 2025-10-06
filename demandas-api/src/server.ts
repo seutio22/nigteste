@@ -1302,7 +1302,72 @@ if (!process.env.JWT_SECRET) {
   console.warn('⚠️ JWT_SECRET não configurado. Usando chave padrão (NÃO SEGURO PARA PRODUÇÃO)');
 }
 app.register(jwt, { secret: jwtSecret })
-// Rotas de monitoramento (antes da autenticação para evitar problemas)
+
+app.register(authPlugin)
+
+// Rota para registrar atividades do frontend (após autenticação)
+app.post('/monitoring/activity', async (req: any, reply: any) => {
+  try {
+    const { action, page, duration } = req.body
+    const userId = req.user?.id
+
+    if (!userId) {
+      return reply.status(401).send({ message: 'Usuário não autenticado' })
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } })
+    if (!user) {
+      return reply.status(404).send({ message: 'Usuário não encontrado' })
+    }
+
+    // Registrar atividade
+    await prisma.userActivity.create({
+      data: {
+        userId,
+        userName: user.name,
+        userEmail: user.email,
+        userRole: user.role,
+        action,
+        page,
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+        sessionId: req.headers['x-session-id'] || null,
+        duration: duration || 0,
+        metadata: JSON.stringify({
+          method: req.method,
+          timestamp: new Date().toISOString(),
+          url: req.url
+        })
+      }
+    })
+
+    console.log(`📊 Atividade registrada: ${user.name} - ${action} - ${page}`)
+    return reply.send({ message: 'Atividade registrada com sucesso' })
+  } catch (error) {
+    console.error('❌ Erro ao registrar atividade:', error)
+    return reply.status(500).send({ message: 'Erro interno do servidor' })
+  }
+})
+
+// Middleware de tracking de atividades
+app.addHook('onRequest', async (request, reply) => {
+  // Rastrear atividade do usuário
+  await trackUserActivity(request as any, reply)
+})
+
+// Middleware para rastrear início de sessão no login
+app.addHook('onSend', async (request, reply, payload) => {
+  if (request.url.includes('/auth/login') && reply.statusCode === 200) {
+    await trackSessionStart(request as any, reply)
+  }
+  if (request.url.includes('/auth/logout') && reply.statusCode === 200) {
+    await trackSessionEnd(request as any, reply)
+  }
+})
+
+app.get('/health', async () => ({ status: 'ok' }))
+
+// ROTAS DE MONITORAMENTO - ANTES DE QUALQUER MIDDLEWARE
 app.get('/monitoring/test', async (req: any, reply: any) => {
   try {
     console.log('🔍 Teste de rota de monitoramento...')
@@ -1349,17 +1414,6 @@ app.get('/monitoring/users', async (req: any, reply: any) => {
       
       const quarterAgo = new Date(today)
       quarterAgo.setDate(quarterAgo.getDate() - 90)
-
-      // Buscar dados de monitoramento para hoje
-      const todayMonitoring = await prisma.userMonitoring.findFirst({
-        where: {
-          userId: user.id,
-          date: {
-            gte: today
-          }
-        },
-        orderBy: { date: 'desc' }
-      })
 
       // Buscar atividades reais do usuário
       const todayActivities = await prisma.userActivity.findMany({
@@ -1464,70 +1518,6 @@ app.get('/monitoring/users', async (req: any, reply: any) => {
     return reply.status(500).send({ message: 'Erro interno do servidor' })
   }
 })
-
-app.register(authPlugin)
-
-// Rota para registrar atividades do frontend (após autenticação)
-app.post('/monitoring/activity', async (req: any, reply: any) => {
-  try {
-    const { action, page, duration } = req.body
-    const userId = req.user?.id
-
-    if (!userId) {
-      return reply.status(401).send({ message: 'Usuário não autenticado' })
-    }
-
-    const user = await prisma.user.findUnique({ where: { id: userId } })
-    if (!user) {
-      return reply.status(404).send({ message: 'Usuário não encontrado' })
-    }
-
-    // Registrar atividade
-    await prisma.userActivity.create({
-      data: {
-        userId,
-        userName: user.name,
-        userEmail: user.email,
-        userRole: user.role,
-        action,
-        page,
-        ipAddress: req.ip,
-        userAgent: req.headers['user-agent'],
-        sessionId: req.headers['x-session-id'] || null,
-        duration: duration || 0,
-        metadata: JSON.stringify({
-          method: req.method,
-          timestamp: new Date().toISOString(),
-          url: req.url
-        })
-      }
-    })
-
-    console.log(`📊 Atividade registrada: ${user.name} - ${action} - ${page}`)
-    return reply.send({ message: 'Atividade registrada com sucesso' })
-  } catch (error) {
-    console.error('❌ Erro ao registrar atividade:', error)
-    return reply.status(500).send({ message: 'Erro interno do servidor' })
-  }
-})
-
-// Middleware de tracking de atividades
-app.addHook('onRequest', async (request, reply) => {
-  // Rastrear atividade do usuário
-  await trackUserActivity(request as any, reply)
-})
-
-// Middleware para rastrear início de sessão no login
-app.addHook('onSend', async (request, reply, payload) => {
-  if (request.url.includes('/auth/login') && reply.statusCode === 200) {
-    await trackSessionStart(request as any, reply)
-  }
-  if (request.url.includes('/auth/logout') && reply.statusCode === 200) {
-    await trackSessionEnd(request as any, reply)
-  }
-})
-
-app.get('/health', async () => ({ status: 'ok' }))
 
 
 
