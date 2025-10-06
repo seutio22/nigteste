@@ -79,6 +79,22 @@ export const KanbanBoard: React.FC = () => {
     notifications: notificationStore.notifications
   })
 
+  // Função para obter nome do usuário pelo ID
+  const getUserNameById = (userId: string): string => {
+    // Se for o usuário logado, retornar o nome dele
+    if (userId === user?.id) {
+      return user.name || 'Usuário Atual'
+    }
+    
+    // Se for 'unassigned', retornar texto amigável
+    if (userId === 'unassigned') {
+      return 'Não atribuído'
+    }
+    
+    // Para outros usuários, retornar o ID (pode ser melhorado futuramente com uma lista de usuários)
+    return userId
+  }
+
   // Obter colunas com tickets filtrados por permissão - SEMPRE filtrar por usuário logado
   const columns = getFilteredColumnsWithTickets(user?.role, user?.id, true) // true = viewOwnDataOnly
   
@@ -391,7 +407,7 @@ export const KanbanBoard: React.FC = () => {
       title: ticket.title,
       description: ticket.description,
       priority: ticket.priority,
-      assignee: ticket.assignee || user?.name || 'unassigned', // Usar nome do usuário se não houver assignee
+      assignee: getUserNameById(ticket.assignee || 'unassigned'), // Usar nome legível do usuário
       startDate: ticket.startDate || '',
       dueDate: ticket.dueDate || '',
       tags: ticket.tags.join(', ')
@@ -842,7 +858,7 @@ export const KanbanBoard: React.FC = () => {
 
                         {ticket.assignee && (
                           <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, fontWeight: 'medium', fontSize: '0.7rem' }}>
-                            👤 {ticket.assignee}
+                            👤 {getUserNameById(ticket.assignee)}
                           </Typography>
                         )}
                         
@@ -1023,7 +1039,7 @@ export const KanbanBoard: React.FC = () => {
                   <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                     <Typography variant="body2" color="text.secondary">Responsável:</Typography>
                     <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-                      {viewDescriptionTicket.assignee}
+                      {getUserNameById(viewDescriptionTicket.assignee)}
                     </Typography>
                   </Box>
                 )}
