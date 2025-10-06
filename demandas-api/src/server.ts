@@ -1367,6 +1367,39 @@ app.addHook('onSend', async (request, reply, payload) => {
 
 app.get('/health', async () => ({ status: 'ok' }))
 
+// Rota para zerar dados de monitoramento
+app.post('/monitoring/clear', async (req: any, reply: any) => {
+  try {
+    console.log('🧹 Iniciando limpeza dos dados de monitoramento...')
+    
+    // Limpar dados de atividades
+    const deletedActivities = await prisma.userActivity.deleteMany({})
+    console.log(`✅ Removidas ${deletedActivities.count} atividades`)
+    
+    // Limpar dados de sessões
+    const deletedSessions = await prisma.userSession.deleteMany({})
+    console.log(`✅ Removidas ${deletedSessions.count} sessões`)
+    
+    // Limpar dados de monitoramento
+    const deletedMonitoring = await prisma.userMonitoring.deleteMany({})
+    console.log(`✅ Removidos ${deletedMonitoring.count} registros de monitoramento`)
+    
+    console.log('🎯 Dados de monitoramento zerados! Sistema pronto para começar a contar a partir de agora.')
+    
+    return reply.send({
+      message: 'Dados de monitoramento zerados com sucesso!',
+      deleted: {
+        activities: deletedActivities.count,
+        sessions: deletedSessions.count,
+        monitoring: deletedMonitoring.count
+      }
+    })
+  } catch (error) {
+    console.error('❌ Erro ao limpar dados:', error)
+    return reply.status(500).send({ message: 'Erro ao limpar dados de monitoramento' })
+  }
+})
+
 // ROTAS DE MONITORAMENTO - ANTES DE QUALQUER MIDDLEWARE
 app.get('/monitoring/test', async (req: any, reply: any) => {
   try {
