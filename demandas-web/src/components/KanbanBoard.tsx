@@ -79,11 +79,11 @@ export const KanbanBoard: React.FC = () => {
     notifications: notificationStore.notifications
   })
 
-  // Obter colunas com tickets filtrados por permissão
-  const columns = getFilteredColumnsWithTickets(user?.role, user?.id)
+  // Obter colunas com tickets filtrados por permissão - SEMPRE filtrar por usuário logado
+  const columns = getFilteredColumnsWithTickets(user?.role, user?.id, true) // true = viewOwnDataOnly
   
-  // Obter tickets filtrados para o usuário logado
-  const userTickets = useKanbanStore(state => state.getFilteredTickets(user?.role, user?.id))
+  // Obter tickets filtrados para o usuário logado - SEMPRE mostrar apenas os próprios tickets
+  const userTickets = useKanbanStore(state => state.getFilteredTickets(user?.role, user?.id, true)) // true = viewOwnDataOnly
 
   // Verificar tarefas vencidas e próximas do vencimento
   useEffect(() => {
@@ -428,13 +428,13 @@ export const KanbanBoard: React.FC = () => {
       })
     } else {
       console.log('🔍 KanbanBoard: Criando novo ticket')
-      // Criar novo ticket
+      // Criar novo ticket - SEMPRE vincular ao usuário logado
       const ticketData = {
         title: newTicket.title,
         description: newTicket.description,
         status: selectedColumn as KanbanTicket['status'],
         priority: newTicket.priority,
-        assignee: 'unassigned', // Usar string fixa para evitar problemas de constraint
+        assignee: user?.id || 'unassigned', // SEMPRE usar o ID do usuário logado
         startDate: newTicket.startDate ? newTicket.startDate + 'T00:00:00.000Z' : undefined, // Converter para ISO com UTC
         dueDate: newTicket.dueDate ? newTicket.dueDate + 'T00:00:00.000Z' : undefined, // Converter para ISO com UTC
         tags: newTicket.tags ? newTicket.tags.split(',').map(tag => tag.trim()).filter(tag => tag) : []

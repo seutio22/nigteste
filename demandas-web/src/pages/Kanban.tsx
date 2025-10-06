@@ -33,16 +33,18 @@ export default function KanbanPage() {
     }
   }, [user?.id])
 
-  // Estatísticas dos tickets do kanban
+  // Estatísticas dos tickets do kanban - APENAS tickets do usuário logado
   const kanbanStats = useMemo(() => {
-    const total = kanbanStore.tickets.length
-    const backlog = kanbanStore.tickets.filter(t => t.status === 'backlog').length
-    const todo = kanbanStore.tickets.filter(t => t.status === 'todo').length
-    const inProgress = kanbanStore.tickets.filter(t => t.status === 'in-progress').length
-    const done = kanbanStore.tickets.filter(t => t.status === 'done').length
+    // Filtrar apenas tickets do usuário logado
+    const userTickets = kanbanStore.getFilteredTickets(user?.role, user?.id, true)
+    const total = userTickets.length
+    const backlog = userTickets.filter(t => t.status === 'backlog').length
+    const todo = userTickets.filter(t => t.status === 'todo').length
+    const inProgress = userTickets.filter(t => t.status === 'in-progress').length
+    const done = userTickets.filter(t => t.status === 'done').length
     
     return { total, backlog, todo, inProgress, done }
-  }, [kanbanStore.tickets])
+  }, [kanbanStore.tickets, user?.id, user?.role])
 
   const handleRefresh = () => {
     console.log('🔄 Kanban: Atualizando dados...')
@@ -61,6 +63,9 @@ export default function KanbanPage() {
               </Typography>
               <Typography variant="body2" className="text-slate-600">
                 Visualize e gerencie seus projetos e tarefas em um quadro interativo
+              </Typography>
+              <Typography variant="caption" className="text-slate-500 mt-1 block">
+                🔒 Seus tickets são privados - apenas você pode vê-los
               </Typography>
             </div>
             

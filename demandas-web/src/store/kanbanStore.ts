@@ -284,19 +284,16 @@ export const useKanbanStore = create<KanbanState>()(
         getFilteredTickets: (userRole?: string, userId?: string, viewOwnDataOnly?: boolean) => {
           const { tickets } = get()
           
-          // Se não há usuário logado, retornar todos os tickets
+          // Se não há usuário logado, retornar array vazio (não mostrar tickets)
           if (!userId) {
-            return tickets
+            console.log('🔍 KanbanStore: Usuário não logado, retornando array vazio')
+            return []
           }
           
-          // Se a permissão viewOwnDataOnly está ativada, filtrar por tickets próprios
-          if (viewOwnDataOnly) {
-            const filtered = tickets.filter(ticket => ticket.assignee === userId)
-            return filtered
-          }
-          
-          // Se viewOwnDataOnly está desativado, retornar todos os tickets
-          return tickets
+          // SEMPRE filtrar por tickets do usuário logado (tickets privados)
+          const filtered = tickets.filter(ticket => ticket.assignee === userId)
+          console.log(`🔍 KanbanStore: Filtrando tickets para usuário ${userId}: ${filtered.length} de ${tickets.length} tickets`)
+          return filtered
         },
         
         getFilteredColumnsWithTickets: (userRole?: string, userId?: string, viewOwnDataOnly?: boolean) => {
