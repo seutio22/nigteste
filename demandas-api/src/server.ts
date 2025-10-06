@@ -9,7 +9,6 @@ import comunicadosRoutes from './routes/comunicados'
 import projectTeamRoutes from './routes/projectTeam'
 import shareRoutes from './routes/share'
 import { masterDataRoutes } from './routes/masterData'
-import monitoringRoutes from './routes/monitoring'
 import { PrismaClient } from '@prisma/client'
 import { trackUserActivity, trackSessionStart, trackSessionEnd } from './middleware/activityTracker'
 
@@ -1338,10 +1337,54 @@ app.get('/monitoring/test', async (req: any, reply: any) => {
   }
 })
 
-// Rota de monitoramento de usuários
+// Rota para registrar atividades do frontend
+app.post('/monitoring/activity', async (req: any, reply: any) => {
+  try {
+    const { action, page, duration } = req.body
+    const userId = req.user?.id
+
+    if (!userId) {
+      return reply.status(401).send({ message: 'Usuário não autenticado' })
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } })
+    if (!user) {
+      return reply.status(404).send({ message: 'Usuário não encontrado' })
+    }
+
+    // Registrar atividade
+    await prisma.userActivity.create({
+      data: {
+        userId,
+        userName: user.name,
+        userEmail: user.email,
+        userRole: user.role,
+        action,
+        page,
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+        sessionId: req.headers['x-session-id'] || null,
+        duration: duration || 0,
+        metadata: JSON.stringify({
+          method: req.method,
+          timestamp: new Date().toISOString(),
+          url: req.url
+        })
+      }
+    })
+
+    console.log(`📊 Atividade registrada: ${user.name} - ${action} - ${page}`)
+    return reply.send({ message: 'Atividade registrada com sucesso' })
+  } catch (error) {
+    console.error('❌ Erro ao registrar atividade:', error)
+    return reply.status(500).send({ message: 'Erro interno do servidor' })
+  }
+})
+
+// Rota de monitoramento de usuários - DADOS REAIS
 app.get('/monitoring/users', async (req: any, reply: any) => {
   try {
-    console.log('🔍 Buscando dados de monitoramento...')
+    console.log('🔍 Buscando dados de monitoramento REAIS...')
     
     // Buscar usuários reais
     const users = await prisma.user.findMany({
@@ -1358,34 +1401,128 @@ app.get('/monitoring/users', async (req: any, reply: any) => {
 
     console.log(`✅ Encontrados ${users.length} usuários reais`)
 
-    // Criar dados de monitoramento básicos
-    const monitoringData = users.map(user => {
-      const now = new Date()
-      const lastAccess = user.lastLogin || user.createdAt
+    // Buscar dados de monitoramento reais para cada usuário
+    const monitoringData = await Promise.all(users.map(async (user) => {
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
       
+      const weekAgo = new Date(today)
+      weekAgo.setDate(weekAgo.getDate() - 7)
+      
+      const monthAgo = new Date(today)
+      monthAgo.setDate(monthAgo.getDate() - 30)
+      
+      const quarterAgo = new Date(today)
+      quarterAgo.setDate(quarterAgo.getDate() - 90)
+
+      // Buscar dados de monitoramento para hoje
+      const todayMonitoring = await prisma.userMonitoring.findFirst({
+        where: {
+          userId: user.id,
+          date: {
+            gte: today
+          }
+        },
+        orderBy: { date: 'desc' }
+      })
+
+      // Buscar atividades reais do usuário
+      const todayActivities = await prisma.userActivity.findMany({
+        where: {
+          userId: user.id,
+          createdAt: {
+            gte: today
+          }
+        }
+      })
+
+      const weekActivities = await prisma.userActivity.findMany({
+        where: {
+          userId: user.id,
+          createdAt: {
+            gte: weekAgo
+          }
+        }
+      })
+
+      const monthActivities = await prisma.userActivity.findMany({
+        where: {
+          userId: user.id,
+          createdAt: {
+            gte: monthAgo
+          }
+        }
+      })
+
+      const quarterActivities = await prisma.userActivity.findMany({
+        where: {
+          userId: user.id,
+          createdAt: {
+            gte: quarterAgo
+          }
+        }
+      })
+
+      // Buscar sessões ativas
+      const activeSession = await prisma.userSession.findFirst({
+        where: {
+          userId: user.id,
+          isActive: true
+        },
+        orderBy: { loginTime: 'desc' }
+      })
+
+      // Calcular métricas reais
+      const totalTimeToday = todayActivities.reduce((sum, activity) => sum + (activity.duration || 0), 0) / 60 // em minutos
+      const totalTimeThisWeek = weekActivities.reduce((sum, activity) => sum + (activity.duration || 0), 0) / 60
+      const totalTimeThisMonth = monthActivities.reduce((sum, activity) => sum + (activity.duration || 0), 0) / 60
+      const totalTimeThisQuarter = quarterActivities.reduce((sum, activity) => sum + (activity.duration || 0), 0) / 60
+
+      // Contar ações específicas
+      const loginCount = todayActivities.filter(a => a.action === 'login').length
+      const logoutCount = todayActivities.filter(a => a.action === 'logout').length
+      const pageViewCount = todayActivities.filter(a => a.action === 'page_view').length
+      const apiCallCount = todayActivities.filter(a => a.action === 'api_call').length
+
+      // Buscar sessões de hoje
+      const todaySessions = await prisma.userSession.findMany({
+        where: {
+          userId: user.id,
+          loginTime: {
+            gte: today
+          }
+        }
+      })
+
+      const sessionCount = todaySessions.length
+      const averageSessionTime = sessionCount > 0 ? totalTimeToday / sessionCount : 0
+
+      // Última atividade
+      const lastActivity = todayActivities[0]?.createdAt || user.lastLogin || user.createdAt
+
       return {
         id: user.id,
         userId: user.id,
         userName: user.name,
         userEmail: user.email,
         userRole: user.role,
-        lastAccess: lastAccess.toISOString(),
-        isOnline: Math.random() > 0.3, // Simular status online/offline
-        totalTimeToday: Math.floor(Math.random() * 480) + 30, // 30-510 minutos
-        totalTimeThisWeek: Math.floor(Math.random() * 2000) + 200,
-        totalTimeThisMonth: Math.floor(Math.random() * 8000) + 1000,
-        totalTimeThisQuarter: Math.floor(Math.random() * 24000) + 3000,
-        sessionCount: Math.floor(Math.random() * 20) + 1,
-        averageSessionTime: Math.floor(Math.random() * 120) + 15,
-        lastActivity: lastAccess.toISOString(),
-        loginCount: Math.floor(Math.random() * 50) + 10,
-        logoutCount: Math.floor(Math.random() * 45) + 5,
-        pageViewCount: Math.floor(Math.random() * 100) + 10,
-        apiCallCount: Math.floor(Math.random() * 200) + 20
+        lastAccess: lastActivity.toISOString(),
+        isOnline: !!activeSession,
+        totalTimeToday: Math.round(totalTimeToday),
+        totalTimeThisWeek: Math.round(totalTimeThisWeek),
+        totalTimeThisMonth: Math.round(totalTimeThisMonth),
+        totalTimeThisQuarter: Math.round(totalTimeThisQuarter),
+        sessionCount,
+        averageSessionTime: Math.round(averageSessionTime),
+        lastActivity: lastActivity.toISOString(),
+        loginCount,
+        logoutCount,
+        pageViewCount,
+        apiCallCount
       }
-    })
+    }))
 
-    console.log(`✅ Dados de monitoramento processados: ${monitoringData.length} registros`)
+    console.log(`✅ Dados de monitoramento REAIS processados: ${monitoringData.length} registros`)
     return reply.send(monitoringData)
   } catch (error) {
     console.error('❌ Erro ao buscar dados de monitoramento:', error)
@@ -3299,8 +3436,6 @@ app.register(shareRoutes, { prisma })
 // Rotas de dados mestres
 app.register(masterDataRoutes, { prisma })
 
-// Rotas de monitoramento
-app.register(monitoringRoutes, { prefix: '/monitoring' })
 
 // Rota de teste de monitoramento
 app.get('/monitoring/test', async (req: any, reply: any) => {
