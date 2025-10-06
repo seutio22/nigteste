@@ -828,6 +828,9 @@ model User {
   validacoes           Validacao[]
   validacoesManutencao ValidacaoManutencao[]
   timelineEvents       TimelineEvent[]
+  userActivities       UserActivity[]
+  userSessions         UserSession[]
+  userMonitoring       UserMonitoring[]
 }
 
 model KanbanTicket {
@@ -856,4 +859,63 @@ model TimelineEvent {
   userId        String?  // ID do usuário que fez a alteração
   createdAt     DateTime @default(now())
   user          User?    @relation(fields: [userId], references: [id])
+}
+
+model UserActivity {
+  id              String   @id @default(uuid())
+  userId          String
+  userName        String
+  userEmail       String
+  userRole        String
+  action          String   // login, logout, page_view, api_call, etc.
+  page            String?  // Página acessada
+  endpoint        String?  // Endpoint da API chamado
+  ipAddress       String?
+  userAgent       String?
+  sessionId       String?
+  duration        Int?     // Duração em segundos
+  metadata        String?  // Dados adicionais em JSON
+  createdAt       DateTime @default(now())
+  user            User     @relation(fields: [userId], references: [id])
+}
+
+model UserSession {
+  id              String   @id @default(uuid())
+  userId          String
+  sessionId       String   @unique
+  ipAddress       String?
+  userAgent       String?
+  loginTime       DateTime @default(now())
+  logoutTime      DateTime?
+  lastActivity    DateTime @default(now())
+  isActive        Boolean  @default(true)
+  duration        Int?     // Duração total em segundos
+  pageViews       Int      @default(0)
+  apiCalls        Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id])
+}
+
+model UserMonitoring {
+  id                    String   @id @default(uuid())
+  userId                String
+  date                  DateTime @default(now())
+  totalTimeToday        Int      @default(0) // em minutos
+  totalTimeThisWeek     Int      @default(0) // em minutos
+  totalTimeThisMonth    Int      @default(0) // em minutos
+  totalTimeThisQuarter  Int      @default(0) // em minutos
+  sessionCount          Int      @default(0)
+  loginCount            Int      @default(0)
+  logoutCount           Int      @default(0)
+  pageViewCount         Int      @default(0)
+  apiCallCount          Int      @default(0)
+  averageSessionTime    Int      @default(0) // em minutos
+  lastAccess            DateTime @default(now())
+  isOnline              Boolean  @default(false)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  user                  User     @relation(fields: [userId], references: [id])
+  
+  @@unique([userId, date])
 }

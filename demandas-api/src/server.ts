@@ -9,6 +9,7 @@ import comunicadosRoutes from './routes/comunicados'
 import projectTeamRoutes from './routes/projectTeam'
 import shareRoutes from './routes/share'
 import { masterDataRoutes } from './routes/masterData'
+import monitoringRoutes from './routes/monitoring'
 import { PrismaClient } from '@prisma/client'
 
 const app = Fastify({ 
@@ -3209,6 +3210,9 @@ app.register(shareRoutes, { prisma })
 
 // Rotas de dados mestres
 app.register(masterDataRoutes, { prisma })
+
+// Rotas de monitoramento
+app.register(monitoringRoutes, { prefix: '/monitoring' })
 
 // Rotas do Kanban
 app.get('/kanban/tickets', async (req: any, reply: any) => {
