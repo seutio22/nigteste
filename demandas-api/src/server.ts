@@ -1323,6 +1323,21 @@ app.addHook('onSend', async (request, reply, payload) => {
 
 app.get('/health', async () => ({ status: 'ok' }))
 
+// Rota de teste para monitoramento
+app.get('/monitoring/test', async (req: any, reply: any) => {
+  try {
+    console.log('🔍 Teste de rota de monitoramento...')
+    return reply.send({ 
+      message: 'Rota de monitoramento funcionando!', 
+      timestamp: new Date().toISOString(),
+      users: 'Teste OK'
+    })
+  } catch (error) {
+    console.error('❌ Erro na rota de teste:', error)
+    return reply.status(500).send({ message: 'Erro interno do servidor' })
+  }
+})
+
 // Endpoint público para validação de IDs de usuários (sem autenticação)
 app.get('/users/validate/:id', async (req: any) => {
   try {
