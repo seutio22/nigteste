@@ -3228,6 +3228,63 @@ app.get('/monitoring/test', async (req: any, reply: any) => {
   }
 })
 
+// Rota de monitoramento de usuários (versão simplificada)
+app.get('/monitoring/users', async (req: any, reply: any) => {
+  try {
+    console.log('🔍 Buscando dados de monitoramento...')
+    
+    // Dados simulados para teste
+    const monitoringData = [
+      {
+        id: '1',
+        userId: '1',
+        userName: 'Admin User',
+        userEmail: 'admin@admin.com',
+        userRole: 'admin',
+        lastAccess: new Date().toISOString(),
+        isOnline: true,
+        totalTimeToday: 240,
+        totalTimeThisWeek: 1200,
+        totalTimeThisMonth: 4800,
+        totalTimeThisQuarter: 14400,
+        sessionCount: 5,
+        averageSessionTime: 48,
+        lastActivity: new Date().toISOString(),
+        loginCount: 25,
+        logoutCount: 20,
+        pageViewCount: 150,
+        apiCallCount: 300
+      },
+      {
+        id: '2',
+        userId: '2',
+        userName: 'João Silva',
+        userEmail: 'joao@empresa.com',
+        userRole: 'gerente',
+        lastAccess: new Date(Date.now() - 3600000).toISOString(),
+        isOnline: false,
+        totalTimeToday: 180,
+        totalTimeThisWeek: 900,
+        totalTimeThisMonth: 3600,
+        totalTimeThisQuarter: 10800,
+        sessionCount: 3,
+        averageSessionTime: 60,
+        lastActivity: new Date(Date.now() - 3600000).toISOString(),
+        loginCount: 15,
+        logoutCount: 12,
+        pageViewCount: 80,
+        apiCallCount: 200
+      }
+    ]
+
+    console.log(`✅ Dados de monitoramento processados: ${monitoringData.length} registros`)
+    return reply.send(monitoringData)
+  } catch (error) {
+    console.error('❌ Erro ao buscar dados de monitoramento:', error)
+    return reply.status(500).send({ message: 'Erro interno do servidor' })
+  }
+})
+
 // Rotas do Kanban
 app.get('/kanban/tickets', async (req: any, reply: any) => {
   try {
