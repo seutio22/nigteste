@@ -1755,6 +1755,35 @@ function crud(entity: keyof PrismaClient) {
       return anyPrisma[entity].findUnique({ where: { id } });
     },
     create: async (data: unknown) => {
+      // Tratamento específico para demandas - converter IDs para relacionamentos connect
+      if (entity === 'demanda') {
+        const demandaData = { ...data as any };
+        
+        // Converter IDs para relacionamentos connect
+        const relationshipFields = [
+          { field: 'tipoServicoId', relation: 'tipoServico' },
+          { field: 'tipoId', relation: 'tipo' },
+          { field: 'analistaId', relation: 'analista' },
+          { field: 'areaId', relation: 'area' },
+          { field: 'clienteId', relation: 'cliente' },
+          { field: 'contratoId', relation: 'contrato' },
+          { field: 'operadoraId', relation: 'operadora' },
+          { field: 'produtoId', relation: 'produto' },
+          { field: 'sistemaId', relation: 'sistema' },
+          { field: 'userId', relation: 'user' }
+        ];
+        
+        for (const { field, relation } of relationshipFields) {
+          if (demandaData[field]) {
+            demandaData[relation] = { connect: { id: demandaData[field] } };
+            delete demandaData[field];
+          }
+        }
+        
+        console.log('🔍 DEMANDA CREATE: Dados processados:', JSON.stringify(demandaData, null, 2));
+        return anyPrisma[entity].create({ data: demandaData });
+      }
+      
       // Garantir que contratos sejam criados como ativos por padrão apenas se não especificado
       if (entity === 'contrato') {
         const contratoData = { ...data as any };
