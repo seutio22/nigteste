@@ -200,3 +200,4 @@ export function testLogoutCleanup(): void {
   console.log('📊 Dados após limpeza:', checkSystemDataInStorage())
   console.log('✅ Teste concluído!')
 }
+

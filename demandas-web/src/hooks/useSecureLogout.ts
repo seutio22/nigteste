@@ -27,3 +27,4 @@ export function useSecureLogout() {
 
   return { secureLogout }
 }
+
