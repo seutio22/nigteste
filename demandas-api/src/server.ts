@@ -4229,7 +4229,8 @@ app.post('/padrao', async (req: any) => {
 
 // Rota de exclusão para relatórios
 // (Rota DELETE /analytics/:id removida - usando crud('analytics') automático)
-// app.delete('/analytics/:id', async (req: any) => {
+/*
+app.delete('/analytics/:id', async (req: any) => {
   try {
     const { id } = req.params
     console.log(`🔍 DELETE /analytics/${id}: Excluindo relatório`)
