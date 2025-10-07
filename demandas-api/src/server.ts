@@ -2334,9 +2334,9 @@ const resources = {
   dashboardWidgets: crud('dashboardWidget'),
   permissions: crud('permission'),
   userPermissions: crud('userPermission'),
-  comunicados: crud('comunicado'),
-  comunicadoVisualizacoes: crud('comunicadoVisualizacao'),
-  comunicadoComentarios: crud('comunicadoComentario'),
+  // comunicados: crud('comunicado'), // Removido - usando plugin específico em routes/comunicados.ts
+  // comunicadoVisualizacoes: crud('comunicadoVisualizacao'), // Removido - usando plugin específico
+  // comunicadoComentarios: crud('comunicadoComentario'), // Removido - usando plugin específico
   timelineEvents: crud('timelineEvent'),
   projectMembers: crud('projectMember'),
   projectExternalMembers: crud('projectExternalMember'),
