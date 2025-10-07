@@ -310,7 +310,7 @@ export default function DemandListPage() {
             analistaId: findIdByName(data.analista || data.analistaId, md.analistas) || '',
             dataInicio: excelDateToISO(data.dataInicio || data.dataInicial) || new Date().toISOString(),
             dataFinal: excelDateToISO(data.dataFinal || data.dataFinalizacao),
-            ticket: data.ticket || `DEM-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+            ticket: String(data.ticket || `DEM-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`),
             solicitante: data.solicitante || data.solicitanteId || '',
             areaId: findIdByName(data.area || data.areaId, md.areas) || '',
             clienteId: findIdByName(data.cliente || data.clienteId, md.clientes) || '',
