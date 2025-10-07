@@ -269,6 +269,109 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
     }
   })
 
+  // ===== TIPOS DE CADASTRO =====
+  
+  // Schema de validação para TipoCadastro
+  const tipoCadastroCreateSchema = z.object({
+    nome: z.string().min(1, 'Nome é obrigatório'),
+    descricao: z.string().optional()
+  })
+
+  const tipoCadastroUpdateSchema = z.object({
+    nome: z.string().min(1, 'Nome é obrigatório'),
+    descricao: z.string().optional()
+  })
+
+  // GET /tiposCadastro
+  app.get('/tiposCadastro', async (request, reply) => {
+    try {
+      const tiposCadastro = await prisma.tipoCadastro.findMany({
+        orderBy: { nome: 'asc' }
+      })
+      return reply.send(tiposCadastro)
+    } catch (error) {
+      console.error('Erro ao buscar tipos de cadastro:', error)
+      return reply.status(500).send({ error: 'Erro interno do servidor' })
+    }
+  })
+
+  // POST /tiposCadastro
+  app.post('/tiposCadastro', async (request, reply) => {
+    try {
+      const body = tipoCadastroCreateSchema.parse(request.body)
+      const tipoCadastro = await prisma.tipoCadastro.create({
+        data: body
+      })
+      return reply.status(201).send(tipoCadastro)
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return reply.status(400).send({ error: 'Dados inválidos', details: error.issues })
+      }
+      console.error('Erro ao criar tipo de cadastro:', error)
+      return reply.status(500).send({ error: 'Erro interno do servidor' })
+    }
+  })
+
+  // PUT /tiposCadastro/:id
+  app.put('/tiposCadastro/:id', async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string }
+      const body = tipoCadastroUpdateSchema.parse(request.body)
+      
+      const tipoCadastro = await prisma.tipoCadastro.update({
+        where: { id },
+        data: body
+      })
+      return reply.send(tipoCadastro)
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return reply.status(400).send({ error: 'Dados inválidos', details: error.issues })
+      }
+      console.error('Erro ao atualizar tipo de cadastro:', error)
+      return reply.status(500).send({ error: 'Erro interno do servidor' })
+    }
+  })
+
+  // DELETE /tiposCadastro/:id
+  app.delete('/tiposCadastro/:id', async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string }
+      console.log('🔍 DELETE /tiposCadastro/:id - ID recebido:', id)
+      
+      // Verificar se há manutenções vinculadas a este tipo de cadastro
+      const manutencoes = await prisma.manutencao.findMany({
+        where: { tipoServicoId: id }
+      })
+      
+      if (manutencoes.length > 0) {
+        console.log(`❌ Tipo de cadastro possui ${manutencoes.length} manutenção(ões) vinculada(s)`)
+        return reply.status(400).send({ 
+          error: 'Não é possível excluir este tipo de cadastro pois existem registros dependentes',
+          details: `${manutencoes.length} manutenção(ões) vinculada(s)`
+        })
+      }
+      
+      // Verificar se o registro existe
+      const existingTipoCadastro = await prisma.tipoCadastro.findUnique({ where: { id } })
+      if (!existingTipoCadastro) {
+        console.log('❌ Tipo de cadastro não encontrado:', id)
+        return reply.status(404).send({ error: 'Tipo de cadastro não encontrado' })
+      }
+      
+      console.log('✅ Tipo de cadastro encontrado, excluindo:', existingTipoCadastro.nome)
+      await prisma.tipoCadastro.delete({
+        where: { id }
+      })
+      console.log('✅ Tipo de cadastro excluído com sucesso')
+      return reply.status(204).send()
+    } catch (error) {
+      console.error('❌ Erro ao deletar tipo de cadastro:', error)
+      console.error('❌ Detalhes do erro:', error instanceof Error ? error.message : String(error))
+      console.error('❌ Stack trace:', error instanceof Error ? error.stack : 'N/A')
+      return reply.status(500).send({ error: 'Erro interno do servidor', details: error instanceof Error ? error.message : String(error) })
+    }
+  })
+
   // ===== ÁREAS MAILLING =====
   
   // Schema de validação para AreaMailling

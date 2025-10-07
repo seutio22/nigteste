@@ -106,7 +106,7 @@ export const DadosGrid: React.FC<DadosGridProps> = ({
       modelos: [
         { field: 'nome', headerName: 'Nome', flex: 1 },
       ],
-      tiposCadastro: [
+      'tipos-cadastro': [
         { field: 'nome', headerName: 'Nome', flex: 1 },
         { field: 'descricao', headerName: 'Descrição', flex: 2 },
       ],
