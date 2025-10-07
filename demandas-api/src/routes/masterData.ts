@@ -51,6 +51,24 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
   app.post('/solicitantes', async (request, reply) => {
     try {
       const body = solicitanteCreateSchema.parse(request.body)
+      
+      // Verificar se já existe solicitante com mesmo nome (case insensitive)
+      const existingSolicitante = await prisma.solicitante.findFirst({
+        where: {
+          nome: {
+            equals: body.nome,
+            mode: 'insensitive'
+          }
+        }
+      })
+      
+      if (existingSolicitante) {
+        return reply.status(400).send({ 
+          error: 'Solicitante duplicado', 
+          message: `Solicitante "${body.nome}" já existe. Por favor, escolha um nome diferente.` 
+        })
+      }
+      
       const solicitante = await prisma.solicitante.create({
         data: body
       })
@@ -69,6 +87,26 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
     try {
       const { id } = request.params as { id: string }
       const body = solicitanteUpdateSchema.parse(request.body)
+      
+      // Verificar se já existe outro solicitante com mesmo nome (excluindo o próprio)
+      const duplicateSolicitante = await prisma.solicitante.findFirst({
+        where: {
+          nome: {
+            equals: body.nome,
+            mode: 'insensitive'
+          },
+          id: {
+            not: id
+          }
+        }
+      })
+      
+      if (duplicateSolicitante) {
+        return reply.status(400).send({ 
+          error: 'Solicitante duplicado', 
+          message: `Solicitante "${body.nome}" já existe. Por favor, escolha um nome diferente.` 
+        })
+      }
       
       const solicitante = await prisma.solicitante.update({
         where: { id },

@@ -239,6 +239,19 @@ export const useDadosCRUD = () => {
           break
           
         case 'solicitantes':
+          // Validar se já existe solicitante com mesmo nome
+          const existingSolicitante = store.solicitantes.find(s => 
+            s.nome.toLowerCase().trim() === form.nome?.toLowerCase().trim()
+          )
+          if (existingSolicitante) {
+            setSnack({
+              open: true,
+              message: `Solicitante "${form.nome}" já existe. Por favor, escolha um nome diferente.`,
+              severity: 'error'
+            })
+            throw new Error(`Solicitante "${form.nome}" já existe. Por favor, escolha um nome diferente.`)
+          }
+          
           newEntity = { id, nome: form.nome } as Solicitante
           // PRIMEIRO: Salvar na API (banco de dados)
           await api.post(config.endpoint, newEntity)
@@ -434,6 +447,15 @@ export const useDadosCRUD = () => {
           break
           
         case 'solicitantes':
+          // Validar se já existe outro solicitante com mesmo nome (excluindo o próprio)
+          const duplicateSolicitante = store.solicitantes.find(s => 
+            s.id !== id && 
+            s.nome.toLowerCase().trim() === form.nome?.toLowerCase().trim()
+          )
+          if (duplicateSolicitante) {
+            throw new Error(`Solicitante "${form.nome}" já existe. Por favor, escolha um nome diferente.`)
+          }
+          
           const updatedSolicitante = { id, nome: form.nome } as Solicitante
           store.upsertMany({
             solicitantes: store.solicitantes.map(s => s.id === id ? updatedSolicitante : s)
