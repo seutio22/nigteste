@@ -3,6 +3,18 @@ import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
+// Declarar extensão do FastifyRequest para incluir authenticatedUser
+declare module 'fastify' {
+  interface FastifyRequest {
+    authenticatedUser?: {
+      id: string
+      name: string
+      email: string
+      role: string
+    }
+  }
+}
+
 export default async function monitoringRoutes(fastify: FastifyInstance) {
   console.log('🔧 Registrando rotas de monitoramento...')
 
@@ -133,7 +145,7 @@ export default async function monitoringRoutes(fastify: FastifyInstance) {
   fastify.post('/monitoring/activity', async (request, reply) => {
     try {
       const { action, page, endpoint, duration, metadata } = request.body as any
-      const user = request.user
+      const user = request.authenticatedUser
 
       // Criar registro de atividade
       const activity = await prisma.userActivity.create({
@@ -165,7 +177,7 @@ export default async function monitoringRoutes(fastify: FastifyInstance) {
   // POST /monitoring/session/start - Iniciar sessão
   fastify.post('/monitoring/session/start', async (request, reply) => {
     try {
-      const user = request.user
+      const user = request.authenticatedUser
       const sessionId = `session_${user.id}_${Date.now()}`
 
       // Finalizar sessões ativas anteriores
@@ -216,7 +228,7 @@ export default async function monitoringRoutes(fastify: FastifyInstance) {
   // POST /monitoring/session/end - Finalizar sessão
   fastify.post('/monitoring/session/end', async (request, reply) => {
     try {
-      const user = request.user
+      const user = request.authenticatedUser
 
       // Finalizar sessão ativa
       const session = await prisma.userSession.findFirst({

@@ -3,23 +3,29 @@ import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
-interface AuthenticatedRequest extends FastifyRequest {
-  user?: {
-    id: string
-    name: string
-    email: string
-    role: string
+// Declarar extensão do FastifyRequest para incluir authenticatedUser
+declare module 'fastify' {
+  interface FastifyRequest {
+    authenticatedUser?: {
+      id: string
+      name: string
+      email: string
+      role: string
+    }
   }
 }
+
+// Usar o tipo padrão do FastifyRequest que agora inclui authenticatedUser opcional
+type AuthenticatedRequest = FastifyRequest
 
 export async function trackUserActivity(request: AuthenticatedRequest, reply: FastifyReply) {
   try {
     // Só rastrear se o usuário estiver autenticado
-    if (!request.user) {
+    if (!request.authenticatedUser) {
       return
     }
 
-    const { user } = request
+    const user = request.authenticatedUser
     const now = new Date()
     
     // Determinar o tipo de ação baseado na rota
@@ -117,11 +123,11 @@ export async function trackUserActivity(request: AuthenticatedRequest, reply: Fa
 
 export async function trackSessionStart(request: AuthenticatedRequest, reply: FastifyReply) {
   try {
-    if (!request.user) {
+    if (!request.authenticatedUser) {
       return
     }
 
-    const { user } = request
+    const user = request.authenticatedUser
     const sessionId = request.headers['x-session-id'] as string || `session_${Date.now()}_${user.id}`
 
     // Finalizar sessões antigas ativas para este usuário
@@ -157,11 +163,11 @@ export async function trackSessionStart(request: AuthenticatedRequest, reply: Fa
 
 export async function trackSessionEnd(request: AuthenticatedRequest, reply: FastifyReply) {
   try {
-    if (!request.user) {
+    if (!request.authenticatedUser) {
       return
     }
 
-    const { user } = request
+    const user = request.authenticatedUser
     const sessionId = request.headers['x-session-id'] as string
 
     if (sessionId) {
