@@ -211,8 +211,8 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
                 item.id = value
               } else if (cleanHeader === 'status') {
                 item.status = value
-              } else if (cleanHeader === 'tiposervico' || cleanHeader === 'tiposerviço' || cleanHeader === 'tiposervicoid') {
-                item.tipoServicoId = value
+              } else if (cleanHeader === 'tiposervico' || cleanHeader === 'tiposerviço' || cleanHeader === 'tiposervicoid' || cleanHeader === 'tiposervicold') {
+                item.tipoServico = value
               } else if (cleanHeader === 'tipo') {
                 item.tipo = value
               } else if (cleanHeader === 'descricao' || cleanHeader === 'descrição') {
