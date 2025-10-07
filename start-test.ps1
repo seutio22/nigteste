@@ -33,3 +33,4 @@ Write-Host "✅ Remove 15+ stores Zustand com persist" -ForegroundColor Green
 Write-Host "✅ Limpa configurações de páginas" -ForegroundColor Green
 Write-Host "✅ Remove configurações do sistema" -ForegroundColor Green
 Write-Host "✅ Timeout funciona corretamente" -ForegroundColor Green
+
