@@ -4211,7 +4211,8 @@ app.post('/padrao', async (req: any) => {
 
 // Endpoint para salvar relatórios do Analytics
 // (Rota POST /analytics removida - usando crud('analytics') automático)
-// app.post('/analytics', async (req: any) => {
+/*
+app.post('/analytics', async (req: any) => {
   try {
     console.log('🔍 POST /analytics - Dados recebidos:', req.body)
     console.log('🔍 POST /analytics - Prisma disponível:', !!prisma)
