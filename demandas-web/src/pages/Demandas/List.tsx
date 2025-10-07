@@ -5,7 +5,6 @@ import { useDemandStore } from '../../store/demandStore'
 import { useMasterDataStore } from '../../store/masterDataStore'
 import { useAuthStore } from '../../store/authStore'
 import { StatusBadge } from '../../components/StatusBadge'
-import { UploadModal } from '../../components/UploadModal'
 import { SmartImporter } from '../../components/SmartImporter'
 import { smartImporterConfigs } from '../../config/smartImporterConfigs'
 import { useFilteredData } from '../../lib/utils'
@@ -18,7 +17,6 @@ import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
 import DeleteIcon from '@mui/icons-material/Delete'
 import FileCopyIcon from '@mui/icons-material/FileCopy'
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf'
-import CloudUploadIcon from '@mui/icons-material/CloudUpload'
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
 import EditIcon from '@mui/icons-material/Edit'
 import PersonIcon from '@mui/icons-material/Person'
@@ -49,10 +47,11 @@ export default function DemandListPage() {
   const demandStore = useDemandStore()
   const md = useMasterDataStore()
   const { user } = useAuthStore()
-  const [uploadModalOpen, setUploadModalOpen] = useState(false)
   const [smartImporterOpen, setSmartImporterOpen] = useState(false)
   const [showOnlyMyDemands, setShowOnlyMyDemands] = useState(true)
   const [exportModalOpen, setExportModalOpen] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false)
 
   const STORAGE_KEY = 'demands-list-view-v1'
   const FILTER_KEY = 'demands-user-filter-v1'
@@ -211,16 +210,45 @@ export default function DemandListPage() {
     } catch {}
   }
 
-  const handleUpload = async (file: File) => {
-    // Simular processamento do upload
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    
-    // Aqui você implementaria a lógica real de processamento do arquivo
-    // Por exemplo, usando uma biblioteca como xlsx para ler o Excel
-    console.log('Processando arquivo:', file.name)
-    
-    // Simular sucesso
-    return Promise.resolve()
+  const handleBulkDelete = async () => {
+    try {
+      const { api } = await import('../../lib/api.local')
+      
+      console.log('🗑️ Iniciando exclusão em massa de', selectedIds.length, 'itens')
+      
+      let successCount = 0
+      let errorCount = 0
+      
+      for (const id of selectedIds) {
+        try {
+          await api.delete(`/manutencoes/${id}`)
+          successCount++
+        } catch (error) {
+          console.error(`❌ Erro ao excluir demanda ${id}:`, error)
+          errorCount++
+        }
+      }
+      
+      // Atualizar store local
+      demandStore.remove(selectedIds)
+      
+      // Limpar seleção
+      setSelectedIds([])
+      setBulkDeleteDialogOpen(false)
+      
+      // Mostrar resultado
+      if (errorCount === 0) {
+        alert(`✅ ${successCount} demanda(s) excluída(s) com sucesso!`)
+      } else {
+        alert(`⚠️ ${successCount} demanda(s) excluída(s), ${errorCount} erro(s)`)
+      }
+      
+      // Recarregar dados
+      demandStore.syncFromApi()
+    } catch (error) {
+      console.error('❌ Erro na exclusão em massa:', error)
+      alert('Erro ao excluir demandas')
+    }
   }
 
   const handleSmartImport = async (result: ImportResult) => {
@@ -549,29 +577,31 @@ export default function DemandListPage() {
               </div>
             </div>
             <Stack direction="row" spacing={2}>
-              <Button 
-                variant="outlined" 
-                startIcon={<CloudUploadIcon />}
-                onClick={() => setUploadModalOpen(true)}
-                size="medium"
-                className="text-primary-600 border-primary-300 hover:text-primary-700 hover:border-primary-400 hover:bg-primary-50 transition-all duration-300 font-medium"
-                sx={{
-                  borderRadius: '14px',
-                  padding: '10px 20px',
-                  textTransform: 'none',
-                  fontWeight: 500,
-                  fontSize: '0.9rem',
-                  height: '44px',
-                  borderWidth: '2px',
-                  '&:hover': {
+              {selectedIds.length > 0 && (
+                <Button 
+                  variant="outlined" 
+                  color="error"
+                  startIcon={<DeleteIcon />}
+                  onClick={() => setBulkDeleteDialogOpen(true)}
+                  size="medium"
+                  sx={{
+                    borderRadius: '14px',
+                    padding: '10px 20px',
+                    textTransform: 'none',
+                    fontWeight: 500,
+                    fontSize: '0.9rem',
+                    height: '44px',
                     borderWidth: '2px',
-                    transform: 'translateY(-2px)',
-                    boxShadow: '0 4px 12px 0 rgba(59, 130, 246, 0.15)'
-                  }
-                }}
-              >
-                Importar
-              </Button>
+                    '&:hover': {
+                      borderWidth: '2px',
+                      transform: 'translateY(-2px)',
+                      boxShadow: '0 4px 12px 0 rgba(239, 68, 68, 0.2)'
+                    }
+                  }}
+                >
+                  Excluir ({selectedIds.length})
+                </Button>
+              )}
               
               <Button 
                 variant="contained" 
@@ -658,7 +688,11 @@ export default function DemandListPage() {
             },
           }}
           pageSizeOptions={[10, 25, 50, 100]}
-          disableRowSelectionOnClick
+          checkboxSelection
+          onRowSelectionModelChange={(newSelection) => {
+            setSelectedIds(newSelection as string[])
+          }}
+          rowSelectionModel={selectedIds}
           slots={{ toolbar: GridToolbar }}
           slotProps={{
             toolbar: {
@@ -696,14 +730,6 @@ export default function DemandListPage() {
         />
       </div>
 
-      <UploadModal
-        open={uploadModalOpen}
-        onClose={() => setUploadModalOpen(false)}
-        onUpload={handleUpload}
-        title="Importar Cadastros"
-        entityType="demandas"
-      />
-
       <SmartImporter
         open={smartImporterOpen}
         onClose={() => setSmartImporterOpen(false)}
@@ -711,6 +737,37 @@ export default function DemandListPage() {
         config={smartImporterConfigs.demandas || smartImporterConfigs.clientes}
         masterData={md}
       />
+
+      {/* Modal de confirmação de exclusão em massa */}
+      <Dialog
+        open={bulkDeleteDialogOpen}
+        onClose={() => setBulkDeleteDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Confirmar Exclusão em Massa</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Tem certeza que deseja excluir <strong>{selectedIds.length}</strong> demanda(s) selecionada(s)?
+          </Typography>
+          <Typography variant="body2" color="error" sx={{ mt: 2 }}>
+            ⚠️ Esta ação não pode ser desfeita!
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setBulkDeleteDialogOpen(false)}>
+            Cancelar
+          </Button>
+          <Button 
+            onClick={handleBulkDelete} 
+            color="error" 
+            variant="contained"
+            startIcon={<DeleteIcon />}
+          >
+            Excluir
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Modal de Exportação */}
       <ExportDataModal
