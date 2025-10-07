@@ -4181,7 +4181,8 @@ app.post('/padrao', async (req: any) => {
 // Endpoints para Relatórios, Solicitantes e Modelos já estão definidos em masterData.ts
 
 // Endpoint para salvar relatórios do Analytics
-app.post('/analytics', async (req: any) => {
+// (Rota POST /analytics removida - usando crud('analytics') automático)
+// app.post('/analytics', async (req: any) => {
   try {
     console.log('🔍 POST /analytics - Dados recebidos:', req.body)
     console.log('🔍 POST /analytics - Prisma disponível:', !!prisma)
@@ -4224,9 +4225,11 @@ app.post('/analytics', async (req: any) => {
     throw error
   }
 })
+*/
 
 // Rota de exclusão para relatórios
-app.delete('/analytics/:id', async (req: any) => {
+// (Rota DELETE /analytics/:id removida - usando crud('analytics') automático)
+// app.delete('/analytics/:id', async (req: any) => {
   try {
     const { id } = req.params
     console.log(`🔍 DELETE /analytics/${id}: Excluindo relatório`)
@@ -4267,6 +4270,7 @@ app.delete('/analytics/:id', async (req: any) => {
     throw error
   }
 })
+*/
 
 // Endpoint para buscar relatórios já está definido acima
 
