@@ -1,11 +1,19 @@
 import { useEffect, useCallback } from 'react'
 import { useNotificationStore } from '../store/notificationStore'
+import { useAuthStore } from '../store/authStore'
 import { getApi } from '../lib/apiConfig'
 
 export const useDeadlineNotifications = () => {
   const { add: addNotification } = useNotificationStore()
+  const { user } = useAuthStore()
 
   const checkDeadlineNotifications = useCallback(async () => {
+    // Não verificar notificações se o usuário não estiver logado
+    if (!user) {
+      console.log('🔔 Usuário não logado, pulando verificação de notificações')
+      return
+    }
+    
     try {
       console.log('🔔 Verificando notificações de vencimento...')
       
@@ -42,7 +50,7 @@ export const useDeadlineNotifications = () => {
     } catch (error) {
       console.error('❌ Erro ao verificar notificações de vencimento:', error)
     }
-  }, [addNotification])
+  }, [addNotification, user])
 
   useEffect(() => {
     // Verificar imediatamente ao carregar
