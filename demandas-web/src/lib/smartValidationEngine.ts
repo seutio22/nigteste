@@ -356,13 +356,24 @@ export class SmartValidationEngine {
 
     for (let i = 0; i < items.length; i++) {
       const item = items[i]
+      
+      // Criar chave de duplicata baseada nos campos configurados
       const duplicateKey = this.config.duplicateCheckFields
-        .map(field => item[field])
+        .map(field => String(item[field] || '').trim())
         .join('|')
+      
+      // CORREÇÃO: Ignorar se a chave estiver vazia (todos os campos vazios)
+      // Isso previne marcar linhas sem ticket como duplicadas
+      if (!duplicateKey || duplicateKey === '' || duplicateKey === '|') {
+        console.log(`🔍 DUPLICATA: Linha ${i + 2} - Campos de verificação vazios, ignorando verificação de duplicata`)
+        continue
+      }
 
       if (seen.has(duplicateKey)) {
+        console.log(`⚠️ DUPLICATA: Linha ${i + 2} - Duplicata encontrada com chave: "${duplicateKey}"`)
         duplicateKeys.add(duplicateKey)
       } else {
+        console.log(`✅ DUPLICATA: Linha ${i + 2} - Chave única: "${duplicateKey}"`)
         seen.add(duplicateKey)
       }
     }
@@ -370,13 +381,17 @@ export class SmartValidationEngine {
     // Processar cada item
     for (let i = 0; i < items.length; i++) {
       const item = items[i]
+      
+      // Criar chave de duplicata
       const duplicateKey = this.config.duplicateCheckFields
-        .map(field => item[field])
+        .map(field => String(item[field] || '').trim())
         .join('|')
 
-      const isDuplicate = duplicateKeys.has(duplicateKey) && seen.has(duplicateKey)
+      // CORREÇÃO: Apenas marcar como duplicado se a chave não estiver vazia
+      const isDuplicate = duplicateKey && duplicateKey !== '' && duplicateKey !== '|' && duplicateKeys.has(duplicateKey)
       
       if (isDuplicate) {
+        console.log(`🔴 DUPLICATA DETECTADA: Linha ${i + 2}, Chave: "${duplicateKey}"`)
         duplicates.push({
           id: crypto.randomUUID(),
           data: item,
@@ -385,7 +400,7 @@ export class SmartValidationEngine {
             isValid: false,
             errors: [{
               field: 'duplicate',
-              message: 'Item duplicado',
+              message: `Item duplicado (ticket: ${duplicateKey})`,
               type: 'duplicate',
               severity: 'error'
             }],
