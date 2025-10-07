@@ -2324,9 +2324,9 @@ const resources = {
   // Endpoints adicionais que estavam faltando
   analytics: crud('analytics'),
   reports: crud('report'),
-  solicitantes: crud('solicitante'),
-  relatorios: crud('relatorio'),
-  modelos: crud('modelo'),
+  // solicitantes: crud('solicitante'), // Removido - usando plugin específico em routes/masterData.ts
+  // relatorios: crud('relatorio'), // Removido - usando plugin específico em routes/masterData.ts
+  // modelos: crud('modelo'), // Removido - usando plugin específico em routes/masterData.ts
   areasMailling: crud('areaMailling'),
   cargosMailling: crud('cargoMailling'),
   filiaisMailling: crud('filialMailling'),
