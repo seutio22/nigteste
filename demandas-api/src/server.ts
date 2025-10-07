@@ -2308,7 +2308,7 @@ const resources = {
   },
   manutencoes: crud('manutencao'),
   validacoes: crud('validacao'),
-  tiposCadastro: crud('tipoCadastro'),
+  // tiposCadastro: crud('tipoCadastro'), // Removido - usando plugin específico em routes/masterData.ts
   validacoesManutencao: crud('validacaoManutencao'),
   reajustes: crud('reajuste'),
   reajustesManutencao: crud('reajusteManutencao'),
