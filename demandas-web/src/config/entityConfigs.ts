@@ -49,7 +49,7 @@ export const ENTITY_CONFIGS: EntityConfigs = {
     requiredFields: ['nome'],
     displayName: 'Tipo de Demanda'
   },
-  tiposCadastro: {
+  'tipos-cadastro': {
     endpoint: '/tiposCadastro',
     fields: ['nome', 'descricao'],
     requiredFields: ['nome'],

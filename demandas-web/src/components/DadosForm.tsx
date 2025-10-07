@@ -232,7 +232,7 @@ export const DadosForm: React.FC<DadosFormProps> = ({
           </Stack>
         )
 
-      case 'tiposCadastro':
+      case 'tipos-cadastro':
         return (
           <Stack gap={2} mt={1}>
             <TextField 

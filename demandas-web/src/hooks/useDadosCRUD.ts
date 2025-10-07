@@ -220,7 +220,7 @@ export const useDadosCRUD = () => {
           store.upsertMany({ tiposDemanda: [...store.tiposDemanda, savedTipo] })
           break
           
-        case 'tiposCadastro':
+        case 'tipos-cadastro':
           newEntity = { id, nome: form.nome, descricao: form.descricao } as any
           // PRIMEIRO: Salvar na API (banco de dados)
           await api.post(config.endpoint, { nome: form.nome, descricao: form.descricao })
@@ -417,7 +417,7 @@ export const useDadosCRUD = () => {
           await api.put(`${config.endpoint}/${id}`, { nome: form.nome })
           break
           
-        case 'tiposCadastro':
+        case 'tipos-cadastro':
           const updatedTipoCadastro = { id, nome: form.nome, descricao: form.descricao } as any
           store.upsertMany({
             tiposCadastro: store.tiposCadastro.map(t => t.id === id ? updatedTipoCadastro : t)
@@ -550,7 +550,7 @@ export const useDadosCRUD = () => {
           case 'tipos':
             store.upsertMany({ tiposDemanda: store.tiposDemanda.filter(t => t.id !== itemId) })
             break
-          case 'tiposCadastro':
+          case 'tipos-cadastro':
             store.upsertMany({ tiposCadastro: store.tiposCadastro.filter(t => t.id !== itemId) })
             break
           case 'servicos':
