@@ -49,7 +49,19 @@ export const api = {
         throw errorData;
       }
       
-      return await response.json();
+      // Se for status 204 (No Content), retornar null ao invés de tentar parse JSON
+      if (response.status === 204) {
+        return null as T;
+      }
+      
+      // Verificar se há conteúdo antes de fazer parse
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        return await response.json();
+      }
+      
+      // Se não for JSON, retornar null
+      return null as T;
     } catch (error) {
       console.error('API request failed:', error);
       throw error;
