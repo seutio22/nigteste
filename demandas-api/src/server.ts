@@ -3879,7 +3879,8 @@ app.get('/notifications/scheduled', async (req: any, reply: any) => {
 })
 
 // Endpoints para Analytics
-app.get('/analytics', async () => {
+// (Rota GET /analytics removida - usando crud('analytics') automático)
+/* app.get('/analytics', async () => {
   try {
     console.log('🔍 GET /analytics - INÍCIO da requisição')
     console.log('🔍 GET /analytics - Buscando dados de analytics...')
@@ -4117,6 +4118,7 @@ app.get('/analytics', async () => {
     }
   }
 })
+*/
 
 // Endpoints para Padrao
 app.get('/padrao', async () => {
