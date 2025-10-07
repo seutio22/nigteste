@@ -382,7 +382,7 @@ export const smartImporterConfigs: { [key: string]: SmartImporterConfig } = {
       'analiseQuantitativa', 'qtdRetornos', 'qualidade', 'qtdClientesVinculados', 
       'usuariosEmpresa', 'observacoes'
     ],
-    duplicateCheckFields: ['ticket'],
+    duplicateCheckFields: ['ticket', 'tipoServico', 'tipo', 'dataInicio'],
     validationRules: [
       {
         field: 'status',

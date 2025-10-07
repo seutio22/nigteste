@@ -392,6 +392,12 @@ export class SmartValidationEngine {
       
       if (isDuplicate) {
         console.log(`🔴 DUPLICATA DETECTADA: Linha ${i + 2}, Chave: "${duplicateKey}"`)
+        
+        // Criar mensagem detalhada mostrando os campos que formam a duplicata
+        const duplicateFieldsText = this.config.duplicateCheckFields
+          .map(field => `${field}: "${item[field] || ''}"`)
+          .join(', ')
+        
         duplicates.push({
           id: crypto.randomUUID(),
           data: item,
@@ -400,7 +406,7 @@ export class SmartValidationEngine {
             isValid: false,
             errors: [{
               field: 'duplicate',
-              message: `Item duplicado (ticket: ${duplicateKey})`,
+              message: `Item duplicado (${duplicateFieldsText})`,
               type: 'duplicate',
               severity: 'error'
             }],
