@@ -1401,19 +1401,7 @@ app.post('/monitoring/clear', async (req: any, reply: any) => {
 })
 
 // ROTAS DE MONITORAMENTO - ANTES DE QUALQUER MIDDLEWARE
-app.get('/monitoring/test', async (req: any, reply: any) => {
-  try {
-    console.log('🔍 Teste de rota de monitoramento...')
-    return reply.send({ 
-      message: 'Rota de monitoramento funcionando!', 
-      timestamp: new Date().toISOString(),
-      users: 'Teste OK'
-    })
-  } catch (error) {
-    console.error('❌ Erro na rota de teste:', error)
-    return reply.status(500).send({ message: 'Erro interno do servidor' })
-  }
-})
+// (Rota /monitoring/test movida para o final do arquivo)
 
 app.get('/monitoring/users', async (req: any, reply: any) => {
   try {
