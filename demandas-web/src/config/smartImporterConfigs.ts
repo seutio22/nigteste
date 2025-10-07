@@ -375,7 +375,7 @@ export const smartImporterConfigs: { [key: string]: SmartImporterConfig } = {
 
   demandas: {
     entityType: 'Demandas',
-    requiredFields: ['status', 'tipoServicoId', 'tipo'],
+    requiredFields: ['status', 'tipoServico', 'tipo'],
     optionalFields: [
       'descricao', 'analista', 'dataInicio', 'dataFinal', 'ticket', 'solicitante', 
       'area', 'cliente', 'contrato', 'operadora', 'produto', 'sistema',
@@ -386,15 +386,13 @@ export const smartImporterConfigs: { [key: string]: SmartImporterConfig } = {
     validationRules: [
       {
         field: 'status',
-        type: 'enum',
-        message: 'Status deve ser: Aberta, Em andamento, Aguardando validação, Com erros, Em reajuste, Concluída, Cancelada',
-        options: ['Aberta', 'Em andamento', 'Aguardando validação', 'Com erros', 'Em reajuste', 'Concluída', 'Cancelada']
+        type: 'required',
+        message: 'Status é obrigatório'
       },
       {
-        field: 'tipoServicoId',
-        type: 'enum',
-        message: 'Tipo de serviço deve ser: CAD ou MAN',
-        options: ['CAD', 'MAN']
+        field: 'tipoServico',
+        type: 'required',
+        message: 'Tipo de serviço é obrigatório'
       },
       {
         field: 'tipo',
@@ -403,9 +401,9 @@ export const smartImporterConfigs: { [key: string]: SmartImporterConfig } = {
       },
       {
         field: 'qualidade',
-        type: 'enum',
+        type: 'custom',
         message: 'Qualidade deve ser: 0, 1, 2 ou 3',
-        options: ['0', '1', '2', '3']
+        validator: (value) => !value || ['0', '1', '2', '3'].includes(String(value))
       },
       {
         field: 'analiseQuantitativa',
