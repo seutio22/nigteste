@@ -147,20 +147,49 @@ export class SmartValidationEngine {
    */
   private validateReference(value: any, refField: any): { isValid: boolean; message?: string; suggestion?: string; suggestedValue?: any } {
     const referenceData = this.masterData[refField.referenceStore] || []
-    const exists = referenceData.some((item: any) => item[refField.valueField] === value)
     
-    if (exists) {
+    console.log(`🔍 VALIDAÇÃO REFERÊNCIA: Campo "${refField.field}", Valor recebido: "${value}"`)
+    console.log(`🔍 VALIDAÇÃO REFERÊNCIA: Store "${refField.referenceStore}" tem ${referenceData.length} registros`)
+    console.log(`🔍 VALIDAÇÃO REFERÊNCIA: Primeiros registros:`, referenceData.slice(0, 3).map((r: any) => ({ id: r.id, nome: r[refField.displayField] })))
+    
+    // Converter valor para string e normalizar
+    const stringValue = String(value || '').trim()
+    
+    // Verificar se existe por ID (comparação exata)
+    const existsById = referenceData.some((item: any) => item[refField.valueField] === stringValue)
+    
+    if (existsById) {
+      console.log(`✅ VALIDAÇÃO REFERÊNCIA: Encontrado por ID exato`)
+      return { isValid: true }
+    }
+    
+    // Verificar se existe por nome (case insensitive)
+    const existsByName = referenceData.find((item: any) => {
+      const itemName = String(item[refField.displayField] || '').toLowerCase().trim()
+      const searchName = stringValue.toLowerCase().trim()
+      return itemName === searchName
+    })
+    
+    if (existsByName) {
+      console.log(`✅ VALIDAÇÃO REFERÊNCIA: Encontrado por nome (case insensitive): "${existsByName[refField.displayField]}"`)
       return { isValid: true }
     }
 
-    // Buscar sugestão similar
-    const suggestion = this.findSimilarReference(value, referenceData, refField)
+    // Se não encontrou, buscar sugestão similar
+    console.log(`⚠️ VALIDAÇÃO REFERÊNCIA: Não encontrado, buscando similar...`)
+    const suggestion = this.findSimilarReference(stringValue, referenceData, refField)
+    
+    if (suggestion) {
+      console.log(`💡 VALIDAÇÃO REFERÊNCIA: Sugestão encontrada: "${suggestion[refField.displayField]}"`)
+    } else {
+      console.log(`❌ VALIDAÇÃO REFERÊNCIA: Nenhuma sugestão similar encontrada`)
+    }
     
     return {
       isValid: false,
       message: `Referência não encontrada: ${value}`,
       suggestion: suggestion ? `Sugestão: ${suggestion[refField.displayField]}` : undefined,
-      suggestedValue: suggestion ? suggestion[refField.displayField] : undefined // Usar displayField em vez de valueField
+      suggestedValue: suggestion ? suggestion[refField.displayField] : undefined
     }
   }
 
