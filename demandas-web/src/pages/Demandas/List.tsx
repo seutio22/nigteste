@@ -318,7 +318,7 @@ export default function DemandListPage() {
             operadoraId: findIdByName(data.operadora || data.operadoraId, md.operadoras) || '',
             produtoId: findIdByName(data.produto || data.produtoId, md.produtos) || '',
             sistemaId: findIdByName(data.sistema || data.sistemaId, md.sistemas) || '',
-            analiseQuantitativa: data.analiseQuantitativa || data.analiseQuant || 0,
+            // analiseQuantitativa não existe no schema Demanda, removido
             qtdRetornos: data.qtdRetornos || data.quantidadeRetornos || 0,
             qualidade: data.qualidade || '',
             qtdClientesVinculados: data.qtdClientesVinculados || data.clientesVinculados || 0,
