@@ -260,6 +260,28 @@ export default function DemandListPage() {
 
       console.log('🔍 SMART IMPORT DEMANDAS: Processando resultado:', result)
 
+      // Função para converter número de série do Excel para DateTime ISO
+      const excelDateToISO = (value: any): string => {
+        if (!value) return ''
+        
+        // Se já é uma string de data válida, retornar como está
+        if (typeof value === 'string' && value.includes('-')) {
+          return value
+        }
+        
+        // Se é um número (serial do Excel)
+        if (typeof value === 'number' || !isNaN(Number(value))) {
+          const serialNumber = Number(value)
+          // Excel epoch: 1900-01-01 (mas com bug, Excel considera 1900 como ano bissexto)
+          const excelEpoch = new Date(1900, 0, 1)
+          const days = serialNumber - 2 // Ajuste pelo bug do Excel
+          const date = new Date(excelEpoch.getTime() + days * 24 * 60 * 60 * 1000)
+          return date.toISOString()
+        }
+        
+        return ''
+      }
+
       // Processar itens válidos
       for (const item of result.valid) {
         try {
@@ -286,8 +308,8 @@ export default function DemandListPage() {
             // Campos opcionais
             descricao: data.descricao || data.descricaoDemanda || '',
             analistaId: findIdByName(data.analista || data.analistaId, md.analistas) || '',
-            dataInicio: data.dataInicio || data.dataInicial || new Date().toISOString().split('T')[0],
-            dataFinal: data.dataFinal || data.dataFinalizacao || '',
+            dataInicio: excelDateToISO(data.dataInicio || data.dataInicial) || new Date().toISOString(),
+            dataFinal: excelDateToISO(data.dataFinal || data.dataFinalizacao),
             ticket: data.ticket || `DEM-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
             solicitante: data.solicitante || data.solicitanteId || '',
             areaId: findIdByName(data.area || data.areaId, md.areas) || '',
