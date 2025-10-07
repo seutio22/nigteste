@@ -221,7 +221,7 @@ export default function DemandListPage() {
       
       for (const id of selectedIds) {
         try {
-          await api.delete(`/manutencoes/${id}`)
+          await api.delete(`/demandas/${id}`)
           successCount++
         } catch (error) {
           console.error(`❌ Erro ao excluir demanda ${id}:`, error)
