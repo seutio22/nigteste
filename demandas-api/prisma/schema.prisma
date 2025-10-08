@@ -160,7 +160,7 @@ model TipoCadastro {
 model Demanda {
   id                    String        @id @default(uuid())
   status                String        @default("Pendente")
-  ticket                String?       @unique
+  ticket                String?
   analistaId            String?
   userId                String?
   solicitante           String?
