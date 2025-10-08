@@ -31,15 +31,24 @@ export const api = {
       if (!response.ok) {
         // Interceptor para erro 401 (Token expirado/inválido)
         if (response.status === 401) {
-          console.warn('🔒 Token expirado ou inválido - fazendo logout automático');
+          console.error('🔒 ========================================');
+          console.error('🔒 ERRO 401 DETECTADO!');
+          console.error('🔒 URL que falhou:', url);
+          console.error('🔒 Método:', config.method);
+          console.error('🔒 Headers:', config.headers);
+          console.error('🔒 ========================================');
+          console.warn('🔒 Token expirado ou inválido - fazendo logout automático em 5 segundos...');
           
-          // Importar dinamicamente para evitar dependência circular
-          import('../store/authStore').then(({ useAuthStore }) => {
-            // O logout já limpa todos os dados automaticamente
-            useAuthStore.getState().logout();
-            // Redirecionar para login após logout
-            window.location.href = '/login';
-          });
+          // Aguardar 5 segundos para dar tempo de ver os logs
+          setTimeout(() => {
+            // Importar dinamicamente para evitar dependência circular
+            import('../store/authStore').then(({ useAuthStore }) => {
+              // O logout já limpa todos os dados automaticamente
+              useAuthStore.getState().logout();
+              // Redirecionar para login após logout
+              window.location.href = '/login';
+            });
+          }, 5000);
         }
         
         const errorData: ApiError = {
