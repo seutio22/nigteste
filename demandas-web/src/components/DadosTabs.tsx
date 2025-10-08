@@ -41,6 +41,7 @@ export const DadosTabs: React.FC<DadosTabsProps> = ({ activeTab, onTabChange }) 
       <Tab value="operadoras" label="Operadoras" />
       <Tab value="produtos" label="Produtos" />
       <Tab value="sistemas" label="Sistemas" />
+      <Tab value="grupos" label="Grupos" />
       <Tab value="analistas" label="Analistas" />
       <Tab value="areas" label="Áreas" />
       <Tab value="tipos" label="Tipos" />
