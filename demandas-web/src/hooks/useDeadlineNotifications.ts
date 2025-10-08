@@ -8,6 +8,11 @@ export const useDeadlineNotifications = () => {
   const { user } = useAuthStore()
 
   const checkDeadlineNotifications = useCallback(async () => {
+    // TEMPORARIAMENTE DESABILITADO - causando logout automático
+    // TODO: Corrigir autenticação do endpoint /notifications/scheduled
+    console.log('🔔 Verificação de notificações temporariamente desabilitada')
+    return
+    
     // Não verificar notificações se o usuário não estiver logado
     if (!user) {
       console.log('🔔 Usuário não logado, pulando verificação de notificações')
