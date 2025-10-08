@@ -320,7 +320,7 @@ export default function DemandListPage() {
             sistemaId: findIdByName(data.sistema || data.sistemaId, md.sistemas) || '',
             periodicidade: data.analiseQuantitativa ? String(data.analiseQuantitativa) : (data.periodicidade || null),
             qtdRetornos: data.qtdRetornos || data.quantidadeRetornos || 0,
-            qualidade: data.qualidade || '',
+            qualidade: data.qualidade ? String(data.qualidade) : null,
             qtdClientesVinculados: data.qtdClientesVinculados || data.clientesVinculados || 0,
             usuariosEmpresa: data.usuariosEmpresa || data.usuarios || 0,
             observacoes: data.observacoes || data.observacao || ''
