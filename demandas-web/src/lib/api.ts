@@ -16,8 +16,18 @@ export const api = {
       ...options,
     };
 
-    // Add auth token if available
-    const token = localStorage.getItem('token');
+    // Add auth token if available - ler do Zustand store
+    let token: string | null = null;
+    try {
+      const authStore = localStorage.getItem('auth-store');
+      if (authStore) {
+        const parsed = JSON.parse(authStore);
+        token = parsed?.state?.token || null;
+      }
+    } catch (e) {
+      console.warn('⚠️ Erro ao ler token do auth-store:', e);
+    }
+    
     if (token) {
       config.headers = {
         ...config.headers,
