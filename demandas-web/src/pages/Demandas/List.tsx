@@ -287,6 +287,25 @@ export default function DemandListPage() {
         try {
           const data = item.isCorrected ? item.correctedData : item.data
           
+          // Verificar se o ticket já existe no banco
+          const ticketToImport = String(data.ticket || '')
+          if (ticketToImport) {
+            const { api } = await import('../../lib/api.local')
+            try {
+              const existingDemandas = await api.get('/demandas')
+              const ticketExists = existingDemandas.some((d: any) => String(d.ticket) === ticketToImport)
+              
+              if (ticketExists) {
+                console.warn(`⚠️ SMART IMPORT: Ticket ${ticketToImport} já existe no banco - PULANDO`)
+                failed++
+                continue
+              }
+            } catch (checkError) {
+              console.warn('⚠️ Erro ao verificar ticket duplicado:', checkError)
+              // Continuar mesmo com erro na verificação
+            }
+          }
+          
           // Função para encontrar ID por nome
           const findIdByName = (name: string, items: any[], nameField: string = 'nome') => {
             if (!name) return ''
