@@ -122,6 +122,7 @@ export const useDadosCRUD = () => {
         case 'operadoras':
         case 'produtos':
         case 'sistemas':
+        case 'grupos':
         case 'areas':
           // Payload para a API (sem id, pois o Prisma gera automaticamente)
           const apiPayload: any = { 
@@ -391,6 +392,7 @@ export const useDadosCRUD = () => {
         case 'operadoras':
         case 'produtos':
         case 'sistemas':
+        case 'grupos':
         case 'analistas':
         case 'areas':
         case 'areasMailling':
@@ -551,6 +553,9 @@ export const useDadosCRUD = () => {
             break
           case 'sistemas':
             store.upsertMany({ sistemas: store.sistemas.filter(s => s.id !== itemId) })
+            break
+          case 'grupos':
+            store.upsertMany({ grupos: store.grupos.filter(g => g.id !== itemId) })
             break
           case 'analistas':
             store.upsertMany({ analistas: store.analistas.filter(a => a.id !== itemId) })

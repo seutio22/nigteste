@@ -5,7 +5,7 @@ import { useMasterDataStore } from '../store/masterDataStore'
 // Configuração de sincronização por rota
 const ROUTE_SYNC_CONFIG = {
   '/dados': {
-    entities: ['clientes', 'contratos', 'analistas', 'operadoras', 'produtos', 'sistemas', 'areas', 'tiposCadastro', 'solicitantes', 'relatorios', 'modelos'],
+    entities: ['clientes', 'contratos', 'analistas', 'operadoras', 'produtos', 'sistemas', 'grupos', 'areas', 'tiposCadastro', 'solicitantes', 'relatorios', 'modelos'],
     priority: 'high'
   },
   '/cadastro': {

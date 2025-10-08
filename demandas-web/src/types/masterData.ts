@@ -26,6 +26,7 @@ export interface Contrato {
 export type Operadora = SimpleEntity
 export type Produto = SimpleEntity
 export type Sistema = SimpleEntity
+export type Grupo = SimpleEntity
 export type Analista = SimpleEntity
 export type Area = SimpleEntity
 export interface TipoDemanda {

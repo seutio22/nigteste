@@ -144,6 +144,7 @@ export const DadosForm: React.FC<DadosFormProps> = ({
       case 'operadoras':
       case 'produtos':
       case 'sistemas':
+      case 'grupos':
       case 'areas':
         return (
           <Stack gap={2} mt={1}>

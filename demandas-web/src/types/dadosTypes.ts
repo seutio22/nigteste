@@ -1,6 +1,6 @@
-import type { Area, Analista, Cliente, Contrato, Operadora, Produto, Sistema, TipoDemanda, TipoServico, Solicitante, Relatorio, Modelo } from './masterData'
+import type { Area, Analista, Cliente, Contrato, Operadora, Produto, Sistema, Grupo, TipoDemanda, TipoServico, Solicitante, Relatorio, Modelo } from './masterData'
 
-export type TabKey = 'clientes' | 'contratos' | 'operadoras' | 'produtos' | 'sistemas' | 'analistas' | 'areas' | 'areasMailling' | 'cargosMailling' | 'filiaisMailling' | 'tipos' | 'tipos-cadastro' | 'servicos' | 'solicitantes' | 'relatorios' | 'modelos' | 'padrao' | 'configuracoes'
+export type TabKey = 'clientes' | 'contratos' | 'operadoras' | 'produtos' | 'sistemas' | 'grupos' | 'analistas' | 'areas' | 'areasMailling' | 'cargosMailling' | 'filiaisMailling' | 'tipos' | 'tipos-cadastro' | 'servicos' | 'solicitantes' | 'relatorios' | 'modelos' | 'padrao' | 'configuracoes'
 
 export interface FormData {
   id?: string
@@ -46,6 +46,7 @@ export interface DataMap {
   operadoras: Operadora[]
   produtos: Produto[]
   sistemas: Sistema[]
+  grupos: Grupo[]
   analistas: Analista[]
   areas: Area[]
   areasMailling: Area[]

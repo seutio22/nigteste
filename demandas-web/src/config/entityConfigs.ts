@@ -31,6 +31,12 @@ export const ENTITY_CONFIGS: EntityConfigs = {
     requiredFields: ['nome'],
     displayName: 'Sistema'
   },
+  grupos: {
+    endpoint: '/grupos',
+    fields: ['nome'],
+    requiredFields: ['nome'],
+    displayName: 'Grupo'
+  },
   analistas: {
     endpoint: '/analistas',
     fields: ['nome'],

@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Area, Analista, Cliente, Contrato, Operadora, Produto, Sistema, TipoDemanda, TipoServico, TipoCadastro, Solicitante, Relatorio, Modelo } from '../types/masterData'
+import type { Area, Analista, Cliente, Contrato, Operadora, Produto, Sistema, Grupo, TipoDemanda, TipoServico, TipoCadastro, Solicitante, Relatorio, Modelo } from '../types/masterData'
 
 export interface MasterDataState {
   clientes: Cliente[]
@@ -8,6 +8,7 @@ export interface MasterDataState {
   operadoras: Operadora[]
   produtos: Produto[]
   sistemas: Sistema[]
+  grupos: Grupo[]
   analistas: Analista[]
   areas: Area[]
   tiposCadastro: TipoCadastro[]
@@ -51,6 +52,7 @@ export const useMasterDataStore = create<MasterDataState>()(
         operadoras: [],
         produtos: [],
         sistemas: [],
+        grupos: [],
         analistas: [],
         areas: [],
         tiposCadastro: [],

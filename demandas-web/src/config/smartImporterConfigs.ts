@@ -92,6 +92,21 @@ export const smartImporterConfigs: { [key: string]: SmartImporterConfig } = {
     referenceFields: []
   },
 
+  grupos: {
+    entityType: 'Grupos',
+    requiredFields: ['nome'],
+    optionalFields: [],
+    duplicateCheckFields: ['nome'],
+    validationRules: [
+      {
+        field: 'nome',
+        type: 'required',
+        message: 'Nome é obrigatório'
+      }
+    ],
+    referenceFields: []
+  },
+
   analistas: {
     entityType: 'Analistas',
     requiredFields: ['nome', 'email'],

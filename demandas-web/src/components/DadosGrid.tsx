@@ -74,6 +74,9 @@ export const DadosGrid: React.FC<DadosGridProps> = ({
       sistemas: [
         { field: 'nome', headerName: 'Nome', flex: 1 },
       ],
+      grupos: [
+        { field: 'nome', headerName: 'Nome', flex: 1 },
+      ],
       analistas: [
         { field: 'nome', headerName: 'Nome', flex: 1 },
         { field: 'email', headerName: 'Email', flex: 1 },
