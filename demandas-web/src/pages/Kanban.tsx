@@ -13,10 +13,12 @@ export default function KanbanPage() {
 
   // Carregar dados automaticamente quando a página é carregada
   useEffect(() => {
-    console.log('🔍 Kanban: Carregando dados da API...')
+    console.log('🔍 Kanban: useEffect disparado')
+    console.log('🔍 Kanban: user?.id:', user?.id)
+    console.log('🔍 Kanban: Tickets no store:', kanbanStore.tickets.length)
     
     if (user?.id) {
-      console.log('🔍 Kanban: Usuário logado, carregando dados...')
+      console.log('✅ Kanban: Usuário logado, carregando dados...')
       
       // Carregar dados mestres se necessário
           // Dados mestres são carregados apenas na página Dados Mestres
@@ -24,12 +26,15 @@ export default function KanbanPage() {
     //   masterDataStore.syncFromApi?.()
     // }
       
-      // Carregar dados do kanban se necessário
-      if (kanbanStore.tickets.length === 0) {
-        kanbanStore.syncFromApi()
-      }
+      // Carregar dados do kanban - SEMPRE sincronizar para garantir dados atualizados
+      console.log('🔄 Kanban: Iniciando sincronização com a API...')
+      kanbanStore.syncFromApi().then(() => {
+        console.log('✅ Kanban: Sincronização concluída com sucesso')
+      }).catch(error => {
+        console.error('❌ Kanban: Erro na sincronização:', error)
+      })
     } else {
-      console.log('🔍 Kanban: Usuário não logado, aguardando...')
+      console.warn('⚠️ Kanban: Usuário não logado, aguardando...')
     }
   }, [user?.id])
 

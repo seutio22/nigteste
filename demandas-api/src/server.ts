@@ -2246,6 +2246,7 @@ const resources = {
   operadoras: crud('operadora'),
   produtos: crud('produto'),
   sistemas: crud('sistema'),
+  grupos: crud('grupo'),
   clientes: crud('cliente'), // HABILITADO - CONFLITO RESOLVIDO
   contratos: crud('contrato'),
   tiposServico: crud('tipoServico'),
@@ -3496,24 +3497,39 @@ app.get('/monitoring/test', async (req: any, reply: any) => {
 app.get('/kanban/tickets', async (req: any, reply: any) => {
   try {
     console.log('🔍 Buscando tickets do kanban...')
+    console.log('🔍 Headers recebidos:', req.headers.authorization ? 'Authorization header presente' : 'Authorization header AUSENTE')
     
     // Verificar se o usuário está autenticado
     let userId: string | null = null
     let userRole: string | null = null
     try {
       const token = req.headers.authorization?.replace('Bearer ', '')
-      if (token) {
-        const decoded = app.jwt.verify(token) as any
-        userId = decoded.userId
-        userRole = decoded.role
-        console.log('🔐 Usuário logado:', userId, 'Role:', userRole)
+      console.log('🔍 Token extraído:', token ? `${token.substring(0, 20)}...` : 'NENHUM')
+      
+      if (!token) {
+        console.error('❌ Token não fornecido na requisição')
+        return reply.code(401).send({ 
+          error: 'Token de autenticação não fornecido',
+          message: 'Por favor, faça login novamente'
+        })
       }
-    } catch (authError) {
-      console.warn('⚠️ Erro na autenticação:', authError)
+      
+      const decoded = app.jwt.verify(token) as any
+      userId = decoded.userId
+      userRole = decoded.role
+      console.log('✅ Token válido - Usuário logado:', userId, 'Role:', userRole)
+    } catch (authError: any) {
+      console.error('❌ Erro ao verificar token JWT:', authError.message)
+      return reply.code(401).send({ 
+        error: 'Token de autenticação inválido ou expirado',
+        message: 'Por favor, faça login novamente',
+        details: authError.message
+      })
     }
     
     // Se não há usuário logado, retornar erro
     if (!userId) {
+      console.error('❌ UserId não encontrado no token')
       return reply.code(401).send({ error: 'Usuário deve estar logado para ver tickets' })
     }
     

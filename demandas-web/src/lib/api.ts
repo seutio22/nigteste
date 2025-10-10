@@ -20,12 +20,22 @@ export const api = {
     let token: string | null = null;
     try {
       const authStore = localStorage.getItem('auth-store');
-      if (authStore) {
+      console.log('🔍 API: Verificando auth-store no localStorage...')
+      
+      if (!authStore) {
+        console.warn('⚠️ API: auth-store NÃO encontrado no localStorage')
+      } else {
         const parsed = JSON.parse(authStore);
         token = parsed?.state?.token || null;
+        
+        if (!token) {
+          console.warn('⚠️ API: Token NÃO encontrado no auth-store')
+        } else {
+          console.log('✅ API: Token encontrado:', token.substring(0, 20) + '...')
+        }
       }
     } catch (e) {
-      console.warn('⚠️ Erro ao ler token do auth-store:', e);
+      console.error('❌ API: Erro ao ler token do auth-store:', e);
     }
     
     if (token) {
@@ -33,6 +43,9 @@ export const api = {
         ...config.headers,
         'Authorization': `Bearer ${token}`,
       };
+      console.log('✅ API: Token adicionado ao header Authorization')
+    } else {
+      console.warn('⚠️ API: Requisição será enviada SEM token de autenticação')
     }
 
     try {
