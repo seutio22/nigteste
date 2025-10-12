@@ -186,6 +186,10 @@ export default function DadosPage() {
               endpoint = '/sistemas'
               payload = { nome: data.nome }
               break
+            case 'grupos':
+              endpoint = '/grupos'
+              payload = { nome: data.nome }
+              break
             case 'analistas':
               endpoint = '/analistas'
               payload = { nome: data.nome }
