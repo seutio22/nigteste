@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo } from 'react'
 import { Box, Typography, Chip, IconButton, Tooltip } from '@mui/material'
 import { Refresh as RefreshIcon, FilterList as FilterIcon } from '@mui/icons-material'
+import { useNavigate } from 'react-router-dom'
 import { useKanbanStore } from '../store/kanbanStore'
 import { useMasterDataStore } from '../store/masterDataStore'
 import { useAuthStore } from '../store/authStore'
@@ -9,34 +10,29 @@ import { KanbanBoard } from '../components/KanbanBoard'
 export default function KanbanPage() {
   const kanbanStore = useKanbanStore()
   const masterDataStore = useMasterDataStore()
-  const { user } = useAuthStore()
+  const { user, token } = useAuthStore()
+  const navigate = useNavigate()
 
-  // Carregar dados automaticamente quando a página é carregada
+  // Verificar autenticação ANTES de carregar dados
   useEffect(() => {
-    console.log('🔍 Kanban: useEffect disparado')
-    console.log('🔍 Kanban: user?.id:', user?.id)
-    console.log('🔍 Kanban: Tickets no store:', kanbanStore.tickets.length)
-    
-    if (user?.id) {
-      console.log('✅ Kanban: Usuário logado, carregando dados...')
-      
-      // Carregar dados mestres se necessário
-          // Dados mestres são carregados apenas na página Dados Mestres
-    // if (masterDataStore.analistas.length === 0) {
-    //   masterDataStore.syncFromApi?.()
-    // }
-      
-      // Carregar dados do kanban - SEMPRE sincronizar para garantir dados atualizados
-      console.log('🔄 Kanban: Iniciando sincronização com a API...')
-      kanbanStore.syncFromApi().then(() => {
-        console.log('✅ Kanban: Sincronização concluída com sucesso')
-      }).catch(error => {
-        console.error('❌ Kanban: Erro na sincronização:', error)
-      })
-    } else {
-      console.warn('⚠️ Kanban: Usuário não logado, aguardando...')
+    // Verificação CRÍTICA: Se não há token OU não há usuário, redirecionar IMEDIATAMENTE
+    if (!token || !user?.id) {
+      console.warn('⚠️ Kanban: Usuário não autenticado - redirecionando para login...')
+      navigate('/login', { replace: true })
+      return
     }
-  }, [user?.id])
+
+    console.log('✅ Kanban: Usuário autenticado, carregando dados...')
+    
+    // Carregar dados do kanban - SEMPRE sincronizar para garantir dados atualizados
+    console.log('🔄 Kanban: Iniciando sincronização com a API...')
+    kanbanStore.syncFromApi().then(() => {
+      console.log('✅ Kanban: Sincronização concluída com sucesso')
+    }).catch(error => {
+      console.error('❌ Kanban: Erro na sincronização:', error)
+      // Se erro for 401, o interceptor já vai redirecionar
+    })
+  }, [token, user?.id, navigate])
 
   // Estatísticas dos tickets do kanban - APENAS tickets do usuário logado
   const kanbanStats = useMemo(() => {
@@ -52,6 +48,13 @@ export default function KanbanPage() {
   }, [kanbanStore.tickets, user?.id, user?.role])
 
   const handleRefresh = () => {
+    // Verificar autenticação antes de atualizar
+    if (!token || !user?.id) {
+      console.warn('⚠️ Kanban: Não é possível atualizar sem autenticação')
+      navigate('/login', { replace: true })
+      return
+    }
+    
     console.log('🔄 Kanban: Atualizando dados...')
     kanbanStore.syncFromApi()
   }

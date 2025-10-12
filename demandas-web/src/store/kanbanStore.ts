@@ -324,23 +324,42 @@ export const useKanbanStore = create<KanbanState>()(
             set({ loading: true, error: null })
             console.log('🔍 KanbanStore: Iniciando syncFromApi...')
             
+            // Verificar se há token antes de fazer requisição
+            const authStore = localStorage.getItem('auth-store')
+            if (!authStore) {
+              console.warn('⚠️ KanbanStore: Sem autenticação, cancelando sincronização')
+              set({ loading: false, error: 'Usuário não autenticado' })
+              return
+            }
+            
+            const parsed = JSON.parse(authStore)
+            const token = parsed?.state?.token
+            
+            if (!token) {
+              console.warn('⚠️ KanbanStore: Token não encontrado, cancelando sincronização')
+              set({ loading: false, error: 'Token não encontrado' })
+              return
+            }
+            
+            console.log('✅ KanbanStore: Token válido encontrado, prosseguindo com sincronização')
+            
             // Importar API com autenticação
             const { getApi } = await import('../lib/apiConfig')
             const api = getApi()
             
             // Buscar tickets do kanban da API (com autenticação)
             const kanbanTickets = await api.get('/kanban/tickets')
-            console.log('🔍 KanbanStore: Tickets carregados da API:', kanbanTickets.length)
+            console.log('✅ KanbanStore: Tickets carregados da API:', kanbanTickets.length)
             
             // Aplicar tickets ao store
             set({ tickets: kanbanTickets, loading: false })
             
-            console.log('🔍 KanbanStore: Sincronização concluída com sucesso')
+            console.log('✅ KanbanStore: Sincronização concluída com sucesso')
             
           } catch (error) {
             console.error('❌ Erro na sincronização:', error)
             // Em caso de erro, manter dados locais
-            console.log('🔍 KanbanStore: Mantendo dados locais em caso de erro')
+            console.log('⚠️ KanbanStore: Mantendo dados locais em caso de erro')
             set({ 
               error: error instanceof Error ? error.message : 'Erro na sincronização com API',
               loading: false 
