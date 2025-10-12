@@ -29,8 +29,8 @@ export function AppLayout() {
   const syncProjetos = useProjectStore((s) => s.syncFromApi)
   const comunicadoCount = useComunicadoStore((s) => s.items.length)
 
-  // Limpeza automática do localStorage a cada 5 minutos
-  useSimpleAutoCleanup(5)
+  // Limpeza automática DESABILITADA - causava logout inesperado
+  // useSimpleAutoCleanup(5) // ❌ REMOVIDO - limpava auth-store mesmo logado
 
   // Sistema de timeout por inatividade
   const { resetTimeout } = useInactivityTimeout({
