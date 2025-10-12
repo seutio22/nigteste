@@ -2247,7 +2247,7 @@ const resources = {
   operadoras: crud('operadora'),
   produtos: crud('produto'),
   sistemas: crud('sistema'),
-  grupos: crud('grupo'),
+  // grupos: crud('grupo'), // REMOVIDO - CONFLITO COM masterData.ts (rotas específicas com validação)
   clientes: crud('cliente'), // HABILITADO - CONFLITO RESOLVIDO
   contratos: crud('contrato'),
   tiposServico: crud('tipoServico'),
