@@ -7,6 +7,7 @@ declare module 'fastify' {
       hash(password: string): Promise<string>
       compare(password: string, hash: string): Promise<boolean>
     }
+    authenticate: any
   }
 }
 
@@ -19,6 +20,15 @@ export default fp(async (app) => {
     async compare(password: string, hash: string) {
       return bcrypt.compare(password, hash)
     },
+  })
+
+  // Adicionar middleware de autenticação JWT
+  app.decorate('authenticate', async (request: any, reply: any) => {
+    try {
+      await request.jwtVerify()
+    } catch (err) {
+      reply.code(401).send({ error: 'Unauthorized', message: 'Token inválido ou ausente' })
+    }
   })
 })
 
