@@ -22,16 +22,11 @@ export default function KanbanPage() {
       return
     }
 
-    console.log('✅ Kanban: Usuário autenticado, carregando dados...')
+    console.log('✅ Kanban: Usuário autenticado')
+    console.log('ℹ️ Kanban: Modo offline - dados carregados do localStorage')
     
-    // Carregar dados do kanban - SEMPRE sincronizar para garantir dados atualizados
-    console.log('🔄 Kanban: Iniciando sincronização com a API...')
-    kanbanStore.syncFromApi().then(() => {
-      console.log('✅ Kanban: Sincronização concluída com sucesso')
-    }).catch(error => {
-      console.error('❌ Kanban: Erro na sincronização:', error)
-      // Se erro for 401, o interceptor já vai redirecionar
-    })
+    // Kanban funciona em modo OFFLINE (localStorage apenas)
+    // Não há sincronização com API
   }, [token, user?.id, navigate])
 
   // Estatísticas dos tickets do kanban - APENAS tickets do usuário logado
@@ -55,8 +50,10 @@ export default function KanbanPage() {
       return
     }
     
-    console.log('🔄 Kanban: Atualizando dados...')
-    kanbanStore.syncFromApi()
+    console.log('ℹ️ Kanban: Modo offline - dados já estão sincronizados no localStorage')
+    // Kanban funciona em modo OFFLINE (localStorage apenas)
+    // Não há necessidade de sincronização com API
+    // Os dados já estão no localStorage e são atualizados automaticamente
   }
 
   return (
