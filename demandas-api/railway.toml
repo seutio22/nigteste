@@ -3,7 +3,7 @@ builder = "nixpacks"
 buildCommand = "echo 'SETUP POSTGRESQL v24' && rm -rf dist && npm run build && echo 'BUILD COMPLETED v24 - POSTGRESQL READY'"
 
 [deploy]
-startCommand = "npm start"
+startCommand = "npm run railway:start"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
 restartPolicyType = "on_failure"
