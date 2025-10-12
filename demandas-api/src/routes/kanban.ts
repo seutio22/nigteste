@@ -155,7 +155,7 @@ export async function kanbanRoutes(app: FastifyInstance, options: { prisma: Pris
       if (error instanceof z.ZodError) {
         return reply.code(400).send({ 
           error: 'Dados inválidos',
-          details: error.errors 
+          details: error.issues 
         })
       }
       
@@ -235,7 +235,7 @@ export async function kanbanRoutes(app: FastifyInstance, options: { prisma: Pris
       if (error instanceof z.ZodError) {
         return reply.code(400).send({ 
           error: 'Dados inválidos',
-          details: error.errors 
+          details: error.issues 
         })
       }
       
