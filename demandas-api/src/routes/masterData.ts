@@ -747,5 +747,136 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
     }
   })
 
+  // ===== GRUPOS =====
+  
+  // Schema de validação para Grupo
+  const grupoCreateSchema = z.object({
+    nome: z.string().min(1, 'Nome é obrigatório')
+  })
+
+  const grupoUpdateSchema = z.object({
+    nome: z.string().min(1, 'Nome é obrigatório')
+  })
+
+  // GET /grupos
+  app.get('/grupos', async (request, reply) => {
+    try {
+      const grupos = await prisma.grupo.findMany({
+        orderBy: { nome: 'asc' }
+      })
+      return reply.send(grupos)
+    } catch (error) {
+      console.error('Erro ao buscar grupos:', error)
+      return reply.status(500).send({ error: 'Erro interno do servidor' })
+    }
+  })
+
+  // POST /grupos
+  app.post('/grupos', async (request, reply) => {
+    try {
+      console.log('🔍 POST /grupos - Dados recebidos:', JSON.stringify(request.body, null, 2))
+      const body = grupoCreateSchema.parse(request.body)
+      console.log('✅ POST /grupos - Dados validados:', JSON.stringify(body, null, 2))
+      
+      // Verificar se já existe grupo com mesmo nome (case insensitive)
+      const existingGrupo = await prisma.grupo.findFirst({
+        where: {
+          nome: {
+            equals: body.nome,
+            mode: 'insensitive'
+          }
+        }
+      })
+      
+      if (existingGrupo) {
+        console.log('❌ POST /grupos - Grupo duplicado:', body.nome)
+        return reply.status(400).send({ 
+          error: 'Grupo duplicado', 
+          message: `Grupo "${body.nome}" já existe. Por favor, escolha um nome diferente.` 
+        })
+      }
+      
+      const grupo = await prisma.grupo.create({
+        data: body
+      })
+      console.log('✅ POST /grupos - Grupo criado:', grupo.id)
+      return reply.status(201).send(grupo)
+    } catch (error) {
+      console.error('❌ POST /grupos - Erro:', error)
+      if (error instanceof z.ZodError) {
+        console.error('❌ POST /grupos - Erro de validação:', error.issues)
+        return reply.status(400).send({ error: 'Dados inválidos', details: error.issues })
+      }
+      console.error('Erro ao criar grupo:', error)
+      return reply.status(500).send({ error: 'Erro interno do servidor', details: error instanceof Error ? error.message : String(error) })
+    }
+  })
+
+  // PUT /grupos/:id
+  app.put('/grupos/:id', async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string }
+      const body = grupoUpdateSchema.parse(request.body)
+      
+      // Verificar se já existe outro grupo com mesmo nome (excluindo o próprio)
+      const duplicateGrupo = await prisma.grupo.findFirst({
+        where: {
+          nome: {
+            equals: body.nome,
+            mode: 'insensitive'
+          },
+          id: {
+            not: id
+          }
+        }
+      })
+      
+      if (duplicateGrupo) {
+        return reply.status(400).send({ 
+          error: 'Grupo duplicado', 
+          message: `Grupo "${body.nome}" já existe. Por favor, escolha um nome diferente.` 
+        })
+      }
+      
+      const grupo = await prisma.grupo.update({
+        where: { id },
+        data: body
+      })
+      return reply.send(grupo)
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return reply.status(400).send({ error: 'Dados inválidos', details: error.issues })
+      }
+      console.error('Erro ao atualizar grupo:', error)
+      return reply.status(500).send({ error: 'Erro interno do servidor' })
+    }
+  })
+
+  // DELETE /grupos/:id
+  app.delete('/grupos/:id', async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string }
+      console.log('🔍 DELETE /grupos/:id - ID recebido:', id)
+      
+      // Verificar se o registro existe primeiro
+      const existingGrupo = await prisma.grupo.findUnique({ where: { id } })
+      if (!existingGrupo) {
+        console.log('❌ Grupo não encontrado:', id)
+        return reply.status(404).send({ error: 'Grupo não encontrado' })
+      }
+      
+      console.log('✅ Grupo encontrado, excluindo:', existingGrupo.nome)
+      await prisma.grupo.delete({
+        where: { id }
+      })
+      console.log('✅ Grupo excluído com sucesso')
+      return reply.status(204).send()
+    } catch (error) {
+      console.error('❌ Erro ao deletar grupo:', error)
+      console.error('❌ Detalhes do erro:', error instanceof Error ? error.message : String(error))
+      console.error('❌ Stack trace:', error instanceof Error ? error.stack : 'N/A')
+      return reply.status(500).send({ error: 'Erro interno do servidor', details: error instanceof Error ? error.message : String(error) })
+    }
+  })
 
 }
