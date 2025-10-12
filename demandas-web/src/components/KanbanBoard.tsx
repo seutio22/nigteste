@@ -440,7 +440,7 @@ export const KanbanBoard: React.FC = () => {
         assignee: newTicket.assignee || undefined,
         startDate: newTicket.startDate ? newTicket.startDate + 'T00:00:00.000Z' : undefined, // Converter para ISO com UTC
         dueDate: newTicket.dueDate ? newTicket.dueDate + 'T00:00:00.000Z' : undefined, // Converter para ISO com UTC
-        tags: newTicket.tags ? newTicket.tags.split(',').map(tag => tag.trim()).filter(tag => tag) : []
+        tags: newTicket.tags || '' // Backend espera string, não array
       })
     } else {
       console.log('🔍 KanbanBoard: Criando novo ticket')
@@ -453,7 +453,7 @@ export const KanbanBoard: React.FC = () => {
         assignee: user?.id || 'unassigned', // SEMPRE usar o ID do usuário logado
         startDate: newTicket.startDate ? newTicket.startDate + 'T00:00:00.000Z' : undefined, // Converter para ISO com UTC
         dueDate: newTicket.dueDate ? newTicket.dueDate + 'T00:00:00.000Z' : undefined, // Converter para ISO com UTC
-        tags: newTicket.tags ? newTicket.tags.split(',').map(tag => tag.trim()).filter(tag => tag) : []
+        tags: newTicket.tags || '' // Backend espera string, não array
       }
       
       console.log('🔍 KanbanBoard: Dados do ticket:', ticketData)
