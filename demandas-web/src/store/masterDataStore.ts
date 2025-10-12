@@ -263,37 +263,10 @@ export const useMasterDataStore = create<MasterDataState>()(
               return []
             }
             
-            // Merge especial para contratos - preservar contratos inativos locais
-            const mergeContratos = (apiContratos: any[], localContratos: any[]) => {
-              console.log(`🔍 MasterDataStore: Merge contratos - API: ${apiContratos?.length || 0}, Locais: ${localContratos?.length || 0}`)
-              
-              if (apiContratos && apiContratos.length > 0) {
-                // Se há dados da API, usar como base
-                const apiIds = new Set(apiContratos.map(c => c.id))
-                
-                // Adicionar contratos locais que não existem na API (ex: contratos inativos recém-criados)
-                const contratosLocaisNaoNaApi = localContratos.filter(local => !apiIds.has(local.id))
-                
-                // Log detalhado dos contratos locais únicos
-                if (contratosLocaisNaoNaApi.length > 0) {
-                  console.log(`🔍 MasterDataStore: Contratos locais únicos encontrados:`, contratosLocaisNaoNaApi.map(c => ({ id: c.id, status: c.status, codigo: c.codigo })))
-                }
-                
-                const resultado = [...apiContratos, ...contratosLocaisNaoNaApi]
-                console.log(`🔍 MasterDataStore: Merge contratos - API: ${apiContratos.length}, Locais únicos: ${contratosLocaisNaoNaApi.length}, Total: ${resultado.length}`)
-                
-                return resultado
-              }
-              
-              // Se não há dados da API, manter locais
-              console.log(`🔍 MasterDataStore: Nenhum dado da API, mantendo contratos locais: ${localContratos?.length || 0}`)
-              return localContratos
-            }
-            
             // Atualizar store com dados do backend
             set({
               clientes: mergeData(clientes, localState.clientes, 'clientes'),
-              contratos: mergeContratos(contratos, localState.contratos),
+              contratos: mergeData(contratos, localState.contratos, 'contratos'),
               operadoras: mergeData(operadoras, localState.operadoras, 'operadoras'),
               produtos: mergeData(produtos, localState.produtos, 'produtos'),
               sistemas: mergeData(sistemas, localState.sistemas, 'sistemas'),
