@@ -320,20 +320,40 @@ export const useDadosCRUD = () => {
       })
       
       return true
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Erro ao criar entidade:', error)
       console.error('❌ Detalhes do erro:', {
         activeTab,
         form,
         errorMessage: error instanceof Error ? error.message : 'Erro desconhecido',
-        errorStack: error instanceof Error ? error.stack : undefined
+        errorStack: error instanceof Error ? error.stack : undefined,
+        errorObject: error
       })
       
       // Se o erro foi na API, o dado não foi salvo no banco
       // Não salvar no store local para evitar inconsistências
       
-      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido'
+      // Extrair mensagem de erro da API (pode vir em diferentes formatos)
+      let errorMessage = 'Erro desconhecido'
+      
+      // O erro já vem tratado da api.ts com a mensagem correta
+      if (error?.message) {
+        errorMessage = error.message
+      } else if (error?.data?.message) {
+        // Erro da API com formato { error: '...', message: '...' }
+        errorMessage = error.data.message
+      } else if (typeof error === 'string') {
+        errorMessage = error
+      }
+      
       console.error('❌ ERRO FINAL:', errorMessage)
+      
+      // Mostrar mensagem de erro ao usuário
+      setSnack({
+        open: true,
+        message: errorMessage,
+        severity: 'error'
+      })
       
       // Re-lançar o erro para que seja capturado pelo componente
       throw new Error(errorMessage)

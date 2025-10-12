@@ -68,9 +68,32 @@ export const api = {
           });
         }
         
+        // Tentar ler a mensagem de erro do corpo da resposta
+        let errorMessage = `HTTP error! status: ${response.status}`;
+        let errorDetails = null;
+        
+        try {
+          const contentType = response.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            const errorBody = await response.json();
+            errorDetails = errorBody;
+            
+            // Extrair mensagem de erro (pode vir em diferentes formatos)
+            if (errorBody.message) {
+              errorMessage = errorBody.message;
+            } else if (errorBody.error) {
+              errorMessage = typeof errorBody.error === 'string' ? errorBody.error : errorMessage;
+            }
+          }
+        } catch (e) {
+          // Se não conseguir parsear o erro, usar mensagem padrão
+          console.warn('⚠️ Não foi possível parsear o corpo do erro:', e);
+        }
+        
         const errorData: ApiError = {
-          message: `HTTP error! status: ${response.status}`,
+          message: errorMessage,
           status: response.status,
+          data: errorDetails
         };
         throw errorData;
       }
