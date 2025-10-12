@@ -91,15 +91,18 @@ export const useKanbanStore = create<KanbanState>()(
         
         addTicket: async (ticketData: Omit<KanbanTicket, 'id' | 'createdAt' | 'updatedAt'>) => {
           try {
-            console.log('🔍 KanbanStore: addTicket iniciado com dados:', ticketData)
+            console.log('🔍 KanbanStore: addTicket iniciado')
+            console.log('🔍 KanbanStore: ticketData recebido:', ticketData)
+            console.log('🔍 KanbanStore: ticketData JSON:', JSON.stringify(ticketData, null, 2))
             set({ loading: true, error: null })
             
             // Salvar na API primeiro
             const { getApi } = await import('../lib/apiConfig')
             const api = getApi()
             
+            console.log('🔍 KanbanStore: Enviando para API POST /kanban/tickets')
             const newTicket = await api.post('/kanban/tickets', ticketData)
-            console.log('✅ KanbanStore: Ticket criado na API:', newTicket.id)
+            console.log('✅ KanbanStore: Ticket criado na API:', newTicket)
             
             // Adicionar ao estado local
             set((state) => ({
