@@ -229,9 +229,22 @@ export default function DadosPage() {
           }
 
           totalImported++
-        } catch (apiError) {
+        } catch (apiError: any) {
           console.error(`Erro ao salvar item no banco:`, apiError)
-          errors.push(`Erro ao salvar item: ${apiError instanceof Error ? apiError.message : 'Erro desconhecido'}`)
+          
+          // Extrair mensagem de erro específica da API
+          let errorMessage = 'Erro desconhecido'
+          if (apiError?.message) {
+            errorMessage = apiError.message
+          } else if (apiError?.data?.message) {
+            errorMessage = apiError.data.message
+          } else if (typeof apiError === 'string') {
+            errorMessage = apiError
+          }
+          
+          // Adicionar informação do item que falhou (nome ou código)
+          const itemIdentifier = data.nome || data.codigo || data.numero || 'item'
+          errors.push(`${itemIdentifier}: ${errorMessage}`)
         }
       }
 
@@ -261,9 +274,14 @@ export default function DadosPage() {
 
       if (errors.length > 0) {
         console.warn('⚠️ SMART IMPORT: Alguns erros ocorreram:', errors)
+        
+        // Mostrar detalhes dos erros
+        const errorDetails = errors.slice(0, 3).join('\n') // Mostrar até 3 erros
+        const moreErrors = errors.length > 3 ? `\n... e mais ${errors.length - 3} erro(s)` : ''
+        
         setSnack({
           open: true,
-          message: `${successMessage} ${errors.length} erros ocorreram ao salvar no banco.`,
+          message: `${successMessage}\n\nErros encontrados:\n${errorDetails}${moreErrors}`,
           severity: 'warning'
         })
       }
