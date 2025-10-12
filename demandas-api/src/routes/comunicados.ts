@@ -1,8 +1,6 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import { PrismaClient } from '@prisma/client'
 
-const prisma = new PrismaClient()
-
 // Interface para os parâmetros das rotas
 interface ComunicadoParams {
   id: string
@@ -38,7 +36,8 @@ interface ComentarioBody {
 }
 
 // Plugin para registrar as rotas
-export default async function comunicadosRoutes(fastify: FastifyInstance) {
+export default async function comunicadosRoutes(fastify: FastifyInstance, options?: { prisma?: PrismaClient }) {
+  const prisma = options?.prisma || new PrismaClient()
   // GET / - Listar todos os comunicados (prefixo já é /comunicados)
   fastify.get('/', async (request: FastifyRequest, reply: FastifyReply) => {
     try {

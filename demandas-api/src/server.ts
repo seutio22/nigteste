@@ -3463,11 +3463,11 @@ app.delete('/demandas/limpar-atv-demandas', async () => {
 
 
 // Rotas de autenticação e usuários (admin)
-app.register(authRoutes)
+app.register(authRoutes, { prisma })
 app.register(userRoutes, { prisma })
 
 // Rotas de comunicados
-app.register(comunicadosRoutes, { prefix: '/comunicados' })
+app.register(comunicadosRoutes, { prisma, prefix: '/comunicados' })
 
 // Rotas de equipe de projetos
 app.register(projectTeamRoutes, { prisma })
