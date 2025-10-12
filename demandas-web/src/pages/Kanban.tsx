@@ -13,20 +13,23 @@ export default function KanbanPage() {
   const { user, token } = useAuthStore()
   const navigate = useNavigate()
 
-  // Verificar autenticação ANTES de carregar dados
+  // Verificar autenticação e carregar dados
   useEffect(() => {
-    // Verificação CRÍTICA: Se não há token OU não há usuário, redirecionar IMEDIATAMENTE
+    // Verificação: Se não há token OU não há usuário, redirecionar
     if (!token || !user?.id) {
       console.warn('⚠️ Kanban: Usuário não autenticado - redirecionando para login...')
       navigate('/login', { replace: true })
       return
     }
 
-    console.log('✅ Kanban: Usuário autenticado')
-    console.log('ℹ️ Kanban: Modo offline - dados carregados do localStorage')
+    console.log('✅ Kanban: Usuário autenticado, carregando dados...')
     
-    // Kanban funciona em modo OFFLINE (localStorage apenas)
-    // Não há sincronização com API
+    // Sincronizar dados com API
+    kanbanStore.syncFromApi().then(() => {
+      console.log('✅ Kanban: Dados sincronizados com sucesso')
+    }).catch(error => {
+      console.error('❌ Kanban: Erro na sincronização:', error)
+    })
   }, [token, user?.id, navigate])
 
   // Estatísticas dos tickets do kanban - APENAS tickets do usuário logado
@@ -50,10 +53,8 @@ export default function KanbanPage() {
       return
     }
     
-    console.log('ℹ️ Kanban: Modo offline - dados já estão sincronizados no localStorage')
-    // Kanban funciona em modo OFFLINE (localStorage apenas)
-    // Não há necessidade de sincronização com API
-    // Os dados já estão no localStorage e são atualizados automaticamente
+    console.log('🔄 Kanban: Atualizando dados...')
+    kanbanStore.syncFromApi()
   }
 
   return (

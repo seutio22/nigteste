@@ -92,32 +92,22 @@ export const useKanbanStore = create<KanbanState>()(
         addTicket: async (ticketData: Omit<KanbanTicket, 'id' | 'createdAt' | 'updatedAt'>) => {
           try {
             console.log('🔍 KanbanStore: addTicket iniciado com dados:', ticketData)
-            console.log('🔍 KanbanStore: startDate recebido:', ticketData.startDate, 'dueDate recebido:', ticketData.dueDate)
             set({ loading: true, error: null })
             
-            const newTicket: KanbanTicket = {
-              ...ticketData,
-              id: `ticket-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString()
-            }
+            // Salvar na API primeiro
+            const { getApi } = await import('../lib/apiConfig')
+            const api = getApi()
             
-            console.log('🔍 KanbanStore: Novo ticket criado:', newTicket)
+            const newTicket = await api.post('/kanban/tickets', ticketData)
+            console.log('✅ KanbanStore: Ticket criado na API:', newTicket.id)
             
-            // Salvar APENAS no localStorage (modo offline)
-            set((state) => {
-              console.log('🔍 KanbanStore: Estado atual antes de adicionar:', state.tickets.length)
-              const newState = {
-                tickets: [...state.tickets, newTicket],
-                loading: false
-              }
-              console.log('🔍 KanbanStore: Novo estado com ticket:', newState.tickets.length)
-              return newState
-            })
+            // Adicionar ao estado local
+            set((state) => ({
+              tickets: [...state.tickets, newTicket],
+              loading: false
+            }))
             
-            console.log('✅ KanbanStore: Ticket adicionado ao localStorage (modo offline)')
-            
-            // NÃO tentar salvar na API - Kanban é 100% offline
+            console.log('✅ KanbanStore: Ticket adicionado ao estado local')
             
           } catch (error) {
             console.error('❌ Erro ao criar ticket:', error)
@@ -130,21 +120,20 @@ export const useKanbanStore = create<KanbanState>()(
           try {
             set({ loading: true, error: null })
             
-            const updatedTicket = { ...updates, updatedAt: new Date().toISOString() }
+            // Atualizar na API
+            const { getApi } = await import('../lib/apiConfig')
+            const api = getApi()
             
-            // Atualizar APENAS no localStorage (modo offline)
+            const updatedTicket = await api.put(`/kanban/tickets/${id}`, updates)
+            console.log('✅ KanbanStore: Ticket atualizado na API:', id)
+            
+            // Atualizar estado local
             set((state) => ({
               tickets: state.tickets.map(ticket =>
-                ticket.id === id
-                  ? { ...ticket, ...updatedTicket }
-                  : ticket
+                ticket.id === id ? updatedTicket : ticket
               ),
               loading: false
             }))
-            
-            console.log('✅ Ticket atualizado no localStorage (modo offline):', id)
-            
-            // NÃO tentar atualizar na API - Kanban é 100% offline
             
           } catch (error) {
             console.error('❌ Erro ao atualizar ticket:', error)
@@ -157,21 +146,20 @@ export const useKanbanStore = create<KanbanState>()(
           try {
             set({ loading: true, error: null })
             
-            const updatedTicket = { status: newStatus, updatedAt: new Date().toISOString() }
+            // Atualizar na API
+            const { getApi } = await import('../lib/apiConfig')
+            const api = getApi()
             
-            // Atualizar APENAS no localStorage (modo offline)
+            const updatedTicket = await api.put(`/kanban/tickets/${ticketId}`, { status: newStatus })
+            console.log('✅ KanbanStore: Ticket movido na API:', ticketId, '->', newStatus)
+            
+            // Atualizar estado local
             set((state) => ({
               tickets: state.tickets.map(ticket =>
-                ticket.id === ticketId
-                  ? { ...ticket, ...updatedTicket }
-                  : ticket
+                ticket.id === ticketId ? updatedTicket : ticket
               ),
               loading: false
             }))
-            
-            console.log('✅ Ticket movido no localStorage (modo offline):', ticketId, '->', newStatus)
-            
-            // NÃO tentar atualizar na API - Kanban é 100% offline
             
           } catch (error) {
             console.error('❌ Erro ao mover ticket:', error)
@@ -184,15 +172,18 @@ export const useKanbanStore = create<KanbanState>()(
           try {
             set({ loading: true, error: null })
             
-            // Remover APENAS do localStorage (modo offline)
+            // Remover da API
+            const { getApi } = await import('../lib/apiConfig')
+            const api = getApi()
+            
+            await api.delete(`/kanban/tickets/${id}`)
+            console.log('✅ KanbanStore: Ticket removido da API:', id)
+            
+            // Remover do estado local
             set((state) => ({
               tickets: state.tickets.filter(ticket => ticket.id !== id),
               loading: false
             }))
-            
-            console.log('✅ Ticket removido do localStorage (modo offline):', id)
-            
-            // NÃO tentar remover da API - Kanban é 100% offline
             
           } catch (error) {
             console.error('❌ Erro ao remover ticket:', error)
@@ -205,12 +196,15 @@ export const useKanbanStore = create<KanbanState>()(
           try {
             set({ loading: true, error: null })
             
-            // Limpar APENAS localStorage (modo offline)
+            // Limpar na API
+            const { getApi } = await import('../lib/apiConfig')
+            const api = getApi()
+            
+            await api.delete('/kanban/tickets')
+            console.log('✅ KanbanStore: Todos os tickets removidos da API')
+            
+            // Limpar estado local
             set({ tickets: [], loading: false })
-            
-            console.log('✅ Todos os tickets removidos do localStorage (modo offline)')
-            
-            // NÃO tentar limpar na API - Kanban é 100% offline
             
           } catch (error) {
             console.error('❌ Erro ao limpar tickets:', error)
@@ -273,20 +267,31 @@ export const useKanbanStore = create<KanbanState>()(
           return get().tickets
         },
         
-        // Sincronização DESABILITADA - Kanban é 100% offline (localStorage apenas)
+        // Sincronização com API - Kanban com backend completo
         syncFromApi: async () => {
           try {
-            console.log('ℹ️ KanbanStore: Kanban funciona em modo offline (localStorage)')
-            console.log('ℹ️ KanbanStore: Sincronização com API desabilitada')
+            set({ loading: true, error: null })
+            console.log('🔍 KanbanStore: Iniciando sincronização com API...')
             
-            // Apenas marcar como não carregando
-            set({ loading: false, error: null })
+            // Importar API com autenticação
+            const { getApi } = await import('../lib/apiConfig')
+            const api = getApi()
             
-            // NÃO fazer requisição para API que não existe
+            // Buscar tickets do kanban da API
+            const kanbanTickets = await api.get('/kanban/tickets')
+            console.log('✅ KanbanStore: Tickets carregados da API:', kanbanTickets.length)
+            
+            // Aplicar tickets ao store
+            set({ tickets: kanbanTickets, loading: false })
+            
+            console.log('✅ KanbanStore: Sincronização concluída com sucesso')
             
           } catch (error) {
-            console.error('❌ Erro inesperado:', error)
-            set({ loading: false, error: null })
+            console.error('❌ Erro na sincronização:', error)
+            set({ 
+              error: error instanceof Error ? error.message : 'Erro na sincronização com API',
+              loading: false 
+            })
           }
         },
         

@@ -9,6 +9,7 @@ import comunicadosRoutes from './routes/comunicados'
 import projectTeamRoutes from './routes/projectTeam'
 import shareRoutes from './routes/share'
 import { masterDataRoutes } from './routes/masterData'
+import { kanbanRoutes } from './routes/kanban'
 import { PrismaClient } from '@prisma/client'
 import { trackUserActivity, trackSessionStart, trackSessionEnd } from './middleware/activityTracker'
 
@@ -3476,6 +3477,9 @@ app.register(shareRoutes, { prisma })
 
 // Rotas de dados mestres
 app.register(masterDataRoutes, { prisma })
+
+// Rotas do Kanban (com autenticação)
+app.register(kanbanRoutes, { prisma })
 
 
 // Rota de teste de monitoramento
