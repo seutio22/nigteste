@@ -28,10 +28,15 @@ export async function kanbanRoutes(app: FastifyInstance, options: { prisma: Pris
   })
 
   // GET /kanban/tickets - Listar tickets do usuário autenticado
-  app.get('/kanban/tickets', {
-    onRequest: [app.authenticate]
-  }, async (request: any, reply: any) => {
+  app.get('/kanban/tickets', async (request: any, reply: any) => {
     try {
+      // Validar JWT manualmente
+      try {
+        await request.jwtVerify()
+      } catch (err) {
+        return reply.code(401).send({ error: 'Unauthorized', message: 'Token inválido ou ausente' })
+      }
+      
       const userId = request.user.sub
 
       console.log('🔍 Kanban API: GET /kanban/tickets chamado')
@@ -60,10 +65,15 @@ export async function kanbanRoutes(app: FastifyInstance, options: { prisma: Pris
   })
 
   // GET /kanban/tickets/:id - Buscar ticket específico
-  app.get('/kanban/tickets/:id', {
-    onRequest: [app.authenticate]
-  }, async (request: any, reply: any) => {
+  app.get('/kanban/tickets/:id', async (request: any, reply: any) => {
     try {
+      // Validar JWT manualmente
+      try {
+        await request.jwtVerify()
+      } catch (err) {
+        return reply.code(401).send({ error: 'Unauthorized', message: 'Token inválido ou ausente' })
+      }
+      
       const userId = request.user.sub
       const { id } = request.params
 
@@ -95,10 +105,15 @@ export async function kanbanRoutes(app: FastifyInstance, options: { prisma: Pris
   })
 
   // POST /kanban/tickets - Criar novo ticket
-  app.post('/kanban/tickets', {
-    onRequest: [app.authenticate]
-  }, async (request: any, reply: any) => {
+  app.post('/kanban/tickets', async (request: any, reply: any) => {
     try {
+      // Validar JWT manualmente
+      try {
+        await request.jwtVerify()
+      } catch (err) {
+        return reply.code(401).send({ error: 'Unauthorized', message: 'Token inválido ou ausente' })
+      }
+      
       const userId = request.user.sub
       
       console.log('🔍 Kanban API: POST /kanban/tickets chamado')
@@ -152,10 +167,15 @@ export async function kanbanRoutes(app: FastifyInstance, options: { prisma: Pris
   })
 
   // PUT /kanban/tickets/:id - Atualizar ticket
-  app.put('/kanban/tickets/:id', {
-    onRequest: [app.authenticate]
-  }, async (request: any, reply: any) => {
+  app.put('/kanban/tickets/:id', async (request: any, reply: any) => {
     try {
+      // Validar JWT manualmente
+      try {
+        await request.jwtVerify()
+      } catch (err) {
+        return reply.code(401).send({ error: 'Unauthorized', message: 'Token inválido ou ausente' })
+      }
+      
       const userId = request.user.sub
       const { id } = request.params
 
@@ -227,10 +247,15 @@ export async function kanbanRoutes(app: FastifyInstance, options: { prisma: Pris
   })
 
   // DELETE /kanban/tickets/:id - Excluir ticket
-  app.delete('/kanban/tickets/:id', {
-    onRequest: [app.authenticate]
-  }, async (request: any, reply: any) => {
+  app.delete('/kanban/tickets/:id', async (request: any, reply: any) => {
     try {
+      // Validar JWT manualmente
+      try {
+        await request.jwtVerify()
+      } catch (err) {
+        return reply.code(401).send({ error: 'Unauthorized', message: 'Token inválido ou ausente' })
+      }
+      
       const userId = request.user.sub
       const { id } = request.params
 
@@ -267,10 +292,15 @@ export async function kanbanRoutes(app: FastifyInstance, options: { prisma: Pris
   })
 
   // DELETE /kanban/tickets - Excluir todos os tickets do usuário
-  app.delete('/kanban/tickets', {
-    onRequest: [app.authenticate]
-  }, async (request: any, reply: any) => {
+  app.delete('/kanban/tickets', async (request: any, reply: any) => {
     try {
+      // Validar JWT manualmente
+      try {
+        await request.jwtVerify()
+      } catch (err) {
+        return reply.code(401).send({ error: 'Unauthorized', message: 'Token inválido ou ausente' })
+      }
+      
       const userId = request.user.sub
 
       console.log('🔍 Kanban API: DELETE /kanban/tickets chamado')
