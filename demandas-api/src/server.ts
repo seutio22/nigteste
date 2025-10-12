@@ -2560,29 +2560,36 @@ for (const [path, repo] of Object.entries(resources)) {
       //   res.code(201)
       //   return created
       } else if (path === 'contratos') {
-        // Tratamento especial para contratos - evitar duplicatas de número
+        // Tratamento especial para contratos - validar duplicatas de grupo econômico + número
         const cleanedData = { ...req.body }
         
         console.log(`🔍 POST /contratos: Dados originais recebidos:`, JSON.stringify(req.body, null, 2))
         
-        // Verificar se número já existe
+        // Verificar se já existe contrato com mesmo grupo econômico + número
         if (cleanedData.numero) {
           try {
-            const numeroExiste = await prisma.contrato.findFirst({ 
-              where: { numero: cleanedData.numero } 
+            const contratoExiste = await prisma.contrato.findFirst({ 
+              where: { 
+                numero: cleanedData.numero,
+                grupoEconomico: cleanedData.grupoEconomico || null
+              } 
             });
-            if (numeroExiste) {
-              console.warn(`⚠️ POST /contratos: Número "${cleanedData.numero}" já existe, atualizando registro existente`);
-              const updated = await prisma.contrato.update({
-                where: { id: numeroExiste.id },
-                data: cleanedData
-              });
-              console.log(`✅ POST /contratos: Registro atualizado:`, updated.id);
-              res.code(200);
-              return updated;
+            
+            if (contratoExiste) {
+              const grupoInfo = cleanedData.grupoEconomico 
+                ? `do grupo econômico "${cleanedData.grupoEconomico}"` 
+                : 'sem grupo econômico';
+              
+              console.warn(`⚠️ POST /contratos: Contrato "${cleanedData.numero}" ${grupoInfo} já existe`);
+              
+              res.code(400);
+              return { 
+                error: 'Contrato duplicado', 
+                message: `Contrato "${cleanedData.numero}" ${grupoInfo} já existe. Por favor, escolha um número diferente ou verifique o grupo econômico.` 
+              };
             }
           } catch (error) {
-            console.error(`❌ POST /contratos: Erro ao verificar número:`, error);
+            console.error(`❌ POST /contratos: Erro ao verificar duplicação:`, error);
           }
         }
         
@@ -3054,6 +3061,41 @@ for (const [path, repo] of Object.entries(resources)) {
         console.log(`✅ PUT /validacoes: Validação atualizada com sucesso:`, updated.id)
         res.code(200)
         return updated
+      }
+      
+      // Tratamento especial para contratos - validar duplicatas
+      if (path === 'contratos') {
+        console.log(`🔧 PUT /contratos/${req.params.id}: Validando duplicação`)
+        
+        const cleanedData = { ...req.body }
+        
+        // Verificar se já existe outro contrato com mesmo grupo econômico + número (excluindo o próprio)
+        if (cleanedData.numero) {
+          try {
+            const contratoExiste = await prisma.contrato.findFirst({ 
+              where: { 
+                numero: cleanedData.numero,
+                grupoEconomico: cleanedData.grupoEconomico || null,
+                id: { not: req.params.id } // Excluir o próprio contrato
+              } 
+            });
+            
+            if (contratoExiste) {
+              const grupoInfo = cleanedData.grupoEconomico 
+                ? `do grupo econômico "${cleanedData.grupoEconomico}"` 
+                : 'sem grupo econômico';
+              
+              console.warn(`⚠️ PUT /contratos: Contrato "${cleanedData.numero}" ${grupoInfo} já existe`);
+              
+              return res.code(400).send({ 
+                error: 'Contrato duplicado', 
+                message: `Contrato "${cleanedData.numero}" ${grupoInfo} já existe. Por favor, escolha um número diferente ou verifique o grupo econômico.` 
+              });
+            }
+          } catch (error) {
+            console.error(`❌ PUT /contratos: Erro ao verificar duplicação:`, error);
+          }
+        }
       }
       
       // Tratamento especial para atendimentos - similar ao POST
