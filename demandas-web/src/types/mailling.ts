@@ -7,6 +7,7 @@ export interface MaillingContact {
   filial: string
   superior?: string
   posicaoEmail: 'PARA' | 'CÓPIA OCULTA' | 'CÓPIA'
+  grupos?: string[]  // Array de IDs dos grupos (multiseleção)
   
   // Parâmetros de Segmentação (Opcionais)
   cancelamento?: 'sim' | 'nao'
@@ -40,6 +41,7 @@ export interface MaillingFilter {
   filial?: string
   superior?: string
   posicaoEmail?: 'PARA' | 'CÓPIA OCULTA' | 'CÓPIA'
+  grupos?: string[]  // Array de IDs dos grupos (multiseleção)
   
   // Parâmetros de Segmentação (Opcionais)
   cancelamento?: 'sim' | 'nao'

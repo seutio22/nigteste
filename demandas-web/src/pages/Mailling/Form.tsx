@@ -24,7 +24,8 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Paper
+  Paper,
+  Autocomplete
 } from '@mui/material'
 import {
   ExpandMore as ExpandMoreIcon,
@@ -55,6 +56,7 @@ export function MaillingForm({ open, contact, onClose, onSubmit }: MaillingFormP
     filial: '',
     superior: '',
     posicaoEmail: 'PARA' as 'PARA' | 'CÓPIA OCULTA' | 'CÓPIA',
+    grupos: [] as string[],
     cancelamento: 'nao' as 'sim' | 'nao',
     alteracaoContratual: 'nao' as 'sim' | 'nao',
     alteracaoDadosCliente: 'nao' as 'sim' | 'nao',
@@ -84,7 +86,8 @@ export function MaillingForm({ open, contact, onClose, onSubmit }: MaillingFormP
           filial: contact.filial || '',
           nome: contact.nome || '',
           posicaoEmail: contact.posicaoEmail || 'PARA',
-          superior: contact.superior || ''
+          superior: contact.superior || '',
+          grupos: contact.grupos || []
         })
       } else {
         setFormData({
@@ -197,6 +200,8 @@ export function MaillingForm({ open, contact, onClose, onSubmit }: MaillingFormP
         return 'E-mail'
       case 'posicaoEmail':
         return 'Posição de E-mail'
+      case 'grupos':
+        return 'Grupos'
       case 'cancelamento':
         return 'Cancelamento'
       case 'alteracaoContratual':
@@ -364,6 +369,45 @@ export function MaillingForm({ open, contact, onClose, onSubmit }: MaillingFormP
                   </Typography>
                 )}
               </FormControl>
+            </Grid>
+            
+            <Grid item xs={12}>
+              <Autocomplete
+                multiple
+                id="grupos-select"
+                options={masterDataStore.grupos || []}
+                getOptionLabel={(option) => option.nome}
+                value={masterDataStore.grupos?.filter(g => formData.grupos?.includes(g.id)) || []}
+                onChange={(_, newValue) => {
+                  const ids = newValue.map(g => g.id)
+                  setFormData(prev => ({ ...prev, grupos: ids }))
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Grupos"
+                    placeholder="Selecione um ou mais grupos"
+                    helperText="Selecione os grupos aos quais este contato pertence"
+                  />
+                )}
+                renderTags={(value, getTagProps) =>
+                  value.map((option, index) => (
+                    <Chip
+                      label={option.nome}
+                      {...getTagProps({ index })}
+                      color="primary"
+                      size="small"
+                    />
+                  ))
+                }
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': {
+                      borderColor: 'primary.main',
+                    },
+                  },
+                }}
+              />
             </Grid>
           </Grid>
           

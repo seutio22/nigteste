@@ -164,6 +164,22 @@ export default function MaillingListPage() {
           return 'PARA'
         }
 
+        // Função para converter grupos (pode vir como string separada por vírgula)
+        const convertGrupos = (value: any): string[] => {
+          if (!value) return []
+          if (Array.isArray(value)) return value
+          if (typeof value === 'string') {
+            // Se for string separada por vírgula, split
+            const nomes = value.split(',').map(n => n.trim()).filter(n => n)
+            // Buscar IDs dos grupos pelos nomes
+            return nomes.map(nome => {
+              const grupo = masterDataStore.grupos?.find(g => g.nome.toLowerCase() === nome.toLowerCase())
+              return grupo?.id
+            }).filter(id => id) as string[]
+          }
+          return []
+        }
+
         const contact = {
           nome: row['Nome'] || row['nome'] || '',
           email: row['E-mail'] || row['email'] || '',
@@ -172,6 +188,7 @@ export default function MaillingListPage() {
           filial: row['Filial'] || row['filial'] || '',
           superior: row['Superior'] || row['superior'] || '',
           posicaoEmail: convertPosicaoEmail(row['Posição E-mail'] || row['posicaoEmail'] || 'PARA'),
+          grupos: convertGrupos(row['Grupos'] || row['grupos'] || ''),
           cancelamento: convertSimNao(row['Cancelamento'] || row['cancelamento'] || ''),
           alteracaoContratual: convertSimNao(row['Alteração Contratual'] || row['alteracaoContratual'] || ''),
           alteracaoDadosCliente: convertSimNao(row['Alteração Dados Cliente'] || row['alteracaoDadosCliente'] || ''),
@@ -583,6 +600,7 @@ export default function MaillingListPage() {
                   <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem', backgroundColor: 'grey.50', minWidth: '100px', padding: '8px 4px' }}><strong>Superior</strong></TableCell>
                   <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem', backgroundColor: 'grey.50', minWidth: '180px', padding: '8px 4px' }}><strong>E-mail</strong></TableCell>
                   <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem', backgroundColor: 'grey.50', minWidth: '100px', padding: '8px 4px' }}><strong>Posição</strong></TableCell>
+                  <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem', backgroundColor: 'grey.50', minWidth: '150px', padding: '8px 4px' }}><strong>Grupos</strong></TableCell>
                   <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem', backgroundColor: 'grey.50', minWidth: '60px', padding: '8px 4px' }}><strong>Cancel</strong></TableCell>
                   <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem', backgroundColor: 'grey.50', minWidth: '60px', padding: '8px 4px' }}><strong>Contrato</strong></TableCell>
                   <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem', backgroundColor: 'grey.50', minWidth: '60px', padding: '8px 4px' }}><strong>Dados</strong></TableCell>
@@ -669,6 +687,27 @@ export default function MaillingListPage() {
                       <Typography noWrap>
                         {contact.posicaoEmail || <Chip label="Não informado" size="small" variant="outlined" sx={{ fontSize: '0.7rem', height: '20px' }} />}
                       </Typography>
+                    </TableCell>
+                    <TableCell sx={{ fontSize: '0.8rem', minWidth: '150px', padding: '4px 6px' }}>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                        {contact.grupos && contact.grupos.length > 0 ? (
+                          contact.grupos.map(grupoId => {
+                            const grupo = masterDataStore.grupos?.find(g => g.id === grupoId)
+                            return grupo ? (
+                              <Chip 
+                                key={grupoId}
+                                label={grupo.nome} 
+                                size="small" 
+                                color="primary" 
+                                variant="outlined" 
+                                sx={{ fontSize: '0.65rem', height: '20px' }} 
+                              />
+                            ) : null
+                          })
+                        ) : (
+                          <Chip label="Sem grupos" size="small" variant="outlined" sx={{ fontSize: '0.7rem', height: '20px' }} />
+                        )}
+                      </Box>
                     </TableCell>
                     <TableCell sx={{ minWidth: '60px', textAlign: 'center', padding: '4px 2px' }}>
                       {contact.cancelamento === 'sim' ? 
