@@ -10,8 +10,8 @@ interface MaillingState {
   savedFilters: SavedFilter[]
   add: (contact: Omit<MaillingContact, 'id' | 'createdAt' | 'updatedAt' | 'changeLog'>) => Promise<void>
   update: (id: string, updates: Partial<MaillingContact>) => void
-  remove: (id: string) => void
-  removeMultiple: (ids: string[]) => void
+  remove: (id: string) => Promise<void>
+  removeMultiple: (ids: string[]) => Promise<void>
   getFiltered: (filters: MaillingFilter) => MaillingContact[]
   exportToExcel: () => void
   exportEmailsToExcel: (contacts: MaillingContact[]) => void
@@ -199,7 +199,7 @@ export const useMaillingStore = create<MaillingState>()(
         })
       },
       
-      remove: (id) => {
+      remove: async (id) => {
         const authStore = useAuthStore.getState()
         const currentUser = authStore.user
         
@@ -216,8 +216,17 @@ export const useMaillingStore = create<MaillingState>()(
             description: 'Contato removido do sistema'
           }
           
-          // Aqui poderíamos salvar o log de exclusão em um arquivo ou banco separado
           console.log('Log de exclusão:', deletionLog)
+          
+          // Deletar do banco de dados
+          try {
+            const { api } = await import('../lib/api')
+            await api.delete(`/mailling/${id}`)
+            console.log('✅ Contato deletado do banco de dados:', id)
+          } catch (error) {
+            console.error('❌ Erro ao deletar contato do banco:', error)
+            // Continua para deletar do localStorage mesmo se a API falhar
+          }
         }
         
         set((state) => {
@@ -230,26 +239,41 @@ export const useMaillingStore = create<MaillingState>()(
         })
       },
       
-      removeMultiple: (ids) => {
+      removeMultiple: async (ids) => {
         const authStore = useAuthStore.getState()
         const currentUser = authStore.user
         
         // Antes de remover, vamos salvar o log das exclusões
         const contactsToRemove = get().contacts.filter(c => ids.includes(c.id))
-        contactsToRemove.forEach(contact => {
-          const deletionLog: ChangeLogEntry = {
-            id: crypto.randomUUID(),
-            timestamp: new Date().toISOString(),
-            field: 'exclusão em lote',
-            oldValue: 'Contato ativo',
-            newValue: 'Contato removido',
-            changedBy: currentUser ? `${currentUser.name} (${currentUser.role})` : 'Usuário não identificado',
-            description: 'Contato removido em exclusão em lote'
-          }
+        
+        // Deletar do banco de dados primeiro
+        try {
+          const { api } = await import('../lib/api')
           
-          // Aqui poderíamos salvar o log de exclusão em um arquivo ou banco separado
-          console.log('Log de exclusão em lote:', deletionLog)
-        })
+          for (const contact of contactsToRemove) {
+            const deletionLog: ChangeLogEntry = {
+              id: crypto.randomUUID(),
+              timestamp: new Date().toISOString(),
+              field: 'exclusão em lote',
+              oldValue: 'Contato ativo',
+              newValue: 'Contato removido',
+              changedBy: currentUser ? `${currentUser.name} (${currentUser.role})` : 'Usuário não identificado',
+              description: 'Contato removido em exclusão em lote'
+            }
+            
+            console.log('Log de exclusão em lote:', deletionLog)
+            
+            try {
+              await api.delete(`/mailling/${contact.id}`)
+              console.log('✅ Contato deletado do banco de dados:', contact.id)
+            } catch (error) {
+              console.error('❌ Erro ao deletar contato do banco:', contact.id, error)
+              // Continua para próximo contato
+            }
+          }
+        } catch (error) {
+          console.error('❌ Erro geral na exclusão em lote:', error)
+        }
         
         set((state) => {
           const updatedContacts = state.contacts.filter(contact => !ids.includes(contact.id))
