@@ -192,7 +192,7 @@ export const useMasterDataStore = create<MasterDataState>()(
             
             // Fazer requisições paralelas para todos os endpoints
             const [
-              clientes, contratos, operadoras, produtos, sistemas, analistas, areas,
+              clientes, contratos, operadoras, produtos, sistemas, grupos, analistas, areas,
               tiposCadastro, tiposServico, tiposDemanda, solicitantes, relatorios, modelos, padrao,
               areasMailling, cargosMailling, filiaisMailling
             ] = await Promise.all([
@@ -201,6 +201,7 @@ export const useMasterDataStore = create<MasterDataState>()(
               fetch('https://nigteste-production.up.railway.app/operadoras').then(r => r.json()).catch(() => []),
               fetch('https://nigteste-production.up.railway.app/produtos').then(r => r.json()).catch(() => []),
               fetch('https://nigteste-production.up.railway.app/sistemas').then(r => r.json()).catch(() => []),
+              fetch('https://nigteste-production.up.railway.app/grupos').then(r => r.json()).catch(() => []),
               fetch('https://nigteste-production.up.railway.app/analistas').then(r => r.json()).catch(() => []),
               fetch('https://nigteste-production.up.railway.app/areas').then(r => r.json()).catch(() => []),
               fetch('https://nigteste-production.up.railway.app/tiposCadastro').then(r => r.json()).catch(() => []),
@@ -222,6 +223,7 @@ export const useMasterDataStore = create<MasterDataState>()(
               operadoras: operadoras?.length || 0,
               produtos: produtos?.length || 0,
               sistemas: sistemas?.length || 0,
+              grupos: grupos?.length || 0,
               analistas: analistas?.length || 0,
               areas: areas?.length || 0
             })
@@ -270,6 +272,7 @@ export const useMasterDataStore = create<MasterDataState>()(
               operadoras: mergeData(operadoras, localState.operadoras, 'operadoras'),
               produtos: mergeData(produtos, localState.produtos, 'produtos'),
               sistemas: mergeData(sistemas, localState.sistemas, 'sistemas'),
+              grupos: mergeData(grupos, localState.grupos, 'grupos'),
               analistas: mergeData(analistas, localState.analistas, 'analistas'),
               areas: mergeData(areas, localState.areas, 'areas'),
               tiposCadastro: mergeData(tiposCadastro, localState.tiposCadastro, 'tiposCadastro'),
