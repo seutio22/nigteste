@@ -304,6 +304,19 @@ model Mailling {
   totalEnvios  Int       @default(0)
   aberturas    Int       @default(0)
   cliques      Int       @default(0)
+  // Novos campos para suportar todos os dados do frontend
+  posicaoEmail            String?  // PARA, CÓPIA, CÓPIA OCULTA
+  grupos                  String?  // JSON array de IDs
+  filiais                 String?  // JSON array de IDs
+  area                    String?  // ID da área
+  cancelamento            String?  // sim/nao
+  alteracaoContratual     String?  // sim/nao
+  alteracaoDadosCliente   String?  // sim/nao
+  alteracaoServicos       String?  // sim/nao
+  alteracaoRemuneracao    String?  // sim/nao
+  curadoriaPortalRh       String?  // sim/nao
+  documentacaoContratual  String?  // sim/nao
+  changeLog               String?  // JSON array de alterações
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 }

@@ -1,7 +1,7 @@
 {
   "name": "demandas-api-novo",
-  "version": "2.3.4",
-  "description": "Backend API - 2.3.4 - CORREÇÃO ANALYTICS: Remover campo userId (não existe no modelo Report)",
+  "version": "2.4.0",
+  "description": "Backend API - 2.4.0 - MAILLING: Schema completo com todos os campos (grupos, filiais, parâmetros de segmentação)",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
