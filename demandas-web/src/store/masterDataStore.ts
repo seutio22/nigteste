@@ -211,10 +211,10 @@ export const useMasterDataStore = create<MasterDataState>()(
               fetch('https://nigteste-production.up.railway.app/relatorios').then(r => r.json()).catch(() => []),
               fetch('https://nigteste-production.up.railway.app/modelos').then(r => r.json()).catch(() => []),
               fetch('https://nigteste-production.up.railway.app/padrao').then(r => r.json()).catch(() => []),
-              // CORREÇÃO DEFINITIVA: Endpoints Mailling suprimidos - v2
-              Promise.resolve([]), // areasMailling - SEM ERRO 404
-              Promise.resolve([]), // cargosMailling - SEM ERRO 404
-              Promise.resolve([])  // filiaisMailling - SEM ERRO 404
+              // Endpoints Mailling ATIVADOS - Dados agora vêm do banco de dados
+              fetch('https://nigteste-production.up.railway.app/areas-mailling').then(r => r.json()).catch(() => []),
+              fetch('https://nigteste-production.up.railway.app/cargos-mailling').then(r => r.json()).catch(() => []),
+              fetch('https://nigteste-production.up.railway.app/filiais-mailling').then(r => r.json()).catch(() => [])
             ])
             
             console.log('✅ MasterDataStore: Dados recebidos da API:', {
@@ -225,7 +225,10 @@ export const useMasterDataStore = create<MasterDataState>()(
               sistemas: sistemas?.length || 0,
               grupos: grupos?.length || 0,
               analistas: analistas?.length || 0,
-              areas: areas?.length || 0
+              areas: areas?.length || 0,
+              areasMailling: areasMailling?.length || 0,
+              cargosMailling: cargosMailling?.length || 0,
+              filiaisMailling: filiaisMailling?.length || 0
             })
             
             // Fazer merge inteligente dos dados
