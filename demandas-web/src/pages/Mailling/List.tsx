@@ -66,7 +66,21 @@ export default function MaillingListPage() {
   
   // Sincronizar com a API quando a página carregar
   useEffect(() => {
+    // Sincronizar contatos de mailling
     maillingStore.syncFromApi()
+    
+    // Sincronizar dados mestres (grupos, áreas, cargos, filiais)
+    if (masterDataStore.syncFromApi) {
+      console.log('🔄 Mailling: Sincronizando dados mestres (grupos, áreas, cargos, filiais)...')
+      masterDataStore.syncFromApi().then(() => {
+        console.log('✅ Mailling: Dados mestres sincronizados:', {
+          grupos: masterDataStore.grupos?.length || 0,
+          areasMailling: masterDataStore.areasMailling?.length || 0,
+          cargosMailling: masterDataStore.cargosMailling?.length || 0,
+          filiaisMailling: masterDataStore.filiaisMailling?.length || 0
+        })
+      })
+    }
   }, [])
   
   // Contatos filtrados
