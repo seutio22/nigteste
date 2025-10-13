@@ -44,10 +44,23 @@ export const useMaillingStore = create<MaillingState>()(
             telefone: contact.superior || '',
             empresa: contact.area || '',
             cargo: contact.cargo || '',
-            departamento: contact.filial || '',
+            departamento: '', // Não mais usado - migrado para filiais
             categoria: 'Geral',
             status: 'Ativo',
-            origem: 'Sistema'
+            origem: 'Sistema',
+            // Novos campos
+            posicaoEmail: contact.posicaoEmail || 'PARA',
+            grupos: JSON.stringify(contact.grupos || []),
+            filiais: JSON.stringify(contact.filiais || []),
+            area: contact.area || '',
+            cancelamento: contact.cancelamento || 'nao',
+            alteracaoContratual: contact.alteracaoContratual || 'nao',
+            alteracaoDadosCliente: contact.alteracaoDadosCliente || 'nao',
+            alteracaoServicos: contact.alteracaoServicos || 'nao',
+            alteracaoRemuneracao: contact.alteracaoRemuneracao || 'nao',
+            curadoriaPortalRh: contact.curadoriaPortalRh || 'nao',
+            documentacaoContratual: contact.documentacaoContratual || 'nao',
+            changeLog: JSON.stringify([])
           }
           
           // Chamar a API para salvar no banco
@@ -528,37 +541,47 @@ export const useMaillingStore = create<MaillingState>()(
           console.log('📊 MaillingStore: Dados recebidos da API:', apiContacts.length, 'itens')
           
           // Converter dados da API para o formato do frontend
-          const convertedContacts: MaillingContact[] = apiContacts.map((apiContact: any) => ({
-            id: apiContact.id,
-            nome: apiContact.nome,
-            email: apiContact.email,
-            cargo: apiContact.cargo || '',
-            area: apiContact.empresa || '',
-            filiais: apiContact.departamento ? [apiContact.departamento] : [],
-            superior: apiContact.telefone || '',
-            posicaoEmail: 'PARA',
-            informativos: 'nao',
-            cancelamento: 'nao',
-            alteracaoContratual: 'nao',
-            alteracaoDadosCliente: 'nao',
-            alteracaoServicos: 'nao',
-            aniversarioClientes: 'nao',
-            alteracaoRemuneracao: 'nao',
-            dexpara: 'nao',
-            curadoriaPortalRh: 'nao',
-            documentacaoContratual: 'nao',
-            createdAt: apiContact.createdAt || new Date().toISOString(),
-            updatedAt: apiContact.updatedAt || new Date().toISOString(),
-            changeLog: [{
-              id: crypto.randomUUID(),
-              timestamp: new Date().toISOString(),
-              field: 'sincronização',
-              oldValue: '',
-              newValue: 'Dados sincronizados da API',
-              changedBy: 'Sistema',
-              description: 'Contato carregado do banco de dados'
-            }]
-          }))
+          const convertedContacts: MaillingContact[] = apiContacts.map((apiContact: any) => {
+            // Função auxiliar para parse seguro de JSON
+            const parseJSON = (value: any, fallback: any = []) => {
+              if (!value) return fallback
+              try {
+                return JSON.parse(value)
+              } catch {
+                return fallback
+              }
+            }
+            
+            return {
+              id: apiContact.id,
+              nome: apiContact.nome,
+              email: apiContact.email,
+              cargo: apiContact.cargo || '',
+              area: apiContact.area || apiContact.empresa || '',
+              filiais: parseJSON(apiContact.filiais, []),
+              superior: apiContact.telefone || '',
+              posicaoEmail: apiContact.posicaoEmail || 'PARA',
+              grupos: parseJSON(apiContact.grupos, []),
+              cancelamento: apiContact.cancelamento || 'nao',
+              alteracaoContratual: apiContact.alteracaoContratual || 'nao',
+              alteracaoDadosCliente: apiContact.alteracaoDadosCliente || 'nao',
+              alteracaoServicos: apiContact.alteracaoServicos || 'nao',
+              alteracaoRemuneracao: apiContact.alteracaoRemuneracao || 'nao',
+              curadoriaPortalRh: apiContact.curadoriaPortalRh || 'nao',
+              documentacaoContratual: apiContact.documentacaoContratual || 'nao',
+              createdAt: apiContact.createdAt || new Date().toISOString(),
+              updatedAt: apiContact.updatedAt || new Date().toISOString(),
+              changeLog: parseJSON(apiContact.changeLog, [{
+                id: crypto.randomUUID(),
+                timestamp: new Date().toISOString(),
+                field: 'sincronização',
+                oldValue: '',
+                newValue: 'Dados sincronizados da API',
+                changedBy: 'Sistema',
+                description: 'Contato carregado do banco de dados'
+              }])
+            }
+          })
           
           // Atualizar o store
           set({ contacts: convertedContacts })
