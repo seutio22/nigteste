@@ -194,7 +194,8 @@ export default function AnalyticsPage() {
     area: md.areas.find(a => a.id === r.area)?.nome ?? '',
     cliente: md.clientes.find(c => c.id === r.cliente)?.nome ?? '',
     contrato: md.contratos.find(c => c.id === r.contrato)?.codigo ?? '',
-    dataEntrega: new Date(r.dataEntrega).toLocaleDateString('pt-BR'),
+    // Corrigido: Formatar data sem timezone (mesmo formato usado no Detail)
+    dataEntrega: r.dataEntrega ? r.dataEntrega.split('T')[0].split('-').reverse().join('/') : '-',
     dataAtualizacao: new Date(r.dataAtualizacao).toLocaleString('pt-BR'),
   }))
 
