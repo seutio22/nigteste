@@ -2324,7 +2324,7 @@ const resources = {
   services: crud('tipoServico'), // Alias para /services
   'kanban-tickets': crud('kanbanTicket'), // Endpoint para kanban tickets
   // Endpoints adicionais que estavam faltando
-  analytics: crud('analytics'),
+  analytics: crud('report'), // ✅ CORRIGIDO: Analytics usa modelo Report, não Analytics
   reports: crud('report'),
   // solicitantes: crud('solicitante'), // Removido - usando plugin específico em routes/masterData.ts
   // relatorios: crud('relatorio'), // Removido - usando plugin específico em routes/masterData.ts

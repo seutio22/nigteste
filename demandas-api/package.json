@@ -1,7 +1,7 @@
 {
   "name": "demandas-api-novo",
-  "version": "2.3.0",
-  "description": "Backend API - 2.3.0 - KANBAN BACKEND COMPLETO - ENDPOINTS CRUD",
+  "version": "2.3.1",
+  "description": "Backend API - 2.3.1 - CORREÇÃO ANALYTICS: Endpoint POST usa modelo Report",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
