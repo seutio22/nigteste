@@ -112,7 +112,23 @@ const templates: Record<string, TemplateInfo> = {
   mailling: {
     name: 'Modelo de Mailling',
     description: 'Template para importação de contatos de mailling com todas as colunas necessárias',
-    fields: ['Nome', 'E-mail', 'Cargo', 'Área', 'Filial', 'Superior', 'Posição E-mail', 'Grupos (separados por vírgula)', 'Cancelamento', 'Alteração Contratual', 'Alteração Dados Cliente', 'Alteração Serviços', 'Alteração Remuneração', 'Curadoria Portal RH', 'Documentação Contratual'],
+    fields: [
+      'Nome (obrigatório)',
+      'E-mail (obrigatório)',
+      'Cargo',
+      'Área',
+      'Filial',
+      'Superior',
+      'Posição E-mail (PARA, CÓPIA ou CÓPIA OCULTA)',
+      'Grupos (separados por vírgula - ex: Vendas, Marketing, TI)',
+      'Cancelamento (Sim ou Não)',
+      'Alteração Contratual (Sim ou Não)',
+      'Alteração Dados Cliente (Sim ou Não)',
+      'Alteração Serviços (Sim ou Não)',
+      'Alteração Remuneração (Sim ou Não)',
+      'Curadoria Portal RH (Sim ou Não)',
+      'Documentação Contratual (Sim ou Não)'
+    ],
     downloadUrl: '/templates/mailling-template.xlsx'
   },
   analytics: {
