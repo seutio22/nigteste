@@ -1,7 +1,7 @@
 {
   "name": "demandas-api-novo",
-  "version": "2.3.3",
-  "description": "Backend API - 2.3.3 - CORREÇÃO ANALYTICS: Lógica corrigida para remover strings vazias",
+  "version": "2.3.4",
+  "description": "Backend API - 2.3.4 - CORREÇÃO ANALYTICS: Remover campo userId (não existe no modelo Report)",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",

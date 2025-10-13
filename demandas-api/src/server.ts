@@ -1851,6 +1851,12 @@ function crud(entity: keyof PrismaClient) {
         const reportData = { ...data as any };
         console.log('🔍 REPORT CREATE: Dados recebidos:', JSON.stringify(reportData, null, 2));
         
+        // Remover campo userId que não existe no modelo Report
+        if ('userId' in reportData) {
+          delete reportData.userId;
+          console.log('🔍 REPORT CREATE: Campo userId removido (não existe no modelo Report)');
+        }
+        
         // Converter campos de data do formato 'YYYY-MM-DD' para ISO-8601 DateTime
         const dateFields = ['dataInicio', 'dataFinalizacao', 'dataEntrega'];
         
@@ -1991,6 +1997,12 @@ function crud(entity: keyof PrismaClient) {
       if (entity === 'report') {
         const reportData = { ...data as any };
         console.log('🔍 REPORT UPDATE: Dados recebidos:', JSON.stringify(reportData, null, 2));
+        
+        // Remover campo userId que não existe no modelo Report
+        if ('userId' in reportData) {
+          delete reportData.userId;
+          console.log('🔍 REPORT UPDATE: Campo userId removido (não existe no modelo Report)');
+        }
         
         // Converter campos de data do formato 'YYYY-MM-DD' para ISO-8601 DateTime
         const dateFields = ['dataInicio', 'dataFinalizacao', 'dataEntrega'];
