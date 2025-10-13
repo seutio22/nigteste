@@ -245,8 +245,20 @@ export const useMaillingStore = create<MaillingState>()(
         const { contacts } = get()
         return contacts.filter(contact => {
           for (const [key, value] of Object.entries(filters)) {
-            if (value && contact[key as keyof MaillingContact] !== value) {
-              return false
+            if (!value) continue
+            
+            // Tratamento especial para campo grupos (array)
+            if (key === 'grupos' && Array.isArray(value) && value.length > 0) {
+              // Verificar se o contato tem pelo menos um dos grupos filtrados
+              const contactGrupos = contact.grupos || []
+              const hasCommonGroup = value.some(grupoId => contactGrupos.includes(grupoId))
+              if (!hasCommonGroup) return false
+            }
+            // Outros campos (comparação direta)
+            else if (key !== 'grupos') {
+              if (contact[key as keyof MaillingContact] !== value) {
+                return false
+              }
             }
           }
           return true

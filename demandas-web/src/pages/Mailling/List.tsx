@@ -442,6 +442,46 @@ export default function MaillingListPage() {
               </FormControl>
             </Grid>
 
+            <Grid item xs={12} sm={6} md={2}>
+              <FormControl fullWidth size="small">
+                <InputLabel sx={{ fontSize: '0.75rem' }}>Grupos</InputLabel>
+                <Select
+                  multiple
+                  value={filters.grupos || []}
+                  label="Grupos"
+                  onChange={(e) => {
+                    const value = typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value
+                    setFilters(prev => ({ ...prev, grupos: value.length > 0 ? value : undefined }))
+                  }}
+                  renderValue={(selected) => (
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.25 }}>
+                      {selected.map((grupoId) => {
+                        const grupo = masterDataStore.grupos?.find(g => g.id === grupoId)
+                        return (
+                          <Chip 
+                            key={grupoId} 
+                            label={grupo?.nome || grupoId}
+                            size="small"
+                            sx={{ fontSize: '0.6rem', height: '18px' }}
+                          />
+                        )
+                      })}
+                    </Box>
+                  )}
+                  sx={{ 
+                    '& .MuiSelect-select': { fontSize: '0.75rem' },
+                    height: '32px'
+                  }}
+                >
+                  {masterDataStore.grupos?.map(grupo => (
+                    <MenuItem key={grupo.id} value={grupo.id} sx={{ fontSize: '0.75rem' }}>
+                      {grupo.nome}
+                    </MenuItem>
+                  )) || []}
+                </Select>
+              </FormControl>
+            </Grid>
+
             {/* Filtros de segmentação compactos */}
             <Grid item xs={12} sm={6} md={1.5}>
               <FormControl fullWidth size="small">
