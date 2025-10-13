@@ -36,13 +36,15 @@ import {
   Upload as UploadIcon,
   FilterList as FilterIcon,
   Email as EmailIcon,
-  Search as SearchIcon
+  Search as SearchIcon,
+  Bookmark as BookmarkIcon
 } from '@mui/icons-material'
 import { useMaillingStore } from '../../store/maillingStore'
 import { useMasterDataStore } from '../../store/masterDataStore'
 import { MaillingContact, MaillingFilter } from '../../types/mailling'
 import { MaillingForm } from './Form'
 import { UploadModal } from '../../components/UploadModal'
+import { SavedFiltersModal } from '../../components/SavedFiltersModal'
 
 export default function MaillingListPage() {
   const maillingStore = useMaillingStore()
@@ -54,6 +56,7 @@ export default function MaillingListPage() {
   const [editingContact, setEditingContact] = useState<MaillingContact | null>(null)
   const [uploadModalOpen, setUploadModalOpen] = useState(false)
   const [emailsPopupOpen, setEmailsPopupOpen] = useState(false)
+  const [savedFiltersModalOpen, setSavedFiltersModalOpen] = useState(false)
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as const })
   
   // Filtros
@@ -123,6 +126,15 @@ export default function MaillingListPage() {
   const clearFilters = () => {
     setFilters({})
     setSearchTerm('')
+  }
+  
+  const handleApplyFilter = (filtros: MaillingFilter) => {
+    setFilters(filtros)
+    setSnackbar({ 
+      open: true, 
+      message: 'Filtro aplicado com sucesso!', 
+      severity: 'success' 
+    })
   }
 
   const handleUpload = async (file: File) => {
@@ -385,6 +397,24 @@ export default function MaillingListPage() {
                 color="secondary"
               >
                 Exportar E-mails ({filteredContacts.length})
+              </Button>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Button
+                fullWidth
+                variant="contained"
+                startIcon={<BookmarkIcon />}
+                onClick={() => setSavedFiltersModalOpen(true)}
+                size="small"
+                color="secondary"
+                sx={{
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #5568d3 0%, #66438c 100%)',
+                  }
+                }}
+              >
+                Filtros Salvos ({maillingStore.savedFilters.length})
               </Button>
             </Grid>
           </Grid>
@@ -920,6 +950,14 @@ export default function MaillingListPage() {
             </Button>
           </DialogActions>
         </Dialog>
+        
+        {/* Modal de Filtros Salvos */}
+        <SavedFiltersModal
+          open={savedFiltersModalOpen}
+          onClose={() => setSavedFiltersModalOpen(false)}
+          currentFilters={filters}
+          onApplyFilter={handleApplyFilter}
+        />
         
         {/* Snackbar */}
         <Snackbar

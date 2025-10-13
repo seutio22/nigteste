@@ -64,4 +64,13 @@ export interface MaillingTemplate {
   updatedAt: string
 }
 
+export interface SavedFilter {
+  id: string
+  nome: string
+  descricao?: string
+  filtros: MaillingFilter
+  createdAt: string
+  updatedAt: string
+}
+
 

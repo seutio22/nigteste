@@ -1,12 +1,13 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { MaillingContact, MaillingFilter, ChangeLogEntry } from '../types/mailling'
+import type { MaillingContact, MaillingFilter, ChangeLogEntry, SavedFilter } from '../types/mailling'
 import { useAuthStore } from './authStore'
 import { useMasterDataStore } from './masterDataStore'
 import * as XLSX from 'xlsx'
 
 interface MaillingState {
   contacts: MaillingContact[]
+  savedFilters: SavedFilter[]
   add: (contact: Omit<MaillingContact, 'id' | 'createdAt' | 'updatedAt' | 'changeLog'>) => Promise<void>
   update: (id: string, updates: Partial<MaillingContact>) => void
   remove: (id: string) => void
@@ -18,12 +19,18 @@ interface MaillingState {
   importFromExcel: (emails: string[], filters: Partial<MaillingFilter>) => void
   addChangeLog: (contactId: string, entry: Omit<ChangeLogEntry, 'id' | 'timestamp'>) => void
   syncFromApi: () => Promise<void>
+  // Métodos para filtros salvos
+  saveFilter: (nome: string, descricao: string, filtros: MaillingFilter) => void
+  updateSavedFilter: (id: string, updates: Partial<SavedFilter>) => void
+  removeSavedFilter: (id: string) => void
+  getSavedFilter: (id: string) => SavedFilter | undefined
 }
 
 export const useMaillingStore = create<MaillingState>()(
   persist(
     (set, get) => ({
       contacts: [],
+      savedFilters: [],
       
       add: async (contact: Omit<MaillingContact, 'id' | 'createdAt' | 'updatedAt' | 'changeLog'>) => {
         const authStore = useAuthStore.getState()
@@ -557,6 +564,49 @@ export const useMaillingStore = create<MaillingState>()(
         } catch (error) {
           console.error('❌ MaillingStore: Erro ao sincronizar com API:', error)
         }
+      },
+      
+      // Métodos para gerenciar filtros salvos
+      saveFilter: (nome: string, descricao: string, filtros: MaillingFilter) => {
+        const newFilter: SavedFilter = {
+          id: crypto.randomUUID(),
+          nome,
+          descricao,
+          filtros,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+        
+        set((state) => ({
+          savedFilters: [...state.savedFilters, newFilter]
+        }))
+        
+        console.log('✅ Filtro salvo:', newFilter.nome)
+      },
+      
+      updateSavedFilter: (id: string, updates: Partial<SavedFilter>) => {
+        set((state) => ({
+          savedFilters: state.savedFilters.map(filter =>
+            filter.id === id
+              ? { ...filter, ...updates, updatedAt: new Date().toISOString() }
+              : filter
+          )
+        }))
+        
+        console.log('✅ Filtro atualizado:', id)
+      },
+      
+      removeSavedFilter: (id: string) => {
+        set((state) => ({
+          savedFilters: state.savedFilters.filter(filter => filter.id !== id)
+        }))
+        
+        console.log('✅ Filtro removido:', id)
+      },
+      
+      getSavedFilter: (id: string) => {
+        const { savedFilters } = get()
+        return savedFilters.find(filter => filter.id === id)
       }
     }),
     { name: 'mailling-v1' }
