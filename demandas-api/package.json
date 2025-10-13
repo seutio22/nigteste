@@ -1,7 +1,7 @@
 {
   "name": "demandas-api-novo",
-  "version": "2.3.1",
-  "description": "Backend API - 2.3.1 - CORREÇÃO ANALYTICS: Endpoint POST usa modelo Report",
+  "version": "2.3.2",
+  "description": "Backend API - 2.3.2 - CORREÇÃO ANALYTICS: Conversão de datas para ISO-8601",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",

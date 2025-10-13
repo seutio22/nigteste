@@ -1846,6 +1846,33 @@ function crud(entity: keyof PrismaClient) {
         return anyPrisma[entity].create({ data: contratoData });
       }
       
+      // Tratamento específico para reports - converter datas corretamente
+      if (entity === 'report') {
+        const reportData = { ...data as any };
+        console.log('🔍 REPORT CREATE: Dados recebidos:', JSON.stringify(reportData, null, 2));
+        
+        // Converter campos de data do formato 'YYYY-MM-DD' para ISO-8601 DateTime
+        const dateFields = ['dataInicio', 'dataFinalizacao', 'dataEntrega'];
+        
+        for (const field of dateFields) {
+          if (reportData[field]) {
+            // Se for string vazia, remover o campo
+            if (reportData[field] === '') {
+              delete reportData[field];
+              console.log(`🔍 REPORT CREATE: Campo ${field} vazio, removido`);
+            } 
+            // Se for string de data (formato YYYY-MM-DD), converter para ISO DateTime
+            else if (typeof reportData[field] === 'string' && reportData[field].match(/^\d{4}-\d{2}-\d{2}$/)) {
+              reportData[field] = new Date(reportData[field] + 'T00:00:00.000Z');
+              console.log(`🔍 REPORT CREATE: Campo ${field} convertido para DateTime:`, reportData[field]);
+            }
+          }
+        }
+        
+        console.log('🔍 REPORT CREATE: Dados finais para criação:', JSON.stringify(reportData, null, 2));
+        return anyPrisma[entity].create({ data: reportData });
+      }
+      
       // Validação para clientes - evitar grupos econômicos duplicados
       if (entity === 'cliente') {
         const clienteData = data as any;
@@ -1957,6 +1984,33 @@ function crud(entity: keyof PrismaClient) {
         }
         
         return anyPrisma[entity].update({ where: { id }, data: updateData });
+      }
+      
+      // Tratamento específico para reports - converter datas corretamente
+      if (entity === 'report') {
+        const reportData = { ...data as any };
+        console.log('🔍 REPORT UPDATE: Dados recebidos:', JSON.stringify(reportData, null, 2));
+        
+        // Converter campos de data do formato 'YYYY-MM-DD' para ISO-8601 DateTime
+        const dateFields = ['dataInicio', 'dataFinalizacao', 'dataEntrega'];
+        
+        for (const field of dateFields) {
+          if (reportData[field]) {
+            // Se for string vazia, remover o campo (não atualizar)
+            if (reportData[field] === '') {
+              delete reportData[field];
+              console.log(`🔍 REPORT UPDATE: Campo ${field} vazio, removido`);
+            } 
+            // Se for string de data (formato YYYY-MM-DD), converter para ISO DateTime
+            else if (typeof reportData[field] === 'string' && reportData[field].match(/^\d{4}-\d{2}-\d{2}$/)) {
+              reportData[field] = new Date(reportData[field] + 'T00:00:00.000Z');
+              console.log(`🔍 REPORT UPDATE: Campo ${field} convertido para DateTime:`, reportData[field]);
+            }
+          }
+        }
+        
+        console.log('🔍 REPORT UPDATE: Dados finais para atualização:', JSON.stringify(reportData, null, 2));
+        return anyPrisma[entity].update({ where: { id }, data: reportData });
       }
       
       // Validação para clientes - evitar grupos econômicos duplicados
