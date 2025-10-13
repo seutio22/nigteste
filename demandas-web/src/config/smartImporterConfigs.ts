@@ -338,10 +338,10 @@ export const smartImporterConfigs: { [key: string]: SmartImporterConfig } = {
     entityType: 'Mailling',
     requiredFields: ['nome', 'email'],
     optionalFields: [
-      'cargo', 'area', 'filial', 'superior', 'posicaoEmail',
-      'informativos', 'cancelamento', 'alteracaoContratual',
-      'alteracaoDadosCliente', 'alteracaoServicos', 'aniversarioClientes',
-      'alteracaoRemuneracao', 'dexpara', 'curadoriaPortalRh',
+      'cargo', 'area', 'filial', 'superior', 'posicaoEmail', 'grupos',
+      'cancelamento', 'alteracaoContratual',
+      'alteracaoDadosCliente', 'alteracaoServicos',
+      'alteracaoRemuneracao', 'curadoriaPortalRh',
       'documentacaoContratual'
     ],
     duplicateCheckFields: ['email'],
@@ -384,6 +384,14 @@ export const smartImporterConfigs: { [key: string]: SmartImporterConfig } = {
         referenceStore: 'filiaisMailling',
         displayField: 'nome',
         valueField: 'id'
+      },
+      {
+        field: 'grupos',
+        referenceType: 'grupos',
+        referenceStore: 'grupos',
+        displayField: 'nome',
+        valueField: 'id',
+        isMultiple: true
       }
     ]
   },

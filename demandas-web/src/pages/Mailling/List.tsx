@@ -43,8 +43,10 @@ import { useMaillingStore } from '../../store/maillingStore'
 import { useMasterDataStore } from '../../store/masterDataStore'
 import { MaillingContact, MaillingFilter } from '../../types/mailling'
 import { MaillingForm } from './Form'
-import { UploadModal } from '../../components/UploadModal'
+import { SmartImporter } from '../../components/SmartImporter'
 import { SavedFiltersModal } from '../../components/SavedFiltersModal'
+import { smartImporterConfigs } from '../../config/smartImporterConfigs'
+import type { ImportResult } from '../../types/smartImporter'
 
 export default function MaillingListPage() {
   const maillingStore = useMaillingStore()
@@ -54,7 +56,7 @@ export default function MaillingListPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [formOpen, setFormOpen] = useState(false)
   const [editingContact, setEditingContact] = useState<MaillingContact | null>(null)
-  const [uploadModalOpen, setUploadModalOpen] = useState(false)
+  const [smartImporterOpen, setSmartImporterOpen] = useState(false)
   const [emailsPopupOpen, setEmailsPopupOpen] = useState(false)
   const [savedFiltersModalOpen, setSavedFiltersModalOpen] = useState(false)
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as const })
@@ -136,118 +138,48 @@ export default function MaillingListPage() {
       severity: 'success' 
     })
   }
-
-  const handleUpload = async (file: File) => {
+  
+  const handleSmartImport = async (result: ImportResult) => {
     try {
-      console.log('📁 Processando arquivo de mailling:', file.name)
+      console.log('📊 SmartImporter: Resultado recebido:', result)
       
-      // Ler o arquivo Excel
-      const data = await file.arrayBuffer()
-      const workbook = XLSX.read(data)
-      const sheetName = workbook.SheetNames[0]
-      const worksheet = workbook.Sheets[sheetName]
-      
-      // Converter para JSON
-      const jsonData = XLSX.utils.sheet_to_json(worksheet)
-      console.log('📊 Dados lidos do Excel:', jsonData.length, 'linhas')
-      console.log('📊 Primeira linha do Excel:', jsonData[0])
-      
-      // Processar cada linha
-      const newContacts: Omit<MaillingContact, 'id' | 'createdAt' | 'updatedAt' | 'changeLog'>[] = []
-      
-      for (const row of jsonData) {
-        console.log('📊 Processando linha:', row)
+      // Processar itens válidos
+      for (const item of result.validItems) {
+        const contactData = item.data as any
         
-        // Função para converter Sim/Não para sim/nao
-        const convertSimNao = (value: string) => {
-          if (!value) return 'nao'
-          const lowerValue = value.toLowerCase().trim()
-          if (lowerValue === 'sim' || lowerValue === 's') return 'sim'
-          if (lowerValue === 'não' || lowerValue === 'nao' || lowerValue === 'n') return 'nao'
-          return 'nao'
-        }
-
-        // Função para converter posição de e-mail
-        const convertPosicaoEmail = (value: string) => {
-          if (!value) return 'PARA'
-          const lowerValue = value.toLowerCase().trim()
-          if (lowerValue.includes('cópia oculta') || lowerValue.includes('copia oculta')) return 'CÓPIA OCULTA'
-          if (lowerValue.includes('cópia') || lowerValue.includes('copia')) return 'CÓPIA'
-          return 'PARA'
-        }
-
-        // Função para converter grupos (pode vir como string separada por vírgula)
-        const convertGrupos = (value: any): string[] => {
-          if (!value) return []
-          if (Array.isArray(value)) return value
-          if (typeof value === 'string') {
-            // Se for string separada por vírgula, split
-            const nomes = value.split(',').map(n => n.trim()).filter(n => n)
-            // Buscar IDs dos grupos pelos nomes
-            return nomes.map(nome => {
-              const grupo = masterDataStore.grupos?.find(g => g.nome.toLowerCase() === nome.toLowerCase())
-              return grupo?.id
-            }).filter(id => id) as string[]
-          }
-          return []
-        }
-
-        const contact = {
-          nome: row['Nome'] || row['nome'] || '',
-          email: row['E-mail'] || row['email'] || '',
-          cargo: row['Cargo'] || row['cargo'] || '',
-          area: row['Área'] || row['area'] || '',
-          filial: row['Filial'] || row['filial'] || '',
-          superior: row['Superior'] || row['superior'] || '',
-          posicaoEmail: convertPosicaoEmail(row['Posição E-mail'] || row['posicaoEmail'] || 'PARA'),
-          grupos: convertGrupos(row['Grupos'] || row['grupos'] || ''),
-          cancelamento: convertSimNao(row['Cancelamento'] || row['cancelamento'] || ''),
-          alteracaoContratual: convertSimNao(row['Alteração Contratual'] || row['alteracaoContratual'] || ''),
-          alteracaoDadosCliente: convertSimNao(row['Alteração Dados Cliente'] || row['alteracaoDadosCliente'] || ''),
-          alteracaoServicos: convertSimNao(row['Alteração Serviços'] || row['alteracaoServicos'] || ''),
-          alteracaoRemuneracao: convertSimNao(row['Alteração Remuneração'] || row['alteracaoRemuneracao'] || ''),
-          curadoriaPortalRh: convertSimNao(row['Curadoria Portal RH'] || row['curadoriaPortalRh'] || ''),
-          documentacaoContratual: convertSimNao(row['Documentação Contratual'] || row['documentacaoContratual'] || '')
-        }
-        
-        console.log('📊 Contato processado:', contact)
-        console.log('📊 Nome:', contact.nome, 'Email:', contact.email)
-        
-        // Validar se tem pelo menos nome ou email
-        console.log('🔍 Validação - Nome:', contact.nome, 'Email:', contact.email)
-        console.log('🔍 Validação - Nome válido:', !!contact.nome, 'Email válido:', !!contact.email)
-        
-        // Aceitar contato se tiver pelo menos nome ou email
-        if (contact.nome || contact.email) {
-          // Se não tiver nome, usar email como nome
-          if (!contact.nome && contact.email) {
-            contact.nome = contact.email
-          }
-          // Se não tiver email, usar nome como email
-          if (!contact.email && contact.nome) {
-            contact.email = contact.nome + '@exemplo.com'
-          }
-          
-          newContacts.push(contact)
-          console.log('✅ Contato válido adicionado')
-        } else {
-          console.log('❌ Contato inválido - falta nome e email')
-          console.log('❌ Nome vazio:', !contact.nome, 'Email vazio:', !contact.email)
-        }
+        await maillingStore.add({
+          nome: contactData.nome || '',
+          email: contactData.email || '',
+          cargo: contactData.cargo || '',
+          area: contactData.area || '',
+          filial: contactData.filial || '',
+          superior: contactData.superior || '',
+          posicaoEmail: contactData.posicaoEmail || 'PARA',
+          grupos: contactData.grupos || [],
+          cancelamento: contactData.cancelamento || 'nao',
+          alteracaoContratual: contactData.alteracaoContratual || 'nao',
+          alteracaoDadosCliente: contactData.alteracaoDadosCliente || 'nao',
+          alteracaoServicos: contactData.alteracaoServicos || 'nao',
+          alteracaoRemuneracao: contactData.alteracaoRemuneracao || 'nao',
+          curadoriaPortalRh: contactData.curadoriaPortalRh || 'nao',
+          documentacaoContratual: contactData.documentacaoContratual || 'nao'
+        })
       }
       
-      console.log('✅ Contatos válidos encontrados:', newContacts.length)
+      setSnackbar({ 
+        open: true, 
+        message: `${result.validItems.length} contato(s) importado(s) com sucesso!`, 
+        severity: 'success' 
+      })
       
-      // Adicionar contatos ao store
-      for (const contact of newContacts) {
-        await maillingStore.add(contact)
-      }
-      
-      console.log('✅ Upload concluído com sucesso!')
-      
+      console.log('✅ Importação concluída com sucesso!')
     } catch (error) {
-      console.error('❌ Erro ao processar arquivo:', error)
-      throw new Error('Erro ao processar arquivo Excel')
+      console.error('❌ Erro ao importar contatos:', error)
+      setSnackbar({ 
+        open: true, 
+        message: 'Erro ao importar contatos', 
+        severity: 'error' 
+      })
     }
   }
   
@@ -266,7 +198,7 @@ export default function MaillingListPage() {
               <Button
                 variant="outlined"
                 startIcon={<UploadIcon />}
-                onClick={() => setUploadModalOpen(true)}
+                onClick={() => setSmartImporterOpen(true)}
                 size="medium"
                 className="text-primary-600 border-primary-300 hover:text-primary-700 hover:border-primary-400 hover:bg-primary-50 transition-all duration-300 font-medium"
                 sx={{
@@ -368,7 +300,7 @@ export default function MaillingListPage() {
                 fullWidth
                 variant="outlined"
                 startIcon={<UploadIcon />}
-                onClick={() => setUploadModalOpen(true)}
+                onClick={() => setSmartImporterOpen(true)}
                 size="small"
               >
                 Importar
@@ -877,13 +809,13 @@ export default function MaillingListPage() {
           onSubmit={handleFormSubmit}
         />
         
-        {/* Modal de Importação */}
-        <UploadModal
-          open={uploadModalOpen}
-          onClose={() => setUploadModalOpen(false)}
-          title="Importar Contatos de Mailling"
-          entityType="mailling"
-          onUpload={handleUpload}
+        {/* SmartImporter - Importador Inteligente */}
+        <SmartImporter
+          open={smartImporterOpen}
+          onClose={() => setSmartImporterOpen(false)}
+          onImport={handleSmartImport}
+          config={smartImporterConfigs.mailling}
+          masterData={masterDataStore}
         />
         
         {/* Popup de E-mails */}
