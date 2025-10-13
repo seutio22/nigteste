@@ -1851,6 +1851,13 @@ function crud(entity: keyof PrismaClient) {
         const reportData = { ...data as any };
         console.log('🔍 REPORT CREATE: Dados recebidos:', JSON.stringify(reportData, null, 2));
         
+        // Verificar e validar campo analista OBRIGATÓRIO
+        if (!reportData.analista || reportData.analista === '') {
+          console.error('❌ REPORT CREATE: Campo analista é obrigatório mas está vazio!');
+          throw new Error('Campo analista é obrigatório');
+        }
+        console.log('✅ REPORT CREATE: Campo analista presente:', reportData.analista);
+        
         // Remover campo userId que não existe no modelo Report
         if ('userId' in reportData) {
           delete reportData.userId;
@@ -1876,8 +1883,14 @@ function crud(entity: keyof PrismaClient) {
           }
         }
         
-        console.log('🔍 REPORT CREATE: Dados finais para criação:', JSON.stringify(reportData, null, 2));
-        return anyPrisma[entity].create({ data: reportData });
+        console.log('🔍 REPORT CREATE: Dados finais para criação (COM ANALISTA):', JSON.stringify(reportData, null, 2));
+        console.log('🔍 REPORT CREATE: Confirmando analista antes de salvar:', reportData.analista);
+        
+        const createdReport = await anyPrisma[entity].create({ data: reportData });
+        console.log('✅ REPORT CREATE: Relatório criado:', createdReport.id);
+        console.log('✅ REPORT CREATE: Analista salvo no banco:', createdReport.analista);
+        
+        return createdReport;
       }
       
       // Validação para clientes - evitar grupos econômicos duplicados
