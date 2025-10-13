@@ -9,14 +9,11 @@ export interface MaillingContact {
   posicaoEmail: 'PARA' | 'CÓPIA OCULTA' | 'CÓPIA'
   
   // Parâmetros de Segmentação (Opcionais)
-  informativos?: 'sim' | 'nao'
   cancelamento?: 'sim' | 'nao'
   alteracaoContratual?: 'sim' | 'nao'
   alteracaoDadosCliente?: 'sim' | 'nao'
   alteracaoServicos?: 'sim' | 'nao'
-  aniversarioClientes?: 'sim' | 'nao'
   alteracaoRemuneracao?: 'sim' | 'nao'
-  dexpara?: 'sim' | 'nao'
   curadoriaPortalRh?: 'sim' | 'nao'
   documentacaoContratual?: 'sim' | 'nao'
   
@@ -45,14 +42,11 @@ export interface MaillingFilter {
   posicaoEmail?: 'PARA' | 'CÓPIA OCULTA' | 'CÓPIA'
   
   // Parâmetros de Segmentação (Opcionais)
-  informativos?: 'sim' | 'nao'
   cancelamento?: 'sim' | 'nao'
   alteracaoContratual?: 'sim' | 'nao'
   alteracaoDadosCliente?: 'sim' | 'nao'
   alteracaoServicos?: 'sim' | 'nao'
-  aniversarioClientes?: 'sim' | 'nao'
   alteracaoRemuneracao?: 'sim' | 'nao'
-  dexpara?: 'sim' | 'nao'
   curadoriaPortalRh?: 'sim' | 'nao'
   documentacaoContratual?: 'sim' | 'nao'
 }

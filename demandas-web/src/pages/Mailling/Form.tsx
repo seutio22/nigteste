@@ -55,14 +55,11 @@ export function MaillingForm({ open, contact, onClose, onSubmit }: MaillingFormP
     filial: '',
     superior: '',
     posicaoEmail: 'PARA' as 'PARA' | 'CÓPIA OCULTA' | 'CÓPIA',
-    informativos: 'nao' as 'sim' | 'nao',
     cancelamento: 'nao' as 'sim' | 'nao',
     alteracaoContratual: 'nao' as 'sim' | 'nao',
     alteracaoDadosCliente: 'nao' as 'sim' | 'nao',
     alteracaoServicos: 'nao' as 'sim' | 'nao',
-    aniversarioClientes: 'nao' as 'sim' | 'nao',
     alteracaoRemuneracao: 'nao' as 'sim' | 'nao',
-    dexpara: 'nao' as 'sim' | 'nao',
     curadoriaPortalRh: 'nao' as 'sim' | 'nao',
     documentacaoContratual: 'nao' as 'sim' | 'nao'
   })
@@ -76,14 +73,11 @@ export function MaillingForm({ open, contact, onClose, onSubmit }: MaillingFormP
         setFormData({
           area: contact.area || '',
           email: contact.email || '',
-          informativos: contact.informativos || 'nao',
           cancelamento: contact.cancelamento || 'nao',
           alteracaoContratual: contact.alteracaoContratual || 'nao',
           alteracaoDadosCliente: contact.alteracaoDadosCliente || 'nao',
           alteracaoServicos: contact.alteracaoServicos || 'nao',
-          aniversarioClientes: contact.aniversarioClientes || 'nao',
           alteracaoRemuneracao: contact.alteracaoRemuneracao || 'nao',
-          dexpara: contact.dexpara || 'nao',
           curadoriaPortalRh: contact.curadoriaPortalRh || 'nao',
           documentacaoContratual: contact.documentacaoContratual || 'nao',
           cargo: contact.cargo || '',
@@ -96,14 +90,11 @@ export function MaillingForm({ open, contact, onClose, onSubmit }: MaillingFormP
         setFormData({
           area: '',
           email: '',
-          informativos: 'nao',
           cancelamento: 'nao',
           alteracaoContratual: 'nao',
           alteracaoDadosCliente: 'nao',
           alteracaoServicos: 'nao',
-          aniversarioClientes: 'nao',
           alteracaoRemuneracao: 'nao',
-          dexpara: 'nao',
           curadoriaPortalRh: 'nao',
           documentacaoContratual: 'nao',
           cargo: '',
@@ -206,8 +197,6 @@ export function MaillingForm({ open, contact, onClose, onSubmit }: MaillingFormP
         return 'E-mail'
       case 'posicaoEmail':
         return 'Posição de E-mail'
-      case 'informativos':
-        return 'Informativos'
       case 'cancelamento':
         return 'Cancelamento'
       case 'alteracaoContratual':
@@ -216,12 +205,8 @@ export function MaillingForm({ open, contact, onClose, onSubmit }: MaillingFormP
         return 'Alteração Dados Cliente'
       case 'alteracaoServicos':
         return 'Alteração Serviços'
-      case 'aniversarioClientes':
-        return 'Aniversário Clientes'
       case 'alteracaoRemuneracao':
         return 'Alteração Remuneração'
-      case 'dexpara':
-        return 'DEXPARA'
       case 'curadoriaPortalRh':
         return 'Curadoria Portal RH'
       case 'documentacaoContratual':
@@ -388,49 +373,6 @@ export function MaillingForm({ open, contact, onClose, onSubmit }: MaillingFormP
           
           {/* Novos parâmetros de segmentação */}
           <Grid container spacing={3}>
-            <Grid item xs={12} sm={6} md={3}>
-              <FormControl fullWidth>
-                <InputLabel>Informativos</InputLabel>
-                <Select
-                  value={formData.informativos}
-                  label="Informativos"
-                  onChange={(e) => handleChange('informativos', e.target.value as 'sim' | 'nao')}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': {
-                        borderColor: 'primary.main',
-                      },
-                    },
-                  }}
-                >
-                  <MenuItem value="sim">
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Box sx={{ 
-                        width: 12, 
-                        height: 12, 
-                        borderRadius: '50%', 
-                        backgroundColor: 'success.main',
-                        boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                      }} />
-                      Sim
-                    </Box>
-                  </MenuItem>
-                  <MenuItem value="nao">
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Box sx={{ 
-                        width: 12, 
-                        height: 12, 
-                        borderRadius: '50%', 
-                        backgroundColor: 'error.main',
-                        boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                      }} />
-                      Não
-                    </Box>
-                  </MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-
             <Grid item xs={12} sm={6} md={3}>
               <FormControl fullWidth>
                 <InputLabel>Cancelamento</InputLabel>
@@ -605,97 +547,11 @@ export function MaillingForm({ open, contact, onClose, onSubmit }: MaillingFormP
 
             <Grid item xs={12} sm={6} md={3}>
               <FormControl fullWidth>
-                <InputLabel>Aniversário Clientes</InputLabel>
-                <Select
-                  value={formData.aniversarioClientes}
-                  label="Aniversário Clientes"
-                  onChange={(e) => handleChange('aniversarioClientes', e.target.value as 'sim' | 'nao')}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': {
-                        borderColor: 'primary.main',
-                      },
-                    },
-                  }}
-                >
-                  <MenuItem value="sim">
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Box sx={{ 
-                        width: 12, 
-                        height: 12, 
-                        borderRadius: '50%', 
-                        backgroundColor: 'success.main',
-                        boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                      }} />
-                      Sim
-                    </Box>
-                  </MenuItem>
-                  <MenuItem value="nao">
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Box sx={{ 
-                        width: 12, 
-                        height: 12, 
-                        borderRadius: '50%', 
-                        backgroundColor: 'error.main',
-                        boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                      }} />
-                      Não
-                    </Box>
-                  </MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-
-            <Grid item xs={12} sm={6} md={3}>
-              <FormControl fullWidth>
                 <InputLabel>Alteração Remuneração</InputLabel>
                 <Select
                   value={formData.alteracaoRemuneracao}
                   label="Alteração Remuneração"
                   onChange={(e) => handleChange('alteracaoRemuneracao', e.target.value as 'sim' | 'nao')}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': {
-                        borderColor: 'primary.main',
-                      },
-                    },
-                  }}
-                >
-                  <MenuItem value="sim">
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Box sx={{ 
-                        width: 12, 
-                        height: 12, 
-                        borderRadius: '50%', 
-                        backgroundColor: 'success.main',
-                        boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                      }} />
-                      Sim
-                    </Box>
-                  </MenuItem>
-                  <MenuItem value="nao">
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Box sx={{ 
-                        width: 12, 
-                        height: 12, 
-                        borderRadius: '50%', 
-                        backgroundColor: 'error.main',
-                        boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                      }} />
-                      Não
-                    </Box>
-                  </MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-
-            <Grid item xs={12} sm={6} md={3}>
-              <FormControl fullWidth>
-                <InputLabel>DEXPARA</InputLabel>
-                <Select
-                  value={formData.dexpara}
-                  label="DEXPARA"
-                  onChange={(e) => handleChange('dexpara', e.target.value as 'sim' | 'nao')}
                   sx={{
                     '& .MuiOutlinedInput-root': {
                       '&:hover fieldset': {

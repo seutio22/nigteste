@@ -172,14 +172,11 @@ export default function MaillingListPage() {
           filial: row['Filial'] || row['filial'] || '',
           superior: row['Superior'] || row['superior'] || '',
           posicaoEmail: convertPosicaoEmail(row['Posição E-mail'] || row['posicaoEmail'] || 'PARA'),
-          informativos: convertSimNao(row['Informativos'] || row['informativos'] || ''),
           cancelamento: convertSimNao(row['Cancelamento'] || row['cancelamento'] || ''),
           alteracaoContratual: convertSimNao(row['Alteração Contratual'] || row['alteracaoContratual'] || ''),
           alteracaoDadosCliente: convertSimNao(row['Alteração Dados Cliente'] || row['alteracaoDadosCliente'] || ''),
           alteracaoServicos: convertSimNao(row['Alteração Serviços'] || row['alteracaoServicos'] || ''),
-          aniversarioClientes: convertSimNao(row['Aniversário Clientes'] || row['aniversarioClientes'] || ''),
           alteracaoRemuneracao: convertSimNao(row['Alteração Remuneração'] || row['alteracaoRemuneracao'] || ''),
-          dexpara: convertSimNao(row['DEXPARA'] || row['dexpara'] || ''),
           curadoriaPortalRh: convertSimNao(row['Curadoria Portal RH'] || row['curadoriaPortalRh'] || ''),
           documentacaoContratual: convertSimNao(row['Documentação Contratual'] || row['documentacaoContratual'] || '')
         }
@@ -431,25 +428,6 @@ export default function MaillingListPage() {
             {/* Filtros de segmentação compactos */}
             <Grid item xs={12} sm={6} md={1.5}>
               <FormControl fullWidth size="small">
-                <InputLabel sx={{ fontSize: '0.7rem' }}>Info</InputLabel>
-                <Select
-                  value={filters.informativos || ''}
-                  label="Info"
-                  onChange={(e) => setFilters(prev => ({ ...prev, informativos: (e.target.value || undefined) as 'sim' | 'nao' | undefined }))}
-                  sx={{ 
-                    '& .MuiSelect-select': { fontSize: '0.7rem' },
-                    height: '32px'
-                  }}
-                >
-                  <MenuItem value="" sx={{ fontSize: '0.7rem' }}>Todos</MenuItem>
-                  <MenuItem value="sim" sx={{ fontSize: '0.7rem' }}>Sim</MenuItem>
-                  <MenuItem value="nao" sx={{ fontSize: '0.7rem' }}>Não</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-
-            <Grid item xs={12} sm={6} md={1.5}>
-              <FormControl fullWidth size="small">
                 <InputLabel sx={{ fontSize: '0.7rem' }}>Cancel</InputLabel>
                 <Select
                   value={filters.cancelamento || ''}
@@ -526,49 +504,11 @@ export default function MaillingListPage() {
 
             <Grid item xs={12} sm={6} md={1.5}>
               <FormControl fullWidth size="small">
-                <InputLabel sx={{ fontSize: '0.7rem' }}>Aniv</InputLabel>
-                <Select
-                  value={filters.aniversarioClientes || ''}
-                  label="Aniv"
-                  onChange={(e) => setFilters(prev => ({ ...prev, aniversarioClientes: (e.target.value || undefined) as 'sim' | 'nao' | undefined }))}
-                  sx={{ 
-                    '& .MuiSelect-select': { fontSize: '0.7rem' },
-                    height: '32px'
-                  }}
-                >
-                  <MenuItem value="" sx={{ fontSize: '0.7rem' }}>Todos</MenuItem>
-                  <MenuItem value="sim" sx={{ fontSize: '0.7rem' }}>Sim</MenuItem>
-                  <MenuItem value="nao" sx={{ fontSize: '0.7rem' }}>Não</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-
-            <Grid item xs={12} sm={6} md={1.5}>
-              <FormControl fullWidth size="small">
                 <InputLabel sx={{ fontSize: '0.7rem' }}>Remun</InputLabel>
                 <Select
                   value={filters.alteracaoRemuneracao || ''}
                   label="Remun"
                   onChange={(e) => setFilters(prev => ({ ...prev, alteracaoRemuneracao: (e.target.value || undefined) as 'sim' | 'nao' | undefined }))}
-                  sx={{ 
-                    '& .MuiSelect-select': { fontSize: '0.7rem' },
-                    height: '32px'
-                  }}
-                >
-                  <MenuItem value="" sx={{ fontSize: '0.7rem' }}>Todos</MenuItem>
-                  <MenuItem value="sim" sx={{ fontSize: '0.7rem' }}>Sim</MenuItem>
-                  <MenuItem value="nao" sx={{ fontSize: '0.7rem' }}>Não</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-
-            <Grid item xs={12} sm={6} md={1.5}>
-              <FormControl fullWidth size="small">
-                <InputLabel sx={{ fontSize: '0.7rem' }}>DEXPARA</InputLabel>
-                <Select
-                  value={filters.dexpara || ''}
-                  label="DEXPARA"
-                  onChange={(e) => setFilters(prev => ({ ...prev, dexpara: (e.target.value || undefined) as 'sim' | 'nao' | undefined }))}
                   sx={{ 
                     '& .MuiSelect-select': { fontSize: '0.7rem' },
                     height: '32px'
@@ -643,14 +583,11 @@ export default function MaillingListPage() {
                   <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem', backgroundColor: 'grey.50', minWidth: '100px', padding: '8px 4px' }}><strong>Superior</strong></TableCell>
                   <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem', backgroundColor: 'grey.50', minWidth: '180px', padding: '8px 4px' }}><strong>E-mail</strong></TableCell>
                   <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem', backgroundColor: 'grey.50', minWidth: '100px', padding: '8px 4px' }}><strong>Posição</strong></TableCell>
-                  <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem', backgroundColor: 'grey.50', minWidth: '60px', padding: '8px 4px' }}><strong>Info</strong></TableCell>
                   <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem', backgroundColor: 'grey.50', minWidth: '60px', padding: '8px 4px' }}><strong>Cancel</strong></TableCell>
                   <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem', backgroundColor: 'grey.50', minWidth: '60px', padding: '8px 4px' }}><strong>Contrato</strong></TableCell>
                   <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem', backgroundColor: 'grey.50', minWidth: '60px', padding: '8px 4px' }}><strong>Dados</strong></TableCell>
                   <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem', backgroundColor: 'grey.50', minWidth: '60px', padding: '8px 4px' }}><strong>Serviços</strong></TableCell>
-                  <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem', backgroundColor: 'grey.50', minWidth: '60px', padding: '8px 4px' }}><strong>Aniv</strong></TableCell>
                   <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem', backgroundColor: 'grey.50', minWidth: '60px', padding: '8px 4px' }}><strong>Remun</strong></TableCell>
-                  <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem', backgroundColor: 'grey.50', minWidth: '60px', padding: '8px 4px' }}><strong>DEXPARA</strong></TableCell>
                   <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem', backgroundColor: 'grey.50', minWidth: '60px', padding: '8px 4px' }}><strong>Curadoria</strong></TableCell>
                   <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem', backgroundColor: 'grey.50', minWidth: '60px', padding: '8px 4px' }}><strong>Doc</strong></TableCell>
                   <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem', backgroundColor: 'grey.50', minWidth: '80px', padding: '8px 4px' }}><strong>Alterações</strong></TableCell>
@@ -734,12 +671,6 @@ export default function MaillingListPage() {
                       </Typography>
                     </TableCell>
                     <TableCell sx={{ minWidth: '60px', textAlign: 'center', padding: '4px 2px' }}>
-                      {contact.informativos === 'sim' ? 
-                        <Chip label="Sim" size="small" color="success" variant="outlined" sx={{ fontSize: '0.65rem', height: '20px' }} /> : 
-                        <Chip label="Não" size="small" color="default" variant="outlined" sx={{ fontSize: '0.65rem', height: '20px' }} />
-                      }
-                    </TableCell>
-                    <TableCell sx={{ minWidth: '60px', textAlign: 'center', padding: '4px 2px' }}>
                       {contact.cancelamento === 'sim' ? 
                         <Chip label="Sim" size="small" color="success" variant="outlined" sx={{ fontSize: '0.65rem', height: '20px' }} /> : 
                         <Chip label="Não" size="small" color="default" variant="outlined" sx={{ fontSize: '0.65rem', height: '20px' }} />
@@ -764,19 +695,7 @@ export default function MaillingListPage() {
                       }
                     </TableCell>
                     <TableCell sx={{ minWidth: '60px', textAlign: 'center', padding: '4px 2px' }}>
-                      {contact.aniversarioClientes === 'sim' ? 
-                        <Chip label="Sim" size="small" color="success" variant="outlined" sx={{ fontSize: '0.65rem', height: '20px' }} /> : 
-                        <Chip label="Não" size="small" color="default" variant="outlined" sx={{ fontSize: '0.65rem', height: '20px' }} />
-                      }
-                    </TableCell>
-                    <TableCell sx={{ minWidth: '60px', textAlign: 'center', padding: '4px 2px' }}>
                       {contact.alteracaoRemuneracao === 'sim' ? 
-                        <Chip label="Sim" size="small" color="success" variant="outlined" sx={{ fontSize: '0.65rem', height: '20px' }} /> : 
-                        <Chip label="Não" size="small" color="default" variant="outlined" sx={{ fontSize: '0.65rem', height: '20px' }} />
-                      }
-                    </TableCell>
-                    <TableCell sx={{ minWidth: '60px', textAlign: 'center', padding: '4px 2px' }}>
-                      {contact.dexpara === 'sim' ? 
                         <Chip label="Sim" size="small" color="success" variant="outlined" sx={{ fontSize: '0.65rem', height: '20px' }} /> : 
                         <Chip label="Não" size="small" color="default" variant="outlined" sx={{ fontSize: '0.65rem', height: '20px' }} />
                       }
