@@ -112,7 +112,7 @@ const templates: Record<string, TemplateInfo> = {
   mailling: {
     name: 'Modelo de Mailling',
     description: 'Template para importação de contatos de mailling com todas as colunas necessárias',
-    fields: ['Nome', 'E-mail', 'Cargo', 'Área', 'Filial', 'Superior', 'Posição E-mail', 'Informativos', 'Cancelamento', 'Alteração Contratual', 'Alteração Dados Cliente', 'Alteração Serviços', 'Aniversário Clientes', 'Alteração Remuneração', 'DEXPARA', 'Curadoria Portal RH', 'Documentação Contratual'],
+    fields: ['Nome', 'E-mail', 'Cargo', 'Área', 'Filial', 'Superior', 'Posição E-mail', 'Grupos (separados por vírgula)', 'Cancelamento', 'Alteração Contratual', 'Alteração Dados Cliente', 'Alteração Serviços', 'Alteração Remuneração', 'Curadoria Portal RH', 'Documentação Contratual'],
     downloadUrl: '/templates/mailling-template.xlsx'
   },
   analytics: {
@@ -448,16 +448,31 @@ export function UploadModal({ open, onClose, title, entityType, onUpload }: Uplo
               area: 'Suporte',
               filial: 'São Paulo',
               superior: 'Maria Santos',
-              posicaoEmail: 'joao.silva@empresa.com',
-              informativos: 'Sim',
-              cancelamento: 'Não',
+              posicaoEmail: 'PARA',
+              grupos: 'Vendas, Marketing, TI',
+              cancelamento: 'Sim',
               alteracaoContratual: 'Sim',
               alteracaoDadosCliente: 'Sim',
               alteracaoServicos: 'Sim',
-              aniversarioClientes: 'Não',
               alteracaoRemuneracao: 'Sim',
-              dexpara: 'Sim',
               curadoriaPortalRH: 'Não',
+              documentacaoContratual: 'Sim'
+            },
+            {
+              nome: 'Maria Santos',
+              email: 'maria@empresa.com',
+              cargo: 'Gerente',
+              area: 'Comercial',
+              filial: 'Rio de Janeiro',
+              superior: 'Pedro Costa',
+              posicaoEmail: 'CÓPIA',
+              grupos: 'Diretoria, Gestão',
+              cancelamento: 'Não',
+              alteracaoContratual: 'Sim',
+              alteracaoDadosCliente: 'Não',
+              alteracaoServicos: 'Sim',
+              alteracaoRemuneracao: 'Sim',
+              curadoriaPortalRH: 'Sim',
               documentacaoContratual: 'Sim'
             }
           ]
