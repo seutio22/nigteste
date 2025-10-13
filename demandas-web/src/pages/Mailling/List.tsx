@@ -351,8 +351,8 @@ export default function MaillingListPage() {
         
         {/* Barra de Ações */}
         <Paper sx={{ p: 2, mb: 2 }}>
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} sm={6} md={3}>
+          <Grid container spacing={1.5} alignItems="center">
+            <Grid item xs={12} sm={6} md={2.4}>
               <Button
                 fullWidth
                 variant="contained"
@@ -363,7 +363,7 @@ export default function MaillingListPage() {
                 Novo Contato
               </Button>
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid item xs={12} sm={6} md={2.4}>
               <Button
                 fullWidth
                 variant="outlined"
@@ -374,7 +374,7 @@ export default function MaillingListPage() {
                 Importar
               </Button>
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid item xs={12} sm={6} md={2.4}>
               <Button
                 fullWidth
                 variant="outlined"
@@ -383,10 +383,10 @@ export default function MaillingListPage() {
                 disabled={maillingStore.contacts.length === 0}
                 size="small"
               >
-                Exportar Todos
+                Exportar
               </Button>
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid item xs={12} sm={6} md={2.4}>
               <Button
                 fullWidth
                 variant="outlined"
@@ -396,10 +396,10 @@ export default function MaillingListPage() {
                 size="small"
                 color="secondary"
               >
-                Exportar E-mails ({filteredContacts.length})
+                E-mails ({filteredContacts.length})
               </Button>
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid item xs={12} sm={6} md={2.4}>
               <Button
                 fullWidth
                 variant="contained"
@@ -414,7 +414,7 @@ export default function MaillingListPage() {
                   }
                 }}
               >
-                Filtros Salvos ({maillingStore.savedFilters.length})
+                Filtros ({maillingStore.savedFilters.length})
               </Button>
             </Grid>
           </Grid>
