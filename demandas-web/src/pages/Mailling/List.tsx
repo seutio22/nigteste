@@ -98,7 +98,10 @@ export default function MaillingListPage() {
         contact.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
         contact.nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         contact.cargo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        contact.filial?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        contact.filiais?.some(filialId => {
+          const filial = masterDataStore.filiaisMailling?.find(f => f.id === filialId)
+          return filial?.nome?.toLowerCase().includes(searchTerm.toLowerCase())
+        }) ||
         contact.superior?.toLowerCase().includes(searchTerm.toLowerCase())
       )
     }
@@ -398,17 +401,35 @@ export default function MaillingListPage() {
             
             <Grid item xs={12} sm={6} md={2}>
               <FormControl fullWidth size="small">
-                <InputLabel sx={{ fontSize: '0.75rem' }}>Filial</InputLabel>
+                <InputLabel sx={{ fontSize: '0.75rem' }}>Filiais</InputLabel>
                 <Select
-                  value={filters.filial || ''}
-                  label="Filial"
-                  onChange={(e) => setFilters(prev => ({ ...prev, filial: e.target.value || undefined }))}
+                  multiple
+                  value={filters.filiais || []}
+                  label="Filiais"
+                  onChange={(e) => {
+                    const value = typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value
+                    setFilters(prev => ({ ...prev, filiais: value.length > 0 ? value : undefined }))
+                  }}
+                  renderValue={(selected) => (
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.25 }}>
+                      {selected.map((filialId) => {
+                        const filial = masterDataStore.filiaisMailling?.find(f => f.id === filialId)
+                        return (
+                          <Chip 
+                            key={filialId} 
+                            label={filial?.nome || filialId}
+                            size="small"
+                            sx={{ fontSize: '0.6rem', height: '18px' }}
+                          />
+                        )
+                      })}
+                    </Box>
+                  )}
                   sx={{ 
                     '& .MuiSelect-select': { fontSize: '0.75rem' },
                     height: '32px'
                   }}
                 >
-                  <MenuItem value="" sx={{ fontSize: '0.75rem' }}>Todas</MenuItem>
                   {masterDataStore.filiaisMailling?.map(filial => (
                     <MenuItem key={filial.id} value={filial.id} sx={{ fontSize: '0.75rem' }}>
                       {filial.nome}
@@ -612,7 +633,7 @@ export default function MaillingListPage() {
                   <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem', backgroundColor: 'grey.50', minWidth: '120px', padding: '8px 4px' }}><strong>Nome</strong></TableCell>
                   <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem', backgroundColor: 'grey.50', minWidth: '100px', padding: '8px 4px' }}><strong>Cargo</strong></TableCell>
                   <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem', backgroundColor: 'grey.50', minWidth: '100px', padding: '8px 4px' }}><strong>Área</strong></TableCell>
-                  <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem', backgroundColor: 'grey.50', minWidth: '100px', padding: '8px 4px' }}><strong>Filial</strong></TableCell>
+                  <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem', backgroundColor: 'grey.50', minWidth: '150px', padding: '8px 4px' }}><strong>Filiais</strong></TableCell>
                   <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem', backgroundColor: 'grey.50', minWidth: '100px', padding: '8px 4px' }}><strong>Superior</strong></TableCell>
                   <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem', backgroundColor: 'grey.50', minWidth: '180px', padding: '8px 4px' }}><strong>E-mail</strong></TableCell>
                   <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem', backgroundColor: 'grey.50', minWidth: '100px', padding: '8px 4px' }}><strong>Posição</strong></TableCell>
@@ -681,13 +702,26 @@ export default function MaillingListPage() {
                         }
                       </Typography>
                     </TableCell>
-                    <TableCell sx={{ fontSize: '0.8rem', minWidth: '100px', padding: '4px 6px' }}>
-                      <Typography noWrap>
-                        {contact.filial ? 
-                          masterDataStore.filiaisMailling?.find(f => f.id === contact.filial)?.nome : 
+                    <TableCell sx={{ fontSize: '0.8rem', minWidth: '150px', padding: '4px 6px' }}>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                        {contact.filiais && contact.filiais.length > 0 ? (
+                          contact.filiais.map(filialId => {
+                            const filial = masterDataStore.filiaisMailling?.find(f => f.id === filialId)
+                            return filial ? (
+                              <Chip 
+                                key={filialId}
+                                label={filial.nome} 
+                                size="small" 
+                                color="secondary" 
+                                variant="outlined" 
+                                sx={{ fontSize: '0.65rem', height: '20px' }} 
+                              />
+                            ) : null
+                          })
+                        ) : (
                           <Chip label="Não informado" size="small" variant="outlined" sx={{ fontSize: '0.7rem', height: '20px' }} />
-                        }
-                      </Typography>
+                        )}
+                      </Box>
                     </TableCell>
                     <TableCell sx={{ fontSize: '0.8rem', minWidth: '100px', padding: '4px 6px' }}>
                       <Typography noWrap>

@@ -4,7 +4,7 @@ export interface MaillingContact {
   nome: string
   cargo: string
   area: string
-  filial: string
+  filiais: string[]  // Array de IDs das filiais (multiseleção)
   superior?: string
   posicaoEmail: 'PARA' | 'CÓPIA OCULTA' | 'CÓPIA'
   grupos?: string[]  // Array de IDs dos grupos (multiseleção)
@@ -38,7 +38,7 @@ export interface MaillingFilter {
   nome?: string
   cargo?: string
   area?: string
-  filial?: string
+  filiais?: string[]  // Array de IDs das filiais (multiseleção)
   superior?: string
   posicaoEmail?: 'PARA' | 'CÓPIA OCULTA' | 'CÓPIA'
   grupos?: string[]  // Array de IDs dos grupos (multiseleção)

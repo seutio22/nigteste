@@ -53,7 +53,7 @@ export function MaillingForm({ open, contact, onClose, onSubmit }: MaillingFormP
     nome: '',
     cargo: '',
     area: '',
-    filial: '',
+    filiais: [] as string[],
     superior: '',
     posicaoEmail: 'PARA' as 'PARA' | 'CÓPIA OCULTA' | 'CÓPIA',
     grupos: [] as string[],
@@ -83,7 +83,7 @@ export function MaillingForm({ open, contact, onClose, onSubmit }: MaillingFormP
           curadoriaPortalRh: contact.curadoriaPortalRh || 'nao',
           documentacaoContratual: contact.documentacaoContratual || 'nao',
           cargo: contact.cargo || '',
-          filial: contact.filial || '',
+          filiais: contact.filiais || [],
           nome: contact.nome || '',
           posicaoEmail: contact.posicaoEmail || 'PARA',
           superior: contact.superior || '',
@@ -133,8 +133,8 @@ export function MaillingForm({ open, contact, onClose, onSubmit }: MaillingFormP
       newErrors.area = 'Área é obrigatória'
     }
     
-    if (!formData.filial.trim()) {
-      newErrors.filial = 'Filial é obrigatória'
+    if (!formData.filiais || formData.filiais.length === 0) {
+      newErrors.filiais = 'Selecione pelo menos uma filial'
     }
     
     if (!formData.posicaoEmail) {
@@ -192,8 +192,8 @@ export function MaillingForm({ open, contact, onClose, onSubmit }: MaillingFormP
         return 'Área'
       case 'cargo':
         return 'Cargo'
-      case 'filial':
-        return 'Filial'
+      case 'filiais':
+        return 'Filiais'
       case 'nome':
         return 'Nome'
       case 'email':
@@ -317,26 +317,50 @@ export function MaillingForm({ open, contact, onClose, onSubmit }: MaillingFormP
             </Grid>
             
             <Grid item xs={12} sm={6}>
-              <FormControl fullWidth>
-                <InputLabel>Filial *</InputLabel>
-                <Select
-                  value={formData.filial}
-                  label="Filial *"
-                  onChange={(e) => handleChange('filial', e.target.value)}
-                  error={!!errors.filial}
-                  required
-                >
-                  <MenuItem value="">Selecione uma filial</MenuItem>
-                  {masterDataStore.filiaisMailling?.map(filial => (
-                    <MenuItem key={filial.id} value={filial.id}>{filial.nome}</MenuItem>
-                  )) || []}
-                </Select>
-                {errors.filial && (
-                  <Typography variant="caption" color="error" sx={{ mt: 0.5, display: 'block' }}>
-                    {errors.filial}
-                  </Typography>
+              <Autocomplete
+                multiple
+                id="filiais-select"
+                options={masterDataStore.filiaisMailling || []}
+                getOptionLabel={(option) => option.nome}
+                value={masterDataStore.filiaisMailling?.filter(f => formData.filiais?.includes(f.id)) || []}
+                onChange={(_, newValue) => {
+                  const ids = newValue.map(f => f.id)
+                  setFormData(prev => ({ ...prev, filiais: ids }))
+                  if (errors.filiais) {
+                    setErrors(prev => ({ ...prev, filiais: '' }))
+                  }
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Filiais *"
+                    placeholder={masterDataStore.filiaisMailling?.length > 0 ? "Selecione uma ou mais filiais" : "Nenhuma filial cadastrada"}
+                    error={!!errors.filiais}
+                    helperText={errors.filiais || (masterDataStore.filiaisMailling?.length > 0 
+                      ? `${masterDataStore.filiaisMailling.length} filial(is) disponível(is)` 
+                      : "⚠️ Cadastre filiais em Dados > Filiais Mailling primeiro")}
+                    required
+                  />
                 )}
-              </FormControl>
+                renderTags={(value, getTagProps) =>
+                  value.map((option, index) => (
+                    <Chip
+                      label={option.nome}
+                      {...getTagProps({ index })}
+                      color="primary"
+                      size="small"
+                    />
+                  ))
+                }
+                noOptionsText="Nenhuma filial encontrada. Cadastre em Dados > Filiais Mailling"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': {
+                      borderColor: 'primary.main',
+                    },
+                  },
+                }}
+              />
             </Grid>
             
             <Grid item xs={12} sm={6}>
@@ -847,7 +871,7 @@ export function MaillingForm({ open, contact, onClose, onSubmit }: MaillingFormP
         <Button 
           onClick={handleSubmit} 
           variant="contained"
-          disabled={!formData.email.trim() || !formData.area.trim() || !formData.cargo.trim() || !formData.filial.trim() || !formData.nome.trim() || !formData.posicaoEmail.trim()}
+          disabled={!formData.email.trim() || !formData.area.trim() || !formData.cargo.trim() || !formData.filiais || formData.filiais.length === 0 || !formData.nome.trim() || !formData.posicaoEmail.trim()}
         >
           {contact ? 'Atualizar' : 'Adicionar'}
         </Button>

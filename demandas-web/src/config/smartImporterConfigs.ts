@@ -338,7 +338,7 @@ export const smartImporterConfigs: { [key: string]: SmartImporterConfig } = {
     entityType: 'Mailling',
     requiredFields: ['nome', 'email'],
     optionalFields: [
-      'cargo', 'area', 'filial', 'superior', 'posicaoEmail', 'grupos',
+      'cargo', 'area', 'filiais', 'superior', 'posicaoEmail', 'grupos',
       'cancelamento', 'alteracaoContratual',
       'alteracaoDadosCliente', 'alteracaoServicos',
       'alteracaoRemuneracao', 'curadoriaPortalRh',
@@ -379,11 +379,12 @@ export const smartImporterConfigs: { [key: string]: SmartImporterConfig } = {
         valueField: 'id'
       },
       {
-        field: 'filial',
+        field: 'filiais',
         referenceType: 'filiaisMailling',
         referenceStore: 'filiaisMailling',
         displayField: 'nome',
-        valueField: 'id'
+        valueField: 'id',
+        isMultiple: true
       },
       {
         field: 'grupos',

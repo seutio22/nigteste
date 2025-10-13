@@ -61,7 +61,7 @@ export const useMaillingStore = create<MaillingState>()(
             nome: contact.nome,
             cargo: contact.cargo,
             area: contact.area,
-            filial: contact.filial,
+            filiais: contact.filiais || [],
             superior: contact.superior,
             posicaoEmail: contact.posicaoEmail,
             grupos: contact.grupos || [],
@@ -106,7 +106,7 @@ export const useMaillingStore = create<MaillingState>()(
             nome: contact.nome,
             cargo: contact.cargo,
             area: contact.area,
-            filial: contact.filial,
+            filiais: contact.filiais || [],
             superior: contact.superior,
             posicaoEmail: contact.posicaoEmail,
             grupos: contact.grupos || [],
@@ -261,8 +261,15 @@ export const useMaillingStore = create<MaillingState>()(
               const hasCommonGroup = value.some(grupoId => contactGrupos.includes(grupoId))
               if (!hasCommonGroup) return false
             }
+            // Tratamento especial para campo filiais (array)
+            else if (key === 'filiais' && Array.isArray(value) && value.length > 0) {
+              // Verificar se o contato tem pelo menos uma das filiais filtradas
+              const contactFiliais = contact.filiais || []
+              const hasCommonFilial = value.some(filialId => contactFiliais.includes(filialId))
+              if (!hasCommonFilial) return false
+            }
             // Outros campos (comparação direta)
-            else if (key !== 'grupos') {
+            else if (key !== 'grupos' && key !== 'filiais') {
               if (contact[key as keyof MaillingContact] !== value) {
                 return false
               }
@@ -282,7 +289,7 @@ export const useMaillingStore = create<MaillingState>()(
           nome: filters.nome || '',
           cargo: filters.cargo || '',
           area: filters.area || '',
-          filial: filters.filial || '',
+          filiais: filters.filiais || [],
           superior: filters.superior || '',
           posicaoEmail: filters.posicaoEmail || 'PARA',
           grupos: filters.grupos || [],
@@ -527,7 +534,7 @@ export const useMaillingStore = create<MaillingState>()(
             email: apiContact.email,
             cargo: apiContact.cargo || '',
             area: apiContact.empresa || '',
-            filial: apiContact.departamento || '',
+            filiais: apiContact.departamento ? [apiContact.departamento] : [],
             superior: apiContact.telefone || '',
             posicaoEmail: 'PARA',
             informativos: 'nao',
