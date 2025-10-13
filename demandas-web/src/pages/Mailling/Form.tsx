@@ -386,8 +386,10 @@ export function MaillingForm({ open, contact, onClose, onSubmit }: MaillingFormP
                   <TextField
                     {...params}
                     label="Grupos"
-                    placeholder="Selecione um ou mais grupos"
-                    helperText="Selecione os grupos aos quais este contato pertence"
+                    placeholder={masterDataStore.grupos?.length > 0 ? "Selecione um ou mais grupos" : "Nenhum grupo cadastrado - vá em Dados > Grupos"}
+                    helperText={masterDataStore.grupos?.length > 0 
+                      ? `${masterDataStore.grupos.length} grupo(s) disponível(is). Selecione os grupos aos quais este contato pertence` 
+                      : "⚠️ Cadastre grupos em Dados > Grupos primeiro"}
                   />
                 )}
                 renderTags={(value, getTagProps) =>
@@ -400,6 +402,7 @@ export function MaillingForm({ open, contact, onClose, onSubmit }: MaillingFormP
                     />
                   ))
                 }
+                noOptionsText="Nenhum grupo encontrado. Cadastre grupos em Dados > Grupos"
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     '&:hover fieldset': {
