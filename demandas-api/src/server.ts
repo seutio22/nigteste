@@ -1855,11 +1855,12 @@ function crud(entity: keyof PrismaClient) {
         const dateFields = ['dataInicio', 'dataFinalizacao', 'dataEntrega'];
         
         for (const field of dateFields) {
-          if (reportData[field]) {
-            // Se for string vazia, remover o campo
-            if (reportData[field] === '') {
+          // Verificar se o campo existe (pode ser undefined, null, string vazia ou valor válido)
+          if (field in reportData) {
+            // Se for string vazia, null ou undefined, remover o campo
+            if (reportData[field] === '' || reportData[field] === null || reportData[field] === undefined) {
               delete reportData[field];
-              console.log(`🔍 REPORT CREATE: Campo ${field} vazio, removido`);
+              console.log(`🔍 REPORT CREATE: Campo ${field} vazio/null/undefined, removido`);
             } 
             // Se for string de data (formato YYYY-MM-DD), converter para ISO DateTime
             else if (typeof reportData[field] === 'string' && reportData[field].match(/^\d{4}-\d{2}-\d{2}$/)) {
@@ -1995,11 +1996,12 @@ function crud(entity: keyof PrismaClient) {
         const dateFields = ['dataInicio', 'dataFinalizacao', 'dataEntrega'];
         
         for (const field of dateFields) {
-          if (reportData[field]) {
-            // Se for string vazia, remover o campo (não atualizar)
-            if (reportData[field] === '') {
+          // Verificar se o campo existe (pode ser undefined, null, string vazia ou valor válido)
+          if (field in reportData) {
+            // Se for string vazia, null ou undefined, remover o campo (não atualizar)
+            if (reportData[field] === '' || reportData[field] === null || reportData[field] === undefined) {
               delete reportData[field];
-              console.log(`🔍 REPORT UPDATE: Campo ${field} vazio, removido`);
+              console.log(`🔍 REPORT UPDATE: Campo ${field} vazio/null/undefined, removido`);
             } 
             // Se for string de data (formato YYYY-MM-DD), converter para ISO DateTime
             else if (typeof reportData[field] === 'string' && reportData[field].match(/^\d{4}-\d{2}-\d{2}$/)) {
