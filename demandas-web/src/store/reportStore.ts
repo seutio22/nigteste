@@ -60,6 +60,10 @@ export const useReportStore = create<ReportState>()(
       timeline: [], // Timeline limpa para evitar poluição
       add: async (payload) => {
         try {
+          console.log('🔍 ReportStore.add: Iniciando criação de relatório')
+          console.log('🔍 ReportStore.add: Payload recebido:', JSON.stringify(payload, null, 2))
+          console.log('🔍 ReportStore.add: Campo analista no payload:', payload.analista)
+          
           // Importar API dinamicamente
           const { api } = await import('../lib/api.local')
           const { useAuthStore } = await import('./authStore')
@@ -68,8 +72,14 @@ export const useReportStore = create<ReportState>()(
           const userId = useAuthStore.getState().user?.id
           const payloadWithUserId = { ...payload, userId }
           
+          console.log('🔍 ReportStore.add: Payload com userId:', JSON.stringify(payloadWithUserId, null, 2))
+          console.log('🔍 ReportStore.add: Confirmando analista antes de enviar:', payloadWithUserId.analista)
+          
           // Enviar dados para o backend
+          console.log('🔍 ReportStore.add: Enviando para API /analytics...')
           const response = await api.post('/analytics', payloadWithUserId)
+          console.log('✅ ReportStore.add: Resposta da API:', response)
+          console.log('✅ ReportStore.add: Analista retornado pela API:', response.analista)
           
               const report: Report = {
                 id: response.id,
@@ -78,10 +88,14 @@ export const useReportStore = create<ReportState>()(
                 ...payloadWithUserId
               }
               
+              console.log('✅ ReportStore.add: Report final criado:', JSON.stringify(report, null, 2))
+              console.log('✅ ReportStore.add: Analista no report final:', report.analista)
+              
               set((state) => ({ items: [report, ...state.items] }))
               return report
         } catch (error) {
           console.error('❌ Erro ao criar relatório:', error)
+          console.error('❌ Detalhes do erro:', JSON.stringify(error, null, 2))
           throw error
         }
       },

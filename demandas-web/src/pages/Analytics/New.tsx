@@ -71,6 +71,9 @@ export default function AnalyticsNewPage() {
   useEffect(() => {
     console.log('🔄 AnalyticsNewPage: Buscando analista correspondente ao usuário logado')
     console.log('🔄 AnalyticsNewPage: Usuário logado:', user?.name, 'ID:', user?.id)
+    console.log('🔄 AnalyticsNewPage: Analistas disponíveis:', md.analistas.length)
+    console.log('🔄 AnalyticsNewPage: Lista de analistas:', md.analistas.map(a => `${a.nome} (${a.id})`).join(', '))
+    console.log('🔄 AnalyticsNewPage: Analista atual no formulário:', form.analista)
     
     if (user && user.name && md.analistas.length > 0) {
       // Encontrar analista correspondente
@@ -84,21 +87,25 @@ export default function AnalyticsNewPage() {
         console.log('✅ AnalyticsNewPage: Analista encontrado:', analistaCorrespondente.nome, 'ID:', analistaCorrespondente.id)
         // Só atualizar se o valor for diferente
         if (form.analista !== analistaCorrespondente.id) {
+          console.log('⚙️ AnalyticsNewPage: Atualizando form.analista de', form.analista, 'para', analistaCorrespondente.id)
           setForm(prev => ({ ...prev, analista: analistaCorrespondente.id }))
+        } else {
+          console.log('✅ AnalyticsNewPage: Analista já está correto no formulário')
         }
       } else {
-        console.log('⚠️ AnalyticsNewPage: Nenhum analista correspondente encontrado, usando primeiro analista')
+        console.log('⚠️ AnalyticsNewPage: Nenhum analista correspondente encontrado para usuário:', user.name)
+        console.log('⚠️ AnalyticsNewPage: Usando primeiro analista disponível')
         const primeiroAnalista = md.analistas[0]
         if (primeiroAnalista && form.analista !== primeiroAnalista.id) {
+          console.log('⚙️ AnalyticsNewPage: Definindo primeiro analista:', primeiroAnalista.nome, 'ID:', primeiroAnalista.id)
           setForm(prev => ({ ...prev, analista: primeiroAnalista.id }))
         }
       }
-    } else if (md.analistas.length === 0 && form.analista) {
-      // Se não há analistas carregados, limpar o valor
-      console.log('⚠️ AnalyticsNewPage: Analistas não carregados, limpando valor')
-      setForm(prev => ({ ...prev, analista: '' }))
-    } else {
-      console.log('⚠️ AnalyticsNewPage: Usuário não logado ou analistas não carregados')
+    } else if (md.analistas.length === 0) {
+      // Se não há analistas carregados, aguardar
+      console.log('⚠️ AnalyticsNewPage: Analistas ainda não foram carregados')
+    } else if (!user || !user.name) {
+      console.log('⚠️ AnalyticsNewPage: Usuário não está logado ou nome não disponível')
     }
   }, [user, md.analistas])
 
@@ -120,12 +127,25 @@ export default function AnalyticsNewPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
+    console.log('🚀 AnalyticsNewPage: Iniciando submit do formulário')
+    console.log('🚀 AnalyticsNewPage: Dados do formulário:', JSON.stringify(form, null, 2))
+    console.log('🚀 AnalyticsNewPage: Campo analista:', form.analista)
+    console.log('🚀 AnalyticsNewPage: Usuário logado:', user?.name, user?.id)
+    
     if (!form.titulo || !form.analista || !form.dataInicio || !form.dataEntrega) {
-      alert('Preencha os campos obrigatórios')
+      console.error('❌ AnalyticsNewPage: Validação falhou!')
+      console.error('  - Título:', form.titulo || 'VAZIO')
+      console.error('  - Analista:', form.analista || 'VAZIO ⚠️')
+      console.error('  - Data Início:', form.dataInicio || 'VAZIO')
+      console.error('  - Data Entrega:', form.dataEntrega || 'VAZIO')
+      alert('Preencha os campos obrigatórios. ATENÇÃO: O campo "Analista" está vazio!')
       return
     }
 
     try {
+      console.log('✅ AnalyticsNewPage: Validação OK, enviando para API...')
+      console.log('✅ AnalyticsNewPage: Analista a ser enviado:', form.analista)
+      
       const newReport = await add({
         titulo: form.titulo,
         descricao: form.descricao,
@@ -146,6 +166,9 @@ export default function AnalyticsNewPage() {
         tipoSolicitacao: form.tipoSolicitacao,
         observacoes: form.observacoes
       })
+      
+      console.log('✅ AnalyticsNewPage: Relatório criado com sucesso:', newReport.id)
+      console.log('✅ AnalyticsNewPage: Analista salvo:', newReport.analista)
 
       // Adicionar evento de criação na timeline
       const { addTimelineEvent } = useReportStore.getState()
