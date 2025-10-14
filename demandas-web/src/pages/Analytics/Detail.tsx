@@ -119,7 +119,9 @@ export default function AnalyticsDetailPage() {
                 <div className="w-3 h-3 bg-indigo-500 rounded-full"></div>
                 <div>
                   <p className="text-sm text-gray-500">Data de Entrega</p>
-                  <p className="font-medium">{report.dataEntrega || '-'}</p>
+                  <p className="font-medium">
+                    {report.dataEntrega ? report.dataEntrega.split('T')[0].split('-').reverse().join('/') : '-'}
+                  </p>
                 </div>
               </div>
             </div>
