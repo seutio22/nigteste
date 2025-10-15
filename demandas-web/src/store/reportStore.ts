@@ -209,6 +209,13 @@ export const useReportStore = create<ReportState>()(
             
             // Mapear os relatórios salvos para o formato esperado pelo frontend
             reports = response.reports.map((report: any) => {
+              console.log('🔍 ReportStore: Mapeando relatório da API:', {
+                id: report.id,
+                analista: report.analista,
+                userId: report.userId,
+                titulo: report.titulo
+              })
+              
               // Determinar nome do analista (IGUAL À PÁGINA DEMANDAS)
               let analistaNome = report.analista
               
@@ -239,6 +246,8 @@ export const useReportStore = create<ReportState>()(
                 analistaNome = report.userId || 'N/A'
                 console.log('⚠️ Analista indefinido - usando fallback:', analistaNome)
               }
+              
+              console.log('✅ ReportStore: Analista final mapeado:', analistaNome)
               
               return {
                 id: report.id,

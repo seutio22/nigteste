@@ -348,6 +348,7 @@ model Report {
   tipoSolicitacao  String?
   tipoServico      String?
   observacoes      String?
+  userId           String?  // ID do usuário que criou o relatório
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 }
