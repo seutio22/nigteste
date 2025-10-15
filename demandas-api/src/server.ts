@@ -46,17 +46,14 @@ console.log('🔧 RAILWAY: Build mais simples e direto!');
 app.register(cors, corsOptions)
 
 // FORÇAR RECOMPILAÇÃO RAILWAY v23 - DIST LIMPO
-console.log('🚀 FORÇANDO RECOMPILAÇÃO RAILWAY v23 - CÓDIGO NOVO EXECUTANDO!')
-console.log('🚀 TIMESTAMP: 2025-10-04-01:00 - VERSÃO ATUALIZADA!')
-console.log('🚀 DIST LIMPO - rm -rf dist ADICIONADO!')
-console.log('🚀 PACKAGE.JSON VERSION: 0.2.6 - BUILD FORÇADO!')
-console.log('🚀 BUILD COMMAND: rm -rf dist && npm run build!')
-console.log('🚀 PROBLEMA: Rota /mailling duplicada resolvida!')
-console.log('🚀 BRANCH MAIN CONFIGURADA - DEVE FUNCIONAR AGORA!')
-console.log('🚀 RAILWAY.TOML CORRIGIDO - BUILD COMMAND ADICIONADO!')
-console.log('🚀 CONFIGURAÇÃO CORRIGIDA - SEM BUILD DUPLICADO!')
-console.log('🚀 NO_CACHE=1 ADICIONADO - CACHE DESABILITADO!')
-console.log('🚀 DIST LIMPO - ROTA DUPLICADA RESOLVIDA!')
+console.log('🚀 FORÇANDO RECOMPILAÇÃO RAILWAY v24 - SCHEMA REPORT ATUALIZADO!')
+console.log('🚀 TIMESTAMP: 2025-10-15-02:30 - VERSÃO 2.4.2!')
+console.log('🚀 PRISMA SCHEMA: Campo userId adicionado ao modelo Report!')
+console.log('🚀 PACKAGE.JSON VERSION: 2.4.2 - BUILD FORÇADO!')
+console.log('🚀 COMANDO START: prisma db push + npm start!')
+console.log('🚀 RAILWAY: Migration automática do campo userId!')
+console.log('🚀 ANALISTAS: Rastreabilidade completa implementada!')
+console.log('🚀 DATABASE: Coluna userId será adicionada ao Report!')
 
 app.get('/teste-versao-v212', async (request, reply) => {
   console.log('🚀 ROTA DE TESTE v2.1.2 CHAMADA - FORCAR REDEPLOY POSTGRESQL!')
