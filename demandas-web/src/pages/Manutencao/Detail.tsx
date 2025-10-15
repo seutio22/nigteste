@@ -6,7 +6,7 @@ import { api } from '../../lib/api.local'
 import { StatusBadge } from '../../components/StatusBadge'
 import { Timeline } from '../../components/Timeline'
 import { fmt } from '../../lib/utils'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Save, Edit3, Clock, ArrowLeft } from 'lucide-react'
 
 // Função para converter código de qualidade em texto legível
@@ -29,7 +29,7 @@ export default function ManutencaoDetailPage() {
   const d = items.find((x) => x.id === id)
   
   // Controle para sincronizar timeline apenas uma vez
-  const timelineSyncedRef = React.useRef<Set<string>>(new Set())
+  const timelineSyncedRef = useRef<Set<string>>(new Set())
   
   // Estado para controlar se os dados mestres estão carregados
   const [masterDataLoaded, setMasterDataLoaded] = useState(false)

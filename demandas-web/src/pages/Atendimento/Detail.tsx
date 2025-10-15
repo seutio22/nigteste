@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAtendimentoStore } from '../../store/atendimentoStore'
 import { useMasterDataStore } from '../../store/masterDataStore'
@@ -18,7 +18,7 @@ export default function AtendimentoDetailPage() {
   const atendimento = atendimentoStore.items.find(a => a.id === id)
   
   // Controle para sincronizar timeline apenas uma vez
-  const timelineSyncedRef = React.useRef<Set<string>>(new Set())
+  const timelineSyncedRef = useRef<Set<string>>(new Set())
   
   // Sincronizar timeline apenas uma vez quando a página carrega
   useEffect(() => {
