@@ -23,7 +23,7 @@ const getQualidadeLabel = (value?: string) => {
 export default function ManutencaoDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { items, timeline, syncFromApi, isLoading } = useManutencaoStore()
+  const { items, timeline, syncFromApi, syncTimeline, isLoading } = useManutencaoStore()
   const md = useMasterDataStore()
   const { user } = useAuthStore()
   const d = items.find((x) => x.id === id)
@@ -48,6 +48,14 @@ export default function ManutencaoDetailPage() {
       md.syncFromApi?.()
     }
   }, []) // Executar apenas uma vez quando o componente for montado
+
+  // Sincronizar timeline quando a manutenção for carregada
+  useEffect(() => {
+    if (id && d) {
+      console.log('🔄 Sincronizando timeline da manutenção:', id)
+      syncTimeline?.(id)
+    }
+  }, [id, d])
 
   // Tentar recarregar se a manutenção específica não for encontrada após o carregamento inicial
   useEffect(() => {

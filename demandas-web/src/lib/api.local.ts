@@ -168,6 +168,24 @@ export const api = {
       method: 'DELETE',
     }),
 
+  // Timeline Events
+  getTimelineEvents: (entityId: string, entityType: string) =>
+    apiRequest(`/timelineEvents?entityId=${entityId}&entityType=${entityType}`),
+  createTimelineEvent: (eventData: {
+    entityId: string
+    entityType: string
+    eventType: string
+    field?: string
+    fromValue?: string
+    toValue?: string
+    comment?: string
+    userId?: string
+  }) =>
+    apiRequest('/timelineEvents', {
+      method: 'POST',
+      body: JSON.stringify(eventData),
+    }),
+
   // Projetos
   getProject: (id: string) => apiRequest(`${API_CONFIG.ENDPOINTS.PROJECTS}/${id}`),
   getProjectMembers: (id: string) => apiRequest(`${API_CONFIG.ENDPOINTS.PROJECTS}/${id}/members`),

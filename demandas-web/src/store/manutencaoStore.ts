@@ -15,6 +15,7 @@ interface ManutencaoState {
   clearLocal: () => void
   log: (e: Omit<TimelineEvent, 'id' | 'timestamp'>) => void
   syncFromApi: () => Promise<void>
+  syncTimeline: (manutencaoId: string) => Promise<void>
 }
 
 export const useManutencaoStore = create<ManutencaoState>()(
@@ -229,7 +230,37 @@ export const useManutencaoStore = create<ManutencaoState>()(
         set({ items: [] })
         console.log('✅ ManutencaoStore: Manutenções locais limpas')
       },
-      log: (e) => set((s) => ({ timeline: [{ id: crypto.randomUUID(), timestamp: new Date().toISOString(), ...e }, ...s.timeline] })),
+      log: async (e) => {
+        const eventId = crypto.randomUUID()
+        const timestamp = new Date().toISOString()
+        const event = { id: eventId, timestamp, ...e }
+        
+        // Adicionar ao store local imediatamente
+        set((s) => ({ timeline: [event, ...s.timeline] }))
+        
+        // Salvar no banco de dados em background
+        try {
+          const { api } = await import('../lib/api.local')
+          const { useAuthStore } = await import('./authStore')
+          const user = useAuthStore.getState().user
+          
+          await api.createTimelineEvent({
+            entityId: e.manutencaoId!,
+            entityType: 'manutencao',
+            eventType: e.type,
+            field: e.field,
+            fromValue: e.from,
+            toValue: e.to,
+            comment: undefined,
+            userId: user?.id
+          })
+          
+          console.log('✅ Evento de timeline salvo no banco:', event)
+        } catch (error) {
+          console.error('❌ Erro ao salvar evento de timeline no banco:', error)
+          // Não fazer nada - o evento já está salvo localmente
+        }
+      },
       async syncFromApi() {
         const state = get()
         if (state.isLoading) {
@@ -284,6 +315,38 @@ export const useManutencaoStore = create<ManutencaoState>()(
         } catch (error) {
           console.error('❌ ManutencaoStore: Erro no syncFromApi:', error)
           set({ isLoading: false })
+        }
+      },
+      async syncTimeline(manutencaoId: string) {
+        try {
+          console.log('🔄 Sincronizando timeline da manutenção:', manutencaoId)
+          
+          const { api } = await import('../lib/api.local')
+          const events = await api.getTimelineEvents(manutencaoId, 'manutencao')
+          
+          console.log('✅ Timeline sincronizada:', events.length, 'eventos')
+          
+          // Mapear eventos da API para o formato do frontend
+          const mappedEvents = events.map((event: any) => ({
+            id: event.id,
+            manutencaoId: event.entityId,
+            type: event.eventType,
+            field: event.field,
+            from: event.fromValue,
+            to: event.toValue,
+            timestamp: event.createdAt,
+            user: event.userId
+          }))
+          
+          // Atualizar apenas os eventos desta manutenção específica
+          set((s) => {
+            // Remover eventos antigos desta manutenção
+            const otherEvents = s.timeline.filter(e => e.manutencaoId !== manutencaoId)
+            // Adicionar eventos sincronizados
+            return { timeline: [...mappedEvents, ...otherEvents] }
+          })
+        } catch (error) {
+          console.error('❌ Erro ao sincronizar timeline:', error)
         }
       },
     }),
