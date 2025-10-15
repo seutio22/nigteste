@@ -154,16 +154,17 @@ export default function AnalyticsPage() {
   useEffect(() => {
     console.log('🔄 AnalyticsPage: useEffect executado, user.id:', user?.id)
     if (user?.id) {
-      // Usar o store diretamente
-      const reportStore = useReportStore.getState()
-      console.log('🔄 AnalyticsPage: Store encontrado:', !!reportStore.syncFromApi)
-      console.log('🔄 AnalyticsPage: Items já carregados:', reportStore.items.length)
-      
-      // SEMPRE chamar syncFromApi para atualizar analistas e dados do backend
-      if (reportStore.syncFromApi) {
-        console.log('🔄 AnalyticsPage: Chamando syncFromApi para atualizar dados...')
-        reportStore.syncFromApi()
+      // FORÇAR sincronização IMEDIATA ignorando cache
+      console.log('🔄 AnalyticsPage: FORÇANDO syncFromApi...')
+      const syncNow = async () => {
+        try {
+          await reportStore.syncFromApi()
+          console.log('✅ AnalyticsPage: syncFromApi completado!')
+        } catch (error) {
+          console.error('❌ AnalyticsPage: Erro no syncFromApi:', error)
+        }
       }
+      syncNow()
     } else {
       console.log('⚠️ AnalyticsPage: Usuário não encontrado')
     }
