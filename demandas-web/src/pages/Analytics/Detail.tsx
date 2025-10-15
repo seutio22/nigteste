@@ -103,7 +103,16 @@ export default function AnalyticsDetailPage() {
                 <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                 <div>
                   <p className="text-sm text-gray-500">Analista</p>
-                  <p className="font-medium">{report.analista || 'N/A'}</p>
+                  <p className="font-medium">
+                    {(() => {
+                      // Se analista é um ID (UUID), converter para nome
+                      if (report.analista && report.analista.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+                        const analistaEncontrado = md.analistas.find(a => a.id === report.analista)
+                        return analistaEncontrado?.nome || report.analista
+                      }
+                      return report.analista || 'N/A'
+                    })()}
+                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
@@ -305,52 +314,25 @@ function EditInline({ report }: { report: any }) {
         }
       }
       
-      const from = k === 'titulo' ? String(report.titulo ?? '') : 
-                   k === 'descricao' ? String(report.descricao ?? '') :
-                   k === 'ticket' ? String(report.ticket ?? '') :
-                   k === 'total' ? String(report.total ?? '') :
-                   k === 'tipo' ? String(report.tipo ?? '') :
-                   k === 'status' ? String(report.status ?? '') :
-                   k === 'cliente' ? convertIdToName(report.cliente, 'cliente') :
-                   k === 'contrato' ? convertIdToName(report.contrato, 'contrato') :
-                   k === 'area' ? convertIdToName(report.area, 'area') :
-                   k === 'solicitante' ? convertIdToName(report.solicitante, 'solicitante') :
-                   k === 'tipoSolicitacao' ? convertIdToName(report.tipoSolicitacao, 'tipoSolicitacao') :
-                   k === 'solicitacao' ? convertIdToName(report.solicitacao, 'solicitacao') :
-                   k === 'dataInicio' ? String(report.dataInicio ?? '') :
-                   k === 'dataFinalizacao' ? String(report.dataFinalizacao ?? '') :
-                   k === 'dataEntrega' ? String(report.dataEntrega ?? '') :
-                   k === 'prioridade' ? String(report.prioridade ?? '') :
-                   String(report.observacoes ?? '')
-                   
-      const to = k === 'titulo' ? String(draft.titulo ?? '') : 
-                 k === 'descricao' ? String(draft.descricao ?? '') :
-                 k === 'ticket' ? String(draft.ticket ?? '') :
-                 k === 'total' ? String(draft.total ?? '') :
-                 k === 'tipo' ? String(draft.tipo ?? '') :
-                 k === 'status' ? String(draft.status ?? '') :
-                 k === 'cliente' ? convertIdToName(draft.cliente, 'cliente') :
-                 k === 'contrato' ? convertIdToName(draft.contrato, 'contrato') :
-                 k === 'area' ? convertIdToName(draft.area, 'area') :
-                 k === 'solicitante' ? convertIdToName(draft.solicitante, 'solicitante') :
-                 k === 'tipoSolicitacao' ? convertIdToName(draft.tipoSolicitacao, 'tipoSolicitacao') :
-                 k === 'solicitacao' ? convertIdToName(draft.solicitacao, 'solicitacao') :
-                 k === 'dataInicio' ? String(draft.dataInicio ?? '') :
-                 k === 'dataFinalizacao' ? String(draft.dataFinalizacao ?? '') :
-                 k === 'dataEntrega' ? String(draft.dataEntrega ?? '') :
-                 k === 'prioridade' ? String(draft.prioridade ?? '') :
-                 String(draft.observacoes ?? '')
+      // Campos que precisam conversão de ID para nome
+      const fieldsWithIdConversion = ['cliente', 'contrato', 'area', 'solicitante', 'tipoSolicitacao', 'solicitacao']
       
-      // Adicionar evento na timeline usando o store
-      const { addTimelineEvent } = useReportStore.getState()
-      addTimelineEvent({
+      const from = fieldsWithIdConversion.includes(k) 
+        ? convertIdToName((report as any)[k], k)
+        : String((report as any)[k] ?? '')
+      
+      const to = fieldsWithIdConversion.includes(k)
+        ? convertIdToName((draft as any)[k], k)
+        : String((draft as any)[k] ?? '')
+      
+      // Adicionar evento na timeline usando o método log (salva no banco)
+      const { log } = useReportStore.getState()
+      log({
         reportId: report.id,
-        type: 'updated',
+        type: 'field_change',
         field: k,
         from,
-        to,
-        message: `Campo "${k}" alterado de "${from || 'vazio'}" para "${to || 'vazio'}"`,
-        user: 'Sistema'
+        to
       })
     })
     

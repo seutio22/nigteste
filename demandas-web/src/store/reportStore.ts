@@ -198,17 +198,31 @@ export const useReportStore = create<ReportState>()(
           
           if (response.reports && Array.isArray(response.reports)) {
             console.log('🔍 ReportStore: Encontrados', response.reports.length, 'relatórios salvos')
+            
+            // Buscar analistas para converter IDs em nomes (para relatórios antigos)
+            const { useMasterDataStore } = await import('./masterDataStore')
+            const masterData = useMasterDataStore.getState()
+            
             // Mapear os relatórios salvos para o formato esperado pelo frontend
-            reports = response.reports.map((report: any) => ({
-              id: report.id,
-              titulo: report.titulo,
-              descricao: report.descricao,
-              ticket: report.ticket,
-              total: report.total,
-              tipo: report.tipo as any,
-              status: report.status as any,
-              analista: report.analista,
-              area: report.area || 'N/A',
+            reports = response.reports.map((report: any) => {
+              // Se analista parece ser um ID (UUID), converter para nome
+              let analistaNome = report.analista
+              if (report.analista && report.analista.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+                const analistaEncontrado = masterData.analistas.find(a => a.id === report.analista)
+                analistaNome = analistaEncontrado?.nome || report.analista
+                console.log('🔄 Convertendo analista ID para nome:', report.analista, '→', analistaNome)
+              }
+              
+              return {
+                id: report.id,
+                titulo: report.titulo,
+                descricao: report.descricao,
+                ticket: report.ticket,
+                total: report.total,
+                tipo: report.tipo as any,
+                status: report.status as any,
+                analista: analistaNome,
+                area: report.area || 'N/A',
               cliente: report.cliente,
               contrato: report.contrato,
               dataInicio: report.dataInicio ? new Date(report.dataInicio).toISOString() : new Date().toISOString(),
