@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useReportStore } from '../../store/reportStore'
 import { useMasterDataStore } from '../../store/masterDataStore'
-import { useTimelineStore } from '../../store/timelineStore'
+import { Timeline } from '../../components/Timeline'
 import { ReportStatusBadge } from '../../components/ReportStatusBadge'
 import { PriorityBadge } from '../../components/PriorityBadge'
 import { ArrowLeft, Edit3, Save, Clock } from 'lucide-react'
@@ -650,41 +650,6 @@ function EditInline({ report }: { report: any }) {
           </div>
         </div>
       )}
-    </div>
-  )
-}
-
-// Componente Timeline
-function Timeline({ reportId }: { reportId: string }) {
-  const { events } = useTimelineStore()
-  const reportEvents = events.filter(event => event.reportId === reportId)
-  
-  if (reportEvents.length === 0) {
-    return (
-      <div className="text-center py-8 text-gray-500">
-        <Clock className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-        <p className="text-sm">Sem eventos até o momento.</p>
-      </div>
-    )
-  }
-  
-  return (
-    <div className="space-y-4">
-      {reportEvents.map((event, index) => (
-        <div key={event.id || `event-${index}`} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
-          <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
-          <div className="flex-1">
-            <p className="text-sm font-medium text-gray-900">{event.comment}</p>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-xs text-gray-500">{event.user}</span>
-              <span className="text-xs text-gray-400">•</span>
-              <span className="text-xs text-gray-500">
-                {new Date(event.createdAt).toLocaleString('pt-BR')}
-              </span>
-            </div>
-          </div>
-        </div>
-      ))}
     </div>
   )
 }
