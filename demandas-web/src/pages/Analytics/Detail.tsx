@@ -284,8 +284,19 @@ function EditInline({ report }: { report: any }) {
     })
   })()
 
-  function applySave() {
-    // Atualizar no store
+  async function applySave() {
+    // Atualizar no backend PRIMEIRO (igual página Demandas)
+    try {
+      const { api } = await import('../../lib/api.local')
+      await api.put(`/analytics/${report.id}`, draft)
+      console.log('✅ Relatório atualizado no backend:', report.id)
+    } catch (error) {
+      console.error('❌ Erro ao atualizar relatório no backend:', error)
+      alert('Erro ao salvar alterações no banco de dados')
+      return
+    }
+    
+    // Atualizar no store local
     update(report.id, draft)
     
     // Log das mudanças manualmente (igual à página demandas)
