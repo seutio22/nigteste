@@ -257,7 +257,10 @@ function EditInline({ report }: { report: any }) {
     arr?.find(a => a.id === id)?.nome || '-'
 
   // Filtrar contratos por cliente selecionado (igual à página cadastro)
-  const selectedClienteId = draft.cliente
+  // Converter nome do cliente para ID se necessário
+  const selectedClienteId = draft.cliente && !draft.cliente.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+    ? md.clientes.find(c => c.nome === draft.cliente)?.id
+    : draft.cliente
   const grupoDoCliente = md.clientes.find(c => c.id === selectedClienteId)?.grupoEconomico
   const contratosDoCliente = md.contratos.filter((c: any) => 
     c.clienteId === selectedClienteId || 
@@ -449,8 +452,18 @@ function EditInline({ report }: { report: any }) {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Área</label>
           <select
-            value={draft.area || ''}
-            onChange={(e) => setDraft({ ...draft, area: e.target.value || undefined })}
+            value={(() => {
+              // Se draft.area é nome, converter para ID para o select
+              if (draft.area && !draft.area.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+                return md.areas.find(a => a.nome === draft.area)?.id || ''
+              }
+              return draft.area || ''
+            })()}
+            onChange={(e) => {
+              // Salvar como NOME para manter consistência com o banco
+              const areaNome = md.areas.find(a => a.id === e.target.value)?.nome || e.target.value
+              setDraft({ ...draft, area: areaNome || undefined })
+            }}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="">Selecione...</option>
@@ -464,8 +477,18 @@ function EditInline({ report }: { report: any }) {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Cliente</label>
           <select
-            value={draft.cliente || ''}
-            onChange={(e) => setDraft({ ...draft, cliente: e.target.value || undefined })}
+            value={(() => {
+              // Se draft.cliente é nome, converter para ID para o select
+              if (draft.cliente && !draft.cliente.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+                return md.clientes.find(c => c.nome === draft.cliente)?.id || ''
+              }
+              return draft.cliente || ''
+            })()}
+            onChange={(e) => {
+              // Salvar como NOME para manter consistência com o banco
+              const clienteNome = md.clientes.find(c => c.id === e.target.value)?.nome || e.target.value
+              setDraft({ ...draft, cliente: clienteNome || undefined })
+            }}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="">Selecione um cliente</option>
@@ -479,8 +502,24 @@ function EditInline({ report }: { report: any }) {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Contrato</label>
           <select
-            value={draft.contrato || ''}
-            onChange={(e) => setDraft({ ...draft, contrato: e.target.value || undefined })}
+            value={(() => {
+              // Se draft.contrato é nome/código, converter para ID para o select
+              if (draft.contrato && !draft.contrato.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+                const contratoEncontrado = md.contratos.find(c => 
+                  (c as any).codigo === draft.contrato || 
+                  (c as any).numero === draft.contrato ||
+                  c.nome === draft.contrato
+                )
+                return contratoEncontrado?.id || ''
+              }
+              return draft.contrato || ''
+            })()}
+            onChange={(e) => {
+              // Salvar como CÓDIGO para manter consistência com o banco
+              const contrato = md.contratos.find(c => c.id === e.target.value)
+              const contratoNome = (contrato as any)?.codigo || (contrato as any)?.numero || e.target.value
+              setDraft({ ...draft, contrato: contratoNome || undefined })
+            }}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="">Nenhum</option>
