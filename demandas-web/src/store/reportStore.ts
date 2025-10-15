@@ -83,21 +83,24 @@ export const useReportStore = create<ReportState>()(
             // Tentar com userId primeiro (novo schema)
             response = await api.post('/analytics', payloadWithUserId)
           } catch (error: any) {
-            // Verificar se o erro é sobre userId desconhecido
+            // Verificar se o erro é sobre userId desconhecido usando responseText
+            const errorText = error.responseText || ''
             const errorString = JSON.stringify(error)
             const isUserIdError = 
+              errorText.includes('Unknown argument `userId`') ||
+              errorText.includes('Unknown argument userId') ||
               errorString.includes('Unknown argument `userId`') ||
-              errorString.includes('Unknown argument userId') ||
-              (error?.message && error.message.includes('userId'))
+              errorString.includes('Unknown argument userId')
             
             if (isUserIdError) {
               console.log('⚠️ ReportStore.add: Schema antigo detectado (erro userId), tentando sem userId...')
-              console.log('⚠️ ReportStore.add: Erro capturado:', errorString.substring(0, 200))
+              console.log('⚠️ ReportStore.add: Texto do erro:', errorText.substring(0, 300))
               const payloadSemUserId = { ...payload }
               response = await api.post('/analytics', payloadSemUserId)
               console.log('✅ ReportStore.add: Sucesso na segunda tentativa (sem userId)')
             } else {
               console.error('❌ ReportStore.add: Erro diferente de userId:', error)
+              console.error('❌ ReportStore.add: Texto do erro:', errorText.substring(0, 300))
               throw error
             }
           }

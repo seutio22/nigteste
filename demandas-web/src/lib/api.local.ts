@@ -81,7 +81,11 @@ export async function apiRequest<T = any>(
     if (!response.ok) {
       const errorText = await response.text()
       console.error('Erro HTTP:', response.status, errorText)
-      throw new Error(`HTTP error! status: ${response.status}`)
+      
+      // Criar erro com mensagem detalhada para permitir fallback
+      const error = new Error(`HTTP error! status: ${response.status}`)
+      ;(error as any).responseText = errorText
+      throw error
     }
     
     // Verificar se a resposta tem conteúdo antes de tentar fazer parse do JSON
