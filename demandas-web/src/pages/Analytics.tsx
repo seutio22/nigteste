@@ -40,9 +40,10 @@ const columns: GridColDef[] = [
     field: 'analista', 
     headerName: 'Analista', 
     width: 160,
-    valueGetter: (params) => {
-      if (!params || !params.row || !params.row.analista) return 'N/A'
-      const analistaValue = params.row.analista
+    renderCell: (params: any) => {
+      const analistaValue = params.row?.analista
+      if (!analistaValue) return 'N/A'
+      
       // Se for UUID, converter para nome
       if (analistaValue.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
         const md = useMasterDataStore.getState()
@@ -121,6 +122,14 @@ export default function AnalyticsPage() {
   }
   
   console.log('🔍 AnalyticsPage: FinalFilteredItems:', finalFilteredItems.length)
+
+  // Sincronizar dados mestres ao abrir a página
+  useEffect(() => {
+    if (md.syncFromApi) {
+      console.log('🔄 AnalyticsPage: Sincronizando dados mestres (analistas)...')
+      md.syncFromApi()
+    }
+  }, [])
 
   // carregar preferências
   useEffect(() => {
