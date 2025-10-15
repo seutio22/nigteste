@@ -36,16 +36,7 @@ const columns: GridColDef[] = [
   ) },
   { field: 'status', headerName: 'Status', width: 150, renderCell: (p) => <ReportStatusBadge status={String(p.value ?? '')} /> },
   { field: 'prioridade', headerName: 'Prioridade', width: 120, renderCell: (p) => <PriorityBadge priority={String(p.value ?? '')} /> },
-  { 
-    field: 'analista', 
-    headerName: 'Analista', 
-    width: 160,
-    valueGetter: (params: any) => {
-      const analistaValue = params.row?.analista
-      console.log('🔍 Analytics Grid - Analista do relatório:', params.row?.id, '→', analistaValue)
-      return analistaValue || 'N/A'
-    }
-  },
+  { field: 'analista', headerName: 'Analista', width: 160 },
   { field: 'area', headerName: 'Área', width: 160 },
   { field: 'cliente', headerName: 'Cliente', width: 200 },
   { field: 'contrato', headerName: 'Contrato', width: 140 },
@@ -213,10 +204,10 @@ export default function AnalyticsPage() {
     tipo: r.tipo,
     status: r.status,
     prioridade: r.prioridade,
-    analista: md.analistas.find(a => a.id === r.analista)?.nome ?? '',
-    area: md.areas.find(a => a.id === r.area)?.nome ?? '',
-    cliente: md.clientes.find(c => c.id === r.cliente)?.nome ?? '',
-    contrato: md.contratos.find(c => c.id === r.contrato)?.codigo ?? '',
+    analista: r.analista || 'N/A', // JÁ vem convertido do syncFromApi!
+    area: md.areas.find(a => a.id === r.area)?.nome ?? r.area ?? '',
+    cliente: md.clientes.find(c => c.id === r.cliente)?.nome ?? r.cliente ?? '',
+    contrato: md.contratos.find(c => c.id === r.contrato)?.codigo ?? r.contrato ?? '',
     // Corrigido: Formatar data sem timezone (mesmo formato usado no Detail)
     dataEntrega: r.dataEntrega ? r.dataEntrega.split('T')[0].split('-').reverse().join('/') : '-',
     dataAtualizacao: new Date(r.dataAtualizacao).toLocaleString('pt-BR'),
