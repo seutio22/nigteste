@@ -146,9 +146,18 @@ export default function AnalyticsNewPage() {
       console.log('✅ AnalyticsNewPage: Validação OK, enviando para API...')
       console.log('✅ AnalyticsNewPage: Analista ID:', form.analista)
       
-      // Converter ID do analista para NOME (o banco espera String, não ID)
+      // Converter IDs para NOMES (o banco espera String, não ID)
       const analistaNome = md.analistas.find(a => a.id === form.analista)?.nome || form.analista || 'N/A'
-      console.log('✅ AnalyticsNewPage: Analista NOME a ser enviado:', analistaNome)
+      const areaNome = md.areas.find(a => a.id === form.area)?.nome || form.area || ''
+      const clienteNome = md.clientes.find(c => c.id === form.cliente)?.nome || form.cliente || ''
+      const contratoNome = md.contratos.find(c => c.id === form.contrato)?.codigo || form.contrato || ''
+      
+      console.log('✅ AnalyticsNewPage: Dados convertidos:', {
+        analista: analistaNome,
+        area: areaNome,
+        cliente: clienteNome,
+        contrato: contratoNome
+      })
       
       const newReport = await add({
         titulo: form.titulo,
@@ -157,10 +166,10 @@ export default function AnalyticsNewPage() {
         total: form.total,
         tipo: form.tipo,
         status: form.status,
-        analista: analistaNome, // Enviar NOME ao invés de ID
-        area: form.area,
-        cliente: form.cliente,
-        contrato: form.contrato,
+        analista: analistaNome, // NOME
+        area: areaNome, // NOME
+        cliente: clienteNome, // NOME
+        contrato: contratoNome, // NOME
         dataInicio: form.dataInicio,
         dataFinalizacao: form.dataFinalizacao,
         dataEntrega: form.dataEntrega,
