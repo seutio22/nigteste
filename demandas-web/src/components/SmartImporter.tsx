@@ -178,14 +178,16 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
                 item.cargo = value
               } else if (cleanHeader === 'area' || cleanHeader === 'área') {
                 item.area = value
-              } else if (cleanHeader === 'filial') {
-                item.filial = value
+              } else if (cleanHeader === 'filiais' || cleanHeader === 'filial') {
+                // Suporta tanto filiais (novo) quanto filial (antigo) para compatibilidade
+                item.filiais = value ? (Array.isArray(value) ? value : [value]) : []
+              } else if (cleanHeader === 'grupos' || cleanHeader === 'grupo') {
+                // Suporta tanto grupos (novo) quanto grupo (antigo) para compatibilidade
+                item.grupos = value ? (Array.isArray(value) ? value : [value]) : []
               } else if (cleanHeader === 'superior') {
                 item.superior = value
               } else if (cleanHeader === 'posicaoemail' || cleanHeader === 'posiçãoemail') {
                 item.posicaoEmail = value
-              } else if (cleanHeader === 'informativos') {
-                item.informativos = value
               } else if (cleanHeader === 'cancelamento') {
                 item.cancelamento = value
               } else if (cleanHeader === 'alteracaocontratual' || cleanHeader === 'alteraçãocontratual') {
@@ -194,12 +196,8 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
                 item.alteracaoDadosCliente = value
               } else if (cleanHeader === 'alteracaoservicos' || cleanHeader === 'alteraçõeserviços') {
                 item.alteracaoServicos = value
-              } else if (cleanHeader === 'aniversarioclientes' || cleanHeader === 'aniversárioclientes') {
-                item.aniversarioClientes = value
               } else if (cleanHeader === 'alteracaoremuneracao' || cleanHeader === 'alteraçãoremuneração') {
                 item.alteracaoRemuneracao = value
-              } else if (cleanHeader === 'dexpara') {
-                item.dexpara = value
               } else if (cleanHeader === 'curadoriaportalrh') {
                 item.curadoriaPortalRh = value
               } else if (cleanHeader === 'documentacaocontratual' || cleanHeader === 'documentaçãocontratual') {
@@ -415,19 +413,34 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
           email: 'joao.silva@empresa.com',
           cargo: 'Gerente',
           area: 'Vendas',
-          filial: 'São Paulo',
+          filiais: 'São Paulo',
           superior: 'Maria Santos',
           posicaoEmail: 'PARA',
-          informativos: 'sim',
+          grupos: 'Grupo 1',
           cancelamento: 'nao',
           alteracaoContratual: 'sim',
           alteracaoDadosCliente: 'nao',
           alteracaoServicos: 'sim',
-          aniversarioClientes: 'nao',
           alteracaoRemuneracao: 'nao',
-          dexpara: 'nao',
           curadoriaPortalRh: 'nao',
           documentacaoContratual: 'sim'
+        },
+        { 
+          nome: 'Maria Santos', 
+          email: 'maria.santos@empresa.com',
+          cargo: 'Analista',
+          area: 'Marketing',
+          filiais: 'Rio de Janeiro',
+          superior: 'Pedro Costa',
+          posicaoEmail: 'CÓPIA',
+          grupos: 'Grupo 2',
+          cancelamento: 'sim',
+          alteracaoContratual: 'nao',
+          alteracaoDadosCliente: 'sim',
+          alteracaoServicos: 'nao',
+          alteracaoRemuneracao: 'sim',
+          curadoriaPortalRh: 'sim',
+          documentacaoContratual: 'nao'
         }
       ]
     } else if (config.entityType.toLowerCase().includes('tipos de demanda') || config.entityType.toLowerCase().includes('tipos')) {
