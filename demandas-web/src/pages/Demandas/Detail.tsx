@@ -308,7 +308,7 @@ export default function DemandDetailPage() {
               </div>
               <div>
                 <p className="text-sm text-gray-500">Análise quantitativa</p>
-                <p className="font-medium">{d.analiseQuantitativa || '-'}</p>
+                <p className="font-medium">{d.periodicidade || '-'}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-500">Quantidade de Retornos</p>
@@ -394,7 +394,7 @@ function EditInline({ d }: { d: Demand }) {
   )
 
   const changedKeys = ((): string[] => {
-    const keys = ['status', 'ticket', 'clienteId', 'contratoId', 'operadoraId', 'produtoId', 'sistemaId', 'areaId', 'tipoId', 'tipoServicoId', 'analistaId', 'descricao', 'solicitante', 'dataInicio', 'dataFinal', 'analiseQuantitativa', 'qtdRetornos', 'qualidade', 'qtdClientesVinculados', 'usuariosEmpresa', 'observacoes'] as const
+    const keys = ['status', 'ticket', 'clienteId', 'contratoId', 'operadoraId', 'produtoId', 'sistemaId', 'areaId', 'tipoId', 'tipoServicoId', 'analistaId', 'descricao', 'solicitante', 'dataInicio', 'dataFinal', 'periodicidade', 'qtdRetornos', 'qualidade', 'qtdClientesVinculados', 'usuariosEmpresa', 'observacoes'] as const
     
     console.log('🔍 DemandDetailPage: Verificando mudanças...')
     console.log('🔍 DemandDetailPage: Dados originais:', d)
@@ -464,7 +464,7 @@ function EditInline({ d }: { d: Demand }) {
         descricao: draft.descricao || null,
         observacoes: draft.observacoes || null,
         qualidade: draft.qualidade || null,
-        analiseQuantitativa: draft.analiseQuantitativa || null,
+        periodicidade: draft.periodicidade || null,
         qtdRetornos: draft.qtdRetornos || null,
         qtdClientesVinculados: draft.qtdClientesVinculados || null,
         usuariosEmpresa: draft.usuariosEmpresa || null,
@@ -587,7 +587,7 @@ function EditInline({ d }: { d: Demand }) {
             'tipoId': 'tipo',
             'tipoServicoId': 'tipoServico',
             'analistaId': 'analista',
-            'analiseQuantitativa': 'Análise Quantitativa',
+            'periodicidade': 'Análise Quantitativa',
             'qtdRetornos': 'Quantidade de Retornos',
             'qtdClientesVinculados': 'QTD Clientes Vinculados',
             'usuariosEmpresa': 'Usuários Empresa'
@@ -915,8 +915,8 @@ function EditInline({ d }: { d: Demand }) {
           <label className="block text-sm font-medium text-gray-700 mb-2">Análise quantitativa</label>
           <input
             type="number"
-            value={draft.analiseQuantitativa || ''}
-            onChange={(e) => setDraft({ ...draft, analiseQuantitativa: e.target.value ? Number(e.target.value) : undefined })}
+            value={draft.periodicidade || ''}
+            onChange={(e) => setDraft({ ...draft, periodicidade: e.target.value || undefined })}
             placeholder="Digite um número"
             min="0"
             step="any"
