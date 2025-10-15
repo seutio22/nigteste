@@ -345,7 +345,7 @@ export const useAtendimentoStore = create<AtendimentoState>()(
             from: event.fromValue,
             to: event.toValue,
             timestamp: event.createdAt,
-            user: event.userId
+            user: event.userName || event.userId || 'Usuário desconhecido'
           }))
           
           set((s) => {

@@ -335,7 +335,7 @@ export const useManutencaoStore = create<ManutencaoState>()(
             from: event.fromValue,
             to: event.toValue,
             timestamp: event.createdAt,
-            user: event.userId
+            user: event.userName || event.userId || 'Usuário desconhecido'
           }))
           
           // Atualizar timeline mesclando eventos do banco com os locais (sem duplicar)

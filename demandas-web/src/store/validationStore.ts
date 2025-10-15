@@ -405,7 +405,7 @@ export const useValidationStore = create<ValidationState>()(
             from: event.fromValue,
             to: event.toValue,
             timestamp: event.createdAt,
-            user: event.userId
+            user: event.userName || event.userId || 'Usuário desconhecido'
           }))
           
           set((s) => {

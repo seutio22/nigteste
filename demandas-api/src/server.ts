@@ -1571,10 +1571,24 @@ function crud(entity: keyof PrismaClient) {
         console.log('🔍 Buscando timelineEvents com filtros:', where)
         const events = await anyPrisma[entity].findMany({
           where,
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true
+              }
+            }
+          },
           orderBy: { createdAt: 'desc' }
         })
         console.log('✅ TimelineEvents encontrados:', events.length)
-        return events
+        
+        // Mapear para incluir userName ao invés de apenas userId
+        return events.map((event: any) => ({
+          ...event,
+          userName: event.user?.name || event.userId || 'Usuário desconhecido'
+        }))
       }
       
       // Incluir relacionamentos para atendimentos
