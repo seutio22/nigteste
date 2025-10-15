@@ -41,7 +41,9 @@ const columns: GridColDef[] = [
     headerName: 'Analista', 
     width: 160,
     valueGetter: (params) => {
+      if (!params.row) return 'N/A'
       const analistaId = params.row.analista
+      if (!analistaId) return 'N/A'
       const analista = useMasterDataStore.getState().analistas.find(a => a.id === analistaId)
       return analista?.nome || analistaId || 'N/A'
     }
