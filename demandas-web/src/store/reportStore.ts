@@ -210,21 +210,15 @@ export const useReportStore = create<ReportState>()(
       },
       async syncFromApi() {
         try {
-          console.log('🔍 SYNC DEBUG: Iniciando syncFromApi')
-          console.log('🔍 SYNC DEBUG: Timeline antes da sincronização:', get().timeline.length)
-          
           const { api } = await import('../lib/api.local')
           
           const response = await api.getAnalytics()
-          console.log('🔍 ReportStore: Resposta COMPLETA da API:', JSON.stringify(response, null, 2))
-          console.log('🔍 ReportStore: Tipo da resposta:', typeof response, Array.isArray(response) ? 'É Array' : 'É Objeto')
           
           // A resposta agora tem estrutura { analytics: [], reports: [] }
           let reports = []
           
           if (response.reports && Array.isArray(response.reports)) {
             console.log('🔍 ReportStore: Encontrados', response.reports.length, 'relatórios salvos')
-            console.log('🔍 ReportStore: Primeiro relatório:', JSON.stringify(response.reports[0], null, 2))
             
             // Buscar analistas para converter IDs em nomes (para relatórios antigos)
             const { useMasterDataStore } = await import('./masterDataStore')
@@ -236,13 +230,6 @@ export const useReportStore = create<ReportState>()(
             
             // Mapear os relatórios salvos para o formato esperado pelo frontend
             reports = response.reports.map((report: any) => {
-              console.log('🔍 ReportStore: Mapeando relatório da API:', {
-                id: report.id,
-                analista: report.analista,
-                userId: report.userId,
-                titulo: report.titulo
-              })
-              
               // Determinar nome do analista (IGUAL À PÁGINA DEMANDAS)
               let analistaNome = report.analista
               
@@ -303,8 +290,6 @@ export const useReportStore = create<ReportState>()(
               }
             })
           } else if (Array.isArray(response)) {
-            console.log('🔍 ReportStore: Array direto, mapeando relatórios...')
-            
             // Buscar master data para converter UUIDs
             const { useMasterDataStore } = await import('./masterDataStore')
             const { useAuthStore } = await import('./authStore')
@@ -313,36 +298,20 @@ export const useReportStore = create<ReportState>()(
             
             // Mapear cada relatório aplicando conversão de UUID
             reports = response.map((report: any) => {
-              console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-              console.log('🔍 MAPEANDO RELATÓRIO:', report.id)
-              console.log('📋 Analista ORIGINAL:', report.analista)
-              console.log('📋 Analistas disponíveis:', masterData.analistas.length)
-              console.log('📋 Primeiros 3 analistas:', masterData.analistas.slice(0, 3).map(a => ({ id: a.id, nome: a.nome })))
-              
               // Determinar nome do analista
               let analistaNome = report.analista
               
               // Se analista é UUID → converter para nome
               if (analistaNome && analistaNome.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-                console.log('✅ É UUID! Buscando analista...')
                 const analistaEncontrado = masterData.analistas.find(a => a.id === analistaNome)
-                console.log('🔍 Analista encontrado:', analistaEncontrado)
                 analistaNome = analistaEncontrado?.nome || analistaNome
-                console.log('🔄 UUID convertido:', report.analista, '→', analistaNome)
-              } else {
-                console.log('ℹ️ NÃO é UUID, mantendo:', analistaNome)
               }
               
               // Se ainda está vazio e tem userId
               if (!analistaNome && report.userId) {
-                console.log('⚠️ Analista vazio, tentando userId:', report.userId)
                 const analistaPorUserId = masterData.analistas.find(a => a.id === report.userId)
                 analistaNome = analistaPorUserId?.nome || currentUser?.name || 'N/A'
-                console.log('🔄 Nome via userId:', analistaNome)
               }
-              
-              console.log('✅ Analista FINAL:', analistaNome)
-              console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
               
               return {
                 id: report.id,
@@ -372,17 +341,10 @@ export const useReportStore = create<ReportState>()(
             })
           }
           
-          console.log('🔍 ReportStore: Relatórios mapeados:', reports.length, 'itens')
           set({ items: reports })
-          
-          console.log('🔍 SYNC DEBUG: Timeline após sincronização:', get().timeline.length)
-          console.log('🔍 SYNC DEBUG: syncFromApi finalizada')
         } catch (error) {
           console.error('❌ Erro ao sincronizar analytics:', error)
-          // Em caso de erro, manter array vazio
           set({ items: [] })
-          
-          console.log('🔍 SYNC DEBUG: Erro na sincronização, timeline:', get().timeline.length)
         }
       },
       addTimelineEvent: (event) => {

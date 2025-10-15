@@ -45,16 +45,11 @@ const columns: GridColDef[] = [
 ]
 
 export default function AnalyticsPage() {
-  console.log('🚀🚀🚀 ANALYTICS PAGE - VERSÃO v2.0 - SYNC FORÇADO 🚀🚀🚀')
-  
   const navigate = useNavigate()
   const reportStore = useReportStore()
-  const items = useReportStore(state => state.items) // REACT a mudanças!
+  const items = useReportStore(state => state.items)
   const md = useMasterDataStore()
   const { user } = useAuthStore()
-  
-  console.log('🔍 AnalyticsPage RENDER: Items atuais:', items.length)
-  console.log('🔍 AnalyticsPage RENDER: Primeiro item analista:', items[0]?.analista)
   const [uploadModalOpen, setUploadModalOpen] = useState(false)
   const [exportModalOpen, setExportModalOpen] = useState(false)
 
