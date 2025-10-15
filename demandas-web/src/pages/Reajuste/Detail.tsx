@@ -413,11 +413,16 @@ function EditInline({ reajuste }: { reajuste: any }) {
     })
   }, [reajuste, draft])
 
-  function applySave() {
-    // O reajusteStore.upsert() já registra automaticamente as alterações no histórico
-    // Não precisamos fazer log manual aqui para evitar duplicação
-    store.upsert(draft)
-    setConfirmOpen(false)
+  async function applySave() {
+    try {
+      // O reajusteStore.upsert() já registra automaticamente as alterações no histórico
+      // Não precisamos fazer log manual aqui para evitar duplicação
+      await store.upsert(draft)
+      setConfirmOpen(false)
+    } catch (error) {
+      console.error('Erro ao salvar alterações:', error)
+      alert('Erro ao salvar alterações. Tente novamente.')
+    }
   }
 
 

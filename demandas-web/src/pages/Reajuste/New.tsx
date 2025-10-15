@@ -130,42 +130,47 @@ export default function ReajusteNewPage() {
     setValue('contrato', '')
   }, [selectedClienteId, setValue])
 
-  function onSubmit(data: FormValues) {
-    store.add({
-      ...data,
-      mes: String(data.mes),
-      ano: String(data.ano),
-      status: data.status || 'Em andamento',
-      operadora: data.operadora || '',
-      responsavelAnalista: data.responsavelAnalista || '',
-      updatedAt: new Date().toISOString()
-    })
-    
-    // Limpar formulário após envio
-    reset({
-      mes: undefined,
-      ano: undefined,
-      dataInicio: '',
-      dataFim: '',
-      status: '',
-      operadora: '',
-      qualidade: '',
-      qualidadeInformacao: '',
-      planos: '',
-      responsavelConta: '',
-      filial: '',
-      ticket: '',
-      solicitante: '',
-      responsavelAnalista: '',
-      cliente: '',
-      contrato: '',
-      produto: '',
-      dataAtualizacao: new Date().toISOString().split('T')[0],
-      itensPendentes: undefined,
-      itensConcluidos: undefined
-    })
-    
-    navigate('/reajuste')
+  async function onSubmit(data: FormValues) {
+    try {
+      await store.add({
+        ...data,
+        mes: String(data.mes),
+        ano: String(data.ano),
+        status: data.status || 'Em andamento',
+        operadora: data.operadora || '',
+        responsavelAnalista: data.responsavelAnalista || '',
+        updatedAt: new Date().toISOString()
+      })
+      
+      // Limpar formulário após envio
+      reset({
+        mes: undefined,
+        ano: undefined,
+        dataInicio: '',
+        dataFim: '',
+        status: '',
+        operadora: '',
+        qualidade: '',
+        qualidadeInformacao: '',
+        planos: '',
+        responsavelConta: '',
+        filial: '',
+        ticket: '',
+        solicitante: '',
+        responsavelAnalista: '',
+        cliente: '',
+        contrato: '',
+        produto: '',
+        dataAtualizacao: new Date().toISOString().split('T')[0],
+        itensPendentes: undefined,
+        itensConcluidos: undefined
+      })
+      
+      navigate('/reajuste')
+    } catch (error) {
+      console.error('Erro ao criar reajuste:', error)
+      alert('Erro ao criar reajuste. Tente novamente.')
+    }
   }
 
   return (

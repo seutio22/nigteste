@@ -463,14 +463,19 @@ function ActionCell({ id, status }: { id: string, status: string }) {
   const handleMenuOpen = (e: React.MouseEvent<HTMLElement>) => setAnchorEl(e.currentTarget)
   const handleMenuClose = () => setAnchorEl(null)
 
-  const doChangeStatus = () => {
-    const r = store.items.find((x) => x.id === id)
-    if (!r) return
-    const from = r.status
-    const next = { ...r, status: newStatus, updatedAt: new Date().toISOString() }
-    store.upsert(next)
-    store.log?.({ reajusteId: id, type: 'status_change', field: 'status', from, to: newStatus })
-    setOpenStatus(false)
+  const doChangeStatus = async () => {
+    try {
+      const r = store.items.find((x) => x.id === id)
+      if (!r) return
+      const from = r.status
+      const next = { ...r, status: newStatus, updatedAt: new Date().toISOString() }
+      await store.upsert(next)
+      store.log?.({ reajusteId: id, type: 'status_change', field: 'status', from, to: newStatus })
+      setOpenStatus(false)
+    } catch (error) {
+      console.error('Erro ao alterar status:', error)
+      alert('Erro ao alterar status. Tente novamente.')
+    }
   }
 
   const doDelete = async () => {
@@ -483,12 +488,17 @@ function ActionCell({ id, status }: { id: string, status: string }) {
     }
   }
 
-  const doDuplicate = () => {
-    const r = store.items.find((x) => x.id === id)
-    if (!r) return
-    const { id: _omit, createdAt: _c, updatedAt: _u, ...rest } = r
-    const duplicated = store.add({ ...rest, status: 'Ativo', updatedAt: new Date().toISOString() })
-    navigate(`/reajuste/${duplicated.id}`)
+  const doDuplicate = async () => {
+    try {
+      const r = store.items.find((x) => x.id === id)
+      if (!r) return
+      const { id: _omit, createdAt: _c, updatedAt: _u, ...rest } = r
+      const duplicated = await store.add({ ...rest, status: 'Ativo', updatedAt: new Date().toISOString() })
+      navigate(`/reajuste/${duplicated.id}`)
+    } catch (error) {
+      console.error('Erro ao duplicar reajuste:', error)
+      alert('Erro ao duplicar reajuste. Tente novamente.')
+    }
   }
 
   const doExportPdf = () => {
