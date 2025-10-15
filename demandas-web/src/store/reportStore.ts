@@ -223,21 +223,22 @@ export const useReportStore = create<ReportState>()(
                 status: report.status as any,
                 analista: analistaNome,
                 area: report.area || 'N/A',
-              cliente: report.cliente,
-              contrato: report.contrato,
-              dataInicio: report.dataInicio ? new Date(report.dataInicio).toISOString() : new Date().toISOString(),
-              dataFinalizacao: report.dataFinalizacao ? new Date(report.dataFinalizacao).toISOString() : undefined,
-              dataEntrega: report.dataEntrega ? new Date(report.dataEntrega).toISOString() : new Date().toISOString(),
-              dataCriacao: report.createdAt || new Date().toISOString(),
-              dataAtualizacao: report.updatedAt || new Date().toISOString(),
-              prioridade: report.prioridade as any,
-              solicitante: report.solicitante,
-              userId: report.userId, // Incluir userId do backend
-              solicitacao: report.solicitacao,
-              tipoSolicitacao: report.tipoSolicitacao,
-              observacoes: report.observacoes,
-              arquivo: undefined
-            }))
+                cliente: report.cliente,
+                contrato: report.contrato,
+                dataInicio: report.dataInicio ? new Date(report.dataInicio).toISOString() : new Date().toISOString(),
+                dataFinalizacao: report.dataFinalizacao ? new Date(report.dataFinalizacao).toISOString() : undefined,
+                dataEntrega: report.dataEntrega ? new Date(report.dataEntrega).toISOString() : new Date().toISOString(),
+                dataCriacao: report.createdAt || new Date().toISOString(),
+                dataAtualizacao: report.updatedAt || new Date().toISOString(),
+                prioridade: report.prioridade as any,
+                solicitante: report.solicitante,
+                userId: report.userId, // Incluir userId do backend
+                solicitacao: report.solicitacao,
+                tipoSolicitacao: report.tipoSolicitacao,
+                observacoes: report.observacoes,
+                arquivo: undefined
+              }
+            })
           } else if (Array.isArray(response)) {
             // Fallback para estrutura antiga
             reports = response.map((analytics: any) => ({
