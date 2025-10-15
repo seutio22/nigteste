@@ -159,12 +159,10 @@ export default function AnalyticsPage() {
       console.log('🔄 AnalyticsPage: Store encontrado:', !!reportStore.syncFromApi)
       console.log('🔄 AnalyticsPage: Items já carregados:', reportStore.items.length)
       
-      // Só chamar syncFromApi se não há dados carregados
-      if (reportStore.syncFromApi && reportStore.items.length === 0) {
-        console.log('🔄 AnalyticsPage: Chamando syncFromApi...')
+      // SEMPRE chamar syncFromApi para atualizar analistas e dados do backend
+      if (reportStore.syncFromApi) {
+        console.log('🔄 AnalyticsPage: Chamando syncFromApi para atualizar dados...')
         reportStore.syncFromApi()
-      } else {
-        console.log('🔄 AnalyticsPage: Dados já carregados, não chamando syncFromApi')
       }
     } else {
       console.log('⚠️ AnalyticsPage: Usuário não encontrado')
