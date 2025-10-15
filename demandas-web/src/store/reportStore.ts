@@ -78,7 +78,20 @@ export const useReportStore = create<ReportState>()(
           
           // Enviar dados para o backend
           console.log('🔍 ReportStore.add: Enviando para API /analytics...')
-          const response = await api.post('/analytics', payloadWithUserId)
+          let response
+          try {
+            // Tentar com userId primeiro (novo schema)
+            response = await api.post('/analytics', payloadWithUserId)
+          } catch (error: any) {
+            // Se falhar com "Unknown argument userId", tentar sem userId (schema antigo)
+            if (error?.message?.includes('Unknown argument `userId`')) {
+              console.log('⚠️ ReportStore.add: Schema antigo detectado, enviando sem userId...')
+              const payloadSemUserId = { ...payload }
+              response = await api.post('/analytics', payloadSemUserId)
+            } else {
+              throw error
+            }
+          }
           console.log('✅ ReportStore.add: Resposta da API:', response)
           console.log('✅ ReportStore.add: Analista retornado pela API:', response.analista)
           
