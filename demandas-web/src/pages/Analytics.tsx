@@ -42,15 +42,25 @@ const columns: GridColDef[] = [
     width: 160,
     renderCell: (params: any) => {
       const analistaValue = params.row?.analista
-      if (!analistaValue) return 'N/A'
+      console.log('🔍 Grid Analista - Valor:', analistaValue)
+      
+      if (!analistaValue) {
+        console.log('⚠️ Grid Analista - Valor vazio/null')
+        return 'N/A'
+      }
       
       // Se for UUID, converter para nome
       if (analistaValue.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+        console.log('🔍 Grid Analista - É UUID, convertendo...')
         const md = useMasterDataStore.getState()
+        console.log('🔍 Grid Analista - Total de analistas:', md.analistas.length)
         const analista = md.analistas.find(a => a.id === analistaValue)
+        console.log('🔍 Grid Analista - Encontrado:', analista?.nome)
         return analista?.nome || analistaValue
       }
+      
       // Se já for nome, retorna direto
+      console.log('✅ Grid Analista - Já é nome:', analistaValue)
       return analistaValue
     }
   },
