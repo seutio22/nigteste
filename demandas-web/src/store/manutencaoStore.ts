@@ -196,13 +196,79 @@ export const useManutencaoStore = create<ManutencaoState>()(
           }
         }
       },
-      upsert: (manutencao) => set((s) => {
-        const exists = s.items.some((d) => d.id === manutencao.id)
+      upsert: async (manutencao) => {
+        const state = get()
+        const exists = state.items.some((d) => d.id === manutencao.id)
+        
         if (exists) {
-          return { items: s.items.map((d) => (d.id === manutencao.id ? { ...manutencao, updatedAt: new Date().toISOString() } : d)) }
+          // Buscar item original para comparar mudanças
+          const original = state.items.find((d) => d.id === manutencao.id)
+          
+          if (original) {
+            // Importar authStore para pegar usuário
+            const { useAuthStore } = await import('./authStore')
+            const user = useAuthStore.getState().user
+            const now = new Date().toISOString()
+            
+            // Lista de campos a monitorar
+            const fieldsToTrack = [
+              'status', 'ticket', 'solicitante', 'descricao', 'observacoes',
+              'clienteId', 'contratoId', 'operadoraId', 'produtoId', 'sistemaId',
+              'areaId', 'tipoId', 'tipoServicoId', 'analistaId',
+              'dataInicio', 'dataFinal', 'qualidade', 'periodicidade',
+              'qtdRetornos', 'qtdClientesVinculados', 'usuariosEmpresa'
+            ]
+            
+            // Registrar cada campo que mudou
+            const timelineEvents = []
+            for (const field of fieldsToTrack) {
+              const oldValue = original[field as keyof typeof original]
+              const newValue = manutencao[field as keyof typeof manutencao]
+              
+              if (String(oldValue ?? '') !== String(newValue ?? '')) {
+                timelineEvents.push({
+                  id: crypto.randomUUID(),
+                  manutencaoId: manutencao.id,
+                  type: 'field_change' as const,
+                  field: field,
+                  from: String(oldValue ?? ''),
+                  to: String(newValue ?? ''),
+                  timestamp: now,
+                  user: user?.name || 'Usuário desconhecido'
+                })
+              }
+            }
+            
+            // Atualizar item e adicionar eventos à timeline
+            set((s) => ({
+              items: s.items.map((d) => 
+                d.id === manutencao.id 
+                  ? { ...manutencao, updatedAt: now } 
+                  : d
+              ),
+              timeline: [...timelineEvents, ...s.timeline]
+            }))
+          } else {
+            // Se não encontrou original, apenas atualiza
+            set((s) => ({
+              items: s.items.map((d) => 
+                d.id === manutencao.id 
+                  ? { ...manutencao, updatedAt: new Date().toISOString() } 
+                  : d
+              )
+            }))
+          }
+        } else {
+          // Item novo, adicionar
+          set((s) => ({
+            items: [{
+              ...manutencao,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            }, ...s.items]
+          }))
         }
-        return { items: [{ ...manutencao, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }, ...s.items] }
-      }),
+      },
       remove: async (id) => {
         try {
           console.log('🗑️ Removendo manutenção:', id)
