@@ -101,10 +101,11 @@ export function MaillingForm({ open, contact, onClose, onSubmit }: MaillingFormP
           curadoriaPortalRh: 'nao',
           documentacaoContratual: 'nao',
           cargo: '',
-          filial: '',
+          filiais: [],
           nome: '',
           posicaoEmail: 'PARA',
-          superior: ''
+          superior: '',
+          grupos: []
         })
       }
       setErrors({})
@@ -166,21 +167,19 @@ export function MaillingForm({ open, contact, onClose, onSubmit }: MaillingFormP
     setFormData({
       area: '',
       email: '',
-      informativos: 'nao',
       cancelamento: 'nao',
       alteracaoContratual: 'nao',
       alteracaoDadosCliente: 'nao',
       alteracaoServicos: 'nao',
-      aniversarioClientes: 'nao',
       alteracaoRemuneracao: 'nao',
-      dexpara: 'nao',
       curadoriaPortalRh: 'nao',
       documentacaoContratual: 'nao',
       cargo: '',
-      filial: '',
+      filiais: [],
       nome: '',
       posicaoEmail: 'PARA',
-      superior: ''
+      superior: '',
+      grupos: []
     })
     setErrors({})
     onClose()

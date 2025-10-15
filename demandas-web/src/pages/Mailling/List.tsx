@@ -169,7 +169,7 @@ export default function MaillingListPage() {
           email: contactData.email || '',
           cargo: contactData.cargo || '',
           area: contactData.area || '',
-          filial: contactData.filial || '',
+          filiais: contactData.filiais || [],
           superior: contactData.superior || '',
           posicaoEmail: contactData.posicaoEmail || 'PARA',
           grupos: contactData.grupos || [],
