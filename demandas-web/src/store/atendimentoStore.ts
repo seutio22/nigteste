@@ -38,6 +38,7 @@ interface AtendimentoState {
   clear: () => void
   log: (e: Omit<TimelineEvent, 'id' | 'timestamp'>) => void
   syncFromApi: () => Promise<void>
+  syncTimeline: (atendimentoId: string) => Promise<void>
 }
 
 export const useAtendimentoStore = create<AtendimentoState>()(
@@ -327,6 +328,45 @@ export const useAtendimentoStore = create<AtendimentoState>()(
           set({ isLoading: false })
         }
       },
+      async syncTimeline(atendimentoId: string) {
+        try {
+          console.log('🔄 Sincronizando timeline do atendimento:', atendimentoId)
+          
+          const { api } = await import('../lib/api.local')
+          const events = await api.getTimelineEvents(atendimentoId, 'atendimento')
+          
+          console.log('✅ Timeline sincronizada:', events.length, 'eventos do banco')
+          
+          const mappedEvents = events.map((event: any) => ({
+            id: event.id,
+            atendimentoId: event.entityId,
+            type: event.eventType,
+            field: event.field,
+            from: event.fromValue,
+            to: event.toValue,
+            timestamp: event.createdAt,
+            user: event.userId
+          }))
+          
+          set((s) => {
+            const otherEvents = s.timeline.filter(e => e.atendimentoId !== atendimentoId)
+            const localEvents = s.timeline.filter(e => e.atendimentoId === atendimentoId)
+            const mergedEvents = [...mappedEvents]
+            
+            localEvents.forEach(localEvent => {
+              const existsInBank = mappedEvents.some(bankEvent => 
+                bankEvent.timestamp === localEvent.timestamp &&
+                bankEvent.field === localEvent.field
+              )
+              if (!existsInBank) mergedEvents.push(localEvent)
+            })
+            
+            return { timeline: [...mergedEvents, ...otherEvents] }
+          })
+        } catch (error) {
+          console.error('❌ Erro ao sincronizar timeline de atendimento:', error)
+        }
+      }
     }),
     {
       name: 'atendimentoStore',

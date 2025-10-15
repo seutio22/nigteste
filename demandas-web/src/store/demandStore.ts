@@ -13,6 +13,7 @@ interface DemandState {
   clear: () => void
   log: (e: Omit<TimelineEvent, 'id' | 'timestamp'>) => void
   syncFromApi: () => Promise<void>
+  syncTimeline: (demandaId: string) => Promise<void>
 }
 
 export const useDemandStore = create<DemandState>()(
@@ -323,6 +324,61 @@ export const useDemandStore = create<DemandState>()(
         } catch (error) {
           console.error('❌ DemandStore: Erro no syncFromApi:', error)
           set({ isLoading: false })
+        }
+      },
+      async syncTimeline(demandaId: string) {
+        try {
+          console.log('🔄 Sincronizando timeline da demanda:', demandaId)
+          
+          const { api } = await import('../lib/api.local')
+          const events = await api.getTimelineEvents(demandaId, 'demanda')
+          
+          console.log('✅ Timeline sincronizada:', events.length, 'eventos do banco')
+          
+          // Mapear eventos da API para o formato do frontend
+          const mappedEvents = events.map((event: any) => ({
+            id: event.id,
+            demandaId: event.entityId,
+            type: event.eventType,
+            field: event.field,
+            from: event.fromValue,
+            to: event.toValue,
+            timestamp: event.createdAt,
+            user: event.userId
+          }))
+          
+          // Atualizar timeline mesclando eventos do banco com os locais (sem duplicar)
+          set((s) => {
+            // Manter eventos de outras demandas
+            const otherEvents = s.timeline.filter(e => e.demandaId !== demandaId)
+            
+            // Eventos locais desta demanda
+            const localEvents = s.timeline.filter(e => e.demandaId === demandaId)
+            
+            // Mesclar: priorizar eventos do banco, mas manter eventos locais que ainda não foram sincronizados
+            const mergedEvents = [...mappedEvents]
+            
+            // Adicionar eventos locais que não existem no banco (baseado em timestamp e campo)
+            localEvents.forEach(localEvent => {
+              const existsInBank = mappedEvents.some(bankEvent => 
+                bankEvent.timestamp === localEvent.timestamp &&
+                bankEvent.field === localEvent.field &&
+                bankEvent.from === localEvent.from &&
+                bankEvent.to === localEvent.to
+              )
+              
+              if (!existsInBank) {
+                console.log('⚠️ Evento local não encontrado no banco, mantendo:', localEvent)
+                mergedEvents.push(localEvent)
+              }
+            })
+            
+            console.log('📊 Total de eventos após merge:', mergedEvents.length)
+            
+            return { timeline: [...mergedEvents, ...otherEvents] }
+          })
+        } catch (error) {
+          console.error('❌ Erro ao sincronizar timeline de demanda:', error)
         }
       }
     }),

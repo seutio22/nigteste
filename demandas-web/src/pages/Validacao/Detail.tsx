@@ -12,10 +12,18 @@ import { ValidationEntry } from '../../types/validation'
 export default function ValidationDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { items, logs, syncFromApi, isLoading } = useValidationStore()
+  const { items, logs, syncFromApi, syncTimeline, isLoading } = useValidationStore()
   const md = useMasterDataStore()
   const { user } = useAuthStore()
   const validation = items.find(v => v.id === id)
+  
+  // Sincronizar timeline quando a validação for carregada
+  useEffect(() => {
+    if (id && validation && syncTimeline) {
+      console.log('🔄 Sincronizando timeline da validação:', id)
+      syncTimeline(id)
+    }
+  }, [id, validation])
   
   // Estado para controlar se os dados mestres estão carregados
   const [masterDataLoaded, setMasterDataLoaded] = useState(false)

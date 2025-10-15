@@ -25,7 +25,7 @@ const getQualidadeLabel = (value?: string) => {
 export default function DemandDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { items, timeline, syncFromApi, isLoading } = useDemandStore()
+  const { items, timeline, syncFromApi, syncTimeline, isLoading } = useDemandStore()
   const md = useMasterDataStore()
   const { user } = useAuthStore()
   const d = items.find((x) => x.id === id)
@@ -71,6 +71,14 @@ export default function DemandDetailPage() {
     const isLoaded = md.tiposServico.length > 0 && md.tiposDemanda.length > 0 && md.clientes.length > 0
     setMasterDataLoaded(isLoaded)
   }, [md.tiposServico.length, md.tiposDemanda.length, md.clientes.length, md.contratos.length])
+
+  // Sincronizar timeline quando a demanda for carregada
+  useEffect(() => {
+    if (id && d) {
+      console.log('🔄 Sincronizando timeline da demanda:', id)
+      syncTimeline?.(id)
+    }
+  }, [id, d])
 
   console.log('DetailPage render:', { 
     id, 

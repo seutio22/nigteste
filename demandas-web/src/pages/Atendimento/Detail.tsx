@@ -16,6 +16,14 @@ export default function AtendimentoDetailPage() {
   const md = useMasterDataStore()
   const { user } = useAuthStore()
   const atendimento = atendimentoStore.items.find(a => a.id === id)
+  
+  // Sincronizar timeline quando o atendimento for carregado
+  useEffect(() => {
+    if (id && atendimento && atendimentoStore.syncTimeline) {
+      console.log('🔄 Sincronizando timeline do atendimento:', id)
+      atendimentoStore.syncTimeline(id)
+    }
+  }, [id, atendimento])
 
 
   console.log('🔍 AtendimentoDetailPage: Renderizando...', {

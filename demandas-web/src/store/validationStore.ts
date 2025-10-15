@@ -25,6 +25,7 @@ interface ValidationState {
   upsert: (entry: ValidationEntry) => Promise<void>
   log: (entry: { validationId: string; type: string; field: string; from: unknown; to: unknown; user?: string; userName?: string }) => void
   syncFromApi: () => Promise<void>
+  syncTimeline: (validationId: string) => Promise<void>
   saveValidationToDatabase: (validation: ValidationEntry) => Promise<void>
   updateValidationInDatabase: (validation: ValidationEntry) => Promise<void>
 }
@@ -386,6 +387,44 @@ export const useValidationStore = create<ValidationState>()(
         } catch (error) {
           console.error('❌ ValidationStore: Erro no syncFromApi:', error)
           set({ error: error instanceof Error ? error.message : 'Erro desconhecido', loading: false })
+        }
+      },
+      async syncTimeline(validationId: string) {
+        try {
+          console.log('🔄 Sincronizando timeline da validação:', validationId)
+          
+          const { api } = await import('../lib/api.local')
+          const events = await api.getTimelineEvents(validationId, 'validacao')
+          
+          console.log('✅ Timeline sincronizada:', events.length, 'eventos do banco')
+          
+          const mappedEvents = events.map((event: any) => ({
+            validationId: event.entityId,
+            type: event.eventType,
+            field: event.field || '',
+            from: event.fromValue,
+            to: event.toValue,
+            timestamp: event.createdAt,
+            user: event.userId
+          }))
+          
+          set((s) => {
+            const otherEvents = s.logs.filter((e: any) => e.validationId !== validationId)
+            const localEvents = s.logs.filter((e: any) => e.validationId === validationId)
+            const mergedEvents = [...mappedEvents]
+            
+            localEvents.forEach(localEvent => {
+              const existsInBank = mappedEvents.some(bankEvent => 
+                bankEvent.timestamp === localEvent.timestamp &&
+                bankEvent.field === localEvent.field
+              )
+              if (!existsInBank) mergedEvents.push(localEvent)
+            })
+            
+            return { logs: [...mergedEvents, ...otherEvents] }
+          })
+        } catch (error) {
+          console.error('❌ Erro ao sincronizar timeline de validação:', error)
         }
       }
     }),
