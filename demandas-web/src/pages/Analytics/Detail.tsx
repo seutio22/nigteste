@@ -16,6 +16,14 @@ export default function AnalyticsDetailPage() {
   // Controle para sincronizar timeline apenas uma vez
   const timelineSyncedRef = useRef<Set<string>>(new Set())
   
+  // Sincronizar dados mestres ao abrir a página
+  useEffect(() => {
+    if (md.syncFromApi) {
+      console.log('🔄 AnalyticsDetailPage: Sincronizando dados mestres...')
+      md.syncFromApi()
+    }
+  }, [])
+  
   // Sincronizar timeline apenas uma vez quando a página carrega
   useEffect(() => {
     if (id && syncTimeline && !timelineSyncedRef.current.has(id)) {
@@ -26,6 +34,9 @@ export default function AnalyticsDetailPage() {
   }, [id])
   
   console.log('🔍 AnalyticsDetailPage: ID:', id)
+  console.log('🔍 AnalyticsDetailPage: Report.analista:', report?.analista)
+  console.log('🔍 AnalyticsDetailPage: Analistas carregados:', md.analistas.length)
+  console.log('🔍 AnalyticsDetailPage: Analista encontrado:', md.analistas.find(a => a.id === report?.analista))
   console.log('🔍 AnalyticsDetailPage: Items no store:', items.length)
   console.log('🔍 AnalyticsDetailPage: Items:', items)
   console.log('🔍 AnalyticsDetailPage: Contratos disponíveis:', md.contratos.length)
