@@ -303,29 +303,58 @@ export const useReportStore = create<ReportState>()(
               }
             })
           } else if (Array.isArray(response)) {
-            // Fallback para estrutura antiga
-            reports = response.map((analytics: any) => ({
-              id: analytics.id,
-              titulo: analytics.tipo || 'Relatório',
-              descricao: analytics.descricao || `Relatório de ${analytics.tipo}`,
-              tipo: analytics.categoria || 'personalizado',
-              status: analytics.status === 'ativo' ? 'entregue' : 'pendente',
-              analista: analytics.analistaMaisAtivo || 'N/A',
-              area: analytics.areaMaisAtiva || 'N/A',
-              cliente: analytics.clienteMaisAtivo || 'N/A',
-              contrato: 'N/A',
-              dataInicio: analytics.createdAt || new Date().toISOString(),
-              dataFinalizacao: undefined,
-              dataEntrega: analytics.createdAt || new Date().toISOString(),
-              dataCriacao: analytics.createdAt || new Date().toISOString(),
-              dataAtualizacao: analytics.updatedAt || new Date().toISOString(),
-              prioridade: 'media',
-              solicitante: undefined,
-              solicitacao: undefined,
-              tipoSolicitacao: undefined,
-              observacoes: `Relatório de ${analytics.tipo} para período ${analytics.periodo}`,
-              arquivo: undefined
-            }))
+            console.log('🔍 ReportStore: Array direto, mapeando relatórios...')
+            
+            // Buscar master data para converter UUIDs
+            const { useMasterDataStore } = await import('./masterDataStore')
+            const { useAuthStore } = await import('./authStore')
+            const masterData = useMasterDataStore.getState()
+            const currentUser = useAuthStore.getState().user
+            
+            // Mapear cada relatório aplicando conversão de UUID
+            reports = response.map((report: any) => {
+              // Determinar nome do analista
+              let analistaNome = report.analista
+              
+              // Se analista é UUID → converter para nome
+              if (analistaNome && analistaNome.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+                const analistaEncontrado = masterData.analistas.find(a => a.id === analistaNome)
+                analistaNome = analistaEncontrado?.nome || analistaNome
+                console.log('🔄 UUID convertido:', report.analista, '→', analistaNome)
+              }
+              
+              // Se ainda está vazio e tem userId
+              if (!analistaNome && report.userId) {
+                const analistaPorUserId = masterData.analistas.find(a => a.id === report.userId)
+                analistaNome = analistaPorUserId?.nome || currentUser?.name || 'N/A'
+              }
+              
+              return {
+                id: report.id,
+                titulo: report.titulo,
+                descricao: report.descricao,
+                ticket: report.ticket,
+                total: report.total,
+                tipo: report.tipo as any,
+                status: report.status as any,
+                analista: analistaNome || 'N/A',
+                area: report.area || 'N/A',
+                cliente: report.cliente,
+                contrato: report.contrato,
+                dataInicio: report.dataInicio ? new Date(report.dataInicio).toISOString() : new Date().toISOString(),
+                dataFinalizacao: report.dataFinalizacao ? new Date(report.dataFinalizacao).toISOString() : undefined,
+                dataEntrega: report.dataEntrega ? new Date(report.dataEntrega).toISOString() : new Date().toISOString(),
+                dataCriacao: report.createdAt || new Date().toISOString(),
+                dataAtualizacao: report.updatedAt || new Date().toISOString(),
+                prioridade: report.prioridade as any,
+                solicitante: report.solicitante,
+                userId: report.userId,
+                solicitacao: report.solicitacao,
+                tipoSolicitacao: report.tipoSolicitacao,
+                observacoes: report.observacoes,
+                arquivo: undefined
+              }
+            })
           }
           
           console.log('🔍 ReportStore: Relatórios mapeados:', reports.length, 'itens')
