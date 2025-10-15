@@ -171,6 +171,12 @@ export const useReportStore = create<ReportState>()(
       log: async (entry) => {
         const eventId = crypto.randomUUID()
         const timestamp = new Date().toISOString()
+        
+        // Buscar nome do usuário logado
+        const { useAuthStore } = await import('./authStore')
+        const user = useAuthStore.getState().user
+        const userName = user?.name || 'Usuário desconhecido'
+        
         const event = {
           id: eventId,
           reportId: entry.reportId,
@@ -180,7 +186,7 @@ export const useReportStore = create<ReportState>()(
           to: String(entry.to ?? ''),
           message: `Campo "${entry.field}" alterado`,
           timestamp,
-          user: 'Usuário'
+          user: userName
         }
         
         // Adicionar ao store local imediatamente
@@ -189,8 +195,6 @@ export const useReportStore = create<ReportState>()(
         // Salvar no banco de dados em background
         try {
           const { api } = await import('../lib/api.local')
-          const { useAuthStore } = await import('./authStore')
-          const user = useAuthStore.getState().user
           
           await api.createTimelineEvent({
             entityId: entry.reportId,
