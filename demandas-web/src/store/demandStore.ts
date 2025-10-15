@@ -358,14 +358,17 @@ export const useDemandStore = create<DemandState>()(
             // Mesclar: priorizar eventos do banco, mas manter eventos locais que ainda não foram sincronizados
             const mergedEvents = [...mappedEvents]
             
-            // Adicionar eventos locais que não existem no banco (baseado em timestamp e campo)
+            // Adicionar eventos locais que não existem no banco (baseado em timestamp, campo e valores)
+            // NÃO comparar user pois pode ser nome ou ID
             localEvents.forEach(localEvent => {
-              const existsInBank = mappedEvents.some(bankEvent => 
-                bankEvent.timestamp === localEvent.timestamp &&
-                bankEvent.field === localEvent.field &&
-                bankEvent.from === localEvent.from &&
-                bankEvent.to === localEvent.to
-              )
+              const existsInBank = mappedEvents.some(bankEvent => {
+                // Comparar apenas timestamp próximo (dentro de 5 segundos) e campo/valores
+                const timeDiff = Math.abs(new Date(bankEvent.timestamp).getTime() - new Date(localEvent.timestamp).getTime())
+                return timeDiff < 5000 && // 5 segundos de tolerância
+                       bankEvent.field === localEvent.field &&
+                       bankEvent.from === localEvent.from &&
+                       bankEvent.to === localEvent.to
+              })
               
               if (!existsInBank) {
                 console.log('⚠️ Evento local não encontrado no banco, mantendo:', localEvent)

@@ -414,10 +414,13 @@ export const useValidationStore = create<ValidationState>()(
             const mergedEvents = [...mappedEvents]
             
             localEvents.forEach(localEvent => {
-              const existsInBank = mappedEvents.some(bankEvent => 
-                bankEvent.timestamp === localEvent.timestamp &&
-                bankEvent.field === localEvent.field
-              )
+              const existsInBank = mappedEvents.some(bankEvent => {
+                const timeDiff = Math.abs(new Date(bankEvent.timestamp).getTime() - new Date(localEvent.timestamp).getTime())
+                return timeDiff < 5000 &&
+                       bankEvent.field === localEvent.field &&
+                       bankEvent.from === localEvent.from &&
+                       bankEvent.to === localEvent.to
+              })
               if (!existsInBank) mergedEvents.push(localEvent)
             })
             
