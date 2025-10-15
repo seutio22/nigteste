@@ -36,18 +36,7 @@ const columns: GridColDef[] = [
   ) },
   { field: 'status', headerName: 'Status', width: 150, renderCell: (p) => <ReportStatusBadge status={String(p.value ?? '')} /> },
   { field: 'prioridade', headerName: 'Prioridade', width: 120, renderCell: (p) => <PriorityBadge priority={String(p.value ?? '')} /> },
-  { 
-    field: 'analista', 
-    headerName: 'Analista', 
-    width: 160,
-    valueGetter: (params) => {
-      if (!params.row) return 'N/A'
-      const analistaId = params.row.analista
-      if (!analistaId) return 'N/A'
-      const analista = useMasterDataStore.getState().analistas.find(a => a.id === analistaId)
-      return analista?.nome || analistaId || 'N/A'
-    }
-  },
+  { field: 'analista', headerName: 'Analista', width: 160 },
   { field: 'area', headerName: 'Área', width: 160 },
   { field: 'cliente', headerName: 'Cliente', width: 200 },
   { field: 'contrato', headerName: 'Contrato', width: 140 },

@@ -103,7 +103,7 @@ export default function AnalyticsDetailPage() {
                 <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                 <div>
                   <p className="text-sm text-gray-500">Analista</p>
-                  <p className="font-medium">{label(report.analista, md.analistas)}</p>
+                  <p className="font-medium">{report.analista || 'N/A'}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">

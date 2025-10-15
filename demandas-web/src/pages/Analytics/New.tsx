@@ -144,7 +144,11 @@ export default function AnalyticsNewPage() {
 
     try {
       console.log('✅ AnalyticsNewPage: Validação OK, enviando para API...')
-      console.log('✅ AnalyticsNewPage: Analista a ser enviado:', form.analista)
+      console.log('✅ AnalyticsNewPage: Analista ID:', form.analista)
+      
+      // Converter ID do analista para NOME (o banco espera String, não ID)
+      const analistaNome = md.analistas.find(a => a.id === form.analista)?.nome || form.analista || 'N/A'
+      console.log('✅ AnalyticsNewPage: Analista NOME a ser enviado:', analistaNome)
       
       const newReport = await add({
         titulo: form.titulo,
@@ -153,7 +157,7 @@ export default function AnalyticsNewPage() {
         total: form.total,
         tipo: form.tipo,
         status: form.status,
-        analista: form.analista,
+        analista: analistaNome, // Enviar NOME ao invés de ID
         area: form.area,
         cliente: form.cliente,
         contrato: form.contrato,
