@@ -464,6 +464,7 @@ function EditInline({ d }: { d: Demand }) {
         descricao: draft.descricao || null,
         observacoes: draft.observacoes || null,
         qualidade: draft.qualidade || null,
+        analiseQuantitativa: draft.analiseQuantitativa || null,
         qtdRetornos: draft.qtdRetornos || null,
         qtdClientesVinculados: draft.qtdClientesVinculados || null,
         usuariosEmpresa: draft.usuariosEmpresa || null,
