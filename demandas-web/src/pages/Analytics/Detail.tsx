@@ -238,7 +238,6 @@ export default function AnalyticsDetailPage() {
 
           {/* Timeline */}
           <div className="bg-white p-6 rounded-lg border shadow-sm">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Histórico de Alterações</h2>
             <Timeline entityId={id!} entityType="analytics" />
           </div>
         </div>
