@@ -386,15 +386,15 @@ function EditInline({ d }: { d: Demand }) {
   )
 
   const changedKeys = ((): string[] => {
-    const keys = ['status', 'ticket', 'clienteId', 'contratoId', 'operadoraId', 'produtoId', 'sistemaId', 'areaId', 'tipoId', 'tipoServicoId', 'descricao', 'solicitante', 'dataInicio', 'dataFinal', 'qtdRetornos', 'qualidade', 'qtdClientesVinculados', 'usuariosEmpresa', 'observacoes'] as const
+    const keys = ['status', 'ticket', 'clienteId', 'contratoId', 'operadoraId', 'produtoId', 'sistemaId', 'areaId', 'tipoId', 'tipoServicoId', 'analistaId', 'descricao', 'solicitante', 'dataInicio', 'dataFinal', 'analiseQuantitativa', 'qtdRetornos', 'qualidade', 'qtdClientesVinculados', 'usuariosEmpresa', 'observacoes'] as const
     
     console.log('🔍 DemandDetailPage: Verificando mudanças...')
     console.log('🔍 DemandDetailPage: Dados originais:', d)
     console.log('🔍 DemandDetailPage: Dados do draft:', draft)
     
     const changed = keys.filter((k) => {
-      const dValue = k === 'status' ? d.status : k === 'ticket' ? d.ticket : k === 'clienteId' ? d.clienteId : k === 'contratoId' ? d.contratoId : k === 'operadoraId' ? d.operadoraId : k === 'produtoId' ? d.produtoId : k === 'sistemaId' ? d.sistemaId : k === 'areaId' ? d.areaId : k === 'tipoId' ? d.tipoId : k === 'tipoServicoId' ? d.tipoServicoId : k === 'descricao' ? d.descricao : k === 'solicitante' ? d.solicitante : k === 'dataInicio' ? d.dataInicio : k === 'dataFinal' ? d.dataFinal : k === 'qtdRetornos' ? d.qtdRetornos : k === 'qualidade' ? d.qualidade : k === 'qtdClientesVinculados' ? d.qtdClientesVinculados : k === 'usuariosEmpresa' ? d.usuariosEmpresa : d.observacoes
-      const draftValue = k === 'status' ? draft.status : k === 'ticket' ? draft.ticket : k === 'clienteId' ? draft.clienteId : k === 'contratoId' ? draft.contratoId : k === 'operadoraId' ? draft.operadoraId : k === 'produtoId' ? draft.produtoId : k === 'sistemaId' ? draft.sistemaId : k === 'areaId' ? draft.areaId : k === 'tipoId' ? draft.tipoId : k === 'tipoServicoId' ? draft.tipoServicoId : k === 'descricao' ? draft.descricao : k === 'solicitante' ? draft.solicitante : k === 'dataInicio' ? draft.dataInicio : k === 'dataFinal' ? draft.dataFinal : k === 'qtdRetornos' ? draft.qtdRetornos : k === 'qualidade' ? draft.qualidade : k === 'qtdClientesVinculados' ? draft.qtdClientesVinculados : k === 'usuariosEmpresa' ? draft.usuariosEmpresa : draft.observacoes
+      const dValue = (d as any)[k]
+      const draftValue = (draft as any)[k]
       
       const isChanged = String(dValue ?? '') !== String(draftValue ?? '')
       
@@ -538,6 +538,8 @@ function EditInline({ d }: { d: Demand }) {
               return md.tiposDemanda.find(t => t.id === id)?.nome || id
             case 'tipoServicoId':
               return md.tiposServico.find(ts => ts.id === id)?.nome || id
+            case 'analistaId':
+              return md.analistas.find(a => a.id === id)?.nome || id
             case 'solicitante':
               return md.solicitantes.find(s => s.id === id)?.nome || id
             default:
@@ -545,8 +547,16 @@ function EditInline({ d }: { d: Demand }) {
           }
         }
         
-        const from = k === 'status' ? String(d.status ?? '') : k === 'ticket' ? String(d.ticket ?? '') : k === 'clienteId' ? convertIdToName(d.clienteId, 'clienteId') : k === 'contratoId' ? convertIdToName(d.contratoId, 'contratoId') : k === 'operadoraId' ? convertIdToName(d.operadoraId, 'operadoraId') : k === 'produtoId' ? convertIdToName(d.produtoId, 'produtoId') : k === 'sistemaId' ? convertIdToName(d.sistemaId, 'sistemaId') : k === 'areaId' ? convertIdToName(d.areaId, 'areaId') : k === 'tipoId' ? convertIdToName(d.tipoId, 'tipoId') : k === 'tipoServicoId' ? convertIdToName(d.tipoServicoId, 'tipoServicoId') : k === 'descricao' ? String(d.descricao ?? '') : k === 'solicitante' ? convertIdToName(d.solicitante, 'solicitante') : k === 'dataInicio' ? String(d.dataInicio ?? '') : k === 'dataFinal' ? String(d.dataFinal ?? '') : k === 'qtdRetornos' ? String(d.qtdRetornos ?? '') : k === 'qualidade' ? String(d.qualidade ?? '') : k === 'qtdClientesVinculados' ? String(d.qtdClientesVinculados ?? '') : k === 'usuariosEmpresa' ? String(d.usuariosEmpresa ?? '') : String(d.observacoes ?? '')
-        const to = k === 'status' ? String(draft.status ?? '') : k === 'ticket' ? String(draft.ticket ?? '') : k === 'clienteId' ? convertIdToName(draft.clienteId, 'clienteId') : k === 'contratoId' ? convertIdToName(draft.contratoId, 'contratoId') : k === 'operadoraId' ? convertIdToName(draft.operadoraId, 'operadoraId') : k === 'produtoId' ? convertIdToName(draft.produtoId, 'produtoId') : k === 'sistemaId' ? convertIdToName(draft.sistemaId, 'sistemaId') : k === 'areaId' ? convertIdToName(draft.areaId, 'areaId') : k === 'tipoId' ? convertIdToName(draft.tipoId, 'tipoId') : k === 'tipoServicoId' ? convertIdToName(draft.tipoServicoId, 'tipoServicoId') : k === 'descricao' ? String(draft.descricao ?? '') : k === 'solicitante' ? convertIdToName(draft.solicitante, 'solicitante') : k === 'dataInicio' ? String(draft.dataInicio ?? '') : k === 'dataFinal' ? String(draft.dataFinal ?? '') : k === 'qtdRetornos' ? String(draft.qtdRetornos ?? '') : k === 'qualidade' ? String(draft.qualidade ?? '') : k === 'qtdClientesVinculados' ? String(draft.qtdClientesVinculados ?? '') : k === 'usuariosEmpresa' ? String(draft.usuariosEmpresa ?? '') : String(draft.observacoes ?? '')
+        // Converter valores para string legível (IDs para nomes)
+        const fieldsWithIdConversion = ['clienteId', 'contratoId', 'operadoraId', 'produtoId', 'sistemaId', 'areaId', 'tipoId', 'tipoServicoId', 'analistaId', 'solicitante']
+        
+        const from = fieldsWithIdConversion.includes(k) 
+          ? convertIdToName((d as any)[k], k)
+          : String((d as any)[k] ?? '')
+        
+        const to = fieldsWithIdConversion.includes(k)
+          ? convertIdToName((draft as any)[k], k)
+          : String((draft as any)[k] ?? '')
         if (k === 'status') {
           store.log({ 
             demandaId: d.id, 
@@ -566,7 +576,12 @@ function EditInline({ d }: { d: Demand }) {
             'sistemaId': 'sistema',
             'areaId': 'area',
             'tipoId': 'tipo',
-            'tipoServicoId': 'tipoServico'
+            'tipoServicoId': 'tipoServico',
+            'analistaId': 'analista',
+            'analiseQuantitativa': 'Análise Quantitativa',
+            'qtdRetornos': 'Quantidade de Retornos',
+            'qtdClientesVinculados': 'QTD Clientes Vinculados',
+            'usuariosEmpresa': 'Usuários Empresa'
           }
           
           const fieldName = fieldMapping[k] || k
