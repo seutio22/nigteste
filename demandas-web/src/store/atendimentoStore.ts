@@ -248,14 +248,41 @@ export const useAtendimentoStore = create<AtendimentoState>()(
       
       clear: () => set({ items: [] }),
       
-      log: (e) => set((s) => ({ 
-        timeline: [{ 
-          id: crypto.randomUUID(), 
-          timestamp: new Date().toISOString(), 
-          userName: 'Usuário do Sistema', // Valor padrão
+      log: async (e) => {
+        const eventId = crypto.randomUUID()
+        const timestamp = new Date().toISOString()
+        const event = { 
+          id: eventId, 
+          timestamp, 
+          userName: 'Usuário do Sistema',
           ...e 
-        }, ...s.timeline] 
-      })),
+        }
+        
+        // Adicionar ao store local imediatamente
+        set((s) => ({ timeline: [event, ...s.timeline] }))
+        
+        // Salvar no banco de dados em background
+        try {
+          const { api } = await import('../lib/api.local')
+          const { useAuthStore } = await import('./authStore')
+          const user = useAuthStore.getState().user
+          
+          await api.createTimelineEvent({
+            entityId: e.atendimentoId!,
+            entityType: 'atendimento',
+            eventType: e.type,
+            field: e.field,
+            fromValue: e.from,
+            toValue: e.to,
+            comment: undefined,
+            userId: user?.id
+          })
+          
+          console.log('✅ Evento de timeline de atendimento salvo no banco:', event)
+        } catch (error) {
+          console.error('❌ Erro ao salvar evento de timeline no banco:', error)
+        }
+      },
       
       syncFromApi: async () => {
         const state = get()

@@ -263,12 +263,36 @@ export const useValidationStore = create<ValidationState>()(
         }
       },
       
-      log: (entry: { validationId: string; type: string; field: string; from: unknown; to: unknown }) => {
+      log: async (entry: { validationId: string; type: string; field: string; from: unknown; to: unknown }) => {
         const logEntry: ValidationLog = {
           ...entry,
           timestamp: new Date().toISOString()
         }
+        
+        // Adicionar ao store local imediatamente
         set((s) => ({ logs: [logEntry, ...s.logs] }))
+        
+        // Salvar no banco de dados em background
+        try {
+          const { api } = await import('../lib/api.local')
+          const { useAuthStore } = await import('./authStore')
+          const user = useAuthStore.getState().user
+          
+          await api.createTimelineEvent({
+            entityId: entry.validationId,
+            entityType: 'validacao',
+            eventType: entry.type,
+            field: entry.field,
+            fromValue: String(entry.from ?? ''),
+            toValue: String(entry.to ?? ''),
+            comment: undefined,
+            userId: user?.id
+          })
+          
+          console.log('✅ Evento de timeline de validação salvo no banco:', logEntry)
+        } catch (error) {
+          console.error('❌ Erro ao salvar evento de timeline no banco:', error)
+        }
       },
       
       syncFromApi: async () => {
