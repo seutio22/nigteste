@@ -288,7 +288,12 @@ function EditInline({ report }: { report: any }) {
     // Atualizar no backend PRIMEIRO (igual página Demandas)
     try {
       const { api } = await import('../../lib/api.local')
-      await api.put(`/analytics/${report.id}`, draft)
+      
+      // Filtrar campos que não devem ser enviados no update (são automáticos)
+      const { id, dataCriacao, dataAtualizacao, userId, arquivo, ...updatePayload } = draft
+      
+      console.log('🔍 Analytics applySave: Payload filtrado:', updatePayload)
+      await api.put(`/analytics/${report.id}`, updatePayload)
       console.log('✅ Relatório atualizado no backend:', report.id)
     } catch (error) {
       console.error('❌ Erro ao atualizar relatório no backend:', error)
