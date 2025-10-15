@@ -7,6 +7,7 @@ interface TimelineState {
   addEvent: (event: Omit<TimelineEvent, 'id' | 'timestamp'>) => void
   getEventsByEntity: (entityId: string, entityType: 'atendimento' | 'reajuste' | 'demanda' | 'analytics' | 'manutencao' | 'validacao') => TimelineEvent[]
   clearEvents: () => void
+  syncTimeline: (entityId: string, entityType: string) => Promise<void>
 }
 
 export const useTimelineStore = create<TimelineState>()(
@@ -69,7 +70,63 @@ export const useTimelineStore = create<TimelineState>()(
         return events.filter(event => event[entityField as keyof TimelineEvent] === entityId)
       },
       
-      clearEvents: () => set({ events: [] })
+      clearEvents: () => set({ events: [] }),
+      
+      async syncTimeline(entityId: string, entityType: string) {
+        try {
+          console.log('🔄 Sincronizando timeline:', { entityId, entityType })
+          
+          const { api } = await import('../lib/api.local')
+          const events = await api.getTimelineEvents(entityId, entityType)
+          
+          console.log('✅ Timeline sincronizada:', events.length, 'eventos do banco')
+          
+          // Mapear eventos da API para o formato do frontend
+          const mappedEvents = events.map((event: any) => {
+            const entityField = entityType === 'reajuste' ? 'reajusteId' : 'reportId'
+            return {
+              id: event.id,
+              [entityField]: event.entityId,
+              type: event.eventType,
+              field: event.field,
+              from: event.fromValue,
+              to: event.toValue,
+              timestamp: event.createdAt,
+              user: event.userName || event.userId || 'Usuário desconhecido'
+            }
+          })
+          
+          // Mesclar eventos do banco com locais (sem duplicar)
+          set((s) => {
+            const otherEvents = s.events.filter((e: any) => {
+              const field = entityType === 'reajuste' ? e.reajusteId : e.reportId
+              return field !== entityId
+            })
+            
+            const localEvents = s.events.filter((e: any) => {
+              const field = entityType === 'reajuste' ? e.reajusteId : e.reportId
+              return field === entityId
+            })
+            
+            const mergedEvents = [...mappedEvents]
+            
+            localEvents.forEach(localEvent => {
+              const existsInBank = mappedEvents.some(bankEvent => {
+                const timeDiff = Math.abs(new Date(bankEvent.timestamp).getTime() - new Date(localEvent.timestamp).getTime())
+                return timeDiff < 5000 &&
+                       bankEvent.field === localEvent.field &&
+                       bankEvent.from === localEvent.from &&
+                       bankEvent.to === localEvent.to
+              })
+              if (!existsInBank) mergedEvents.push(localEvent)
+            })
+            
+            return { events: [...mergedEvents, ...otherEvents] }
+          })
+        } catch (error) {
+          console.error('❌ Erro ao sincronizar timeline:', error)
+        }
+      }
     }),
     {
       name: 'timeline-store-v1',

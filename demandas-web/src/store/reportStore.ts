@@ -51,6 +51,7 @@ interface ReportState {
   getEventsByReport: (reportId: string) => TimelineEvent[]
   clearTimeline: () => void
   syncFromApi: () => Promise<void>
+  syncTimeline: (reportId: string) => Promise<void>
 }
 
 export const useReportStore = create<ReportState>()(
@@ -248,6 +249,50 @@ export const useReportStore = create<ReportState>()(
       },
       clearTimeline: () => {
         set({ timeline: [] })
+      },
+      
+      async syncTimeline(reportId: string) {
+        try {
+          console.log('🔄 Sincronizando timeline do analytics:', reportId)
+          
+          const { api } = await import('../lib/api.local')
+          const events = await api.getTimelineEvents(reportId, 'analytics')
+          
+          console.log('✅ Timeline sincronizada:', events.length, 'eventos do banco')
+          
+          const mappedEvents = events.map((event: any) => ({
+            id: event.id,
+            reportId: event.entityId,
+            type: event.eventType,
+            field: event.field,
+            from: event.fromValue,
+            to: event.toValue,
+            message: `Campo "${event.field}" alterado`,
+            timestamp: event.createdAt,
+            user: event.userName || event.userId || 'Usuário desconhecido'
+          }))
+          
+          set((s) => {
+            const otherEvents = s.timeline.filter((e: any) => e.reportId !== reportId)
+            const localEvents = s.timeline.filter((e: any) => e.reportId === reportId)
+            const mergedEvents = [...mappedEvents]
+            
+            localEvents.forEach(localEvent => {
+              const existsInBank = mappedEvents.some(bankEvent => {
+                const timeDiff = Math.abs(new Date(bankEvent.timestamp).getTime() - new Date(localEvent.timestamp).getTime())
+                return timeDiff < 5000 &&
+                       bankEvent.field === localEvent.field &&
+                       bankEvent.from === localEvent.from &&
+                       bankEvent.to === localEvent.to
+              })
+              if (!existsInBank) mergedEvents.push(localEvent)
+            })
+            
+            return { timeline: [...mergedEvents, ...otherEvents] }
+          })
+        } catch (error) {
+          console.error('❌ Erro ao sincronizar timeline de analytics:', error)
+        }
       }
     }),
     { name: 'reports-v1' }

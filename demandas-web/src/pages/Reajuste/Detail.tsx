@@ -4,7 +4,7 @@ import { useMasterDataStore } from '../../store/masterDataStore'
 import { useTimelineStore } from '../../store/timelineStore'
 import { useAuthStore } from '../../store/authStore'
 import { ArrowLeft, Edit3, Save, Clock } from 'lucide-react'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { StatusBadge } from '../../components/StatusBadge'
 import { Timeline } from '../../components/Timeline'
 import { fmt, calcTempo } from '../../lib/utils'
@@ -13,8 +13,21 @@ export default function ReajusteDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const store = useReajusteStore()
+  const timelineStore = useTimelineStore()
   const md = useMasterDataStore()
   const reajuste = store.items.find(r => r.id === id)
+  
+  // Controle para sincronizar timeline apenas uma vez
+  const timelineSyncedRef = useRef<Set<string>>(new Set())
+  
+  // Sincronizar timeline apenas uma vez quando a página carrega
+  useEffect(() => {
+    if (id && timelineStore.syncTimeline && !timelineSyncedRef.current.has(id)) {
+      console.log('🔄 Sincronizando timeline do reajuste (primeira vez):', id)
+      timelineSyncedRef.current.add(id)
+      timelineStore.syncTimeline(id, 'reajuste')
+    }
+  }, [id])
 
   if (!reajuste) {
     return (

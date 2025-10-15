@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useReportStore } from '../../store/reportStore'
 import { useMasterDataStore } from '../../store/masterDataStore'
@@ -10,8 +10,20 @@ import { ArrowLeft, Edit3, Save, Clock } from 'lucide-react'
 export default function AnalyticsDetailPage() {
   const navigate = useNavigate()
   const { id } = useParams()
-  const { items, update } = useReportStore()
+  const { items, update, syncTimeline } = useReportStore()
   const md = useMasterDataStore()
+  
+  // Controle para sincronizar timeline apenas uma vez
+  const timelineSyncedRef = useRef<Set<string>>(new Set())
+  
+  // Sincronizar timeline apenas uma vez quando a página carrega
+  useEffect(() => {
+    if (id && syncTimeline && !timelineSyncedRef.current.has(id)) {
+      console.log('🔄 Sincronizando timeline do analytics (primeira vez):', id)
+      timelineSyncedRef.current.add(id)
+      syncTimeline(id)
+    }
+  }, [id])
   
   console.log('🔍 AnalyticsDetailPage: ID:', id)
   console.log('🔍 AnalyticsDetailPage: Items no store:', items.length)
