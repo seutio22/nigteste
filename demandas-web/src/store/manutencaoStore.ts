@@ -324,7 +324,7 @@ export const useManutencaoStore = create<ManutencaoState>()(
           const { api } = await import('../lib/api.local')
           const events = await api.getTimelineEvents(manutencaoId, 'manutencao')
           
-          console.log('✅ Timeline sincronizada:', events.length, 'eventos')
+          console.log('✅ Timeline sincronizada:', events.length, 'eventos do banco')
           
           // Mapear eventos da API para o formato do frontend
           const mappedEvents = events.map((event: any) => ({
@@ -338,12 +338,35 @@ export const useManutencaoStore = create<ManutencaoState>()(
             user: event.userId
           }))
           
-          // Atualizar apenas os eventos desta manutenção específica
+          // Atualizar timeline mesclando eventos do banco com os locais (sem duplicar)
           set((s) => {
-            // Remover eventos antigos desta manutenção
+            // Manter eventos de outras manutenções
             const otherEvents = s.timeline.filter(e => e.manutencaoId !== manutencaoId)
-            // Adicionar eventos sincronizados
-            return { timeline: [...mappedEvents, ...otherEvents] }
+            
+            // Eventos locais desta manutenção
+            const localEvents = s.timeline.filter(e => e.manutencaoId === manutencaoId)
+            
+            // Mesclar: priorizar eventos do banco, mas manter eventos locais que ainda não foram sincronizados
+            const mergedEvents = [...mappedEvents]
+            
+            // Adicionar eventos locais que não existem no banco (baseado em timestamp e campo)
+            localEvents.forEach(localEvent => {
+              const existsInBank = mappedEvents.some(bankEvent => 
+                bankEvent.timestamp === localEvent.timestamp &&
+                bankEvent.field === localEvent.field &&
+                bankEvent.from === localEvent.from &&
+                bankEvent.to === localEvent.to
+              )
+              
+              if (!existsInBank) {
+                console.log('⚠️ Evento local não encontrado no banco, mantendo:', localEvent)
+                mergedEvents.push(localEvent)
+              }
+            })
+            
+            console.log('📊 Total de eventos após merge:', mergedEvents.length)
+            
+            return { timeline: [...mergedEvents, ...otherEvents] }
           })
         } catch (error) {
           console.error('❌ Erro ao sincronizar timeline:', error)
