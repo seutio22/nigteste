@@ -216,13 +216,15 @@ export const useReportStore = create<ReportState>()(
           const { api } = await import('../lib/api.local')
           
           const response = await api.getAnalytics()
-          console.log('🔍 ReportStore: Resposta da API:', response)
+          console.log('🔍 ReportStore: Resposta COMPLETA da API:', JSON.stringify(response, null, 2))
+          console.log('🔍 ReportStore: Tipo da resposta:', typeof response, Array.isArray(response) ? 'É Array' : 'É Objeto')
           
           // A resposta agora tem estrutura { analytics: [], reports: [] }
           let reports = []
           
           if (response.reports && Array.isArray(response.reports)) {
             console.log('🔍 ReportStore: Encontrados', response.reports.length, 'relatórios salvos')
+            console.log('🔍 ReportStore: Primeiro relatório:', JSON.stringify(response.reports[0], null, 2))
             
             // Buscar analistas para converter IDs em nomes (para relatórios antigos)
             const { useMasterDataStore } = await import('./masterDataStore')
