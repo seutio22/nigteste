@@ -368,7 +368,7 @@ export const useMaillingStore = create<MaillingState>()(
         
         // Preparar dados para exportação com nomes legíveis
         const exportData = contacts.map(contact => {
-          // Buscar nomes legíveis para área, cargo e filial
+          // Buscar nomes legíveis para área, cargo, filiais e grupos
           const areaNome = contact.area ? 
             masterDataStore.areasMailling?.find(a => a.id === contact.area)?.nome || contact.area : 
             ''
@@ -377,8 +377,16 @@ export const useMaillingStore = create<MaillingState>()(
             masterDataStore.cargosMailling?.find(c => c.id === contact.cargo)?.nome || contact.cargo : 
             ''
           
-          const filialNome = contact.filial ? 
-            masterDataStore.filiaisMailling?.find(f => f.id === contact.filial)?.nome || contact.filial : 
+          const filiaisNomes = contact.filiais && contact.filiais.length > 0 ? 
+            contact.filiais.map(filialId => 
+              masterDataStore.filiaisMailling?.find(f => f.id === filialId)?.nome || filialId
+            ).join(', ') : 
+            ''
+          
+          const gruposNomes = contact.grupos && contact.grupos.length > 0 ? 
+            contact.grupos.map(grupoId => 
+              masterDataStore.grupos?.find(g => g.id === grupoId)?.nome || grupoId
+            ).join(', ') : 
             ''
           
           return {
@@ -386,17 +394,15 @@ export const useMaillingStore = create<MaillingState>()(
             'E-mail': contact.email,
             'Cargo': cargoNome,
             'Área': areaNome,
-            'Filial': filialNome,
+            'Filiais': filiaisNomes,
             'Superior': contact.superior || '',
             'Posição E-mail': contact.posicaoEmail || '',
-            'Informativos': contact.informativos || '',
+            'Grupos': gruposNomes,
             'Cancelamento': contact.cancelamento || '',
             'Alteração Contratual': contact.alteracaoContratual || '',
             'Alteração Dados Cliente': contact.alteracaoDadosCliente || '',
             'Alteração Serviços': contact.alteracaoServicos || '',
-            'Aniversário Clientes': contact.aniversarioClientes || '',
             'Alteração Remuneração': contact.alteracaoRemuneracao || '',
-            'DEXPARA': contact.dexpara || '',
             'Curadoria Portal RH': contact.curadoriaPortalRh || '',
             'Documentação Contratual': contact.documentacaoContratual || '',
             'Criado em': new Date(contact.createdAt).toLocaleDateString('pt-BR'),
@@ -415,17 +421,15 @@ export const useMaillingStore = create<MaillingState>()(
           { wch: 30 }, // E-mail
           { wch: 15 }, // Cargo
           { wch: 15 }, // Área
-          { wch: 15 }, // Filial
+          { wch: 25 }, // Filiais (maior para acomodar múltiplas filiais)
           { wch: 15 }, // Superior
           { wch: 15 }, // Posição E-mail
-          { wch: 12 }, // Informativos
+          { wch: 25 }, // Grupos (maior para acomodar múltiplos grupos)
           { wch: 12 }, // Cancelamento
           { wch: 18 }, // Alteração Contratual
           { wch: 20 }, // Alteração Dados Cliente
           { wch: 18 }, // Alteração Serviços
-          { wch: 18 }, // Aniversário Clientes
           { wch: 18 }, // Alteração Remuneração
-          { wch: 12 }, // DEXPARA
           { wch: 18 }, // Curadoria Portal RH
           { wch: 22 }, // Documentação Contratual
           { wch: 12 }, // Criado em
