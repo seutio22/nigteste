@@ -161,8 +161,8 @@ export default function MaillingListPage() {
       console.log('📊 SmartImporter: Resultado recebido:', result)
       
       // Processar itens válidos
-      for (const item of result.validItems) {
-        const contactData = item.data as any
+      for (const item of result.valid) {
+        const contactData = item.isCorrected ? item.correctedData : item.data
         
         await maillingStore.add({
           nome: contactData.nome || '',
@@ -185,7 +185,7 @@ export default function MaillingListPage() {
       
       setSnackbar({ 
         open: true, 
-        message: `${result.validItems.length} contato(s) importado(s) com sucesso!`, 
+        message: `${result.valid.length} contato(s) importado(s) com sucesso!`, 
         severity: 'success' 
       })
       
