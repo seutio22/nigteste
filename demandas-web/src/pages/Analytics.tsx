@@ -73,9 +73,9 @@ export default function AnalyticsPage() {
           (user?.name?.toLowerCase() || '').includes(analista.nome.toLowerCase())
         )
         
-        // Se encontrou o analista correspondente, comparar IDs
+        // Se encontrou o analista correspondente, comparar NOMES (não IDs)
         if (analistaCorrespondente) {
-          return item.analista === analistaCorrespondente.id
+          return item.analista?.toLowerCase() === analistaCorrespondente.nome.toLowerCase()
         }
         
         // Se não encontrou correspondência, retornar false (não mostrar)
@@ -100,7 +100,7 @@ export default function AnalyticsPage() {
     console.log('🔍 AnalyticsPage: Analista correspondente ao usuário:', analistaCorrespondente)
     
     if (analistaCorrespondente) {
-      const meusRelatorios = items.filter(item => item.analista === analistaCorrespondente.id)
+      const meusRelatorios = items.filter(item => item.analista?.toLowerCase() === analistaCorrespondente.nome.toLowerCase())
       console.log('🔍 AnalyticsPage: Relatórios do analista correspondente:', meusRelatorios.length, meusRelatorios)
     }
   }
