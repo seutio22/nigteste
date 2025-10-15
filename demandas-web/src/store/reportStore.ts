@@ -143,8 +143,45 @@ export const useReportStore = create<ReportState>()(
           }))
         }
       },
-      log: (entry) => {
-        // Implementar log de mudanças se necessário
+      log: async (entry) => {
+        const eventId = crypto.randomUUID()
+        const timestamp = new Date().toISOString()
+        const event = {
+          id: eventId,
+          reportId: entry.reportId,
+          type: entry.type as any,
+          field: entry.field,
+          from: String(entry.from ?? ''),
+          to: String(entry.to ?? ''),
+          message: `Campo "${entry.field}" alterado`,
+          timestamp,
+          user: 'Usuário'
+        }
+        
+        // Adicionar ao store local imediatamente
+        set((s) => ({ timeline: [event, ...s.timeline] }))
+        
+        // Salvar no banco de dados em background
+        try {
+          const { api } = await import('../lib/api.local')
+          const { useAuthStore } = await import('./authStore')
+          const user = useAuthStore.getState().user
+          
+          await api.createTimelineEvent({
+            entityId: entry.reportId,
+            entityType: 'analytics',
+            eventType: entry.type,
+            field: entry.field,
+            fromValue: String(entry.from ?? ''),
+            toValue: String(entry.to ?? ''),
+            comment: undefined,
+            userId: user?.id
+          })
+          
+          console.log('✅ Evento de timeline de analytics salvo no banco:', event)
+        } catch (error) {
+          console.error('❌ Erro ao salvar evento de timeline no banco:', error)
+        }
       },
       async syncFromApi() {
         try {
