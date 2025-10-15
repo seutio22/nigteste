@@ -205,11 +205,22 @@ export const useReportStore = create<ReportState>()(
             
             // Mapear os relatórios salvos para o formato esperado pelo frontend
             reports = response.reports.map((report: any) => {
-              // Se analista parece ser um ID (UUID), converter para nome
+              // Determinar nome do analista
               let analistaNome = report.analista
-              if (report.analista && report.analista.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-                const analistaEncontrado = masterData.analistas.find(a => a.id === report.analista)
-                analistaNome = analistaEncontrado?.nome || report.analista
+              
+              // Se analista está vazio mas tem userId, buscar pelo userId
+              if (!analistaNome && report.userId) {
+                const analistaPorUserId = masterData.analistas.find(a => a.id === report.userId)
+                if (analistaPorUserId) {
+                  analistaNome = analistaPorUserId.nome
+                  console.log('🔄 Analista vazio - usando userId:', report.userId, '→', analistaNome)
+                }
+              }
+              
+              // Se analista parece ser um ID (UUID), converter para nome
+              if (analistaNome && analistaNome.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+                const analistaEncontrado = masterData.analistas.find(a => a.id === analistaNome)
+                analistaNome = analistaEncontrado?.nome || analistaNome
                 console.log('🔄 Convertendo analista ID para nome:', report.analista, '→', analistaNome)
               }
               
