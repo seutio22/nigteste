@@ -33,20 +33,16 @@ export default function AnalyticsDetailPage() {
     }
   }, [id])
   
-  console.log('🔍 AnalyticsDetailPage: ID:', id)
-  console.log('🔍 AnalyticsDetailPage: Report.analista:', report?.analista)
-  console.log('🔍 AnalyticsDetailPage: Analistas carregados:', md.analistas.length)
-  console.log('🔍 AnalyticsDetailPage: Analista encontrado:', md.analistas.find(a => a.id === report?.analista))
-  console.log('🔍 AnalyticsDetailPage: Items no store:', items.length)
-  console.log('🔍 AnalyticsDetailPage: Items:', items)
-  console.log('🔍 AnalyticsDetailPage: Contratos disponíveis:', md.contratos.length)
-  console.log('🔍 AnalyticsDetailPage: Contratos:', md.contratos)
-  
   const report = items.find(r => r.id === id)
   
+  console.log('🔍 AnalyticsDetailPage: ID:', id)
+  console.log('🔍 AnalyticsDetailPage: Items no store:', items.length)
   console.log('🔍 AnalyticsDetailPage: Report encontrado:', !!report)
-  console.log('🔍 AnalyticsDetailPage: Report:', report)
+  
   if (report) {
+    console.log('🔍 AnalyticsDetailPage: Report.analista:', report.analista)
+    console.log('🔍 AnalyticsDetailPage: Analistas carregados:', md.analistas.length)
+    console.log('🔍 AnalyticsDetailPage: Analista encontrado:', md.analistas.find(a => a.id === report.analista))
     console.log('🔍 AnalyticsDetailPage: Report.contrato:', report.contrato)
     console.log('🔍 AnalyticsDetailPage: Contrato encontrado:', md.contratos.find(c => c.id === report.contrato))
   }
