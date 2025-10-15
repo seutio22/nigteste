@@ -203,12 +203,16 @@ export const useReportStore = create<ReportState>()(
             const { useMasterDataStore } = await import('./masterDataStore')
             const masterData = useMasterDataStore.getState()
             
+            // Buscar dados do usuário para preencher analista vazio
+            const { useAuthStore } = await import('./authStore')
+            const currentUser = useAuthStore.getState().user
+            
             // Mapear os relatórios salvos para o formato esperado pelo frontend
             reports = response.reports.map((report: any) => {
-              // Determinar nome do analista
+              // Determinar nome do analista (IGUAL À PÁGINA DEMANDAS)
               let analistaNome = report.analista
               
-              // Se analista está vazio mas tem userId, buscar pelo userId
+              // 1. Se analista está vazio mas tem userId → buscar pelo userId
               if (!analistaNome && report.userId) {
                 const analistaPorUserId = masterData.analistas.find(a => a.id === report.userId)
                 if (analistaPorUserId) {
@@ -217,11 +221,23 @@ export const useReportStore = create<ReportState>()(
                 }
               }
               
-              // Se analista parece ser um ID (UUID), converter para nome
+              // 2. Se ainda está vazio e o userId é do usuário atual → usar nome do usuário
+              if (!analistaNome && report.userId === currentUser?.id) {
+                analistaNome = currentUser.name
+                console.log('🔄 Analista vazio - usando nome do usuário logado:', analistaNome)
+              }
+              
+              // 3. Se analista parece ser um ID (UUID) → converter para nome
               if (analistaNome && analistaNome.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
                 const analistaEncontrado = masterData.analistas.find(a => a.id === analistaNome)
                 analistaNome = analistaEncontrado?.nome || analistaNome
                 console.log('🔄 Convertendo analista ID para nome:', report.analista, '→', analistaNome)
+              }
+              
+              // 4. Fallback final: usar userId direto ou 'N/A'
+              if (!analistaNome) {
+                analistaNome = report.userId || 'N/A'
+                console.log('⚠️ Analista indefinido - usando fallback:', analistaNome)
               }
               
               return {
@@ -232,7 +248,7 @@ export const useReportStore = create<ReportState>()(
                 total: report.total,
                 tipo: report.tipo as any,
                 status: report.status as any,
-                analista: analistaNome,
+                analista: analistaNome, // Campo analista direto (igual Demandas)
                 area: report.area || 'N/A',
                 cliente: report.cliente,
                 contrato: report.contrato,
