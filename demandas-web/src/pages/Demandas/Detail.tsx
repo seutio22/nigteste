@@ -300,7 +300,7 @@ export default function DemandDetailPage() {
               </div>
               <div>
                 <p className="text-sm text-gray-500">Análise quantitativa</p>
-                <p className="font-medium">{d.periodicidade || '-'}</p>
+                <p className="font-medium">{d.analiseQuantitativa || '-'}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-500">Quantidade de Retornos</p>
@@ -906,8 +906,8 @@ function EditInline({ d }: { d: Demand }) {
           <label className="block text-sm font-medium text-gray-700 mb-2">Análise quantitativa</label>
           <input
             type="number"
-            value={draft.periodicidade || ''}
-            onChange={(e) => setDraft({ ...draft, periodicidade: e.target.value || undefined })}
+            value={draft.analiseQuantitativa || ''}
+            onChange={(e) => setDraft({ ...draft, analiseQuantitativa: e.target.value ? Number(e.target.value) : undefined })}
             placeholder="Digite um número"
             min="0"
             step="any"
