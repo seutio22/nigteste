@@ -415,7 +415,14 @@ function EditInline({ report }: { report: any }) {
           <label className="block text-sm font-medium text-gray-700 mb-2">Analista</label>
           <input
             type="text"
-            value={label(draft.analista, md.analistas)}
+            value={(() => {
+              // Se analista é um ID (UUID), converter para nome
+              if (draft.analista && draft.analista.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+                const analistaEncontrado = md.analistas.find(a => a.id === draft.analista)
+                return analistaEncontrado?.nome || draft.analista
+              }
+              return draft.analista || 'N/A'
+            })()}
             readOnly
             className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
             placeholder="Definido na criação"
