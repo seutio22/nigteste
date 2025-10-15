@@ -30,6 +30,8 @@ export default function DemandDetailPage() {
   const { user } = useAuthStore()
   const d = items.find((x) => x.id === id)
   
+  // Controle para sincronizar timeline apenas uma vez
+  const timelineSyncedRef = React.useRef<Set<string>>(new Set())
   
   // Estado para controlar se os dados mestres estão carregados
   const [masterDataLoaded, setMasterDataLoaded] = useState(false)
@@ -72,13 +74,14 @@ export default function DemandDetailPage() {
     setMasterDataLoaded(isLoaded)
   }, [md.tiposServico.length, md.tiposDemanda.length, md.clientes.length, md.contratos.length])
 
-  // Sincronizar timeline quando a demanda for carregada
+  // Sincronizar timeline apenas uma vez quando a página carrega
   useEffect(() => {
-    if (id && d) {
-      console.log('🔄 Sincronizando timeline da demanda:', id)
-      syncTimeline?.(id)
+    if (id && syncTimeline && !timelineSyncedRef.current.has(id)) {
+      console.log('🔄 Sincronizando timeline da demanda (primeira vez):', id)
+      timelineSyncedRef.current.add(id)
+      syncTimeline(id)
     }
-  }, [id, d])
+  }, [id]) // Apenas quando ID muda, não quando dados mudam
 
   console.log('DetailPage render:', { 
     id, 

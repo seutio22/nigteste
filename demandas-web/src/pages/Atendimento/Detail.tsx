@@ -17,13 +17,17 @@ export default function AtendimentoDetailPage() {
   const { user } = useAuthStore()
   const atendimento = atendimentoStore.items.find(a => a.id === id)
   
-  // Sincronizar timeline quando o atendimento for carregado
+  // Controle para sincronizar timeline apenas uma vez
+  const timelineSyncedRef = React.useRef<Set<string>>(new Set())
+  
+  // Sincronizar timeline apenas uma vez quando a página carrega
   useEffect(() => {
-    if (id && atendimento && atendimentoStore.syncTimeline) {
-      console.log('🔄 Sincronizando timeline do atendimento:', id)
+    if (id && atendimentoStore.syncTimeline && !timelineSyncedRef.current.has(id)) {
+      console.log('🔄 Sincronizando timeline do atendimento (primeira vez):', id)
+      timelineSyncedRef.current.add(id)
       atendimentoStore.syncTimeline(id)
     }
-  }, [id, atendimento])
+  }, [id]) // Apenas quando ID muda, não quando dados mudam
 
 
   console.log('🔍 AtendimentoDetailPage: Renderizando...', {

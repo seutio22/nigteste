@@ -1562,6 +1562,21 @@ function crud(entity: keyof PrismaClient) {
   const anyPrisma = prisma as any;
   return {
     list: async (queryParams?: any) => {
+      // Filtrar timelineEvents por entityId e entityType
+      if (entity === 'timelineEvent' && queryParams) {
+        const where: any = {}
+        if (queryParams.entityId) where.entityId = queryParams.entityId
+        if (queryParams.entityType) where.entityType = queryParams.entityType
+        
+        console.log('🔍 Buscando timelineEvents com filtros:', where)
+        const events = await anyPrisma[entity].findMany({
+          where,
+          orderBy: { createdAt: 'desc' }
+        })
+        console.log('✅ TimelineEvents encontrados:', events.length)
+        return events
+      }
+      
       // Incluir relacionamentos para atendimentos
       if (entity === 'atendimento') {
         return anyPrisma[entity].findMany({

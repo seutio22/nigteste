@@ -17,13 +17,17 @@ export default function ValidationDetailPage() {
   const { user } = useAuthStore()
   const validation = items.find(v => v.id === id)
   
-  // Sincronizar timeline quando a validação for carregada
+  // Controle para sincronizar timeline apenas uma vez
+  const timelineSyncedRef = React.useRef<Set<string>>(new Set())
+  
+  // Sincronizar timeline apenas uma vez quando a página carrega
   useEffect(() => {
-    if (id && validation && syncTimeline) {
-      console.log('🔄 Sincronizando timeline da validação:', id)
+    if (id && syncTimeline && !timelineSyncedRef.current.has(id)) {
+      console.log('🔄 Sincronizando timeline da validação (primeira vez):', id)
+      timelineSyncedRef.current.add(id)
       syncTimeline(id)
     }
-  }, [id, validation])
+  }, [id]) // Apenas quando ID muda, não quando dados mudam
   
   // Estado para controlar se os dados mestres estão carregados
   const [masterDataLoaded, setMasterDataLoaded] = useState(false)

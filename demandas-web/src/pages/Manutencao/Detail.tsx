@@ -28,6 +28,9 @@ export default function ManutencaoDetailPage() {
   const { user } = useAuthStore()
   const d = items.find((x) => x.id === id)
   
+  // Controle para sincronizar timeline apenas uma vez
+  const timelineSyncedRef = React.useRef<Set<string>>(new Set())
+  
   // Estado para controlar se os dados mestres estão carregados
   const [masterDataLoaded, setMasterDataLoaded] = useState(false)
 
@@ -49,13 +52,14 @@ export default function ManutencaoDetailPage() {
     }
   }, []) // Executar apenas uma vez quando o componente for montado
 
-  // Sincronizar timeline quando a manutenção for carregada
+  // Sincronizar timeline apenas uma vez quando a página carrega
   useEffect(() => {
-    if (id && d) {
-      console.log('🔄 Sincronizando timeline da manutenção:', id)
-      syncTimeline?.(id)
+    if (id && syncTimeline && !timelineSyncedRef.current.has(id)) {
+      console.log('🔄 Sincronizando timeline da manutenção (primeira vez):', id)
+      timelineSyncedRef.current.add(id)
+      syncTimeline(id)
     }
-  }, [id, d])
+  }, [id]) // Apenas quando ID muda, não quando dados mudam
 
   // Tentar recarregar se a manutenção específica não for encontrada após o carregamento inicial
   useEffect(() => {
