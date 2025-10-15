@@ -39,7 +39,12 @@ const columns: GridColDef[] = [
   { 
     field: 'analista', 
     headerName: 'Analista', 
-    width: 160
+    width: 160,
+    valueGetter: (params: any) => {
+      const analistaValue = params.row?.analista
+      console.log('🔍 Analytics Grid - Analista do relatório:', params.row?.id, '→', analistaValue)
+      return analistaValue || 'N/A'
+    }
   },
   { field: 'area', headerName: 'Área', width: 160 },
   { field: 'cliente', headerName: 'Cliente', width: 200 },
