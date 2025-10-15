@@ -161,7 +161,8 @@ export default function AnalyticsPage() {
       console.log('🔄 AnalyticsPage: FORÇANDO syncFromApi...')
       const syncNow = async () => {
         try {
-          await reportStore.syncFromApi()
+          const store = useReportStore.getState()
+          await store.syncFromApi()
           console.log('✅ AnalyticsPage: syncFromApi completado!')
         } catch (error) {
           console.error('❌ AnalyticsPage: Erro no syncFromApi:', error)
