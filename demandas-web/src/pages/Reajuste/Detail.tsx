@@ -419,7 +419,8 @@ function EditInline({ reajuste }: { reajuste: any }) {
           type: 'field_change', 
           field: fieldLabel, 
           from, 
-          to
+          to,
+          user: currentUser?.name || 'Usuário desconhecido'
         })
       })
       
