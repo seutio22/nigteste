@@ -2400,6 +2400,19 @@ export default function ProjectDetailPage() {
     // Buscar projeto do banco de dados
     fetchProject()
   }, [id])
+  
+  // Calcular e salvar progresso automaticamente quando o projeto é carregado
+  useEffect(() => {
+    if (project && project.timeline && project.timeline.phases) {
+      console.log('🔍 Projeto carregado, calculando progresso automaticamente...')
+      // Aguardar um pouco para garantir que o estado está atualizado
+      const timer = setTimeout(() => {
+        updateAllTaskProgress()
+      }, 500)
+      
+      return () => clearTimeout(timer)
+    }
+  }, [project?.id]) // Depender apenas do ID para evitar loop infinito
 
   const handleEdit = () => {
     setEditData({ ...project })
