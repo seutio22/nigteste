@@ -279,13 +279,21 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
       // Validar dados
       const result = validationEngine.processItems(items)
 
+      console.log('🔍 SMART IMPORTER: Resultado da validação:', {
+        valid: result.valid.length,
+        invalid: result.invalid.length,
+        duplicates: result.duplicates.length
+      })
+
       setImportResult(result)
       setProcessingStep('')
 
       // Se há itens inválidos, mostrar modal de correção
       if (result.invalid.length > 0 || result.duplicates.length > 0) {
+        console.log('✅ SMART IMPORTER: Abrindo modal de correção')
         setShowCorrectionModal(true)
       } else {
+        console.log('✅ SMART IMPORTER: Todos válidos, importando diretamente')
         // Todos os dados são válidos, importar diretamente
         onImport(result)
         onClose()

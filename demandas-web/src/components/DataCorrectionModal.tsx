@@ -70,7 +70,14 @@ export const DataCorrectionModal: React.FC<DataCorrectionModalProps> = ({
   const [correctionData, setCorrectionData] = useState<any>({})
 
   useEffect(() => {
+    console.log('🔍 DataCorrectionModal useEffect:', {
+      open,
+      invalidItems: invalidItems.length,
+      duplicateItems: duplicateItems.length
+    })
+    
     if (open) {
+      console.log('✅ DataCorrectionModal: Abrindo modal de correção')
       setActiveStep(0)
       setCurrentItemIndex(0)
       setCorrectedItems([])
@@ -79,7 +86,7 @@ export const DataCorrectionModal: React.FC<DataCorrectionModalProps> = ({
         setCorrectionData({ ...invalidItems[0].data })
       }
     }
-  }, [open, invalidItems])
+  }, [open, invalidItems, duplicateItems])
 
   const steps = [
     'Revisar Inconsistências',
