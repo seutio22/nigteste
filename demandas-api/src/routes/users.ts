@@ -125,6 +125,11 @@ export async function userRoutes(app: FastifyInstance, options: { prisma: Prisma
     return defaultPermissions[role as keyof typeof defaultPermissions] || defaultPermissions.viewer
   }
 
+  // Middleware para verificar JWT (qualquer usuário autenticado)
+  const verifyJWT = async (req: any) => {
+    await req.jwtVerify()
+  }
+
   // Middleware para verificar se o usuário é admin
   const ensureAdmin = async (req: any) => {
     await req.jwtVerify()
