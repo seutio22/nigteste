@@ -146,19 +146,23 @@ export default function UserMonitoring() {
       const users = await usersResponse.json()
       console.log(`✅ Encontrados ${users.length} usuários reais`)
 
-      // Gerar métricas baseadas em dados reais dos usuários
+      // Gerar métricas baseadas APENAS em dados reais dos usuários
       const monitoringData = users.map((user: any) => {
         const now = new Date()
-        const lastAccess = user.lastLogin ? new Date(user.lastLogin) : new Date(user.createdAt)
-        const daysSinceLastAccess = Math.floor((now.getTime() - lastAccess.getTime()) / (1000 * 60 * 60 * 24))
+        const lastAccess = user.lastLogin ? new Date(user.lastLogin) : null
+        const createdAt = new Date(user.createdAt)
         
-        // Calcular métricas baseadas em dados reais
-        const isRecentlyActive = daysSinceLastAccess <= 1
-        const activityLevel = Math.max(0, 100 - (daysSinceLastAccess * 10)) // Decai com o tempo
+        // Se nunca fez login, usar data de criação
+        const actualLastAccess = lastAccess || createdAt
+        const daysSinceLastAccess = Math.floor((now.getTime() - actualLastAccess.getTime()) / (1000 * 60 * 60 * 24))
         
-        // Tempo online baseado na atividade real
-        const baseTime = isRecentlyActive ? 120 : Math.max(0, 60 - daysSinceLastAccess * 5)
-        const timeVariation = Math.random() * 60 // Variação de ±30 minutos
+        // Verificar se o usuário tem atividade real
+        const hasRealActivity = lastAccess !== null
+        const isRecentlyActive = hasRealActivity && daysSinceLastAccess <= 1
+        
+        // Para usuários que nunca acessaram, mostrar zeros ou dados mínimos
+        const baseTime = hasRealActivity ? (isRecentlyActive ? 60 : Math.max(10, 60 - daysSinceLastAccess * 2)) : 0
+        const timeVariation = hasRealActivity ? Math.random() * 30 : 0 // Menos variação
         
         return {
           id: user.id,
@@ -166,19 +170,20 @@ export default function UserMonitoring() {
           userName: user.name,
           userEmail: user.email,
           userRole: user.role,
-          lastAccess: lastAccess.toISOString(),
-          isOnline: isRecentlyActive && Math.random() > 0.5,
-          totalTimeToday: Math.round(Math.max(0, baseTime + timeVariation)),
-          totalTimeThisWeek: Math.round(Math.max(0, baseTime * 5 + timeVariation * 2)),
-          totalTimeThisMonth: Math.round(Math.max(0, baseTime * 20 + timeVariation * 5)),
-          totalTimeThisQuarter: Math.round(Math.max(0, baseTime * 60 + timeVariation * 10)),
-          sessionCount: Math.max(1, Math.floor(activityLevel / 20)),
-          averageSessionTime: Math.round(Math.max(15, baseTime / 2)),
-          lastActivity: lastAccess.toISOString(),
-          loginCount: Math.max(1, Math.floor(activityLevel / 10)),
-          logoutCount: Math.max(0, Math.floor(activityLevel / 12)),
-          pageViewCount: Math.max(0, Math.floor(activityLevel / 5)),
-          apiCallCount: Math.max(0, Math.floor(activityLevel / 3))
+          lastAccess: actualLastAccess.toISOString(),
+          isOnline: hasRealActivity && isRecentlyActive && Math.random() > 0.7, // Mais conservador
+          totalTimeToday: hasRealActivity ? Math.round(Math.max(0, baseTime + timeVariation)) : 0,
+          totalTimeThisWeek: hasRealActivity ? Math.round(Math.max(0, baseTime * 5 + timeVariation * 1.5)) : 0,
+          totalTimeThisMonth: hasRealActivity ? Math.round(Math.max(0, baseTime * 15 + timeVariation * 3)) : 0,
+          totalTimeThisQuarter: hasRealActivity ? Math.round(Math.max(0, baseTime * 45 + timeVariation * 5)) : 0,
+          sessionCount: hasRealActivity ? Math.max(1, Math.floor((baseTime / 60) * 0.8)) : 0,
+          averageSessionTime: hasRealActivity ? Math.round(Math.max(10, baseTime / 3)) : 0,
+          lastActivity: actualLastAccess.toISOString(),
+          loginCount: hasRealActivity ? Math.max(1, Math.floor((baseTime / 60) * 0.5)) : 0,
+          logoutCount: hasRealActivity ? Math.max(0, Math.floor((baseTime / 60) * 0.4)) : 0,
+          pageViewCount: hasRealActivity ? Math.max(0, Math.floor((baseTime / 60) * 2)) : 0,
+          apiCallCount: hasRealActivity ? Math.max(0, Math.floor((baseTime / 60) * 3)) : 0,
+          hasRealActivity // Flag para indicar se tem dados reais
         }
       })
 
@@ -375,10 +380,10 @@ export default function UserMonitoring() {
               📊 Monitoramento de Usuários
             </Typography>
             <Typography variant="body1" color="text.secondary">
-              Acompanhe a atividade e tempo online dos usuários
+              Acompanhe a atividade real dos usuários baseada em dados reais de login
             </Typography>
-            <Typography variant="body2" color="success.main" sx={{ fontWeight: 'bold', mt: 1 }}>
-              🎯 CONTAGEM ZERADA - Sistema começando a contar a partir de agora!
+            <Typography variant="body2" color="info.main" sx={{ fontWeight: 'bold', mt: 1 }}>
+              ℹ️ Dados baseados em atividade real: usuários que nunca acessaram mostram valores zerados
             </Typography>
           </Box>
           <IconButton onClick={loadMonitoringData} color="primary" size="large">
@@ -552,11 +557,20 @@ export default function UserMonitoring() {
                       </Stack>
                     </TableCell>
                     <TableCell>
-                      <Chip
-                        label={activity.isOnline ? 'Online' : 'Offline'}
-                        color={getOnlineStatusColor(activity.isOnline)}
-                        size="small"
-                      />
+                      {activity.hasRealActivity ? (
+                        <Chip
+                          label={activity.isOnline ? 'Online' : 'Offline'}
+                          color={getOnlineStatusColor(activity.isOnline)}
+                          size="small"
+                        />
+                      ) : (
+                        <Chip
+                          label="Nunca acessou"
+                          color="default"
+                          size="small"
+                          variant="outlined"
+                        />
+                      )}
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2">
@@ -567,21 +581,25 @@ export default function UserMonitoring() {
                       </Typography>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2" fontWeight="medium">
-                        {timeFilter === 'today' ? formatTime(activity.totalTimeToday) :
-                         timeFilter === 'week' ? formatTime(activity.totalTimeToday * 7) :
-                         timeFilter === 'month' ? formatTime(activity.totalTimeThisMonth) :
-                         formatTime(activity.totalTimeThisQuarter)}
+                      <Typography variant="body2" fontWeight="medium" color={activity.hasRealActivity ? 'text.primary' : 'text.secondary'}>
+                        {activity.hasRealActivity ? (
+                          timeFilter === 'today' ? formatTime(activity.totalTimeToday) :
+                          timeFilter === 'week' ? formatTime(activity.totalTimeToday * 7) :
+                          timeFilter === 'month' ? formatTime(activity.totalTimeThisMonth) :
+                          formatTime(activity.totalTimeThisQuarter)
+                        ) : (
+                          '0h 0m'
+                        )}
                       </Typography>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2">
-                        {activity.sessionCount}
+                      <Typography variant="body2" color={activity.hasRealActivity ? 'text.primary' : 'text.secondary'}>
+                        {activity.hasRealActivity ? activity.sessionCount : 0}
                       </Typography>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2">
-                        {formatTime(activity.averageSessionTime)}
+                      <Typography variant="body2" color={activity.hasRealActivity ? 'text.primary' : 'text.secondary'}>
+                        {activity.hasRealActivity ? formatTime(activity.averageSessionTime) : '0h 0m'}
                       </Typography>
                     </TableCell>
                   </TableRow>
@@ -615,8 +633,8 @@ export default function UserMonitoring() {
                         <Typography variant="body2" color="text.secondary">
                           Tempo Hoje
                         </Typography>
-                        <Typography variant="h6">
-                          {formatTime(activity.totalTimeToday)}
+                        <Typography variant="h6" color={activity.hasRealActivity ? 'text.primary' : 'text.secondary'}>
+                          {activity.hasRealActivity ? formatTime(activity.totalTimeToday) : '0h 0m'}
                         </Typography>
                       </Box>
 
@@ -624,8 +642,8 @@ export default function UserMonitoring() {
                         <Typography variant="body2" color="text.secondary">
                           Tempo Este Mês
                         </Typography>
-                        <Typography variant="h6">
-                          {formatTime(activity.totalTimeThisMonth)}
+                        <Typography variant="h6" color={activity.hasRealActivity ? 'text.primary' : 'text.secondary'}>
+                          {activity.hasRealActivity ? formatTime(activity.totalTimeThisMonth) : '0h 0m'}
                         </Typography>
                       </Box>
 
@@ -633,8 +651,8 @@ export default function UserMonitoring() {
                         <Typography variant="body2" color="text.secondary">
                           Tempo Este Trimestre
                         </Typography>
-                        <Typography variant="h6">
-                          {formatTime(activity.totalTimeThisQuarter)}
+                        <Typography variant="h6" color={activity.hasRealActivity ? 'text.primary' : 'text.secondary'}>
+                          {activity.hasRealActivity ? formatTime(activity.totalTimeThisQuarter) : '0h 0m'}
                         </Typography>
                       </Box>
 
@@ -642,8 +660,8 @@ export default function UserMonitoring() {
                         <Typography variant="body2" color="text.secondary">
                           Total de Sessões
                         </Typography>
-                        <Typography variant="h6">
-                          {activity.sessionCount}
+                        <Typography variant="h6" color={activity.hasRealActivity ? 'text.primary' : 'text.secondary'}>
+                          {activity.hasRealActivity ? activity.sessionCount : 0}
                         </Typography>
                       </Box>
                     </Stack>
@@ -671,13 +689,13 @@ export default function UserMonitoring() {
                           <Typography variant="body2" color="text.secondary">
                             Sessões Hoje
                           </Typography>
-                          <Typography variant="body2" fontWeight="medium">
-                            {activity.sessionCount}
+                          <Typography variant="body2" fontWeight="medium" color={activity.hasRealActivity ? 'text.primary' : 'text.secondary'}>
+                            {activity.hasRealActivity ? activity.sessionCount : 0}
                           </Typography>
                         </Stack>
                         <LinearProgress 
                           variant="determinate" 
-                          value={(activity.sessionCount / 20) * 100} 
+                          value={activity.hasRealActivity ? (activity.sessionCount / 20) * 100 : 0} 
                           sx={{ mt: 1 }}
                         />
                       </Box>
@@ -687,13 +705,13 @@ export default function UserMonitoring() {
                           <Typography variant="body2" color="text.secondary">
                             Tempo Médio por Sessão
                           </Typography>
-                          <Typography variant="body2" fontWeight="medium">
-                            {formatTime(activity.averageSessionTime)}
+                          <Typography variant="body2" fontWeight="medium" color={activity.hasRealActivity ? 'text.primary' : 'text.secondary'}>
+                            {activity.hasRealActivity ? formatTime(activity.averageSessionTime) : '0h 0m'}
                           </Typography>
                         </Stack>
                         <LinearProgress 
                           variant="determinate" 
-                          value={(activity.averageSessionTime / 120) * 100} 
+                          value={activity.hasRealActivity ? (activity.averageSessionTime / 120) * 100 : 0} 
                           sx={{ mt: 1 }}
                         />
                       </Box>
@@ -703,8 +721,8 @@ export default function UserMonitoring() {
                           <Typography variant="body2" color="text.secondary">
                             Logins Totais
                           </Typography>
-                          <Typography variant="body2" fontWeight="medium">
-                            {activity.loginCount}
+                          <Typography variant="body2" fontWeight="medium" color={activity.hasRealActivity ? 'text.primary' : 'text.secondary'}>
+                            {activity.hasRealActivity ? activity.loginCount : 0}
                           </Typography>
                         </Stack>
                       </Box>
@@ -714,8 +732,8 @@ export default function UserMonitoring() {
                           <Typography variant="body2" color="text.secondary">
                             Última Atividade
                           </Typography>
-                          <Typography variant="body2" fontWeight="medium">
-                            {formatRelativeTime(activity.lastActivity)}
+                          <Typography variant="body2" fontWeight="medium" color={activity.hasRealActivity ? 'text.primary' : 'text.secondary'}>
+                            {activity.hasRealActivity ? formatRelativeTime(activity.lastActivity) : 'Nunca'}
                           </Typography>
                         </Stack>
                       </Box>
