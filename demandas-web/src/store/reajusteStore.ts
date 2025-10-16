@@ -280,9 +280,14 @@ export const useReajusteStore = create<ReajusteState>()(
           console.log('🔍 ReajusteStore: Iniciando syncFromApi...')
           
           const response = await api.get('/reajusteLancamentos')
-          const reajustes = response.data || []
+          console.log('🔍 ReajusteStore: Resposta bruta da API:', response)
+          console.log('🔍 ReajusteStore: Tipo da resposta:', typeof response, Array.isArray(response) ? '(array)' : '')
+          
+          // A resposta pode vir como array diretamente ou como response.data
+          const reajustes = Array.isArray(response) ? response : (response?.data || [])
           
           console.log('🔍 ReajusteStore: Dados recebidos da API:', reajustes.length, 'itens')
+          console.log('🔍 ReajusteStore: Dados:', reajustes)
           
           set({ items: reajustes })
           
