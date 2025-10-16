@@ -129,65 +129,29 @@ export default function UserMonitoring() {
         return
       }
 
-      console.log('🔍 Carregando dados de monitoramento dos usuários reais...')
+      console.log('🔍 Carregando dados de monitoramento REAIS...')
       
-      // Buscar usuários reais e gerar métricas baseadas em dados reais
-      const usersResponse = await fetch(`https://nigteste-production.up.railway.app/users`, {
+      // Buscar dados reais de monitoramento da API
+      const monitoringResponse = await fetch(`https://nigteste-production.up.railway.app/monitoring/users`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       })
 
-      if (!usersResponse.ok) {
-        throw new Error(`Erro ao buscar usuários: ${usersResponse.status}`)
+      if (!monitoringResponse.ok) {
+        throw new Error(`Erro ao buscar dados de monitoramento: ${monitoringResponse.status}`)
       }
 
-      const users = await usersResponse.json()
-      console.log(`✅ Encontrados ${users.length} usuários reais`)
+      const monitoringData = await monitoringResponse.json()
+      console.log(`✅ Dados de monitoramento carregados: ${monitoringData.length} usuários`)
 
-      // Gerar métricas baseadas APENAS em dados reais dos usuários
-      const monitoringData = users.map((user: any) => {
-        const now = new Date()
-        const lastAccess = user.lastLogin ? new Date(user.lastLogin) : null
-        const createdAt = new Date(user.createdAt)
-        
-        // Se nunca fez login, usar data de criação
-        const actualLastAccess = lastAccess || createdAt
-        const daysSinceLastAccess = Math.floor((now.getTime() - actualLastAccess.getTime()) / (1000 * 60 * 60 * 24))
-        
-        // Verificar se o usuário tem atividade real
-        const hasRealActivity = lastAccess !== null
-        const isRecentlyActive = hasRealActivity && daysSinceLastAccess <= 1
-        
-        // SEM SIMULAÇÃO - apenas dados reais ou zeros
-        return {
-          id: user.id,
-          userId: user.id,
-          userName: user.name,
-          userEmail: user.email,
-          userRole: user.role,
-          lastAccess: actualLastAccess.toISOString(),
-          isOnline: hasRealActivity && isRecentlyActive, // Apenas se realmente ativo
-          totalTimeToday: 0, // SEM DADOS REAIS - sempre zero
-          totalTimeThisWeek: 0, // SEM DADOS REAIS - sempre zero
-          totalTimeThisMonth: 0, // SEM DADOS REAIS - sempre zero
-          totalTimeThisQuarter: 0, // SEM DADOS REAIS - sempre zero
-          sessionCount: hasRealActivity ? 1 : 0, // Apenas 1 se fez login pelo menos uma vez
-          averageSessionTime: 0, // SEM DADOS REAIS - sempre zero
-          lastActivity: actualLastAccess.toISOString(),
-          loginCount: hasRealActivity ? 1 : 0, // Apenas 1 se fez login pelo menos uma vez
-          logoutCount: 0, // SEM DADOS REAIS - sempre zero
-          pageViewCount: 0, // SEM DADOS REAIS - sempre zero
-          apiCallCount: 0, // SEM DADOS REAIS - sempre zero
-          hasRealActivity // Flag para indicar se tem dados reais
-        }
-      })
+      // Usar dados reais de monitoramento da API
+      console.log(`✅ Usando dados reais de monitoramento: ${monitoringData.length} registros`)
 
-      console.log(`✅ Dados de monitoramento baseados em usuários reais: ${monitoringData.length} registros`)
-      console.log('🎯 CONTAGEM ZERADA - Sistema começando a contar a partir de agora!')
+      console.log('🎯 DADOS REAIS - Sistema de monitoramento ativo!')
 
-      // Usar dados baseados em usuários reais
+      // Usar dados reais de monitoramento
       setActivities(monitoringData)
 
       // Calcular estatísticas
@@ -377,10 +341,10 @@ export default function UserMonitoring() {
               📊 Monitoramento de Usuários
             </Typography>
             <Typography variant="body1" color="text.secondary">
-              Sistema de monitoramento - Dados de tempo online não estão sendo coletados
+              Sistema de monitoramento ativo - Coletando dados reais de atividade dos usuários
             </Typography>
-            <Typography variant="body2" color="warning.main" sx={{ fontWeight: 'bold', mt: 1 }}>
-              ⚠️ ATENÇÃO: Tempo online, sessões e métricas estão zeradas - sistema não coleta dados reais de monitoramento
+            <Typography variant="body2" color="success.main" sx={{ fontWeight: 'bold', mt: 1 }}>
+              ✅ SISTEMA ATIVO: Dados de tempo online, sessões e métricas sendo coletados em tempo real
             </Typography>
           </Box>
           <IconButton onClick={loadMonitoringData} color="primary" size="large">

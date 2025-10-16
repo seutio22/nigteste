@@ -1,89 +1,154 @@
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect } from 'react'
 import { useAuthStore } from '../store/authStore'
 
-interface ActivityTrackingOptions {
-  page: string
+interface TrackingData {
   action: string
+  page?: string
+  endpoint?: string
   duration?: number
+  metadata?: any
 }
 
-export function useActivityTracking({ page, action, duration = 0 }: ActivityTrackingOptions) {
-  const { token } = useAuthStore()
-  const startTime = useRef<number>(Date.now())
-  const intervalRef = useRef<NodeJS.Timeout | null>(null)
+export function useActivityTracking() {
+  const { user, token } = useAuthStore()
 
-  useEffect(() => {
-    if (!token) return
+  // Função para registrar atividade
+  const trackActivity = useCallback(async (data: TrackingData) => {
+    if (!user || !token) return
 
-    // Registrar atividade inicial
-    const trackActivity = async () => {
-      // Temporariamente desabilitado para evitar erros 401
-      console.log('🔔 Verificação de notificações temporariamente desabilitada')
-      return
-      
-      try {
-        await fetch('https://nigteste-production.up.railway.app/monitoring/activity', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            action,
-            page,
-            duration: duration || Math.floor((Date.now() - startTime.current) / 1000)
-          })
-        })
-      } catch (error) {
-        console.error('Erro ao registrar atividade:', error)
-      }
-    }
-
-    // Registrar atividade inicial
-    trackActivity()
-
-    // Configurar tracking de tempo se duration for 0 (tracking automático)
-    if (duration === 0) {
-      intervalRef.current = setInterval(() => {
-        const currentDuration = Math.floor((Date.now() - startTime.current) / 1000)
-        if (currentDuration > 0) {
-          trackActivity()
-        }
-      }, 30000) // A cada 30 segundos
-    }
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current)
-      }
-      
-      // Registrar atividade final
-      const finalDuration = Math.floor((Date.now() - startTime.current) / 1000)
-      if (finalDuration > 0) {
-        trackActivity()
-      }
-    }
-  }, [token, page, action, duration])
-
-  return {
-    trackActivity: () => {
-      // Temporariamente desabilitado para evitar erros 401
-      console.log('🔔 Verificação de notificações temporariamente desabilitada')
-      return Promise.resolve()
-      
-      const currentDuration = Math.floor((Date.now() - startTime.current) / 1000)
-      return fetch('https://nigteste-production.up.railway.app/monitoring/activity', {
+    try {
+      const response = await fetch('https://nigteste-production.up.railway.app/monitoring/activity', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          action,
-          page,
-          duration: currentDuration
+          userId: user.id,
+          ...data
         })
       })
+
+      if (!response.ok) {
+        console.error('Erro ao registrar atividade:', response.status)
+      }
+    } catch (error) {
+      console.error('Erro ao registrar atividade:', error)
     }
+  }, [user, token])
+
+  // Função para iniciar sessão
+  const startSession = useCallback(async () => {
+    if (!user || !token) return
+
+    try {
+      const response = await fetch('https://nigteste-production.up.railway.app/monitoring/session/start', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          userId: user.id
+        })
+      })
+
+      if (response.ok) {
+        const { session } = await response.json()
+        localStorage.setItem('sessionId', session.sessionId)
+        console.log('✅ Sessão iniciada:', session.sessionId)
+      }
+    } catch (error) {
+      console.error('Erro ao iniciar sessão:', error)
+    }
+  }, [user, token])
+
+  // Função para finalizar sessão
+  const endSession = useCallback(async () => {
+    const sessionId = localStorage.getItem('sessionId')
+    if (!sessionId || !token) return
+
+    try {
+      await fetch('https://nigteste-production.up.railway.app/monitoring/session/end', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          sessionId
+        })
+      })
+
+      localStorage.removeItem('sessionId')
+      console.log('✅ Sessão finalizada')
+    } catch (error) {
+      console.error('Erro ao finalizar sessão:', error)
+    }
+  }, [token])
+
+  // Função para trackear visualização de página
+  const trackPageView = useCallback((page: string) => {
+    trackActivity({
+      action: 'page_view',
+      page,
+      metadata: {
+        timestamp: new Date().toISOString(),
+        url: window.location.href
+      }
+    })
+  }, [trackActivity])
+
+  // Função para trackear chamadas de API
+  const trackApiCall = useCallback((endpoint: string, method: string, statusCode?: number) => {
+    trackActivity({
+      action: 'api_call',
+      endpoint,
+      metadata: {
+        method,
+        statusCode,
+        timestamp: new Date().toISOString()
+      }
+    })
+  }, [trackActivity])
+
+  // Função para trackear ações do usuário
+  const trackUserAction = useCallback((action: string, details?: any) => {
+    trackActivity({
+      action,
+      metadata: {
+        details,
+        timestamp: new Date().toISOString()
+      }
+    })
+  }, [trackActivity])
+
+  // Iniciar sessão quando o usuário fizer login
+  useEffect(() => {
+    if (user && token) {
+      startSession()
+    }
+  }, [user, token, startSession])
+
+  // Finalizar sessão quando a página for fechada
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      endSession()
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+      endSession()
+    }
+  }, [endSession])
+
+  return {
+    trackActivity,
+    trackPageView,
+    trackApiCall,
+    trackUserAction,
+    startSession,
+    endSession
   }
 }

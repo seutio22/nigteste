@@ -10,6 +10,7 @@ import projectTeamRoutes from './routes/projectTeam'
 import shareRoutes from './routes/share'
 import { masterDataRoutes } from './routes/masterData'
 import { kanbanRoutes } from './routes/kanban'
+import monitoringRoutes from './routes/monitoring'
 import { PrismaClient } from '@prisma/client'
 import { trackUserActivity, trackSessionStart, trackSessionEnd } from './middleware/activityTracker'
 
@@ -3690,6 +3691,8 @@ app.register(masterDataRoutes, { prisma })
 // Rotas do Kanban (com autenticação)
 app.register(kanbanRoutes, { prisma })
 
+// Rotas de monitoramento
+app.register(monitoringRoutes, { prisma, prefix: '/monitoring' })
 
 // Rota de teste de monitoramento
 app.get('/monitoring/test', async (req: any, reply: any) => {

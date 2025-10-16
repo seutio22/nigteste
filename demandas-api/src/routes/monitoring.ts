@@ -1,153 +1,34 @@
-import { FastifyInstance } from 'fastify'
+import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
-// Declarar extensão do FastifyRequest para incluir authenticatedUser
-declare module 'fastify' {
-  interface FastifyRequest {
-    authenticatedUser?: {
-      id: string
-      name: string
-      email: string
-      role: string
-    }
-  }
+interface MonitoringQuery {
+  userId?: string
+  date?: string
+  period?: 'today' | 'week' | 'month' | 'quarter'
 }
 
 export default async function monitoringRoutes(fastify: FastifyInstance) {
-  console.log('🔧 Registrando rotas de monitoramento...')
-
-  // GET /users - Obter dados de monitoramento de todos os usuários
-  fastify.get('/users', async (request, reply) => {
+  // Endpoint para registrar atividade
+  fastify.post('/activity', async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      console.log('🔍 Buscando dados de monitoramento reais...')
-      
-      // Buscar usuários reais
-      const users = await prisma.user.findMany({
-        where: { active: true },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          role: true,
-          lastLogin: true,
-          createdAt: true
-        }
+      const { userId, action, page, endpoint, duration, metadata } = request.body as any
+
+      if (!userId || !action) {
+        return reply.status(400).send({ error: 'userId e action são obrigatórios' })
+      }
+
+      // Buscar dados do usuário
+      const user = await prisma.user.findUnique({
+        where: { id: userId }
       })
 
-      console.log(`✅ Encontrados ${users.length} usuários reais`)
+      if (!user) {
+        return reply.status(404).send({ error: 'Usuário não encontrado' })
+      }
 
-      // Buscar dados de monitoramento para cada usuário
-      const monitoringData = await Promise.all(users.map(async (user) => {
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
-        
-        const weekAgo = new Date(today)
-        weekAgo.setDate(weekAgo.getDate() - 7)
-        
-        const monthAgo = new Date(today)
-        monthAgo.setDate(monthAgo.getDate() - 30)
-        
-        const quarterAgo = new Date(today)
-        quarterAgo.setDate(quarterAgo.getDate() - 90)
-
-        // Buscar atividades do usuário
-        const activities = await prisma.userActivity.findMany({
-          where: {
-            userId: user.id,
-            createdAt: {
-              gte: quarterAgo
-            }
-          },
-          orderBy: { createdAt: 'desc' }
-        })
-
-        // Buscar sessões do usuário
-        const sessions = await prisma.userSession.findMany({
-          where: {
-            userId: user.id,
-            loginTime: {
-              gte: quarterAgo
-            }
-          },
-          orderBy: { loginTime: 'desc' }
-        })
-
-        // Buscar dados de monitoramento agregados
-        const monitoring = await prisma.userMonitoring.findFirst({
-          where: {
-            userId: user.id,
-            date: {
-              gte: today
-            }
-          },
-          orderBy: { date: 'desc' }
-        })
-
-        // Calcular métricas reais
-        const todayActivities = activities.filter(a => a.createdAt >= today)
-        const weekActivities = activities.filter(a => a.createdAt >= weekAgo)
-        const monthActivities = activities.filter(a => a.createdAt >= monthAgo)
-        const quarterActivities = activities.filter(a => a.createdAt >= quarterAgo)
-
-        const todaySessions = sessions.filter(s => s.loginTime >= today)
-        const activeSession = sessions.find(s => s.isActive)
-
-        // Calcular tempo online baseado nas atividades
-        const totalTimeToday = todayActivities.reduce((sum, a) => sum + (a.duration || 0), 0) / 60 // converter para minutos
-        const totalTimeThisWeek = weekActivities.reduce((sum, a) => sum + (a.duration || 0), 0) / 60
-        const totalTimeThisMonth = monthActivities.reduce((sum, a) => sum + (a.duration || 0), 0) / 60
-        const totalTimeThisQuarter = quarterActivities.reduce((sum, a) => sum + (a.duration || 0), 0) / 60
-
-        // Calcular estatísticas de sessão
-        const sessionCount = todaySessions.length
-        const loginCount = activities.filter(a => a.action === 'login').length
-        const logoutCount = activities.filter(a => a.action === 'logout').length
-        const pageViewCount = activities.filter(a => a.action === 'page_view').length
-        const apiCallCount = activities.filter(a => a.action === 'api_call').length
-        const averageSessionTime = sessionCount > 0 ? totalTimeToday / sessionCount : 0
-
-        // Última atividade
-        const lastActivity = activities[0]?.createdAt || user.lastLogin || user.createdAt
-
-        return {
-          id: user.id,
-          userId: user.id,
-          userName: user.name,
-          userEmail: user.email,
-          userRole: user.role,
-          lastAccess: lastActivity.toISOString(),
-          isOnline: !!activeSession,
-          totalTimeToday: Math.round(totalTimeToday),
-          totalTimeThisWeek: Math.round(totalTimeThisWeek),
-          totalTimeThisMonth: Math.round(totalTimeThisMonth),
-          totalTimeThisQuarter: Math.round(totalTimeThisQuarter),
-          sessionCount,
-          averageSessionTime: Math.round(averageSessionTime),
-          lastActivity: lastActivity.toISOString(),
-          loginCount,
-          logoutCount,
-          pageViewCount,
-          apiCallCount
-        }
-      }))
-
-      console.log(`✅ Dados de monitoramento processados: ${monitoringData.length} registros`)
-      return reply.send(monitoringData)
-    } catch (error) {
-      console.error('❌ Erro ao buscar dados de monitoramento:', error)
-      return reply.status(500).send({ message: 'Erro interno do servidor' })
-    }
-  })
-
-  // POST /monitoring/activity - Registrar atividade do usuário
-  fastify.post('/monitoring/activity', async (request, reply) => {
-    try {
-      const { action, page, endpoint, duration, metadata } = request.body as any
-      const user = request.authenticatedUser
-
-      // Criar registro de atividade
+      // Registrar atividade
       const activity = await prisma.userActivity.create({
         data: {
           userId: user.id,
@@ -164,29 +45,167 @@ export default async function monitoringRoutes(fastify: FastifyInstance) {
         }
       })
 
-      // Atualizar estatísticas de monitoramento
-      await updateUserMonitoringStats(user.id)
-
       return reply.send({ success: true, activity })
     } catch (error) {
       console.error('Erro ao registrar atividade:', error)
-      return reply.status(500).send({ message: 'Erro interno do servidor' })
+      return reply.status(500).send({ error: 'Erro interno do servidor' })
     }
   })
 
-  // POST /monitoring/session/start - Iniciar sessão
-  fastify.post('/monitoring/session/start', async (request, reply) => {
+  // Endpoint para buscar dados de monitoramento
+  fastify.get('/users', async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const user = request.authenticatedUser
-      const sessionId = `session_${user.id}_${Date.now()}`
+      const query = request.query as MonitoringQuery
+      
+      // Buscar usuários com dados de monitoramento
+      const users = await prisma.user.findMany({
+        where: {
+          active: true
+        },
+        include: {
+          userActivities: {
+            take: 1,
+            orderBy: { createdAt: 'desc' }
+          },
+          userSessions: {
+            where: { isActive: true },
+            take: 1
+          },
+          userMonitoring: {
+            where: {
+              date: {
+                gte: new Date(new Date().setHours(0, 0, 0, 0))
+              }
+            },
+            take: 1,
+            orderBy: { date: 'desc' }
+          }
+        }
+      })
+
+      // Processar dados para o frontend
+      const monitoringData = users.map(user => {
+        const lastActivity = user.userActivities[0]
+        const activeSession = user.userSessions[0]
+        const todayMonitoring = user.userMonitoring[0]
+
+        const now = new Date()
+        const isRecentlyActive = lastActivity ? 
+          (now.getTime() - lastActivity.createdAt.getTime()) < 5 * 60 * 1000 : // 5 minutos
+          false
+
+        return {
+          id: user.id,
+          userId: user.id,
+          userName: user.name,
+          userEmail: user.email,
+          userRole: user.role,
+          lastAccess: lastActivity?.createdAt || user.lastLogin || user.createdAt,
+          isOnline: isRecentlyActive && activeSession?.isActive,
+          totalTimeToday: todayMonitoring?.totalTimeToday || 0,
+          totalTimeThisWeek: todayMonitoring?.totalTimeThisWeek || 0,
+          totalTimeThisMonth: todayMonitoring?.totalTimeThisMonth || 0,
+          totalTimeThisQuarter: todayMonitoring?.totalTimeThisQuarter || 0,
+          sessionCount: todayMonitoring?.sessionCount || 0,
+          averageSessionTime: todayMonitoring?.averageSessionTime || 0,
+          lastActivity: lastActivity?.createdAt || user.lastLogin || user.createdAt,
+          loginCount: todayMonitoring?.loginCount || 0,
+          logoutCount: todayMonitoring?.logoutCount || 0,
+          pageViewCount: todayMonitoring?.pageViewCount || 0,
+          apiCallCount: todayMonitoring?.apiCallCount || 0,
+          hasRealActivity: !!user.lastLogin
+        }
+      })
+
+      return reply.send(monitoringData)
+    } catch (error) {
+      console.error('Erro ao buscar dados de monitoramento:', error)
+      return reply.status(500).send({ error: 'Erro interno do servidor' })
+    }
+  })
+
+  // Endpoint para buscar atividades de um usuário específico
+  fastify.get('/user/:userId/activities', async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { userId } = request.params as { userId: string }
+      const { limit = 50, offset = 0 } = request.query as any
+
+      const activities = await prisma.userActivity.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        take: parseInt(limit),
+        skip: parseInt(offset)
+      })
+
+      return reply.send(activities)
+    } catch (error) {
+      console.error('Erro ao buscar atividades do usuário:', error)
+      return reply.status(500).send({ error: 'Erro interno do servidor' })
+    }
+  })
+
+  // Endpoint para buscar estatísticas agregadas
+  fastify.get('/stats', async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const now = new Date()
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay())
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+
+      // Buscar estatísticas gerais
+      const totalUsers = await prisma.user.count({ where: { active: true } })
+      
+      const onlineUsers = await prisma.userSession.count({
+        where: { 
+          isActive: true,
+          lastActivity: { gte: new Date(now.getTime() - 5 * 60 * 1000) } // 5 minutos
+        }
+      })
+
+      const activitiesToday = await prisma.userActivity.count({
+        where: { createdAt: { gte: startOfDay } }
+      })
+
+      const loginsToday = await prisma.userActivity.count({
+        where: { 
+          action: 'login',
+          createdAt: { gte: startOfDay }
+        }
+      })
+
+      return reply.send({
+        totalUsers,
+        onlineUsers,
+        activitiesToday,
+        loginsToday,
+        period: {
+          today: startOfDay,
+          week: startOfWeek,
+          month: startOfMonth
+        }
+      })
+    } catch (error) {
+      console.error('Erro ao buscar estatísticas:', error)
+      return reply.status(500).send({ error: 'Erro interno do servidor' })
+    }
+  })
+
+  // Endpoint para iniciar sessão
+  fastify.post('/session/start', async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { userId } = request.body as any
+
+      if (!userId) {
+        return reply.status(400).send({ error: 'userId é obrigatório' })
+      }
 
       // Finalizar sessões ativas anteriores
       await prisma.userSession.updateMany({
-        where: {
-          userId: user.id,
-          isActive: true
+        where: { 
+          userId, 
+          isActive: true 
         },
-        data: {
+        data: { 
           isActive: false,
           logoutTime: new Date()
         }
@@ -195,8 +214,8 @@ export default async function monitoringRoutes(fastify: FastifyInstance) {
       // Criar nova sessão
       const session = await prisma.userSession.create({
         data: {
-          userId: user.id,
-          sessionId,
+          userId,
+          sessionId: `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
           ipAddress: request.ip,
           userAgent: request.headers['user-agent'],
           loginTime: new Date(),
@@ -204,171 +223,46 @@ export default async function monitoringRoutes(fastify: FastifyInstance) {
         }
       })
 
-      // Registrar atividade de login
-      await prisma.userActivity.create({
-        data: {
-          userId: user.id,
-          userName: user.name,
-          userEmail: user.email,
-          userRole: user.role,
-          action: 'login',
-          sessionId,
-          ipAddress: request.ip,
-          userAgent: request.headers['user-agent']
-        }
-      })
-
       return reply.send({ success: true, session })
     } catch (error) {
       console.error('Erro ao iniciar sessão:', error)
-      return reply.status(500).send({ message: 'Erro interno do servidor' })
+      return reply.status(500).send({ error: 'Erro interno do servidor' })
     }
   })
 
-  // POST /monitoring/session/end - Finalizar sessão
-  fastify.post('/monitoring/session/end', async (request, reply) => {
+  // Endpoint para finalizar sessão
+  fastify.post('/session/end', async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const user = request.authenticatedUser
+      const { sessionId } = request.body as any
 
-      // Finalizar sessão ativa
-      const session = await prisma.userSession.findFirst({
-        where: {
-          userId: user.id,
-          isActive: true
-        }
-      })
-
-      if (session) {
-        const duration = Math.floor((Date.now() - session.loginTime.getTime()) / 1000)
-
-        await prisma.userSession.update({
-          where: { id: session.id },
-          data: {
-            isActive: false,
-            logoutTime: new Date(),
-            duration
-          }
-        })
-
-        // Registrar atividade de logout
-        await prisma.userActivity.create({
-          data: {
-            userId: user.id,
-            userName: user.name,
-            userEmail: user.email,
-            userRole: user.role,
-            action: 'logout',
-            sessionId: session.sessionId,
-            duration,
-            ipAddress: request.ip,
-            userAgent: request.headers['user-agent']
-          }
-        })
+      if (!sessionId) {
+        return reply.status(400).send({ error: 'sessionId é obrigatório' })
       }
 
-      return reply.send({ success: true })
+      const session = await prisma.userSession.findUnique({
+        where: { sessionId }
+      })
+
+      if (!session) {
+        return reply.status(404).send({ error: 'Sessão não encontrada' })
+      }
+
+      // Calcular duração da sessão
+      const duration = Math.floor((new Date().getTime() - session.loginTime.getTime()) / 1000)
+
+      await prisma.userSession.update({
+        where: { sessionId },
+        data: {
+          isActive: false,
+          logoutTime: new Date(),
+          duration
+        }
+      })
+
+      return reply.send({ success: true, duration })
     } catch (error) {
       console.error('Erro ao finalizar sessão:', error)
-      return reply.status(500).send({ message: 'Erro interno do servidor' })
+      return reply.status(500).send({ error: 'Erro interno do servidor' })
     }
   })
-
-  // Função auxiliar para atualizar estatísticas de monitoramento
-  async function updateUserMonitoringStats(userId: string) {
-    try {
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-
-      const weekAgo = new Date(today)
-      weekAgo.setDate(weekAgo.getDate() - 7)
-
-      const monthAgo = new Date(today)
-      monthAgo.setDate(monthAgo.getDate() - 30)
-
-      const quarterAgo = new Date(today)
-      quarterAgo.setDate(quarterAgo.getDate() - 90)
-
-      // Buscar atividades do usuário
-      const activities = await prisma.userActivity.findMany({
-        where: {
-          userId,
-          createdAt: {
-            gte: quarterAgo
-          }
-        }
-      })
-
-      const sessions = await prisma.userSession.findMany({
-        where: {
-          userId,
-          loginTime: {
-            gte: quarterAgo
-          }
-        }
-      })
-
-      // Calcular estatísticas
-      const todayActivities = activities.filter(a => a.createdAt >= today)
-      const weekActivities = activities.filter(a => a.createdAt >= weekAgo)
-      const monthActivities = activities.filter(a => a.createdAt >= monthAgo)
-      const quarterActivities = activities.filter(a => a.createdAt >= quarterAgo)
-
-      const totalTimeToday = todayActivities.reduce((sum, a) => sum + (a.duration || 0), 0) / 60
-      const totalTimeThisWeek = weekActivities.reduce((sum, a) => sum + (a.duration || 0), 0) / 60
-      const totalTimeThisMonth = monthActivities.reduce((sum, a) => sum + (a.duration || 0), 0) / 60
-      const totalTimeThisQuarter = quarterActivities.reduce((sum, a) => sum + (a.duration || 0), 0) / 60
-
-      const sessionCount = sessions.filter(s => s.loginTime >= today).length
-      const loginCount = activities.filter(a => a.action === 'login').length
-      const logoutCount = activities.filter(a => a.action === 'logout').length
-      const pageViewCount = activities.filter(a => a.action === 'page_view').length
-      const apiCallCount = activities.filter(a => a.action === 'api_call').length
-      const averageSessionTime = sessionCount > 0 ? totalTimeToday / sessionCount : 0
-
-      const isOnline = sessions.some(s => s.isActive)
-      const lastAccess = activities[0]?.createdAt || new Date()
-
-      // Upsert estatísticas de monitoramento
-      await prisma.userMonitoring.upsert({
-        where: {
-          userId_date: {
-            userId,
-            date: today
-          }
-        },
-        update: {
-          totalTimeToday: Math.round(totalTimeToday),
-          totalTimeThisWeek: Math.round(totalTimeThisWeek),
-          totalTimeThisMonth: Math.round(totalTimeThisMonth),
-          totalTimeThisQuarter: Math.round(totalTimeThisQuarter),
-          sessionCount,
-          loginCount,
-          logoutCount,
-          pageViewCount,
-          apiCallCount,
-          averageSessionTime: Math.round(averageSessionTime),
-          lastAccess,
-          isOnline
-        },
-        create: {
-          userId,
-          date: today,
-          totalTimeToday: Math.round(totalTimeToday),
-          totalTimeThisWeek: Math.round(totalTimeThisWeek),
-          totalTimeThisMonth: Math.round(totalTimeThisMonth),
-          totalTimeThisQuarter: Math.round(totalTimeThisQuarter),
-          sessionCount,
-          loginCount,
-          logoutCount,
-          pageViewCount,
-          apiCallCount,
-          averageSessionTime: Math.round(averageSessionTime),
-          lastAccess,
-          isOnline
-        }
-      })
-    } catch (error) {
-      console.error('Erro ao atualizar estatísticas de monitoramento:', error)
-    }
-  }
 }
