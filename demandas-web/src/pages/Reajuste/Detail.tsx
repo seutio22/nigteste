@@ -329,33 +329,8 @@ function EditInline({ reajuste }: { reajuste: any }) {
   const [confirmOpen, setConfirmOpen] = useState(false)
 
   useEffect(() => {
-    // Inicializar draft com valores padrão para campos vazios
-    const initialDraft = {
-      ...reajuste,
-      mes: reajuste.mes || '',
-      ano: reajuste.ano || '',
-      dataInicio: reajuste.dataInicio ?? '',
-      dataFim: reajuste.dataFim ?? '',
-      status: reajuste.status || '',
-      operadora: reajuste.operadora || '',
-      qualidade: reajuste.qualidade || '',
-      qualidadeInformacao: reajuste.qualidadeInformacao || '',
-      planos: reajuste.planos || '',
-      responsavelConta: reajuste.responsavelConta || '',
-      filial: reajuste.filial || '',
-      ticket: reajuste.ticket || '',
-      solicitante: reajuste.solicitante || '',
-      responsavelAnalista: reajuste.responsavelAnalista || '',
-      cliente: reajuste.cliente || '',
-      contrato: reajuste.contrato || '',
-      produto: reajuste.produto || '',
-      dataAtualizacao: reajuste.dataAtualizacao || '',
-      itensPendentes: reajuste.itensPendentes ?? undefined,
-      itensConcluidos: reajuste.itensConcluidos ?? undefined
-    }
-    
-    
-    setDraft(initialDraft)
+    // Inicializar draft exatamente como o reajuste original (igual páginas Cadastro/Manutenção)
+    setDraft(reajuste)
   }, [reajuste.id])
 
   const changedKeys = useMemo(() => {
@@ -378,45 +353,40 @@ function EditInline({ reajuste }: { reajuste: any }) {
       // Atualizar no store (que salva no banco)
       await store.upsert(draft)
       
-      // Log manual apenas dos campos que realmente mudaram
+      // Log manual apenas dos campos que realmente mudaram (EXATA RÉPLICA de Demandas/Manutenção)
       changedKeys.forEach((k) => {
-        // Obter valores originais
-        const reajusteValue = (reajuste as any)[k]
-        const draftValue = (draft as any)[k]
-        
-        // Função para converter valores para exibição
-        const getDisplayValue = (value: any, fieldName: string): string => {
-          // Valores vazios
-          if (value === null || value === undefined || value === '' || value === 0) return ''
+        // Função para converter ID em nome para logs
+        const convertIdToName = (id: string | undefined, fieldType: string) => {
+          if (!id) return 'N/A'
           
-          // Campos que precisam conversão de ID para nome
-          const fieldsWithIdConversion = ['operadora', 'cliente', 'contrato', 'produto', 'responsavelAnalista', 'solicitante']
-          
-          if (fieldsWithIdConversion.includes(fieldName)) {
-            switch (fieldName) {
-              case 'operadora':
-                return md.operadoras.find(o => o.id === value)?.nome || String(value)
-              case 'cliente':
-                return md.clientes.find(c => c.id === value)?.nome || String(value)
-              case 'contrato':
-                return md.contratos.find(c => c.id === value)?.codigo || md.contratos.find(c => c.id === value)?.numero || String(value)
-              case 'produto':
-                return md.produtos.find(p => p.id === value)?.nome || String(value)
-              case 'responsavelAnalista':
-                return md.analistas.find(a => a.id === value)?.nome || String(value)
-              case 'solicitante':
-                return md.solicitantes.find(s => s.id === value)?.nome || String(value)
-            }
+          switch (fieldType) {
+            case 'operadora':
+              return md.operadoras.find(o => o.id === id)?.nome || id
+            case 'cliente':
+              return md.clientes.find(c => c.id === id)?.nome || id
+            case 'contrato':
+              return md.contratos.find(c => c.id === id)?.codigo || md.contratos.find(c => c.id === id)?.numero || id
+            case 'produto':
+              return md.produtos.find(p => p.id === id)?.nome || id
+            case 'responsavelAnalista':
+              return md.analistas.find(a => a.id === id)?.nome || id
+            case 'solicitante':
+              return md.solicitantes.find(s => s.id === id)?.nome || id
+            default:
+              return id
           }
-          
-          return String(value)
         }
         
-        const from = getDisplayValue(reajusteValue, k)
-        const to = getDisplayValue(draftValue, k)
+        // Converter valores para string legível (IDs para nomes) - IGUAL OUTRAS PÁGINAS
+        const fieldsWithIdConversion = ['operadora', 'cliente', 'contrato', 'produto', 'responsavelAnalista', 'solicitante']
         
-        // NÃO logar se ambos os valores são vazios
-        if (!from && !to) return
+        const from = fieldsWithIdConversion.includes(k) 
+          ? convertIdToName((reajuste as any)[k], k)
+          : String((reajuste as any)[k] ?? '')
+        
+        const to = fieldsWithIdConversion.includes(k)
+          ? convertIdToName((draft as any)[k], k)
+          : String((draft as any)[k] ?? '')
         
         // Mapear campos para nomes legíveis
         const fieldMapping: { [key: string]: string } = {
@@ -448,8 +418,8 @@ function EditInline({ reajuste }: { reajuste: any }) {
           reajusteId: reajuste.id, 
           type: 'field_change', 
           field: fieldLabel, 
-          from: from || 'N/A', 
-          to: to || 'N/A'
+          from, 
+          to
         })
       })
       
