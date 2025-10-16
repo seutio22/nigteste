@@ -1,6 +1,6 @@
 import { useSidebar } from '../contexts/SidebarContext'
 import { useAuthStore } from '../store/authStore'
-import { canAccessModule } from '../types/permissions'
+import { getUserPermissions, checkPermission } from '../utils/defaultPermissions'
 import { 
   Home, 
   FileText, 
@@ -44,13 +44,19 @@ export function Sidebar() {
   const { isCollapsed, toggleSidebar, isMobile } = useSidebar()
   const { user } = useAuthStore()
 
-  // Filtrar itens do menu baseado nas permissões do usuário
+  // ✅ Filtrar itens do menu baseado nas permissões do usuário
   const filteredMenuItems = menuItems.filter(item => {
-    // Se não tem módulo definido (como home), sempre mostrar
+    // Se não tem módulo definido, sempre mostrar
     if (!item.module) return true
     
-    // Verificar se o usuário tem permissão para acessar o módulo
-    return canAccessModule(user?.permissions, item.module as any)
+    // Se não tem usuário logado, não mostrar nada
+    if (!user) return false
+    
+    // Obter permissões do usuário (customizadas ou padrão do role)
+    const userPermissions = getUserPermissions(user.permissions, user.role)
+    
+    // Verificar se tem permissão de visualizar o módulo
+    return checkPermission(userPermissions, item.module as any, 'view')
   })
 
   return (

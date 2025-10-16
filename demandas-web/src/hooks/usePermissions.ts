@@ -1,74 +1,84 @@
 import { useMemo } from 'react'
 import { useAuthStore } from '../store/authStore'
-import { 
-  hasPermission, 
-  canAccessModule, 
-  canCreateInModule, 
-  canEditInModule, 
-  canDeleteInModule,
-  SystemPermissions,
-  ModulePermission
-} from '../types/permissions'
+import { getUserPermissions, checkPermission } from '../utils/defaultPermissions'
+import type { SystemPermissions, ModulePermission } from '../types/permissions'
 
-export function usePermissions() {
+/**
+ * Hook para verificar permissões do usuário atual
+ * Uso: const { canView, canCreate, canEdit, canDelete } = usePermissions('cadastro')
+ */
+export function usePermissions(module: keyof SystemPermissions) {
   const { user } = useAuthStore()
-
+  
   const permissions = useMemo(() => {
-    if (!user?.permissions) return null
-    
-    try {
-      return typeof user.permissions === 'string' 
-        ? JSON.parse(user.permissions) 
-        : user.permissions
-    } catch {
-      return null
+    if (!user) {
+      return {
+        canView: false,
+        canCreate: false,
+        canEdit: false,
+        canDelete: false,
+        canExport: false,
+        canImport: false,
+        canApprove: false,
+        canReject: false,
+        hasAnyPermission: false
+      }
     }
-  }, [user?.permissions])
-
-  const checkPermission = useMemo(() => ({
-    // Verificar permissão específica
-    has: (module: keyof SystemPermissions, action: keyof ModulePermission) => hasPermission(permissions, module, action),
     
-    // Verificar acesso ao módulo
-    canAccess: (module: keyof SystemPermissions) => canAccessModule(permissions, module),
+    const userPermissions = getUserPermissions(user.permissions, user.role)
     
-    // Verificar se pode criar
-    canCreate: (module: keyof SystemPermissions) => canCreateInModule(permissions, module),
+    const canView = checkPermission(userPermissions, module, 'view')
+    const canCreate = checkPermission(userPermissions, module, 'create')
+    const canEdit = checkPermission(userPermissions, module, 'edit')
+    const canDelete = checkPermission(userPermissions, module, 'delete')
+    const canExport = checkPermission(userPermissions, module, 'export')
+    const canImport = checkPermission(userPermissions, module, 'import')
+    const canApprove = checkPermission(userPermissions, module, 'approve')
+    const canReject = checkPermission(userPermissions, module, 'reject')
     
-    // Verificar se pode editar
-    canEdit: (module: keyof SystemPermissions) => canEditInModule(permissions, module),
-    
-    // Verificar se pode deletar
-    canDelete: (module: keyof SystemPermissions) => canDeleteInModule(permissions, module),
-    
-    // Verificar se é admin
-    isAdmin: () => user?.role === 'admin',
-    
-    // Verificar se é gerente
-    isManager: () => user?.role === 'gerente' || user?.role === 'admin',
-    
-    // Verificar se é analista
-    isAnalyst: () => user?.role === 'analista' || user?.role === 'gerente' || user?.role === 'admin',
-    
-    // Obter todas as permissões
-    getAll: () => permissions,
-    
-    // Obter permissões de um módulo específico
-    getModule: (module: string) => permissions?.[module] || null
-  }), [permissions, user?.role])
-
-  return checkPermission
+    return {
+      canView,
+      canCreate,
+      canEdit,
+      canDelete,
+      canExport,
+      canImport,
+      canApprove,
+      canReject,
+      hasAnyPermission: canView || canCreate || canEdit || canDelete
+    }
+  }, [user, module])
+  
+  return permissions
 }
 
-// Hook específico para verificar permissão de um módulo
-export function useModulePermission(module: keyof SystemPermissions) {
-  const permissions = usePermissions()
+/**
+ * Hook para verificar se usuário tem permissão específica
+ * Uso: const hasPermission = useHasPermission('cadastro', 'create')
+ */
+export function useHasPermission(
+  module: keyof SystemPermissions,
+  action: keyof ModulePermission
+): boolean {
+  const { user } = useAuthStore()
   
-  return useMemo(() => ({
-    canView: permissions.canAccess(module),
-    canCreate: permissions.canCreate(module),
-    canEdit: permissions.canEdit(module),
-    canDelete: permissions.canDelete(module),
-    modulePermissions: permissions.getModule(module)
-  }), [permissions, module])
+  return useMemo(() => {
+    if (!user) return false
+    
+    const userPermissions = getUserPermissions(user.permissions, user.role)
+    return checkPermission(userPermissions, module, action)
+  }, [user, module, action])
+}
+
+/**
+ * Hook para obter todas as permissões do usuário
+ * Uso: const permissions = useUserPermissions()
+ */
+export function useUserPermissions(): SystemPermissions | null {
+  const { user } = useAuthStore()
+  
+  return useMemo(() => {
+    if (!user) return null
+    return getUserPermissions(user.permissions, user.role)
+  }, [user])
 }
