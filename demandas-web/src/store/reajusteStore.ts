@@ -130,10 +130,23 @@ export const useReajusteStore = create<ReajusteState>()(
           if (existing) {
             console.log('🔄 ReajusteStore.upsert: Atualizando reajuste existente:', entry.id)
             
-            // Identificar campos alterados
+            // Função para normalizar valores (converter vazio em null)
+            const normalize = (val: any): any => {
+              if (val === '' || val === undefined || val === null) return null
+              return val
+            }
+            
+            // Identificar campos alterados (ignorar mudanças de vazio para vazio)
             const changes: string[] = []
             Object.keys(entry).forEach(key => {
-              if (entry[key as keyof ReajusteEntry] !== existing[key as keyof ReajusteEntry]) {
+              // Ignorar campos de sistema que não devem ser logados
+              if (['id', 'createdAt', 'updatedAt'].includes(key)) return
+              
+              const oldVal = normalize(existing[key as keyof ReajusteEntry])
+              const newVal = normalize(entry[key as keyof ReajusteEntry])
+              
+              // Só adicionar se houve mudança real
+              if (oldVal !== newVal) {
                 changes.push(key)
               }
             })
