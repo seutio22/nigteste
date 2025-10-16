@@ -39,7 +39,6 @@ export default function ComunicadoNewPage() {
     conteudo: '',
     categoria: 'Informativo' as const,
     prioridade: 'Média' as const,
-    dataExpiracao: '',
     tags: [] as string[]
   })
   
@@ -115,7 +114,6 @@ export default function ComunicadoNewPage() {
         autor: user?.name || 'Usuário Anônimo',
         autorId: user?.id || 'anonymous-user',
         publicado: false,
-        dataExpiracao: formData.dataExpiracao || undefined,
         tags: formData.tags,
         dataPublicacao: undefined
       }
@@ -153,7 +151,6 @@ export default function ComunicadoNewPage() {
         autor: user?.name || 'Usuário Anônimo',
         autorId: user?.id || 'anonymous-user',
         publicado: true,
-        dataExpiracao: formData.dataExpiracao || undefined,
         tags: formData.tags,
         dataPublicacao: new Date().toISOString()
       }
@@ -188,7 +185,6 @@ export default function ComunicadoNewPage() {
         autor: user?.name || 'Usuário Anônimo',
         autorId: user?.id || 'anonymous-user',
         publicado: false,
-        dataExpiracao: formData.dataExpiracao || undefined,
         tags: formData.tags,
         dataPublicacao: undefined
       }
@@ -347,36 +343,8 @@ export default function ComunicadoNewPage() {
           </Paper>
         </div>
         
-        {/* Coluna Lateral - Configurações */}
+        {/* Coluna Lateral - Ações */}
         <div className="space-y-6">
-          {/* Configurações de Publicação */}
-          <Paper className="p-6">
-            <Typography variant="h6" className="mb-6">
-              Configurações
-            </Typography>
-            
-            <div className="space-y-6">
-              {/* Data de Expiração */}
-              <div>
-                <TextField
-                  fullWidth
-                  label="Data de Expiração (opcional)"
-                  type="datetime-local"
-                  value={formData.dataExpiracao}
-                  onChange={(e) => handleInputChange('dataExpiracao', e.target.value)}
-                  InputLabelProps={{ shrink: true }}
-                  helperText="O comunicado será automaticamente arquivado após esta data"
-                  sx={{
-                    '& .MuiFormHelperText-root': {
-                      marginTop: 1,
-                      fontSize: '0.875rem'
-                    }
-                  }}
-                />
-              </div>
-            </div>
-          </Paper>
-          
           {/* Ações */}
           <Paper className="p-6">
             <Typography variant="h6" className="mb-4">
