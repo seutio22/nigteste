@@ -1394,12 +1394,31 @@ export default function ProjectDetailPage() {
         const tasksWithSubtasks = firstPhase?.tasks?.filter((t: any) => t.subtasks && t.subtasks.length > 0)
         console.log('🔍 handleSaveSubtask: Tarefas com subtarefas:', tasksWithSubtasks?.length)
         if (tasksWithSubtasks && tasksWithSubtasks.length > 0) {
+          const firstTask = tasksWithSubtasks[0]
           console.log('🔍 handleSaveSubtask: Primeira tarefa com subtarefas:', {
-            tarefa: tasksWithSubtasks[0].name,
-            subtarefas: tasksWithSubtasks[0].subtasks.length,
-            nomesSubtarefas: tasksWithSubtasks[0].subtasks.map((s: any) => s.title || s.name)
+            tarefa: firstTask.name,
+            subtarefas: firstTask.subtasks.length,
+            subtarefasDetalhadas: firstTask.subtasks.map((s: any) => ({
+              id: s.id,
+              title: s.title,
+              name: s.name,
+              status: s.status,
+              progress: s.progress
+            }))
           })
         }
+        
+        // Logar TODAS as fases, tarefas e subtarefas
+        console.log('🔍 handleSaveSubtask: ESTRUTURA COMPLETA do projeto parseado:')
+        parsedProject.timeline?.phases?.forEach((phase: any, pIdx: number) => {
+          console.log(`  Fase ${pIdx + 1}: ${phase.name} (${phase.tasks?.length || 0} tarefas)`)
+          phase.tasks?.forEach((task: any, tIdx: number) => {
+            console.log(`    Tarefa ${tIdx + 1}: ${task.name} (${task.subtasks?.length || 0} subtarefas)`)
+            task.subtasks?.forEach((sub: any, sIdx: number) => {
+              console.log(`      Subtarefa ${sIdx + 1}: ${sub.title || sub.name} [${sub.status}]`)
+            })
+          })
+        })
         
         setProject(parsedProject)
         console.log('✅ handleSaveSubtask: Estado atualizado com parsedProject')
