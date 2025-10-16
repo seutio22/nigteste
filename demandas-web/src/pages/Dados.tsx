@@ -153,9 +153,10 @@ export default function DadosPage() {
 
       // Processar itens válidos
       for (const item of result.valid) {
+        // Definir data fora do try-catch para estar acessível no catch
+        const data = item.isCorrected ? item.correctedData : item.data
+        
         try {
-          const data = item.isCorrected ? item.correctedData : item.data
-          
           // Determinar endpoint baseado na aba ativa
           let endpoint = ''
           let payload: any = {}
