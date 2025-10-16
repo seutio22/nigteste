@@ -1968,6 +1968,12 @@ function crud(entity: keyof PrismaClient) {
       if (entity === 'project') {
         const projectData = data as any;
         
+        console.log('🔍 PROJECT UPDATE: Dados recebidos:', {
+          id: projectData.id,
+          progress: projectData.progress,
+          name: projectData.name
+        })
+        
         // Remover campos que não existem no schema ou não devem ser atualizados
         const { 
           id: _, 
@@ -1978,6 +1984,8 @@ function crud(entity: keyof PrismaClient) {
           activities,
           ...updateData 
         } = projectData;
+        
+        console.log('🔍 PROJECT UPDATE: Campo progress em updateData:', updateData.progress)
         
         // Remover campos null/undefined para evitar erros do Prisma
         Object.keys(updateData).forEach(key => {
@@ -2028,6 +2036,12 @@ function crud(entity: keyof PrismaClient) {
         if (clientId) {
           updateData.client = { connect: { id: clientId } };
         }
+        
+        console.log('🔍 PROJECT UPDATE: Dados finais para salvar:', {
+          progress: updateData.progress,
+          hasProgress: 'progress' in updateData,
+          progressType: typeof updateData.progress
+        })
         
         return anyPrisma[entity].update({ where: { id }, data: updateData });
       }
