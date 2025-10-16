@@ -207,10 +207,7 @@ export const useReajusteStore = create<ReajusteState>()(
       
       log: (entry) => {
         const timelineStore = useTimelineStore.getState()
-        timelineStore.addEvent({
-          ...entry,
-          type: 'comment' as const
-        })
+        timelineStore.addEvent(entry)
       },
       
       syncFromApi: async () => {
