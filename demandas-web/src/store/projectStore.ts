@@ -136,12 +136,22 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   
   upsert: async (project) => {
     try {
-      console.log('🔍 ProjectStore: Iniciando atualização de projeto:', project.id)
+      console.log('🔍 ProjectStore.upsert: Iniciando atualização de projeto:', project.id)
+      console.log('🔍 ProjectStore.upsert: Campo progress ANTES de enviar:', project.progress)
+      console.log('🔍 ProjectStore.upsert: Tipo do progress:', typeof project.progress)
+      console.log('🔍 ProjectStore.upsert: Projeto completo:', {
+        id: project.id,
+        name: project.name,
+        progress: project.progress,
+        status: project.status
+      })
       
       // Atualizar no banco de dados via API
       const api = getApi()
       const response = await api.put(`/projetos/${project.id}`, project)
-      console.log('✅ ProjectStore: Projeto atualizado no banco de dados:', response)
+      console.log('✅ ProjectStore.upsert: Projeto atualizado no banco de dados')
+      console.log('✅ ProjectStore.upsert: Resposta da API:', response)
+      console.log('✅ ProjectStore.upsert: Progress na resposta:', response?.progress)
       
       // Atualizar no estado local
       set((s) => ({
