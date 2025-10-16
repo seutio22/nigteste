@@ -160,10 +160,7 @@ export default function UserMonitoring() {
         const hasRealActivity = lastAccess !== null
         const isRecentlyActive = hasRealActivity && daysSinceLastAccess <= 1
         
-        // Para usuários que nunca acessaram, mostrar zeros ou dados mínimos
-        const baseTime = hasRealActivity ? (isRecentlyActive ? 60 : Math.max(10, 60 - daysSinceLastAccess * 2)) : 0
-        const timeVariation = hasRealActivity ? Math.random() * 30 : 0 // Menos variação
-        
+        // SEM SIMULAÇÃO - apenas dados reais ou zeros
         return {
           id: user.id,
           userId: user.id,
@@ -171,18 +168,18 @@ export default function UserMonitoring() {
           userEmail: user.email,
           userRole: user.role,
           lastAccess: actualLastAccess.toISOString(),
-          isOnline: hasRealActivity && isRecentlyActive && Math.random() > 0.7, // Mais conservador
-          totalTimeToday: hasRealActivity ? Math.round(Math.max(0, baseTime + timeVariation)) : 0,
-          totalTimeThisWeek: hasRealActivity ? Math.round(Math.max(0, baseTime * 5 + timeVariation * 1.5)) : 0,
-          totalTimeThisMonth: hasRealActivity ? Math.round(Math.max(0, baseTime * 15 + timeVariation * 3)) : 0,
-          totalTimeThisQuarter: hasRealActivity ? Math.round(Math.max(0, baseTime * 45 + timeVariation * 5)) : 0,
-          sessionCount: hasRealActivity ? Math.max(1, Math.floor((baseTime / 60) * 0.8)) : 0,
-          averageSessionTime: hasRealActivity ? Math.round(Math.max(10, baseTime / 3)) : 0,
+          isOnline: hasRealActivity && isRecentlyActive, // Apenas se realmente ativo
+          totalTimeToday: 0, // SEM DADOS REAIS - sempre zero
+          totalTimeThisWeek: 0, // SEM DADOS REAIS - sempre zero
+          totalTimeThisMonth: 0, // SEM DADOS REAIS - sempre zero
+          totalTimeThisQuarter: 0, // SEM DADOS REAIS - sempre zero
+          sessionCount: hasRealActivity ? 1 : 0, // Apenas 1 se fez login pelo menos uma vez
+          averageSessionTime: 0, // SEM DADOS REAIS - sempre zero
           lastActivity: actualLastAccess.toISOString(),
-          loginCount: hasRealActivity ? Math.max(1, Math.floor((baseTime / 60) * 0.5)) : 0,
-          logoutCount: hasRealActivity ? Math.max(0, Math.floor((baseTime / 60) * 0.4)) : 0,
-          pageViewCount: hasRealActivity ? Math.max(0, Math.floor((baseTime / 60) * 2)) : 0,
-          apiCallCount: hasRealActivity ? Math.max(0, Math.floor((baseTime / 60) * 3)) : 0,
+          loginCount: hasRealActivity ? 1 : 0, // Apenas 1 se fez login pelo menos uma vez
+          logoutCount: 0, // SEM DADOS REAIS - sempre zero
+          pageViewCount: 0, // SEM DADOS REAIS - sempre zero
+          apiCallCount: 0, // SEM DADOS REAIS - sempre zero
           hasRealActivity // Flag para indicar se tem dados reais
         }
       })
@@ -380,10 +377,10 @@ export default function UserMonitoring() {
               📊 Monitoramento de Usuários
             </Typography>
             <Typography variant="body1" color="text.secondary">
-              Acompanhe a atividade real dos usuários baseada em dados reais de login
+              Sistema de monitoramento - Dados de tempo online não estão sendo coletados
             </Typography>
-            <Typography variant="body2" color="info.main" sx={{ fontWeight: 'bold', mt: 1 }}>
-              ℹ️ Dados baseados em atividade real: usuários que nunca acessaram mostram valores zerados
+            <Typography variant="body2" color="warning.main" sx={{ fontWeight: 'bold', mt: 1 }}>
+              ⚠️ ATENÇÃO: Tempo online, sessões e métricas estão zeradas - sistema não coleta dados reais de monitoramento
             </Typography>
           </Box>
           <IconButton onClick={loadMonitoringData} color="primary" size="large">
