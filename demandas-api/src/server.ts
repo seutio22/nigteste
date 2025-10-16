@@ -2051,7 +2051,45 @@ function crud(entity: keyof PrismaClient) {
           progressType: typeof updateData.progress
         })
         
-        return anyPrisma[entity].update({ where: { id }, data: updateData });
+        const updatedProject = await anyPrisma[entity].update({ where: { id }, data: updateData });
+        
+        // Converter campos JSON de volta para objetos antes de retornar
+        if (updatedProject.timeline && typeof updatedProject.timeline === 'string') {
+          try {
+            updatedProject.timeline = JSON.parse(updatedProject.timeline);
+          } catch (e) {
+            updatedProject.timeline = { phases: [] };
+          }
+        }
+        if (updatedProject.activities && typeof updatedProject.activities === 'string') {
+          try {
+            updatedProject.activities = JSON.parse(updatedProject.activities);
+          } catch (e) {
+            updatedProject.activities = [];
+          }
+        }
+        if (updatedProject.team && typeof updatedProject.team === 'string') {
+          try {
+            updatedProject.team = JSON.parse(updatedProject.team);
+          } catch (e) {
+            updatedProject.team = [];
+          }
+        }
+        if (updatedProject.tags && typeof updatedProject.tags === 'string') {
+          try {
+            updatedProject.tags = JSON.parse(updatedProject.tags);
+          } catch (e) {
+            updatedProject.tags = [];
+          }
+        }
+        
+        console.log('✅ PROJECT UPDATE: Projeto atualizado e campos JSON parseados')
+        console.log('✅ PROJECT UPDATE: Timeline parseado:', {
+          fases: updatedProject.timeline?.phases?.length,
+          tarefas: updatedProject.timeline?.phases?.[0]?.tasks?.length
+        })
+        
+        return updatedProject;
       }
       
       // Tratamento específico para reports - converter datas corretamente
