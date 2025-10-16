@@ -80,7 +80,27 @@ export default function PermissionManager({
   const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
-    setPermissions(userPermissions);
+    // Garantir que TODAS as permissões tenham TODOS os campos (export, import, approve, reject)
+    if (userPermissions) {
+      const completePermissions: SystemPermissions = {} as SystemPermissions;
+      
+      Object.entries(userPermissions).forEach(([module, perms]) => {
+        completePermissions[module as keyof SystemPermissions] = {
+          view: perms.view ?? false,
+          create: perms.create ?? false,
+          edit: perms.edit ?? false,
+          delete: perms.delete ?? false,
+          export: perms.export ?? false,     // ✅ Garantir que existe
+          import: perms.import ?? false,     // ✅ Garantir que existe
+          approve: perms.approve ?? false,   // ✅ Garantir que existe
+          reject: perms.reject ?? false      // ✅ Garantir que existe
+        };
+      });
+      
+      setPermissions(completePermissions);
+    } else {
+      setPermissions(userPermissions);
+    }
     setHasChanges(false);
   }, [userPermissions]);
 
