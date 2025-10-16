@@ -45,6 +45,7 @@ interface ComunicadoState {
   fetchComunicado: (id: string) => Promise<Comunicado | null>
   add: (comunicado: Omit<Comunicado, 'id' | 'createdAt' | 'updatedAt' | 'comentarios' | 'visualizacoes'>) => Promise<Comunicado | null>
   update: (id: string, comunicado: Partial<Comunicado>) => Promise<void>
+  publicarRascunho: (id: string) => Promise<void>
   remove: (id: string) => Promise<void>
   clear: () => void
   clearError: () => void // Função para limpar erro
@@ -140,6 +141,35 @@ export const useComunicadoStore = create<ComunicadoState>()(
             }))
           } catch (error) {
             console.error('Erro ao atualizar comunicado:', error)
+            throw error
+          }
+        },
+
+        publicarRascunho: async (id: string) => {
+          try {
+            const { api } = await import('../lib/api.local')
+            const dataPublicacao = new Date().toISOString()
+            
+            await api.updateComunicado(id, {
+              publicado: true,
+              dataPublicacao
+            })
+            
+            // Atualizar no store local
+            set((s) => ({
+              items: s.items.map((c) => 
+                c.id === id ? { 
+                  ...c, 
+                  publicado: true, 
+                  dataPublicacao,
+                  updatedAt: new Date().toISOString() 
+                } : c
+              )
+            }))
+            
+            console.log('✅ Rascunho publicado com sucesso')
+          } catch (error) {
+            console.error('❌ Erro ao publicar rascunho:', error)
             throw error
           }
         },

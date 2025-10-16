@@ -127,6 +127,26 @@ export default function ComunicadoDetailPage() {
 
 
 
+  // Função para publicar rascunho
+  const handlePublicarRascunho = async () => {
+    if (!comunicado) {
+      showNotificationMessage('Comunicado não encontrado')
+      return
+    }
+
+    if (window.confirm('Tem certeza que deseja publicar este rascunho? Ele ficará visível para todos os usuários.')) {
+      try {
+        await comunicadoStore.publicarRascunho(comunicado.id)
+        showNotificationMessage('Rascunho publicado com sucesso!')
+        // Recarregar dados para atualizar o status
+        await comunicadoStore.fetchComunicado(comunicado.id)
+      } catch (error) {
+        console.error('Erro ao publicar rascunho:', error)
+        showNotificationMessage('Erro ao publicar rascunho!')
+      }
+    }
+  }
+
   // Função para excluir comunicado
   const handleDeleteComunicado = async () => {
     if (!comunicado || !user || user.role !== 'admin') {
@@ -253,9 +273,19 @@ export default function ComunicadoDetailPage() {
                 </Button>
                 
                 <div>
-                  <Typography variant="h5" className="font-semibold text-gray-900">
-                    {comunicado.titulo}
-                  </Typography>
+                  <div className="flex items-center gap-2">
+                    <Typography variant="h5" className="font-semibold text-gray-900">
+                      {comunicado.titulo}
+                    </Typography>
+                    {!comunicado.publicado && (
+                      <Chip 
+                        label="Rascunho" 
+                        size="small" 
+                        className="bg-yellow-100 text-yellow-800"
+                        sx={{ fontWeight: 600 }}
+                      />
+                    )}
+                  </div>
                   <Typography variant="body2" className="text-gray-500">
                     Comunicado
                   </Typography>
@@ -264,6 +294,20 @@ export default function ComunicadoDetailPage() {
               
               {/* Botões de ação */}
               <div className="flex items-center gap-2">
+                {/* Botão Publicar Rascunho - só aparece se for rascunho */}
+                {comunicado && !comunicado.publicado && (
+                  <Button
+                    variant="contained"
+                    size="small"
+                    onClick={handlePublicarRascunho}
+                    startIcon={<Visibility />}
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                    sx={{ borderRadius: '8px' }}
+                  >
+                    Publicar Rascunho
+                  </Button>
+                )}
+                
                 <Button
                   variant="outlined"
                   size="small"
