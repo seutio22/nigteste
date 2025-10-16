@@ -2013,10 +2013,18 @@ function crud(entity: keyof PrismaClient) {
         // Converter campos JSON
         if (updateData.timeline) {
           if (typeof updateData.timeline === 'object') {
+            console.log('🔍 PROJECT UPDATE: Timeline (object) antes de stringify:', {
+              fases: updateData.timeline.phases?.length,
+              primeiraFase: updateData.timeline.phases?.[0]?.name,
+              tarefas: updateData.timeline.phases?.[0]?.tasks?.length,
+              subtarefas: updateData.timeline.phases?.[0]?.tasks?.[0]?.subtasks?.length
+            })
             updateData.timeline = JSON.stringify(updateData.timeline);
+            console.log('✅ PROJECT UPDATE: Timeline convertido para string (primeiros 200 chars):', updateData.timeline.substring(0, 200))
           }
         } else {
           // Se timeline não existe, criar um objeto vazio
+          console.log('⚠️ PROJECT UPDATE: Timeline vazio, criando objeto padrão')
           updateData.timeline = JSON.stringify({ phases: [] });
         }
         

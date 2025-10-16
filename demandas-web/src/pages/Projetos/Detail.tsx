@@ -1364,15 +1364,34 @@ export default function ProjectDetailPage() {
     
     // SALVAR NO BANCO DE DADOS
     try {
+      console.log('💾 handleSaveSubtask: Salvando subtarefa no banco...')
+      console.log('💾 handleSaveSubtask: Subtarefa criada:', newSubtask)
+      console.log('💾 handleSaveSubtask: Projeto atualizado:', {
+        id: updatedProject.id,
+        fases: updatedProject.timeline.phases.length,
+        tarefasNaFase: targetPhase.tasks.length,
+        subtarefasNaTarefa: targetTask.subtasks.length
+      })
+      
       // Chamar API para salvar o projeto atualizado
       const savedProject = await api.updateProject(project.id, updatedProject)
+      
+      console.log('✅ handleSaveSubtask: Resposta da API:', savedProject)
+      console.log('✅ handleSaveSubtask: Subtarefa salva no banco com sucesso!')
       
       // Atualizar estado local com o projeto retornado da API
       if (savedProject) {
         const parsedProject = parseProjectFromApi(savedProject)
+        console.log('✅ handleSaveSubtask: Projeto parseado da API:', {
+          id: parsedProject.id,
+          fases: parsedProject.timeline?.phases?.length,
+          primeiraFase: parsedProject.timeline?.phases?.[0]?.name,
+          tarefasNaPrimeiraFase: parsedProject.timeline?.phases?.[0]?.tasks?.length
+        })
         setProject(parsedProject)
       } else {
         // Fallback: usar o projeto atualizado localmente se a API não retornar dados
+        console.log('⚠️ handleSaveSubtask: API não retornou dados, usando estado local')
         setProject(updatedProject)
       }
     } catch (error) {
