@@ -23,8 +23,35 @@ export const useReajusteStore = create<ReajusteState>()(
           console.log('🔍 ReajusteStore.add: Iniciando criação de reajuste...')
           console.log('🔍 ReajusteStore.add: Payload recebido:', payload)
           
+          // Sanitizar payload: converter strings vazias em null e garantir formato ISO de datas
+          const sanitizedPayload = Object.entries(payload).reduce((acc, [key, value]) => {
+            // Campos de data que precisam ser convertidos
+            if (['dataInicio', 'dataFim', 'dataAtualizacao', 'dataAplicacao'].includes(key)) {
+              if (!value || value === '') {
+                acc[key] = null
+              } else {
+                // Se já é uma data válida em formato ISO, manter
+                // Se é uma string de data (YYYY-MM-DD), converter para ISO
+                try {
+                  const date = new Date(value as string)
+                  acc[key] = date.toISOString()
+                } catch {
+                  acc[key] = null
+                }
+              }
+            } else if (value === '' || value === undefined) {
+              // Converter strings vazias e undefined em null
+              acc[key] = null
+            } else {
+              acc[key] = value
+            }
+            return acc
+          }, {} as any)
+          
+          console.log('🔍 ReajusteStore.add: Payload sanitizado:', sanitizedPayload)
+          
           // Salvar no banco de dados primeiro
-          const response = await api.post('/reajusteLancamentos', payload)
+          const response = await api.post('/reajusteLancamentos', sanitizedPayload)
           console.log('✅ ReajusteStore.add: Resposta da API:', response)
           console.log('✅ ReajusteStore.add: Tipo da resposta:', typeof response)
           
@@ -113,8 +140,35 @@ export const useReajusteStore = create<ReajusteState>()(
             
             console.log('🔄 ReajusteStore.upsert: Campos alterados:', changes)
             
+            // Sanitizar entry: converter strings vazias em null e garantir formato ISO de datas
+            const sanitizedEntry = Object.entries(entry).reduce((acc, [key, value]) => {
+              // Campos de data que precisam ser convertidos
+              if (['dataInicio', 'dataFim', 'dataAtualizacao', 'dataAplicacao'].includes(key)) {
+                if (!value || value === '') {
+                  acc[key] = null
+                } else {
+                  // Se já é uma data válida em formato ISO, manter
+                  // Se é uma string de data (YYYY-MM-DD), converter para ISO
+                  try {
+                    const date = new Date(value as string)
+                    acc[key] = date.toISOString()
+                  } catch {
+                    acc[key] = null
+                  }
+                }
+              } else if (value === '' || value === undefined) {
+                // Converter strings vazias e undefined em null
+                acc[key] = null
+              } else {
+                acc[key] = value
+              }
+              return acc
+            }, {} as any)
+            
+            console.log('🔍 ReajusteStore.upsert: Entry sanitizado:', sanitizedEntry)
+            
             // Atualizar no banco de dados
-            const response = await api.put(`/reajusteLancamentos/${entry.id}`, entry)
+            const response = await api.put(`/reajusteLancamentos/${entry.id}`, sanitizedEntry)
             console.log('✅ ReajusteStore.upsert: Reajuste atualizado no banco de dados')
             console.log('✅ ReajusteStore.upsert: Resposta da API:', response)
             
