@@ -688,12 +688,27 @@ export const useDadosCRUD = () => {
   }, [store, dadosStore])
 
   const saveEntity = useCallback(async (activeTab: TabKey, form: FormData): Promise<boolean> => {
+    console.log('🔍 saveEntity: Iniciando salvamento...')
+    console.log('🔍 saveEntity: activeTab:', activeTab)
+    console.log('🔍 saveEntity: form completo:', form)
+    console.log('🔍 saveEntity: form.id:', form.id)
+    console.log('🔍 saveEntity: typeof form.id:', typeof form.id)
+    
     if (!validateForm(activeTab, form)) {
+      console.log('❌ saveEntity: Validação falhou')
       return false
     }
     
     const isEditing = !!form.id
-    return isEditing ? await updateEntity(activeTab, form) : await createEntity(activeTab, form)
+    console.log('🔍 saveEntity: isEditing:', isEditing, '(baseado em form.id)')
+    
+    if (isEditing) {
+      console.log('✅ saveEntity: Chamando updateEntity (EDITAR)')
+      return await updateEntity(activeTab, form)
+    } else {
+      console.log('✅ saveEntity: Chamando createEntity (CRIAR)')
+      return await createEntity(activeTab, form)
+    }
   }, [validateForm, createEntity, updateEntity])
 
   return {
