@@ -29,8 +29,8 @@ interface ProjectState {
   
   // Projetos
   add: (p: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Project>
-  upsert: (p: Project) => void
-  remove: (id: ProjectId) => void
+  upsert: (p: Project) => Promise<void>
+  remove: (id: ProjectId) => Promise<void>
   get: (id: ProjectId) => Project | undefined
   getProjectsByManager: (managerId: string) => Project[]
   
@@ -134,18 +134,48 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     }
   },
   
-  upsert: (project) => {
-    set((s) => ({
-      projects: s.projects.map(p =>
-        p.id === project.id ? { ...p, ...project, updatedAt: new Date().toISOString() } : p
-      )
-    }))
+  upsert: async (project) => {
+    try {
+      console.log('🔍 ProjectStore: Iniciando atualização de projeto:', project.id)
+      
+      // Atualizar no banco de dados via API
+      const api = getApi()
+      const response = await api.put(`/projetos/${project.id}`, project)
+      console.log('✅ ProjectStore: Projeto atualizado no banco de dados:', response)
+      
+      // Atualizar no estado local
+      set((s) => ({
+        projects: s.projects.map(p =>
+          p.id === project.id ? { ...p, ...project, updatedAt: new Date().toISOString() } : p
+        )
+      }))
+      
+      console.log('✅ ProjectStore: Projeto atualizado no estado local')
+    } catch (error) {
+      console.error('❌ ProjectStore: Erro ao atualizar projeto:', error)
+      throw error
+    }
   },
   
-  remove: (id) => {
-    set((s) => ({
-      projects: s.projects.filter(p => p.id !== id)
-    }))
+  remove: async (id) => {
+    try {
+      console.log('🔍 ProjectStore: Iniciando exclusão de projeto:', id)
+      
+      // Excluir do banco de dados via API
+      const api = getApi()
+      await api.delete(`/projetos/${id}`)
+      console.log('✅ ProjectStore: Projeto excluído do banco de dados')
+      
+      // Remover do estado local
+      set((s) => ({
+        projects: s.projects.filter(p => p.id !== id)
+      }))
+      
+      console.log('✅ ProjectStore: Projeto removido do estado local')
+    } catch (error) {
+      console.error('❌ ProjectStore: Erro ao excluir projeto:', error)
+      throw error
+    }
   },
   
   get: (id) => {

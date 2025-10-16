@@ -883,7 +883,7 @@ export default function ProjectDetailPage() {
 
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
-  const { remove: removeProject, syncFromApi } = useProjectStore()
+  const { remove: removeProject, upsert: upsertProject, syncFromApi } = useProjectStore()
   const [project, setProject] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -2372,22 +2372,32 @@ export default function ProjectDetailPage() {
     setEditing(true)
   }
 
-  const handleSave = () => {
-    // Registrar log de edição do projeto
-    logActivity(
-      'Edição do Projeto',
-      'Projeto',
-      editData.name,
-      {
-        campo: 'Dados gerais do projeto',
-        valorAnterior: project,
-        valorNovo: editData
-      }
-    )
+  const handleSave = async () => {
+    try {
+      // Registrar log de edição do projeto
+      logActivity(
+        'Edição do Projeto',
+        'Projeto',
+        editData.name,
+        {
+          campo: 'Dados gerais do projeto',
+          valorAnterior: project,
+          valorNovo: editData
+        }
+      )
 
-    setProject(editData)
-    setEditing(false)
-    alert('Projeto atualizado com sucesso!')
+      // Salvar no banco de dados via store
+      await upsertProject(editData)
+      console.log('✅ Projeto salvo no banco de dados')
+
+      // Atualizar estado local
+      setProject(editData)
+      setEditing(false)
+      alert('Projeto atualizado com sucesso!')
+    } catch (error) {
+      console.error('❌ Erro ao salvar projeto:', error)
+      alert(`Erro ao salvar projeto: ${error instanceof Error ? error.message : 'Erro desconhecido'}`)
+    }
   }
 
   const handleCancel = () => {
@@ -2470,7 +2480,7 @@ export default function ProjectDetailPage() {
       }
       
       // Atualizar o store local removendo o projeto excluído
-      removeProject(project.id)
+      await removeProject(project.id)
       
       // Redirecionar para a lista de projetos
       navigate('/projetos')
