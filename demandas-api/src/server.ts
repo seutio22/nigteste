@@ -1305,50 +1305,6 @@ app.register(jwt, { secret: jwtSecret })
 
 app.register(authPlugin)
 
-// Rota para registrar atividades do frontend (após autenticação)
-app.post('/monitoring/activity', async (req: any, reply: any) => {
-  try {
-    const { action, page, duration } = req.body
-    const userId = req.user?.id
-
-    if (!userId) {
-      return reply.status(401).send({ message: 'Usuário não autenticado' })
-    }
-
-    const user = await prisma.user.findUnique({ where: { id: userId } })
-    if (!user) {
-      return reply.status(404).send({ message: 'Usuário não encontrado' })
-    }
-
-    // Registrar atividade
-    await prisma.userActivity.create({
-      data: {
-        userId,
-        userName: user.name,
-        userEmail: user.email,
-        userRole: user.role,
-        action,
-        page,
-        ipAddress: req.ip,
-        userAgent: req.headers['user-agent'],
-        sessionId: req.headers['x-session-id'] || null,
-        duration: duration || 0,
-        metadata: JSON.stringify({
-          method: req.method,
-          timestamp: new Date().toISOString(),
-          url: req.url
-        })
-      }
-    })
-
-    console.log(`📊 Atividade registrada: ${user.name} - ${action} - ${page}`)
-    return reply.send({ message: 'Atividade registrada com sucesso' })
-  } catch (error) {
-    console.error('❌ Erro ao registrar atividade:', error)
-    return reply.status(500).send({ message: 'Erro interno do servidor' })
-  }
-})
-
 // Middleware de tracking de atividades
 app.addHook('onRequest', async (request, reply) => {
   // Rastrear atividade do usuário
