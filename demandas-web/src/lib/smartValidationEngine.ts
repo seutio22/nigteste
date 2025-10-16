@@ -401,6 +401,44 @@ export class SmartValidationEngine {
   }
 
   /**
+   * Obtém dados existentes para verificação de duplicatas
+   */
+  private getExistingDataForEntity(): any[] {
+    const entityType = this.config.entityType.toLowerCase()
+    
+    // Mapear tipo de entidade para o campo correspondente no masterData
+    if (entityType.includes('cliente')) {
+      return this.masterData.clientes || []
+    } else if (entityType.includes('contrato')) {
+      return this.masterData.contratos || []
+    } else if (entityType.includes('operadora')) {
+      return this.masterData.operadoras || []
+    } else if (entityType.includes('produto')) {
+      return this.masterData.produtos || []
+    } else if (entityType.includes('sistema')) {
+      return this.masterData.sistemas || []
+    } else if (entityType.includes('analista')) {
+      return this.masterData.analistas || []
+    } else if (entityType.includes('solicitante')) {
+      return this.masterData.solicitantes || []
+    } else if (entityType.includes('área') || entityType.includes('area')) {
+      return this.masterData.areas || []
+    } else if (entityType.includes('relatório') || entityType.includes('relatorio')) {
+      return this.masterData.relatorios || []
+    } else if (entityType.includes('modelo')) {
+      return this.masterData.modelos || []
+    } else if (entityType.includes('áreas mailling') || entityType.includes('areas mailling')) {
+      return this.masterData.areasMailling || []
+    } else if (entityType.includes('cargos mailling') || entityType.includes('cargosmailling')) {
+      return this.masterData.cargosMailling || []
+    } else if (entityType.includes('filiais mailling') || entityType.includes('filiaismailling')) {
+      return this.masterData.filiaisMailling || []
+    }
+    
+    return []
+  }
+
+  /**
    * Processa uma lista de itens e retorna resultado completo
    */
   processItems(items: any[]): ImportResult {
@@ -412,13 +450,29 @@ export class SmartValidationEngine {
     // Verificar duplicatas primeiro
     const seen = new Set<string>()
     const duplicateKeys = new Set<string>()
+    
+    // Adicionar chaves dos dados existentes no banco de dados ao conjunto
+    const existingData = this.getExistingDataForEntity()
+    console.log(`🔍 DUPLICATA: Dados existentes no banco: ${existingData.length} registros`)
+    
+    existingData.forEach((existingItem: any) => {
+      const existingKey = this.config.duplicateCheckFields
+        .map(field => String(existingItem[field] || '').trim().toUpperCase())
+        .join('|')
+      
+      if (existingKey && existingKey !== '' && existingKey !== '|') {
+        seen.add(existingKey)
+      }
+    })
+    
+    console.log(`🔍 DUPLICATA: Total de chaves existentes no banco: ${seen.size}`)
 
     for (let i = 0; i < items.length; i++) {
       const item = items[i]
       
-      // Criar chave de duplicata baseada nos campos configurados
+      // Criar chave de duplicata baseada nos campos configurados (UPPERCASE para comparação case-insensitive)
       const duplicateKey = this.config.duplicateCheckFields
-        .map(field => String(item[field] || '').trim())
+        .map(field => String(item[field] || '').trim().toUpperCase())
         .join('|')
       
       // CORREÇÃO: Ignorar se a chave estiver vazia (todos os campos vazios)
@@ -441,9 +495,9 @@ export class SmartValidationEngine {
     for (let i = 0; i < items.length; i++) {
       const item = items[i]
       
-      // Criar chave de duplicata
+      // Criar chave de duplicata (UPPERCASE para comparação case-insensitive)
       const duplicateKey = this.config.duplicateCheckFields
-        .map(field => String(item[field] || '').trim())
+        .map(field => String(item[field] || '').trim().toUpperCase())
         .join('|')
 
       // CORREÇÃO: Apenas marcar como duplicado se a chave não estiver vazia
