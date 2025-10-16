@@ -37,7 +37,8 @@ const columns: GridColDef[] = [
 
 export default function ReajusteListPage() {
   const navigate = useNavigate()
-  const { items } = useReajusteStore()
+  const store = useReajusteStore()
+  const { items } = store
   const md = useMasterDataStore()
   const { user } = useAuthStore()
   const [uploadModalOpen, setUploadModalOpen] = useState(false)
@@ -136,6 +137,15 @@ export default function ReajusteListPage() {
     } catch {}
   }, [showOnlyMyReajustes])
 
+  // Carregar dados do banco de dados ao iniciar
+  useEffect(() => {
+    console.log('🔄 ReajusteListPage: Carregando dados do banco...')
+    if (store.syncFromApi) {
+      store.syncFromApi().catch((error) => {
+        console.error('❌ ReajusteListPage: Erro ao carregar dados:', error)
+      })
+    }
+  }, [store.syncFromApi])
 
   function persist(next: Partial<{ columnVisibilityModel: GridColumnVisibilityModel; sortModel: GridSortModel; filterModel: GridFilterModel; paginationModel: GridPaginationModel }>) {
     try {

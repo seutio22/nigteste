@@ -26,12 +26,19 @@ export const useReajusteStore = create<ReajusteState>()(
           // Salvar no banco de dados primeiro
           const response = await api.post('/reajusteLancamentos', payload)
           console.log('✅ ReajusteStore.add: Resposta da API:', response)
+          console.log('✅ ReajusteStore.add: Tipo da resposta:', typeof response)
+          
+          // A resposta pode vir como response.data ou diretamente como response
+          const data = response?.data || response
+          console.log('✅ ReajusteStore.add: Data extraído:', data)
           
           const entry: ReajusteEntry = {
-            id: response.data.id || crypto.randomUUID(),
-            createdAt: response.data.createdAt || new Date().toISOString(),
+            id: data?.id || crypto.randomUUID(),
+            createdAt: data?.createdAt || new Date().toISOString(),
             ...payload
           }
+          
+          console.log('✅ ReajusteStore.add: Entry criado:', entry)
           
           // Adicionar ao estado local
           set((s) => ({ items: [entry, ...s.items] }))
@@ -47,7 +54,7 @@ export const useReajusteStore = create<ReajusteState>()(
             user: authStore.user?.name || 'Administrador'
           })
           
-          console.log('✅ ReajusteStore.add: Reajuste criado com sucesso!')
+          console.log('✅ ReajusteStore.add: Reajuste criado com sucesso! ID:', entry.id)
           return entry
         } catch (error) {
           console.error('❌ ReajusteStore.add: Erro ao criar reajuste:', error)
@@ -104,9 +111,12 @@ export const useReajusteStore = create<ReajusteState>()(
               }
             })
             
+            console.log('🔄 ReajusteStore.upsert: Campos alterados:', changes)
+            
             // Atualizar no banco de dados
-            await api.put(`/reajusteLancamentos/${entry.id}`, entry)
+            const response = await api.put(`/reajusteLancamentos/${entry.id}`, entry)
             console.log('✅ ReajusteStore.upsert: Reajuste atualizado no banco de dados')
+            console.log('✅ ReajusteStore.upsert: Resposta da API:', response)
             
             // Atualizar estado local
             set((s) => ({
