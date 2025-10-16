@@ -350,13 +350,6 @@ function EditInline({ reajuste }: { reajuste: any }) {
     try {
       const { user: currentUser } = useAuthStore.getState()
       
-      console.log('🔍 ReajusteDetail: Usuário atual ao salvar:', {
-        id: currentUser?.id,
-        name: currentUser?.name,
-        email: currentUser?.email,
-        role: currentUser?.role
-      })
-      
       // Atualizar no store (que salva no banco)
       await store.upsert(draft)
       

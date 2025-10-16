@@ -36,16 +36,6 @@ export const useTimelineStore = create<TimelineState>()(
           const currentUser = useAuthStore.getState().user
           const userId = currentUser?.id
           
-          console.log('🔍 timelineStore.addEvent: Dados do evento:', {
-            eventData,
-            currentUser: {
-              id: currentUser?.id,
-              name: currentUser?.name,
-              email: currentUser?.email
-            },
-            userIdParaSalvar: userId
-          })
-          
           // Determinar entityId e entityType baseado nos campos presentes
           const entityId = eventData.reajusteId || eventData.reportId || eventData.demandaId || eventData.atendimentoId || eventData.manutencaoId || ''
           const entityType = eventData.reajusteId ? 'reajuste' : 
