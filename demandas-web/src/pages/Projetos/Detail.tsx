@@ -2918,10 +2918,8 @@ export default function ProjectDetailPage() {
           if (task.subtasks && task.subtasks.length > 0) {
             task.subtasks.forEach((subtask: any) => {
               const subtaskProgress = calculateSubtaskProgress(subtask)
-              console.log(`🔄 ATUALIZANDO SUBTAREFA: ${subtask.title} - status: ${subtask.status} - progresso antigo: ${subtask.progress} - progresso novo: ${subtaskProgress}`)
               if (subtask.progress !== subtaskProgress) {
                 subtask.progress = subtaskProgress
-                console.log(`✅ PROGRESSO ATUALIZADO: ${subtask.title} = ${subtaskProgress}%`)
               }
             })
           }
@@ -3370,11 +3368,7 @@ export default function ProjectDetailPage() {
                             <TableCell>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                 <Typography variant="body2" fontWeight="bold" color="text.secondary">
-                                  {(() => {
-                                    const progress = subtask.progress || 0
-                                    console.log(`🎯 SUBTAREFA ${subtask.title}: status=${subtask.status}, progress=${progress}`)
-                                    return `${progress}%`
-                                  })()}
+                                  {subtask.progress || 0}%
                                 </Typography>
                                 <LinearProgress
                                   variant="determinate"
