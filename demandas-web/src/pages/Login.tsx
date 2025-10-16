@@ -46,15 +46,10 @@ export default function LoginPage() {
       console.log('🔍 Buscando permissões do usuário no banco de dados...')
       
       try {
-        const response = await fetch(`https://nigteste-production.up.railway.app/users/${data.user.id}`, {
-          headers: {
-            'Authorization': `Bearer ${data.token}`,
-            'Content-Type': 'application/json'
-          }
-        })
+        // Usar a API centralizada em vez de URL hardcoded
+        const userData = await api.get(`/users/${data.user.id}`)
         
-        if (response.ok) {
-          const userData = await response.json()
+        if (userData) {
           console.log('✅ Permissões carregadas do banco de dados')
           console.log('📋 Permissões:', userData.permissions)
           
@@ -66,6 +61,7 @@ export default function LoginPage() {
                 ? JSON.parse(userData.permissions) 
                 : userData.permissions
               console.log('✅ Permissões parseadas com sucesso')
+              console.log('🔐 Permissão DELETE para CADASTRO:', permissions.cadastro?.delete)
             } catch (e) {
               console.error('❌ Erro ao parsear permissões:', e)
             }
