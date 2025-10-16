@@ -1475,8 +1475,14 @@ export default function ProjectDetailPage() {
         
         // Atualizar o estado do projeto de forma segura
         setProject(updatedProject)
-        setDeleteLoading(false)
         
+        // Salvar no banco de dados
+        upsertProject(updatedProject).catch(error => {
+          console.error('❌ Erro ao salvar exclusão de subtarefa no banco:', error)
+          alert('Erro ao salvar exclusão no banco de dados')
+        })
+        
+        setDeleteLoading(false)
         alert('Subtarefa excluída com sucesso!')
         
       } catch (error) {
@@ -1523,6 +1529,13 @@ export default function ProjectDetailPage() {
         
         // Atualizar o estado do projeto de forma segura
         setProject(updatedProject)
+        
+        // Salvar no banco de dados
+        upsertProject(updatedProject).catch(error => {
+          console.error('❌ Erro ao salvar exclusão de tarefa no banco:', error)
+          alert('Erro ao salvar exclusão no banco de dados')
+        })
+        
         alert(`Tarefa excluída com sucesso! ${subtaskCount} subtarefa(s) também foram removida(s).`)
         
       } catch (error) {
@@ -1659,6 +1672,12 @@ export default function ProjectDetailPage() {
       setProject(updatedProject)
       setEditingTask(null)
       
+      // Salvar no banco de dados
+      upsertProject(updatedProject).catch(error => {
+        console.error('❌ Erro ao salvar tarefa no banco:', error)
+        alert('Erro ao salvar tarefa no banco de dados')
+      })
+      
       // Atualizar progresso automaticamente após edição
       // setTimeout(() => updateAllTaskProgress(), 100)
     }
@@ -1734,6 +1753,12 @@ export default function ProjectDetailPage() {
       setEditingSubtask(null)
       setSelectedTask(null)
       
+      // Salvar no banco de dados
+      upsertProject(updatedProject).catch(error => {
+        console.error('❌ Erro ao salvar subtarefa no banco:', error)
+        alert('Erro ao salvar subtarefa no banco de dados')
+      })
+      
       // Atualizar progresso automaticamente após edição
       // setTimeout(() => updateAllTaskProgress(), 100)
     }
@@ -1790,6 +1815,13 @@ export default function ProjectDetailPage() {
         
         // Atualizar o estado do projeto de forma segura
         setProject(updatedProject)
+        
+        // Salvar no banco de dados
+        upsertProject(updatedProject).catch(error => {
+          console.error('❌ Erro ao salvar exclusão de fase no banco:', error)
+          alert('Erro ao salvar exclusão no banco de dados')
+        })
+        
         alert(`Fase excluída com sucesso! ${taskCount} tarefa(s) e ${subtaskCount} subtarefa(s) também foram removida(s).`)
         
       } catch (error) {
@@ -1830,6 +1862,12 @@ export default function ProjectDetailPage() {
       })
       setProject(updatedProject)
       setEditingPhase(null)
+      
+      // Salvar no banco de dados
+      upsertProject(updatedProject).catch(error => {
+        console.error('❌ Erro ao salvar fase no banco:', error)
+        alert('Erro ao salvar fase no banco de dados')
+      })
       
       // Atualizar progresso automaticamente após edição
       // setTimeout(() => updateAllTaskProgress(), 100)
