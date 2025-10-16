@@ -42,11 +42,15 @@ export default function LoginPage() {
       
       console.log('✅ Login bem-sucedido para:', data.user.name)
       
-      // 2. Buscar permissões atualizadas do usuário no banco de dados
+      // 2. Salvar o token PRIMEIRO para que as próximas requisições funcionem
+      useAuthStore.getState().setAuth(data.token, data.user)
+      console.log('✅ Token salvo no authStore')
+      
+      // 3. Buscar permissões atualizadas do usuário no banco de dados
       console.log('🔍 Buscando permissões do usuário no banco de dados...')
       
       try {
-        // Usar a API centralizada em vez de URL hardcoded
+        // Agora a requisição terá o token disponível
         const userData = await api.get(`/users/${data.user.id}`)
         
         if (userData) {
@@ -67,7 +71,7 @@ export default function LoginPage() {
             }
           }
           
-          // 3. Atualizar o authStore com as permissões do banco
+          // 4. Atualizar o authStore com as permissões do banco
           useAuthStore.getState().setAuth(data.token, {
             ...data.user,
             permissions: permissions
@@ -75,13 +79,11 @@ export default function LoginPage() {
           
           console.log('✅ AuthStore atualizado com permissões do banco de dados')
         } else {
-          console.warn('⚠️  Não foi possível carregar permissões, usando dados do login')
-          useAuthStore.getState().setAuth(data.token, data.user)
+          console.warn('⚠️  Não foi possível carregar permissões do usuário')
         }
       } catch (permError) {
         console.error('❌ Erro ao buscar permissões:', permError)
-        console.warn('⚠️  Continuando com dados do login')
-        useAuthStore.getState().setAuth(data.token, data.user)
+        console.warn('⚠️  Continuando com permissões do login')
       }
       
       navigate('/')
