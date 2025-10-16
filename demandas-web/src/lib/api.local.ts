@@ -225,7 +225,7 @@ export const api = {
   getReajustes: () => apiRequest(API_CONFIG.ENDPOINTS.REAJUSTES),
   getReajuste: (id: string) => apiRequest(`${API_CONFIG.ENDPOINTS.REAJUSTES}/${id}`),
   deleteReajuste: (id: string) =>
-    apiRequest(`${API_CONFIG.ENDPOINTS.REAJUSTES}/${id}`, {
+    apiRequest(`/reajusteLancamentos/${id}`, {
       method: 'DELETE',
     }),
 
