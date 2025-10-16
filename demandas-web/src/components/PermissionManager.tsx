@@ -228,10 +228,8 @@ export default function PermissionManager({
                       {Object.entries(modulePermissions).map(([actionKey, actionValue]) => {
                         const action = actionKey as keyof ModulePermission;
                         
-                        // Pular se não for uma ação básica ou se o módulo estiver inativo
-                        if (!['view', 'create', 'edit', 'delete'].includes(action) || !canView) {
-                          return null;
-                        }
+                        // Mostrar TODAS as ações (não pular nenhuma)
+                        // Apenas desabilitar se o módulo não tiver view ativo
                         
                         return (
                           <Grid item xs={6} sm={3} key={action}>
@@ -240,10 +238,10 @@ export default function PermissionManager({
                                 <Checkbox
                                   checked={actionValue as boolean}
                                   onChange={(e) => handlePermissionChange(module, action, e.target.checked)}
-                                  disabled={!canView}
+                                  disabled={!canView && action !== 'view'}
                                 />
                               }
-                              label={ACTION_LABELS[action]}
+                              label={ACTION_LABELS[action] || action}
                             />
                           </Grid>
                         );
@@ -254,7 +252,7 @@ export default function PermissionManager({
                       <Box mt={2}>
                         <Divider />
                         <Typography variant="caption" color="textSecondary" sx={{ mt: 1, display: 'block' }}>
-                          Permissões avançadas disponíveis quando o módulo estiver ativo
+                          💡 Marque todas as permissões que o usuário deve ter para este módulo
                         </Typography>
                       </Box>
                     )}
