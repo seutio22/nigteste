@@ -1388,7 +1388,21 @@ export default function ProjectDetailPage() {
           primeiraFase: parsedProject.timeline?.phases?.[0]?.name,
           tarefasNaPrimeiraFase: parsedProject.timeline?.phases?.[0]?.tasks?.length
         })
+        
+        // Verificar se as subtarefas estão no projeto parseado
+        const firstPhase = parsedProject.timeline?.phases?.[0]
+        const tasksWithSubtasks = firstPhase?.tasks?.filter((t: any) => t.subtasks && t.subtasks.length > 0)
+        console.log('🔍 handleSaveSubtask: Tarefas com subtarefas:', tasksWithSubtasks?.length)
+        if (tasksWithSubtasks && tasksWithSubtasks.length > 0) {
+          console.log('🔍 handleSaveSubtask: Primeira tarefa com subtarefas:', {
+            tarefa: tasksWithSubtasks[0].name,
+            subtarefas: tasksWithSubtasks[0].subtasks.length,
+            nomesSubtarefas: tasksWithSubtasks[0].subtasks.map((s: any) => s.title || s.name)
+          })
+        }
+        
         setProject(parsedProject)
+        console.log('✅ handleSaveSubtask: Estado atualizado com parsedProject')
       } else {
         // Fallback: usar o projeto atualizado localmente se a API não retornar dados
         console.log('⚠️ handleSaveSubtask: API não retornou dados, usando estado local')
