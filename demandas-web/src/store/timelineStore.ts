@@ -31,20 +31,20 @@ export const useTimelineStore = create<TimelineState>()(
         try {
           const { api } = await import('../lib/api.local')
           const { useAuthStore } = await import('./authStore')
-          const { useMasterDataStore } = await import('./masterDataStore')
           
           // Obter o usuário atual do authStore
           const currentUser = useAuthStore.getState().user
+          const userId = currentUser?.id
           
-          // Se eventData.user foi passado (como nome), tentar encontrar o ID correspondente
-          let userId = currentUser?.id
-          if (eventData.user && typeof eventData.user === 'string') {
-            const masterData = useMasterDataStore.getState()
-            const analista = masterData.analistas.find(a => a.nome === eventData.user)
-            if (analista) {
-              userId = analista.id
-            }
-          }
+          console.log('🔍 timelineStore.addEvent: Dados do evento:', {
+            eventData,
+            currentUser: {
+              id: currentUser?.id,
+              name: currentUser?.name,
+              email: currentUser?.email
+            },
+            userIdParaSalvar: userId
+          })
           
           // Determinar entityId e entityType baseado nos campos presentes
           const entityId = eventData.reajusteId || eventData.reportId || eventData.demandaId || eventData.atendimentoId || eventData.manutencaoId || ''
