@@ -37,16 +37,15 @@ export function usePermissions(module: keyof SystemPermissions) {
     const canReject = checkPermission(userPermissions, module, 'reject')
     
     // 🔍 LOG DE DEBUG: Mostrar permissões do usuário para o módulo
-    console.log(`🔐 usePermissions(${module}):`, {
-      role: user.role,
-      canView,
-      canCreate,
-      canEdit,
-      canDelete,
-      canExport,
-      canImport,
-      modulePermissions: userPermissions[module]
-    })
+    console.log(`🔐 usePermissions(${module}):`)
+    console.log(`   role: ${user.role}`)
+    console.log(`   canView: ${canView}`)
+    console.log(`   canCreate: ${canCreate}`)
+    console.log(`   canEdit: ${canEdit}`)
+    console.log(`   canDelete: ${canDelete}`)
+    console.log(`   canExport: ${canExport}`)
+    console.log(`   canImport: ${canImport}`)
+    console.log(`   modulePermissions:`, userPermissions[module])
     
     return {
       canView,
