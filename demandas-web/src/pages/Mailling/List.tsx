@@ -47,10 +47,12 @@ import { SmartImporter } from '../../components/SmartImporter'
 import { SavedFiltersModal } from '../../components/SavedFiltersModal'
 import { smartImporterConfigs } from '../../config/smartImporterConfigs'
 import type { ImportResult } from '../../types/smartImporter'
+import { usePermissions } from '../../hooks/usePermissions'
 
 export default function MaillingListPage() {
   const maillingStore = useMaillingStore()
   const masterDataStore = useMasterDataStore()
+  const { canCreate, canEdit, canDelete, canImport, canExport } = usePermissions('mailling')
   
   // Estados
   const [searchTerm, setSearchTerm] = useState('')
@@ -212,52 +214,56 @@ export default function MaillingListPage() {
               </Typography>
             </div>
             <div className="flex items-center gap-3">
-              <Button
-                variant="outlined"
-                startIcon={<UploadIcon />}
-                onClick={() => setSmartImporterOpen(true)}
-                size="medium"
-                className="text-primary-600 border-primary-300 hover:text-primary-700 hover:border-primary-400 hover:bg-primary-50 transition-all duration-300 font-medium"
-                sx={{
-                  borderRadius: '14px',
-                  padding: '10px 20px',
-                  textTransform: 'none',
-                  fontWeight: 500,
-                  fontSize: '0.9rem',
-                  height: '44px',
-                  borderWidth: '2px',
-                  '&:hover': {
+              {canImport && (
+                <Button
+                  variant="outlined"
+                  startIcon={<UploadIcon />}
+                  onClick={() => setSmartImporterOpen(true)}
+                  size="medium"
+                  className="text-primary-600 border-primary-300 hover:text-primary-700 hover:border-primary-400 hover:bg-primary-50 transition-all duration-300 font-medium"
+                  sx={{
+                    borderRadius: '14px',
+                    padding: '10px 20px',
+                    textTransform: 'none',
+                    fontWeight: 500,
+                    fontSize: '0.9rem',
+                    height: '44px',
                     borderWidth: '2px',
-                    transform: 'translateY(-2px)',
-                    boxShadow: '0 4px 12px 0 rgba(59, 130, 246, 0.15)'
-                  }
-                }}
-              >
-                Importar
-              </Button>
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={handleAddContact}
-                size="medium"
-                className="bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-800 hover:to-slate-900 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 font-semibold"
-                sx={{
-                  borderRadius: '14px',
-                  padding: '10px 20px',
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  fontSize: '0.9rem',
-                  height: '44px',
-                  minWidth: '140px',
-                  boxShadow: '0 4px 14px 0 rgba(15, 23, 42, 0.25)',
-                  '&:hover': {
-                    boxShadow: '0 8px 25px 0 rgba(15, 23, 42, 0.35)',
-                    transform: 'translateY(-2px)'
-                  }
-                }}
-              >
-                Novo Contato
-              </Button>
+                    '&:hover': {
+                      borderWidth: '2px',
+                      transform: 'translateY(-2px)',
+                      boxShadow: '0 4px 12px 0 rgba(59, 130, 246, 0.15)'
+                    }
+                  }}
+                >
+                  Importar
+                </Button>
+              )}
+              {canCreate && (
+                <Button
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  onClick={handleAddContact}
+                  size="medium"
+                  className="bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-800 hover:to-slate-900 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 font-semibold"
+                  sx={{
+                    borderRadius: '14px',
+                    padding: '10px 20px',
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    fontSize: '0.9rem',
+                    height: '44px',
+                    minWidth: '140px',
+                    boxShadow: '0 4px 14px 0 rgba(15, 23, 42, 0.25)',
+                    '&:hover': {
+                      boxShadow: '0 8px 25px 0 rgba(15, 23, 42, 0.35)',
+                      transform: 'translateY(-2px)'
+                    }
+                  }}
+                >
+                  Novo Contato
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -301,40 +307,48 @@ export default function MaillingListPage() {
         {/* Barra de Ações */}
         <Paper sx={{ p: 2, mb: 2 }}>
           <Grid container spacing={1.5} alignItems="center">
-            <Grid item xs={12} sm={6} md={2.4}>
-              <Button
-                fullWidth
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={handleAddContact}
-                size="small"
-              >
-                Novo Contato
-              </Button>
-            </Grid>
-            <Grid item xs={12} sm={6} md={2.4}>
-              <Button
-                fullWidth
-                variant="outlined"
-                startIcon={<UploadIcon />}
-                onClick={() => setSmartImporterOpen(true)}
-                size="small"
-              >
-                Importar
-              </Button>
-            </Grid>
-            <Grid item xs={12} sm={6} md={2.4}>
-              <Button
-                fullWidth
-                variant="outlined"
-                startIcon={<DownloadIcon />}
-                onClick={handleExport}
-                disabled={maillingStore.contacts.length === 0}
-                size="small"
-              >
-                Exportar
-              </Button>
-            </Grid>
+            {canCreate && (
+              <Grid item xs={12} sm={6} md={2.4}>
+                <Button
+                  fullWidth
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  onClick={handleAddContact}
+                  size="small"
+                >
+                  Novo Contato
+                </Button>
+              </Grid>
+            )}
+            
+            {canImport && (
+              <Grid item xs={12} sm={6} md={2.4}>
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  startIcon={<UploadIcon />}
+                  onClick={() => setSmartImporterOpen(true)}
+                  size="small"
+                >
+                  Importar
+                </Button>
+              </Grid>
+            )}
+            
+            {canExport && (
+              <Grid item xs={12} sm={6} md={2.4}>
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  startIcon={<DownloadIcon />}
+                  onClick={handleExport}
+                  disabled={maillingStore.contacts.length === 0}
+                  size="small"
+                >
+                  Exportar
+                </Button>
+              </Grid>
+            )}
             <Grid item xs={12} sm={6} md={2.4}>
               <Button
                 fullWidth
@@ -653,32 +667,37 @@ export default function MaillingListPage() {
                   <TableRow key={contact.id} sx={{ '&:hover': { backgroundColor: 'grey.50' } }}>
                     <TableCell sx={{ minWidth: '60px', maxWidth: '60px', padding: '4px 2px' }}>
                       <Box sx={{ display: 'flex', gap: 0.25, justifyContent: 'center' }}>
-                        <IconButton
-                          size="small"
-                          color="primary"
-                          onClick={() => handleEditContact(contact)}
-                          sx={{ 
-                            padding: '1px',
-                            minWidth: '20px',
-                            height: '20px',
-                            '&:hover': { backgroundColor: 'primary.light' }
-                          }}
-                        >
-                          <EditIcon sx={{ fontSize: '0.8rem' }} />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={() => handleDeleteContact(contact.id)}
-                          sx={{ 
-                            padding: '1px',
-                            minWidth: '20px',
-                            height: '20px',
-                            '&:hover': { backgroundColor: 'error.light' }
-                          }}
-                        >
-                          <DeleteIcon sx={{ fontSize: '0.8rem' }} />
-                        </IconButton>
+                        {canEdit && (
+                          <IconButton
+                            size="small"
+                            color="primary"
+                            onClick={() => handleEditContact(contact)}
+                            sx={{ 
+                              padding: '1px',
+                              minWidth: '20px',
+                              height: '20px',
+                              '&:hover': { backgroundColor: 'primary.light' }
+                            }}
+                          >
+                            <EditIcon sx={{ fontSize: '0.8rem' }} />
+                          </IconButton>
+                        )}
+                        
+                        {canDelete && (
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => handleDeleteContact(contact.id)}
+                            sx={{ 
+                              padding: '1px',
+                              minWidth: '20px',
+                              height: '20px',
+                              '&:hover': { backgroundColor: 'error.light' }
+                            }}
+                          >
+                            <DeleteIcon sx={{ fontSize: '0.8rem' }} />
+                          </IconButton>
+                        )}
                       </Box>
                     </TableCell>
                     <TableCell sx={{ fontSize: '0.8rem', minWidth: '120px', padding: '4px 6px' }}>
