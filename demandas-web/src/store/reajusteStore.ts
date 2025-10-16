@@ -256,16 +256,19 @@ export const useReajusteStore = create<ReajusteState>()(
               }
               
               changes.forEach(field => {
-                const from = existing[field as keyof ReajusteEntry]
-                const to = entry[field as keyof ReajusteEntry]
+                const from = normalize(existing[field as keyof ReajusteEntry])
+                const to = normalize(entry[field as keyof ReajusteEntry])
                 
                 const fromLabel = getValueLabel(from, field)
                 const toLabel = getValueLabel(to, field)
                 
+                // Não logar se ambos são vazios após normalização
+                if (!fromLabel && !toLabel) return
+                
                 timelineStore.addEvent({
                   reajusteId: entry.id,
                   type: 'comment',
-                  comment: `Campo '${getFieldLabel(field)}' alterado de '${fromLabel}' para '${toLabel}'`,
+                  comment: `Campo '${getFieldLabel(field)}' alterado de '${fromLabel || 'N/A'}' para '${toLabel || 'N/A'}'`,
                   user: authStore.user?.name || 'Administrador'
                 })
               })
