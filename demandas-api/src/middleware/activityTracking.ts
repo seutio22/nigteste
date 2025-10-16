@@ -67,7 +67,7 @@ export async function activityTrackingMiddleware(
     }
 
     // Salvar atividade no banco (async, não bloquear resposta)
-    setImmediate(() => {
+    Promise.resolve().then(() => {
       saveActivity(trackingData)
     })
 
