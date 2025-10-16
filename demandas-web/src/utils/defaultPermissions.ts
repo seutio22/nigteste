@@ -145,20 +145,29 @@ export const DEFAULT_PERMISSIONS: Record<string, SystemPermissions> = {
  * Fallback: Se não tiver permissões configuradas, usa padrão do role (apenas uma vez na criação)
  */
 export function getUserPermissions(
-  userPermissionsString: string | null | undefined,
+  userPermissionsString: string | null | undefined | any,
   userRole: string
 ): SystemPermissions {
   // 🎯 PRIORIDADE 1: Usar permissões CUSTOMIZADAS do usuário (Gerenciar Permissões)
   if (userPermissionsString) {
     try {
-      const parsed = JSON.parse(userPermissionsString)
-      // Validar se tem estrutura válida
-      if (parsed && typeof parsed === 'object') {
-        console.log(`✅ Usando permissões CUSTOMIZADAS do usuário`)
-        return parsed as SystemPermissions
+      // Se já é um objeto, usar diretamente (caso o banco retorne objeto)
+      if (typeof userPermissionsString === 'object' && userPermissionsString !== null) {
+        console.log(`✅ Usando permissões CUSTOMIZADAS do usuário (objeto direto)`)
+        return userPermissionsString as SystemPermissions
+      }
+      
+      // Se é string, fazer parse
+      if (typeof userPermissionsString === 'string') {
+        const parsed = JSON.parse(userPermissionsString)
+        // Validar se tem estrutura válida
+        if (parsed && typeof parsed === 'object') {
+          console.log(`✅ Usando permissões CUSTOMIZADAS do usuário (string parseada)`)
+          return parsed as SystemPermissions
+        }
       }
     } catch (error) {
-      console.warn('❌ Erro ao parsear permissões do usuário, usando padrão do role:', error)
+      console.warn('❌ Erro ao processar permissões do usuário, usando padrão do role:', error)
     }
   }
   
