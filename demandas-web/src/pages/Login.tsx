@@ -37,8 +37,57 @@ export default function LoginPage() {
     setError('')
     
     try {
+      // 1. Fazer login
       const data = await api.login({ email, password })
-      useAuthStore.getState().setAuth(data.token, data.user)
+      
+      console.log('✅ Login bem-sucedido para:', data.user.name)
+      
+      // 2. Buscar permissões atualizadas do usuário no banco de dados
+      console.log('🔍 Buscando permissões do usuário no banco de dados...')
+      
+      try {
+        const response = await fetch(`https://nigteste-production.up.railway.app/users/${data.user.id}`, {
+          headers: {
+            'Authorization': `Bearer ${data.token}`,
+            'Content-Type': 'application/json'
+          }
+        })
+        
+        if (response.ok) {
+          const userData = await response.json()
+          console.log('✅ Permissões carregadas do banco de dados')
+          console.log('📋 Permissões:', userData.permissions)
+          
+          // Parse das permissões
+          let permissions = null
+          if (userData.permissions) {
+            try {
+              permissions = typeof userData.permissions === 'string' 
+                ? JSON.parse(userData.permissions) 
+                : userData.permissions
+              console.log('✅ Permissões parseadas com sucesso')
+            } catch (e) {
+              console.error('❌ Erro ao parsear permissões:', e)
+            }
+          }
+          
+          // 3. Atualizar o authStore com as permissões do banco
+          useAuthStore.getState().setAuth(data.token, {
+            ...data.user,
+            permissions: permissions
+          })
+          
+          console.log('✅ AuthStore atualizado com permissões do banco de dados')
+        } else {
+          console.warn('⚠️  Não foi possível carregar permissões, usando dados do login')
+          useAuthStore.getState().setAuth(data.token, data.user)
+        }
+      } catch (permError) {
+        console.error('❌ Erro ao buscar permissões:', permError)
+        console.warn('⚠️  Continuando com dados do login')
+        useAuthStore.getState().setAuth(data.token, data.user)
+      }
+      
       navigate('/')
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Falha ao entrar';

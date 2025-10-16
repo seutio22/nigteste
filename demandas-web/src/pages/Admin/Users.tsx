@@ -256,16 +256,25 @@ export default function UsersPage() {
   const handleSavePermissions = useCallback(async (permissions: SystemPermissions) => {
     if (!selectedUser) return
 
+    console.log('🔄 handleSavePermissions: Salvando permissões para', selectedUser.name)
+    console.log('🔄 Permissões recebidas:', permissions)
+    console.log('🔄 Permissão de DELETE para CADASTRO:', permissions.cadastro?.delete)
+
     try {
+      const payload = {
+        permissions: JSON.stringify(permissions)
+      }
+      
+      console.log('📤 Payload que será enviado:', payload)
+      console.log('📤 Payload stringified:', JSON.stringify(payload, null, 2))
+
       const response = await fetch(`https://nigteste-production.up.railway.app/users/${selectedUser.id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          permissions: JSON.stringify(permissions)
-        })
+        body: JSON.stringify(payload)
       })
 
       if (response.ok) {

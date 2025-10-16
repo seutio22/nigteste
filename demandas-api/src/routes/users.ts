@@ -159,10 +159,18 @@ export async function userRoutes(app: FastifyInstance, options: { prisma: Prisma
     }
   })
 
-  // GET /users/:id - Obter usuário específico (apenas admin)
-  app.get('/users/:id', { preHandler: ensureAdmin }, async (req: any) => {
+  // GET /users/:id - Obter usuário específico (qualquer usuário autenticado pode buscar seus próprios dados)
+  app.get('/users/:id', { preHandler: verifyJWT }, async (req: any) => {
     try {
       const { id } = req.params
+      const requestingUserId = req.user?.id
+      const requestingUserRole = req.user?.role
+      
+      // Permitir que admin busque qualquer usuário OU que o usuário busque seus próprios dados
+      if (requestingUserRole !== 'admin' && requestingUserId !== id) {
+        return { error: 'Você só pode buscar seus próprios dados' }
+      }
+      
       const user = await prisma.user.findUnique({
         where: { id },
         select: {
@@ -182,6 +190,8 @@ export async function userRoutes(app: FastifyInstance, options: { prisma: Prisma
       if (!user) {
         throw new Error('Usuário não encontrado')
       }
+      
+      console.log(`✅ Permissões retornadas para ${user.name}:`, user.permissions ? 'SIM' : 'NÃO')
       
       return user
     } catch (error: any) {
@@ -250,11 +260,16 @@ export async function userRoutes(app: FastifyInstance, options: { prisma: Prisma
       const { id } = req.params
       const updateData = userUpdateSchema.parse(req.body)
       
+      console.log('🔍 Backend PUT /users/:id - Dados recebidos:', JSON.stringify(updateData, null, 2))
+      console.log('🔍 Backend - Permissões recebidas (raw):', updateData.permissions)
+      
       // Verificar se usuário existe
       const existingUser = await prisma.user.findUnique({ where: { id } })
       if (!existingUser) {
         return res.code(404).send({ error: 'Usuário não encontrado' })
       }
+      
+      console.log('🔍 Backend - Usuário existente:', existingUser.name)
       
       // Se estiver alterando email, verificar se já existe
       if (updateData.email && updateData.email !== existingUser.email) {
