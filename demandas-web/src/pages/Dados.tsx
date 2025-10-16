@@ -146,6 +146,7 @@ export default function DadosPage() {
 
   const handleSmartImport = async (result: ImportResult) => {
     try {
+      console.log('🔍 SMART IMPORT: Iniciando processamento de importação - v2.0')
       const { api } = await import('../lib/api.local')
       let totalImported = 0
       let totalSavedToDatabase = 0
