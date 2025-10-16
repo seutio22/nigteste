@@ -173,9 +173,24 @@ export default function PermissionManager({
       </DialogTitle>
       
       <DialogContent>
-        <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
+        <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
           Configure as permissões específicas para este usuário. As permissões definem o que o usuário pode ver e fazer em cada módulo do sistema.
         </Typography>
+        
+        <Box sx={{ mb: 3, p: 2, bgcolor: 'info.light', borderRadius: 1 }}>
+          <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+            🎯 Permissões por Página
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            • <strong>Visualizar:</strong> Permite ver o módulo no menu e acessar a página<br />
+            • <strong>Criar:</strong> Permite criar novos registros<br />
+            • <strong>Editar:</strong> Permite modificar registros existentes<br />
+            • <strong>Excluir:</strong> Permite remover registros permanentemente
+          </Typography>
+          <Typography variant="caption" sx={{ display: 'block', mt: 1, color: 'info.dark', fontWeight: 'medium' }}>
+            💡 Estas configurações sobrescrevem as permissões padrão do perfil (role)
+          </Typography>
+        </Box>
 
         <Grid container spacing={2}>
           {Object.entries(permissions).map(([moduleKey, modulePermissions]) => {

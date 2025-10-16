@@ -141,35 +141,38 @@ export const DEFAULT_PERMISSIONS: Record<string, SystemPermissions> = {
 
 /**
  * Obtém permissões para um usuário
- * SEGURANÇA: Sempre retorna permissões, nunca null
- * Se não tiver permissões customizadas, usa permissões padrão do role
+ * PRIORIDADE: Sempre usa permissões configuradas em "Gerenciar Permissões"
+ * Fallback: Se não tiver permissões configuradas, usa padrão do role (apenas uma vez na criação)
  */
 export function getUserPermissions(
   userPermissionsString: string | null | undefined,
   userRole: string
 ): SystemPermissions {
-  // Tentar usar permissões customizadas
+  // 🎯 PRIORIDADE 1: Usar permissões CUSTOMIZADAS do usuário (Gerenciar Permissões)
   if (userPermissionsString) {
     try {
       const parsed = JSON.parse(userPermissionsString)
       // Validar se tem estrutura válida
       if (parsed && typeof parsed === 'object') {
+        console.log(`✅ Usando permissões CUSTOMIZADAS do usuário`)
         return parsed as SystemPermissions
       }
     } catch (error) {
-      console.warn('Erro ao parsear permissões do usuário, usando padrão do role:', error)
+      console.warn('❌ Erro ao parsear permissões do usuário, usando padrão do role:', error)
     }
   }
   
-  // Fallback para permissões padrão do role
+  // 🔄 FALLBACK: Permissões padrão do role (apenas para usuários sem configuração)
   const rolePermissions = DEFAULT_PERMISSIONS[userRole.toLowerCase()]
   if (rolePermissions) {
-    console.log(`📋 Usando permissões padrão para role: ${userRole}`)
+    console.warn(`⚠️ Usuário sem permissões configuradas! Usando padrão do role: ${userRole}`)
+    console.warn(`💡 Configure as permissões em: Usuários → Gerenciar Permissões`)
     return rolePermissions
   }
   
-  // Fallback final: permissões de analista (seguro e funcional)
-  console.warn(`⚠️ Role desconhecido: ${userRole}, usando permissões de analista`)
+  // 🆘 FALLBACK FINAL: Role desconhecido
+  console.error(`❌ Role desconhecido: ${userRole}, usando permissões de analista`)
+  console.error(`💡 Configure as permissões em: Usuários → Gerenciar Permissões`)
   return DEFAULT_PERMISSIONS.analista
 }
 

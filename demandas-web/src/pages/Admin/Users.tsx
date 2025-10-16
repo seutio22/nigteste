@@ -47,6 +47,7 @@ import { useAuthStore } from '../../store/authStore'
 import PermissionManager from '../../components/PermissionManager'
 import UserMonitoring from '../../components/UserMonitoring'
 import { SystemPermissions } from '../../types/permissions'
+import { getInitialPermissions } from '../../utils/defaultPermissions'
 
 interface User {
   id: string
@@ -205,6 +206,12 @@ export default function UsersPage() {
       const userData: any = { ...form }
       if (editingUser && !form.password) {
         delete userData.password
+      }
+
+      // 🎯 CRIAR PERMISSÕES INICIAIS baseadas no role (apenas para novos usuários)
+      if (!editingUser) {
+        userData.permissions = getInitialPermissions(form.role)
+        console.log(`✅ Criando usuário com permissões iniciais do role: ${form.role}`)
       }
 
       const baseUrl = 'https://nigteste-production.up.railway.app'
