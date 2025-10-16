@@ -1312,7 +1312,7 @@ export default function ProjectDetailPage() {
       actualEndDate: null,
       estimatedHours: parseInt(newSubtaskData.hours) || 0,
       actualHours: 0,
-      progress: 0,
+      progress: calculateSubtaskProgress({ status: newSubtaskData.status }),
       dependencies: [],
       order: 0,
       code: '',
@@ -1774,8 +1774,10 @@ export default function ProjectDetailPage() {
                 // Se a data de finalização foi definida, marcar como concluída
                 if (updatedSubtask.actualEndDate && updatedSubtask.status !== 'completed') {
                   updatedSubtask.status = 'completed'
-                  updatedSubtask.progress = 100
                 }
+                
+                // Recalcular progresso baseado no status atual
+                updatedSubtask.progress = calculateSubtaskProgress(updatedSubtask)
                 
                 
                 // Registrar log de atividade antes de atualizar
@@ -2842,15 +2844,32 @@ export default function ProjectDetailPage() {
     setProject(updatedProject)
   }
 
+  // Função para calcular progresso automático da subtarefa baseado no status
+  const calculateSubtaskProgress = (subtask: any) => {
+    switch (subtask.status) {
+      case 'pending':
+        return 0
+      case 'in_progress':
+        return 50
+      case 'completed':
+        return 100
+      case 'blocked':
+        return 25
+      default:
+        return 0
+    }
+  }
+
   // Função para calcular progresso automático da tarefa baseado nas subtarefas
   const calculateTaskProgress = (task: any) => {
     if (!task.subtasks || task.subtasks.length === 0) {
       return task.progress || 0 // Manter progresso manual se não houver subtarefas
     }
     
-    // Calcular média do progresso das subtarefas
+    // Calcular média do progresso das subtarefas baseado no status
     const totalProgress = task.subtasks.reduce((sum: number, subtask: any) => {
-      return sum + (subtask.progress || 0)
+      const subtaskProgress = calculateSubtaskProgress(subtask)
+      return sum + subtaskProgress
     }, 0)
     
     const averageProgress = Math.round(totalProgress / task.subtasks.length)
@@ -2895,6 +2914,16 @@ export default function ProjectDetailPage() {
         }
         
         phase.tasks.forEach((task: any) => {
+          // Atualizar progresso das subtarefas baseado no status
+          if (task.subtasks && task.subtasks.length > 0) {
+            task.subtasks.forEach((subtask: any) => {
+              const subtaskProgress = calculateSubtaskProgress(subtask)
+              if (subtask.progress !== subtaskProgress) {
+                subtask.progress = subtaskProgress
+              }
+            })
+          }
+          
           // Verificar se o progresso mudou
           const oldProgress = task.progress
           const newProgress = calculateTaskProgress(task)
