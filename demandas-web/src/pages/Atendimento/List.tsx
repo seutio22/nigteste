@@ -10,12 +10,14 @@ import { api } from '../../lib/api.local'
 import ExportDataModal from '../../components/ExportDataModal'
 import PersonIcon from '@mui/icons-material/Person'
 import GroupIcon from '@mui/icons-material/Group'
+import { usePermissions } from '../../hooks/usePermissions'
 
 export default function AtendimentoListPage() {
   const navigate = useNavigate()
   const atendimentoStore = useAtendimentoStore()
   const masterDataStore = useMasterDataStore()
   const { user } = useAuthStore()
+  const { canCreate, canExport } = usePermissions('atendimento')
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   
@@ -314,29 +316,31 @@ export default function AtendimentoListPage() {
               >
                 Exportar
               </Button>
-              <Button
-                variant="contained"
-                startIcon={<Add />}
-                onClick={() => navigate('/atendimento/nova')}
-                size="medium"
-                className="bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-800 hover:to-slate-900 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 font-semibold"
-                sx={{
-                  borderRadius: '14px',
-                  padding: '10px 20px',
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  fontSize: '0.9rem',
-                  height: '44px',
-                  minWidth: '160px',
-                  boxShadow: '0 4px 14px 0 rgba(15, 23, 42, 0.25)',
-                  '&:hover': {
-                    boxShadow: '0 8px 25px 0 rgba(15, 23, 42, 0.35)',
-                    transform: 'translateY(-2px)'
-                  }
-                }}
-              >
-                Novo Atendimento
-              </Button>
+              {canCreate && (
+                <Button
+                  variant="contained"
+                  startIcon={<Add />}
+                  onClick={() => navigate('/atendimento/nova')}
+                  size="medium"
+                  className="bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-800 hover:to-slate-900 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 font-semibold"
+                  sx={{
+                    borderRadius: '14px',
+                    padding: '10px 20px',
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    fontSize: '0.9rem',
+                    height: '44px',
+                    minWidth: '160px',
+                    boxShadow: '0 4px 14px 0 rgba(15, 23, 42, 0.25)',
+                    '&:hover': {
+                      boxShadow: '0 8px 25px 0 rgba(15, 23, 42, 0.35)',
+                      transform: 'translateY(-2px)'
+                    }
+                  }}
+                >
+                  Novo Atendimento
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -446,6 +450,7 @@ export default function AtendimentoListPage() {
 function ActionCell({ id, status }: { id: string, status: string }) {
   const navigate = useNavigate()
   const atendimentoStore = useAtendimentoStore()
+  const { canEdit, canDelete } = usePermissions('atendimento')
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
   const [openStatus, setOpenStatus] = useState(false)
   const [newStatus, setNewStatus] = useState(status)
@@ -497,26 +502,39 @@ function ActionCell({ id, status }: { id: string, status: string }) {
           <Visibility className="mr-2" />
           Ver
         </MenuItem>
-        <MenuItem onClick={() => { handleMenuClose(); navigate(`/atendimento/${id}/edit`) }}>
-          <Edit className="mr-2" />
-          Editar
-        </MenuItem>
-        <MenuItem onClick={() => { handleMenuClose(); doDuplicate() }}>
-          <ContentCopy className="mr-2" />
-          Duplicar
-        </MenuItem>
-        <MenuItem onClick={() => { handleMenuClose(); setOpenStatus(true) }}>
-          <TrendingUp className="mr-2" />
-          Alterar status
-        </MenuItem>
+        
+        {canEdit && (
+          <MenuItem onClick={() => { handleMenuClose(); navigate(`/atendimento/${id}/edit`) }}>
+            <Edit className="mr-2" />
+            Editar
+          </MenuItem>
+        )}
+        
+        {canEdit && (
+          <MenuItem onClick={() => { handleMenuClose(); doDuplicate() }}>
+            <ContentCopy className="mr-2" />
+            Duplicar
+          </MenuItem>
+        )}
+        
+        {canEdit && (
+          <MenuItem onClick={() => { handleMenuClose(); setOpenStatus(true) }}>
+            <TrendingUp className="mr-2" />
+            Alterar status
+          </MenuItem>
+        )}
+        
         <MenuItem onClick={() => { handleMenuClose(); doExportPdf() }}>
           <Description className="mr-2" />
           Exportar PDF
         </MenuItem>
-        <MenuItem onClick={() => { handleMenuClose(); setOpenDelete(true) }}>
-          <Delete className="mr-2" />
-          Excluir
-        </MenuItem>
+        
+        {canDelete && (
+          <MenuItem onClick={() => { handleMenuClose(); setOpenDelete(true) }}>
+            <Delete className="mr-2" />
+            Excluir
+          </MenuItem>
+        )}
       </Menu>
 
       {/* Dialog para alterar status */}

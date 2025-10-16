@@ -9,6 +9,7 @@ import { UploadModal } from '../../components/UploadModal'
 import { useFilteredData } from '../../lib/utils'
 import { useEffect, useState } from 'react'
 import ExportDataModal from '../../components/ExportDataModal'
+import { usePermissions } from '../../hooks/usePermissions'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
@@ -44,6 +45,7 @@ export default function ManutencaoListPage() {
   const manutencaoStore = useManutencaoStore()
   const md = useMasterDataStore()
   const { user } = useAuthStore()
+  const { canCreate, canImport, canExport } = usePermissions('manutencao')
   const [uploadModalOpen, setUploadModalOpen] = useState(false)
   const [showOnlyMyManutencoes, setShowOnlyMyManutencoes] = useState(true)
   const [exportModalOpen, setExportModalOpen] = useState(false)
@@ -370,76 +372,82 @@ export default function ManutencaoListPage() {
               </div>
             </div>
             <Stack direction="row" spacing={2}>
-              <Button 
-                variant="outlined" 
-                startIcon={<CloudUploadIcon />}
-                onClick={() => setUploadModalOpen(true)}
-                size="medium"
-                className="text-primary-600 border-primary-300 hover:text-primary-700 hover:border-primary-400 hover:bg-primary-50 transition-all duration-300 font-medium"
-                sx={{
-                  borderRadius: '14px',
-                  padding: '10px 20px',
-                  textTransform: 'none',
-                  fontWeight: 500,
-                  fontSize: '0.9rem',
-                  height: '44px',
-                  borderWidth: '2px',
-                  '&:hover': {
+              {canImport && (
+                <Button 
+                  variant="outlined" 
+                  startIcon={<CloudUploadIcon />}
+                  onClick={() => setUploadModalOpen(true)}
+                  size="medium"
+                  className="text-primary-600 border-primary-300 hover:text-primary-700 hover:border-primary-400 hover:bg-primary-50 transition-all duration-300 font-medium"
+                  sx={{
+                    borderRadius: '14px',
+                    padding: '10px 20px',
+                    textTransform: 'none',
+                    fontWeight: 500,
+                    fontSize: '0.9rem',
+                    height: '44px',
                     borderWidth: '2px',
-                    transform: 'translateY(-2px)',
-                    boxShadow: '0 4px 12px 0 rgba(59, 130, 246, 0.15)'
-                  }
-                }}
-              >
-                Importar
-              </Button>
+                    '&:hover': {
+                      borderWidth: '2px',
+                      transform: 'translateY(-2px)',
+                      boxShadow: '0 4px 12px 0 rgba(59, 130, 246, 0.15)'
+                    }
+                  }}
+                >
+                  Importar
+                </Button>
+              )}
 
-              <Button 
-                variant="outlined" 
-                startIcon={<PictureAsPdfIcon />}
-                onClick={() => setExportModalOpen(true)}
-                size="medium"
-                className="text-secondary-600 border-secondary-300 hover:text-secondary-700 hover:border-secondary-400 hover:bg-secondary-50 transition-all duration-300 font-medium"
-                sx={{
-                  borderRadius: '14px',
-                  padding: '10px 20px',
-                  textTransform: 'none',
-                  fontWeight: 500,
-                  fontSize: '0.9rem',
-                  height: '44px',
-                  borderWidth: '2px',
-                  '&:hover': {
+              {canExport && (
+                <Button 
+                  variant="outlined" 
+                  startIcon={<PictureAsPdfIcon />}
+                  onClick={() => setExportModalOpen(true)}
+                  size="medium"
+                  className="text-secondary-600 border-secondary-300 hover:text-secondary-700 hover:border-secondary-400 hover:bg-secondary-50 transition-all duration-300 font-medium"
+                  sx={{
+                    borderRadius: '14px',
+                    padding: '10px 20px',
+                    textTransform: 'none',
+                    fontWeight: 500,
+                    fontSize: '0.9rem',
+                    height: '44px',
                     borderWidth: '2px',
-                    transform: 'translateY(-2px)',
-                    boxShadow: '0 4px 12px 0 rgba(156, 39, 176, 0.15)'
-                  }
-                }}
-              >
-                Exportar
-              </Button>
+                    '&:hover': {
+                      borderWidth: '2px',
+                      transform: 'translateY(-2px)',
+                      boxShadow: '0 4px 12px 0 rgba(156, 39, 176, 0.15)'
+                    }
+                  }}
+                >
+                  Exportar
+                </Button>
+              )}
 
-              <Button 
-                variant="contained" 
-                onClick={() => navigate('/manutencao/nova')}
-                size="medium"
-                className="bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-800 hover:to-slate-900 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 font-semibold"
-                sx={{
-                  borderRadius: '14px',
-                  padding: '10px 20px',
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  fontSize: '0.9rem',
-                  height: '44px',
-                  minWidth: '140px',
-                  boxShadow: '0 4px 14px 0 rgba(15, 23, 42, 0.25)',
-                  '&:hover': {
-                    boxShadow: '0 8px 25px 0 rgba(15, 23, 42, 0.35)',
-                    transform: 'translateY(-2px)'
-                  }
-                }}
-              >
-                Nova Manutenção
-              </Button>
+              {canCreate && (
+                <Button 
+                  variant="contained" 
+                  onClick={() => navigate('/manutencao/nova')}
+                  size="medium"
+                  className="bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-800 hover:to-slate-900 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 font-semibold"
+                  sx={{
+                    borderRadius: '14px',
+                    padding: '10px 20px',
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    fontSize: '0.9rem',
+                    height: '44px',
+                    minWidth: '140px',
+                    boxShadow: '0 4px 14px 0 rgba(15, 23, 42, 0.25)',
+                    '&:hover': {
+                      boxShadow: '0 8px 25px 0 rgba(15, 23, 42, 0.35)',
+                      transform: 'translateY(-2px)'
+                    }
+                  }}
+                >
+                  Nova Manutenção
+                </Button>
+              )}
             </Stack>
           </div>
         </div>
@@ -547,6 +555,7 @@ function ActionCell({ id, status }: { id: string, status: string }) {
   const navigate = useNavigate()
   const store = useManutencaoStore()
   const md = useMasterDataStore()
+  const { canEdit, canDelete } = usePermissions('manutencao')
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
   const [openStatus, setOpenStatus] = useState(false)
   const [newStatus, setNewStatus] = useState(status)
@@ -623,26 +632,39 @@ function ActionCell({ id, status }: { id: string, status: string }) {
           <ListItemIcon><VisibilityIcon fontSize="small" /></ListItemIcon>
           <ListItemText>Ver</ListItemText>
         </MenuItem>
-        <MenuItem onClick={() => { handleMenuClose(); navigate(`/manutencao/${id}/edit`) }}>
-          <ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>
-          <ListItemText>Editar</ListItemText>
-        </MenuItem>
-        <MenuItem onClick={() => { handleMenuClose(); doDuplicate() }}>
-          <ListItemIcon><FileCopyIcon fontSize="small" /></ListItemIcon>
-          <ListItemText>Duplicar</ListItemText>
-        </MenuItem>
-        <MenuItem onClick={() => { handleMenuClose(); setOpenStatus(true) }}>
-          <ListItemIcon><SwapHorizIcon fontSize="small" /></ListItemIcon>
-          <ListItemText>Alterar status</ListItemText>
-        </MenuItem>
+        
+        {canEdit && (
+          <MenuItem onClick={() => { handleMenuClose(); navigate(`/manutencao/${id}/edit`) }}>
+            <ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>Editar</ListItemText>
+          </MenuItem>
+        )}
+        
+        {canEdit && (
+          <MenuItem onClick={() => { handleMenuClose(); doDuplicate() }}>
+            <ListItemIcon><FileCopyIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>Duplicar</ListItemText>
+          </MenuItem>
+        )}
+        
+        {canEdit && (
+          <MenuItem onClick={() => { handleMenuClose(); setOpenStatus(true) }}>
+            <ListItemIcon><SwapHorizIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>Alterar status</ListItemText>
+          </MenuItem>
+        )}
+        
         <MenuItem onClick={() => { handleMenuClose(); doExportPdf() }}>
           <ListItemIcon><PictureAsPdfIcon fontSize="small" /></ListItemIcon>
           <ListItemText>Exportar PDF</ListItemText>
         </MenuItem>
-        <MenuItem onClick={() => { handleMenuClose(); setOpenDelete(true) }}>
-          <ListItemIcon><DeleteIcon fontSize="small" color="error" /></ListItemIcon>
-          <ListItemText>Excluir</ListItemText>
-        </MenuItem>
+        
+        {canDelete && (
+          <MenuItem onClick={() => { handleMenuClose(); setOpenDelete(true) }}>
+            <ListItemIcon><DeleteIcon fontSize="small" color="error" /></ListItemIcon>
+            <ListItemText>Excluir</ListItemText>
+          </MenuItem>
+        )}
       </Menu>
 
       <Dialog open={openStatus} onClose={() => setOpenStatus(false)}>
