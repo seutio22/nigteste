@@ -1268,7 +1268,7 @@ export default function ProjectDetailPage() {
     )
 
     // Atualizar progresso automaticamente após adicionar tarefa
-    // setTimeout(() => updateAllTaskProgress(), 100)
+    setTimeout(() => updateAllTaskProgress(), 100)
 
     setShowAddTaskDialog(false)
     setErrors({})
@@ -1405,11 +1405,7 @@ export default function ProjectDetailPage() {
     console.log('🔍 Log de atividade registrado')
 
     // Atualizar progresso automaticamente após adicionar subtarefa
-    // console.log('🔍 Chamando updateAllTaskProgress em 100ms...')
-    // setTimeout(() => {
-    //   console.log('🔍 Executando updateAllTaskProgress...')
-    //   updateAllTaskProgress()
-    // }, 100)
+    setTimeout(() => updateAllTaskProgress(), 100)
 
     setShowAddSubtaskDialog(false)
     setErrors({})
@@ -1679,7 +1675,7 @@ export default function ProjectDetailPage() {
       })
       
       // Atualizar progresso automaticamente após edição
-      // setTimeout(() => updateAllTaskProgress(), 100)
+      setTimeout(() => updateAllTaskProgress(), 100)
     }
   }
 
@@ -1760,7 +1756,7 @@ export default function ProjectDetailPage() {
       })
       
       // Atualizar progresso automaticamente após edição
-      // setTimeout(() => updateAllTaskProgress(), 100)
+      setTimeout(() => updateAllTaskProgress(), 100)
     }
   }
 
@@ -1870,7 +1866,7 @@ export default function ProjectDetailPage() {
       })
       
       // Atualizar progresso automaticamente após edição
-      // setTimeout(() => updateAllTaskProgress(), 100)
+      setTimeout(() => updateAllTaskProgress(), 100)
     }
   }
 
@@ -2943,6 +2939,11 @@ export default function ProjectDetailPage() {
     console.log('🔍 Projeto atualizado, chamando setProject...')
     setProject(updatedProject)
     console.log('🔍 setProject executado')
+    
+    // Salvar progresso calculado no banco de dados
+    upsertProject(updatedProject).catch(error => {
+      console.error('❌ Erro ao salvar progresso no banco:', error)
+    })
   }, [project])
 
   const renderTimelineView = () => (
