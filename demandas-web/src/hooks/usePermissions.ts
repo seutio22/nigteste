@@ -36,6 +36,18 @@ export function usePermissions(module: keyof SystemPermissions) {
     const canApprove = checkPermission(userPermissions, module, 'approve')
     const canReject = checkPermission(userPermissions, module, 'reject')
     
+    // 🔍 LOG DE DEBUG: Mostrar permissões do usuário para o módulo
+    console.log(`🔐 usePermissions(${module}):`, {
+      role: user.role,
+      canView,
+      canCreate,
+      canEdit,
+      canDelete,
+      canExport,
+      canImport,
+      modulePermissions: userPermissions[module]
+    })
+    
     return {
       canView,
       canCreate,
