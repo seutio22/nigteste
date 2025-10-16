@@ -17,6 +17,10 @@ export function useActivityTracking({ page, action, duration = 0 }: ActivityTrac
 
     // Registrar atividade inicial
     const trackActivity = async () => {
+      // Temporariamente desabilitado para evitar erros 401
+      console.log('🔔 Verificação de notificações temporariamente desabilitada')
+      return
+      
       try {
         await fetch('https://nigteste-production.up.railway.app/monitoring/activity', {
           method: 'POST',
@@ -63,6 +67,10 @@ export function useActivityTracking({ page, action, duration = 0 }: ActivityTrac
 
   return {
     trackActivity: () => {
+      // Temporariamente desabilitado para evitar erros 401
+      console.log('🔔 Verificação de notificações temporariamente desabilitada')
+      return Promise.resolve()
+      
       const currentDuration = Math.floor((Date.now() - startTime.current) / 1000)
       return fetch('https://nigteste-production.up.railway.app/monitoring/activity', {
         method: 'POST',
