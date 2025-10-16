@@ -27,14 +27,9 @@ export const DadosForm: React.FC<DadosFormProps> = ({
 
   // Inicializar formulário quando editingItem mudar
   React.useEffect(() => {
-    console.log('🔍 DadosForm useEffect: editingItem mudou:', editingItem)
     if (editingItem) {
-      console.log('🔍 DadosForm: Inicializando formulário com editingItem')
-      console.log('🔍 DadosForm: editingItem.id:', editingItem.id)
-      console.log('🔍 DadosForm: editingItem completo:', editingItem)
       setForm(editingItem)
     } else {
-      console.log('🔍 DadosForm: Limpando formulário (editingItem vazio)')
       setForm({})
     }
   }, [editingItem])
