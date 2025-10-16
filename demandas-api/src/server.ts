@@ -21,6 +21,7 @@ const prisma = new PrismaClient()
 
 // Schema PostgreSQL gerenciado pelo Prisma migrations
 console.log('🔧 PostgreSQL configurado - schema gerenciado por migrations')
+console.log('🚀 REAJUSTE SCHEMA ATUALIZADO - v2.4.3 - CAMPOS ADICIONADOS')
 
 // Configuração de CORS mais permissiva para desenvolvimento
 const corsOptions = {
