@@ -331,7 +331,7 @@ function EditInline({ reajuste }: { reajuste: any }) {
   useEffect(() => {
     // Inicializar draft exatamente como o reajuste original (igual páginas Cadastro/Manutenção)
     setDraft(reajuste)
-  }, [reajuste.id])
+  }, [reajuste])
 
   const changedKeys = useMemo(() => {
     const keys = ['mes', 'ano', 'dataInicio', 'dataFim', 'status', 'operadora', 'qualidade', 'qualidadeInformacao', 'planos', 'responsavelConta', 'filial', 'ticket', 'solicitante', 'responsavelAnalista', 'cliente', 'contrato', 'produto', 'dataAtualizacao', 'itensPendentes', 'itensConcluidos'] as const
