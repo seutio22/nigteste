@@ -2452,19 +2452,6 @@ export default function ProjectDetailPage() {
     // Buscar projeto do banco de dados
     fetchProject()
   }, [id])
-  
-  // Calcular e salvar progresso automaticamente quando o projeto é carregado
-  useEffect(() => {
-    if (project && project.timeline && project.timeline.phases) {
-      console.log('🔍 Projeto carregado, calculando progresso automaticamente...')
-      // Aguardar um pouco para garantir que o estado está atualizado
-      const timer = setTimeout(() => {
-        updateAllTaskProgress()
-      }, 500)
-      
-      return () => clearTimeout(timer)
-    }
-  }, [project?.id]) // Depender apenas do ID para evitar loop infinito
 
   const handleEdit = () => {
     setEditData({ ...project })
@@ -2885,131 +2872,135 @@ export default function ProjectDetailPage() {
   // Função para atualizar progresso de todas as tarefas automaticamente
   const updateAllTaskProgress = React.useCallback(() => {
     console.log('🔍 updateAllTaskProgress executando...')
-    console.log('🔍 Projeto:', project)
-    console.log('🔍 Timeline:', project?.timeline)
-    console.log('🔍 Fases:', project?.timeline?.phases)
     
-    if (!project || !project.timeline || !project.timeline.phases) {
-      console.log('⚠️ Projeto ou timeline é nulo, pulando atualização de progresso')
-      return
-    }
-    
-    const updatedProject = { ...project }
-    console.log('🔍 Projeto copiado para atualização:', updatedProject)
-    
-    updatedProject.timeline.phases.forEach((phase: any) => {
-      if (!phase.tasks) {
-        phase.tasks = []
-        phase.progress = 0
-        return
+    // Usar setProject com função para pegar o estado mais recente
+    setProject((currentProject: any) => {
+      console.log('🔍 Projeto ATUAL no momento do cálculo:', currentProject)
+      console.log('🔍 Timeline:', currentProject?.timeline)
+      console.log('🔍 Fases:', currentProject?.timeline?.phases)
+      
+      if (!currentProject || !currentProject.timeline || !currentProject.timeline.phases) {
+        console.log('⚠️ Projeto ou timeline é nulo, pulando atualização de progresso')
+        return currentProject
       }
       
-      phase.tasks.forEach((task: any) => {
-        // Verificar se o progresso mudou
-        const oldProgress = task.progress
-        const newProgress = calculateTaskProgress(task)
-        
-        // Atualizar progresso da tarefa baseado nas subtarefas
-        task.progress = newProgress
-        
-        // Registrar log se o progresso mudou automaticamente
-        if (oldProgress !== newProgress && task.subtasks && task.subtasks.length > 0) {
-          logActivity(
-            'Atualização Automática de Progresso',
-            'Tarefa',
-            task.name,
-            {
-              progressoAnterior: oldProgress,
-              progressoNovo: newProgress,
-              motivo: 'Cálculo automático baseado no progresso das subtarefas',
-              tarefa: task.name,
-              fase: phase.name,
-              subtarefas: task.subtasks.length
-            }
-          )
+      const updatedProject = JSON.parse(JSON.stringify(currentProject))
+      console.log('🔍 Projeto copiado para atualização:', updatedProject)
+      
+      updatedProject.timeline.phases.forEach((phase: any) => {
+        if (!phase.tasks) {
+          phase.tasks = []
+          phase.progress = 0
+          return
         }
         
-        // Atualizar progresso da fase
-        const oldPhaseProgress = phase.progress
-        phase.progress = calculatePhaseProgress(phase)
-        
-        // Atualizar status da fase automaticamente baseado no progresso
-        const oldPhaseStatus = phase.status
-        if (phase.progress === 0) {
-          phase.status = 'nao_iniciado'
-        } else if (phase.progress === 100) {
-          phase.status = 'concluido'
-        } else if (phase.progress > 0) {
-          phase.status = 'em_andamento'
-        }
-        
-        // Registrar log se o progresso da fase mudou
-        if (oldPhaseProgress !== phase.progress) {
-          logActivity(
-            'Atualização Automática de Progresso',
-            'Fase',
-            phase.name,
-            {
-              progressoAnterior: oldPhaseProgress,
-              progressoNovo: phase.progress,
-              motivo: 'Cálculo automático baseado no progresso das tarefas',
-              fase: phase.name,
-              tarefas: phase.tasks.length
-            }
-          )
-        }
-        
-        // Registrar log se o status da fase mudou automaticamente
-        if (oldPhaseStatus !== phase.status) {
-          logActivity(
-            'Mudança Automática de Status',
-            'Fase',
-            phase.name,
-            {
-              statusAnterior: oldPhaseStatus,
-              statusNovo: phase.status,
-              motivo: 'Atualização automática baseada no progresso',
-              fase: phase.name,
-              progresso: phase.progress
-            }
-          )
-        }
+        phase.tasks.forEach((task: any) => {
+          // Verificar se o progresso mudou
+          const oldProgress = task.progress
+          const newProgress = calculateTaskProgress(task)
+          
+          // Atualizar progresso da tarefa baseado nas subtarefas
+          task.progress = newProgress
+          
+          // Registrar log se o progresso mudou automaticamente
+          if (oldProgress !== newProgress && task.subtasks && task.subtasks.length > 0) {
+            logActivity(
+              'Atualização Automática de Progresso',
+              'Tarefa',
+              task.name,
+              {
+                progressoAnterior: oldProgress,
+                progressoNovo: newProgress,
+                motivo: 'Cálculo automático baseado no progresso das subtarefas',
+                tarefa: task.name,
+                fase: phase.name,
+                subtarefas: task.subtasks.length
+              }
+            )
+          }
+          
+          // Atualizar progresso da fase
+          const oldPhaseProgress = phase.progress
+          phase.progress = calculatePhaseProgress(phase)
+          
+          // Atualizar status da fase automaticamente baseado no progresso
+          const oldPhaseStatus = phase.status
+          if (phase.progress === 0) {
+            phase.status = 'nao_iniciado'
+          } else if (phase.progress === 100) {
+            phase.status = 'concluido'
+          } else if (phase.progress > 0) {
+            phase.status = 'em_andamento'
+          }
+          
+          // Registrar log se o progresso da fase mudou
+          if (oldPhaseProgress !== phase.progress) {
+            logActivity(
+              'Atualização Automática de Progresso',
+              'Fase',
+              phase.name,
+              {
+                progressoAnterior: oldPhaseProgress,
+                progressoNovo: phase.progress,
+                motivo: 'Cálculo automático baseado no progresso das tarefas',
+                fase: phase.name,
+                tarefas: phase.tasks.length
+              }
+            )
+          }
+          
+          // Registrar log se o status da fase mudou automaticamente
+          if (oldPhaseStatus !== phase.status) {
+            logActivity(
+              'Mudança Automática de Status',
+              'Fase',
+              phase.name,
+              {
+                statusAnterior: oldPhaseStatus,
+                statusNovo: phase.status,
+                motivo: 'Atualização automática baseada no progresso',
+                fase: phase.name,
+                progresso: phase.progress
+              }
+            )
+          }
+        })
       })
+      
+      // Calcular progresso geral do projeto
+      const oldProjectProgress = updatedProject.progress
+      const totalProjectProgress = updatedProject.timeline.phases.reduce((sum: number, phase: any) => {
+        return sum + phase.progress
+      }, 0)
+      
+      updatedProject.progress = Math.round(totalProjectProgress / updatedProject.timeline.phases.length)
+      
+      // Registrar log se o progresso do projeto mudou
+      if (oldProjectProgress !== updatedProject.progress) {
+        logActivity(
+          'Atualização Automática de Progresso',
+          'Projeto',
+          updatedProject.name,
+          {
+            progressoAnterior: oldProjectProgress,
+            progressoNovo: updatedProject.progress,
+            motivo: 'Cálculo automático baseado no progresso das fases',
+            projeto: updatedProject.name,
+            fases: updatedProject.timeline.phases.length
+          }
+        )
+      }
+    
+      console.log('🔍 Projeto atualizado, retornando novo estado...')
+      
+      // Salvar progresso calculado no banco de dados
+      upsertProject(updatedProject).catch(error => {
+        console.error('❌ Erro ao salvar progresso no banco:', error)
+      })
+      
+      return updatedProject
     })
-    
-    // Calcular progresso geral do projeto
-    const oldProjectProgress = updatedProject.progress
-    const totalProjectProgress = updatedProject.timeline.phases.reduce((sum: number, phase: any) => {
-      return sum + phase.progress
-    }, 0)
-    
-    updatedProject.progress = Math.round(totalProjectProgress / updatedProject.timeline.phases.length)
-    
-    // Registrar log se o progresso do projeto mudou
-    if (oldProjectProgress !== updatedProject.progress) {
-      logActivity(
-        'Atualização Automática de Progresso',
-        'Projeto',
-        updatedProject.name,
-        {
-          progressoAnterior: oldProjectProgress,
-          progressoNovo: updatedProject.progress,
-          motivo: 'Cálculo automático baseado no progresso das fases',
-          projeto: updatedProject.name,
-          fases: updatedProject.timeline.phases.length
-        }
-      )
-    }
-    
-    console.log('🔍 Projeto atualizado, chamando setProject...')
-    setProject(updatedProject)
-    console.log('🔍 setProject executado')
-    
-    // Salvar progresso calculado no banco de dados
-    upsertProject(updatedProject).catch(error => {
-      console.error('❌ Erro ao salvar progresso no banco:', error)
-    })
-  }, [project])
+  }, [])
 
   const renderTimelineView = () => (
     <Box>
