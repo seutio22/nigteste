@@ -415,9 +415,81 @@ function EditInline({ reajuste }: { reajuste: any }) {
 
   async function applySave() {
     try {
-      // O reajusteStore.upsert() já registra automaticamente as alterações no histórico
-      // Não precisamos fazer log manual aqui para evitar duplicação
+      const { user: currentUser } = useAuthStore.getState()
+      
+      // Atualizar no store (que salva no banco)
       await store.upsert(draft)
+      
+      // Log manual apenas dos campos que realmente mudaram
+      changedKeys.forEach((k) => {
+        // Função para converter ID em nome para logs
+        const convertIdToName = (id: string | undefined, fieldType: string) => {
+          if (!id) return 'N/A'
+          
+          switch (fieldType) {
+            case 'operadora':
+              return md.operadoras.find(o => o.id === id)?.nome || id
+            case 'cliente':
+              return md.clientes.find(c => c.id === id)?.nome || id
+            case 'contrato':
+              return md.contratos.find(c => c.id === id)?.codigo || md.contratos.find(c => c.id === id)?.numero || id
+            case 'produto':
+              return md.produtos.find(p => p.id === id)?.nome || id
+            case 'responsavelAnalista':
+              return md.analistas.find(a => a.id === id)?.nome || id
+            case 'solicitante':
+              return md.solicitantes.find(s => s.id === id)?.nome || id
+            default:
+              return id
+          }
+        }
+        
+        // Converter valores para string legível (IDs para nomes)
+        const fieldsWithIdConversion = ['operadora', 'cliente', 'contrato', 'produto', 'responsavelAnalista', 'solicitante']
+        
+        const from = fieldsWithIdConversion.includes(k) 
+          ? convertIdToName((reajuste as any)[k], k)
+          : String((reajuste as any)[k] ?? 'N/A')
+        
+        const to = fieldsWithIdConversion.includes(k)
+          ? convertIdToName((draft as any)[k], k)
+          : String((draft as any)[k] ?? 'N/A')
+        
+        // Mapear campos para nomes legíveis
+        const fieldMapping: { [key: string]: string } = {
+          'mes': 'Mês',
+          'ano': 'Ano',
+          'dataInicio': 'Data de Início',
+          'dataFim': 'Data de Finalização',
+          'status': 'Status',
+          'operadora': 'Operadora',
+          'qualidade': 'Qualidade (prazo)',
+          'qualidadeInformacao': 'Qualidade da Informação',
+          'planos': 'Planos',
+          'responsavelConta': 'Responsável da Conta',
+          'filial': 'Filial',
+          'ticket': 'Ticket',
+          'solicitante': 'Solicitante',
+          'responsavelAnalista': 'Analista Responsável',
+          'cliente': 'Cliente',
+          'contrato': 'Contrato',
+          'produto': 'Produto',
+          'dataAtualizacao': 'Data de Atualização',
+          'itensPendentes': 'Itens Pendentes',
+          'itensConcluidos': 'Itens Concluídos'
+        }
+        
+        const fieldLabel = fieldMapping[k] || k
+        
+        store.log({ 
+          reajusteId: reajuste.id, 
+          type: 'field_change', 
+          field: fieldLabel, 
+          from, 
+          to 
+        })
+      })
+      
       setConfirmOpen(false)
     } catch (error) {
       console.error('Erro ao salvar alterações:', error)
