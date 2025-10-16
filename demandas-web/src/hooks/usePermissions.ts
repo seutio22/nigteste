@@ -38,6 +38,7 @@ export function usePermissions(module: keyof SystemPermissions) {
     
     // 🔍 LOG DE DEBUG: Mostrar permissões do usuário para o módulo
     console.log(`🔐 usePermissions(${module}):`)
+    console.log(`   userName: ${user.name}`)
     console.log(`   role: ${user.role}`)
     console.log(`   canView: ${canView}`)
     console.log(`   canCreate: ${canCreate}`)
@@ -46,6 +47,13 @@ export function usePermissions(module: keyof SystemPermissions) {
     console.log(`   canExport: ${canExport}`)
     console.log(`   canImport: ${canImport}`)
     console.log(`   modulePermissions:`, userPermissions[module])
+    console.log(`   user.permissions (raw):`, user.permissions)
+    console.log(`   user.permissions (stringified):`, JSON.stringify(user.permissions, null, 2))
+    if (user.name === 'EMYLI') {
+      console.log(`🚨 EMYLI ESPECIAL - Permissões completas para cadastro:`)
+      console.log(`   - permissions[cadastro]:`, userPermissions['cadastro'])
+      console.log(`   - delete na estrutura:`, userPermissions['cadastro']?.delete)
+    }
     
     return {
       canView,
