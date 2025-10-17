@@ -342,6 +342,7 @@ export default function ManutencaoDetailPage() {
 function EditInline({ d }: { d: any }) {
   const md = useMasterDataStore()
   const store = useManutencaoStore()
+  const { user: currentUser } = useAuthStore()
   const [draft, setDraft] = useState(d)
   const [confirmOpen, setConfirmOpen] = useState(false)
 
@@ -376,9 +377,6 @@ function EditInline({ d }: { d: any }) {
 
   async function applySave() {
     try {
-      // Obter dados do usuário atual
-      const { user: currentUser } = useAuthStore.getState()
-      
       if (!currentUser?.name) {
         alert('Erro: Usuário não encontrado. Faça login novamente.')
         return
