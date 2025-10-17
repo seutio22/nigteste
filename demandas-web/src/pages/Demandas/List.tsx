@@ -313,6 +313,12 @@ export default function DemandListPage() {
           }
 
           // Mapear dados para o formato de demanda
+          console.log('🔍 SMART IMPORT: Processando item:', {
+            tipoExcel: data.tipo,
+            tipoDemandaExcel: data.tipoDemanda,
+            tiposDemandaDisponiveis: md.tiposDemanda.map(t => ({ id: t.id, nome: t.nome }))
+          })
+          
           const demandaData = {
             // Campos obrigatórios
             status: data.status || 'Aberta',
