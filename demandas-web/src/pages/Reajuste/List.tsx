@@ -46,6 +46,10 @@ export default function ReajusteListPage() {
   const md = useMasterDataStore()
   const { user } = useAuthStore()
   const { canCreate, canImport, canExport, canDelete } = usePermissions('reajuste')
+  
+  // DEBUG: Verificar permissões
+  console.log('🔍 REAJUSTE PAGE: Permissões:', { canCreate, canImport, canExport, canDelete })
+  console.log('🔍 REAJUSTE PAGE: User:', user)
   const [smartImporterOpen, setSmartImporterOpen] = useState(false)
   const [exportModalOpen, setExportModalOpen] = useState(false)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
