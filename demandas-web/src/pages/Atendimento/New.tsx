@@ -15,9 +15,6 @@ import { api } from '../../lib/api.local'
 const atendimentoSchema = z.object({
   // Campos obrigatórios conforme AtendimentoEntry
   ticket: z.string().min(1, 'Ticket é obrigatório'),
-  cliente: z.string().min(1, 'Cliente é obrigatório'),
-  operadora: z.string().min(1, 'Operadora é obrigatória'),
-  area: z.string().min(1, 'Área é obrigatória'),
   analista: z.string().min(1, 'Analista é obrigatório'),
   tipo: z.string().min(1, 'Tipo é obrigatório'),
   tipoServico: z.string().min(1, 'Tipo de Serviço é obrigatório'),
@@ -25,6 +22,9 @@ const atendimentoSchema = z.object({
   solicitante: z.string().min(1, 'Solicitante é obrigatório'),
   dataInicio: z.string().min(1, 'Data de início é obrigatória'),
   // Campos opcionais
+  cliente: z.string().optional(),
+  operadora: z.string().optional(),
+  area: z.string().optional(),
   contrato: z.string().optional(),
   produto: z.string().optional(),
   sistema: z.string().optional(),
@@ -333,8 +333,7 @@ export default function AtendimentoNewPage() {
                         {...params}
                         label="Cliente"
                         fullWidth
-                        error={!!errors.cliente}
-                        helperText={errors.cliente?.message || 'Digite para buscar um cliente'}
+                        helperText="Digite para buscar um cliente"
                         placeholder="Digite para buscar..."
                       />
                     )}
@@ -404,8 +403,7 @@ export default function AtendimentoNewPage() {
                         {...params}
                         label="Operadora"
                         fullWidth
-                        error={!!errors.operadora}
-                        helperText={errors.operadora?.message || 'Digite para buscar uma operadora'}
+                        helperText="Digite para buscar uma operadora"
                         placeholder="Digite para buscar..."
                       />
                     )}
@@ -473,11 +471,10 @@ export default function AtendimentoNewPage() {
               <Controller
                 name="area"
                 control={control}
-                rules={{ required: 'Área é obrigatória' }}
                 render={({ field }) => (
-                  <FormControl fullWidth error={!!errors.area}>
-                    <InputLabel>Área *</InputLabel>
-                    <Select {...field} label="Área *">
+                  <FormControl fullWidth>
+                    <InputLabel>Área</InputLabel>
+                    <Select {...field} label="Área">
                       {masterDataStore.areas.map(area => (
                         <MenuItem key={area.id} value={area.id}>
                           {area.nome}

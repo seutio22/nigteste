@@ -359,7 +359,7 @@ function EditInline({ atendimento, user }: { atendimento: any; user: any }) {
       {/* Primeira linha - Cliente e Contrato */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Cliente *</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Cliente</label>
           <select
             value={draft.cliente || ''}
             onChange={(e) => setDraft({ ...draft, cliente: e.target.value || undefined })}
@@ -385,7 +385,7 @@ function EditInline({ atendimento, user }: { atendimento: any; user: any }) {
       {/* Segunda linha - Operadora e Produto */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Operadora *</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Operadora</label>
           <select
             value={draft.operadora || ''}
             onChange={(e) => setDraft({ ...draft, operadora: e.target.value || undefined })}
@@ -422,7 +422,7 @@ function EditInline({ atendimento, user }: { atendimento: any; user: any }) {
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Área *</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Área</label>
           <select
             value={draft.area || ''}
             onChange={(e) => setDraft({ ...draft, area: e.target.value || undefined })}
