@@ -102,20 +102,60 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
             overflow: hidden;
         }
         .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 25%, #0f3460 50%, #1a1a2e 75%, #16213e 100%);
             color: white;
-            padding: 30px;
+            padding: 40px 30px;
             text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 20% 30%, rgba(255, 215, 0, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 70%, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 50% 50%, rgba(139, 92, 246, 0.05) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        .header::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: 
+                linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.02) 50%, transparent 70%),
+                linear-gradient(-45deg, transparent 30%, rgba(255, 255, 255, 0.01) 50%, transparent 70%);
+            animation: shimmer 8s ease-in-out infinite;
+            pointer-events: none;
+        }
+        @keyframes shimmer {
+            0%, 100% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+            50% { transform: translateX(100%) translateY(100%) rotate(45deg); }
         }
         .header h1 {
             margin: 0;
-            font-size: 24px;
-            font-weight: 600;
+            font-size: 28px;
+            font-weight: 700;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            position: relative;
+            z-index: 2;
+            letter-spacing: 1px;
         }
         .header p {
-            margin: 8px 0 0 0;
-            opacity: 0.9;
-            font-size: 14px;
+            margin: 12px 0 0 0;
+            opacity: 0.85;
+            font-size: 15px;
+            font-weight: 400;
+            position: relative;
+            z-index: 2;
+            letter-spacing: 0.5px;
         }
         .content {
             padding: 30px;
@@ -261,7 +301,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
 <body>
     <div class="email-container">
         <div class="header">
-            <h1>🔔 Alteração de Contrato</h1>
+            <h1>🔔 Alteração Cadastral</h1>
             <p>Notificação Automática - Sistema NIG</p>
         </div>
         
