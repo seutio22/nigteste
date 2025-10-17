@@ -44,7 +44,7 @@ const columns: GridColDef[] = [
 export default function DemandListPage() {
   // FORÇAR DEPLOY - v2
   const navigate = useNavigate()
-  const { items } = useDemandStore()
+  const { items, isLoading } = useDemandStore()
   const demandStore = useDemandStore()
   const md = useMasterDataStore()
   const { user } = useAuthStore()
@@ -130,6 +130,7 @@ export default function DemandListPage() {
     : items
   
   console.log('🔍 Demandas: finalFilteredItems:', finalFilteredItems.length, 'filteredItems:', filteredItems.length)
+  console.log('🔍 Demandas: rows.length:', rows.length, 'isLoading:', isLoading)
 
   // carregar preferências
   useEffect(() => {
@@ -729,12 +730,15 @@ export default function DemandListPage() {
           rows={rows}
           columns={columns}
           getRowId={(row) => row.id}
+          loading={isLoading}
           initialState={{
             pagination: {
               paginationModel: { page: 0, pageSize: 10 },
             },
           }}
           pageSizeOptions={[10, 25, 50, 100]}
+          pagination
+          disableRowSelectionOnClick
           checkboxSelection
           onRowSelectionModelChange={(newSelection) => {
             setSelectedIds(newSelection as string[])
