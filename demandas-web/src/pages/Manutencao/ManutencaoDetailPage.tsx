@@ -588,7 +588,7 @@ function EditInline({ d }: { d: any }) {
         </div>
       </div>
 
-      {/* Terceira linha - Sistema e ├ürea */}
+      {/* Terceira linha - Sistema e Área */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Sistema</label>
@@ -602,7 +602,7 @@ function EditInline({ d }: { d: any }) {
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">├ürea</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Área</label>
           <select
             value={draft.areaId || ''}
             onChange={(e) => setDraft({ ...draft, areaId: e.target.value || undefined })}
@@ -650,14 +650,14 @@ function EditInline({ d }: { d: any }) {
           placeholder="Definido na cria├º├úo"
         />
         <p className="text-xs text-gray-500 mt-1">
-          ÔÜá´©Å O analista respons├ível ├® definido na cria├º├úo e n├úo pode ser alterado
+          ⚠️ O analista responsável é definido na criação e não pode ser alterado
         </p>
       </div>
 
-      {/* Sexta linha - Tipo de Servi├ºo e Tipo de Manuten├º├úo */}
+      {/* Sexta linha - Tipo de Serviço e Tipo de Manutenção */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Servi├ºo</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Serviço</label>
           <select
             value={draft.tipoServicoId || ''}
             onChange={(e) => setDraft({ ...draft, tipoServicoId: e.target.value || undefined })}
@@ -668,7 +668,7 @@ function EditInline({ d }: { d: any }) {
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Manuten├º├úo</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Manutenção</label>
           <select
             value={draft.tipoId || ''}
             onChange={(e) => setDraft({ ...draft, tipoId: e.target.value || undefined })}
@@ -761,31 +761,31 @@ function EditInline({ d }: { d: any }) {
         </div>
       </div>
 
-      {/* Descri├º├úo */}
+      {/* Descrição */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Descri├º├úo</label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Descrição</label>
         <textarea
           value={draft.descricao ?? ''}
           onChange={(e) => setDraft({ ...draft, descricao: e.target.value || undefined })}
           rows={6}
-          placeholder="Descreva detalhadamente a manuten├º├úo..."
+          placeholder="Descreva detalhadamente a manutenção..."
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-vertical"
         />
       </div>
 
-      {/* Observa├º├Áes */}
+      {/* Observações */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Observa├º├Áes</label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Observações</label>
         <textarea
           value={draft.observacoes ?? ''}
           onChange={(e) => setDraft({ ...draft, observacoes: e.target.value || undefined })}
           rows={4}
-          placeholder="Observa├º├Áes adicionais..."
+          placeholder="Observações adicionais..."
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-vertical"
         />
       </div>
 
-      {/* Bot├úo de salvar */}
+      {/* Botão de salvar */}
       <div className="flex items-center justify-between pt-4 border-t border-gray-200">
         <button
           disabled={changedKeys.length === 0}
@@ -793,16 +793,16 @@ function EditInline({ d }: { d: any }) {
           className="px-4 py-2 bg-blue-500 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-600 transition-colors"
         >
           <Save className="w-4 h-4 mr-2 inline" />
-          Salvar altera├º├Áes
+          Salvar alterações
         </button>
         {changedKeys.length > 0 && (
           <span className="text-sm text-gray-600">
-            {changedKeys.length} altera├º├úo(├Áes) pendente(s)
+            {changedKeys.length} alteração(ões) pendente(s)
           </span>
         )}
       </div>
 
-      {/* Modal de confirma├º├úo */}
+      {/* Modal de confirmação */}
       {confirmOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
