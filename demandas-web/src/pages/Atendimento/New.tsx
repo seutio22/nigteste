@@ -236,11 +236,8 @@ export default function AtendimentoNewPage() {
                   <FormControl fullWidth error={!!errors.tipoServico}>
                     <InputLabel>Tipo de Serviço *</InputLabel>
                     <Select {...field} label="Tipo de Serviço *">
-                      {masterDataStore.tiposServico.map(tipo => (
-                        <MenuItem key={tipo.id} value={tipo.id}>
-                          {tipo.nome}
-                        </MenuItem>
-                      ))}
+                      <MenuItem value="duvida">Dúvida</MenuItem>
+                      <MenuItem value="solicitacao">Solicitação</MenuItem>
                     </Select>
                     {errors.tipoServico && (
                       <Typography variant="caption" color="error" sx={{ mt: 1, ml: 2 }}>
