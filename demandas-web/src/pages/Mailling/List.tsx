@@ -203,6 +203,29 @@ export default function MaillingListPage() {
         return ids
       }
       
+      // Função auxiliar para preservar valores booleanos do Excel
+      const getBooleanValue = (value: any, defaultValue: string = 'nao'): string => {
+        if (value === null || value === undefined || value === '') {
+          return defaultValue
+        }
+        
+        // Converter para string e normalizar
+        const stringValue = String(value).toLowerCase().trim()
+        
+        // Se for "sim", "s", "yes", "y", "true", "1" -> "sim"
+        if (['sim', 's', 'yes', 'y', 'true', '1', 'verdadeiro'].includes(stringValue)) {
+          return 'sim'
+        }
+        
+        // Se for "não", "nao", "n", "no", "false", "0" -> "nao"
+        if (['não', 'nao', 'n', 'no', 'false', '0', 'falso'].includes(stringValue)) {
+          return 'nao'
+        }
+        
+        // Se não reconhecer, usar o valor original ou padrão
+        return stringValue || defaultValue
+      }
+      
       // Processar itens válidos
       for (const item of result.valid) {
         const contactData = item.isCorrected ? item.correctedData : item.data
@@ -222,6 +245,16 @@ export default function MaillingListPage() {
           grupos: `[${Array.isArray(contactData.grupos) ? contactData.grupos.join(', ') : contactData.grupos}] -> [${gruposIds.join(', ')}]`
         })
         
+        console.log('🔍 Valores booleanos do Excel:', {
+          cancelamento: `"${contactData.cancelamento}" -> "${getBooleanValue(contactData.cancelamento)}"`,
+          alteracaoContratual: `"${contactData.alteracaoContratual}" -> "${getBooleanValue(contactData.alteracaoContratual)}"`,
+          alteracaoDadosCliente: `"${contactData.alteracaoDadosCliente}" -> "${getBooleanValue(contactData.alteracaoDadosCliente)}"`,
+          alteracaoServicos: `"${contactData.alteracaoServicos}" -> "${getBooleanValue(contactData.alteracaoServicos)}"`,
+          alteracaoRemuneracao: `"${contactData.alteracaoRemuneracao}" -> "${getBooleanValue(contactData.alteracaoRemuneracao)}"`,
+          curadoriaPortalRh: `"${contactData.curadoriaPortalRh}" -> "${getBooleanValue(contactData.curadoriaPortalRh)}"`,
+          documentacaoContratual: `"${contactData.documentacaoContratual}" -> "${getBooleanValue(contactData.documentacaoContratual)}"`
+        })
+        
         await maillingStore.add({
           nome: contactData.nome || '',
           email: contactData.email || '',
@@ -231,13 +264,14 @@ export default function MaillingListPage() {
           superior: contactData.superior || '',
           posicaoEmail: contactData.posicaoEmail || 'PARA',
           grupos: gruposIds,
-          cancelamento: contactData.cancelamento || 'nao',
-          alteracaoContratual: contactData.alteracaoContratual || 'nao',
-          alteracaoDadosCliente: contactData.alteracaoDadosCliente || 'nao',
-          alteracaoServicos: contactData.alteracaoServicos || 'nao',
-          alteracaoRemuneracao: contactData.alteracaoRemuneracao || 'nao',
-          curadoriaPortalRh: contactData.curadoriaPortalRh || 'nao',
-          documentacaoContratual: contactData.documentacaoContratual || 'nao'
+          // CORRIGIDO: Usar função getBooleanValue para preservar valores "sim" do Excel
+          cancelamento: getBooleanValue(contactData.cancelamento),
+          alteracaoContratual: getBooleanValue(contactData.alteracaoContratual),
+          alteracaoDadosCliente: getBooleanValue(contactData.alteracaoDadosCliente),
+          alteracaoServicos: getBooleanValue(contactData.alteracaoServicos),
+          alteracaoRemuneracao: getBooleanValue(contactData.alteracaoRemuneracao),
+          curadoriaPortalRh: getBooleanValue(contactData.curadoriaPortalRh),
+          documentacaoContratual: getBooleanValue(contactData.documentacaoContratual)
         })
       }
       
