@@ -311,7 +311,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
             </div>
             
             <div class="info-box">
-                <p>📋 Informamos que o contrato abaixo referente ao cliente <strong>${cliente?.nome || 'N/A'}</strong> sofreu alteração, sendo:</p>
+                <p>📋 Informamos que o cliente <strong>${cliente?.nome || 'N/A'}</strong> sofreu alteração, sendo:</p>
             </div>
             
             <div class="table-container">
@@ -369,7 +369,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
       // Gerar versão simples também
       const emailSimples = `Prezados, bom dia.
 
-Informamos que o contrato abaixo referente ao cliente ${cliente?.nome || 'N/A'} sofreu alteração, sendo:
+Informamos que o cliente ${cliente?.nome || 'N/A'} sofreu alteração, sendo:
 
 ┌─────────┬─────────────────┬─────────┬─────────────┬─────────────┬─────────────┐
 │Contrato │   Operadora     │ Produto │ Atualização │   Subtipo   │    Tipo     │
