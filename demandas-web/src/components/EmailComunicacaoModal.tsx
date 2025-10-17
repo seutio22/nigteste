@@ -22,7 +22,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
 
   // Carregar dados do Mailling quando o modal abrir
   useEffect(() => {
-    if (open && maillingStore.items.length === 0) {
+    if (open && maillingStore.contacts.length === 0) {
       maillingStore.syncFromApi?.()
     }
   }, [open])
@@ -61,8 +61,8 @@ NIG - Núcleo de Informações Gerenciais`
 
   // Filtrar contatos do Mailling baseado na manutenção
   useEffect(() => {
-    if (manutencao && maillingStore.items.length > 0) {
-      let contatosFiltrados = maillingStore.items
+    if (manutencao && maillingStore.contacts.length > 0) {
+      let contatosFiltrados = maillingStore.contacts
 
       // Filtrar por área se disponível
       if (manutencao.areaId) {
@@ -91,7 +91,7 @@ NIG - Núcleo de Informações Gerenciais`
 
       setDestinatarios(emails)
     }
-  }, [manutencao, maillingStore.items, md.clientes, md.grupos])
+  }, [manutencao, maillingStore.contacts, md.clientes, md.grupos])
 
   const handleCopyDestinatarios = async () => {
     const emailsTexto = emailsSelecionados.join('; ')
