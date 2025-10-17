@@ -142,6 +142,20 @@ export default function AnalyticsNewPage() {
       return
     }
 
+    // Validação de datas: Data de Entrega não pode ser inferior à Data de Início
+    if (form.dataEntrega && form.dataInicio && new Date(form.dataEntrega) < new Date(form.dataInicio)) {
+      console.error('❌ AnalyticsNewPage: Data de Entrega não pode ser inferior à Data de Início')
+      alert('⚠️ Data de Entrega não pode ser inferior à Data de Início!')
+      return
+    }
+
+    // Validação de datas: Data de Finalização não pode ser inferior à Data de Início
+    if (form.dataFinalizacao && form.dataInicio && new Date(form.dataFinalizacao) < new Date(form.dataInicio)) {
+      console.error('❌ AnalyticsNewPage: Data de Finalização não pode ser inferior à Data de Início')
+      alert('⚠️ Data de Finalização não pode ser inferior à Data de Início!')
+      return
+    }
+
     try {
       console.log('✅ AnalyticsNewPage: Validação OK, enviando para API...')
       console.log('✅ AnalyticsNewPage: Analista ID:', form.analista)
@@ -444,6 +458,12 @@ export default function AnalyticsNewPage() {
                   value={form.dataFinalizacao}
                   onChange={(e) => setForm(prev => ({ ...prev, dataFinalizacao: e.target.value }))}
                   InputLabelProps={{ shrink: true }}
+                  error={form.dataFinalizacao && form.dataInicio && new Date(form.dataFinalizacao) < new Date(form.dataInicio)}
+                  helperText={
+                    form.dataFinalizacao && form.dataInicio && new Date(form.dataFinalizacao) < new Date(form.dataInicio)
+                      ? '⚠️ Data de Finalização não pode ser inferior à Data de Início'
+                      : 'Data de Finalização não pode ser inferior à Data de Início'
+                  }
                 />
                 
                 <TextField
@@ -454,6 +474,12 @@ export default function AnalyticsNewPage() {
                   onChange={(e) => setForm(prev => ({ ...prev, dataEntrega: e.target.value }))}
                   InputLabelProps={{ shrink: true }}
                   required
+                  error={form.dataEntrega && form.dataInicio && new Date(form.dataEntrega) < new Date(form.dataInicio)}
+                  helperText={
+                    form.dataEntrega && form.dataInicio && new Date(form.dataEntrega) < new Date(form.dataInicio)
+                      ? '⚠️ Data de Entrega não pode ser inferior à Data de Início'
+                      : 'Data de Entrega não pode ser inferior à Data de Início'
+                  }
                 />
               </Stack>
             </Grid>
