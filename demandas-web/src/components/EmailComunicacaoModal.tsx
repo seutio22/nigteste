@@ -838,7 +838,7 @@ NIG - Núcleo de Informações Gerenciais`
               </Typography>
               <TextField
                 multiline
-                rows={3}
+                rows={6}
                 fullWidth
                 value={descricaoEditavel}
                 onChange={(e) => setDescricaoEditavel(e.target.value)}
