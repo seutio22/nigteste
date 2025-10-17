@@ -45,10 +45,12 @@ export default function ManutencaoListPage() {
   const manutencaoStore = useManutencaoStore()
   const md = useMasterDataStore()
   const { user } = useAuthStore()
-  const { canCreate, canImport, canExport } = usePermissions('manutencao')
+  const { canCreate, canImport, canExport, canDelete } = usePermissions('manutencao')
   const [uploadModalOpen, setUploadModalOpen] = useState(false)
   const [showOnlyMyManutencoes, setShowOnlyMyManutencoes] = useState(true)
   const [exportModalOpen, setExportModalOpen] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false)
 
   const STORAGE_KEY = 'manutencoes-list-view-v1'
   const FILTER_KEY = 'manutencoes-user-filter-v1'
@@ -144,6 +146,60 @@ export default function ManutencaoListPage() {
       localStorage.setItem(FILTER_KEY, JSON.stringify(showOnlyMyManutencoes))
     } catch {}
   }, [showOnlyMyManutencoes])
+
+  // Função de exclusão em massa
+  const handleBulkDelete = async () => {
+    try {
+      const { api } = await import('../../lib/api.local')
+      
+      console.log('🗑️ Iniciando exclusão em massa de', selectedIds.length, 'manutenções')
+      
+      let successCount = 0
+      let errorCount = 0
+      let notFoundCount = 0
+      
+      for (const id of selectedIds) {
+        try {
+          await api.delete(`/manutencoes/${id}`)
+          successCount++
+        } catch (error: any) {
+          // Se for erro 404, significa que já foi excluído - ignorar
+          if (error?.message?.includes('404') || error?.response?.status === 404) {
+            console.log(`⚠️ Manutenção ${id} já foi excluída (404) - removendo do cache local`)
+            notFoundCount++
+          } else {
+            console.error(`❌ Erro ao excluir manutenção ${id}:`, error)
+            errorCount++
+          }
+        }
+      }
+      
+      // Atualizar store local (remover TODOS os IDs, incluindo os 404)
+      manutencaoStore.remove(selectedIds)
+      
+      // Limpar seleção
+      setSelectedIds([])
+      setBulkDeleteDialogOpen(false)
+      
+      // Mostrar resultado
+      const totalProcessed = successCount + notFoundCount
+      if (errorCount === 0) {
+        if (notFoundCount > 0) {
+          alert(`✅ ${totalProcessed} manutenção(ões) removida(s)!\n\n${successCount} excluídas do banco\n${notFoundCount} já haviam sido excluídas (cache limpo)`)
+        } else {
+          alert(`✅ ${successCount} manutenção(ões) excluída(s) com sucesso!`)
+        }
+      } else {
+        alert(`⚠️ ${totalProcessed} manutenção(ões) removida(s), ${errorCount} erro(s)\n\n${successCount} excluídas\n${notFoundCount} já excluídas anteriormente`)
+      }
+      
+      // Recarregar dados
+      manutencaoStore.syncFromApi()
+    } catch (error) {
+      console.error('❌ Erro na exclusão em massa:', error)
+      alert('Erro ao excluir manutenções')
+    }
+  }
 
   function persist(next: Partial<{ columnVisibilityModel: GridColumnVisibilityModel; sortModel: GridSortModel; filterModel: GridFilterModel; paginationModel: GridPaginationModel }>) {
     try {
@@ -372,6 +428,33 @@ export default function ManutencaoListPage() {
               </div>
             </div>
             <Stack direction="row" spacing={2}>
+              {selectedIds.length > 0 && canDelete && (
+                <Button 
+                  variant="outlined" 
+                  color="error"
+                  startIcon={<DeleteIcon />}
+                  onClick={() => setBulkDeleteDialogOpen(true)}
+                  size="medium"
+                  sx={{
+                    borderRadius: '14px',
+                    padding: '10px 20px',
+                    textTransform: 'none',
+                    fontWeight: 500,
+                    fontSize: '0.9rem',
+                    height: '44px',
+                    borderColor: '#ef4444',
+                    color: '#ef4444',
+                    '&:hover': {
+                      borderColor: '#dc2626',
+                      backgroundColor: '#fef2f2',
+                      color: '#dc2626'
+                    }
+                  }}
+                >
+                  Excluir ({selectedIds.length})
+                </Button>
+              )}
+              
               {canImport && (
                 <Button 
                   variant="outlined" 
@@ -465,6 +548,11 @@ export default function ManutencaoListPage() {
           }}
           pageSizeOptions={[10, 25, 50, 100]}
           disableRowSelectionOnClick
+          checkboxSelection
+          onRowSelectionModelChange={(newSelection) => {
+            setSelectedIds(newSelection as string[])
+          }}
+          rowSelectionModel={selectedIds}
           slots={{ toolbar: GridToolbar }}
           slotProps={{
             toolbar: {
@@ -547,6 +635,37 @@ export default function ManutencaoListPage() {
           { key: 'updatedAt', label: 'Atualizado em' }
         ]}
       />
+
+      {/* Modal de confirmação de exclusão em massa */}
+      <Dialog
+        open={bulkDeleteDialogOpen}
+        onClose={() => setBulkDeleteDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Confirmar Exclusão em Massa</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Tem certeza que deseja excluir <strong>{selectedIds.length}</strong> manutenção(ões) selecionada(s)?
+          </Typography>
+          <Typography variant="body2" color="error" sx={{ mt: 2 }}>
+            ⚠️ Esta ação não pode ser desfeita!
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setBulkDeleteDialogOpen(false)}>
+            Cancelar
+          </Button>
+          <Button 
+            onClick={handleBulkDelete} 
+            color="error" 
+            variant="contained"
+            startIcon={<DeleteIcon />}
+          >
+            Excluir
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }
