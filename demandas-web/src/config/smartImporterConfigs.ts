@@ -529,13 +529,14 @@ export const smartImporterConfigs: { [key: string]: SmartImporterConfig } = {
         displayField: 'nome',
         valueField: 'id'
       },
-      {
-        field: 'solicitante',
-        referenceType: 'solicitantes',
-        referenceStore: 'solicitantes',
-        displayField: 'nome',
-        valueField: 'id'
-      }
+      // REMOVIDO: Validação de solicitante - aceitar qualquer nome do Excel
+      // {
+      //   field: 'solicitante',
+      //   referenceType: 'solicitantes',
+      //   referenceStore: 'solicitantes',
+      //   displayField: 'nome',
+      //   valueField: 'id'
+      // }
     ]
   }
 }

@@ -328,8 +328,8 @@ export default function DemandListPage() {
             dataFinal: excelDateToISO(data.dataFinal || data.dataFinalizacao),
             // CORRIGIDO: Aceitar ticket do Excel, gerar apenas se não existir
             ticket: data.ticket ? String(data.ticket) : `DEM-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-            // CORRIGIDO: Buscar solicitante por nome no Excel
-            solicitante: findIdByName(data.solicitante || data.solicitanteId, md.solicitantes) || '',
+            // CORRIGIDO: Aceitar solicitante diretamente do Excel (sem validação)
+            solicitante: data.solicitante || data.solicitanteId || '',
             areaId: findIdByName(data.area || data.areaId, md.areas) || '',
             clienteId: findIdByName(data.cliente || data.clienteId, md.clientes) || '',
             contratoId: findIdByName(data.contrato || data.contratoId, md.contratos, 'codigo') || '',
