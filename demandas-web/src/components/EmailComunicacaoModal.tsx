@@ -40,20 +40,236 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
       const contrato = manutencao.contratoId ? 
         md.contratos.find(c => c.id === manutencao.contratoId) : null
 
-      const email = `Prezados, bom dia.
-
-Informamos que o contrato abaixo referente ao cliente ${cliente?.nome || 'N/A'} sofreu alteração, sendo:
-
-┌─────────┬─────────────────┬─────────┬─────────────┬─────────────┬─────────────┬─────────────────────────────────────┐
-│Contrato │   Operadora     │ Produto │ Atualização │   Subtipo   │    Tipo     │           Descrição                  │
-├─────────┼─────────────────┼─────────┼─────────────┼─────────────┼─────────────┼─────────────────────────────────────┤
-│${(contrato?.codigo || contrato?.numero || manutencao.ticket || 'N/A').toString().padEnd(9)}│${(operadora?.nome || 'N/A').padEnd(17)}│${(produto?.nome || 'N/A').padEnd(9)}│${(tipoServico?.nome || 'N/A').padEnd(13)}│${(tipo?.nome || 'N/A').padEnd(13)}│${(sistema?.nome || 'N/A').padEnd(13)}│${(manutencao.descricao || 'Alteração realizada').padEnd(37)}│
-└─────────┴─────────────────┴─────────┴─────────────┴─────────────┴─────────────┴─────────────────────────────────────┘
-
-O Edge e Move encontram-se atualizados. Solicitamos replicar esta informação com a sua equipe.
-
-Abs,
-NIG - Núcleo de Informações Gerenciais`
+      const email = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alteração de Contrato - ${manutencao?.ticket || 'N/A'}</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .email-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        .header p {
+            margin: 8px 0 0 0;
+            opacity: 0.9;
+            font-size: 14px;
+        }
+        .content {
+            padding: 30px;
+        }
+        .greeting {
+            font-size: 16px;
+            margin-bottom: 20px;
+            color: #2d3748;
+        }
+        .info-box {
+            background: #f7fafc;
+            border-left: 4px solid #4299e1;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        .info-box p {
+            margin: 0;
+            font-weight: 500;
+            color: #2d3748;
+        }
+        .table-container {
+            margin: 25px 0;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        th {
+            background: linear-gradient(135deg, #2d3748 0%, #4a5568 100%);
+            color: white;
+            padding: 15px 12px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        td {
+            padding: 15px 12px;
+            border-bottom: 1px solid #e2e8f0;
+            vertical-align: top;
+        }
+        tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        tr:hover {
+            background-color: #edf2f7;
+        }
+        .contract-cell {
+            font-weight: 600;
+            color: #2b6cb0;
+            font-size: 15px;
+        }
+        .operator-cell {
+            font-weight: 500;
+            color: #2d3748;
+        }
+        .product-cell {
+            background: linear-gradient(135deg, #e6fffa 0%, #b2f5ea 100%);
+            color: #234e52;
+            font-weight: 500;
+        }
+        .update-cell {
+            background: linear-gradient(135deg, #fef5e7 0%, #fed7aa 100%);
+            color: #7c2d12;
+            font-weight: 500;
+        }
+        .subtype-cell {
+            background: linear-gradient(135deg, #f3e8ff 0%, #d8b4fe 100%);
+            color: #581c87;
+            font-weight: 500;
+        }
+        .type-cell {
+            background: linear-gradient(135deg, #ecfdf5 0%, #a7f3d0 100%);
+            color: #064e3b;
+            font-weight: 500;
+        }
+        .description-cell {
+            font-style: italic;
+            color: #4a5568;
+            line-height: 1.5;
+        }
+        .conclusion {
+            background: #f0fff4;
+            border: 1px solid #9ae6b4;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 25px 0;
+        }
+        .conclusion p {
+            margin: 0;
+            color: #22543d;
+            font-weight: 500;
+        }
+        .signature {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid #e2e8f0;
+        }
+        .signature p {
+            margin: 5px 0;
+            color: #4a5568;
+        }
+        .signature .company {
+            font-weight: 600;
+            color: #2d3748;
+            font-size: 16px;
+        }
+        .footer {
+            background: #f7fafc;
+            padding: 20px;
+            text-align: center;
+            color: #718096;
+            font-size: 12px;
+        }
+        .badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="header">
+            <h1>🔔 Alteração de Contrato</h1>
+            <p>Notificação Automática - Sistema NIG</p>
+        </div>
+        
+        <div class="content">
+            <div class="greeting">
+                <strong>Prezados, bom dia.</strong>
+            </div>
+            
+            <div class="info-box">
+                <p>📋 Informamos que o contrato abaixo referente ao cliente <strong>${cliente?.nome || 'N/A'}</strong> sofreu alteração, sendo:</p>
+            </div>
+            
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Contrato</th>
+                            <th>Operadora</th>
+                            <th>Produto</th>
+                            <th>Atualização</th>
+                            <th>Subtipo</th>
+                            <th>Tipo</th>
+                            <th>Descrição</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="contract-cell">${contrato?.codigo || contrato?.numero || manutencao.ticket || 'N/A'}</td>
+                            <td class="operator-cell">${operadora?.nome || 'N/A'}</td>
+                            <td class="product-cell">${produto?.nome || 'N/A'}</td>
+                            <td class="update-cell">${tipoServico?.nome || 'N/A'}</td>
+                            <td class="subtype-cell">${tipo?.nome || 'N/A'}</td>
+                            <td class="type-cell">${sistema?.nome || 'N/A'}</td>
+                            <td class="description-cell">${manutencao.descricao || 'Alteração realizada'}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="conclusion">
+                <p>✅ <strong>O Edge e Move encontram-se atualizados.</strong> Solicitamos replicar esta informação com a sua equipe.</p>
+            </div>
+            
+            <div class="signature">
+                <p>Atenciosamente,</p>
+                <p class="company">NIG - Núcleo de Informações Gerenciais</p>
+                <p><span class="badge">Sistema Automatizado</span></p>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>Esta é uma mensagem automática do sistema NIG. Por favor, não responda a este e-mail.</p>
+        </div>
+    </div>
+</body>
+</html>`
 
       setEmailCompleto(email)
     }
@@ -357,19 +573,22 @@ NIG - Núcleo de Informações Gerenciais`
               border: '1px solid #e2e8f0'
             }}
           >
-            <Box sx={{ p: 3, background: 'white' }}>
-              <Typography 
-                variant="body2" 
-                sx={{ 
-                  fontFamily: 'monospace',
-                  fontSize: '0.875rem',
-                  lineHeight: 1.6,
-                  whiteSpace: 'pre-wrap',
-                  color: '#374151'
+            <Box 
+              sx={{ 
+                p: 0,
+                background: 'white',
+                maxHeight: '400px',
+                overflow: 'auto'
+              }}
+            >
+              <Box
+                sx={{
+                  '& *': {
+                    fontFamily: 'inherit !important'
+                  }
                 }}
-              >
-                {emailCompleto}
-              </Typography>
+                dangerouslySetInnerHTML={{ __html: emailCompleto }}
+              />
             </Box>
           </Paper>
         </Box>
