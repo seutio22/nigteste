@@ -130,7 +130,6 @@ export default function DemandListPage() {
     : items
   
   console.log('🔍 Demandas: finalFilteredItems:', finalFilteredItems.length, 'filteredItems:', filteredItems.length)
-  console.log('🔍 Demandas: rows.length:', rows.length, 'isLoading:', isLoading)
 
   // carregar preferências
   useEffect(() => {
