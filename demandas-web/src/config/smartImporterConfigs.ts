@@ -540,5 +540,96 @@ export const smartImporterConfigs: { [key: string]: SmartImporterConfig } = {
       //   valueField: 'id'
       // }
     ]
+  },
+
+  manutencoes: {
+    entityType: 'Manutenções',
+    requiredFields: ['status', 'tipoServico'],
+    optionalFields: [
+      'descricao', 'analista', 'dataInicio', 'dataFinal', 'ticket', 'solicitante', 
+      'area', 'cliente', 'contrato', 'operadora', 'produto', 'sistema', 'tipo',
+      'observacoes', 'prioridade'
+    ],
+    duplicateCheckFields: [],
+    validationRules: [
+      {
+        field: 'status',
+        type: 'required',
+        message: 'Status é obrigatório'
+      },
+      {
+        field: 'tipoServico',
+        type: 'required',
+        message: 'Tipo de serviço é obrigatório'
+      },
+      {
+        field: 'dataInicio',
+        type: 'date',
+        message: 'Data de início deve ser uma data válida'
+      },
+      {
+        field: 'dataFinal',
+        type: 'date',
+        message: 'Data de finalização deve ser uma data válida'
+      }
+    ],
+    referenceFields: [
+      {
+        field: 'tipoServico',
+        referenceType: 'tiposServico',
+        referenceStore: 'tiposServico',
+        displayField: 'nome',
+        valueField: 'id'
+      },
+      {
+        field: 'analista',
+        referenceType: 'analistas',
+        referenceStore: 'analistas',
+        displayField: 'nome',
+        valueField: 'id'
+      },
+      {
+        field: 'area',
+        referenceType: 'areas',
+        referenceStore: 'areas',
+        displayField: 'nome',
+        valueField: 'id'
+      },
+      {
+        field: 'cliente',
+        referenceType: 'clientes',
+        referenceStore: 'clientes',
+        displayField: 'nome',
+        valueField: 'id'
+      },
+      {
+        field: 'contrato',
+        referenceType: 'contratos',
+        referenceStore: 'contratos',
+        displayField: 'codigo',
+        valueField: 'id'
+      },
+      {
+        field: 'operadora',
+        referenceType: 'operadoras',
+        referenceStore: 'operadoras',
+        displayField: 'nome',
+        valueField: 'id'
+      },
+      {
+        field: 'produto',
+        referenceType: 'produtos',
+        referenceStore: 'produtos',
+        displayField: 'nome',
+        valueField: 'id'
+      },
+      {
+        field: 'sistema',
+        referenceType: 'sistemas',
+        referenceStore: 'sistemas',
+        displayField: 'nome',
+        valueField: 'id'
+      }
+    ]
   }
 }

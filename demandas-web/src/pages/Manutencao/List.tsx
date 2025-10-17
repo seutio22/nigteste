@@ -6,6 +6,9 @@ import { useMasterDataStore } from '../../store/masterDataStore'
 import { useAuthStore } from '../../store/authStore'
 import { StatusBadge } from '../../components/StatusBadge'
 import { UploadModal } from '../../components/UploadModal'
+import { SmartImporter } from '../../components/SmartImporter'
+import { smartImporterConfigs } from '../../config/smartImporterConfigs'
+import type { ImportResult } from '../../types/smartImporter'
 import { useFilteredData } from '../../lib/utils'
 import { useEffect, useState } from 'react'
 import ExportDataModal from '../../components/ExportDataModal'
@@ -20,6 +23,7 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload'
 import EditIcon from '@mui/icons-material/Edit'
 import PersonIcon from '@mui/icons-material/Person'
 import GroupIcon from '@mui/icons-material/Group'
+import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
 
 const columns: GridColDef[] = [
   { field: 'acoes', headerName: 'Ações', width: 80, sortable: false, filterable: false, renderCell: (p) => (
@@ -47,6 +51,7 @@ export default function ManutencaoListPage() {
   const { user } = useAuthStore()
   const { canCreate, canImport, canExport, canDelete } = usePermissions('manutencao')
   const [uploadModalOpen, setUploadModalOpen] = useState(false)
+  const [smartImporterOpen, setSmartImporterOpen] = useState(false)
   const [showOnlyMyManutencoes, setShowOnlyMyManutencoes] = useState(true)
   const [exportModalOpen, setExportModalOpen] = useState(false)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
@@ -198,6 +203,140 @@ export default function ManutencaoListPage() {
     } catch (error) {
       console.error('❌ Erro na exclusão em massa:', error)
       alert('Erro ao excluir manutenções')
+    }
+  }
+
+  // Função do Importador Inteligente
+  const handleSmartImport = async (result: ImportResult) => {
+    try {
+      const { api } = await import('../../lib/api.local')
+      let totalImported = 0
+      let totalSavedToDatabase = 0
+      const errors: string[] = []
+
+      console.log('🔍 SMART IMPORT MANUTENÇÕES: Processando resultado:', result)
+
+      // Função para converter número de série do Excel para DateTime ISO
+      const excelDateToISO = (value: any): string => {
+        if (!value) return ''
+        
+        // Se já é uma string de data válida, retornar como está
+        if (typeof value === 'string' && value.includes('-')) {
+          return value
+        }
+        
+        // Se é um número (serial do Excel)
+        if (typeof value === 'number' || !isNaN(Number(value))) {
+          const serialNumber = Number(value)
+          // Excel epoch: 1900-01-01 (mas com bug, Excel considera 1900 como ano bissexto)
+          const excelEpoch = new Date(1900, 0, 1)
+          const days = serialNumber - 2 // Ajuste pelo bug do Excel
+          const date = new Date(excelEpoch.getTime() + days * 24 * 60 * 60 * 1000)
+          return date.toISOString()
+        }
+        
+        return ''
+      }
+
+      // Processar itens válidos
+      for (const item of result.valid) {
+        try {
+          const data = item.isCorrected ? item.correctedData : item.data
+          
+          // Função para normalizar strings (remove acentos, espaços extras, converte para lowercase)
+          const normalizeString = (str: string) => {
+            if (!str) return ''
+            return String(str)
+              .toLowerCase()
+              .trim()
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '') // Remove acentos
+              .replace(/\s+/g, ' ') // Normaliza espaços
+          }
+
+          // Função para encontrar ID por nome (com normalização completa)
+          const findIdByName = (name: string, items: any[], nameField: string = 'nome') => {
+            if (!name) return ''
+            
+            const searchNormalized = normalizeString(String(name))
+            
+            // Buscar item com correspondência exata (normalizada)
+            const item = items.find(item => {
+              const itemNameNormalized = normalizeString(item[nameField] || item.nome || '')
+              return itemNameNormalized === searchNormalized
+            })
+            
+            console.log(`🔍 SMART IMPORT MANUTENÇÕES: Buscando "${name}" (normalizado: "${searchNormalized}") em ${items.length} itens, encontrado:`, item ? `${item.nome || item[nameField]} (${item.id})` : 'não encontrado')
+            return item?.id || ''
+          }
+
+          // Mapear dados para o formato de manutenção
+          const manutencaoData = {
+            // Campos obrigatórios
+            status: data.status || 'Aberta',
+            tipoServicoId: findIdByName(data.tipoServico || data.tipoServicoId, md.tiposServico) || '',
+            
+            // Campos opcionais
+            descricao: data.descricao || '',
+            analistaId: findIdByName(data.analista || data.analistaId, md.analistas) || '',
+            dataInicio: excelDateToISO(data.dataInicio || data.dataInicial) || new Date().toISOString(),
+            dataFinal: excelDateToISO(data.dataFinal || data.dataFinalizacao),
+            ticket: data.ticket ? String(data.ticket) : `MAN-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+            solicitante: data.solicitante || '',
+            areaId: findIdByName(data.area || data.areaId, md.areas) || '',
+            clienteId: findIdByName(data.cliente || data.clienteId, md.clientes) || '',
+            contratoId: findIdByName(data.contrato || data.contratoId, md.contratos, 'codigo') || '',
+            operadoraId: findIdByName(data.operadora || data.operadoraId, md.operadoras) || '',
+            produtoId: findIdByName(data.produto || data.produtoId, md.produtos) || '',
+            sistemaId: findIdByName(data.sistema || data.sistemaId, md.sistemas) || '',
+            tipo: data.tipo || '',
+            observacoes: data.observacoes || data.observacao || '',
+            prioridade: data.prioridade || 'Media'
+          }
+
+          // Remover campos vazios para evitar problemas com o Prisma
+          Object.keys(manutencaoData).forEach(key => {
+            if (manutencaoData[key] === '' || manutencaoData[key] === null || manutencaoData[key] === undefined) {
+              delete manutencaoData[key]
+            }
+          })
+
+          console.log('🔍 SMART IMPORT MANUTENÇÕES: Salvando manutenção:', manutencaoData)
+
+          // Salvar na API
+          const savedManutencao = await api.post('/manutencoes', manutencaoData)
+          console.log('✅ SMART IMPORT MANUTENÇÕES: Manutenção salva:', savedManutencao.id)
+          
+          totalImported++
+          totalSavedToDatabase++
+
+        } catch (error) {
+          console.error('❌ SMART IMPORT MANUTENÇÕES: Erro ao salvar manutenção:', error)
+          errors.push(`Erro ao salvar manutenção: ${error instanceof Error ? error.message : 'Erro desconhecido'}`)
+        }
+      }
+
+      // Atualizar store local
+      if (totalSavedToDatabase > 0) {
+        await manutencaoStore.syncFromApi()
+      }
+
+      const successMessage = `${totalImported} manutenções processadas, ${totalSavedToDatabase} salvas no banco de dados`
+      console.log(`✅ SMART IMPORT MANUTENÇÕES: ${successMessage}`)
+
+      // Mostrar notificação de sucesso
+      if (totalSavedToDatabase > 0) {
+        alert(`✅ ${successMessage}`)
+      }
+
+      if (errors.length > 0) {
+        console.warn('⚠️ SMART IMPORT MANUTENÇÕES: Alguns erros ocorreram:', errors)
+        alert(`⚠️ Alguns erros ocorreram:\n${errors.join('\n')}`)
+      }
+
+    } catch (error) {
+      console.error('❌ SMART IMPORT MANUTENÇÕES: Erro geral:', error)
+      alert('Erro ao importar manutenções')
     }
   }
 
@@ -456,29 +595,55 @@ export default function ManutencaoListPage() {
               )}
               
               {canImport && (
-                <Button 
-                  variant="outlined" 
-                  startIcon={<CloudUploadIcon />}
-                  onClick={() => setUploadModalOpen(true)}
-                  size="medium"
-                  className="text-primary-600 border-primary-300 hover:text-primary-700 hover:border-primary-400 hover:bg-primary-50 transition-all duration-300 font-medium"
-                  sx={{
-                    borderRadius: '14px',
-                    padding: '10px 20px',
-                    textTransform: 'none',
-                    fontWeight: 500,
-                    fontSize: '0.9rem',
-                    height: '44px',
-                    borderWidth: '2px',
-                    '&:hover': {
+                <>
+                  <Button 
+                    variant="outlined" 
+                    startIcon={<CloudUploadIcon />}
+                    onClick={() => setUploadModalOpen(true)}
+                    size="medium"
+                    className="text-primary-600 border-primary-300 hover:text-primary-700 hover:border-primary-400 hover:bg-primary-50 transition-all duration-300 font-medium"
+                    sx={{
+                      borderRadius: '14px',
+                      padding: '10px 20px',
+                      textTransform: 'none',
+                      fontWeight: 500,
+                      fontSize: '0.9rem',
+                      height: '44px',
                       borderWidth: '2px',
-                      transform: 'translateY(-2px)',
-                      boxShadow: '0 4px 12px 0 rgba(59, 130, 246, 0.15)'
-                    }
-                  }}
-                >
-                  Importar
-                </Button>
+                      '&:hover': {
+                        borderWidth: '2px',
+                        transform: 'translateY(-2px)',
+                        boxShadow: '0 4px 12px 0 rgba(59, 130, 246, 0.15)'
+                      }
+                    }}
+                  >
+                    Importar
+                  </Button>
+
+                  <Button 
+                    variant="contained" 
+                    startIcon={<AutoFixHighIcon />}
+                    onClick={() => setSmartImporterOpen(true)}
+                    size="medium"
+                    className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white transition-all duration-300 font-medium"
+                    sx={{
+                      borderRadius: '14px',
+                      padding: '10px 20px',
+                      textTransform: 'none',
+                      fontWeight: 500,
+                      fontSize: '0.9rem',
+                      height: '44px',
+                      background: 'linear-gradient(135deg, #9333ea 0%, #3b82f6 100%)',
+                      '&:hover': {
+                        background: 'linear-gradient(135deg, #7e22ce 0%, #2563eb 100%)',
+                        transform: 'translateY(-2px)',
+                        boxShadow: '0 8px 20px 0 rgba(147, 51, 234, 0.3)'
+                      }
+                    }}
+                  >
+                    Importador Inteligente
+                  </Button>
+                </>
               )}
 
               {canExport && (
@@ -634,6 +799,15 @@ export default function ManutencaoListPage() {
           { key: 'tipoServico', label: 'Tipo de Serviço' },
           { key: 'updatedAt', label: 'Atualizado em' }
         ]}
+      />
+
+      {/* Smart Importer - Importador Inteligente */}
+      <SmartImporter
+        open={smartImporterOpen}
+        onClose={() => setSmartImporterOpen(false)}
+        onImport={handleSmartImport}
+        config={smartImporterConfigs.manutencoes}
+        masterData={md}
       />
 
       {/* Modal de confirmação de exclusão em massa */}
