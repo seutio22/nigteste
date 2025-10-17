@@ -746,7 +746,7 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
       )
     }
 
-    const { invalidCount, duplicateCount } = importResult
+    const { invalidCount, duplicateCount, validCount } = importResult
 
     return (
       <Box sx={{ display: 'flex', gap: 1 }}>
