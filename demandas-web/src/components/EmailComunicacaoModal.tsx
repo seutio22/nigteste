@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Typography, Box, Chip, FormControl, InputLabel, Select, MenuItem, Checkbox, ListItemText, OutlinedInput, IconButton, Tooltip, Card, CardContent, Divider, Paper } from '@mui/material'
-import { Copy, Mail, Users, CheckCircle, X, Settings, Send } from 'lucide-react'
+import { Copy, Mail, Users, CheckCircle, X, Settings, Send, Image as ImageIcon, Download } from 'lucide-react'
 import { useMasterDataStore } from '../store/masterDataStore'
 import { useMaillingStore } from '../store/maillingStore'
 
@@ -19,6 +19,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
   const [carregandoMailling, setCarregandoMailling] = useState(false)
   const [emailSimples, setEmailSimples] = useState('')
   const [mostrarSimples, setMostrarSimples] = useState(false)
+  const [gerandoImagem, setGerandoImagem] = useState(false)
   
   const md = useMasterDataStore()
   const maillingStore = useMaillingStore()
@@ -401,6 +402,57 @@ NIG - Núcleo de Informações Gerenciais`
     }
   }
 
+  const handleGerarImagem = async () => {
+    setGerandoImagem(true)
+    
+    try {
+      // Criar um elemento temporário com o HTML
+      const tempDiv = document.createElement('div')
+      tempDiv.innerHTML = emailCompleto
+      tempDiv.style.position = 'absolute'
+      tempDiv.style.left = '-9999px'
+      tempDiv.style.top = '-9999px'
+      tempDiv.style.width = '800px'
+      tempDiv.style.background = 'white'
+      document.body.appendChild(tempDiv)
+
+      // Usar html2canvas para gerar a imagem
+      const { default: html2canvas } = await import('html2canvas')
+      
+      const canvas = await html2canvas(tempDiv, {
+        width: 800,
+        height: tempDiv.scrollHeight,
+        scale: 2, // Maior resolução
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        allowTaint: true
+      })
+
+      // Converter para blob e fazer download
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const url = URL.createObjectURL(blob)
+          const link = document.createElement('a')
+          link.href = url
+          link.download = `email-manutencao-${manutencao?.ticket || 'N/A'}-${new Date().toISOString().split('T')[0]}.png`
+          document.body.appendChild(link)
+          link.click()
+          document.body.removeChild(link)
+          URL.revokeObjectURL(url)
+        }
+      }, 'image/png')
+
+      // Remover elemento temporário
+      document.body.removeChild(tempDiv)
+      
+    } catch (error) {
+      console.error('Erro ao gerar imagem:', error)
+      alert('Erro ao gerar imagem. Tente novamente.')
+    } finally {
+      setGerandoImagem(false)
+    }
+  }
+
   return (
     <Dialog 
       open={open} 
@@ -759,7 +811,7 @@ NIG - Núcleo de Informações Gerenciais`
         >
           Fechar
         </Button>
-        <Box className="flex gap-2">
+        <Box className="flex gap-2 flex-wrap">
           <Button
             onClick={() => setMostrarSimples(!mostrarSimples)}
             variant="outlined"
@@ -778,6 +830,31 @@ NIG - Núcleo de Informações Gerenciais`
             }}
           >
             {mostrarSimples ? '📄 Ver HTML' : '📝 Ver Texto'}
+          </Button>
+          
+          <Button
+            startIcon={gerandoImagem ? <ImageIcon className="w-4 h-4 animate-spin" /> : <ImageIcon className="w-4 h-4" />}
+            onClick={handleGerarImagem}
+            disabled={gerandoImagem}
+            variant="outlined"
+            sx={{ 
+              borderRadius: '8px',
+              textTransform: 'none',
+              fontWeight: 500,
+              px: 3,
+              py: 1.5,
+              borderColor: '#8b5cf6',
+              color: '#8b5cf6',
+              '&:hover': {
+                borderColor: '#7c3aed',
+                background: '#f3f4f6'
+              },
+              '&:disabled': {
+                opacity: 0.6
+              }
+            }}
+          >
+            {gerandoImagem ? 'Gerando...' : '🖼️ Gerar Imagem'}
           </Button>
           
           <Button
