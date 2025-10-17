@@ -662,7 +662,20 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
     departamento: z.string().optional(),
     categoria: z.string().default('Geral'),
     status: z.string().default('Ativo'),
-    origem: z.string().optional()
+    origem: z.string().optional(),
+    // CORRIGIDO: Adicionar novos campos
+    posicaoEmail: z.string().optional(),
+    grupos: z.string().optional(),
+    filiais: z.string().optional(),
+    area: z.string().optional(),
+    cancelamento: z.string().optional(),
+    alteracaoContratual: z.string().optional(),
+    alteracaoDadosCliente: z.string().optional(),
+    alteracaoServicos: z.string().optional(),
+    alteracaoRemuneracao: z.string().optional(),
+    curadoriaPortalRh: z.string().optional(),
+    documentacaoContratual: z.string().optional(),
+    changeLog: z.string().optional()
   })
 
   const maillingUpdateSchema = z.object({
@@ -674,7 +687,20 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
     departamento: z.string().optional(),
     categoria: z.string().optional(),
     status: z.string().optional(),
-    origem: z.string().optional()
+    origem: z.string().optional(),
+    // CORRIGIDO: Adicionar novos campos
+    posicaoEmail: z.string().optional(),
+    grupos: z.string().optional(),
+    filiais: z.string().optional(),
+    area: z.string().optional(),
+    cancelamento: z.string().optional(),
+    alteracaoContratual: z.string().optional(),
+    alteracaoDadosCliente: z.string().optional(),
+    alteracaoServicos: z.string().optional(),
+    alteracaoRemuneracao: z.string().optional(),
+    curadoriaPortalRh: z.string().optional(),
+    documentacaoContratual: z.string().optional(),
+    changeLog: z.string().optional()
   })
 
   // GET /mailling
