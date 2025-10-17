@@ -5,7 +5,6 @@ import { useManutencaoStore } from '../../store/manutencaoStore'
 import { useMasterDataStore } from '../../store/masterDataStore'
 import { useAuthStore } from '../../store/authStore'
 import { StatusBadge } from '../../components/StatusBadge'
-import { UploadModal } from '../../components/UploadModal'
 import { SmartImporter } from '../../components/SmartImporter'
 import { smartImporterConfigs } from '../../config/smartImporterConfigs'
 import type { ImportResult } from '../../types/smartImporter'
@@ -19,7 +18,6 @@ import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
 import DeleteIcon from '@mui/icons-material/Delete'
 import FileCopyIcon from '@mui/icons-material/FileCopy'
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf'
-import CloudUploadIcon from '@mui/icons-material/CloudUpload'
 import EditIcon from '@mui/icons-material/Edit'
 import PersonIcon from '@mui/icons-material/Person'
 import GroupIcon from '@mui/icons-material/Group'
@@ -50,7 +48,6 @@ export default function ManutencaoListPage() {
   const md = useMasterDataStore()
   const { user } = useAuthStore()
   const { canCreate, canImport, canExport, canDelete } = usePermissions('manutencao')
-  const [uploadModalOpen, setUploadModalOpen] = useState(false)
   const [smartImporterOpen, setSmartImporterOpen] = useState(false)
   const [showOnlyMyManutencoes, setShowOnlyMyManutencoes] = useState(true)
   const [exportModalOpen, setExportModalOpen] = useState(false)
@@ -353,16 +350,6 @@ export default function ManutencaoListPage() {
     } catch {}
   }
 
-  const handleUpload = async (file: File) => {
-    // Simular processamento do upload
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    
-    // Aqui você implementaria a lógica real de processamento do arquivo
-    // Por exemplo, usando uma biblioteca como xlsx para ler o Excel
-    
-    // Simular sucesso
-    return Promise.resolve()
-  }
 
   const rows = finalFilteredItems.map((d) => {
     // Gerar ticket se não existir
@@ -595,55 +582,29 @@ export default function ManutencaoListPage() {
               )}
               
               {canImport && (
-                <>
-                  <Button 
-                    variant="outlined" 
-                    startIcon={<CloudUploadIcon />}
-                    onClick={() => setUploadModalOpen(true)}
-                    size="medium"
-                    className="text-primary-600 border-primary-300 hover:text-primary-700 hover:border-primary-400 hover:bg-primary-50 transition-all duration-300 font-medium"
-                    sx={{
-                      borderRadius: '14px',
-                      padding: '10px 20px',
-                      textTransform: 'none',
-                      fontWeight: 500,
-                      fontSize: '0.9rem',
-                      height: '44px',
-                      borderWidth: '2px',
-                      '&:hover': {
-                        borderWidth: '2px',
-                        transform: 'translateY(-2px)',
-                        boxShadow: '0 4px 12px 0 rgba(59, 130, 246, 0.15)'
-                      }
-                    }}
-                  >
-                    Importar
-                  </Button>
-
-                  <Button 
-                    variant="contained" 
-                    startIcon={<AutoFixHighIcon />}
-                    onClick={() => setSmartImporterOpen(true)}
-                    size="medium"
-                    className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white transition-all duration-300 font-medium"
-                    sx={{
-                      borderRadius: '14px',
-                      padding: '10px 20px',
-                      textTransform: 'none',
-                      fontWeight: 500,
-                      fontSize: '0.9rem',
-                      height: '44px',
-                      background: 'linear-gradient(135deg, #9333ea 0%, #3b82f6 100%)',
-                      '&:hover': {
-                        background: 'linear-gradient(135deg, #7e22ce 0%, #2563eb 100%)',
-                        transform: 'translateY(-2px)',
-                        boxShadow: '0 8px 20px 0 rgba(147, 51, 234, 0.3)'
-                      }
-                    }}
-                  >
-                    Importador Inteligente
-                  </Button>
-                </>
+                <Button 
+                  variant="contained" 
+                  startIcon={<AutoFixHighIcon />}
+                  onClick={() => setSmartImporterOpen(true)}
+                  size="medium"
+                  className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white transition-all duration-300 font-medium"
+                  sx={{
+                    borderRadius: '14px',
+                    padding: '10px 20px',
+                    textTransform: 'none',
+                    fontWeight: 500,
+                    fontSize: '0.9rem',
+                    height: '44px',
+                    background: 'linear-gradient(135deg, #9333ea 0%, #3b82f6 100%)',
+                    '&:hover': {
+                      background: 'linear-gradient(135deg, #7e22ce 0%, #2563eb 100%)',
+                      transform: 'translateY(-2px)',
+                      boxShadow: '0 8px 20px 0 rgba(147, 51, 234, 0.3)'
+                    }
+                  }}
+                >
+                  Importador Inteligente
+                </Button>
               )}
 
               {canExport && (
@@ -754,14 +715,6 @@ export default function ManutencaoListPage() {
           }}
         />
       </div>
-
-      <UploadModal
-        open={uploadModalOpen}
-        onClose={() => setUploadModalOpen(false)}
-        onUpload={handleUpload}
-        title="Importar Manutenções"
-        entityType="manutencoes"
-      />
 
       {/* Modal de Exportação */}
       <ExportDataModal
