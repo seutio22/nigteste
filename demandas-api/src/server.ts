@@ -1064,7 +1064,7 @@ app.post('/fix-permissions-reajuste', async (request, reply) => {
     const users = await prisma.user.findMany()
     
     for (const user of users) {
-      let permissions = {}
+      let permissions: any = {}
       try {
         permissions = user.permissions ? JSON.parse(user.permissions) : {}
       } catch (error) {
