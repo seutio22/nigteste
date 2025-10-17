@@ -406,7 +406,8 @@ export const smartImporterConfigs: { [key: string]: SmartImporterConfig } = {
       'analiseQuantitativa', 'qtdRetornos', 'qualidade', 'qtdClientesVinculados', 
       'usuariosEmpresa', 'observacoes'
     ],
-    duplicateCheckFields: ['ticket', 'tipoServico', 'tipo', 'dataInicio', 'sistema', 'cliente'],
+    // CORRIGIDO: Remover 'ticket' do duplicateCheckFields para permitir importação com tickets do Excel
+    duplicateCheckFields: [],
     validationRules: [
       {
         field: 'status',

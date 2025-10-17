@@ -152,6 +152,12 @@ export class SmartValidationEngine {
     console.log(`🔍 VALIDAÇÃO REFERÊNCIA: Store "${refField.referenceStore}" tem ${referenceData.length} registros`)
     console.log(`🔍 VALIDAÇÃO REFERÊNCIA: Primeiros registros:`, referenceData.slice(0, 3).map((r: any) => ({ id: r.id, nome: r[refField.displayField] })))
     
+    // Se o valor estiver vazio, considerar válido (campo opcional)
+    if (!value || String(value).trim() === '') {
+      console.log(`✅ VALIDAÇÃO REFERÊNCIA: Campo vazio, considerando válido (opcional)`)
+      return { isValid: true }
+    }
+    
     // Converter valor para string e normalizar
     const stringValue = String(value || '').trim()
     
@@ -163,15 +169,33 @@ export class SmartValidationEngine {
       return { isValid: true }
     }
     
-    // Verificar se existe por nome (case insensitive)
+    // Verificar se existe por nome (case insensitive e ignorando acentos)
+    const normalizeString = (str: string) => {
+      return str.toLowerCase().trim()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Remove acentos
+        .replace(/\s+/g, ' ') // Normaliza espaços
+    }
+    
     const existsByName = referenceData.find((item: any) => {
-      const itemName = String(item[refField.displayField] || '').toLowerCase().trim()
-      const searchName = stringValue.toLowerCase().trim()
+      const itemName = normalizeString(String(item[refField.displayField] || ''))
+      const searchName = normalizeString(stringValue)
       return itemName === searchName
     })
     
     if (existsByName) {
-      console.log(`✅ VALIDAÇÃO REFERÊNCIA: Encontrado por nome (case insensitive): "${existsByName[refField.displayField]}"`)
+      console.log(`✅ VALIDAÇÃO REFERÊNCIA: Encontrado por nome (normalizado): "${existsByName[refField.displayField]}"`)
+      return { isValid: true }
+    }
+
+    // NOVO: Buscar por correspondência parcial (contém)
+    const existsByPartialMatch = referenceData.find((item: any) => {
+      const itemName = normalizeString(String(item[refField.displayField] || ''))
+      const searchName = normalizeString(stringValue)
+      return itemName.includes(searchName) || searchName.includes(itemName)
+    })
+    
+    if (existsByPartialMatch) {
+      console.log(`✅ VALIDAÇÃO REFERÊNCIA: Encontrado por correspondência parcial: "${existsByPartialMatch[refField.displayField]}"`)
       return { isValid: true }
     }
 

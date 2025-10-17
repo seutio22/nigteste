@@ -304,16 +304,20 @@ export default function DemandListPage() {
           const demandaData = {
             // Campos obrigatórios
             status: data.status || 'Aberta',
-            tipoServicoId: findIdByName(data.tipoServicoId || data.tipoServico, md.tiposServico) || '',
-            tipo: data.tipo || data.tipoDemanda || '',
+            // CORRIGIDO: Buscar tipoServico por nome no Excel
+            tipoServicoId: findIdByName(data.tipoServico || data.tipoServicoId, md.tiposServico) || '',
+            // CORRIGIDO: Buscar tipo de demanda por nome no Excel
+            tipo: findIdByName(data.tipo || data.tipoDemanda, md.tiposDemanda) || '',
             
             // Campos opcionais
             descricao: data.descricao || data.descricaoDemanda || '',
             analistaId: findIdByName(data.analista || data.analistaId, md.analistas) || '',
             dataInicio: excelDateToISO(data.dataInicio || data.dataInicial) || new Date().toISOString(),
             dataFinal: excelDateToISO(data.dataFinal || data.dataFinalizacao),
-            ticket: String(data.ticket || `DEM-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`),
-            solicitante: data.solicitante || data.solicitanteId || '',
+            // CORRIGIDO: Aceitar ticket do Excel, gerar apenas se não existir
+            ticket: data.ticket ? String(data.ticket) : `DEM-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+            // CORRIGIDO: Buscar solicitante por nome no Excel
+            solicitante: findIdByName(data.solicitante || data.solicitanteId, md.solicitantes) || '',
             areaId: findIdByName(data.area || data.areaId, md.areas) || '',
             clienteId: findIdByName(data.cliente || data.clienteId, md.clientes) || '',
             contratoId: findIdByName(data.contrato || data.contratoId, md.contratos, 'codigo') || '',
