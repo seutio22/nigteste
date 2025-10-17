@@ -11,7 +11,7 @@ import DemandNewPage from '../pages/Demandas/New'
 import DemandDetailPage from '../pages/Demandas/Detail'
 import ManutencaoListPage from '../pages/Manutencao/List'
 import ManutencaoNewPage from '../pages/Manutencao/New'
-import ManutencaoDetailPage from '../pages/Manutencao/ManutencaoDetailPage'
+import ManutencaoDetailPage from '../pages/Manutencao/ManutencaoDetailPage' // v0.5.10
 import AtendimentoListPage from '../pages/Atendimento/List'
 import AtendimentoNewPage from '../pages/Atendimento/New'
 import AtendimentoDetailPage from '../pages/Atendimento/Detail'
