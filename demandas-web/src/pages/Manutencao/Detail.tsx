@@ -5,9 +5,10 @@ import { useAuthStore } from '../../store/authStore'
 import { api } from '../../lib/api.local'
 import { StatusBadge } from '../../components/StatusBadge'
 import { Timeline } from '../../components/Timeline'
+import { EmailComunicacaoModal } from '../../components/EmailComunicacaoModal'
 import { fmt } from '../../lib/utils'
 import { useState, useEffect, useRef } from 'react'
-import { Save, Edit3, Clock, ArrowLeft } from 'lucide-react'
+import { Save, Edit3, Clock, ArrowLeft, Mail } from 'lucide-react'
 
 // Função para converter código de qualidade em texto legível
 const getQualidadeLabel = (value?: string) => {
@@ -33,6 +34,9 @@ export default function ManutencaoDetailPage() {
   
   // Estado para controlar se os dados mestres estão carregados
   const [masterDataLoaded, setMasterDataLoaded] = useState(false)
+  
+  // Estado para o modal de e-mail
+  const [emailModalOpen, setEmailModalOpen] = useState(false)
 
   // Carregar dados quando a página for acessada (apenas uma vez)
   useEffect(() => {
@@ -163,7 +167,17 @@ export default function ManutencaoDetailPage() {
             Criada em {fmt(d.createdAt)}
           </p>
         </div>
-        <StatusBadge status={d.status ?? 'Aberta'} />
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setEmailModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            title="Comunicar alteração por e-mail"
+          >
+            <Mail className="w-4 h-4" />
+            <span className="hidden sm:inline">📧 Comunicar</span>
+          </button>
+          <StatusBadge status={d.status ?? 'Aberta'} />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -809,6 +823,13 @@ function EditInline({ d }: { d: any }) {
           </div>
         </div>
       )}
+
+      {/* Modal de E-mail */}
+      <EmailComunicacaoModal
+        open={emailModalOpen}
+        onClose={() => setEmailModalOpen(false)}
+        manutencao={d}
+      />
     </div>
   )
 }
