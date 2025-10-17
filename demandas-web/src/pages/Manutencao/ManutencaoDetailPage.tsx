@@ -617,12 +617,12 @@ function EditInline({ d }: { d: any }) {
       {/* Quarta linha - Ticket e Solicitante */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">N┬║ Ticket</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Nº Ticket</label>
           <input
             type="text"
             value={draft.ticket || ''}
             onChange={(e) => setDraft({ ...draft, ticket: e.target.value || undefined })}
-            placeholder="N├║mero do ticket"
+            placeholder="Número do ticket"
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
@@ -641,7 +641,7 @@ function EditInline({ d }: { d: any }) {
 
       {/* Quinta linha - Analista */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Analista Respons├ível</label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Analista Responsável</label>
         <input
           type="text"
           value={label(draft.analistaId, md.analistas)}
@@ -702,7 +702,7 @@ function EditInline({ d }: { d: any }) {
         </div>
       </div>
 
-      {/* S├®tima linha - Quantidade de Retornos */}
+      {/* Sétima linha - Quantidade de Retornos */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Quantidade de Retornos</label>
@@ -728,14 +728,14 @@ function EditInline({ d }: { d: any }) {
           >
             <option value="">Selecione...</option>
             <option value="0">0 - RUIM - MAIS DE 3 RETORNOS; ITENS INCOMPLETOS, SEM RETORNO</option>
-            <option value="1">1 - MEDIANO - NO M├üX 2 RETORNOS</option>
-            <option value="2">2 - BOM - NO M├üX 1 RETORNO; TODOS OS ITENS COMPLETOS</option>
-            <option value="3">3 - EXCELENTE - SEM NENHUMA CONSIDERA├ç├âO</option>
+            <option value="1">1 - MEDIANO - NO MÁX 2 RETORNOS</option>
+            <option value="2">2 - BOM - NO MÁX 1 RETORNO; TODOS OS ITENS COMPLETOS</option>
+            <option value="3">3 - EXCELENTE - SEM NENHUMA CONSIDERAÇÃO</option>
           </select>
         </div>
       </div>
 
-      {/* D├®cima linha - QTD Clientes Vinculados e Usu├írios Empresa */}
+      {/* Décima linha - QTD Clientes Vinculados e Usuários Empresa */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">QTD Clientes Vinculados - EDGE</label>
@@ -749,7 +749,7 @@ function EditInline({ d }: { d: any }) {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Usu├írios Empresa - MOVE</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Usuários Empresa - MOVE</label>
           <input
             type="number"
             min="0"
