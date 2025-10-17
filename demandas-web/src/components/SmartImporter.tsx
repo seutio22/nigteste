@@ -695,8 +695,8 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
         {invalidCount > 0 && (
           <Alert severity="warning" sx={{ mt: 2 }}>
             <Typography variant="body2">
-              {invalidCount} itens precisam de correção antes da importação.
-              Clique em "Corrigir Dados" para revisar e corrigir as inconsistências.
+              {invalidCount} itens precisam de correção. 
+              Você pode <strong>corrigir os dados</strong> ou <strong>importar apenas os {validCount} itens válidos</strong>.
             </Typography>
           </Alert>
         )}
@@ -764,13 +764,32 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
           Novo Arquivo
         </Button>
         {invalidCount > 0 ? (
-          <Button
-            variant="contained"
-            onClick={() => setShowCorrectionModal(true)}
-            startIcon={<AutoFixHighIcon />}
-          >
-            Corrigir Dados
-          </Button>
+          <>
+            <Button
+              variant="outlined"
+              onClick={() => setShowCorrectionModal(true)}
+              startIcon={<AutoFixHighIcon />}
+            >
+              Corrigir Dados
+            </Button>
+            <Button
+              variant="contained"
+              color="success"
+              onClick={() => {
+                // Importar apenas itens válidos
+                const validOnlyResult: ImportResult = {
+                  ...importResult,
+                  items: importResult.items.filter(item => item.status === 'valid')
+                }
+                onImport(validOnlyResult)
+                onClose()
+              }}
+              startIcon={<CheckCircleIcon />}
+              disabled={validCount === 0}
+            >
+              Importar {validCount} Válidos
+            </Button>
+          </>
         ) : (
           <Button
             variant="contained"
