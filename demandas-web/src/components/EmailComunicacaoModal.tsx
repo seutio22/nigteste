@@ -20,6 +20,8 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
   const [emailSimples, setEmailSimples] = useState('')
   const [mostrarSimples, setMostrarSimples] = useState(false)
   const [gerandoImagem, setGerandoImagem] = useState(false)
+  const [editandoDescricao, setEditandoDescricao] = useState(false)
+  const [descricaoEditavel, setDescricaoEditavel] = useState('')
   
   const md = useMasterDataStore()
   const maillingStore = useMaillingStore()
@@ -71,6 +73,11 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
 
       const contrato = manutencao.contratoId ? 
         md.contratos.find(c => c.id === manutencao.contratoId) : null
+
+      // Inicializar descrição editável se ainda não foi definida
+      if (!descricaoEditavel) {
+        setDescricaoEditavel(manutencao.descricao || 'Alteração realizada')
+      }
 
       const email = `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -279,7 +286,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                             <td class="update-cell">${tipoServico?.nome || 'N/A'}</td>
                             <td class="subtype-cell">${tipo?.nome || 'N/A'}</td>
                             <td class="type-cell">${sistema?.nome || 'N/A'}</td>
-                            <td class="description-cell">${manutencao.descricao || 'Alteração realizada'}</td>
+                            <td class="description-cell">${descricaoEditavel || manutencao.descricao || 'Alteração realizada'}</td>
                         </tr>
                     </tbody>
                 </table>
@@ -313,7 +320,7 @@ Informamos que o contrato abaixo referente ao cliente ${cliente?.nome || 'N/A'} 
 ┌─────────┬─────────────────┬─────────┬─────────────┬─────────────┬─────────────┬─────────────────────────────────────┐
 │Contrato │   Operadora     │ Produto │ Atualização │   Subtipo   │    Tipo     │           Descrição                  │
 ├─────────┼─────────────────┼─────────┼─────────────┼─────────────┼─────────────┼─────────────────────────────────────┤
-│${(contrato?.codigo || contrato?.numero || manutencao.ticket || 'N/A').toString().padEnd(9)}│${(operadora?.nome || 'N/A').padEnd(17)}│${(produto?.nome || 'N/A').padEnd(9)}│${(tipoServico?.nome || 'N/A').padEnd(13)}│${(tipo?.nome || 'N/A').padEnd(13)}│${(sistema?.nome || 'N/A').padEnd(13)}│${(manutencao.descricao || 'Alteração realizada').padEnd(37)}│
+│${(contrato?.codigo || contrato?.numero || manutencao.ticket || 'N/A').toString().padEnd(9)}│${(operadora?.nome || 'N/A').padEnd(17)}│${(produto?.nome || 'N/A').padEnd(9)}│${(tipoServico?.nome || 'N/A').padEnd(13)}│${(tipo?.nome || 'N/A').padEnd(13)}│${(sistema?.nome || 'N/A').padEnd(13)}│${(descricaoEditavel || manutencao.descricao || 'Alteração realizada').padEnd(37)}│
 └─────────┴─────────────────┴─────────┴─────────────┴─────────────┴─────────────┴─────────────────────────────────────┘
 
 O Edge e Move encontram-se atualizados. Solicitamos replicar esta informação com a sua equipe.
@@ -323,7 +330,7 @@ NIG - Núcleo de Informações Gerenciais`
       
       setEmailSimples(emailSimples)
     }
-  }, [manutencao, md.clientes, md.operadoras, md.produtos, md.sistemas, md.tiposCadastro, md.padrao, md.contratos])
+  }, [manutencao, md.clientes, md.operadoras, md.produtos, md.sistemas, md.tiposCadastro, md.padrao, md.contratos, descricaoEditavel])
 
   // Filtrar contatos do Mailling baseado na manutenção
   useEffect(() => {
@@ -727,23 +734,76 @@ NIG - Núcleo de Informações Gerenciais`
 
         {/* Preview do E-mail */}
         <Box sx={{ p: 3, background: '#f8fafc' }}>
-          <Box className="flex items-center gap-2 mb-4">
-            <Box 
+          <Box className="flex items-center justify-between mb-4">
+            <Box className="flex items-center gap-2">
+              <Box 
+                sx={{ 
+                  background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                  borderRadius: '8px',
+                  p: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <Send className="w-5 h-5 text-white" />
+              </Box>
+              <Typography variant="h6" sx={{ fontWeight: 600, color: '#1e293b' }}>
+                Preview do E-mail
+              </Typography>
+            </Box>
+            
+            <Button
+              onClick={() => setEditandoDescricao(!editandoDescricao)}
+              variant="outlined"
+              size="small"
               sx={{ 
-                background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
                 borderRadius: '8px',
-                p: 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
+                textTransform: 'none',
+                fontWeight: 500,
+                px: 2,
+                borderColor: '#3b82f6',
+                color: '#3b82f6',
+                '&:hover': {
+                  borderColor: '#1d4ed8',
+                  background: '#eff6ff'
+                }
               }}
             >
-              <Send className="w-5 h-5 text-white" />
-            </Box>
-            <Typography variant="h6" sx={{ fontWeight: 600, color: '#1e293b' }}>
-              Preview do E-mail
-          </Typography>
+              {editandoDescricao ? '✅ Salvar' : '✏️ Editar Descrição'}
+            </Button>
           </Box>
+          
+          {editandoDescricao && (
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="body2" sx={{ mb: 1, color: '#6b7280' }}>
+                Editar descrição da alteração:
+              </Typography>
+              <TextField
+                multiline
+                rows={3}
+                fullWidth
+                value={descricaoEditavel}
+                onChange={(e) => setDescricaoEditavel(e.target.value)}
+                placeholder="Digite a descrição da alteração..."
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '8px',
+                    '& fieldset': {
+                      borderColor: '#d1d5db'
+                    },
+                    '&:hover fieldset': {
+                      borderColor: '#9ca3af'
+                    },
+                    '&.Mui-focused fieldset': {
+                      borderColor: '#3b82f6',
+                      borderWidth: '2px'
+                    }
+                  }
+                }}
+              />
+            </Box>
+          )}
           
           <Paper 
             sx={{ 
