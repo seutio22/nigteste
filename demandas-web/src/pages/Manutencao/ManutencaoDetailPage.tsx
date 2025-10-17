@@ -10,13 +10,13 @@ import { fmt } from '../../lib/utils'
 import { useState, useEffect, useRef } from 'react'
 import { Save, Edit3, Clock, ArrowLeft, Mail } from 'lucide-react'
 
-// Fun├º├úo para converter c├│digo de qualidade em texto leg├¡vel
+// Função para converter código de qualidade em texto legível
 const getQualidadeLabel = (value?: string) => {
   const qualidadeMap: { [key: string]: string } = {
     '0': '0 - RUIM - MAIS DE 3 RETORNOS; ITENS INCOMPLETOS, SEM RETORNO',
-    '1': '1 - MEDIANO - NO M├üX 2 RETORNOS',
-    '2': '2 - BOM - NO M├üX 1 RETORNO; TODOS OS ITENS COMPLETOS',
-    '3': '3 - EXCELENTE - SEM NENHUMA CONSIDERA├ç├âO'
+    '1': '1 - MEDIANO - NO MÁX 2 RETORNOS',
+    '2': '2 - BOM - NO MÁX 1 RETORNO; TODOS OS ITENS COMPLETOS',
+    '3': '3 - EXCELENTE - SEM NENHUMA CONSIDERAÇÃO'
   }
   return value ? (qualidadeMap[value] || value) : '-'
 }
@@ -32,14 +32,14 @@ export default function ManutencaoDetailPage() {
   // Controle para sincronizar timeline apenas uma vez
   const timelineSyncedRef = useRef<Set<string>>(new Set())
   
-  // Estado para controlar se os dados mestres est├úo carregados
+  // Estado para controlar se os dados mestres estão carregados
   const [masterDataLoaded, setMasterDataLoaded] = useState(false)
   const [emailModalOpen, setEmailModalOpen] = useState(false)
 
-  // Carregar dados quando a p├ígina for acessada (apenas uma vez)
+  // Carregar dados quando a página for acessada (apenas uma vez)
   useEffect(() => {
     
-    // For├ºar carregamento de manuten├º├Áes se n├úo existirem
+    // Forçar carregamento de manutenções se não existirem
     if (items.length === 0) {
       syncFromApi?.()
     } else {
@@ -48,36 +48,36 @@ export default function ManutencaoDetailPage() {
       }
     }
     
-    // For├ºar carregamento de dados mestres se n├úo existirem
+    // Forçar carregamento de dados mestres se não existirem
     if (md.analistas.length === 0 || md.tiposCadastro.length === 0 || md.padrao.length === 0) {
       md.syncFromApi?.()
     }
   }, []) // Executar apenas uma vez quando o componente for montado
 
-  // Sincronizar timeline apenas uma vez quando a p├ígina carrega
+  // Sincronizar timeline apenas uma vez quando a página carrega
   useEffect(() => {
     if (id && syncTimeline && !timelineSyncedRef.current.has(id)) {
-      console.log('­ƒöä Sincronizando timeline da manuten├º├úo (primeira vez):', id)
+      console.log('🔄 Sincronizando timeline da manutenção (primeira vez):', id)
       timelineSyncedRef.current.add(id)
       syncTimeline(id)
     }
-  }, [id]) // Apenas quando ID muda, n├úo quando dados mudam
+  }, [id]) // Apenas quando ID muda, não quando dados mudam
 
-  // Tentar recarregar se a manuten├º├úo espec├¡fica n├úo for encontrada ap├│s o carregamento inicial
+  // Tentar recarregar se a manutenção específica não for encontrada após o carregamento inicial
   useEffect(() => {
     if (items.length > 0 && !d && id) {
       syncFromApi?.()
     }
   }, [items.length, d, id])
 
-  // For├ºar sincroniza├º├úo dos dados mestres quando a manuten├º├úo for encontrada
+  // Forçar sincronização dos dados mestres quando a manutenção for encontrada
   useEffect(() => {
     if (d && (md.tiposCadastro.length === 0 || md.padrao.length === 0)) {
       md.syncFromApi?.()
     }
   }, [d, md.tiposCadastro.length, md.padrao.length, md.clientes.length, md.contratos.length, md.syncFromApi])
 
-  // Verificar se os dados mestres est├úo carregados
+  // Verificar se os dados mestres estão carregados
   useEffect(() => {
     const isLoaded = md.tiposCadastro.length > 0 && md.padrao.length > 0 && md.clientes.length > 0
     setMasterDataLoaded(isLoaded)
@@ -120,12 +120,12 @@ export default function ManutencaoDetailPage() {
   if (!d) {
     return (
       <div className="p-6">
-        <h1 className="text-2xl font-bold mb-4">Manuten├º├úo n├úo encontrada</h1>
+        <h1 className="text-2xl font-bold mb-4">Manutenção não encontrada</h1>
         <p>ID: {id}</p>
-        <p>Total de manuten├º├Áes carregadas: {items.length}</p>
+        <p>Total de manutenções carregadas: {items.length}</p>
         <div className="mt-4 space-y-2">
           <p className="text-sm text-gray-600">
-            IDs dispon├¡veis: {items.slice(0, 3).map(item => item.id.substring(0, 8)).join(', ')}
+            IDs disponíveis: {items.slice(0, 3).map(item => item.id.substring(0, 8)).join(', ')}
             {items.length > 3 && '...'}
           </p>
           <button 
