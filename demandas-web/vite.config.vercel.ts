@@ -10,6 +10,10 @@ export default defineConfig({
     minify: 'esbuild',
     rollupOptions: {
       output: {
+        // Force new hash generation - v0.5.10
+        entryFileNames: `assets/[name]-[hash]-v0510.js`,
+        chunkFileNames: `assets/[name]-[hash]-v0510.js`,
+        assetFileNames: `assets/[name]-[hash]-v0510.[ext]`,
         manualChunks: {
           vendor: ['react', 'react-dom'],
           mui: ['@mui/material', '@mui/icons-material'],

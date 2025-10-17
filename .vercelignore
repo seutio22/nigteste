@@ -1,0 +1,6 @@
+# Force clean build - v0.5.10
+.vercel/cache
+node_modules
+dist
+.cache
+
