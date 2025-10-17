@@ -301,24 +301,34 @@ export default function DemandListPage() {
         try {
           const data = item.isCorrected ? item.correctedData : item.data
           
-          // Função para encontrar ID por nome
+          // Função para normalizar strings (remove acentos, espaços extras, converte para lowercase)
+          const normalizeString = (str: string) => {
+            if (!str) return ''
+            return String(str)
+              .toLowerCase()
+              .trim()
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '') // Remove acentos
+              .replace(/\s+/g, ' ') // Normaliza espaços
+          }
+
+          // Função para encontrar ID por nome (com normalização completa)
           const findIdByName = (name: string, items: any[], nameField: string = 'nome') => {
             if (!name) return ''
-            const item = items.find(item => 
-              item[nameField]?.toLowerCase() === name.toLowerCase() ||
-              item.nome?.toLowerCase() === name.toLowerCase()
-            )
-            console.log(`🔍 SMART IMPORT DEMANDAS: Buscando "${name}" em ${items.length} itens, encontrado:`, item?.id || 'não encontrado')
+            
+            const searchNormalized = normalizeString(String(name))
+            
+            // Buscar item com correspondência exata (normalizada)
+            const item = items.find(item => {
+              const itemNameNormalized = normalizeString(item[nameField] || item.nome || '')
+              return itemNameNormalized === searchNormalized
+            })
+            
+            console.log(`🔍 SMART IMPORT DEMANDAS: Buscando "${name}" (normalizado: "${searchNormalized}") em ${items.length} itens, encontrado:`, item ? `${item.nome || item[nameField]} (${item.id})` : 'não encontrado')
             return item?.id || ''
           }
 
           // Mapear dados para o formato de demanda
-          console.log('🔍 SMART IMPORT: Processando item:', {
-            tipoExcel: data.tipo,
-            tipoDemandaExcel: data.tipoDemanda,
-            tiposDemandaDisponiveis: md.tiposDemanda.map(t => ({ id: t.id, nome: t.nome }))
-          })
-          
           const demandaData = {
             // Campos obrigatórios
             status: data.status || 'Aberta',
