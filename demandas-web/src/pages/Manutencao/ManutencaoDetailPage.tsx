@@ -240,14 +240,14 @@ export default function ManutencaoDetailPage() {
             </div>
           </div>
 
-          {/* Edição da Manutenção */}
-          <div className="bg-white p-6 rounded-lg border shadow-sm">
+          {/* Edição da Manutenção - Temporariamente desabilitada para debug */}
+          {/* <div className="bg-white p-6 rounded-lg border shadow-sm">
             <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
               <Edit3 className="w-5 h-5 text-blue-600" />
               Editar Manutenção
             </h2>
             <EditInline d={d} />
-          </div>
+          </div> */}
 
           {/* Informações Adicionais */}
           <div className="bg-white p-6 rounded-lg border shadow-sm">
