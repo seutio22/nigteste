@@ -220,18 +220,25 @@ export default function DemandListPage() {
       
       let successCount = 0
       let errorCount = 0
+      let notFoundCount = 0
       
       for (const id of selectedIds) {
         try {
           await api.delete(`/demandas/${id}`)
           successCount++
-        } catch (error) {
-          console.error(`❌ Erro ao excluir demanda ${id}:`, error)
-          errorCount++
+        } catch (error: any) {
+          // Se for erro 404, significa que já foi excluído - ignorar
+          if (error?.message?.includes('404') || error?.response?.status === 404) {
+            console.log(`⚠️ Demanda ${id} já foi excluída (404) - removendo do cache local`)
+            notFoundCount++
+          } else {
+            console.error(`❌ Erro ao excluir demanda ${id}:`, error)
+            errorCount++
+          }
         }
       }
       
-      // Atualizar store local
+      // Atualizar store local (remover TODOS os IDs, incluindo os 404)
       demandStore.remove(selectedIds)
       
       // Limpar seleção
@@ -239,10 +246,15 @@ export default function DemandListPage() {
       setBulkDeleteDialogOpen(false)
       
       // Mostrar resultado
+      const totalProcessed = successCount + notFoundCount
       if (errorCount === 0) {
-        alert(`✅ ${successCount} demanda(s) excluída(s) com sucesso!`)
+        if (notFoundCount > 0) {
+          alert(`✅ ${totalProcessed} demanda(s) removida(s)!\n\n${successCount} excluídas do banco\n${notFoundCount} já haviam sido excluídas (cache limpo)`)
+        } else {
+          alert(`✅ ${successCount} demanda(s) excluída(s) com sucesso!`)
+        }
       } else {
-        alert(`⚠️ ${successCount} demanda(s) excluída(s), ${errorCount} erro(s)`)
+        alert(`⚠️ ${totalProcessed} demanda(s) removida(s), ${errorCount} erro(s)\n\n${successCount} excluídas\n${notFoundCount} já excluídas anteriormente`)
       }
       
       // Recarregar dados
