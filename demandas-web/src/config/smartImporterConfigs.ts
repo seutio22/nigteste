@@ -419,11 +419,12 @@ export const smartImporterConfigs: { [key: string]: SmartImporterConfig } = {
         type: 'required',
         message: 'Tipo de serviço é obrigatório'
       },
-      {
-        field: 'tipo',
-        type: 'required',
-        message: 'Tipo de demanda é obrigatório'
-      },
+      // REMOVIDO: Validação obrigatória de tipo de demanda
+      // {
+      //   field: 'tipo',
+      //   type: 'required',
+      //   message: 'Tipo de demanda é obrigatório'
+      // },
       {
         field: 'qualidade',
         type: 'custom',
@@ -473,13 +474,14 @@ export const smartImporterConfigs: { [key: string]: SmartImporterConfig } = {
         displayField: 'nome',
         valueField: 'id'
       },
-      {
-        field: 'tipo',
-        referenceType: 'tiposDemanda',
-        referenceStore: 'tiposDemanda',
-        displayField: 'nome',
-        valueField: 'id'
-      },
+      // REMOVIDO: Validação de tipo de demanda - aceitar qualquer nome do Excel
+      // {
+      //   field: 'tipo',
+      //   referenceType: 'tiposDemanda',
+      //   referenceStore: 'tiposDemanda',
+      //   displayField: 'nome',
+      //   valueField: 'id'
+      // },
       {
         field: 'analista',
         referenceType: 'analistas',
