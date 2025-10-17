@@ -31,10 +31,16 @@ export function usePermissions(module: keyof SystemPermissions) {
     const canCreate = checkPermission(userPermissions, module, 'create')
     const canEdit = checkPermission(userPermissions, module, 'edit')
     const canDelete = checkPermission(userPermissions, module, 'delete')
-    const canExport = checkPermission(userPermissions, module, 'export')
-    const canImport = checkPermission(userPermissions, module, 'import')
+    let canExport = checkPermission(userPermissions, module, 'export')
+    let canImport = checkPermission(userPermissions, module, 'import')
     const canApprove = checkPermission(userPermissions, module, 'approve')
     const canReject = checkPermission(userPermissions, module, 'reject')
+    
+    // OVERRIDE TEMPORÁRIO: Admin sempre tem import/export em reajuste e kanban
+    if (user.role === 'admin' && (module === 'reajuste' || module === 'kanban')) {
+      canExport = true
+      canImport = true
+    }
     
     // 🔍 LOG DE DEBUG: Mostrar permissões do usuário para o módulo
     console.log(`🔐 usePermissions(${module}):`)
