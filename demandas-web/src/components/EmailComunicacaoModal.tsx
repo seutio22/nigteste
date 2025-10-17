@@ -16,14 +16,23 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
   const [emailCompleto, setEmailCompleto] = useState('')
   const [copiado, setCopiado] = useState(false)
   const [copiadoEmail, setCopiadoEmail] = useState(false)
+  const [carregandoMailling, setCarregandoMailling] = useState(false)
   
   const md = useMasterDataStore()
   const maillingStore = useMaillingStore()
 
   // Carregar dados do Mailling quando o modal abrir
   useEffect(() => {
-    if (open && maillingStore.contacts.length === 0) {
-      maillingStore.syncFromApi?.()
+    if (open) {
+      console.log('🔄 Modal aberto, carregando dados do mailling...')
+      console.log('📊 Contatos atuais:', maillingStore.contacts.length)
+      
+      setCarregandoMailling(true)
+      
+      // Sempre tentar sincronizar quando o modal abrir
+      maillingStore.syncFromApi?.().finally(() => {
+        setCarregandoMailling(false)
+      })
     }
   }, [open])
 
@@ -277,25 +286,34 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
 
   // Filtrar contatos do Mailling baseado na manutenção
   useEffect(() => {
+    console.log('🔍 Filtrando contatos do mailling...')
+    console.log('📊 Manutenção:', manutencao)
+    console.log('📊 Contatos disponíveis:', maillingStore.contacts.length)
+    console.log('📊 Clientes disponíveis:', md.clientes.length)
+    
     if (manutencao && maillingStore.contacts.length > 0) {
       let contatosFiltrados = maillingStore.contacts
+      console.log('📊 Contatos antes do filtro:', contatosFiltrados.length)
 
       // Filtrar por área se disponível
       if (manutencao.areaId) {
         contatosFiltrados = contatosFiltrados.filter(contato => 
           contato.area === manutencao.areaId
         )
+        console.log('📊 Após filtro por área:', contatosFiltrados.length)
       }
 
       // Filtrar por grupos relacionados ao cliente
       if (manutencao.clienteId) {
         const cliente = md.clientes.find(c => c.id === manutencao.clienteId)
+        console.log('📊 Cliente encontrado:', cliente)
         if (cliente?.grupoEconomico) {
           contatosFiltrados = contatosFiltrados.filter(contato => 
             contato.grupos?.some((grupoId: string) => 
               md.grupos.find(g => g.id === grupoId)?.nome === cliente.grupoEconomico
             )
           )
+          console.log('📊 Após filtro por grupo:', contatosFiltrados.length)
         }
       }
 
@@ -305,7 +323,11 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
         .filter((email, index, self) => email && self.indexOf(email) === index)
         .slice(0, 20) // Limitar a 20 e-mails
 
+      console.log('📧 E-mails filtrados:', emails)
       setDestinatarios(emails)
+    } else if (manutencao && maillingStore.contacts.length === 0) {
+      console.log('⚠️ Nenhum contato de mailling disponível')
+      setDestinatarios([])
     }
   }, [manutencao, maillingStore.contacts, md.clientes, md.grupos])
 
@@ -470,13 +492,16 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
           </Box>
           
           <FormControl fullWidth>
-            <InputLabel sx={{ color: '#6b7280' }}>E-mails do Mailling</InputLabel>
+            <InputLabel sx={{ color: '#6b7280' }}>
+              {carregandoMailling ? 'Carregando e-mails...' : 'E-mails do Mailling'}
+            </InputLabel>
             <Select
               multiple
               value={emailsSelecionados}
               onChange={(e) => setEmailsSelecionados(e.target.value as string[])}
+              disabled={carregandoMailling}
               input={<OutlinedInput 
-                label="E-mails do Mailling" 
+                label={carregandoMailling ? 'Carregando e-mails...' : 'E-mails do Mailling'} 
                 sx={{ 
                   borderRadius: '12px',
                   '& .MuiOutlinedInput-notchedOutline': {
@@ -511,18 +536,27 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                 </Box>
               )}
             >
-              {destinatarios.map((email) => (
-                <MenuItem key={email} value={email} sx={{ borderRadius: '8px', mx: 1, my: 0.5 }}>
-                  <Checkbox 
-                    checked={emailsSelecionados.indexOf(email) > -1} 
-                    sx={{ 
-                      color: '#3b82f6',
-                      '&.Mui-checked': { color: '#1d4ed8' }
-                    }}
+              {destinatarios.length === 0 && !carregandoMailling ? (
+                <MenuItem disabled>
+                  <ListItemText 
+                    primary="Nenhum e-mail encontrado" 
+                    secondary="Verifique se há contatos cadastrados no mailling"
                   />
-                  <ListItemText primary={email} />
                 </MenuItem>
-              ))}
+              ) : (
+                destinatarios.map((email) => (
+                  <MenuItem key={email} value={email} sx={{ borderRadius: '8px', mx: 1, my: 0.5 }}>
+                    <Checkbox 
+                      checked={emailsSelecionados.indexOf(email) > -1} 
+                      sx={{ 
+                        color: '#3b82f6',
+                        '&.Mui-checked': { color: '#1d4ed8' }
+                      }}
+                    />
+                    <ListItemText primary={email} />
+                  </MenuItem>
+                ))
+              )}
             </Select>
           </FormControl>
           
