@@ -25,13 +25,33 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
   useEffect(() => {
     if (open) {
       console.log('🔄 Modal aberto, carregando dados do mailling...')
-      console.log('📊 Contatos atuais:', maillingStore.contacts.length)
+      console.log('📊 Contatos atuais no store:', maillingStore.contacts.length)
+      console.log('📊 Contatos no localStorage:', localStorage.getItem('mailling-v1') ? JSON.parse(localStorage.getItem('mailling-v1')!).length : 0)
       
       setCarregandoMailling(true)
       
-      // Sempre tentar sincronizar quando o modal abrir
-      maillingStore.syncFromApi?.().finally(() => {
-        setCarregandoMailling(false)
+      // Testar API diretamente primeiro
+      const testApi = async () => {
+        try {
+          console.log('🧪 Testando API diretamente...')
+          const { api } = await import('../lib/api')
+          const response = await api.get('/mailling')
+          console.log('🧪 Resposta da API:', response)
+          console.log('🧪 Quantidade de contatos da API:', response.length)
+        } catch (error) {
+          console.error('❌ Erro na API:', error)
+        }
+      }
+      
+      testApi().then(() => {
+        // Depois tentar sincronizar
+        maillingStore.syncFromApi?.().then(() => {
+          console.log('✅ SyncFromApi concluído, contatos agora:', maillingStore.contacts.length)
+          setCarregandoMailling(false)
+        }).catch((error) => {
+          console.error('❌ Erro no syncFromApi:', error)
+          setCarregandoMailling(false)
+        })
       })
     }
   }, [open])
@@ -439,12 +459,12 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                 </Box>
                 <Box>
                   <Typography variant="h6" sx={{ fontWeight: 600, color: '#1e293b' }}>
-                    Manutenção: {manutencao?.ticket || 'N/A'}
-                  </Typography>
+            Manutenção: {manutencao?.ticket || 'N/A'}
+          </Typography>
                   <Typography variant="body2" sx={{ color: '#64748b' }}>
-                    Cliente: {md.clientes.find(c => c.id === manutencao?.clienteId)?.nome || 'N/A'} | 
-                    Sistema: {md.sistemas.find(s => s.id === manutencao?.sistemaId)?.nome || 'N/A'}
-                  </Typography>
+            Cliente: {md.clientes.find(c => c.id === manutencao?.clienteId)?.nome || 'N/A'} | 
+            Sistema: {md.sistemas.find(s => s.id === manutencao?.sistemaId)?.nome || 'N/A'}
+          </Typography>
                 </Box>
               </Box>
             </CardContent>
@@ -468,8 +488,8 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                 <Users className="w-5 h-5 text-white" />
               </Box>
               <Typography variant="h6" sx={{ fontWeight: 600, color: '#1e293b' }}>
-                Destinatários ({emailsSelecionados.length} selecionados)
-              </Typography>
+              Destinatários ({emailsSelecionados.length} selecionados)
+            </Typography>
             </Box>
             <Button 
               size="small" 
@@ -560,7 +580,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
             </Select>
           </FormControl>
           
-          <Box className="mt-3">
+          <Box className="mt-3 flex gap-2">
             <Button
               startIcon={copiado ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
               onClick={handleCopyDestinatarios}
@@ -576,7 +596,60 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
             >
               {copiado ? 'Copiado!' : 'Copiar Destinatários'}
             </Button>
+            
+            {destinatarios.length === 0 && !carregandoMailling && (
+              <Button
+                onClick={() => {
+                  console.log('🔄 Forçando recarregamento do mailling...')
+                  setCarregandoMailling(true)
+                  maillingStore.syncFromApi?.().then(() => {
+                    console.log('✅ Recarregamento concluído, contatos:', maillingStore.contacts.length)
+                    setCarregandoMailling(false)
+                  }).catch((error) => {
+                    console.error('❌ Erro no recarregamento:', error)
+                    setCarregandoMailling(false)
+                  })
+                }}
+                variant="outlined"
+                size="small"
+                sx={{ 
+                  borderRadius: '8px',
+                  textTransform: 'none',
+                  fontWeight: 500,
+                  px: 3,
+                  borderColor: '#f59e0b',
+                  color: '#f59e0b',
+                  '&:hover': {
+                    borderColor: '#d97706',
+                    background: '#fef3c7'
+                  }
+                }}
+              >
+                🔄 Recarregar
+              </Button>
+            )}
           </Box>
+          
+          {/* Debug info */}
+          {process.env.NODE_ENV === 'development' && (
+            <Box sx={{ mt: 2, p: 2, background: '#f3f4f6', borderRadius: '8px', fontSize: '12px' }}>
+              <Typography variant="caption" display="block">
+                <strong>Debug Info:</strong>
+              </Typography>
+              <Typography variant="caption" display="block">
+                Contatos no store: {maillingStore.contacts.length}
+              </Typography>
+              <Typography variant="caption" display="block">
+                E-mails filtrados: {destinatarios.length}
+              </Typography>
+              <Typography variant="caption" display="block">
+                Manutenção área: {manutencao?.areaId || 'N/A'}
+              </Typography>
+              <Typography variant="caption" display="block">
+                Cliente: {manutencao?.clienteId || 'N/A'}
+              </Typography>
+            </Box>
+          )}
         </Box>
 
         {/* Preview do E-mail */}
@@ -596,7 +669,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
             </Box>
             <Typography variant="h6" sx={{ fontWeight: 600, color: '#1e293b' }}>
               Preview do E-mail
-            </Typography>
+          </Typography>
           </Box>
           
           <Paper 
