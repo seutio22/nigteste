@@ -5,7 +5,9 @@ import { useValidationStore } from '../../store/validationStore'
 import { useMasterDataStore } from '../../store/masterDataStore'
 import { useAuthStore } from '../../store/authStore'
 import { StatusBadge } from '../../components/StatusBadge'
-import { UploadModal } from '../../components/UploadModal'
+import { SmartImporter } from '../../components/SmartImporter'
+import { smartImporterConfigs } from '../../config/smartImporterConfigs'
+import type { ImportResult } from '../../types/smartImporter'
 import { useFilteredData } from '../../lib/utils'
 import { useEffect, useState } from 'react'
 import ExportDataModal from '../../components/ExportDataModal'
@@ -16,9 +18,9 @@ import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
 import DeleteIcon from '@mui/icons-material/Delete'
 import FileCopyIcon from '@mui/icons-material/FileCopy'
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf'
-import CloudUploadIcon from '@mui/icons-material/CloudUpload'
 import PersonIcon from '@mui/icons-material/Person'
 import GroupIcon from '@mui/icons-material/Group'
+import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
 
 function ActionCell({ id, status }: { id: string, status: string }) {
   const navigate = useNavigate()
@@ -310,9 +312,11 @@ export default function ValidationListPage() {
   
   const md = useMasterDataStore()
   const { user } = useAuthStore()
-  const { canCreate, canImport, canExport } = usePermissions('validacao')
-  const [uploadModalOpen, setUploadModalOpen] = useState(false)
+  const { canCreate, canImport, canExport, canDelete } = usePermissions('validacao')
+  const [smartImporterOpen, setSmartImporterOpen] = useState(false)
   const [exportModalOpen, setExportModalOpen] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false)
   
   const STORAGE_KEY = 'validations-list-view-v1'
   const FILTER_KEY = 'validations-user-filter-v1'
@@ -393,6 +397,156 @@ export default function ValidationListPage() {
     } catch {}
   }, [showOnlyMyValidations])
 
+  // Função de exclusão em massa
+  const handleBulkDelete = async () => {
+    try {
+      const { api } = await import('../../lib/api.local')
+      
+      console.log('🗑️ Iniciando exclusão em massa de', selectedIds.length, 'validações')
+      
+      let successCount = 0
+      let errorCount = 0
+      let notFoundCount = 0
+      
+      for (const id of selectedIds) {
+        try {
+          await api.delete(`/validacoes/${id}`)
+          successCount++
+        } catch (error: any) {
+          if (error?.message?.includes('404') || error?.response?.status === 404) {
+            console.log(`⚠️ Validação ${id} já foi excluída (404) - removendo do cache local`)
+            notFoundCount++
+          } else {
+            console.error(`❌ Erro ao excluir validação ${id}:`, error)
+            errorCount++
+          }
+        }
+      }
+      
+      // Atualizar store local
+      store.remove(selectedIds)
+      
+      // Limpar seleção
+      setSelectedIds([])
+      setBulkDeleteDialogOpen(false)
+      
+      // Mostrar resultado
+      const totalProcessed = successCount + notFoundCount
+      if (errorCount === 0) {
+        if (notFoundCount > 0) {
+          alert(`✅ ${totalProcessed} validação(ões) removida(s)!\n\n${successCount} excluídas do banco\n${notFoundCount} já haviam sido excluídas (cache limpo)`)
+        } else {
+          alert(`✅ ${successCount} validação(ões) excluída(s) com sucesso!`)
+        }
+      } else {
+        alert(`⚠️ ${totalProcessed} validação(ões) removida(s), ${errorCount} erro(s)\n\n${successCount} excluídas\n${notFoundCount} já excluídas anteriormente`)
+      }
+      
+      // Recarregar dados
+      store.syncFromApi()
+    } catch (error) {
+      console.error('❌ Erro na exclusão em massa:', error)
+      alert('Erro ao excluir validações')
+    }
+  }
+
+  // Função do Importador Inteligente
+  const handleSmartImport = async (result: ImportResult) => {
+    try {
+      const { api } = await import('../../lib/api.local')
+      let totalImported = 0
+      let totalSavedToDatabase = 0
+      const errors: string[] = []
+
+      console.log('🔍 SMART IMPORT VALIDAÇÕES: Processando resultado:', result)
+
+      // Função para converter número de série do Excel para DateTime ISO
+      const excelDateToISO = (value: any): string => {
+        if (!value) return ''
+        if (typeof value === 'string' && value.includes('-')) return value
+        if (typeof value === 'number' || !isNaN(Number(value))) {
+          const serialNumber = Number(value)
+          const excelEpoch = new Date(1900, 0, 1)
+          const days = serialNumber - 2
+          const date = new Date(excelEpoch.getTime() + days * 24 * 60 * 60 * 1000)
+          return date.toISOString()
+        }
+        return ''
+      }
+
+      // Processar itens válidos
+      for (const item of result.valid) {
+        try {
+          const data = item.isCorrected ? item.correctedData : item.data
+          
+          const normalizeString = (str: string) => {
+            if (!str) return ''
+            return String(str).toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ')
+          }
+
+          const findIdByName = (name: string, items: any[], nameField: string = 'nome') => {
+            if (!name) return ''
+            const searchNormalized = normalizeString(String(name))
+            const item = items.find(item => {
+              const itemNameNormalized = normalizeString(item[nameField] || item.nome || '')
+              return itemNameNormalized === searchNormalized
+            })
+            return item?.id || ''
+          }
+
+          const validacaoData = {
+            status: data.status || 'Em validação',
+            ticket: data.ticket ? String(data.ticket) : `VAL-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+            solicitante: data.solicitante || '',
+            analistaId: findIdByName(data.analista || data.analistaId, md.analistas) || '',
+            clienteId: findIdByName(data.cliente || data.clienteId, md.clientes) || '',
+            contratoId: findIdByName(data.contrato || data.contratoId, md.contratos, 'codigo') || '',
+            operadoraId: findIdByName(data.operadora || data.operadoraId, md.operadoras) || '',
+            dataInicio: excelDateToISO(data.dataInicio || data.dataInicial) || new Date().toISOString(),
+            dataFinal: excelDateToISO(data.dataFinal || data.dataFinalizacao),
+            descricao: data.descricao || '',
+            observacoes: data.observacoes || data.observacao || '',
+            total: data.total || 0
+          }
+
+          Object.keys(validacaoData).forEach(key => {
+            if (validacaoData[key] === '' || validacaoData[key] === null || validacaoData[key] === undefined) {
+              delete validacaoData[key]
+            }
+          })
+
+          const savedValidacao = await api.post('/validacoes', validacaoData)
+          totalImported++
+          totalSavedToDatabase++
+
+        } catch (error) {
+          console.error('❌ SMART IMPORT VALIDAÇÕES: Erro ao salvar validação:', error)
+          errors.push(`Erro ao salvar validação: ${error instanceof Error ? error.message : 'Erro desconhecido'}`)
+        }
+      }
+
+      if (totalSavedToDatabase > 0) {
+        await store.syncFromApi()
+      }
+
+      const successMessage = `${totalImported} validações processadas, ${totalSavedToDatabase} salvas no banco de dados`
+      console.log(`✅ SMART IMPORT VALIDAÇÕES: ${successMessage}`)
+
+      if (totalSavedToDatabase > 0) {
+        alert(`✅ ${successMessage}`)
+      }
+
+      if (errors.length > 0) {
+        console.warn('⚠️ SMART IMPORT VALIDAÇÕES: Alguns erros ocorreram:', errors)
+        alert(`⚠️ Alguns erros ocorreram:\n${errors.join('\n')}`)
+      }
+
+    } catch (error) {
+      console.error('❌ SMART IMPORT VALIDAÇÕES: Erro geral:', error)
+      alert('Erro ao importar validações')
+    }
+  }
+
   function persist(next: Partial<{ columnVisibilityModel: GridColumnVisibilityModel; sortModel: GridSortModel; filterModel: GridFilterModel; paginationModel: GridPaginationModel }>) {
     try {
       const current = {
@@ -404,16 +558,6 @@ export default function ValidationListPage() {
       const merged = { ...current, ...next }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(merged))
     } catch {}
-  }
-
-  const handleUpload = async (file: File) => {
-    // Simular processamento do upload
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    
-    // Aqui você implementaria a lógica real de processamento do arquivo
-    // Por exemplo, usando uma biblioteca como xlsx para ler o Excel
-    // Simular sucesso
-    return Promise.resolve()
   }
 
   const rows = finalFilteredItems.map((v) => {
@@ -509,13 +653,13 @@ export default function ValidationListPage() {
               </div>
             </div>
             <Stack direction="row" spacing={2}>
-              {canImport && (
+              {selectedIds.length > 0 && canDelete && (
                 <Button 
                   variant="outlined" 
-                  startIcon={<CloudUploadIcon />}
-                  onClick={() => setUploadModalOpen(true)}
+                  color="error"
+                  startIcon={<DeleteIcon />}
+                  onClick={() => setBulkDeleteDialogOpen(true)}
                   size="medium"
-                  className="text-primary-600 border-primary-300 hover:text-primary-700 hover:border-primary-400 hover:bg-primary-50 transition-all duration-300 font-medium"
                   sx={{
                     borderRadius: '14px',
                     padding: '10px 20px',
@@ -523,15 +667,42 @@ export default function ValidationListPage() {
                     fontWeight: 500,
                     fontSize: '0.9rem',
                     height: '44px',
-                    borderWidth: '2px',
+                    borderColor: '#ef4444',
+                    color: '#ef4444',
                     '&:hover': {
-                      borderWidth: '2px',
-                      transform: 'translateY(-2px)',
-                      boxShadow: '0 4px 12px 0 rgba(59, 130, 246, 0.15)'
+                      borderColor: '#dc2626',
+                      backgroundColor: '#fef2f2',
+                      color: '#dc2626'
                     }
                   }}
                 >
-                  Importar
+                  Excluir ({selectedIds.length})
+                </Button>
+              )}
+
+              {canImport && (
+                <Button 
+                  variant="contained" 
+                  startIcon={<AutoFixHighIcon />}
+                  onClick={() => setSmartImporterOpen(true)}
+                  size="medium"
+                  className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white transition-all duration-300 font-medium"
+                  sx={{
+                    borderRadius: '14px',
+                    padding: '10px 20px',
+                    textTransform: 'none',
+                    fontWeight: 500,
+                    fontSize: '0.9rem',
+                    height: '44px',
+                    background: 'linear-gradient(135deg, #9333ea 0%, #3b82f6 100%)',
+                    '&:hover': {
+                      background: 'linear-gradient(135deg, #7e22ce 0%, #2563eb 100%)',
+                      transform: 'translateY(-2px)',
+                      boxShadow: '0 8px 20px 0 rgba(147, 51, 234, 0.3)'
+                    }
+                  }}
+                >
+                  Importador Inteligente
                 </Button>
               )}
 
@@ -642,6 +813,11 @@ export default function ValidationListPage() {
           columns={columns}
           rows={rows}
           disableRowSelectionOnClick
+          checkboxSelection
+          onRowSelectionModelChange={(newSelection) => {
+            setSelectedIds(newSelection as string[])
+          }}
+          rowSelectionModel={selectedIds}
           onRowDoubleClick={(p) => navigate(`/validacao/${p.id}`)}
           slots={{ toolbar: GridToolbar }}
           slotProps={{ 
@@ -699,13 +875,45 @@ export default function ValidationListPage() {
         />
       </div>
 
-      <UploadModal
-        open={uploadModalOpen}
-        onClose={() => setUploadModalOpen(false)}
-        title="Importar Validações"
-        entityType="validacao"
-        onUpload={handleUpload}
+      {/* Smart Importer - Importador Inteligente */}
+      <SmartImporter
+        open={smartImporterOpen}
+        onClose={() => setSmartImporterOpen(false)}
+        onImport={handleSmartImport}
+        config={smartImporterConfigs.validacoes}
+        masterData={md}
       />
+
+      {/* Modal de confirmação de exclusão em massa */}
+      <Dialog
+        open={bulkDeleteDialogOpen}
+        onClose={() => setBulkDeleteDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Confirmar Exclusão em Massa</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Tem certeza que deseja excluir <strong>{selectedIds.length}</strong> validação(ões) selecionada(s)?
+          </Typography>
+          <Typography variant="body2" color="error" sx={{ mt: 2 }}>
+            ⚠️ Esta ação não pode ser desfeita!
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setBulkDeleteDialogOpen(false)}>
+            Cancelar
+          </Button>
+          <Button 
+            onClick={handleBulkDelete} 
+            color="error" 
+            variant="contained"
+            startIcon={<DeleteIcon />}
+          >
+            Excluir
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Modal de Exportação */}
       <ExportDataModal

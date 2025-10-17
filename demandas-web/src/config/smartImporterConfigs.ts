@@ -667,5 +667,116 @@ export const smartImporterConfigs: { [key: string]: SmartImporterConfig } = {
         valueField: 'id'
       }
     ]
+  },
+
+  validacoes: {
+    entityType: 'Validações',
+    requiredFields: ['status', 'analista', 'dataInicio', 'tipo'],
+    optionalFields: [
+      'ticket', 'solicitante', 'demanda', 'descricao', 'total', 'dataFinal',
+      'cliente', 'contrato', 'operadora', 'produto', 'vigencia',
+      'qtdRetornos', 'qualidade', 'estruturaEdge', 'estruturaMove', 'formalizacao',
+      'itensPendentes', 'itensConcluidos'
+    ],
+    duplicateCheckFields: [],
+    validationRules: [
+      {
+        field: 'status',
+        type: 'required',
+        message: 'Status é obrigatório'
+      },
+      {
+        field: 'analista',
+        type: 'required',
+        message: 'Analista é obrigatório'
+      },
+      {
+        field: 'dataInicio',
+        type: 'required',
+        message: 'Data de início é obrigatória'
+      },
+      {
+        field: 'tipo',
+        type: 'required',
+        message: 'Tipo é obrigatório'
+      },
+      {
+        field: 'dataInicio',
+        type: 'date',
+        message: 'Data de início deve ser uma data válida'
+      },
+      {
+        field: 'dataFinal',
+        type: 'date',
+        message: 'Data final deve ser uma data válida'
+      },
+      {
+        field: 'total',
+        type: 'number',
+        message: 'Total deve ser um número positivo',
+        options: { min: 0 }
+      },
+      {
+        field: 'qtdRetornos',
+        type: 'number',
+        message: 'Quantidade de retornos deve ser um número positivo',
+        options: { min: 0 }
+      },
+      {
+        field: 'qualidade',
+        type: 'custom',
+        message: 'Qualidade deve ser: 0, 1, 2 ou 3',
+        validator: (value) => !value || ['0', '1', '2', '3'].includes(String(value))
+      },
+      {
+        field: 'itensPendentes',
+        type: 'number',
+        message: 'Itens pendentes deve ser um número positivo',
+        options: { min: 0 }
+      },
+      {
+        field: 'itensConcluidos',
+        type: 'number',
+        message: 'Itens concluídos deve ser um número positivo',
+        options: { min: 0 }
+      }
+    ],
+    referenceFields: [
+      {
+        field: 'analista',
+        referenceType: 'analistas',
+        referenceStore: 'analistas',
+        displayField: 'nome',
+        valueField: 'id'
+      },
+      {
+        field: 'cliente',
+        referenceType: 'clientes',
+        referenceStore: 'clientes',
+        displayField: 'nome',
+        valueField: 'id'
+      },
+      {
+        field: 'contrato',
+        referenceType: 'contratos',
+        referenceStore: 'contratos',
+        displayField: 'codigo',
+        valueField: 'id'
+      },
+      {
+        field: 'operadora',
+        referenceType: 'operadoras',
+        referenceStore: 'operadoras',
+        displayField: 'nome',
+        valueField: 'id'
+      },
+      {
+        field: 'produto',
+        referenceType: 'produtos',
+        referenceStore: 'produtos',
+        displayField: 'nome',
+        valueField: 'id'
+      }
+    ]
   }
 }
