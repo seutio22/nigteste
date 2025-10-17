@@ -1056,6 +1056,62 @@ app.post('/setup-dados-teste', async (request, reply) => {
   }
 })
 
+// Endpoint temporário para atualizar permissões de reajuste
+app.post('/fix-permissions-reajuste', async (request, reply) => {
+  try {
+    console.log('🔧 Atualizando permissões de reajuste para todos os usuários...')
+    
+    const users = await prisma.user.findMany()
+    
+    for (const user of users) {
+      let permissions = {}
+      try {
+        permissions = user.permissions ? JSON.parse(user.permissions) : {}
+      } catch (error) {
+        console.log(`⚠️ Erro ao parsear permissões de ${user.name}`)
+      }
+
+      if (user.role === 'admin' || user.role === 'gerente') {
+        permissions.reajuste = {
+          ...permissions.reajuste,
+          view: true,
+          create: true,
+          edit: true,
+          delete: true,
+          export: true,
+          import: true,
+          approve: true,
+          reject: true
+        }
+      } else if (user.role === 'analista') {
+        permissions.reajuste = {
+          ...permissions.reajuste,
+          view: true,
+          create: true,
+          edit: true,
+          delete: false,
+          export: true,
+          import: true,
+          approve: false,
+          reject: false
+        }
+      }
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { permissions: JSON.stringify(permissions) }
+      })
+
+      console.log(`✅ ${user.name}: reajuste.import = ${permissions.reajuste?.import}`)
+    }
+
+    return reply.send({ success: true, message: 'Permissões atualizadas', usersUpdated: users.length })
+  } catch (error) {
+    console.error('❌ Erro:', error)
+    return reply.code(500).send({ error: 'Erro ao atualizar permissões' })
+  }
+})
+
 // Endpoint para obter dados do usuário atual (com autenticação)
 app.get('/usuario-edicao/me', async (request, reply) => {
   try {
