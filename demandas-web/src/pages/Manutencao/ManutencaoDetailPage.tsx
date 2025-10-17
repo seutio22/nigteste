@@ -808,7 +808,7 @@ function EditInline({ d }: { d: any }) {
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Confirmar alterações</h3>
             <p className="text-gray-600 mb-6">
-              Aplicar {changedKeys.length} altera├º├úo(├Áes) nesta manuten├º├úo?
+              Aplicar {changedKeys.length} alteração(ões) nesta manutenção?
             </p>
             <div className="flex gap-3 justify-end">
               <button
