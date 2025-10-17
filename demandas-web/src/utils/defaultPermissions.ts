@@ -95,7 +95,7 @@ export const DEFAULT_PERMISSIONS: Record<string, SystemPermissions> = {
     kanban: fullPermission,
     projetos: fullPermission,
     dados: fullPermission,
-    usuarios: readOnlyPermission,
+    usuarios: noPermission, // ❌ CORRIGIDO: Gerentes não devem ter acesso a usuários
     configuracoes: readOnlyPermission,
     relatorios: fullPermission
   },
