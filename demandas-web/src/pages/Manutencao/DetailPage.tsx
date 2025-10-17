@@ -37,6 +37,7 @@ export default function ManutencaoDetailPage() {
   
   // Estado para o modal de e-mail
   const [emailModalOpen, setEmailModalOpen] = useState(false)
+  // Force rebuild: 2025-01-17 12:25:00
 
   // Carregar dados quando a página for acessada (apenas uma vez)
   useEffect(() => {
