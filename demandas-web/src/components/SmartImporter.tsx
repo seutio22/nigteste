@@ -189,19 +189,41 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
               } else if (cleanHeader === 'posicaoemail' || cleanHeader === 'posiçãoemail') {
                 item.posicaoEmail = value
               } else if (cleanHeader === 'cancelamento') {
-                item.cancelamento = value
+                // Normalizar valores sim/não
+                const normalizedValue = String(value || '').toLowerCase().trim()
+                const resultado = (normalizedValue === 'sim' || normalizedValue === 's' || normalizedValue === 'yes' || normalizedValue === 'y' || normalizedValue === '1' || normalizedValue === 'true') ? 'sim' : 'nao'
+                console.log(`🔍 NORMALIZAÇÃO: Cancelamento "${value}" -> "${normalizedValue}" -> "${resultado}"`)
+                item.cancelamento = resultado
               } else if (cleanHeader === 'alteracaocontratual' || cleanHeader === 'alteraçãocontratual') {
-                item.alteracaoContratual = value
+                const normalizedValue = String(value || '').toLowerCase().trim()
+                const resultado = (normalizedValue === 'sim' || normalizedValue === 's' || normalizedValue === 'yes' || normalizedValue === 'y' || normalizedValue === '1' || normalizedValue === 'true') ? 'sim' : 'nao'
+                console.log(`🔍 NORMALIZAÇÃO: Alteração Contratual "${value}" -> "${resultado}"`)
+                item.alteracaoContratual = resultado
               } else if (cleanHeader === 'alteracaodadoscliente' || cleanHeader === 'alteraçãodadoscliente') {
-                item.alteracaoDadosCliente = value
+                const normalizedValue = String(value || '').toLowerCase().trim()
+                const resultado = (normalizedValue === 'sim' || normalizedValue === 's' || normalizedValue === 'yes' || normalizedValue === 'y' || normalizedValue === '1' || normalizedValue === 'true') ? 'sim' : 'nao'
+                console.log(`🔍 NORMALIZAÇÃO: Alteração Dados Cliente "${value}" -> "${resultado}"`)
+                item.alteracaoDadosCliente = resultado
               } else if (cleanHeader === 'alteracaoservicos' || cleanHeader === 'alteraçõeserviços') {
-                item.alteracaoServicos = value
+                const normalizedValue = String(value || '').toLowerCase().trim()
+                const resultado = (normalizedValue === 'sim' || normalizedValue === 's' || normalizedValue === 'yes' || normalizedValue === 'y' || normalizedValue === '1' || normalizedValue === 'true') ? 'sim' : 'nao'
+                console.log(`🔍 NORMALIZAÇÃO: Alteração Serviços "${value}" -> "${resultado}"`)
+                item.alteracaoServicos = resultado
               } else if (cleanHeader === 'alteracaoremuneracao' || cleanHeader === 'alteraçãoremuneração') {
-                item.alteracaoRemuneracao = value
+                const normalizedValue = String(value || '').toLowerCase().trim()
+                const resultado = (normalizedValue === 'sim' || normalizedValue === 's' || normalizedValue === 'yes' || normalizedValue === 'y' || normalizedValue === '1' || normalizedValue === 'true') ? 'sim' : 'nao'
+                console.log(`🔍 NORMALIZAÇÃO: Alteração Remuneração "${value}" -> "${resultado}"`)
+                item.alteracaoRemuneracao = resultado
               } else if (cleanHeader === 'curadoriaportalrh') {
-                item.curadoriaPortalRh = value
+                const normalizedValue = String(value || '').toLowerCase().trim()
+                const resultado = (normalizedValue === 'sim' || normalizedValue === 's' || normalizedValue === 'yes' || normalizedValue === 'y' || normalizedValue === '1' || normalizedValue === 'true') ? 'sim' : 'nao'
+                console.log(`🔍 NORMALIZAÇÃO: Curadoria Portal RH "${value}" -> "${resultado}"`)
+                item.curadoriaPortalRh = resultado
               } else if (cleanHeader === 'documentacaocontratual' || cleanHeader === 'documentaçãocontratual') {
-                item.documentacaoContratual = value
+                const normalizedValue = String(value || '').toLowerCase().trim()
+                const resultado = (normalizedValue === 'sim' || normalizedValue === 's' || normalizedValue === 'yes' || normalizedValue === 'y' || normalizedValue === '1' || normalizedValue === 'true') ? 'sim' : 'nao'
+                console.log(`🔍 NORMALIZAÇÃO: Documentação Contratual "${value}" -> "${resultado}"`)
+                item.documentacaoContratual = resultado
               }
             } else if (config.entityType.toLowerCase().includes('demanda')) {
               // Mapeamento específico para demandas

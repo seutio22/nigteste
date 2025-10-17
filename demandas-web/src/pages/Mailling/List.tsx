@@ -162,19 +162,75 @@ export default function MaillingListPage() {
     try {
       console.log('📊 SmartImporter: Resultado recebido:', result)
       
+      // Função auxiliar para converter nome em ID
+      const findIdByName = (nome: string, lista: any[]): string => {
+        if (!nome || !lista) return ''
+        
+        // Normalizar para comparação (lowercase, trim, remover acentos)
+        const normalizedNome = nome.toString().toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        
+        const encontrado = lista.find(item => {
+          const nomeItem = item.nome?.toString().toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+          const idItem = item.id?.toString().toLowerCase().trim()
+          
+          // Comparar tanto pelo nome quanto pelo ID
+          return nomeItem === normalizedNome || idItem === normalizedNome
+        })
+        
+        if (encontrado) {
+          console.log(`✅ Mapeamento: "${nome}" -> ID: "${encontrado.id}"`)
+          return encontrado.id
+        }
+        
+        console.warn(`⚠️ Não encontrado ID para: "${nome}" na lista de ${lista.length} itens`)
+        return ''
+      }
+      
+      // Função auxiliar para converter array de nomes em array de IDs
+      const findIdsByNames = (nomes: string | string[], lista: any[]): string[] => {
+        if (!nomes || !lista) return []
+        
+        // Se vier como string (ex: "São Paulo, Rio de Janeiro"), separar por vírgula
+        const nomesArray = Array.isArray(nomes) 
+          ? nomes 
+          : nomes.toString().split(',').map(n => n.trim())
+        
+        const ids = nomesArray
+          .map(nome => findIdByName(nome, lista))
+          .filter(id => id !== '') // Remover IDs vazios
+        
+        console.log(`✅ Mapeamento múltiplo: [${nomesArray.join(', ')}] -> [${ids.join(', ')}]`)
+        return ids
+      }
+      
       // Processar itens válidos
       for (const item of result.valid) {
         const contactData = item.isCorrected ? item.correctedData : item.data
         
+        console.log('🔍 Processando contato:', contactData)
+        
+        // Converter nomes para IDs usando os dados mestres
+        const cargoId = findIdByName(contactData.cargo || '', masterDataStore.cargosMailling || [])
+        const areaId = findIdByName(contactData.area || '', masterDataStore.areasMailling || [])
+        const filiaisIds = findIdsByNames(contactData.filiais || [], masterDataStore.filiaisMailling || [])
+        const gruposIds = findIdsByNames(contactData.grupos || [], masterDataStore.grupos || [])
+        
+        console.log('📝 Dados convertidos:', {
+          cargo: `"${contactData.cargo}" -> "${cargoId}"`,
+          area: `"${contactData.area}" -> "${areaId}"`,
+          filiais: `[${Array.isArray(contactData.filiais) ? contactData.filiais.join(', ') : contactData.filiais}] -> [${filiaisIds.join(', ')}]`,
+          grupos: `[${Array.isArray(contactData.grupos) ? contactData.grupos.join(', ') : contactData.grupos}] -> [${gruposIds.join(', ')}]`
+        })
+        
         await maillingStore.add({
           nome: contactData.nome || '',
           email: contactData.email || '',
-          cargo: contactData.cargo || '',
-          area: contactData.area || '',
-          filiais: contactData.filiais || [],
+          cargo: cargoId,
+          area: areaId,
+          filiais: filiaisIds,
           superior: contactData.superior || '',
           posicaoEmail: contactData.posicaoEmail || 'PARA',
-          grupos: contactData.grupos || [],
+          grupos: gruposIds,
           cancelamento: contactData.cancelamento || 'nao',
           alteracaoContratual: contactData.alteracaoContratual || 'nao',
           alteracaoDadosCliente: contactData.alteracaoDadosCliente || 'nao',
