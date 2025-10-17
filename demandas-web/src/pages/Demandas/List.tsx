@@ -318,8 +318,8 @@ export default function DemandListPage() {
             status: data.status || 'Aberta',
             // CORRIGIDO: Buscar tipoServico por nome no Excel
             tipoServicoId: findIdByName(data.tipoServico || data.tipoServicoId, md.tiposServico) || '',
-            // CORRIGIDO: Aceitar tipo de demanda diretamente do Excel (sem validação estrita)
-            tipo: data.tipo || data.tipoDemanda || '',
+            // CORRIGIDO: Buscar tipoId (ID do tipo de demanda) ou aceitar nome diretamente
+            tipoId: findIdByName(data.tipo || data.tipoDemanda, md.tiposDemanda) || '',
             
             // Campos opcionais
             descricao: data.descricao || data.descricaoDemanda || '',
