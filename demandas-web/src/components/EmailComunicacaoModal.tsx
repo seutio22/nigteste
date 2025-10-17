@@ -198,10 +198,19 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
             color: #064e3b;
             font-weight: 500;
         }
-        .description-cell {
-            font-style: italic;
-            color: #4a5568;
-            line-height: 1.5;
+        .description-section {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 25px 0;
+        }
+        .description-content {
+            background: white;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            padding: 15px;
+            min-height: 60px;
         }
         .conclusion {
             background: #f0fff4;
@@ -275,7 +284,6 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                             <th>Atualização</th>
                             <th>Subtipo</th>
                             <th>Tipo</th>
-                            <th>Descrição</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -286,10 +294,16 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                             <td class="update-cell">${tipoServico?.nome || 'N/A'}</td>
                             <td class="subtype-cell">${tipo?.nome || 'N/A'}</td>
                             <td class="type-cell">${sistema?.nome || 'N/A'}</td>
-                            <td class="description-cell">${descricaoEditavel || manutencao.descricao || 'Alteração realizada'}</td>
                         </tr>
                     </tbody>
                 </table>
+            </div>
+            
+            <div class="description-section">
+                <h3 style="margin: 0 0 15px 0; color: #2d3748; font-size: 16px; font-weight: 600;">📝 Descrição da Alteração</h3>
+                <div class="description-content">
+                    <p style="margin: 0; line-height: 1.6; color: #4a5568; font-size: 14px; white-space: pre-wrap;">${descricaoEditavel || manutencao.descricao || 'Alteração realizada'}</p>
+                </div>
             </div>
             
             <div class="conclusion">
@@ -317,11 +331,14 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
 
 Informamos que o contrato abaixo referente ao cliente ${cliente?.nome || 'N/A'} sofreu alteração, sendo:
 
-┌─────────┬─────────────────┬─────────┬─────────────┬─────────────┬─────────────┬─────────────────────────────────────┐
-│Contrato │   Operadora     │ Produto │ Atualização │   Subtipo   │    Tipo     │           Descrição                  │
-├─────────┼─────────────────┼─────────┼─────────────┼─────────────┼─────────────┼─────────────────────────────────────┤
-│${(contrato?.codigo || contrato?.numero || manutencao.ticket || 'N/A').toString().padEnd(9)}│${(operadora?.nome || 'N/A').padEnd(17)}│${(produto?.nome || 'N/A').padEnd(9)}│${(tipoServico?.nome || 'N/A').padEnd(13)}│${(tipo?.nome || 'N/A').padEnd(13)}│${(sistema?.nome || 'N/A').padEnd(13)}│${(descricaoEditavel || manutencao.descricao || 'Alteração realizada').padEnd(37)}│
-└─────────┴─────────────────┴─────────┴─────────────┴─────────────┴─────────────┴─────────────────────────────────────┘
+┌─────────┬─────────────────┬─────────┬─────────────┬─────────────┬─────────────┐
+│Contrato │   Operadora     │ Produto │ Atualização │   Subtipo   │    Tipo     │
+├─────────┼─────────────────┼─────────┼─────────────┼─────────────┼─────────────┤
+│${(contrato?.codigo || contrato?.numero || manutencao.ticket || 'N/A').toString().padEnd(9)}│${(operadora?.nome || 'N/A').padEnd(17)}│${(produto?.nome || 'N/A').padEnd(9)}│${(tipoServico?.nome || 'N/A').padEnd(13)}│${(tipo?.nome || 'N/A').padEnd(13)}│${(sistema?.nome || 'N/A').padEnd(13)}│
+└─────────┴─────────────────┴─────────┴─────────────┴─────────────┴─────────────┘
+
+📝 DESCRIÇÃO DA ALTERAÇÃO:
+${descricaoEditavel || manutencao.descricao || 'Alteração realizada'}
 
 O Edge e Move encontram-se atualizados. Solicitamos replicar esta informação com a sua equipe.
 
