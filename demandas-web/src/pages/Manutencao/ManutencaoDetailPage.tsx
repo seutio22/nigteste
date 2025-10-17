@@ -5,7 +5,7 @@ import { useAuthStore } from '../../store/authStore'
 import { api } from '../../lib/api.local'
 import { StatusBadge } from '../../components/StatusBadge'
 import { Timeline } from '../../components/Timeline'
-// import { EmailComunicacaoModal } from '../../components/EmailComunicacaoModal' // Temporariamente desabilitado
+import { EmailComunicacaoModal } from '../../components/EmailComunicacaoModal'
 import { fmt } from '../../lib/utils'
 import { useState, useEffect, useRef } from 'react'
 import { Save, Edit3, Clock, ArrowLeft, Mail } from 'lucide-react'
@@ -34,6 +34,7 @@ export default function ManutencaoDetailPage() {
   
   // Estado para controlar se os dados mestres estão carregados
   const [masterDataLoaded, setMasterDataLoaded] = useState(false)
+  const [emailModalOpen, setEmailModalOpen] = useState(false)
 
   // Carregar dados quando a página for acessada (apenas uma vez)
   useEffect(() => {
@@ -166,10 +167,7 @@ export default function ManutencaoDetailPage() {
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={() => {
-              alert('Funcionalidade de e-mail - Versão 0.5.11 deployada com sucesso!')
-              console.log('✅ NOVO CÓDIGO CARREGADO - v0.5.11')
-            }}
+            onClick={() => setEmailModalOpen(true)}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             title="Comunicar alteração por e-mail"
           >
@@ -824,6 +822,14 @@ function EditInline({ d }: { d: any }) {
         </div>
       )}
 
+      {/* Modal de E-mail */}
+      {emailModalOpen && (
+        <EmailComunicacaoModal
+          open={emailModalOpen}
+          onClose={() => setEmailModalOpen(false)}
+          manutencao={d}
+        />
+      )}
     </div>
   )
 }
