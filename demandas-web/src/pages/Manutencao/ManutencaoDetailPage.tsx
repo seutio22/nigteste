@@ -647,7 +647,7 @@ function EditInline({ d }: { d: any }) {
           value={label(draft.analistaId, md.analistas)}
           readOnly
           className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
-          placeholder="Definido na cria├º├úo"
+          placeholder="Definido na criação"
         />
         <p className="text-xs text-gray-500 mt-1">
           ⚠️ O analista responsável é definido na criação e não pode ser alterado
@@ -806,7 +806,7 @@ function EditInline({ d }: { d: any }) {
       {confirmOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Confirmar altera├º├Áes</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Confirmar alterações</h3>
             <p className="text-gray-600 mb-6">
               Aplicar {changedKeys.length} altera├º├úo(├Áes) nesta manuten├º├úo?
             </p>
