@@ -291,7 +291,7 @@ export default function DemandDetailPage() {
               </div>
               <div>
                 <p className="text-sm text-gray-500">Solicitante</p>
-                <p className="font-medium">{label(d.solicitante, md.solicitantes)}</p>
+                <p className="font-medium">{d.solicitante || '-'}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-500">Tipo de Demanda</p>
@@ -553,13 +553,15 @@ function EditInline({ d }: { d: Demand }) {
             case 'analistaId':
               return md.analistas.find(a => a.id === id)?.nome || id
             case 'solicitante':
-              return md.solicitantes.find(s => s.id === id)?.nome || id
+              // Solicitante é um nome direto, não um ID
+              return id
             default:
               return id
           }
         }
         
         // Converter valores para string legível (IDs para nomes)
+        // NOTA: 'solicitante' não é ID, mas está aqui para manter compatibilidade com convertIdToName (retorna o próprio valor)
         const fieldsWithIdConversion = ['clienteId', 'contratoId', 'operadoraId', 'produtoId', 'sistemaId', 'areaId', 'tipoId', 'tipoServicoId', 'analistaId', 'solicitante']
         
         const from = fieldsWithIdConversion.includes(k) 
@@ -844,7 +846,7 @@ function EditInline({ d }: { d: Demand }) {
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="">Selecione...</option>
-            {md.solicitantes.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
+            {md.solicitantes.map(s => <option key={s.id} value={s.nome}>{s.nome}</option>)}
           </select>
         </div>
       </div>
