@@ -16,7 +16,8 @@ import { trackUserActivity, trackSessionStart, trackSessionEnd } from './middlew
 
 const app = Fastify({ 
   logger: true,
-  bodyLimit: 50 * 1024 * 1024 // 50MB
+  bodyLimit: 50 * 1024 * 1024, // 50MB
+  charset: 'utf-8' // Forçar encoding UTF-8
 })
 const prisma = new PrismaClient()
 
@@ -34,6 +35,20 @@ const corsOptions = {
   preflightContinue: false,
   optionsSuccessStatus: 204
 }
+
+// Middleware para forçar UTF-8 em todas as respostas
+app.addHook('onSend', async (request, reply, payload) => {
+  // Forçar charset UTF-8 em todas as respostas JSON
+  if (reply.getHeader('content-type')?.toString().includes('application/json')) {
+    reply.header('Content-Type', 'application/json; charset=utf-8')
+  }
+  return payload
+})
+
+// Hook para configurar headers de encoding em todas as respostas
+app.addHook('onRequest', async (request, reply) => {
+  reply.header('Content-Type', 'application/json; charset=utf-8')
+})
 
 
 

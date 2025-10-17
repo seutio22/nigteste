@@ -5,6 +5,8 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  // Forçar encoding UTF-8
+  relationMode = "prisma"
 }
 
 model Area {
