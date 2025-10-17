@@ -272,6 +272,7 @@ export default function ManutencaoListPage() {
             // Campos obrigatórios
             status: data.status || 'Aberta',
             tipoServicoId: findIdByName(data.tipoServico || data.tipoServicoId, md.tiposServico) || '',
+            tipoId: findIdByName(data.tipo || data.tipoId, md.tiposCadastro) || '',
             
             // Campos opcionais
             descricao: data.descricao || '',
@@ -286,9 +287,11 @@ export default function ManutencaoListPage() {
             operadoraId: findIdByName(data.operadora || data.operadoraId, md.operadoras) || '',
             produtoId: findIdByName(data.produto || data.produtoId, md.produtos) || '',
             sistemaId: findIdByName(data.sistema || data.sistemaId, md.sistemas) || '',
-            tipo: data.tipo || '',
             observacoes: data.observacoes || data.observacao || '',
-            prioridade: data.prioridade || 'Media'
+            qtdRetornos: data.qtdRetornos || data.quantidadeRetornos || 0,
+            qualidade: data.qualidade ? String(data.qualidade) : null,
+            qtdClientesVinculados: data.qtdClientesVinculados || data.clientesVinculados || 0,
+            usuariosEmpresa: data.usuariosEmpresa || data.usuarios || 0
           }
 
           // Remover campos vazios para evitar problemas com o Prisma

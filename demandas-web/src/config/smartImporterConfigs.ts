@@ -544,11 +544,11 @@ export const smartImporterConfigs: { [key: string]: SmartImporterConfig } = {
 
   manutencoes: {
     entityType: 'Manutenções',
-    requiredFields: ['status', 'tipoServico'],
+    requiredFields: ['status', 'tipoServico', 'tipo'],
     optionalFields: [
       'descricao', 'analista', 'dataInicio', 'dataFinal', 'ticket', 'solicitante', 
-      'area', 'cliente', 'contrato', 'operadora', 'produto', 'sistema', 'tipo',
-      'observacoes', 'prioridade'
+      'area', 'cliente', 'contrato', 'operadora', 'produto', 'sistema',
+      'observacoes', 'qtdRetornos', 'qualidade', 'qtdClientesVinculados', 'usuariosEmpresa'
     ],
     duplicateCheckFields: [],
     validationRules: [
@@ -563,6 +563,11 @@ export const smartImporterConfigs: { [key: string]: SmartImporterConfig } = {
         message: 'Tipo de serviço é obrigatório'
       },
       {
+        field: 'tipo',
+        type: 'required',
+        message: 'Tipo de manutenção é obrigatório'
+      },
+      {
         field: 'dataInicio',
         type: 'date',
         message: 'Data de início deve ser uma data válida'
@@ -571,6 +576,30 @@ export const smartImporterConfigs: { [key: string]: SmartImporterConfig } = {
         field: 'dataFinal',
         type: 'date',
         message: 'Data de finalização deve ser uma data válida'
+      },
+      {
+        field: 'qtdRetornos',
+        type: 'number',
+        message: 'Quantidade de retornos deve ser um número positivo',
+        options: { min: 0 }
+      },
+      {
+        field: 'qtdClientesVinculados',
+        type: 'number',
+        message: 'Quantidade de clientes vinculados deve ser um número positivo',
+        options: { min: 0 }
+      },
+      {
+        field: 'usuariosEmpresa',
+        type: 'number',
+        message: 'Usuários da empresa deve ser um número positivo',
+        options: { min: 0 }
+      },
+      {
+        field: 'qualidade',
+        type: 'custom',
+        message: 'Qualidade deve ser: 0, 1, 2 ou 3',
+        validator: (value) => !value || ['0', '1', '2', '3'].includes(String(value))
       }
     ],
     referenceFields: [
@@ -578,6 +607,13 @@ export const smartImporterConfigs: { [key: string]: SmartImporterConfig } = {
         field: 'tipoServico',
         referenceType: 'tiposServico',
         referenceStore: 'tiposServico',
+        displayField: 'nome',
+        valueField: 'id'
+      },
+      {
+        field: 'tipo',
+        referenceType: 'tiposCadastro',
+        referenceStore: 'tiposCadastro',
         displayField: 'nome',
         valueField: 'id'
       },
