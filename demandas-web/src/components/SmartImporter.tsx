@@ -776,10 +776,13 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
               variant="contained"
               color="success"
               onClick={() => {
-                // Importar apenas itens válidos
+                // Importar apenas itens válidos (ignorar inválidos e duplicatas)
                 const validOnlyResult: ImportResult = {
                   ...importResult,
-                  items: importResult.items.filter(item => item.status === 'valid')
+                  invalid: [],
+                  duplicates: [],
+                  invalidCount: 0,
+                  duplicateCount: 0
                 }
                 onImport(validOnlyResult)
                 onClose()
