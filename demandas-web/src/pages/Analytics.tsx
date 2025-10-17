@@ -48,6 +48,7 @@ const columns: GridColDef[] = [
 ]
 
 export default function AnalyticsPage() {
+  // FORÇAR DEPLOY - Exclusão em massa + Importador Inteligente - v1.0
   const navigate = useNavigate()
   const reportStore = useReportStore()
   const items = useReportStore(state => state.items)

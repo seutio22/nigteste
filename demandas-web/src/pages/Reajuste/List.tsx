@@ -39,6 +39,7 @@ const columns: GridColDef[] = [
 ]
 
 export default function ReajusteListPage() {
+  // FORÇAR DEPLOY - Exclusão em massa + Importador Inteligente - v1.0
   const navigate = useNavigate()
   const store = useReajusteStore()
   const { items } = store
