@@ -251,7 +251,7 @@ NIG - Núcleo de Informações Gerenciais`
             >
               {emailsSelecionados.length === destinatarios.length ? 'Desmarcar Todos' : 'Selecionar Todos'}
             </Button>
-          </div>
+          </Box>
           
           <FormControl fullWidth>
             <InputLabel sx={{ color: '#6b7280' }}>E-mails do Mailling</InputLabel>
