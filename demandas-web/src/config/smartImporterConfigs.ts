@@ -778,5 +778,176 @@ export const smartImporterConfigs: { [key: string]: SmartImporterConfig } = {
         valueField: 'id'
       }
     ]
+  },
+
+  reajustes: {
+    entityType: 'Reajustes',
+    requiredFields: ['mes', 'ano', 'status', 'operadora', 'responsavelAnalista'],
+    optionalFields: [
+      'dataInicio', 'dataFim', 'qualidade', 'qualidadeInformacao', 'planos',
+      'responsavelConta', 'filial', 'ticket', 'solicitante', 'cliente', 'contrato',
+      'produto', 'dataAtualizacao', 'itensPendentes', 'itensConcluidos'
+    ],
+    duplicateCheckFields: [],
+    validationRules: [
+      {
+        field: 'mes',
+        type: 'number',
+        message: 'Mês deve ser um número entre 1 e 12',
+        options: { min: 1, max: 12 }
+      },
+      {
+        field: 'ano',
+        type: 'number',
+        message: 'Ano deve ser maior que 2000',
+        options: { min: 2000 }
+      },
+      {
+        field: 'status',
+        type: 'required',
+        message: 'Status é obrigatório'
+      },
+      {
+        field: 'operadora',
+        type: 'required',
+        message: 'Operadora é obrigatória'
+      },
+      {
+        field: 'responsavelAnalista',
+        type: 'required',
+        message: 'Analista responsável é obrigatório'
+      },
+      {
+        field: 'itensPendentes',
+        type: 'number',
+        message: 'Itens pendentes deve ser um número positivo',
+        options: { min: 0 }
+      },
+      {
+        field: 'itensConcluidos',
+        type: 'number',
+        message: 'Itens concluídos deve ser um número positivo',
+        options: { min: 0 }
+      }
+    ],
+    referenceFields: [
+      {
+        field: 'operadora',
+        referenceType: 'operadoras',
+        referenceStore: 'operadoras',
+        displayField: 'nome',
+        valueField: 'id'
+      },
+      {
+        field: 'responsavelAnalista',
+        referenceType: 'analistas',
+        referenceStore: 'analistas',
+        displayField: 'nome',
+        valueField: 'id'
+      },
+      {
+        field: 'cliente',
+        referenceType: 'clientes',
+        referenceStore: 'clientes',
+        displayField: 'nome',
+        valueField: 'id'
+      },
+      {
+        field: 'contrato',
+        referenceType: 'contratos',
+        referenceStore: 'contratos',
+        displayField: 'codigo',
+        valueField: 'id'
+      },
+      {
+        field: 'produto',
+        referenceType: 'produtos',
+        referenceStore: 'produtos',
+        displayField: 'nome',
+        valueField: 'id'
+      }
+    ]
+  },
+
+  analytics: {
+    entityType: 'Relatórios (Analytics)',
+    requiredFields: ['titulo', 'status', 'tipo', 'dataInicio', 'dataEntrega'],
+    optionalFields: [
+      'descricao', 'ticket', 'total', 'analista', 'area', 'cliente', 'contrato',
+      'dataFinalizacao', 'prioridade', 'solicitante', 'solicitacao', 
+      'tipoSolicitacao', 'tipoServico', 'observacoes'
+    ],
+    duplicateCheckFields: [],
+    validationRules: [
+      {
+        field: 'titulo',
+        type: 'required',
+        message: 'Título é obrigatório'
+      },
+      {
+        field: 'status',
+        type: 'required',
+        message: 'Status é obrigatório'
+      },
+      {
+        field: 'tipo',
+        type: 'required',
+        message: 'Tipo é obrigatório'
+      },
+      {
+        field: 'dataInicio',
+        type: 'required',
+        message: 'Data de início é obrigatória'
+      },
+      {
+        field: 'dataEntrega',
+        type: 'required',
+        message: 'Data de entrega é obrigatória'
+      },
+      {
+        field: 'dataInicio',
+        type: 'date',
+        message: 'Data de início deve ser uma data válida'
+      },
+      {
+        field: 'dataFinalizacao',
+        type: 'date',
+        message: 'Data de finalização deve ser uma data válida'
+      },
+      {
+        field: 'dataEntrega',
+        type: 'date',
+        message: 'Data de entrega deve ser uma data válida'
+      },
+      {
+        field: 'total',
+        type: 'number',
+        message: 'Total deve ser um número positivo',
+        options: { min: 0 }
+      }
+    ],
+    referenceFields: [
+      {
+        field: 'area',
+        referenceType: 'areas',
+        referenceStore: 'areas',
+        displayField: 'nome',
+        valueField: 'id'
+      },
+      {
+        field: 'cliente',
+        referenceType: 'clientes',
+        referenceStore: 'clientes',
+        displayField: 'nome',
+        valueField: 'id'
+      },
+      {
+        field: 'contrato',
+        referenceType: 'contratos',
+        referenceStore: 'contratos',
+        displayField: 'codigo',
+        valueField: 'id'
+      }
+    ]
   }
 }

@@ -6,7 +6,9 @@ import { useMasterDataStore } from '../store/masterDataStore'
 import { useAuthStore } from '../store/authStore'
 import { ReportStatusBadge } from '../components/ReportStatusBadge'
 import { PriorityBadge } from '../components/PriorityBadge'
-import { UploadModal } from '../components/UploadModal'
+import { SmartImporter } from '../components/SmartImporter'
+import { smartImporterConfigs } from '../config/smartImporterConfigs'
+import type { ImportResult } from '../types/smartImporter'
 import { useFilteredData } from '../lib/utils'
 import { useEffect, useState } from 'react'
 import ExportDataModal from '../components/ExportDataModal'
@@ -17,11 +19,11 @@ import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
 import DeleteIcon from '@mui/icons-material/Delete'
 import FileCopyIcon from '@mui/icons-material/FileCopy'
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf'
-import CloudUploadIcon from '@mui/icons-material/CloudUpload'
 import AddIcon from '@mui/icons-material/Add'
 import AssessmentIcon from '@mui/icons-material/Assessment'
 import PersonIcon from '@mui/icons-material/Person'
 import GroupIcon from '@mui/icons-material/Group'
+import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
 
 const columns: GridColDef[] = [
   { field: 'acoes', headerName: 'Ações', width: 80, sortable: false, filterable: false, renderCell: (p) => (
@@ -51,9 +53,11 @@ export default function AnalyticsPage() {
   const items = useReportStore(state => state.items)
   const md = useMasterDataStore()
   const { user } = useAuthStore()
-  const { canCreate, canImport, canExport } = usePermissions('analytics')
-  const [uploadModalOpen, setUploadModalOpen] = useState(false)
+  const { canCreate, canImport, canExport, canDelete } = usePermissions('analytics')
+  const [smartImporterOpen, setSmartImporterOpen] = useState(false)
   const [exportModalOpen, setExportModalOpen] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false)
 
   const STORAGE_KEY = 'reports-list-view-v1'
   const FILTER_KEY = 'reports-user-filter-v1'
@@ -172,6 +176,134 @@ export default function AnalyticsPage() {
     } catch {}
   }, [showOnlyMyReports])
 
+  // Função de exclusão em massa
+  const handleBulkDelete = async () => {
+    try {
+      const { api } = await import('../lib/api.local')
+      console.log('🗑️ Iniciando exclusão em massa de', selectedIds.length, 'relatórios')
+      
+      let successCount = 0
+      let errorCount = 0
+      let notFoundCount = 0
+      
+      for (const id of selectedIds) {
+        try {
+          await api.delete(`/relatorios/${id}`)
+          successCount++
+        } catch (error: any) {
+          if (error?.message?.includes('404') || error?.response?.status === 404) {
+            console.log(`⚠️ Relatório ${id} já foi excluído (404) - removendo do cache local`)
+            notFoundCount++
+          } else {
+            console.error(`❌ Erro ao excluir relatório ${id}:`, error)
+            errorCount++
+          }
+        }
+      }
+      
+      reportStore.remove(selectedIds)
+      setSelectedIds([])
+      setBulkDeleteDialogOpen(false)
+      
+      const totalProcessed = successCount + notFoundCount
+      if (errorCount === 0) {
+        if (notFoundCount > 0) {
+          alert(`✅ ${totalProcessed} relatório(s) removido(s)!\n\n${successCount} excluídos do banco\n${notFoundCount} já haviam sido excluídos (cache limpo)`)
+        } else {
+          alert(`✅ ${successCount} relatório(s) excluído(s) com sucesso!`)
+        }
+      } else {
+        alert(`⚠️ ${totalProcessed} relatório(s) removido(s), ${errorCount} erro(s)\n\n${successCount} excluídos\n${notFoundCount} já excluídos anteriormente`)
+      }
+      
+      reportStore.syncFromApi()
+    } catch (error) {
+      console.error('❌ Erro na exclusão em massa:', error)
+      alert('Erro ao excluir relatórios')
+    }
+  }
+
+  // Função do Importador Inteligente
+  const handleSmartImport = async (result: ImportResult) => {
+    try {
+      const { api } = await import('../lib/api.local')
+      let totalImported = 0
+      let totalSavedToDatabase = 0
+      const errors: string[] = []
+
+      const normalizeString = (str: string) => {
+        if (!str) return ''
+        return String(str).toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ')
+      }
+
+      const findIdByName = (name: string, items: any[], nameField: string = 'nome') => {
+        if (!name) return ''
+        const searchNormalized = normalizeString(String(name))
+        const item = items.find(item => {
+          const itemNameNormalized = normalizeString(item[nameField] || item.nome || '')
+          return itemNameNormalized === searchNormalized
+        })
+        return item?.id || ''
+      }
+
+      for (const item of result.valid) {
+        try {
+          const data = item.isCorrected ? item.correctedData : item.data
+
+          const relatorioData = {
+            titulo: data.titulo || '',
+            descricao: data.descricao || '',
+            ticket: data.ticket || `REL-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+            total: data.total || 0,
+            tipo: data.tipo || 'mensal',
+            status: data.status || 'pendente',
+            analista: data.analista || '',
+            areaId: findIdByName(data.area || data.areaId, md.areas) || '',
+            clienteId: findIdByName(data.cliente || data.clienteId, md.clientes) || '',
+            contratoId: findIdByName(data.contrato || data.contratoId, md.contratos, 'codigo') || '',
+            dataInicio: data.dataInicio || new Date().toISOString().split('T')[0],
+            dataFinalizacao: data.dataFinalizacao,
+            dataEntrega: data.dataEntrega || new Date().toISOString().split('T')[0],
+            prioridade: data.prioridade || 'media',
+            solicitante: data.solicitante || '',
+            solicitacao: data.solicitacao || '',
+            tipoSolicitacao: data.tipoSolicitacao || '',
+            tipoServico: data.tipoServico || '',
+            observacoes: data.observacoes || ''
+          }
+
+          Object.keys(relatorioData).forEach(key => {
+            if (relatorioData[key] === '' || relatorioData[key] === null || relatorioData[key] === undefined) {
+              delete relatorioData[key]
+            }
+          })
+
+          const savedRelatorio = await api.post('/relatorios', relatorioData)
+          totalImported++
+          totalSavedToDatabase++
+        } catch (error) {
+          console.error('❌ SMART IMPORT RELATÓRIOS: Erro ao salvar relatório:', error)
+          errors.push(`Erro ao salvar relatório: ${error instanceof Error ? error.message : 'Erro desconhecido'}`)
+        }
+      }
+
+      if (totalSavedToDatabase > 0) {
+        await reportStore.syncFromApi()
+      }
+
+      const successMessage = `${totalImported} relatórios processados, ${totalSavedToDatabase} salvos no banco de dados`
+      if (totalSavedToDatabase > 0) {
+        alert(`✅ ${successMessage}`)
+      }
+      if (errors.length > 0) {
+        alert(`⚠️ Alguns erros ocorreram:\n${errors.join('\n')}`)
+      }
+    } catch (error) {
+      console.error('❌ SMART IMPORT RELATÓRIOS: Erro geral:', error)
+      alert('Erro ao importar relatórios')
+    }
+  }
+
   function persist(next: Partial<{ columnVisibilityModel: GridColumnVisibilityModel; sortModel: GridSortModel; filterModel: GridFilterModel; paginationModel: GridPaginationModel }>) {
     try {
       const current = {
@@ -185,15 +317,6 @@ export default function AnalyticsPage() {
     } catch {}
   }
 
-  const handleUpload = async (file: File) => {
-    // Simular processamento do upload
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    
-    // Aqui você implementaria a lógica real de processamento do arquivo
-    
-    // Simular sucesso
-    return Promise.resolve()
-  }
 
   const rows = finalFilteredItems.map((r) => ({
     id: r.id,
@@ -283,13 +406,13 @@ export default function AnalyticsPage() {
               </div>
             </div>
             <Stack direction="row" spacing={2}>
-              {canImport && (
+              {selectedIds.length > 0 && canDelete && (
                 <Button 
                   variant="outlined" 
-                  startIcon={<CloudUploadIcon />}
-                  onClick={() => setUploadModalOpen(true)}
+                  color="error"
+                  startIcon={<DeleteIcon />}
+                  onClick={() => setBulkDeleteDialogOpen(true)}
                   size="medium"
-                  className="text-primary-600 border-primary-300 hover:text-primary-700 hover:border-primary-400 hover:bg-primary-50 transition-all duration-300 font-medium"
                   sx={{
                     borderRadius: '14px',
                     padding: '10px 20px',
@@ -297,15 +420,42 @@ export default function AnalyticsPage() {
                     fontWeight: 500,
                     fontSize: '0.9rem',
                     height: '44px',
-                    borderWidth: '2px',
+                    borderColor: '#ef4444',
+                    color: '#ef4444',
                     '&:hover': {
-                      borderWidth: '2px',
-                      transform: 'translateY(-2px)',
-                      boxShadow: '0 4px 12px 0 rgba(59, 130, 246, 0.15)'
+                      borderColor: '#dc2626',
+                      backgroundColor: '#fef2f2',
+                      color: '#dc2626'
                     }
                   }}
                 >
-                  Importar
+                  Excluir ({selectedIds.length})
+                </Button>
+              )}
+
+              {canImport && (
+                <Button 
+                  variant="contained" 
+                  startIcon={<AutoFixHighIcon />}
+                  onClick={() => setSmartImporterOpen(true)}
+                  size="medium"
+                  className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white transition-all duration-300 font-medium"
+                  sx={{
+                    borderRadius: '14px',
+                    padding: '10px 20px',
+                    textTransform: 'none',
+                    fontWeight: 500,
+                    fontSize: '0.9rem',
+                    height: '44px',
+                    background: 'linear-gradient(135deg, #9333ea 0%, #3b82f6 100%)',
+                    '&:hover': {
+                      background: 'linear-gradient(135deg, #7e22ce 0%, #2563eb 100%)',
+                      transform: 'translateY(-2px)',
+                      boxShadow: '0 8px 20px 0 rgba(147, 51, 234, 0.3)'
+                    }
+                  }}
+                >
+                  Importador Inteligente
                 </Button>
               )}
 
@@ -370,6 +520,11 @@ export default function AnalyticsPage() {
           columns={columns}
           rows={rows}
           disableRowSelectionOnClick
+          checkboxSelection
+          onRowSelectionModelChange={(newSelection) => {
+            setSelectedIds(newSelection as string[])
+          }}
+          rowSelectionModel={selectedIds}
           onRowDoubleClick={(p) => navigate(`/analytics/${p.id}`)}
           slots={{ toolbar: GridToolbar }}
           slotProps={{ toolbar: { showQuickFilter: true, quickFilterProps: { debounceMs: 300 } } }}
@@ -417,14 +572,45 @@ export default function AnalyticsPage() {
         />
       </div>
 
-      {/* Modal de Upload */}
-      <UploadModal
-        open={uploadModalOpen}
-        onClose={() => setUploadModalOpen(false)}
-        title="Importar Relatórios"
-        entityType="analytics"
-        onUpload={handleUpload}
+      {/* Smart Importer - Importador Inteligente */}
+      <SmartImporter
+        open={smartImporterOpen}
+        onClose={() => setSmartImporterOpen(false)}
+        onImport={handleSmartImport}
+        config={smartImporterConfigs.analytics}
+        masterData={md}
       />
+
+      {/* Modal de confirmação de exclusão em massa */}
+      <Dialog
+        open={bulkDeleteDialogOpen}
+        onClose={() => setBulkDeleteDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Confirmar Exclusão em Massa</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Tem certeza que deseja excluir <strong>{selectedIds.length}</strong> relatório(s) selecionado(s)?
+          </Typography>
+          <Typography variant="body2" color="error" sx={{ mt: 2 }}>
+            ⚠️ Esta ação não pode ser desfeita!
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setBulkDeleteDialogOpen(false)}>
+            Cancelar
+          </Button>
+          <Button 
+            onClick={handleBulkDelete} 
+            color="error" 
+            variant="contained"
+            startIcon={<DeleteIcon />}
+          >
+            Excluir
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Modal de Exportação */}
       <ExportDataModal
