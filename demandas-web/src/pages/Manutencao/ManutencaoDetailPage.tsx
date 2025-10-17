@@ -7,6 +7,7 @@ import { StatusBadge } from '../../components/StatusBadge'
 import { Timeline } from '../../components/Timeline'
 import { EmailComunicacaoModal } from '../../components/EmailComunicacaoModal'
 import { fmt } from '../../lib/utils'
+import { fixEncoding } from '../../utils/encodingFix'
 import { useState, useEffect, useRef } from 'react'
 import { Save, Edit3, Clock, ArrowLeft, Mail } from 'lucide-react'
 
@@ -90,10 +91,7 @@ export default function ManutencaoDetailPage() {
   const label = (id?: string, arr?: { id: string, nome: string }[]) => {
     if (!id) return '-'
     const result = arr?.find(a => a.id === id)?.nome || '-'
-    
-    // Debug removido para limpeza do console
-    
-    return result
+    return fixEncoding(result)
   }
   
   const labelContrato = (id?: string) => {
@@ -132,7 +130,7 @@ export default function ManutencaoDetailPage() {
             onClick={() => navigate('/manutencao')}
             className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
           >
-            Voltar ├á Lista
+            Voltar à Lista
           </button>
           <button 
             onClick={() => {
@@ -159,7 +157,7 @@ export default function ManutencaoDetailPage() {
         </button>
         <div className="flex-1">
           <h1 className="text-2xl font-bold text-gray-900">
-            Manuten├º├úo {d.ticket || '#' + id}
+            Manutenção {d.ticket || '#' + id}
           </h1>
           <p className="text-gray-600 mt-1">
             Criada em {fmt(d.createdAt)}
@@ -169,33 +167,33 @@ export default function ManutencaoDetailPage() {
           <button
             onClick={() => setEmailModalOpen(true)}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            title="Comunicar altera├º├úo por e-mail"
+            title="Comunicar alteração por e-mail"
           >
             <Mail className="w-4 h-4" />
-            <span className="hidden sm:inline">­ƒôº Comunicar</span>
+            <span className="hidden sm:inline">📧 Comunicar</span>
           </button>
           <StatusBadge status={d.status ?? 'Aberta'} />
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Coluna Principal - Informa├º├Áes */}
+        {/* Coluna Principal - Informações */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Resumo da Manuten├º├úo */}
+          {/* Resumo da Manutenção */}
           <div className="bg-white p-6 rounded-lg border shadow-sm">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Resumo da Manuten├º├úo</h2>
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Resumo da Manutenção</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Tipo de Servi├ºo</p>
+                  <p className="text-sm text-gray-500">Tipo de Serviço</p>
                   <p className="font-medium">{label(d.tipoServicoId, md.tiposCadastro)}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Tipo de Manuten├º├úo</p>
+                  <p className="text-sm text-gray-500">Tipo de Manutenção</p>
                   <p className="font-medium">{label(d.tipoId, md.padrao)}</p>
                 </div>
               </div>
@@ -209,7 +207,7 @@ export default function ManutencaoDetailPage() {
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-indigo-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">├ürea</p>
+                  <p className="text-sm text-gray-500">Área</p>
                   <p className="font-medium">{label(d.areaId, md.areas)}</p>
                 </div>
               </div>
@@ -230,31 +228,31 @@ export default function ManutencaoDetailPage() {
             </div>
           </div>
 
-          {/* Descri├º├úo - Com muito mais espa├ºo */}
+          {/* Descrição - Com muito mais espaço */}
           <div className="bg-white p-6 rounded-lg border shadow-sm">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Descri├º├úo</h2>
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Descrição</h2>
             <div className="min-h-[200px] p-4 bg-gray-50 rounded-lg border border-gray-200">
               <p className="text-gray-700 whitespace-pre-wrap">
-                {d.descricao || 'Nenhuma descri├º├úo fornecida para esta manuten├º├úo.'}
+                {fixEncoding(d.descricao) || 'Nenhuma descrição fornecida para esta manutenção.'}
               </p>
             </div>
           </div>
 
-          {/* Edi├º├úo da Manuten├º├úo */}
+          {/* Edição da Manutenção */}
           <div className="bg-white p-6 rounded-lg border shadow-sm">
             <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
               <Edit3 className="w-5 h-5 text-blue-600" />
-              Editar Manuten├º├úo
+              Editar Manutenção
             </h2>
             <EditInline d={d} />
           </div>
 
-          {/* Informa├º├Áes Adicionais */}
+          {/* Informações Adicionais */}
           <div className="bg-white p-6 rounded-lg border shadow-sm">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Informa├º├Áes Adicionais</h2>
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Informações Adicionais</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <p className="text-sm text-gray-500">Tipo de Servi├ºo</p>
+                <p className="text-sm text-gray-500">Tipo de Serviço</p>
                 <p className="font-medium">{label(d.tipoServicoId, md.tiposCadastro)}</p>
               </div>
               <div>
@@ -266,11 +264,11 @@ export default function ManutencaoDetailPage() {
                 <p className="font-medium">{label(d.solicitante, md.solicitantes)}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Tipo de Manuten├º├úo</p>
+                <p className="text-sm text-gray-500">Tipo de Manutenção</p>
                 <p className="font-medium">{label(d.tipoId, md.padrao)}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Data de In├¡cio</p>
+                <p className="text-sm text-gray-500">Data de Início</p>
                 <p className="font-medium">{fmt(d.dataInicio)}</p>
               </div>
               <div>
@@ -294,11 +292,11 @@ export default function ManutencaoDetailPage() {
                 <p className="font-medium">{d.qtdClientesVinculados || 0}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Usu├írios Empresa - MOVE</p>
+                <p className="text-sm text-gray-500">Usuários Empresa - MOVE</p>
                 <p className="font-medium">{d.usuariosEmpresa || 0}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Observa├º├Áes</p>
+                <p className="text-sm text-gray-500">Observações</p>
                 <p className="font-medium">{d.observacoes || '-'}</p>
               </div>
             </div>
@@ -321,7 +319,7 @@ export default function ManutencaoDetailPage() {
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">├Ültima Atualiza├º├úo</p>
+                  <p className="text-sm text-gray-500">Última Atualização</p>
                   <p className="font-medium">{fmt(d.updatedAt)}</p>
                 </div>
               </div>
@@ -347,7 +345,7 @@ export default function ManutencaoDetailPage() {
   )
 }
 
-// Componente de Edi├º├úo Inline
+// Componente de Edição Inline
 function EditInline({ d }: { d: any }) {
   const md = useMasterDataStore()
   const store = useManutencaoStore()
@@ -355,11 +353,11 @@ function EditInline({ d }: { d: any }) {
   const [draft, setDraft] = useState(d)
   const [confirmOpen, setConfirmOpen] = useState(false)
 
-  // Fun├º├úo label local para o componente EditInline
+  // Função label local para o componente EditInline
   const label = (id?: string, arr?: { id: string, nome: string }[]) => {
     if (!id) return '-'
     const result = arr?.find(a => a.id === id)?.nome || '-'
-    return result
+    return fixEncoding(result)
   }
 
   useEffect(() => {
@@ -387,16 +385,16 @@ function EditInline({ d }: { d: any }) {
   async function applySave() {
     try {
       if (!currentUser?.name) {
-        alert('Erro: Usu├írio n├úo encontrado. Fa├ºa login novamente.')
+        alert('Erro: Usuário não encontrado. Faça login novamente.')
         return
       }
       
-      // Fun├º├úo para converter data para formato ISO-8601
+      // Função para converter data para formato ISO-8601
       const formatDateForAPI = (dateString: string | null): string | null => {
         if (!dateString) return null
-        // Se j├í est├í no formato ISO completo, retorna como est├í
+        // Se já está no formato ISO completo, retorna como está
         if (dateString.includes('T') && dateString.includes('Z')) return dateString
-        // Se ├® apenas data (YYYY-MM-DD), adiciona hor├írio
+        // Se é apenas data (YYYY-MM-DD), adiciona horário
         if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
           return `${dateString}T00:00:00.000Z`
         }
@@ -404,7 +402,7 @@ function EditInline({ d }: { d: any }) {
       }
 
       // Preparar payload seguro para o backend
-      // NOTA: userId n├úo deve ser alterado durante edi├º├úo (├® quem criou originalmente)
+      // NOTA: userId não deve ser alterado durante edição (é quem criou originalmente)
       const updatePayload = {
         status: draft.status,
         ticket: draft.ticket || null,
@@ -429,37 +427,38 @@ function EditInline({ d }: { d: any }) {
         tipoServicoId: draft.tipoServicoId || null,
       }
       
-      // Atualizar manuten├º├úo no backend
+      // Atualizar manutenção no backend
       await api.updateManutencao(d.id, updatePayload)
       
       // Atualizar no store local
       store.upsert(draft)
       
-      // Log das mudan├ºas no timeline
+      // Log das mudanças no timeline
       changedKeys.forEach((k) => {
-        // Fun├º├úo para converter ID em nome para logs
+        // Função para converter ID em nome para logs
         const convertIdToName = (id: string | undefined, fieldType: string) => {
           if (!id) return 'N/A'
           
           switch (fieldType) {
             case 'clienteId':
-              return md.clientes.find(c => c.id === id)?.nome || id
+              return fixEncoding(md.clientes.find(c => c.id === id)?.nome) || id
             case 'contratoId':
-              return md.contratos.find(c => c.id === id)?.codigo || md.contratos.find(c => c.id === id)?.numero || id
+              const contrato = md.contratos.find(c => c.id === id)
+              return fixEncoding(contrato?.codigo || contrato?.numero) || id
             case 'operadoraId':
-              return md.operadoras.find(o => o.id === id)?.nome || id
+              return fixEncoding(md.operadoras.find(o => o.id === id)?.nome) || id
             case 'produtoId':
-              return md.produtos.find(p => p.id === id)?.nome || id
+              return fixEncoding(md.produtos.find(p => p.id === id)?.nome) || id
             case 'sistemaId':
-              return md.sistemas.find(s => s.id === id)?.nome || id
+              return fixEncoding(md.sistemas.find(s => s.id === id)?.nome) || id
             case 'areaId':
-              return md.areas.find(a => a.id === id)?.nome || id
+              return fixEncoding(md.areas.find(a => a.id === id)?.nome) || id
             case 'tipoId':
-              return md.padrao.find(t => t.id === id)?.nome || id
+              return fixEncoding(md.padrao.find(t => t.id === id)?.nome) || id
             case 'tipoServicoId':
-              return md.tiposCadastro.find(ts => ts.id === id)?.nome || id
+              return fixEncoding(md.tiposCadastro.find(ts => ts.id === id)?.nome) || id
             case 'solicitante':
-              return md.solicitantes.find(s => s.id === id)?.nome || id
+              return fixEncoding(md.solicitantes.find(s => s.id === id)?.nome) || id
             default:
               return id
           }
@@ -503,11 +502,11 @@ function EditInline({ d }: { d: any }) {
       })
       
       setConfirmOpen(false)
-      alert('Manuten├º├úo atualizada com sucesso!')
+      alert('Manutenção atualizada com sucesso!')
       
     } catch (error: any) {
       
-      let errorMessage = 'Erro desconhecido ao atualizar manuten├º├úo'
+      let errorMessage = 'Erro desconhecido ao atualizar manutenção'
       
       if (error?.message) {
         errorMessage = error.message
@@ -517,7 +516,7 @@ function EditInline({ d }: { d: any }) {
         errorMessage = error
       }
       
-      alert(`Erro ao atualizar manuten├º├úo: ${errorMessage}`)
+      alert(`Erro ao atualizar manutenção: ${errorMessage}`)
     }
   }
 
@@ -531,7 +530,7 @@ function EditInline({ d }: { d: any }) {
           onChange={(e) => setDraft({ ...draft, status: e.target.value })}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         >
-          {['Aberta', 'Em andamento', 'Aguardando valida├º├úo', 'Com erros', 'Em reajuste', 'Conclu├¡da', 'Cancelada'].map(s => (
+          {['Aberta', 'Em andamento', 'Aguardando validação', 'Com erros', 'Em reajuste', 'Concluída', 'Cancelada'].map(s => (
             <option key={s} value={s}>{s}</option>
           ))}
         </select>
