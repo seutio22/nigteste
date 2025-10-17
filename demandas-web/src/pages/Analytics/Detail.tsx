@@ -289,17 +289,43 @@ function EditInline({ report }: { report: any }) {
 
   async function applySave() {
     // Validação de datas: Data de Entrega não pode ser inferior à Data de Início
-    if (draft.dataEntrega && draft.dataInicio && new Date(draft.dataEntrega) < new Date(draft.dataInicio)) {
-      console.error('❌ Analytics: Data de Entrega não pode ser inferior à Data de Início')
-      alert('⚠️ Data de Entrega não pode ser inferior à Data de Início!')
-      return
+    console.log('🔍 Validando Data de Entrega:', draft.dataEntrega, 'vs Data de Início:', draft.dataInicio)
+    if (draft.dataEntrega && draft.dataInicio) {
+      const dataEntregaStr = draft.dataEntrega.split('T')[0]
+      const dataInicioStr = draft.dataInicio.split('T')[0]
+      const dataEntrega = new Date(dataEntregaStr + 'T00:00:00')
+      const dataInicio = new Date(dataInicioStr + 'T00:00:00')
+      console.log('🔍 Data de Entrega convertida:', dataEntrega)
+      console.log('🔍 Data de Início convertida:', dataInicio)
+      console.log('🔍 Comparação:', dataEntrega < dataInicio)
+      
+      if (dataEntrega < dataInicio) {
+        console.error('❌ Analytics: Data de Entrega não pode ser inferior à Data de Início')
+        alert('⚠️ Data de Entrega não pode ser inferior à Data de Início!\n\n' +
+              `Data de Início: ${dataInicioStr}\n` +
+              `Data de Entrega: ${dataEntregaStr}`)
+        return
+      }
     }
 
     // Validação de datas: Data de Finalização não pode ser inferior à Data de Início
-    if (draft.dataFinalizacao && draft.dataInicio && new Date(draft.dataFinalizacao) < new Date(draft.dataInicio)) {
-      console.error('❌ Analytics: Data de Finalização não pode ser inferior à Data de Início')
-      alert('⚠️ Data de Finalização não pode ser inferior à Data de Início!')
-      return
+    console.log('🔍 Validando Data de Finalização:', draft.dataFinalizacao, 'vs Data de Início:', draft.dataInicio)
+    if (draft.dataFinalizacao && draft.dataInicio) {
+      const dataFinalizacaoStr = draft.dataFinalizacao.split('T')[0]
+      const dataInicioStr = draft.dataInicio.split('T')[0]
+      const dataFinalizacao = new Date(dataFinalizacaoStr + 'T00:00:00')
+      const dataInicio = new Date(dataInicioStr + 'T00:00:00')
+      console.log('🔍 Data de Finalização convertida:', dataFinalizacao)
+      console.log('🔍 Data de Início convertida:', dataInicio)
+      console.log('🔍 Comparação:', dataFinalizacao < dataInicio)
+      
+      if (dataFinalizacao < dataInicio) {
+        console.error('❌ Analytics: Data de Finalização não pode ser inferior à Data de Início')
+        alert('⚠️ Data de Finalização não pode ser inferior à Data de Início!\n\n' +
+              `Data de Início: ${dataInicioStr}\n` +
+              `Data de Finalização: ${dataFinalizacaoStr}`)
+        return
+      }
     }
 
     // Atualizar no backend PRIMEIRO (igual página Demandas)
@@ -570,12 +596,12 @@ function EditInline({ report }: { report: any }) {
             value={draft.dataFinalizacao ? draft.dataFinalizacao.split('T')[0] : ''}
             onChange={(e) => setDraft({ ...draft, dataFinalizacao: e.target.value || undefined })}
             className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-              draft.dataFinalizacao && draft.dataInicio && new Date(draft.dataFinalizacao) < new Date(draft.dataInicio)
+              draft.dataFinalizacao && draft.dataInicio && new Date((draft.dataFinalizacao.split('T')[0]) + 'T00:00:00') < new Date((draft.dataInicio.split('T')[0]) + 'T00:00:00')
                 ? 'border-red-500 bg-red-50'
                 : 'border-gray-300'
             }`}
           />
-          {draft.dataFinalizacao && draft.dataInicio && new Date(draft.dataFinalizacao) < new Date(draft.dataInicio) && (
+          {draft.dataFinalizacao && draft.dataInicio && new Date((draft.dataFinalizacao.split('T')[0]) + 'T00:00:00') < new Date((draft.dataInicio.split('T')[0]) + 'T00:00:00') && (
             <p className="text-sm text-red-600 mt-1">⚠️ Data de Finalização não pode ser inferior à Data de Início</p>
           )}
         </div>
@@ -586,12 +612,12 @@ function EditInline({ report }: { report: any }) {
             value={draft.dataEntrega ? draft.dataEntrega.split('T')[0] : ''}
             onChange={(e) => setDraft({ ...draft, dataEntrega: e.target.value || undefined })}
             className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-              draft.dataEntrega && draft.dataInicio && new Date(draft.dataEntrega) < new Date(draft.dataInicio)
+              draft.dataEntrega && draft.dataInicio && new Date((draft.dataEntrega.split('T')[0]) + 'T00:00:00') < new Date((draft.dataInicio.split('T')[0]) + 'T00:00:00')
                 ? 'border-red-500 bg-red-50'
                 : 'border-gray-300'
             }`}
           />
-          {draft.dataEntrega && draft.dataInicio && new Date(draft.dataEntrega) < new Date(draft.dataInicio) && (
+          {draft.dataEntrega && draft.dataInicio && new Date((draft.dataEntrega.split('T')[0]) + 'T00:00:00') < new Date((draft.dataInicio.split('T')[0]) + 'T00:00:00') && (
             <p className="text-sm text-red-600 mt-1">⚠️ Data de Entrega não pode ser inferior à Data de Início</p>
           )}
         </div>

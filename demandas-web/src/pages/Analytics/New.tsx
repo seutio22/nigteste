@@ -143,17 +143,39 @@ export default function AnalyticsNewPage() {
     }
 
     // Validação de datas: Data de Entrega não pode ser inferior à Data de Início
-    if (form.dataEntrega && form.dataInicio && new Date(form.dataEntrega) < new Date(form.dataInicio)) {
-      console.error('❌ AnalyticsNewPage: Data de Entrega não pode ser inferior à Data de Início')
-      alert('⚠️ Data de Entrega não pode ser inferior à Data de Início!')
-      return
+    console.log('🔍 Validando Data de Entrega:', form.dataEntrega, 'vs Data de Início:', form.dataInicio)
+    if (form.dataEntrega && form.dataInicio) {
+      const dataEntrega = new Date(form.dataEntrega + 'T00:00:00')
+      const dataInicio = new Date(form.dataInicio + 'T00:00:00')
+      console.log('🔍 Data de Entrega convertida:', dataEntrega)
+      console.log('🔍 Data de Início convertida:', dataInicio)
+      console.log('🔍 Comparação:', dataEntrega < dataInicio)
+      
+      if (dataEntrega < dataInicio) {
+        console.error('❌ AnalyticsNewPage: Data de Entrega não pode ser inferior à Data de Início')
+        alert('⚠️ Data de Entrega não pode ser inferior à Data de Início!\n\n' +
+              `Data de Início: ${form.dataInicio}\n` +
+              `Data de Entrega: ${form.dataEntrega}`)
+        return
+      }
     }
 
     // Validação de datas: Data de Finalização não pode ser inferior à Data de Início
-    if (form.dataFinalizacao && form.dataInicio && new Date(form.dataFinalizacao) < new Date(form.dataInicio)) {
-      console.error('❌ AnalyticsNewPage: Data de Finalização não pode ser inferior à Data de Início')
-      alert('⚠️ Data de Finalização não pode ser inferior à Data de Início!')
-      return
+    console.log('🔍 Validando Data de Finalização:', form.dataFinalizacao, 'vs Data de Início:', form.dataInicio)
+    if (form.dataFinalizacao && form.dataInicio) {
+      const dataFinalizacao = new Date(form.dataFinalizacao + 'T00:00:00')
+      const dataInicio = new Date(form.dataInicio + 'T00:00:00')
+      console.log('🔍 Data de Finalização convertida:', dataFinalizacao)
+      console.log('🔍 Data de Início convertida:', dataInicio)
+      console.log('🔍 Comparação:', dataFinalizacao < dataInicio)
+      
+      if (dataFinalizacao < dataInicio) {
+        console.error('❌ AnalyticsNewPage: Data de Finalização não pode ser inferior à Data de Início')
+        alert('⚠️ Data de Finalização não pode ser inferior à Data de Início!\n\n' +
+              `Data de Início: ${form.dataInicio}\n` +
+              `Data de Finalização: ${form.dataFinalizacao}`)
+        return
+      }
     }
 
     try {
@@ -458,9 +480,9 @@ export default function AnalyticsNewPage() {
                   value={form.dataFinalizacao}
                   onChange={(e) => setForm(prev => ({ ...prev, dataFinalizacao: e.target.value }))}
                   InputLabelProps={{ shrink: true }}
-                  error={form.dataFinalizacao && form.dataInicio && new Date(form.dataFinalizacao) < new Date(form.dataInicio)}
+                  error={form.dataFinalizacao && form.dataInicio && new Date(form.dataFinalizacao + 'T00:00:00') < new Date(form.dataInicio + 'T00:00:00')}
                   helperText={
-                    form.dataFinalizacao && form.dataInicio && new Date(form.dataFinalizacao) < new Date(form.dataInicio)
+                    form.dataFinalizacao && form.dataInicio && new Date(form.dataFinalizacao + 'T00:00:00') < new Date(form.dataInicio + 'T00:00:00')
                       ? '⚠️ Data de Finalização não pode ser inferior à Data de Início'
                       : 'Data de Finalização não pode ser inferior à Data de Início'
                   }
@@ -474,9 +496,9 @@ export default function AnalyticsNewPage() {
                   onChange={(e) => setForm(prev => ({ ...prev, dataEntrega: e.target.value }))}
                   InputLabelProps={{ shrink: true }}
                   required
-                  error={form.dataEntrega && form.dataInicio && new Date(form.dataEntrega) < new Date(form.dataInicio)}
+                  error={form.dataEntrega && form.dataInicio && new Date(form.dataEntrega + 'T00:00:00') < new Date(form.dataInicio + 'T00:00:00')}
                   helperText={
-                    form.dataEntrega && form.dataInicio && new Date(form.dataEntrega) < new Date(form.dataInicio)
+                    form.dataEntrega && form.dataInicio && new Date(form.dataEntrega + 'T00:00:00') < new Date(form.dataInicio + 'T00:00:00')
                       ? '⚠️ Data de Entrega não pode ser inferior à Data de Início'
                       : 'Data de Entrega não pode ser inferior à Data de Início'
                   }
