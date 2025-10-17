@@ -568,6 +568,19 @@ export const useMaillingStore = create<MaillingState>()(
           
           console.log('📊 MaillingStore: Dados recebidos da API:', apiContacts.length, 'itens')
           
+          // Debug: mostrar valores booleanos da API
+          if (apiContacts.length > 0) {
+            console.log('🔍 MaillingStore: Primeiro contato da API (valores booleanos):', {
+              cancelamento: apiContacts[0].cancelamento,
+              alteracaoContratual: apiContacts[0].alteracaoContratual,
+              alteracaoDadosCliente: apiContacts[0].alteracaoDadosCliente,
+              alteracaoServicos: apiContacts[0].alteracaoServicos,
+              alteracaoRemuneracao: apiContacts[0].alteracaoRemuneracao,
+              curadoriaPortalRh: apiContacts[0].curadoriaPortalRh,
+              documentacaoContratual: apiContacts[0].documentacaoContratual
+            })
+          }
+          
           // Converter dados da API para o formato do frontend
           const convertedContacts: MaillingContact[] = apiContacts.map((apiContact: any) => {
             // Função auxiliar para parse seguro de JSON
@@ -580,7 +593,30 @@ export const useMaillingStore = create<MaillingState>()(
               }
             }
             
-            return {
+            // Função auxiliar para preservar valores booleanos da API
+            const getBooleanValue = (value: any, defaultValue: string = 'nao'): string => {
+              if (value === null || value === undefined || value === '') {
+                return defaultValue
+              }
+              
+              // Converter para string e normalizar
+              const stringValue = String(value).toLowerCase().trim()
+              
+              // Se for "sim", "s", "yes", "y", "true", "1" -> "sim"
+              if (['sim', 's', 'yes', 'y', 'true', '1', 'verdadeiro'].includes(stringValue)) {
+                return 'sim'
+              }
+              
+              // Se for "não", "nao", "n", "no", "false", "0" -> "nao"
+              if (['não', 'nao', 'n', 'no', 'false', '0', 'falso'].includes(stringValue)) {
+                return 'nao'
+              }
+              
+              // Se não reconhecer, usar o valor original ou padrão
+              return stringValue || defaultValue
+            }
+            
+            const convertedContact = {
               id: apiContact.id,
               nome: apiContact.nome,
               email: apiContact.email,
@@ -590,13 +626,14 @@ export const useMaillingStore = create<MaillingState>()(
               superior: apiContact.telefone || '',
               posicaoEmail: apiContact.posicaoEmail || 'PARA',
               grupos: parseJSON(apiContact.grupos, []),
-              cancelamento: apiContact.cancelamento || 'nao',
-              alteracaoContratual: apiContact.alteracaoContratual || 'nao',
-              alteracaoDadosCliente: apiContact.alteracaoDadosCliente || 'nao',
-              alteracaoServicos: apiContact.alteracaoServicos || 'nao',
-              alteracaoRemuneracao: apiContact.alteracaoRemuneracao || 'nao',
-              curadoriaPortalRh: apiContact.curadoriaPortalRh || 'nao',
-              documentacaoContratual: apiContact.documentacaoContratual || 'nao',
+              // CORRIGIDO: Usar getBooleanValue para preservar valores "sim" da API
+              cancelamento: getBooleanValue(apiContact.cancelamento),
+              alteracaoContratual: getBooleanValue(apiContact.alteracaoContratual),
+              alteracaoDadosCliente: getBooleanValue(apiContact.alteracaoDadosCliente),
+              alteracaoServicos: getBooleanValue(apiContact.alteracaoServicos),
+              alteracaoRemuneracao: getBooleanValue(apiContact.alteracaoRemuneracao),
+              curadoriaPortalRh: getBooleanValue(apiContact.curadoriaPortalRh),
+              documentacaoContratual: getBooleanValue(apiContact.documentacaoContratual),
               createdAt: apiContact.createdAt || new Date().toISOString(),
               updatedAt: apiContact.updatedAt || new Date().toISOString(),
               changeLog: parseJSON(apiContact.changeLog, [{
@@ -609,6 +646,21 @@ export const useMaillingStore = create<MaillingState>()(
                 description: 'Contato carregado do banco de dados'
               }])
             }
+            
+            // Debug: mostrar conversão do primeiro contato
+            if (apiContact.id === apiContacts[0]?.id) {
+              console.log('🔍 MaillingStore: Conversão do primeiro contato:', {
+                cancelamento: `"${apiContact.cancelamento}" -> "${convertedContact.cancelamento}"`,
+                alteracaoContratual: `"${apiContact.alteracaoContratual}" -> "${convertedContact.alteracaoContratual}"`,
+                alteracaoDadosCliente: `"${apiContact.alteracaoDadosCliente}" -> "${convertedContact.alteracaoDadosCliente}"`,
+                alteracaoServicos: `"${apiContact.alteracaoServicos}" -> "${convertedContact.alteracaoServicos}"`,
+                alteracaoRemuneracao: `"${apiContact.alteracaoRemuneracao}" -> "${convertedContact.alteracaoRemuneracao}"`,
+                curadoriaPortalRh: `"${apiContact.curadoriaPortalRh}" -> "${convertedContact.curadoriaPortalRh}"`,
+                documentacaoContratual: `"${apiContact.documentacaoContratual}" -> "${convertedContact.documentacaoContratual}"`
+              })
+            }
+            
+            return convertedContact
           })
           
           // Atualizar o store
