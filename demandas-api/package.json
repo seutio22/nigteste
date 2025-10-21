@@ -1,7 +1,7 @@
 {
   "name": "demandas-api-novo",
-  "version": "2.4.3",
-  "description": "Backend API - 2.4.3 - AUTH: Token JWT expira em 12 horas para segurança",
+  "version": "2.4.4",
+  "description": "Backend API - 2.4.4 - ATENDIMENTO: Tipo de Servico aceita valores de texto sem validacao",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",

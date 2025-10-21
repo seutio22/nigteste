@@ -2926,23 +2926,9 @@ for (const [path, repo] of Object.entries(resources)) {
           }
         }
         
+        // tipoServicoId removido da validação - aceita valores de texto diretos
         if (cleanedData.tipoServicoId) {
-          try {
-            const tipoServicoExiste = await prisma.tipoServico.findUnique({ where: { id: cleanedData.tipoServicoId } })
-            if (!tipoServicoExiste) {
-              console.error(`❌ POST /atendimentos: Tipo de Serviço ID "${cleanedData.tipoServicoId}" NÃO EXISTE no banco!`)
-              res.code(400)
-              return { 
-                error: 'Tipo de Serviço inválido', 
-                message: `Tipo de Serviço com ID "${cleanedData.tipoServicoId}" não foi encontrado no banco de dados.`,
-                code: 'TIPO_SERVICO_NAO_ENCONTRADO'
-              }
-            } else {
-              console.log(`✅ POST /atendimentos: Tipo de Serviço ID "${cleanedData.tipoServicoId}" encontrado: ${tipoServicoExiste.nome}`)
-            }
-          } catch (error) {
-            console.error(`❌ POST /atendimentos: Erro ao verificar tipo de serviço:`, error)
-          }
+          console.log(`✅ POST /atendimentos: Tipo de Serviço aceito sem validação: ${cleanedData.tipoServicoId}`)
         }
         
         // Validar tipoId (tipo de demanda)
@@ -3213,17 +3199,9 @@ for (const [path, repo] of Object.entries(resources)) {
           }
         }
         
+        // tipoServicoId removido da validação - aceita valores de texto diretos
         if (cleanedData.tipoServicoId) {
-          const tipoServicoExiste = await prisma.tipoServico.findUnique({ where: { id: cleanedData.tipoServicoId } })
-          if (!tipoServicoExiste) {
-            console.error(`❌ PUT /atendimentos: Tipo Serviço ID "${cleanedData.tipoServicoId}" NÃO EXISTE no banco!`)
-            res.code(400)
-            return { 
-              error: 'Tipo de Serviço inválido', 
-              message: `Tipo de Serviço com ID "${cleanedData.tipoServicoId}" não foi encontrado no banco de dados.`,
-              code: 'TIPO_SERVICO_NAO_ENCONTRADO'
-            }
-          }
+          console.log(`✅ PUT /atendimentos: Tipo de Serviço aceito sem validação: ${cleanedData.tipoServicoId}`)
         }
         
         updated = await repo.update(req.params.id, cleanedData)
