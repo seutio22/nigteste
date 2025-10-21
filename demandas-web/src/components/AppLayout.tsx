@@ -18,7 +18,7 @@ import { motion } from 'framer-motion'
 export function AppLayout() {
   const { isCollapsed, isMobile } = useSidebar()
   const navigate = useNavigate()
-  const { logout } = useAuthStore()
+  const { logout, checkLoginExpiration } = useAuthStore()
   const [showTimeoutWarning, setShowTimeoutWarning] = useState(false)
   
   const syncMasterData = useMasterDataStore((s) => s.syncFromApi)
@@ -29,8 +29,24 @@ export function AppLayout() {
   const syncProjetos = useProjectStore((s) => s.syncFromApi)
   const comunicadoCount = useComunicadoStore((s) => s.items.length)
 
-  // Limpeza automática DESABILITADA - causava logout inesperado
-  // useSimpleAutoCleanup(5) // ❌ REMOVIDO - limpava auth-store mesmo logado
+  // Verificar expiração do login a cada 5 minutos
+  useEffect(() => {
+    const checkExpiration = () => {
+      const expired = checkLoginExpiration()
+      if (expired) {
+        console.log('⏰ Login expirado detectado - redirecionando para login')
+        navigate('/login')
+      }
+    }
+
+    // Verificar imediatamente ao montar
+    checkExpiration()
+
+    // Verificar a cada 5 minutos
+    const interval = setInterval(checkExpiration, 5 * 60 * 1000)
+
+    return () => clearInterval(interval)
+  }, [checkLoginExpiration, navigate])
 
   // Sistema de timeout por inatividade
   const { resetTimeout } = useInactivityTimeout({

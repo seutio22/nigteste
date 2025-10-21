@@ -80,14 +80,14 @@ export async function authRoutes(app: FastifyInstance, options?: { prisma?: Pris
         data: { lastLogin: new Date() }
       })
 
-      // Gerar token JWT com expiração de 8 horas
+      // Gerar token JWT com expiração de 12 horas (meio dia)
       const token = app.jwt.sign({ 
         sub: user.id, 
         role: user.role, 
         name: user.name,
         email: user.email
       }, { 
-        expiresIn: '8h' // Token expira em 8 horas
+        expiresIn: '12h' // Token expira em 12 horas (meio dia útil)
       })
 
       const userResponse = { 
