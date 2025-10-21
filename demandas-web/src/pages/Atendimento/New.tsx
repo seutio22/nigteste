@@ -255,14 +255,13 @@ export default function AtendimentoNewPage() {
                 control={control}
                 render={({ field }) => (
                   <FormControl fullWidth error={!!errors.tipo}>
-                    <InputLabel>Tipo de Demanda</InputLabel>
-                    <Select {...field} label="Tipo de Demanda">
-                      {masterDataStore.tiposDemanda
-                        .map(tipo => (
-                          <MenuItem key={tipo.id} value={tipo.id}>
-                            {tipo.nome}
-                          </MenuItem>
-                        ))}
+                    <InputLabel>Canal de Atendimento *</InputLabel>
+                    <Select {...field} label="Canal de Atendimento *">
+                      <MenuItem value="">Selecione...</MenuItem>
+                      <MenuItem value="teams">Teams</MenuItem>
+                      <MenuItem value="email">E-mail</MenuItem>
+                      <MenuItem value="ligacao">Ligação</MenuItem>
+                      <MenuItem value="mensagem">Mensagem</MenuItem>
                     </Select>
                     {errors.tipo && (
                       <Typography variant="caption" color="error" sx={{ mt: 1, ml: 2 }}>
