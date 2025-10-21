@@ -307,7 +307,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
         
         <div class="content">
             <div class="greeting">
-                <strong>Prezados, bom dia.</strong>
+                <strong>Prezados,</strong>
             </div>
             
             <div class="info-box">
@@ -367,7 +367,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
       setEmailCompleto(email)
       
       // Gerar versão simples também
-      const emailSimples = `Prezados, bom dia.
+      const emailSimples = `Prezados,
 
 Informamos que o cliente ${cliente?.nome || 'N/A'} sofreu alteração, sendo:
 
