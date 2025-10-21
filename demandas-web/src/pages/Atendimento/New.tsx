@@ -69,7 +69,29 @@ export default function AtendimentoNewPage() {
 
   // Observar o valor do campo tipoServico para filtrar tipos de demanda
   const tipoServicoValue = useWatch({ control, name: 'tipoServico' })
+  
+  // FILTRO DE CONTRATOS: Observar cliente selecionado e filtrar contratos
+  const selectedClienteId = useWatch({ control, name: 'cliente' })
+  const grupoDoCliente = masterDataStore.clientes.find(c => c.id === selectedClienteId)?.grupoEconomico
+  
+  // Filtrar contratos por clienteId (relação direta) OU por grupoEconomico (relação indireta)
+  const contratosDoCliente = masterDataStore.contratos.filter((c: any) => 
+    c.clienteId === selectedClienteId || // Relação direta por clienteId
+    (grupoDoCliente && c.grupoEconomico === grupoDoCliente) // Relação indireta por grupo
+  )
+  
+  console.log('🔍 ATENDIMENTO - CONTRATO: Cliente selecionado:', selectedClienteId)
+  console.log('🔍 ATENDIMENTO - CONTRATO: Grupo do cliente:', grupoDoCliente)
+  console.log('🔍 ATENDIMENTO - CONTRATO: Contratos disponíveis:', contratosDoCliente.map(c => ({ id: c.id, codigo: c.codigo, clienteId: c.clienteId, grupoEconomico: c.grupoEconomico })))
 
+  // Limpar contrato quando cliente mudar
+  useEffect(() => {
+    if (selectedClienteId) {
+      console.log('🔄 ATENDIMENTO - Cliente mudou, limpando contrato selecionado')
+      setValue('contrato', '')
+    }
+  }, [selectedClienteId, setValue])
+  
   // Log de erros de validação
   useEffect(() => {
     if (Object.keys(errors).length > 0) {
@@ -375,13 +397,27 @@ export default function AtendimentoNewPage() {
                 render={({ field }) => (
                   <FormControl fullWidth>
                     <InputLabel>Contrato</InputLabel>
-                    <Select {...field} label="Contrato">
-                      {masterDataStore.contratos.map(contrato => (
+                    <Select 
+                      {...field} 
+                      label="Contrato"
+                      disabled={!selectedClienteId}
+                    >
+                      <MenuItem value="">
+                        {selectedClienteId 
+                          ? 'Selecione um contrato...' 
+                          : 'Selecione um cliente primeiro'}
+                      </MenuItem>
+                      {contratosDoCliente.map(contrato => (
                         <MenuItem key={contrato.id} value={contrato.id}>
                           {contrato.codigo}
                         </MenuItem>
                       ))}
                     </Select>
+                    {selectedClienteId && contratosDoCliente.length === 0 && (
+                      <Typography variant="caption" color="text.secondary" sx={{ mt: 1, ml: 2 }}>
+                        Nenhum contrato encontrado para este cliente
+                      </Typography>
+                    )}
                   </FormControl>
                 )}
               />
