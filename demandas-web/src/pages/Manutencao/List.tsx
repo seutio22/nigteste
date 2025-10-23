@@ -267,15 +267,21 @@ export default function ManutencaoListPage() {
             return item?.id || ''
           }
 
-          // Mapear dados para o formato de manutenção
-          const tipoServicoId = findIdByName(data.tipoServico || data.tipoServicoId, md.tiposServico)
-          const tipoId = findIdByName(data.tipo || data.tipoId, md.tiposCadastro)
-          const analistaId = findIdByName(data.analista || data.analistaId, md.analistas)
-          
-          console.log('🔍 SMART IMPORT MANUTENÇÕES: Mapeamento de campos:')
-          console.log('  - tipoServico:', data.tipoServico, '-> tipoServicoId:', tipoServicoId)
-          console.log('  - tipo:', data.tipo, '-> tipoId:', tipoId)
-          console.log('  - analista:', data.analista, '-> analistaId:', analistaId)
+                  // Log dos dados disponíveis para debug
+                  console.log('🔍 SMART IMPORT MANUTENÇÕES: Dados disponíveis para mapeamento:')
+                  console.log('  - tiposServico disponíveis:', md.tiposServico.map(t => t.nome))
+                  console.log('  - tiposCadastro disponíveis:', md.tiposCadastro.map(t => t.nome))
+                  console.log('  - analistas disponíveis:', md.analistas.map(a => a.nome))
+
+                  // Mapear dados para o formato de manutenção
+                  const tipoServicoId = findIdByName(data.tipoServico || data.tipoServicoId, md.tiposServico)
+                  const tipoId = findIdByName(data.tipo || data.tipoId, md.tiposCadastro)
+                  const analistaId = findIdByName(data.analista || data.analistaId, md.analistas)
+
+                  console.log('🔍 SMART IMPORT MANUTENÇÕES: Mapeamento de campos:')
+                  console.log('  - tipoServico:', data.tipoServico, '-> tipoServicoId:', tipoServicoId)
+                  console.log('  - tipo:', data.tipo, '-> tipoId:', tipoId)
+                  console.log('  - analista:', data.analista, '-> analistaId:', analistaId)
           
           const manutencaoData = {
             // Campos obrigatórios
