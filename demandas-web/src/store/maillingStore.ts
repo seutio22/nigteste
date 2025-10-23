@@ -158,6 +158,37 @@ export const useMaillingStore = create<MaillingState>()(
         const authStore = useAuthStore.getState()
         const currentUser = authStore.user
         
+        // Buscar o contato atual para preservar o histórico
+        const currentContact = get().contacts.find(c => c.id === id)
+        if (!currentContact) {
+          console.error('❌ Contato não encontrado para atualização:', id)
+          return
+        }
+        
+        // Criar log de alterações para campos modificados
+        const changeLog: ChangeLogEntry[] = []
+        const oldContact = { ...currentContact }
+        
+        Object.entries(updates).forEach(([key, newValue]) => {
+          if (key !== 'id' && key !== 'createdAt' && key !== 'updatedAt' && key !== 'changeLog') {
+            const oldValue = oldContact[key as keyof MaillingContact]
+            if (oldValue !== newValue) {
+              changeLog.push({
+                id: crypto.randomUUID(),
+                timestamp: new Date().toISOString(),
+                field: key,
+                oldValue: String(oldValue || ''),
+                newValue: String(newValue || ''),
+                changedBy: currentUser ? `${currentUser.name} (${currentUser.role})` : 'Usuário não identificado',
+                description: `Campo "${key}" alterado de "${oldValue || 'vazio'}" para "${newValue || 'vazio'}"`
+              })
+            }
+          }
+        })
+        
+        // Combinar histórico existente com novas alterações
+        const updatedChangeLog = [...(currentContact.changeLog || []), ...changeLog]
+        
         try {
           // Preparar dados para a API (usando o modelo do Prisma)
           const apiData = {
@@ -182,7 +213,7 @@ export const useMaillingStore = create<MaillingState>()(
             alteracaoRemuneracao: updates.alteracaoRemuneracao || 'nao',
             curadoriaPortalRh: updates.curadoriaPortalRh || 'nao',
             documentacaoContratual: updates.documentacaoContratual || 'nao',
-            changeLog: JSON.stringify([])
+            changeLog: JSON.stringify(updatedChangeLog)
           }
           
           // Chamar a API para atualizar no banco
@@ -199,31 +230,10 @@ export const useMaillingStore = create<MaillingState>()(
         set((state) => {
           const updatedContacts = state.contacts.map(contact => {
             if (contact.id === id) {
-              // Criar log de alterações para campos modificados
-              const changeLog: ChangeLogEntry[] = []
-              const oldContact = { ...contact }
-              
-              Object.entries(updates).forEach(([key, newValue]) => {
-                if (key !== 'id' && key !== 'createdAt' && key !== 'updatedAt' && key !== 'changeLog') {
-                  const oldValue = oldContact[key as keyof MaillingContact]
-                  if (oldValue !== newValue) {
-                    changeLog.push({
-                      id: crypto.randomUUID(),
-                      timestamp: new Date().toISOString(),
-                      field: key,
-                      oldValue: String(oldValue || ''),
-                      newValue: String(newValue || ''),
-                      changedBy: currentUser ? `${currentUser.name} (${currentUser.role})` : 'Usuário não identificado',
-                      description: `Campo "${key}" alterado de "${oldValue || 'vazio'}" para "${newValue || 'vazio'}"`
-                    })
-                  }
-                }
-              })
-              
               return { 
                 ...contact, 
                 ...updates, 
-                changeLog: [...(contact.changeLog || []), ...changeLog],
+                changeLog: updatedChangeLog,
                 updatedAt: new Date().toISOString() 
               }
             }

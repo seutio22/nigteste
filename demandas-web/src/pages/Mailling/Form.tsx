@@ -215,8 +215,80 @@ export function MaillingForm({ open, contact, onClose, onSubmit }: MaillingFormP
         return 'Curadoria Portal RH'
       case 'documentacaoContratual':
         return 'Documentação Contratual'
+      case 'superior':
+        return 'Superior'
+      case 'criação':
+        return 'Criação do Contato'
+      case 'importação':
+        return 'Importação via Excel'
+      case 'sincronização':
+        return 'Sincronização com API'
+      case 'exclusão':
+        return 'Exclusão do Contato'
+      case 'exclusão em lote':
+        return 'Exclusão em Lote'
       default:
-        return field
+        return field.charAt(0).toUpperCase() + field.slice(1)
+    }
+  }
+
+  const getDisplayValue = (field: string, value: string) => {
+    if (!value) return 'vazio'
+    
+    // Para campos que são IDs, buscar o nome correspondente
+    switch (field) {
+      case 'area':
+        const area = masterDataStore.areasMailling?.find(a => a.id === value)
+        return area ? area.nome : value
+      case 'cargo':
+        const cargo = masterDataStore.cargosMailling?.find(c => c.id === value)
+        return cargo ? cargo.nome : value
+      case 'filiais':
+        // Para filiais, pode ser um array de IDs ou uma string
+        try {
+          const filiaisIds = JSON.parse(value)
+          if (Array.isArray(filiaisIds)) {
+            const filiaisNomes = filiaisIds.map(id => {
+              const filial = masterDataStore.filiaisMailling?.find(f => f.id === id)
+              return filial ? filial.nome : id
+            })
+            return filiaisNomes.join(', ')
+          }
+        } catch {
+          // Se não for JSON, tratar como string simples
+          const filial = masterDataStore.filiaisMailling?.find(f => f.id === value)
+          return filial ? filial.nome : value
+        }
+        return value
+      case 'grupos':
+        // Para grupos, pode ser um array de IDs ou uma string
+        try {
+          const gruposIds = JSON.parse(value)
+          if (Array.isArray(gruposIds)) {
+            const gruposNomes = gruposIds.map(id => {
+              const grupo = masterDataStore.grupos?.find(g => g.id === id)
+              return grupo ? grupo.nome : id
+            })
+            return gruposNomes.join(', ')
+          }
+        } catch {
+          // Se não for JSON, tratar como string simples
+          const grupo = masterDataStore.grupos?.find(g => g.id === value)
+          return grupo ? grupo.nome : value
+        }
+        return value
+      case 'posicaoEmail':
+        return value // Já é legível
+      case 'cancelamento':
+      case 'alteracaoContratual':
+      case 'alteracaoDadosCliente':
+      case 'alteracaoServicos':
+      case 'alteracaoRemuneracao':
+      case 'curadoriaPortalRh':
+      case 'documentacaoContratual':
+        return value === 'sim' ? 'Sim' : 'Não'
+      default:
+        return value
     }
   }
   
@@ -794,7 +866,7 @@ export function MaillingForm({ open, contact, onClose, onSubmit }: MaillingFormP
                             </TableCell>
                             <TableCell sx={{ fontSize: '0.8rem' }}>
                               <Chip 
-                                label={entry.oldValue || 'vazio'} 
+                                label={getDisplayValue(entry.field, entry.oldValue) || 'vazio'} 
                                 size="small" 
                                 variant="outlined" 
                                 color="default"
@@ -803,7 +875,7 @@ export function MaillingForm({ open, contact, onClose, onSubmit }: MaillingFormP
                             </TableCell>
                             <TableCell sx={{ fontSize: '0.8rem' }}>
                               <Chip 
-                                label={entry.newValue || 'vazio'} 
+                                label={getDisplayValue(entry.field, entry.newValue) || 'vazio'} 
                                 size="small" 
                                 variant="outlined" 
                                 color="primary"
