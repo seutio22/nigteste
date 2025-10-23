@@ -783,15 +783,28 @@ export default function ManutencaoListPage() {
         data={finalFilteredItems.map(d => ({
           ...d,
           // Mapear IDs para nomes legíveis
-          analista: md.analistas.find(a => a.id === d.analista)?.nome ?? d.analista ?? 'N/A',
-          area: md.areas.find(ar => ar.id === d.area)?.nome ?? d.area ?? 'N/A',
-          cliente: md.clientes.find(c => c.id === d.cliente)?.nome ?? d.cliente ?? 'N/A',
-          contrato: md.contratos.find(c => c.id === d.contrato)?.numero ?? d.contrato ?? 'N/A',
-          operadora: md.operadoras.find(o => o.id === d.operadora)?.nome ?? d.operadora ?? 'N/A',
-          produto: md.produtos.find(p => p.id === d.produto)?.nome ?? d.produto ?? 'N/A',
-          tipoServico: md.tiposCadastro.find(ts => ts.id === d.tipoServico)?.nome ?? d.tipoServico ?? 'N/A',
-          // Formatar data
-          updatedAt: d.updatedAt ? new Date(d.updatedAt).toLocaleString('pt-BR') : 'N/A'
+          analista: md.analistas.find(a => a.id === d.analistaId)?.nome ?? d.analista ?? 'N/A',
+          area: md.areas.find(ar => ar.id === d.areaId)?.nome ?? d.area ?? 'N/A',
+          cliente: md.clientes.find(c => c.id === d.clienteId)?.nome ?? d.cliente ?? 'N/A',
+          contrato: md.contratos.find(c => c.id === d.contratoId)?.numero ?? d.contrato ?? 'N/A',
+          operadora: md.operadoras.find(o => o.id === d.operadoraId)?.nome ?? d.operadora ?? 'N/A',
+          produto: md.produtos.find(p => p.id === d.produtoId)?.nome ?? d.produto ?? 'N/A',
+          sistema: md.sistemas.find(s => s.id === d.sistemaId)?.nome ?? d.sistema ?? 'N/A',
+          tipoServico: md.tiposCadastro.find(ts => ts.id === d.tipoServicoId)?.nome ?? d.tipoServico ?? 'N/A',
+          tipo: md.padrao.find(p => p.id === d.tipoId)?.nome ?? d.tipo ?? 'N/A',
+          // Formatar datas
+          dataInicio: d.dataInicio ? new Date(d.dataInicio).toLocaleDateString('pt-BR') : 'N/A',
+          dataFinal: d.dataFinal ? new Date(d.dataFinal).toLocaleDateString('pt-BR') : 'N/A',
+          createdAt: d.createdAt ? new Date(d.createdAt).toLocaleString('pt-BR') : 'N/A',
+          updatedAt: d.updatedAt ? new Date(d.updatedAt).toLocaleString('pt-BR') : 'N/A',
+          // Campos numéricos
+          qtdRetornos: d.qtdRetornos ?? 0,
+          qtdClientesVinculados: d.qtdClientesVinculados ?? 0,
+          usuariosEmpresa: d.usuariosEmpresa ?? 0,
+          // Campos de texto
+          solicitante: d.solicitante ?? 'N/A',
+          observacoes: d.observacoes ?? 'N/A',
+          qualidade: d.qualidade ?? 'N/A'
         }))}
         moduleName="manutencoes"
         moduleTitle="Manutenções"
@@ -809,7 +822,18 @@ export default function ManutencaoListPage() {
           { key: 'contrato', label: 'Contrato' },
           { key: 'operadora', label: 'Operadora' },
           { key: 'produto', label: 'Produto' },
+          { key: 'sistema', label: 'Sistema' },
           { key: 'tipoServico', label: 'Tipo de Serviço' },
+          { key: 'tipo', label: 'Tipo de Manutenção' },
+          { key: 'solicitante', label: 'Solicitante' },
+          { key: 'dataInicio', label: 'Data de Início' },
+          { key: 'dataFinal', label: 'Data Final' },
+          { key: 'qtdRetornos', label: 'Qtd Retornos' },
+          { key: 'qualidade', label: 'Qualidade' },
+          { key: 'qtdClientesVinculados', label: 'Qtd Clientes Vinculados' },
+          { key: 'usuariosEmpresa', label: 'Usuários Empresa' },
+          { key: 'observacoes', label: 'Observações' },
+          { key: 'createdAt', label: 'Criado em' },
           { key: 'updatedAt', label: 'Atualizado em' }
         ]}
       />
