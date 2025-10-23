@@ -2132,7 +2132,8 @@ function crud(entity: keyof PrismaClient) {
           case 'tipoDemanda':
             const tipoDemandaDeps = await Promise.all([
               anyPrisma.demanda.count({ where: { tipoId: id } }),
-              anyPrisma.atendimento.count({ where: { tipoId: id } })
+              anyPrisma.atendimento.count({ where: { tipoId: id } }),
+              anyPrisma.manutencao.count({ where: { tipoId: id } })
             ]);
             hasDependencies = tipoDemandaDeps.some(count => count > 0);
             break;
@@ -2182,6 +2183,19 @@ function crud(entity: keyof PrismaClient) {
             if (demandas > 0) deps.push(`${demandas} demanda(s)`);
             if (atendimentos > 0) deps.push(`${atendimentos} atendimento(s)`);
             if (projetos > 0) deps.push(`${projetos} projeto(s)`);
+            
+            dependencyInfo = ` Dependências encontradas: ${deps.join(', ')}.`;
+          } else if (entityName === 'tipoDemanda') {
+            const [demandas, atendimentos, manutencoes] = await Promise.all([
+              anyPrisma.demanda.count({ where: { tipoId: id } }),
+              anyPrisma.atendimento.count({ where: { tipoId: id } }),
+              anyPrisma.manutencao.count({ where: { tipoId: id } })
+            ]);
+            
+            const deps = [];
+            if (demandas > 0) deps.push(`${demandas} demanda(s)`);
+            if (atendimentos > 0) deps.push(`${atendimentos} atendimento(s)`);
+            if (manutencoes > 0) deps.push(`${manutencoes} manutenção(ões)`);
             
             dependencyInfo = ` Dependências encontradas: ${deps.join(', ')}.`;
           }
