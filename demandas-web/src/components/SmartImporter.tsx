@@ -111,7 +111,50 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
             console.log(`🔍 SMART IMPORTER: Header "${header}" -> limpo: "${cleanHeader}" (índice ${index}) = valor "${value}"`)
             
             // Mapear campos baseado no tipo de entidade
-            if (config.entityType.toLowerCase().includes('cliente')) {
+            if (config.entityType.toLowerCase().includes('manutenções') || config.entityType.toLowerCase().includes('manutencoes')) {
+              // Mapeamento específico para manutenções
+              if (cleanHeader === 'status') {
+                item.status = value
+              } else if (cleanHeader === 'tiposervico' || cleanHeader === 'tiposerviço' || cleanHeader === 'tiposervicoid' || cleanHeader === 'tiposervicold') {
+                item.tipoServico = value
+              } else if (cleanHeader === 'tipo') {
+                item.tipo = value
+              } else if (cleanHeader === 'descricao' || cleanHeader === 'descrição') {
+                item.descricao = value
+              } else if (cleanHeader === 'analista') {
+                item.analista = value
+              } else if (cleanHeader === 'datainicio' || cleanHeader === 'datainicial') {
+                item.dataInicio = value
+              } else if (cleanHeader === 'datafinal' || cleanHeader === 'datafinalizacao' || cleanHeader === 'datafinalização') {
+                item.dataFinal = value
+              } else if (cleanHeader === 'ticket') {
+                item.ticket = value
+              } else if (cleanHeader === 'solicitante') {
+                item.solicitante = value
+              } else if (cleanHeader === 'area' || cleanHeader === 'área') {
+                item.area = value
+              } else if (cleanHeader === 'cliente') {
+                item.cliente = value
+              } else if (cleanHeader === 'contrato') {
+                item.contrato = value
+              } else if (cleanHeader === 'operadora') {
+                item.operadora = value
+              } else if (cleanHeader === 'produto') {
+                item.produto = value
+              } else if (cleanHeader === 'sistema') {
+                item.sistema = value
+              } else if (cleanHeader === 'observacoes' || cleanHeader === 'observações' || cleanHeader === 'observacao' || cleanHeader === 'observação') {
+                item.observacoes = value
+              } else if (cleanHeader === 'qtdretornos' || cleanHeader === 'quantidaderetornos') {
+                item.qtdRetornos = value
+              } else if (cleanHeader === 'qualidade') {
+                item.qualidade = value
+              } else if (cleanHeader === 'qtdclientesvinculados' || cleanHeader === 'clientesvinculados') {
+                item.qtdClientesVinculados = value
+              } else if (cleanHeader === 'usuariosempresa' || cleanHeader === 'usuarios' || cleanHeader === 'usuários') {
+                item.usuariosEmpresa = value
+              }
+            } else if (config.entityType.toLowerCase().includes('cliente')) {
               if (cleanHeader === 'id' && value) {
                 item.id = value
               } else if (cleanHeader === 'nome') {
