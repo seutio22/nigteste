@@ -169,9 +169,15 @@ export default function AtendimentoListPage() {
       }
       return tiposServicoMap[p.value as string] || p.value || '-'
     }},
-    { field: 'tipo', headerName: 'Tipo de Demanda', width: 160, renderCell: (p) => {
-      const tipo = masterDataStore.tiposDemanda.find(t => t.id === p.value)
-      return tipo ? tipo.nome : p.value || '-'
+    { field: 'tipo', headerName: 'Canal de Atendimento', width: 160, renderCell: (p) => {
+      // Mapear valores para texto legível
+      const canalMap: { [key: string]: string } = {
+        'teams': 'Teams',
+        'email': 'E-mail',
+        'ligacao': 'Ligação',
+        'mensagem': 'Mensagem'
+      }
+      return canalMap[p.value as string] || p.value || '-'
     }},
     { field: 'createdAt', headerName: 'Data Criação', width: 160, renderCell: (p) => 
       p.value ? new Date(p.value).toLocaleString('pt-BR', {
@@ -372,6 +378,15 @@ export default function AtendimentoListPage() {
             '& .MuiDataGrid-cell:focus': {
               outline: 'none',
             },
+            '& .MuiDataGrid-cell': {
+              textTransform: 'none',
+              fontSize: '0.875rem',
+            },
+            '& .MuiDataGrid-columnHeader': {
+              textTransform: 'none',
+              fontSize: '0.875rem',
+              fontWeight: 600,
+            },
           }}
         />
       </div>
@@ -423,6 +438,15 @@ export default function AtendimentoListPage() {
           produto: masterDataStore.produtos.find(p => p.id === a.produto)?.nome ?? a.produto ?? 'N/A',
           sistema: masterDataStore.sistemas.find(s => s.id === a.sistema)?.nome ?? a.sistema ?? 'N/A',
           tipoServico: (a.tipoServico === 'duvida' ? 'Dúvida' : a.tipoServico === 'solicitacao' ? 'Solicitação' : a.tipoServico) ?? 'N/A',
+          tipo: (() => {
+            const canalMap: { [key: string]: string } = {
+              'teams': 'Teams',
+              'email': 'E-mail',
+              'ligacao': 'Ligação',
+              'mensagem': 'Mensagem'
+            }
+            return canalMap[a.tipo as string] || a.tipo || 'N/A'
+          })(),
           // Formatar datas
           dataInicio: a.dataInicio ? new Date(a.dataInicio).toLocaleString('pt-BR') : 'N/A',
           dataResolucao: a.dataFinal ? new Date(a.dataFinal).toLocaleString('pt-BR') : 'N/A',
@@ -443,7 +467,7 @@ export default function AtendimentoListPage() {
           { key: 'area', label: 'Área' },
           { key: 'analista', label: 'Analista' },
           { key: 'tipoServico', label: 'Tipo de Serviço' },
-          { key: 'tipo', label: 'Tipo de Demanda' }
+          { key: 'tipo', label: 'Canal de Atendimento' }
         ]}
       />
     </Box>
