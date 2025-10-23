@@ -530,6 +530,53 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
           ativo: 'true'
         }
       ]
+    } else if (config.entityType.toLowerCase().includes('manutenção') || config.entityType.toLowerCase().includes('manutencoes')) {
+      templateData = [
+        { 
+          status: 'Aberta',
+          tipoServico: 'CAD',
+          tipo: 'Pessoa Física',
+          descricao: 'Manutenção preventiva do sistema de cadastro',
+          analista: 'João Silva',
+          dataInicio: '2024-01-15',
+          dataFinal: '2024-01-20',
+          ticket: 'MAN-2024-001',
+          solicitante: 'Maria Santos',
+          area: 'Vendas',
+          cliente: 'Empresa ABC Ltda',
+          contrato: 'CTR-001',
+          operadora: 'Operadora XYZ',
+          produto: 'Produto Premium',
+          sistema: 'Sistema Principal',
+          observacoes: 'Manutenção preventiva mensal',
+          qtdRetornos: 0,
+          qualidade: '1',
+          qtdClientesVinculados: 50,
+          usuariosEmpresa: 200
+        },
+        { 
+          status: 'Em andamento',
+          tipoServico: 'MAN',
+          tipo: 'Pessoa Jurídica',
+          descricao: 'Correção de bugs no módulo de relatórios',
+          analista: 'Pedro Costa',
+          dataInicio: '2024-01-20',
+          dataFinal: '2024-01-25',
+          ticket: 'MAN-2024-002',
+          solicitante: 'Ana Oliveira',
+          area: 'TI',
+          cliente: 'Comércio XYZ S.A.',
+          contrato: 'CTR-002',
+          operadora: 'Operadora ABC',
+          produto: 'Produto Standard',
+          sistema: 'Sistema Secundário',
+          observacoes: 'Correção urgente solicitada pelo cliente',
+          qtdRetornos: 1,
+          qualidade: '2',
+          qtdClientesVinculados: 25,
+          usuariosEmpresa: 100
+        }
+      ]
     } else if (config.entityType.toLowerCase().includes('demanda')) {
       templateData = [
         { 
