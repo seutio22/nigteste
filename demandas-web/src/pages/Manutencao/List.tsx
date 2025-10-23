@@ -251,19 +251,48 @@ export default function ManutencaoListPage() {
               .replace(/\s+/g, ' ') // Normaliza espaços
           }
 
-          // Função para encontrar ID por nome (com normalização completa)
+          // Função para encontrar ID por nome (com normalização completa e correspondência flexível)
           const findIdByName = (name: string, items: any[], nameField: string = 'nome') => {
             if (!name) return ''
             
             const searchNormalized = normalizeString(String(name))
             
-            // Buscar item com correspondência exata (normalizada)
-            const item = items.find(item => {
+            // Primeiro, tentar correspondência exata (normalizada)
+            let item = items.find(item => {
               const itemNameNormalized = normalizeString(item[nameField] || item.nome || '')
               return itemNameNormalized === searchNormalized
             })
             
-            console.log(`🔍 SMART IMPORT MANUTENÇÕES: Buscando "${name}" (normalizado: "${searchNormalized}") em ${items.length} itens, encontrado:`, item ? `${item.nome || item[nameField]} (${item.id})` : 'não encontrado')
+            // Se não encontrou correspondência exata, tentar correspondência parcial
+            if (!item) {
+              item = items.find(item => {
+                const itemNameNormalized = normalizeString(item[nameField] || item.nome || '')
+                // Verificar se o termo de busca está contido no nome do item
+                return itemNameNormalized.includes(searchNormalized) || searchNormalized.includes(itemNameNormalized)
+              })
+            }
+            
+            // Se ainda não encontrou, tentar correspondência por palavras-chave
+            if (!item) {
+              const searchWords = searchNormalized.split(' ').filter(word => word.length > 2)
+              if (searchWords.length > 0) {
+                item = items.find(item => {
+                  const itemNameNormalized = normalizeString(item[nameField] || item.nome || '')
+                  return searchWords.some(word => itemNameNormalized.includes(word))
+                })
+              }
+            }
+            
+            const foundItem = item ? `${item.nome || item[nameField]} (${item.id})` : 'não encontrado'
+            console.log(`🔍 SMART IMPORT MANUTENÇÕES: Buscando "${name}" (normalizado: "${searchNormalized}") em ${items.length} itens, encontrado: ${foundItem}`)
+            
+            if (item) {
+              console.log(`✅ SMART IMPORT MANUTENÇÕES: Match encontrado - "${name}" -> "${item.nome || item[nameField]}" (${item.id})`)
+            } else {
+              console.log(`❌ SMART IMPORT MANUTENÇÕES: Nenhum match encontrado para "${name}"`)
+              console.log(`🔍 SMART IMPORT MANUTENÇÕES: Itens disponíveis:`, items.map(i => i.nome || i[nameField]))
+            }
+            
             return item?.id || ''
           }
 
@@ -474,14 +503,14 @@ export default function ManutencaoListPage() {
       })(),
       tipoServico: (() => {
         if (d.tipoServico && typeof d.tipoServico === 'string' && d.tipoServico.length > 20) {
-          // Usar tiposCadastro para tipo de serviço
-          const tipoServico = md.tiposCadastro.find(tc => tc.id === d.tipoServico)
+          // Usar tiposServico para tipo de serviço
+          const tipoServico = md.tiposServico.find(ts => ts.id === d.tipoServico)
           return tipoServico?.nome ?? d.tipoServico
         }
         
         // Se d.tipoServicoId existe, buscar o nome
         if (d.tipoServicoId) {
-          const tipoServico = md.tiposCadastro.find(tc => tc.id === d.tipoServicoId)
+          const tipoServico = md.tiposServico.find(ts => ts.id === d.tipoServicoId)
           return tipoServico?.nome ?? d.tipoServicoId
         }
         

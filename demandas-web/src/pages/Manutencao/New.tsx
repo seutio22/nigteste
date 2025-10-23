@@ -145,7 +145,7 @@ export default function ManutencaoNewPage() {
   async function onSubmit(data: FormValues) {
     try {
       // Verificar se os dados obrigatórios estão carregados
-      if (md.tiposCadastro.length === 0 || md.padrao.length === 0) {
+      if (md.tiposServico.length === 0 || md.padrao.length === 0) {
         alert('Dados não carregados! Clique em "Forçar Sincronização" para recarregar os dados.')
         return
       }
@@ -280,7 +280,7 @@ export default function ManutencaoNewPage() {
           <Grid item xs={12} sm={6} md={4}>
             <Controller name="tipoServico" control={control} render={({ field }) => (
               <TextField {...field} select required label="Tipo de serviço *" fullWidth error={!!errors.tipoServico} helperText={errors.tipoServico?.message}>
-                {md.tiposCadastro.map(tc => <MenuItem key={tc.id} value={tc.id}>{tc.nome}</MenuItem>)}
+                {md.tiposServico.map(ts => <MenuItem key={ts.id} value={ts.id}>{ts.nome}</MenuItem>)}
               </TextField>
             )} />
           </Grid>

@@ -544,15 +544,95 @@ export const smartImporterConfigs: { [key: string]: SmartImporterConfig } = {
 
   manutencoes: {
     entityType: 'Manutenções',
-    requiredFields: [],
+    requiredFields: ['status', 'tipoServico', 'tipo'],
     optionalFields: [
-      'status', 'tipoServico', 'tipo', 'descricao', 'analista', 'dataInicio', 'dataFinal', 
+      'descricao', 'analista', 'dataInicio', 'dataFinal', 
       'ticket', 'solicitante', 'area', 'cliente', 'contrato', 'operadora', 'produto', 'sistema',
-      'observacoes', 'qtdRetornos', 'qualidade', 'qtdClientesVinculados'
+      'observacoes', 'qtdRetornos', 'qualidade', 'qtdClientesVinculados', 'usuariosEmpresa'
     ],
     duplicateCheckFields: [],
-    validationRules: [],
-    referenceFields: []
+    validationRules: [
+      {
+        field: 'status',
+        type: 'required',
+        message: 'Status é obrigatório'
+      },
+      {
+        field: 'tipoServico',
+        type: 'required',
+        message: 'Tipo de serviço é obrigatório'
+      },
+      {
+        field: 'tipo',
+        type: 'required',
+        message: 'Tipo de manutenção é obrigatório'
+      }
+    ],
+    referenceFields: [
+      {
+        field: 'tipoServico',
+        referenceType: 'tiposServico',
+        referenceStore: 'tiposServico',
+        displayField: 'nome',
+        valueField: 'id'
+      },
+      {
+        field: 'tipo',
+        referenceType: 'padrao',
+        referenceStore: 'padrao',
+        displayField: 'nome',
+        valueField: 'id'
+      },
+      {
+        field: 'analista',
+        referenceType: 'analistas',
+        referenceStore: 'analistas',
+        displayField: 'nome',
+        valueField: 'id'
+      },
+      {
+        field: 'area',
+        referenceType: 'areas',
+        referenceStore: 'areas',
+        displayField: 'nome',
+        valueField: 'id'
+      },
+      {
+        field: 'cliente',
+        referenceType: 'clientes',
+        referenceStore: 'clientes',
+        displayField: 'nome',
+        valueField: 'id'
+      },
+      {
+        field: 'contrato',
+        referenceType: 'contratos',
+        referenceStore: 'contratos',
+        displayField: 'codigo',
+        valueField: 'id'
+      },
+      {
+        field: 'operadora',
+        referenceType: 'operadoras',
+        referenceStore: 'operadoras',
+        displayField: 'nome',
+        valueField: 'id'
+      },
+      {
+        field: 'produto',
+        referenceType: 'produtos',
+        referenceStore: 'produtos',
+        displayField: 'nome',
+        valueField: 'id'
+      },
+      {
+        field: 'sistema',
+        referenceType: 'sistemas',
+        referenceStore: 'sistemas',
+        displayField: 'nome',
+        valueField: 'id'
+      }
+    ]
   },
 
   validacoes: {
