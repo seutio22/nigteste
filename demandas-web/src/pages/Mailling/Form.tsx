@@ -235,6 +235,15 @@ export function MaillingForm({ open, contact, onClose, onSubmit }: MaillingFormP
   const getDisplayValue = (field: string, value: string) => {
     if (!value) return 'vazio'
     
+    // Debug: verificar se os dados mestres estão disponíveis
+    console.log('🔍 getDisplayValue - field:', field, 'value:', value)
+    console.log('🔍 Dados mestres disponíveis:', {
+      areasMailling: masterDataStore.areasMailling?.length || 0,
+      cargosMailling: masterDataStore.cargosMailling?.length || 0,
+      filiaisMailling: masterDataStore.filiaisMailling?.length || 0,
+      grupos: masterDataStore.grupos?.length || 0
+    })
+    
     // Para campos que são IDs, buscar o nome correspondente
     switch (field) {
       case 'area':
@@ -244,8 +253,9 @@ export function MaillingForm({ open, contact, onClose, onSubmit }: MaillingFormP
         const cargo = masterDataStore.cargosMailling?.find(c => c.id === value)
         return cargo ? cargo.nome : value
       case 'filiais':
-        // Para filiais, pode ser um array de IDs ou uma string
+        // Para filiais, pode ser um array de IDs ou uma string separada por vírgula
         try {
+          // Primeiro tenta como JSON array
           const filiaisIds = JSON.parse(value)
           if (Array.isArray(filiaisIds)) {
             const filiaisNomes = filiaisIds.map(id => {
@@ -255,14 +265,19 @@ export function MaillingForm({ open, contact, onClose, onSubmit }: MaillingFormP
             return filiaisNomes.join(', ')
           }
         } catch {
-          // Se não for JSON, tratar como string simples
-          const filial = masterDataStore.filiaisMailling?.find(f => f.id === value)
-          return filial ? filial.nome : value
+          // Se não for JSON, tratar como string separada por vírgula
+          const filiaisIds = value.split(',').map(id => id.trim())
+          const filiaisNomes = filiaisIds.map(id => {
+            const filial = masterDataStore.filiaisMailling?.find(f => f.id === id)
+            return filial ? filial.nome : id
+          })
+          return filiaisNomes.join(', ')
         }
         return value
       case 'grupos':
-        // Para grupos, pode ser um array de IDs ou uma string
+        // Para grupos, pode ser um array de IDs ou uma string separada por vírgula
         try {
+          // Primeiro tenta como JSON array
           const gruposIds = JSON.parse(value)
           if (Array.isArray(gruposIds)) {
             const gruposNomes = gruposIds.map(id => {
@@ -272,9 +287,13 @@ export function MaillingForm({ open, contact, onClose, onSubmit }: MaillingFormP
             return gruposNomes.join(', ')
           }
         } catch {
-          // Se não for JSON, tratar como string simples
-          const grupo = masterDataStore.grupos?.find(g => g.id === value)
-          return grupo ? grupo.nome : value
+          // Se não for JSON, tratar como string separada por vírgula
+          const gruposIds = value.split(',').map(id => id.trim())
+          const gruposNomes = gruposIds.map(id => {
+            const grupo = masterDataStore.grupos?.find(g => g.id === id)
+            return grupo ? grupo.nome : id
+          })
+          return gruposNomes.join(', ')
         }
         return value
       case 'posicaoEmail':
