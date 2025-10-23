@@ -268,25 +268,34 @@ export default function ManutencaoListPage() {
           }
 
           // Mapear dados para o formato de manutenção
+          const tipoServicoId = findIdByName(data.tipoServico || data.tipoServicoId, md.tiposServico)
+          const tipoId = findIdByName(data.tipo || data.tipoId, md.tiposCadastro)
+          const analistaId = findIdByName(data.analista || data.analistaId, md.analistas)
+          
+          console.log('🔍 SMART IMPORT MANUTENÇÕES: Mapeamento de campos:')
+          console.log('  - tipoServico:', data.tipoServico, '-> tipoServicoId:', tipoServicoId)
+          console.log('  - tipo:', data.tipo, '-> tipoId:', tipoId)
+          console.log('  - analista:', data.analista, '-> analistaId:', analistaId)
+          
           const manutencaoData = {
             // Campos obrigatórios
             status: data.status || 'Aberta',
-            tipoServicoId: findIdByName(data.tipoServico || data.tipoServicoId, md.tiposServico) || '',
-            tipoId: findIdByName(data.tipo || data.tipoId, md.tiposCadastro) || '',
+            ...(tipoServicoId && { tipoServicoId }),
+            ...(tipoId && { tipoId }),
             
             // Campos opcionais
             descricao: data.descricao || '',
-            analistaId: findIdByName(data.analista || data.analistaId, md.analistas) || '',
+            ...(analistaId && { analistaId }),
             dataInicio: excelDateToISO(data.dataInicio || data.dataInicial) || new Date().toISOString(),
             dataFinal: excelDateToISO(data.dataFinal || data.dataFinalizacao),
             ticket: data.ticket ? String(data.ticket) : `MAN-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
             solicitante: data.solicitante || '',
-            areaId: findIdByName(data.area || data.areaId, md.areas) || '',
-            clienteId: findIdByName(data.cliente || data.clienteId, md.clientes) || '',
-            contratoId: findIdByName(data.contrato || data.contratoId, md.contratos, 'codigo') || '',
-            operadoraId: findIdByName(data.operadora || data.operadoraId, md.operadoras) || '',
-            produtoId: findIdByName(data.produto || data.produtoId, md.produtos) || '',
-            sistemaId: findIdByName(data.sistema || data.sistemaId, md.sistemas) || '',
+            ...(findIdByName(data.area || data.areaId, md.areas) && { areaId: findIdByName(data.area || data.areaId, md.areas) }),
+            ...(findIdByName(data.cliente || data.clienteId, md.clientes) && { clienteId: findIdByName(data.cliente || data.clienteId, md.clientes) }),
+            ...(findIdByName(data.contrato || data.contratoId, md.contratos, 'codigo') && { contratoId: findIdByName(data.contrato || data.contratoId, md.contratos, 'codigo') }),
+            ...(findIdByName(data.operadora || data.operadoraId, md.operadoras) && { operadoraId: findIdByName(data.operadora || data.operadoraId, md.operadoras) }),
+            ...(findIdByName(data.produto || data.produtoId, md.produtos) && { produtoId: findIdByName(data.produto || data.produtoId, md.produtos) }),
+            ...(findIdByName(data.sistema || data.sistemaId, md.sistemas) && { sistemaId: findIdByName(data.sistema || data.sistemaId, md.sistemas) }),
             observacoes: data.observacoes || data.observacao || '',
             qtdRetornos: data.qtdRetornos || data.quantidadeRetornos || 0,
             qualidade: data.qualidade ? String(data.qualidade) : null,
@@ -294,12 +303,7 @@ export default function ManutencaoListPage() {
             usuariosEmpresa: data.usuariosEmpresa || data.usuarios || 0
           }
 
-          // Remover campos vazios para evitar problemas com o Prisma
-          Object.keys(manutencaoData).forEach(key => {
-            if (manutencaoData[key] === '' || manutencaoData[key] === null || manutencaoData[key] === undefined) {
-              delete manutencaoData[key]
-            }
-          })
+          // Campos vazios já são filtrados na construção do objeto
 
           console.log('🔍 SMART IMPORT MANUTENÇÕES: Salvando manutenção:', manutencaoData)
 
