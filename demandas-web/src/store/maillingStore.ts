@@ -684,15 +684,7 @@ export const useMaillingStore = create<MaillingState>()(
               documentacaoContratual: getBooleanValue(apiContact.documentacaoContratual),
               createdAt: apiContact.createdAt || new Date().toISOString(),
               updatedAt: apiContact.updatedAt || new Date().toISOString(),
-              changeLog: parseJSON(apiContact.changeLog, [{
-                id: crypto.randomUUID(),
-                timestamp: new Date().toISOString(),
-                field: 'sincronização',
-                oldValue: '',
-                newValue: 'Dados sincronizados da API',
-                changedBy: 'Sistema',
-                description: 'Contato carregado do banco de dados'
-              }])
+              changeLog: parseJSON(apiContact.changeLog, [])
             }
             
             // Debug: mostrar conversão do primeiro contato
@@ -704,7 +696,8 @@ export const useMaillingStore = create<MaillingState>()(
                 alteracaoServicos: `"${apiContact.alteracaoServicos}" -> "${convertedContact.alteracaoServicos}"`,
                 alteracaoRemuneracao: `"${apiContact.alteracaoRemuneracao}" -> "${convertedContact.alteracaoRemuneracao}"`,
                 curadoriaPortalRh: `"${apiContact.curadoriaPortalRh}" -> "${convertedContact.curadoriaPortalRh}"`,
-                documentacaoContratual: `"${apiContact.documentacaoContratual}" -> "${convertedContact.documentacaoContratual}"`
+                documentacaoContratual: `"${apiContact.documentacaoContratual}" -> "${convertedContact.documentacaoContratual}"`,
+                changeLog: `API: "${apiContact.changeLog}" -> Frontend: ${convertedContact.changeLog.length} entradas`
               })
             }
             
