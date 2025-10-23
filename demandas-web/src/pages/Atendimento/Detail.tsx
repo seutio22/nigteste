@@ -476,16 +476,17 @@ function EditInline({ atendimento, user }: { atendimento: any; user: any }) {
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Demanda *</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Canal de Atendimento *</label>
           <select
             value={draft.tipo || ''}
             onChange={(e) => setDraft({ ...draft, tipo: e.target.value || undefined })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="">Selecione...</option>
-            {md.tiposDemanda
-              .filter(td => !draft.tipoServico || td.tipoServicoId === draft.tipoServico)
-              .map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
+            <option value="teams">Teams</option>
+            <option value="email">E-mail</option>
+            <option value="ligacao">Ligação</option>
+            <option value="mensagem">Mensagem</option>
           </select>
         </div>
       </div>
