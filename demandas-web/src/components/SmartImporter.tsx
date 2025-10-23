@@ -530,7 +530,7 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
           ativo: 'true'
         }
       ]
-    } else if (config.entityType.toLowerCase().includes('manutenção') || config.entityType.toLowerCase().includes('manutencoes')) {
+    } else if (config.entityType.toLowerCase().includes('manutenções') || config.entityType.toLowerCase().includes('manutencoes')) {
       templateData = [
         { 
           status: 'Aberta',
