@@ -560,13 +560,15 @@ export const smartImporterConfigs: { [key: string]: SmartImporterConfig } = {
       },
       {
         field: 'tipoServico',
-        type: 'required',
-        message: 'Tipo de serviço é obrigatório'
+        type: 'custom',
+        message: 'Tipo de serviço deve ser informado',
+        validator: (value) => !value || String(value).trim().length > 0
       },
       {
         field: 'tipo',
-        type: 'required',
-        message: 'Tipo de manutenção é obrigatório'
+        type: 'custom',
+        message: 'Tipo de manutenção deve ser informado',
+        validator: (value) => !value || String(value).trim().length > 0
       },
       {
         field: 'dataInicio',
@@ -580,21 +582,21 @@ export const smartImporterConfigs: { [key: string]: SmartImporterConfig } = {
       },
       {
         field: 'qtdRetornos',
-        type: 'number',
-        message: 'Quantidade de retornos deve ser um número positivo',
-        options: { min: 0 }
+        type: 'custom',
+        message: 'Quantidade de retornos deve ser um número válido',
+        validator: (value) => !value || !isNaN(Number(value)) && Number(value) >= 0
       },
       {
         field: 'qtdClientesVinculados',
-        type: 'number',
-        message: 'Quantidade de clientes vinculados deve ser um número positivo',
-        options: { min: 0 }
+        type: 'custom',
+        message: 'Quantidade de clientes vinculados deve ser um número válido',
+        validator: (value) => !value || !isNaN(Number(value)) && Number(value) >= 0
       },
       {
         field: 'usuariosEmpresa',
-        type: 'number',
-        message: 'Usuários da empresa deve ser um número positivo',
-        options: { min: 0 }
+        type: 'custom',
+        message: 'Usuários da empresa deve ser um número válido',
+        validator: (value) => !value || !isNaN(Number(value)) && Number(value) >= 0
       },
       {
         field: 'qualidade',
@@ -604,69 +606,8 @@ export const smartImporterConfigs: { [key: string]: SmartImporterConfig } = {
       }
     ],
     referenceFields: [
-      {
-        field: 'tipoServico',
-        referenceType: 'tiposServico',
-        referenceStore: 'tiposServico',
-        displayField: 'nome',
-        valueField: 'id'
-      },
-      {
-        field: 'tipo',
-        referenceType: 'tiposCadastro',
-        referenceStore: 'tiposCadastro',
-        displayField: 'nome',
-        valueField: 'id'
-      },
-      {
-        field: 'analista',
-        referenceType: 'analistas',
-        referenceStore: 'analistas',
-        displayField: 'nome',
-        valueField: 'id'
-      },
-      {
-        field: 'area',
-        referenceType: 'areas',
-        referenceStore: 'areas',
-        displayField: 'nome',
-        valueField: 'id'
-      },
-      {
-        field: 'cliente',
-        referenceType: 'clientes',
-        referenceStore: 'clientes',
-        displayField: 'nome',
-        valueField: 'id'
-      },
-      {
-        field: 'contrato',
-        referenceType: 'contratos',
-        referenceStore: 'contratos',
-        displayField: 'codigo',
-        valueField: 'id'
-      },
-      {
-        field: 'operadora',
-        referenceType: 'operadoras',
-        referenceStore: 'operadoras',
-        displayField: 'nome',
-        valueField: 'id'
-      },
-      {
-        field: 'produto',
-        referenceType: 'produtos',
-        referenceStore: 'produtos',
-        displayField: 'nome',
-        valueField: 'id'
-      },
-      {
-        field: 'sistema',
-        referenceType: 'sistemas',
-        referenceStore: 'sistemas',
-        displayField: 'nome',
-        valueField: 'id'
-      }
+      // Validações de referência removidas para permitir importação flexível
+      // Os dados serão aceitos mesmo que não existam nas tabelas de referência
     ]
   },
 
