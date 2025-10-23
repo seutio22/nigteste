@@ -102,6 +102,7 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
       const items = jsonData.slice(1).map((row: any[], rowIndex) => {
         const item: any = {}
         console.log(`🔍 SMART IMPORTER: Processando linha ${rowIndex + 1}:`, row)
+        console.log(`🔍 SMART IMPORTER: Headers para linha ${rowIndex + 1}:`, headers)
         
         headers.forEach((header, index) => {
           if (header && row[index] !== undefined) {
@@ -334,10 +335,26 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
         
         console.log(`🔍 SMART IMPORTER: Item processado:`, item)
         return item
-      }).filter(item => Object.keys(item).length > 0)
+      }).filter(item => {
+        // Ser menos restritivo - apenas filtrar itens completamente vazios
+        // ou que não tenham pelo menos um campo preenchido
+        const hasAnyValue = Object.values(item).some(value => 
+          value !== undefined && value !== null && value !== ''
+        )
+        const hasAnyKey = Object.keys(item).length > 0
+        const shouldKeep = hasAnyKey && hasAnyValue
+        
+        if (!shouldKeep) {
+          console.log(`🔍 SMART IMPORTER: Removendo item vazio:`, item)
+        }
+        
+        return shouldKeep
+      })
       
       console.log(`🔍 SMART IMPORTER: Total de itens processados:`, items.length)
-      console.log(`🔍 SMART IMPORTER: Primeiros 3 itens:`, items.slice(0, 3))
+      console.log(`🔍 SMART IMPORTER: Todos os itens processados:`, items)
+      console.log(`🔍 SMART IMPORTER: Linhas originais do Excel:`, jsonData.length - 1)
+      console.log(`🔍 SMART IMPORTER: Diferença entre linhas Excel e itens processados:`, (jsonData.length - 1) - items.length)
 
       setProcessingStep('Aplicando validações...')
 

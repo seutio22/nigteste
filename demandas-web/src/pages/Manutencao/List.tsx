@@ -333,8 +333,14 @@ export default function ManutencaoListPage() {
         await manutencaoStore.syncFromApi()
       }
 
-      const successMessage = `${totalImported} manutenções processadas, ${totalSavedToDatabase} salvas no banco de dados`
+      const totalFromResult = result.valid.length
+      const successMessage = `${totalImported} de ${totalFromResult} manutenções processadas, ${totalSavedToDatabase} salvas no banco de dados`
       console.log(`✅ SMART IMPORT MANUTENÇÕES: ${successMessage}`)
+      console.log(`🔍 SMART IMPORT MANUTENÇÕES: Detalhes do processamento:`)
+      console.log(`  - Total de itens válidos no resultado: ${totalFromResult}`)
+      console.log(`  - Total de itens processados: ${totalImported}`)
+      console.log(`  - Total salvos no banco: ${totalSavedToDatabase}`)
+      console.log(`  - Total de erros: ${errors.length}`)
 
       // Mostrar notificação de sucesso
       if (totalSavedToDatabase > 0) {
@@ -344,6 +350,11 @@ export default function ManutencaoListPage() {
       if (errors.length > 0) {
         console.warn('⚠️ SMART IMPORT MANUTENÇÕES: Alguns erros ocorreram:', errors)
         alert(`⚠️ Alguns erros ocorreram:\n${errors.join('\n')}`)
+      }
+
+      // Se não houve sucessos, mostrar mensagem informativa
+      if (totalSavedToDatabase === 0 && totalFromResult > 0) {
+        alert(`⚠️ Nenhuma manutenção foi salva. Verifique os logs do console para mais detalhes.`)
       }
 
     } catch (error) {
