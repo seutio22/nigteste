@@ -1,25 +1,28 @@
 // Force cache bust - versão 2025-01-30
-export const CACHE_BUST_VERSION = '2025-01-30-v3';
+export const CACHE_BUST_VERSION = '2025-01-30-v4';
 
-// Função para forçar limpeza do cache
+// Importar sistema inteligente de limpeza
+import { smartCacheCleaner, forceSmartCleanup, getCleanupStats, isSystemClean } from './smart-cache-cleaner';
+
+// Função para forçar limpeza do cache (compatibilidade)
 export function forceCacheBust() {
-  // Limpar localStorage
-  const keysToRemove = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (key && key.includes('auth') || key.includes('store')) {
-      keysToRemove.push(key);
-    }
-  }
-  keysToRemove.forEach(key => localStorage.removeItem(key));
-  
-  // Limpar sessionStorage
-  sessionStorage.clear();
-  
-  console.log('🧹 Cache limpo forçadamente - versão:', CACHE_BUST_VERSION);
+  console.log('🔄 Usando sistema inteligente de limpeza...');
+  return forceSmartCleanup();
 }
 
-// Executar limpeza automática
+// Funções de utilidade para debugging
+export const getCacheStats = getCleanupStats;
+export const checkSystemClean = isSystemClean;
+
+// Executar limpeza automática inteligente
 if (typeof window !== 'undefined') {
-  forceCacheBust();
+  console.log('🧠 Sistema inteligente de limpeza de cache ativado');
+  console.log('📊 Versão atual:', CACHE_BUST_VERSION);
+  
+  // O sistema inteligente já executa automaticamente
+  // Apenas logar informações
+  setTimeout(() => {
+    const stats = getCleanupStats();
+    console.log('📈 Estatísticas de limpeza:', stats);
+  }, 2000);
 }

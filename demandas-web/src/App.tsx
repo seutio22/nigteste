@@ -8,6 +8,7 @@ import { useDeadlineNotifications } from './hooks/useDeadlineNotifications'
 import { FullScreenLoading } from './components/BeautifulLoading'
 import { useEffect } from 'react'
 import './utils/force-cache-bust' // Force cache bust
+import './utils/smart-cache-cleaner' // Sistema inteligente de limpeza
 
 function App() {
   // Aplicar tema global
