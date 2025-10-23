@@ -9,7 +9,7 @@ interface MaillingState {
   contacts: MaillingContact[]
   savedFilters: SavedFilter[]
   add: (contact: Omit<MaillingContact, 'id' | 'createdAt' | 'updatedAt' | 'changeLog'>) => Promise<void>
-  update: (id: string, updates: Partial<MaillingContact>) => void
+  update: (id: string, updates: Partial<MaillingContact>) => Promise<void>
   remove: (id: string) => Promise<void>
   removeMultiple: (ids: string[]) => Promise<void>
   getFiltered: (filters: MaillingFilter) => MaillingContact[]
@@ -154,9 +154,47 @@ export const useMaillingStore = create<MaillingState>()(
         }
       },
       
-      update: (id, updates) => {
+      update: async (id, updates) => {
         const authStore = useAuthStore.getState()
         const currentUser = authStore.user
+        
+        try {
+          // Preparar dados para a API (usando o modelo do Prisma)
+          const apiData = {
+            nome: updates.nome,
+            email: updates.email,
+            telefone: updates.superior || '',
+            empresa: updates.area || '',
+            cargo: updates.cargo || '',
+            departamento: '', // Não mais usado - migrado para filiais
+            categoria: 'Geral',
+            status: 'Ativo',
+            origem: 'Sistema',
+            // Novos campos
+            posicaoEmail: updates.posicaoEmail || 'PARA',
+            grupos: JSON.stringify(updates.grupos || []),
+            filiais: JSON.stringify(updates.filiais || []),
+            area: updates.area || '',
+            cancelamento: updates.cancelamento || 'nao',
+            alteracaoContratual: updates.alteracaoContratual || 'nao',
+            alteracaoDadosCliente: updates.alteracaoDadosCliente || 'nao',
+            alteracaoServicos: updates.alteracaoServicos || 'nao',
+            alteracaoRemuneracao: updates.alteracaoRemuneracao || 'nao',
+            curadoriaPortalRh: updates.curadoriaPortalRh || 'nao',
+            documentacaoContratual: updates.documentacaoContratual || 'nao',
+            changeLog: JSON.stringify([])
+          }
+          
+          // Chamar a API para atualizar no banco
+          const { api } = await import('../lib/api')
+          await api.put(`/mailling/${id}`, apiData)
+          
+          console.log('✅ Contato de mailling atualizado no banco de dados:', id)
+          
+        } catch (error) {
+          console.error('❌ Erro ao atualizar contato de mailling no banco:', error)
+          // Continua para atualizar localmente mesmo se a API falhar
+        }
         
         set((state) => {
           const updatedContacts = state.contacts.map(contact => {

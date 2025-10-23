@@ -132,12 +132,12 @@ export default function MaillingListPage() {
     setSnackbar({ open: true, message: 'Exportação iniciada!', severity: 'success' })
   }
   
-  const handleFormSubmit = (contact: Omit<MaillingContact, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const handleFormSubmit = async (contact: Omit<MaillingContact, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (editingContact) {
-      maillingStore.update(editingContact.id, contact)
+      await maillingStore.update(editingContact.id, contact)
       setSnackbar({ open: true, message: 'Contato atualizado com sucesso!', severity: 'success' })
     } else {
-      maillingStore.add(contact)
+      await maillingStore.add(contact)
       setSnackbar({ open: true, message: 'Contato adicionado com sucesso!', severity: 'success' })
     }
     setFormOpen(false)
