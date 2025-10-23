@@ -554,8 +554,8 @@ export const smartImporterConfigs: { [key: string]: SmartImporterConfig } = {
     validationRules: [
       {
         field: 'status',
-        type: 'required',
-        message: 'Status é obrigatório'
+        type: 'status',
+        message: 'Status inválido. Valores aceitos: Aberta, Em andamento, Aguardando validação, Com erros, Em reajuste, Concluída, Cancelada'
       },
       {
         field: 'tipoServico',
