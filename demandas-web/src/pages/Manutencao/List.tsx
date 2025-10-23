@@ -272,6 +272,8 @@ export default function ManutencaoListPage() {
                   console.log('  - tiposServico disponíveis:', md.tiposServico.map(t => t.nome))
                   console.log('  - tiposCadastro disponíveis:', md.tiposCadastro.map(t => t.nome))
                   console.log('  - analistas disponíveis:', md.analistas.map(a => a.nome))
+                  console.log('  - DADOS COMPLETOS tiposServico:', md.tiposServico)
+                  console.log('  - DADOS COMPLETOS tiposCadastro:', md.tiposCadastro)
 
                   // Mapear dados para o formato de manutenção
                   const tipoServicoId = findIdByName(data.tipoServico || data.tipoServicoId, md.tiposServico)
