@@ -71,6 +71,19 @@ export function MaillingForm({ open, contact, onClose, onSubmit }: MaillingFormP
   // Inicializar formulário quando abrir
   useEffect(() => {
     if (open) {
+      // Garantir que os dados mestres estão carregados
+      if (masterDataStore.syncFromApi) {
+        console.log('🔄 MaillingForm: Carregando dados mestres...')
+        masterDataStore.syncFromApi().then(() => {
+          console.log('✅ MaillingForm: Dados mestres carregados:', {
+            grupos: masterDataStore.grupos?.length || 0,
+            areasMailling: masterDataStore.areasMailling?.length || 0,
+            cargosMailling: masterDataStore.cargosMailling?.length || 0,
+            filiaisMailling: masterDataStore.filiaisMailling?.length || 0
+          })
+        })
+      }
+      
       if (contact) {
         setFormData({
           area: contact.area || '',
