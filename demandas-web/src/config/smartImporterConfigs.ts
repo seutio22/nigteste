@@ -544,71 +544,15 @@ export const smartImporterConfigs: { [key: string]: SmartImporterConfig } = {
 
   manutencoes: {
     entityType: 'Manutenções',
-    requiredFields: ['status', 'tipoServico', 'tipo'],
+    requiredFields: [],
     optionalFields: [
-      'descricao', 'analista', 'dataInicio', 'dataFinal', 'ticket', 'solicitante', 
-      'area', 'cliente', 'contrato', 'operadora', 'produto', 'sistema',
-      'observacoes', 'qtdRetornos', 'qualidade', 'qtdClientesVinculados', 'usuariosEmpresa'
+      'status', 'tipoServico', 'tipo', 'descricao', 'analista', 'dataInicio', 'dataFinal', 
+      'ticket', 'solicitante', 'area', 'cliente', 'contrato', 'operadora', 'produto', 'sistema',
+      'observacoes', 'qtdRetornos', 'qualidade', 'qtdClientesVinculados'
     ],
     duplicateCheckFields: [],
-    validationRules: [
-      {
-        field: 'status',
-        type: 'custom',
-        message: 'Status deve ser informado',
-        validator: (value) => !value || String(value).trim().length > 0
-      },
-      {
-        field: 'tipoServico',
-        type: 'custom',
-        message: 'Tipo de serviço deve ser informado',
-        validator: (value) => !value || String(value).trim().length > 0
-      },
-      {
-        field: 'tipo',
-        type: 'custom',
-        message: 'Tipo de manutenção deve ser informado',
-        validator: (value) => !value || String(value).trim().length > 0
-      },
-      {
-        field: 'dataInicio',
-        type: 'date',
-        message: 'Data de início deve ser uma data válida'
-      },
-      {
-        field: 'dataFinal',
-        type: 'date',
-        message: 'Data de finalização deve ser uma data válida'
-      },
-      {
-        field: 'qtdRetornos',
-        type: 'custom',
-        message: 'Quantidade de retornos deve ser um número válido',
-        validator: (value) => !value || !isNaN(Number(value)) && Number(value) >= 0
-      },
-      {
-        field: 'qtdClientesVinculados',
-        type: 'custom',
-        message: 'Quantidade de clientes vinculados deve ser um número válido',
-        validator: (value) => !value || !isNaN(Number(value)) && Number(value) >= 0
-      },
-      {
-        field: 'usuariosEmpresa',
-        type: 'custom',
-        message: 'Usuários da empresa deve ser um número válido',
-        validator: (value) => !value || !isNaN(Number(value)) && Number(value) >= 0
-      },
-      {
-        field: 'qualidade',
-        type: 'custom',
-        message: 'Qualidade deve ser: 0, 1, 2 ou 3',
-        validator: (value) => !value || ['0', '1', '2', '3'].includes(String(value))
-      }
-    ],
-    referenceFields: [
-      // Validações de referência removidas para permitir importação flexível
-      // Os dados serão aceitos mesmo que não existam nas tabelas de referência
-    ]
+    validationRules: [],
+    referenceFields: []
   },
 
   validacoes: {
