@@ -468,6 +468,16 @@ export default function ManutencaoNewPage() {
               </TextField>
             )} />
           </Grid>
+          <Grid item xs={12} sm={6} md={4}>
+            <Controller name="qtdClientesVinculados" control={control} render={({ field }) => (
+              <TextField {...field} type="number" label="Qtde de clientes vinculados" fullWidth error={!!errors.qtdClientesVinculados} helperText={errors.qtdClientesVinculados?.message} />
+            )} />
+          </Grid>
+          <Grid item xs={12} sm={6} md={4}>
+            <Controller name="usuariosEmpresa" control={control} render={({ field }) => (
+              <TextField {...field} type="number" label="Usuários da empresa" fullWidth error={!!errors.usuariosEmpresa} helperText={errors.usuariosEmpresa?.message} />
+            )} />
+          </Grid>
           <Grid item xs={12}>
             <Controller name="observacoes" control={control} render={({ field }) => (
               <TextField {...field} label="Observações" fullWidth multiline minRows={2} error={!!errors.observacoes} helperText={errors.observacoes?.message} />
