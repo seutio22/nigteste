@@ -50,16 +50,24 @@ export default function DadosPage() {
     grupos: store.grupos,
     analistas: store.analistas,
     areas: store.areas,
+    // Tipos e categorias
+    tipos: store.tiposDemanda,
+    'tipos-cadastro': store.tiposCadastro,
+    servicos: store.tiposServico,
+    padrao: store.padrao,
+    // Dados de Mailling
     areasMailling: store.areasMailling,
     cargosMailling: store.cargosMailling,
     filiaisMailling: store.filiaisMailling,
-    tipos: store.tiposDemanda,
-    'tipos-cadastro': store.tiposCadastro, // Fonte de dados separada
-    servicos: store.tiposServico,
+    // Outros dados
     solicitantes: store.solicitantes,
     relatorios: store.relatorios,
     modelos: store.modelos,
-    padrao: store.padrao,
+    // Propriedades para Analytics (que estavam faltando)
+    categorias: store.categorias,
+    periodicidades: store.periodicidades,
+    status: store.status,
+    // Dados de configuração
     configuracoes: dadosStore.items,
   }), [store, dadosStore])
 
@@ -316,11 +324,23 @@ export default function DadosPage() {
         return
       }
 
+      console.log(`📊 EXPORTAÇÃO DA ABA: Iniciando exportação de ${activeTab}...`)
+      console.log(`📋 Dados encontrados: ${currentData.length} itens`)
+
       // Criar workbook
       const workbook = XLSX.utils.book_new()
       
+      // Processar dados para garantir que todos os campos sejam incluídos
+      const processedData = currentData.map(item => {
+        // Se o item é um objeto, incluir todas as propriedades
+        if (typeof item === 'object' && item !== null) {
+          return { ...item }
+        }
+        return item
+      })
+      
       // Converter dados para worksheet
-      const worksheet = XLSX.utils.json_to_sheet(currentData)
+      const worksheet = XLSX.utils.json_to_sheet(processedData)
       
       // Adicionar worksheet ao workbook
       XLSX.utils.book_append_sheet(workbook, worksheet, activeTab)
@@ -331,9 +351,11 @@ export default function DadosPage() {
       // Fazer download
       XLSX.writeFile(workbook, fileName)
       
+      console.log(`✅ EXPORTAÇÃO DA ABA: ${currentData.length} itens exportados de ${activeTab}`)
+      
       setSnack({
         open: true,
-        message: `Dados de ${activeTab} exportados com sucesso!`,
+        message: `Dados de ${activeTab} exportados com sucesso! ${currentData.length} itens`,
         severity: 'success'
       })
     } catch (error) {
@@ -350,7 +372,7 @@ export default function DadosPage() {
     try {
       const workbook = XLSX.utils.book_new()
       
-      // Lista de todas as entidades para exportar
+      // Lista COMPLETA de todas as entidades para exportar (incluindo campos que estavam faltando)
       const entities = [
         { key: 'clientes', data: store.clientes, name: 'Clientes' },
         { key: 'contratos', data: store.contratos, name: 'Contratos' },
@@ -360,21 +382,47 @@ export default function DadosPage() {
         { key: 'grupos', data: store.grupos, name: 'Grupos' },
         { key: 'analistas', data: store.analistas, name: 'Analistas' },
         { key: 'areas', data: store.areas, name: 'Areas' },
+        { key: 'tiposCadastro', data: store.tiposCadastro, name: 'Tipos Cadastro' },
+        { key: 'tiposServico', data: store.tiposServico, name: 'Tipos Servico' },
+        { key: 'tiposDemanda', data: store.tiposDemanda, name: 'Tipos Demanda' },
+        { key: 'solicitantes', data: store.solicitantes, name: 'Solicitantes' },
+        { key: 'relatorios', data: store.relatorios, name: 'Relatorios' },
+        { key: 'modelos', data: store.modelos, name: 'Modelos' },
+        { key: 'padrao', data: store.padrao, name: 'Padrao' },
+        // Dados de Mailling
         { key: 'areasMailling', data: store.areasMailling, name: 'Areas Mailling' },
         { key: 'cargosMailling', data: store.cargosMailling, name: 'Cargos Mailling' },
         { key: 'filiaisMailling', data: store.filiaisMailling, name: 'Filiais Mailling' },
-        { key: 'tipos', data: store.tiposDemanda, name: 'Tipos' },
-        { key: 'servicos', data: store.tiposServico, name: 'Servicos' },
-        { key: 'solicitantes', data: store.solicitantes, name: 'Solicitantes' },
-        { key: 'relatorios', data: store.relatorios, name: 'Relatorios' },
-        { key: 'modelos', data: store.modelos, name: 'Modelos' }
+        // Propriedades para Analytics (que estavam faltando)
+        { key: 'categorias', data: store.categorias, name: 'Categorias' },
+        { key: 'periodicidades', data: store.periodicidades, name: 'Periodicidades' },
+        { key: 'status', data: store.status, name: 'Status' },
+        // Dados de configuração
+        { key: 'configuracoes', data: dadosStore.items, name: 'Configuracoes' }
       ]
       
+      console.log('📊 EXPORTAÇÃO COMPLETA: Iniciando exportação de todas as entidades...')
+      
       // Adicionar cada entidade como uma aba
+      let totalExported = 0
       entities.forEach(entity => {
         if (entity.data && entity.data.length > 0) {
-          const worksheet = XLSX.utils.json_to_sheet(entity.data)
+          console.log(`📋 Exportando ${entity.name}: ${entity.data.length} itens`)
+          
+          // Processar dados para garantir que todos os campos sejam incluídos
+          const processedData = entity.data.map(item => {
+            // Se o item é um objeto, incluir todas as propriedades
+            if (typeof item === 'object' && item !== null) {
+              return { ...item }
+            }
+            return item
+          })
+          
+          const worksheet = XLSX.utils.json_to_sheet(processedData)
           XLSX.utils.book_append_sheet(workbook, worksheet, entity.name)
+          totalExported += entity.data.length
+        } else {
+          console.log(`⚠️ ${entity.name}: Sem dados para exportar`)
         }
       })
       
@@ -395,9 +443,11 @@ export default function DadosPage() {
       // Fazer download
       XLSX.writeFile(workbook, fileName)
       
+      console.log(`✅ EXPORTAÇÃO COMPLETA: ${totalExported} itens exportados em ${entities.filter(e => e.data && e.data.length > 0).length} abas`)
+      
       setSnack({
         open: true,
-        message: 'Todos os dados exportados com sucesso!',
+        message: `Todos os dados exportados com sucesso! ${totalExported} itens em ${entities.filter(e => e.data && e.data.length > 0).length} abas`,
         severity: 'success'
       })
     } catch (error) {

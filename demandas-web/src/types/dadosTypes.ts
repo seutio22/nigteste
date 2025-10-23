@@ -1,6 +1,6 @@
 import type { Area, Analista, Cliente, Contrato, Operadora, Produto, Sistema, Grupo, TipoDemanda, TipoServico, Solicitante, Relatorio, Modelo } from './masterData'
 
-export type TabKey = 'clientes' | 'contratos' | 'operadoras' | 'produtos' | 'sistemas' | 'grupos' | 'analistas' | 'areas' | 'areasMailling' | 'cargosMailling' | 'filiaisMailling' | 'tipos' | 'tipos-cadastro' | 'servicos' | 'solicitantes' | 'relatorios' | 'modelos' | 'padrao' | 'configuracoes'
+export type TabKey = 'clientes' | 'contratos' | 'operadoras' | 'produtos' | 'sistemas' | 'grupos' | 'analistas' | 'areas' | 'areasMailling' | 'cargosMailling' | 'filiaisMailling' | 'tipos' | 'tipos-cadastro' | 'servicos' | 'solicitantes' | 'relatorios' | 'modelos' | 'padrao' | 'categorias' | 'periodicidades' | 'status' | 'configuracoes'
 
 export interface FormData {
   id?: string
@@ -59,5 +59,9 @@ export interface DataMap {
   relatorios: Relatorio[]
   modelos: Modelo[]
   padrao: any[]
+  // Propriedades para Analytics (que estavam faltando)
+  categorias: any[]
+  periodicidades: any[]
+  status: any[]
   configuracoes: any[]
 }
