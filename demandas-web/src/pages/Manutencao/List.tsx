@@ -298,15 +298,15 @@ export default function ManutencaoListPage() {
 
                   // Log dos dados disponíveis para debug
                   console.log('🔍 SMART IMPORT MANUTENÇÕES: Dados disponíveis para mapeamento:')
-                  console.log('  - tiposServico disponíveis:', md.tiposServico.map(t => t.nome))
                   console.log('  - tiposCadastro disponíveis:', md.tiposCadastro.map(t => t.nome))
+                  console.log('  - padrao disponíveis:', md.padrao.map(p => p.nome))
                   console.log('  - analistas disponíveis:', md.analistas.map(a => a.nome))
-                  console.log('  - DADOS COMPLETOS tiposServico:', md.tiposServico)
                   console.log('  - DADOS COMPLETOS tiposCadastro:', md.tiposCadastro)
+                  console.log('  - DADOS COMPLETOS padrao:', md.padrao)
 
                   // Mapear dados para o formato de manutenção
-                  const tipoServicoId = findIdByName(data.tipoServico || data.tipoServicoId, md.tiposServico)
-                  const tipoId = findIdByName(data.tipo || data.tipoId, md.tiposCadastro)
+                  const tipoServicoId = findIdByName(data.tipoServico || data.tipoServicoId, md.tiposCadastro)
+                  const tipoId = findIdByName(data.tipo || data.tipoId, md.padrao)
                   const analistaId = findIdByName(data.analista || data.analistaId, md.analistas)
 
                   console.log('🔍 SMART IMPORT MANUTENÇÕES: Mapeamento de campos:')
@@ -503,14 +503,14 @@ export default function ManutencaoListPage() {
       })(),
       tipoServico: (() => {
         if (d.tipoServico && typeof d.tipoServico === 'string' && d.tipoServico.length > 20) {
-          // Usar tiposServico para tipo de serviço
-          const tipoServico = md.tiposServico.find(ts => ts.id === d.tipoServico)
+          // Usar tiposCadastro para tipo de serviço
+          const tipoServico = md.tiposCadastro.find(ts => ts.id === d.tipoServico)
           return tipoServico?.nome ?? d.tipoServico
         }
         
         // Se d.tipoServicoId existe, buscar o nome
         if (d.tipoServicoId) {
-          const tipoServico = md.tiposServico.find(ts => ts.id === d.tipoServicoId)
+          const tipoServico = md.tiposCadastro.find(ts => ts.id === d.tipoServicoId)
           return tipoServico?.nome ?? d.tipoServicoId
         }
         
@@ -784,7 +784,7 @@ export default function ManutencaoListPage() {
           contrato: md.contratos.find(c => c.id === d.contrato)?.numero ?? d.contrato ?? 'N/A',
           operadora: md.operadoras.find(o => o.id === d.operadora)?.nome ?? d.operadora ?? 'N/A',
           produto: md.produtos.find(p => p.id === d.produto)?.nome ?? d.produto ?? 'N/A',
-          tipoServico: md.tiposServico.find(ts => ts.id === d.tipoServico)?.nome ?? d.tipoServico ?? 'N/A',
+          tipoServico: md.tiposCadastro.find(ts => ts.id === d.tipoServico)?.nome ?? d.tipoServico ?? 'N/A',
           // Formatar data
           updatedAt: d.updatedAt ? new Date(d.updatedAt).toLocaleString('pt-BR') : 'N/A'
         }))}

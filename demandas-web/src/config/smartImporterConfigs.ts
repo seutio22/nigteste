@@ -571,8 +571,8 @@ export const smartImporterConfigs: { [key: string]: SmartImporterConfig } = {
     referenceFields: [
       {
         field: 'tipoServico',
-        referenceType: 'tiposServico',
-        referenceStore: 'tiposServico',
+        referenceType: 'tiposCadastro',
+        referenceStore: 'tiposCadastro',
         displayField: 'nome',
         valueField: 'id'
       },
