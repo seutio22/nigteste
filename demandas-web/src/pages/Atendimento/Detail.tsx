@@ -461,7 +461,7 @@ function EditInline({ atendimento, user }: { atendimento: any; user: any }) {
         </div>
       </div>
 
-      {/* Quinta linha - Tipo de Serviço e Tipo de Demanda */}
+      {/* Quinta linha - Tipo de Serviço e Canal de Atendimento */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Serviço *</label>

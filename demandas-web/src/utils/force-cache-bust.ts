@@ -1,5 +1,5 @@
 // Force cache bust - versão 2025-01-30
-export const CACHE_BUST_VERSION = '2025-01-30-v2';
+export const CACHE_BUST_VERSION = '2025-01-30-v3';
 
 // Função para forçar limpeza do cache
 export function forceCacheBust() {
