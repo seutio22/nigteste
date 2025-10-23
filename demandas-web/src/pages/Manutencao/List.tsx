@@ -115,20 +115,22 @@ export default function ManutencaoListPage() {
     }
   }, [])
 
-  // Garantir que os dados mestres sejam carregados
+  // Carregar dados mestres e manutenções uma única vez
   useEffect(() => {
-    if (md.analistas.length === 0) {
-
-      md.syncFromApi?.()
+    const loadData = async () => {
+      // Carregar dados mestres se necessário
+      if (md.analistas.length === 0 || md.tiposCadastro.length === 0 || md.padrao.length === 0) {
+        await md.syncFromApi?.()
+      }
+      
+      // Carregar manutenções se usuário estiver logado
+      if (user?.id) {
+        await manutencaoStore.syncFromApi()
+      }
     }
-  }, []) // Removido as dependências que causavam o loop
-
-  // Carregar manutenções automaticamente quando a página é carregada
-  useEffect(() => {
-    if (user?.id) {
-      manutencaoStore.syncFromApi()
-    }
-  }, []) // Removido a dependência que causava o loop
+    
+    loadData()
+  }, [user?.id]) // Apenas quando usuário muda
 
   // Recarregar dados quando a página recebe foco (volta de outras páginas)
   useEffect(() => {
@@ -140,7 +142,7 @@ export default function ManutencaoListPage() {
 
     window.addEventListener('focus', handleFocus)
     return () => window.removeEventListener('focus', handleFocus)
-  }, []) // Removido a dependência que causava o loop
+  }, [user?.id]) // Incluir dependência do usuário
 
   // Persistir preferência do filtro de usuário
   useEffect(() => {
@@ -296,23 +298,26 @@ export default function ManutencaoListPage() {
             return item?.id || ''
           }
 
-                  // Log dos dados disponíveis para debug
-                  console.log('🔍 SMART IMPORT MANUTENÇÕES: Dados disponíveis para mapeamento:')
-                  console.log('  - tiposCadastro disponíveis:', md.tiposCadastro.map(t => t.nome))
-                  console.log('  - padrao disponíveis:', md.padrao.map(p => p.nome))
-                  console.log('  - analistas disponíveis:', md.analistas.map(a => a.nome))
-                  console.log('  - DADOS COMPLETOS tiposCadastro:', md.tiposCadastro)
-                  console.log('  - DADOS COMPLETOS padrao:', md.padrao)
+                  // Debug: verificar dados disponíveis apenas se necessário
+                  if (process.env.NODE_ENV === 'development') {
+                    console.log('🔍 SMART IMPORT MANUTENÇÕES: Dados disponíveis para mapeamento:')
+                    console.log('  - tiposCadastro:', md.tiposCadastro.length, 'itens')
+                    console.log('  - padrao:', md.padrao.length, 'itens')
+                    console.log('  - analistas:', md.analistas.length, 'itens')
+                  }
 
                   // Mapear dados para o formato de manutenção
                   const tipoServicoId = findIdByName(data.tipoServico || data.tipoServicoId, md.tiposCadastro)
                   const tipoId = findIdByName(data.tipo || data.tipoId, md.padrao)
                   const analistaId = findIdByName(data.analista || data.analistaId, md.analistas)
 
-                  console.log('🔍 SMART IMPORT MANUTENÇÕES: Mapeamento de campos:')
-                  console.log('  - tipoServico:', data.tipoServico, '-> tipoServicoId:', tipoServicoId)
-                  console.log('  - tipo:', data.tipo, '-> tipoId:', tipoId)
-                  console.log('  - analista:', data.analista, '-> analistaId:', analistaId)
+                  // Debug: mapeamento de campos apenas em desenvolvimento
+                  if (process.env.NODE_ENV === 'development') {
+                    console.log('🔍 SMART IMPORT MANUTENÇÕES: Mapeamento de campos:')
+                    console.log('  - tipoServico:', data.tipoServico, '-> tipoServicoId:', tipoServicoId)
+                    console.log('  - tipo:', data.tipo, '-> tipoId:', tipoId)
+                    console.log('  - analista:', data.analista, '-> analistaId:', analistaId)
+                  }
           
           const manutencaoData = {
             // Campos obrigatórios

@@ -95,51 +95,32 @@ export default function ManutencaoNewPage() {
   
 
 
-  // Sincronizar dados mestres quando a página carregar
+  // Carregar dados mestres e preencher analista uma única vez
   useEffect(() => {
-    if (md.syncFromApi) {
-      md.syncFromApi()
+    const loadDataAndSetAnalista = async () => {
+      // Carregar dados mestres se necessário
+      if (md.analistas.length === 0 || md.tiposCadastro.length === 0 || md.padrao.length === 0) {
+        await md.syncFromApi?.()
+      }
+      
+      // Preencher analista após carregar dados
+      if (user && user.name && md.analistas.length > 0) {
+        const analistaCorrespondente = md.analistas.find(analista => 
+          analista.nome.toLowerCase() === user.name.toLowerCase() ||
+          analista.nome.toLowerCase().includes(user.name.toLowerCase()) ||
+          user.name.toLowerCase().includes(analista.nome.toLowerCase())
+        )
+        
+        if (analistaCorrespondente) {
+          setValue('analista', analistaCorrespondente.id)
+        } else if (md.analistas.length > 0) {
+          setValue('analista', md.analistas[0].id)
+        }
+      }
     }
-  }, []) // Removido a dependência que causava o loop
-
-
-  // LÓGICA ATUALIZADA: Preencher com o analista correspondente ao usuário logado
-  useEffect(() => {
     
-    if (user && user.name && md.analistas.length > 0) {
-      
-      // Encontrar analista correspondente
-      const analistaCorrespondente = md.analistas.find(analista => 
-        analista.nome.toLowerCase() === user.name.toLowerCase() ||
-        analista.nome.toLowerCase().includes(user.name.toLowerCase()) ||
-        user.name.toLowerCase().includes(analista.nome.toLowerCase())
-      )
-      
-      if (analistaCorrespondente) {
-        setValue('analista', analistaCorrespondente.id)
-      } else {
-        const primeiroAnalista = md.analistas[0]
-        setValue('analista', primeiroAnalista?.id || '')
-      }
-    }
-  }, [user, md.analistas, setValue])
-
-  // Forçar preenchimento do analista após sincronização
-  useEffect(() => {
-    if (md.analistas.length > 0 && user && user.name) {
-      const analistaCorrespondente = md.analistas.find(analista => 
-        analista.nome.toLowerCase() === user.name.toLowerCase() ||
-        analista.nome.toLowerCase().includes(user.name.toLowerCase()) ||
-        user.name.toLowerCase().includes(analista.nome.toLowerCase())
-      )
-      
-      if (analistaCorrespondente) {
-        setValue('analista', analistaCorrespondente.id)
-      } else if (md.analistas.length > 0) {
-        setValue('analista', md.analistas[0].id)
-      }
-    }
-  }, [md.analistas, user, setValue])
+    loadDataAndSetAnalista()
+  }, [user?.id, setValue]) // Apenas quando usuário muda
 
 
   async function onSubmit(data: FormValues) {

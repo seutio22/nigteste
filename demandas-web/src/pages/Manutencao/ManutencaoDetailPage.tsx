@@ -37,52 +37,35 @@ export default function ManutencaoDetailPage() {
   const [masterDataLoaded, setMasterDataLoaded] = useState(false)
   const [emailModalOpen, setEmailModalOpen] = useState(false)
 
-  // Carregar dados quando a página for acessada (apenas uma vez)
+  // Carregar dados quando a página for acessada (otimizado)
   useEffect(() => {
-    
-    // Forçar carregamento de manutenções se não existirem
-    if (items.length === 0) {
-      syncFromApi?.()
-    } else {
-      if (!d) {
-        syncFromApi?.()
+    const loadData = async () => {
+      // Carregar manutenções se necessário
+      if (items.length === 0 || !d) {
+        await syncFromApi?.()
+      }
+      
+      // Carregar dados mestres se necessário
+      if (md.analistas.length === 0 || md.tiposCadastro.length === 0 || md.padrao.length === 0) {
+        await md.syncFromApi?.()
+      }
+      
+      // Sincronizar timeline apenas uma vez
+      if (id && syncTimeline && !timelineSyncedRef.current.has(id)) {
+        console.log('🔄 Sincronizando timeline da manutenção:', id)
+        timelineSyncedRef.current.add(id)
+        syncTimeline(id)
       }
     }
     
-    // Forçar carregamento de dados mestres se não existirem
-    if (md.analistas.length === 0 || md.tiposCadastro.length === 0 || md.padrao.length === 0) {
-      md.syncFromApi?.()
-    }
-  }, []) // Executar apenas uma vez quando o componente for montado
-
-  // Sincronizar timeline apenas uma vez quando a página carrega
-  useEffect(() => {
-    if (id && syncTimeline && !timelineSyncedRef.current.has(id)) {
-      console.log('🔄 Sincronizando timeline da manutenção (primeira vez):', id)
-      timelineSyncedRef.current.add(id)
-      syncTimeline(id)
-    }
-  }, [id]) // Apenas quando ID muda, não quando dados mudam
-
-  // Tentar recarregar se a manutenção específica não for encontrada após o carregamento inicial
-  useEffect(() => {
-    if (items.length > 0 && !d && id) {
-      syncFromApi?.()
-    }
-  }, [items.length, d, id])
-
-  // Forçar sincronização dos dados mestres quando a manutenção for encontrada
-  useEffect(() => {
-    if (d && (md.tiposCadastro.length === 0 || md.padrao.length === 0)) {
-      md.syncFromApi?.()
-    }
-  }, [d, md.tiposCadastro.length, md.padrao.length, md.clientes.length, md.contratos.length, md.syncFromApi])
+    loadData()
+  }, [id]) // Apenas quando ID muda
 
   // Verificar se os dados mestres estão carregados
   useEffect(() => {
     const isLoaded = md.tiposCadastro.length > 0 && md.padrao.length > 0 && md.clientes.length > 0
     setMasterDataLoaded(isLoaded)
-  }, [md.tiposCadastro.length, md.padrao.length, md.clientes.length, md.contratos.length])
+  }, [md.tiposCadastro.length, md.padrao.length, md.clientes.length])
 
   // Debug removido para limpeza do console
   
