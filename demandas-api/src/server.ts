@@ -2382,7 +2382,31 @@ const resources = {
     }
   },
   manutencoes: crud('manutencao'),
-  validacoes: crud('validacao'),
+  validacoes: {
+    ...crud('validacao'),
+    remove: async (id: string) => {
+      console.log(`🔍 DELETE /validacoes/${id}: MÉTODO ESPECÍFICO CHAMADO!`);
+      try {
+        // Verificar se a validação existe primeiro
+        const existingValidation = await prisma.validacao.findUnique({ where: { id } });
+        if (!existingValidation) {
+          console.log(`❌ DELETE /validacoes/${id}: Validação não encontrada`);
+          return {
+            statusCode: 404,
+            error: 'Not Found',
+            message: `Registro com ID "${id}" não foi encontrado`
+          };
+        }
+        
+        const result = await prisma.validacao.delete({ where: { id } });
+        console.log(`✅ DELETE /validacoes/${id}: Excluída com sucesso:`, result.id);
+        return { success: true, message: 'Validação excluída com sucesso', deletedId: result.id };
+      } catch (error) {
+        console.error(`❌ DELETE /validacoes/${id}: Erro:`, error);
+        throw error;
+      }
+    }
+  },
   // tiposCadastro: crud('tipoCadastro'), // Removido - usando plugin específico em routes/masterData.ts
   validacoesManutencao: crud('validacaoManutencao'),
   reajustes: crud('reajuste'),
