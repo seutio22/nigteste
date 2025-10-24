@@ -362,14 +362,6 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
   }, [user, md.analistas])
 
   useEffect(() => {
-    // Inicializar o draft com os dados originais da validação
-    console.log('🔄 EditInline: Inicializando draft com validação:', validation.id)
-    console.log('🔄 EditInline: Status da validação:', validation.status)
-    console.log('🔄 EditInline: DataInicio da validação:', validation.dataInicio)
-    console.log('🔄 EditInline: DataFinal da validação:', validation.dataFinal)
-    console.log('🔄 EditInline: Operadora da validação:', validation.operadora)
-    console.log('🔄 EditInline: Produto da validação:', validation.produto)
-    console.log('🔄 EditInline: Dados completos da validação:', validation)
     setDraft(validation)
   }, [validation.id])
 
@@ -660,11 +652,10 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Status *</label>
           <select
-            value={draft.status || ''}
+            value={draft.status}
             onChange={(e) => setDraft({ ...draft, status: e.target.value })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
-            <option value="">Selecione...</option>
             {['Aberta', 'Em andamento', 'Aguardando validação', 'Com erros', 'Em reajuste', 'Concluída', 'Cancelada'].map(s => (
               <option key={s} value={s}>{s}</option>
             ))}
