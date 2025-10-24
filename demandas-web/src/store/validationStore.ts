@@ -312,12 +312,13 @@ export const useValidationStore = create<ValidationState>()(
           console.log('🔍 ValidationStore: Dados recebidos da API:', validacoes.length, 'itens')
           
           // Mapear os dados para o formato esperado pelo frontend - seguindo padrão do demandStore
-          console.log('🔍 ValidationStore: Mapeando validação:', validacao.id)
-          console.log('🔍 ValidationStore: Status da API:', validacao.status)
-          console.log('🔍 ValidationStore: Operadora da API:', validacao.operadora, 'ID:', validacao.operadoraId)
-          console.log('🔍 ValidationStore: Produto da API:', validacao.produto, 'ID:', validacao.produtoId)
-          
-          const validacoesMapeadas: ValidationEntry[] = validacoes.map((validacao: any) => ({
+          const validacoesMapeadas: ValidationEntry[] = validacoes.map((validacao: any) => {
+            console.log('🔍 ValidationStore: Mapeando validação:', validacao.id)
+            console.log('🔍 ValidationStore: Status da API:', validacao.status)
+            console.log('🔍 ValidationStore: Operadora da API:', validacao.operadora, 'ID:', validacao.operadoraId)
+            console.log('🔍 ValidationStore: Produto da API:', validacao.produto, 'ID:', validacao.produtoId)
+            
+            return {
             id: validacao.id,
             analista: validacao.analista || { nome: 'N/A' },
             dataInicio: validacao.dataInicio,
@@ -388,7 +389,8 @@ export const useValidationStore = create<ValidationState>()(
             itensConcluidos: validacao.itensConcluidos,
             createdAt: validacao.createdAt,
             updatedAt: validacao.updatedAt
-          }));
+          }
+          });
           
           // Aplicar dados ao store
           set({ items: validacoesMapeadas, loading: false })
