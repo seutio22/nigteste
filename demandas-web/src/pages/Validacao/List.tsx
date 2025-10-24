@@ -502,7 +502,15 @@ export default function ValidationListPage() {
             operadoraId: data.operadoraId,
             produtoId: data.produtoId,
             dataFinal: data.dataFinal,
+            dataFinalizacao: data.dataFinalizacao,
             qualidade: data.qualidade
+          })
+          
+          // Log específico para dataFinal
+          console.log('🔍 SMART IMPORT VALIDAÇÕES: Processando dataFinal:', {
+            dataFinal: data.dataFinal,
+            dataFinalizacao: data.dataFinalizacao,
+            excelDateToISO_result: excelDateToISO(data.dataFinal || data.dataFinalizacao)
           })
 
           const validacaoData = {
