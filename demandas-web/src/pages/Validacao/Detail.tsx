@@ -34,25 +34,50 @@ export default function ValidationDetailPage() {
 
   // Carregar dados quando a página for acessada (apenas uma vez)
   useEffect(() => {
+    console.log('🔍 ValidationDetailPage: Carregando dados para ID:', id)
+    console.log('🔍 ValidationDetailPage: Items no store:', items.length)
+    console.log('🔍 ValidationDetailPage: Loading:', isLoading)
+    
     // Forçar carregamento de validações se não existirem
     if (items.length === 0 && !isLoading) {
+      console.log('🔄 ValidationDetailPage: Forçando syncFromApi...')
       syncFromApi()
     }
     
     // Carregar dados mestres se não estiverem carregados
     if (!masterDataLoaded && md.syncFromApi) {
+      console.log('🔄 ValidationDetailPage: Carregando dados mestres...')
       md.syncFromApi().then(() => {
+        console.log('✅ ValidationDetailPage: Dados mestres carregados')
         setMasterDataLoaded(true)
+      }).catch(error => {
+        console.error('❌ ValidationDetailPage: Erro ao carregar dados mestres:', error)
       })
     }
-  }, [items.length, isLoading, syncFromApi, masterDataLoaded, md.syncFromApi])
+  }, [id, items.length, isLoading, syncFromApi, masterDataLoaded, md.syncFromApi])
 
+  // Debug: verificar se a validação foi encontrada
+  console.log('🔍 ValidationDetailPage: Verificando validação...')
+  console.log('🔍 ValidationDetailPage: ID procurado:', id)
+  console.log('🔍 ValidationDetailPage: Items no store:', items.length)
+  console.log('🔍 ValidationDetailPage: Items disponíveis:', items.map(item => ({ id: item.id, ticket: item.ticket })))
+  console.log('🔍 ValidationDetailPage: Validação encontrada:', !!validation)
+  
   if (!validation) {
+    console.log('❌ ValidationDetailPage: Validação não encontrada!')
+    console.log('❌ ValidationDetailPage: Loading:', isLoading)
+    console.log('❌ ValidationDetailPage: Master data loaded:', masterDataLoaded)
+    
     return (
       <div className="p-6">
         <div className="text-center">
           <h2 className="text-xl font-semibold text-gray-900">Carregando validação...</h2>
           <p className="text-gray-600 mt-2">Buscando dados da validação ID: {id}</p>
+          <div className="mt-4 text-sm text-gray-500">
+            <p>Items no store: {items.length}</p>
+            <p>Loading: {isLoading ? 'Sim' : 'Não'}</p>
+            <p>Master data: {masterDataLoaded ? 'Carregado' : 'Carregando...'}</p>
+          </div>
           <div className="mt-4">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
           </div>
