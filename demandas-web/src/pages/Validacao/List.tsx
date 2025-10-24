@@ -517,7 +517,7 @@ export default function ValidationListPage() {
 
 
           const validacaoData = {
-            status: data.status || 'Em validação',
+            status: data.status,
             ticket: data.ticket ? String(data.ticket) : `VAL-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
             solicitante: data.solicitante || '',
             analistaId: data.analistaId || '',

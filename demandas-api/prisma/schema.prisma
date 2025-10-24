@@ -476,7 +476,7 @@ model Validacao {
   demandaId   String?   // Tornado opcional para permitir validações independentes
   analistaId  String
   userId      String?
-  status      String    @default("Pendente")
+  status      String    @default("Aberta")
   dataInicio  DateTime?
   dataFim     DateTime?
   observacoes String?
