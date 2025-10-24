@@ -273,7 +273,7 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
                 console.log(`🔍 NORMALIZAÇÃO: Documentação Contratual "${value}" -> "${resultado}"`)
                 item.documentacaoContratual = resultado
               }
-            } else if (config.entityType.toLowerCase().includes('validação') || config.entityType.toLowerCase().includes('validacao')) {
+            } else if (config.entityType.toLowerCase().includes('validação') || config.entityType.toLowerCase().includes('validacao') || config.entityType.toLowerCase().includes('validações')) {
               // Mapeamento específico para validações
               console.log(`🔍 SMART IMPORTER: Mapeando validação - header: "${cleanHeader}", value: "${value}"`)
               if (cleanHeader === 'id' && value) {
