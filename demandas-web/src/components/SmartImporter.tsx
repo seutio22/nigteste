@@ -447,53 +447,124 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
         
         // Converter analista (nome -> ID)
         if (item.analistaId && typeof item.analistaId === 'string') {
-          const analista = masterData.analistas.find((a: any) => 
+          console.log(`🔍 SMART IMPORTER: Tentando converter analista "${item.analistaId}"`)
+          console.log(`🔍 SMART IMPORTER: Analistas disponíveis:`, masterData.analistas?.map((a: any) => a.nome))
+          
+          const analista = masterData.analistas?.find((a: any) => 
             a.nome.toLowerCase().trim() === item.analistaId.toLowerCase().trim()
           )
+          
           if (analista) {
             convertedItem.analistaId = analista.id
-            console.log(`🔍 SMART IMPORTER: Convertido analista "${item.analistaId}" -> ID: ${analista.id}`)
+            console.log(`✅ SMART IMPORTER: Convertido analista "${item.analistaId}" -> ID: ${analista.id}`)
           } else {
-            console.log(`⚠️ SMART IMPORTER: Analista "${item.analistaId}" não encontrado`)
+            console.log(`❌ SMART IMPORTER: Analista "${item.analistaId}" não encontrado`)
+            console.log(`🔍 SMART IMPORTER: Busca exata falhou, tentando busca parcial...`)
+            
+            // Tentar busca parcial (case-insensitive, com espaços)
+            const analistaParcial = masterData.analistas?.find((a: any) => 
+              a.nome.toLowerCase().includes(item.analistaId.toLowerCase().trim()) ||
+              item.analistaId.toLowerCase().trim().includes(a.nome.toLowerCase())
+            )
+            
+            if (analistaParcial) {
+              convertedItem.analistaId = analistaParcial.id
+              console.log(`✅ SMART IMPORTER: Encontrado analista por busca parcial "${item.analistaId}" -> "${analistaParcial.nome}" (ID: ${analistaParcial.id})`)
+            } else {
+              console.log(`❌ SMART IMPORTER: Analista "${item.analistaId}" não encontrado nem por busca parcial`)
+              // Manter o valor original para que a validação possa sugerir correções
+              convertedItem.analistaId = item.analistaId
+            }
           }
         }
         
         // Converter cliente (nome -> ID)
         if (item.clienteId && typeof item.clienteId === 'string') {
-          const cliente = masterData.clientes.find((c: any) => 
+          console.log(`🔍 SMART IMPORTER: Tentando converter cliente "${item.clienteId}"`)
+          
+          const cliente = masterData.clientes?.find((c: any) => 
             c.nome.toLowerCase().trim() === item.clienteId.toLowerCase().trim()
           )
+          
           if (cliente) {
             convertedItem.clienteId = cliente.id
-            console.log(`🔍 SMART IMPORTER: Convertido cliente "${item.clienteId}" -> ID: ${cliente.id}`)
+            console.log(`✅ SMART IMPORTER: Convertido cliente "${item.clienteId}" -> ID: ${cliente.id}`)
           } else {
-            console.log(`⚠️ SMART IMPORTER: Cliente "${item.clienteId}" não encontrado`)
+            console.log(`❌ SMART IMPORTER: Cliente "${item.clienteId}" não encontrado`)
+            
+            // Tentar busca parcial
+            const clienteParcial = masterData.clientes?.find((c: any) => 
+              c.nome.toLowerCase().includes(item.clienteId.toLowerCase().trim()) ||
+              item.clienteId.toLowerCase().trim().includes(c.nome.toLowerCase())
+            )
+            
+            if (clienteParcial) {
+              convertedItem.clienteId = clienteParcial.id
+              console.log(`✅ SMART IMPORTER: Encontrado cliente por busca parcial "${item.clienteId}" -> "${clienteParcial.nome}" (ID: ${clienteParcial.id})`)
+            } else {
+              console.log(`❌ SMART IMPORTER: Cliente "${item.clienteId}" não encontrado nem por busca parcial`)
+              convertedItem.clienteId = item.clienteId
+            }
           }
         }
         
         // Converter operadora (nome -> ID)
         if (item.operadoraId && typeof item.operadoraId === 'string') {
-          const operadora = masterData.operadoras.find((o: any) => 
+          console.log(`🔍 SMART IMPORTER: Tentando converter operadora "${item.operadoraId}"`)
+          
+          const operadora = masterData.operadoras?.find((o: any) => 
             o.nome.toLowerCase().trim() === item.operadoraId.toLowerCase().trim()
           )
+          
           if (operadora) {
             convertedItem.operadoraId = operadora.id
-            console.log(`🔍 SMART IMPORTER: Convertido operadora "${item.operadoraId}" -> ID: ${operadora.id}`)
+            console.log(`✅ SMART IMPORTER: Convertido operadora "${item.operadoraId}" -> ID: ${operadora.id}`)
           } else {
-            console.log(`⚠️ SMART IMPORTER: Operadora "${item.operadoraId}" não encontrada`)
+            console.log(`❌ SMART IMPORTER: Operadora "${item.operadoraId}" não encontrada`)
+            
+            // Tentar busca parcial
+            const operadoraParcial = masterData.operadoras?.find((o: any) => 
+              o.nome.toLowerCase().includes(item.operadoraId.toLowerCase().trim()) ||
+              item.operadoraId.toLowerCase().trim().includes(o.nome.toLowerCase())
+            )
+            
+            if (operadoraParcial) {
+              convertedItem.operadoraId = operadoraParcial.id
+              console.log(`✅ SMART IMPORTER: Encontrada operadora por busca parcial "${item.operadoraId}" -> "${operadoraParcial.nome}" (ID: ${operadoraParcial.id})`)
+            } else {
+              console.log(`❌ SMART IMPORTER: Operadora "${item.operadoraId}" não encontrada nem por busca parcial`)
+              convertedItem.operadoraId = item.operadoraId
+            }
           }
         }
         
         // Converter produto (nome -> ID)
         if (item.produtoId && typeof item.produtoId === 'string') {
-          const produto = masterData.produtos.find((p: any) => 
+          console.log(`🔍 SMART IMPORTER: Tentando converter produto "${item.produtoId}"`)
+          
+          const produto = masterData.produtos?.find((p: any) => 
             p.nome.toLowerCase().trim() === item.produtoId.toLowerCase().trim()
           )
+          
           if (produto) {
             convertedItem.produtoId = produto.id
-            console.log(`🔍 SMART IMPORTER: Convertido produto "${item.produtoId}" -> ID: ${produto.id}`)
+            console.log(`✅ SMART IMPORTER: Convertido produto "${item.produtoId}" -> ID: ${produto.id}`)
           } else {
-            console.log(`⚠️ SMART IMPORTER: Produto "${item.produtoId}" não encontrado`)
+            console.log(`❌ SMART IMPORTER: Produto "${item.produtoId}" não encontrado`)
+            
+            // Tentar busca parcial
+            const produtoParcial = masterData.produtos?.find((p: any) => 
+              p.nome.toLowerCase().includes(item.produtoId.toLowerCase().trim()) ||
+              item.produtoId.toLowerCase().trim().includes(p.nome.toLowerCase())
+            )
+            
+            if (produtoParcial) {
+              convertedItem.produtoId = produtoParcial.id
+              console.log(`✅ SMART IMPORTER: Encontrado produto por busca parcial "${item.produtoId}" -> "${produtoParcial.nome}" (ID: ${produtoParcial.id})`)
+            } else {
+              console.log(`❌ SMART IMPORTER: Produto "${item.produtoId}" não encontrado nem por busca parcial`)
+              convertedItem.produtoId = item.produtoId
+            }
           }
         }
         
