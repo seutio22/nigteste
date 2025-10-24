@@ -373,7 +373,7 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
 
   const changedKeys = ((): string[] => {
     // Excluir 'total' da lista pois é calculado automaticamente
-    const keys = ['analista', 'dataInicio', 'dataFinal', 'status', 'ticket', 'solicitante', 'demanda', 'tipo', 'descricao', 'cliente', 'contrato', 'operadora', 'produto', 'vigencia', 'qtdRetornos', 'qualidade', 'estruturaEdge', 'estruturaMove', 'formalizacao', 'itensPendentes', 'itensConcluidos'] as const
+    const keys = ['analista', 'dataInicio', 'dataFinal', 'status', 'ticket', 'solicitante', 'demanda', 'tipo', 'descricao', 'observacoes', 'cliente', 'contrato', 'operadora', 'produto', 'vigencia', 'qtdRetornos', 'qualidade', 'estruturaEdge', 'estruturaMove', 'formalizacao', 'itensPendentes', 'itensConcluidos'] as const
     
     const changed = keys.filter((k) => {
       // Obter valores originais da validação (usar IDs para campos de relacionamento)
@@ -388,6 +388,7 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
         case 'demanda': validationValue = validation.demanda; break
         case 'tipo': validationValue = validation.tipo; break
         case 'descricao': validationValue = validation.descricao; break
+        case 'observacoes': validationValue = validation.observacoes; break
         case 'cliente': validationValue = validation.cliente; break
         case 'contrato': validationValue = validation.contrato; break
         case 'operadora': validationValue = validation.operadora; break
@@ -415,6 +416,7 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
         case 'demanda': draftValue = draft.demanda; break
         case 'tipo': draftValue = draft.tipo; break
         case 'descricao': draftValue = draft.descricao; break
+        case 'observacoes': draftValue = draft.observacoes; break
         case 'cliente': draftValue = draft.cliente; break
         case 'contrato': draftValue = draft.contrato; break
         case 'operadora': draftValue = draft.operadora; break
@@ -550,9 +552,10 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
         const from = k === 'status' ? String(validation.status ?? '') : 
                     k === 'ticket' ? String(validation.ticket ?? '') : 
                     k === 'solicitante' ? convertIdToName(validation.solicitante, 'solicitante') : 
-                    k === 'tipo' ? String(validation.tipo ?? '') : 
-                    k === 'descricao' ? String(validation.descricao ?? '') : 
-                    k === 'cliente' ? convertIdToName(validation.cliente, 'cliente') : 
+                  k === 'tipo' ? String(validation.tipo ?? '') : 
+                  k === 'descricao' ? String(validation.descricao ?? '') : 
+                  k === 'observacoes' ? String(validation.observacoes ?? '') :
+                  k === 'cliente' ? convertIdToName(validation.cliente, 'cliente') :
                     k === 'contrato' ? convertIdToName(validation.contrato, 'contrato') : 
                     k === 'operadora' ? convertIdToName(validation.operadora, 'operadora') : 
                     k === 'produto' ? convertIdToName(validation.produto, 'produto') : 
@@ -572,6 +575,7 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
                   k === 'solicitante' ? convertIdToName(draft.solicitante, 'solicitante') : 
                   k === 'tipo' ? String(draft.tipo ?? '') : 
                   k === 'descricao' ? String(draft.descricao ?? '') : 
+                  k === 'observacoes' ? String(draft.observacoes ?? '') :
                   k === 'cliente' ? convertIdToName(draft.cliente, 'cliente') : 
                   k === 'contrato' ? convertIdToName(draft.contrato, 'contrato') : 
                   k === 'operadora' ? convertIdToName(draft.operadora, 'operadora') : 
@@ -993,6 +997,18 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
           onChange={(e) => setDraft({ ...draft, descricao: e.target.value })}
           placeholder="Descrição detalhada do chamado"
           rows={4}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        />
+      </div>
+
+      {/* Observações */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Observações</label>
+        <textarea
+          value={draft.observacoes || ''}
+          onChange={(e) => setDraft({ ...draft, observacoes: e.target.value })}
+          placeholder="Observações gerais sobre a validação..."
+          rows={3}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
       </div>
