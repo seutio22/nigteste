@@ -494,20 +494,42 @@ export default function ValidationListPage() {
             return item?.id || ''
           }
 
+          console.log('🔍 SMART IMPORT VALIDAÇÕES: Dados recebidos do SmartImporter:', data)
+          console.log('🔍 SMART IMPORT VALIDAÇÕES: Campos específicos:', {
+            solicitante: data.solicitante,
+            analistaId: data.analistaId,
+            clienteId: data.clienteId,
+            operadoraId: data.operadoraId,
+            produtoId: data.produtoId,
+            dataFinal: data.dataFinal,
+            qualidade: data.qualidade
+          })
+
           const validacaoData = {
             status: data.status || 'Em validação',
             ticket: data.ticket ? String(data.ticket) : `VAL-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
             solicitante: data.solicitante || '',
-            analistaId: findIdByName(data.analista || data.analistaId, md.analistas) || '',
-            clienteId: findIdByName(data.cliente || data.clienteId, md.clientes) || '',
-            contratoId: findIdByName(data.contrato || data.contratoId, md.contratos, 'codigo') || '',
-            operadoraId: findIdByName(data.operadora || data.operadoraId, md.operadoras) || '',
+            analistaId: data.analistaId || '',
+            clienteId: data.clienteId || '',
+            contratoId: data.contratoId || '',
+            operadoraId: data.operadoraId || '',
+            produtoId: data.produtoId || '',
             dataInicio: excelDateToISO(data.dataInicio || data.dataInicial) || new Date().toISOString(),
-            dataFinal: excelDateToISO(data.dataFinal || data.dataFinalizacao),
+            dataFim: excelDateToISO(data.dataFinal || data.dataFinalizacao),
             descricao: data.descricao || '',
             observacoes: data.observacoes || data.observacao || '',
-            total: data.total || 0
+            total: data.total || 0,
+            qualidade: data.qualidade || '',
+            qtdRetornos: data.qtdRetornos || 0,
+            vigencia: data.vigencia || '',
+            estruturaEdge: data.estruturaEdge || '',
+            estruturaMove: data.estruturaMove || '',
+            formalizacao: data.formalizacao || '',
+            itensPendentes: data.itensPendentes || 0,
+            itensConcluidos: data.itensConcluidos || 0
           }
+
+          console.log('🔍 SMART IMPORT VALIDAÇÕES: Dados que serão enviados para o backend:', validacaoData)
 
           Object.keys(validacaoData).forEach(key => {
             if (validacaoData[key] === '' || validacaoData[key] === null || validacaoData[key] === undefined) {
