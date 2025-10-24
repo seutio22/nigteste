@@ -567,6 +567,37 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
             }
           }
         }
+
+        // Converter contrato (código -> ID) e mapear para contratoId
+        if (item.contrato && typeof item.contrato === 'string') {
+          console.log(`🔍 SMART IMPORTER: Tentando converter contrato "${item.contrato}"`)
+          
+          const contrato = masterData.contratos?.find((c: any) => 
+            String(c.codigo || c.numero || '').toLowerCase().trim() === item.contrato.toLowerCase().trim()
+          )
+          
+          if (contrato) {
+            convertedItem.contratoId = contrato.id
+            console.log(`✅ SMART IMPORTER: Convertido contrato "${item.contrato}" -> ID: ${contrato.id}`)
+          } else {
+            console.log(`❌ SMART IMPORTER: Contrato "${item.contrato}" não encontrado`)
+            
+            // Tentar busca parcial
+            const contratoParcial = masterData.contratos?.find((c: any) => {
+              const contractIdentifier = String(c.codigo || c.numero || '').toLowerCase().trim();
+              const searchName = item.contrato.toLowerCase().trim();
+              return contractIdentifier.includes(searchName) || searchName.includes(contractIdentifier);
+            });
+            
+            if (contratoParcial) {
+              convertedItem.contratoId = contratoParcial.id
+              console.log(`✅ SMART IMPORTER: Encontrado contrato por busca parcial "${item.contrato}" -> "${contratoParcial.codigo || contratoParcial.numero}" (ID: ${contratoParcial.id})`)
+            } else {
+              console.log(`❌ SMART IMPORTER: Contrato "${item.contrato}" não encontrado nem por busca parcial`)
+              convertedItem.contratoId = item.contrato
+            }
+          }
+        }
         
         return convertedItem
       })
