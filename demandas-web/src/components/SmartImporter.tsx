@@ -112,6 +112,7 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
             console.log(`🔍 SMART IMPORTER: Header "${header}" -> limpo: "${cleanHeader}" (índice ${index}) = valor "${value}"`)
             
             // Mapear campos baseado no tipo de entidade
+            console.log(`🔍 SMART IMPORTER: Tipo de entidade: "${config.entityType.toLowerCase()}"`)
             if (config.entityType.toLowerCase().includes('manutenções') || config.entityType.toLowerCase().includes('manutencoes')) {
               // Mapeamento específico para manutenções
               if (cleanHeader === 'status') {
@@ -269,6 +270,81 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
                 console.log(`🔍 NORMALIZAÇÃO: Documentação Contratual "${value}" -> "${resultado}"`)
                 item.documentacaoContratual = resultado
               }
+            } else if (config.entityType.toLowerCase().includes('validação') || config.entityType.toLowerCase().includes('validacao')) {
+              // Mapeamento específico para validações
+              console.log(`🔍 SMART IMPORTER: Mapeando validação - header: "${cleanHeader}", value: "${value}"`)
+              if (cleanHeader === 'id' && value) {
+                item.id = value
+                console.log(`🔍 SMART IMPORTER: Mapeado id: ${value}`)
+              } else if (cleanHeader === 'status') {
+                item.status = value
+                console.log(`🔍 SMART IMPORTER: Mapeado status: ${value}`)
+              } else if (cleanHeader === 'analista') {
+                item.analista = value
+                console.log(`🔍 SMART IMPORTER: Mapeado analista: ${value}`)
+              } else if (cleanHeader === 'datainicio' || cleanHeader === 'datainicial') {
+                item.dataInicio = value
+                console.log(`🔍 SMART IMPORTER: Mapeado dataInicio: ${value}`)
+              } else if (cleanHeader === 'datafinal' || cleanHeader === 'datafinalizacao' || cleanHeader === 'datafinalização') {
+                item.dataFinal = value
+                console.log(`🔍 SMART IMPORTER: Mapeado dataFinal: ${value}`)
+              } else if (cleanHeader === 'tipo') {
+                item.tipo = value
+                console.log(`🔍 SMART IMPORTER: Mapeado tipo: ${value}`)
+              } else if (cleanHeader === 'ticket') {
+                item.ticket = value
+                console.log(`🔍 SMART IMPORTER: Mapeado ticket: ${value}`)
+              } else if (cleanHeader === 'solicitante') {
+                item.solicitante = value
+                console.log(`🔍 SMART IMPORTER: Mapeado solicitante: ${value}`)
+              } else if (cleanHeader === 'demanda') {
+                item.demanda = value
+                console.log(`🔍 SMART IMPORTER: Mapeado demanda: ${value}`)
+              } else if (cleanHeader === 'descricao' || cleanHeader === 'descrição') {
+                item.descricao = value
+                console.log(`🔍 SMART IMPORTER: Mapeado descricao: ${value}`)
+              } else if (cleanHeader === 'total') {
+                item.total = value
+                console.log(`🔍 SMART IMPORTER: Mapeado total: ${value}`)
+              } else if (cleanHeader === 'cliente') {
+                item.cliente = value
+                console.log(`🔍 SMART IMPORTER: Mapeado cliente: ${value}`)
+              } else if (cleanHeader === 'contrato') {
+                item.contrato = value
+                console.log(`🔍 SMART IMPORTER: Mapeado contrato: ${value}`)
+              } else if (cleanHeader === 'operadora') {
+                item.operadora = value
+                console.log(`🔍 SMART IMPORTER: Mapeado operadora: ${value}`)
+              } else if (cleanHeader === 'produto') {
+                item.produto = value
+                console.log(`🔍 SMART IMPORTER: Mapeado produto: ${value}`)
+              } else if (cleanHeader === 'vigencia' || cleanHeader === 'vigência') {
+                item.vigencia = value
+                console.log(`🔍 SMART IMPORTER: Mapeado vigencia: ${value}`)
+              } else if (cleanHeader === 'qtdretornos' || cleanHeader === 'quantidaderetornos') {
+                item.qtdRetornos = value
+                console.log(`🔍 SMART IMPORTER: Mapeado qtdRetornos: ${value}`)
+              } else if (cleanHeader === 'qualidade') {
+                item.qualidade = value
+                console.log(`🔍 SMART IMPORTER: Mapeado qualidade: ${value}`)
+              } else if (cleanHeader === 'estruturaedge' || cleanHeader === 'estrutura_edge') {
+                item.estruturaEdge = value
+                console.log(`🔍 SMART IMPORTER: Mapeado estruturaEdge: ${value}`)
+              } else if (cleanHeader === 'estruturamove' || cleanHeader === 'estrutura_move') {
+                item.estruturaMove = value
+                console.log(`🔍 SMART IMPORTER: Mapeado estruturaMove: ${value}`)
+              } else if (cleanHeader === 'formalizacao' || cleanHeader === 'formalização') {
+                item.formalizacao = value
+                console.log(`🔍 SMART IMPORTER: Mapeado formalizacao: ${value}`)
+              } else if (cleanHeader === 'itenspendentes' || cleanHeader === 'itens_pendentes') {
+                item.itensPendentes = value
+                console.log(`🔍 SMART IMPORTER: Mapeado itensPendentes: ${value}`)
+              } else if (cleanHeader === 'itensconcluidos' || cleanHeader === 'itens_concluidos') {
+                item.itensConcluidos = value
+                console.log(`🔍 SMART IMPORTER: Mapeado itensConcluidos: ${value}`)
+              } else {
+                console.log(`🔍 SMART IMPORTER: Header não mapeado para validação: "${cleanHeader}" = "${value}"`)
+              }
             } else if (config.entityType.toLowerCase().includes('demanda')) {
               // Mapeamento específico para demandas
               if (cleanHeader === 'id' && value) {
@@ -334,6 +410,8 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
         })
         
         console.log(`🔍 SMART IMPORTER: Item processado:`, item)
+        console.log(`🔍 SMART IMPORTER: Chaves do item:`, Object.keys(item))
+        console.log(`🔍 SMART IMPORTER: Valores do item:`, Object.values(item))
         return item
       }).filter(item => {
         // Ser menos restritivo - apenas filtrar itens completamente vazios
@@ -343,6 +421,8 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
         )
         const hasAnyKey = Object.keys(item).length > 0
         const shouldKeep = hasAnyKey && hasAnyValue
+        
+        console.log(`🔍 SMART IMPORTER: Item tem chaves: ${hasAnyKey}, tem valores: ${hasAnyValue}, deve manter: ${shouldKeep}`)
         
         if (!shouldKeep) {
           console.log(`🔍 SMART IMPORTER: Removendo item vazio:`, item)
@@ -675,6 +755,81 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
           qtdClientesVinculados: 25,
           usuariosEmpresa: 100,
           observacoes: 'Correção urgente solicitada pelo cliente'
+        }
+      ]
+    } else if (config.entityType.toLowerCase().includes('validação') || config.entityType.toLowerCase().includes('validacao')) {
+      templateData = [
+        { 
+          status: 'Aberta',
+          analista: 'João Silva',
+          dataInicio: '2024-01-15',
+          dataFinal: '2024-01-20',
+          tipo: 'Total',
+          ticket: 'VAL-2024-001',
+          solicitante: 'Maria Santos',
+          demanda: 'DEM-2024-001',
+          descricao: 'Validação de estrutura EDGE para novo cliente',
+          cliente: 'Empresa ABC Ltda',
+          contrato: 'CTR-001',
+          operadora: 'Operadora XYZ',
+          produto: 'Produto Premium',
+          vigencia: '2024-12-31',
+          qtdRetornos: 0,
+          qualidade: '3',
+          total: 15,
+          estruturaEdge: '1-CODIGO_CONTRATO,1-CNPJ',
+          estruturaMove: '0',
+          formalizacao: '0',
+          itensPendentes: 0,
+          itensConcluidos: 5
+        },
+        { 
+          status: 'Em andamento',
+          analista: 'Pedro Costa',
+          dataInicio: '2024-01-20',
+          dataFinal: '2024-01-25',
+          tipo: 'SUB',
+          ticket: 'VAL-2024-002',
+          solicitante: 'Ana Oliveira',
+          demanda: 'DEM-2024-002',
+          descricao: 'Validação de estrutura MOVE para alteração contratual',
+          cliente: 'Comércio XYZ S.A.',
+          contrato: 'CTR-002',
+          operadora: 'Operadora ABC',
+          produto: 'Produto Standard',
+          vigencia: '2024-06-30',
+          qtdRetornos: 1,
+          qualidade: '2',
+          total: 8,
+          estruturaEdge: '0',
+          estruturaMove: '1-VIGENCIA,1-ASSOCIACAO_MOVE',
+          formalizacao: '1',
+          itensPendentes: 2,
+          itensConcluidos: 3
+        },
+        { 
+          status: 'Concluída',
+          analista: 'Maria Santos',
+          dataInicio: '2024-01-10',
+          dataFinal: '2024-01-15',
+          tipo: 'Total',
+          ticket: 'VAL-2024-003',
+          solicitante: 'Carlos Lima',
+          demanda: 'DEM-2024-003',
+          descricao: 'Validação completa de estrutura EDGE e MOVE',
+          cliente: 'Indústria DEF Ltda',
+          contrato: 'CTR-003',
+          operadora: 'Operadora DEF',
+          produto: 'Produto Avançado',
+          vigencia: '2024-03-31',
+          qtdRetornos: 0,
+          qualidade: '3',
+          total: 25,
+          estruturaEdge: '1-CODIGO_CONTRATO,1-CNPJ,1-VIGENCIA',
+          estruturaMove: '1-CODIGO_CONTRATO,1-RAZAO_SOCIAL',
+          formalizacao: '0',
+          itensPendentes: 0,
+          itensConcluidos: 8
         }
       ]
     } else {
