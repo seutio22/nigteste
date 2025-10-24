@@ -203,6 +203,70 @@ export const DataCorrectionModal: React.FC<DataCorrectionModalProps> = ({
     )
   }
 
+  // Função para converter ID em nome legível
+  const getDisplayValue = (field: string, value: any) => {
+    if (!value) return ''
+    
+    // Se o valor já é um nome (string sem UUID), retornar como está
+    if (typeof value === 'string' && !value.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+      return value
+    }
+    
+    // Converter IDs para nomes legíveis
+    switch (field) {
+      case 'analistaId':
+        const analista = masterData.analistas?.find((a: any) => a.id === value)
+        return analista ? analista.nome : value
+      case 'clienteId':
+        const cliente = masterData.clientes?.find((c: any) => c.id === value)
+        return cliente ? cliente.nome : value
+      case 'operadoraId':
+        const operadora = masterData.operadoras?.find((o: any) => o.id === value)
+        return operadora ? operadora.nome : value
+      case 'produtoId':
+        const produto = masterData.produtos?.find((p: any) => p.id === value)
+        return produto ? produto.nome : value
+      case 'contratoId':
+        const contrato = masterData.contratos?.find((c: any) => c.id === value)
+        return contrato ? (contrato.codigo || contrato.numero || contrato.id) : value
+      default:
+        return value
+    }
+  }
+
+  // Função para converter nome legível em ID
+  const getIdFromDisplayValue = (field: string, displayValue: string) => {
+    if (!displayValue) return ''
+    
+    // Se o valor já é um ID (UUID), retornar como está
+    if (displayValue.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+      return displayValue
+    }
+    
+    // Converter nomes para IDs
+    switch (field) {
+      case 'analistaId':
+        const analista = masterData.analistas?.find((a: any) => a.nome === displayValue)
+        return analista ? analista.id : displayValue
+      case 'clienteId':
+        const cliente = masterData.clientes?.find((c: any) => c.nome === displayValue)
+        return cliente ? cliente.id : displayValue
+      case 'operadoraId':
+        const operadora = masterData.operadoras?.find((o: any) => o.nome === displayValue)
+        return operadora ? operadora.id : displayValue
+      case 'produtoId':
+        const produto = masterData.produtos?.find((p: any) => p.nome === displayValue)
+        return produto ? produto.id : displayValue
+      case 'contratoId':
+        const contrato = masterData.contratos?.find((c: any) => 
+          c.codigo === displayValue || c.numero === displayValue
+        )
+        return contrato ? contrato.id : displayValue
+      default:
+        return displayValue
+    }
+  }
+
   const renderCorrectionForm = () => {
     if (!currentItem) return null
 
@@ -224,14 +288,18 @@ export const DataCorrectionModal: React.FC<DataCorrectionModalProps> = ({
           {Object.keys(correctionData).map(field => {
             const error = currentItem.validation.errors.find(e => e.field === field)
             const hasSuggestion = error?.suggestedValue !== undefined
+            const displayValue = getDisplayValue(field, correctionData[field])
 
             return (
               <Box key={field} sx={{ mb: 2 }}>
                 <TextField
                   fullWidth
                   label={field}
-                  value={correctionData[field] || ''}
-                  onChange={(e) => handleFieldChange(field, e.target.value)}
+                  value={displayValue}
+                  onChange={(e) => {
+                    const idValue = getIdFromDisplayValue(field, e.target.value)
+                    handleFieldChange(field, idValue)
+                  }}
                   error={!!error}
                   helperText={error?.message}
                   sx={{ mb: 1 }}
