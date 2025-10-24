@@ -519,7 +519,7 @@ export default function ValidationListPage() {
             descricao: data.descricao || '',
             observacoes: data.observacoes || data.observacao || '',
             total: data.total || 0,
-            qualidade: data.qualidade || '',
+            qualidade: data.qualidade ? String(data.qualidade) : null,
             qtdRetornos: data.qtdRetornos || 0,
             vigencia: data.vigencia || '',
             estruturaEdge: data.estruturaEdge || '',
