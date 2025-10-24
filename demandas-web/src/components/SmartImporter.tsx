@@ -441,11 +441,11 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
 
       setProcessingStep('Aplicando validações...')
 
-      // Converter nomes em IDs para campos relacionados
+      // Converter nomes em IDs para campos relacionados e mapear para nomes corretos do backend
       const itemsWithIds = items.map(item => {
         const convertedItem = { ...item }
         
-        // Converter analista (nome -> ID)
+        // Converter analista (nome -> ID) e mapear para analistaId
         if (item.analista && typeof item.analista === 'string') {
           console.log(`🔍 SMART IMPORTER: Tentando converter analista "${item.analista}"`)
           console.log(`🔍 SMART IMPORTER: Analistas disponíveis:`, masterData.analistas?.map((a: any) => a.nome))
@@ -455,7 +455,7 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
           )
           
           if (analista) {
-            convertedItem.analista = analista.id
+            convertedItem.analistaId = analista.id
             console.log(`✅ SMART IMPORTER: Convertido analista "${item.analista}" -> ID: ${analista.id}`)
           } else {
             console.log(`❌ SMART IMPORTER: Analista "${item.analista}" não encontrado`)
@@ -468,17 +468,17 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
             )
             
             if (analistaParcial) {
-              convertedItem.analista = analistaParcial.id
+              convertedItem.analistaId = analistaParcial.id
               console.log(`✅ SMART IMPORTER: Encontrado analista por busca parcial "${item.analista}" -> "${analistaParcial.nome}" (ID: ${analistaParcial.id})`)
             } else {
               console.log(`❌ SMART IMPORTER: Analista "${item.analista}" não encontrado nem por busca parcial`)
               // Manter o valor original para que a validação possa sugerir correções
-              convertedItem.analista = item.analista
+              convertedItem.analistaId = item.analista
             }
           }
         }
         
-        // Converter cliente (nome -> ID)
+        // Converter cliente (nome -> ID) e mapear para clienteId
         if (item.cliente && typeof item.cliente === 'string') {
           console.log(`🔍 SMART IMPORTER: Tentando converter cliente "${item.cliente}"`)
           
@@ -487,7 +487,7 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
           )
           
           if (cliente) {
-            convertedItem.cliente = cliente.id
+            convertedItem.clienteId = cliente.id
             console.log(`✅ SMART IMPORTER: Convertido cliente "${item.cliente}" -> ID: ${cliente.id}`)
           } else {
             console.log(`❌ SMART IMPORTER: Cliente "${item.cliente}" não encontrado`)
@@ -499,16 +499,16 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
             )
             
             if (clienteParcial) {
-              convertedItem.cliente = clienteParcial.id
+              convertedItem.clienteId = clienteParcial.id
               console.log(`✅ SMART IMPORTER: Encontrado cliente por busca parcial "${item.cliente}" -> "${clienteParcial.nome}" (ID: ${clienteParcial.id})`)
             } else {
               console.log(`❌ SMART IMPORTER: Cliente "${item.cliente}" não encontrado nem por busca parcial`)
-              convertedItem.cliente = item.cliente
+              convertedItem.clienteId = item.cliente
             }
           }
         }
         
-        // Converter operadora (nome -> ID)
+        // Converter operadora (nome -> ID) e mapear para operadoraId
         if (item.operadora && typeof item.operadora === 'string') {
           console.log(`🔍 SMART IMPORTER: Tentando converter operadora "${item.operadora}"`)
           
@@ -517,7 +517,7 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
           )
           
           if (operadora) {
-            convertedItem.operadora = operadora.id
+            convertedItem.operadoraId = operadora.id
             console.log(`✅ SMART IMPORTER: Convertido operadora "${item.operadora}" -> ID: ${operadora.id}`)
           } else {
             console.log(`❌ SMART IMPORTER: Operadora "${item.operadora}" não encontrada`)
@@ -529,16 +529,16 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
             )
             
             if (operadoraParcial) {
-              convertedItem.operadora = operadoraParcial.id
+              convertedItem.operadoraId = operadoraParcial.id
               console.log(`✅ SMART IMPORTER: Encontrada operadora por busca parcial "${item.operadora}" -> "${operadoraParcial.nome}" (ID: ${operadoraParcial.id})`)
             } else {
               console.log(`❌ SMART IMPORTER: Operadora "${item.operadora}" não encontrada nem por busca parcial`)
-              convertedItem.operadora = item.operadora
+              convertedItem.operadoraId = item.operadora
             }
           }
         }
         
-        // Converter produto (nome -> ID)
+        // Converter produto (nome -> ID) e mapear para produtoId
         if (item.produto && typeof item.produto === 'string') {
           console.log(`🔍 SMART IMPORTER: Tentando converter produto "${item.produto}"`)
           
@@ -547,7 +547,7 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
           )
           
           if (produto) {
-            convertedItem.produto = produto.id
+            convertedItem.produtoId = produto.id
             console.log(`✅ SMART IMPORTER: Convertido produto "${item.produto}" -> ID: ${produto.id}`)
           } else {
             console.log(`❌ SMART IMPORTER: Produto "${item.produto}" não encontrado`)
@@ -559,11 +559,11 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
             )
             
             if (produtoParcial) {
-              convertedItem.produto = produtoParcial.id
+              convertedItem.produtoId = produtoParcial.id
               console.log(`✅ SMART IMPORTER: Encontrado produto por busca parcial "${item.produto}" -> "${produtoParcial.nome}" (ID: ${produtoParcial.id})`)
             } else {
               console.log(`❌ SMART IMPORTER: Produto "${item.produto}" não encontrado nem por busca parcial`)
-              convertedItem.produto = item.produto
+              convertedItem.produtoId = item.produto
             }
           }
         }
