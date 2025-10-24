@@ -98,6 +98,8 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
       // Converter para objetos com limpeza de headers (igual ao upload normal)
       const headers = jsonData[0] as string[]
       console.log('🔍 SMART IMPORTER: Headers encontrados:', headers)
+      console.log('🔍 SMART IMPORTER: Config entityType:', config.entityType)
+      console.log('🔍 SMART IMPORTER: Config entityType lowercase:', config.entityType.toLowerCase())
       
       const items = jsonData.slice(1).map((row: any[], rowIndex) => {
         const item: any = {}
@@ -113,6 +115,7 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
             
             // Mapear campos baseado no tipo de entidade
             console.log(`🔍 SMART IMPORTER: Tipo de entidade: "${config.entityType.toLowerCase()}"`)
+            console.log(`🔍 SMART IMPORTER: Verificando condição validação: ${config.entityType.toLowerCase().includes('validação')} || ${config.entityType.toLowerCase().includes('validacao')}`)
             if (config.entityType.toLowerCase().includes('manutenções') || config.entityType.toLowerCase().includes('manutencoes')) {
               // Mapeamento específico para manutenções
               if (cleanHeader === 'status') {
