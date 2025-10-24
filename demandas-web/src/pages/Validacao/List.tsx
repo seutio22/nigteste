@@ -516,8 +516,21 @@ export default function ValidationListPage() {
           })
 
 
+          // Normalizar status para formato padrão
+          const normalizeStatus = (status: string) => {
+            if (!status) return 'Aberta'
+            const statusUpper = status.toUpperCase()
+            if (statusUpper === 'CONCLUIDA' || statusUpper === 'CONCLUÍDA') return 'Concluída'
+            if (statusUpper === 'EM ANDAMENTO') return 'Em andamento'
+            if (statusUpper === 'AGUARDANDO VALIDACAO' || statusUpper === 'AGUARDANDO VALIDAÇÃO') return 'Aguardando validação'
+            if (statusUpper === 'COM ERROS') return 'Com erros'
+            if (statusUpper === 'EM REAJUSTE') return 'Em reajuste'
+            if (statusUpper === 'CANCELADA') return 'Cancelada'
+            return status
+          }
+
           const validacaoData = {
-            status: data.status,
+            status: normalizeStatus(data.status),
             ticket: data.ticket ? String(data.ticket) : `VAL-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
             solicitante: data.solicitante || '',
             analistaId: data.analistaId || '',

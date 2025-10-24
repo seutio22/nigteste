@@ -637,9 +637,9 @@ export const smartImporterConfigs: { [key: string]: SmartImporterConfig } = {
 
   validacoes: {
     entityType: 'Validações',
-    requiredFields: ['status', 'analista', 'dataInicio', 'tipo'],
+    requiredFields: ['status', 'analista', 'dataInicio', 'tipo', 'solicitante'],
     optionalFields: [
-      'ticket', 'solicitante', 'demanda', 'descricao', 'total', 'dataFinal',
+      'ticket', 'demanda', 'descricao', 'total', 'dataFinal',
       'cliente', 'contrato', 'operadora', 'produto', 'vigencia',
       'qtdRetornos', 'qualidade', 'estruturaEdge', 'estruturaMove', 'formalizacao',
       'itensPendentes', 'itensConcluidos'
@@ -665,6 +665,11 @@ export const smartImporterConfigs: { [key: string]: SmartImporterConfig } = {
         field: 'tipo',
         type: 'required',
         message: 'Tipo é obrigatório'
+      },
+      {
+        field: 'solicitante',
+        type: 'required',
+        message: 'Solicitante é obrigatório'
       },
       {
         field: 'dataInicio',

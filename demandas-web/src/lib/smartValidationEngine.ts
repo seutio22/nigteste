@@ -47,24 +47,40 @@ export class SmartValidationEngine {
       }
     }
 
-    // Verificar campos obrigatórios
+    // Verificar campos obrigatórios com validação mais rigorosa
     for (const field of this.config.requiredFields) {
-      if (!item[field] || item[field] === '') {
+      const value = item[field]
+      const isEmpty = !value || 
+                     value === '' || 
+                     value === null || 
+                     value === undefined ||
+                     (typeof value === 'string' && value.trim() === '')
+      
+      if (isEmpty) {
+        console.log(`❌ VALIDAÇÃO OBRIGATÓRIA: Campo "${field}" está vazio ou inválido: "${value}"`)
         errors.push({
           field,
           message: `Campo ${field} é obrigatório`,
           type: 'required',
           severity: 'error'
         })
+      } else {
+        console.log(`✅ VALIDAÇÃO OBRIGATÓRIA: Campo "${field}" preenchido: "${value}"`)
       }
     }
 
-    // Verificar referências
+    // Verificar referências com validação mais rigorosa
     for (const refField of this.config.referenceFields) {
       const fieldValue = item[refField.field]
-      if (fieldValue) {
+      
+      // Se o campo é obrigatório, validar mesmo se estiver vazio
+      const isRequiredField = this.config.requiredFields.includes(refField.field)
+      
+      if (fieldValue || isRequiredField) {
+        console.log(`🔍 VALIDAÇÃO REFERÊNCIA: Validando campo "${refField.field}" com valor: "${fieldValue}"`)
         const reference = this.validateReference(fieldValue, refField)
         if (!reference.isValid) {
+          console.log(`❌ VALIDAÇÃO REFERÊNCIA: Campo "${refField.field}" falhou na validação: ${reference.message}`)
           errors.push({
             field: refField.field,
             message: reference.message,
@@ -73,7 +89,11 @@ export class SmartValidationEngine {
             suggestion: reference.suggestion,
             suggestedValue: reference.suggestedValue
           })
+        } else {
+          console.log(`✅ VALIDAÇÃO REFERÊNCIA: Campo "${refField.field}" passou na validação`)
         }
+      } else {
+        console.log(`⏭️ VALIDAÇÃO REFERÊNCIA: Campo "${refField.field}" vazio e não obrigatório, pulando validação`)
       }
     }
 
@@ -157,10 +177,20 @@ export class SmartValidationEngine {
     console.log(`🔍 VALIDAÇÃO REFERÊNCIA: Store "${refField.referenceStore}" tem ${referenceData.length} registros`)
     console.log(`🔍 VALIDAÇÃO REFERÊNCIA: Primeiros registros:`, referenceData.slice(0, 3).map((r: any) => ({ id: r.id, nome: r[refField.displayField] })))
     
-    // Se o valor estiver vazio, considerar válido (campo opcional)
+    // Se o valor estiver vazio, verificar se é campo obrigatório
     if (!value || String(value).trim() === '') {
-      console.log(`✅ VALIDAÇÃO REFERÊNCIA: Campo vazio, considerando válido (opcional)`)
-      return { isValid: true }
+      // Verificar se este campo está na lista de campos obrigatórios
+      const isRequiredField = this.config.requiredFields.includes(refField.field)
+      if (isRequiredField) {
+        console.log(`❌ VALIDAÇÃO REFERÊNCIA: Campo obrigatório "${refField.field}" está vazio`)
+        return { 
+          isValid: false, 
+          message: `Campo ${refField.field} é obrigatório e não pode estar vazio` 
+        }
+      } else {
+        console.log(`✅ VALIDAÇÃO REFERÊNCIA: Campo opcional "${refField.field}" vazio, considerando válido`)
+        return { isValid: true }
+      }
     }
     
     // Converter valor para string e normalizar
