@@ -513,15 +513,68 @@ export default function ValidationListPage() {
             excelDateToISO_result: excelDateToISO(data.dataFinal || data.dataFinalizacao)
           })
 
+          // Função para normalizar strings (remove acentos, espaços extras, converte para lowercase)
+          const normalizeString = (str: string) => {
+            if (!str) return ''
+            return String(str)
+              .toLowerCase()
+              .trim()
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '') // Remove acentos
+              .replace(/\s+/g, ' ') // Normaliza espaços
+          }
+
+          // Função para encontrar ID por nome (com normalização completa e correspondência flexível)
+          const findIdByName = (name: string, items: any[], nameField: string = 'nome') => {
+            if (!name) return ''
+            
+            const searchNormalized = normalizeString(String(name))
+            
+            // Primeiro, tentar correspondência exata (normalizada)
+            let item = items.find(item => {
+              const itemNameNormalized = normalizeString(item[nameField] || item.nome || '')
+              return itemNameNormalized === searchNormalized
+            })
+            
+            // Se não encontrou correspondência exata, tentar correspondência parcial
+            if (!item) {
+              item = items.find(item => {
+                const itemNameNormalized = normalizeString(item[nameField] || item.nome || '')
+                // Verificar se o termo de busca está contido no nome do item
+                return itemNameNormalized.includes(searchNormalized) || searchNormalized.includes(itemNameNormalized)
+              })
+            }
+            
+            // Se ainda não encontrou, tentar correspondência por palavras-chave
+            if (!item) {
+              const searchWords = searchNormalized.split(' ').filter(word => word.length > 2)
+              if (searchWords.length > 0) {
+                item = items.find(item => {
+                  const itemNameNormalized = normalizeString(item[nameField] || item.nome || '')
+                  return searchWords.some(word => itemNameNormalized.includes(word))
+                })
+              }
+            }
+            
+            return item?.id || ''
+          }
+
+          // Mapear dados para o formato de validação
+          const analistaId = findIdByName(data.analista || data.analistaId, md.analistas)
+          const clienteId = findIdByName(data.cliente || data.clienteId, md.clientes)
+          const contratoId = findIdByName(data.contrato || data.contratoId, md.contratos, 'codigo')
+          const operadoraId = findIdByName(data.operadora || data.operadoraId, md.operadoras)
+          const produtoId = findIdByName(data.produto || data.produtoId, md.produtos)
+
           const validacaoData = {
             status: data.status || 'Em validação',
             ticket: data.ticket ? String(data.ticket) : `VAL-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
             solicitante: data.solicitante || '',
-            analistaId: data.analistaId || '',
-            clienteId: data.clienteId || '',
-            contratoId: data.contratoId || '',
-            operadoraId: data.operadoraId || '',
-            produtoId: data.produtoId || '',
+            ...(analistaId && { analistaId }),
+            ...(clienteId && { clienteId }),
+            ...(contratoId && { contratoId }),
+            ...(operadoraId && { operadoraId }),
+            ...(produtoId && { produtoId }),
             dataInicio: excelDateToISO(data.dataInicio || data.dataInicial) || new Date().toISOString(),
             dataFim: excelDateToISO(data.dataFinal || data.dataFinalizacao),
             descricao: data.descricao || '',
