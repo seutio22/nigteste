@@ -365,6 +365,8 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
     // Inicializar o draft com os dados originais da validação
     console.log('🔄 EditInline: Inicializando draft com validação:', validation.id)
     console.log('🔄 EditInline: Status da validação:', validation.status)
+    console.log('🔄 EditInline: DataInicio da validação:', validation.dataInicio)
+    console.log('🔄 EditInline: DataFinal da validação:', validation.dataFinal)
     console.log('🔄 EditInline: Operadora da validação:', validation.operadora)
     console.log('🔄 EditInline: Produto da validação:', validation.produto)
     console.log('🔄 EditInline: Dados completos da validação:', validation)

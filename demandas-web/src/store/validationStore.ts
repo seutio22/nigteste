@@ -315,6 +315,8 @@ export const useValidationStore = create<ValidationState>()(
           const validacoesMapeadas: ValidationEntry[] = validacoes.map((validacao: any) => {
             console.log('🔍 ValidationStore: Mapeando validação:', validacao.id)
             console.log('🔍 ValidationStore: Status da API:', validacao.status)
+            console.log('🔍 ValidationStore: DataInicio da API:', validacao.dataInicio)
+            console.log('🔍 ValidationStore: DataFim da API:', validacao.dataFim)
             console.log('🔍 ValidationStore: Operadora da API:', validacao.operadora, 'ID:', validacao.operadoraId)
             console.log('🔍 ValidationStore: Produto da API:', validacao.produto, 'ID:', validacao.produtoId)
             
@@ -338,11 +340,6 @@ export const useValidationStore = create<ValidationState>()(
             area: validacao.area || 'N/A',
             sistema: validacao.sistema || 'N/A',
             localizacao: validacao.localizacao || 'N/A',
-            // Objetos completos dos relacionamentos - API já retorna com include
-            cliente: validacao.cliente,
-            contrato: validacao.contrato,
-            operadora: validacao.operadora,
-            produto: validacao.produto,
             // Campos para compatibilidade com formulário - usar IDs para selects
             clienteId: validacao.clienteId,
             contratoId: validacao.contratoId,
