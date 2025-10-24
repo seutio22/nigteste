@@ -441,8 +441,67 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
 
       setProcessingStep('Aplicando validações...')
 
+      // Converter nomes em IDs para campos relacionados
+      const itemsWithIds = items.map(item => {
+        const convertedItem = { ...item }
+        
+        // Converter analista (nome -> ID)
+        if (item.analistaId && typeof item.analistaId === 'string') {
+          const analista = masterData.analistas.find((a: any) => 
+            a.nome.toLowerCase().trim() === item.analistaId.toLowerCase().trim()
+          )
+          if (analista) {
+            convertedItem.analistaId = analista.id
+            console.log(`🔍 SMART IMPORTER: Convertido analista "${item.analistaId}" -> ID: ${analista.id}`)
+          } else {
+            console.log(`⚠️ SMART IMPORTER: Analista "${item.analistaId}" não encontrado`)
+          }
+        }
+        
+        // Converter cliente (nome -> ID)
+        if (item.clienteId && typeof item.clienteId === 'string') {
+          const cliente = masterData.clientes.find((c: any) => 
+            c.nome.toLowerCase().trim() === item.clienteId.toLowerCase().trim()
+          )
+          if (cliente) {
+            convertedItem.clienteId = cliente.id
+            console.log(`🔍 SMART IMPORTER: Convertido cliente "${item.clienteId}" -> ID: ${cliente.id}`)
+          } else {
+            console.log(`⚠️ SMART IMPORTER: Cliente "${item.clienteId}" não encontrado`)
+          }
+        }
+        
+        // Converter operadora (nome -> ID)
+        if (item.operadoraId && typeof item.operadoraId === 'string') {
+          const operadora = masterData.operadoras.find((o: any) => 
+            o.nome.toLowerCase().trim() === item.operadoraId.toLowerCase().trim()
+          )
+          if (operadora) {
+            convertedItem.operadoraId = operadora.id
+            console.log(`🔍 SMART IMPORTER: Convertido operadora "${item.operadoraId}" -> ID: ${operadora.id}`)
+          } else {
+            console.log(`⚠️ SMART IMPORTER: Operadora "${item.operadoraId}" não encontrada`)
+          }
+        }
+        
+        // Converter produto (nome -> ID)
+        if (item.produtoId && typeof item.produtoId === 'string') {
+          const produto = masterData.produtos.find((p: any) => 
+            p.nome.toLowerCase().trim() === item.produtoId.toLowerCase().trim()
+          )
+          if (produto) {
+            convertedItem.produtoId = produto.id
+            console.log(`🔍 SMART IMPORTER: Convertido produto "${item.produtoId}" -> ID: ${produto.id}`)
+          } else {
+            console.log(`⚠️ SMART IMPORTER: Produto "${item.produtoId}" não encontrado`)
+          }
+        }
+        
+        return convertedItem
+      })
+
       // Validar dados
-      const result = validationEngine.processItems(items)
+      const result = validationEngine.processItems(itemsWithIds)
 
       console.log('🔍 SMART IMPORTER: Resultado da validação:', {
         valid: result.valid.length,
