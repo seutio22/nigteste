@@ -283,14 +283,14 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
                 item.status = value
                 console.log(`🔍 SMART IMPORTER: Mapeado status: ${value}`)
               } else if (cleanHeader === 'analista') {
-                item.analista = value
-                console.log(`🔍 SMART IMPORTER: Mapeado analista: ${value}`)
+                item.analistaId = value
+                console.log(`🔍 SMART IMPORTER: Mapeado analistaId: ${value}`)
               } else if (cleanHeader === 'datainicio' || cleanHeader === 'datainicial') {
                 item.dataInicio = value
                 console.log(`🔍 SMART IMPORTER: Mapeado dataInicio: ${value}`)
               } else if (cleanHeader === 'datafinal' || cleanHeader === 'datafinalizacao' || cleanHeader === 'datafinalização') {
-                item.dataFinal = value
-                console.log(`🔍 SMART IMPORTER: Mapeado dataFinal: ${value}`)
+                item.dataFim = value
+                console.log(`🔍 SMART IMPORTER: Mapeado dataFim: ${value}`)
               } else if (cleanHeader === 'tipo') {
                 item.tipo = value
                 console.log(`🔍 SMART IMPORTER: Mapeado tipo: ${value}`)
@@ -310,17 +310,17 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
                 item.total = value
                 console.log(`🔍 SMART IMPORTER: Mapeado total: ${value}`)
               } else if (cleanHeader === 'cliente') {
-                item.cliente = value
-                console.log(`🔍 SMART IMPORTER: Mapeado cliente: ${value}`)
+                item.clienteId = value
+                console.log(`🔍 SMART IMPORTER: Mapeado clienteId: ${value}`)
               } else if (cleanHeader === 'contrato') {
-                item.contrato = value
-                console.log(`🔍 SMART IMPORTER: Mapeado contrato: ${value}`)
+                item.contratoId = value
+                console.log(`🔍 SMART IMPORTER: Mapeado contratoId: ${value}`)
               } else if (cleanHeader === 'operadora') {
-                item.operadora = value
-                console.log(`🔍 SMART IMPORTER: Mapeado operadora: ${value}`)
+                item.operadoraId = value
+                console.log(`🔍 SMART IMPORTER: Mapeado operadoraId: ${value}`)
               } else if (cleanHeader === 'produto') {
-                item.produto = value
-                console.log(`🔍 SMART IMPORTER: Mapeado produto: ${value}`)
+                item.produtoId = value
+                console.log(`🔍 SMART IMPORTER: Mapeado produtoId: ${value}`)
               } else if (cleanHeader === 'vigencia' || cleanHeader === 'vigência') {
                 item.vigencia = value
                 console.log(`🔍 SMART IMPORTER: Mapeado vigencia: ${value}`)
