@@ -691,7 +691,7 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
           <label className="block text-sm font-medium text-gray-700 mb-2">Nº Ticket</label>
           <input
             type="text"
-            value={draft.ticket || ''}
+            value={draft.ticket}
             onChange={(e) => setDraft({ ...draft, ticket: e.target.value || undefined })}
             placeholder="Número do ticket"
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -700,7 +700,7 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Solicitante</label>
           <select
-            value={draft.solicitante || ''}
+            value={draft.solicitante}
             onChange={(e) => setDraft({ ...draft, solicitante: e.target.value || undefined })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
@@ -715,7 +715,7 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Demanda *</label>
           <select
-            value={draft.tipo || ''}
+            value={draft.tipo}
             onChange={(e) => setDraft({ ...draft, tipo: e.target.value })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
@@ -731,7 +731,7 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Cliente</label>
           <select
-            value={draft.cliente || ''}
+            value={draft.cliente}
             onChange={(e) => setDraft({ 
               ...draft, 
               cliente: e.target.value || undefined,
@@ -746,7 +746,7 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Operadora</label>
           <select
-            value={draft.operadora || ''}
+            value={draft.operadora}
             onChange={(e) => setDraft({ 
               ...draft, 
               operadora: e.target.value || undefined,
@@ -765,7 +765,7 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Contrato</label>
           <select
-            value={draft.contrato || ''}
+            value={draft.contrato}
             onChange={(e) => setDraft({ ...draft, contrato: e.target.value || undefined })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
@@ -791,7 +791,7 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Produto</label>
           <select
-            value={draft.produto || ''}
+            value={draft.produto}
             onChange={(e) => setDraft({ ...draft, produto: e.target.value || undefined })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
@@ -823,7 +823,7 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
           <label className="block text-sm font-medium text-gray-700 mb-2">Qtd de retornos</label>
           <input
             type="number"
-            value={draft.qtdRetornos || ''}
+            value={draft.qtdRetornos}
             onChange={(e) => setDraft({ ...draft, qtdRetornos: e.target.value || undefined })}
             placeholder="0"
             min="0"
@@ -833,7 +833,7 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Qualidade</label>
           <select
-            value={draft.qualidade || ''}
+            value={draft.qualidade}
             onChange={(e) => setDraft({ ...draft, qualidade: e.target.value || undefined })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
@@ -923,7 +923,7 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Formalização</label>
           <select
-            value={draft.formalizacao || ''}
+            value={draft.formalizacao}
             onChange={(e) => setDraft({ ...draft, formalizacao: e.target.value || undefined })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
@@ -941,7 +941,7 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
           <label className="block text-sm font-medium text-gray-700 mb-2">Itens Pendentes</label>
           <input
             type="number"
-            value={draft.itensPendentes || ''}
+            value={draft.itensPendentes}
             onChange={(e) => setDraft({ ...draft, itensPendentes: e.target.value || undefined })}
             placeholder="0"
             min="0"
@@ -953,7 +953,7 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
           <label className="block text-sm font-medium text-gray-700 mb-2">Itens Concluídos</label>
           <input
             type="number"
-            value={draft.itensConcluidos || ''}
+            value={draft.itensConcluidos}
             onChange={(e) => setDraft({ ...draft, itensConcluidos: e.target.value || undefined })}
             placeholder="0"
             min="0"
@@ -986,7 +986,7 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">Descrição do chamado</label>
         <textarea
-          value={draft.descricao || ''}
+          value={draft.descricao}
           onChange={(e) => setDraft({ ...draft, descricao: e.target.value })}
           placeholder="Descrição detalhada do chamado"
           rows={4}
@@ -998,7 +998,7 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">Observações</label>
         <textarea
-          value={draft.observacoes || ''}
+          value={draft.observacoes}
           onChange={(e) => setDraft({ ...draft, observacoes: e.target.value })}
           placeholder="Observações gerais sobre a validação..."
           rows={3}
