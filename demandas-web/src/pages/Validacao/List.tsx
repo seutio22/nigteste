@@ -474,25 +474,27 @@ export default function ValidationListPage() {
         return ''
       }
 
+      // Função para normalizar strings (remove acentos, espaços extras, converte para lowercase)
+      const normalizeString = (str: string) => {
+        if (!str) return ''
+        return String(str).toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ')
+      }
+
+      // Função para encontrar ID por nome (com normalização completa e correspondência flexível)
+      const findIdByName = (name: string, items: any[], nameField: string = 'nome') => {
+        if (!name) return ''
+        const searchNormalized = normalizeString(String(name))
+        const item = items.find(item => {
+          const itemNameNormalized = normalizeString(item[nameField] || item.nome || '')
+          return itemNameNormalized === searchNormalized
+        })
+        return item?.id || ''
+      }
+
       // Processar itens válidos
       for (const item of result.valid) {
         try {
           const data = item.isCorrected ? item.correctedData : item.data
-          
-          const normalizeString = (str: string) => {
-            if (!str) return ''
-            return String(str).toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ')
-          }
-
-          const findIdByName = (name: string, items: any[], nameField: string = 'nome') => {
-            if (!name) return ''
-            const searchNormalized = normalizeString(String(name))
-            const item = items.find(item => {
-              const itemNameNormalized = normalizeString(item[nameField] || item.nome || '')
-              return itemNameNormalized === searchNormalized
-            })
-            return item?.id || ''
-          }
 
           console.log('🔍 SMART IMPORT VALIDAÇÕES: Dados recebidos do SmartImporter:', data)
           console.log('🔍 SMART IMPORT VALIDAÇÕES: Campos específicos:', {
