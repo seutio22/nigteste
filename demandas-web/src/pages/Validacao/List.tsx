@@ -521,10 +521,10 @@ export default function ValidationListPage() {
             total: data.total || 0,
             qualidade: data.qualidade ? String(data.qualidade) : null,
             qtdRetornos: data.qtdRetornos || 0,
-            vigencia: data.vigencia || '',
-            estruturaEdge: data.estruturaEdge || '',
-            estruturaMove: data.estruturaMove || '',
-            formalizacao: data.formalizacao || '',
+            vigencia: data.vigencia ? String(data.vigencia) : null,
+            estruturaEdge: data.estruturaEdge ? String(data.estruturaEdge) : null,
+            estruturaMove: data.estruturaMove ? String(data.estruturaMove) : null,
+            formalizacao: data.formalizacao ? String(data.formalizacao) : null,
             itensPendentes: data.itensPendentes || 0,
             itensConcluidos: data.itensConcluidos || 0
           }
