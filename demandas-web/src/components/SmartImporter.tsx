@@ -289,8 +289,8 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
                 item.dataInicio = value
                 console.log(`🔍 SMART IMPORTER: Mapeado dataInicio: ${value}`)
               } else if (cleanHeader === 'datafinal' || cleanHeader === 'datafinalizacao' || cleanHeader === 'datafinalização') {
-                item.dataFim = value
-                console.log(`🔍 SMART IMPORTER: Mapeado dataFim: ${value}`)
+                item.dataFinal = value
+                console.log(`🔍 SMART IMPORTER: Mapeado dataFinal: ${value}`)
               } else if (cleanHeader === 'tipo') {
                 item.tipo = value
                 console.log(`🔍 SMART IMPORTER: Mapeado tipo: ${value}`)
