@@ -312,6 +312,11 @@ export const useValidationStore = create<ValidationState>()(
           console.log('🔍 ValidationStore: Dados recebidos da API:', validacoes.length, 'itens')
           
           // Mapear os dados para o formato esperado pelo frontend - seguindo padrão do demandStore
+          console.log('🔍 ValidationStore: Mapeando validação:', validacao.id)
+          console.log('🔍 ValidationStore: Status da API:', validacao.status)
+          console.log('🔍 ValidationStore: Operadora da API:', validacao.operadora, 'ID:', validacao.operadoraId)
+          console.log('🔍 ValidationStore: Produto da API:', validacao.produto, 'ID:', validacao.produtoId)
+          
           const validacoesMapeadas: ValidationEntry[] = validacoes.map((validacao: any) => ({
             id: validacao.id,
             analista: validacao.analista || { nome: 'N/A' },
@@ -337,11 +342,16 @@ export const useValidationStore = create<ValidationState>()(
             contrato: validacao.contrato,
             operadora: validacao.operadora,
             produto: validacao.produto,
-            // Campos para compatibilidade com formulário
+            // Campos para compatibilidade com formulário - usar IDs para selects
             clienteId: validacao.clienteId,
             contratoId: validacao.contratoId,
             operadoraId: validacao.operadoraId,
             produtoId: validacao.produtoId,
+            // Mapear campos para formulário usando IDs
+            cliente: validacao.clienteId,
+            contrato: validacao.contratoId,
+            operadora: validacao.operadoraId,
+            produto: validacao.produtoId,
             // Novos campos para estruturas EDGE, MOVE e formalização
             estruturaEdge: (() => {
               console.log('🔍 Estrutura EDGE da API:', validacao.estruturaEdge, 'Tipo:', typeof validacao.estruturaEdge)
