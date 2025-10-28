@@ -1836,9 +1836,10 @@ function crud(entity: keyof PrismaClient) {
         }
         console.log('✅ REPORT CREATE: Campo analista presente:', reportData.analista);
         
-        // Manter userId para rastreabilidade
+        // Remover userId se presente (modelo Report não tem este campo)
         if ('userId' in reportData) {
-          console.log('🔍 REPORT CREATE: Campo userId presente:', reportData.userId);
+          console.log('🔍 REPORT CREATE: Campo userId presente, removendo:', reportData.userId);
+          delete reportData.userId;
         }
         
         // Converter campos de data do formato 'YYYY-MM-DD' para ISO-8601 DateTime
