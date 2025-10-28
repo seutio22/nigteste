@@ -756,9 +756,11 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="">Selecione um cliente</option>
-            {md.clientes.map(cliente => <option key={cliente.id} value={cliente.id}>
-              {cliente.grupoEconomico ? `${cliente.nome} (${cliente.grupoEconomico})` : cliente.nome}
-            </option>)}
+            {md.clientes.map(cliente => (
+              <option key={cliente.id} value={cliente.id}>
+                {cliente.grupoEconomico ? `${cliente.nome} - ${cliente.grupoEconomico}` : cliente.nome}
+              </option>
+            ))}
           </select>
         </div>
         <div>
