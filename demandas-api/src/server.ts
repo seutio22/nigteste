@@ -1597,6 +1597,25 @@ function crud(entity: keyof PrismaClient) {
         });
       }
       
+      // Aplicar filtros genéricos se fornecidos nos queryParams
+      const where: any = {}
+      
+      if (queryParams) {
+        // Para cada parâmetro de query, adicionar ao where
+        Object.keys(queryParams).forEach(key => {
+          // Ignorar parâmetros especiais que não são filtros de campo
+          if (key !== 'entityId' && key !== 'entityType') {
+            where[key] = queryParams[key]
+          }
+        })
+      }
+      
+      // Se houver filtros, usar where; caso contrário, retornar todos
+      if (Object.keys(where).length > 0) {
+        console.log(`🔍 Buscando ${entity} com filtros:`, where)
+        return anyPrisma[entity].findMany({ where })
+      }
+      
       return anyPrisma[entity].findMany();
     },
     get: async (id: string) => {

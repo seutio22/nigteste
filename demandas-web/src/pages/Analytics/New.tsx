@@ -129,9 +129,9 @@ export default function AnalyticsNewPage() {
     try {
       console.log('🔍 VALIDAÇÃO TICKET ANALYTICS: Verificando se ticket existe:', ticket)
       
-      // Buscar no banco de dados via API
+      // Buscar no banco de dados via API (Analytics usa endpoint /analytics que mapeia para report)
       const baseUrl = 'https://nigteste-production.up.railway.app'
-      const response = await fetch(`${baseUrl}/relatorios?ticket=${encodeURIComponent(ticket)}`, {
+      const response = await fetch(`${baseUrl}/analytics?ticket=${encodeURIComponent(ticket)}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
