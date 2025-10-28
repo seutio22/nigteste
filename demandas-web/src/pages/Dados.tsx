@@ -161,9 +161,17 @@ export default function DadosPage() {
       const errors: string[] = []
 
       // Processar itens válidos
-      for (const item of result.valid) {
+      console.log(`🔍 SMART IMPORT: Processando ${result.valid.length} itens válidos`)
+      
+      for (let i = 0; i < result.valid.length; i++) {
+        const item = result.valid[i]
         // Definir data fora do try-catch para estar acessível no catch
         const data = item.isCorrected ? item.correctedData : item.data
+        
+        // Log de progresso a cada 100 itens
+        if (i % 100 === 0) {
+          console.log(`🔍 SMART IMPORT: Processando item ${i + 1} de ${result.valid.length}`)
+        }
         
         try {
           // Determinar endpoint baseado na aba ativa
@@ -240,11 +248,16 @@ export default function DadosPage() {
           if (endpoint) {
             await api.post(endpoint, payload)
             totalSavedToDatabase++
+            
+            // Pequeno delay para evitar sobrecarga da API
+            if (i % 10 === 0) {
+              await new Promise(resolve => setTimeout(resolve, 100))
+            }
           }
 
           totalImported++
         } catch (apiError: any) {
-          console.error(`Erro ao salvar item no banco:`, apiError)
+          console.error(`❌ Erro ao salvar item ${i + 1} no banco:`, apiError)
           
           // Extrair mensagem de erro específica da API
           let errorMessage = 'Erro desconhecido'
@@ -257,8 +270,14 @@ export default function DadosPage() {
           }
           
           // Adicionar informação do item que falhou (nome ou código)
-          const itemIdentifier = data.nome || data.codigo || data.numero || 'item'
+          const itemIdentifier = data.nome || data.codigo || data.numero || `item-${i + 1}`
           errors.push(`${itemIdentifier}: ${errorMessage}`)
+          
+          // Se há muitos erros consecutivos, pode ser um problema de timeout ou limite
+          if (errors.length > 50) {
+            console.error(`❌ Muitos erros consecutivos (${errors.length}). Parando importação.`)
+            break
+          }
         }
       }
 
@@ -300,7 +319,11 @@ export default function DadosPage() {
         })
       }
 
-      console.log(`✅ SMART IMPORT: Processamento concluído. Total importado: ${totalImported}, Total salvo no banco: ${totalSavedToDatabase}`)
+      console.log(`✅ SMART IMPORT: Processamento concluído.`)
+      console.log(`📊 Total processado: ${totalImported}`)
+      console.log(`💾 Total salvo no banco: ${totalSavedToDatabase}`)
+      console.log(`❌ Total de erros: ${errors.length}`)
+      console.log(`📈 Taxa de sucesso: ${totalSavedToDatabase > 0 ? ((totalSavedToDatabase / totalImported) * 100).toFixed(1) : 0}%`)
 
     } catch (error) {
       console.error('❌ SMART IMPORT: Erro geral:', error)
