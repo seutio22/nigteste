@@ -17,8 +17,6 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
   const [copiado, setCopiado] = useState(false)
   const [copiadoEmail, setCopiadoEmail] = useState(false)
   const [carregandoMailling, setCarregandoMailling] = useState(false)
-  const [emailSimples, setEmailSimples] = useState('')
-  const [mostrarSimples, setMostrarSimples] = useState(false)
   const [gerandoImagem, setGerandoImagem] = useState(false)
   const [editandoDescricao, setEditandoDescricao] = useState(false)
   const [descricaoEditavel, setDescricaoEditavel] = useState('')
@@ -454,27 +452,6 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
 </html>`
       
       setEmailOutlook(emailOutlookCompatible)
-      
-      // Gerar versão simples também
-      const emailSimples = `Prezados,
-
-Informamos que o cliente ${cliente?.nome || 'N/A'} sofreu alteração, sendo:
-
-┌─────────┬─────────────────┬─────────┬─────────────┬─────────────┬─────────────┐
-│Contrato │   Operadora     │ Produto │ Atualização │   Subtipo   │    Tipo     │
-├─────────┼─────────────────┼─────────┼─────────────┼─────────────┼─────────────┤
-│${(contrato?.codigo || contrato?.numero || manutencao.ticket || 'N/A').toString().padEnd(9)}│${(operadora?.nome || 'N/A').padEnd(17)}│${(produto?.nome || 'N/A').padEnd(9)}│${(tipoServico?.nome || 'N/A').padEnd(13)}│${(tipo?.nome || 'N/A').padEnd(13)}│${(sistema?.nome || 'N/A').padEnd(13)}│
-└─────────┴─────────────────┴─────────┴─────────────┴─────────────┴─────────────┘
-
-📝 DESCRIÇÃO DA ALTERAÇÃO:
-${descricaoEditavel || manutencao.descricao || 'Alteração realizada'}
-
-O Edge e Move encontram-se atualizados. Solicitamos replicar esta informação com a sua equipe.
-
-Atenciosamente,
-NIG - Núcleo de Informações Gerenciais`
-      
-      setEmailSimples(emailSimples)
     }
   }, [manutencao, md.clientes, md.operadoras, md.produtos, md.sistemas, md.tiposCadastro, md.padrao, md.contratos, descricaoEditavel])
 
@@ -536,16 +513,6 @@ NIG - Núcleo de Informações Gerenciais`
     }
   }
 
-  const handleCopyEmail = async () => {
-    try {
-      const emailParaCopiar = mostrarSimples ? emailSimples : emailCompleto
-      await navigator.clipboard.writeText(emailParaCopiar)
-      setCopiadoEmail(true)
-      setTimeout(() => setCopiadoEmail(false), 2000)
-    } catch (err) {
-      console.error('Erro ao copiar e-mail:', err)
-    }
-  }
 
   const handleCopyOutlook = async () => {
     try {
@@ -977,31 +944,14 @@ NIG - Núcleo de Informações Gerenciais`
                 overflow: 'auto'
               }}
             >
-              {mostrarSimples ? (
-                <Box sx={{ p: 3 }}>
-                  <Typography 
-                    variant="body2" 
-                    sx={{ 
-                      fontFamily: 'monospace',
-                      fontSize: '0.875rem',
-                      lineHeight: 1.6,
-                      whiteSpace: 'pre-wrap',
-                      color: '#374151'
-                    }}
-                  >
-                    {emailSimples}
-                  </Typography>
-                </Box>
-              ) : (
-                <Box
-                  sx={{
-                    '& *': {
-                      fontFamily: 'inherit !important'
-                    }
-                  }}
-                  dangerouslySetInnerHTML={{ __html: emailCompleto }}
-                />
-              )}
+              <Box
+                sx={{
+                  '& *': {
+                    fontFamily: 'inherit !important'
+                  }
+                }}
+                dangerouslySetInnerHTML={{ __html: emailOutlook }}
+              />
             </Box>
           </Paper>
         </Box>
@@ -1028,25 +978,6 @@ NIG - Núcleo de Informações Gerenciais`
           Fechar
         </Button>
         <Box className="flex gap-2 flex-wrap">
-          <Button
-            onClick={() => setMostrarSimples(!mostrarSimples)}
-            variant="outlined"
-            sx={{ 
-              borderRadius: '8px',
-              textTransform: 'none',
-              fontWeight: 500,
-              px: 3,
-              py: 1.5,
-              borderColor: '#6b7280',
-              color: '#6b7280',
-              '&:hover': {
-                borderColor: '#4b5563',
-                background: '#f9fafb'
-              }
-            }}
-          >
-            {mostrarSimples ? '📄 Ver HTML' : '📝 Ver Texto'}
-          </Button>
           
           <Button
             startIcon={gerandoImagem ? <ImageIcon className="w-4 h-4 animate-spin" /> : <ImageIcon className="w-4 h-4" />}
@@ -1097,27 +1028,6 @@ NIG - Núcleo de Informações Gerenciais`
             {copiadoEmail ? 'E-mail Copiado!' : '📧 Copiar para Outlook'}
           </Button>
           
-          <Button
-            startIcon={copiadoEmail ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-            onClick={handleCopyEmail}
-            variant="outlined"
-            color={copiadoEmail ? "success" : "primary"}
-            sx={{ 
-              borderRadius: '8px',
-              textTransform: 'none',
-              fontWeight: 500,
-              px: 3,
-              py: 1.5,
-              borderColor: copiadoEmail ? '#10b981' : '#3b82f6',
-              color: copiadoEmail ? '#10b981' : '#3b82f6',
-              '&:hover': {
-                borderColor: copiadoEmail ? '#059669' : '#1d4ed8',
-                background: copiadoEmail ? '#f0fdf4' : '#eff6ff'
-              }
-            }}
-          >
-            {copiadoEmail ? 'Copiado!' : `Copiar ${mostrarSimples ? 'Texto' : 'HTML'}`}
-          </Button>
         </Box>
       </DialogActions>
     </Dialog>
