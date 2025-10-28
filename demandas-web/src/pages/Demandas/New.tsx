@@ -483,7 +483,7 @@ export default function DemandNewPage() {
       // Preparar payload para o store (usar nomes corretos dos campos)
       const storePayload = {
         status: data.status,
-        ticket: data.ticket || generateTicket(),
+        ticket: finalTicket, // CORRIGIDO: Usar o ticket final calculado (do usuário ou gerado)
         analista: analistaCorrespondente?.nome || null,
         analistaId: analistaCorrespondente?.id || null,
         solicitante: emptyToNull(data.solicitante),
