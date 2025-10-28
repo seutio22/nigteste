@@ -1,7 +1,7 @@
 {
   "name": "demandas-api-novo",
-  "version": "2.4.4",
-  "description": "Backend API - 2.4.4 - ATENDIMENTO: Tipo de Servico aceita valores de texto sem validacao",
+  "version": "2.4.5",
+  "description": "Backend API - 2.4.5 - Fix Railway deploy SIGTERM error",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
@@ -12,7 +12,7 @@
     "db:generate": "prisma generate",
     "postinstall": "prisma generate",
     "railway:build": "npm run build",
-    "railway:start": "npm run start",
+    "railway:start": "node dist/server.js",
     "setup:postgresql": "node setup-postgresql.js"
   },
   "keywords": [],
