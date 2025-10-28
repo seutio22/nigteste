@@ -448,6 +448,11 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
         setProcessedItems(rowIndex + 1)
         setProgress(Math.round(((rowIndex + 1) / rawItems.length) * 100))
         
+        // Pequeno delay para tornar o progresso visível
+        if ((rowIndex + 1) % 10 === 0) {
+          await new Promise(resolve => setTimeout(resolve, 50))
+        }
+        
         return item
       }).filter(item => {
         // Ser menos restritivo - apenas filtrar itens completamente vazios
@@ -473,6 +478,9 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
       console.log(`🔍 SMART IMPORTER: Diferença entre linhas Excel e itens processados:`, (jsonData.length - 1) - items.length)
 
       setProcessingStep('Aplicando validações...')
+      
+      // Pequeno delay para mostrar o progresso
+      await new Promise(resolve => setTimeout(resolve, 100))
 
       // Converter nomes em IDs para campos relacionados e mapear para nomes corretos do backend
       const itemsWithIds = items.map(item => {
@@ -648,7 +656,7 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
       setProgress(100)
       setProcessedItems(totalItems)
       
-      // Pequeno delay para mostrar o progresso completo
+      // Delay maior para mostrar o progresso completo
       setTimeout(() => {
         setImportResult(result)
         setProcessingStep('')
@@ -656,7 +664,7 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
         // Sempre mostrar resultado da validação antes de importar
         console.log('✅ SMART IMPORTER: Mostrando resultado da validação')
         // Não importar automaticamente - deixar o usuário decidir
-      }, 500)
+      }, 1000)
 
     } catch (error) {
       console.error('Erro ao processar arquivo:', error)
