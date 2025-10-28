@@ -248,7 +248,8 @@ export default function AnalyticsNewPage() {
       const newReport = await add({
         titulo: form.titulo,
         descricao: form.descricao,
-        ticket: form.ticket,
+        // Converter ticket vazio para null para evitar problemas no banco
+        ticket: form.ticket && form.ticket.trim() !== '' ? form.ticket.trim() : null,
         total: form.total,
         tipo: form.tipo,
         status: form.status,

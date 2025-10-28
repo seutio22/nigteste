@@ -82,9 +82,13 @@ export const useAtendimentoStore = create<AtendimentoState>()(
         }
         
         // Usar ticket fornecido pelo usuário ou gerar um único
-        let ticket = payload.ticket || ''
+        // Converter string vazia para null
+        let ticket = payload.ticket && typeof payload.ticket === 'string' && payload.ticket.trim() !== '' 
+          ? payload.ticket.trim() 
+          : null
         
-        if (!ticket || ticket.trim() === '') {
+        // Se o ticket for null, gerar um único automaticamente
+        if (!ticket) {
           // Gerar ticket único automaticamente
           let attempts = 0
           let uniqueTicket = generateTicket()
