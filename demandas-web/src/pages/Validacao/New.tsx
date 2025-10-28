@@ -232,6 +232,17 @@ export default function ValidationNewPage() {
         return
       }
       
+      console.log('✅ ValidationNewPage: Campo analista preenchido:', data.analista)
+      
+      // DEBUG: Verificar o campo ticket
+      console.log('🔍 VALIDAÇÃO TICKET DEBUG:', {
+        ticketField: data.ticket,
+        ticketType: typeof data.ticket,
+        ticketTrimmed: data.ticket ? data.ticket.trim() : 'undefined',
+        ticketEmpty: data.ticket ? data.ticket.trim() === '' : true,
+        willValidate: data.ticket && data.ticket.trim() !== ''
+      })
+      
       // VALIDAÇÃO DE TICKET DUPLICADO
       if (data.ticket && data.ticket.trim() !== '') {
         console.log('🔍 VALIDAÇÃO TICKET VALIDAÇÃO: Verificando ticket fornecido pelo usuário...')
@@ -244,9 +255,9 @@ export default function ValidationNewPage() {
         } else {
           console.log('✅ VALIDAÇÃO TICKET VALIDAÇÃO: Ticket único, pode prosseguir')
         }
+      } else {
+        console.log('⚠️ VALIDAÇÃO TICKET VALIDAÇÃO: Campo ticket vazio ou não fornecido - pulando validação')
       }
-      
-      console.log('✅ ValidationNewPage: Campo analista preenchido:', data.analista)
       
       const validationData = { 
         ...data, 
