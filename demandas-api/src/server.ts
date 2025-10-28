@@ -1602,6 +1602,15 @@ function crud(entity: keyof PrismaClient) {
       
       console.log(`🔍 CRUD ${entity}: queryParams recebidos:`, queryParams)
       
+      // Log específico para report
+      if (entity === 'report') {
+        console.log(`🔍 REPORT DEBUG: Entidade = ${entity}`)
+        console.log(`🔍 REPORT DEBUG: queryParams =`, queryParams)
+        console.log(`🔍 REPORT DEBUG: typeof queryParams =`, typeof queryParams)
+        console.log(`🔍 REPORT DEBUG: queryParams é null?`, queryParams === null)
+        console.log(`🔍 REPORT DEBUG: queryParams é undefined?`, queryParams === undefined)
+      }
+      
       if (queryParams) {
         // Para cada parâmetro de query, adicionar ao where
         Object.keys(queryParams).forEach(key => {
