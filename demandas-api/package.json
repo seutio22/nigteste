@@ -12,7 +12,7 @@
     "db:generate": "prisma generate",
     "postinstall": "prisma generate",
     "railway:build": "npm run build",
-    "railway:start": "prisma generate && prisma db push --accept-data-loss && npm run start",
+    "railway:start": "prisma generate && npm run start",
     "setup:postgresql": "node setup-postgresql.js"
   },
   "keywords": [],
