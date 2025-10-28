@@ -1297,6 +1297,13 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
 
     const { invalidCount, duplicateCount, validCount } = importResult
 
+    console.log('🔍 SMART IMPORTER ACTION BUTTONS: Contadores:', {
+      validCount,
+      invalidCount,
+      duplicateCount,
+      totalRows: importResult.totalRows
+    })
+
     return (
       <Box sx={{ display: 'flex', gap: 1 }}>
         <Button onClick={onClose}>
