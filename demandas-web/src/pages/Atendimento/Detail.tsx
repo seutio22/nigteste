@@ -68,6 +68,18 @@ export default function AtendimentoDetailPage() {
     return item ? (item.nome || item.codigo) || '-' : '-'
   }
 
+  // Função específica para exibir cliente com grupo econômico
+  const labelCliente = (id?: string) => {
+    if (!id) return '-'
+    const cliente = md.clientes.find(c => c.id === id)
+    if (!cliente) return '-'
+    
+    if (cliente.grupoEconomico) {
+      return `${cliente.nome} (${cliente.grupoEconomico})`
+    }
+    return cliente.nome
+  }
+
   // Funções de ação
   const handleDuplicate = async () => {
     if (!atendimento) return
@@ -88,7 +100,7 @@ export default function AtendimentoDetailPage() {
     <h1>Atendimento ${atendimento.id}</h1>
     <table>
       <tr><td class="muted">Status</td><td>${atendimento.status}</td></tr>
-      <tr><td class="muted">Cliente</td><td>${label(atendimento.cliente, md.clientes)}</td></tr>
+      <tr><td class="muted">Cliente</td><td>${labelCliente(atendimento.cliente)}</td></tr>
       <tr><td class="muted">Contrato</td><td>${label(atendimento.contrato, md.contratos)}</td></tr>
       <tr><td class="muted">Operadora</td><td>${label(atendimento.operadora, md.operadoras)}</td></tr>
       <tr><td class="muted">Produto</td><td>${label(atendimento.produto, md.produtos)}</td></tr>
@@ -160,7 +172,7 @@ export default function AtendimentoDetailPage() {
                 <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
                 <div>
                   <p className="text-sm text-gray-500">Cliente</p>
-                  <p className="font-medium">{label(atendimento.cliente, md.clientes)}</p>
+                  <p className="font-medium">{labelCliente(atendimento.cliente)}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">

@@ -43,6 +43,18 @@ export default function ReajusteDetailPage() {
   const label = (id?: string, arr?: { id: string, nome: string }[]) => 
     arr?.find(a => a.id === id)?.nome || '-'
 
+  // Função específica para exibir cliente com grupo econômico
+  const labelCliente = (id?: string) => {
+    if (!id) return '-'
+    const cliente = md.clientes.find(c => c.id === id)
+    if (!cliente) return '-'
+    
+    if (cliente.grupoEconomico) {
+      return `${cliente.nome} (${cliente.grupoEconomico})`
+    }
+    return cliente.nome
+  }
+
   // Função para gerar um título amigável para o reajuste
   const getReajusteTitle = (reajuste: any) => {
     // Prioridade 1: Mês/Ano + Cliente (se existir)
@@ -154,7 +166,7 @@ export default function ReajusteDetailPage() {
                 <div className="w-3 h-3 bg-red-500 rounded-full"></div>
                 <div>
                   <p className="text-sm text-gray-500">Cliente</p>
-                  <p className="font-medium">{label(reajuste.cliente, md.clientes)}</p>
+                  <p className="font-medium">{labelCliente(reajuste.cliente)}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
