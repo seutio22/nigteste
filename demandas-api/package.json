@@ -1,7 +1,7 @@
 {
   "name": "demandas-api-novo",
-  "version": "2.4.5",
-  "description": "Backend API - 2.4.5 - Fix Railway deploy SIGTERM error",
+  "version": "2.4.6",
+  "description": "Backend API - 2.4.6 - Fix Railway timeout and SIGTERM",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
