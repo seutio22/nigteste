@@ -646,6 +646,35 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
     onClose()
   }
 
+  const handleDownloadDuplicates = () => {
+    if (!importResult || importResult.duplicates.length === 0) return
+
+    const worksheet = XLSX.utils.json_to_sheet(
+      importResult.duplicates.map(item => item.data)
+    )
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Duplicados')
+    
+    const fileName = `duplicados-${config.entityType}-${new Date().toISOString().split('T')[0]}.xlsx`
+    XLSX.writeFile(workbook, fileName)
+  }
+
+  const handleDownloadInvalid = () => {
+    if (!importResult || importResult.invalid.length === 0) return
+
+    const worksheet = XLSX.utils.json_to_sheet(
+      importResult.invalid.map(item => ({
+        ...item.data,
+        erros: item.validation.errors.map(e => e.message).join('; ')
+      }))
+    )
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Itens para Correção')
+    
+    const fileName = `itens-para-correcao-${config.entityType}-${new Date().toISOString().split('T')[0]}.xlsx`
+    XLSX.writeFile(workbook, fileName)
+  }
+
   const handleDownloadTemplate = () => {
     // Gerar template baseado na configuração com exemplos realistas
     const allFields = [...config.requiredFields, ...config.optionalFields]
@@ -1110,7 +1139,20 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
         </TableContainer>
 
         {invalidCount > 0 && (
-          <Alert severity="warning" sx={{ mt: 2 }}>
+          <Alert 
+            severity="warning" 
+            sx={{ mt: 2 }}
+            action={
+              <Button
+                size="small"
+                onClick={handleDownloadInvalid}
+                startIcon={<DownloadIcon />}
+                sx={{ color: 'warning.main', fontWeight: 500 }}
+              >
+                Baixar ({invalidCount})
+              </Button>
+            }
+          >
             <Typography variant="body2">
               {invalidCount} itens precisam de correção. 
               Você pode <strong>corrigir os dados</strong> ou <strong>importar apenas os {validCount} itens válidos</strong>.
@@ -1119,7 +1161,20 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
         )}
 
         {duplicateCount > 0 && (
-          <Alert severity="info" sx={{ mt: 1 }}>
+          <Alert 
+            severity="info" 
+            sx={{ mt: 1 }}
+            action={
+              <Button
+                size="small"
+                onClick={handleDownloadDuplicates}
+                startIcon={<DownloadIcon />}
+                sx={{ color: 'info.main', fontWeight: 500 }}
+              >
+                Baixar ({duplicateCount})
+              </Button>
+            }
+          >
             <Typography variant="body2">
               {duplicateCount} itens duplicados serão ignorados durante a importação.
             </Typography>
