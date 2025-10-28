@@ -505,7 +505,7 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
       }
       
       // Pequeno delay para mostrar o progresso
-      await new Promise(resolve => setTimeout(resolve, 100))
+      setTimeout(() => {}, 100)
 
       // Converter nomes em IDs para campos relacionados e mapear para nomes corretos do backend
       const itemsWithIds = items.map(item => {
