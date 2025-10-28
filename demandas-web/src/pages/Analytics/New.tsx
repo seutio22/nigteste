@@ -140,6 +140,13 @@ export default function AnalyticsNewPage() {
       
       if (response.ok) {
         const data = await response.json()
+        
+        console.log('🔍 VALIDAÇÃO TICKET ANALYTICS: Resultado completo da busca:', data)
+        console.log('🔍 VALIDAÇÃO TICKET ANALYTICS: Tipo do resultado:', typeof data)
+        console.log('🔍 VALIDAÇÃO TICKET ANALYTICS: É array?', Array.isArray(data))
+        console.log('🔍 VALIDAÇÃO TICKET ANALYTICS: Tamanho do array:', Array.isArray(data) ? data.length : 'N/A')
+        console.log('🔍 VALIDAÇÃO TICKET ANALYTICS: Chaves do objeto:', data && typeof data === 'object' ? Object.keys(data) : 'N/A')
+        
         const exists = Array.isArray(data) ? data.length > 0 : data !== null
         
         console.log('🔍 VALIDAÇÃO TICKET ANALYTICS: Resultado da busca:', {
