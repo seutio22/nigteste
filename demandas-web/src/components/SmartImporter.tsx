@@ -59,6 +59,7 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
   const [totalItems, setTotalItems] = useState(0)
   const [startTime, setStartTime] = useState<number | null>(null)
   const [elapsedTime, setElapsedTime] = useState(0)
+  const [isCancelled, setIsCancelled] = useState(false)
 
   const validationEngine = useMemo(() => 
     new SmartValidationEngine(config, masterData), 
@@ -80,6 +81,17 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
     }
   }, [isProcessing, startTime])
 
+  // Detectar quando o modal é fechado durante o processamento
+  React.useEffect(() => {
+    if (!open && isProcessing) {
+      console.log('⚠️ SMART IMPORTER: Modal fechado durante processamento!')
+      setIsCancelled(true)
+      
+      // Mostrar aviso para o usuário
+      alert('⚠️ ATENÇÃO: A importação foi interrompida porque você fechou o modal ou mudou de página.\n\nA importação pode continuar em background, mas você não verá mais o progresso.\n\nRecomendamos aguardar a conclusão antes de navegar para outras páginas.')
+    }
+  }, [open, isProcessing])
+
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0]
     if (selectedFile) {
@@ -92,6 +104,7 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
     if (!file) return
 
     setIsProcessing(true)
+    setIsCancelled(false)
     setStartTime(Date.now())
     setElapsedTime(0)
     setProgress(0)
@@ -444,6 +457,12 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
         console.log(`🔍 SMART IMPORTER: Chaves do item:`, Object.keys(item))
         console.log(`🔍 SMART IMPORTER: Valores do item:`, Object.values(item))
         
+        // Verificar se foi cancelado
+        if (isCancelled) {
+          console.log('⚠️ SMART IMPORTER: Processamento cancelado pelo usuário')
+          throw new Error('Processamento cancelado pelo usuário')
+        }
+        
         // Atualizar progresso
         setProcessedItems(rowIndex + 1)
         setProgress(Math.round(((rowIndex + 1) / rawItems.length) * 100))
@@ -478,6 +497,12 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
       console.log(`🔍 SMART IMPORTER: Diferença entre linhas Excel e itens processados:`, (jsonData.length - 1) - items.length)
 
       setProcessingStep('Aplicando validações...')
+      
+      // Verificar se foi cancelado antes da validação
+      if (isCancelled) {
+        console.log('⚠️ SMART IMPORTER: Processamento cancelado antes da validação')
+        throw new Error('Processamento cancelado pelo usuário')
+      }
       
       // Pequeno delay para mostrar o progresso
       await new Promise(resolve => setTimeout(resolve, 100))
@@ -1303,9 +1328,23 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
             variant="contained"
             onClick={processFile}
             startIcon={<UploadIcon />}
+            disabled={isProcessing}
           >
-            Processar Arquivo
+            {isProcessing ? 'Processando...' : 'Processar Arquivo'}
           </Button>
+          {isProcessing && (
+            <Button 
+              variant="outlined" 
+              color="error"
+              onClick={() => {
+                setIsCancelled(true)
+                setIsProcessing(false)
+                setProcessingStep('')
+              }}
+            >
+              Cancelar Processamento
+            </Button>
+          )}
         </Box>
       )
     }
