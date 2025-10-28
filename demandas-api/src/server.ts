@@ -1600,23 +1600,33 @@ function crud(entity: keyof PrismaClient) {
       // Aplicar filtros genéricos se fornecidos nos queryParams
       const where: any = {}
       
+      console.log(`🔍 CRUD ${entity}: queryParams recebidos:`, queryParams)
+      
       if (queryParams) {
         // Para cada parâmetro de query, adicionar ao where
         Object.keys(queryParams).forEach(key => {
           // Ignorar parâmetros especiais que não são filtros de campo
           if (key !== 'entityId' && key !== 'entityType') {
             where[key] = queryParams[key]
+            console.log(`🔍 CRUD ${entity}: Adicionando filtro ${key} = ${queryParams[key]}`)
           }
         })
       }
       
+      console.log(`🔍 CRUD ${entity}: where final:`, where)
+      
       // Se houver filtros, usar where; caso contrário, retornar todos
       if (Object.keys(where).length > 0) {
         console.log(`🔍 Buscando ${entity} com filtros:`, where)
-        return anyPrisma[entity].findMany({ where })
+        const result = await anyPrisma[entity].findMany({ where })
+        console.log(`🔍 CRUD ${entity}: Resultado da busca com filtros:`, result.length, 'registros')
+        return result
       }
       
-      return anyPrisma[entity].findMany();
+      console.log(`🔍 CRUD ${entity}: Buscando todos os registros (sem filtros)`)
+      const result = await anyPrisma[entity].findMany()
+      console.log(`🔍 CRUD ${entity}: Resultado da busca sem filtros:`, result.length, 'registros')
+      return result
     },
     get: async (id: string) => {
       // Incluir relacionamentos para atendimentos
