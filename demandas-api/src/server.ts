@@ -1600,11 +1600,11 @@ function crud(entity: keyof PrismaClient) {
       // Aplicar filtros genéricos se fornecidos nos queryParams
       const where: any = {}
       
-      console.log(`🔍 CRUD ${entity}: queryParams recebidos:`, queryParams)
+      console.log(`🔍 CRUD ${String(entity)}: queryParams recebidos:`, queryParams)
       
       // Log específico para report
       if (entity === 'report') {
-        console.log(`🔍 REPORT DEBUG: Entidade = ${entity}`)
+        console.log(`🔍 REPORT DEBUG: Entidade = ${String(entity)}`)
         console.log(`🔍 REPORT DEBUG: queryParams =`, queryParams)
         console.log(`🔍 REPORT DEBUG: typeof queryParams =`, typeof queryParams)
         console.log(`🔍 REPORT DEBUG: queryParams é null?`, queryParams === null)
@@ -1617,24 +1617,24 @@ function crud(entity: keyof PrismaClient) {
           // Ignorar parâmetros especiais que não são filtros de campo
           if (key !== 'entityId' && key !== 'entityType') {
             where[key] = queryParams[key]
-            console.log(`🔍 CRUD ${entity}: Adicionando filtro ${key} = ${queryParams[key]}`)
+            console.log(`🔍 CRUD ${String(entity)}: Adicionando filtro ${key} = ${queryParams[key]}`)
           }
         })
       }
       
-      console.log(`🔍 CRUD ${entity}: where final:`, where)
+      console.log(`🔍 CRUD ${String(entity)}: where final:`, where)
       
       // Se houver filtros, usar where; caso contrário, retornar todos
       if (Object.keys(where).length > 0) {
-        console.log(`🔍 Buscando ${entity} com filtros:`, where)
+        console.log(`🔍 Buscando ${String(entity)} com filtros:`, where)
         const result = await anyPrisma[entity].findMany({ where })
-        console.log(`🔍 CRUD ${entity}: Resultado da busca com filtros:`, result.length, 'registros')
+        console.log(`🔍 CRUD ${String(entity)}: Resultado da busca com filtros:`, result.length, 'registros')
         return result
       }
       
-      console.log(`🔍 CRUD ${entity}: Buscando todos os registros (sem filtros)`)
+      console.log(`🔍 CRUD ${String(entity)}: Buscando todos os registros (sem filtros)`)
       const result = await anyPrisma[entity].findMany()
-      console.log(`🔍 CRUD ${entity}: Resultado da busca sem filtros:`, result.length, 'registros')
+      console.log(`🔍 CRUD ${String(entity)}: Resultado da busca sem filtros:`, result.length, 'registros')
       return result
     },
     get: async (id: string) => {
