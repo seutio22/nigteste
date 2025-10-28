@@ -98,6 +98,13 @@ export const useValidationStore = create<ValidationState>()(
             return null
           }
 
+          // Função para limpar ticket (converter string vazia em null)
+          const cleanTicket = (ticketValue: any) => {
+            if (!ticketValue || typeof ticketValue !== 'string') return null
+            const trimmed = ticketValue.trim()
+            return trimmed === '' ? null : trimmed
+          }
+
           const requestBody = {
             demandaId: validation.demanda,
             analistaId: typeof validation.analista === 'object' ? validation.analista?.id : validation.analista,
@@ -115,7 +122,7 @@ export const useValidationStore = create<ValidationState>()(
             itensPendentes: parseNumber(validation.itensPendentes),
             itensConcluidos: parseNumber(validation.itensConcluidos),
             total: parseNumber(validation.total),
-            ticket: validation.ticket,
+            ticket: cleanTicket(validation.ticket), // Limpar ticket para evitar strings vazias
             solicitante: validation.solicitante,
             tipo: validation.tipo,
             descricao: validation.descricao,
@@ -194,6 +201,16 @@ export const useValidationStore = create<ValidationState>()(
             qtdRetornos: parseNumber(validation.qtdRetornos),
             vigencia: cleanDateField(validation.vigencia)
           }
+          
+          // Função para limpar ticket (converter string vazia em null)
+          const cleanTicket = (ticketValue: any) => {
+            if (!ticketValue || typeof ticketValue !== 'string') return null
+            const trimmed = ticketValue.trim()
+            return trimmed === '' ? null : trimmed
+          }
+
+          // Limpar ticket antes de enviar
+          requestBody.ticket = cleanTicket(requestBody.ticket)
           
           console.log('📤 Enviando requisição PUT via API para ID:', validation.id)
           console.log('📤 Request body:', JSON.stringify(requestBody, null, 2))

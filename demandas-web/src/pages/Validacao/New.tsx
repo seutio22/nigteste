@@ -260,7 +260,9 @@ export default function ValidationNewPage() {
       }
       
       const validationData = { 
-        ...data, 
+        ...data,
+        // Converter ticket vazio para null para evitar problemas no banco
+        ticket: data.ticket && data.ticket.trim() !== '' ? data.ticket.trim() : null,
         total: totalCalculado, 
         updatedAt: new Date().toISOString() 
       }
