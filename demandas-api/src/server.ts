@@ -14,6 +14,27 @@ import monitoringRoutes from './routes/monitoring'
 import { PrismaClient } from '@prisma/client'
 import { trackUserActivity, trackSessionStart, trackSessionEnd } from './middleware/activityTracker'
 
+// Configurar tratamento de sinais para evitar SIGTERM
+process.on('SIGTERM', () => {
+  console.log('📡 SIGTERM recebido, encerrando graciosamente...')
+  process.exit(0)
+})
+
+process.on('SIGINT', () => {
+  console.log('📡 SIGINT recebido, encerrando graciosamente...')
+  process.exit(0)
+})
+
+process.on('uncaughtException', (error) => {
+  console.error('❌ Erro não capturado:', error)
+  process.exit(1)
+})
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Promise rejeitada não tratada:', reason)
+  process.exit(1)
+})
+
 const app = Fastify({ 
   logger: true,
   bodyLimit: 50 * 1024 * 1024 // 50MB
@@ -4158,40 +4179,57 @@ app.delete('/analytics/:id', async (req: any) => {
 // Iniciar servidor
 const start = async () => {
   try {
-    console.log('🔄 Iniciando servidor...')
+    console.log('🔄 Iniciando servidor com tratamento robusto de sinais...')
     console.log('📊 Variáveis de ambiente:')
     console.log('- NODE_ENV:', process.env.NODE_ENV)
     console.log('- PORT:', process.env.PORT)
     console.log('- JWT_SECRET:', process.env.JWT_SECRET ? '✅ Definido' : '❌ Não definido')
     console.log('- DATABASE_URL:', process.env.DATABASE_URL ? '✅ Definido' : '❌ Não definido')
     
-    // Testar conexão com o banco com retry
-      console.log('🔌 Testando conexão com o banco...')
+    // Testar conexão com o banco com retry mais robusto
+    console.log('🔌 Testando conexão com o banco...')
     let connectedToDatabase = false
     
-    for (let attempt = 1; attempt <= 5; attempt++) {
+    for (let attempt = 1; attempt <= 3; attempt++) {
       try {
-        console.log(`🔄 Tentativa ${attempt}/5 de conexão com o banco...`)
-      await prisma.$connect()
+        console.log(`🔄 Tentativa ${attempt}/3 de conexão com o banco...`)
+        await prisma.$connect()
         console.log('✅ Conexão com banco estabelecida!')
         connectedToDatabase = true
         break
       } catch (error) {
-        console.error(`❌ Tentativa ${attempt}/5 falhou:`, error.message)
-        if (attempt < 5) {
-          console.log(`⏳ Aguardando 3 segundos antes da próxima tentativa...`)
-          await new Promise(resolve => setTimeout(resolve, 3000))
+        console.error(`❌ Tentativa ${attempt}/3 falhou:`, error.message)
+        if (attempt < 3) {
+          console.log(`⏳ Aguardando 2 segundos antes da próxima tentativa...`)
+          await new Promise(resolve => setTimeout(resolve, 2000))
         }
       }
     }
     
     if (!connectedToDatabase) {
-      console.log('⚠️ Não foi possível conectar ao banco após 5 tentativas')
+      console.log('⚠️ Não foi possível conectar ao banco após 3 tentativas')
       console.log('⚠️ Continuando sem banco - aplicação funcionará com limitações')
     }
     
     const port = process.env.PORT || 3333
     console.log(`🌐 Tentando iniciar na porta: ${port}`)
+    
+    // Configurar graceful shutdown
+    const gracefulShutdown = async (signal: string) => {
+      console.log(`📡 ${signal} recebido, iniciando shutdown gracioso...`)
+      try {
+        await app.close()
+        await prisma.$disconnect()
+        console.log('✅ Shutdown gracioso concluído')
+        process.exit(0)
+      } catch (error) {
+        console.error('❌ Erro durante shutdown:', error)
+        process.exit(1)
+      }
+    }
+    
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'))
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'))
     
     await app.listen({ port: Number(port), host: '0.0.0.0' })
     console.log(`🚀 Servidor rodando em http://0.0.0.0:${port}`)

@@ -1,7 +1,7 @@
 {
   "name": "demandas-api-novo",
-  "version": "2.4.6",
-  "description": "Backend API - 2.4.6 - Fix Railway timeout and SIGTERM",
+  "version": "2.4.7",
+  "description": "Backend API - 2.4.7 - Fix SIGTERM error with robust startup",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
@@ -12,7 +12,7 @@
     "db:generate": "prisma generate",
     "postinstall": "prisma generate",
     "railway:build": "npm run build",
-    "railway:start": "node dist/server.js",
+    "railway:start": "node start-robust.js",
     "setup:postgresql": "node setup-postgresql.js"
   },
   "keywords": [],
