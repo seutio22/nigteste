@@ -15,7 +15,6 @@ import { SmartImporter } from '../components/SmartImporter'
 import { BulkDeleteModal } from '../components/BulkDeleteModal'
 import { useBulkDelete } from '../hooks/useBulkDelete'
 // CleanupModal removido - função de limpeza de duplicatas removida
-import { smartImporterConfigs } from '../config/smartImporterConfigs'
 import type { TabKey, FormData, DataMap } from '../types/dadosTypes'
 import type { ImportResult } from '../types/smartImporter'
 
@@ -1341,7 +1340,6 @@ export default function DadosPage() {
         open={smartImporterOpen}
         onClose={() => setSmartImporterOpen(false)}
         onImport={handleSmartImport}
-        config={smartImporterConfigs[activeTab] || smartImporterConfigs.clientes}
         masterData={store}
       />
 
