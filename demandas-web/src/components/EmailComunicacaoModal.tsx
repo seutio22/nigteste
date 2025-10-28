@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Typography, Box, Chip, FormControl, InputLabel, Select, MenuItem, Checkbox, ListItemText, OutlinedInput, IconButton, Tooltip, Card, CardContent, Divider, Paper } from '@mui/material'
-import { Copy, Mail, Users, CheckCircle, X, Settings, Send, Image as ImageIcon, Download } from 'lucide-react'
+import { Copy, Mail, Users, CheckCircle, X, Settings, Send, Image as ImageIcon, Download, Edit3, Eye, Code } from 'lucide-react'
 import { useMasterDataStore } from '../store/masterDataStore'
 import { useMaillingStore } from '../store/maillingStore'
+import { RichTextEditor } from './RichTextEditor'
 
 interface EmailComunicacaoModalProps {
   open: boolean
@@ -21,6 +22,8 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
   const [editandoDescricao, setEditandoDescricao] = useState(false)
   const [descricaoEditavel, setDescricaoEditavel] = useState('')
   const [emailOutlook, setEmailOutlook] = useState('')
+  const [modoEdicao, setModoEdicao] = useState<'visualizar' | 'editar'>('visualizar')
+  const [emailEditado, setEmailEditado] = useState('')
   
   const md = useMasterDataStore()
   const maillingStore = useMaillingStore()
@@ -452,6 +455,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
 </html>`
       
       setEmailOutlook(emailOutlookCompatible)
+      setEmailEditado(emailOutlookCompatible)
     }
   }, [manutencao, md.clientes, md.operadoras, md.produtos, md.sistemas, md.tiposCadastro, md.padrao, md.contratos, descricaoEditavel])
 
@@ -516,7 +520,8 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
 
   const handleCopyOutlook = async () => {
     try {
-      await navigator.clipboard.writeText(emailOutlook)
+      const emailParaCopiar = modoEdicao === 'editar' ? emailEditado : emailOutlook
+      await navigator.clipboard.writeText(emailParaCopiar)
       setCopiadoEmail(true)
       setTimeout(() => setCopiadoEmail(false), 2000)
     } catch (err) {
@@ -857,45 +862,77 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
 
         {/* Preview do E-mail */}
         <Box sx={{ p: 3, background: '#f8fafc' }}>
-          <Box className="flex items-center justify-between mb-4">
-            <Box className="flex items-center gap-2">
-              <Box 
-                sx={{ 
-                  background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-                  borderRadius: '8px',
-                  p: 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-              >
-                <Send className="w-5 h-5 text-white" />
+            <Box className="flex items-center justify-between mb-4">
+              <Box className="flex items-center gap-2">
+                <Box 
+                  sx={{ 
+                    background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                    borderRadius: '8px',
+                    p: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <Send className="w-5 h-5 text-white" />
+                </Box>
+                <Typography variant="h6" sx={{ fontWeight: 600, color: '#1e293b' }}>
+                  {modoEdicao === 'editar' ? 'Editor de E-mail' : 'Preview do E-mail'}
+                </Typography>
               </Box>
-              <Typography variant="h6" sx={{ fontWeight: 600, color: '#1e293b' }}>
-                Preview do E-mail
-              </Typography>
+              
+              <Box className="flex gap-2">
+                <Button
+                  onClick={() => setEditandoDescricao(!editandoDescricao)}
+                  variant="outlined"
+                  size="small"
+                  sx={{ 
+                    borderRadius: '8px',
+                    textTransform: 'none',
+                    fontWeight: 500,
+                    px: 2,
+                    borderColor: '#6b7280',
+                    color: '#6b7280',
+                    '&:hover': {
+                      borderColor: '#4b5563',
+                      background: '#f9fafb'
+                    }
+                  }}
+                >
+                  {editandoDescricao ? '✅ Salvar' : '✏️ Editar Descrição'}
+                </Button>
+                
+                <Button
+                  onClick={() => setModoEdicao(modoEdicao === 'visualizar' ? 'editar' : 'visualizar')}
+                  variant="outlined"
+                  size="small"
+                  sx={{ 
+                    borderRadius: '8px',
+                    textTransform: 'none',
+                    fontWeight: 500,
+                    px: 2,
+                    borderColor: modoEdicao === 'editar' ? '#10b981' : '#3b82f6',
+                    color: modoEdicao === 'editar' ? '#10b981' : '#3b82f6',
+                    '&:hover': {
+                      borderColor: modoEdicao === 'editar' ? '#059669' : '#1d4ed8',
+                      background: modoEdicao === 'editar' ? '#f0fdf4' : '#eff6ff'
+                    }
+                  }}
+                >
+                  {modoEdicao === 'editar' ? (
+                    <>
+                      <Eye className="w-4 h-4 mr-1" />
+                      Visualizar
+                    </>
+                  ) : (
+                    <>
+                      <Edit3 className="w-4 h-4 mr-1" />
+                      Editar E-mail
+                    </>
+                  )}
+                </Button>
+              </Box>
             </Box>
-            
-            <Button
-              onClick={() => setEditandoDescricao(!editandoDescricao)}
-              variant="outlined"
-              size="small"
-              sx={{ 
-                borderRadius: '8px',
-                textTransform: 'none',
-                fontWeight: 500,
-                px: 2,
-                borderColor: '#3b82f6',
-                color: '#3b82f6',
-                '&:hover': {
-                  borderColor: '#1d4ed8',
-                  background: '#eff6ff'
-                }
-              }}
-            >
-              {editandoDescricao ? '✅ Salvar' : '✏️ Editar Descrição'}
-            </Button>
-          </Box>
           
           {editandoDescricao && (
             <Box sx={{ mb: 3 }}>
@@ -940,18 +977,26 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
               sx={{ 
                 p: 0,
                 background: 'white',
-                maxHeight: '400px',
+                maxHeight: modoEdicao === 'editar' ? '600px' : '400px',
                 overflow: 'auto'
               }}
             >
-              <Box
-                sx={{
-                  '& *': {
-                    fontFamily: 'inherit !important'
-                  }
-                }}
-                dangerouslySetInnerHTML={{ __html: emailOutlook }}
-              />
+              {modoEdicao === 'editar' ? (
+                <RichTextEditor
+                  content={emailEditado}
+                  onChange={setEmailEditado}
+                  placeholder="Edite o conteúdo do e-mail aqui... Use as ferramentas da barra acima para formatar o texto, inserir imagens, links e muito mais!"
+                />
+              ) : (
+                <Box
+                  sx={{
+                    '& *': {
+                      fontFamily: 'inherit !important'
+                    }
+                  }}
+                  dangerouslySetInnerHTML={{ __html: emailOutlook }}
+                />
+              )}
             </Box>
           </Paper>
         </Box>
