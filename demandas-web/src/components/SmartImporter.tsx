@@ -644,12 +644,19 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
         duplicates: result.duplicates.length
       })
 
-      setImportResult(result)
-      setProcessingStep('')
-
-      // Sempre mostrar resultado da validação antes de importar
-      console.log('✅ SMART IMPORTER: Mostrando resultado da validação')
-      // Não importar automaticamente - deixar o usuário decidir
+      // Garantir que o progresso seja 100% antes de finalizar
+      setProgress(100)
+      setProcessedItems(totalItems)
+      
+      // Pequeno delay para mostrar o progresso completo
+      setTimeout(() => {
+        setImportResult(result)
+        setProcessingStep('')
+        
+        // Sempre mostrar resultado da validação antes de importar
+        console.log('✅ SMART IMPORTER: Mostrando resultado da validação')
+        // Não importar automaticamente - deixar o usuário decidir
+      }, 500)
 
     } catch (error) {
       console.error('Erro ao processar arquivo:', error)
