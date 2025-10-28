@@ -469,7 +469,7 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
         
         // Pequeno delay para tornar o progresso visível
         if ((rowIndex + 1) % 10 === 0) {
-          await new Promise(resolve => setTimeout(resolve, 50))
+          setTimeout(() => {}, 50)
         }
         
         return item
