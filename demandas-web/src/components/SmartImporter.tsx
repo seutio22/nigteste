@@ -1070,9 +1070,20 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
   }
 
   const renderImportResult = () => {
-    if (!importResult) return null
+    if (!importResult) {
+      console.log('🔍 SMART IMPORTER: importResult é null')
+      return null
+    }
 
     const { valid, invalid, duplicates, totalRows, validCount, invalidCount, duplicateCount } = importResult
+
+    console.log('🔍 SMART IMPORTER: Resultado da validação:', {
+      validCount,
+      invalidCount,
+      duplicateCount,
+      invalidLength: invalid?.length,
+      duplicatesLength: duplicates?.length
+    })
 
     return (
       <Box sx={{ mt: 2 }}>
