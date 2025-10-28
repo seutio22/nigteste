@@ -2508,7 +2508,13 @@ const resources = {
 
 
 for (const [path, repo] of Object.entries(resources)) {
-  app.get(`/${path}`, async (req: any) => repo.list(req.query))
+  app.get(`/${path}`, async (req: any) => {
+    console.log(`🔍 ENDPOINT /${path}: req.query =`, req.query)
+    console.log(`🔍 ENDPOINT /${path}: typeof req.query =`, typeof req.query)
+    console.log(`🔍 ENDPOINT /${path}: req.query é null?`, req.query === null)
+    console.log(`🔍 ENDPOINT /${path}: req.query é undefined?`, req.query === undefined)
+    return repo.list(req.query)
+  })
   app.get(`/${path}/:id`, async (req: any) => repo.get(req.params.id))
   
   // Adicionar aliases para endpoints com hífens
