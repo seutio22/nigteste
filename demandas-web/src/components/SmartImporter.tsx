@@ -869,6 +869,7 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
           ticket: 'MAN-2024-001',
           solicitante: 'Maria Santos',
           area: 'Vendas',
+          // Campos opcionais (podem ser deixados em branco):
           cliente: 'Empresa ABC Ltda',
           contrato: 'CTR-001',
           operadora: 'Operadora XYZ',
@@ -890,6 +891,7 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
           ticket: 'MAN-2024-002',
           solicitante: 'Ana Oliveira',
           area: 'TI',
+          // Campos opcionais (podem ser deixados em branco):
           cliente: 'Comércio XYZ S.A.',
           contrato: 'CTR-002',
           operadora: 'Operadora ABC',

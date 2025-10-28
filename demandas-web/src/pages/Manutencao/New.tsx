@@ -216,7 +216,7 @@ export default function ManutencaoNewPage() {
     <Paper sx={{ p: 3 }}>
       <Typography variant="h5" gutterBottom>Nova Manutenção</Typography>
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-        Campos marcados com * são obrigatórios: Status, Tipo de serviço e Tipo de manutenção.
+        Campos marcados com * são obrigatórios: Status, Tipo de serviço e Tipo de manutenção. Demais campos são opcionais.
       </Typography>
       <Box component="form" onSubmit={handleSubmit(onSubmit)}>
         <Grid container spacing={2}>
@@ -336,7 +336,6 @@ export default function ManutencaoNewPage() {
                     {...params}
                     label="Cliente"
                     fullWidth
-                    required
                     error={!!errors.cliente}
                     helperText={errors.cliente?.message || 'Digite para buscar um cliente'}
                     placeholder="Digite para buscar..."
@@ -371,7 +370,8 @@ export default function ManutencaoNewPage() {
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
             <Controller name="contrato" control={control} render={({ field }) => (
-              <TextField {...field} select required label="Contrato" fullWidth error={!!errors.contrato} helperText={errors.contrato?.message}>
+              <TextField {...field} select label="Contrato" fullWidth error={!!errors.contrato} helperText={errors.contrato?.message}>
+                <MenuItem value="">Selecione...</MenuItem>
                 {contratosDoCliente.map(ct => <MenuItem key={ct.id} value={ct.id}>{ct.codigo}</MenuItem>)}
               </TextField>
             )} />
@@ -389,7 +389,6 @@ export default function ManutencaoNewPage() {
                   <TextField
                     {...params}
                     label="Operadora"
-                    required
                     fullWidth
                     error={!!errors.operadora}
                     helperText={errors.operadora?.message || 'Digite para buscar uma operadora'}
@@ -417,7 +416,8 @@ export default function ManutencaoNewPage() {
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
             <Controller name="produto" control={control} render={({ field }) => (
-              <TextField {...field} select required label="Produto" fullWidth error={!!errors.produto} helperText={errors.produto?.message}>
+              <TextField {...field} select label="Produto" fullWidth error={!!errors.produto} helperText={errors.produto?.message}>
+                <MenuItem value="">Selecione...</MenuItem>
                 {md.produtos.map(p => <MenuItem key={p.id} value={p.id}>{p.nome}</MenuItem>)}
               </TextField>
             )} />
