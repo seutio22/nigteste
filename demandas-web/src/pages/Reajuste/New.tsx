@@ -189,6 +189,8 @@ export default function ReajusteNewPage() {
         status: data.status || 'Em andamento',
         operadora: data.operadora || '',
         responsavelAnalista: data.responsavelAnalista || '',
+        // Converter ticket vazio para null para evitar problemas no banco
+        ticket: data.ticket && data.ticket.trim() !== '' ? data.ticket.trim() : null,
         updatedAt: new Date().toISOString()
       })
       
