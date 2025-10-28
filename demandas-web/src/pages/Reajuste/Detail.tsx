@@ -579,7 +579,7 @@ function EditInline({ reajuste }: { reajuste: any }) {
               <option value="">Selecione...</option>
               {md.clientes.map(c => (
                 <option key={c.id} value={c.id}>
-                  {c.grupoEconomico ? `${c.nome} - ${c.grupoEconomico}` : c.nome}
+                  {c.grupoEconomico ? `${c.nome} • ${c.grupoEconomico}` : c.nome}
                 </option>
               ))}
             </select>

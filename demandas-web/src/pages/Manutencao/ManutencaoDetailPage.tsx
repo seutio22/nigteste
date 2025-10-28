@@ -10,6 +10,7 @@ import { fmt } from '../../lib/utils'
 import { fixEncoding } from '../../utils/encodingFix'
 import { useState, useEffect, useRef } from 'react'
 import { Save, Edit3, Clock, ArrowLeft, Mail } from 'lucide-react'
+import { Autocomplete, Box, TextField, Typography } from '@mui/material'
 
 // Função para converter código de qualidade em texto legível
 const getQualidadeLabel = (value?: string) => {
@@ -535,18 +536,45 @@ function EditInline({ d }: { d: any }) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Cliente</label>
-          <select
-            value={draft.clienteId || ''}
-            onChange={(e) => setDraft({ ...draft, clienteId: e.target.value || undefined })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="">Selecione...</option>
-            {md.clientes.map(c => (
-              <option key={c.id} value={c.id}>
-                {c.grupoEconomico ? `${fixEncoding(c.nome)} - ${fixEncoding(c.grupoEconomico)}` : fixEncoding(c.nome)}
-              </option>
-            ))}
-          </select>
+          <Autocomplete
+            options={md.clientes}
+            getOptionLabel={(option) => option.nome || ''}
+            isOptionEqualToValue={(option, value) => option.id === value?.id}
+            value={md.clientes.find(c => c.id === draft.clienteId) || null}
+            onChange={(_, newValue) => setDraft({ ...draft, clienteId: newValue?.id || undefined })}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                placeholder="Digite para buscar..."
+                variant="outlined"
+                size="small"
+                fullWidth
+              />
+            )}
+            renderOption={(props, option) => (
+              <Box component="li" {...props} key={option.id}>
+                <Box>
+                  <Typography variant="body1" fontWeight="medium">
+                    {fixEncoding(option.nome)}
+                  </Typography>
+                  {option.grupoEconomico && (
+                    <Typography variant="caption" color="text.secondary">
+                      Grupo: {fixEncoding(option.grupoEconomico)}
+                    </Typography>
+                  )}
+                </Box>
+              </Box>
+            )}
+            noOptionsText="Nenhum cliente encontrado"
+            loading={md.clientes.length === 0}
+            loadingText="Carregando clientes..."
+            filterOptions={(options, { inputValue }) => {
+              return options.filter(option =>
+                option.nome.toLowerCase().includes(inputValue.toLowerCase()) ||
+                (option.grupoEconomico && option.grupoEconomico.toLowerCase().includes(inputValue.toLowerCase()))
+              )
+            }}
+          />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Contrato</label>

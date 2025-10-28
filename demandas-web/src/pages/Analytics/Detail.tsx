@@ -546,7 +546,7 @@ function EditInline({ report }: { report: any }) {
             <option value="">Selecione um cliente</option>
             {md.clientes.map(cliente => (
               <option key={cliente.id} value={cliente.id}>
-                {cliente.grupoEconomico ? `${cliente.nome} - ${cliente.grupoEconomico}` : cliente.nome}
+                {cliente.grupoEconomico ? `${cliente.nome} • ${cliente.grupoEconomico}` : cliente.nome}
               </option>
             ))}
           </select>
