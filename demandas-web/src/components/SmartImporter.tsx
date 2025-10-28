@@ -1248,37 +1248,37 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
         >
           Novo Arquivo
         </Button>
-        {invalidCount > 0 ? (
-          <>
-            <Button
-              variant="outlined"
-              onClick={() => setShowCorrectionModal(true)}
-              startIcon={<AutoFixHighIcon />}
-            >
-              Corrigir Dados
-            </Button>
-            <Button
-              variant="contained"
-              color="success"
-              onClick={() => {
-                // Importar apenas itens válidos (ignorar inválidos e duplicatas)
-                const validOnlyResult: ImportResult = {
-                  ...importResult,
-                  invalid: [],
-                  duplicates: [],
-                  invalidCount: 0,
-                  duplicateCount: 0
-                }
-                onImport(validOnlyResult)
-                onClose()
-              }}
-              startIcon={<CheckCircleIcon />}
-              disabled={validCount === 0}
-            >
-              Importar {validCount} Válidos
-            </Button>
-          </>
-        ) : (
+        {invalidCount > 0 && (
+          <Button
+            variant="outlined"
+            onClick={() => setShowCorrectionModal(true)}
+            startIcon={<AutoFixHighIcon />}
+          >
+            Corrigir Dados
+          </Button>
+        )}
+        {validCount > 0 && (
+          <Button
+            variant="contained"
+            color="success"
+            onClick={() => {
+              // Importar apenas itens válidos (ignorar inválidos e duplicatas)
+              const validOnlyResult: ImportResult = {
+                ...importResult,
+                invalid: [],
+                duplicates: [],
+                invalidCount: 0,
+                duplicateCount: 0
+              }
+              onImport(validOnlyResult)
+              onClose()
+            }}
+            startIcon={<CheckCircleIcon />}
+          >
+            Importar {validCount} Válidos
+          </Button>
+        )}
+        {validCount === 0 && invalidCount === 0 && duplicateCount === 0 && (
           <Button
             variant="contained"
             onClick={() => {
