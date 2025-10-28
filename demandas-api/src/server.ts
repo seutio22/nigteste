@@ -1600,42 +1600,22 @@ function crud(entity: keyof PrismaClient) {
       // Aplicar filtros genéricos se fornecidos nos queryParams
       const where: any = {}
       
-      console.log(`🔍 CRUD ${String(entity)}: queryParams recebidos:`, queryParams)
-      
-      // Log específico para report
-      if (entity === 'report') {
-        console.log(`🔍 REPORT DEBUG: Entidade = ${String(entity)}`)
-        console.log(`🔍 REPORT DEBUG: queryParams =`, queryParams)
-        console.log(`🔍 REPORT DEBUG: typeof queryParams =`, typeof queryParams)
-        console.log(`🔍 REPORT DEBUG: queryParams é null?`, queryParams === null)
-        console.log(`🔍 REPORT DEBUG: queryParams é undefined?`, queryParams === undefined)
-      }
-      
       if (queryParams) {
         // Para cada parâmetro de query, adicionar ao where
         Object.keys(queryParams).forEach(key => {
           // Ignorar parâmetros especiais que não são filtros de campo
           if (key !== 'entityId' && key !== 'entityType') {
             where[key] = queryParams[key]
-            console.log(`🔍 CRUD ${String(entity)}: Adicionando filtro ${key} = ${queryParams[key]}`)
           }
         })
       }
       
-      console.log(`🔍 CRUD ${String(entity)}: where final:`, where)
-      
       // Se houver filtros, usar where; caso contrário, retornar todos
       if (Object.keys(where).length > 0) {
-        console.log(`🔍 Buscando ${String(entity)} com filtros:`, where)
-        const result = await anyPrisma[entity].findMany({ where })
-        console.log(`🔍 CRUD ${String(entity)}: Resultado da busca com filtros:`, result.length, 'registros')
-        return result
+        return await anyPrisma[entity].findMany({ where })
       }
       
-      console.log(`🔍 CRUD ${String(entity)}: Buscando todos os registros (sem filtros)`)
-      const result = await anyPrisma[entity].findMany()
-      console.log(`🔍 CRUD ${String(entity)}: Resultado da busca sem filtros:`, result.length, 'registros')
-      return result
+      return await anyPrisma[entity].findMany()
     },
     get: async (id: string) => {
       // Incluir relacionamentos para atendimentos
@@ -1827,18 +1807,14 @@ function crud(entity: keyof PrismaClient) {
       // Tratamento específico para reports - converter datas corretamente
       if (entity === 'report') {
         const reportData = { ...data as any };
-        console.log('🔍 REPORT CREATE: Dados recebidos:', JSON.stringify(reportData, null, 2));
         
         // Verificar e validar campo analista OBRIGATÓRIO
         if (!reportData.analista || reportData.analista === '') {
-          console.error('❌ REPORT CREATE: Campo analista é obrigatório mas está vazio!');
           throw new Error('Campo analista é obrigatório');
         }
-        console.log('✅ REPORT CREATE: Campo analista presente:', reportData.analista);
         
         // Remover userId se presente (modelo Report não tem este campo)
         if ('userId' in reportData) {
-          console.log('🔍 REPORT CREATE: Campo userId presente, removendo:', reportData.userId);
           delete reportData.userId;
         }
         
@@ -1851,24 +1827,15 @@ function crud(entity: keyof PrismaClient) {
             // Se for string vazia, null ou undefined, remover o campo
             if (reportData[field] === '' || reportData[field] === null || reportData[field] === undefined) {
               delete reportData[field];
-              console.log(`🔍 REPORT CREATE: Campo ${field} vazio/null/undefined, removido`);
             } 
             // Se for string de data (formato YYYY-MM-DD), converter para ISO DateTime
             else if (typeof reportData[field] === 'string' && reportData[field].match(/^\d{4}-\d{2}-\d{2}$/)) {
               reportData[field] = new Date(reportData[field] + 'T00:00:00.000Z');
-              console.log(`🔍 REPORT CREATE: Campo ${field} convertido para DateTime:`, reportData[field]);
             }
           }
         }
         
-        console.log('🔍 REPORT CREATE: Dados finais para criação (COM ANALISTA):', JSON.stringify(reportData, null, 2));
-        console.log('🔍 REPORT CREATE: Confirmando analista antes de salvar:', reportData.analista);
-        
-        const createdReport = await anyPrisma[entity].create({ data: reportData });
-        console.log('✅ REPORT CREATE: Relatório criado:', createdReport.id);
-        console.log('✅ REPORT CREATE: Analista salvo no banco:', createdReport.analista);
-        
-        return createdReport;
+        return await anyPrisma[entity].create({ data: reportData });
       }
       
       // Validação para clientes - evitar grupos econômicos duplicados
@@ -2509,13 +2476,7 @@ const resources = {
 
 
 for (const [path, repo] of Object.entries(resources)) {
-  app.get(`/${path}`, async (req: any) => {
-    console.log(`🔍 ENDPOINT /${path}: req.query =`, req.query)
-    console.log(`🔍 ENDPOINT /${path}: typeof req.query =`, typeof req.query)
-    console.log(`🔍 ENDPOINT /${path}: req.query é null?`, req.query === null)
-    console.log(`🔍 ENDPOINT /${path}: req.query é undefined?`, req.query === undefined)
-    return repo.list(req.query)
-  })
+  app.get(`/${path}`, async (req: any) => repo.list(req.query))
   app.get(`/${path}/:id`, async (req: any) => repo.get(req.params.id))
   
   // Adicionar aliases para endpoints com hífens
