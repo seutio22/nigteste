@@ -22,6 +22,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
   const [gerandoImagem, setGerandoImagem] = useState(false)
   const [editandoDescricao, setEditandoDescricao] = useState(false)
   const [descricaoEditavel, setDescricaoEditavel] = useState('')
+  const [emailOutlook, setEmailOutlook] = useState('')
   
   const md = useMasterDataStore()
   const maillingStore = useMaillingStore()
@@ -366,6 +367,94 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
 
       setEmailCompleto(email)
       
+      // Gerar versão Outlook-friendly (HTML simples, compatível)
+      const emailOutlookCompatible = `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Alteração de Contrato - ${manutencao?.ticket || 'N/A'}</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; background-color: #f8f9fa;">
+    <div style="background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow: hidden;">
+        <!-- Header -->
+        <div style="background: #1a1a2e; color: white; padding: 30px; text-align: center;">
+            <h1 style="margin: 0; font-size: 24px; font-weight: bold;">🔔 Alteração Cadastral</h1>
+            <p style="margin: 10px 0 0 0; opacity: 0.9; font-size: 14px;">Notificação Automática - Sistema NIG</p>
+        </div>
+        
+        <!-- Content -->
+        <div style="padding: 30px;">
+            <div style="font-size: 16px; margin-bottom: 20px; color: #2d3748;">
+                <strong>Prezados,</strong>
+            </div>
+            
+            <div style="background: #f7fafc; border-left: 4px solid #4299e1; padding: 20px; margin: 20px 0; border-radius: 0 8px 8px 0;">
+                <p style="margin: 0; font-weight: 500; color: #2d3748;">
+                    📋 Informamos que o cliente <strong>${cliente?.nome || 'N/A'}</strong> sofreu alteração, sendo:
+                </p>
+            </div>
+            
+            <!-- Table -->
+            <div style="margin: 25px 0; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                    <thead>
+                        <tr style="background: #2d3748; color: white;">
+                            <th style="padding: 15px 12px; text-align: left; font-weight: 600; font-size: 13px;">Contrato</th>
+                            <th style="padding: 15px 12px; text-align: left; font-weight: 600; font-size: 13px;">Operadora</th>
+                            <th style="padding: 15px 12px; text-align: left; font-weight: 600; font-size: 13px;">Produto</th>
+                            <th style="padding: 15px 12px; text-align: left; font-weight: 600; font-size: 13px;">Atualização</th>
+                            <th style="padding: 15px 12px; text-align: left; font-weight: 600; font-size: 13px;">Subtipo</th>
+                            <th style="padding: 15px 12px; text-align: left; font-weight: 600; font-size: 13px;">Tipo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="background: #f8f9fa;">
+                            <td style="padding: 15px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600; color: #2b6cb0; font-size: 15px;">${contrato?.codigo || contrato?.numero || manutencao.ticket || 'N/A'}</td>
+                            <td style="padding: 15px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 500; color: #2d3748;">${operadora?.nome || 'N/A'}</td>
+                            <td style="padding: 15px 12px; border-bottom: 1px solid #e2e8f0; background: #e6fffa; color: #234e52; font-weight: 500;">${produto?.nome || 'N/A'}</td>
+                            <td style="padding: 15px 12px; border-bottom: 1px solid #e2e8f0; background: #fef5e7; color: #7c2d12; font-weight: 500;">${tipoServico?.nome || 'N/A'}</td>
+                            <td style="padding: 15px 12px; border-bottom: 1px solid #e2e8f0; background: #f3e8ff; color: #581c87; font-weight: 500;">${tipo?.nome || 'N/A'}</td>
+                            <td style="padding: 15px 12px; border-bottom: 1px solid #e2e8f0; background: #ecfdf5; color: #064e3b; font-weight: 500;">${sistema?.nome || 'N/A'}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Description -->
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 25px 0;">
+                <h3 style="margin: 0 0 15px 0; color: #2d3748; font-size: 16px; font-weight: 600;">📝 Descrição da Alteração</h3>
+                <div style="background: white; border: 1px solid #d1d5db; border-radius: 6px; padding: 15px; min-height: 60px;">
+                    <p style="margin: 0; line-height: 1.6; color: #4a5568; font-size: 14px; white-space: pre-wrap;">${descricaoEditavel || manutencao.descricao || 'Alteração realizada'}</p>
+                </div>
+            </div>
+            
+            <!-- Conclusion -->
+            <div style="background: #f0fff4; border: 1px solid #9ae6b4; border-radius: 8px; padding: 20px; margin: 25px 0;">
+                <p style="margin: 0; color: #22543d; font-weight: 500;">
+                    ✅ <strong>O Edge e Move encontram-se atualizados.</strong> Solicitamos replicar esta informação com a sua equipe.
+                </p>
+            </div>
+            
+            <!-- Signature -->
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #e2e8f0;">
+                <p style="margin: 5px 0; color: #4a5568;">Atenciosamente,</p>
+                <p style="margin: 5px 0; font-weight: 600; color: #2d3748; font-size: 16px;">NIG - Núcleo de Informações Gerenciais</p>
+                <p style="margin: 5px 0; color: #4a5568;">
+                    <span style="display: inline-block; background: #667eea; color: white; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600;">Sistema Automatizado</span>
+                </p>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <div style="background: #f7fafc; padding: 20px; text-align: center; color: #718096; font-size: 12px;">
+            <p style="margin: 0;">Esta é uma mensagem automática do sistema NIG. Por favor, não responda a este e-mail.</p>
+        </div>
+    </div>
+</body>
+</html>`
+      
+      setEmailOutlook(emailOutlookCompatible)
+      
       // Gerar versão simples também
       const emailSimples = `Prezados,
 
@@ -455,6 +544,16 @@ NIG - Núcleo de Informações Gerenciais`
       setTimeout(() => setCopiadoEmail(false), 2000)
     } catch (err) {
       console.error('Erro ao copiar e-mail:', err)
+    }
+  }
+
+  const handleCopyOutlook = async () => {
+    try {
+      await navigator.clipboard.writeText(emailOutlook)
+      setCopiadoEmail(true)
+      setTimeout(() => setCopiadoEmail(false), 2000)
+    } catch (err) {
+      console.error('Erro ao copiar e-mail Outlook:', err)
     }
   }
 
@@ -976,7 +1075,7 @@ NIG - Núcleo de Informações Gerenciais`
           
           <Button
             startIcon={copiadoEmail ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-            onClick={handleCopyEmail}
+            onClick={handleCopyOutlook}
             variant="contained"
             color={copiadoEmail ? "success" : "primary"}
             sx={{ 
@@ -987,15 +1086,37 @@ NIG - Núcleo de Informações Gerenciais`
               py: 1.5,
               background: copiadoEmail 
                 ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
-                : 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+                : 'linear-gradient(135deg, #0078d4 0%, #106ebe 100%)',
               '&:hover': {
                 background: copiadoEmail 
                   ? 'linear-gradient(135deg, #059669 0%, #047857 100%)'
-                  : 'linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%)'
+                  : 'linear-gradient(135deg, #106ebe 0%, #005a9e 100%)'
               }
             }}
           >
-            {copiadoEmail ? 'E-mail Copiado!' : `Copiar ${mostrarSimples ? 'Texto' : 'HTML'}`}
+            {copiadoEmail ? 'E-mail Copiado!' : '📧 Copiar para Outlook'}
+          </Button>
+          
+          <Button
+            startIcon={copiadoEmail ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+            onClick={handleCopyEmail}
+            variant="outlined"
+            color={copiadoEmail ? "success" : "primary"}
+            sx={{ 
+              borderRadius: '8px',
+              textTransform: 'none',
+              fontWeight: 500,
+              px: 3,
+              py: 1.5,
+              borderColor: copiadoEmail ? '#10b981' : '#3b82f6',
+              color: copiadoEmail ? '#10b981' : '#3b82f6',
+              '&:hover': {
+                borderColor: copiadoEmail ? '#059669' : '#1d4ed8',
+                background: copiadoEmail ? '#f0fdf4' : '#eff6ff'
+              }
+            }}
+          >
+            {copiadoEmail ? 'Copiado!' : `Copiar ${mostrarSimples ? 'Texto' : 'HTML'}`}
           </Button>
         </Box>
       </DialogActions>
