@@ -54,11 +54,31 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
   const [importResult, setImportResult] = useState<ImportResult | null>(null)
   const [showCorrectionModal, setShowCorrectionModal] = useState(false)
   const [processingStep, setProcessingStep] = useState('')
+  const [progress, setProgress] = useState(0)
+  const [processedItems, setProcessedItems] = useState(0)
+  const [totalItems, setTotalItems] = useState(0)
+  const [startTime, setStartTime] = useState<number | null>(null)
+  const [elapsedTime, setElapsedTime] = useState(0)
 
   const validationEngine = useMemo(() => 
     new SmartValidationEngine(config, masterData), 
     [config, masterData]
   )
+
+  // Atualizar tempo decorrido durante o processamento
+  React.useEffect(() => {
+    let interval: NodeJS.Timeout | null = null
+    
+    if (isProcessing && startTime) {
+      interval = setInterval(() => {
+        setElapsedTime(Math.floor((Date.now() - startTime) / 1000))
+      }, 1000)
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval)
+    }
+  }, [isProcessing, startTime])
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0]
@@ -72,6 +92,11 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
     if (!file) return
 
     setIsProcessing(true)
+    setStartTime(Date.now())
+    setElapsedTime(0)
+    setProgress(0)
+    setProcessedItems(0)
+    setTotalItems(0)
     setProcessingStep('Lendo arquivo...')
 
     try {
@@ -101,7 +126,10 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
       console.log('🔍 SMART IMPORTER: Config entityType:', config.entityType)
       console.log('🔍 SMART IMPORTER: Config entityType lowercase:', config.entityType.toLowerCase())
       
-      const items = jsonData.slice(1).map((row: any[], rowIndex) => {
+      const rawItems = jsonData.slice(1)
+      setTotalItems(rawItems.length)
+      
+      const items = rawItems.map((row: any[], rowIndex) => {
         const item: any = {}
         console.log(`🔍 SMART IMPORTER: Processando linha ${rowIndex + 1}:`, row)
         console.log(`🔍 SMART IMPORTER: Headers para linha ${rowIndex + 1}:`, headers)
@@ -415,6 +443,11 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
         console.log(`🔍 SMART IMPORTER: Item processado:`, item)
         console.log(`🔍 SMART IMPORTER: Chaves do item:`, Object.keys(item))
         console.log(`🔍 SMART IMPORTER: Valores do item:`, Object.values(item))
+        
+        // Atualizar progresso
+        setProcessedItems(rowIndex + 1)
+        setProgress(Math.round(((rowIndex + 1) / rawItems.length) * 100))
+        
         return item
       }).filter(item => {
         // Ser menos restritivo - apenas filtrar itens completamente vazios
@@ -1059,12 +1092,43 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
   const renderProcessingStatus = () => {
     if (!isProcessing) return null
 
+    const formatTime = (seconds: number) => {
+      const mins = Math.floor(seconds / 60)
+      const secs = seconds % 60
+      return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`
+    }
+
+    const estimatedTimeRemaining = processedItems > 0 && elapsedTime > 0 
+      ? Math.round((elapsedTime / processedItems) * (totalItems - processedItems))
+      : 0
+
     return (
       <Box sx={{ mt: 2 }}>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-          {processingStep}
-        </Typography>
-        <LinearProgress />
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+          <Typography variant="body2" color="text.secondary">
+            {processingStep}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {processedItems} de {totalItems} itens ({progress}%)
+          </Typography>
+        </Box>
+        
+        <LinearProgress 
+          variant="determinate" 
+          value={progress} 
+          sx={{ mb: 1, height: 8, borderRadius: 4 }}
+        />
+        
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="caption" color="text.secondary">
+            ⏱️ Tempo decorrido: {formatTime(elapsedTime)}
+          </Typography>
+          {estimatedTimeRemaining > 0 && (
+            <Typography variant="caption" color="text.secondary">
+              ⏳ Tempo restante: ~{formatTime(estimatedTimeRemaining)}
+            </Typography>
+          )}
+        </Box>
       </Box>
     )
   }
