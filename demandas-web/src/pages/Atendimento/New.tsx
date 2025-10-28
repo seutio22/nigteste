@@ -127,8 +127,58 @@ export default function AtendimentoNewPage() {
     }
   }, [user, masterDataStore.analistas, setValue])
 
+  // Função para verificar se o ticket já existe no banco
+  const checkTicketExists = async (ticket: string): Promise<boolean> => {
+    try {
+      console.log('🔍 VALIDAÇÃO TICKET ATENDIMENTO: Verificando se ticket existe:', ticket)
+      
+      // Buscar no banco de dados via API
+      const baseUrl = 'https://nigteste-production.up.railway.app'
+      const response = await fetch(`${baseUrl}/atendimentos?ticket=${encodeURIComponent(ticket)}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        const exists = Array.isArray(data) ? data.length > 0 : data !== null
+        
+        console.log('🔍 VALIDAÇÃO TICKET ATENDIMENTO: Resultado da busca:', {
+          ticket,
+          responseStatus: response.status,
+          dataLength: Array.isArray(data) ? data.length : 'not array',
+          exists
+        })
+        
+        return exists
+      } else {
+        console.warn('⚠️ VALIDAÇÃO TICKET ATENDIMENTO: Erro na API:', response.status)
+        return false
+      }
+    } catch (error) {
+      console.error('❌ VALIDAÇÃO TICKET ATENDIMENTO: Erro ao verificar ticket:', error)
+      return false
+    }
+  }
+
   const onSubmit = async (data: AtendimentoFormData) => {
     try {
+      // VALIDAÇÃO DE TICKET DUPLICADO
+      if (data.ticket && data.ticket.trim() !== '') {
+        console.log('🔍 VALIDAÇÃO TICKET ATENDIMENTO: Verificando ticket fornecido pelo usuário...')
+        const ticketExists = await checkTicketExists(data.ticket.trim())
+        
+        if (ticketExists) {
+          console.error('❌ VALIDAÇÃO TICKET ATENDIMENTO: Ticket já existe no banco de dados!')
+          alert(`ERRO: O ticket "${data.ticket.trim()}" já existe no banco de dados. Por favor, escolha outro número de ticket.`)
+          return
+        } else {
+          console.log('✅ VALIDAÇÃO TICKET ATENDIMENTO: Ticket único, pode prosseguir')
+        }
+      }
+      
       // Usar o store para criar o atendimento (simplificado como na página de demandas)
       const createdAtendimento = await atendimentoStore.add(data as Omit<AtendimentoEntry, 'id' | 'createdAt' | 'updatedAt'>, user)
       

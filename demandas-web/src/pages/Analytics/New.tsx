@@ -124,6 +124,42 @@ export default function AnalyticsNewPage() {
     }
   }, [selectedClienteId])
 
+  // Função para verificar se o ticket já existe no banco
+  const checkTicketExists = async (ticket: string): Promise<boolean> => {
+    try {
+      console.log('🔍 VALIDAÇÃO TICKET ANALYTICS: Verificando se ticket existe:', ticket)
+      
+      // Buscar no banco de dados via API
+      const baseUrl = 'https://nigteste-production.up.railway.app'
+      const response = await fetch(`${baseUrl}/relatorios?ticket=${encodeURIComponent(ticket)}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        const exists = Array.isArray(data) ? data.length > 0 : data !== null
+        
+        console.log('🔍 VALIDAÇÃO TICKET ANALYTICS: Resultado da busca:', {
+          ticket,
+          responseStatus: response.status,
+          dataLength: Array.isArray(data) ? data.length : 'not array',
+          exists
+        })
+        
+        return exists
+      } else {
+        console.warn('⚠️ VALIDAÇÃO TICKET ANALYTICS: Erro na API:', response.status)
+        return false
+      }
+    } catch (error) {
+      console.error('❌ VALIDAÇÃO TICKET ANALYTICS: Erro ao verificar ticket:', error)
+      return false
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
@@ -140,6 +176,20 @@ export default function AnalyticsNewPage() {
       console.error('  - Data Entrega:', form.dataEntrega || 'VAZIO')
       alert('Preencha os campos obrigatórios. ATENÇÃO: O campo "Analista" está vazio!')
       return
+    }
+
+    // VALIDAÇÃO DE TICKET DUPLICADO
+    if (form.ticket && form.ticket.trim() !== '') {
+      console.log('🔍 VALIDAÇÃO TICKET ANALYTICS: Verificando ticket fornecido pelo usuário...')
+      const ticketExists = await checkTicketExists(form.ticket.trim())
+      
+      if (ticketExists) {
+        console.error('❌ VALIDAÇÃO TICKET ANALYTICS: Ticket já existe no banco de dados!')
+        alert(`ERRO: O ticket "${form.ticket.trim()}" já existe no banco de dados. Por favor, escolha outro número de ticket.`)
+        return
+      } else {
+        console.log('✅ VALIDAÇÃO TICKET ANALYTICS: Ticket único, pode prosseguir')
+      }
     }
 
     // Validação de datas: Data de Entrega não pode ser inferior à Data de Início

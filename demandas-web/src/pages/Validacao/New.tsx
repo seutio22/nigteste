@@ -178,6 +178,42 @@ export default function ValidationNewPage() {
   // Calcular total automaticamente
   const totalCalculado = calcularTotal()
 
+  // Função para verificar se o ticket já existe no banco
+  const checkTicketExists = async (ticket: string): Promise<boolean> => {
+    try {
+      console.log('🔍 VALIDAÇÃO TICKET VALIDAÇÃO: Verificando se ticket existe:', ticket)
+      
+      // Buscar no banco de dados via API
+      const baseUrl = 'https://nigteste-production.up.railway.app'
+      const response = await fetch(`${baseUrl}/validacoes?ticket=${encodeURIComponent(ticket)}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        const exists = Array.isArray(data) ? data.length > 0 : data !== null
+        
+        console.log('🔍 VALIDAÇÃO TICKET VALIDAÇÃO: Resultado da busca:', {
+          ticket,
+          responseStatus: response.status,
+          dataLength: Array.isArray(data) ? data.length : 'not array',
+          exists
+        })
+        
+        return exists
+      } else {
+        console.warn('⚠️ VALIDAÇÃO TICKET VALIDAÇÃO: Erro na API:', response.status)
+        return false
+      }
+    } catch (error) {
+      console.error('❌ VALIDAÇÃO TICKET VALIDAÇÃO: Erro ao verificar ticket:', error)
+      return false
+    }
+  }
+
   async function onSubmit(data: FormValues) {
     try {
       console.log('🔍 ValidationNewPage: onSubmit executado')
@@ -194,6 +230,20 @@ export default function ValidationNewPage() {
         console.log('❌ ValidationNewPage: Campo analista está vazio!')
         alert('Por favor, selecione um analista responsável.')
         return
+      }
+      
+      // VALIDAÇÃO DE TICKET DUPLICADO
+      if (data.ticket && data.ticket.trim() !== '') {
+        console.log('🔍 VALIDAÇÃO TICKET VALIDAÇÃO: Verificando ticket fornecido pelo usuário...')
+        const ticketExists = await checkTicketExists(data.ticket.trim())
+        
+        if (ticketExists) {
+          console.error('❌ VALIDAÇÃO TICKET VALIDAÇÃO: Ticket já existe no banco de dados!')
+          alert(`ERRO: O ticket "${data.ticket.trim()}" já existe no banco de dados. Por favor, escolha outro número de ticket.`)
+          return
+        } else {
+          console.log('✅ VALIDAÇÃO TICKET VALIDAÇÃO: Ticket único, pode prosseguir')
+        }
       }
       
       console.log('✅ ValidationNewPage: Campo analista preenchido:', data.analista)

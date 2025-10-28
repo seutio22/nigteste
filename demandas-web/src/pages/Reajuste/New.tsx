@@ -130,8 +130,58 @@ export default function ReajusteNewPage() {
     setValue('contrato', '')
   }, [selectedClienteId, setValue])
 
+  // Função para verificar se o ticket já existe no banco
+  const checkTicketExists = async (ticket: string): Promise<boolean> => {
+    try {
+      console.log('🔍 VALIDAÇÃO TICKET REAJUSTE: Verificando se ticket existe:', ticket)
+      
+      // Buscar no banco de dados via API
+      const baseUrl = 'https://nigteste-production.up.railway.app'
+      const response = await fetch(`${baseUrl}/reajustes?ticket=${encodeURIComponent(ticket)}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        const exists = Array.isArray(data) ? data.length > 0 : data !== null
+        
+        console.log('🔍 VALIDAÇÃO TICKET REAJUSTE: Resultado da busca:', {
+          ticket,
+          responseStatus: response.status,
+          dataLength: Array.isArray(data) ? data.length : 'not array',
+          exists
+        })
+        
+        return exists
+      } else {
+        console.warn('⚠️ VALIDAÇÃO TICKET REAJUSTE: Erro na API:', response.status)
+        return false
+      }
+    } catch (error) {
+      console.error('❌ VALIDAÇÃO TICKET REAJUSTE: Erro ao verificar ticket:', error)
+      return false
+    }
+  }
+
   async function onSubmit(data: FormValues) {
     try {
+      // VALIDAÇÃO DE TICKET DUPLICADO
+      if (data.ticket && data.ticket.trim() !== '') {
+        console.log('🔍 VALIDAÇÃO TICKET REAJUSTE: Verificando ticket fornecido pelo usuário...')
+        const ticketExists = await checkTicketExists(data.ticket.trim())
+        
+        if (ticketExists) {
+          console.error('❌ VALIDAÇÃO TICKET REAJUSTE: Ticket já existe no banco de dados!')
+          alert(`ERRO: O ticket "${data.ticket.trim()}" já existe no banco de dados. Por favor, escolha outro número de ticket.`)
+          return
+        } else {
+          console.log('✅ VALIDAÇÃO TICKET REAJUSTE: Ticket único, pode prosseguir')
+        }
+      }
+      
       await store.add({
         ...data,
         mes: String(data.mes),

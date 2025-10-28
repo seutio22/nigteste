@@ -61,7 +61,45 @@ export const useAtendimentoStore = create<AtendimentoState>()(
           return `ATD-${year}${month}${day}-${random}`
         }
         
-        const ticket = generateTicket()
+        // Função para verificar se o ticket já existe no banco
+        const checkTicketExists = async (ticket: string): Promise<boolean> => {
+          try {
+            const baseUrl = 'https://nigteste-production.up.railway.app'
+            const response = await fetch(`${baseUrl}/atendimentos?ticket=${encodeURIComponent(ticket)}`, {
+              method: 'GET',
+              headers: { 'Content-Type': 'application/json' }
+            })
+            
+            if (response.ok) {
+              const data = await response.json()
+              return Array.isArray(data) ? data.length > 0 : data !== null
+            }
+            return false
+          } catch (error) {
+            console.error('❌ AtendimentoStore: Erro ao verificar ticket:', error)
+            return false
+          }
+        }
+        
+        // Usar ticket fornecido pelo usuário ou gerar um único
+        let ticket = payload.ticket || ''
+        
+        if (!ticket || ticket.trim() === '') {
+          // Gerar ticket único automaticamente
+          let attempts = 0
+          let uniqueTicket = generateTicket()
+          
+          while (await checkTicketExists(uniqueTicket) && attempts < 10) {
+            attempts++
+            uniqueTicket = generateTicket()
+          }
+          
+          if (attempts >= 10) {
+            throw new Error('Não foi possível gerar um ticket único após 10 tentativas')
+          }
+          
+          ticket = uniqueTicket
+        }
         
         const apiPayload = {
           descricao: payload.descricao,
