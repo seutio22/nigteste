@@ -160,20 +160,29 @@ export default function DadosPage() {
       let totalSavedToDatabase = 0
       const errors: string[] = []
 
-      // Processar itens válidos
+      // Processar itens válidos em lotes para evitar timeout
       console.log(`🔍 SMART IMPORT: Processando ${result.valid.length} itens válidos`)
       
-      for (let i = 0; i < result.valid.length; i++) {
-        const item = result.valid[i]
-        // Definir data fora do try-catch para estar acessível no catch
-        const data = item.isCorrected ? item.correctedData : item.data
+      const BATCH_SIZE = 50 // Processar em lotes de 50
+      const batches = []
+      
+      for (let i = 0; i < result.valid.length; i += BATCH_SIZE) {
+        batches.push(result.valid.slice(i, i + BATCH_SIZE))
+      }
+      
+      console.log(`🔍 SMART IMPORT: Dividido em ${batches.length} lotes de até ${BATCH_SIZE} itens`)
+      
+      for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+        const batch = batches[batchIndex]
+        console.log(`🔍 SMART IMPORT: Processando lote ${batchIndex + 1}/${batches.length} (${batch.length} itens)`)
         
-        // Log de progresso a cada 100 itens
-        if (i % 100 === 0) {
-          console.log(`🔍 SMART IMPORT: Processando item ${i + 1} de ${result.valid.length}`)
-        }
-        
-        try {
+        for (let i = 0; i < batch.length; i++) {
+          const item = batch[i]
+          const globalIndex = batchIndex * BATCH_SIZE + i
+          // Definir data fora do try-catch para estar acessível no catch
+          const data = item.isCorrected ? item.correctedData : item.data
+          
+          try {
           // Determinar endpoint baseado na aba ativa
           let endpoint = ''
           let payload: any = {}
@@ -256,28 +265,35 @@ export default function DadosPage() {
           }
 
           totalImported++
-        } catch (apiError: any) {
-          console.error(`❌ Erro ao salvar item ${i + 1} no banco:`, apiError)
-          
-          // Extrair mensagem de erro específica da API
-          let errorMessage = 'Erro desconhecido'
-          if (apiError?.message) {
-            errorMessage = apiError.message
-          } else if (apiError?.data?.message) {
-            errorMessage = apiError.data.message
-          } else if (typeof apiError === 'string') {
-            errorMessage = apiError
+          } catch (apiError: any) {
+            console.error(`❌ Erro ao salvar item ${globalIndex + 1} no banco:`, apiError)
+            
+            // Extrair mensagem de erro específica da API
+            let errorMessage = 'Erro desconhecido'
+            if (apiError?.message) {
+              errorMessage = apiError.message
+            } else if (apiError?.data?.message) {
+              errorMessage = apiError.data.message
+            } else if (typeof apiError === 'string') {
+              errorMessage = apiError
+            }
+            
+            // Adicionar informação do item que falhou (nome ou código)
+            const itemIdentifier = data.nome || data.codigo || data.numero || `item-${globalIndex + 1}`
+            errors.push(`${itemIdentifier}: ${errorMessage}`)
+            
+            // Se há muitos erros consecutivos, pode ser um problema de timeout ou limite
+            if (errors.length > 100) {
+              console.error(`❌ Muitos erros consecutivos (${errors.length}). Parando importação.`)
+              break
+            }
           }
-          
-          // Adicionar informação do item que falhou (nome ou código)
-          const itemIdentifier = data.nome || data.codigo || data.numero || `item-${i + 1}`
-          errors.push(`${itemIdentifier}: ${errorMessage}`)
-          
-          // Se há muitos erros consecutivos, pode ser um problema de timeout ou limite
-          if (errors.length > 50) {
-            console.error(`❌ Muitos erros consecutivos (${errors.length}). Parando importação.`)
-            break
-          }
+        }
+        
+        // Delay entre lotes para evitar sobrecarga
+        if (batchIndex < batches.length - 1) {
+          console.log(`⏳ Aguardando 2 segundos antes do próximo lote...`)
+          await new Promise(resolve => setTimeout(resolve, 2000))
         }
       }
 
