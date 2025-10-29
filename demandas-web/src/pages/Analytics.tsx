@@ -321,20 +321,32 @@ export default function AnalyticsPage() {
   }
 
 
-  const rows = finalFilteredItems.map((r) => ({
-    id: r.id,
-    titulo: r.titulo,
-    tipo: r.tipo,
-    status: r.status,
-    prioridade: r.prioridade,
-    analista: r.analista || 'N/A', // JÁ vem convertido do syncFromApi!
-    area: md.areas.find(a => a.id === r.area)?.nome ?? r.area ?? '',
-    cliente: md.clientes.find(c => c.id === r.cliente)?.nome ?? r.cliente ?? '',
-    contrato: md.contratos.find(c => c.id === r.contrato)?.codigo ?? r.contrato ?? '',
-    // Corrigido: Formatar data sem timezone (mesmo formato usado no Detail)
-    dataEntrega: r.dataEntrega ? r.dataEntrega.split('T')[0].split('-').reverse().join('/') : '-',
-    dataAtualizacao: new Date(r.dataAtualizacao).toLocaleString('pt-BR'),
-  }))
+  const rows = finalFilteredItems.map((r) => {
+    // DEBUG: Verificar dados de data
+    console.log('🔍 DEBUG Analytics - Item:', r.id, {
+      dataInicio: r.dataInicio,
+      dataFinalizacao: r.dataFinalizacao,
+      dataEntrega: r.dataEntrega,
+      dataCriacao: r.dataCriacao
+    })
+    
+    return {
+      id: r.id,
+      titulo: r.titulo,
+      tipo: r.tipo,
+      status: r.status,
+      prioridade: r.prioridade,
+      analista: r.analista || 'N/A', // JÁ vem convertido do syncFromApi!
+      area: md.areas.find(a => a.id === r.area)?.nome ?? r.area ?? '',
+      cliente: md.clientes.find(c => c.id === r.cliente)?.nome ?? r.cliente ?? '',
+      contrato: md.contratos.find(c => c.id === r.contrato)?.codigo ?? r.contrato ?? '',
+      // Corrigido: Formatar data sem timezone (mesmo formato usado no Detail)
+      dataEntrega: r.dataEntrega ? r.dataEntrega.split('T')[0].split('-').reverse().join('/') : '-',
+      dataCriacao: r.dataInicio ? r.dataInicio.split('T')[0].split('-').reverse().join('/') : '-',
+      dataFinalizacao: r.dataFinalizacao ? r.dataFinalizacao.split('T')[0].split('-').reverse().join('/') : '-',
+      dataAtualizacao: new Date(r.dataAtualizacao).toLocaleString('pt-BR'),
+    }
+  })
 
   return (
     <Box sx={{ height: '100vh', width: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -626,7 +638,7 @@ export default function AnalyticsPage() {
           area: md.areas.find(ar => ar.id === r.area)?.nome ?? r.area ?? 'N/A',
           cliente: md.clientes.find(c => c.id === r.cliente)?.nome ?? r.cliente ?? 'N/A',
           contrato: r.contrato ?? 'N/A',
-          // Formatar datas
+          // Formatar datas (já estão em formato ISO string do store)
           dataEntrega: r.dataEntrega ? new Date(r.dataEntrega).toLocaleString('pt-BR') : 'N/A',
           dataCriacao: r.dataInicio ? new Date(r.dataInicio).toLocaleString('pt-BR') : 'N/A',
           dataFinalizacao: r.dataFinalizacao ? new Date(r.dataFinalizacao).toLocaleString('pt-BR') : 'N/A',
