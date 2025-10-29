@@ -1601,7 +1601,7 @@ function crud(entity: keyof PrismaClient) {
       const where: any = {}
       
       if (queryParams) {
-        console.log(`🔍 CRUD ${entity}: QueryParams recebidos:`, queryParams)
+        console.log(`🔍 CRUD ${String(entity)}: QueryParams recebidos:`, queryParams)
         
         // Para cada parâmetro de query, adicionar ao where
         Object.keys(queryParams).forEach(key => {
@@ -1611,18 +1611,18 @@ function crud(entity: keyof PrismaClient) {
           }
         })
         
-        console.log(`🔍 CRUD ${entity}: Filtros aplicados:`, where)
+        console.log(`🔍 CRUD ${String(entity)}: Filtros aplicados:`, where)
       }
       
       // Se houver filtros, usar where; caso contrário, retornar todos
       if (Object.keys(where).length > 0) {
         const result = await anyPrisma[entity].findMany({ where })
-        console.log(`🔍 CRUD ${entity}: Resultado com filtros:`, result.length, 'registros')
+        console.log(`🔍 CRUD ${String(entity)}: Resultado com filtros:`, result.length, 'registros')
         return result
       }
       
       const result = await anyPrisma[entity].findMany()
-      console.log(`🔍 CRUD ${entity}: Resultado sem filtros:`, result.length, 'registros')
+      console.log(`🔍 CRUD ${String(entity)}: Resultado sem filtros:`, result.length, 'registros')
       return result
     },
     get: async (id: string) => {
@@ -2366,9 +2366,48 @@ const resources = {
   // filiaisMailling: crud('filialMailling'), // REMOVIDO - CONFLITO COM masterData.ts
   demandas: {
     ...crud('demanda'),
-    list: async () => {
+    list: async (queryParams?: any) => {
       const anyPrisma = prisma as any;
-      return anyPrisma.demanda.findMany({
+      
+      // Aplicar filtros genéricos se fornecidos nos queryParams
+      const where: any = {}
+      
+      if (queryParams) {
+        console.log(`🔍 DEMANDAS: QueryParams recebidos:`, queryParams)
+        
+        // Para cada parâmetro de query, adicionar ao where
+        Object.keys(queryParams).forEach(key => {
+          // Ignorar parâmetros especiais que não são filtros de campo
+          if (key !== 'entityId' && key !== 'entityType') {
+            where[key] = queryParams[key]
+          }
+        })
+        
+        console.log(`🔍 DEMANDAS: Filtros aplicados:`, where)
+      }
+      
+      // Se houver filtros, usar where; caso contrário, retornar todos
+      if (Object.keys(where).length > 0) {
+        const result = await anyPrisma.demanda.findMany({ 
+          where,
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true
+              }
+            },
+            contrato: {
+              where: { status: 'Ativo' }
+            }
+          }
+        })
+        console.log(`🔍 DEMANDAS: Resultado com filtros:`, result.length, 'registros')
+        return result
+      }
+      
+      const result = await anyPrisma.demanda.findMany({
         include: {
           user: {
             select: {
@@ -2382,6 +2421,8 @@ const resources = {
           }
         }
       });
+      console.log(`🔍 DEMANDAS: Resultado sem filtros:`, result.length, 'registros')
+      return result
     },
     get: async (id: string) => {
       const anyPrisma = prisma as any;
