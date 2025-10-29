@@ -40,6 +40,7 @@ import { useValidationStore } from '../store/validationStore'
 import { useReajusteStore } from '../store/reajusteStore'
 import { useMaillingStore } from '../store/maillingStore'
 import { useDashboardStore } from '../store/dashboardStore'
+import { useReportStore } from '../store/reportStore'
 import { DashboardIndicators } from '../components/dashboard/DashboardIndicators'
 import { DashboardCharts } from '../components/dashboard/DashboardCharts'
 import { ExportButton } from '../components/dashboard/ExportButton'
@@ -57,6 +58,7 @@ export default function DashboardPage() {
   const reajusteStore = useReajusteStore()
   const maillingStore = useMaillingStore()
   const dashboardStore = useDashboardStore()
+  const reportStore = useReportStore()
 
   // Filtros
   const [areaId, setAreaId] = useState('')
@@ -143,6 +145,12 @@ export default function DashboardPage() {
     if (dashboardStore.dashboards.length === 0) {
       console.log('🔍 Dashboard: Dashboards vazios, chamando syncFromApi...')
       dashboardStore.syncFromApi()
+    }
+    
+    // CORREÇÃO: Carregar dados de analytics se necessário
+    if (reportStore.items.length === 0) {
+      console.log('🔍 Dashboard: Analytics vazios, chamando syncFromApi...')
+      reportStore.syncFromApi()
     }
   }, [])
 
