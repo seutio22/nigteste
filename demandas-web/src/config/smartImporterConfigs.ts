@@ -544,10 +544,10 @@ export const smartImporterConfigs: { [key: string]: SmartImporterConfig } = {
 
   manutencoes: {
     entityType: 'Manutenções',
-    requiredFields: ['status', 'tipoServico', 'tipo'],
+    requiredFields: ['status', 'tipoServico', 'tipo', 'cliente', 'contrato'],
     optionalFields: [
       'descricao', 'analista', 'dataInicio', 'dataFinal', 
-      'ticket', 'solicitante', 'area', 'cliente', 'contrato', 'operadora', 'produto', 'sistema',
+      'ticket', 'solicitante', 'area', 'operadora', 'produto', 'sistema',
       'observacoes', 'qtdRetornos', 'qualidade', 'qtdClientesVinculados', 'usuariosEmpresa'
     ],
     duplicateCheckFields: [],

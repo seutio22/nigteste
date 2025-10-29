@@ -271,6 +271,43 @@ export class SmartValidationEngine {
       return { isValid: true }
     }
 
+    // ESPECIAL: Para campo cliente, buscar também por grupo econômico
+    if (refField.field === 'cliente' && refField.referenceStore === 'clientes') {
+      console.log(`🔍 VALIDAÇÃO REFERÊNCIA: Buscando cliente por grupo econômico também...`)
+      
+      const existsByGrupoEconomico = referenceData.find((item: any) => {
+        const grupoEconomico = normalizeString(String(item.grupoEconomico || ''))
+        const searchName = normalizeString(stringValue)
+        
+        // Buscar correspondências exatas, parciais e por palavras-chave no grupo econômico
+        const exactMatch = grupoEconomico === searchName
+        const partialMatch = grupoEconomico.includes(searchName) || searchName.includes(grupoEconomico)
+        
+        // Buscar por palavras-chave no grupo econômico
+        const searchWords = searchName.split(' ').filter(word => word.length > 2)
+        const grupoWords = grupoEconomico.split(' ').filter(word => word.length > 2)
+        
+        const keywordMatch = searchWords.some(searchWord => 
+          grupoWords.some(grupoWord => 
+            grupoWord.includes(searchWord) || searchWord.includes(grupoWord)
+          )
+        )
+        
+        const found = exactMatch || partialMatch || keywordMatch
+        
+        if (found) {
+          console.log(`🔍 VALIDAÇÃO REFERÊNCIA: Cliente encontrado por grupo econômico: "${item.nome}" (Grupo: "${item.grupoEconomico}")`)
+        }
+        
+        return found
+      })
+      
+      if (existsByGrupoEconomico) {
+        console.log(`✅ VALIDAÇÃO REFERÊNCIA: Cliente encontrado por grupo econômico: "${existsByGrupoEconomico.nome}"`)
+        return { isValid: true }
+      }
+    }
+
     // Se não encontrou, buscar sugestão similar
     console.log(`⚠️ VALIDAÇÃO REFERÊNCIA: Não encontrado, buscando similar...`)
     const suggestion = this.findSimilarReference(stringValue, referenceData, refField)
