@@ -41,11 +41,13 @@ import {
   Assignment,
   Visibility,
   QueryStats,
-  People
+  People,
+  History
 } from '@mui/icons-material'
 import { useAuthStore } from '../../store/authStore'
 import PermissionManager from '../../components/PermissionManager'
 import UserMonitoring from '../../components/UserMonitoring'
+import DeletionHistoryTab from '../../components/DeletionHistoryTab'
 import { SystemPermissions } from '../../types/permissions'
 import { getInitialPermissions } from '../../utils/defaultPermissions'
 
@@ -433,6 +435,11 @@ export default function UsersPage() {
             icon={<QueryStats />} 
             iconPosition="start"
           />
+          <Tab 
+            label="Histórico" 
+            icon={<History />} 
+            iconPosition="start"
+          />
         </Tabs>
       </Paper>
 
@@ -515,6 +522,10 @@ export default function UsersPage() {
 
       {tabValue === 1 && (
         <UserMonitoring />
+      )}
+
+      {tabValue === 2 && (
+        <DeletionHistoryTab />
       )}
 
       {/* Dialog para Criar/Editar Usuário */}

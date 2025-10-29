@@ -1,7 +1,7 @@
 {
   "name": "demandas-api-novo",
-  "version": "2.4.17",
-  "description": "Backend API - 2.4.7 - Fix SIGTERM error with robust startup",
+  "version": "2.4.18",
+  "description": "Backend API - 2.4.18 - Implementação Soft Delete para Histórico de Exclusões",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",

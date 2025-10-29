@@ -853,6 +853,7 @@ model User {
   userActivities       UserActivity[]
   userSessions         UserSession[]
   userMonitoring       UserMonitoring[]
+  deletionLogs         DeletionLog[]
 }
 
 model KanbanTicket {
@@ -940,4 +941,18 @@ model UserMonitoring {
   user                  User     @relation(fields: [userId], references: [id])
   
   @@unique([userId, date])
+}
+
+// Tabela para histórico de exclusões (Soft Delete)
+model DeletionLog {
+  id          String   @id @default(uuid())
+  entityType  String   // Tipo da entidade: 'demanda', 'manutencao', 'analytics', etc.
+  entityId    String   // ID do item excluído
+  deletedBy   String   // ID do usuário que excluiu
+  deletedAt   DateTime @default(now())
+  reason      String?  // Motivo da exclusão (opcional)
+  user        User     @relation(fields: [deletedBy], references: [id])
+  
+  @@index([entityType, deletedAt])
+  @@index([deletedBy])
 }
