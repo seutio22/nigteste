@@ -22,11 +22,14 @@ export async function trackUserActivity(request: AuthenticatedRequest, reply: Fa
   try {
     // Só rastrear se o usuário estiver autenticado
     if (!request.authenticatedUser) {
+      console.log('⚠️ Usuário não autenticado - pulando tracking')
       return
     }
 
     const user = request.authenticatedUser
     const now = new Date()
+    
+    console.log(`🔍 Tracking atividade: ${user.name} - ${request.method} ${request.url}`)
     
     // Determinar o tipo de ação baseado na rota
     let action = 'api_call'
@@ -61,8 +64,10 @@ export async function trackUserActivity(request: AuthenticatedRequest, reply: Fa
       page = '/analytics'
     }
 
+    console.log(`📊 Ação determinada: ${action} - Página: ${page}`)
+
     // Registrar atividade
-    await prisma.userActivity.create({
+    const activity = await prisma.userActivity.create({
       data: {
         userId: user.id,
         userName: user.name,
@@ -82,6 +87,8 @@ export async function trackUserActivity(request: AuthenticatedRequest, reply: Fa
         })
       }
     })
+
+    console.log(`✅ Atividade registrada: ${activity.id}`)
 
     // Atualizar UserMonitoring para hoje
     const today = new Date()

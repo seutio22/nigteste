@@ -1400,8 +1400,8 @@ app.register(jwt, { secret: jwtSecret })
 
 app.register(authPlugin)
 
-// Middleware de tracking de atividades
-app.addHook('onRequest', async (request, reply) => {
+// Middleware de tracking de atividades (após autenticação)
+app.addHook('preHandler', async (request, reply) => {
   // Rastrear atividade do usuário
   await trackUserActivity(request as any, reply)
 })
@@ -1417,6 +1417,55 @@ app.addHook('onSend', async (request, reply, payload) => {
 })
 
 app.get('/health', async () => ({ status: 'ok' }))
+
+// Endpoint de debug para testar tracking
+app.get('/debug/tracking', async (request: any, reply: any) => {
+  try {
+    const user = request.authenticatedUser
+    if (!user) {
+      return reply.status(401).send({ error: 'Usuário não autenticado' })
+    }
+
+    // Buscar atividades do usuário
+    const activities = await prisma.userActivity.findMany({
+      where: { userId: user.id },
+      orderBy: { createdAt: 'desc' },
+      take: 10
+    })
+
+    // Buscar dados de monitoramento
+    const monitoring = await prisma.userMonitoring.findMany({
+      where: { userId: user.id },
+      orderBy: { date: 'desc' },
+      take: 5
+    })
+
+    // Buscar sessões
+    const sessions = await prisma.userSession.findMany({
+      where: { userId: user.id },
+      orderBy: { createdAt: 'desc' },
+      take: 5
+    })
+
+    return reply.send({
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role
+      },
+      activities: activities.length,
+      monitoring: monitoring.length,
+      sessions: sessions.length,
+      recentActivities: activities,
+      recentMonitoring: monitoring,
+      recentSessions: sessions
+    })
+  } catch (error) {
+    console.error('Erro no debug tracking:', error)
+    return reply.status(500).send({ error: 'Erro interno' })
+  }
+})
 
 // Rota para zerar dados de monitoramento
 app.post('/monitoring/clear', async (req: any, reply: any) => {
