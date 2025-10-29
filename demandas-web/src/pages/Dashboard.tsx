@@ -45,8 +45,8 @@ import { DashboardIndicators } from '../components/dashboard/DashboardIndicators
 import { DashboardCharts } from '../components/dashboard/DashboardCharts'
 import { ExportButton } from '../components/dashboard/ExportButton'
 import { PeriodSelector } from '../components/dashboard/PeriodSelector'
-import { useDashboardIndicators } from '../hooks/useDashboardIndicators'
-import type { PeriodType } from '../types/dashboardIndicators'
+import { useAdvancedIndicators } from '../hooks/useAdvancedIndicators'
+import { AdvancedIndicators } from '../components/dashboard/AdvancedIndicators'
 
 const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#84cc16', '#f97316']
 
@@ -69,6 +69,14 @@ export default function DashboardPage() {
   
   // Hook para indicadores do dashboard
   const { indicators, pageMetrics, generalStats } = useDashboardIndicators(indicatorPeriod, {
+    areaId,
+    analistaId,
+    fromDate,
+    toDate
+  })
+
+  // Hook para indicadores avançados
+  const { advancedIndicators, tempoExecucaoMetrics, analistaMetrics } = useAdvancedIndicators({
     areaId,
     analistaId,
     fromDate,
@@ -378,6 +386,15 @@ export default function DashboardPage() {
         <DashboardIndicators
           period={indicatorPeriod}
           showCategories={true}
+        />
+      </Box>
+
+      {/* Indicadores Avançados */}
+      <Box sx={{ mb: 4 }}>
+        <AdvancedIndicators
+          indicators={advancedIndicators}
+          tempoExecucaoMetrics={tempoExecucaoMetrics}
+          analistaMetrics={analistaMetrics}
         />
       </Box>
 
