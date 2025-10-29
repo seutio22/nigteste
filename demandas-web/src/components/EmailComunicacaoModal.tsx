@@ -1113,7 +1113,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
               sx={{ 
                 p: 0,
                 background: 'white',
-                maxHeight: modoEdicao === 'editar' ? '800px' : '400px',
+                maxHeight: modoEdicao === 'editar' ? '700px' : '400px',
                 overflow: 'auto'
               }}
             >
@@ -1123,26 +1123,6 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                     ✏️ Editor de Blocos - Edite cada seção do e-mail
                   </Typography>
                   
-                  {/* Bloco Saudação */}
-                  <Box sx={{ mb: 3 }}>
-                    <Typography variant="subtitle2" sx={{ mb: 1, color: '#374151', fontWeight: 600 }}>
-                      👋 Saudação
-                    </Typography>
-                    <TextField
-                      fullWidth
-                      value={blocoSaudacao}
-                      onChange={(e) => setBlocoSaudacao(e.target.value)}
-                      placeholder="Ex: Prezados,"
-                      sx={{
-                        '& .MuiOutlinedInput-root': {
-                          borderRadius: '8px',
-                          '& fieldset': { borderColor: '#d1d5db' },
-                          '&:hover fieldset': { borderColor: '#9ca3af' },
-                          '&.Mui-focused fieldset': { borderColor: '#3b82f6', borderWidth: '2px' }
-                        }
-                      }}
-                    />
-                  </Box>
 
                   {/* Blocos da Tabela */}
                   <Box sx={{ mb: 3, p: 2, backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
@@ -1308,32 +1288,10 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                     />
                   </Box>
 
-                  {/* Bloco Conclusão */}
-                  <Box sx={{ mb: 3 }}>
-                    <Typography variant="subtitle2" sx={{ mb: 1, color: '#374151', fontWeight: 600 }}>
-                      ✅ Conclusão
-                    </Typography>
-                    <TextField
-                      fullWidth
-                      multiline
-                      rows={2}
-                      value={blocoConclusao}
-                      onChange={(e) => setBlocoConclusao(e.target.value)}
-                      placeholder="Ex: O Edge e Move encontram-se atualizados. Solicitamos replicar esta informação com a sua equipe."
-                      sx={{
-                        '& .MuiOutlinedInput-root': {
-                          borderRadius: '8px',
-                          '& fieldset': { borderColor: '#d1d5db' },
-                          '&:hover fieldset': { borderColor: '#9ca3af' },
-                          '&.Mui-focused fieldset': { borderColor: '#3b82f6', borderWidth: '2px' }
-                        }
-                      }}
-                    />
-                  </Box>
 
                   <Box sx={{ mt: 3, p: 2, backgroundColor: '#f0f9ff', borderRadius: '8px', border: '1px solid #0ea5e9' }}>
                     <Typography variant="caption" sx={{ color: '#0369a1', fontWeight: 500 }}>
-                      💡 <strong>Dica:</strong> Edite apenas os blocos essenciais: Saudação, Dados da Tabela, Descrição e Conclusão. 
+                      💡 <strong>Dica:</strong> Edite apenas os dados da tabela técnica e a descrição da alteração. 
                       O preview é atualizado em tempo real conforme você edita.
                     </Typography>
                   </Box>
