@@ -1,7 +1,7 @@
 {
   "name": "demandas-api-novo",
-  "version": "2.4.19",
-  "description": "Backend API - 2.4.19 - Adicionar endpoint de teste para histórico",
+  "version": "2.4.20",
+  "description": "Backend API - 2.4.20 - Corrigir registro de rotas de histórico",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",

@@ -12,7 +12,6 @@ import { masterDataRoutes } from './routes/masterData'
 import { kanbanRoutes } from './routes/kanban'
 import monitoringRoutes from './routes/monitoring'
 import deletionHistoryRoutes from './routes/deletionHistory'
-import deletionHistorySetupRoutes from './routes/deletionHistorySetup'
 import { PrismaClient } from '@prisma/client'
 import { trackUserActivity, trackSessionStart, trackSessionEnd } from './middleware/activityTracker'
 
@@ -3728,7 +3727,6 @@ app.register(kanbanRoutes, { prisma })
 // Rotas de monitoramento
 app.register(monitoringRoutes, { prisma, prefix: '/monitoring' })
 app.register(deletionHistoryRoutes, { prisma, prefix: '/deletion-history' })
-app.register(deletionHistorySetupRoutes, { prisma, prefix: '/deletion-history' })
 
 // Rota de teste de monitoramento
 app.get('/monitoring/test', async (req: any, reply: any) => {
