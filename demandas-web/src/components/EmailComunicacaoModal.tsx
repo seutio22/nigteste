@@ -18,6 +18,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
   const [copiado, setCopiado] = useState(false)
   const [copiadoEmail, setCopiadoEmail] = useState(false)
   const [salvandoArquivo, setSalvandoArquivo] = useState(false)
+  const [previewAtualizado, setPreviewAtualizado] = useState(0)
   const [carregandoMailling, setCarregandoMailling] = useState(false)
   const [gerandoImagem, setGerandoImagem] = useState(false)
   const [editandoDescricao, setEditandoDescricao] = useState(false)
@@ -60,11 +61,13 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
       subtipo: '',
       tipo: ''
     }])
+    setPreviewAtualizado(prev => prev + 1) // Forçar atualização do preview
   }
 
   const removerLinhaTabela = (id: number) => {
     if (linhasTabela.length > 1) {
       setLinhasTabela(linhasTabela.filter(linha => linha.id !== id))
+      setPreviewAtualizado(prev => prev + 1) // Forçar atualização do preview
     }
   }
 
@@ -72,6 +75,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
     setLinhasTabela(linhasTabela.map(linha => 
       linha.id === id ? { ...linha, [campo]: valor } : linha
     ))
+    setPreviewAtualizado(prev => prev + 1) // Forçar atualização do preview
   }
 
   const md = useMasterDataStore()
@@ -720,6 +724,34 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
     }
   }
 
+  const handleSalvarAlteracoes = () => {
+    // Salvar as alterações do editor no emailOutlook
+    const emailAtualizado = gerarHTMLComBlocos()
+    setEmailOutlook(emailAtualizado)
+    setPreviewAtualizado(prev => prev + 1)
+    
+    // Feedback visual
+    const feedback = document.createElement('div')
+    feedback.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #3b82f6;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-weight: 500;
+      z-index: 9999;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    `
+    feedback.textContent = '✅ Alterações salvas com sucesso!'
+    document.body.appendChild(feedback)
+    
+    setTimeout(() => {
+      document.body.removeChild(feedback)
+    }, 3000)
+  }
+
   const handleSalvarArquivo = async () => {
     try {
       setSalvandoArquivo(true)
@@ -1226,9 +1258,29 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
             >
               {modoEdicao === 'editar' ? (
                 <Box sx={{ p: 3 }}>
-                  <Typography variant="h6" sx={{ mb: 3, color: '#1e293b', fontWeight: 600 }}>
-                    ✏️ Editor de Blocos - Edite cada seção do e-mail
-                  </Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                    <Typography variant="h6" sx={{ color: '#1e293b', fontWeight: 600 }}>
+                      ✏️ Editor de Blocos - Edite cada seção do e-mail
+                    </Typography>
+                    <Button
+                      variant="contained"
+                      onClick={handleSalvarAlteracoes}
+                      startIcon={<span>💾</span>}
+                      sx={{
+                        borderRadius: '6px',
+                        textTransform: 'none',
+                        fontWeight: 500,
+                        px: 2,
+                        py: 1,
+                        background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                        '&:hover': {
+                          background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)'
+                        }
+                      }}
+                    >
+                      Salvar Alterações
+                    </Button>
+                  </Box>
                   
 
                   {/* Blocos da Tabela */}
@@ -1440,12 +1492,13 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                   <Box sx={{ mt: 3, p: 2, backgroundColor: '#f0f9ff', borderRadius: '8px', border: '1px solid #0ea5e9' }}>
                     <Typography variant="caption" sx={{ color: '#0369a1', fontWeight: 500 }}>
                       💡 <strong>Dica:</strong> Os dados da manutenção são carregados automaticamente na primeira linha. 
-                      Use "Adicionar Linha" para incluir novos dados técnicos. O preview é atualizado em tempo real.
+                      Use "Adicionar Linha" para incluir novos dados técnicos. Clique em "Salvar Alterações" para aplicar as mudanças no preview.
                     </Typography>
                   </Box>
                 </Box>
               ) : (
                 <Box
+                  key={previewAtualizado}
                   sx={{
                     '& *': {
                       fontFamily: 'inherit !important'
