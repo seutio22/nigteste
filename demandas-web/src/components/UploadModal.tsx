@@ -66,8 +66,7 @@ const templates: Record<string, TemplateInfo> = {
       'Análise quantitativa',
       'Qtde de retornos',
       'Qualidade (0-3 com descrições)',
-      'QTD CLIENTES VINCULADOS - EDGE',
-      'USUÁRIOS EMPRESA - MOVE',
+      'Total',
       'Observações'
     ],
     downloadUrl: '/templates/cadastros-template.xlsx'
@@ -150,21 +149,21 @@ const templates: Record<string, TemplateInfo> = {
       'Status (obrigatório)',
       'Cliente (obrigatório)',
       'Contrato (obrigatório)',
-      'Operadora (obrigatório)',
-      'Produto (obrigatório)',
       'Tipo de Serviço (obrigatório)',
+      'Tipo de manutenção (obrigatório)',
       'Analista responsável',
       'Data de início',
       'Data de finalização',
       'Nº Ticket',
       'Solicitante',
       'Área solicitante',
-      'Tipo de manutenção',
-      'Descrição da manutenção',
+      'Operadora',
+      'Produto',
       'Sistema principal',
+      'Descrição da manutenção',
       'Qtde de retornos',
       'Qualidade (0-3 com descrições)',
-      'Análise quantitativa',
+      'Total',
       'Observações'
     ],
     downloadUrl: '/templates/manutencoes-template.xlsx'
@@ -242,8 +241,7 @@ export function UploadModal({ open, onClose, title, entityType, onUpload }: Uplo
           analiseQuantitativa: 5,
           qtdRetornos: 2,
           qualidade: '2',
-          qtdClientesVinculados: 10,
-          usuariosEmpresa: 25,
+          total: 10,
           observacoes: 'Observações'
         }
       ]
@@ -396,7 +394,7 @@ export function UploadModal({ open, onClose, title, entityType, onUpload }: Uplo
               sistema: 'Nome do Sistema',
               qtdRetornos: 1,
               qualidade: '2',
-              analiseQuantitativa: 3,
+              total: 5,
               observacoes: 'Observações'
             }
           ]
