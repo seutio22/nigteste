@@ -91,6 +91,7 @@ const DeletionHistoryTab: React.FC = () => {
     message: '',
     severity: 'success'
   })
+  const [endpointsAvailable, setEndpointsAvailable] = useState(true)
 
   const entityTypeLabels: Record<string, string> = {
     demanda: 'Cadastro',
@@ -121,6 +122,14 @@ const DeletionHistoryTab: React.FC = () => {
       if (filters.endDate) queryParams.append('endDate', filters.endDate)
 
       const response = await fetch(`/api/deletion-history/history?${queryParams}`)
+      
+      // Verificar se a resposta é HTML (endpoint não existe)
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        setEndpointsAvailable(false)
+        throw new Error('Endpoint não disponível - aguarde o deploy')
+      }
+      
       const data = await response.json()
       
       if (response.ok) {
@@ -132,8 +141,10 @@ const DeletionHistoryTab: React.FC = () => {
       console.error('Erro ao buscar logs:', error)
       setSnackbar({
         open: true,
-        message: 'Erro ao carregar histórico de exclusões',
-        severity: 'error'
+        message: error instanceof Error && error.message.includes('deploy') 
+          ? 'Funcionalidade em deploy - aguarde alguns minutos'
+          : 'Erro ao carregar histórico de exclusões',
+        severity: 'info'
       })
     } finally {
       setLoading(false)
@@ -143,6 +154,13 @@ const DeletionHistoryTab: React.FC = () => {
   const fetchStats = async () => {
     try {
       const response = await fetch('/api/deletion-history/stats')
+      
+      // Verificar se a resposta é HTML (endpoint não existe)
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error('Endpoint não disponível - aguarde o deploy')
+      }
+      
       const data = await response.json()
       
       if (response.ok) {
@@ -150,6 +168,7 @@ const DeletionHistoryTab: React.FC = () => {
       }
     } catch (error) {
       console.error('Erro ao buscar estatísticas:', error)
+      // Não mostrar erro para stats, apenas logs
     }
   }
 
@@ -251,6 +270,16 @@ const DeletionHistoryTab: React.FC = () => {
           Atualizar
         </Button>
       </Box>
+
+      {/* Mensagem quando endpoints não estão disponíveis */}
+      {!endpointsAvailable && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          <Typography variant="body2">
+            <strong>Funcionalidade em Deploy:</strong> A aba Histórico está sendo atualizada. 
+            Aguarde alguns minutos e clique em "Atualizar" para verificar se já está disponível.
+          </Typography>
+        </Alert>
+      )}
 
       {/* Estatísticas */}
       {stats && (
