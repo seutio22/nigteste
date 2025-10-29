@@ -53,8 +53,8 @@ export default async function deletionHistoryRoutes(fastify: FastifyInstance) {
           }
         },
         orderBy: { deletedAt: 'desc' },
-        take: query.limit ? parseInt(query.limit) : 50,
-        skip: query.offset ? parseInt(query.offset) : 0
+        take: query.limit ? parseInt(query.limit.toString()) : 50,
+        skip: query.offset ? parseInt(query.offset.toString()) : 0
       })
 
       // Buscar dados dos itens excluídos
@@ -127,7 +127,7 @@ export default async function deletionHistoryRoutes(fastify: FastifyInstance) {
       return reply.send({
         logs: enrichedLogs,
         total: await prisma.deletionLog.count({ where }),
-        hasMore: enrichedLogs.length === (query.limit ? parseInt(query.limit) : 50)
+        hasMore: enrichedLogs.length === (query.limit ? parseInt(query.limit.toString()) : 50)
       })
     } catch (error) {
       console.error('Erro ao buscar histórico de exclusões:', error)
@@ -229,15 +229,7 @@ export default async function deletionHistoryRoutes(fastify: FastifyInstance) {
         }),
         byUser: await prisma.deletionLog.groupBy({
           by: ['deletedBy'],
-          _count: { deletedBy: true },
-          include: {
-            user: {
-              select: {
-                name: true,
-                email: true
-              }
-            }
-          }
+          _count: { deletedBy: true }
         })
       }
 
