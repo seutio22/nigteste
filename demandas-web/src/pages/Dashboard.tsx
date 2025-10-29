@@ -68,7 +68,12 @@ export default function DashboardPage() {
   const [indicatorPeriod, setIndicatorPeriod] = useState<PeriodType>('daily')
   
   // Hook para indicadores do dashboard
-  const { indicators, pageMetrics, generalStats } = useDashboardIndicators(indicatorPeriod)
+  const { indicators, pageMetrics, generalStats } = useDashboardIndicators(indicatorPeriod, {
+    areaId,
+    analistaId,
+    fromDate,
+    toDate
+  })
 
   // Função para filtrar por data
   const inRange = (iso?: string) => {

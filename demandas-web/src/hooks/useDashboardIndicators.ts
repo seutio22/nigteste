@@ -94,7 +94,15 @@ const calculatePageMetrics = (items: any[], page: string, period: PeriodType): P
   }
 }
 
-export const useDashboardIndicators = (period: PeriodType = 'daily') => {
+export const useDashboardIndicators = (
+  period: PeriodType = 'daily',
+  filters?: {
+    areaId?: string
+    analistaId?: string
+    fromDate?: string
+    toDate?: string
+  }
+) => {
   // Stores
   const demandStore = useDemandStore()
   const atendimentoStore = useAtendimentoStore()
@@ -106,17 +114,57 @@ export const useDashboardIndicators = (period: PeriodType = 'daily') => {
   const comunicadoStore = useComunicadoStore()
   const projectStore = useProjectStore()
 
-  // Mapeamento de stores por página com verificações de segurança
+  // Função para filtrar por data
+  const inRange = (iso?: string) => {
+    if (!iso || !filters) return true
+    const t = new Date(iso).getTime()
+    if (filters.fromDate && t < new Date(filters.fromDate).getTime()) return false
+    if (filters.toDate && t > new Date(filters.toDate + 'T23:59:59').getTime()) return false
+    return true
+  }
+
+  // Função para aplicar filtros aos dados
+  const applyFilters = (items: any[], page: string) => {
+    if (!filters) return items
+    
+    return items.filter(item => {
+      // Filtro por área (apenas para demandas)
+      if (filters.areaId && page === 'demandas' && item.area !== filters.areaId) {
+        return false
+      }
+      
+      // Filtro por analista
+      if (filters.analistaId) {
+        const analistaField = page === 'reajustes' ? 'responsavelAnalista' : 'analista'
+        if (item[analistaField] !== filters.analistaId) {
+          return false
+        }
+      }
+      
+      // Filtro por data
+      const dateField = page === 'analytics' ? 'dataCriacao' : 
+                      page === 'reajustes' ? 'createdAt' : 
+                      'dataInicio' || 'createdAt'
+      
+      if (!inRange(item[dateField])) {
+        return false
+      }
+      
+      return true
+    })
+  }
+
+  // Mapeamento de stores por página com verificações de segurança e filtros aplicados
   const storeMap = {
-    demandas: Array.isArray(demandStore.items) ? demandStore.items : [],
-    atendimentos: Array.isArray(atendimentoStore.items) ? atendimentoStore.items : [],
-    validacoes: Array.isArray(validationStore.items) ? validationStore.items : [],
-    reajustes: Array.isArray(reajusteStore.items) ? reajusteStore.items : [],
-    manutencoes: Array.isArray(manutencaoStore.items) ? manutencaoStore.items : [],
-    analytics: Array.isArray(reportStore.items) ? reportStore.items : [],
-    mailling: Array.isArray(maillingStore.contacts) ? maillingStore.contacts : [],
-    comunicados: Array.isArray(comunicadoStore.items) ? comunicadoStore.items : [],
-    projetos: Array.isArray(projectStore.items) ? projectStore.items : []
+    demandas: applyFilters(Array.isArray(demandStore.items) ? demandStore.items : [], 'demandas'),
+    atendimentos: applyFilters(Array.isArray(atendimentoStore.items) ? atendimentoStore.items : [], 'atendimentos'),
+    validacoes: applyFilters(Array.isArray(validationStore.items) ? validationStore.items : [], 'validacoes'),
+    reajustes: applyFilters(Array.isArray(reajusteStore.items) ? reajusteStore.items : [], 'reajustes'),
+    manutencoes: applyFilters(Array.isArray(manutencaoStore.items) ? manutencaoStore.items : [], 'manutencoes'),
+    analytics: applyFilters(Array.isArray(reportStore.items) ? reportStore.items : [], 'analytics'),
+    mailling: applyFilters(Array.isArray(maillingStore.contacts) ? maillingStore.contacts : [], 'mailling'),
+    comunicados: applyFilters(Array.isArray(comunicadoStore.items) ? comunicadoStore.items : [], 'comunicados'),
+    projetos: applyFilters(Array.isArray(projectStore.items) ? projectStore.items : [], 'projetos')
   }
 
   // Calcular métricas para todas as páginas
@@ -128,7 +176,7 @@ export const useDashboardIndicators = (period: PeriodType = 'daily') => {
     })
     
     return metrics
-  }, [storeMap, period])
+  }, [storeMap, period, filters])
 
   // Gerar indicadores para o período selecionado
   const indicators = useMemo(() => {
@@ -167,7 +215,7 @@ export const useDashboardIndicators = (period: PeriodType = 'daily') => {
     })
 
     return result
-  }, [pageMetrics, period])
+  }, [pageMetrics, period, filters])
 
   // Separar indicadores por categoria
   const indicatorsByCategory = useMemo(() => {
@@ -176,7 +224,7 @@ export const useDashboardIndicators = (period: PeriodType = 'daily') => {
       secondary: indicators.filter(i => i.category === 'secondary'),
       tertiary: indicators.filter(i => i.category === 'tertiary')
     }
-  }, [indicators])
+  }, [indicators, filters])
 
   // Estatísticas gerais
   const generalStats = useMemo(() => {
@@ -193,7 +241,7 @@ export const useDashboardIndicators = (period: PeriodType = 'daily') => {
       completionRate: Math.round(completionRate * 10) / 10,
       period
     }
-  }, [indicators, pageMetrics, period])
+  }, [indicators, pageMetrics, period, filters])
 
   return {
     indicators,
