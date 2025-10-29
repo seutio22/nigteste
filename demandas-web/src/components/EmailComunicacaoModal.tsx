@@ -24,9 +24,128 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
   const [emailOutlook, setEmailOutlook] = useState('')
   const [modoEdicao, setModoEdicao] = useState<'visualizar' | 'editar'>('visualizar')
   const [emailEditado, setEmailEditado] = useState('')
+  const [conteudoEditavel, setConteudoEditavel] = useState('')
   
   const md = useMasterDataStore()
   const maillingStore = useMaillingStore()
+
+  // Função para extrair conteúdo editável do HTML
+  const extrairConteudoEditavel = (html: string) => {
+    // Extrair apenas o texto principal, removendo HTML complexo
+    const tempDiv = document.createElement('div')
+    tempDiv.innerHTML = html
+    
+    // Buscar o conteúdo principal
+    const contentDiv = tempDiv.querySelector('.content')
+    if (contentDiv) {
+      // Extrair apenas o texto das seções principais
+      const greeting = contentDiv.querySelector('.greeting')?.textContent || ''
+      const infoBox = contentDiv.querySelector('.info-box')?.textContent || ''
+      const description = contentDiv.querySelector('.description-content')?.textContent || ''
+      const conclusion = contentDiv.querySelector('.conclusion')?.textContent || ''
+      
+      return `${greeting}\n\n${infoBox}\n\n${description}\n\n${conclusion}`.trim()
+    }
+    
+    return tempDiv.textContent || ''
+  }
+
+  // Função para reconstruir o HTML com conteúdo editado
+  const reconstruirHTML = (conteudoEditado: string) => {
+    const cliente = md.clientes.find(c => c.id === manutencao?.clienteId)
+    const operadora = md.operadoras.find(o => o.id === manutencao?.operadoraId)
+    const produto = md.produtos.find(p => p.id === manutencao?.produtoId)
+    const sistema = md.sistemas.find(s => s.id === manutencao?.sistemaId)
+    const tipoServico = md.tiposCadastro.find(t => t.id === manutencao?.tipoServicoId)
+    const tipo = md.padrao.find(t => t.id === manutencao?.tipoId)
+    const contrato = manutencao?.contratoId ? 
+      md.contratos.find(c => c.id === manutencao.contratoId) : null
+
+    return `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Alteração de Contrato - ${manutencao?.ticket || 'N/A'}</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; background-color: #f8f9fa;">
+    <div style="background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow: hidden;">
+        <!-- Header -->
+        <div style="background: #1a1a2e; color: white; padding: 30px; text-align: center;">
+            <h1 style="margin: 0; font-size: 24px; font-weight: bold;">🔔 Alteração Cadastral</h1>
+            <p style="margin: 10px 0 0 0; opacity: 0.9; font-size: 14px;">Notificação Automática - Sistema NIG</p>
+        </div>
+        
+        <!-- Content -->
+        <div class="content" style="padding: 30px;">
+            <div style="font-size: 16px; margin-bottom: 20px; color: #2d3748;">
+                <strong>Prezados,</strong>
+            </div>
+            
+            <div style="background: #f7fafc; border-left: 4px solid #4299e1; padding: 20px; margin: 20px 0; border-radius: 0 8px 8px 0;">
+                <p style="margin: 0; font-weight: 500; color: #2d3748;">
+                    📋 Informamos que o cliente <strong>${cliente?.nome || 'N/A'}</strong> sofreu alteração, sendo:
+                </p>
+            </div>
+            
+            <!-- Table -->
+            <div style="margin: 25px 0; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                    <thead>
+                        <tr style="background: #2d3748; color: white;">
+                            <th style="padding: 15px 12px; text-align: left; font-weight: 600; font-size: 13px;">Contrato</th>
+                            <th style="padding: 15px 12px; text-align: left; font-weight: 600; font-size: 13px;">Operadora</th>
+                            <th style="padding: 15px 12px; text-align: left; font-weight: 600; font-size: 13px;">Produto</th>
+                            <th style="padding: 15px 12px; text-align: left; font-weight: 600; font-size: 13px;">Atualização</th>
+                            <th style="padding: 15px 12px; text-align: left; font-weight: 600; font-size: 13px;">Subtipo</th>
+                            <th style="padding: 15px 12px; text-align: left; font-weight: 600; font-size: 13px;">Tipo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="background: #f8f9fa;">
+                            <td style="padding: 15px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600; color: #2b6cb0; font-size: 15px;">${contrato?.codigo || contrato?.numero || manutencao?.ticket || 'N/A'}</td>
+                            <td style="padding: 15px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 500; color: #2d3748;">${operadora?.nome || 'N/A'}</td>
+                            <td style="padding: 15px 12px; border-bottom: 1px solid #e2e8f0; background: #e6fffa; color: #234e52; font-weight: 500;">${produto?.nome || 'N/A'}</td>
+                            <td style="padding: 15px 12px; border-bottom: 1px solid #e2e8f0; background: #fef5e7; color: #7c2d12; font-weight: 500;">${tipoServico?.nome || 'N/A'}</td>
+                            <td style="padding: 15px 12px; border-bottom: 1px solid #e2e8f0; background: #f3e8ff; color: #581c87; font-weight: 500;">${tipo?.nome || 'N/A'}</td>
+                            <td style="padding: 15px 12px; border-bottom: 1px solid #e2e8f0; background: #ecfdf5; color: #064e3b; font-weight: 500;">${sistema?.nome || 'N/A'}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Description -->
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 25px 0;">
+                <h3 style="margin: 0 0 15px 0; color: #2d3748; font-size: 16px; font-weight: 600;">📝 Descrição da Alteração</h3>
+                <div style="background: white; border: 1px solid #d1d5db; border-radius: 6px; padding: 15px; min-height: 60px;">
+                    <p style="margin: 0; line-height: 1.6; color: #4a5568; font-size: 14px; white-space: pre-wrap;">${conteudoEditado || descricaoEditavel || manutencao?.descricao || 'Alteração realizada'}</p>
+                </div>
+            </div>
+            
+            <!-- Conclusion -->
+            <div style="background: #f0fff4; border: 1px solid #9ae6b4; border-radius: 8px; padding: 20px; margin: 25px 0;">
+                <p style="margin: 0; color: #22543d; font-weight: 500;">
+                    ✅ <strong>O Edge e Move encontram-se atualizados.</strong> Solicitamos replicar esta informação com a sua equipe.
+                </p>
+            </div>
+            
+            <!-- Signature -->
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #e2e8f0;">
+                <p style="margin: 5px 0; color: #4a5568;">Atenciosamente,</p>
+                <p style="margin: 5px 0; font-weight: 600; color: #2d3748; font-size: 16px;">NIG - Núcleo de Informações Gerenciais</p>
+                <p style="margin: 5px 0; color: #4a5568;">
+                    <span style="display: inline-block; background: #667eea; color: white; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600;">Sistema Automatizado</span>
+                </p>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <div style="background: #f7fafc; padding: 20px; text-align: center; color: #718096; font-size: 12px;">
+            <p style="margin: 0;">Esta é uma mensagem automática do sistema NIG. Por favor, não responda a este e-mail.</p>
+        </div>
+    </div>
+</body>
+</html>`
+  }
 
   // Carregar dados do Mailling quando o modal abrir
   useEffect(() => {
@@ -456,6 +575,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
       
       setEmailOutlook(emailOutlookCompatible)
       setEmailEditado(emailOutlookCompatible)
+      setConteudoEditavel(extrairConteudoEditavel(emailOutlookCompatible))
     }
   }, [manutencao, md.clientes, md.operadoras, md.produtos, md.sistemas, md.tiposCadastro, md.padrao, md.contratos, descricaoEditavel])
 
@@ -520,7 +640,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
 
   const handleCopyOutlook = async () => {
     try {
-      const emailParaCopiar = modoEdicao === 'editar' ? emailEditado : emailOutlook
+      const emailParaCopiar = modoEdicao === 'editar' ? reconstruirHTML(conteudoEditavel) : emailOutlook
       await navigator.clipboard.writeText(emailParaCopiar)
       setCopiadoEmail(true)
       setTimeout(() => setCopiadoEmail(false), 2000)
@@ -982,11 +1102,46 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
               }}
             >
               {modoEdicao === 'editar' ? (
-                <RichTextEditor
-                  content={emailEditado}
-                  onChange={setEmailEditado}
-                  placeholder="Edite o conteúdo do e-mail aqui... Use as ferramentas da barra acima para formatar o texto, inserir imagens, links e muito mais!"
-                />
+                <Box sx={{ p: 3 }}>
+                  <Typography variant="body2" sx={{ mb: 2, color: '#6b7280', fontWeight: 500 }}>
+                    ✏️ Edite o conteúdo do e-mail abaixo. Você pode modificar qualquer texto:
+                  </Typography>
+                  <TextField
+                    multiline
+                    rows={12}
+                    fullWidth
+                    value={conteudoEditavel}
+                    onChange={(e) => setConteudoEditavel(e.target.value)}
+                    placeholder="Digite o conteúdo do e-mail aqui..."
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: '8px',
+                        backgroundColor: 'white',
+                        '& fieldset': {
+                          borderColor: '#d1d5db'
+                        },
+                        '&:hover fieldset': {
+                          borderColor: '#9ca3af'
+                        },
+                        '&.Mui-focused fieldset': {
+                          borderColor: '#3b82f6',
+                          borderWidth: '2px'
+                        }
+                      },
+                      '& .MuiInputBase-input': {
+                        fontSize: '14px',
+                        lineHeight: '1.6',
+                        fontFamily: 'system-ui, -apple-system, sans-serif'
+                      }
+                    }}
+                  />
+                  <Box sx={{ mt: 2, p: 2, backgroundColor: '#f8fafc', borderRadius: '8px' }}>
+                    <Typography variant="caption" sx={{ color: '#6b7280' }}>
+                      💡 <strong>Dica:</strong> O texto será inserido na seção "Descrição da Alteração" do e-mail. 
+                      A formatação (negrito, cores, etc.) será preservada automaticamente.
+                    </Typography>
+                  </Box>
+                </Box>
               ) : (
                 <Box
                   sx={{
@@ -994,7 +1149,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                       fontFamily: 'inherit !important'
                     }
                   }}
-                  dangerouslySetInnerHTML={{ __html: emailOutlook }}
+                  dangerouslySetInnerHTML={{ __html: modoEdicao === 'editar' ? reconstruirHTML(conteudoEditavel) : emailOutlook }}
                 />
               )}
             </Box>
