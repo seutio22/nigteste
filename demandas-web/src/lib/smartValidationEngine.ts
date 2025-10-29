@@ -244,6 +244,33 @@ export class SmartValidationEngine {
       return { isValid: true }
     }
 
+    // NOVO: Buscar por palavras-chave (qualquer palavra em comum)
+    const existsByKeywords = referenceData.find((item: any) => {
+      const itemName = normalizeString(String(item[refField.displayField] || ''))
+      const searchName = normalizeString(stringValue)
+      
+      // Dividir em palavras e verificar se alguma palavra está presente
+      const searchWords = searchName.split(' ').filter(word => word.length > 2) // Ignorar palavras muito pequenas
+      const itemWords = itemName.split(' ').filter(word => word.length > 2)
+      
+      const hasCommonWord = searchWords.some(searchWord => 
+        itemWords.some(itemWord => 
+          itemWord.includes(searchWord) || searchWord.includes(itemWord)
+        )
+      )
+      
+      if (hasCommonWord) {
+        console.log(`🔍 VALIDAÇÃO REFERÊNCIA: Correspondência por palavra-chave encontrada: "${item[refField.displayField]}"`)
+      }
+      
+      return hasCommonWord
+    })
+    
+    if (existsByKeywords) {
+      console.log(`✅ VALIDAÇÃO REFERÊNCIA: Encontrado por palavra-chave: "${existsByKeywords[refField.displayField]}"`)
+      return { isValid: true }
+    }
+
     // Se não encontrou, buscar sugestão similar
     console.log(`⚠️ VALIDAÇÃO REFERÊNCIA: Não encontrado, buscando similar...`)
     const suggestion = this.findSimilarReference(stringValue, referenceData, refField)
@@ -252,6 +279,18 @@ export class SmartValidationEngine {
       console.log(`💡 VALIDAÇÃO REFERÊNCIA: Sugestão encontrada: "${suggestion[refField.displayField]}"`)
     } else {
       console.log(`❌ VALIDAÇÃO REFERÊNCIA: Nenhuma sugestão similar encontrada`)
+    }
+    
+    // Para campos opcionais, ser mais tolerante
+    const isOptionalField = !this.config.requiredFields.includes(refField.field)
+    
+    if (isOptionalField) {
+      console.log(`⚠️ VALIDAÇÃO REFERÊNCIA: Campo opcional "${refField.field}" não encontrado, mas aceitando como válido`)
+      return { 
+        isValid: true,
+        message: `Referência não encontrada: ${value} (aceito como campo opcional)`,
+        suggestion: suggestion ? `Sugestão: ${suggestion[refField.displayField]}` : undefined
+      }
     }
     
     return {
