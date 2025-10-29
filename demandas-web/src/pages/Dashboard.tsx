@@ -232,37 +232,6 @@ export default function DashboardPage() {
     return { total, media }
   }, [reajustesFiltrados])
 
-  // Cards de estatísticas
-  const statsCards = [
-    {
-      title: 'Total de Demandas',
-      value: totalDemandas,
-      icon: TrendingUpIcon,
-      color: theme.palette.primary.main,
-      bgColor: alpha(theme.palette.primary.main, 0.1)
-    },
-    {
-      title: 'Validações Pendentes',
-      value: validacoesFiltradas.filter(v => v.status === 'Pendente').length,
-      icon: ScheduleIcon,
-      color: theme.palette.warning.main,
-      bgColor: alpha(theme.palette.warning.main, 0.1)
-    },
-    {
-      title: 'Reajustes Ativos',
-      value: reajustesFiltrados.filter(r => r.status === 'Ativo').length,
-      icon: WarningIcon,
-      color: theme.palette.error.main,
-      bgColor: alpha(theme.palette.error.main, 0.1)
-    },
-    {
-      title: 'Contatos Mailling',
-      value: totalMailling,
-      icon: MoneyIcon,
-      color: theme.palette.info.main,
-      bgColor: alpha(theme.palette.info.main, 0.1)
-    }
-  ]
 
   const limparFiltros = () => {
     setAreaId('')
@@ -403,48 +372,6 @@ export default function DashboardPage() {
         </Grid>
       </Paper>
 
-      {/* Cards de Estatísticas */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        {statsCards.map((card, index) => (
-          <Grid item xs={12} sm={6} md={3} key={index}>
-            <Card sx={{ 
-              borderRadius: 3, 
-              height: '100%',
-              transition: 'all 0.3s ease-in-out',
-              '&:hover': {
-                transform: 'translateY(-4px)',
-                boxShadow: theme.shadows[8]
-              }
-            }}>
-              <CardContent sx={{ p: 3 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                  <Box sx={{ 
-                    p: 2, 
-                    backgroundColor: card.bgColor, 
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}>
-                    <card.icon sx={{ fontSize: 24, color: card.color }} />
-                  </Box>
-                  <Chip 
-                    label={`${index + 1}/4`} 
-                    size="small" 
-                    sx={{ backgroundColor: alpha(theme.palette.grey[500], 0.1) }}
-                  />
-                </Box>
-                <Typography variant="h4" sx={{ fontWeight: 700, color: theme.palette.text.primary, mb: 1 }}>
-                  {card.value}
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
-                  {card.title}
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
 
       {/* Novos Indicadores de Lançamentos */}
       <Box sx={{ mb: 4 }}>
