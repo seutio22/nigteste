@@ -628,7 +628,7 @@ export default function AnalyticsPage() {
           contrato: r.contrato ?? 'N/A',
           // Formatar datas
           dataEntrega: r.dataEntrega ? new Date(r.dataEntrega).toLocaleString('pt-BR') : 'N/A',
-          dataCriacao: r.dataInicio ? new Date(r.dataInicio).toLocaleString('pt-BR') : 'N/A',
+          dataCriacao: r.dataInicio || r.dataCriacao ? new Date(r.dataInicio || r.dataCriacao).toLocaleString('pt-BR') : 'N/A',
           dataAtualizacao: r.dataAtualizacao ? new Date(r.dataAtualizacao).toLocaleString('pt-BR') : 'N/A'
         }))}
         moduleName="analytics"
