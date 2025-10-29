@@ -43,7 +43,7 @@ const columns: GridColDef[] = [
   { field: 'area', headerName: 'Área', width: 160 },
   { field: 'cliente', headerName: 'Cliente', width: 200 },
   { field: 'contrato', headerName: 'Contrato', width: 140 },
-  { field: 'dataEntrega', headerName: 'Data de Entrega', width: 140 },
+  { field: 'dataEntrega', headerName: 'Data de Entrega Programada', width: 140 },
   { field: 'dataCriacao', headerName: 'Data de Criação', width: 160 },
   { field: 'dataFinalizacao', headerName: 'Data de Finalização', width: 160 },
   { field: 'dataAtualizacao', headerName: 'Atualizado em', width: 160 },

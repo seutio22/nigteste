@@ -180,7 +180,7 @@ export default function AnalyticsNewPage() {
       console.error('  - Título:', form.titulo || 'VAZIO')
       console.error('  - Analista:', form.analista || 'VAZIO ⚠️')
       console.error('  - Data Início:', form.dataInicio || 'VAZIO')
-      console.error('  - Data Entrega:', form.dataEntrega || 'VAZIO')
+      console.error('  - Data Entrega Programada:', form.dataEntrega || 'VAZIO')
       alert('Preencha os campos obrigatórios. ATENÇÃO: O campo "Analista" está vazio!')
       return
     }
@@ -200,7 +200,7 @@ export default function AnalyticsNewPage() {
     }
 
     // Validação de datas: Data de Entrega não pode ser inferior à Data de Início
-    console.log('🔍 Validando Data de Entrega:', form.dataEntrega, 'vs Data de Início:', form.dataInicio)
+    console.log('🔍 Validando Data de Entrega Programada:', form.dataEntrega, 'vs Data de Início:', form.dataInicio)
     if (form.dataEntrega && form.dataInicio) {
       const dataEntrega = new Date(form.dataEntrega + 'T00:00:00')
       const dataInicio = new Date(form.dataInicio + 'T00:00:00')
@@ -212,7 +212,7 @@ export default function AnalyticsNewPage() {
         console.error('❌ AnalyticsNewPage: Data de Entrega não pode ser inferior à Data de Início')
         alert('⚠️ Data de Entrega não pode ser inferior à Data de Início!\n\n' +
               `Data de Início: ${form.dataInicio}\n` +
-              `Data de Entrega: ${form.dataEntrega}`)
+              `Data de Entrega Programada: ${form.dataEntrega}`)
         return
       }
     }
@@ -549,7 +549,7 @@ export default function AnalyticsNewPage() {
                 <TextField
                   fullWidth
                   type="date"
-                  label="Data de Entrega *"
+                  label="Data de Entrega Programada *"
                   value={form.dataEntrega}
                   onChange={(e) => setForm(prev => ({ ...prev, dataEntrega: e.target.value }))}
                   InputLabelProps={{ shrink: true }}
@@ -557,8 +557,8 @@ export default function AnalyticsNewPage() {
                   error={form.dataEntrega && form.dataInicio && new Date(form.dataEntrega + 'T00:00:00') < new Date(form.dataInicio + 'T00:00:00')}
                   helperText={
                     form.dataEntrega && form.dataInicio && new Date(form.dataEntrega + 'T00:00:00') < new Date(form.dataInicio + 'T00:00:00')
-                      ? '⚠️ Data de Entrega não pode ser inferior à Data de Início'
-                      : 'Data de Entrega não pode ser inferior à Data de Início'
+                      ? '⚠️ Data de Entrega Programada não pode ser inferior à Data de Início'
+                      : 'Data de Entrega Programada não pode ser inferior à Data de Início'
                   }
                 />
               </Stack>

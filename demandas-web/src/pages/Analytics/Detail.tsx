@@ -301,7 +301,7 @@ function EditInline({ report }: { report: any }) {
 
   async function applySave() {
     // Validação de datas: Data de Entrega não pode ser inferior à Data de Início
-    console.log('🔍 Validando Data de Entrega:', draft.dataEntrega, 'vs Data de Início:', draft.dataInicio)
+    console.log('🔍 Validando Data de Entrega Programada:', draft.dataEntrega, 'vs Data de Início:', draft.dataInicio)
     if (draft.dataEntrega && draft.dataInicio) {
       const dataEntregaStr = draft.dataEntrega.split('T')[0]
       const dataInicioStr = draft.dataInicio.split('T')[0]
@@ -315,7 +315,7 @@ function EditInline({ report }: { report: any }) {
         console.error('❌ Analytics: Data de Entrega não pode ser inferior à Data de Início')
         alert('⚠️ Data de Entrega não pode ser inferior à Data de Início!\n\n' +
               `Data de Início: ${dataInicioStr}\n` +
-              `Data de Entrega: ${dataEntregaStr}`)
+              `Data de Entrega Programada: ${dataEntregaStr}`)
         return
       }
     }
@@ -618,7 +618,7 @@ function EditInline({ report }: { report: any }) {
           )}
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Data de Entrega</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Data de Entrega Programada</label>
           <input
             type="date"
             value={draft.dataEntrega ? draft.dataEntrega.split('T')[0] : ''}
@@ -630,7 +630,7 @@ function EditInline({ report }: { report: any }) {
             }`}
           />
           {draft.dataEntrega && draft.dataInicio && new Date((draft.dataEntrega.split('T')[0]) + 'T00:00:00') < new Date((draft.dataInicio.split('T')[0]) + 'T00:00:00') && (
-            <p className="text-sm text-red-600 mt-1">⚠️ Data de Entrega não pode ser inferior à Data de Início</p>
+            <p className="text-sm text-red-600 mt-1">⚠️ Data de Entrega Programada não pode ser inferior à Data de Início</p>
           )}
         </div>
       </div>
