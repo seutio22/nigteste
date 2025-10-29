@@ -197,7 +197,7 @@ export default function DemandNewPage() {
     try {
       console.log('🔍 VALIDAÇÃO TICKET: Verificando se ticket existe:', ticket)
       
-      // Buscar no banco de dados via API
+      // Buscar no banco de dados via API - APENAS na página de demandas
       const baseUrl = 'https://nigteste-production.up.railway.app'
       const response = await fetch(`${baseUrl}/demandas?ticket=${encodeURIComponent(ticket)}`, {
         method: 'GET',
@@ -214,7 +214,9 @@ export default function DemandNewPage() {
           ticket,
           responseStatus: response.status,
           dataLength: Array.isArray(data) ? data.length : 'not array',
-          exists
+          exists,
+          endpoint: '/demandas',
+          note: 'Verificando APENAS na página de demandas'
         })
         
         return exists

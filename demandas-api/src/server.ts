@@ -1601,6 +1601,8 @@ function crud(entity: keyof PrismaClient) {
       const where: any = {}
       
       if (queryParams) {
+        console.log(`🔍 CRUD ${entity}: QueryParams recebidos:`, queryParams)
+        
         // Para cada parâmetro de query, adicionar ao where
         Object.keys(queryParams).forEach(key => {
           // Ignorar parâmetros especiais que não são filtros de campo
@@ -1608,14 +1610,20 @@ function crud(entity: keyof PrismaClient) {
             where[key] = queryParams[key]
           }
         })
+        
+        console.log(`🔍 CRUD ${entity}: Filtros aplicados:`, where)
       }
       
       // Se houver filtros, usar where; caso contrário, retornar todos
       if (Object.keys(where).length > 0) {
-        return await anyPrisma[entity].findMany({ where })
+        const result = await anyPrisma[entity].findMany({ where })
+        console.log(`🔍 CRUD ${entity}: Resultado com filtros:`, result.length, 'registros')
+        return result
       }
       
-      return await anyPrisma[entity].findMany()
+      const result = await anyPrisma[entity].findMany()
+      console.log(`🔍 CRUD ${entity}: Resultado sem filtros:`, result.length, 'registros')
+      return result
     },
     get: async (id: string) => {
       // Incluir relacionamentos para atendimentos
