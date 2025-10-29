@@ -59,7 +59,7 @@ export const PAGE_CONFIGS: IndicatorConfig[] = [
   // Páginas Principais (Primary)
   {
     page: 'demandas',
-    title: 'Demandas',
+    title: 'Cadastro',
     icon: 'Assignment',
     color: '#3b82f6',
     category: 'primary',
