@@ -166,7 +166,16 @@ export const useAdvancedIndicators = (
       page.items.forEach(item => {
         const analistaField = page.name === 'reajustes' ? 'responsavelAnalista' : 'analista'
         const analistaId = item[analistaField]
-        const analistaNome = item.analistaNome || analistaId || 'Sem analista'
+        
+        // Garantir que analistaNome seja sempre uma string
+        let analistaNome = 'Sem analista'
+        if (item.analistaNome) {
+          analistaNome = typeof item.analistaNome === 'string' ? item.analistaNome : 
+                        typeof item.analistaNome === 'object' && item.analistaNome.nome ? 
+                        item.analistaNome.nome : String(item.analistaNome)
+        } else if (analistaId) {
+          analistaNome = typeof analistaId === 'string' ? analistaId : String(analistaId)
+        }
 
         if (!analistasMap.has(analistaId)) {
           analistasMap.set(analistaId, {
