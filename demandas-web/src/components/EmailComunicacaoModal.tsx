@@ -715,7 +715,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
 
   const handleCopyOutlook = async () => {
     try {
-      const emailParaCopiar = modoEdicao === 'editar' ? gerarHTMLComBlocos() : emailOutlook
+      const emailParaCopiar = gerarHTMLComBlocos()
       await navigator.clipboard.writeText(emailParaCopiar)
       setCopiadoEmail(true)
       setTimeout(() => setCopiadoEmail(false), 2000)
@@ -725,9 +725,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
   }
 
   const handleSalvarAlteracoes = () => {
-    // Salvar as alterações do editor no emailOutlook
-    const emailAtualizado = gerarHTMLComBlocos()
-    setEmailOutlook(emailAtualizado)
+    // Forçar atualização do preview
     setPreviewAtualizado(prev => prev + 1)
     
     // Feedback visual
@@ -744,7 +742,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
       z-index: 9999;
       box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     `
-    feedback.textContent = '✅ Alterações salvas com sucesso!'
+    feedback.textContent = '✅ Preview atualizado com sucesso!'
     document.body.appendChild(feedback)
     
     setTimeout(() => {
@@ -755,7 +753,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
   const handleSalvarArquivo = async () => {
     try {
       setSalvandoArquivo(true)
-      const emailParaSalvar = modoEdicao === 'editar' ? gerarHTMLComBlocos() : emailOutlook
+      const emailParaSalvar = gerarHTMLComBlocos()
       
       // Criar nome do arquivo com timestamp e ticket
       const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-')
@@ -1492,7 +1490,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                   <Box sx={{ mt: 3, p: 2, backgroundColor: '#f0f9ff', borderRadius: '8px', border: '1px solid #0ea5e9' }}>
                     <Typography variant="caption" sx={{ color: '#0369a1', fontWeight: 500 }}>
                       💡 <strong>Dica:</strong> Os dados da manutenção são carregados automaticamente na primeira linha. 
-                      Use "Adicionar Linha" para incluir novos dados técnicos. Clique em "Salvar Alterações" para aplicar as mudanças no preview.
+                      Use "Adicionar Linha" para incluir novos dados técnicos. O preview é atualizado automaticamente em tempo real.
                     </Typography>
                   </Box>
                 </Box>
@@ -1504,7 +1502,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                       fontFamily: 'inherit !important'
                     }
                   }}
-                  dangerouslySetInnerHTML={{ __html: modoEdicao === 'editar' ? gerarHTMLComBlocos() : emailOutlook }}
+                  dangerouslySetInnerHTML={{ __html: gerarHTMLComBlocos() }}
                 />
               )}
             </Box>
