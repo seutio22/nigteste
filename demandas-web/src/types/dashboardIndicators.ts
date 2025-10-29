@@ -130,8 +130,8 @@ export const PAGE_CONFIGS: IndicatorConfig[] = [
     category: 'primary',
     fields: {
       total: 'status',
-      created: 'createdAt',
-      updated: 'updatedAt',
+      created: 'dataCriacao',
+      updated: 'dataAtualizacao',
       completed: 'status'
     }
   },
