@@ -209,11 +209,13 @@ export class SmartValidationEngine {
       return str.toLowerCase().trim()
         .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Remove acentos
         .replace(/\s+/g, ' ') // Normaliza espaços
+        .replace(/[^\w\s]/g, '') // Remove caracteres especiais
     }
     
     const existsByName = referenceData.find((item: any) => {
       const itemName = normalizeString(String(item[refField.displayField] || ''))
       const searchName = normalizeString(stringValue)
+      console.log(`🔍 VALIDAÇÃO REFERÊNCIA: Comparando "${itemName}" com "${searchName}"`)
       return itemName === searchName
     })
     
@@ -226,7 +228,15 @@ export class SmartValidationEngine {
     const existsByPartialMatch = referenceData.find((item: any) => {
       const itemName = normalizeString(String(item[refField.displayField] || ''))
       const searchName = normalizeString(stringValue)
-      return itemName.includes(searchName) || searchName.includes(itemName)
+      
+      // Verificar se um contém o outro (mais tolerante)
+      const containsMatch = itemName.includes(searchName) || searchName.includes(itemName)
+      
+      if (containsMatch) {
+        console.log(`🔍 VALIDAÇÃO REFERÊNCIA: Correspondência parcial encontrada: "${item[refField.displayField]}" contém "${stringValue}"`)
+      }
+      
+      return containsMatch
     })
     
     if (existsByPartialMatch) {
