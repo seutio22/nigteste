@@ -285,11 +285,7 @@ export default function ManutencaoDetailPage() {
               </div>
               <div>
                 <p className="text-sm text-gray-500">QTD Clientes Vinculados - EDGE</p>
-                <p className="font-medium">{d.qtdClientesVinculados || 0}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Usuários Empresa - MOVE</p>
-                <p className="font-medium">{d.usuariosEmpresa || 0}</p>
+                <p className="font-medium">{d.total || 0}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-500">Observações</p>
@@ -365,11 +361,11 @@ function EditInline({ d }: { d: any }) {
   )
 
   const changedKeys = ((): string[] => {
-    const keys = ['status', 'ticket', 'clienteId', 'contratoId', 'operadoraId', 'produtoId', 'sistemaId', 'areaId', 'tipoId', 'tipoServicoId', 'descricao', 'solicitante', 'dataInicio', 'dataFinal', 'qtdRetornos', 'qualidade', 'qtdClientesVinculados', 'usuariosEmpresa', 'observacoes'] as const
+    const keys = ['status', 'ticket', 'clienteId', 'contratoId', 'operadoraId', 'produtoId', 'sistemaId', 'areaId', 'tipoId', 'tipoServicoId', 'descricao', 'solicitante', 'dataInicio', 'dataFinal', 'qtdRetornos', 'qualidade', 'total', 'observacoes'] as const
     
     const changed = keys.filter((k) => {
-      const dValue = k === 'status' ? d.status : k === 'ticket' ? d.ticket : k === 'clienteId' ? d.clienteId : k === 'contratoId' ? d.contratoId : k === 'operadoraId' ? d.operadoraId : k === 'produtoId' ? d.produtoId : k === 'sistemaId' ? d.sistemaId : k === 'areaId' ? d.areaId : k === 'tipoId' ? d.tipoId : k === 'tipoServicoId' ? d.tipoServicoId : k === 'descricao' ? d.descricao : k === 'solicitante' ? d.solicitante : k === 'dataInicio' ? d.dataInicio : k === 'dataFinal' ? d.dataFinal : k === 'qtdRetornos' ? d.qtdRetornos : k === 'qualidade' ? d.qualidade : k === 'qtdClientesVinculados' ? d.qtdClientesVinculados : k === 'usuariosEmpresa' ? d.usuariosEmpresa : d.observacoes
-      const draftValue = k === 'status' ? draft.status : k === 'ticket' ? draft.ticket : k === 'clienteId' ? draft.clienteId : k === 'contratoId' ? draft.contratoId : k === 'operadoraId' ? draft.operadoraId : k === 'produtoId' ? draft.produtoId : k === 'sistemaId' ? draft.sistemaId : k === 'areaId' ? draft.areaId : k === 'tipoId' ? draft.tipoId : k === 'tipoServicoId' ? draft.tipoServicoId : k === 'descricao' ? draft.descricao : k === 'solicitante' ? draft.solicitante : k === 'dataInicio' ? draft.dataInicio : k === 'dataFinal' ? draft.dataFinal : k === 'qtdRetornos' ? draft.qtdRetornos : k === 'qualidade' ? draft.qualidade : k === 'qtdClientesVinculados' ? draft.qtdClientesVinculados : k === 'usuariosEmpresa' ? draft.usuariosEmpresa : draft.observacoes
+      const dValue = k === 'status' ? d.status : k === 'ticket' ? d.ticket : k === 'clienteId' ? d.clienteId : k === 'contratoId' ? d.contratoId : k === 'operadoraId' ? d.operadoraId : k === 'produtoId' ? d.produtoId : k === 'sistemaId' ? d.sistemaId : k === 'areaId' ? d.areaId : k === 'tipoId' ? d.tipoId : k === 'tipoServicoId' ? d.tipoServicoId : k === 'descricao' ? d.descricao : k === 'solicitante' ? d.solicitante : k === 'dataInicio' ? d.dataInicio : k === 'dataFinal' ? d.dataFinal : k === 'qtdRetornos' ? d.qtdRetornos : k === 'qualidade' ? d.qualidade : k === 'total' ? d.total : d.observacoes
+      const draftValue = k === 'status' ? draft.status : k === 'ticket' ? draft.ticket : k === 'clienteId' ? draft.clienteId : k === 'contratoId' ? draft.contratoId : k === 'operadoraId' ? draft.operadoraId : k === 'produtoId' ? draft.produtoId : k === 'sistemaId' ? draft.sistemaId : k === 'areaId' ? draft.areaId : k === 'tipoId' ? draft.tipoId : k === 'tipoServicoId' ? draft.tipoServicoId : k === 'descricao' ? draft.descricao : k === 'solicitante' ? draft.solicitante : k === 'dataInicio' ? draft.dataInicio : k === 'dataFinal' ? draft.dataFinal : k === 'qtdRetornos' ? draft.qtdRetornos : k === 'qualidade' ? draft.qualidade : k === 'total' ? draft.total : draft.observacoes
       
       const isChanged = String(dValue ?? '') !== String(draftValue ?? '')
       return isChanged
@@ -407,8 +403,7 @@ function EditInline({ d }: { d: any }) {
         observacoes: draft.observacoes || null,
         qualidade: draft.qualidade || null,
         qtdRetornos: draft.qtdRetornos || null,
-        qtdClientesVinculados: draft.qtdClientesVinculados || null,
-        usuariosEmpresa: draft.usuariosEmpresa || null,
+        total: draft.total || null,
         dataInicio: formatDateForAPI(draft.dataInicio),
         dataFinal: formatDateForAPI(draft.dataFinal),
         // Sempre incluir todos os campos de ID, mesmo que sejam vazios
@@ -762,26 +757,15 @@ function EditInline({ d }: { d: any }) {
         </div>
       </div>
 
-      {/* Décima linha - QTD Clientes Vinculados e Usuários Empresa */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Décima linha - Total */}
+      <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">QTD Clientes Vinculados - EDGE</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Total</label>
           <input
             type="number"
             min="0"
-            value={draft.qtdClientesVinculados || ''}
-            onChange={(e) => setDraft({ ...draft, qtdClientesVinculados: e.target.value ? parseInt(e.target.value) : undefined })}
-            placeholder="0"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Usuários Empresa - MOVE</label>
-          <input
-            type="number"
-            min="0"
-            value={draft.usuariosEmpresa || ''}
-            onChange={(e) => setDraft({ ...draft, usuariosEmpresa: e.target.value ? parseInt(e.target.value) : undefined })}
+            value={draft.total || ''}
+            onChange={(e) => setDraft({ ...draft, total: e.target.value ? parseInt(e.target.value) : undefined })}
             placeholder="0"
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />

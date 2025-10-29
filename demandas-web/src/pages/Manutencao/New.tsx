@@ -30,8 +30,7 @@ const schema = z.object({
   sistema: z.string().optional(),
   qtdRetornos: z.coerce.number().min(0).optional(),
   qualidade: z.string().optional(),
-  qtdClientesVinculados: z.coerce.number().min(0, 'Deve ser um número positivo').optional(),
-  usuariosEmpresa: z.coerce.number().min(0, 'Deve ser um número positivo').optional(),
+  total: z.coerce.number().min(0, 'Deve ser um número positivo').optional(),
   observacoes: z.string().optional(),
 })
 
@@ -73,8 +72,7 @@ export default function ManutencaoNewPage() {
       sistema: '',
       qtdRetornos: 0,
       qualidade: '',
-      qtdClientesVinculados: 0,
-      usuariosEmpresa: 0,
+      total: 0,
       observacoes: '',
     }
   })
@@ -262,8 +260,7 @@ export default function ManutencaoNewPage() {
         dataFinal: data.dataFinal ? new Date(data.dataFinal).toISOString() : null,
         qtdRetornos: data.qtdRetornos || null,
         qualidade: emptyToNull(data.qualidade),
-        qtdClientesVinculados: data.qtdClientesVinculados || null,
-        usuariosEmpresa: data.usuariosEmpresa || null,
+        total: data.total || null,
         observacoes: emptyToNull(data.observacoes),
       }
 
@@ -533,13 +530,8 @@ export default function ManutencaoNewPage() {
             )} />
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
-            <Controller name="qtdClientesVinculados" control={control} render={({ field }) => (
-              <TextField {...field} type="number" label="Qtde de clientes vinculados" fullWidth error={!!errors.qtdClientesVinculados} helperText={errors.qtdClientesVinculados?.message} />
-            )} />
-          </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <Controller name="usuariosEmpresa" control={control} render={({ field }) => (
-              <TextField {...field} type="number" label="Usuários da empresa" fullWidth error={!!errors.usuariosEmpresa} helperText={errors.usuariosEmpresa?.message} />
+            <Controller name="total" control={control} render={({ field }) => (
+              <TextField {...field} type="number" label="Total" fullWidth error={!!errors.total} helperText={errors.total?.message} />
             )} />
           </Grid>
           <Grid item xs={12}>

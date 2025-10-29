@@ -403,8 +403,8 @@ export const smartImporterConfigs: { [key: string]: SmartImporterConfig } = {
     optionalFields: [
       'descricao', 'analista', 'dataInicio', 'dataFinal', 'ticket', 'solicitante', 
       'area', 'cliente', 'contrato', 'operadora', 'produto', 'sistema',
-      'analiseQuantitativa', 'qtdRetornos', 'qualidade', 'qtdClientesVinculados', 
-      'usuariosEmpresa', 'observacoes'
+      'analiseQuantitativa', 'qtdRetornos', 'qualidade', 'total', 
+      'observacoes'
     ],
     // CORRIGIDO: Remover 'ticket' do duplicateCheckFields para permitir importação com tickets do Excel
     duplicateCheckFields: [],
@@ -444,15 +444,9 @@ export const smartImporterConfigs: { [key: string]: SmartImporterConfig } = {
         options: { min: 0 }
       },
       {
-        field: 'qtdClientesVinculados',
+        field: 'total',
         type: 'number',
-        message: 'Quantidade de clientes vinculados deve ser um número positivo',
-        options: { min: 0 }
-      },
-      {
-        field: 'usuariosEmpresa',
-        type: 'number',
-        message: 'Usuários da empresa deve ser um número positivo',
+        message: 'Total deve ser um número positivo',
         options: { min: 0 }
       },
       {
@@ -548,7 +542,7 @@ export const smartImporterConfigs: { [key: string]: SmartImporterConfig } = {
     optionalFields: [
       'descricao', 'analista', 'dataInicio', 'dataFinal', 
       'ticket', 'solicitante', 'area', 'operadora', 'produto', 'sistema',
-      'observacoes', 'qtdRetornos', 'qualidade', 'qtdClientesVinculados', 'usuariosEmpresa'
+      'observacoes', 'qtdRetornos', 'qualidade', 'total'
     ],
     duplicateCheckFields: [],
     validationRules: [
