@@ -34,14 +34,45 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
   const [blocoDescricao, setBlocoDescricao] = useState('Alteração realizada')
   const [blocoConclusao, setBlocoConclusao] = useState('O Edge e Move encontram-se atualizados. Solicitamos replicar esta informação com a sua equipe.')
   
-  // Estados para dados da tabela
-  const [blocoContrato, setBlocoContrato] = useState('')
-  const [blocoOperadora, setBlocoOperadora] = useState('')
-  const [blocoProduto, setBlocoProduto] = useState('')
-  const [blocoAtualizacao, setBlocoAtualizacao] = useState('')
-  const [blocoSubtipo, setBlocoSubtipo] = useState('')
-  const [blocoTipo, setBlocoTipo] = useState('')
+  // Estados para dados da tabela (múltiplas linhas)
+  const [linhasTabela, setLinhasTabela] = useState([
+    {
+      id: 1,
+      contrato: '',
+      operadora: '',
+      produto: '',
+      atualizacao: '',
+      subtipo: '',
+      tipo: ''
+    }
+  ])
   
+  // Funções para gerenciar linhas da tabela
+  const adicionarLinhaTabela = () => {
+    const novaId = Math.max(...linhasTabela.map(l => l.id)) + 1
+    setLinhasTabela([...linhasTabela, {
+      id: novaId,
+      contrato: '',
+      operadora: '',
+      produto: '',
+      atualizacao: '',
+      subtipo: '',
+      tipo: ''
+    }])
+  }
+
+  const removerLinhaTabela = (id: number) => {
+    if (linhasTabela.length > 1) {
+      setLinhasTabela(linhasTabela.filter(linha => linha.id !== id))
+    }
+  }
+
+  const atualizarLinhaTabela = (id: number, campo: string, valor: string) => {
+    setLinhasTabela(linhasTabela.map(linha => 
+      linha.id === id ? { ...linha, [campo]: valor } : linha
+    ))
+  }
+
   const md = useMasterDataStore()
   const maillingStore = useMaillingStore()
 
@@ -117,14 +148,16 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                         </tr>
                     </thead>
                     <tbody>
-                        <tr style="background: #f8f9fa;">
-                            <td style="padding: 15px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600; color: #2b6cb0; font-size: 15px;">${blocoContrato || contrato?.codigo || contrato?.numero || manutencao?.ticket || 'N/A'}</td>
-                            <td style="padding: 15px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 500; color: #2d3748;">${blocoOperadora || operadora?.nome || 'N/A'}</td>
-                            <td style="padding: 15px 12px; border-bottom: 1px solid #e2e8f0; background: #e6fffa; color: #234e52; font-weight: 500;">${blocoProduto || produto?.nome || 'N/A'}</td>
-                            <td style="padding: 15px 12px; border-bottom: 1px solid #e2e8f0; background: #fef5e7; color: #7c2d12; font-weight: 500;">${blocoAtualizacao || tipoServico?.nome || 'N/A'}</td>
-                            <td style="padding: 15px 12px; border-bottom: 1px solid #e2e8f0; background: #f3e8ff; color: #581c87; font-weight: 500;">${blocoSubtipo || tipo?.nome || 'N/A'}</td>
-                            <td style="padding: 15px 12px; border-bottom: 1px solid #e2e8f0; background: #ecfdf5; color: #064e3b; font-weight: 500;">${blocoTipo || sistema?.nome || 'N/A'}</td>
+                        ${linhasTabela.map((linha, index) => `
+                        <tr style="background: ${index % 2 === 0 ? '#f8f9fa' : '#ffffff'};">
+                            <td style="padding: 15px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600; color: #2b6cb0; font-size: 15px;">${linha.contrato || contrato?.codigo || contrato?.numero || manutencao?.ticket || 'N/A'}</td>
+                            <td style="padding: 15px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 500; color: #2d3748;">${linha.operadora || operadora?.nome || 'N/A'}</td>
+                            <td style="padding: 15px 12px; border-bottom: 1px solid #e2e8f0; background: #e6fffa; color: #234e52; font-weight: 500;">${linha.produto || produto?.nome || 'N/A'}</td>
+                            <td style="padding: 15px 12px; border-bottom: 1px solid #e2e8f0; background: #fef5e7; color: #7c2d12; font-weight: 500;">${linha.atualizacao || tipoServico?.nome || 'N/A'}</td>
+                            <td style="padding: 15px 12px; border-bottom: 1px solid #e2e8f0; background: #f3e8ff; color: #581c87; font-weight: 500;">${linha.subtipo || tipo?.nome || 'N/A'}</td>
+                            <td style="padding: 15px 12px; border-bottom: 1px solid #e2e8f0; background: #ecfdf5; color: #064e3b; font-weight: 500;">${linha.tipo || sistema?.nome || 'N/A'}</td>
                         </tr>
+                        `).join('')}
                     </tbody>
                 </table>
             </div>
@@ -163,10 +196,31 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
 </html>`
   }
 
-  // Carregar dados do Mailling quando o modal abrir
+  // Carregar dados do Mailling e inicializar tabela quando o modal abrir
   useEffect(() => {
     if (open) {
       console.log('🔄 Modal aberto, carregando dados do mailling...')
+      
+      // Carregar dados existentes na primeira linha da tabela
+      const cliente = md.clientes.find(c => c.id === manutencao?.clienteId)
+      const operadora = md.operadoras.find(o => o.id === manutencao?.operadoraId)
+      const produto = md.produtos.find(p => p.id === manutencao?.produtoId)
+      const sistema = md.sistemas.find(s => s.id === manutencao?.sistemaId)
+      const tipoServico = md.tiposCadastro.find(t => t.id === manutencao?.tipoServicoId)
+      const tipo = md.padrao.find(t => t.id === manutencao?.tipoId)
+      const contrato = manutencao?.contratoId ? 
+        md.contratos.find(c => c.id === manutencao.contratoId) : null
+
+      // Atualizar primeira linha com dados existentes
+      setLinhasTabela([{
+        id: 1,
+        contrato: contrato?.codigo || contrato?.numero || manutencao?.ticket || '',
+        operadora: operadora?.nome || '',
+        produto: produto?.nome || '',
+        atualizacao: tipoServico?.nome || '',
+        subtipo: tipo?.nome || '',
+        tipo: sistema?.nome || ''
+      }])
       console.log('📊 Contatos atuais no store:', maillingStore.contacts.length)
       console.log('📊 Contatos no localStorage:', localStorage.getItem('mailling-v1') ? JSON.parse(localStorage.getItem('mailling-v1')!).length : 0)
       
@@ -1126,143 +1180,184 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
 
                   {/* Blocos da Tabela */}
                   <Box sx={{ mb: 3, p: 2, backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                    <Typography variant="subtitle1" sx={{ mb: 2, color: '#1e293b', fontWeight: 600 }}>
-                      📊 Dados da Tabela Técnica
-                    </Typography>
-                    
-                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-                      {/* Contrato */}
-                      <Box>
-                        <Typography variant="subtitle2" sx={{ mb: 1, color: '#374151', fontWeight: 600 }}>
-                          📄 Contrato
-                        </Typography>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          value={blocoContrato}
-                          onChange={(e) => setBlocoContrato(e.target.value)}
-                          placeholder="Código/Número do contrato"
-                          sx={{
-                            '& .MuiOutlinedInput-root': {
-                              borderRadius: '6px',
-                              '& fieldset': { borderColor: '#d1d5db' },
-                              '&:hover fieldset': { borderColor: '#9ca3af' },
-                              '&.Mui-focused fieldset': { borderColor: '#3b82f6', borderWidth: '2px' }
-                            }
-                          }}
-                        />
-                      </Box>
-
-                      {/* Operadora */}
-                      <Box>
-                        <Typography variant="subtitle2" sx={{ mb: 1, color: '#374151', fontWeight: 600 }}>
-                          🏢 Operadora
-                        </Typography>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          value={blocoOperadora}
-                          onChange={(e) => setBlocoOperadora(e.target.value)}
-                          placeholder="Nome da operadora"
-                          sx={{
-                            '& .MuiOutlinedInput-root': {
-                              borderRadius: '6px',
-                              '& fieldset': { borderColor: '#d1d5db' },
-                              '&:hover fieldset': { borderColor: '#9ca3af' },
-                              '&.Mui-focused fieldset': { borderColor: '#3b82f6', borderWidth: '2px' }
-                            }
-                          }}
-                        />
-                      </Box>
-
-                      {/* Produto */}
-                      <Box>
-                        <Typography variant="subtitle2" sx={{ mb: 1, color: '#374151', fontWeight: 600 }}>
-                          📦 Produto
-                        </Typography>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          value={blocoProduto}
-                          onChange={(e) => setBlocoProduto(e.target.value)}
-                          placeholder="Nome do produto"
-                          sx={{
-                            '& .MuiOutlinedInput-root': {
-                              borderRadius: '6px',
-                              '& fieldset': { borderColor: '#d1d5db' },
-                              '&:hover fieldset': { borderColor: '#9ca3af' },
-                              '&.Mui-focused fieldset': { borderColor: '#3b82f6', borderWidth: '2px' }
-                            }
-                          }}
-                        />
-                      </Box>
-
-                      {/* Atualização */}
-                      <Box>
-                        <Typography variant="subtitle2" sx={{ mb: 1, color: '#374151', fontWeight: 600 }}>
-                          🔄 Atualização
-                        </Typography>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          value={blocoAtualizacao}
-                          onChange={(e) => setBlocoAtualizacao(e.target.value)}
-                          placeholder="Tipo de atualização"
-                          sx={{
-                            '& .MuiOutlinedInput-root': {
-                              borderRadius: '6px',
-                              '& fieldset': { borderColor: '#d1d5db' },
-                              '&:hover fieldset': { borderColor: '#9ca3af' },
-                              '&.Mui-focused fieldset': { borderColor: '#3b82f6', borderWidth: '2px' }
-                            }
-                          }}
-                        />
-                      </Box>
-
-                      {/* Subtipo */}
-                      <Box>
-                        <Typography variant="subtitle2" sx={{ mb: 1, color: '#374151', fontWeight: 600 }}>
-                          🏷️ Subtipo
-                        </Typography>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          value={blocoSubtipo}
-                          onChange={(e) => setBlocoSubtipo(e.target.value)}
-                          placeholder="Subtipo da alteração"
-                          sx={{
-                            '& .MuiOutlinedInput-root': {
-                              borderRadius: '6px',
-                              '& fieldset': { borderColor: '#d1d5db' },
-                              '&:hover fieldset': { borderColor: '#9ca3af' },
-                              '&.Mui-focused fieldset': { borderColor: '#3b82f6', borderWidth: '2px' }
-                            }
-                          }}
-                        />
-                      </Box>
-
-                      {/* Tipo */}
-                      <Box>
-                        <Typography variant="subtitle2" sx={{ mb: 1, color: '#374151', fontWeight: 600 }}>
-                          ⚙️ Tipo
-                        </Typography>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          value={blocoTipo}
-                          onChange={(e) => setBlocoTipo(e.target.value)}
-                          placeholder="Tipo do sistema"
-                          sx={{
-                            '& .MuiOutlinedInput-root': {
-                              borderRadius: '6px',
-                              '& fieldset': { borderColor: '#d1d5db' },
-                              '&:hover fieldset': { borderColor: '#9ca3af' },
-                              '&.Mui-focused fieldset': { borderColor: '#3b82f6', borderWidth: '2px' }
-                            }
-                          }}
-                        />
-                      </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                      <Typography variant="subtitle1" sx={{ color: '#1e293b', fontWeight: 600 }}>
+                        📊 Dados da Tabela Técnica
+                      </Typography>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        onClick={adicionarLinhaTabela}
+                        startIcon={<span>➕</span>}
+                        sx={{
+                          borderRadius: '6px',
+                          textTransform: 'none',
+                          fontSize: '12px',
+                          fontWeight: 500
+                        }}
+                      >
+                        Adicionar Linha
+                      </Button>
                     </Box>
+                    
+                    {linhasTabela.map((linha, index) => (
+                      <Box key={linha.id} sx={{ mb: 2, p: 2, backgroundColor: 'white', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                          <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 500 }}>
+                            Linha {index + 1}
+                          </Typography>
+                          {linhasTabela.length > 1 && (
+                            <Button
+                              variant="text"
+                              size="small"
+                              onClick={() => removerLinhaTabela(linha.id)}
+                              sx={{
+                                minWidth: 'auto',
+                                p: 0.5,
+                                color: '#ef4444',
+                                '&:hover': { backgroundColor: '#fef2f2' }
+                              }}
+                            >
+                              🗑️
+                            </Button>
+                          )}
+                        </Box>
+                        
+                        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                          {/* Contrato */}
+                          <Box>
+                            <Typography variant="subtitle2" sx={{ mb: 1, color: '#374151', fontWeight: 600 }}>
+                              📄 Contrato
+                            </Typography>
+                            <TextField
+                              fullWidth
+                              size="small"
+                              value={linha.contrato}
+                              onChange={(e) => atualizarLinhaTabela(linha.id, 'contrato', e.target.value)}
+                              placeholder="Código/Número do contrato"
+                              sx={{
+                                '& .MuiOutlinedInput-root': {
+                                  borderRadius: '6px',
+                                  '& fieldset': { borderColor: '#d1d5db' },
+                                  '&:hover fieldset': { borderColor: '#9ca3af' },
+                                  '&.Mui-focused fieldset': { borderColor: '#3b82f6', borderWidth: '2px' }
+                                }
+                              }}
+                            />
+                          </Box>
+
+                          {/* Operadora */}
+                          <Box>
+                            <Typography variant="subtitle2" sx={{ mb: 1, color: '#374151', fontWeight: 600 }}>
+                              🏢 Operadora
+                            </Typography>
+                            <TextField
+                              fullWidth
+                              size="small"
+                              value={linha.operadora}
+                              onChange={(e) => atualizarLinhaTabela(linha.id, 'operadora', e.target.value)}
+                              placeholder="Nome da operadora"
+                              sx={{
+                                '& .MuiOutlinedInput-root': {
+                                  borderRadius: '6px',
+                                  '& fieldset': { borderColor: '#d1d5db' },
+                                  '&:hover fieldset': { borderColor: '#9ca3af' },
+                                  '&.Mui-focused fieldset': { borderColor: '#3b82f6', borderWidth: '2px' }
+                                }
+                              }}
+                            />
+                          </Box>
+
+                          {/* Produto */}
+                          <Box>
+                            <Typography variant="subtitle2" sx={{ mb: 1, color: '#374151', fontWeight: 600 }}>
+                              📦 Produto
+                            </Typography>
+                            <TextField
+                              fullWidth
+                              size="small"
+                              value={linha.produto}
+                              onChange={(e) => atualizarLinhaTabela(linha.id, 'produto', e.target.value)}
+                              placeholder="Nome do produto"
+                              sx={{
+                                '& .MuiOutlinedInput-root': {
+                                  borderRadius: '6px',
+                                  '& fieldset': { borderColor: '#d1d5db' },
+                                  '&:hover fieldset': { borderColor: '#9ca3af' },
+                                  '&.Mui-focused fieldset': { borderColor: '#3b82f6', borderWidth: '2px' }
+                                }
+                              }}
+                            />
+                          </Box>
+
+                          {/* Atualização */}
+                          <Box>
+                            <Typography variant="subtitle2" sx={{ mb: 1, color: '#374151', fontWeight: 600 }}>
+                              🔄 Atualização
+                            </Typography>
+                            <TextField
+                              fullWidth
+                              size="small"
+                              value={linha.atualizacao}
+                              onChange={(e) => atualizarLinhaTabela(linha.id, 'atualizacao', e.target.value)}
+                              placeholder="Tipo de atualização"
+                              sx={{
+                                '& .MuiOutlinedInput-root': {
+                                  borderRadius: '6px',
+                                  '& fieldset': { borderColor: '#d1d5db' },
+                                  '&:hover fieldset': { borderColor: '#9ca3af' },
+                                  '&.Mui-focused fieldset': { borderColor: '#3b82f6', borderWidth: '2px' }
+                                }
+                              }}
+                            />
+                          </Box>
+
+                          {/* Subtipo */}
+                          <Box>
+                            <Typography variant="subtitle2" sx={{ mb: 1, color: '#374151', fontWeight: 600 }}>
+                              🏷️ Subtipo
+                            </Typography>
+                            <TextField
+                              fullWidth
+                              size="small"
+                              value={linha.subtipo}
+                              onChange={(e) => atualizarLinhaTabela(linha.id, 'subtipo', e.target.value)}
+                              placeholder="Subtipo da alteração"
+                              sx={{
+                                '& .MuiOutlinedInput-root': {
+                                  borderRadius: '6px',
+                                  '& fieldset': { borderColor: '#d1d5db' },
+                                  '&:hover fieldset': { borderColor: '#9ca3af' },
+                                  '&.Mui-focused fieldset': { borderColor: '#3b82f6', borderWidth: '2px' }
+                                }
+                              }}
+                            />
+                          </Box>
+
+                          {/* Tipo */}
+                          <Box>
+                            <Typography variant="subtitle2" sx={{ mb: 1, color: '#374151', fontWeight: 600 }}>
+                              ⚙️ Tipo
+                            </Typography>
+                            <TextField
+                              fullWidth
+                              size="small"
+                              value={linha.tipo}
+                              onChange={(e) => atualizarLinhaTabela(linha.id, 'tipo', e.target.value)}
+                              placeholder="Tipo do sistema"
+                              sx={{
+                                '& .MuiOutlinedInput-root': {
+                                  borderRadius: '6px',
+                                  '& fieldset': { borderColor: '#d1d5db' },
+                                  '&:hover fieldset': { borderColor: '#9ca3af' },
+                                  '&.Mui-focused fieldset': { borderColor: '#3b82f6', borderWidth: '2px' }
+                                }
+                              }}
+                            />
+                          </Box>
+                        </Box>
+                      </Box>
+                    ))}
                   </Box>
 
                   {/* Bloco Descrição */}
@@ -1291,8 +1386,8 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
 
                   <Box sx={{ mt: 3, p: 2, backgroundColor: '#f0f9ff', borderRadius: '8px', border: '1px solid #0ea5e9' }}>
                     <Typography variant="caption" sx={{ color: '#0369a1', fontWeight: 500 }}>
-                      💡 <strong>Dica:</strong> Edite apenas os dados da tabela técnica e a descrição da alteração. 
-                      O preview é atualizado em tempo real conforme você edita.
+                      💡 <strong>Dica:</strong> Os dados da manutenção são carregados automaticamente na primeira linha. 
+                      Use "Adicionar Linha" para incluir novos dados técnicos. O preview é atualizado em tempo real.
                     </Typography>
                   </Box>
                 </Box>
