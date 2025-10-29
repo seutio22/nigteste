@@ -3742,6 +3742,21 @@ app.get('/monitoring/test', async (req: any, reply: any) => {
   }
 })
 
+// Rota de teste para histórico de exclusões
+app.get('/deletion-history/test', async (req: any, reply: any) => {
+  try {
+    console.log('🔍 Teste de rota de histórico de exclusões...')
+    return reply.send({ 
+      message: 'Rota de histórico funcionando!', 
+      timestamp: new Date().toISOString(),
+      version: '2.4.18'
+    })
+  } catch (error) {
+    console.error('❌ Erro no teste de histórico:', error)
+    return reply.status(500).send({ message: 'Erro interno do servidor' })
+  }
+})
+
 
 // Rotas do Kanban removidas - Usando rotas organizadas em demandas-api/src/routes/kanban.ts
 

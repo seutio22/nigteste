@@ -1,7 +1,7 @@
 {
   "name": "demandas-api-novo",
-  "version": "2.4.18",
-  "description": "Backend API - 2.4.18 - Implementação Soft Delete para Histórico de Exclusões",
+  "version": "2.4.19",
+  "description": "Backend API - 2.4.19 - Adicionar endpoint de teste para histórico",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
