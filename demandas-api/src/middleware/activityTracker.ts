@@ -87,6 +87,16 @@ export async function trackUserActivity(request: AuthenticatedRequest, reply: Fa
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
+    // Buscar dados existentes para calcular incrementos corretos
+    const existingMonitoring = await prisma.userMonitoring.findUnique({
+      where: {
+        userId_date: {
+          userId: user.id,
+          date: today
+        }
+      }
+    })
+
     await prisma.userMonitoring.upsert({
       where: {
         userId_date: {
@@ -96,21 +106,24 @@ export async function trackUserActivity(request: AuthenticatedRequest, reply: Fa
       },
       update: {
         lastAccess: now,
-        isOnline: true,
+        isOnline: action !== 'logout', // Online exceto quando faz logout
         pageViewCount: action === 'page_view' ? { increment: 1 } : undefined,
         apiCallCount: action === 'api_call' ? { increment: 1 } : undefined,
         loginCount: action === 'login' ? { increment: 1 } : undefined,
-        logoutCount: action === 'logout' ? { increment: 1 } : undefined
+        logoutCount: action === 'logout' ? { increment: 1 } : undefined,
+        updatedAt: now
       },
       create: {
         userId: user.id,
         date: today,
         lastAccess: now,
-        isOnline: true,
+        isOnline: action !== 'logout',
         pageViewCount: action === 'page_view' ? 1 : 0,
         apiCallCount: action === 'api_call' ? 1 : 0,
         loginCount: action === 'login' ? 1 : 0,
-        logoutCount: action === 'logout' ? 1 : 0
+        logoutCount: action === 'logout' ? 1 : 0,
+        createdAt: now,
+        updatedAt: now
       }
     })
 
@@ -191,6 +204,7 @@ export async function trackSessionEnd(request: AuthenticatedRequest, reply: Fast
         // Atualizar UserMonitoring com tempo de sessão
         const today = new Date()
         today.setHours(0, 0, 0, 0)
+        const sessionDurationMinutes = Math.floor(duration / 60)
 
         await prisma.userMonitoring.upsert({
           where: {
@@ -201,16 +215,27 @@ export async function trackSessionEnd(request: AuthenticatedRequest, reply: Fast
           },
           update: {
             isOnline: false,
-            totalTimeToday: { increment: Math.floor(duration / 60) }, // Adicionar duração em minutos
-            sessionCount: { increment: 1 }
+            totalTimeToday: { increment: sessionDurationMinutes }, // Adicionar duração em minutos
+            totalTimeThisWeek: { increment: sessionDurationMinutes },
+            totalTimeThisMonth: { increment: sessionDurationMinutes },
+            totalTimeThisQuarter: { increment: sessionDurationMinutes },
+            sessionCount: { increment: 1 },
+            logoutCount: { increment: 1 },
+            updatedAt: new Date()
           },
           create: {
             userId: user.id,
             date: today,
             lastAccess: new Date(),
             isOnline: false,
-            totalTimeToday: Math.floor(duration / 60),
-            sessionCount: 1
+            totalTimeToday: sessionDurationMinutes,
+            totalTimeThisWeek: sessionDurationMinutes,
+            totalTimeThisMonth: sessionDurationMinutes,
+            totalTimeThisQuarter: sessionDurationMinutes,
+            sessionCount: 1,
+            logoutCount: 1,
+            createdAt: new Date(),
+            updatedAt: new Date()
           }
         })
 

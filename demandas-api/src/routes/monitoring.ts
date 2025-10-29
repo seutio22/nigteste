@@ -94,6 +94,21 @@ export default async function monitoringRoutes(fastify: FastifyInstance) {
           (now.getTime() - lastActivity.createdAt.getTime()) < 5 * 60 * 1000 : // 5 minutos
           false
 
+        // Calcular tempo online baseado nas sessões ativas
+        let calculatedTimeToday = todayMonitoring?.totalTimeToday || 0
+        if (activeSession?.isActive && activeSession.loginTime) {
+          const sessionDuration = Math.floor((now.getTime() - activeSession.loginTime.getTime()) / (1000 * 60)) // em minutos
+          calculatedTimeToday += sessionDuration
+        }
+
+        // Calcular contagem de sessões baseada nas atividades de login
+        const loginActivities = user.userActivities.filter(activity => activity.action === 'login')
+        const calculatedSessionCount = Math.max(todayMonitoring?.sessionCount || 0, loginActivities.length)
+
+        // Calcular tempo médio por sessão
+        const averageSessionTime = calculatedSessionCount > 0 ? 
+          Math.floor(calculatedTimeToday / calculatedSessionCount) : 0
+
         return {
           id: user.id,
           userId: user.id,
@@ -102,18 +117,18 @@ export default async function monitoringRoutes(fastify: FastifyInstance) {
           userRole: user.role,
           lastAccess: lastActivity?.createdAt || user.lastLogin || user.createdAt,
           isOnline: isRecentlyActive && activeSession?.isActive,
-          totalTimeToday: todayMonitoring?.totalTimeToday || 0,
-          totalTimeThisWeek: todayMonitoring?.totalTimeThisWeek || 0,
-          totalTimeThisMonth: todayMonitoring?.totalTimeThisMonth || 0,
-          totalTimeThisQuarter: todayMonitoring?.totalTimeThisQuarter || 0,
-          sessionCount: todayMonitoring?.sessionCount || 0,
-          averageSessionTime: todayMonitoring?.averageSessionTime || 0,
+          totalTimeToday: calculatedTimeToday,
+          totalTimeThisWeek: todayMonitoring?.totalTimeThisWeek || calculatedTimeToday,
+          totalTimeThisMonth: todayMonitoring?.totalTimeThisMonth || calculatedTimeToday,
+          totalTimeThisQuarter: todayMonitoring?.totalTimeThisQuarter || calculatedTimeToday,
+          sessionCount: calculatedSessionCount,
+          averageSessionTime: averageSessionTime,
           lastActivity: lastActivity?.createdAt || user.lastLogin || user.createdAt,
-          loginCount: todayMonitoring?.loginCount || 0,
+          loginCount: todayMonitoring?.loginCount || loginActivities.length,
           logoutCount: todayMonitoring?.logoutCount || 0,
-          pageViewCount: todayMonitoring?.pageViewCount || 0,
-          apiCallCount: todayMonitoring?.apiCallCount || 0,
-          hasRealActivity: !!user.lastLogin
+          pageViewCount: todayMonitoring?.pageViewCount || user.userActivities.filter(a => a.action === 'page_view').length,
+          apiCallCount: todayMonitoring?.apiCallCount || user.userActivities.filter(a => a.action === 'api_call').length,
+          hasRealActivity: !!user.lastLogin || user.userActivities.length > 0
         }
       })
 
