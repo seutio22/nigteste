@@ -66,7 +66,8 @@ const templates: Record<string, TemplateInfo> = {
       'Análise quantitativa',
       'Qtde de retornos',
       'Qualidade (0-3 com descrições)',
-      'Total',
+      'QTD CLIENTES VINCULADOS - EDGE',
+      'USUÁRIOS EMPRESA - MOVE',
       'Observações'
     ],
     downloadUrl: '/templates/cadastros-template.xlsx'
@@ -241,7 +242,8 @@ export function UploadModal({ open, onClose, title, entityType, onUpload }: Uplo
           analiseQuantitativa: 5,
           qtdRetornos: 2,
           qualidade: '2',
-          total: 10,
+          qtdClientesVinculados: 10,
+          usuariosEmpresa: 25,
           observacoes: 'Observações'
         }
       ]
