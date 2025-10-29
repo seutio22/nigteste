@@ -1113,7 +1113,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
               sx={{ 
                 p: 0,
                 background: 'white',
-                maxHeight: modoEdicao === 'editar' ? '900px' : '400px',
+                maxHeight: modoEdicao === 'editar' ? '800px' : '400px',
                 overflow: 'auto'
               }}
             >
@@ -1123,48 +1123,6 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                     ✏️ Editor de Blocos - Edite cada seção do e-mail
                   </Typography>
                   
-                  {/* Bloco Cabeçalho */}
-                  <Box sx={{ mb: 3 }}>
-                    <Typography variant="subtitle2" sx={{ mb: 1, color: '#374151', fontWeight: 600 }}>
-                      📧 Cabeçalho Principal
-                    </Typography>
-                    <TextField
-                      fullWidth
-                      value={blocoCabecalho}
-                      onChange={(e) => setBlocoCabecalho(e.target.value)}
-                      placeholder="Ex: 🔔 Alteração Cadastral"
-                      sx={{
-                        '& .MuiOutlinedInput-root': {
-                          borderRadius: '8px',
-                          '& fieldset': { borderColor: '#d1d5db' },
-                          '&:hover fieldset': { borderColor: '#9ca3af' },
-                          '&.Mui-focused fieldset': { borderColor: '#3b82f6', borderWidth: '2px' }
-                        }
-                      }}
-                    />
-                  </Box>
-
-                  {/* Bloco Subtítulo */}
-                  <Box sx={{ mb: 3 }}>
-                    <Typography variant="subtitle2" sx={{ mb: 1, color: '#374151', fontWeight: 600 }}>
-                      📝 Subtítulo
-                    </Typography>
-                    <TextField
-                      fullWidth
-                      value={blocoSubtitulo}
-                      onChange={(e) => setBlocoSubtitulo(e.target.value)}
-                      placeholder="Ex: Notificação Automática - Sistema NIG"
-                      sx={{
-                        '& .MuiOutlinedInput-root': {
-                          borderRadius: '8px',
-                          '& fieldset': { borderColor: '#d1d5db' },
-                          '&:hover fieldset': { borderColor: '#9ca3af' },
-                          '&.Mui-focused fieldset': { borderColor: '#3b82f6', borderWidth: '2px' }
-                        }
-                      }}
-                    />
-                  </Box>
-
                   {/* Bloco Saudação */}
                   <Box sx={{ mb: 3 }}>
                     <Typography variant="subtitle2" sx={{ mb: 1, color: '#374151', fontWeight: 600 }}>
@@ -1175,29 +1133,6 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                       value={blocoSaudacao}
                       onChange={(e) => setBlocoSaudacao(e.target.value)}
                       placeholder="Ex: Prezados,"
-                      sx={{
-                        '& .MuiOutlinedInput-root': {
-                          borderRadius: '8px',
-                          '& fieldset': { borderColor: '#d1d5db' },
-                          '&:hover fieldset': { borderColor: '#9ca3af' },
-                          '&.Mui-focused fieldset': { borderColor: '#3b82f6', borderWidth: '2px' }
-                        }
-                      }}
-                    />
-                  </Box>
-
-                  {/* Bloco Informação */}
-                  <Box sx={{ mb: 3 }}>
-                    <Typography variant="subtitle2" sx={{ mb: 1, color: '#374151', fontWeight: 600 }}>
-                      📋 Informação Principal
-                    </Typography>
-                    <TextField
-                      fullWidth
-                      multiline
-                      rows={2}
-                      value={blocoInformacao}
-                      onChange={(e) => setBlocoInformacao(e.target.value)}
-                      placeholder="Ex: Informamos que o cliente sofreu alteração, sendo:"
                       sx={{
                         '& .MuiOutlinedInput-root': {
                           borderRadius: '8px',
@@ -1398,7 +1333,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
 
                   <Box sx={{ mt: 3, p: 2, backgroundColor: '#f0f9ff', borderRadius: '8px', border: '1px solid #0ea5e9' }}>
                     <Typography variant="caption" sx={{ color: '#0369a1', fontWeight: 500 }}>
-                      💡 <strong>Dica:</strong> Cada bloco é editável independentemente. Os dados da tabela técnica podem ser personalizados nos campos acima. 
+                      💡 <strong>Dica:</strong> Edite apenas os blocos essenciais: Saudação, Dados da Tabela, Descrição e Conclusão. 
                       O preview é atualizado em tempo real conforme você edita.
                     </Typography>
                   </Box>
