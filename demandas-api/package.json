@@ -1,7 +1,7 @@
 {
   "name": "demandas-api-novo",
-  "version": "2.4.20",
-  "description": "Backend API - 2.4.20 - Corrigir registro de rotas de histórico",
+  "version": "2.4.22",
+  "description": "Backend API - 2.4.22 - Corrigir filtros de ticket para atendimentos",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",

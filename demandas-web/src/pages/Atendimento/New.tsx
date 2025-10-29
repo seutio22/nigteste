@@ -132,7 +132,7 @@ export default function AtendimentoNewPage() {
     try {
       console.log('🔍 VALIDAÇÃO TICKET ATENDIMENTO: Verificando se ticket existe:', ticket)
       
-      // Buscar no banco de dados via API
+      // Buscar no banco de dados via API - usando a mesma abordagem das outras páginas
       const baseUrl = 'https://nigteste-production.up.railway.app'
       const response = await fetch(`${baseUrl}/atendimentos?ticket=${encodeURIComponent(ticket)}`, {
         method: 'GET',
@@ -149,7 +149,8 @@ export default function AtendimentoNewPage() {
           ticket,
           responseStatus: response.status,
           dataLength: Array.isArray(data) ? data.length : 'not array',
-          exists
+          exists,
+          endpoint: '/atendimentos'
         })
         
         return exists

@@ -2495,6 +2495,46 @@ const resources = {
   },
   atendimentos: {
     ...crud('atendimento'),
+    list: async (queryParams?: any) => {
+      const anyPrisma = prisma as any;
+      
+      // Aplicar filtros genéricos se fornecidos nos queryParams
+      const where: any = {}
+      
+      if (queryParams) {
+        console.log(`🔍 ATENDIMENTOS: QueryParams recebidos:`, queryParams)
+        
+        // Para cada parâmetro de query, adicionar ao where
+        Object.keys(queryParams).forEach(key => {
+          // Ignorar parâmetros especiais que não são filtros de campo
+          if (key !== 'entityId' && key !== 'entityType') {
+            where[key] = queryParams[key]
+          }
+        })
+        
+        console.log(`🔍 ATENDIMENTOS: Filtros aplicados:`, where)
+      }
+      
+      // Buscar atendimentos com filtros aplicados
+      const atendimentos = await anyPrisma.atendimento.findMany({
+        where,
+        include: {
+          analista: true,
+          area: true,
+          cliente: true,
+          contrato: true,
+          operadora: true,
+          produto: true,
+          sistema: true,
+          tipo: true,
+          tipoServico: true
+        },
+        orderBy: { createdAt: 'desc' }
+      })
+      
+      console.log(`🔍 ATENDIMENTOS: Encontrados ${atendimentos.length} atendimentos`)
+      return atendimentos
+    },
     remove: async (id: string) => {
       console.log(`🔍 DELETE /atendimentos/${id}: MÉTODO ESPECÍFICO CHAMADO!`);
       try {
@@ -3727,6 +3767,173 @@ app.register(kanbanRoutes, { prisma })
 // Rotas de monitoramento
 app.register(monitoringRoutes, { prisma, prefix: '/monitoring' })
 app.register(deletionHistoryRoutes, { prisma, prefix: '/deletion-history' })
+
+// Endpoints de histórico diretamente no servidor (backup)
+app.get('/deletion-history/test', async (req: any, reply: any) => {
+  try {
+    console.log('🔍 Teste de rota de histórico de exclusões...')
+    return reply.send({ 
+      message: 'Rota de histórico funcionando!', 
+      timestamp: new Date().toISOString(),
+      version: '2.4.20'
+    })
+  } catch (error) {
+    console.error('❌ Erro no teste de histórico:', error)
+    return reply.status(500).send({ message: 'Erro interno do servidor' })
+  }
+})
+
+app.get('/deletion-history/setup', async (req: any, reply: any) => {
+  try {
+    console.log('🔍 Verificando tabela DeletionLog...')
+    
+    // Tentar fazer uma consulta simples na tabela
+    const count = await prisma.deletionLog.count()
+    
+    return reply.send({ 
+      message: 'Tabela DeletionLog existe!', 
+      totalRecords: count,
+      timestamp: new Date().toISOString()
+    })
+    
+  } catch (error) {
+    console.error('❌ Erro ao verificar tabela:', error)
+    
+    if (error.message.includes('does not exist') || error.message.includes('not found')) {
+      try {
+        console.log('🔄 Criando tabela DeletionLog...')
+        
+        // Criar a tabela usando SQL direto
+        await prisma.$executeRaw`
+          CREATE TABLE IF NOT EXISTS "DeletionLog" (
+            "id" TEXT NOT NULL PRIMARY KEY,
+            "entityType" TEXT NOT NULL,
+            "entityId" TEXT NOT NULL,
+            "deletedBy" TEXT NOT NULL,
+            "deletedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            "reason" TEXT,
+            CONSTRAINT "DeletionLog_deletedBy_fkey" FOREIGN KEY ("deletedBy") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE
+          );
+        `
+        
+        // Criar índices
+        await prisma.$executeRaw`
+          CREATE INDEX IF NOT EXISTS "DeletionLog_entityType_deletedAt_idx" ON "DeletionLog"("entityType", "deletedAt");
+        `
+        
+        await prisma.$executeRaw`
+          CREATE INDEX IF NOT EXISTS "DeletionLog_deletedBy_idx" ON "DeletionLog"("deletedBy");
+        `
+        
+        return reply.send({ 
+          message: 'Tabela DeletionLog criada com sucesso!', 
+          timestamp: new Date().toISOString()
+        })
+        
+      } catch (createError) {
+        console.error('❌ Erro ao criar tabela:', createError)
+        return reply.status(500).send({ 
+          error: 'Erro ao criar tabela', 
+          details: createError.message 
+        })
+      }
+    }
+    
+    return reply.status(500).send({ 
+      error: 'Erro ao verificar tabela', 
+      details: error.message 
+    })
+  }
+})
+
+app.get('/deletion-history/stats', async (req: any, reply: any) => {
+  try {
+    const now = new Date()
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay())
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+
+    const stats = {
+      total: await prisma.deletionLog.count(),
+      today: await prisma.deletionLog.count({
+        where: { deletedAt: { gte: startOfDay } }
+      }),
+      thisWeek: await prisma.deletionLog.count({
+        where: { deletedAt: { gte: startOfWeek } }
+      }),
+      thisMonth: await prisma.deletionLog.count({
+        where: { deletedAt: { gte: startOfMonth } }
+      }),
+      byEntityType: await prisma.deletionLog.groupBy({
+        by: ['entityType'],
+        _count: { entityType: true }
+      }),
+      byUser: await prisma.deletionLog.groupBy({
+        by: ['deletedBy'],
+        _count: { deletedBy: true }
+      })
+    }
+
+    return reply.send(stats)
+  } catch (error) {
+    console.error('Erro ao buscar estatísticas:', error)
+    return reply.status(500).send({ error: 'Erro interno do servidor' })
+  }
+})
+
+app.get('/deletion-history/history', async (req: any, reply: any) => {
+  try {
+    const query = req.query as any
+    
+    // Construir filtros
+    const where: any = {}
+    
+    if (query.entityType) {
+      where.entityType = query.entityType
+    }
+    
+    if (query.deletedBy) {
+      where.deletedBy = query.deletedBy
+    }
+    
+    if (query.startDate || query.endDate) {
+      where.deletedAt = {}
+      if (query.startDate) {
+        where.deletedAt.gte = new Date(query.startDate)
+      }
+      if (query.endDate) {
+        where.deletedAt.lte = new Date(query.endDate)
+      }
+    }
+
+    // Buscar histórico de exclusões
+    const deletionLogs = await prisma.deletionLog.findMany({
+      where,
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true
+          }
+        }
+      },
+      orderBy: { deletedAt: 'desc' },
+      take: query.limit ? parseInt(query.limit.toString()) : 50,
+      skip: query.offset ? parseInt(query.offset.toString()) : 0
+    })
+
+    return reply.send({
+      logs: deletionLogs,
+      total: await prisma.deletionLog.count({ where }),
+      hasMore: deletionLogs.length === (query.limit ? parseInt(query.limit.toString()) : 50)
+    })
+  } catch (error) {
+    console.error('Erro ao buscar histórico de exclusões:', error)
+    return reply.status(500).send({ error: 'Erro interno do servidor' })
+  }
+})
 
 // Rota de teste de monitoramento
 app.get('/monitoring/test', async (req: any, reply: any) => {
