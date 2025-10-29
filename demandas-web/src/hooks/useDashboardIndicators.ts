@@ -116,7 +116,8 @@ export const useDashboardIndicators = (
 
   // Função para filtrar por data
   const inRange = (iso?: string) => {
-    if (!iso || !filters) return true
+    if (!filters) return true
+    if (!iso) return true
     const t = new Date(iso).getTime()
     if (filters.fromDate && t < new Date(filters.fromDate).getTime()) return false
     if (filters.toDate && t > new Date(filters.toDate + 'T23:59:59').getTime()) return false
@@ -136,17 +137,24 @@ export const useDashboardIndicators = (
       // Filtro por analista
       if (filters.analistaId) {
         const analistaField = page === 'reajustes' ? 'responsavelAnalista' : 'analista'
-        if (item[analistaField] !== filters.analistaId) {
+        const itemAnalista = item[analistaField]
+        if (itemAnalista !== filters.analistaId) {
           return false
         }
       }
       
       // Filtro por data
-      const dateField = page === 'analytics' ? 'dataCriacao' : 
-                      page === 'reajustes' ? 'createdAt' : 
-                      'dataInicio' || 'createdAt'
+      let dateField = 'dataInicio'
+      if (page === 'analytics') {
+        dateField = 'dataCriacao'
+      } else if (page === 'reajustes') {
+        dateField = 'createdAt'
+      } else if (page === 'mailling') {
+        dateField = 'createdAt'
+      }
       
-      if (!inRange(item[dateField])) {
+      const itemDate = item[dateField]
+      if (!inRange(itemDate)) {
         return false
       }
       
