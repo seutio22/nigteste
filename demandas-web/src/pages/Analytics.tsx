@@ -44,7 +44,7 @@ const columns: GridColDef[] = [
   { field: 'cliente', headerName: 'Cliente', width: 200 },
   { field: 'contrato', headerName: 'Contrato', width: 140 },
   { field: 'dataEntrega', headerName: 'Data de Entrega Programada', width: 140 },
-  { field: 'dataCriacao', headerName: 'Data de Criação', width: 160 },
+  { field: 'dataCriacao', headerName: 'Data de Início', width: 160 },
   { field: 'dataFinalizacao', headerName: 'Data de Finalização', width: 160 },
   { field: 'dataAtualizacao', headerName: 'Atualizado em', width: 160 },
 ]
@@ -628,7 +628,7 @@ export default function AnalyticsPage() {
           contrato: r.contrato ?? 'N/A',
           // Formatar datas
           dataEntrega: r.dataEntrega ? new Date(r.dataEntrega).toLocaleString('pt-BR') : 'N/A',
-          dataCriacao: r.dataCriacao ? new Date(r.dataCriacao).toLocaleString('pt-BR') : 'N/A',
+          dataCriacao: r.dataInicio ? new Date(r.dataInicio).toLocaleString('pt-BR') : 'N/A',
           dataAtualizacao: r.dataAtualizacao ? new Date(r.dataAtualizacao).toLocaleString('pt-BR') : 'N/A'
         }))}
         moduleName="analytics"
