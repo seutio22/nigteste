@@ -26,6 +26,14 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
   const [emailEditado, setEmailEditado] = useState('')
   const [conteudoEditavel, setConteudoEditavel] = useState('')
   
+  // Estados para editor de blocos
+  const [blocoCabecalho, setBlocoCabecalho] = useState('🔔 Alteração Cadastral')
+  const [blocoSubtitulo, setBlocoSubtitulo] = useState('Notificação Automática - Sistema NIG')
+  const [blocoSaudacao, setBlocoSaudacao] = useState('Prezados,')
+  const [blocoInformacao, setBlocoInformacao] = useState('Informamos que o cliente sofreu alteração, sendo:')
+  const [blocoDescricao, setBlocoDescricao] = useState('Alteração realizada')
+  const [blocoConclusao, setBlocoConclusao] = useState('O Edge e Move encontram-se atualizados. Solicitamos replicar esta informação com a sua equipe.')
+  
   const md = useMasterDataStore()
   const maillingStore = useMaillingStore()
 
@@ -50,8 +58,8 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
     return tempDiv.textContent || ''
   }
 
-  // Função para reconstruir o HTML com conteúdo editado
-  const reconstruirHTML = (conteudoEditado: string) => {
+  // Função para gerar HTML com blocos editáveis
+  const gerarHTMLComBlocos = () => {
     const cliente = md.clientes.find(c => c.id === manutencao?.clienteId)
     const operadora = md.operadoras.find(o => o.id === manutencao?.operadoraId)
     const produto = md.produtos.find(p => p.id === manutencao?.produtoId)
@@ -71,19 +79,19 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
     <div style="background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow: hidden;">
         <!-- Header -->
         <div style="background: #1a1a2e; color: white; padding: 30px; text-align: center;">
-            <h1 style="margin: 0; font-size: 24px; font-weight: bold;">🔔 Alteração Cadastral</h1>
-            <p style="margin: 10px 0 0 0; opacity: 0.9; font-size: 14px;">Notificação Automática - Sistema NIG</p>
+            <h1 style="margin: 0; font-size: 24px; font-weight: bold;">${blocoCabecalho}</h1>
+            <p style="margin: 10px 0 0 0; opacity: 0.9; font-size: 14px;">${blocoSubtitulo}</p>
         </div>
         
         <!-- Content -->
         <div class="content" style="padding: 30px;">
             <div style="font-size: 16px; margin-bottom: 20px; color: #2d3748;">
-                <strong>Prezados,</strong>
+                <strong>${blocoSaudacao}</strong>
             </div>
             
             <div style="background: #f7fafc; border-left: 4px solid #4299e1; padding: 20px; margin: 20px 0; border-radius: 0 8px 8px 0;">
                 <p style="margin: 0; font-weight: 500; color: #2d3748;">
-                    📋 Informamos que o cliente <strong>${cliente?.nome || 'N/A'}</strong> sofreu alteração, sendo:
+                    📋 ${blocoInformacao.replace('o cliente', `<strong>${cliente?.nome || 'N/A'}</strong>`)}
                 </p>
             </div>
             
@@ -117,14 +125,14 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
             <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 25px 0;">
                 <h3 style="margin: 0 0 15px 0; color: #2d3748; font-size: 16px; font-weight: 600;">📝 Descrição da Alteração</h3>
                 <div style="background: white; border: 1px solid #d1d5db; border-radius: 6px; padding: 15px; min-height: 60px;">
-                    <p style="margin: 0; line-height: 1.6; color: #4a5568; font-size: 14px; white-space: pre-wrap;">${conteudoEditado || descricaoEditavel || manutencao?.descricao || 'Alteração realizada'}</p>
+                    <p style="margin: 0; line-height: 1.6; color: #4a5568; font-size: 14px; white-space: pre-wrap;">${blocoDescricao}</p>
                 </div>
             </div>
             
             <!-- Conclusion -->
             <div style="background: #f0fff4; border: 1px solid #9ae6b4; border-radius: 8px; padding: 20px; margin: 25px 0;">
                 <p style="margin: 0; color: #22543d; font-weight: 500;">
-                    ✅ <strong>O Edge e Move encontram-se atualizados.</strong> Solicitamos replicar esta informação com a sua equipe.
+                    ✅ <strong>${blocoConclusao}</strong>
                 </p>
             </div>
             
@@ -640,7 +648,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
 
   const handleCopyOutlook = async () => {
     try {
-      const emailParaCopiar = modoEdicao === 'editar' ? reconstruirHTML(conteudoEditavel) : emailOutlook
+      const emailParaCopiar = modoEdicao === 'editar' ? gerarHTMLComBlocos() : emailOutlook
       await navigator.clipboard.writeText(emailParaCopiar)
       setCopiadoEmail(true)
       setTimeout(() => setCopiadoEmail(false), 2000)
@@ -1097,48 +1105,152 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
               sx={{ 
                 p: 0,
                 background: 'white',
-                maxHeight: modoEdicao === 'editar' ? '600px' : '400px',
+                maxHeight: modoEdicao === 'editar' ? '800px' : '400px',
                 overflow: 'auto'
               }}
             >
               {modoEdicao === 'editar' ? (
                 <Box sx={{ p: 3 }}>
-                  <Typography variant="body2" sx={{ mb: 2, color: '#6b7280', fontWeight: 500 }}>
-                    ✏️ Edite o conteúdo do e-mail abaixo. Você pode modificar qualquer texto:
+                  <Typography variant="h6" sx={{ mb: 3, color: '#1e293b', fontWeight: 600 }}>
+                    ✏️ Editor de Blocos - Edite cada seção do e-mail
                   </Typography>
-                  <TextField
-                    multiline
-                    rows={12}
-                    fullWidth
-                    value={conteudoEditavel}
-                    onChange={(e) => setConteudoEditavel(e.target.value)}
-                    placeholder="Digite o conteúdo do e-mail aqui..."
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: '8px',
-                        backgroundColor: 'white',
-                        '& fieldset': {
-                          borderColor: '#d1d5db'
-                        },
-                        '&:hover fieldset': {
-                          borderColor: '#9ca3af'
-                        },
-                        '&.Mui-focused fieldset': {
-                          borderColor: '#3b82f6',
-                          borderWidth: '2px'
+                  
+                  {/* Bloco Cabeçalho */}
+                  <Box sx={{ mb: 3 }}>
+                    <Typography variant="subtitle2" sx={{ mb: 1, color: '#374151', fontWeight: 600 }}>
+                      📧 Cabeçalho Principal
+                    </Typography>
+                    <TextField
+                      fullWidth
+                      value={blocoCabecalho}
+                      onChange={(e) => setBlocoCabecalho(e.target.value)}
+                      placeholder="Ex: 🔔 Alteração Cadastral"
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          borderRadius: '8px',
+                          '& fieldset': { borderColor: '#d1d5db' },
+                          '&:hover fieldset': { borderColor: '#9ca3af' },
+                          '&.Mui-focused fieldset': { borderColor: '#3b82f6', borderWidth: '2px' }
                         }
-                      },
-                      '& .MuiInputBase-input': {
-                        fontSize: '14px',
-                        lineHeight: '1.6',
-                        fontFamily: 'system-ui, -apple-system, sans-serif'
-                      }
-                    }}
-                  />
-                  <Box sx={{ mt: 2, p: 2, backgroundColor: '#f8fafc', borderRadius: '8px' }}>
-                    <Typography variant="caption" sx={{ color: '#6b7280' }}>
-                      💡 <strong>Dica:</strong> O texto será inserido na seção "Descrição da Alteração" do e-mail. 
-                      A formatação (negrito, cores, etc.) será preservada automaticamente.
+                      }}
+                    />
+                  </Box>
+
+                  {/* Bloco Subtítulo */}
+                  <Box sx={{ mb: 3 }}>
+                    <Typography variant="subtitle2" sx={{ mb: 1, color: '#374151', fontWeight: 600 }}>
+                      📝 Subtítulo
+                    </Typography>
+                    <TextField
+                      fullWidth
+                      value={blocoSubtitulo}
+                      onChange={(e) => setBlocoSubtitulo(e.target.value)}
+                      placeholder="Ex: Notificação Automática - Sistema NIG"
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          borderRadius: '8px',
+                          '& fieldset': { borderColor: '#d1d5db' },
+                          '&:hover fieldset': { borderColor: '#9ca3af' },
+                          '&.Mui-focused fieldset': { borderColor: '#3b82f6', borderWidth: '2px' }
+                        }
+                      }}
+                    />
+                  </Box>
+
+                  {/* Bloco Saudação */}
+                  <Box sx={{ mb: 3 }}>
+                    <Typography variant="subtitle2" sx={{ mb: 1, color: '#374151', fontWeight: 600 }}>
+                      👋 Saudação
+                    </Typography>
+                    <TextField
+                      fullWidth
+                      value={blocoSaudacao}
+                      onChange={(e) => setBlocoSaudacao(e.target.value)}
+                      placeholder="Ex: Prezados,"
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          borderRadius: '8px',
+                          '& fieldset': { borderColor: '#d1d5db' },
+                          '&:hover fieldset': { borderColor: '#9ca3af' },
+                          '&.Mui-focused fieldset': { borderColor: '#3b82f6', borderWidth: '2px' }
+                        }
+                      }}
+                    />
+                  </Box>
+
+                  {/* Bloco Informação */}
+                  <Box sx={{ mb: 3 }}>
+                    <Typography variant="subtitle2" sx={{ mb: 1, color: '#374151', fontWeight: 600 }}>
+                      📋 Informação Principal
+                    </Typography>
+                    <TextField
+                      fullWidth
+                      multiline
+                      rows={2}
+                      value={blocoInformacao}
+                      onChange={(e) => setBlocoInformacao(e.target.value)}
+                      placeholder="Ex: Informamos que o cliente sofreu alteração, sendo:"
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          borderRadius: '8px',
+                          '& fieldset': { borderColor: '#d1d5db' },
+                          '&:hover fieldset': { borderColor: '#9ca3af' },
+                          '&.Mui-focused fieldset': { borderColor: '#3b82f6', borderWidth: '2px' }
+                        }
+                      }}
+                    />
+                  </Box>
+
+                  {/* Bloco Descrição */}
+                  <Box sx={{ mb: 3 }}>
+                    <Typography variant="subtitle2" sx={{ mb: 1, color: '#374151', fontWeight: 600 }}>
+                      📝 Descrição da Alteração
+                    </Typography>
+                    <TextField
+                      fullWidth
+                      multiline
+                      rows={4}
+                      value={blocoDescricao}
+                      onChange={(e) => setBlocoDescricao(e.target.value)}
+                      placeholder="Descreva detalhadamente a alteração realizada..."
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          borderRadius: '8px',
+                          '& fieldset': { borderColor: '#d1d5db' },
+                          '&:hover fieldset': { borderColor: '#9ca3af' },
+                          '&.Mui-focused fieldset': { borderColor: '#3b82f6', borderWidth: '2px' }
+                        }
+                      }}
+                    />
+                  </Box>
+
+                  {/* Bloco Conclusão */}
+                  <Box sx={{ mb: 3 }}>
+                    <Typography variant="subtitle2" sx={{ mb: 1, color: '#374151', fontWeight: 600 }}>
+                      ✅ Conclusão
+                    </Typography>
+                    <TextField
+                      fullWidth
+                      multiline
+                      rows={2}
+                      value={blocoConclusao}
+                      onChange={(e) => setBlocoConclusao(e.target.value)}
+                      placeholder="Ex: O Edge e Move encontram-se atualizados. Solicitamos replicar esta informação com a sua equipe."
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          borderRadius: '8px',
+                          '& fieldset': { borderColor: '#d1d5db' },
+                          '&:hover fieldset': { borderColor: '#9ca3af' },
+                          '&.Mui-focused fieldset': { borderColor: '#3b82f6', borderWidth: '2px' }
+                        }
+                      }}
+                    />
+                  </Box>
+
+                  <Box sx={{ mt: 3, p: 2, backgroundColor: '#f0f9ff', borderRadius: '8px', border: '1px solid #0ea5e9' }}>
+                    <Typography variant="caption" sx={{ color: '#0369a1', fontWeight: 500 }}>
+                      💡 <strong>Dica:</strong> Cada bloco é editável independentemente. A tabela com dados técnicos é gerada automaticamente. 
+                      O preview é atualizado em tempo real conforme você edita.
                     </Typography>
                   </Box>
                 </Box>
@@ -1149,7 +1261,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                       fontFamily: 'inherit !important'
                     }
                   }}
-                  dangerouslySetInnerHTML={{ __html: modoEdicao === 'editar' ? reconstruirHTML(conteudoEditavel) : emailOutlook }}
+                  dangerouslySetInnerHTML={{ __html: modoEdicao === 'editar' ? gerarHTMLComBlocos() : emailOutlook }}
                 />
               )}
             </Box>
