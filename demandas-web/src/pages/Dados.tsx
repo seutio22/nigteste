@@ -123,16 +123,13 @@ export default function DadosPage() {
   // Função para limpar dados locais das áreas e forçar sincronização
   const handleClearAreasLocalData = async () => {
     if (activeTab === 'areas') {
-      console.log('🧹 Limpando dados locais das áreas...')
       store.clearAreasLocalData()
       // Forçar nova sincronização
       await store.syncFromApi?.()
-      console.log('✅ Dados locais das áreas limpos e sincronizados com API')
     }
   }
 
   const handleSave = async () => {
-    console.log('🔍 DADOS: Salvando formulário para', activeTab, ':', form)
     const success = await saveEntity(activeTab, form)
     if (success) {
       setOpenForm(false)
@@ -154,14 +151,12 @@ export default function DadosPage() {
 
   const handleSmartImport = async (result: ImportResult) => {
     try {
-      console.log('🔍 SMART IMPORT: Iniciando processamento de importação - v2.0')
       const { api } = await import('../lib/api.local')
       let totalImported = 0
       let totalSavedToDatabase = 0
       const errors: string[] = []
 
       // Processar itens válidos em lotes para evitar timeout
-      console.log(`🔍 SMART IMPORT: Processando ${result.valid.length} itens válidos`)
       
       const BATCH_SIZE = 50 // Processar em lotes de 50
       const batches = []
@@ -170,11 +165,8 @@ export default function DadosPage() {
         batches.push(result.valid.slice(i, i + BATCH_SIZE))
       }
       
-      console.log(`🔍 SMART IMPORT: Dividido em ${batches.length} lotes de até ${BATCH_SIZE} itens`)
-      
       for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
         const batch = batches[batchIndex]
-        console.log(`🔍 SMART IMPORT: Processando lote ${batchIndex + 1}/${batches.length} (${batch.length} itens)`)
         
         for (let i = 0; i < batch.length; i++) {
           const item = batch[i]

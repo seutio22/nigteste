@@ -9,7 +9,7 @@ import { StatusBadge } from '../../components/StatusBadge'
 import { SmartImporter } from '../../components/SmartImporter'
 import { smartImporterConfigs } from '../../config/smartImporterConfigs'
 import type { ImportResult } from '../../types/smartImporter'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import ExportDataModal from '../../components/ExportDataModal'
 import { usePermissions } from '../../hooks/usePermissions'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
@@ -47,9 +47,6 @@ export default function ReajusteListPage() {
   const { user } = useAuthStore()
   const { canCreate, canImport, canExport, canDelete } = usePermissions('reajuste')
   
-  // DEBUG: Verificar permissões
-  console.log('🔍 REAJUSTE PAGE: Permissões:', { canCreate, canImport, canExport, canDelete })
-  console.log('🔍 REAJUSTE PAGE: User:', user)
   const [smartImporterOpen, setSmartImporterOpen] = useState(false)
   const [exportModalOpen, setExportModalOpen] = useState(false)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
@@ -69,25 +66,27 @@ export default function ReajusteListPage() {
   // Filtrar dados por permissão do usuário
   const filteredItems = useFilteredData(items, user?.role, user?.id, false) // false = não filtrar por permissão
 
-  // Aplicar filtro adicional para reajustes do usuário logado
-  const finalFilteredItems = showOnlyMyReajustes 
-    ? filteredItems.filter(reajuste => {
-        // Buscar o analista correspondente ao usuário logado
-        const analistaCorrespondente = md.analistas.find(analista => 
-          analista.nome.toLowerCase() === user?.name?.toLowerCase() ||
-          analista.nome.toLowerCase().includes(user?.name?.toLowerCase() || '') ||
-          (user?.name?.toLowerCase() || '').includes(analista.nome.toLowerCase())
-        )
-        
-        // Se encontrou o analista correspondente, comparar IDs
-        if (analistaCorrespondente) {
-          return reajuste.responsavelAnalista === analistaCorrespondente.id
-        }
-        
-        // Se não encontrou correspondência, retornar false (não mostrar)
-        return false
-      })
-    : filteredItems
+  // Aplicar filtro adicional para reajustes do usuário logado (otimizado com useMemo)
+  const finalFilteredItems = useMemo(() => {
+    if (!showOnlyMyReajustes) return filteredItems
+    
+    return filteredItems.filter(reajuste => {
+      // Buscar o analista correspondente ao usuário logado
+      const analistaCorrespondente = md.analistas.find(analista => 
+        analista.nome.toLowerCase() === user?.name?.toLowerCase() ||
+        analista.nome.toLowerCase().includes(user?.name?.toLowerCase() || '') ||
+        (user?.name?.toLowerCase() || '').includes(analista.nome.toLowerCase())
+      )
+      
+      // Se encontrou o analista correspondente, comparar IDs
+      if (analistaCorrespondente) {
+        return reajuste.responsavelAnalista === analistaCorrespondente.id
+      }
+      
+      // Se não encontrou correspondência, retornar false (não mostrar)
+      return false
+    })
+  }, [showOnlyMyReajustes, filteredItems, user?.name, md.analistas])
 
   // Debug logs
   console.log('🔍 ReajustePage: Total de items:', items.length)

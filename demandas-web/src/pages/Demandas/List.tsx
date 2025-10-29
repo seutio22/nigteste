@@ -66,23 +66,8 @@ export default function DemandListPage() {
 
   // Filtrar dados por permissão do usuário
   const filteredItems = useFilteredData(items, user?.role, user?.id, user?.viewOwnDataOnly)
-  console.log('🔍 Demandas: filteredItems:', filteredItems.length, 'items originais:', items.length)
-  console.log('🔍 Demandas: user:', user)
-  console.log('🔍 Demandas: showOnlyMyDemands:', showOnlyMyDemands)
-  console.log('🔍 Demandas: masterData:', {
-    analistas: md.analistas.length,
-    areas: md.areas.length,
-    clientes: md.clientes.length,
-    contratos: md.contratos.length,
-    operadoras: md.operadoras.length,
-    produtos: md.produtos.length,
-    tiposCadastro: md.tiposCadastro.length
-  })
 
   // Aplicar filtro baseado no switch "Minhas Demandas" vs "Todas as Demandas"
-  console.log('🔍 Demandas: showOnlyMyDemands:', showOnlyMyDemands, 'items total:', items.length)
-  console.log('🔍 Demandas: user?.id:', user?.id, 'tipo:', typeof user?.id)
-  
   const finalFilteredItems = showOnlyMyDemands
     ? items.filter(demand => {
         // Buscar o analista correspondente ao usuário logado
