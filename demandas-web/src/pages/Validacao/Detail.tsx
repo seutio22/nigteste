@@ -8,6 +8,7 @@ import { StatusBadge } from '../../components/StatusBadge'
 import { Timeline } from '../../components/Timeline'
 import { fmt, calcTempo } from '../../lib/utils'
 import { ValidationEntry } from '../../types/validation'
+import { Autocomplete, Box, TextField, Typography } from '@mui/material'
 
 export default function ValidationDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -839,22 +840,49 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Cliente</label>
-          <select
-            value={clienteIdNormalized || ''}
-            onChange={(e) => setDraft({ 
+          <Autocomplete
+            options={md.clientes}
+            getOptionLabel={(option) => option?.nome || ''}
+            isOptionEqualToValue={(option, value) => option.id === value?.id}
+            value={md.clientes.find(c => c.id === (clienteIdNormalized || '')) || null}
+            onChange={(_, newValue) => setDraft({ 
               ...draft, 
-              cliente: e.target.value || undefined,
+              cliente: newValue?.id || undefined,
               contrato: undefined // Limpar contrato quando cliente mudar
             })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="">Selecione um cliente</option>
-            {md.clientes.map(cliente => (
-              <option key={cliente.id} value={cliente.id}>
-                {cliente.grupoEconomico ? `${cliente.nome} • ${cliente.grupoEconomico}` : cliente.nome}
-              </option>
-            ))}
-          </select>
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                placeholder="Digite para buscar..."
+                variant="outlined"
+                size="small"
+                fullWidth
+              />
+            )}
+            renderOption={(props, option) => (
+              <Box component="li" {...props} key={option.id}>
+                <Box>
+                  <Typography variant="body1" fontWeight="medium">
+                    {option.nome}
+                  </Typography>
+                  {option.grupoEconomico && (
+                    <Typography variant="caption" color="text.secondary">
+                      Grupo: {option.grupoEconomico}
+                    </Typography>
+                  )}
+                </Box>
+              </Box>
+            )}
+            noOptionsText="Nenhum cliente encontrado"
+            loading={md.clientes.length === 0}
+            loadingText="Carregando clientes..."
+            filterOptions={(options, { inputValue }) => {
+              return options.filter(option =>
+                option.nome.toLowerCase().includes(inputValue.toLowerCase()) ||
+                (option.grupoEconomico && option.grupoEconomico.toLowerCase().includes(inputValue.toLowerCase()))
+              )
+            }}
+          />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Operadora</label>
