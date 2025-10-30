@@ -35,9 +35,12 @@ interface ComentarioBody {
   conteudo: string
 }
 
+import { prisma as prismaSingleton } from '../lib/prisma'
+
 // Plugin para registrar as rotas
 export default async function comunicadosRoutes(fastify: FastifyInstance, options?: { prisma?: PrismaClient }) {
-  const prisma = options?.prisma || new PrismaClient()
+  // Usar prisma compartilhado (singleton) para evitar múltiplas conexões
+  const prisma = options?.prisma || prismaSingleton
   // GET / - Listar todos os comunicados (prefixo já é /comunicados)
   fastify.get('/', async (request: FastifyRequest, reply: FastifyReply) => {
     try {

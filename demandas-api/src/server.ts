@@ -12,8 +12,9 @@ import { masterDataRoutes } from './routes/masterData'
 import { kanbanRoutes } from './routes/kanban'
 import monitoringRoutes from './routes/monitoring'
 import deletionHistoryRoutes from './routes/deletionHistory'
-import { PrismaClient } from '@prisma/client'
 import { trackUserActivity, trackSessionStart, trackSessionEnd } from './middleware/activityTracker'
+import { PrismaClient } from '@prisma/client'
+import { prisma } from './lib/prisma'
 
 // Configurar tratamento de sinais para evitar SIGTERM
 process.on('SIGTERM', () => {
@@ -40,7 +41,7 @@ const app = Fastify({
   logger: true,
   bodyLimit: 50 * 1024 * 1024 // 50MB
 })
-const prisma = new PrismaClient()
+// Usar singleton do PrismaClient para evitar múltiplas conexões
 
 // Schema PostgreSQL gerenciado pelo Prisma migrations
 console.log('🔧 PostgreSQL configurado - schema gerenciado por migrations')
@@ -4340,29 +4341,16 @@ const start = async () => {
     console.log('- JWT_SECRET:', process.env.JWT_SECRET ? '✅ Definido' : '❌ Não definido')
     console.log('- DATABASE_URL:', process.env.DATABASE_URL ? '✅ Definido' : '❌ Não definido')
     
-    // Testar conexão com o banco com retry mais robusto
+    // Testar conexão com o banco usando função auxiliar
     console.log('🔌 Testando conexão com o banco...')
-    let connectedToDatabase = false
-    
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      try {
-        console.log(`🔄 Tentativa ${attempt}/3 de conexão com o banco...`)
-        await prisma.$connect()
-        console.log('✅ Conexão com banco estabelecida!')
-        connectedToDatabase = true
-        break
-      } catch (error) {
-        console.error(`❌ Tentativa ${attempt}/3 falhou:`, error.message)
-        if (attempt < 3) {
-          console.log(`⏳ Aguardando 2 segundos antes da próxima tentativa...`)
-          await new Promise(resolve => setTimeout(resolve, 2000))
-        }
-      }
-    }
+    const { ensureConnection } = await import('./lib/prisma')
+    const connectedToDatabase = await ensureConnection()
     
     if (!connectedToDatabase) {
-      console.log('⚠️ Não foi possível conectar ao banco após 3 tentativas')
+      console.log('⚠️ Não foi possível conectar ao banco após tentativas')
       console.log('⚠️ Continuando sem banco - aplicação funcionará com limitações')
+    } else {
+      console.log('✅ Conexão com banco estabelecida e mantida!')
     }
     
     const port = process.env.PORT || 3333

@@ -2,10 +2,11 @@ import { FastifyInstance } from 'fastify'
 import { PrismaClient } from '@prisma/client'
 import { z } from 'zod'
 import bcrypt from 'bcryptjs'
+import { prisma as prismaSingleton } from '../lib/prisma'
 
 export async function authRoutes(app: FastifyInstance, options?: { prisma?: PrismaClient }) {
-  // Usar prisma compartilhado ou criar um temporário para rotas públicas
-  const prisma = options?.prisma || new PrismaClient()
+  // Usar prisma compartilhado (singleton) para evitar múltiplas conexões
+  const prisma = options?.prisma || prismaSingleton
   app.post('/auth/login', async (req: { body: unknown }, res: { code: (code: number) => { send: (data: any) => void } }) => {
     try {
       // Validar dados de entrada
