@@ -4,6 +4,7 @@ import { useMasterDataStore } from '../../store/masterDataStore'
 import { useTimelineStore } from '../../store/timelineStore'
 import { useAuthStore } from '../../store/authStore'
 import { ArrowLeft, Edit3, Save, Clock } from 'lucide-react'
+import { Autocomplete, Box, TextField, Typography } from '@mui/material'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { StatusBadge } from '../../components/StatusBadge'
 import { Timeline } from '../../components/Timeline'
@@ -571,37 +572,93 @@ function EditInline({ reajuste }: { reajuste: any }) {
           {/* Cliente */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Cliente</label>
-            <select
-              value={draft.cliente || ''}
-              onChange={(e) => setDraft({ ...draft, cliente: e.target.value || undefined, contrato: '' })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">Selecione...</option>
-              {md.clientes.map(c => (
-                <option key={c.id} value={c.id}>
-                  {c.grupoEconomico ? `${c.nome} • ${c.grupoEconomico}` : c.nome}
-                </option>
-              ))}
-            </select>
+            <Autocomplete
+              options={md.clientes}
+              getOptionLabel={(option) => option?.nome || ''}
+              isOptionEqualToValue={(option, value) => option.id === value?.id}
+              value={md.clientes.find(c => c.id === (draft.cliente || '')) || null}
+              onChange={(_, newValue) => setDraft({ ...draft, cliente: newValue?.id || undefined, contrato: '' })}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  placeholder="Digite para buscar..."
+                  variant="outlined"
+                  size="small"
+                  fullWidth
+                />
+              )}
+              renderOption={(props, option) => (
+                <Box component="li" {...props} key={option.id}>
+                  <Box>
+                    <Typography variant="body1" fontWeight="medium">
+                      {option.nome}
+                    </Typography>
+                    {option.grupoEconomico && (
+                      <Typography variant="caption" color="text.secondary">
+                        Grupo: {option.grupoEconomico}
+                      </Typography>
+                    )}
+                  </Box>
+                </Box>
+              )}
+              noOptionsText="Nenhum cliente encontrado"
+              loading={md.clientes.length === 0}
+              loadingText="Carregando clientes..."
+              filterOptions={(options, { inputValue }) => {
+                const term = inputValue.toLowerCase()
+                return options.filter(option =>
+                  option.nome.toLowerCase().includes(term) ||
+                  (option.grupoEconomico && option.grupoEconomico.toLowerCase().includes(term))
+                )
+              }}
+            />
           </div>
 
           {/* Contrato */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Contrato</label>
-            <select
-              value={draft.contrato || ''}
-              onChange={(e) => setDraft({ ...draft, contrato: e.target.value || undefined })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">Selecione...</option>
-              {contratosDoCliente.length > 0 ? (
-                contratosDoCliente.map(ct => <option key={ct.id} value={ct.id}>{(ct as any).codigo || (ct as any).numero}</option>)
-              ) : (
-                <option disabled>
-                  {selectedClienteId ? 'Nenhum contrato encontrado para este cliente' : 'Selecione um cliente primeiro'}
-                </option>
+            <Autocomplete
+              options={contratosDoCliente}
+              getOptionLabel={(option: any) => option?.codigo || option?.numero || ''}
+              isOptionEqualToValue={(option: any, value: any) => option.id === value?.id}
+              value={contratosDoCliente.find((c: any) => c.id === (draft.contrato || '')) || null}
+              onChange={(_, newValue: any | null) => setDraft({ ...draft, contrato: newValue?.id || undefined })}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  placeholder={selectedClienteId ? 'Digite para buscar...' : 'Selecione um cliente primeiro'}
+                  variant="outlined"
+                  size="small"
+                  fullWidth
+                  disabled={!selectedClienteId}
+                />
               )}
-            </select>
+              renderOption={(props, option: any) => (
+                <Box component="li" {...props} key={option.id}>
+                  <Box>
+                    <Typography variant="body1" fontWeight="medium">
+                      {option.codigo || option.numero}
+                    </Typography>
+                    {option.grupoEconomico && (
+                      <Typography variant="caption" color="text.secondary">
+                        Grupo: {option.grupoEconomico}
+                      </Typography>
+                    )}
+                  </Box>
+                </Box>
+              )}
+              noOptionsText={selectedClienteId ? 'Nenhum contrato encontrado' : 'Selecione um cliente primeiro'}
+              loading={contratosDoCliente.length === 0 && !!selectedClienteId}
+              loadingText="Carregando contratos..."
+              filterOptions={(options, { inputValue }) => {
+                const term = inputValue.toLowerCase()
+                return options.filter((option: any) =>
+                  (option.codigo && option.codigo.toLowerCase().includes(term)) ||
+                  (option.numero && option.numero.toLowerCase().includes(term)) ||
+                  (option.grupoEconomico && option.grupoEconomico.toLowerCase().includes(term))
+                )
+              }}
+            />
           </div>
 
           {/* Produto */}
