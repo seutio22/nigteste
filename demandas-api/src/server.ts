@@ -2018,145 +2018,8 @@ function crud(entity: keyof PrismaClient) {
       return anyPrisma[entity].create({ data });
     },
     update: async (id: string, data: unknown) => {
-      // Tratamento específico para contratos
-      if (entity === 'contrato') {
-        const contratoData = { ...data as any };
-        console.log('🔍 CONTRATO UPDATE: Dados recebidos:', JSON.stringify(contratoData, null, 2));
-        console.log('🔍 CONTRATO UPDATE: Status recebido:', contratoData.status, 'Tipo:', typeof contratoData.status);
-        
-        // Garantir que o status seja sempre definido
-        if (!contratoData.status || contratoData.status === '' || contratoData.status === null || contratoData.status === undefined) {
-          console.log('🔍 CONTRATO UPDATE: Status não especificado, mantendo existente');
-          // Não alterar o status se não foi especificado
-        } else {
-          console.log('🔍 CONTRATO UPDATE: Status especificado pelo usuário:', contratoData.status);
-          
-          // Garantir que o status seja válido
-          if (!['Ativo', 'Inativo'].includes(contratoData.status)) {
-            console.log('🔍 CONTRATO UPDATE: Status inválido, mantendo existente');
-            delete contratoData.status; // Remover status inválido
-          }
-        }
-        
-        console.log('🔍 CONTRATO UPDATE: Dados finais para atualização:', JSON.stringify(contratoData, null, 2));
-        return anyPrisma[entity].update({ where: { id }, data: contratoData });
-      }
-      
-      // Tratamento específico para projetos
-      if (entity === 'project') {
-        const projectData = data as any;
-        
-        console.log('🔍 PROJECT UPDATE: Dados recebidos:', {
-          id: projectData.id,
-          progress: projectData.progress,
-          name: projectData.name
-        })
-        
-        // Remover campos que não existem no schema ou não devem ser atualizados
-        const { 
-          id: _, 
-          createdAt, 
-          updatedAt, 
-          managerId, 
-          clientId, 
-          activities,
-          ...updateData 
-        } = projectData;
-        
-        console.log('🔍 PROJECT UPDATE: Campo progress em updateData:', updateData.progress)
-        
-        // Remover campos null/undefined para evitar erros do Prisma
-        Object.keys(updateData).forEach(key => {
-          if (updateData[key] === null || updateData[key] === undefined) {
-            delete updateData[key];
-          }
-        });
-        
-        // Converter datas para o formato correto
-        if (updateData.startDate) {
-          updateData.startDate = new Date(updateData.startDate);
-        }
-        if (updateData.endDate) {
-          updateData.endDate = new Date(updateData.endDate);
-        }
-        
-        // Converter campos String que vêm como Array do frontend
-        if (updateData.team && Array.isArray(updateData.team)) {
-          updateData.team = JSON.stringify(updateData.team);
-        }
-        if (updateData.tags && Array.isArray(updateData.tags)) {
-          updateData.tags = JSON.stringify(updateData.tags);
-        }
-        
-        // Converter campos JSON
-        if (updateData.timeline) {
-          if (typeof updateData.timeline === 'object') {
-            console.log('🔍 PROJECT UPDATE: Timeline (object) antes de stringify:', {
-              fases: updateData.timeline.phases?.length,
-              primeiraFase: updateData.timeline.phases?.[0]?.name,
-              tarefas: updateData.timeline.phases?.[0]?.tasks?.length,
-              subtarefas: updateData.timeline.phases?.[0]?.tasks?.[0]?.subtasks?.length
-            })
-            updateData.timeline = JSON.stringify(updateData.timeline);
-            console.log('✅ PROJECT UPDATE: Timeline convertido para string (primeiros 200 chars):', updateData.timeline.substring(0, 200))
-          }
-        } else {
-          // Se timeline não existe, criar um objeto vazio
-          console.log('⚠️ PROJECT UPDATE: Timeline vazio, criando objeto padrão')
-          updateData.timeline = JSON.stringify({ phases: [] });
-        }
-        
-        if (updateData.activities) {
-          if (Array.isArray(updateData.activities)) {
-            updateData.activities = JSON.stringify(updateData.activities);
-          }
-        } else {
-          // Se activities não existe, criar um array vazio
-          updateData.activities = JSON.stringify([]);
-        }
-        
-        // Adicionar campos de relacionamento se existirem
-        if (managerId) {
-          updateData.manager = { connect: { id: managerId } };
-        }
-        if (clientId) {
-          updateData.client = { connect: { id: clientId } };
-        }
-        
-        console.log('🔍 PROJECT UPDATE: Dados finais para salvar:', {
-          progress: updateData.progress,
-          hasProgress: 'progress' in updateData,
-          progressType: typeof updateData.progress
-        })
-        
-        // Regras de privacidade: não forçar para público automaticamente
-        // Se necessário, validação adicional pode ser feita aqui (ex.: exigir auth para tornar privado)
-
-        // Regra de ownerId será garantida nas rotas específicas de projetos
-
-        // Limpar null/undefined
-        Object.keys(updateData).forEach((k) => {
-          if (updateData[k] === undefined) delete updateData[k]
-        })
-
-        const updated = await prisma.project.update({ where: { id }, data: updateData })
-        
-        // Converter campos para retornar compatível com frontend
-        const result: any = { ...updated }
-        if (result.timeline && typeof result.timeline === 'string') {
-          try { result.timeline = JSON.parse(result.timeline) } catch (err) { result.timeline = { phases: [] } }
-        }
-        if (result.activities && typeof result.activities === 'string') {
-          try { result.activities = JSON.parse(result.activities) } catch (err) { result.activities = [] }
-        }
-        if (result.team && typeof result.team === 'string') {
-          try { result.team = JSON.parse(result.team) } catch (err) { result.team = [] }
-        }
-        if (result.tags && typeof result.tags === 'string') {
-          try { result.tags = JSON.parse(result.tags) } catch (err) { result.tags = [] }
-        }
-
-        return result
+      // Atualização simplificada (lógica específica já está nas rotas dedicadas)
+      return anyPrisma[entity].update({ where: { id }, data: data as any });
     },
     remove: async (id: string) => {
       // Verificar dependências antes de excluir
@@ -2758,6 +2621,8 @@ for (const [path, repo] of Object.entries(resources)) {
 
         const body = req.body || {}
         const data: any = { ...body }
+        // Normalizar flag isPrivate
+        if ('isPrivate' in data) data.isPrivate = !!data.isPrivate
 
         // Normalização de campos diversos já tratados no update (json/arrays)
         if (data.startDate) data.startDate = new Date(data.startDate)
@@ -2797,6 +2662,8 @@ for (const [path, repo] of Object.entries(resources)) {
 
         const body = req.body || {}
         const updateData: any = { ...body }
+        // Normalizar flag isPrivate
+        if ('isPrivate' in updateData) updateData.isPrivate = !!updateData.isPrivate
 
         // Campos que não devem ser atualizados diretamente
         delete updateData.id
