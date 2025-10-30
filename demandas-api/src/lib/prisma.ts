@@ -30,8 +30,7 @@ const prismaConfig: Prisma.PrismaClientOptions = {
     }
   },
   // Configurações adicionais para estabilidade de conexão
-  errorFormat: 'pretty',
-  rejectOnNotFound: false
+  errorFormat: 'pretty'
 }
 
 // Criar instância única - esta é a chave para evitar múltiplas conexões

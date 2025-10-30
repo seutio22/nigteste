@@ -43,6 +43,25 @@ const app = Fastify({
 })
 // Usar singleton do PrismaClient para evitar múltiplas conexões
 
+// Middleware para reconexão automática do Prisma
+app.addHook('onRequest', async (request, reply) => {
+  try {
+    // Testar conexão antes de cada request
+    await prisma.$queryRaw`SELECT 1`
+  } catch (error) {
+    console.log('🔄 Conexão perdida, tentando reconectar...')
+    const { ensureConnection } = await import('./lib/prisma')
+    const connected = await ensureConnection()
+    if (!connected) {
+      console.error('❌ Falha ao reconectar, retornando erro 503')
+      return reply.code(503).send({ 
+        error: 'Service Unavailable', 
+        message: 'Banco de dados temporariamente indisponível' 
+      })
+    }
+  }
+})
+
 // Schema PostgreSQL gerenciado pelo Prisma migrations
 console.log('🔧 PostgreSQL configurado - schema gerenciado por migrations')
 console.log('🚀 REAJUSTE SCHEMA ATUALIZADO - v2.4.3 - CAMPOS ADICIONADOS')
