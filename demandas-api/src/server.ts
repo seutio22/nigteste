@@ -2900,7 +2900,8 @@ for (const [path, repo] of Object.entries(resources)) {
         
         // CORREÇÃO: Remover campos de texto que causam erro no Prisma
         // O Prisma espera apenas IDs para relacionamentos, não os nomes/textos
-        const camposParaRemover = ['analista', 'tipo', 'tipoServico', 'cliente', 'contrato', 'operadora', 'produto', 'sistema', 'area']
+        // IMPORTANTE: 'tipo' NÃO deve ser removido pois é um campo de texto normal (não relacionamento)
+        const camposParaRemover = ['analista', 'tipoServico', 'cliente', 'contrato', 'operadora', 'produto', 'sistema', 'area']
         camposParaRemover.forEach(campo => {
           if (cleanedData[campo]) {
             console.log(`🔧 POST /validacoes: Removendo campo de texto que causa erro: ${campo} = ${cleanedData[campo]}`)
