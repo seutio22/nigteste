@@ -2525,10 +2525,21 @@ for (const [path, repo] of Object.entries(resources)) {
     const extractUserFromAuthHeader = (req: any): { id: string | null, role: string | null } => {
       try {
         const auth = req?.headers?.authorization || req?.headers?.Authorization
-        if (!auth || typeof auth !== 'string') return { id: null, role: null }
-        const parts = auth.split(' ')
-        if (parts.length !== 2 || parts[0] !== 'Bearer') return { id: null, role: null }
-        const token = parts[1]
+        let token: string | null = null
+        if (auth && typeof auth === 'string') {
+          const parts = auth.split(' ')
+          if (parts.length === 2 && parts[0] === 'Bearer') token = parts[1]
+        }
+        // Fallback: cookie "token=<jwt>"
+        if (!token && typeof req?.headers?.cookie === 'string') {
+          const m = req.headers.cookie.split(';').map((s: string) => s.trim()).find((c: string) => c.startsWith('token='))
+          if (m) token = m.substring('token='.length)
+        }
+        // Fallback: query ?token=<jwt>
+        if (!token && req?.query?.token && typeof req.query.token === 'string') {
+          token = req.query.token
+        }
+        if (!token) return { id: null, role: null }
         const segs = token.split('.')
         if (segs.length < 2) return { id: null, role: null }
         const payloadB64 = segs[1].replace(/-/g, '+').replace(/_/g, '/')
@@ -2668,10 +2679,10 @@ for (const [path, repo] of Object.entries(resources)) {
         if (typeof data.timeline === 'object') data.timeline = JSON.stringify(data.timeline)
         if (Array.isArray(data.activities)) data.activities = JSON.stringify(data.activities)
 
-        // Se projeto for privado e não houver usuário autenticado, criar como público
+        // Se projeto for privado e não houver usuário autenticado, bloquear
         if (data.isPrivate === true && !userId) {
-          data.isPrivate = false
-          console.log('ℹ️ POST /projetos: sem auth, forçando isPrivate=false')
+          console.log('❌ POST /projetos: isPrivate=true sem auth -> 403')
+          return reply.code(403).send({ error: 'É necessário estar logado para criar projeto privado.' })
         }
 
         // Sempre definir ownerId quando houver usuário autenticado
@@ -2734,8 +2745,11 @@ for (const [path, repo] of Object.entries(resources)) {
           updateData.timeline = JSON.stringify(updateData.timeline)
         }
 
-        // Regras de privacidade: não forçar para público automaticamente
-        // Se necessário, validação adicional pode ser feita aqui (ex.: exigir auth para tornar privado)
+        // Regras de privacidade: exigir auth para tornar privado
+        if (updateData.isPrivate === true && !userId) {
+          console.log('❌ PUT /projetos: isPrivate=true sem auth -> 403')
+          return reply.code(403).send({ error: 'É necessário estar logado para tornar projeto privado.' })
+        }
 
         // Garantir owner ao tornar privado
         if (updateData.isPrivate === true) {
