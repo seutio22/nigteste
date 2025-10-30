@@ -2767,7 +2767,7 @@ for (const [path, repo] of Object.entries(resources)) {
     app.get('/tipos-servico', async (req: any) => repo.list(req.query))
     app.get('/tipos-servico/:id', async (req: any) => repo.get(req.params.id))
   }
-  app.post(`/${path}`, async (req: any, res) => {
+  if (path !== 'projetos' && path !== 'projects') app.post(`/${path}`, async (req: any, res) => {
     console.log(`🔍 POST /${path}: Recebendo requisição`)
     console.log(`🔍 POST /${path}: Headers:`, req.headers)
     console.log(`🔍 POST /${path}: Body:`, JSON.stringify(req.body, null, 2))
