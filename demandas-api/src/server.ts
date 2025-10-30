@@ -4412,6 +4412,35 @@ const start = async () => {
     } else {
       console.log('✅ Conexão com banco estabelecida e mantida!')
     }
+
+    // Verificação automática de coluna e correção (rename) se necessário
+    try {
+      console.log('🔍 Verificando estrutura da tabela Manutencao (coluna total)...')
+      const checkResult = await prisma.$queryRawUnsafe<{ exists: boolean }[]>(
+        "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Manutencao' AND column_name = 'total') as exists;"
+      )
+      const hasTotal = Array.isArray(checkResult) && checkResult[0]?.exists === true
+      if (!hasTotal) {
+        console.warn('⚠️ Coluna total NÃO encontrada. Tentando renomear qtdClientesVinculados → total...')
+        // Confirmar se a coluna antiga existe antes de renomear
+        const checkOld = await prisma.$queryRawUnsafe<{ exists: boolean }[]>(
+          "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Manutencao' AND column_name = 'qtdClientesVinculados') as exists;"
+        )
+        const hasOld = Array.isArray(checkOld) && checkOld[0]?.exists === true
+        if (hasOld) {
+          await prisma.$executeRawUnsafe(
+            'ALTER TABLE "Manutencao" RENAME COLUMN "qtdClientesVinculados" TO "total";'
+          )
+          console.log('✅ Coluna renomeada com sucesso: qtdClientesVinculados → total')
+        } else {
+          console.warn('⚠️ Nem total nem qtdClientesVinculados encontrados. Pulando ajuste automático.')
+        }
+      } else {
+        console.log('✅ Coluna total já existe. Nenhuma ação necessária.')
+      }
+    } catch (schemaErr) {
+      console.error('❌ Erro ao verificar/ajustar coluna total:', schemaErr)
+    }
     
     const port = process.env.PORT || 3333
     console.log(`🌐 Tentando iniciar na porta: ${port}`)
