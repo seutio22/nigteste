@@ -2880,10 +2880,8 @@ for (const [path, repo] of Object.entries(resources)) {
           updateData.timeline = JSON.stringify(updateData.timeline)
         }
 
-        // Regras de privacidade
-        if (updateData.isPrivate === true && !userId) {
-          updateData.isPrivate = false
-        }
+        // Regras de privacidade: não forçar para público automaticamente
+        // Se necessário, validação adicional pode ser feita aqui (ex.: exigir auth para tornar privado)
 
         // Limpar null/undefined
         Object.keys(updateData).forEach((k) => {
