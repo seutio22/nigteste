@@ -2840,6 +2840,92 @@ for (const [path, repo] of Object.entries(resources)) {
       }
     })
 
+    // Atualizar projeto
+    app.put(`/${path}/:id`, async (req: any, reply) => {
+      try {
+        const { id } = req.params as { id: string }
+        let userId: string | null = null
+        try {
+          await (req as any).jwtVerify?.()
+          userId = (req as any).user?.id || null
+        } catch (e) {
+          userId = null
+        }
+
+        const body = req.body || {}
+        const updateData: any = { ...body }
+
+        // Campos que não devem ser atualizados diretamente
+        delete updateData.id
+        delete updateData.createdAt
+        delete updateData.updatedAt
+        delete updateData.managerId
+        delete updateData.clientId
+        delete updateData.activities // evitar estruturas complexas no update
+
+        // Datas
+        if (updateData.startDate) updateData.startDate = new Date(updateData.startDate)
+        if (updateData.endDate) updateData.endDate = new Date(updateData.endDate)
+
+        // Arrays -> string JSON (conforme schema)
+        if (updateData.team && Array.isArray(updateData.team)) {
+          updateData.team = JSON.stringify(updateData.team)
+        }
+        if (updateData.tags && Array.isArray(updateData.tags)) {
+          updateData.tags = JSON.stringify(updateData.tags)
+        }
+
+        // Objetos JSON -> string
+        if (updateData.timeline && typeof updateData.timeline === 'object') {
+          updateData.timeline = JSON.stringify(updateData.timeline)
+        }
+
+        // Regras de privacidade
+        if (updateData.isPrivate === true && !userId) {
+          updateData.isPrivate = false
+        }
+
+        // Limpar null/undefined
+        Object.keys(updateData).forEach((k) => {
+          if (updateData[k] === undefined) delete updateData[k]
+        })
+
+        const updated = await prisma.project.update({ where: { id }, data: updateData })
+
+        // Converter campos para retornar compatível com frontend
+        const result: any = { ...updated }
+        if (result.timeline && typeof result.timeline === 'string') {
+          try { result.timeline = JSON.parse(result.timeline) } catch { result.timeline = { phases: [] } }
+        }
+        if (result.activities && typeof result.activities === 'string') {
+          try { result.activities = JSON.parse(result.activities) } catch { result.activities = [] }
+        }
+        if (result.team && typeof result.team === 'string') {
+          try { result.team = JSON.parse(result.team) } catch { result.team = [] }
+        }
+        if (result.tags && typeof result.tags === 'string') {
+          try { result.tags = JSON.parse(result.tags) } catch { result.tags = [] }
+        }
+
+        return result
+      } catch (error) {
+        req.log.error(error)
+        return reply.code(500).send({ error: 'Erro interno do servidor' })
+      }
+    })
+
+    // Remover projeto
+    app.delete(`/${path}/:id`, async (req: any, reply) => {
+      try {
+        const { id } = req.params as { id: string }
+        await prisma.project.delete({ where: { id } })
+        return reply.code(204).send()
+      } catch (error) {
+        req.log.error(error)
+        return reply.code(500).send({ error: 'Erro interno do servidor' })
+      }
+    })
+
     // Pula o registro genérico para evitar duplicidade
     continue
   }
