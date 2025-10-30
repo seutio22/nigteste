@@ -56,8 +56,60 @@ export default function ValidationDetailPage() {
               navigate(`/validacao/${fetched.id}`)
               return
             }
-            // Garantir que o store carregue o item
-            await syncFromApi()
+            // Inserir diretamente no store para evitar espera do sync
+            const mapOne = (validacao: any): ValidationEntry => ({
+              id: validacao.id,
+              analista: validacao.analista || { nome: 'N/A' },
+              dataInicio: validacao.dataInicio,
+              dataFinal: validacao.dataFim,
+              status: validacao.status,
+              observacoes: validacao.observacoes,
+              demanda: validacao.demandaId,
+              ticket: validacao.ticket || `VAL-${validacao.id.slice(0, 8)}`,
+              solicitante: validacao.solicitante || undefined,
+              tipo: validacao.tipo || '',
+              descricao: validacao.descricao || 'Validação de demanda',
+              qualidade: validacao.qualidade || undefined,
+              qtdRetornos: validacao.qtdRetornos || 0,
+              vigencia: validacao.vigencia || undefined,
+              total: validacao.total || 0,
+              area: validacao.area || 'N/A',
+              sistema: validacao.sistema || 'N/A',
+              localizacao: validacao.localizacao || 'N/A',
+              clienteId: validacao.clienteId,
+              contratoId: validacao.contratoId,
+              operadoraId: validacao.operadoraId,
+              produtoId: validacao.produtoId,
+              cliente: validacao.clienteId,
+              contrato: validacao.contratoId,
+              operadora: validacao.operadoraId,
+              produto: validacao.produtoId,
+              estruturaEdge: (() => {
+                if (!validacao.estruturaEdge) return []
+                if (typeof validacao.estruturaEdge === 'string') {
+                  try { return JSON.parse(validacao.estruturaEdge) } catch { return [] }
+                }
+                return validacao.estruturaEdge
+              })(),
+              estruturaMove: (() => {
+                if (!validacao.estruturaMove) return []
+                if (typeof validacao.estruturaMove === 'string') {
+                  try { return JSON.parse(validacao.estruturaMove) } catch { return [] }
+                }
+                return validacao.estruturaMove
+              })(),
+              formalizacao: validacao.formalizacao,
+              itensPendentes: validacao.itensPendentes,
+              itensConcluidos: validacao.itensConcluidos,
+              createdAt: validacao.createdAt,
+              updatedAt: validacao.updatedAt
+            })
+            const mapped = mapOne(fetched)
+            try {
+              useValidationStore.setState((s) => ({ items: [mapped, ...s.items.filter(x => x.id !== mapped.id)] }))
+            } catch {}
+            // Opcional: sincronizar em background
+            syncFromApi()
           }
         } catch (e: any) {
           // Se 404, tentar pelo ticket salvo; caso contrário, voltar à lista

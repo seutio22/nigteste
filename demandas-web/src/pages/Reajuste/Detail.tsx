@@ -42,6 +42,14 @@ export default function ReajusteDetailPage() {
               navigate(`/reajuste/${fetched.id}`)
               return
             }
+            // Inserir diretamente no store para evitar espera do sync
+            try {
+              const mapped = fetched // payload de reajuste já é compatível com o store
+              // Garantir que tenha id/createdAt mínimos
+              if (!mapped.id) mapped.id = id
+              useReajusteStore.setState((s) => ({ items: [mapped, ...s.items.filter(x => x.id !== mapped.id)] }))
+            } catch {}
+            // Sincronizar em background
             await store.syncFromApi?.()
           }
         } catch (e) {
