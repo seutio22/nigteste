@@ -2139,7 +2139,7 @@ function crud(entity: keyof PrismaClient) {
             if (current && (!current.ownerId || current.ownerId === '') && userId) {
               updateData.ownerId = userId
             }
-          } catch {}
+          } catch (err) {}
         }
 
         // Limpar null/undefined
@@ -2152,16 +2152,16 @@ function crud(entity: keyof PrismaClient) {
         // Converter campos para retornar compatível com frontend
         const result: any = { ...updated }
         if (result.timeline && typeof result.timeline === 'string') {
-          try { result.timeline = JSON.parse(result.timeline) } catch { result.timeline = { phases: [] } }
+          try { result.timeline = JSON.parse(result.timeline) } catch (err) { result.timeline = { phases: [] } }
         }
         if (result.activities && typeof result.activities === 'string') {
-          try { result.activities = JSON.parse(result.activities) } catch { result.activities = [] }
+          try { result.activities = JSON.parse(result.activities) } catch (err) { result.activities = [] }
         }
         if (result.team && typeof result.team === 'string') {
-          try { result.team = JSON.parse(result.team) } catch { result.team = [] }
+          try { result.team = JSON.parse(result.team) } catch (err) { result.team = [] }
         }
         if (result.tags && typeof result.tags === 'string') {
-          try { result.tags = JSON.parse(result.tags) } catch { result.tags = [] }
+          try { result.tags = JSON.parse(result.tags) } catch (err) { result.tags = [] }
         }
 
         return result
@@ -2702,16 +2702,16 @@ for (const [path, repo] of Object.entries(resources)) {
         // Converter campos JSON conforme regra já aplicada no crud('project')
         const mapped = projects.map((project: any) => {
           if (project.timeline && typeof project.timeline === 'string') {
-            try { project.timeline = JSON.parse(project.timeline) } catch { project.timeline = { phases: [] } }
+            try { project.timeline = JSON.parse(project.timeline) } catch (err) { project.timeline = { phases: [] } }
           }
           if (project.activities && typeof project.activities === 'string') {
-            try { project.activities = JSON.parse(project.activities) } catch { project.activities = [] }
+            try { project.activities = JSON.parse(project.activities) } catch (err) { project.activities = [] }
           }
           if (project.team && typeof project.team === 'string') {
-            try { project.team = JSON.parse(project.team) } catch { project.team = [] }
+            try { project.team = JSON.parse(project.team) } catch (err) { project.team = [] }
           }
           if (project.tags && typeof project.tags === 'string') {
-            try { project.tags = JSON.parse(project.tags) } catch { project.tags = [] }
+            try { project.tags = JSON.parse(project.tags) } catch (err) { project.tags = [] }
           }
           return project
         })
@@ -2845,7 +2845,7 @@ for (const [path, repo] of Object.entries(resources)) {
             if (current && (!current.ownerId || current.ownerId === '') && userId) {
               updateData.ownerId = userId
             }
-          } catch {}
+          } catch (err) {}
         }
 
         // Limpar null/undefined
@@ -2858,16 +2858,16 @@ for (const [path, repo] of Object.entries(resources)) {
         // Converter campos para retornar compatível com frontend
         const result: any = { ...updated }
         if (result.timeline && typeof result.timeline === 'string') {
-          try { result.timeline = JSON.parse(result.timeline) } catch { result.timeline = { phases: [] } }
+          try { result.timeline = JSON.parse(result.timeline) } catch (err) { result.timeline = { phases: [] } }
         }
         if (result.activities && typeof result.activities === 'string') {
-          try { result.activities = JSON.parse(result.activities) } catch { result.activities = [] }
+          try { result.activities = JSON.parse(result.activities) } catch (err) { result.activities = [] }
         }
         if (result.team && typeof result.team === 'string') {
-          try { result.team = JSON.parse(result.team) } catch { result.team = [] }
+          try { result.team = JSON.parse(result.team) } catch (err) { result.team = [] }
         }
         if (result.tags && typeof result.tags === 'string') {
-          try { result.tags = JSON.parse(result.tags) } catch { result.tags = [] }
+          try { result.tags = JSON.parse(result.tags) } catch (err) { result.tags = [] }
         }
 
         return result
