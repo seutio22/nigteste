@@ -337,7 +337,7 @@ export const useValidationStore = create<ValidationState>()(
           // Importar API dinamicamente
           const { api } = await import('../lib/api.local')
           
-          const validacoes = await api.getValidacoes()
+          const validacoes = await api.getValidacoes() // Sem query params - buscar todas
           console.log('🔍 ValidationStore: Dados recebidos da API:', validacoes.length, 'itens')
           
           // Mapear os dados para o formato esperado pelo frontend - seguindo padrão do demandStore

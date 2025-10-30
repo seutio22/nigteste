@@ -204,7 +204,7 @@ export const api = {
     }),
 
   // Validações
-  getValidacoes: () => apiRequest(API_CONFIG.ENDPOINTS.VALIDACOES),
+  getValidacoes: (queryParams?: string) => apiRequest(`${API_CONFIG.ENDPOINTS.VALIDACOES}${queryParams || ''}`),
   getValidacao: (id: string) => apiRequest(`${API_CONFIG.ENDPOINTS.VALIDACOES}/${id}`),
   createValidacao: (validacaoData: unknown) =>
     apiRequest(API_CONFIG.ENDPOINTS.VALIDACOES, {

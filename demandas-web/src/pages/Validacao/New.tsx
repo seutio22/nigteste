@@ -183,33 +183,23 @@ export default function ValidationNewPage() {
     try {
       console.log('🔍 VALIDAÇÃO TICKET VALIDAÇÃO: Verificando se ticket existe:', ticket)
       
-      // Buscar no banco de dados via API
-      const baseUrl = 'https://nigteste-production.up.railway.app'
-      const response = await fetch(`${baseUrl}/validacoes?ticket=${encodeURIComponent(ticket)}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        }
+      // Usar a API do projeto para buscar validações por ticket
+      const { api } = await import('../../lib/api.local')
+      const validacoes = await api.getValidacoes(`?ticket=${encodeURIComponent(ticket)}`)
+      
+      // A API retorna um array, verificar se há resultados
+      const exists = Array.isArray(validacoes) && validacoes.length > 0
+      
+      console.log('🔍 VALIDAÇÃO TICKET VALIDAÇÃO: Resultado da busca:', {
+        ticket,
+        encontradas: Array.isArray(validacoes) ? validacoes.length : 0,
+        exists
       })
       
-      if (response.ok) {
-        const data = await response.json()
-        const exists = Array.isArray(data) ? data.length > 0 : data !== null
-        
-        console.log('🔍 VALIDAÇÃO TICKET VALIDAÇÃO: Resultado da busca:', {
-          ticket,
-          responseStatus: response.status,
-          dataLength: Array.isArray(data) ? data.length : 'not array',
-          exists
-        })
-        
-        return exists
-      } else {
-        console.warn('⚠️ VALIDAÇÃO TICKET VALIDAÇÃO: Erro na API:', response.status)
-        return false
-      }
+      return exists
     } catch (error) {
       console.error('❌ VALIDAÇÃO TICKET VALIDAÇÃO: Erro ao verificar ticket:', error)
+      // Em caso de erro, permitir prosseguir (não bloquear por problemas de rede)
       return false
     }
   }

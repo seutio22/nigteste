@@ -1578,7 +1578,24 @@ function crud(entity: keyof PrismaClient) {
 
       // Incluir relacionamentos para validações
       if (entity === 'validacao') {
+        // Construir filtros se queryParams fornecidos
+        const where: any = {}
+        
+        if (queryParams) {
+          // Aplicar filtro de ticket se fornecido
+          if (queryParams.ticket) {
+            where.ticket = queryParams.ticket
+          }
+          // Aplicar outros filtros genéricos se houver
+          Object.keys(queryParams).forEach(key => {
+            if (key !== 'entityId' && key !== 'entityType' && key !== 'ticket') {
+              where[key] = queryParams[key]
+            }
+          })
+        }
+        
         return anyPrisma[entity].findMany({
+          where: Object.keys(where).length > 0 ? where : undefined,
           include: {
             cliente: true,
             contrato: true,
