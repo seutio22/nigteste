@@ -41,6 +41,43 @@ export default function ValidationDetailPage() {
       } catch {}
     }
   }, [validation, id])
+
+  // Fallback extra: buscar diretamente por ID na API quando não encontrado no store (ex.: após refresh)
+  useEffect(() => {
+    if (!validation && id) {
+      (async () => {
+        try {
+          const { api } = await import('../../lib/api.local')
+          const fetched = await api.getValidacao(id)
+          if (fetched?.id) {
+            // Navegar para o ID real retornado (cobre caso de ID local vs ID do banco)
+            if (fetched.id !== id) {
+              try { sessionStorage.setItem('lastValidationId', fetched.id) } catch {}
+              navigate(`/validacao/${fetched.id}`)
+              return
+            }
+            // Garantir que o store carregue o item
+            await syncFromApi()
+          }
+        } catch (e: any) {
+          // Se 404, tentar pelo ticket salvo; caso contrário, voltar à lista
+          try {
+            const lastTicket = sessionStorage.getItem('lastValidationTicket')
+            if (lastTicket) {
+              const { api } = await import('../../lib/api.local')
+              const found = await api.getValidacoes(`?ticket=${encodeURIComponent(lastTicket)}`)
+              if (Array.isArray(found) && found.length > 0 && found[0]?.id) {
+                navigate(`/validacao/${found[0].id}`)
+                return
+              }
+            }
+          } catch {}
+          // Fallback final: voltar para a lista
+          navigate('/validacao')
+        }
+      })()
+    }
+  }, [validation, id])
   
   // Controle para sincronizar timeline apenas uma vez
   const timelineSyncedRef = useRef<Set<string>>(new Set())

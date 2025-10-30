@@ -30,6 +30,28 @@ export default function ReajusteDetailPage() {
     }
   }, [id])
 
+  // Fallback extra: se ao recarregar não houver item no store, buscar diretamente por ID
+  useEffect(() => {
+    if (!reajuste && id) {
+      (async () => {
+        try {
+          const { api } = await import('../../lib/api.local')
+          const fetched = await api.getReajuste(id)
+          if (fetched?.id) {
+            if (fetched.id !== id) {
+              navigate(`/reajuste/${fetched.id}`)
+              return
+            }
+            await store.syncFromApi?.()
+          }
+        } catch (e) {
+          // Fallback final: voltar para a lista
+          navigate('/reajuste')
+        }
+      })()
+    }
+  }, [reajuste, id])
+
   if (!reajuste) {
     return (
       <div className="p-6">
