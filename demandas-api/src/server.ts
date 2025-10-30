@@ -43,6 +43,26 @@ const app = Fastify({
 })
 // Usar singleton do PrismaClient para evitar múltiplas conexões
 
+// Garantir que as colunas de privacidade do Project existam (fallback sem CLI)
+async function ensureProjectPrivacyColumns() {
+  try {
+    // Criar colunas se não existirem
+    await prisma.$executeRawUnsafe('ALTER TABLE "Project" ADD COLUMN IF NOT EXISTS "ownerId" TEXT');
+    await prisma.$executeRawUnsafe('ALTER TABLE "Project" ADD COLUMN IF NOT EXISTS "isPrivate" BOOLEAN NOT NULL DEFAULT FALSE');
+
+    // Índices opcionais
+    await prisma.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS "idx_project_ownerId" ON "Project" ("ownerId")');
+    await prisma.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS "idx_project_isPrivate" ON "Project" ("isPrivate")');
+
+    app.log.info('✅ ensureProjectPrivacyColumns: Colunas/índices garantidos')
+  } catch (err) {
+    app.log.error({ err }, '❌ ensureProjectPrivacyColumns: Falha ao garantir colunas/índices')
+  }
+}
+
+// Executar o fallback de migração de colunas no boot
+ensureProjectPrivacyColumns()
+
 // Middleware para reconexão automática do Prisma
 app.addHook('onRequest', async (request, reply) => {
   try {
