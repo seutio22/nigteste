@@ -10,6 +10,8 @@ export interface Project {
   budget?: number
   client?: string
   manager: string // ID do gerente
+  ownerId?: string
+  isPrivate?: boolean
   team: string[] // IDs dos membros da equipe
   tags: string[]
   color: string // Cor do projeto

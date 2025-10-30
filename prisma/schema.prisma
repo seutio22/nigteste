@@ -600,6 +600,8 @@ model Project {
   budget          Float?
   clientId        String?
   managerId       String?
+  ownerId         String?
+  isPrivate       Boolean                 @default(false)
   team            String
   tags            String
   color           String
@@ -608,6 +610,7 @@ model Project {
   createdAt       DateTime                @default(now())
   updatedAt       DateTime                @updatedAt
   manager         User?                   @relation("ProjectManager", fields: [managerId], references: [id])
+  owner           User?                   @relation("ProjectOwner", fields: [ownerId], references: [id])
   client          Cliente?                @relation(fields: [clientId], references: [id])
   externalMembers ProjectExternalMember[]
   members         ProjectMember[]

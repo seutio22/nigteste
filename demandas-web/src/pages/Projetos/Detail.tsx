@@ -4056,6 +4056,23 @@ export default function ProjectDetailPage() {
                       />
                     </Grid>
 
+                    {/* Privacidade do Projeto */}
+                    <Grid item xs={12} md={6}>
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={Boolean(editing ? (editData as any)?.isPrivate : (project as any)?.isPrivate)}
+                            onChange={(e) => {
+                              if (!editing) return
+                              setEditData((prev: any) => ({ ...prev, isPrivate: e.target.checked }))
+                            }}
+                            disabled={!editing}
+                          />
+                        }
+                        label="Projeto privado (visível só para mim)"
+                      />
+                    </Grid>
+
                   </Grid>
                 </Paper>
               </Grid>

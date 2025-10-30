@@ -20,8 +20,35 @@ export default function ReajusteDetailPage() {
   
   // Controle para sincronizar timeline apenas uma vez
   const timelineSyncedRef = useRef<Set<string>>(new Set())
+  const syncedOnceRef = useRef<boolean>(false)
+  const [masterDataLoaded, setMasterDataLoaded] = useState(false)
+  const [triedDirectFetch, setTriedDirectFetch] = useState(false)
+
+  // Fluxo base igual Manutenção: tentar sync quando entra e carregar masters
+  useEffect(() => {
+    const loadData = async () => {
+      if (store.items.length === 0 || !reajuste) {
+        await store.syncFromApi?.()
+      }
+      if (md.analistas.length === 0 || md.tiposCadastro.length === 0 || md.padrao.length === 0) {
+        await md.syncFromApi?.()
+      }
+      if (id && timelineStore.syncTimeline && !timelineSyncedRef.current.has(id)) {
+        console.log('🔄 Sincronizando timeline do reajuste (modelo manutenção):', id)
+        timelineSyncedRef.current.add(id)
+        timelineStore.syncTimeline(id, 'reajuste')
+      }
+    }
+    loadData()
+  }, [id])
+
+  // Atualiza flag de dados mestres carregados
+  useEffect(() => {
+    const isLoaded = md.tiposCadastro.length > 0 && md.padrao.length > 0 && md.clientes.length > 0
+    setMasterDataLoaded(isLoaded)
+  }, [md.tiposCadastro.length, md.padrao.length, md.clientes.length])
   
-  // Sincronizar timeline apenas uma vez quando a página carrega
+  // Sincronizar timeline apenas uma vez quando a página carrega (mantido)
   useEffect(() => {
     if (id && timelineStore.syncTimeline && !timelineSyncedRef.current.has(id)) {
       console.log('🔄 Sincronizando timeline do reajuste (primeira vez):', id)
@@ -35,12 +62,19 @@ export default function ReajusteDetailPage() {
     if (!reajuste && id) {
       (async () => {
         try {
+          // Sync único quando não há itens ou item ainda não carregado
+          if (!syncedOnceRef.current && (store.items.length === 0)) {
+            syncedOnceRef.current = true
+            await store.syncFromApi?.()
+          }
+
           const { api } = await import('../../lib/api.local')
           const fetchedRaw = await api.getReajuste(id)
           const fetched: any = (fetchedRaw && fetchedRaw.id) ? fetchedRaw : fetchedRaw?.data
           if (fetched?.id) {
             if (fetched.id !== id) {
               navigate(`/reajuste/${fetched.id}`)
+              setTriedDirectFetch(true)
               return
             }
             // Inserir diretamente no store para evitar espera do sync
@@ -52,14 +86,30 @@ export default function ReajusteDetailPage() {
             } catch {}
             // Sincronizar em background
             await store.syncFromApi?.()
+            setTriedDirectFetch(true)
+          } else {
+            // Nada retornado para este ID
+            setTriedDirectFetch(true)
           }
         } catch (e) {
-          // Fallback final: voltar para a lista
-          navigate('/reajuste')
+          // Não redirecionar; apenas marcar tentativa concluída (igual Manutenção)
+          setTriedDirectFetch(true)
         }
       })()
     }
   }, [reajuste, id])
+
+  // Mostrar carregamento enquanto ainda estamos tentando resolver (sync/masters ou GET direto)
+  if (!reajuste && (!masterDataLoaded || !triedDirectFetch)) {
+    return (
+      <div className="p-6 flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Carregando dados...</p>
+        </div>
+      </div>
+    )
+  }
 
   if (!reajuste) {
     return (
@@ -67,6 +117,20 @@ export default function ReajusteDetailPage() {
         <div className="text-center">
           <h2 className="text-xl font-semibold text-gray-900">Reajuste não encontrado</h2>
           <p className="text-gray-600 mt-2">O reajuste solicitado não foi encontrado.</p>
+          <div className="mt-4">
+            <button
+              onClick={() => navigate('/reajuste')}
+              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            >
+              Voltar à Lista
+            </button>
+            <button
+              onClick={() => store.syncFromApi?.()}
+              className="ml-2 px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+            >
+              Tentar Novamente
+            </button>
+          </div>
         </div>
       </div>
     )

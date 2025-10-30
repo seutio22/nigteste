@@ -621,14 +621,17 @@ model Project {
   budget          Float?
   clientId        String?
   managerId       String?
+  ownerId         String?
   team            String
   tags            String
   color           String
+  isPrivate       Boolean                 @default(false)
   timeline        String?                 @default("{}")
   activities      String?                 @default("[]")
   createdAt       DateTime                @default(now())
   updatedAt       DateTime                @updatedAt
   manager         User?                   @relation("ProjectManager", fields: [managerId], references: [id])
+  owner           User?                   @relation(fields: [ownerId], references: [id])
   client          Cliente?                @relation(fields: [clientId], references: [id])
   externalMembers ProjectExternalMember[]
   members         ProjectMember[]

@@ -155,6 +155,10 @@ export default function ProjectListPageSimple() {
   
   // Aplicar filtros e ordenação
   const filteredProjects = projects.filter(project => {
+    // Segurança extra no frontend: ocultar projetos privados de outros usuários
+    if (project.isPrivate && project.ownerId && user?.role !== 'admin' && project.ownerId !== user?.id) {
+      return false
+    }
     // Filtro de busca
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase()

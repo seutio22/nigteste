@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { Project } from '../types/project'
 import type { ProjectTask, ProjectSubtask, ProjectMilestone, ProjectTimeline } from '../types/project'
 import { getApi } from '../lib/apiConfig'
+import { useAuthStore } from './authStore'
 
 type ProjectId = string
 
@@ -85,7 +86,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     try {
       
       // Preparar dados no formato correto para a API
-      const apiData = {
+      const user = useAuthStore.getState().user
+      const apiData: any = {
         name: payload.name,
         description: payload.description,
         status: payload.status,
@@ -96,12 +98,14 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         budget: payload.budget || null,
         team: JSON.stringify([]), // Array vazio como string
         tags: JSON.stringify([]), // Array vazio como string
-        color: '#3b82f6' // Cor padrão
+        color: '#3b82f6', // Cor padrão
+        isPrivate: (payload as any).isPrivate ?? false,
+        ownerId: user?.id || undefined
       }
       
       // Não enviar managerId - campo opcional
-      if (payload.managerId) {
-        apiData.managerId = payload.managerId
+      if ((payload as any).managerId) {
+        apiData.managerId = (payload as any).managerId
       }
       
       

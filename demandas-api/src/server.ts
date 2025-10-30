@@ -2698,6 +2698,122 @@ const resources = {
 
 
 for (const [path, repo] of Object.entries(resources)) {
+  // Regras específicas de privacidade para Projetos: sobrescreve list/get/create
+  if (path === 'projetos' || path === 'projects') {
+    app.get(`/${path}`, async (req: any, reply) => {
+      try {
+        let userId: string | null = null
+        try {
+          await (req as any).jwtVerify?.()
+          userId = (req as any).user?.id || null
+        } catch (e) {
+          userId = null
+        }
+
+        const where: any = userId
+          ? {
+              OR: [
+                { isPrivate: false },
+                { ownerId: userId },
+                { managerId: userId },
+                { members: { some: { userId } } }
+              ]
+            }
+          : { isPrivate: false }
+
+        const projects = await prisma.project.findMany({ where })
+
+        // Converter campos JSON conforme regra já aplicada no crud('project')
+        const mapped = projects.map((project: any) => {
+          if (project.timeline && typeof project.timeline === 'string') {
+            try { project.timeline = JSON.parse(project.timeline) } catch { project.timeline = { phases: [] } }
+          }
+          if (project.activities && typeof project.activities === 'string') {
+            try { project.activities = JSON.parse(project.activities) } catch { project.activities = [] }
+          }
+          if (project.team && typeof project.team === 'string') {
+            try { project.team = JSON.parse(project.team) } catch { project.team = [] }
+          }
+          if (project.tags && typeof project.tags === 'string') {
+            try { project.tags = JSON.parse(project.tags) } catch { project.tags = [] }
+          }
+          return project
+        })
+
+        return mapped
+      } catch (error) {
+        req.log.error(error)
+        return reply.code(500).send({ error: 'Erro interno do servidor' })
+      }
+    })
+
+    app.get(`/${path}/:id`, async (req: any, reply) => {
+      try {
+        const { id } = req.params as { id: string }
+        let userId: string | null = null
+        try {
+          await (req as any).jwtVerify?.()
+          userId = (req as any).user?.id || null
+        } catch (e) {
+          userId = null
+        }
+
+        const project = await prisma.project.findUnique({
+          where: { id },
+          include: { members: true }
+        })
+
+        if (!project) return reply.code(404).send({ error: 'Projeto não encontrado' })
+
+        const isMember = !!userId && project.members?.some((m: any) => m.userId === userId)
+        const canView = !project.isPrivate || (userId && (project.ownerId === userId || project.managerId === userId || isMember))
+
+        if (!canView) return reply.code(403).send({ error: 'Acesso negado a este projeto' })
+
+        // Remover lista de membros do payload simples (mantemos endpoint próprio para equipe)
+        const { members, ...safeProject } = project as any
+        return safeProject
+      } catch (error) {
+        req.log.error(error)
+        return reply.code(500).send({ error: 'Erro interno do servidor' })
+      }
+    })
+
+    app.post(`/${path}`, async (req: any, reply) => {
+      try {
+        let userId: string | null = null
+        try {
+          await (req as any).jwtVerify?.()
+          userId = (req as any).user?.id || null
+        } catch (e) {
+          userId = null
+        }
+
+        const body = req.body || {}
+        const data: any = { ...body }
+
+        // Normalização de campos diversos já tratados no update (json/arrays)
+        if (data.startDate) data.startDate = new Date(data.startDate)
+        if (data.endDate) data.endDate = new Date(data.endDate)
+        if (Array.isArray(data.team)) data.team = JSON.stringify(data.team)
+        if (Array.isArray(data.tags)) data.tags = JSON.stringify(data.tags)
+        if (typeof data.timeline === 'object') data.timeline = JSON.stringify(data.timeline)
+        if (Array.isArray(data.activities)) data.activities = JSON.stringify(data.activities)
+
+        // Definir ownerId automaticamente quando autenticado
+        if (userId) data.ownerId = userId
+
+        const created = await prisma.project.create({ data })
+        return created
+      } catch (error) {
+        req.log.error(error)
+        return reply.code(500).send({ error: 'Erro interno do servidor' })
+      }
+    })
+
+    // Pula o registro genérico para evitar duplicidade
+    continue
+  }
   app.get(`/${path}`, async (req: any) => repo.list(req.query))
   app.get(`/${path}/:id`, async (req: any) => repo.get(req.params.id))
   

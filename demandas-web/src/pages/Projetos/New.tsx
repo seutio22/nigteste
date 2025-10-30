@@ -13,7 +13,9 @@ import {
   MenuItem,
   FormHelperText,
   Alert,
-  Stack
+  Stack,
+  FormControlLabel,
+  Switch
 } from '@mui/material'
 import { ArrowBack, Save, Cancel } from '@mui/icons-material'
 import { useProjectStore } from '../../store/projectStore'
@@ -33,7 +35,8 @@ export default function ProjectNewPage() {
     endDate: '',
     manager: '',
     budget: '',
-    progress: 0
+    progress: 0,
+    isPrivate: false
   })
   
   const [errors, setErrors] = useState<{
@@ -117,7 +120,8 @@ export default function ProjectNewPage() {
         progress: formData.progress,
         team: '[]', // Campo obrigatório no schema
         tags: '[]', // Campo obrigatório no schema
-        color: '#1976d2' // Cor padrão
+        color: '#1976d2', // Cor padrão
+        isPrivate: formData.isPrivate
       }
       
       // Não enviar managerId por enquanto para evitar erro de referência
@@ -293,6 +297,19 @@ export default function ProjectNewPage() {
                 inputProps={{ min: 0, max: 100, step: 1 }}
               />
             </Grid>
+
+          {/* Privacidade */}
+          <Grid item xs={12} md={6}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={formData.isPrivate}
+                  onChange={(e) => handleInputChange('isPrivate', e.target.checked)}
+                />
+              }
+              label="Projeto privado (visível só para mim)"
+            />
+          </Grid>
           </Grid>
 
           {/* Botões de Ação */}
