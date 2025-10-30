@@ -10,11 +10,13 @@ export async function authRoutes(app: FastifyInstance, options?: { prisma?: Pris
   app.post('/auth/login', async (req: { body: unknown }, res: { code: (code: number) => { send: (data: any) => void } }) => {
     try {
       // Validar dados de entrada
+      const emailRegex = /^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*$/
       const bodySchema = z.object({ 
-        email: z.string().min(1, 'E-mail é obrigatório').refine(
-          (email) => email.includes('@') && email.includes('.'),
-          'E-mail deve conter @ e .'
-        ), 
+        email: z
+          .string()
+          .min(1, 'E-mail é obrigatório')
+          .max(254, 'E-mail muito longo')
+          .refine((email) => emailRegex.test(email), 'E-mail inválido'), 
         password: z.string().min(1, 'Senha é obrigatória') 
       })
       const body = bodySchema.parse(req.body)

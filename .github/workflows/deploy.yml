@@ -1,3 +1,131 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'deploy | rollback'
+        required: false
+        default: 'deploy'
+      service:
+        description: 'Nome do serviço Railway (opcional)'
+        required: false
+        default: 'demandas-api'
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy-railway:
+    if: ${{ secrets.RAILWAY_TOKEN != '' }}
+    name: Deploy API to Railway
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: demandas-api
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: demandas-api/package-lock.json
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Build
+        run: |
+          if [ -f package.json ] && jq -e '.scripts.build' package.json >/dev/null; then
+            npm run build
+          else
+            npx tsc -p tsconfig.json
+          fi
+
+      - name: Install Railway CLI
+        run: npm i -g @railway/cli
+
+      - name: Deploy to Railway
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          railway up --service="demandas-api" --ci
+
+  deploy-vercel:
+    if: ${{ secrets.VERCEL_TOKEN != '' && secrets.VERCEL_ORG_ID != '' && secrets.VERCEL_PROJECT_ID != '' }}
+    name: Deploy WEB to Vercel
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: demandas-web
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: demandas-web/package-lock.json
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Build (optional)
+        run: npm run build --if-present || true
+
+      - name: Install Vercel CLI
+        run: npm i -g vercel
+
+      - name: Deploy to Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          vercel pull --yes --environment=production --token "$VERCEL_TOKEN"
+          vercel deploy --prod --token "$VERCEL_TOKEN" --confirm
+
+  rollback:
+    # Gatilho manual: workflow_dispatch com action=rollback
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'rollback' }}
+    name: Rollback rápido
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Railway CLI (se houver token)
+        if: ${{ secrets.RAILWAY_TOKEN != '' }}
+        run: npm i -g @railway/cli
+
+      - name: Railway rollback (promover release anterior)
+        if: ${{ secrets.RAILWAY_TOKEN != '' }}
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          SERVICE_NAME="${{ github.event.inputs.service }}"
+          echo "⏪ Buscando últimas implantações do serviço $SERVICE_NAME"
+          railway deployment list --service "$SERVICE_NAME" --json | jq '.[1] // empty' > prev.json
+          if [ ! -s prev.json ]; then echo 'Nenhum deploy anterior encontrado'; exit 1; fi
+          DEPLOY_ID=$(jq -r '.id' prev.json)
+          echo "Promovendo deploy $DEPLOY_ID"
+          railway deployment promote "$DEPLOY_ID" --service "$SERVICE_NAME"
+
+      - name: Vercel rollback (reativar build anterior via alias)
+        if: ${{ secrets.VERCEL_TOKEN != '' && secrets.VERCEL_ORG_ID != '' && secrets.VERCEL_PROJECT_ID != '' }}
+        run: |
+          npm i -g vercel
+          # Obtém a segunda implantação mais recente e faz alias para produção
+          PREV_URL=$(vercel ls --token "${{ secrets.VERCEL_TOKEN }}" --confirm | awk 'NR==3{print $1}')
+          if [ -z "$PREV_URL" ]; then echo 'Não foi possível obter build anterior do Vercel'; exit 1; fi
+          vercel alias set "$PREV_URL" $(vercel project ls --token "${{ secrets.VERCEL_TOKEN }}" | awk 'NR==2{print $1}') --token "${{ secrets.VERCEL_TOKEN }}" || true
+
 name: 🚀 Deploy Automático - Railway & Vercel
 
 on:
