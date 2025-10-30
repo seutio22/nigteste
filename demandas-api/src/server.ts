@@ -1615,6 +1615,47 @@ function crud(entity: keyof PrismaClient) {
           }
         });
       }
+
+      // Incluir relacionamentos para manutenções
+      if (entity === 'manutencao') {
+        // Construir filtros se queryParams fornecidos
+        const where: any = {}
+        
+        if (queryParams) {
+          // Aplicar filtro de ticket se fornecido
+          if (queryParams.ticket) {
+            where.ticket = queryParams.ticket
+          }
+          // Aplicar outros filtros genéricos se houver
+          Object.keys(queryParams).forEach(key => {
+            if (key !== 'entityId' && key !== 'entityType' && key !== 'ticket') {
+              where[key] = queryParams[key]
+            }
+          })
+        }
+        
+        return anyPrisma[entity].findMany({
+          where: Object.keys(where).length > 0 ? where : undefined,
+          include: {
+            cliente: true,
+            contrato: true,
+            operadora: true,
+            produto: true,
+            sistema: true,
+            area: true,
+            analista: {
+              select: {
+                id: true,
+                nome: true,
+                createdAt: true,
+                updatedAt: true
+              }
+            },
+            tipoServico: true,
+            tipo: true
+          }
+        });
+      }
       
       // Contratos - sempre retornar todos (ativos e inativos)
       if (entity === 'contrato') {

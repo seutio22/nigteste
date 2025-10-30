@@ -155,7 +155,7 @@ export const api = {
     }),
 
   // Manutenções
-  getManutencoes: () => apiRequest('/manutencoes'),
+  getManutencoes: (queryParams?: string) => apiRequest(`/manutencoes${queryParams || ''}`),
   getManutencao: (id: string) => apiRequest(`/manutencoes/${id}`),
   createManutencao: (manutencaoData: unknown) =>
     apiRequest('/manutencoes', {
