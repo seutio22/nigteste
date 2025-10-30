@@ -2627,8 +2627,11 @@ for (const [path, repo] of Object.entries(resources)) {
 
         const body = req.body || {}
         const data: any = { ...body }
+        console.log('🔍 POST /projetos: userId detectado =', userId)
+        console.log('🔍 POST /projetos: payload recebido.isPrivate =', (body as any)?.isPrivate)
         // Normalizar flag isPrivate
         if ('isPrivate' in data) data.isPrivate = !!data.isPrivate
+        console.log('🔍 POST /projetos: isPrivate normalizado =', data.isPrivate)
 
         // Normalização de campos diversos já tratados no update (json/arrays)
         if (data.startDate) data.startDate = new Date(data.startDate)
@@ -2641,14 +2644,17 @@ for (const [path, repo] of Object.entries(resources)) {
         // Se projeto for privado e não houver usuário autenticado, criar como público
         if (data.isPrivate === true && !userId) {
           data.isPrivate = false
+          console.log('ℹ️ POST /projetos: sem auth, forçando isPrivate=false')
         }
 
         // Sempre definir ownerId quando houver usuário autenticado
         if (userId) {
           data.ownerId = userId
+          console.log('🔗 POST /projetos: vinculando ownerId =', userId)
         }
 
         const created = await prisma.project.create({ data })
+        console.log('✅ POST /projetos: criado', created.id, 'isPrivate=', created.isPrivate, 'ownerId=', created.ownerId)
         return created
       } catch (error) {
         req.log.error(error)
@@ -2707,6 +2713,7 @@ for (const [path, repo] of Object.entries(resources)) {
             const current = await prisma.project.findUnique({ where: { id }, select: { ownerId: true } })
             if (current && (!current.ownerId || current.ownerId === '') && userId) {
               updateData.ownerId = userId
+              console.log('🔗 PUT /projetos: definindo ownerId ao tornar privado =', userId)
             }
           } catch (err) {}
         }
@@ -2717,6 +2724,7 @@ for (const [path, repo] of Object.entries(resources)) {
         })
 
         const updated = await prisma.project.update({ where: { id }, data: updateData })
+        console.log('✅ PUT /projetos:', id, 'isPrivate=', (updated as any)?.isPrivate, 'ownerId=', (updated as any)?.ownerId)
         
         // Converter campos para retornar compatível com frontend
         const result: any = { ...updated }
