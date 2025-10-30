@@ -2722,7 +2722,7 @@ for (const [path, repo] of Object.entries(resources)) {
             await prisma.projectMember.upsert({
               where: { projectId_userId: { projectId: created.id, userId } },
               update: {},
-              create: { projectId: created.id, userId }
+              create: { projectId: created.id, userId, role: 'owner' }
             })
             console.log('👥 POST /projetos: criador adicionado como membro')
           } catch (mErr) {
