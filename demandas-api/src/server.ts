@@ -2590,7 +2590,10 @@ for (const [path, repo] of Object.entries(resources)) {
 
         const project = await prisma.project.findUnique({
           where: { id },
-          include: { members: true }
+          include: {
+            members: true,
+            owner: { select: { id: true, name: true, email: true } }
+          }
         })
 
         if (!project) return reply.code(404).send({ error: 'Projeto não encontrado' })
@@ -2601,8 +2604,11 @@ for (const [path, repo] of Object.entries(resources)) {
         if (!canView) return reply.code(403).send({ error: 'Acesso negado a este projeto' })
 
         // Remover lista de membros do payload simples (mantemos endpoint próprio para equipe)
-        const { members, ...safeProject } = project as any
-        return safeProject
+        const { members, owner, ...safeProject } = project as any
+        return {
+          ...safeProject,
+          ownerName: owner?.name || owner?.email || safeProject.ownerId || null
+        }
       } catch (error) {
         req.log.error(error)
         return reply.code(500).send({ error: 'Erro interno do servidor' })

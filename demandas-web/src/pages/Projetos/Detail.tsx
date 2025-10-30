@@ -4075,6 +4075,16 @@ export default function ProjectDetailPage() {
                       />
                     </Grid>
 
+                    {/* Dono do Projeto */}
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        fullWidth
+                        label="Dono do projeto"
+                        value={(project as any)?.ownerName || (project as any)?.ownerId || '—'}
+                        disabled
+                      />
+                    </Grid>
+
                   </Grid>
                 </Paper>
               </Grid>
