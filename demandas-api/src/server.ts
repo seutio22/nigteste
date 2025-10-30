@@ -2165,10 +2165,6 @@ function crud(entity: keyof PrismaClient) {
         }
 
         return result
-      } catch (error) {
-        req.log.error(error)
-        return reply.code(500).send({ error: 'Erro interno do servidor' })
-      }
     },
     remove: async (id: string) => {
       // Verificar dependências antes de excluir
