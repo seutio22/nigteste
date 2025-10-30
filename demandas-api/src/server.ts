@@ -2705,8 +2705,17 @@ for (const [path, repo] of Object.entries(resources)) {
           console.log('🔗 POST /projetos: vinculando ownerId =', userId)
         }
 
-        const created = await prisma.project.create({ data })
+        let created = await prisma.project.create({ data })
         console.log('✅ POST /projetos: criado', created.id, 'isPrivate=', created.isPrivate, 'ownerId=', created.ownerId)
+        // Fallback defensivo: garantir ownerId imediatamente após criação
+        if (userId && (!created.ownerId || created.ownerId === '')) {
+          try {
+            created = await prisma.project.update({ where: { id: created.id }, data: { ownerId: userId } })
+            console.log('🔧 POST /projetos: ownerId corrigido pós-criação =', userId)
+          } catch (fixErr) {
+            console.warn('⚠️ POST /projetos: falha ao corrigir ownerId pós-criação:', fixErr)
+          }
+        }
         return created
       } catch (error) {
         req.log.error(error)
