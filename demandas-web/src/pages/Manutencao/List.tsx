@@ -341,7 +341,7 @@ export default function ManutencaoListPage() {
             observacoes: data.observacoes || data.observacao || '',
             qtdRetornos: data.qtdRetornos || data.quantidadeRetornos || 0,
             qualidade: data.qualidade ? String(data.qualidade) : null,
-            qtdClientesVinculados: data.qtdClientesVinculados || data.clientesVinculados || 0,
+            total: data.total || data.qtdClientesVinculados || data.clientesVinculados || 0, // Campo renomeado para total
             usuariosEmpresa: data.usuariosEmpresa || data.usuarios || 0
           }
 
@@ -799,7 +799,7 @@ export default function ManutencaoListPage() {
           updatedAt: d.updatedAt ? new Date(d.updatedAt).toLocaleString('pt-BR') : 'N/A',
           // Campos numéricos
           qtdRetornos: d.qtdRetornos ?? 0,
-          qtdClientesVinculados: d.qtdClientesVinculados ?? 0,
+          total: d.total ?? 0, // Campo renomeado de qtdClientesVinculados para total
           usuariosEmpresa: d.usuariosEmpresa ?? 0,
           // Campos de texto
           solicitante: d.solicitante ?? 'N/A',
@@ -830,7 +830,7 @@ export default function ManutencaoListPage() {
           { key: 'dataFinal', label: 'Data Final' },
           { key: 'qtdRetornos', label: 'Qtd Retornos' },
           { key: 'qualidade', label: 'Qualidade' },
-          { key: 'qtdClientesVinculados', label: 'Qtd Clientes Vinculados' },
+          { key: 'total', label: 'Total' },
           { key: 'usuariosEmpresa', label: 'Usuários Empresa' },
           { key: 'observacoes', label: 'Observações' },
           { key: 'createdAt', label: 'Criado em' },
