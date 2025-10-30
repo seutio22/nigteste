@@ -17,30 +17,7 @@ export default function ValidationDetailPage() {
   const md = useMasterDataStore()
   const { user } = useAuthStore()
   const validation = items.find(v => v.id === id)
-  // Fallback: se a validação não for encontrada (ex.: navegação com ID local após duplicar), tentar redirecionar para o último ID real salvo
-  useEffect(() => {
-    if (!validation && id) {
-      try {
-        const lastId = sessionStorage.getItem('lastValidationId')
-        if (lastId && lastId !== id) {
-          navigate(`/validacao/${lastId}`)
-          return
-        }
-        const lastTicket = sessionStorage.getItem('lastValidationTicket')
-        if (lastTicket) {
-          (async () => {
-            try {
-              const { api } = await import('../../lib/api.local')
-              const found = await api.getValidacoes(`?ticket=${encodeURIComponent(lastTicket)}`)
-              if (Array.isArray(found) && found.length > 0 && found[0]?.id) {
-                navigate(`/validacao/${found[0].id}`)
-              }
-            } catch {}
-          })()
-        }
-      } catch {}
-    }
-  }, [validation, id])
+  // Removido fallback por sessionStorage para evitar loops; fluxo replica manutenção
 
   // Fallback extra: buscar diretamente por ID na API quando não encontrado no store (ex.: após refresh)
   useEffect(() => {
@@ -171,7 +148,7 @@ export default function ValidationDetailPage() {
         }
       }
 
-      // Tentativa direta por ID se ainda não encontrou
+      // Tentativa direta por ID se ainda não encontrou; caso 404, voltar para lista
       if (!validation && id) {
         try {
           const { api } = await import('../../lib/api.local')
@@ -179,7 +156,6 @@ export default function ValidationDetailPage() {
           const fetched: any = (fetchedRaw && fetchedRaw.id) ? fetchedRaw : fetchedRaw?.data
           if (fetched?.id) {
             if (fetched.id !== id) {
-              try { sessionStorage.setItem('lastValidationId', fetched.id) } catch {}
               navigate(`/validacao/${fetched.id}`)
               return
             }
@@ -228,8 +204,14 @@ export default function ValidationDetailPage() {
             })
             const mapped = mapOne(fetched)
             useValidationStore.setState((s) => ({ items: [mapped, ...s.items.filter(x => x.id !== mapped.id)] }))
+          } else {
+            navigate('/validacao')
+            return
           }
-        } catch {}
+        } catch {
+          navigate('/validacao')
+          return
+        }
       }
     }
     loadData()
@@ -242,77 +224,7 @@ export default function ValidationDetailPage() {
   console.log('🔍 ValidationDetailPage: Items disponíveis:', items.map(item => ({ id: item.id, ticket: item.ticket })))
   console.log('🔍 ValidationDetailPage: Validação encontrada:', !!validation)
   
-  if (!validation) {
-    return (
-      <div className="p-6">
-        <h1 className="text-2xl font-bold mb-4">Validação não encontrada</h1>
-        <p>ID: {id}</p>
-        <p>Total de validações carregadas: {items.length}</p>
-        <div className="mt-4 space-y-2">
-          <button 
-            onClick={() => navigate('/validacao')}
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-          >
-            Voltar à Lista
-          </button>
-          <button 
-            onClick={async () => {
-              try {
-                const { api } = await import('../../lib/api.local')
-                const fetchedRaw = await api.getValidacao(id!)
-                const fetched: any = (fetchedRaw && fetchedRaw.id) ? fetchedRaw : fetchedRaw?.data
-                if (fetched?.id) {
-                  useValidationStore.setState((s) => ({ items: [
-                    {
-                      id: fetched.id,
-                      analista: fetched.analista || { nome: 'N/A' },
-                      dataInicio: fetched.dataInicio,
-                      dataFinal: fetched.dataFim,
-                      status: fetched.status,
-                      observacoes: fetched.observacoes,
-                      demanda: fetched.demandaId,
-                      ticket: fetched.ticket || `VAL-${fetched.id.slice(0, 8)}`,
-                      solicitante: fetched.solicitante || undefined,
-                      tipo: fetched.tipo || '',
-                      descricao: fetched.descricao || 'Validação de demanda',
-                      qualidade: fetched.qualidade || undefined,
-                      qtdRetornos: fetched.qtdRetornos || 0,
-                      vigencia: fetched.vigencia || undefined,
-                      total: fetched.total || 0,
-                      area: fetched.area || 'N/A',
-                      sistema: fetched.sistema || 'N/A',
-                      localizacao: fetched.localizacao || 'N/A',
-                      clienteId: fetched.clienteId,
-                      contratoId: fetched.contratoId,
-                      operadoraId: fetched.operadoraId,
-                      produtoId: fetched.produtoId,
-                      cliente: fetched.clienteId,
-                      contrato: fetched.contratoId,
-                      operadora: fetched.operadoraId,
-                      produto: fetched.produtoId,
-                      estruturaEdge: [],
-                      estruturaMove: [],
-                      formalizacao: fetched.formalizacao,
-                      itensPendentes: fetched.itensPendentes,
-                      itensConcluidos: fetched.itensConcluidos,
-                      createdAt: fetched.createdAt,
-                      updatedAt: fetched.updatedAt
-                    },
-                    ...s.items.filter(x => x.id !== fetched.id)
-                  ] }))
-                }
-              } catch {
-                navigate('/validacao')
-              }
-            }}
-            className="ml-2 px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
-          >
-            Tentar Novamente
-          </button>
-        </div>
-      </div>
-    )
-  }
+  if (!validation) return null
 
   const label = (id?: string, arr?: { id: string, nome: string }[]) => 
     arr?.find(a => a.id === id)?.nome || '-'
