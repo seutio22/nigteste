@@ -2716,6 +2716,19 @@ for (const [path, repo] of Object.entries(resources)) {
             console.warn('⚠️ POST /projetos: falha ao corrigir ownerId pós-criação:', fixErr)
           }
         }
+        // Garantir visibilidade imediata ao criador: adicionar como membro se não existir
+        if (userId) {
+          try {
+            await prisma.projectMember.upsert({
+              where: { projectId_userId: { projectId: created.id, userId } },
+              update: {},
+              create: { projectId: created.id, userId }
+            })
+            console.log('👥 POST /projetos: criador adicionado como membro')
+          } catch (mErr) {
+            console.warn('⚠️ POST /projetos: falha ao adicionar criador como membro:', mErr)
+          }
+        }
         return created
       } catch (error) {
         req.log.error(error)
