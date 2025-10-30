@@ -132,8 +132,9 @@ export default function ValidationDetailPage() {
     }
   }, [validation, id])
   
-  // Controle para sincronizar timeline apenas uma vez
+  // Controles para evitar loops
   const timelineSyncedRef = useRef<Set<string>>(new Set())
+  const syncedOnceRef = useRef<boolean>(false)
   
   // Sincronizar timeline apenas uma vez quando a página carrega
   useEffect(() => {
@@ -147,29 +148,92 @@ export default function ValidationDetailPage() {
   // Estado para controlar se os dados mestres estão carregados
   const [masterDataLoaded, setMasterDataLoaded] = useState(false)
 
-  // Carregar dados quando a página for acessada (e quando o item ainda não existe no store)
+  // Carregar dados quando a página for acessada (modelo igual Manutenção)
   useEffect(() => {
-    console.log('🔍 ValidationDetailPage: Carregando dados para ID:', id)
-    console.log('🔍 ValidationDetailPage: Items no store:', items.length)
-    console.log('🔍 ValidationDetailPage: Loading:', isLoading)
-    
-    // Forçar carregamento quando não há itens OU quando o item específico ainda não foi carregado
-    if ((items.length === 0 || !validation) && !isLoading) {
-      console.log('🔄 ValidationDetailPage: Forçando syncFromApi (itens ausentes ou validação não encontrada)...')
-      syncFromApi()
+    const loadData = async () => {
+      console.log('🔍 ValidationDetailPage: Carregando dados para ID:', id)
+      console.log('🔍 ValidationDetailPage: Items no store:', items.length)
+      console.log('🔍 ValidationDetailPage: Loading:', isLoading)
+
+      // Carregar validações se necessário (apenas uma vez)
+      if (!syncedOnceRef.current && (items.length === 0 || !validation)) {
+        syncedOnceRef.current = true
+        await syncFromApi()
+      }
+
+      // Carregar dados mestres se necessário
+      if (!masterDataLoaded && md.syncFromApi) {
+        try {
+          await md.syncFromApi()
+          setMasterDataLoaded(true)
+        } catch (error) {
+          console.error('❌ ValidationDetailPage: Erro ao carregar dados mestres:', error)
+        }
+      }
+
+      // Tentativa direta por ID se ainda não encontrou
+      if (!validation && id) {
+        try {
+          const { api } = await import('../../lib/api.local')
+          const fetchedRaw = await api.getValidacao(id)
+          const fetched: any = (fetchedRaw && fetchedRaw.id) ? fetchedRaw : fetchedRaw?.data
+          if (fetched?.id) {
+            if (fetched.id !== id) {
+              try { sessionStorage.setItem('lastValidationId', fetched.id) } catch {}
+              navigate(`/validacao/${fetched.id}`)
+              return
+            }
+            const mapOne = (validacao: any): ValidationEntry => ({
+              id: validacao.id,
+              analista: validacao.analista || { nome: 'N/A' },
+              dataInicio: validacao.dataInicio,
+              dataFinal: validacao.dataFim,
+              status: validacao.status,
+              observacoes: validacao.observacoes,
+              demanda: validacao.demandaId,
+              ticket: validacao.ticket || `VAL-${validacao.id.slice(0, 8)}`,
+              solicitante: validacao.solicitante || undefined,
+              tipo: validacao.tipo || '',
+              descricao: validacao.descricao || 'Validação de demanda',
+              qualidade: validacao.qualidade || undefined,
+              qtdRetornos: validacao.qtdRetornos || 0,
+              vigencia: validacao.vigencia || undefined,
+              total: validacao.total || 0,
+              area: validacao.area || 'N/A',
+              sistema: validacao.sistema || 'N/A',
+              localizacao: validacao.localizacao || 'N/A',
+              clienteId: validacao.clienteId,
+              contratoId: validacao.contratoId,
+              operadoraId: validacao.operadoraId,
+              produtoId: validacao.produtoId,
+              cliente: validacao.clienteId,
+              contrato: validacao.contratoId,
+              operadora: validacao.operadoraId,
+              produto: validacao.produtoId,
+              estruturaEdge: (() => {
+                if (!validacao.estruturaEdge) return []
+                if (typeof validacao.estruturaEdge === 'string') { try { return JSON.parse(validacao.estruturaEdge) } catch { return [] } }
+                return validacao.estruturaEdge
+              })(),
+              estruturaMove: (() => {
+                if (!validacao.estruturaMove) return []
+                if (typeof validacao.estruturaMove === 'string') { try { return JSON.parse(validacao.estruturaMove) } catch { return [] } }
+                return validacao.estruturaMove
+              })(),
+              formalizacao: validacao.formalizacao,
+              itensPendentes: validacao.itensPendentes,
+              itensConcluidos: validacao.itensConcluidos,
+              createdAt: validacao.createdAt,
+              updatedAt: validacao.updatedAt
+            })
+            const mapped = mapOne(fetched)
+            useValidationStore.setState((s) => ({ items: [mapped, ...s.items.filter(x => x.id !== mapped.id)] }))
+          }
+        } catch {}
+      }
     }
-    
-    // Carregar dados mestres se não estiverem carregados
-    if (!masterDataLoaded && md.syncFromApi) {
-      console.log('🔄 ValidationDetailPage: Carregando dados mestres...')
-      md.syncFromApi().then(() => {
-        console.log('✅ ValidationDetailPage: Dados mestres carregados')
-        setMasterDataLoaded(true)
-      }).catch(error => {
-        console.error('❌ ValidationDetailPage: Erro ao carregar dados mestres:', error)
-      })
-    }
-  }, [id, items.length, isLoading, syncFromApi, masterDataLoaded, md.syncFromApi, validation])
+    loadData()
+  }, [id])
 
   // Debug: verificar se a validação foi encontrada
   console.log('🔍 ValidationDetailPage: Verificando validação...')
@@ -179,23 +243,72 @@ export default function ValidationDetailPage() {
   console.log('🔍 ValidationDetailPage: Validação encontrada:', !!validation)
   
   if (!validation) {
-    console.log('❌ ValidationDetailPage: Validação não encontrada!')
-    console.log('❌ ValidationDetailPage: Loading:', isLoading)
-    console.log('❌ ValidationDetailPage: Master data loaded:', masterDataLoaded)
-    
     return (
       <div className="p-6">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold text-gray-900">Carregando validação...</h2>
-          <p className="text-gray-600 mt-2">Buscando dados da validação ID: {id}</p>
-          <div className="mt-4 text-sm text-gray-500">
-            <p>Items no store: {items.length}</p>
-            <p>Loading: {isLoading ? 'Sim' : 'Não'}</p>
-            <p>Master data: {masterDataLoaded ? 'Carregado' : 'Carregando...'}</p>
-          </div>
-          <div className="mt-4">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-          </div>
+        <h1 className="text-2xl font-bold mb-4">Validação não encontrada</h1>
+        <p>ID: {id}</p>
+        <p>Total de validações carregadas: {items.length}</p>
+        <div className="mt-4 space-y-2">
+          <button 
+            onClick={() => navigate('/validacao')}
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            Voltar à Lista
+          </button>
+          <button 
+            onClick={async () => {
+              try {
+                const { api } = await import('../../lib/api.local')
+                const fetchedRaw = await api.getValidacao(id!)
+                const fetched: any = (fetchedRaw && fetchedRaw.id) ? fetchedRaw : fetchedRaw?.data
+                if (fetched?.id) {
+                  useValidationStore.setState((s) => ({ items: [
+                    {
+                      id: fetched.id,
+                      analista: fetched.analista || { nome: 'N/A' },
+                      dataInicio: fetched.dataInicio,
+                      dataFinal: fetched.dataFim,
+                      status: fetched.status,
+                      observacoes: fetched.observacoes,
+                      demanda: fetched.demandaId,
+                      ticket: fetched.ticket || `VAL-${fetched.id.slice(0, 8)}`,
+                      solicitante: fetched.solicitante || undefined,
+                      tipo: fetched.tipo || '',
+                      descricao: fetched.descricao || 'Validação de demanda',
+                      qualidade: fetched.qualidade || undefined,
+                      qtdRetornos: fetched.qtdRetornos || 0,
+                      vigencia: fetched.vigencia || undefined,
+                      total: fetched.total || 0,
+                      area: fetched.area || 'N/A',
+                      sistema: fetched.sistema || 'N/A',
+                      localizacao: fetched.localizacao || 'N/A',
+                      clienteId: fetched.clienteId,
+                      contratoId: fetched.contratoId,
+                      operadoraId: fetched.operadoraId,
+                      produtoId: fetched.produtoId,
+                      cliente: fetched.clienteId,
+                      contrato: fetched.contratoId,
+                      operadora: fetched.operadoraId,
+                      produto: fetched.produtoId,
+                      estruturaEdge: [],
+                      estruturaMove: [],
+                      formalizacao: fetched.formalizacao,
+                      itensPendentes: fetched.itensPendentes,
+                      itensConcluidos: fetched.itensConcluidos,
+                      createdAt: fetched.createdAt,
+                      updatedAt: fetched.updatedAt
+                    },
+                    ...s.items.filter(x => x.id !== fetched.id)
+                  ] }))
+                }
+              } catch {
+                navigate('/validacao')
+              }
+            }}
+            className="ml-2 px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+          >
+            Tentar Novamente
+          </button>
         </div>
       </div>
     )
