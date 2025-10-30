@@ -347,13 +347,22 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
   const [confirmOpen, setConfirmOpen] = useState(false)
 
   // Buscar o grupo econômico do cliente selecionado
-  const clienteSelecionadoData = draft.cliente 
-    ? md.clientes.find(cliente => cliente.id === draft.cliente)
+  // Normalizar cliente para garantir que seja sempre um ID (string)
+  const clienteIdNormalized = typeof draft.cliente === 'object' && draft.cliente !== null
+    ? draft.cliente.id
+    : draft.cliente
+    
+  const clienteSelecionadoData = clienteIdNormalized 
+    ? md.clientes.find(cliente => cliente.id === clienteIdNormalized)
     : null
 
-  // Filtrar contratos por cliente selecionado
-  const contratosFiltrados = draft.cliente 
-    ? md.contratos.filter((c: any) => c.clienteId === draft.cliente)
+  // Filtrar contratos por clienteId (relação direta) OU por grupoEconomico (relação indireta)
+  const contratosFiltrados = clienteIdNormalized 
+    ? md.contratos.filter((c: any) => {
+        const matchClienteId = c.clienteId === clienteIdNormalized
+        const matchGrupo = clienteSelecionadoData?.grupoEconomico && c.grupoEconomico === clienteSelecionadoData.grupoEconomico
+        return matchClienteId || matchGrupo
+      })
     : md.contratos
   
 
@@ -378,8 +387,47 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
   }, [user, md.analistas])
 
   useEffect(() => {
-    setDraft(validation)
-  }, [validation.id])
+    // Normalizar valores da validação antes de definir no draft
+    // Isso garante que campos como tipo e contrato sejam tratados corretamente
+    const normalizedDraft = {
+      ...validation,
+      // Normalizar tipo - garantir que seja string ou undefined
+      tipo: validation.tipo || '',
+      // Normalizar contrato - se for objeto, usar ID; se for string, usar diretamente
+      contrato: typeof validation.contrato === 'object' && validation.contrato !== null
+        ? validation.contrato.id
+        : validation.contrato || '',
+      // Normalizar cliente - se for objeto, usar ID; se for string, usar diretamente
+      cliente: typeof validation.cliente === 'object' && validation.cliente !== null
+        ? validation.cliente.id
+        : validation.cliente || '',
+      // Normalizar operadora - se for objeto, usar ID; se for string, usar diretamente
+      operadora: typeof validation.operadora === 'object' && validation.operadora !== null
+        ? validation.operadora.id
+        : validation.operadora || '',
+      // Normalizar produto - se for objeto, usar ID; se for string, usar diretamente
+      produto: typeof validation.produto === 'object' && validation.produto !== null
+        ? validation.produto.id
+        : validation.produto || '',
+      // Normalizar analista - se for objeto, usar ID; se for string, usar diretamente
+      analista: typeof validation.analista === 'object' && validation.analista !== null
+        ? validation.analista.id
+        : validation.analista || '',
+      // Normalizar solicitante - se for objeto, usar ID; se for string, usar diretamente
+      solicitante: typeof validation.solicitante === 'object' && validation.solicitante !== null
+        ? validation.solicitante.id
+        : validation.solicitante || ''
+    }
+    
+    console.log('🔍 EditInline: Normalizando draft:', {
+      original: validation,
+      normalized: normalizedDraft,
+      tipo: { original: validation.tipo, normalized: normalizedDraft.tipo },
+      contrato: { original: validation.contrato, normalized: normalizedDraft.contrato }
+    })
+    
+    setDraft(normalizedDraft)
+  }, [validation.id, validation.tipo, validation.contrato])
 
   const changedKeys = ((): string[] => {
     // Excluir 'total' da lista pois é calculado automaticamente
@@ -450,11 +498,30 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
         return JSON.stringify([...valArray].sort()) !== JSON.stringify([...draftArray].sort())
       }
       
-      // Comparação normal para outros campos - normalizar valores undefined/null/vazios
-      const normalizedValidation = validationValue === null || validationValue === undefined || validationValue === '' ? '' : String(validationValue).trim()
-      const normalizedDraft = draftValue === null || draftValue === undefined || draftValue === '' ? '' : String(draftValue).trim()
+      // Função helper para normalizar valores de objetos relacionados para IDs
+      const normalizeValue = (value: any): string => {
+        if (value === null || value === undefined || value === '') return ''
+        // Se for objeto (relacionamento populado), extrair o ID
+        if (typeof value === 'object' && value !== null && 'id' in value) {
+          return String(value.id).trim()
+        }
+        return String(value).trim()
+      }
       
-      // Debug específico para solicitante (removido para evitar logs repetitivos)
+      // Normalizar valores antes de comparar
+      const normalizedValidation = normalizeValue(validationValue)
+      const normalizedDraft = normalizeValue(draftValue)
+      
+      // Debug específico para tipo e contrato
+      if (k === 'tipo' || k === 'contrato') {
+        console.log(`🔍 Comparando ${k}:`, {
+          validationValue,
+          draftValue,
+          normalizedValidation,
+          normalizedDraft,
+          changed: normalizedValidation !== normalizedDraft
+        })
+      }
       
       return normalizedValidation !== normalizedDraft
     })
@@ -716,7 +783,9 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Solicitante</label>
           <select
-            value={draft.solicitante}
+            value={typeof draft.solicitante === 'object' && draft.solicitante !== null 
+              ? draft.solicitante.id 
+              : (draft.solicitante || '')}
             onChange={(e) => setDraft({ ...draft, solicitante: e.target.value || undefined })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
@@ -731,7 +800,7 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Demanda *</label>
           <select
-            value={draft.tipo}
+            value={draft.tipo || ''}
             onChange={(e) => setDraft({ ...draft, tipo: e.target.value })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
@@ -747,7 +816,7 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Cliente</label>
           <select
-            value={draft.cliente}
+            value={clienteIdNormalized || ''}
             onChange={(e) => setDraft({ 
               ...draft, 
               cliente: e.target.value || undefined,
@@ -766,7 +835,9 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Operadora</label>
           <select
-            value={draft.operadora}
+            value={typeof draft.operadora === 'object' && draft.operadora !== null 
+              ? draft.operadora.id 
+              : (draft.operadora || '')}
             onChange={(e) => setDraft({ 
               ...draft, 
               operadora: e.target.value || undefined,
@@ -785,7 +856,9 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Contrato</label>
           <select
-            value={draft.contrato}
+            value={typeof draft.contrato === 'object' && draft.contrato !== null 
+              ? draft.contrato.id 
+              : (draft.contrato || '')}
             onChange={(e) => setDraft({ ...draft, contrato: e.target.value || undefined })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
@@ -798,7 +871,7 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
               ))
             ) : (
               <option disabled>
-                {draft.cliente ? 'Nenhum contrato encontrado para este cliente' : 'Selecione um cliente primeiro'}
+                {clienteIdNormalized ? 'Nenhum contrato encontrado para este cliente' : 'Selecione um cliente primeiro'}
               </option>
             )}
           </select>
@@ -811,7 +884,9 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Produto</label>
           <select
-            value={draft.produto}
+            value={typeof draft.produto === 'object' && draft.produto !== null 
+              ? draft.produto.id 
+              : (draft.produto || '')}
             onChange={(e) => setDraft({ ...draft, produto: e.target.value || undefined })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >

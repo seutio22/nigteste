@@ -347,7 +347,7 @@ export const useValidationStore = create<ValidationState>()(
             demanda: validacao.demandaId,
             ticket: validacao.ticket || `VAL-${validacao.id.slice(0, 8)}`,
             solicitante: validacao.solicitante || undefined,
-            tipo: validacao.tipo || 'Validação',
+            tipo: validacao.tipo || '', // Usar string vazia em vez de valor padrão inválido
             descricao: validacao.descricao || 'Validação de demanda',
             qualidade: validacao.qualidade || undefined,
             qtdRetornos: validacao.qtdRetornos || 0,
