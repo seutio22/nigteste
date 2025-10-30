@@ -151,7 +151,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       })
       
       // Normalizar payload apenas com campos suportados pela API
-      const payload: any = {
+      const payloadBase: any = {
         name: project.name,
         description: (project as any).description ?? undefined,
         status: project.status,
@@ -164,14 +164,21 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       }
       
       // Campos de array/JSON
+      const payload: any = { ...payloadBase }
       const team = (project as any).team
       if (Array.isArray(team)) payload.team = team
       const tags = (project as any).tags
       if (Array.isArray(tags)) payload.tags = tags
       const timeline = (project as any).timeline
-      if (timeline && typeof timeline === 'object') payload.timeline = timeline
-      const activities = (project as any).activities
-      if (Array.isArray(activities)) payload.activities = activities
+      if (timeline && typeof timeline === 'object') {
+        // Garantir objeto serializável (sem referências circulares)
+        try {
+          payload.timeline = JSON.parse(JSON.stringify(timeline))
+        } catch {
+          // Se falhar, não enviar timeline
+        }
+      }
+      // NUNCA enviar activities no upsert para evitar estruturas circulares
       
       // Enviar atualização
       const api = getApi()
