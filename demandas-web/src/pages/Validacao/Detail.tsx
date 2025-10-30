@@ -16,6 +16,30 @@ export default function ValidationDetailPage() {
   const md = useMasterDataStore()
   const { user } = useAuthStore()
   const validation = items.find(v => v.id === id)
+  // Fallback: se a validação não for encontrada (ex.: navegação com ID local após duplicar), tentar redirecionar para o último ID real salvo
+  useEffect(() => {
+    if (!validation && id) {
+      try {
+        const lastId = sessionStorage.getItem('lastValidationId')
+        if (lastId && lastId !== id) {
+          navigate(`/validacao/${lastId}`)
+          return
+        }
+        const lastTicket = sessionStorage.getItem('lastValidationTicket')
+        if (lastTicket) {
+          (async () => {
+            try {
+              const { api } = await import('../../lib/api.local')
+              const found = await api.getValidacoes(`?ticket=${encodeURIComponent(lastTicket)}`)
+              if (Array.isArray(found) && found.length > 0 && found[0]?.id) {
+                navigate(`/validacao/${found[0].id}`)
+              }
+            } catch {}
+          })()
+        }
+      } catch {}
+    }
+  }, [validation, id])
   
   // Controle para sincronizar timeline apenas uma vez
   const timelineSyncedRef = useRef<Set<string>>(new Set())
@@ -32,15 +56,15 @@ export default function ValidationDetailPage() {
   // Estado para controlar se os dados mestres estão carregados
   const [masterDataLoaded, setMasterDataLoaded] = useState(false)
 
-  // Carregar dados quando a página for acessada (apenas uma vez)
+  // Carregar dados quando a página for acessada (e quando o item ainda não existe no store)
   useEffect(() => {
     console.log('🔍 ValidationDetailPage: Carregando dados para ID:', id)
     console.log('🔍 ValidationDetailPage: Items no store:', items.length)
     console.log('🔍 ValidationDetailPage: Loading:', isLoading)
     
-    // Forçar carregamento de validações se não existirem
-    if (items.length === 0 && !isLoading) {
-      console.log('🔄 ValidationDetailPage: Forçando syncFromApi...')
+    // Forçar carregamento quando não há itens OU quando o item específico ainda não foi carregado
+    if ((items.length === 0 || !validation) && !isLoading) {
+      console.log('🔄 ValidationDetailPage: Forçando syncFromApi (itens ausentes ou validação não encontrada)...')
       syncFromApi()
     }
     
@@ -54,7 +78,7 @@ export default function ValidationDetailPage() {
         console.error('❌ ValidationDetailPage: Erro ao carregar dados mestres:', error)
       })
     }
-  }, [id, items.length, isLoading, syncFromApi, masterDataLoaded, md.syncFromApi])
+  }, [id, items.length, isLoading, syncFromApi, masterDataLoaded, md.syncFromApi, validation])
 
   // Debug: verificar se a validação foi encontrada
   console.log('🔍 ValidationDetailPage: Verificando validação...')

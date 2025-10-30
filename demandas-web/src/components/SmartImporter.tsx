@@ -195,8 +195,9 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
                 item.qtdRetornos = value
               } else if (cleanHeader === 'qualidade') {
                 item.qualidade = value
-              } else if (cleanHeader === 'qtdclientesvinculados' || cleanHeader === 'clientesvinculados') {
-                item.qtdClientesVinculados = value
+              } else if (cleanHeader === 'total' || cleanHeader === 'qtdclientesvinculados' || cleanHeader === 'clientesvinculados') {
+                // Manutenção: campo renomeado para total (compatível com cabeçalhos antigos)
+                item.total = value
               } else if (cleanHeader === 'usuariosempresa' || cleanHeader === 'usuarios' || cleanHeader === 'usuários') {
                 item.usuariosEmpresa = value
               }
@@ -429,8 +430,9 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
                 item.qtdRetornos = value
               } else if (cleanHeader === 'qualidade') {
                 item.qualidade = value
-              } else if (cleanHeader === 'qtdclientesvinculados' || cleanHeader === 'clientesvinculados') {
-                item.qtdClientesVinculados = value
+              } else if (cleanHeader === 'total' || cleanHeader === 'qtdclientesvinculados' || cleanHeader === 'clientesvinculados') {
+                // Demanda: manter compatibilidade, mas mapear também para total quando aplicável
+                item.total = value
               } else if (cleanHeader === 'usuariosempresa' || cleanHeader === 'usuarios' || cleanHeader === 'usuários') {
                 item.usuariosEmpresa = value
               } else if (cleanHeader === 'observacoes' || cleanHeader === 'observações' || cleanHeader === 'observacao' || cleanHeader === 'observação') {
@@ -951,7 +953,7 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
           observacoes: 'Manutenção preventiva mensal',
           qtdRetornos: 0,
           qualidade: '1',
-          qtdClientesVinculados: 50
+          total: 50
         },
         { 
           status: 'Em andamento',
@@ -973,7 +975,7 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
           observacoes: 'Correção urgente solicitada pelo cliente',
           qtdRetornos: 1,
           qualidade: '2',
-          qtdClientesVinculados: 25
+          total: 25
         }
       ]
     } else if (config.entityType.toLowerCase().includes('demanda')) {

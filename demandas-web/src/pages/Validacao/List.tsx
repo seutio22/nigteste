@@ -111,7 +111,22 @@ function ActionCell({ id, status }: { id: string, status: string }) {
         status: 'Em validação', 
         updatedAt: new Date().toISOString() 
       })
-      navigate(`/validacao/${duplicated.id}`)
+      // Garantir navegação usando o ID real do backend
+      let navigateId = duplicated?.id
+      try {
+        const { api } = await import('../../lib/api.local')
+        const found = await api.getValidacoes(`?ticket=${encodeURIComponent(String(newTicket || ''))}`)
+        if (Array.isArray(found) && found.length > 0 && found[0]?.id) {
+          navigateId = found[0].id
+        }
+      } catch (e) {
+        console.warn('Não foi possível confirmar ID pelo ticket; usando ID retornado localmente', e)
+      }
+      try {
+        sessionStorage.setItem('lastValidationId', String(navigateId || ''))
+        if (newTicket) sessionStorage.setItem('lastValidationTicket', String(newTicket))
+      } catch {}
+      navigate(`/validacao/${navigateId}`)
     } catch (error) {
       console.error('Erro ao duplicar validação:', error)
       alert('Erro ao duplicar validação. Verifique o console para mais detalhes.')
@@ -168,7 +183,12 @@ function ActionCell({ id, status }: { id: string, status: string }) {
         )}
         
         {canEdit && (
-          <MenuItem onClick={() => { handleMenuClose(); setOpenStatus(true) }}>
+          <MenuItem onClick={() => { 
+            handleMenuClose(); 
+            // Sugerir próximo status quando atual for 'Aberto'
+            setNewStatus(status === 'Aberto' ? 'Em validação' : status)
+            setOpenStatus(true) 
+          }}>
             <ListItemIcon><SwapHorizIcon fontSize="small" /></ListItemIcon>
             <ListItemText>Alterar status</ListItemText>
           </MenuItem>
@@ -191,7 +211,7 @@ function ActionCell({ id, status }: { id: string, status: string }) {
         <DialogTitle>Alterar status</DialogTitle>
         <DialogContent>
           <TextField select label="Novo status" value={newStatus} onChange={(e) => setNewStatus(e.target.value)} sx={{ mt: 1, minWidth: 280 }}>
-            {['Em validação','Aprovada','Rejeitada','Pendente','Cancelada'].map(s => (
+            {['Aberto','Em validação','Aprovada','Rejeitada','Pendente','Cancelada'].map(s => (
               <MenuItem key={s} value={s}>{s}</MenuItem>
             ))}
           </TextField>

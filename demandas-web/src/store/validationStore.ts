@@ -54,12 +54,14 @@ export const useValidationStore = create<ValidationState>()(
           console.log('📝 Estrutura MOVE na entrada:', entry.estruturaMove)
           set((s) => ({ items: [entry, ...s.items] }))
           
-          // Salvar no banco de dados
+          // Salvar no banco de dados e obter registro criado (com ID real do banco)
           console.log('💾 Salvando no banco de dados...')
-          await get().saveValidationToDatabase(entry)
+          const created = await get().saveValidationToDatabase(entry)
           
+          // Recarregar dados e retornar o registro criado para navegação correta
+          await get().syncFromApi()
           console.log('✅ Validação adicionada com sucesso!')
-          return entry
+          return created?.id ? { ...entry, id: created.id } : entry
         } catch (error) {
           console.error('❌ Erro ao adicionar validação:', error)
           set({ error: `Erro ao adicionar validação: ${error}` })
@@ -136,9 +138,8 @@ export const useValidationStore = create<ValidationState>()(
           const responseData = await api.createValidacao(requestBody)
           console.log('✅ Validação criada com sucesso no banco:', responseData)
           
-          // Recarregar dados da API após salvar
-          await get().syncFromApi()
-          
+          // Retornar registro criado para que o chamador use o ID real
+          return responseData
         } catch (error) {
           console.error('❌ Erro ao criar validação:', error)
           set({ error: `Erro ao criar validação: ${error}` })

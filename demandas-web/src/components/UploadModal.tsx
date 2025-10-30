@@ -242,7 +242,7 @@ export function UploadModal({ open, onClose, title, entityType, onUpload }: Uplo
           analiseQuantitativa: 5,
           qtdRetornos: 2,
           qualidade: '2',
-          qtdClientesVinculados: 10,
+          total: 10,
           usuariosEmpresa: 25,
           observacoes: 'Observações'
         }
