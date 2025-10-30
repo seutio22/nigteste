@@ -2132,15 +2132,7 @@ function crud(entity: keyof PrismaClient) {
         // Regras de privacidade: não forçar para público automaticamente
         // Se necessário, validação adicional pode ser feita aqui (ex.: exigir auth para tornar privado)
 
-        // Garantir owner ao tornar privado
-        if (updateData.isPrivate === true) {
-          try {
-            const current = await prisma.project.findUnique({ where: { id }, select: { ownerId: true } })
-            if (current && (!current.ownerId || current.ownerId === '') && userId) {
-              updateData.ownerId = userId
-            }
-          } catch (err) {}
-        }
+        // Regra de ownerId será garantida nas rotas específicas de projetos
 
         // Limpar null/undefined
         Object.keys(updateData).forEach((k) => {
