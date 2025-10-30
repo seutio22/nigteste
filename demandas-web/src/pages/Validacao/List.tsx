@@ -59,12 +59,62 @@ function ActionCell({ id, status }: { id: string, status: string }) {
   const doDuplicate = async () => {
     const v = store.items.find((x) => x.id === id)
     if (!v) return
-    const { id: _omit, createdAt: _c, updatedAt: _u, ...rest } = v
+    
     try {
-      const duplicated = await store.add({ ...rest, status: 'Em validação', updatedAt: new Date().toISOString() })
+      // Função para gerar ticket único com sufixo numérico
+      const generateUniqueTicket = async (originalTicket: string | undefined): Promise<string | undefined> => {
+        if (!originalTicket || originalTicket.trim() === '') {
+          return undefined // Se não tinha ticket, retornar undefined
+        }
+        
+        // Verificar se o ticket original já tem sufixo numérico (ex: "1212-1")
+        const ticketMatch = originalTicket.match(/^(.+)-(\d+)$/)
+        let baseTicket = originalTicket
+        let startSuffix = 1
+        
+        if (ticketMatch) {
+          // Se já tem sufixo, usar o base e incrementar
+          baseTicket = ticketMatch[1]
+          startSuffix = parseInt(ticketMatch[2]) + 1
+        }
+        
+        // Buscar ticket disponível incrementando sufixo
+        const { api } = await import('../../lib/api.local')
+        let suffix = startSuffix
+        let newTicket = `${baseTicket}-${suffix}`
+        
+        // Verificar até encontrar um ticket disponível (máximo 10 tentativas)
+        for (let i = 0; i < 10; i++) {
+          const existing = await api.getValidacoes(`?ticket=${encodeURIComponent(newTicket)}`)
+          if (!Array.isArray(existing) || existing.length === 0) {
+            // Ticket disponível encontrado
+            console.log(`✅ Ticket único gerado: ${newTicket}`)
+            return newTicket
+          }
+          // Ticket já existe, tentar próximo sufixo
+          suffix++
+          newTicket = `${baseTicket}-${suffix}`
+        }
+        
+        // Se não encontrou após 10 tentativas, gerar com timestamp
+        const timestamp = Date.now().toString().slice(-4)
+        return `${baseTicket}-${timestamp}`
+      }
+      
+      // Gerar novo ticket único
+      const newTicket = await generateUniqueTicket(v.ticket)
+      
+      const { id: _omit, createdAt: _c, updatedAt: _u, ticket: _ticket, ...rest } = v
+      const duplicated = await store.add({ 
+        ...rest, 
+        ticket: newTicket, // Usar novo ticket com sufixo
+        status: 'Em validação', 
+        updatedAt: new Date().toISOString() 
+      })
       navigate(`/validacao/${duplicated.id}`)
     } catch (error) {
       console.error('Erro ao duplicar validação:', error)
+      alert('Erro ao duplicar validação. Verifique o console para mais detalhes.')
     }
   }
 
