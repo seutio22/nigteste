@@ -162,9 +162,10 @@ export default function ProjectListPageSimple() {
     // Filtro de busca
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase()
-      if (!project.name.toLowerCase().includes(searchLower) &&
-          !project.description.toLowerCase().includes(searchLower) &&
-          !project.manager.toLowerCase().includes(searchLower)) {
+      const name = (project.name || '').toLowerCase()
+      const description = (project.description || '').toLowerCase()
+      const manager = (project.manager || '').toLowerCase()
+      if (!name.includes(searchLower) && !description.includes(searchLower) && !manager.includes(searchLower)) {
         return false
       }
     }

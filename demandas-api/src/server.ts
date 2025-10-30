@@ -2632,11 +2632,13 @@ for (const [path, repo] of Object.entries(resources)) {
         if (typeof data.timeline === 'object') data.timeline = JSON.stringify(data.timeline)
         if (Array.isArray(data.activities)) data.activities = JSON.stringify(data.activities)
 
-        // Definir ownerId automaticamente quando autenticado
-        if (userId) data.ownerId = userId
+        // Se projeto for privado e não houver usuário autenticado, bloquear
+        if (data.isPrivate === true && !userId) {
+          return reply.code(401).send({ error: 'Autenticação necessária para criar projeto privado' })
+        }
 
-        // Garantir owner se for privado e usuário autenticado
-        if (data.isPrivate === true && userId) {
+        // Sempre definir ownerId quando houver usuário autenticado
+        if (userId) {
           data.ownerId = userId
         }
 

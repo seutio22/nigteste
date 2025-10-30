@@ -99,8 +99,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         team: JSON.stringify([]), // Array vazio como string
         tags: JSON.stringify([]), // Array vazio como string
         color: '#3b82f6', // Cor padrão
-        isPrivate: (payload as any).isPrivate ?? false,
-        ownerId: user?.id || undefined
+        isPrivate: (payload as any).isPrivate ?? false
       }
       
       // Não enviar managerId - campo opcional
