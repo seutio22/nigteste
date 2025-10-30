@@ -226,7 +226,7 @@ model Manutencao {
   dataFinal     DateTime?
   qtdRetornos   Int?
   qualidade     String?
-  total         Int?    // Total (anteriormente qtdClientesVinculados)
+  qtdClientesVinculados Int?    // QTD CLIENTES VINCULADOS - EDGE
   usuariosEmpresa      Int?    // USUÁRIOS EMPRESA - MOVE
   observacoes   String?
   createdAt     DateTime              @default(now())

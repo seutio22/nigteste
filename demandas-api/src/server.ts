@@ -2188,43 +2188,7 @@ function crud(entity: keyof PrismaClient) {
       try {
         // Verificar se o registro existe primeiro
         const anyPrisma = prisma as any;
-        let existingRecord;
-        
-        // Solução temporária: usar select específico para manutenção até migration ser aplicada
-        if (entity === 'manutencao') {
-          existingRecord = await anyPrisma[entity].findUnique({ 
-            where: { id },
-            select: {
-              id: true,
-              status: true,
-              ticket: true,
-              analistaId: true,
-              userId: true,
-              solicitante: true,
-              areaId: true,
-              tipoId: true,
-              descricao: true,
-              clienteId: true,
-              contratoId: true,
-              operadoraId: true,
-              produtoId: true,
-              tipoServicoId: true,
-              sistemaId: true,
-              dataInicio: true,
-              dataFinal: true,
-              qtdRetornos: true,
-              qualidade: true,
-              qtdClientesVinculados: true, // Usar nome antigo temporariamente
-              usuariosEmpresa: true,
-              observacoes: true,
-              createdAt: true,
-              updatedAt: true
-            }
-          });
-        } else {
-          existingRecord = await anyPrisma[entity].findUnique({ where: { id } });
-        }
-        
+        const existingRecord = await anyPrisma[entity].findUnique({ where: { id } });
         if (!existingRecord) {
           // Retornar erro estruturado em vez de lançar exceção
           return {

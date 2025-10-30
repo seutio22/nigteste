@@ -296,7 +296,7 @@ export const useManutencaoStore = create<ManutencaoState>()(
             qualidade: m.qualidade,
             periodicidade: m.periodicidade,
             qtdRetornos: m.qtdRetornos,
-            total: m.total, // Campo renomeado de qtdClientesVinculados para total
+            qtdClientesVinculados: m.qtdClientesVinculados,
             usuariosEmpresa: m.usuariosEmpresa,
             dataInicio: m.dataInicio,
             dataFinal: m.dataFinal,
