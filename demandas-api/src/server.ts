@@ -2129,99 +2129,46 @@ function crud(entity: keyof PrismaClient) {
           progressType: typeof updateData.progress
         })
         
-        const updatedProject = await anyPrisma[entity].update({ where: { id }, data: updateData });
-        
-        // Converter campos JSON de volta para objetos antes de retornar
-        if (updatedProject.timeline && typeof updatedProject.timeline === 'string') {
+        // Regras de privacidade: não forçar para público automaticamente
+        // Se necessário, validação adicional pode ser feita aqui (ex.: exigir auth para tornar privado)
+
+        // Garantir owner ao tornar privado
+        if (updateData.isPrivate === true) {
           try {
-            updatedProject.timeline = JSON.parse(updatedProject.timeline);
-          } catch (e) {
-            updatedProject.timeline = { phases: [] };
-          }
+            const current = await prisma.project.findUnique({ where: { id }, select: { ownerId: true } })
+            if (current && (!current.ownerId || current.ownerId === '') && userId) {
+              updateData.ownerId = userId
+            }
+          } catch {}
         }
-        if (updatedProject.activities && typeof updatedProject.activities === 'string') {
-          try {
-            updatedProject.activities = JSON.parse(updatedProject.activities);
-          } catch (e) {
-            updatedProject.activities = [];
-          }
-        }
-        if (updatedProject.team && typeof updatedProject.team === 'string') {
-          try {
-            updatedProject.team = JSON.parse(updatedProject.team);
-          } catch (e) {
-            updatedProject.team = [];
-          }
-        }
-        if (updatedProject.tags && typeof updatedProject.tags === 'string') {
-          try {
-            updatedProject.tags = JSON.parse(updatedProject.tags);
-          } catch (e) {
-            updatedProject.tags = [];
-          }
-        }
-        
-        console.log('✅ PROJECT UPDATE: Projeto atualizado e campos JSON parseados')
-        console.log('✅ PROJECT UPDATE: Timeline parseado:', {
-          fases: updatedProject.timeline?.phases?.length,
-          tarefas: updatedProject.timeline?.phases?.[0]?.tasks?.length
+
+        // Limpar null/undefined
+        Object.keys(updateData).forEach((k) => {
+          if (updateData[k] === undefined) delete updateData[k]
         })
+
+        const updated = await prisma.project.update({ where: { id }, data: updateData })
         
-        return updatedProject;
-      }
-      
-      // Tratamento específico para reports - converter datas corretamente
-      if (entity === 'report') {
-        const reportData = { ...data as any };
-        console.log('🔍 REPORT UPDATE: Dados recebidos:', JSON.stringify(reportData, null, 2));
-        
-        // Remover campo userId que não existe no modelo Report
-        if ('userId' in reportData) {
-          delete reportData.userId;
-          console.log('🔍 REPORT UPDATE: Campo userId removido (não existe no modelo Report)');
+        // Converter campos para retornar compatível com frontend
+        const result: any = { ...updated }
+        if (result.timeline && typeof result.timeline === 'string') {
+          try { result.timeline = JSON.parse(result.timeline) } catch { result.timeline = { phases: [] } }
         }
-        
-        // Converter campos de data do formato 'YYYY-MM-DD' para ISO-8601 DateTime
-        const dateFields = ['dataInicio', 'dataFinalizacao', 'dataEntrega'];
-        
-        for (const field of dateFields) {
-          // Verificar se o campo existe (pode ser undefined, null, string vazia ou valor válido)
-          if (field in reportData) {
-            // Se for string vazia, null ou undefined, remover o campo (não atualizar)
-            if (reportData[field] === '' || reportData[field] === null || reportData[field] === undefined) {
-              delete reportData[field];
-              console.log(`🔍 REPORT UPDATE: Campo ${field} vazio/null/undefined, removido`);
-            } 
-            // Se for string de data (formato YYYY-MM-DD), converter para ISO DateTime
-            else if (typeof reportData[field] === 'string' && reportData[field].match(/^\d{4}-\d{2}-\d{2}$/)) {
-              reportData[field] = new Date(reportData[field] + 'T00:00:00.000Z');
-              console.log(`🔍 REPORT UPDATE: Campo ${field} convertido para DateTime:`, reportData[field]);
-            }
-          }
+        if (result.activities && typeof result.activities === 'string') {
+          try { result.activities = JSON.parse(result.activities) } catch { result.activities = [] }
         }
-        
-        console.log('🔍 REPORT UPDATE: Dados finais para atualização:', JSON.stringify(reportData, null, 2));
-        return anyPrisma[entity].update({ where: { id }, data: reportData });
-      }
-      
-      // Validação para clientes - evitar grupos econômicos duplicados
-      if (entity === 'cliente') {
-        const clienteData = data as any;
-        if (clienteData.grupoEconomico && clienteData.grupoEconomico.trim()) {
-          const existingClient = await anyPrisma.cliente.findFirst({
-            where: {
-              id: { not: id }, // Excluir o próprio cliente
-              grupoEconomico: clienteData.grupoEconomico.trim()
-            }
-          });
-          
-          if (existingClient) {
-            throw new Error(`Grupo econômico "${clienteData.grupoEconomico}" já existe para o cliente "${existingClient.nome}". Por favor, escolha um grupo econômico único.`);
-          }
+        if (result.team && typeof result.team === 'string') {
+          try { result.team = JSON.parse(result.team) } catch { result.team = [] }
         }
+        if (result.tags && typeof result.tags === 'string') {
+          try { result.tags = JSON.parse(result.tags) } catch { result.tags = [] }
+        }
+
+        return result
+      } catch (error) {
+        req.log.error(error)
+        return reply.code(500).send({ error: 'Erro interno do servidor' })
       }
-      
-      return anyPrisma[entity].update({ where: { id }, data });
     },
     remove: async (id: string) => {
       // Verificar dependências antes de excluir
@@ -2726,23 +2673,29 @@ for (const [path, repo] of Object.entries(resources)) {
     app.get(`/${path}`, async (req: any, reply) => {
       try {
         let userId: string | null = null
+        let userRole: string | null = null
         try {
           await (req as any).jwtVerify?.()
           userId = (req as any).user?.id || null
+          userRole = (req as any).user?.role || null
         } catch (e) {
           userId = null
+          userRole = null
         }
 
-        const where: any = userId
-          ? {
-              OR: [
-                { isPrivate: false },
-                { ownerId: userId },
-                { managerId: userId },
-                { members: { some: { userId } } }
-              ]
-            }
-          : { isPrivate: false }
+        // Admin enxerga tudo
+        const where: any = userRole === 'admin'
+          ? {}
+          : userId
+            ? {
+                OR: [
+                  { isPrivate: false },
+                  { ownerId: userId },
+                  { managerId: userId },
+                  { members: { some: { userId } } }
+                ]
+              }
+            : { isPrivate: false }
 
         const projects = await prisma.project.findMany({ where })
 
@@ -2774,11 +2727,14 @@ for (const [path, repo] of Object.entries(resources)) {
       try {
         const { id } = req.params as { id: string }
         let userId: string | null = null
+        let userRole: string | null = null
         try {
           await (req as any).jwtVerify?.()
           userId = (req as any).user?.id || null
+          userRole = (req as any).user?.role || null
         } catch (e) {
           userId = null
+          userRole = null
         }
 
         const project = await prisma.project.findUnique({
@@ -2789,7 +2745,7 @@ for (const [path, repo] of Object.entries(resources)) {
         if (!project) return reply.code(404).send({ error: 'Projeto não encontrado' })
 
         const isMember = !!userId && project.members?.some((m: any) => m.userId === userId)
-        const canView = !project.isPrivate || (userId && (project.ownerId === userId || project.managerId === userId || isMember))
+        const canView = userRole === 'admin' || !project.isPrivate || (userId && (project.ownerId === userId || project.managerId === userId || isMember))
 
         if (!canView) return reply.code(403).send({ error: 'Acesso negado a este projeto' })
 
@@ -2826,10 +2782,9 @@ for (const [path, repo] of Object.entries(resources)) {
         // Definir ownerId automaticamente quando autenticado
         if (userId) data.ownerId = userId
 
-        // Regras de segurança para privacidade: nunca deixar privado sem owner
-        if (data.isPrivate === true && !userId) {
-          // Se não há usuário autenticado, não permitir projeto privado invisível
-          data.isPrivate = false
+        // Garantir owner se for privado e usuário autenticado
+        if (data.isPrivate === true && userId) {
+          data.ownerId = userId
         }
 
         const created = await prisma.project.create({ data })
@@ -2883,13 +2838,23 @@ for (const [path, repo] of Object.entries(resources)) {
         // Regras de privacidade: não forçar para público automaticamente
         // Se necessário, validação adicional pode ser feita aqui (ex.: exigir auth para tornar privado)
 
+        // Garantir owner ao tornar privado
+        if (updateData.isPrivate === true) {
+          try {
+            const current = await prisma.project.findUnique({ where: { id }, select: { ownerId: true } })
+            if (current && (!current.ownerId || current.ownerId === '') && userId) {
+              updateData.ownerId = userId
+            }
+          } catch {}
+        }
+
         // Limpar null/undefined
         Object.keys(updateData).forEach((k) => {
           if (updateData[k] === undefined) delete updateData[k]
         })
 
         const updated = await prisma.project.update({ where: { id }, data: updateData })
-
+        
         // Converter campos para retornar compatível com frontend
         const result: any = { ...updated }
         if (result.timeline && typeof result.timeline === 'string') {
