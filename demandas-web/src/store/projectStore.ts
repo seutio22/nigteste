@@ -150,9 +150,32 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         status: project.status
       })
       
-      // Atualizar no banco de dados via API
+      // Normalizar payload apenas com campos suportados pela API
+      const payload: any = {
+        name: project.name,
+        description: (project as any).description ?? undefined,
+        status: project.status,
+        priority: (project as any).priority ?? undefined,
+        progress: typeof project.progress === 'number' ? project.progress : Number(project.progress) || 0,
+        startDate: (project as any).startDate ? new Date((project as any).startDate).toISOString() : undefined,
+        endDate: (project as any).endDate ? new Date((project as any).endDate).toISOString() : undefined,
+        color: (project as any).color ?? undefined,
+        isPrivate: (project as any).isPrivate ?? undefined
+      }
+      
+      // Campos de array/JSON
+      const team = (project as any).team
+      if (Array.isArray(team)) payload.team = team
+      const tags = (project as any).tags
+      if (Array.isArray(tags)) payload.tags = tags
+      const timeline = (project as any).timeline
+      if (timeline && typeof timeline === 'object') payload.timeline = timeline
+      const activities = (project as any).activities
+      if (Array.isArray(activities)) payload.activities = activities
+      
+      // Enviar atualização
       const api = getApi()
-      const response = await api.put(`/projetos/${project.id}`, project)
+      const response = await api.put(`/projetos/${project.id}`, payload)
       console.log('✅ ProjectStore.upsert: Projeto atualizado no banco de dados')
       console.log('✅ ProjectStore.upsert: Resposta da API:', response)
       console.log('✅ ProjectStore.upsert: Progress na resposta:', response?.progress)
