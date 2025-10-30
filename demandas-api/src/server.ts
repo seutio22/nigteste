@@ -54,6 +54,9 @@ async function ensureProjectPrivacyColumns() {
     await prisma.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS "idx_project_ownerId" ON "Project" ("ownerId")');
     await prisma.$executeRawUnsafe('CREATE INDEX IF NOT EXISTS "idx_project_isPrivate" ON "Project" ("isPrivate")');
 
+    // Correção de dados: evitar projetos invisíveis (privado sem owner)
+    await prisma.$executeRawUnsafe('UPDATE "Project" SET "isPrivate" = FALSE WHERE "isPrivate" = TRUE AND ("ownerId" IS NULL OR "ownerId" = \'\')');
+
     app.log.info('✅ ensureProjectPrivacyColumns: Colunas/índices garantidos')
   } catch (err) {
     app.log.error({ err }, '❌ ensureProjectPrivacyColumns: Falha ao garantir colunas/índices')
@@ -2822,6 +2825,12 @@ for (const [path, repo] of Object.entries(resources)) {
 
         // Definir ownerId automaticamente quando autenticado
         if (userId) data.ownerId = userId
+
+        // Regras de segurança para privacidade: nunca deixar privado sem owner
+        if (data.isPrivate === true && !userId) {
+          // Se não há usuário autenticado, não permitir projeto privado invisível
+          data.isPrivate = false
+        }
 
         const created = await prisma.project.create({ data })
         return created
