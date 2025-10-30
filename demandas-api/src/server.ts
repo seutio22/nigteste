@@ -2638,9 +2638,9 @@ for (const [path, repo] of Object.entries(resources)) {
         if (typeof data.timeline === 'object') data.timeline = JSON.stringify(data.timeline)
         if (Array.isArray(data.activities)) data.activities = JSON.stringify(data.activities)
 
-        // Se projeto for privado e não houver usuário autenticado, bloquear (sem derrubar sessão)
+        // Se projeto for privado e não houver usuário autenticado, criar como público
         if (data.isPrivate === true && !userId) {
-          return reply.code(403).send({ error: 'É necessário estar logado para criar projeto privado' })
+          data.isPrivate = false
         }
 
         // Sempre definir ownerId quando houver usuário autenticado
