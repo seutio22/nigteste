@@ -111,7 +111,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       // Criar projeto na API
       const api = getApi()
       const response = await api.post('/projetos', apiData)
-      
+
       // Adicionar ao store local
       const project: Project = {
         id: response.id,
@@ -121,11 +121,17 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       }
       
       set((s) => ({ projects: [project, ...s.projects] }))
+      // Garantir que a lista reflita as regras do backend (privacidade/admin)
+      try { await get().syncFromApi() } catch {}
       return project
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ ProjectStore: Erro ao criar projeto na API:', error)
-      
-      // Fallback: criar apenas localmente se a API falhar
+      // Não criar localmente se for erro de autenticação/permisoes
+      const status = error?.status || error?.data?.status
+      if (status === 401 || status === 403) {
+        throw error
+      }
+      // Para outros erros (ex.: rede), manter fallback local
       const project: Project = {
         id: generateId(),
         createdAt: new Date().toISOString(),

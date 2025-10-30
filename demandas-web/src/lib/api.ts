@@ -16,19 +16,24 @@ export const api = {
       ...options,
     };
 
-    // Add auth token if available - ler do Zustand store
+    // Adicionar token de auth (preferir Zustand; fallback localStorage)
     let token: string | null = null;
     try {
-      const authStore = localStorage.getItem('auth-store');
-      
-      if (!authStore) {
-        // Auth store não encontrado
-      } else {
-        const parsed = JSON.parse(authStore);
-        token = parsed?.state?.token || null;
+      // Preferir o store em memória
+      const store = await import('../store/authStore');
+      try {
+        token = store.useAuthStore.getState().token || null;
+      } catch {}
+      // Fallback para localStorage se necessário
+      if (!token) {
+        const authStore = localStorage.getItem('auth-store');
+        if (authStore) {
+          const parsed = JSON.parse(authStore);
+          token = parsed?.state?.token || null;
+        }
       }
     } catch (e) {
-      console.error('❌ API: Erro ao ler token do auth-store:', e);
+      console.error('❌ API: Erro ao obter token de autenticação:', e);
     }
     
     if (token) {
