@@ -48,7 +48,8 @@ export default function ValidationDetailPage() {
       (async () => {
         try {
           const { api } = await import('../../lib/api.local')
-          const fetched = await api.getValidacao(id)
+          const fetchedRaw = await api.getValidacao(id)
+          const fetched: any = (fetchedRaw && fetchedRaw.id) ? fetchedRaw : fetchedRaw?.data
           if (fetched?.id) {
             // Navegar para o ID real retornado (cobre caso de ID local vs ID do banco)
             if (fetched.id !== id) {

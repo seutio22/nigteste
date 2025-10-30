@@ -36,7 +36,8 @@ export default function ReajusteDetailPage() {
       (async () => {
         try {
           const { api } = await import('../../lib/api.local')
-          const fetched = await api.getReajuste(id)
+          const fetchedRaw = await api.getReajuste(id)
+          const fetched: any = (fetchedRaw && fetchedRaw.id) ? fetchedRaw : fetchedRaw?.data
           if (fetched?.id) {
             if (fetched.id !== id) {
               navigate(`/reajuste/${fetched.id}`)
