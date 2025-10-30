@@ -18,30 +18,36 @@ export const api = {
 
     // Adicionar token de auth (preferir Zustand; fallback localStorage)
     let token: string | null = null;
+    let userId: string | null = null;
+    let userRole: string | null = null;
     try {
       // Preferir o store em memória
       const store = await import('../store/authStore');
       try {
-        token = store.useAuthStore.getState().token || null;
+        const st = store.useAuthStore.getState();
+        token = st.token || null;
+        userId = st.user?.id || null;
+        userRole = (st.user as any)?.role || null;
       } catch {}
       // Fallback para localStorage se necessário
-      if (!token) {
+      if (!token || !userId || !userRole) {
         const authStore = localStorage.getItem('auth-store');
         if (authStore) {
           const parsed = JSON.parse(authStore);
-          token = parsed?.state?.token || null;
+          token = token || (parsed?.state?.token || null);
+          userId = userId || (parsed?.state?.user?.id || null);
+          userRole = userRole || (parsed?.state?.user?.role || null);
         }
       }
     } catch (e) {
-      console.error('❌ API: Erro ao obter token de autenticação:', e);
+      console.error('❌ API: Erro ao obter credenciais do auth-store:', e);
     }
     
-    if (token) {
-      config.headers = {
-        ...config.headers,
-        'Authorization': `Bearer ${token}`,
-      };
-    }
+    const headers: Record<string, string> = { ...(config.headers as Record<string, string>) };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    if (userId) headers['x-user-id'] = userId;
+    if (userRole) headers['x-user-role'] = userRole;
+    config.headers = headers;
 
     try {
       const response = await fetch(url, config);
