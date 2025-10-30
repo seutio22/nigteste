@@ -2539,7 +2539,13 @@ for (const [path, repo] of Object.entries(resources)) {
         if (!token && req?.query?.token && typeof req.query.token === 'string') {
           token = req.query.token
         }
-        if (!token) return { id: null, role: null }
+        if (!token) {
+          // Último fallback: cabeçalhos x-user-id / x-user-role enviados pelo cliente
+          const hdrId = (req?.headers?.['x-user-id'] || req?.headers?.['X-User-Id']) as string | undefined
+          const hdrRole = (req?.headers?.['x-user-role'] || req?.headers?.['X-User-Role']) as string | undefined
+          if (hdrId && typeof hdrId === 'string') return { id: hdrId, role: typeof hdrRole === 'string' ? hdrRole : null }
+          return { id: null, role: null }
+        }
         const segs = token.split('.')
         if (segs.length < 2) return { id: null, role: null }
         const payloadB64 = segs[1].replace(/-/g, '+').replace(/_/g, '/')
