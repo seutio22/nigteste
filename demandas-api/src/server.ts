@@ -2521,6 +2521,28 @@ const resources = {
 for (const [path, repo] of Object.entries(resources)) {
   // Regras específicas de privacidade para Projetos: sobrescreve list/get/create
   if (path === 'projetos' || path === 'projects') {
+    // Fallback: extrair userId/role do Authorization header sem depender do plugin jwt
+    const extractUserFromAuthHeader = (req: any): { id: string | null, role: string | null } => {
+      try {
+        const auth = req?.headers?.authorization || req?.headers?.Authorization
+        if (!auth || typeof auth !== 'string') return { id: null, role: null }
+        const parts = auth.split(' ')
+        if (parts.length !== 2 || parts[0] !== 'Bearer') return { id: null, role: null }
+        const token = parts[1]
+        const segs = token.split('.')
+        if (segs.length < 2) return { id: null, role: null }
+        const payloadB64 = segs[1].replace(/-/g, '+').replace(/_/g, '/')
+        const pad = payloadB64.length % 4
+        const payloadFixed = payloadB64 + (pad ? '='.repeat(4 - pad) : '')
+        const json = Buffer.from(payloadFixed, 'base64').toString('utf8')
+        const payload = JSON.parse(json)
+        const extractedId = payload?.id || payload?.userId || payload?.user?.id || payload?.sub || null
+        const extractedRole = payload?.role || payload?.user?.role || payload?.userRole || null
+        return { id: extractedId, role: extractedRole }
+      } catch {
+        return { id: null, role: null }
+      }
+    }
     app.get(`/${path}`, async (req: any, reply) => {
       try {
         let userId: string | null = null
@@ -2530,8 +2552,9 @@ for (const [path, repo] of Object.entries(resources)) {
           userId = (req as any).user?.id || null
           userRole = (req as any).user?.role || null
         } catch (e) {
-          userId = null
-          userRole = null
+          const f = extractUserFromAuthHeader(req)
+          userId = f.id
+          userRole = f.role
         }
 
         // Admin enxerga tudo
@@ -2584,8 +2607,9 @@ for (const [path, repo] of Object.entries(resources)) {
           userId = (req as any).user?.id || null
           userRole = (req as any).user?.role || null
         } catch (e) {
-          userId = null
-          userRole = null
+          const f = extractUserFromAuthHeader(req)
+          userId = f.id
+          userRole = f.role
         }
 
         const project = await prisma.project.findUnique({
@@ -2622,11 +2646,14 @@ for (const [path, repo] of Object.entries(resources)) {
           await (req as any).jwtVerify?.()
           userId = (req as any).user?.id || null
         } catch (e) {
-          userId = null
+          const f = extractUserFromAuthHeader(req)
+          userId = f.id
         }
 
         const body = req.body || {}
         const data: any = { ...body }
+        // Nunca aceitar ownerId do cliente
+        if ('ownerId' in data) delete data.ownerId
         console.log('🔍 POST /projetos: userId detectado =', userId)
         console.log('🔍 POST /projetos: payload recebido.isPrivate =', (body as any)?.isPrivate)
         // Normalizar flag isPrivate
@@ -2671,7 +2698,8 @@ for (const [path, repo] of Object.entries(resources)) {
           await (req as any).jwtVerify?.()
           userId = (req as any).user?.id || null
         } catch (e) {
-          userId = null
+          const f = extractUserFromAuthHeader(req)
+          userId = f.id
         }
 
         const body = req.body || {}
@@ -2686,6 +2714,8 @@ for (const [path, repo] of Object.entries(resources)) {
         delete updateData.managerId
         delete updateData.clientId
         delete updateData.activities // evitar estruturas complexas no update
+        // Bloquear alteração de ownerId via PUT
+        if ('ownerId' in updateData) delete updateData.ownerId
 
         // Datas
         if (updateData.startDate) updateData.startDate = new Date(updateData.startDate)
