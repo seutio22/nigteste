@@ -2666,11 +2666,19 @@ for (const [path, repo] of Object.entries(resources)) {
           const f = extractUserFromAuthHeader(req)
           userId = f.id
         }
+        // Reforço: ler diretamente dos headers se ainda não detectado
+        if (!userId) {
+          const hdrId = (req?.headers?.['x-user-id'] || req?.headers?.['X-User-Id']) as string | undefined
+          if (hdrId && typeof hdrId === 'string') userId = hdrId
+        }
 
         const body = req.body || {}
         const data: any = { ...body }
-        // Nunca aceitar ownerId do cliente
-        if ('ownerId' in data) delete data.ownerId
+        // Nunca aceitar ownerId do cliente, exceto se coincidir com o x-user-id enviado
+        if ('ownerId' in data) {
+          const hdrId = (req?.headers?.['x-user-id'] || req?.headers?.['X-User-Id']) as string | undefined
+          if (!hdrId || data.ownerId !== hdrId) delete data.ownerId
+        }
         console.log('🔍 POST /projetos: userId detectado =', userId)
         console.log('🔍 POST /projetos: payload recebido.isPrivate =', (body as any)?.isPrivate)
         // Normalizar flag isPrivate
