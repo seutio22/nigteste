@@ -238,15 +238,27 @@ export const useValidationStore = create<ValidationState>()(
           // Importar API dinamicamente
           const { api } = await import('../lib/api.local')
           
-          await api.deleteValidacao(id)
-          console.log('✅ Validação excluída com sucesso no banco')
+          try {
+            await api.deleteValidacao(id)
+            console.log('✅ Validação excluída com sucesso no banco')
+          } catch (apiError: any) {
+            // Se for erro 404, a validação já foi excluída - apenas remover do estado local
+            if (apiError?.response?.status === 404 || apiError?.message?.includes('404')) {
+              console.log('⚠️ Validação já foi excluída (404) - removendo do cache local')
+            } else {
+              // Outros erros: apenas logar, não mostrar erro ao usuário
+              console.error('❌ Erro ao excluir validação:', apiError)
+            }
+          }
           
-          // Remover do estado local
+          // Remover do estado local em qualquer caso
           set((s) => ({ items: s.items.filter((x) => x.id !== id) }))
           
         } catch (error) {
+          // Erros gerais: apenas remover do estado local silenciosamente
           console.error('❌ Erro ao excluir validação:', error)
-          set({ error: `Erro ao excluir validação: ${error}` })
+          // Remover do estado local mesmo em caso de erro
+          set((s) => ({ items: s.items.filter((x) => x.id !== id) }))
         }
       },
       
@@ -330,12 +342,10 @@ export const useValidationStore = create<ValidationState>()(
           
           // Mapear os dados para o formato esperado pelo frontend - seguindo padrão do demandStore
           const validacoesMapeadas: ValidationEntry[] = validacoes.map((validacao: any) => {
-            console.log('🔍 ValidationStore: Mapeando validação:', validacao.id)
-            console.log('🔍 ValidationStore: Status da API:', validacao.status)
-            console.log('🔍 ValidationStore: DataInicio da API:', validacao.dataInicio)
-            console.log('🔍 ValidationStore: DataFim da API:', validacao.dataFim)
-            console.log('🔍 ValidationStore: Operadora da API:', validacao.operadora, 'ID:', validacao.operadoraId)
-            console.log('🔍 ValidationStore: Produto da API:', validacao.produto, 'ID:', validacao.produtoId)
+            // Logs reduzidos para melhorar performance
+            if (validacoes.length < 50) {
+              console.log('🔍 ValidationStore: Mapeando validação:', validacao.id)
+            }
             
             return {
             id: validacao.id,

@@ -9,7 +9,7 @@ import { SmartImporter } from '../../components/SmartImporter'
 import { smartImporterConfigs } from '../../config/smartImporterConfigs'
 import type { ImportResult } from '../../types/smartImporter'
 import { useFilteredData } from '../../lib/utils'
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import ExportDataModal from '../../components/ExportDataModal'
 import { usePermissions } from '../../hooks/usePermissions'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
@@ -50,8 +50,9 @@ function ActionCell({ id, status }: { id: string, status: string }) {
       await store.remove(id)
       setOpenDelete(false)
     } catch (error) {
+      // Erro já é tratado no store, apenas fechar o dialog
       console.error('Erro ao excluir validação:', error)
-      alert('Erro ao excluir validação. Verifique o console para mais detalhes.')
+      setOpenDelete(false)
     }
   }
 
@@ -373,22 +374,25 @@ export default function ValidationListPage() {
     } catch {}
     }, [])
 
-  // Carregar dados da API automaticamente quando a página é carregada
+  // Carregar dados da API automaticamente quando a página é carregada (apenas uma vez)
+  const hasLoadedRef = React.useRef(false)
   useEffect(() => {
-    // Só carregar dados se o usuário estiver logado
-    if (user?.id) {
+    // Só carregar dados se o usuário estiver logado e ainda não carregou
+    if (user?.id && !hasLoadedRef.current && !loading) {
+      hasLoadedRef.current = true
       syncFromApi()
-    } else {
-      }
-  }, [user?.id]) // Depender do ID do usuário para carregar dados
-
-  // Garantir que os dados mestres sejam carregados
-  useEffect(() => {
-    if (md.clientes.length === 0) {
-      console.log('🔍 Validacao: Dados mestres vazios, chamando syncFromApi...')
-      md.syncFromApi?.()
     }
-  }, []) // Removido as dependências que causavam o loop
+  }, [user?.id, loading]) // Depender do ID do usuário para carregar dados
+
+  // Garantir que os dados mestres sejam carregados (apenas uma vez)
+  const masterDataLoadedRef = React.useRef(false)
+  useEffect(() => {
+    if (md.clientes.length === 0 && !masterDataLoadedRef.current && md.syncFromApi) {
+      masterDataLoadedRef.current = true
+      console.log('🔍 Validacao: Dados mestres vazios, chamando syncFromApi...')
+      md.syncFromApi()
+    }
+  }, [md.clientes.length, md.syncFromApi]) // Apenas quando necessário
 
   // Persistir preferência do filtro de usuário
   useEffect(() => {
@@ -687,15 +691,6 @@ export default function ValidationListPage() {
                   sx={{ borderRadius: '12px' }}
                 />
                 
-                {/* Mensagem informativa */}
-                {showOnlyMyValidations && (
-                  <Typography 
-                    variant="caption" 
-                    className="text-blue-600 bg-blue-50 px-2 py-1 rounded-md border border-blue-200"
-                  >
-                    Mostrando apenas suas validações
-                  </Typography>
-                )}
               </div>
             </div>
             <Stack direction="row" spacing={2}>
