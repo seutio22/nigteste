@@ -14,7 +14,8 @@ if (databaseUrl && !databaseUrl.includes('connection_limit') && !databaseUrl.inc
   const separator = databaseUrl.includes('?') ? '&' : '?'
   // connection_limit: limita conexões simultâneas (ajustar conforme necessário)
   // pool_timeout: timeout para obter conexão do pool (em segundos)
-  databaseUrl = `${databaseUrl}${separator}connection_limit=10&pool_timeout=10`
+  // connect_timeout: timeout para estabelecer conexão inicial
+  databaseUrl = `${databaseUrl}${separator}connection_limit=5&pool_timeout=20&connect_timeout=30`
 }
 
 // Configuração do PrismaClient
@@ -23,6 +24,14 @@ const prismaConfig: Prisma.PrismaClientOptions = {
   log: process.env.NODE_ENV === 'development' 
     ? (['query', 'error', 'warn'] as Prisma.LogLevel[])
     : (['error'] as Prisma.LogLevel[]),
+  datasources: {
+    db: {
+      url: databaseUrl
+    }
+  },
+  // Configurações adicionais para estabilidade de conexão
+  errorFormat: 'pretty',
+  rejectOnNotFound: false
 }
 
 // Criar instância única - esta é a chave para evitar múltiplas conexões
@@ -59,20 +68,30 @@ if (process.env.NODE_ENV !== 'production') {
 // Função auxiliar para reconectar automaticamente
 export async function ensureConnection() {
   try {
-    await prisma.$connect()
+    // Verificar se já está conectado
+    await prisma.$queryRaw`SELECT 1`
     return true
   } catch (error) {
-    console.error('❌ Erro ao conectar com o banco:', error)
-    // Tentar reconectar após 2 segundos
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    try {
-      await prisma.$connect()
-      console.log('✅ Reconectado com sucesso')
-      return true
-    } catch (retryError) {
-      console.error('❌ Falha ao reconectar:', retryError)
-      return false
+    console.error('❌ Conexão perdida, tentando reconectar:', error)
+    
+    // Tentar reconectar com retry exponencial
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        await prisma.$connect()
+        console.log(`✅ Reconectado com sucesso (tentativa ${attempt})`)
+        return true
+      } catch (retryError) {
+        console.error(`❌ Falha na tentativa ${attempt}:`, retryError)
+        if (attempt < 3) {
+          const delay = Math.pow(2, attempt) * 1000 // 2s, 4s, 8s
+          console.log(`⏳ Aguardando ${delay}ms antes da próxima tentativa...`)
+          await new Promise(resolve => setTimeout(resolve, delay))
+        }
+      }
     }
+    
+    console.error('❌ Falha ao reconectar após 3 tentativas')
+    return false
   }
 }
 
