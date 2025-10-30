@@ -907,29 +907,53 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Contrato</label>
-          <select
-            value={typeof draft.contrato === 'object' && draft.contrato !== null 
-              ? draft.contrato.id 
-              : (draft.contrato || '')}
-            onChange={(e) => setDraft({ ...draft, contrato: e.target.value || undefined })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="">Selecione um contrato</option>
-            {contratosFiltrados.length > 0 ? (
-              contratosFiltrados.map((ct: any) => (
-                <option key={ct.id} value={ct.id}>
-                  {ct.codigo || ct.numero}
-                </option>
-              ))
-            ) : (
-              <option disabled>
-                {clienteIdNormalized ? 'Nenhum contrato encontrado para este cliente' : 'Selecione um cliente primeiro'}
-              </option>
+          <Autocomplete
+            options={contratosFiltrados}
+            getOptionLabel={(option: any) => option?.codigo || option?.numero || ''}
+            isOptionEqualToValue={(option: any, value: any) => option.id === value?.id}
+            value={contratosFiltrados.find((c: any) => c.id === (typeof draft.contrato === 'object' ? draft.contrato?.id : draft.contrato)) || null}
+            onChange={(_, newValue: any | null) => setDraft({ ...draft, contrato: newValue?.id || undefined })}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                placeholder={clienteIdNormalized ? 'Digite para buscar...' : 'Selecione um cliente primeiro'}
+                variant="outlined"
+                size="small"
+                fullWidth
+                disabled={!clienteIdNormalized}
+              />
             )}
-          </select>
+            renderOption={(props, option: any) => (
+              <Box component="li" {...props} key={option.id}>
+                <Box>
+                  <Typography variant="body1" fontWeight="medium">
+                    {option.codigo || option.numero}
+                  </Typography>
+                  {option.grupoEconomico && (
+                    <Typography variant="caption" color="text.secondary">
+                      Grupo: {option.grupoEconomico}
+                    </Typography>
+                  )}
+                </Box>
+              </Box>
+            )}
+            noOptionsText={clienteIdNormalized ? 'Nenhum contrato encontrado' : 'Selecione um cliente primeiro'}
+            loading={contratosFiltrados.length === 0 && !!clienteIdNormalized}
+            loadingText="Carregando contratos..."
+            filterOptions={(options, { inputValue }) => {
+              const term = inputValue.toLowerCase()
+              return options.filter((option: any) =>
+                (option.codigo && option.codigo.toLowerCase().includes(term)) ||
+                (option.numero && option.numero.toLowerCase().includes(term)) ||
+                (option.grupoEconomico && option.grupoEconomico.toLowerCase().includes(term))
+              )
+            }}
+          />
           <p className="text-xs text-gray-500 mt-1">
-            {contratosFiltrados.length > 0 
-              ? `${contratosFiltrados.length} contrato(s) disponível(is)` 
+            {clienteIdNormalized
+              ? (contratosFiltrados.length > 0 
+                  ? `${contratosFiltrados.length} contrato(s) disponível(is)`
+                  : 'Nenhum contrato encontrado para este cliente')
               : 'Selecione um cliente primeiro'}
           </p>
         </div>
