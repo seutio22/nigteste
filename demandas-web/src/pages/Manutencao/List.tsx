@@ -968,7 +968,20 @@ function ActionCell({ id, status }: { id: string, status: string }) {
         status: 'Aberta', 
         updatedAt: new Date().toISOString() 
       })
-      navigate(`/manutencao/${duplicated.id}`)
+      
+      // Garantir navegação usando o ID real do backend
+      let navigateId = duplicated?.id
+      try {
+        const { api } = await import('../../lib/api.local')
+        const found = await api.getManutencoes(`?ticket=${encodeURIComponent(String(newTicket || ''))}`)
+        if (Array.isArray(found) && found.length > 0 && found[0]?.id) {
+          navigateId = found[0].id
+        }
+      } catch (e) {
+        console.warn('Não foi possível confirmar ID pelo ticket; usando ID retornado localmente', e)
+      }
+      
+      navigate(`/manutencao/${navigateId}`)
     } catch (error) {
       console.error('Erro ao duplicar manutenção:', error)
       alert('Erro ao duplicar manutenção. Verifique o console para mais detalhes.')
