@@ -42,6 +42,7 @@ const columns: GridColDef[] = [
 ]
 
 export default function ManutencaoListPage() {
+  // FORÇAR DEPLOY - v0.5.93 - Duplicação com sufixo
   const navigate = useNavigate()
   const { items } = useManutencaoStore()
   const manutencaoStore = useManutencaoStore()
