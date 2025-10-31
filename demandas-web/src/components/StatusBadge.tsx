@@ -12,8 +12,11 @@ export function StatusBadge({ status, size = 'medium' }: StatusBadgeProps) {
     if (['concluída', 'concluida', 'fechada', 'concluido'].includes(s)) {
       return { label: 'Concluído', color: 'success' }
     }
-    if (['aberta', 'pendente'].includes(s)) {
+    if (['aberta'].includes(s)) {
       return { label: 'Aberta', color: 'warning' }
+    }
+    if (['pendente'].includes(s)) {
+      return { label: 'Pendente', color: 'warning' }
     }
     if (['em andamento', 'em-andamento'].includes(s)) {
       return { label: 'Em Andamento', color: 'info' }
