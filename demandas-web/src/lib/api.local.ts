@@ -136,7 +136,7 @@ export const api = {
     }),
 
   // Demandas
-  getDemandas: () => apiRequest(API_CONFIG.ENDPOINTS.DEMANDAS),
+  getDemandas: (queryParams?: string) => apiRequest(`${API_CONFIG.ENDPOINTS.DEMANDAS}${queryParams || ''}`),
   getPadrao: () => apiRequest(API_CONFIG.ENDPOINTS.PADRAO),
   getDemanda: (id: string) => apiRequest(`${API_CONFIG.ENDPOINTS.DEMANDAS}/${id}`),
   createDemanda: (demandaData: unknown) =>
@@ -286,7 +286,7 @@ export const api = {
   getStatus: () => Promise.resolve([]), // Dados hardcoded
 
   // Atendimentos
-  getAtendimentos: () => apiRequest('/atendimentos'),
+  getAtendimentos: (queryParams?: string) => apiRequest(`/atendimentos${queryParams || ''}`),
   getAtendimento: (id: string) => apiRequest(`/atendimentos/${id}`),
   createAtendimento: (atendimentoData: unknown) => {
     console.log('🔍 API.createAtendimento: Dados enviados:', atendimentoData)
