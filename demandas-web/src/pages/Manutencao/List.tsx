@@ -42,7 +42,7 @@ const columns: GridColDef[] = [
 ]
 
 export default function ManutencaoListPage() {
-  // v0.5.99 - DEBUG DUPLICAÇÃO MANUTENÇÃO - REBUILD FORÇADO
+  // v0.6.0 - CORREÇÃO: Regex duplicação ticket aceita apenas sufixos de 1-3 dígitos
   const navigate = useNavigate()
   const { items } = useManutencaoStore()
   const manutencaoStore = useManutencaoStore()
@@ -921,14 +921,13 @@ function ActionCell({ id, status }: { id: string, status: string }) {
     try {
       // Função para gerar ticket único com sufixo numérico
       const generateUniqueTicket = async (originalTicket: string | undefined): Promise<string | undefined> => {
-        console.log('🔍 DEBUG MANUTENCAO: originalTicket recebido:', originalTicket)
         if (!originalTicket || originalTicket.trim() === '') {
           return undefined // Se não tinha ticket, retornar undefined
         }
         
-        // Verificar se o ticket original já tem sufixo numérico (ex: "1212-1")
-        const ticketMatch = originalTicket.match(/^(.+)-(\d+)$/)
-        console.log('🔍 DEBUG MANUTENCAO: ticketMatch:', ticketMatch)
+        // Verificar se o ticket original já tem sufixo numérico (ex: "SR-1346706-1")
+        // IMPORTANTE: Não aceitar números longos como sufixo (mais de 3 dígitos)
+        const ticketMatch = originalTicket.match(/^(.+)-(\d{1,3})$/)
         let baseTicket = originalTicket
         let startSuffix = 1
         
@@ -937,21 +936,17 @@ function ActionCell({ id, status }: { id: string, status: string }) {
           baseTicket = ticketMatch[1]
           startSuffix = parseInt(ticketMatch[2]) + 1
         }
-        console.log('🔍 DEBUG MANUTENCAO: baseTicket:', baseTicket, 'startSuffix:', startSuffix)
         
         // Buscar ticket disponível incrementando sufixo
         const { api } = await import('../../lib/api.local')
         let suffix = startSuffix
         let newTicket = `${baseTicket}-${suffix}`
-        console.log('🔍 DEBUG MANUTENCAO: newTicket inicial:', newTicket)
         
         // Verificar até encontrar um ticket disponível (máximo 10 tentativas)
         for (let i = 0; i < 10; i++) {
           const existing = await api.getManutencoes(`?ticket=${encodeURIComponent(newTicket)}`)
-          console.log(`🔍 DEBUG MANUTENCAO: Tentativa ${i+1}, newTicket: ${newTicket}, existing:`, Array.isArray(existing) ? existing.length : 'erro')
           if (!Array.isArray(existing) || existing.length === 0) {
             // Ticket disponível encontrado
-            console.log(`✅ Ticket único gerado: ${newTicket}`)
             return newTicket
           }
           // Ticket já existe, tentar próximo sufixo

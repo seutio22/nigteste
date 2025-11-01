@@ -516,8 +516,9 @@ function ActionCell({ id, status }: { id: string, status: string }) {
           return undefined // Se não tinha ticket, retornar undefined
         }
         
-        // Verificar se o ticket original já tem sufixo numérico (ex: "1212-1")
-        const ticketMatch = originalTicket.match(/^(.+)-(\d+)$/)
+        // Verificar se o ticket original já tem sufixo numérico (ex: "SR-1346706-1")
+        // IMPORTANTE: Não aceitar números longos como sufixo (mais de 3 dígitos)
+        const ticketMatch = originalTicket.match(/^(.+)-(\d{1,3})$/)
         let baseTicket = originalTicket
         let startSuffix = 1
         
@@ -537,7 +538,6 @@ function ActionCell({ id, status }: { id: string, status: string }) {
           const existing = await api.getAtendimentos(`?ticket=${encodeURIComponent(newTicket)}`)
           if (!Array.isArray(existing) || existing.length === 0) {
             // Ticket disponível encontrado
-            console.log(`✅ Ticket único gerado: ${newTicket}`)
             return newTicket
           }
           // Ticket já existe, tentar próximo sufixo
