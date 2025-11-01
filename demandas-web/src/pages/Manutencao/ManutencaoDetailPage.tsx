@@ -705,7 +705,7 @@ function EditInline({ d }: { d: any }) {
       {/* Sexta linha - Datas */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Data de In├¡cio</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Data de Início</label>
           <input
             type="date"
             value={draft.dataInicio ? draft.dataInicio.split('T')[0] : ''}
