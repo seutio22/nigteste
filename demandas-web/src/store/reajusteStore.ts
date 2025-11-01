@@ -90,36 +90,27 @@ export const useReajusteStore = create<ReajusteState>()(
       },
       
       remove: async (id) => {
+        console.log('🗑️ Removendo reajuste:', id)
+        
+        // Remover do estado local imediatamente (otimista)
+        set((s) => ({ items: s.items.filter((x) => x.id !== id) }))
+        console.log('✅ Reajuste removido do estado local')
+        
         try {
-          console.log('🗑️ Removendo reajuste:', id)
-          
           // Importar API dinamicamente
           const { api } = await import('../lib/api.local')
           
-          // Excluir do backend primeiro
+          // Excluir do backend
           await api.deleteReajuste(id)
           console.log('✅ Reajuste excluído com sucesso no backend')
           
-          // Registrar evento de remoção
-          const currentItem = get().items.find(item => item.id === id)
-          if (currentItem) {
-            const timelineStore = useTimelineStore.getState()
-            const authStore = useAuthStore.getState()
-            timelineStore.addEvent({
-              reajusteId: id,
-              type: 'comment',
-              comment: `Reajuste removido: ${currentItem.mes}/${currentItem.ano}`,
-              user: authStore.user?.name || 'Administrador'
-            })
+        } catch (error: any) {
+          // Se erro 404, o registro já foi deletado ou não existe - ignorar
+          if (error?.statusCode === 404) {
+            console.log('⚠️ Reajuste não encontrado no backend (já foi deletado), continuando...')
+            return
           }
-          
-          // Remover do estado local
-          set((s) => ({ items: s.items.filter((x) => x.id !== id) }))
-          console.log('✅ Reajuste removido do estado local')
-          
-        } catch (error) {
-          console.error('❌ Erro ao excluir reajuste:', error)
-          throw error
+          console.error('⚠️ Erro ao excluir reajuste no backend:', error)
         }
       },
       

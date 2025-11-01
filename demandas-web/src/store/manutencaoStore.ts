@@ -215,23 +215,28 @@ export const useManutencaoStore = create<ManutencaoState>()(
         return { items: [{ ...manutencao, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }, ...s.items] }
       }),
       remove: async (id) => {
+        console.log('🗑️ Removendo manutenção:', id)
+        
+        // Remover do estado local imediatamente (otimista)
+        set((s) => ({ items: s.items.filter((d) => d.id !== id) }))
+        console.log('✅ Manutenção removida do estado local')
+        
         try {
-          console.log('🗑️ Removendo manutenção:', id)
-          
           // Importar API dinamicamente
           const { api } = await import('../lib/api.local')
           
-          // Excluir do backend primeiro
+          // Excluir do backend
           await api.deleteManutencao(id)
           console.log('✅ Manutenção excluída com sucesso no backend')
           
-          // Remover do estado local
-          set((s) => ({ items: s.items.filter((d) => d.id !== id) }))
-          console.log('✅ Manutenção removida do estado local')
-          
-        } catch (error) {
-          console.error('❌ Erro ao excluir manutenção:', error)
-          throw error
+        } catch (error: any) {
+          // Se erro 404, o registro já foi deletado ou não existe - ignorar
+          if (error?.statusCode === 404) {
+            console.log('⚠️ Manutenção não encontrada no backend (já foi deletada), continuando...')
+            return
+          }
+          // Para outros erros, apenas logar
+          console.error('⚠️ Erro ao excluir manutenção no backend:', error)
         }
       },
       clear: () => set({ items: [] }),

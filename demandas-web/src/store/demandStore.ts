@@ -210,8 +210,12 @@ export const useDemandStore = create<DemandState>()(
       remove: async (id) => {
         console.log('🔍 DemandStore: Removendo demanda:', id)
         
+        // Remover do estado local imediatamente (otimista)
+        set((s) => ({ items: s.items.filter((d) => d.id !== id) }))
+        console.log('✅ DemandStore: Demanda removida do estado local')
+        
         try {
-          // Excluir do backend primeiro
+          // Excluir do backend
           const { useAuthStore } = await import('./authStore')
           const baseUrl = 'https://nigteste-production.up.railway.app'
           const response = await fetch(`${baseUrl}/demandas/${id}`, {
@@ -222,16 +226,22 @@ export const useDemandStore = create<DemandState>()(
           })
 
           if (response.ok) {
-            // Se excluiu do backend, excluir do frontend
-            set((s) => ({ items: s.items.filter((d) => d.id !== id) }))
-            console.log('✅ DemandStore: Demanda excluída do backend e frontend:', id)
+            console.log('✅ DemandStore: Demanda excluída do backend:', id)
           } else {
+            // Se erro 404, o registro já foi deletado ou não existe - ignorar
+            if (response.status === 404) {
+              console.log('⚠️ DemandStore: Demanda não encontrada no backend (já foi deletada), continuando...')
+              return
+            }
             console.error('❌ DemandStore: Erro ao excluir do backend:', response.status)
-            throw new Error(`Erro ao excluir: ${response.status}`)
           }
-        } catch (error) {
-          console.error('❌ DemandStore: Erro ao excluir demanda:', error)
-          throw error
+        } catch (error: any) {
+          // Se erro 404, o registro já foi deletado ou não existe - ignorar
+          if (error?.statusCode === 404 || error?.message?.includes('404')) {
+            console.log('⚠️ DemandStore: Demanda não encontrada no backend, continuando...')
+            return
+          }
+          console.error('⚠️ DemandStore: Erro ao excluir no backend:', error)
         }
       },
       clear: () => set({ items: [] }),

@@ -263,16 +263,16 @@ export const useAtendimentoStore = create<AtendimentoState>()(
       },
       
       remove: async (id) => {
+        // Obter dados do atendimento antes de excluir para o log
+        const state = get()
+        const atendimentoToDelete = state.items.find(item => item.id === id)
+        
+        // Remover do estado local imediatamente (otimista)
+        set((s) => ({ items: s.items.filter((item) => item.id !== id) }))
+        
         try {
-          // Obter dados do atendimento antes de excluir para o log
-          const state = get()
-          const atendimentoToDelete = state.items.find(item => item.id === id)
-          
-          // Excluir do backend primeiro
+          // Excluir do backend
           await api.deleteAtendimento(id)
-          
-          // Se excluiu do backend, excluir do frontend
-          set((s) => ({ items: s.items.filter((item) => item.id !== id) }))
           
           // Log de exclusão
           if (atendimentoToDelete) {
@@ -283,9 +283,13 @@ export const useAtendimentoStore = create<AtendimentoState>()(
               userName: 'Usuário do Sistema'
             })
           }
-        } catch (error) {
-          console.error('❌ AtendimentoStore: Erro ao excluir atendimento:', error)
-          throw error
+        } catch (error: any) {
+          // Se erro 404, o registro já foi deletado ou não existe - ignorar
+          if (error?.statusCode === 404) {
+            console.log('⚠️ AtendimentoStore: Atendimento não encontrado no backend (já foi deletado), continuando...')
+            return
+          }
+          console.error('⚠️ AtendimentoStore: Erro ao excluir no backend:', error)
         }
       },
       
