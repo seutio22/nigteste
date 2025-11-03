@@ -877,141 +877,158 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
       const contrato = manutencao?.contratoId ? 
         md.contratos.find(c => c.id === manutencao.contratoId) : null
 
-      // Criar tabela com os dados e cores de fundo
+      // Criar tabela com os dados e cores idênticas ao HTML
       const tableRows = linhasTabela.map((linha, index) => {
-        const isEven = index % 2 === 0
         return new TableRow({
           children: [
+            // Contrato - azul claro com texto branco
             new TableCell({
               children: [new Paragraph({
                 children: [new TextRun({
                   text: linha.contrato || contrato?.codigo || contrato?.numero || manutencao?.ticket || 'N/A',
                   bold: true,
-                  color: "2B6CB0",
+                  color: "FFFFFF",
                   size: 30 // 15pt
                 })],
                 alignment: AlignmentType.LEFT
               })],
               width: { size: 16.6, type: WidthType.PERCENTAGE },
-              shading: { fill: isEven ? "F8F9FA" : "FFFFFF", type: ShadingType.SOLID }
+              shading: { fill: "3B82F6", type: ShadingType.SOLID }, // Azul claro
+              margins: { top: 300, bottom: 300, left: 240, right: 240 }
             }),
+            // Operadora - verde claro com texto branco
             new TableCell({
               children: [new Paragraph({
                 children: [new TextRun({
                   text: linha.operadora || operadora?.nome || 'N/A',
-                  color: "2D3748",
+                  color: "FFFFFF",
                   size: 28 // 14pt
                 })],
                 alignment: AlignmentType.LEFT
               })],
               width: { size: 16.6, type: WidthType.PERCENTAGE },
-              shading: { fill: isEven ? "F8F9FA" : "FFFFFF", type: ShadingType.SOLID }
+              shading: { fill: "10B981", type: ShadingType.SOLID }, // Verde claro
+              margins: { top: 300, bottom: 300, left: 240, right: 240 }
             }),
+            // Produto - laranja com texto branco
             new TableCell({
               children: [new Paragraph({
                 children: [new TextRun({
                   text: linha.produto || produto?.nome || 'N/A',
-                  color: "234E52",
+                  color: "FFFFFF",
                   size: 28 // 14pt
                 })],
                 alignment: AlignmentType.LEFT
               })],
               width: { size: 16.6, type: WidthType.PERCENTAGE },
-              shading: { fill: isEven ? "E6FFFA" : "B2F5EA", type: ShadingType.SOLID }
+              shading: { fill: "F59E0B", type: ShadingType.SOLID }, // Laranja
+              margins: { top: 300, bottom: 300, left: 240, right: 240 }
             }),
+            // Atualização - roxo com texto branco
             new TableCell({
               children: [new Paragraph({
                 children: [new TextRun({
                   text: linha.atualizacao || tipoServico?.nome || 'N/A',
-                  color: "7C2D12",
+                  color: "FFFFFF",
                   size: 28 // 14pt
                 })],
                 alignment: AlignmentType.LEFT
               })],
               width: { size: 16.6, type: WidthType.PERCENTAGE },
-              shading: { fill: isEven ? "FEF5E7" : "FED7AA", type: ShadingType.SOLID }
+              shading: { fill: "8B5CF6", type: ShadingType.SOLID }, // Roxo
+              margins: { top: 300, bottom: 300, left: 240, right: 240 }
             }),
+            // Subtipo - verde escuro com texto branco
             new TableCell({
               children: [new Paragraph({
                 children: [new TextRun({
                   text: linha.subtipo || tipo?.nome || 'N/A',
-                  color: "581C87",
+                  color: "FFFFFF",
                   size: 28 // 14pt
                 })],
                 alignment: AlignmentType.LEFT
               })],
               width: { size: 16.6, type: WidthType.PERCENTAGE },
-              shading: { fill: isEven ? "F3E8FF" : "D8B4FE", type: ShadingType.SOLID }
+              shading: { fill: "059669", type: ShadingType.SOLID }, // Verde escuro
+              margins: { top: 300, bottom: 300, left: 240, right: 240 }
             }),
+            // Tipo - verde claro com texto branco
             new TableCell({
               children: [new Paragraph({
                 children: [new TextRun({
                   text: linha.tipo || sistema?.nome || 'N/A',
-                  color: "064E3B",
+                  color: "FFFFFF",
                   size: 28 // 14pt
                 })],
                 alignment: AlignmentType.LEFT
               })],
               width: { size: 16.6, type: WidthType.PERCENTAGE },
-              shading: { fill: isEven ? "ECFDF5" : "A7F3D0", type: ShadingType.SOLID }
+              shading: { fill: "34D399", type: ShadingType.SOLID }, // Verde claro
+              margins: { top: 300, bottom: 300, left: 240, right: 240 }
             })
           ]
         })
       })
 
-      // Criar documento Word com design profissional
+      // Criar documento Word idêntico ao HTML
       const doc = new Document({
         sections: [{
           properties: {
             page: {
               margin: {
-                top: 1440, // 2.54cm
-                right: 1440,
-                bottom: 1440,
-                left: 1440
+                top: 720, // Margens menores para cabeçalho ocupar toda largura
+                right: 720,
+                bottom: 720,
+                left: 720
               }
             }
           },
           children: [
-            // Cabeçalho com fundo escuro
+            // Cabeçalho principal - fundo preto completo
             new Paragraph({
               children: [
                 new TextRun({
-                  text: blocoCabecalho,
+                  text: `🔔 ${blocoCabecalho.replace('🔔 ', '')}`,
                   bold: true,
                   size: 36, // 18pt
                   color: "FFFFFF"
                 })
               ],
               alignment: AlignmentType.CENTER,
-              spacing: { after: 240 },
+              spacing: { after: 200 },
               shading: {
-                fill: "1A1A2E",
+                fill: "000000", // Preto puro
                 type: ShadingType.SOLID
               },
-              indent: { left: -1440, right: -1440 },
+              indent: { left: -720, right: -720 }, // Estender até as bordas
               border: {
-                top: { style: BorderStyle.SINGLE, size: 0, color: "1A1A2E" },
-                bottom: { style: BorderStyle.SINGLE, size: 0, color: "1A1A2E" },
-                left: { style: BorderStyle.SINGLE, size: 0, color: "1A1A2E" },
-                right: { style: BorderStyle.SINGLE, size: 0, color: "1A1A2E" }
+                top: { style: BorderStyle.SINGLE, size: 4, color: "000000" },
+                bottom: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                left: { style: BorderStyle.SINGLE, size: 4, color: "000000" },
+                right: { style: BorderStyle.SINGLE, size: 4, color: "000000" }
               }
             }),
+            // Subtítulo - também em fundo preto
             new Paragraph({
               children: [
                 new TextRun({
                   text: blocoSubtitulo,
-                  size: 26, // 13pt
+                  size: 28, // 14pt
                   color: "FFFFFF"
                 })
               ],
               alignment: AlignmentType.CENTER,
               spacing: { after: 480 },
               shading: {
-                fill: "1A1A2E",
+                fill: "000000",
                 type: ShadingType.SOLID
               },
-              indent: { left: -1440, right: -1440 }
+              indent: { left: -720, right: -720 },
+              border: {
+                bottom: { style: BorderStyle.SINGLE, size: 4, color: "000000" },
+                left: { style: BorderStyle.SINGLE, size: 4, color: "000000" },
+                right: { style: BorderStyle.SINGLE, size: 4, color: "000000" }
+              }
             }),
             
             // Espaço após cabeçalho
@@ -1032,7 +1049,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
               spacing: { after: 360 }
             }),
             
-            // Informação destacada
+            // Informação destacada - fundo cinza claro com borda azul à esquerda
             new Paragraph({
               children: [
                 new TextRun({
@@ -1043,21 +1060,24 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                   text: cliente?.nome || 'N/A',
                   bold: true,
                   size: 28,
-                  color: "1E40AF"
+                  color: "000000"
                 }),
                 new TextRun({
                   text: " sofreu alteração, sendo:",
                   size: 28
                 })
               ],
-              spacing: { before: 240, after: 360 },
+              spacing: { before: 360, after: 360 },
               shading: {
                 fill: "F7FAFC",
                 type: ShadingType.SOLID
               },
               indent: { left: 480 },
               border: {
-                left: { style: BorderStyle.SINGLE, size: 16, color: "4299E1" }
+                left: { style: BorderStyle.SINGLE, size: 16, color: "4299E1" },
+                top: { style: BorderStyle.SINGLE, size: 1, color: "E2E8F0" },
+                bottom: { style: BorderStyle.SINGLE, size: 1, color: "E2E8F0" },
+                right: { style: BorderStyle.SINGLE, size: 1, color: "E2E8F0" }
               }
             }),
             
@@ -1165,31 +1185,32 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
               }
             }),
             
-            // Conclusão com fundo verde claro
+            // Conclusão com fundo verde sólido e texto branco (como no HTML)
             new Paragraph({
               children: [
                 new TextRun({
                   text: "✅ ",
-                  size: 28
+                  size: 28,
+                  color: "FFFFFF"
                 }),
                 new TextRun({
                   text: blocoConclusao,
                   bold: true,
                   size: 28, // 14pt
-                  color: "22543D"
+                  color: "FFFFFF" // Texto branco no fundo verde
                 })
               ],
               spacing: { before: 360, after: 480 },
               shading: {
-                fill: "F0FFF4",
+                fill: "10B981", // Verde sólido vibrante
                 type: ShadingType.SOLID
               },
               indent: { left: 240 },
               border: {
-                top: { style: BorderStyle.SINGLE, size: 2, color: "9AE6B4" },
-                bottom: { style: BorderStyle.SINGLE, size: 2, color: "9AE6B4" },
-                left: { style: BorderStyle.SINGLE, size: 2, color: "9AE6B4" },
-                right: { style: BorderStyle.SINGLE, size: 2, color: "9AE6B4" }
+                top: { style: BorderStyle.SINGLE, size: 2, color: "10B981" },
+                bottom: { style: BorderStyle.SINGLE, size: 2, color: "10B981" },
+                left: { style: BorderStyle.SINGLE, size: 2, color: "10B981" },
+                right: { style: BorderStyle.SINGLE, size: 2, color: "10B981" }
               }
             }),
             
