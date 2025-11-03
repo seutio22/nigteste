@@ -2749,6 +2749,34 @@ for (const [path, repo] of Object.entries(resources)) {
           userId = f.id
         }
 
+        // Verificar permissões antes de atualizar
+        const userRole = (req as any).user?.role || (req.headers?.['x-user-role'] as string) || null
+        const project = await prisma.project.findUnique({
+          where: { id },
+          select: { 
+            id: true, 
+            isPrivate: true, 
+            ownerId: true, 
+            managerId: true,
+            members: { select: { userId: true } }
+          }
+        })
+
+        if (!project) {
+          return reply.code(404).send({ error: 'Projeto não encontrado' })
+        }
+
+        // Verificar se o usuário tem permissão para editar
+        const isMember = project.members?.some((m: any) => m.userId === userId) || false
+        const canEdit = userRole === 'admin' || 
+                        !project.isPrivate || 
+                        (userId && (project.ownerId === userId || project.managerId === userId || isMember))
+
+        if (!canEdit) {
+          console.log('❌ PUT /projetos: Sem permissão para editar projeto privado -> 403')
+          return reply.code(403).send({ error: 'Você não tem permissão para editar este projeto.' })
+        }
+
         const body = req.body || {}
         const updateData: any = { ...body }
         // Normalizar flag isPrivate
