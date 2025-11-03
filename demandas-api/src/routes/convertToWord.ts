@@ -74,23 +74,29 @@ export async function convertToWordRoutes(app: FastifyInstance) {
         
         // Cabeçalho com fundo escuro (#1a1a2e ou similar)
         const bgColor = cssColorToHex(styles.background || styles.backgroundColor || '')
-        if (tagName === 'div' && (bgColor === '1A1A2E' || bgColor === '000000') && el.querySelector('h1')) {
+        if (tagName === 'div' && (bgColor === '1A1A2E' || bgColor === '000000' || bgColor === '2D3748') && el.querySelector('h1')) {
           const h1 = el.querySelector('h1')
           const p = el.querySelector('p')
           const h1Text = h1?.text?.trim() || ''
           const pText = p?.text?.trim() || ''
-          const textColor = cssColorToHex(styles.color || 'white')
+          const h1Style = parseStyle(h1.getAttribute('style') || '')
+          const pStyle = parseStyle(p?.getAttribute('style') || '')
+          
+          // Cor do texto: branco para fundo escuro
+          const textColor = 'FFFFFF'
+          const h1Size = parseInt(h1Style.fontSize || '24') * 2
+          const pSize = parseInt(pStyle.fontSize || '14') * 2
           
           if (h1Text) {
             docElements.push(new Paragraph({
               children: [new TextRun({
                 text: h1Text,
                 bold: true,
-                size: 36,
-                color: textColor || 'FFFFFF'
+                size: h1Size || 48, // 24pt
+                color: textColor
               })],
               alignment: AlignmentType.CENTER,
-              spacing: { after: 200 },
+              spacing: { after: 240 },
               shading: { fill: bgColor, type: ShadingType.SOLID },
               indent: { left: -720, right: -720 }
             }))
@@ -100,8 +106,8 @@ export async function convertToWordRoutes(app: FastifyInstance) {
             docElements.push(new Paragraph({
               children: [new TextRun({
                 text: pText,
-                size: 28,
-                color: textColor || 'FFFFFF'
+                size: pSize || 28, // 14pt
+                color: textColor
               })],
               alignment: AlignmentType.CENTER,
               spacing: { after: 480 },
@@ -112,32 +118,72 @@ export async function convertToWordRoutes(app: FastifyInstance) {
           return
         }
         
-        // Tabelas - EXATAMENTE como na imagem (fundo preto)
+        // Tabelas - EXATAMENTE como na imagem
         if (tagName === 'table') {
           const theadRows = el.querySelectorAll('thead tr')
           const tbodyRows = el.querySelectorAll('tbody tr')
           const allRows = [...Array.from(theadRows), ...Array.from(tbodyRows)]
           
           const tableRows = allRows.map((tr: any) => {
+            // Pegar estilo da linha (para fundo alternado)
+            const trStyle = parseStyle(tr.getAttribute('style') || '')
+            const rowBgColor = cssColorToHex(trStyle.background || trStyle.backgroundColor || '#FFFFFF')
+            
             const cells = Array.from(tr.querySelectorAll('td, th')).map((cell: any) => {
+              // Estilos da célula têm PRIORIDADE sobre estilos da linha
               const cellStyle = parseStyle(cell.getAttribute('style') || '')
               const cellText = cell.text?.trim() || ''
-              const cellBgColor = cssColorToHex(cellStyle.background || cellStyle.backgroundColor || '#000000')
-              const cellTextColor = cssColorToHex(cellStyle.color || '#FFFFFF')
-              const isBold = cellStyle.fontWeight === 'bold' || parseInt(cellStyle.fontWeight || '400') >= 600
+              
+              // Se for TH (cabeçalho), usar fundo da linha OU fundo próprio
+              const isHeader = cell.tagName === 'TH'
+              let cellBgColor = cellStyle.background || cellStyle.backgroundColor
+                ? cssColorToHex(cellStyle.background || cellStyle.backgroundColor)
+                : (isHeader && rowBgColor !== 'FFFFFF' ? rowBgColor : 'FFFFFF')
+              
+              // Para cabeçalho, usar fundo escuro (#2d3748) se não especificado
+              if (isHeader && cellBgColor === 'FFFFFF') {
+                const headerRowBg = cssColorToHex(trStyle.background || trStyle.backgroundColor || '#2d3748')
+                if (headerRowBg === '2D3748' || headerRowBg === '000000' || headerRowBg === '1A1A2E') {
+                  cellBgColor = headerRowBg
+                } else {
+                  cellBgColor = '2D3748' // Padrão: cinza escuro
+                }
+              }
+              
+              // Cor do texto: branco para cabeçalho ou fundos escuros, caso contrário usar cor especificada
+              let cellTextColor = cellStyle.color
+                ? cssColorToHex(cellStyle.color)
+                : (isHeader || cellBgColor === '2D3748' || cellBgColor === '000000' || cellBgColor === '1A1A2E' ? 'FFFFFF' : '000000')
+              
+              // Cabeçalho sempre branco
+              if (isHeader) {
+                cellTextColor = 'FFFFFF'
+              }
+              
+              const isBold = cellStyle.fontWeight === 'bold' || 
+                            parseInt(cellStyle.fontWeight || '400') >= 600 || 
+                            isHeader
+              
+              const fontSize = parseInt(cellStyle.fontSize || '14')
               
               return new TableCell({
                 children: [new Paragraph({
                   children: [new TextRun({
                     text: cellText,
-                    bold: isBold || cell.tagName === 'TH',
+                    bold: isBold,
                     color: cellTextColor,
-                    size: 28
+                    size: fontSize ? fontSize * 2 : 28
                   })]
                 })],
-                shading: { fill: cellBgColor || '000000', type: ShadingType.SOLID },
-                width: { size: 100 / (tr.querySelectorAll('td, th').length || 6), type: WidthType.PERCENTAGE },
-                margins: { top: 300, bottom: 300, left: 240, right: 240 }
+                shading: { 
+                  fill: cellBgColor, 
+                  type: ShadingType.SOLID 
+                },
+                width: { 
+                  size: 100 / (tr.querySelectorAll('td, th').length || 6), 
+                  type: WidthType.PERCENTAGE 
+                },
+                margins: { top: 360, bottom: 360, left: 288, right: 288 } // ~15px padding
               })
             })
             return new TableRow({ children: cells })
@@ -147,37 +193,90 @@ export async function convertToWordRoutes(app: FastifyInstance) {
             width: { size: 100, type: WidthType.PERCENTAGE },
             rows: tableRows,
             borders: {
-              top: { style: BorderStyle.SINGLE, size: 1, color: 'FFFFFF' },
-              bottom: { style: BorderStyle.SINGLE, size: 1, color: 'FFFFFF' },
-              left: { style: BorderStyle.SINGLE, size: 1, color: 'FFFFFF' },
-              right: { style: BorderStyle.SINGLE, size: 1, color: 'FFFFFF' },
-              insideHorizontal: { style: BorderStyle.SINGLE, size: 1, color: 'FFFFFF' },
-              insideVertical: { style: BorderStyle.SINGLE, size: 1, color: 'FFFFFF' }
+              top: { style: BorderStyle.SINGLE, size: 1, color: 'E2E8F0' },
+              bottom: { style: BorderStyle.SINGLE, size: 1, color: 'E2E8F0' },
+              left: { style: BorderStyle.SINGLE, size: 1, color: 'E2E8F0' },
+              right: { style: BorderStyle.SINGLE, size: 1, color: 'E2E8F0' },
+              insideHorizontal: { style: BorderStyle.SINGLE, size: 1, color: 'E2E8F0' },
+              insideVertical: { style: BorderStyle.SINGLE, size: 1, color: 'E2E8F0' }
             }
           }))
           return
         }
         
-        // Blocos coloridos (descrição, conclusão, etc.)
-        if (bgColor && bgColor !== 'FFFFFF' && bgColor !== 'F8F9FA' && text) {
-          const textColor = cssColorToHex(styles.color || '#FFFFFF')
-          const isBold = styles.fontWeight === 'bold' || parseInt(styles.fontWeight || '400') >= 600
-          const borderColor = cssColorToHex(styles.borderColor || '')
+        // Blocos coloridos (descrição, conclusão, etc.) - capturar corretamente
+        if (bgColor && bgColor !== 'FFFFFF' && bgColor !== 'F8F9FA' && bgColor !== 'F7FAFC' && text) {
+          // Extrair texto preservando emojis e formatação
+          const fullText = el.text?.trim() || el.structuredText?.trim() || ''
+          
+          // Processar elementos filhos para manter <strong>, etc.
+          const textParts: any[] = []
+          const processTextNode = (node: any) => {
+            if (node.nodeType === 3) { // Text node
+              const txt = node.text?.trim()
+              if (txt) {
+                textParts.push({
+                  text: txt,
+                  bold: false,
+                  color: cssColorToHex(styles.color || '#000000')
+                })
+              }
+            } else if (node.tagName) {
+              const tag = node.tagName.toLowerCase()
+              if (tag === 'strong' || tag === 'b') {
+                const txt = node.text?.trim()
+                if (txt) {
+                  textParts.push({
+                    text: txt,
+                    bold: true,
+                    color: cssColorToHex(styles.color || '#000000')
+                  })
+                }
+              } else {
+                // Processar filhos
+                node.childNodes?.forEach(processTextNode)
+              }
+            }
+          }
+          
+          // Tentar processar nós de texto primeiro
+          if (el.childNodes && el.childNodes.length > 0) {
+            el.childNodes.forEach(processTextNode)
+          }
+          
+          // Se não conseguiu processar, usar texto simples
+          if (textParts.length === 0) {
+            textParts.push({
+              text: fullText,
+              bold: styles.fontWeight === 'bold' || parseInt(styles.fontWeight || '400') >= 600,
+              color: cssColorToHex(styles.color || '#000000')
+            })
+          }
+          
+          const textColor = cssColorToHex(styles.color || '#000000')
+          const borderLeft = styles.borderLeft || styles.border || ''
+          const borderColor = borderLeft.includes('#') 
+            ? cssColorToHex(borderLeft.match(/#[0-9a-fA-F]{6}/)?.[0] || '')
+            : cssColorToHex(styles.borderColor || '')
+          
+          const runs = textParts.map((part: any) => {
+            return new TextRun({
+              text: part.text,
+              bold: part.bold,
+              color: part.color || textColor,
+              size: 28
+            })
+          })
           
           docElements.push(new Paragraph({
-            children: [new TextRun({
-              text: text,
-              bold: isBold,
-              color: textColor,
-              size: 28
-            })],
+            children: runs.length > 0 ? runs : [new TextRun({ text: fullText, color: textColor, size: 28 })],
             spacing: { before: 300, after: 480 },
             shading: { fill: bgColor, type: ShadingType.SOLID },
             indent: { left: 240 },
             border: borderColor && borderColor !== '000000' ? {
-              top: { style: BorderStyle.SINGLE, size: 1, color: borderColor },
+              top: { style: BorderStyle.SINGLE, size: 4, color: borderColor },
               bottom: { style: BorderStyle.SINGLE, size: 1, color: borderColor },
-              left: { style: BorderStyle.SINGLE, size: 1, color: borderColor },
+              left: { style: BorderStyle.SINGLE, size: 4, color: borderColor },
               right: { style: BorderStyle.SINGLE, size: 1, color: borderColor }
             } : undefined
           }))
