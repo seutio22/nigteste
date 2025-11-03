@@ -102,7 +102,13 @@ import { getApi } from '../../lib/apiConfig'
 
 export default function ProjectListPageSimple() {
   const navigate = useNavigate()
-  const { projects, loading, error, syncFromApi, add, remove } = useProjectStore()
+  // Usar seletores separados para garantir reatividade do Zustand
+  const projects = useProjectStore((state) => state.projects)
+  const loading = useProjectStore((state) => state.loading)
+  const error = useProjectStore((state) => state.error)
+  const syncFromApi = useProjectStore((state) => state.syncFromApi)
+  const add = useProjectStore((state) => state.add)
+  const remove = useProjectStore((state) => state.remove)
   const { user } = useAuthStore()
 
   // Estados para filtros e visualizações
@@ -137,15 +143,8 @@ export default function ProjectListPageSimple() {
   // Função para remover projeto com tratamento de erro
   const handleRemoveProject = async (id: string) => {
     try {
-      // Importar API dinamicamente
-      const api = getApi()
-      
-      // Remover da API primeiro
-      await api.delete(`/projetos/${id}`)
-      
-      // Remover do store local
-      remove(id)
-      
+      // O método remove do store já chama a API e atualiza o estado local
+      await remove(id)
       console.log('✅ Projeto removido com sucesso:', id)
     } catch (error) {
       console.error('Erro ao excluir projeto:', error)
