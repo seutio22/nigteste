@@ -4,8 +4,8 @@ import { Copy, Mail, Users, CheckCircle, X, Settings, Send, Image as ImageIcon, 
 import { useMasterDataStore } from '../store/masterDataStore'
 import { useMaillingStore } from '../store/maillingStore'
 import { RichTextEditor } from './RichTextEditor'
-import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType, HeadingLevel, ShadingType, BorderStyle } from 'docx'
 import { saveAs } from 'file-saver'
+import html2pdf from 'html2pdf.js'
 
 interface EmailComunicacaoModalProps {
   open: boolean
@@ -868,390 +868,41 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
     setGerandoWord(true)
     
     try {
-      const cliente = md.clientes.find(c => c.id === manutencao?.clienteId)
-      const operadora = md.operadoras.find(o => o.id === manutencao?.operadoraId)
-      const produto = md.produtos.find(p => p.id === manutencao?.produtoId)
-      const sistema = md.sistemas.find(s => s.id === manutencao?.sistemaId)
-      const tipoServico = md.tiposCadastro.find(t => t.id === manutencao?.tipoServicoId)
-      const tipo = md.padrao.find(t => t.id === manutencao?.tipoId)
-      const contrato = manutencao?.contratoId ? 
-        md.contratos.find(c => c.id === manutencao.contratoId) : null
-
-      // Criar tabela EXATAMENTE como na imagem - FUNDO PRETO
-      const tableRows = linhasTabela.map((linha) => {
-        return new TableRow({
-          children: [
-            // Contrato - texto azul (#3B82F6 ou #2B6CB0), fundo preto
-            new TableCell({
-              children: [new Paragraph({
-                children: [new TextRun({
-                  text: linha.contrato || contrato?.codigo || contrato?.numero || manutencao?.ticket || 'N/A',
-                  bold: true,
-                  color: "3B82F6", // Azul como na imagem
-                  size: 30 // 15pt
-                })],
-                alignment: AlignmentType.LEFT
-              })],
-              width: { size: 16.6, type: WidthType.PERCENTAGE },
-              shading: { fill: "000000", type: ShadingType.SOLID }, // Fundo preto
-              margins: { top: 300, bottom: 300, left: 240, right: 240 }
-            }),
-            // Operadora - texto cinza claro (#D1D5DB), fundo preto
-            new TableCell({
-              children: [new Paragraph({
-                children: [new TextRun({
-                  text: linha.operadora || operadora?.nome || 'N/A',
-                  color: "D1D5DB", // Cinza claro como na imagem
-                  size: 28 // 14pt
-                })],
-                alignment: AlignmentType.LEFT
-              })],
-              width: { size: 16.6, type: WidthType.PERCENTAGE },
-              shading: { fill: "000000", type: ShadingType.SOLID }, // Fundo preto
-              margins: { top: 300, bottom: 300, left: 240, right: 240 }
-            }),
-            // Produto - texto verde (#34D399), fundo preto
-            new TableCell({
-              children: [new Paragraph({
-                children: [new TextRun({
-                  text: linha.produto || produto?.nome || 'N/A',
-                  color: "34D399", // Verde como na imagem
-                  size: 28 // 14pt
-                })],
-                alignment: AlignmentType.LEFT
-              })],
-              width: { size: 16.6, type: WidthType.PERCENTAGE },
-              shading: { fill: "000000", type: ShadingType.SOLID }, // Fundo preto
-              margins: { top: 300, bottom: 300, left: 240, right: 240 }
-            }),
-            // Atualização - texto laranja (#F97316), fundo preto
-            new TableCell({
-              children: [new Paragraph({
-                children: [new TextRun({
-                  text: linha.atualizacao || tipoServico?.nome || 'N/A',
-                  color: "F97316", // Laranja como na imagem
-                  size: 28 // 14pt
-                })],
-                alignment: AlignmentType.LEFT
-              })],
-              width: { size: 16.6, type: WidthType.PERCENTAGE },
-              shading: { fill: "000000", type: ShadingType.SOLID }, // Fundo preto
-              margins: { top: 300, bottom: 300, left: 240, right: 240 }
-            }),
-            // Subtipo - texto roxo (#A855F7), fundo preto
-            new TableCell({
-              children: [new Paragraph({
-                children: [new TextRun({
-                  text: linha.subtipo || tipo?.nome || 'N/A',
-                  color: "A855F7", // Roxo como na imagem
-                  size: 28 // 14pt
-                })],
-                alignment: AlignmentType.LEFT
-              })],
-              width: { size: 16.6, type: WidthType.PERCENTAGE },
-              shading: { fill: "000000", type: ShadingType.SOLID }, // Fundo preto
-              margins: { top: 300, bottom: 300, left: 240, right: 240 }
-            }),
-            // Tipo - texto verde (#34D399), fundo preto
-            new TableCell({
-              children: [new Paragraph({
-                children: [new TextRun({
-                  text: linha.tipo || sistema?.nome || 'N/A',
-                  color: "34D399", // Verde como na imagem
-                  size: 28 // 14pt
-                })],
-                alignment: AlignmentType.LEFT
-              })],
-              width: { size: 16.6, type: WidthType.PERCENTAGE },
-              shading: { fill: "000000", type: ShadingType.SOLID }, // Fundo preto
-              margins: { top: 300, bottom: 300, left: 240, right: 240 }
-            })
-          ]
-        })
-      })
-
-      // Criar documento Word replicando EXATAMENTE o HTML
-      const doc = new Document({
-        sections: [{
-          properties: {
-            page: {
-              margin: {
-                top: 720,
-                right: 720,
-                bottom: 720,
-                left: 720
-              }
-            }
-          },
-          children: [
-            // Cabeçalho - fundo preto (#000000) como na imagem
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: blocoCabecalho,
-                  bold: true,
-                  size: 36, // 18pt
-                  color: "FFFFFF"
-                })
-              ],
-              alignment: AlignmentType.CENTER,
-              spacing: { after: 200 },
-              shading: {
-                fill: "000000", // Preto como na imagem
-                type: ShadingType.SOLID
-              },
-              indent: { left: -720, right: -720 }
-            }),
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: blocoSubtitulo,
-                  size: 28, // 14pt
-                  color: "FFFFFF"
-                })
-              ],
-              alignment: AlignmentType.CENTER,
-              spacing: { after: 480 },
-              shading: {
-                fill: "000000", // Preto como na imagem
-                type: ShadingType.SOLID
-              },
-              indent: { left: -720, right: -720 }
-            }),
-            
-            new Paragraph({
-              children: [],
-              spacing: { after: 360 }
-            }),
-            
-            // Saudação
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: blocoSaudacao,
-                  bold: true,
-                  size: 32 // 16pt
-                })
-              ],
-              spacing: { after: 360 }
-            }),
-            
-            // Informação - texto normal, nome do cliente com fundo preto
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: "📋 Informamos que o cliente ",
-                  size: 28
-                }),
-                new TextRun({
-                  text: cliente?.nome || 'N/A',
-                  bold: true,
-                  size: 28,
-                  color: "FFFFFF"
-                }),
-                new TextRun({
-                  text: " sofreu alteração, sendo:",
-                  size: 28
-                })
-              ],
-              spacing: { before: 240, after: 360 }
-            }),
-            // Nome do cliente destacado com fundo preto (como na imagem)
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: cliente?.nome || 'N/A',
-                  bold: true,
-                  size: 32,
-                  color: "FFFFFF"
-                })
-              ],
-              spacing: { before: 120, after: 360 },
-              shading: {
-                fill: "000000", // Fundo preto como na imagem
-                type: ShadingType.SOLID
-              },
-              indent: { left: 240 }
-            }),
-            
-            // Tabela
-            new Table({
-              width: {
-                size: 100,
-                type: WidthType.PERCENTAGE
-              },
-              borders: {
-                top: { style: BorderStyle.SINGLE, size: 1, color: "FFFFFF" },
-                bottom: { style: BorderStyle.SINGLE, size: 1, color: "FFFFFF" },
-                left: { style: BorderStyle.SINGLE, size: 1, color: "FFFFFF" },
-                right: { style: BorderStyle.SINGLE, size: 1, color: "FFFFFF" },
-                insideHorizontal: { style: BorderStyle.SINGLE, size: 1, color: "FFFFFF" },
-                insideVertical: { style: BorderStyle.SINGLE, size: 1, color: "FFFFFF" }
-              },
-              rows: [
-                // Cabeçalho - fundo #2d3748
-                new TableRow({
-                  children: [
-                    new TableCell({
-                      children: [new Paragraph({
-                        children: [new TextRun({ text: "Contrato", bold: true, color: "FFFFFF", size: 26 })]
-                      })],
-                      shading: { fill: "000000", type: ShadingType.SOLID }, // Preto como na imagem
-                      width: { size: 16.6, type: WidthType.PERCENTAGE },
-                      margins: { top: 300, bottom: 300, left: 240, right: 240 }
-                    }),
-                    new TableCell({
-                      children: [new Paragraph({
-                        children: [new TextRun({ text: "Operadora", bold: true, color: "FFFFFF", size: 26 })]
-                      })],
-                      shading: { fill: "000000", type: ShadingType.SOLID }, // Preto como na imagem
-                      width: { size: 16.6, type: WidthType.PERCENTAGE },
-                      margins: { top: 300, bottom: 300, left: 240, right: 240 }
-                    }),
-                    new TableCell({
-                      children: [new Paragraph({
-                        children: [new TextRun({ text: "Produto", bold: true, color: "FFFFFF", size: 26 })]
-                      })],
-                      shading: { fill: "000000", type: ShadingType.SOLID }, // Preto como na imagem
-                      width: { size: 16.6, type: WidthType.PERCENTAGE },
-                      margins: { top: 300, bottom: 300, left: 240, right: 240 }
-                    }),
-                    new TableCell({
-                      children: [new Paragraph({
-                        children: [new TextRun({ text: "Atualização", bold: true, color: "FFFFFF", size: 26 })]
-                      })],
-                      shading: { fill: "000000", type: ShadingType.SOLID }, // Preto como na imagem
-                      width: { size: 16.6, type: WidthType.PERCENTAGE },
-                      margins: { top: 300, bottom: 300, left: 240, right: 240 }
-                    }),
-                    new TableCell({
-                      children: [new Paragraph({
-                        children: [new TextRun({ text: "Subtipo", bold: true, color: "FFFFFF", size: 26 })]
-                      })],
-                      shading: { fill: "000000", type: ShadingType.SOLID }, // Preto como na imagem
-                      width: { size: 16.6, type: WidthType.PERCENTAGE },
-                      margins: { top: 300, bottom: 300, left: 240, right: 240 }
-                    }),
-                    new TableCell({
-                      children: [new Paragraph({
-                        children: [new TextRun({ text: "Tipo", bold: true, color: "FFFFFF", size: 26 })]
-                      })],
-                      shading: { fill: "000000", type: ShadingType.SOLID }, // Preto como na imagem
-                      width: { size: 16.6, type: WidthType.PERCENTAGE },
-                      margins: { top: 300, bottom: 300, left: 240, right: 240 }
-                    })
-                  ]
-                }),
-                ...tableRows
-              ]
-            }),
-            
-            // Descrição - título e conteúdo com fundo preto
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: "📝 Descrição da Alteração",
-                  bold: true,
-                  size: 32 // 16pt
-                })
-              ],
-              spacing: { before: 480, after: 300 }
-            }),
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: blocoDescricao || manutencao?.descricao || 'Alteração realizada',
-                  size: 28,
-                  color: "FFFFFF", // Texto branco como na imagem
-                  bold: true
-                })
-              ],
-              spacing: { before: 300, after: 480 },
-              shading: {
-                fill: "000000", // Fundo preto como na imagem
-                type: ShadingType.SOLID
-              },
-              indent: { left: 240 }
-            }),
-            
-            // Conclusão - fundo verde escuro (#10B981), texto branco
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: "✅ ",
-                  size: 28,
-                  color: "FFFFFF"
-                }),
-                new TextRun({
-                  text: blocoConclusao,
-                  bold: true,
-                  size: 28,
-                  color: "FFFFFF" // Texto branco como na imagem
-                })
-              ],
-              spacing: { before: 360, after: 480 },
-              shading: {
-                fill: "10B981", // Verde escuro como na imagem
-                type: ShadingType.SOLID
-              },
-              indent: { left: 240 }
-            }),
-            
-            // Assinatura
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: "Atenciosamente,",
-                  size: 28
-                })
-              ],
-              spacing: { before: 720, after: 240 }
-            }),
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: "NIG - Núcleo de Informações Gerenciais",
-                  bold: true,
-                  size: 32,
-                  color: "2D3748"
-                })
-              ],
-              spacing: { after: 240 }
-            }),
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: "Sistema Automatizado",
-                  size: 22,
-                  italics: true,
-                  color: "667EEA"
-                })
-              ],
-              spacing: { after: 480 }
-            }),
-            
-            // Rodapé
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: "Esta é uma mensagem automática do sistema NIG. Por favor, não responda a este e-mail.",
-                  size: 22,
-                  color: "718096"
-                })
-              ],
-              alignment: AlignmentType.CENTER,
-              spacing: { before: 480 }
-            })
-          ]
-        }]
-      })
-
-      const blob = await Packer.toBlob(doc)
-      const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-')
-      const ticket = manutencao?.ticket || 'N/A'
-      const nomeArquivo = `email-comunicacao-${ticket}-${timestamp}.docx`
+      // Usar html2pdf.js que preserva PERFEITAMENTE o design HTML
+      const htmlContent = gerarHTMLComBlocos()
       
-      saveAs(blob, nomeArquivo)
+      // Criar elemento temporário para renderizar o HTML
+      const tempDiv = document.createElement('div')
+      tempDiv.innerHTML = htmlContent
+      tempDiv.style.position = 'absolute'
+      tempDiv.style.left = '-9999px'
+      tempDiv.style.top = '-9999px'
+      tempDiv.style.width = '800px' // Mesma largura do HTML
+      document.body.appendChild(tempDiv)
+      
+      // Opções de conversão para preservar design
+      const opt = {
+        margin: 0.5,
+        filename: `email-comunicacao-${manutencao?.ticket || 'N/A'}-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { 
+          scale: 2,
+          useCORS: true,
+          letterRendering: true,
+          logging: false
+        },
+        jsPDF: { 
+          unit: 'in', 
+          format: 'letter', 
+          orientation: 'portrait' 
+        }
+      }
+      
+      // Converter HTML para PDF
+      await html2pdf().set(opt).from(tempDiv).save()
+      
+      // Remover elemento temporário
+      document.body.removeChild(tempDiv)
       
       // Feedback visual
       const feedback = document.createElement('div')
@@ -1267,7 +918,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
         z-index: 9999;
         box-shadow: 0 4px 12px rgba(0,0,0,0.15);
       `
-      feedback.textContent = `✅ Arquivo Word salvo: ${nomeArquivo}`
+      feedback.textContent = `✅ Arquivo PDF salvo (preserva design exato do HTML)`
       document.body.appendChild(feedback)
       
       setTimeout(() => {
@@ -1275,8 +926,8 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
       }, 3000)
       
     } catch (error) {
-      console.error('Erro ao gerar Word:', error)
-      alert('Erro ao gerar arquivo Word. Tente novamente.')
+      console.error('Erro ao gerar PDF:', error)
+      alert('Erro ao gerar arquivo PDF. Tente novamente.')
     } finally {
       setGerandoWord(false)
     }
