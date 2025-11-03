@@ -2632,25 +2632,37 @@ for (const [path, repo] of Object.entries(resources)) {
     app.get(`/${path}/:id`, async (req: any, reply) => {
       try {
         const { id } = req.params as { id: string }
+        
+        // Log dos headers recebidos para depuração
+        console.log('📥 GET /projetos/:id: Headers recebidos:', {
+          'x-user-id': req?.headers?.['x-user-id'] || req?.headers?.['X-User-Id'],
+          'x-user-role': req?.headers?.['x-user-role'] || req?.headers?.['X-User-Role'],
+          'authorization': req?.headers?.authorization ? 'Bearer ***' : null
+        })
+        
         let userId: string | null = null
         let userRole: string | null = null
-        try {
-          await (req as any).jwtVerify?.()
-          userId = (req as any).user?.id || null
-          userRole = (req as any).user?.role || null
-        } catch (e) {
-          const f = extractUserFromAuthHeader(req)
-          userId = f.id
-          userRole = f.role
-        }
-        // Fallback: ler do header se ainda não capturado
-        if (!userId) {
-          const hdrId = (req?.headers?.['x-user-id'] || req?.headers?.['X-User-Id']) as string | undefined
-          if (hdrId && typeof hdrId === 'string') userId = hdrId
-        }
-        if (!userRole) {
-          const hdrRole = (req?.headers?.['x-user-role'] || req?.headers?.['X-User-Role']) as string | undefined
-          if (hdrRole && typeof hdrRole === 'string') userRole = hdrRole
+        
+        // PRIORIDADE 1: Ler diretamente dos headers (mais confiável)
+        const hdrId = (req?.headers?.['x-user-id'] || req?.headers?.['X-User-Id']) as string | undefined
+        const hdrRole = (req?.headers?.['x-user-role'] || req?.headers?.['X-User-Role']) as string | undefined
+        if (hdrId && typeof hdrId === 'string') userId = hdrId
+        if (hdrRole && typeof hdrRole === 'string') userRole = hdrRole
+        
+        // PRIORIDADE 2: Tentar validar JWT (fallback)
+        if (!userId || !userRole) {
+          try {
+            await (req as any).jwtVerify?.()
+            userId = userId || (req as any).user?.id || null
+            userRole = userRole || (req as any).user?.role || null
+          } catch (e) {
+            // Se JWT falhar, tentar extrair do token no header
+            if (!userId || !userRole) {
+              const f = extractUserFromAuthHeader(req)
+              userId = userId || f.id
+              userRole = userRole || f.role
+            }
+          }
         }
 
         console.log('🔍 GET /projetos/:id: userId =', userId, 'userRole =', userRole, 'projectId =', id)
@@ -2669,7 +2681,14 @@ for (const [path, repo] of Object.entries(resources)) {
         }
 
         const isMember = !!userId && project.members?.some((m: any) => m.userId === userId)
-        const canView = userRole === 'admin' || !project.isPrivate || (userId && (project.ownerId === userId || project.managerId === userId || isMember))
+        
+        // Verificações detalhadas para debug
+        const isAdmin = userRole === 'admin'
+        const isPublic = !project.isPrivate
+        const isOwner = !!userId && project.ownerId === userId
+        const isManager = !!userId && project.managerId === userId
+        
+        const canView = isAdmin || isPublic || isOwner || isManager || isMember
 
         console.log('🔍 GET /projetos/:id: Verificação de acesso:', {
           projectId: id,
@@ -2678,8 +2697,13 @@ for (const [path, repo] of Object.entries(resources)) {
           managerId: project.managerId,
           userId,
           userRole,
+          isAdmin,
+          isPublic,
+          isOwner,
+          isManager,
           isMember,
-          canView
+          canView,
+          members: project.members?.map((m: any) => ({ userId: m.userId, role: m.role })) || []
         })
 
         if (!canView) {
