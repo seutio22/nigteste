@@ -871,25 +871,22 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
       // Usar html2pdf.js que preserva PERFEITAMENTE o design HTML
       const htmlContent = gerarHTMLComBlocos()
       
-      // Criar elemento temporário para renderizar o HTML
-      const tempDiv = document.createElement('div')
-      tempDiv.innerHTML = htmlContent
+      // Criar uma nova janela para renderizar o HTML corretamente
+      const printWindow = window.open('', '_blank', 'width=800,height=600')
+      if (!printWindow) {
+        alert('Por favor, permita pop-ups para gerar o PDF')
+        return
+      }
       
-      // Estilos para garantir renderização correta
-      tempDiv.style.position = 'fixed'
-      tempDiv.style.left = '0'
-      tempDiv.style.top = '0'
-      tempDiv.style.width = '800px'
-      tempDiv.style.padding = '20px'
-      tempDiv.style.backgroundColor = '#f8f9fa'
-      tempDiv.style.zIndex = '99999'
-      tempDiv.style.opacity = '0'
-      tempDiv.style.pointerEvents = 'none'
+      // Escrever HTML completo na nova janela
+      printWindow.document.write(htmlContent)
+      printWindow.document.close()
       
-      document.body.appendChild(tempDiv)
+      // Aguardar renderização completa
+      await new Promise(resolve => setTimeout(resolve, 1000))
       
-      // Aguardar renderização completa (incluindo imagens se houver)
-      await new Promise(resolve => setTimeout(resolve, 500))
+      // Obter o elemento body da nova janela
+      const element = printWindow.document.body
       
       // Opções de conversão para preservar design
       const opt = {
@@ -903,7 +900,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
           logging: false,
           backgroundColor: '#f8f9fa',
           windowWidth: 800,
-          windowHeight: tempDiv.scrollHeight
+          windowHeight: element.scrollHeight || 1200
         },
         jsPDF: { 
           unit: 'in', 
@@ -914,11 +911,10 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
       }
       
       // Converter HTML para PDF
-      await html2pdf().set(opt).from(tempDiv).save()
+      await html2pdf().set(opt).from(element).save()
       
-      // Remover elemento temporário após conversão
-      await new Promise(resolve => setTimeout(resolve, 500))
-      document.body.removeChild(tempDiv)
+      // Fechar a janela após conversão
+      printWindow.close()
       
       // Feedback visual
       const feedback = document.createElement('div')
