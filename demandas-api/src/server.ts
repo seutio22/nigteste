@@ -2982,11 +2982,111 @@ for (const [path, repo] of Object.entries(resources)) {
     app.delete(`/${path}/:id`, async (req: any, reply) => {
       try {
         const { id } = req.params as { id: string }
+        
+        // Capturar userId e userRole dos headers (prioridade) ou JWT
+        let userId: string | null = null
+        let userRole: string | null = null
+        
+        // PRIORIDADE 1: Ler diretamente dos headers
+        const hdrId = (req?.headers?.['x-user-id'] || req?.headers?.['X-User-Id']) as string | undefined
+        const hdrRole = (req?.headers?.['x-user-role'] || req?.headers?.['X-User-Role']) as string | undefined
+        if (hdrId && typeof hdrId === 'string') userId = hdrId
+        if (hdrRole && typeof hdrRole === 'string') userRole = hdrRole
+        
+        // PRIORIDADE 2: Tentar validar JWT (fallback)
+        if (!userId || !userRole) {
+          try {
+            await (req as any).jwtVerify?.()
+            userId = userId || (req as any).user?.id || null
+            userRole = userRole || (req as any).user?.role || null
+          } catch (e) {
+            const f = extractUserFromAuthHeader(req)
+            userId = userId || f.id
+            userRole = userRole || f.role
+          }
+        }
+        
+        console.log('🔍 DELETE /projetos/:id: userId =', userId, 'userRole =', userRole, 'projectId =', id)
+        
+        // Buscar projeto para verificar permissões
+        const project = await prisma.project.findUnique({
+          where: { id },
+          include: {
+            members: true
+          }
+        })
+        
+        if (!project) {
+          console.log('❌ DELETE /projetos/:id: Projeto não encontrado:', id)
+          return reply.code(404).send({ error: 'Projeto não encontrado' })
+        }
+        
+        // Verificar permissões: admin, owner, ou manager pode excluir
+        const isAdmin = userRole === 'admin'
+        const isOwner = !!userId && project.ownerId === userId
+        const isManager = !!userId && project.managerId === userId
+        const canDelete = isAdmin || isOwner || isManager
+        
+        console.log('🔍 DELETE /projetos/:id: Verificação de permissão:', {
+          projectId: id,
+          isPrivate: project.isPrivate,
+          ownerId: project.ownerId,
+          managerId: project.managerId,
+          userId,
+          userRole,
+          isAdmin,
+          isOwner,
+          isManager,
+          canDelete
+        })
+        
+        if (!canDelete) {
+          console.log('❌ DELETE /projetos/:id: Sem permissão para excluir projeto -> 403')
+          return reply.code(403).send({ error: 'Você não tem permissão para excluir este projeto.' })
+        }
+        
+        // Excluir relacionamentos primeiro (cascata pode não estar configurada)
+        console.log('🗑️ DELETE /projetos/:id: Excluindo relacionamentos do projeto:', id)
+        
+        try {
+          // Excluir membros do projeto
+          await prisma.projectMember.deleteMany({ where: { projectId: id } })
+          console.log('✅ DELETE /projetos/:id: Membros excluídos')
+          
+          // Excluir marcos do projeto
+          await prisma.projectMilestone.deleteMany({ where: { projectId: id } })
+          console.log('✅ DELETE /projetos/:id: Marcos excluídos')
+          
+          // Excluir tarefas do projeto
+          await prisma.projectTask.deleteMany({ where: { projectId: id } })
+          console.log('✅ DELETE /projetos/:id: Tarefas excluídas')
+          
+          // Excluir linhas do tempo do projeto
+          await prisma.projectTimeline.deleteMany({ where: { projectId: id } })
+          console.log('✅ DELETE /projetos/:id: Linhas do tempo excluídas')
+          
+          // Excluir tokens de compartilhamento do projeto
+          await prisma.projectShareToken.deleteMany({ where: { projectId: id } })
+          console.log('✅ DELETE /projetos/:id: Tokens de compartilhamento excluídos')
+        } catch (relError) {
+          console.warn('⚠️ DELETE /projetos/:id: Erro ao excluir relacionamentos (continuando):', relError)
+          // Continuar mesmo se houver erro (pode ser que alguns relacionamentos não existam)
+        }
+        
+        // Excluir o projeto
         await prisma.project.delete({ where: { id } })
+        console.log('✅ DELETE /projetos/:id: Projeto excluído com sucesso:', id)
+        
         return reply.code(204).send()
-      } catch (error) {
+      } catch (error: any) {
+        console.error('❌ DELETE /projetos/:id: Erro:', error)
         req.log.error(error)
-        return reply.code(500).send({ error: 'Erro interno do servidor' })
+        
+        // Retornar mensagem de erro mais específica
+        const errorMessage = error?.message || 'Erro interno do servidor'
+        const statusCode = error?.code === 'P2003' ? 400 : 500 // P2003 = Foreign key constraint
+        
+        return reply.code(statusCode).send({ error: errorMessage })
       }
     })
 
