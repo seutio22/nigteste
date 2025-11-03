@@ -1036,11 +1036,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
             new Paragraph({
               children: [
                 new TextRun({
-                  text: "📋 ",
-                  size: 28
-                }),
-                new TextRun({
-                  text: blocoInformacao.replace('o cliente', `o cliente `),
+                  text: "📋 Informamos que o cliente ",
                   size: 28 // 14pt
                 }),
                 new TextRun({
@@ -1059,7 +1055,10 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                 fill: "F7FAFC",
                 type: ShadingType.SOLID
               },
-              indent: { left: 480 }
+              indent: { left: 480 },
+              border: {
+                left: { style: BorderStyle.SINGLE, size: 16, color: "4299E1" }
+              }
             }),
             
             // Tabela com bordas e formatação
