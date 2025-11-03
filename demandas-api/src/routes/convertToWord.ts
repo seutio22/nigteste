@@ -125,46 +125,63 @@ export async function convertToWordRoutes(app: FastifyInstance) {
           const allRows = [...Array.from(theadRows), ...Array.from(tbodyRows)]
           
           const tableRows = allRows.map((tr: any) => {
-            // Pegar estilo da linha (para fundo alternado)
+            // Pegar estilo da linha (para fundo alternado nas linhas de dados)
             const trStyle = parseStyle(tr.getAttribute('style') || '')
             const rowBgColor = cssColorToHex(trStyle.background || trStyle.backgroundColor || '#FFFFFF')
             
             const cells = Array.from(tr.querySelectorAll('td, th')).map((cell: any) => {
-              // Estilos da célula têm PRIORIDADE sobre estilos da linha
+              // Estilos da célula - EXTRAIR TODOS OS ESTILOS INLINE
               const cellStyle = parseStyle(cell.getAttribute('style') || '')
-              const cellText = cell.text?.trim() || ''
+              const cellText = cell.text?.trim() || cell.structuredText?.trim() || ''
               
-              // Se for TH (cabeçalho), usar fundo da linha OU fundo próprio
               const isHeader = cell.tagName === 'TH'
-              let cellBgColor = cellStyle.background || cellStyle.backgroundColor
-                ? cssColorToHex(cellStyle.background || cellStyle.backgroundColor)
-                : (isHeader && rowBgColor !== 'FFFFFF' ? rowBgColor : 'FFFFFF')
               
-              // Para cabeçalho, usar fundo escuro (#2d3748) se não especificado
-              if (isHeader && cellBgColor === 'FFFFFF') {
+              // FUNDO: Célula tem prioridade, depois linha, depois padrão
+              let cellBgColor = 'FFFFFF'
+              if (cellStyle.background || cellStyle.backgroundColor) {
+                // Célula tem fundo próprio - usar esse
+                cellBgColor = cssColorToHex(cellStyle.background || cellStyle.backgroundColor)
+              } else if (isHeader) {
+                // É cabeçalho - usar fundo da linha ou padrão escuro
                 const headerRowBg = cssColorToHex(trStyle.background || trStyle.backgroundColor || '#2d3748')
-                if (headerRowBg === '2D3748' || headerRowBg === '000000' || headerRowBg === '1A1A2E') {
-                  cellBgColor = headerRowBg
-                } else {
-                  cellBgColor = '2D3748' // Padrão: cinza escuro
-                }
+                cellBgColor = (headerRowBg === '2D3748' || headerRowBg === '000000' || headerRowBg === '1A1A2E') 
+                  ? headerRowBg 
+                  : '2D3748'
+              } else {
+                // Linha de dados - usar fundo da linha (alternado) OU branco
+                cellBgColor = (rowBgColor !== 'FFFFFF' && rowBgColor !== '000000') ? rowBgColor : 'FFFFFF'
               }
               
-              // Cor do texto: branco para cabeçalho ou fundos escuros, caso contrário usar cor especificada
-              let cellTextColor = cellStyle.color
-                ? cssColorToHex(cellStyle.color)
-                : (isHeader || cellBgColor === '2D3748' || cellBgColor === '000000' || cellBgColor === '1A1A2E' ? 'FFFFFF' : '000000')
-              
-              // Cabeçalho sempre branco
-              if (isHeader) {
+              // COR DO TEXTO: Célula tem prioridade
+              let cellTextColor = '000000' // Padrão preto
+              if (cellStyle.color) {
+                cellTextColor = cssColorToHex(cellStyle.color)
+              } else if (isHeader || cellBgColor === '2D3748' || cellBgColor === '000000' || cellBgColor === '1A1A2E') {
+                // Fundo escuro = texto branco
                 cellTextColor = 'FFFFFF'
+              } else {
+                // Fundo claro - determinar cor baseado na cor de fundo
+                // Cores específicas do HTML:
+                // #e6fffa (verde claro) -> #234e52 (verde escuro)
+                // #fef5e7 (amarelo claro) -> #7c2d12 (marrom)
+                // #f3e8ff (roxo claro) -> #581c87 (roxo escuro)
+                // #ecfdf5 (verde claro) -> #064e3b (verde escuro)
+                // #f8f9fa (cinza claro) -> #2d3748 (cinza escuro)
+                // #2b6cb0 (azul) para contrato
+                
+                if (cellBgColor === 'E6FFFA') cellTextColor = '234E52'
+                else if (cellBgColor === 'FEF5E7') cellTextColor = '7C2D12'
+                else if (cellBgColor === 'F3E8FF') cellTextColor = '581C87'
+                else if (cellBgColor === 'ECFDF5') cellTextColor = '064E3B'
+                else if (cellBgColor === 'F8F9FA') cellTextColor = '2D3748'
+                else cellTextColor = '000000'
               }
               
               const isBold = cellStyle.fontWeight === 'bold' || 
                             parseInt(cellStyle.fontWeight || '400') >= 600 || 
                             isHeader
               
-              const fontSize = parseInt(cellStyle.fontSize || '14')
+              const fontSize = parseInt(cellStyle.fontSize || '14') * 2 || 28
               
               return new TableCell({
                 children: [new Paragraph({
@@ -172,7 +189,7 @@ export async function convertToWordRoutes(app: FastifyInstance) {
                     text: cellText,
                     bold: isBold,
                     color: cellTextColor,
-                    size: fontSize ? fontSize * 2 : 28
+                    size: fontSize
                   })]
                 })],
                 shading: { 
@@ -183,7 +200,7 @@ export async function convertToWordRoutes(app: FastifyInstance) {
                   size: 100 / (tr.querySelectorAll('td, th').length || 6), 
                   type: WidthType.PERCENTAGE 
                 },
-                margins: { top: 360, bottom: 360, left: 288, right: 288 } // ~15px padding
+                margins: { top: 360, bottom: 360, left: 288, right: 288 }
               })
             })
             return new TableRow({ children: cells })
