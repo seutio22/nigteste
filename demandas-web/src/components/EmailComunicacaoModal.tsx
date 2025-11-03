@@ -877,94 +877,93 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
       const contrato = manutencao?.contratoId ? 
         md.contratos.find(c => c.id === manutencao.contratoId) : null
 
-      // Criar tabela EXATAMENTE como no HTML
-      const tableRows = linhasTabela.map((linha, index) => {
-        const isEven = index % 2 === 0
+      // Criar tabela EXATAMENTE como na imagem - FUNDO PRETO
+      const tableRows = linhasTabela.map((linha) => {
         return new TableRow({
           children: [
-            // Contrato - texto azul #2b6cb0, fundo alternado
+            // Contrato - texto azul (#3B82F6 ou #2B6CB0), fundo preto
             new TableCell({
               children: [new Paragraph({
                 children: [new TextRun({
                   text: linha.contrato || contrato?.codigo || contrato?.numero || manutencao?.ticket || 'N/A',
                   bold: true,
-                  color: "2B6CB0",
+                  color: "3B82F6", // Azul como na imagem
                   size: 30 // 15pt
                 })],
                 alignment: AlignmentType.LEFT
               })],
               width: { size: 16.6, type: WidthType.PERCENTAGE },
-              shading: { fill: isEven ? "F8F9FA" : "FFFFFF", type: ShadingType.SOLID },
+              shading: { fill: "000000", type: ShadingType.SOLID }, // Fundo preto
               margins: { top: 300, bottom: 300, left: 240, right: 240 }
             }),
-            // Operadora - texto #2d3748, fundo alternado
+            // Operadora - texto cinza claro (#D1D5DB), fundo preto
             new TableCell({
               children: [new Paragraph({
                 children: [new TextRun({
                   text: linha.operadora || operadora?.nome || 'N/A',
-                  color: "2D3748",
+                  color: "D1D5DB", // Cinza claro como na imagem
                   size: 28 // 14pt
                 })],
                 alignment: AlignmentType.LEFT
               })],
               width: { size: 16.6, type: WidthType.PERCENTAGE },
-              shading: { fill: isEven ? "F8F9FA" : "FFFFFF", type: ShadingType.SOLID },
+              shading: { fill: "000000", type: ShadingType.SOLID }, // Fundo preto
               margins: { top: 300, bottom: 300, left: 240, right: 240 }
             }),
-            // Produto - fundo #e6fffa, texto #234e52
+            // Produto - texto verde (#34D399), fundo preto
             new TableCell({
               children: [new Paragraph({
                 children: [new TextRun({
                   text: linha.produto || produto?.nome || 'N/A',
-                  color: "234E52",
+                  color: "34D399", // Verde como na imagem
                   size: 28 // 14pt
                 })],
                 alignment: AlignmentType.LEFT
               })],
               width: { size: 16.6, type: WidthType.PERCENTAGE },
-              shading: { fill: "E6FFFA", type: ShadingType.SOLID }, // Exato do HTML
+              shading: { fill: "000000", type: ShadingType.SOLID }, // Fundo preto
               margins: { top: 300, bottom: 300, left: 240, right: 240 }
             }),
-            // Atualização - fundo #fef5e7, texto #7c2d12
+            // Atualização - texto laranja (#F97316), fundo preto
             new TableCell({
               children: [new Paragraph({
                 children: [new TextRun({
                   text: linha.atualizacao || tipoServico?.nome || 'N/A',
-                  color: "7C2D12",
+                  color: "F97316", // Laranja como na imagem
                   size: 28 // 14pt
                 })],
                 alignment: AlignmentType.LEFT
               })],
               width: { size: 16.6, type: WidthType.PERCENTAGE },
-              shading: { fill: "FEF5E7", type: ShadingType.SOLID }, // Exato do HTML
+              shading: { fill: "000000", type: ShadingType.SOLID }, // Fundo preto
               margins: { top: 300, bottom: 300, left: 240, right: 240 }
             }),
-            // Subtipo - fundo #f3e8ff, texto #581c87
+            // Subtipo - texto roxo (#A855F7), fundo preto
             new TableCell({
               children: [new Paragraph({
                 children: [new TextRun({
                   text: linha.subtipo || tipo?.nome || 'N/A',
-                  color: "581C87",
+                  color: "A855F7", // Roxo como na imagem
                   size: 28 // 14pt
                 })],
                 alignment: AlignmentType.LEFT
               })],
               width: { size: 16.6, type: WidthType.PERCENTAGE },
-              shading: { fill: "F3E8FF", type: ShadingType.SOLID }, // Exato do HTML
+              shading: { fill: "000000", type: ShadingType.SOLID }, // Fundo preto
               margins: { top: 300, bottom: 300, left: 240, right: 240 }
             }),
-            // Tipo - fundo #ecfdf5, texto #064e3b
+            // Tipo - texto verde (#34D399), fundo preto
             new TableCell({
               children: [new Paragraph({
                 children: [new TextRun({
                   text: linha.tipo || sistema?.nome || 'N/A',
-                  color: "064E3B",
+                  color: "34D399", // Verde como na imagem
                   size: 28 // 14pt
                 })],
                 alignment: AlignmentType.LEFT
               })],
               width: { size: 16.6, type: WidthType.PERCENTAGE },
-              shading: { fill: "ECFDF5", type: ShadingType.SOLID }, // Exato do HTML
+              shading: { fill: "000000", type: ShadingType.SOLID }, // Fundo preto
               margins: { top: 300, bottom: 300, left: 240, right: 240 }
             })
           ]
@@ -985,7 +984,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
             }
           },
           children: [
-            // Cabeçalho - fundo #1a1a2e (exato do HTML)
+            // Cabeçalho - fundo preto (#000000) como na imagem
             new Paragraph({
               children: [
                 new TextRun({
@@ -998,7 +997,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
               alignment: AlignmentType.CENTER,
               spacing: { after: 200 },
               shading: {
-                fill: "1A1A2E", // Exato do HTML
+                fill: "000000", // Preto como na imagem
                 type: ShadingType.SOLID
               },
               indent: { left: -720, right: -720 }
@@ -1014,7 +1013,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
               alignment: AlignmentType.CENTER,
               spacing: { after: 480 },
               shading: {
-                fill: "1A1A2E",
+                fill: "000000", // Preto como na imagem
                 type: ShadingType.SOLID
               },
               indent: { left: -720, right: -720 }
@@ -1037,7 +1036,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
               spacing: { after: 360 }
             }),
             
-            // Informação - fundo #f7fafc, borda azul à esquerda
+            // Informação - texto normal, nome do cliente com fundo preto
             new Paragraph({
               children: [
                 new TextRun({
@@ -1047,22 +1046,32 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                 new TextRun({
                   text: cliente?.nome || 'N/A',
                   bold: true,
-                  size: 28
+                  size: 28,
+                  color: "FFFFFF"
                 }),
                 new TextRun({
                   text: " sofreu alteração, sendo:",
                   size: 28
                 })
               ],
-              spacing: { before: 240, after: 360 },
+              spacing: { before: 240, after: 360 }
+            }),
+            // Nome do cliente destacado com fundo preto (como na imagem)
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: cliente?.nome || 'N/A',
+                  bold: true,
+                  size: 32,
+                  color: "FFFFFF"
+                })
+              ],
+              spacing: { before: 120, after: 360 },
               shading: {
-                fill: "F7FAFC", // Exato do HTML
+                fill: "000000", // Fundo preto como na imagem
                 type: ShadingType.SOLID
               },
-              indent: { left: 480 },
-              border: {
-                left: { style: BorderStyle.SINGLE, size: 16, color: "4299E1" }
-              }
+              indent: { left: 240 }
             }),
             
             // Tabela
@@ -1072,12 +1081,12 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                 type: WidthType.PERCENTAGE
               },
               borders: {
-                top: { style: BorderStyle.SINGLE, size: 1, color: "E2E8F0" },
-                bottom: { style: BorderStyle.SINGLE, size: 1, color: "E2E8F0" },
-                left: { style: BorderStyle.SINGLE, size: 1, color: "E2E8F0" },
-                right: { style: BorderStyle.SINGLE, size: 1, color: "E2E8F0" },
-                insideHorizontal: { style: BorderStyle.SINGLE, size: 1, color: "E2E8F0" },
-                insideVertical: { style: BorderStyle.SINGLE, size: 1, color: "E2E8F0" }
+                top: { style: BorderStyle.SINGLE, size: 1, color: "FFFFFF" },
+                bottom: { style: BorderStyle.SINGLE, size: 1, color: "FFFFFF" },
+                left: { style: BorderStyle.SINGLE, size: 1, color: "FFFFFF" },
+                right: { style: BorderStyle.SINGLE, size: 1, color: "FFFFFF" },
+                insideHorizontal: { style: BorderStyle.SINGLE, size: 1, color: "FFFFFF" },
+                insideVertical: { style: BorderStyle.SINGLE, size: 1, color: "FFFFFF" }
               },
               rows: [
                 // Cabeçalho - fundo #2d3748
@@ -1087,7 +1096,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                       children: [new Paragraph({
                         children: [new TextRun({ text: "Contrato", bold: true, color: "FFFFFF", size: 26 })]
                       })],
-                      shading: { fill: "2D3748", type: ShadingType.SOLID },
+                      shading: { fill: "000000", type: ShadingType.SOLID }, // Preto como na imagem
                       width: { size: 16.6, type: WidthType.PERCENTAGE },
                       margins: { top: 300, bottom: 300, left: 240, right: 240 }
                     }),
@@ -1095,7 +1104,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                       children: [new Paragraph({
                         children: [new TextRun({ text: "Operadora", bold: true, color: "FFFFFF", size: 26 })]
                       })],
-                      shading: { fill: "2D3748", type: ShadingType.SOLID },
+                      shading: { fill: "000000", type: ShadingType.SOLID }, // Preto como na imagem
                       width: { size: 16.6, type: WidthType.PERCENTAGE },
                       margins: { top: 300, bottom: 300, left: 240, right: 240 }
                     }),
@@ -1103,7 +1112,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                       children: [new Paragraph({
                         children: [new TextRun({ text: "Produto", bold: true, color: "FFFFFF", size: 26 })]
                       })],
-                      shading: { fill: "2D3748", type: ShadingType.SOLID },
+                      shading: { fill: "000000", type: ShadingType.SOLID }, // Preto como na imagem
                       width: { size: 16.6, type: WidthType.PERCENTAGE },
                       margins: { top: 300, bottom: 300, left: 240, right: 240 }
                     }),
@@ -1111,7 +1120,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                       children: [new Paragraph({
                         children: [new TextRun({ text: "Atualização", bold: true, color: "FFFFFF", size: 26 })]
                       })],
-                      shading: { fill: "2D3748", type: ShadingType.SOLID },
+                      shading: { fill: "000000", type: ShadingType.SOLID }, // Preto como na imagem
                       width: { size: 16.6, type: WidthType.PERCENTAGE },
                       margins: { top: 300, bottom: 300, left: 240, right: 240 }
                     }),
@@ -1119,7 +1128,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                       children: [new Paragraph({
                         children: [new TextRun({ text: "Subtipo", bold: true, color: "FFFFFF", size: 26 })]
                       })],
-                      shading: { fill: "2D3748", type: ShadingType.SOLID },
+                      shading: { fill: "000000", type: ShadingType.SOLID }, // Preto como na imagem
                       width: { size: 16.6, type: WidthType.PERCENTAGE },
                       margins: { top: 300, bottom: 300, left: 240, right: 240 }
                     }),
@@ -1127,7 +1136,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                       children: [new Paragraph({
                         children: [new TextRun({ text: "Tipo", bold: true, color: "FFFFFF", size: 26 })]
                       })],
-                      shading: { fill: "2D3748", type: ShadingType.SOLID },
+                      shading: { fill: "000000", type: ShadingType.SOLID }, // Preto como na imagem
                       width: { size: 16.6, type: WidthType.PERCENTAGE },
                       margins: { top: 300, bottom: 300, left: 240, right: 240 }
                     })
@@ -1137,7 +1146,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
               ]
             }),
             
-            // Descrição - fundo #f8fafc
+            // Descrição - título e conteúdo com fundo preto
             new Paragraph({
               children: [
                 new TextRun({
@@ -1153,50 +1162,39 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                 new TextRun({
                   text: blocoDescricao || manutencao?.descricao || 'Alteração realizada',
                   size: 28,
-                  color: "4A5568"
+                  color: "FFFFFF", // Texto branco como na imagem
+                  bold: true
                 })
               ],
               spacing: { before: 300, after: 480 },
               shading: {
-                fill: "FFFFFF",
+                fill: "000000", // Fundo preto como na imagem
                 type: ShadingType.SOLID
               },
-              indent: { left: 480 },
-              border: {
-                top: { style: BorderStyle.SINGLE, size: 1, color: "D1D5DB" },
-                bottom: { style: BorderStyle.SINGLE, size: 1, color: "D1D5DB" },
-                left: { style: BorderStyle.SINGLE, size: 1, color: "D1D5DB" },
-                right: { style: BorderStyle.SINGLE, size: 1, color: "D1D5DB" }
-              }
+              indent: { left: 240 }
             }),
             
-            // Conclusão - fundo #f0fff4, texto #22543d
+            // Conclusão - fundo verde escuro (#10B981), texto branco
             new Paragraph({
               children: [
                 new TextRun({
                   text: "✅ ",
                   size: 28,
-                  color: "22543D"
+                  color: "FFFFFF"
                 }),
                 new TextRun({
                   text: blocoConclusao,
                   bold: true,
                   size: 28,
-                  color: "22543D" // Exato do HTML
+                  color: "FFFFFF" // Texto branco como na imagem
                 })
               ],
               spacing: { before: 360, after: 480 },
               shading: {
-                fill: "F0FFF4", // Exato do HTML
+                fill: "10B981", // Verde escuro como na imagem
                 type: ShadingType.SOLID
               },
-              indent: { left: 240 },
-              border: {
-                top: { style: BorderStyle.SINGLE, size: 1, color: "9AE6B4" },
-                bottom: { style: BorderStyle.SINGLE, size: 1, color: "9AE6B4" },
-                left: { style: BorderStyle.SINGLE, size: 1, color: "9AE6B4" },
-                right: { style: BorderStyle.SINGLE, size: 1, color: "9AE6B4" }
-              }
+              indent: { left: 240 }
             }),
             
             // Assinatura
