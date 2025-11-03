@@ -37,13 +37,28 @@ export async function apiRequest<T = any>(
 ): Promise<T> {
   const url = `${API_CONFIG.BASE_URL}${endpoint}`
   
-  // Obter token de autenticação
-  const token = useAuthStore.getState().token
+  // Obter credenciais de autenticação do store
+  const authState = useAuthStore.getState()
+  const token = authState.token
+  const userId = authState.user?.id || null
+  const userRole = (authState.user as any)?.role || null
+  
+  // Log para depuração de projetos privados
+  if (endpoint.includes('/projetos/')) {
+    console.log('📤 api.local.ts - Headers enviados:', {
+      'x-user-id': userId || 'não definido',
+      'x-user-role': userRole || 'não definido',
+      'Authorization': token ? 'Bearer ***' : 'não definido',
+      endpoint
+    })
+  }
   
   const defaultOptions: RequestInit = {
     headers: {
       'Content-Type': 'application/json',
       ...(token && { 'Authorization': `Bearer ${token}` }),
+      ...(userId && { 'x-user-id': userId }),
+      ...(userRole && { 'x-user-role': userRole }),
       ...options.headers,
     },
     ...options,
