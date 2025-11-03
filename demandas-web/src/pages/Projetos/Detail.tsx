@@ -1130,48 +1130,25 @@ export default function ProjectDetailPage() {
       })
       
       // SALVAR NO BANCO DE DADOS
-      console.log('💾 Salvando fase no banco de dados...')
       try {
-        console.log('💾 Projeto para salvar:', projectDataToSend)
-        console.log('💾 Fase criada:', newPhase)
-        
         // Chamar API para salvar o projeto atualizado
         const savedProject = await api.updateProject(project.id, projectDataToSend)
-        
-        console.log('✅ Fase salva com sucesso no banco de dados!')
-        console.log('✅ Projeto retornado da API:', savedProject)
         
         // Garantir que o projeto retornado tenha campos JSON parseados
         let projectToUpdate
         if (savedProject) {
           projectToUpdate = parseProjectFromApi(savedProject)
-          console.log('✅ Usando projeto da API')
         } else {
           projectToUpdate = updatedProject
-          console.log('⚠️ API não retornou dados, usando projeto local')
         }
-        
-        console.log('📊 Projeto que será usado para atualizar o estado:')
-        console.log('  - ID:', projectToUpdate.id)
-        console.log('  - Nome:', projectToUpdate.name)
-        console.log('  - Timeline existe:', !!projectToUpdate.timeline)
-        console.log('  - Fases:', projectToUpdate.timeline?.phases?.length || 0)
-        console.log('  - Fases detalhadas:', projectToUpdate.timeline?.phases?.map(p => ({ id: p.id, name: p.name })))
         
         // Atualizar estado usando uma nova referência para garantir re-renderização
         setProject(prevProject => {
-          console.log('🔄 Atualizando estado do projeto...')
-          console.log('📊 Projeto anterior tinha:', prevProject?.timeline?.phases?.length || 0, 'fases')
-          console.log('📊 Projeto novo tem:', projectToUpdate.timeline?.phases?.length || 0, 'fases')
           return { ...projectToUpdate }
         })
         
         // Forçar re-renderização para garantir que a UI seja atualizada
-        setForceRender(prev => {
-          const newValue = prev + 1
-          console.log('🔄 Forçando re-renderização da interface:', prev, '->', newValue)
-          return newValue
-        })
+        setForceRender(prev => prev + 1)
       } catch (error) {
         console.error('❌ Erro ao salvar fase no banco:', error)
         alert('Erro ao salvar fase no banco de dados: ' + error)

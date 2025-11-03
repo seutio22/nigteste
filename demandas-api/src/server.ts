@@ -2973,12 +2973,6 @@ for (const [path, repo] of Object.entries(resources)) {
 
         return result
       } catch (error: any) {
-        console.error('❌ PUT /projetos/:id: Erro detalhado:', error)
-        console.error('❌ PUT /projetos/:id: Mensagem:', error?.message)
-        console.error('❌ PUT /projetos/:id: Código:', error?.code)
-        console.error('❌ PUT /projetos/:id: Stack:', error?.stack)
-        console.error('❌ PUT /projetos/:id: Dados recebidos:', JSON.stringify(req.body, null, 2))
-        
         req.log.error(error)
         
         // Retornar mensagem de erro mais específica
