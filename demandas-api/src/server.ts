@@ -2670,7 +2670,7 @@ for (const [path, repo] of Object.entries(resources)) {
         const project = await prisma.project.findUnique({
           where: { id },
           include: {
-            members: true,
+            members: { where: { isActive: true } },
             owner: { select: { id: true, name: true, email: true } }
           }
         })
@@ -2680,7 +2680,8 @@ for (const [path, repo] of Object.entries(resources)) {
           return reply.code(404).send({ error: 'Projeto não encontrado' })
         }
 
-        const isMember = !!userId && project.members?.some((m: any) => m.userId === userId)
+        // Verificar se é membro usando a mesma lógica da lista
+        const isMember = !!userId && project.members?.some((m: any) => m.userId === userId && m.isActive !== false)
         
         // Verificações detalhadas para debug
         const isAdmin = userRole === 'admin'
@@ -2688,7 +2689,13 @@ for (const [path, repo] of Object.entries(resources)) {
         const isOwner = !!userId && project.ownerId === userId
         const isManager = !!userId && project.managerId === userId
         
-        const canView = isAdmin || isPublic || isOwner || isManager || isMember
+        // FALLBACK: Se projeto é privado mas não tem ownerId, e usuário está nos membros, permitir acesso
+        // Isso cobre casos onde projetos antigos foram tornados privados antes da correção
+        const isPrivateWithoutOwner = project.isPrivate && (!project.ownerId || project.ownerId === '')
+        const fallbackAccess = isPrivateWithoutOwner && isMember
+        
+        // Lógica IDÊNTICA à da lista: admin, público, owner, manager, ou membro (ou fallback)
+        const canView = isAdmin || isPublic || isOwner || isManager || isMember || fallbackAccess
 
         console.log('🔍 GET /projetos/:id: Verificação de acesso:', {
           projectId: id,
@@ -2702,8 +2709,10 @@ for (const [path, repo] of Object.entries(resources)) {
           isOwner,
           isManager,
           isMember,
+          isPrivateWithoutOwner,
+          fallbackAccess,
           canView,
-          members: project.members?.map((m: any) => ({ userId: m.userId, role: m.role })) || []
+          members: project.members?.map((m: any) => ({ userId: m.userId, role: m.role, isActive: m.isActive })) || []
         })
 
         if (!canView) {
