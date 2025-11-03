@@ -2972,9 +2972,24 @@ for (const [path, repo] of Object.entries(resources)) {
         }
 
         return result
-      } catch (error) {
+      } catch (error: any) {
+        console.error('❌ PUT /projetos/:id: Erro detalhado:', error)
+        console.error('❌ PUT /projetos/:id: Mensagem:', error?.message)
+        console.error('❌ PUT /projetos/:id: Código:', error?.code)
+        console.error('❌ PUT /projetos/:id: Stack:', error?.stack)
+        console.error('❌ PUT /projetos/:id: Dados recebidos:', JSON.stringify(req.body, null, 2))
+        
         req.log.error(error)
-        return reply.code(500).send({ error: 'Erro interno do servidor' })
+        
+        // Retornar mensagem de erro mais específica
+        const errorMessage = error?.message || 'Erro interno do servidor'
+        const statusCode = error?.code === 'P2003' ? 400 : (error?.code === 'P2025' ? 404 : 500)
+        
+        return reply.code(statusCode).send({ 
+          error: errorMessage,
+          code: error?.code,
+          details: process.env.NODE_ENV === 'development' ? error?.stack : undefined
+        })
       }
     })
 

@@ -1101,14 +1101,42 @@ export default function ProjectDetailPage() {
       
       updatedProject.timeline.phases.push(newPhase)
       
+      // Preparar dados para envio: incluir apenas campos válidos do schema Prisma
+      const projectDataToSend: any = {
+        name: updatedProject.name,
+        description: updatedProject.description,
+        status: updatedProject.status,
+        priority: updatedProject.priority,
+        startDate: updatedProject.startDate,
+        endDate: updatedProject.endDate,
+        progress: updatedProject.progress ?? 0,
+        budget: updatedProject.budget ?? null,
+        clientId: updatedProject.clientId ?? null,
+        managerId: updatedProject.managerId ?? null,
+        ownerId: updatedProject.ownerId ?? null,
+        team: updatedProject.team ?? [],
+        tags: updatedProject.tags ?? [],
+        color: updatedProject.color ?? '#1976d2',
+        isPrivate: updatedProject.isPrivate ?? false,
+        timeline: updatedProject.timeline ?? { phases: [] },
+        activities: updatedProject.activities ?? []
+      }
+      
+      // Remover campos undefined/null desnecessários
+      Object.keys(projectDataToSend).forEach((key) => {
+        if (projectDataToSend[key] === undefined) {
+          delete projectDataToSend[key]
+        }
+      })
+      
       // SALVAR NO BANCO DE DADOS
       console.log('💾 Salvando fase no banco de dados...')
       try {
-        console.log('💾 Projeto para salvar:', updatedProject)
+        console.log('💾 Projeto para salvar:', projectDataToSend)
         console.log('💾 Fase criada:', newPhase)
         
         // Chamar API para salvar o projeto atualizado
-        const savedProject = await api.updateProject(project.id, updatedProject)
+        const savedProject = await api.updateProject(project.id, projectDataToSend)
         
         console.log('✅ Fase salva com sucesso no banco de dados!')
         console.log('✅ Projeto retornado da API:', savedProject)
