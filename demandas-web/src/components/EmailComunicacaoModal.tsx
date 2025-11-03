@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react'
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Typography, Box, Chip, FormControl, InputLabel, Select, MenuItem, Checkbox, ListItemText, OutlinedInput, IconButton, Tooltip, Card, CardContent, Divider, Paper } from '@mui/material'
-import { Copy, Mail, Users, CheckCircle, X, Settings, Send, Image as ImageIcon, Download, Edit3, Eye, Code } from 'lucide-react'
+import { Copy, Mail, Users, CheckCircle, X, Settings, Send, Image as ImageIcon, Download, Edit3, Eye, Code, FileText } from 'lucide-react'
 import { useMasterDataStore } from '../store/masterDataStore'
 import { useMaillingStore } from '../store/maillingStore'
 import { RichTextEditor } from './RichTextEditor'
+import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType, HeadingLevel } from 'docx'
+import { saveAs } from 'file-saver'
 
 interface EmailComunicacaoModalProps {
   open: boolean
@@ -21,6 +23,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
   const [previewAtualizado, setPreviewAtualizado] = useState(0)
   const [carregandoMailling, setCarregandoMailling] = useState(false)
   const [gerandoImagem, setGerandoImagem] = useState(false)
+  const [gerandoWord, setGerandoWord] = useState(false)
   const [editandoDescricao, setEditandoDescricao] = useState(false)
   const [descricaoEditavel, setDescricaoEditavel] = useState('')
   const [emailOutlook, setEmailOutlook] = useState('')
@@ -861,6 +864,303 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
     }
   }
 
+  const handleGerarWord = async () => {
+    setGerandoWord(true)
+    
+    try {
+      const cliente = md.clientes.find(c => c.id === manutencao?.clienteId)
+      const operadora = md.operadoras.find(o => o.id === manutencao?.operadoraId)
+      const produto = md.produtos.find(p => p.id === manutencao?.produtoId)
+      const sistema = md.sistemas.find(s => s.id === manutencao?.sistemaId)
+      const tipoServico = md.tiposCadastro.find(t => t.id === manutencao?.tipoServicoId)
+      const tipo = md.padrao.find(t => t.id === manutencao?.tipoId)
+      const contrato = manutencao?.contratoId ? 
+        md.contratos.find(c => c.id === manutencao.contratoId) : null
+
+      // Criar tabela com os dados
+      const tableRows = linhasTabela.map((linha, index) => {
+        return new TableRow({
+          children: [
+            new TableCell({
+              children: [new Paragraph({
+                children: [new TextRun({
+                  text: linha.contrato || contrato?.codigo || contrato?.numero || manutencao?.ticket || 'N/A',
+                  bold: true
+                })]
+              })],
+              width: { size: 15, type: WidthType.PERCENTAGE }
+            }),
+            new TableCell({
+              children: [new Paragraph({
+                children: [new TextRun({
+                  text: linha.operadora || operadora?.nome || 'N/A'
+                })]
+              })],
+              width: { size: 15, type: WidthType.PERCENTAGE }
+            }),
+            new TableCell({
+              children: [new Paragraph({
+                children: [new TextRun({
+                  text: linha.produto || produto?.nome || 'N/A'
+                })]
+              })],
+              width: { size: 15, type: WidthType.PERCENTAGE }
+            }),
+            new TableCell({
+              children: [new Paragraph({
+                children: [new TextRun({
+                  text: linha.atualizacao || tipoServico?.nome || 'N/A'
+                })]
+              })],
+              width: { size: 15, type: WidthType.PERCENTAGE }
+            }),
+            new TableCell({
+              children: [new Paragraph({
+                children: [new TextRun({
+                  text: linha.subtipo || tipo?.nome || 'N/A'
+                })]
+              })],
+              width: { size: 15, type: WidthType.PERCENTAGE }
+            }),
+            new TableCell({
+              children: [new Paragraph({
+                children: [new TextRun({
+                  text: linha.tipo || sistema?.nome || 'N/A'
+                })]
+              })],
+              width: { size: 15, type: WidthType.PERCENTAGE }
+            })
+          ]
+        })
+      })
+
+      // Criar documento Word
+      const doc = new Document({
+        sections: [{
+          children: [
+            // Cabeçalho
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: blocoCabecalho,
+                  bold: true,
+                  size: 32, // 16pt
+                  color: "FFFFFF"
+                })
+              ],
+              alignment: AlignmentType.CENTER,
+              spacing: { after: 200 }
+            }),
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: blocoSubtitulo,
+                  size: 24, // 12pt
+                  color: "FFFFFF"
+                })
+              ],
+              alignment: AlignmentType.CENTER,
+              spacing: { after: 400 }
+            }),
+            
+            // Saudação
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: blocoSaudacao,
+                  bold: true,
+                  size: 28 // 14pt
+                })
+              ],
+              spacing: { after: 300 }
+            }),
+            
+            // Informação
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: blocoInformacao.replace('o cliente', `o cliente ${cliente?.nome || 'N/A'}`),
+                  size: 24 // 12pt
+                })
+              ],
+              spacing: { after: 300 }
+            }),
+            
+            // Tabela
+            new Table({
+              width: {
+                size: 100,
+                type: WidthType.PERCENTAGE
+              },
+              rows: [
+                // Cabeçalho da tabela
+                new TableRow({
+                  children: [
+                    new TableCell({
+                      children: [new Paragraph({
+                        children: [new TextRun({ text: "Contrato", bold: true, color: "FFFFFF" })]
+                      })],
+                      shading: { fill: "2D3748" },
+                      width: { size: 15, type: WidthType.PERCENTAGE }
+                    }),
+                    new TableCell({
+                      children: [new Paragraph({
+                        children: [new TextRun({ text: "Operadora", bold: true, color: "FFFFFF" })]
+                      })],
+                      shading: { fill: "2D3748" },
+                      width: { size: 15, type: WidthType.PERCENTAGE }
+                    }),
+                    new TableCell({
+                      children: [new Paragraph({
+                        children: [new TextRun({ text: "Produto", bold: true, color: "FFFFFF" })]
+                      })],
+                      shading: { fill: "2D3748" },
+                      width: { size: 15, type: WidthType.PERCENTAGE }
+                    }),
+                    new TableCell({
+                      children: [new Paragraph({
+                        children: [new TextRun({ text: "Atualização", bold: true, color: "FFFFFF" })]
+                      })],
+                      shading: { fill: "2D3748" },
+                      width: { size: 15, type: WidthType.PERCENTAGE }
+                    }),
+                    new TableCell({
+                      children: [new Paragraph({
+                        children: [new TextRun({ text: "Subtipo", bold: true, color: "FFFFFF" })]
+                      })],
+                      shading: { fill: "2D3748" },
+                      width: { size: 15, type: WidthType.PERCENTAGE }
+                    }),
+                    new TableCell({
+                      children: [new Paragraph({
+                        children: [new TextRun({ text: "Tipo", bold: true, color: "FFFFFF" })]
+                      })],
+                      shading: { fill: "2D3748" },
+                      width: { size: 15, type: WidthType.PERCENTAGE }
+                    })
+                  ]
+                }),
+                ...tableRows
+              ]
+            }),
+            
+            // Descrição
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: "Descrição da Alteração",
+                  bold: true,
+                  size: 28 // 14pt
+                })
+              ],
+              spacing: { before: 400, after: 200 }
+            }),
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: blocoDescricao || manutencao?.descricao || 'Alteração realizada',
+                  size: 24 // 12pt
+                })
+              ],
+              spacing: { after: 400 }
+            }),
+            
+            // Conclusão
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: `✅ ${blocoConclusao}`,
+                  bold: true,
+                  size: 24 // 12pt
+                })
+              ],
+              spacing: { after: 400 }
+            }),
+            
+            // Assinatura
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: "Atenciosamente,",
+                  size: 24 // 12pt
+                })
+              ],
+              spacing: { before: 600, after: 200 }
+            }),
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: "NIG - Núcleo de Informações Gerenciais",
+                  bold: true,
+                  size: 28 // 14pt
+                })
+              ],
+              spacing: { after: 200 }
+            }),
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: "Sistema Automatizado",
+                  size: 20, // 10pt
+                  italics: true
+                })
+              ],
+              spacing: { after: 400 }
+            }),
+            
+            // Rodapé
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: "Esta é uma mensagem automática do sistema NIG. Por favor, não responda a este e-mail.",
+                  size: 20, // 10pt
+                  color: "718096"
+                })
+              ],
+              alignment: AlignmentType.CENTER,
+              spacing: { before: 400 }
+            })
+          ]
+        }]
+      })
+
+      // Gerar e fazer download do arquivo
+      const blob = await Packer.toBlob(doc)
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-')
+      const ticket = manutencao?.ticket || 'N/A'
+      const nomeArquivo = `email-comunicacao-${ticket}-${timestamp}.docx`
+      
+      saveAs(blob, nomeArquivo)
+      
+      // Feedback visual
+      const feedback = document.createElement('div')
+      feedback.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #10b981;
+        color: white;
+        padding: 12px 20px;
+        border-radius: 8px;
+        font-weight: 500;
+        z-index: 9999;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      `
+      feedback.textContent = `✅ Arquivo Word salvo: ${nomeArquivo}`
+      document.body.appendChild(feedback)
+      
+      setTimeout(() => {
+        document.body.removeChild(feedback)
+      }, 3000)
+      
+    } catch (error) {
+      console.error('Erro ao gerar Word:', error)
+      alert('Erro ao gerar arquivo Word. Tente novamente.')
+    } finally {
+      setGerandoWord(false)
+    }
+  }
+
   return (
     <Dialog 
       open={open} 
@@ -1603,6 +1903,33 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
             }}
           >
             {copiadoEmail ? 'E-mail Copiado!' : '📧 Copiar para Outlook'}
+          </Button>
+          
+          <Button
+            startIcon={gerandoWord ? <span>⏳</span> : <FileText className="w-4 h-4" />}
+            onClick={handleGerarWord}
+            disabled={gerandoWord}
+            variant="contained"
+            sx={{ 
+              borderRadius: '8px',
+              textTransform: 'none',
+              fontWeight: 500,
+              px: 4,
+              py: 1.5,
+              background: gerandoWord 
+                ? 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)'
+                : 'linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%)',
+              '&:hover': {
+                background: gerandoWord 
+                  ? 'linear-gradient(135deg, #4b5563 0%, #374151 100%)'
+                  : 'linear-gradient(135deg, #1e3a8a 0%, #1e293b 100%)'
+              },
+              '&:disabled': {
+                opacity: 0.6
+              }
+            }}
+          >
+            {gerandoWord ? 'Gerando...' : '📄 Download Word'}
           </Button>
           
         </Box>
