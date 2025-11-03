@@ -2573,6 +2573,17 @@ for (const [path, repo] of Object.entries(resources)) {
           userId = f.id
           userRole = f.role
         }
+        // Fallback: ler do header se ainda não capturado
+        if (!userId) {
+          const hdrId = (req?.headers?.['x-user-id'] || req?.headers?.['X-User-Id']) as string | undefined
+          if (hdrId && typeof hdrId === 'string') userId = hdrId
+        }
+        if (!userRole) {
+          const hdrRole = (req?.headers?.['x-user-role'] || req?.headers?.['X-User-Role']) as string | undefined
+          if (hdrRole && typeof hdrRole === 'string') userRole = hdrRole
+        }
+
+        console.log('🔍 GET /projetos: userId =', userId, 'userRole =', userRole)
 
         // Admin enxerga tudo
         const where: any = userRole === 'admin'
@@ -2588,7 +2599,11 @@ for (const [path, repo] of Object.entries(resources)) {
               }
             : { isPrivate: false }
 
+        console.log('🔍 GET /projetos: where clause =', JSON.stringify(where, null, 2))
+
         const projects = await prisma.project.findMany({ where })
+
+        console.log('✅ GET /projetos: encontrados', projects.length, 'projetos')
 
         // Converter campos JSON conforme regra já aplicada no crud('project')
         const mapped = projects.map((project: any) => {
@@ -2798,6 +2813,8 @@ for (const [path, repo] of Object.entries(resources)) {
         const body = req.body || {}
         const updateData: any = { ...body }
         // Normalizar flag isPrivate
+        const isTurningPrivate = 'isPrivate' in updateData && !!updateData.isPrivate && !project.isPrivate
+        
         if ('isPrivate' in updateData) updateData.isPrivate = !!updateData.isPrivate
 
         // Campos que não devem ser atualizados diretamente
@@ -2807,8 +2824,20 @@ for (const [path, repo] of Object.entries(resources)) {
         delete updateData.managerId
         delete updateData.clientId
         delete updateData.activities // evitar estruturas complexas no update
-        // Bloquear alteração de ownerId via PUT
-        if ('ownerId' in updateData) delete updateData.ownerId
+        // Bloquear alteração de ownerId via PUT, EXCETO se estiver virando privado e não tiver ownerId
+        if ('ownerId' in updateData) {
+          // Se o projeto está virando privado e não tem ownerId, definir o userId como owner
+          if (isTurningPrivate && userId && (!project.ownerId || project.ownerId === '')) {
+            console.log('🔧 PUT /projetos: Projeto virando privado sem ownerId, definindo ownerId =', userId)
+            updateData.ownerId = userId
+          } else {
+            delete updateData.ownerId
+          }
+        } else if (isTurningPrivate && userId && (!project.ownerId || project.ownerId === '')) {
+          // Se não estava no updateData mas precisa ser definido
+          console.log('🔧 PUT /projetos: Projeto virando privado sem ownerId, adicionando ownerId =', userId)
+          updateData.ownerId = userId
+        }
 
         // Datas
         if (updateData.startDate) updateData.startDate = new Date(updateData.startDate)
@@ -2851,6 +2880,20 @@ for (const [path, repo] of Object.entries(resources)) {
 
         const updated = await prisma.project.update({ where: { id }, data: updateData })
         console.log('✅ PUT /projetos:', id, 'isPrivate=', (updated as any)?.isPrivate, 'ownerId=', (updated as any)?.ownerId)
+        
+        // Se o projeto virou privado, garantir que o usuário seja membro
+        if (isTurningPrivate && userId) {
+          try {
+            await prisma.projectMember.upsert({
+              where: { projectId_userId: { projectId: id, userId } },
+              update: { isActive: true },
+              create: { projectId: id, userId, role: 'owner', isActive: true }
+            })
+            console.log('👥 PUT /projetos: usuário adicionado como membro após tornar projeto privado')
+          } catch (mErr) {
+            console.warn('⚠️ PUT /projetos: falha ao adicionar usuário como membro:', mErr)
+          }
+        }
         
         // Converter campos para retornar compatível com frontend
         const result: any = { ...updated }
