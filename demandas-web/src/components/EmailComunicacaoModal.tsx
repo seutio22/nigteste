@@ -877,93 +877,94 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
       const contrato = manutencao?.contratoId ? 
         md.contratos.find(c => c.id === manutencao.contratoId) : null
 
-      // Criar tabela com os dados e cores idênticas ao HTML
+      // Criar tabela exatamente como no HTML - cores suaves de fundo
       const tableRows = linhasTabela.map((linha, index) => {
+        const isEven = index % 2 === 0
         return new TableRow({
           children: [
-            // Contrato - azul claro com texto branco
+            // Contrato - azul escuro, texto branco
             new TableCell({
               children: [new Paragraph({
                 children: [new TextRun({
                   text: linha.contrato || contrato?.codigo || contrato?.numero || manutencao?.ticket || 'N/A',
                   bold: true,
-                  color: "FFFFFF",
+                  color: "2B6CB0",
                   size: 30 // 15pt
                 })],
                 alignment: AlignmentType.LEFT
               })],
               width: { size: 16.6, type: WidthType.PERCENTAGE },
-              shading: { fill: "3B82F6", type: ShadingType.SOLID }, // Azul claro
+              shading: { fill: isEven ? "F8F9FA" : "FFFFFF", type: ShadingType.SOLID },
               margins: { top: 300, bottom: 300, left: 240, right: 240 }
             }),
-            // Operadora - verde claro com texto branco
+            // Operadora - texto escuro
             new TableCell({
               children: [new Paragraph({
                 children: [new TextRun({
                   text: linha.operadora || operadora?.nome || 'N/A',
-                  color: "FFFFFF",
+                  color: "2D3748",
                   size: 28 // 14pt
                 })],
                 alignment: AlignmentType.LEFT
               })],
               width: { size: 16.6, type: WidthType.PERCENTAGE },
-              shading: { fill: "10B981", type: ShadingType.SOLID }, // Verde claro
+              shading: { fill: isEven ? "F8F9FA" : "FFFFFF", type: ShadingType.SOLID },
               margins: { top: 300, bottom: 300, left: 240, right: 240 }
             }),
-            // Produto - laranja com texto branco
+            // Produto - fundo verde claro, texto verde escuro
             new TableCell({
               children: [new Paragraph({
                 children: [new TextRun({
                   text: linha.produto || produto?.nome || 'N/A',
-                  color: "FFFFFF",
+                  color: "234E52",
                   size: 28 // 14pt
                 })],
                 alignment: AlignmentType.LEFT
               })],
               width: { size: 16.6, type: WidthType.PERCENTAGE },
-              shading: { fill: "F59E0B", type: ShadingType.SOLID }, // Laranja
+              shading: { fill: "E6FFFA", type: ShadingType.SOLID }, // Verde claro como HTML
               margins: { top: 300, bottom: 300, left: 240, right: 240 }
             }),
-            // Atualização - roxo com texto branco
+            // Atualização - fundo laranja claro, texto laranja escuro
             new TableCell({
               children: [new Paragraph({
                 children: [new TextRun({
                   text: linha.atualizacao || tipoServico?.nome || 'N/A',
-                  color: "FFFFFF",
+                  color: "7C2D12",
                   size: 28 // 14pt
                 })],
                 alignment: AlignmentType.LEFT
               })],
               width: { size: 16.6, type: WidthType.PERCENTAGE },
-              shading: { fill: "8B5CF6", type: ShadingType.SOLID }, // Roxo
+              shading: { fill: "FEF5E7", type: ShadingType.SOLID }, // Laranja claro como HTML
               margins: { top: 300, bottom: 300, left: 240, right: 240 }
             }),
-            // Subtipo - verde escuro com texto branco
+            // Subtipo - fundo roxo claro, texto roxo escuro
             new TableCell({
               children: [new Paragraph({
                 children: [new TextRun({
                   text: linha.subtipo || tipo?.nome || 'N/A',
-                  color: "FFFFFF",
+                  color: "581C87",
                   size: 28 // 14pt
                 })],
                 alignment: AlignmentType.LEFT
               })],
               width: { size: 16.6, type: WidthType.PERCENTAGE },
-              shading: { fill: "059669", type: ShadingType.SOLID }, // Verde escuro
+              shading: { fill: "F3E8FF", type: ShadingType.SOLID }, // Roxo claro como HTML
               margins: { top: 300, bottom: 300, left: 240, right: 240 }
             }),
-            // Tipo - verde claro com texto branco
+            // Tipo - fundo verde claro, texto verde escuro
             new TableCell({
               children: [new Paragraph({
                 children: [new TextRun({
                   text: linha.tipo || sistema?.nome || 'N/A',
-                  color: "FFFFFF",
+                  color: "064E3B",
                   size: 28 // 14pt
                 })],
                 alignment: AlignmentType.LEFT
               })],
               width: { size: 16.6, type: WidthType.PERCENTAGE },
-              shading: { fill: "34D399", type: ShadingType.SOLID }, // Verde claro
+              shading: { fill: "ECFDF5", type: ShadingType.SOLID }, // Verde claro como HTML
               margins: { top: 300, bottom: 300, left: 240, right: 240 }
             })
           ]
@@ -984,11 +985,11 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
             }
           },
           children: [
-            // Cabeçalho principal - fundo preto completo
+            // Cabeçalho principal - fundo escuro como HTML (#1a1a2e)
             new Paragraph({
               children: [
                 new TextRun({
-                  text: `🔔 ${blocoCabecalho.replace('🔔 ', '')}`,
+                  text: blocoCabecalho,
                   bold: true,
                   size: 36, // 18pt
                   color: "FFFFFF"
@@ -997,18 +998,18 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
               alignment: AlignmentType.CENTER,
               spacing: { after: 200 },
               shading: {
-                fill: "000000", // Preto puro
+                fill: "1A1A2E", // Cor exata do HTML
                 type: ShadingType.SOLID
               },
               indent: { left: -720, right: -720 }, // Estender até as bordas
               border: {
-                top: { style: BorderStyle.SINGLE, size: 4, color: "000000" },
-                bottom: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                left: { style: BorderStyle.SINGLE, size: 4, color: "000000" },
-                right: { style: BorderStyle.SINGLE, size: 4, color: "000000" }
+                top: { style: BorderStyle.SINGLE, size: 4, color: "1A1A2E" },
+                bottom: { style: BorderStyle.SINGLE, size: 1, color: "1A1A2E" },
+                left: { style: BorderStyle.SINGLE, size: 4, color: "1A1A2E" },
+                right: { style: BorderStyle.SINGLE, size: 4, color: "1A1A2E" }
               }
             }),
-            // Subtítulo - também em fundo preto
+            // Subtítulo - também em fundo escuro
             new Paragraph({
               children: [
                 new TextRun({
@@ -1020,14 +1021,14 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
               alignment: AlignmentType.CENTER,
               spacing: { after: 480 },
               shading: {
-                fill: "000000",
+                fill: "1A1A2E",
                 type: ShadingType.SOLID
               },
               indent: { left: -720, right: -720 },
               border: {
-                bottom: { style: BorderStyle.SINGLE, size: 4, color: "000000" },
-                left: { style: BorderStyle.SINGLE, size: 4, color: "000000" },
-                right: { style: BorderStyle.SINGLE, size: 4, color: "000000" }
+                bottom: { style: BorderStyle.SINGLE, size: 4, color: "1A1A2E" },
+                left: { style: BorderStyle.SINGLE, size: 4, color: "1A1A2E" },
+                right: { style: BorderStyle.SINGLE, size: 4, color: "1A1A2E" }
               }
             }),
             
@@ -1185,32 +1186,32 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
               }
             }),
             
-            // Conclusão com fundo verde sólido e texto branco (como no HTML)
+            // Conclusão com fundo verde claro e texto verde escuro (como no HTML)
             new Paragraph({
               children: [
                 new TextRun({
                   text: "✅ ",
                   size: 28,
-                  color: "FFFFFF"
+                  color: "22543D"
                 }),
                 new TextRun({
                   text: blocoConclusao,
                   bold: true,
                   size: 28, // 14pt
-                  color: "FFFFFF" // Texto branco no fundo verde
+                  color: "22543D" // Verde escuro no fundo verde claro
                 })
               ],
               spacing: { before: 360, after: 480 },
               shading: {
-                fill: "10B981", // Verde sólido vibrante
+                fill: "F0FFF4", // Verde claro como no HTML
                 type: ShadingType.SOLID
               },
               indent: { left: 240 },
               border: {
-                top: { style: BorderStyle.SINGLE, size: 2, color: "10B981" },
-                bottom: { style: BorderStyle.SINGLE, size: 2, color: "10B981" },
-                left: { style: BorderStyle.SINGLE, size: 2, color: "10B981" },
-                right: { style: BorderStyle.SINGLE, size: 2, color: "10B981" }
+                top: { style: BorderStyle.SINGLE, size: 2, color: "9AE6B4" },
+                bottom: { style: BorderStyle.SINGLE, size: 2, color: "9AE6B4" },
+                left: { style: BorderStyle.SINGLE, size: 2, color: "9AE6B4" },
+                right: { style: BorderStyle.SINGLE, size: 2, color: "9AE6B4" }
               }
             }),
             
