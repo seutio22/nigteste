@@ -2748,9 +2748,16 @@ for (const [path, repo] of Object.entries(resources)) {
           const f = extractUserFromAuthHeader(req)
           userId = f.id
         }
+        // Reforço: ler diretamente dos headers se ainda não detectado
+        if (!userId) {
+          const hdrId = (req?.headers?.['x-user-id'] || req?.headers?.['X-User-Id']) as string | undefined
+          if (hdrId && typeof hdrId === 'string') userId = hdrId
+        }
 
         // Verificar permissões antes de atualizar
         const userRole = (req as any).user?.role || (req.headers?.['x-user-role'] as string) || null
+        
+        console.log('🔍 PUT /projetos: userId capturado:', userId, 'userRole:', userRole)
         const project = await prisma.project.findUnique({
           where: { id },
           select: { 
@@ -2771,6 +2778,17 @@ for (const [path, repo] of Object.entries(resources)) {
         const canEdit = userRole === 'admin' || 
                         !project.isPrivate || 
                         (userId && (project.ownerId === userId || project.managerId === userId || isMember))
+
+        console.log('🔍 PUT /projetos: Verificação de permissão:', {
+          projectId: id,
+          isPrivate: project.isPrivate,
+          ownerId: project.ownerId,
+          managerId: project.managerId,
+          userId,
+          userRole,
+          isMember,
+          canEdit
+        })
 
         if (!canEdit) {
           console.log('❌ PUT /projetos: Sem permissão para editar projeto privado -> 403')
@@ -2809,9 +2827,9 @@ for (const [path, repo] of Object.entries(resources)) {
           updateData.timeline = JSON.stringify(updateData.timeline)
         }
 
-        // Regras de privacidade: exigir auth para tornar privado
-        if (updateData.isPrivate === true && !userId) {
-          console.log('❌ PUT /projetos: isPrivate=true sem auth -> 403')
+        // Regras de privacidade: exigir auth para tornar privado (só se realmente estiver tentando tornar privado)
+        if ('isPrivate' in updateData && updateData.isPrivate === true && !userId) {
+          console.log('❌ PUT /projetos: isPrivate=true sem auth -> 403, userId:', userId)
           return reply.code(403).send({ error: 'É necessário estar logado para tornar projeto privado.' })
         }
 
