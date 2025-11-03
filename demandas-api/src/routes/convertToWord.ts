@@ -252,11 +252,6 @@ export async function convertToWordRoutes(app: FastifyInstance) {
         .send(Buffer.from(buffer))
 
     } catch (error: any) {
-      if (browser) {
-        try {
-          await browser.close()
-        } catch (e) {}
-      }
       console.error('Erro ao converter HTML para Word:', error)
       return reply.code(500).send({ 
         error: 'Erro ao converter HTML para Word',
