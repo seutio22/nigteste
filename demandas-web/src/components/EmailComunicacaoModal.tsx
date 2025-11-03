@@ -4,7 +4,7 @@ import { Copy, Mail, Users, CheckCircle, X, Settings, Send, Image as ImageIcon, 
 import { useMasterDataStore } from '../store/masterDataStore'
 import { useMaillingStore } from '../store/maillingStore'
 import { RichTextEditor } from './RichTextEditor'
-import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType, HeadingLevel } from 'docx'
+import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType, HeadingLevel, ShadingType, BorderStyle } from 'docx'
 import { saveAs } from 'file-saver'
 
 interface EmailComunicacaoModalProps {
@@ -877,90 +877,147 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
       const contrato = manutencao?.contratoId ? 
         md.contratos.find(c => c.id === manutencao.contratoId) : null
 
-      // Criar tabela com os dados
+      // Criar tabela com os dados e cores de fundo
       const tableRows = linhasTabela.map((linha, index) => {
+        const isEven = index % 2 === 0
         return new TableRow({
           children: [
             new TableCell({
               children: [new Paragraph({
                 children: [new TextRun({
                   text: linha.contrato || contrato?.codigo || contrato?.numero || manutencao?.ticket || 'N/A',
-                  bold: true
-                })]
+                  bold: true,
+                  color: "2B6CB0",
+                  size: 30 // 15pt
+                })],
+                alignment: AlignmentType.LEFT
               })],
-              width: { size: 15, type: WidthType.PERCENTAGE }
+              width: { size: 16.6, type: WidthType.PERCENTAGE },
+              shading: { fill: isEven ? "F8F9FA" : "FFFFFF", type: ShadingType.SOLID }
             }),
             new TableCell({
               children: [new Paragraph({
                 children: [new TextRun({
-                  text: linha.operadora || operadora?.nome || 'N/A'
-                })]
+                  text: linha.operadora || operadora?.nome || 'N/A',
+                  color: "2D3748",
+                  size: 28 // 14pt
+                })],
+                alignment: AlignmentType.LEFT
               })],
-              width: { size: 15, type: WidthType.PERCENTAGE }
+              width: { size: 16.6, type: WidthType.PERCENTAGE },
+              shading: { fill: isEven ? "F8F9FA" : "FFFFFF", type: ShadingType.SOLID }
             }),
             new TableCell({
               children: [new Paragraph({
                 children: [new TextRun({
-                  text: linha.produto || produto?.nome || 'N/A'
-                })]
+                  text: linha.produto || produto?.nome || 'N/A',
+                  color: "234E52",
+                  size: 28 // 14pt
+                })],
+                alignment: AlignmentType.LEFT
               })],
-              width: { size: 15, type: WidthType.PERCENTAGE }
+              width: { size: 16.6, type: WidthType.PERCENTAGE },
+              shading: { fill: isEven ? "E6FFFA" : "B2F5EA", type: ShadingType.SOLID }
             }),
             new TableCell({
               children: [new Paragraph({
                 children: [new TextRun({
-                  text: linha.atualizacao || tipoServico?.nome || 'N/A'
-                })]
+                  text: linha.atualizacao || tipoServico?.nome || 'N/A',
+                  color: "7C2D12",
+                  size: 28 // 14pt
+                })],
+                alignment: AlignmentType.LEFT
               })],
-              width: { size: 15, type: WidthType.PERCENTAGE }
+              width: { size: 16.6, type: WidthType.PERCENTAGE },
+              shading: { fill: isEven ? "FEF5E7" : "FED7AA", type: ShadingType.SOLID }
             }),
             new TableCell({
               children: [new Paragraph({
                 children: [new TextRun({
-                  text: linha.subtipo || tipo?.nome || 'N/A'
-                })]
+                  text: linha.subtipo || tipo?.nome || 'N/A',
+                  color: "581C87",
+                  size: 28 // 14pt
+                })],
+                alignment: AlignmentType.LEFT
               })],
-              width: { size: 15, type: WidthType.PERCENTAGE }
+              width: { size: 16.6, type: WidthType.PERCENTAGE },
+              shading: { fill: isEven ? "F3E8FF" : "D8B4FE", type: ShadingType.SOLID }
             }),
             new TableCell({
               children: [new Paragraph({
                 children: [new TextRun({
-                  text: linha.tipo || sistema?.nome || 'N/A'
-                })]
+                  text: linha.tipo || sistema?.nome || 'N/A',
+                  color: "064E3B",
+                  size: 28 // 14pt
+                })],
+                alignment: AlignmentType.LEFT
               })],
-              width: { size: 15, type: WidthType.PERCENTAGE }
+              width: { size: 16.6, type: WidthType.PERCENTAGE },
+              shading: { fill: isEven ? "ECFDF5" : "A7F3D0", type: ShadingType.SOLID }
             })
           ]
         })
       })
 
-      // Criar documento Word
+      // Criar documento Word com design profissional
       const doc = new Document({
         sections: [{
+          properties: {
+            page: {
+              margin: {
+                top: 1440, // 2.54cm
+                right: 1440,
+                bottom: 1440,
+                left: 1440
+              }
+            }
+          },
           children: [
-            // Cabeçalho
+            // Cabeçalho com fundo escuro
             new Paragraph({
               children: [
                 new TextRun({
                   text: blocoCabecalho,
                   bold: true,
-                  size: 32, // 16pt
+                  size: 36, // 18pt
                   color: "FFFFFF"
                 })
               ],
               alignment: AlignmentType.CENTER,
-              spacing: { after: 200 }
+              spacing: { after: 240 },
+              shading: {
+                fill: "1A1A2E",
+                type: ShadingType.SOLID
+              },
+              indent: { left: -1440, right: -1440 },
+              border: {
+                top: { style: BorderStyle.SINGLE, size: 0, color: "1A1A2E" },
+                bottom: { style: BorderStyle.SINGLE, size: 0, color: "1A1A2E" },
+                left: { style: BorderStyle.SINGLE, size: 0, color: "1A1A2E" },
+                right: { style: BorderStyle.SINGLE, size: 0, color: "1A1A2E" }
+              }
             }),
             new Paragraph({
               children: [
                 new TextRun({
                   text: blocoSubtitulo,
-                  size: 24, // 12pt
+                  size: 26, // 13pt
                   color: "FFFFFF"
                 })
               ],
               alignment: AlignmentType.CENTER,
-              spacing: { after: 400 }
+              spacing: { after: 480 },
+              shading: {
+                fill: "1A1A2E",
+                type: ShadingType.SOLID
+              },
+              indent: { left: -1440, right: -1440 }
+            }),
+            
+            // Espaço após cabeçalho
+            new Paragraph({
+              children: [],
+              spacing: { after: 360 }
             }),
             
             // Saudação
@@ -969,74 +1026,107 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                 new TextRun({
                   text: blocoSaudacao,
                   bold: true,
-                  size: 28 // 14pt
+                  size: 32 // 16pt
                 })
               ],
-              spacing: { after: 300 }
+              spacing: { after: 360 }
             }),
             
-            // Informação
+            // Informação destacada
             new Paragraph({
               children: [
                 new TextRun({
-                  text: blocoInformacao.replace('o cliente', `o cliente ${cliente?.nome || 'N/A'}`),
-                  size: 24 // 12pt
+                  text: "📋 ",
+                  size: 28
+                }),
+                new TextRun({
+                  text: blocoInformacao.replace('o cliente', `o cliente `),
+                  size: 28 // 14pt
+                }),
+                new TextRun({
+                  text: cliente?.nome || 'N/A',
+                  bold: true,
+                  size: 28,
+                  color: "1E40AF"
+                }),
+                new TextRun({
+                  text: " sofreu alteração, sendo:",
+                  size: 28
                 })
               ],
-              spacing: { after: 300 }
+              spacing: { before: 240, after: 360 },
+              shading: {
+                fill: "F7FAFC",
+                type: ShadingType.SOLID
+              },
+              indent: { left: 480 }
             }),
             
-            // Tabela
+            // Tabela com bordas e formatação
             new Table({
               width: {
                 size: 100,
                 type: WidthType.PERCENTAGE
               },
+              borders: {
+                top: { style: BorderStyle.SINGLE, size: 4, color: "E2E8F0" },
+                bottom: { style: BorderStyle.SINGLE, size: 4, color: "E2E8F0" },
+                left: { style: BorderStyle.SINGLE, size: 4, color: "E2E8F0" },
+                right: { style: BorderStyle.SINGLE, size: 4, color: "E2E8F0" },
+                insideHorizontal: { style: BorderStyle.SINGLE, size: 1, color: "E2E8F0" },
+                insideVertical: { style: BorderStyle.SINGLE, size: 1, color: "E2E8F0" }
+              },
               rows: [
-                // Cabeçalho da tabela
+                // Cabeçalho da tabela com fundo escuro
                 new TableRow({
                   children: [
                     new TableCell({
                       children: [new Paragraph({
-                        children: [new TextRun({ text: "Contrato", bold: true, color: "FFFFFF" })]
+                        children: [new TextRun({ text: "Contrato", bold: true, color: "FFFFFF", size: 26 })]
                       })],
-                      shading: { fill: "2D3748" },
-                      width: { size: 15, type: WidthType.PERCENTAGE }
+                      shading: { fill: "2D3748", type: ShadingType.SOLID },
+                      width: { size: 16.6, type: WidthType.PERCENTAGE },
+                      margins: { top: 200, bottom: 200, left: 200, right: 200 }
                     }),
                     new TableCell({
                       children: [new Paragraph({
-                        children: [new TextRun({ text: "Operadora", bold: true, color: "FFFFFF" })]
+                        children: [new TextRun({ text: "Operadora", bold: true, color: "FFFFFF", size: 26 })]
                       })],
-                      shading: { fill: "2D3748" },
-                      width: { size: 15, type: WidthType.PERCENTAGE }
+                      shading: { fill: "2D3748", type: ShadingType.SOLID },
+                      width: { size: 16.6, type: WidthType.PERCENTAGE },
+                      margins: { top: 200, bottom: 200, left: 200, right: 200 }
                     }),
                     new TableCell({
                       children: [new Paragraph({
-                        children: [new TextRun({ text: "Produto", bold: true, color: "FFFFFF" })]
+                        children: [new TextRun({ text: "Produto", bold: true, color: "FFFFFF", size: 26 })]
                       })],
-                      shading: { fill: "2D3748" },
-                      width: { size: 15, type: WidthType.PERCENTAGE }
+                      shading: { fill: "2D3748", type: ShadingType.SOLID },
+                      width: { size: 16.6, type: WidthType.PERCENTAGE },
+                      margins: { top: 200, bottom: 200, left: 200, right: 200 }
                     }),
                     new TableCell({
                       children: [new Paragraph({
-                        children: [new TextRun({ text: "Atualização", bold: true, color: "FFFFFF" })]
+                        children: [new TextRun({ text: "Atualização", bold: true, color: "FFFFFF", size: 26 })]
                       })],
-                      shading: { fill: "2D3748" },
-                      width: { size: 15, type: WidthType.PERCENTAGE }
+                      shading: { fill: "2D3748", type: ShadingType.SOLID },
+                      width: { size: 16.6, type: WidthType.PERCENTAGE },
+                      margins: { top: 200, bottom: 200, left: 200, right: 200 }
                     }),
                     new TableCell({
                       children: [new Paragraph({
-                        children: [new TextRun({ text: "Subtipo", bold: true, color: "FFFFFF" })]
+                        children: [new TextRun({ text: "Subtipo", bold: true, color: "FFFFFF", size: 26 })]
                       })],
-                      shading: { fill: "2D3748" },
-                      width: { size: 15, type: WidthType.PERCENTAGE }
+                      shading: { fill: "2D3748", type: ShadingType.SOLID },
+                      width: { size: 16.6, type: WidthType.PERCENTAGE },
+                      margins: { top: 200, bottom: 200, left: 200, right: 200 }
                     }),
                     new TableCell({
                       children: [new Paragraph({
-                        children: [new TextRun({ text: "Tipo", bold: true, color: "FFFFFF" })]
+                        children: [new TextRun({ text: "Tipo", bold: true, color: "FFFFFF", size: 26 })]
                       })],
-                      shading: { fill: "2D3748" },
-                      width: { size: 15, type: WidthType.PERCENTAGE }
+                      shading: { fill: "2D3748", type: ShadingType.SOLID },
+                      width: { size: 16.6, type: WidthType.PERCENTAGE },
+                      margins: { top: 200, bottom: 200, left: 200, right: 200 }
                     })
                   ]
                 }),
@@ -1044,37 +1134,73 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
               ]
             }),
             
-            // Descrição
+            // Descrição com fundo destacado
             new Paragraph({
               children: [
                 new TextRun({
-                  text: "Descrição da Alteração",
+                  text: "📝 Descrição da Alteração",
                   bold: true,
-                  size: 28 // 14pt
+                  size: 30 // 15pt
                 })
               ],
-              spacing: { before: 400, after: 200 }
+              spacing: { before: 480, after: 240 }
             }),
             new Paragraph({
               children: [
                 new TextRun({
                   text: blocoDescricao || manutencao?.descricao || 'Alteração realizada',
-                  size: 24 // 12pt
+                  size: 28 // 14pt
                 })
               ],
-              spacing: { after: 400 }
+              spacing: { after: 480 },
+              shading: {
+                fill: "FFFFFF",
+                type: ShadingType.SOLID
+              },
+              indent: { left: 240 },
+              border: {
+                top: { style: BorderStyle.SINGLE, size: 2, color: "D1D5DB" },
+                bottom: { style: BorderStyle.SINGLE, size: 2, color: "D1D5DB" },
+                left: { style: BorderStyle.SINGLE, size: 2, color: "D1D5DB" },
+                right: { style: BorderStyle.SINGLE, size: 2, color: "D1D5DB" }
+              }
             }),
             
-            // Conclusão
+            // Conclusão com fundo verde claro
             new Paragraph({
               children: [
                 new TextRun({
-                  text: `✅ ${blocoConclusao}`,
+                  text: "✅ ",
+                  size: 28
+                }),
+                new TextRun({
+                  text: blocoConclusao,
                   bold: true,
-                  size: 24 // 12pt
+                  size: 28, // 14pt
+                  color: "22543D"
                 })
               ],
-              spacing: { after: 400 }
+              spacing: { before: 360, after: 480 },
+              shading: {
+                fill: "F0FFF4",
+                type: ShadingType.SOLID
+              },
+              indent: { left: 240 },
+              border: {
+                top: { style: BorderStyle.SINGLE, size: 2, color: "9AE6B4" },
+                bottom: { style: BorderStyle.SINGLE, size: 2, color: "9AE6B4" },
+                left: { style: BorderStyle.SINGLE, size: 2, color: "9AE6B4" },
+                right: { style: BorderStyle.SINGLE, size: 2, color: "9AE6B4" }
+              }
+            }),
+            
+            // Linha divisória antes da assinatura
+            new Paragraph({
+              children: [],
+              border: {
+                bottom: { style: BorderStyle.DOUBLE, size: 6, color: "E2E8F0" }
+              },
+              spacing: { before: 720, after: 360 }
             }),
             
             // Assinatura
@@ -1082,30 +1208,32 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
               children: [
                 new TextRun({
                   text: "Atenciosamente,",
-                  size: 24 // 12pt
+                  size: 28 // 14pt
                 })
               ],
-              spacing: { before: 600, after: 200 }
+              spacing: { after: 240 }
             }),
             new Paragraph({
               children: [
                 new TextRun({
                   text: "NIG - Núcleo de Informações Gerenciais",
                   bold: true,
-                  size: 28 // 14pt
+                  size: 32, // 16pt
+                  color: "1E293B"
                 })
               ],
-              spacing: { after: 200 }
+              spacing: { after: 240 }
             }),
             new Paragraph({
               children: [
                 new TextRun({
                   text: "Sistema Automatizado",
-                  size: 20, // 10pt
-                  italics: true
+                  size: 22, // 11pt
+                  italics: true,
+                  color: "667EEA"
                 })
               ],
-              spacing: { after: 400 }
+              spacing: { after: 480 }
             }),
             
             // Rodapé
@@ -1113,12 +1241,12 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
               children: [
                 new TextRun({
                   text: "Esta é uma mensagem automática do sistema NIG. Por favor, não responda a este e-mail.",
-                  size: 20, // 10pt
+                  size: 22, // 11pt
                   color: "718096"
                 })
               ],
               alignment: AlignmentType.CENTER,
-              spacing: { before: 400 }
+              spacing: { before: 480 }
             })
           ]
         }]
