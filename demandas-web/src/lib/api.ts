@@ -49,6 +49,16 @@ export const api = {
     if (userRole) headers['x-user-role'] = userRole;
     config.headers = headers;
 
+    // Log para depuração de projetos privados
+    if (endpoint.includes('/projetos/')) {
+      console.log('📤 API Request - Headers enviados:', {
+        'x-user-id': headers['x-user-id'] || 'não definido',
+        'x-user-role': headers['x-user-role'] || 'não definido',
+        'Authorization': headers['Authorization'] ? 'Bearer ***' : 'não definido',
+        endpoint
+      })
+    }
+
     try {
       const response = await fetch(url, config);
       
