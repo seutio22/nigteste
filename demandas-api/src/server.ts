@@ -2643,6 +2643,17 @@ for (const [path, repo] of Object.entries(resources)) {
           userId = f.id
           userRole = f.role
         }
+        // Fallback: ler do header se ainda não capturado
+        if (!userId) {
+          const hdrId = (req?.headers?.['x-user-id'] || req?.headers?.['X-User-Id']) as string | undefined
+          if (hdrId && typeof hdrId === 'string') userId = hdrId
+        }
+        if (!userRole) {
+          const hdrRole = (req?.headers?.['x-user-role'] || req?.headers?.['X-User-Role']) as string | undefined
+          if (hdrRole && typeof hdrRole === 'string') userRole = hdrRole
+        }
+
+        console.log('🔍 GET /projetos/:id: userId =', userId, 'userRole =', userRole, 'projectId =', id)
 
         const project = await prisma.project.findUnique({
           where: { id },
@@ -2652,12 +2663,29 @@ for (const [path, repo] of Object.entries(resources)) {
           }
         })
 
-        if (!project) return reply.code(404).send({ error: 'Projeto não encontrado' })
+        if (!project) {
+          console.log('❌ GET /projetos/:id: Projeto não encontrado:', id)
+          return reply.code(404).send({ error: 'Projeto não encontrado' })
+        }
 
         const isMember = !!userId && project.members?.some((m: any) => m.userId === userId)
         const canView = userRole === 'admin' || !project.isPrivate || (userId && (project.ownerId === userId || project.managerId === userId || isMember))
 
-        if (!canView) return reply.code(403).send({ error: 'Acesso negado a este projeto' })
+        console.log('🔍 GET /projetos/:id: Verificação de acesso:', {
+          projectId: id,
+          isPrivate: project.isPrivate,
+          ownerId: project.ownerId,
+          managerId: project.managerId,
+          userId,
+          userRole,
+          isMember,
+          canView
+        })
+
+        if (!canView) {
+          console.log('❌ GET /projetos/:id: Acesso negado -> 403')
+          return reply.code(403).send({ error: 'Acesso negado a este projeto' })
+        }
 
         // Remover lista de membros do payload simples (mantemos endpoint próprio para equipe)
         const { members, owner, ...safeProject } = project as any
