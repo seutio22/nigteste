@@ -874,34 +874,50 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
       // Criar elemento temporário para renderizar o HTML
       const tempDiv = document.createElement('div')
       tempDiv.innerHTML = htmlContent
-      tempDiv.style.position = 'absolute'
-      tempDiv.style.left = '-9999px'
-      tempDiv.style.top = '-9999px'
-      tempDiv.style.width = '800px' // Mesma largura do HTML
+      
+      // Estilos para garantir renderização correta
+      tempDiv.style.position = 'fixed'
+      tempDiv.style.left = '0'
+      tempDiv.style.top = '0'
+      tempDiv.style.width = '800px'
+      tempDiv.style.padding = '20px'
+      tempDiv.style.backgroundColor = '#f8f9fa'
+      tempDiv.style.zIndex = '99999'
+      tempDiv.style.opacity = '0'
+      tempDiv.style.pointerEvents = 'none'
+      
       document.body.appendChild(tempDiv)
+      
+      // Aguardar renderização completa (incluindo imagens se houver)
+      await new Promise(resolve => setTimeout(resolve, 500))
       
       // Opções de conversão para preservar design
       const opt = {
-        margin: 0.5,
+        margin: [0.5, 0.5, 0.5, 0.5],
         filename: `email-comunicacao-${manutencao?.ticket || 'N/A'}-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { 
           scale: 2,
           useCORS: true,
           letterRendering: true,
-          logging: false
+          logging: false,
+          backgroundColor: '#f8f9fa',
+          windowWidth: 800,
+          windowHeight: tempDiv.scrollHeight
         },
         jsPDF: { 
           unit: 'in', 
-          format: 'letter', 
+          format: 'a4', 
           orientation: 'portrait' 
-        }
+        },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
       }
       
       // Converter HTML para PDF
       await html2pdf().set(opt).from(tempDiv).save()
       
-      // Remover elemento temporário
+      // Remover elemento temporário após conversão
+      await new Promise(resolve => setTimeout(resolve, 500))
       document.body.removeChild(tempDiv)
       
       // Feedback visual
@@ -927,7 +943,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
       
     } catch (error) {
       console.error('Erro ao gerar PDF:', error)
-      alert('Erro ao gerar arquivo PDF. Tente novamente.')
+      alert('Erro ao gerar arquivo PDF: ' + (error instanceof Error ? error.message : 'Erro desconhecido'))
     } finally {
       setGerandoWord(false)
     }
