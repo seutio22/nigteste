@@ -30,8 +30,9 @@
     "fastify-plugin": "^5.0.1",
     "jsonwebtoken": "^9.0.2",
     "mammoth": "^1.11.0",
+    "node-html-parser": "^7.0.1",
+    "officegen": "^0.6.5",
     "pg": "^8.11.3",
-    "puppeteer": "^24.27.0",
     "zod": "^4.0.16"
   },
   "devDependencies": {
