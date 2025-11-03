@@ -4,8 +4,6 @@ import { Copy, Mail, Users, CheckCircle, X, Settings, Send, Image as ImageIcon, 
 import { useMasterDataStore } from '../store/masterDataStore'
 import { useMaillingStore } from '../store/maillingStore'
 import { RichTextEditor } from './RichTextEditor'
-import { saveAs } from 'file-saver'
-import html2pdf from 'html2pdf.js'
 
 interface EmailComunicacaoModalProps {
   open: boolean
@@ -868,53 +866,45 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
     setGerandoWord(true)
     
     try {
-      // Usar html2pdf.js que preserva PERFEITAMENTE o design HTML
+      // Obter HTML gerado
       const htmlContent = gerarHTMLComBlocos()
       
-      // Criar uma nova janela para renderizar o HTML corretamente
-      const printWindow = window.open('', '_blank', 'width=800,height=600')
-      if (!printWindow) {
-        alert('Por favor, permita pop-ups para gerar o PDF')
-        return
+      // Obter token de autenticação
+      const authStore = await import('../store/authStore')
+      const token = authStore.useAuthStore.getState().token
+      
+      // Obter URL base da API
+      const { getBaseUrl } = await import('../config/api')
+      const baseUrl = getBaseUrl()
+      
+      // Chamar endpoint do backend para converter HTML para Word
+      const response = await fetch(`${baseUrl}/convert-html-to-word`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        },
+        body: JSON.stringify({ html: htmlContent })
+      })
+      
+      if (!response.ok) {
+        throw new Error(`Erro ao gerar Word: ${response.status} ${response.statusText}`)
       }
       
-      // Escrever HTML completo na nova janela
-      printWindow.document.write(htmlContent)
-      printWindow.document.close()
+      // Obter blob do arquivo Word
+      const blob = await response.blob()
       
-      // Aguardar renderização completa
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      // Obter o elemento body da nova janela
-      const element = printWindow.document.body
-      
-      // Opções de conversão para preservar design
-      const opt = {
-        margin: [0.5, 0.5, 0.5, 0.5],
-        filename: `email-comunicacao-${manutencao?.ticket || 'N/A'}-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { 
-          scale: 2,
-          useCORS: true,
-          letterRendering: true,
-          logging: false,
-          backgroundColor: '#f8f9fa',
-          windowWidth: 800,
-          windowHeight: element.scrollHeight || 1200
-        },
-        jsPDF: { 
-          unit: 'in', 
-          format: 'a4', 
-          orientation: 'portrait' 
-        },
-        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
-      }
-      
-      // Converter HTML para PDF
-      await html2pdf().set(opt).from(element).save()
-      
-      // Fechar a janela após conversão
-      printWindow.close()
+      // Criar link de download
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-')
+      const ticket = manutencao?.ticket || 'N/A'
+      link.href = url
+      link.download = `email-comunicacao-${ticket}-${timestamp}.docx`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
       
       // Feedback visual
       const feedback = document.createElement('div')
@@ -930,7 +920,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
         z-index: 9999;
         box-shadow: 0 4px 12px rgba(0,0,0,0.15);
       `
-      feedback.textContent = `✅ Arquivo PDF salvo (preserva design exato do HTML)`
+      feedback.textContent = `✅ Arquivo Word (.docx) salvo e editável!`
       document.body.appendChild(feedback)
       
       setTimeout(() => {
@@ -938,8 +928,8 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
       }, 3000)
       
     } catch (error) {
-      console.error('Erro ao gerar PDF:', error)
-      alert('Erro ao gerar arquivo PDF: ' + (error instanceof Error ? error.message : 'Erro desconhecido'))
+      console.error('Erro ao gerar Word:', error)
+      alert('Erro ao gerar arquivo Word: ' + (error instanceof Error ? error.message : 'Erro desconhecido'))
     } finally {
       setGerandoWord(false)
     }
