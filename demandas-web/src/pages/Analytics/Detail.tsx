@@ -432,6 +432,7 @@ function EditInline({ report }: { report: any }) {
             onChange={(e) => setDraft({ ...draft, tipo: e.target.value as any })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
+            <option value="diaria">Diária</option>
             <option value="mensal">Mensal</option>
             <option value="trimestral">Trimestral</option>
             <option value="semestral">Semestral</option>
