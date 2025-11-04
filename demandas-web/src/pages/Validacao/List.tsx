@@ -369,7 +369,37 @@ const columns: GridColDef[] = [
   }},
   { field: 'dataInicio', headerName: 'Data Início', width: 140 },
   { field: 'dataFinal', headerName: 'Data Final', width: 140 },
-  { field: 'updatedAt', headerName: 'Atualizado em', width: 160 },
+  { 
+    field: 'updatedAt', 
+    headerName: 'Atualizado em', 
+    width: 160,
+    type: 'dateTime',
+    valueGetter: (value, row) => {
+      // Converter string ISO para Date object para ordenação correta
+      const dateValue = row.updatedAt || value
+      if (!dateValue) return null
+      const date = new Date(dateValue)
+      return isNaN(date.getTime()) ? null : date
+    },
+    valueFormatter: (value) => {
+      // Formatar para exibição
+      if (!value) return '-'
+      const date = value instanceof Date ? value : new Date(value)
+      return isNaN(date.getTime()) ? '-' : date.toLocaleString('pt-BR')
+    },
+    sortComparator: (v1, v2) => {
+      // Comparador personalizado para garantir ordenação correta
+      if (!v1 && !v2) return 0
+      if (!v1) return 1
+      if (!v2) return -1
+      const date1 = v1 instanceof Date ? v1 : new Date(v1)
+      const date2 = v2 instanceof Date ? v2 : new Date(v2)
+      if (isNaN(date1.getTime()) && isNaN(date2.getTime())) return 0
+      if (isNaN(date1.getTime())) return 1
+      if (isNaN(date2.getTime())) return -1
+      return date1.getTime() - date2.getTime()
+    }
+  },
 ]
 
 export default function ValidationListPage() {
@@ -680,7 +710,15 @@ export default function ValidationListPage() {
     } catch {}
   }
 
-  const rows = finalFilteredItems.map((v) => {
+  // Ordenar os dados por updatedAt (mais recente primeiro) antes de passar para o DataGrid
+  // Isso garante ordenação correta mesmo se o sortModel não estiver aplicado
+  const sortedItems = [...finalFilteredItems].sort((a, b) => {
+    const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0
+    const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0
+    return dateB - dateA // Ordem decrescente (mais recente primeiro)
+  })
+
+  const rows = sortedItems.map((v) => {
     const row = {
       id: v.id,
       ticket: v.ticket ?? '',
@@ -693,7 +731,9 @@ export default function ValidationListPage() {
       solicitante: v.solicitante,
       dataInicio: v.dataInicio ?? '',
       dataFinal: v.dataFinal ?? '',
-      updatedAt: new Date(v.updatedAt).toLocaleString('pt-BR'),
+      // Manter o valor original da data (ISO string) para ordenação correta
+      // A formatação será feita pelo valueFormatter da coluna
+      updatedAt: v.updatedAt || '',
     }
     return row
   })
