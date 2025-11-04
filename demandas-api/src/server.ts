@@ -1,6 +1,7 @@
 import 'dotenv/config'
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
+import compress from '@fastify/compress'
 import jwt from '@fastify/jwt'
 import authPlugin from './plugins/auth'
 import { authRoutes } from './routes/auth'
@@ -128,6 +129,13 @@ console.log('🔧 SOLUÇÃO: Simplificar processo de build!');
 console.log('🔧 RAILWAY: Build mais simples e direto!');
 
 
+
+// 🚀 MELHORIA 1: Compression HTTP (Gzip) - 60-80% menos tráfego
+app.register(compress, {
+  global: true,
+  encodings: ['gzip', 'deflate'],
+  threshold: 1024 // Comprimir apenas respostas > 1KB
+})
 
 app.register(cors, corsOptions)
 
