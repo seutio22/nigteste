@@ -2751,6 +2751,8 @@ for (const [path, repo] of Object.entries(resources)) {
 
         const body = req.body || {}
         const data: any = { ...body }
+        // Remover campos virtuais que não existem no schema
+        delete data.ownerName
         // Nunca aceitar ownerId do cliente, exceto se coincidir com o x-user-id enviado
         if ('ownerId' in data) {
           const hdrId = (req?.headers?.['x-user-id'] || req?.headers?.['X-User-Id']) as string | undefined
@@ -2886,6 +2888,7 @@ for (const [path, repo] of Object.entries(resources)) {
         delete updateData.managerId
         delete updateData.clientId
         delete updateData.activities // evitar estruturas complexas no update
+        delete updateData.ownerName // Campo virtual, não existe no schema
         // Bloquear alteração de ownerId via PUT, EXCETO se estiver virando privado e não tiver ownerId
         if ('ownerId' in updateData) {
           // Se o projeto está virando privado e não tem ownerId, definir o userId como owner
