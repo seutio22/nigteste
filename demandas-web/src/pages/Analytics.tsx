@@ -46,7 +46,34 @@ const columns: GridColDef[] = [
   { field: 'dataEntrega', headerName: 'Data de Entrega Programada', width: 140 },
   { field: 'dataCriacao', headerName: 'Data de Início', width: 160 },
   { field: 'dataFinalizacao', headerName: 'Data de Finalização', width: 160 },
-  { field: 'dataAtualizacao', headerName: 'Atualizado em', width: 160 },
+  { 
+    field: 'dataAtualizacao', 
+    headerName: 'Atualizado em', 
+    width: 160,
+    type: 'dateTime',
+    valueGetter: (value, row) => {
+      const dateValue = row.dataAtualizacao || value
+      if (!dateValue) return null
+      const date = new Date(dateValue)
+      return isNaN(date.getTime()) ? null : date
+    },
+    valueFormatter: (value) => {
+      if (!value) return '-'
+      const date = value instanceof Date ? value : new Date(value)
+      return isNaN(date.getTime()) ? '-' : date.toLocaleString('pt-BR')
+    },
+    sortComparator: (v1, v2) => {
+      if (!v1 && !v2) return 0
+      if (!v1) return 1
+      if (!v2) return -1
+      const date1 = v1 instanceof Date ? v1 : new Date(v1)
+      const date2 = v2 instanceof Date ? v2 : new Date(v2)
+      if (isNaN(date1.getTime()) && isNaN(date2.getTime())) return 0
+      if (isNaN(date1.getTime())) return 1
+      if (isNaN(date2.getTime())) return -1
+      return date1.getTime() - date2.getTime()
+    }
+  },
 ]
 
 export default function AnalyticsPage() {
@@ -344,8 +371,17 @@ export default function AnalyticsPage() {
       dataEntrega: r.dataEntrega ? r.dataEntrega.split('T')[0].split('-').reverse().join('/') : '-',
       dataCriacao: r.dataInicio ? r.dataInicio.split('T')[0].split('-').reverse().join('/') : '-',
       dataFinalizacao: r.dataFinalizacao ? r.dataFinalizacao.split('T')[0].split('-').reverse().join('/') : '-',
-      dataAtualizacao: new Date(r.dataAtualizacao).toLocaleString('pt-BR'),
+      // Manter o valor original da data (ISO string) para ordenação correta
+      // A formatação será feita pelo valueFormatter da coluna
+      dataAtualizacao: r.dataAtualizacao || '',
     }
+  })
+  
+  // Ordenar os dados por dataAtualizacao (mais recente primeiro) antes de passar para o DataGrid
+  const sortedRows = [...rows].sort((a, b) => {
+    const dateA = a.dataAtualizacao ? new Date(a.dataAtualizacao).getTime() : 0
+    const dateB = b.dataAtualizacao ? new Date(b.dataAtualizacao).getTime() : 0
+    return dateB - dateA // Ordem decrescente (mais recente primeiro)
   })
 
   return (
@@ -533,7 +569,7 @@ export default function AnalyticsPage() {
       <div className="flex-1 px-6 pb-6">
         <DataGrid
           columns={columns}
-          rows={rows}
+          rows={sortedRows}
           disableRowSelectionOnClick
           checkboxSelection
           onRowSelectionModelChange={(newSelection) => {

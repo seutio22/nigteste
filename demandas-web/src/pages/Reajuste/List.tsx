@@ -35,7 +35,34 @@ const columns: GridColDef[] = [
   { field: 'produto', headerName: 'Produto', width: 160 },
   { field: 'status', headerName: 'Status', width: 150, renderCell: (p) => <StatusBadge status={String(p.value ?? '')} /> },
   { field: 'total', headerName: 'Total', width: 120 },
-  { field: 'updatedAt', headerName: 'Atualizado em', width: 160 },
+  { 
+    field: 'updatedAt', 
+    headerName: 'Atualizado em', 
+    width: 160,
+    type: 'dateTime',
+    valueGetter: (value, row) => {
+      const dateValue = row.updatedAt || value
+      if (!dateValue) return null
+      const date = new Date(dateValue)
+      return isNaN(date.getTime()) ? null : date
+    },
+    valueFormatter: (value) => {
+      if (!value) return '-'
+      const date = value instanceof Date ? value : new Date(value)
+      return isNaN(date.getTime()) ? '-' : date.toLocaleString('pt-BR')
+    },
+    sortComparator: (v1, v2) => {
+      if (!v1 && !v2) return 0
+      if (!v1) return 1
+      if (!v2) return -1
+      const date1 = v1 instanceof Date ? v1 : new Date(v1)
+      const date2 = v2 instanceof Date ? v2 : new Date(v2)
+      if (isNaN(date1.getTime()) && isNaN(date2.getTime())) return 0
+      if (isNaN(date1.getTime())) return 1
+      if (isNaN(date2.getTime())) return -1
+      return date1.getTime() - date2.getTime()
+    }
+  },
 ]
 
 export default function ReajusteListPage() {
@@ -313,11 +340,20 @@ export default function ReajusteListPage() {
     produto: md.produtos.find(p => p.id === r.produto)?.nome ?? '',
     status: r.status ?? 'Ativo',
     total: r.total ?? 0,
-    updatedAt: new Date(r.updatedAt || new Date()).toLocaleString('pt-BR'),
+    // Manter o valor original da data (ISO string) para ordenação correta
+    // A formatação será feita pelo valueFormatter da coluna
+    updatedAt: r.updatedAt || '',
   }))
+  
+  // Ordenar os dados por updatedAt (mais recente primeiro) antes de passar para o DataGrid
+  const sortedRows = [...rows].sort((a, b) => {
+    const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0
+    const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0
+    return dateB - dateA // Ordem decrescente (mais recente primeiro)
+  })
 
   // Usar apenas dados reais
-  const hasData = rows.length > 0
+  const hasData = sortedRows.length > 0
 
   return (
     <Box sx={{ height: '100vh', width: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -512,7 +548,7 @@ export default function ReajusteListPage() {
       <div className="flex-1 px-6 pb-6">
         <DataGrid
           columns={columns}
-          rows={rows}
+          rows={sortedRows}
           disableRowSelectionOnClick
           checkboxSelection
           onRowSelectionModelChange={(newSelection) => {

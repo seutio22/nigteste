@@ -38,7 +38,34 @@ const columns: GridColDef[] = [
   { field: 'produto', headerName: 'Produto', width: 160 },
   { field: 'tipoServico', headerName: 'Tipo de serviço', width: 180 },
   { field: 'tipo', headerName: 'Tipo de Demanda', width: 180 },
-  { field: 'updatedAt', headerName: 'Atualizado em', width: 160 },
+  { 
+    field: 'updatedAt', 
+    headerName: 'Atualizado em', 
+    width: 160,
+    type: 'dateTime',
+    valueGetter: (value, row) => {
+      const dateValue = row.updatedAt || value
+      if (!dateValue) return null
+      const date = new Date(dateValue)
+      return isNaN(date.getTime()) ? null : date
+    },
+    valueFormatter: (value) => {
+      if (!value) return '-'
+      const date = value instanceof Date ? value : new Date(value)
+      return isNaN(date.getTime()) ? '-' : date.toLocaleString('pt-BR')
+    },
+    sortComparator: (v1, v2) => {
+      if (!v1 && !v2) return 0
+      if (!v1) return 1
+      if (!v2) return -1
+      const date1 = v1 instanceof Date ? v1 : new Date(v1)
+      const date2 = v2 instanceof Date ? v2 : new Date(v2)
+      if (isNaN(date1.getTime()) && isNaN(date2.getTime())) return 0
+      if (isNaN(date1.getTime())) return 1
+      if (isNaN(date2.getTime())) return -1
+      return date1.getTime() - date2.getTime()
+    }
+  },
 ]
 
 export default function DemandListPage() {
@@ -536,8 +563,17 @@ export default function DemandListPage() {
         
         return d.tipo || ''
       })(),
-      updatedAt: new Date(d.updatedAt).toLocaleString('pt-BR'),
+      // Manter o valor original da data (ISO string) para ordenação correta
+      // A formatação será feita pelo valueFormatter da coluna
+      updatedAt: d.updatedAt || '',
     }
+  })
+  
+  // Ordenar os dados por updatedAt (mais recente primeiro) antes de passar para o DataGrid
+  const sortedRows = [...rows].sort((a, b) => {
+    const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0
+    const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0
+    return dateB - dateA // Ordem decrescente (mais recente primeiro)
   })
   
   console.log('🔍 Demandas: Rows gerados:', rows.length, 'finalFilteredItems:', finalFilteredItems.length)
@@ -727,7 +763,7 @@ export default function DemandListPage() {
 
       <div className="flex-1 p-6" style={{ minHeight: '400px' }}>
         <DataGrid
-          rows={rows}
+          rows={sortedRows}
           columns={columns}
           getRowId={(row) => row.id}
           loading={isLoading}

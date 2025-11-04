@@ -179,14 +179,39 @@ export default function AtendimentoListPage() {
       }
       return canalMap[p.value as string] || p.value || '-'
     }},
-    { field: 'createdAt', headerName: 'Data Criação', width: 160, renderCell: (p) => 
-      p.value ? new Date(p.value).toLocaleString('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      }) : '-'
+    { 
+      field: 'createdAt', 
+      headerName: 'Data Criação', 
+      width: 160,
+      type: 'dateTime',
+      valueGetter: (value, row) => {
+        const dateValue = row.createdAt || value
+        if (!dateValue) return null
+        const date = new Date(dateValue)
+        return isNaN(date.getTime()) ? null : date
+      },
+      valueFormatter: (value) => {
+        if (!value) return '-'
+        const date = value instanceof Date ? value : new Date(value)
+        return isNaN(date.getTime()) ? '-' : date.toLocaleString('pt-BR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        })
+      },
+      sortComparator: (v1, v2) => {
+        if (!v1 && !v2) return 0
+        if (!v1) return 1
+        if (!v2) return -1
+        const date1 = v1 instanceof Date ? v1 : new Date(v1)
+        const date2 = v2 instanceof Date ? v2 : new Date(v2)
+        if (isNaN(date1.getTime()) && isNaN(date2.getTime())) return 0
+        if (isNaN(date1.getTime())) return 1
+        if (isNaN(date2.getTime())) return -1
+        return date1.getTime() - date2.getTime()
+      }
     },
   ]
 
