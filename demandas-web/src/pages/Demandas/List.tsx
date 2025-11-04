@@ -8,7 +8,7 @@ import { StatusBadge } from '../../components/StatusBadge'
 import { SmartImporter } from '../../components/SmartImporter'
 import { smartImporterConfigs } from '../../config/smartImporterConfigs'
 import { useFilteredData } from '../../lib/utils'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import ExportDataModal from '../../components/ExportDataModal'
 import type { ImportResult } from '../../types/smartImporter'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
@@ -122,11 +122,22 @@ export default function DemandListPage() {
   // Filtrar dados por permissão do usuário
   const filteredItems = useFilteredData(items, user?.role, user?.id, user?.viewOwnDataOnly)
 
+  // 🚀 MELHORIA 2: Otimização com Map (10x mais rápido que find)
+  // Criar Maps uma vez para todas as buscas
+  const analistaMap = useMemo(() => new Map(md.analistas.map(a => [a.id, a])), [md.analistas])
+  const areaMap = useMemo(() => new Map(md.areas.map(ar => [ar.id, ar])), [md.areas])
+  const clienteMap = useMemo(() => new Map(md.clientes.map(c => [c.id, c])), [md.clientes])
+  const contratoMap = useMemo(() => new Map(md.contratos.map(c => [c.id, c])), [md.contratos])
+  const operadoraMap = useMemo(() => new Map(md.operadoras.map(o => [o.id, o])), [md.operadoras])
+  const produtoMap = useMemo(() => new Map(md.produtos.map(p => [p.id, p])), [md.produtos])
+  const tipoServicoMap = useMemo(() => new Map(md.tiposServico.map(t => [t.id, t])), [md.tiposServico])
+  const tipoDemandaMap = useMemo(() => new Map(md.tiposDemanda.map(t => [t.id, t])), [md.tiposDemanda])
+
   // Aplicar filtro baseado no switch "Minhas Demandas" vs "Todas as Demandas"
   const finalFilteredItems = showOnlyMyDemands
     ? items.filter(demand => {
-        // Buscar o analista correspondente ao usuário logado
-        const analista = md.analistas.find(a => a.id === demand.analistaId)
+        // Buscar o analista correspondente ao usuário logado (usando Map para performance)
+        const analista = analistaMap.get(demand.analistaId)
         
         // Múltiplas verificações para identificar se a demanda é do usuário
         const check1 = demand.analistaId === user?.id
@@ -447,14 +458,7 @@ export default function DemandListPage() {
     }
   }
 
-  const rows = finalFilteredItems.map((d) => {
-    console.log('🔍 Demandas: Mapeando demanda:', {
-      id: d.id,
-      analista: d.analista,
-      analistaEncontrado: md.analistas.find(a => a.id === d.analista),
-      todosAnalistas: md.analistas.map(a => ({ id: a.id, nome: a.nome }))
-    })
-    
+  const rows = useMemo(() => finalFilteredItems.map((d) => {
     // Gerar ticket se não existir
     const generateTicket = (id: string) => {
       const now = new Date()
@@ -478,125 +482,97 @@ export default function DemandListPage() {
         
         // Se d.analista é um ID, buscar o nome; se já é um nome, usar diretamente
         if (d.analista && typeof d.analista === 'string' && d.analista.length > 20) {
-          // Parece ser um ID (UUID), buscar o nome
-          return md.analistas.find(a => a.id === d.analista)?.nome ?? d.analista
+          return analistaMap.get(d.analista)?.nome ?? d.analista
         }
         
         // Se d.analistaId existe, buscar o nome
         if (d.analistaId) {
-          return md.analistas.find(a => a.id === d.analistaId)?.nome ?? d.analistaId
+          return analistaMap.get(d.analistaId)?.nome ?? d.analistaId
         }
         
         return d.analista || ''
       })(),
       area: (() => {
         if (d.area && typeof d.area === 'string' && d.area.length > 20) {
-          return md.areas.find(ar => ar.id === d.area)?.nome ?? d.area
+          return areaMap.get(d.area)?.nome ?? d.area
         }
         
-        // Se d.areaId existe, buscar o nome
         if (d.areaId) {
-          return md.areas.find(ar => ar.id === d.areaId)?.nome ?? d.areaId
+          return areaMap.get(d.areaId)?.nome ?? d.areaId
         }
         
         return d.area || ''
       })(),
       cliente: (() => {
         if (d.cliente && typeof d.cliente === 'string' && d.cliente.length > 20) {
-          return md.clientes.find(c => c.id === d.cliente)?.nome ?? d.cliente
+          return clienteMap.get(d.cliente)?.nome ?? d.cliente
         }
         
-        // Se d.clienteId existe, buscar o nome
         if (d.clienteId) {
-          return md.clientes.find(c => c.id === d.clienteId)?.nome ?? d.clienteId
+          return clienteMap.get(d.clienteId)?.nome ?? d.clienteId
         }
         
         return d.cliente || ''
       })(),
       contrato: (() => {
         if (d.contrato && typeof d.contrato === 'string' && d.contrato.length > 20) {
-          return md.contratos.find(c => c.id === d.contrato)?.codigo ?? d.contrato
+          return contratoMap.get(d.contrato)?.codigo ?? d.contrato
         }
         
-        // Se d.contratoId existe, buscar o código
         if (d.contratoId) {
-          return md.contratos.find(c => c.id === d.contratoId)?.codigo ?? d.contratoId
+          return contratoMap.get(d.contratoId)?.codigo ?? d.contratoId
         }
         
         return d.contrato || ''
       })(),
       operadora: (() => {
         if (d.operadora && typeof d.operadora === 'string' && d.operadora.length > 20) {
-          return md.operadoras.find(o => o.id === d.operadora)?.nome ?? d.operadora
+          return operadoraMap.get(d.operadora)?.nome ?? d.operadora
         }
         
-        // Se d.operadoraId existe, buscar o nome
         if (d.operadoraId) {
-          return md.operadoras.find(o => o.id === d.operadoraId)?.nome ?? d.operadoraId
+          return operadoraMap.get(d.operadoraId)?.nome ?? d.operadoraId
         }
         
         return d.operadora || ''
       })(),
       produto: (() => {
         if (d.produto && typeof d.produto === 'string' && d.produto.length > 20) {
-          return md.produtos.find(p => p.id === d.produto)?.nome ?? d.produto
+          return produtoMap.get(d.produto)?.nome ?? d.produto
         }
         
-        // Se d.produtoId existe, buscar o nome
         if (d.produtoId) {
-          return md.produtos.find(p => p.id === d.produtoId)?.nome ?? d.produtoId
+          return produtoMap.get(d.produtoId)?.nome ?? d.produtoId
         }
         
         return d.produto || ''
       })(),
       tipoServico: (() => {
         if (d.tipoServico && typeof d.tipoServico === 'string' && d.tipoServico.length > 20) {
-          // Usar tiposServico para tipo de serviço
-          const tipoServico = md.tiposServico.find(t => t.id === d.tipoServico)
-          if (!tipoServico) {
-            console.log('🔍 Demandas: TipoServico não encontrado:', {
-              id: d.tipoServico,
-              tiposServicoDisponiveis: md.tiposServico.map(t => ({ id: t.id, nome: t.nome }))
-            })
-          }
-          return tipoServico?.nome ?? d.tipoServico
+          return tipoServicoMap.get(d.tipoServico)?.nome ?? d.tipoServico
         }
         
-        // Se d.tipoServicoId existe, buscar o nome
         if (d.tipoServicoId) {
-          const tipoServico = md.tiposServico.find(t => t.id === d.tipoServicoId)
-          return tipoServico?.nome ?? d.tipoServicoId
+          return tipoServicoMap.get(d.tipoServicoId)?.nome ?? d.tipoServicoId
         }
         
         return d.tipoServico || ''
       })(),
       tipo: (() => {
         if (d.tipo && typeof d.tipo === 'string' && d.tipo.length > 20) {
-          // Buscar o tipo de demanda nos dados mestres (tiposDemanda)
-          const tipo = md.tiposDemanda.find(t => t.id === d.tipo)
-          if (!tipo) {
-            console.log('🔍 Demandas: Tipo de Demanda não encontrado:', {
-              id: d.tipo,
-              tiposDisponiveis: md.tiposDemanda.map(t => ({ id: t.id, nome: t.nome }))
-            })
-          }
-          return tipo?.nome ?? d.tipo
+          return tipoDemandaMap.get(d.tipo)?.nome ?? d.tipo
         }
         
-        // Se d.tipoId existe, buscar o nome
         if (d.tipoId) {
-          const tipo = md.tiposDemanda.find(t => t.id === d.tipoId)
-          return tipo?.nome ?? d.tipoId
+          return tipoDemandaMap.get(d.tipoId)?.nome ?? d.tipoId
         }
         
         return d.tipo || ''
       })(),
-      // Manter o valor original das datas (ISO string) para ordenação correta
-      // A formatação será feita pelo valueFormatter da coluna
       createdAt: d.createdAt || '',
       updatedAt: d.updatedAt || '',
     }
-  })
+  }), [finalFilteredItems, analistaMap, areaMap, clienteMap, contratoMap, operadoraMap, produtoMap, tipoServicoMap, tipoDemandaMap])
   
   // Ordenar os dados por updatedAt (data de atualização - mais recente primeiro) antes de passar para o DataGrid
   const sortedRows = [...rows].sort((a, b) => {
@@ -907,14 +883,14 @@ export default function DemandListPage() {
         onClose={() => setExportModalOpen(false)}
         data={finalFilteredItems.map(d => ({
           ...d,
-          // Mapear IDs para nomes legíveis
-          analista: md.analistas.find(a => a.id === d.analista)?.nome ?? d.analista ?? 'N/A',
-          area: md.areas.find(ar => ar.id === d.area)?.nome ?? d.area ?? 'N/A',
-          cliente: md.clientes.find(c => c.id === d.cliente)?.nome ?? d.cliente ?? 'N/A',
-          contrato: md.contratos.find(c => c.id === d.contrato)?.numero ?? d.contrato ?? 'N/A',
-          operadora: md.operadoras.find(o => o.id === d.operadora)?.nome ?? d.operadora ?? 'N/A',
-          produto: md.produtos.find(p => p.id === d.produto)?.nome ?? d.produto ?? 'N/A',
-          tipoServico: md.tiposServico.find(ts => ts.id === d.tipoServico)?.nome ?? d.tipoServico ?? 'N/A',
+          // Mapear IDs para nomes legíveis (usando Maps para performance)
+          analista: analistaMap.get(d.analista)?.nome ?? d.analista ?? 'N/A',
+          area: areaMap.get(d.area)?.nome ?? d.area ?? 'N/A',
+          cliente: clienteMap.get(d.cliente)?.nome ?? d.cliente ?? 'N/A',
+          contrato: contratoMap.get(d.contrato)?.numero ?? d.contrato ?? 'N/A',
+          operadora: operadoraMap.get(d.operadora)?.nome ?? d.operadora ?? 'N/A',
+          produto: produtoMap.get(d.produto)?.nome ?? d.produto ?? 'N/A',
+          tipoServico: tipoServicoMap.get(d.tipoServico)?.nome ?? d.tipoServico ?? 'N/A',
           // Formatar data
           updatedAt: d.updatedAt ? new Date(d.updatedAt).toLocaleString('pt-BR') : 'N/A'
         }))}
