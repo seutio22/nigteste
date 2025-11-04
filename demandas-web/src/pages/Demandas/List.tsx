@@ -39,6 +39,34 @@ const columns: GridColDef[] = [
   { field: 'tipoServico', headerName: 'Tipo de serviço', width: 180 },
   { field: 'tipo', headerName: 'Tipo de Demanda', width: 180 },
   { 
+    field: 'createdAt', 
+    headerName: 'Data de Criação', 
+    width: 160,
+    type: 'dateTime',
+    valueGetter: (value, row) => {
+      const dateValue = row.createdAt || value
+      if (!dateValue) return null
+      const date = new Date(dateValue)
+      return isNaN(date.getTime()) ? null : date
+    },
+    valueFormatter: (value) => {
+      if (!value) return '-'
+      const date = value instanceof Date ? value : new Date(value)
+      return isNaN(date.getTime()) ? '-' : date.toLocaleString('pt-BR')
+    },
+    sortComparator: (v1, v2) => {
+      if (!v1 && !v2) return 0
+      if (!v1) return 1
+      if (!v2) return -1
+      const date1 = v1 instanceof Date ? v1 : new Date(v1)
+      const date2 = v2 instanceof Date ? v2 : new Date(v2)
+      if (isNaN(date1.getTime()) && isNaN(date2.getTime())) return 0
+      if (isNaN(date1.getTime())) return 1
+      if (isNaN(date2.getTime())) return -1
+      return date1.getTime() - date2.getTime()
+    }
+  },
+  { 
     field: 'updatedAt', 
     headerName: 'Atualizado em', 
     width: 160,
@@ -86,7 +114,7 @@ export default function DemandListPage() {
   const FILTER_KEY = 'demands-user-filter-v1'
   const [columnVisibilityModel, setColumnVisibilityModel] = useState<GridColumnVisibilityModel>({})
   const [sortModel, setSortModel] = useState<GridSortModel>([
-    { field: 'updatedAt', sort: 'desc' } // Ordenar por data de atualização (mais recentes primeiro)
+    { field: 'createdAt', sort: 'desc' } // Ordenar por data de criação (mais recentes primeiro)
   ])
   const [filterModel, setFilterModel] = useState<GridFilterModel>({ items: [], quickFilterValues: [] })
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({ page: 0, pageSize: 10 })
@@ -563,16 +591,17 @@ export default function DemandListPage() {
         
         return d.tipo || ''
       })(),
-      // Manter o valor original da data (ISO string) para ordenação correta
+      // Manter o valor original das datas (ISO string) para ordenação correta
       // A formatação será feita pelo valueFormatter da coluna
+      createdAt: d.createdAt || '',
       updatedAt: d.updatedAt || '',
     }
   })
   
-  // Ordenar os dados por updatedAt (mais recente primeiro) antes de passar para o DataGrid
+  // Ordenar os dados por createdAt (data de criação - mais recente primeiro) antes de passar para o DataGrid
   const sortedRows = [...rows].sort((a, b) => {
-    const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0
-    const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0
+    const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0
+    const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
     return dateB - dateA // Ordem decrescente (mais recente primeiro)
   })
   
