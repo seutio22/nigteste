@@ -403,6 +403,10 @@ export const KanbanBoard: React.FC = () => {
   const handleEditTicket = (ticket: KanbanTicket) => {
     setEditingTicket(ticket)
     setSelectedColumn(ticket.status)
+    
+    // Normalizar tags para garantir que seja sempre um array antes de usar .join()
+    const normalizedTags = Array.isArray(ticket.tags) ? ticket.tags : []
+    
     setNewTicket({
       title: ticket.title,
       description: ticket.description,
@@ -410,7 +414,7 @@ export const KanbanBoard: React.FC = () => {
       assignee: getUserNameById(ticket.assignee || 'unassigned'), // Usar nome legível do usuário
       startDate: ticket.startDate || '',
       dueDate: ticket.dueDate || '',
-      tags: ticket.tags.join(', ')
+      tags: normalizedTags.join(', ')
     })
     setOpenDialog(true)
   }
