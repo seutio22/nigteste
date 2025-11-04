@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify'
 import { PrismaClient } from '@prisma/client'
 import { z } from 'zod'
+import { masterDataCache } from '../lib/cache'
 
 export async function masterDataRoutes(app: FastifyInstance, options: { prisma: PrismaClient }) {
   const { prisma } = options
@@ -37,9 +38,12 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
   // GET /solicitantes
   app.get('/solicitantes', async (request, reply) => {
     try {
-      const solicitantes = await prisma.solicitante.findMany({
-        orderBy: { nome: 'asc' }
-      })
+      const solicitantes = await masterDataCache.get(
+        'solicitantes',
+        () => prisma.solicitante.findMany({
+          orderBy: { nome: 'asc' }
+        })
+      )
       return reply.send(solicitantes)
     } catch (error) {
       console.error('Erro ao buscar solicitantes:', error)
@@ -72,6 +76,8 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
       const solicitante = await prisma.solicitante.create({
         data: body
       })
+      // Invalidar cache ao criar
+      masterDataCache.delete('solicitantes')
       return reply.status(201).send(solicitante)
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -112,6 +118,8 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
         where: { id },
         data: body
       })
+      // Invalidar cache ao atualizar
+      masterDataCache.delete('solicitantes')
       return reply.send(solicitante)
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -139,6 +147,8 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
       await prisma.solicitante.delete({
         where: { id }
       })
+      // Invalidar cache ao deletar
+      masterDataCache.delete('solicitantes')
       console.log('✅ Solicitante excluído com sucesso')
       return reply.status(204).send()
     } catch (error) {
@@ -154,9 +164,12 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
   // GET /relatorios
   app.get('/relatorios', async (request, reply) => {
     try {
-      const relatorios = await prisma.relatorio.findMany({
-        orderBy: { nome: 'asc' }
-      })
+      const relatorios = await masterDataCache.get(
+        'relatorios',
+        () => prisma.relatorio.findMany({
+          orderBy: { nome: 'asc' }
+        })
+      )
       return reply.send(relatorios)
     } catch (error) {
       console.error('Erro ao buscar relatórios:', error)
@@ -171,6 +184,7 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
       const relatorio = await prisma.relatorio.create({
         data: body
       })
+      masterDataCache.delete('relatorios')
       return reply.status(201).send(relatorio)
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -191,6 +205,7 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
         where: { id },
         data: body
       })
+      masterDataCache.delete('relatorios')
       return reply.send(relatorio)
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -218,6 +233,7 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
       await prisma.relatorio.delete({
         where: { id }
       })
+      masterDataCache.delete('relatorios')
       console.log('✅ Relatório excluído com sucesso')
       return reply.status(204).send()
     } catch (error) {
@@ -233,9 +249,12 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
   // GET /modelos
   app.get('/modelos', async (request, reply) => {
     try {
-      const modelos = await prisma.modelo.findMany({
-        orderBy: { nome: 'asc' }
-      })
+      const modelos = await masterDataCache.get(
+        'modelos',
+        () => prisma.modelo.findMany({
+          orderBy: { nome: 'asc' }
+        })
+      )
       return reply.send(modelos)
     } catch (error) {
       console.error('Erro ao buscar modelos:', error)
@@ -250,6 +269,7 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
       const modelo = await prisma.modelo.create({
         data: body
       })
+      masterDataCache.delete('modelos')
       return reply.status(201).send(modelo)
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -270,6 +290,7 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
         where: { id },
         data: body
       })
+      masterDataCache.delete('modelos')
       return reply.send(modelo)
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -297,6 +318,7 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
       await prisma.modelo.delete({
         where: { id }
       })
+      masterDataCache.delete('modelos')
       console.log('✅ Modelo excluído com sucesso')
       return reply.status(204).send()
     } catch (error) {
@@ -323,9 +345,12 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
   // GET /tiposCadastro
   app.get('/tiposCadastro', async (request, reply) => {
     try {
-      const tiposCadastro = await prisma.tipoCadastro.findMany({
-        orderBy: { nome: 'asc' }
-      })
+      const tiposCadastro = await masterDataCache.get(
+        'tiposCadastro',
+        () => prisma.tipoCadastro.findMany({
+          orderBy: { nome: 'asc' }
+        })
+      )
       return reply.send(tiposCadastro)
     } catch (error) {
       console.error('Erro ao buscar tipos de cadastro:', error)
@@ -340,6 +365,7 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
       const tipoCadastro = await prisma.tipoCadastro.create({
         data: body
       })
+      masterDataCache.delete('tiposCadastro')
       return reply.status(201).send(tipoCadastro)
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -360,6 +386,7 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
         where: { id },
         data: body
       })
+      masterDataCache.delete('tiposCadastro')
       return reply.send(tipoCadastro)
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -400,6 +427,7 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
       await prisma.tipoCadastro.delete({
         where: { id }
       })
+      masterDataCache.delete('tiposCadastro')
       console.log('✅ Tipo de cadastro excluído com sucesso')
       return reply.status(204).send()
     } catch (error) {
@@ -428,9 +456,12 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
   // GET /areas-mailling
   app.get('/areas-mailling', async (request, reply) => {
     try {
-      const areasMailling = await prisma.areaMailling.findMany({
-        orderBy: { nome: 'asc' }
-      })
+      const areasMailling = await masterDataCache.get(
+        'areas-mailling',
+        () => prisma.areaMailling.findMany({
+          orderBy: { nome: 'asc' }
+        })
+      )
       return reply.send(areasMailling)
     } catch (error) {
       console.error('Erro ao buscar áreas de mailling:', error)
@@ -445,6 +476,7 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
       const areaMailling = await prisma.areaMailling.create({
         data
       })
+      masterDataCache.delete('areas-mailling')
       return reply.status(201).send(areaMailling)
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -465,6 +497,7 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
         where: { id },
         data
       })
+      masterDataCache.delete('areas-mailling')
       return reply.send(areaMailling)
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -483,6 +516,7 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
       await prisma.areaMailling.delete({
         where: { id }
       })
+      masterDataCache.delete('areas-mailling')
       return reply.status(204).send()
     } catch (error) {
       console.error('Erro ao deletar área de mailling:', error)
@@ -508,9 +542,12 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
   // GET /cargos-mailling
   app.get('/cargos-mailling', async (request, reply) => {
     try {
-      const cargosMailling = await prisma.cargoMailling.findMany({
-        orderBy: { nome: 'asc' }
-      })
+      const cargosMailling = await masterDataCache.get(
+        'cargos-mailling',
+        () => prisma.cargoMailling.findMany({
+          orderBy: { nome: 'asc' }
+        })
+      )
       return reply.send(cargosMailling)
     } catch (error) {
       console.error('Erro ao buscar cargos de mailling:', error)
@@ -525,6 +562,7 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
       const cargoMailling = await prisma.cargoMailling.create({
         data
       })
+      masterDataCache.delete('cargos-mailling')
       return reply.status(201).send(cargoMailling)
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -545,6 +583,7 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
         where: { id },
         data
       })
+      masterDataCache.delete('cargos-mailling')
       return reply.send(cargoMailling)
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -563,6 +602,7 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
       await prisma.cargoMailling.delete({
         where: { id }
       })
+      masterDataCache.delete('cargos-mailling')
       return reply.status(204).send()
     } catch (error) {
       console.error('Erro ao deletar cargo de mailling:', error)
@@ -588,9 +628,12 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
   // GET /filiais-mailling
   app.get('/filiais-mailling', async (request, reply) => {
     try {
-      const filiaisMailling = await prisma.filialMailling.findMany({
-        orderBy: { nome: 'asc' }
-      })
+      const filiaisMailling = await masterDataCache.get(
+        'filiais-mailling',
+        () => prisma.filialMailling.findMany({
+          orderBy: { nome: 'asc' }
+        })
+      )
       return reply.send(filiaisMailling)
     } catch (error) {
       console.error('Erro ao buscar filiais de mailling:', error)
@@ -605,6 +648,7 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
       const filialMailling = await prisma.filialMailling.create({
         data
       })
+      masterDataCache.delete('filiais-mailling')
       return reply.status(201).send(filialMailling)
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -625,6 +669,7 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
         where: { id },
         data
       })
+      masterDataCache.delete('filiais-mailling')
       return reply.send(filialMailling)
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -643,6 +688,7 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
       await prisma.filialMailling.delete({
         where: { id }
       })
+      masterDataCache.delete('filiais-mailling')
       return reply.status(204).send()
     } catch (error) {
       console.error('Erro ao deletar filial de mailling:', error)
@@ -787,9 +833,12 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
   // GET /grupos
   app.get('/grupos', async (request, reply) => {
     try {
-      const grupos = await prisma.grupo.findMany({
-        orderBy: { nome: 'asc' }
-      })
+      const grupos = await masterDataCache.get(
+        'grupos',
+        () => prisma.grupo.findMany({
+          orderBy: { nome: 'asc' }
+        })
+      )
       return reply.send(grupos)
     } catch (error) {
       console.error('Erro ao buscar grupos:', error)
@@ -825,6 +874,7 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
       const grupo = await prisma.grupo.create({
         data: body
       })
+      masterDataCache.delete('grupos')
       console.log('✅ POST /grupos - Grupo criado:', grupo.id)
       return reply.status(201).send(grupo)
     } catch (error) {
@@ -868,6 +918,7 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
         where: { id },
         data: body
       })
+      masterDataCache.delete('grupos')
       return reply.send(grupo)
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -895,6 +946,7 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
       await prisma.grupo.delete({
         where: { id }
       })
+      masterDataCache.delete('grupos')
       console.log('✅ Grupo excluído com sucesso')
       return reply.status(204).send()
     } catch (error) {
