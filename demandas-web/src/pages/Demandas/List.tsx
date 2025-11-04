@@ -114,7 +114,7 @@ export default function DemandListPage() {
   const FILTER_KEY = 'demands-user-filter-v1'
   const [columnVisibilityModel, setColumnVisibilityModel] = useState<GridColumnVisibilityModel>({})
   const [sortModel, setSortModel] = useState<GridSortModel>([
-    { field: 'createdAt', sort: 'desc' } // Ordenar por data de criação (mais recentes primeiro)
+    { field: 'updatedAt', sort: 'desc' } // Ordenar por data de atualização (mais recentes primeiro)
   ])
   const [filterModel, setFilterModel] = useState<GridFilterModel>({ items: [], quickFilterValues: [] })
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({ page: 0, pageSize: 10 })
@@ -598,16 +598,29 @@ export default function DemandListPage() {
     }
   })
   
-  // Ordenar os dados por createdAt (data de criação - mais recente primeiro) antes de passar para o DataGrid
+  // Ordenar os dados por updatedAt (data de atualização - mais recente primeiro) antes de passar para o DataGrid
   const sortedRows = [...rows].sort((a, b) => {
-    const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0
-    const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
-    return dateB - dateA // Ordem decrescente (mais recente primeiro)
+    // Tratar strings vazias como datas inválidas (devem ir para o final)
+    const dateA = a.updatedAt && a.updatedAt.trim() !== '' ? new Date(a.updatedAt).getTime() : 0
+    const dateB = b.updatedAt && b.updatedAt.trim() !== '' ? new Date(b.updatedAt).getTime() : 0
+    
+    // Se ambos são inválidos, manter ordem original
+    if (dateA === 0 && dateB === 0) return 0
+    
+    // Datas inválidas vão para o final
+    if (dateA === 0) return 1
+    if (dateB === 0) return -1
+    
+    // Ordem decrescente (mais recente primeiro)
+    return dateB - dateA
   })
   
-  console.log('🔍 Demandas: Rows gerados:', rows.length, 'finalFilteredItems:', finalFilteredItems.length)
-  console.log('🔍 Demandas: Primeira row:', rows[0])
-  console.log('🔍 Demandas: Segunda row:', rows[1])
+  // Debug: mostrar primeiras linhas ordenadas
+  console.log('🔍 Demandas: Total de rows:', sortedRows.length)
+  console.log('🔍 Demandas: Primeiras 5 linhas ordenadas por updatedAt:')
+  sortedRows.slice(0, 5).forEach((row, idx) => {
+    console.log(`  [${idx}] ID: ${row.id}, updatedAt: ${row.updatedAt}, Data: ${row.updatedAt ? new Date(row.updatedAt).toLocaleString('pt-BR') : 'N/A'}`)
+  })
 
   return (
     <Box sx={{ height: '100vh', width: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -799,6 +812,9 @@ export default function DemandListPage() {
           initialState={{
             pagination: {
               paginationModel: { page: 0, pageSize: 10 },
+            },
+            sorting: {
+              sortModel: [{ field: 'updatedAt', sort: 'desc' }],
             },
           }}
           pageSizeOptions={[10, 25, 50, 100]}
