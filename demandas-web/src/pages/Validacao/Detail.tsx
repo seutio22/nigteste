@@ -65,16 +65,22 @@ export default function ValidationDetailPage() {
               estruturaEdge: (() => {
                 if (!validacao.estruturaEdge) return []
                 if (typeof validacao.estruturaEdge === 'string') {
-                  try { return JSON.parse(validacao.estruturaEdge) } catch { return [] }
+                  try {
+                    const parsed = JSON.parse(validacao.estruturaEdge)
+                    return Array.isArray(parsed) ? parsed : []
+                  } catch { return [] }
                 }
-                return validacao.estruturaEdge
+                return Array.isArray(validacao.estruturaEdge) ? validacao.estruturaEdge : []
               })(),
               estruturaMove: (() => {
                 if (!validacao.estruturaMove) return []
                 if (typeof validacao.estruturaMove === 'string') {
-                  try { return JSON.parse(validacao.estruturaMove) } catch { return [] }
+                  try {
+                    const parsed = JSON.parse(validacao.estruturaMove)
+                    return Array.isArray(parsed) ? parsed : []
+                  } catch { return [] }
                 }
-                return validacao.estruturaMove
+                return Array.isArray(validacao.estruturaMove) ? validacao.estruturaMove : []
               })(),
               formalizacao: validacao.formalizacao,
               itensPendentes: validacao.itensPendentes,
@@ -483,7 +489,27 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
   const md = useMasterDataStore()
   const store = useValidationStore()
   const { user } = useAuthStore()
-  const [draft, setDraft] = useState(validation)
+  
+  // Normalizar estruturaEdge e estruturaMove para garantir que sejam sempre arrays
+  const normalizeArrayField = (value: any): string[] => {
+    if (!value) return []
+    if (Array.isArray(value)) return value
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value)
+        return Array.isArray(parsed) ? parsed : []
+      } catch {
+        return []
+      }
+    }
+    return []
+  }
+  
+  const [draft, setDraft] = useState(() => ({
+    ...validation,
+    estruturaEdge: normalizeArrayField(validation.estruturaEdge),
+    estruturaMove: normalizeArrayField(validation.estruturaMove)
+  }))
   const [confirmOpen, setConfirmOpen] = useState(false)
 
   // Buscar o grupo econômico do cliente selecionado
@@ -556,18 +582,23 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
       // Normalizar solicitante - se for objeto, usar ID; se for string, usar diretamente
       solicitante: typeof validation.solicitante === 'object' && validation.solicitante !== null
         ? validation.solicitante.id
-        : validation.solicitante || ''
+        : validation.solicitante || '',
+      // Normalizar estruturaEdge e estruturaMove para garantir que sejam sempre arrays
+      estruturaEdge: normalizeArrayField(validation.estruturaEdge),
+      estruturaMove: normalizeArrayField(validation.estruturaMove)
     }
     
     console.log('🔍 EditInline: Normalizando draft:', {
       original: validation,
       normalized: normalizedDraft,
       tipo: { original: validation.tipo, normalized: normalizedDraft.tipo },
-      contrato: { original: validation.contrato, normalized: normalizedDraft.contrato }
+      contrato: { original: validation.contrato, normalized: normalizedDraft.contrato },
+      estruturaEdge: { original: validation.estruturaEdge, normalized: normalizedDraft.estruturaEdge },
+      estruturaMove: { original: validation.estruturaMove, normalized: normalizedDraft.estruturaMove }
     })
     
     setDraft(normalizedDraft)
-  }, [validation.id, validation.tipo, validation.contrato])
+  }, [validation.id, validation.tipo, validation.contrato, validation.estruturaEdge, validation.estruturaMove])
 
   const changedKeys = ((): string[] => {
     // Excluir 'total' da lista pois é calculado automaticamente
@@ -1153,24 +1184,27 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
               { value: "1-COPARTICIPACAO", label: "1-ERRO Coparticipação" },
               { value: "1-CONTRIBUICAO", label: "1-ERRO Contribuição" },
               { value: "1-DADOS_GERAIS", label: "1-ERRO Dados Gerais" }
-            ].map((option) => (
-              <label key={option.value} className="flex items-center space-x-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={draft.estruturaEdge?.includes(option.value) || false}
-                  onChange={(e) => {
-                    const currentValues = draft.estruturaEdge || []
-                    if (e.target.checked) {
-                      setDraft({ ...draft, estruturaEdge: [...currentValues, option.value] })
-                    } else {
-                      setDraft({ ...draft, estruturaEdge: currentValues.filter(v => v !== option.value) })
-                    }
-                  }}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <span className="text-gray-700">{option.label}</span>
-              </label>
-            ))}
+            ].map((option) => {
+              const estruturaEdgeArray = Array.isArray(draft.estruturaEdge) ? draft.estruturaEdge : []
+              return (
+                <label key={option.value} className="flex items-center space-x-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={estruturaEdgeArray.includes(option.value)}
+                    onChange={(e) => {
+                      const currentValues = Array.isArray(draft.estruturaEdge) ? draft.estruturaEdge : []
+                      if (e.target.checked) {
+                        setDraft({ ...draft, estruturaEdge: [...currentValues, option.value] })
+                      } else {
+                        setDraft({ ...draft, estruturaEdge: currentValues.filter(v => v !== option.value) })
+                      }
+                    }}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-gray-700">{option.label}</span>
+                </label>
+              )
+            })}
           </div>
         </div>
         <div>
@@ -1186,24 +1220,27 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
               { value: "1-VIGENCIA", label: "1-ERRO VIGENCIA" },
               { value: "1-ASSOCIACAO_MOVE", label: "1-ERRO ASSOCIAÇÃO NO MOVE" },
               { value: "1-RAZAO_SOCIAL", label: "1-ERRO RAZÃO SOCIAL" }
-            ].map((option) => (
-              <label key={option.value} className="flex items-center space-x-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={draft.estruturaMove?.includes(option.value) || false}
-                  onChange={(e) => {
-                    const currentValues = draft.estruturaMove || []
-                    if (e.target.checked) {
-                      setDraft({ ...draft, estruturaMove: [...currentValues, option.value] })
-                    } else {
-                      setDraft({ ...draft, estruturaMove: currentValues.filter(v => v !== option.value) })
-                    }
-                  }}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <span className="text-gray-700">{option.label}</span>
-              </label>
-            ))}
+            ].map((option) => {
+              const estruturaMoveArray = Array.isArray(draft.estruturaMove) ? draft.estruturaMove : []
+              return (
+                <label key={option.value} className="flex items-center space-x-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={estruturaMoveArray.includes(option.value)}
+                    onChange={(e) => {
+                      const currentValues = Array.isArray(draft.estruturaMove) ? draft.estruturaMove : []
+                      if (e.target.checked) {
+                        setDraft({ ...draft, estruturaMove: [...currentValues, option.value] })
+                      } else {
+                        setDraft({ ...draft, estruturaMove: currentValues.filter(v => v !== option.value) })
+                      }
+                    }}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-gray-700">{option.label}</span>
+                </label>
+              )
+            })}
           </div>
         </div>
         <div>

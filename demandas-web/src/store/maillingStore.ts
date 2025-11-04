@@ -342,14 +342,14 @@ export const useMaillingStore = create<MaillingState>()(
             // Tratamento especial para campo grupos (array)
             if (key === 'grupos' && Array.isArray(value) && value.length > 0) {
               // Verificar se o contato tem pelo menos um dos grupos filtrados
-              const contactGrupos = contact.grupos || []
+              const contactGrupos = Array.isArray(contact.grupos) ? contact.grupos : []
               const hasCommonGroup = value.some(grupoId => contactGrupos.includes(grupoId))
               if (!hasCommonGroup) return false
             }
             // Tratamento especial para campo filiais (array)
             else if (key === 'filiais' && Array.isArray(value) && value.length > 0) {
               // Verificar se o contato tem pelo menos uma das filiais filtradas
-              const contactFiliais = contact.filiais || []
+              const contactFiliais = Array.isArray(contact.filiais) ? contact.filiais : []
               const hasCommonFilial = value.some(filialId => contactFiliais.includes(filialId))
               if (!hasCommonFilial) return false
             }

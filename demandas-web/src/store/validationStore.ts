@@ -386,13 +386,13 @@ export const useValidationStore = create<ValidationState>()(
                 try {
                   const parsed = JSON.parse(validacao.estruturaEdge)
                   console.log('✅ Estrutura EDGE parseada:', parsed)
-                  return parsed
+                  return Array.isArray(parsed) ? parsed : []
                 } catch (e) {
                   console.error('❌ Erro ao fazer parse da estrutura EDGE:', e)
                   return []
                 }
               }
-              return validacao.estruturaEdge
+              return Array.isArray(validacao.estruturaEdge) ? validacao.estruturaEdge : []
             })(),
             estruturaMove: (() => {
               console.log('🔍 Estrutura MOVE da API:', validacao.estruturaMove, 'Tipo:', typeof validacao.estruturaMove)
@@ -401,13 +401,13 @@ export const useValidationStore = create<ValidationState>()(
                 try {
                   const parsed = JSON.parse(validacao.estruturaMove)
                   console.log('✅ Estrutura MOVE parseada:', parsed)
-                  return parsed
+                  return Array.isArray(parsed) ? parsed : []
                 } catch (e) {
                   console.error('❌ Erro ao fazer parse da estrutura MOVE:', e)
                   return []
                 }
               }
-              return validacao.estruturaMove
+              return Array.isArray(validacao.estruturaMove) ? validacao.estruturaMove : []
             })(),
             formalizacao: validacao.formalizacao,
             itensPendentes: validacao.itensPendentes,
