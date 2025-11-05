@@ -340,7 +340,11 @@ export default function DemandDetailPage() {
               </div>
               <div>
                 <p className="text-sm text-gray-500">Criado por</p>
-                <p className="font-medium">{d.analista || '-'}</p>
+                <p className="font-medium">
+                  {typeof d.analista === 'object' && d.analista !== null
+                    ? (d.analista as any)?.nome || (d.analista as any)?.name || label(d.analistaId, md.analistas)
+                    : (d.analista || label(d.analistaId, md.analistas) || '-')}
+                </p>
               </div>
               <div>
                 <p className="text-sm text-gray-500">Análise quantitativa</p>
