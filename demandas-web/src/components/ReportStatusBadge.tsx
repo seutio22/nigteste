@@ -7,13 +7,21 @@ interface ReportStatusBadgeProps {
 
 export function ReportStatusBadge({ status, size = 'medium' }: ReportStatusBadgeProps) {
   const getStatusConfig = (status: string): { label: string; color: ChipProps['color'] } => {
-    switch (status) {
+    // Normalizar status para lowercase para comparação
+    const normalizedStatus = status?.toLowerCase().trim() || ''
+    
+    // Verificar variações de "concluido" (com e sem acento, maiúsculas/minúsculas)
+    if (normalizedStatus === 'concluido' || normalizedStatus === 'concluído' || normalizedStatus === 'concluida' || normalizedStatus === 'concluída') {
+      return { label: 'Concluído', color: 'success' }
+    }
+    
+    switch (normalizedStatus) {
       case 'pendente':
         return { label: 'Pendente', color: 'warning' }
       case 'em_andamento':
+      case 'emandamento':
+      case 'em andamento':
         return { label: 'Em Andamento', color: 'info' }
-      case 'concluido':
-        return { label: 'Concluído', color: 'success' }
       case 'entregue':
         return { label: 'Entregue', color: 'success' }
       case 'cancelado':
