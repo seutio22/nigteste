@@ -1661,7 +1661,7 @@ function crud(entity: keyof PrismaClient) {
             produtoId: true,
             demandaId: true,
             dataInicio: true,
-            dataFinal: true,
+            dataFim: true,
             createdAt: true,
             updatedAt: true,
             cliente: { select: { id: true, nome: true } },
