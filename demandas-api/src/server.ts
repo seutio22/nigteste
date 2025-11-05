@@ -2527,21 +2527,21 @@ const resources = {
             descricao: true,
             status: true,
             analistaId: true,
-            analista: true,
+            analista: { select: { id: true, nome: true } },
             areaId: true,
-            area: true,
+            area: { select: { id: true, nome: true } },
             clienteId: true,
-            cliente: true,
+            cliente: { select: { id: true, nome: true } },
             contratoId: true,
-            contrato: true,
+            contrato: { select: { id: true, codigo: true, numero: true } },
             operadoraId: true,
-            operadora: true,
+            operadora: { select: { id: true, nome: true } },
             produtoId: true,
-            produto: true,
+            produto: { select: { id: true, nome: true } },
             tipoServicoId: true,
-            tipoServico: true,
+            tipoServico: { select: { id: true, nome: true } },
             tipoId: true,
-            tipo: true,
+            tipo: { select: { id: true, nome: true } },
             dataInicio: true,
             dataFinal: true,
             createdAt: true,
@@ -2601,18 +2601,49 @@ const resources = {
     },
     get: async (id: string) => {
       const anyPrisma = prisma as any;
+      // 🐛 CORREÇÃO: Usar select ao invés de include para evitar retornar objetos completos
       return anyPrisma.demanda.findUnique({ 
         where: { id },
-        include: {
+        select: {
+          id: true,
+          ticket: true,
+          descricao: true,
+          status: true,
+          analistaId: true,
+          analista: { select: { id: true, nome: true } },
+          areaId: true,
+          area: { select: { id: true, nome: true } },
+          clienteId: true,
+          cliente: { select: { id: true, nome: true } },
+          contratoId: true,
+          contrato: { select: { id: true, codigo: true, numero: true, status: true } },
+          operadoraId: true,
+          operadora: { select: { id: true, nome: true } },
+          produtoId: true,
+          produto: { select: { id: true, nome: true } },
+          tipoServicoId: true,
+          tipoServico: { select: { id: true, nome: true } },
+          tipoId: true,
+          tipo: { select: { id: true, nome: true } },
+          sistemaId: true,
+          sistema: { select: { id: true, nome: true } },
+          dataInicio: true,
+          dataFinal: true,
+          solicitante: true,
+          periodicidade: true,
+          qtdRetornos: true,
+          qualidade: true,
+          qtdClientesVinculados: true,
+          usuariosEmpresa: true,
+          observacoes: true,
+          createdAt: true,
+          updatedAt: true,
           user: {
             select: {
               id: true,
               name: true,
               email: true
             }
-          },
-          contrato: {
-            where: { status: 'Ativo' }
           }
         }
       });
