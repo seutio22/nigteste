@@ -745,6 +745,8 @@ function ActionCell({ id, status }: { id: string, status: string }) {
     try {
       await store.remove(id)
       setOpenDelete(false)
+      // 🐛 CORREÇÃO: Sincronizar após exclusão para atualizar a lista
+      await store.syncFromApi()
     } catch (error) {
       console.error('Erro ao excluir relatório:', error)
       alert('Erro ao excluir relatório. Verifique o console para mais detalhes.')
