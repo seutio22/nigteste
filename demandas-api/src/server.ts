@@ -1956,15 +1956,42 @@ function crud(entity: keyof PrismaClient) {
         });
       }
 
-      // Incluir relacionamentos para validações
+      // Incluir relacionamentos para validações - usar select para consistência
       if (entity === 'validacao') {
         return anyPrisma[entity].findUnique({ 
           where: { id },
-          include: {
-            cliente: true,
-            contrato: true,
-            operadora: true,
-            produto: true,
+          select: {
+            id: true,
+            ticket: true,
+            descricao: true,
+            status: true,
+            analistaId: true,
+            clienteId: true,
+            contratoId: true,
+            operadoraId: true,
+            produtoId: true,
+            demandaId: true,
+            dataInicio: true,
+            dataFim: true,
+            observacoes: true,
+            solicitante: true,
+            tipo: true,
+            qualidade: true,
+            qtdRetornos: true,
+            vigencia: true,
+            estruturaEdge: true,
+            estruturaMove: true,
+            formalizacao: true,
+            itensPendentes: true,
+            itensConcluidos: true,
+            total: true,
+            userId: true,
+            createdAt: true,
+            updatedAt: true,
+            cliente: { select: { id: true, nome: true } },
+            contrato: { select: { id: true, codigo: true, numero: true } },
+            operadora: { select: { id: true, nome: true } },
+            produto: { select: { id: true, nome: true } },
             analista: {
               select: {
                 id: true,
@@ -1973,8 +2000,8 @@ function crud(entity: keyof PrismaClient) {
                 updatedAt: true
               }
             },
-            demanda: true,
-            user: true
+            demanda: { select: { id: true, ticket: true, descricao: true } },
+            user: { select: { id: true, name: true, email: true } }
           }
         });
       }
