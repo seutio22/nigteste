@@ -2676,15 +2676,22 @@ const resources = {
       }
       
       // 🚀 MELHORIA FASE 2A: Select específico - 30-50% menos dados transferidos
-      // Buscar atendimentos com filtros aplicados
+      // 🐛 CORREÇÃO: Usar campos corretos do modelo Atendimento (dataAbertura, dataFechamento)
       const atendimentos = await anyPrisma.atendimento.findMany({
         where,
         select: {
           id: true,
           ticket: true,
+          titulo: true,
           descricao: true,
           status: true,
+          prioridade: true,
+          categoria: true,
+          solicitante: true,
+          emailSolicitante: true,
+          telefoneSolicitante: true,
           analistaId: true,
+          userId: true,
           areaId: true,
           clienteId: true,
           contratoId: true,
@@ -2693,8 +2700,14 @@ const resources = {
           sistemaId: true,
           tipoId: true,
           tipoServicoId: true,
-          dataInicio: true,
-          dataFinal: true,
+          dataAbertura: true,
+          dataResolucao: true,
+          dataFechamento: true,
+          tempoResolucao: true,
+          satisfacao: true,
+          comentarios: true,
+          anexos: true,
+          tags: true,
           createdAt: true,
           updatedAt: true,
           analista: { select: { id: true, nome: true } },
@@ -2705,7 +2718,8 @@ const resources = {
           produto: { select: { id: true, nome: true } },
           sistema: { select: { id: true, nome: true } },
           tipo: { select: { id: true, nome: true } },
-          tipoServico: { select: { id: true, nome: true } }
+          tipoServico: { select: { id: true, nome: true } },
+          user: { select: { id: true, name: true, email: true } }
         },
         orderBy: { createdAt: 'desc' }
       })
