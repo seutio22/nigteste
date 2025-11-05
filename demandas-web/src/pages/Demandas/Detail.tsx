@@ -117,14 +117,35 @@ export default function DemandDetailPage() {
     })
   }
 
-  const label = (id?: string, arr?: { id: string, nome: string }[]) => {
+  const label = (id?: string | any, arr?: { id: string, nome: string }[]) => {
+    // 🐛 CORREÇÃO: Se id for um objeto, extrair o id ou nome
     if (!id) return '-'
-    const result = arr?.find(a => a.id === id)?.nome || '-'
+    
+    // Se id for um objeto, tentar extrair o id ou nome
+    let actualId: string | undefined
+    if (typeof id === 'object' && id !== null) {
+      actualId = id.id || id.nome
+      // Se o objeto tem nome, retornar diretamente
+      if (id.nome && typeof id.nome === 'string') {
+        return id.nome
+      }
+    } else {
+      actualId = String(id)
+    }
+    
+    if (!actualId) return '-'
+    
+    const result = arr?.find(a => a.id === actualId)?.nome || '-'
+    
+    // Garantir que sempre retornamos uma string
+    if (typeof result !== 'string') {
+      return '-'
+    }
     
     // Debug para verificar se os dados estão disponíveis
-    if (result === '-' && id) {
+    if (result === '-' && actualId) {
       console.log('🔍 DemandDetailPage: Dados não encontrados para ID:', {
-        id,
+        id: actualId,
         arrLength: arr?.length || 0,
         arr: arr?.map(a => ({ id: a.id, nome: a.nome })) || []
       })
@@ -390,10 +411,32 @@ function EditInline({ d }: { d: Demand }) {
   const [confirmOpen, setConfirmOpen] = useState(false)
 
   // Função label local para o componente EditInline
-  const label = (id?: string, arr?: { id: string, nome: string }[]) => {
+  const label = (id?: string | any, arr?: { id: string, nome: string }[]) => {
+    // 🐛 CORREÇÃO: Se id for um objeto, extrair o id ou nome
     if (!id) return '-'
-    const result = arr?.find(a => a.id === id)?.nome || '-'
-    console.log('🔍 EditInline label:', { id, arrLength: arr?.length, result })
+    
+    // Se id for um objeto, tentar extrair o id ou nome
+    let actualId: string | undefined
+    if (typeof id === 'object' && id !== null) {
+      actualId = id.id || id.nome
+      // Se o objeto tem nome, retornar diretamente
+      if (id.nome && typeof id.nome === 'string') {
+        return id.nome
+      }
+    } else {
+      actualId = String(id)
+    }
+    
+    if (!actualId) return '-'
+    
+    const result = arr?.find(a => a.id === actualId)?.nome || '-'
+    
+    // Garantir que sempre retornamos uma string
+    if (typeof result !== 'string') {
+      return '-'
+    }
+    
+    console.log('🔍 EditInline label:', { id: actualId, arrLength: arr?.length, result })
     return result
   }
 
