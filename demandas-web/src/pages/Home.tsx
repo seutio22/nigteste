@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, memo } from 'react'
+import React, { useEffect, useMemo, useState, memo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { useDemandStore } from '../store/demandStore'
@@ -266,8 +266,8 @@ export default function HomePage() {
     }
   ], [])
 
-  // 🚀 MELHORIA FASE 2A: Memoizar funções - 30-50% menos processamento
-  const getStatusIcon = useMemo(() => (status: string) => {
+  // 🚀 MELHORIA FASE 2A: Funções memoizadas - 30-50% menos processamento
+  const getStatusIcon = useCallback((status: string) => {
     switch (status) {
       case 'success':
         return <CheckCircle className="w-4 h-4 text-green-500" />
@@ -280,7 +280,7 @@ export default function HomePage() {
     }
   }, [])
 
-  const getStatusColor = useMemo(() => (status: string) => {
+  const getStatusColor = useCallback((status: string) => {
     switch (status) {
       case 'success':
         return 'bg-green-100 text-green-800'

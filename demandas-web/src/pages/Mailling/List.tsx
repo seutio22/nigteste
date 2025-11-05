@@ -804,7 +804,7 @@ export default function MaillingListPage() {
                     <TableCell sx={{ fontSize: '0.8rem', minWidth: '100px', padding: '4px 6px' }}>
                       <Typography noWrap>
                         {contact.cargo ? 
-                          cargosMap.get(contact.cargo)?.nome : 
+                          (cargosMap.get(contact.cargo)?.nome || '-') : 
                           <Chip label="Não informado" size="small" variant="outlined" sx={{ fontSize: '0.7rem', height: '20px' }} />
                         }
                       </Typography>
@@ -812,7 +812,7 @@ export default function MaillingListPage() {
                     <TableCell sx={{ fontSize: '0.8rem', minWidth: '100px', padding: '4px 6px' }}>
                       <Typography noWrap>
                         {contact.area ? 
-                          areasMap.get(contact.area)?.nome : 
+                          (areasMap.get(contact.area)?.nome || '-') : 
                           <Chip label="Não informado" size="small" variant="outlined" sx={{ fontSize: '0.7rem', height: '20px' }} />
                         }
                       </Typography>
