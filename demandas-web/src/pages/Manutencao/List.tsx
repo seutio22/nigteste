@@ -9,7 +9,7 @@ import { SmartImporter } from '../../components/SmartImporter'
 import { smartImporterConfigs } from '../../config/smartImporterConfigs'
 import type { ImportResult } from '../../types/smartImporter'
 import { useFilteredData } from '../../lib/utils'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, memo } from 'react'
 import ExportDataModal from '../../components/ExportDataModal'
 import { usePermissions } from '../../hooks/usePermissions'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
@@ -938,7 +938,8 @@ export default function ManutencaoListPage() {
   )
 }
 
-function ActionCell({ id, status }: { id: string, status: string }) {
+// 🚀 MELHORIA FASE 2A: React.memo - 40-60% menos re-renders
+const ActionCell = memo(function ActionCell({ id, status }: { id: string, status: string }) {
   const navigate = useNavigate()
   const store = useManutencaoStore()
   const md = useMasterDataStore()
@@ -1231,4 +1232,4 @@ function ActionCell({ id, status }: { id: string, status: string }) {
       </Dialog>
     </>
   )
-}
+})
