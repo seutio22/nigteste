@@ -444,7 +444,24 @@ function EditInline({ d }: { d: Demand }) {
     console.log('🔍 DemandDetailPage: Atualizando draft com dados:', d)
     console.log('🔍 DemandDetailPage: dataInicio:', d.dataInicio, 'dataFinal:', d.dataFinal, 'tipo:', d.tipo)
     console.log('🔍 DemandDetailPage: analistaId:', d.analistaId, 'analistas disponíveis:', md.analistas.length)
-    setDraft(d)
+    
+    // 🐛 CORREÇÃO: Normalizar dados para garantir que IDs sejam strings, não objetos
+    const normalizedDraft = { ...d }
+    
+    // Normalizar analistaId
+    if (normalizedDraft.analistaId && typeof normalizedDraft.analistaId === 'object') {
+      normalizedDraft.analistaId = (normalizedDraft.analistaId as any).id || (normalizedDraft.analistaId as any).nome || ''
+    }
+    
+    // Normalizar outros IDs que podem vir como objetos
+    const idFields = ['areaId', 'clienteId', 'contratoId', 'operadoraId', 'produtoId', 'sistemaId', 'tipoId', 'tipoServicoId'] as const
+    idFields.forEach(field => {
+      if (normalizedDraft[field] && typeof normalizedDraft[field] === 'object') {
+        (normalizedDraft as any)[field] = (normalizedDraft[field] as any).id || (normalizedDraft[field] as any).nome || ''
+      }
+    })
+    
+    setDraft(normalizedDraft)
   }, [d])
 
   const contratosDoGrupo = md.contratos.filter(c => 
@@ -528,15 +545,16 @@ function EditInline({ d }: { d: Demand }) {
         usuariosEmpresa: draft.usuariosEmpresa || null,
         dataInicio: formatDateForAPI(draft.dataInicio),
         dataFinal: formatDateForAPI(draft.dataFinal),
-        // Apenas incluir IDs se não estiverem vazios
-        ...(draft.clienteId && { clienteId: draft.clienteId }),
-        ...(draft.contratoId && { contratoId: draft.contratoId }),
-        ...(draft.operadoraId && { operadoraId: draft.operadoraId }),
-        ...(draft.produtoId && { produtoId: draft.produtoId }),
-        ...(draft.sistemaId && { sistemaId: draft.sistemaId }),
-        ...(draft.areaId && { areaId: draft.areaId }),
-        ...(draft.tipoId && { tipoId: draft.tipoId }),
-        ...(draft.tipoServicoId && { tipoServicoId: draft.tipoServicoId }),
+        // 🐛 CORREÇÃO: Normalizar IDs antes de enviar (garantir que sejam strings)
+        ...(draft.clienteId && { clienteId: typeof draft.clienteId === 'object' ? (draft.clienteId as any)?.id : draft.clienteId }),
+        ...(draft.contratoId && { contratoId: typeof draft.contratoId === 'object' ? (draft.contratoId as any)?.id : draft.contratoId }),
+        ...(draft.operadoraId && { operadoraId: typeof draft.operadoraId === 'object' ? (draft.operadoraId as any)?.id : draft.operadoraId }),
+        ...(draft.produtoId && { produtoId: typeof draft.produtoId === 'object' ? (draft.produtoId as any)?.id : draft.produtoId }),
+        ...(draft.sistemaId && { sistemaId: typeof draft.sistemaId === 'object' ? (draft.sistemaId as any)?.id : draft.sistemaId }),
+        ...(draft.areaId && { areaId: typeof draft.areaId === 'object' ? (draft.areaId as any)?.id : draft.areaId }),
+        ...(draft.tipoId && { tipoId: typeof draft.tipoId === 'object' ? (draft.tipoId as any)?.id : draft.tipoId }),
+        ...(draft.tipoServicoId && { tipoServicoId: typeof draft.tipoServicoId === 'object' ? (draft.tipoServicoId as any)?.id : draft.tipoServicoId }),
+        ...(draft.analistaId && { analistaId: typeof draft.analistaId === 'object' ? (draft.analistaId as any)?.id : draft.analistaId }),
       }
       
       console.log('🔍 DemandDetailPage: Atualizando demanda no backend...')
@@ -619,13 +637,19 @@ function EditInline({ d }: { d: Demand }) {
         // NOTA: 'solicitante' não é ID, mas está aqui para manter compatibilidade com convertIdToName (retorna o próprio valor)
         const fieldsWithIdConversion = ['clienteId', 'contratoId', 'operadoraId', 'produtoId', 'sistemaId', 'areaId', 'tipoId', 'tipoServicoId', 'analistaId', 'solicitante']
         
+        // 🐛 CORREÇÃO: Normalizar valores antes de converter
+        const fromValue = (d as any)[k]
+        const toValue = (draft as any)[k]
+        const normalizedFrom = typeof fromValue === 'object' ? (fromValue?.id || fromValue?.nome || '') : fromValue
+        const normalizedTo = typeof toValue === 'object' ? (toValue?.id || toValue?.nome || '') : toValue
+        
         const from = fieldsWithIdConversion.includes(k) 
-          ? convertIdToName((d as any)[k], k)
-          : String((d as any)[k] ?? '')
+          ? convertIdToName(normalizedFrom, k)
+          : String(normalizedFrom ?? '')
         
         const to = fieldsWithIdConversion.includes(k)
-          ? convertIdToName((draft as any)[k], k)
-          : String((draft as any)[k] ?? '')
+          ? convertIdToName(normalizedTo, k)
+          : String(normalizedTo ?? '')
         if (k === 'status') {
           store.log({ 
             demandaId: d.id, 
@@ -742,7 +766,7 @@ function EditInline({ d }: { d: Demand }) {
             options={md.clientes}
             getOptionLabel={(option) => option.nome || ''}
             isOptionEqualToValue={(option, value) => option.id === value?.id}
-            value={md.clientes.find(c => c.id === draft.clienteId) || null}
+            value={md.clientes.find(c => c.id === (typeof draft.clienteId === 'object' ? (draft.clienteId as any)?.id : draft.clienteId)) || null}
             onChange={(_, newValue) => setDraft({ ...draft, clienteId: newValue?.id || undefined })}
             renderInput={(params) => (
               <TextField
@@ -797,7 +821,7 @@ function EditInline({ d }: { d: Demand }) {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Contrato</label>
           <select
-            value={draft.contratoId || ''}
+            value={typeof draft.contratoId === 'object' ? ((draft.contratoId as any)?.id || '') : (draft.contratoId || '')}
             onChange={(e) => setDraft({ ...draft, contratoId: e.target.value || undefined })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
@@ -815,7 +839,7 @@ function EditInline({ d }: { d: Demand }) {
             options={md.operadoras}
             getOptionLabel={(option) => option.nome || ''}
             isOptionEqualToValue={(option, value) => option.id === value?.id}
-            value={md.operadoras.find(o => o.id === draft.operadoraId) || null}
+            value={md.operadoras.find(o => o.id === (typeof draft.operadoraId === 'object' ? (draft.operadoraId as any)?.id : draft.operadoraId)) || null}
             onChange={(_, newValue) => setDraft({ ...draft, operadoraId: newValue?.id || undefined })}
             renderInput={(params) => (
               <TextField
@@ -845,7 +869,7 @@ function EditInline({ d }: { d: Demand }) {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Produto</label>
           <select
-            value={draft.produtoId || ''}
+            value={typeof draft.produtoId === 'object' ? ((draft.produtoId as any)?.id || '') : (draft.produtoId || '')}
             onChange={(e) => setDraft({ ...draft, produtoId: e.target.value || undefined })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
@@ -860,7 +884,7 @@ function EditInline({ d }: { d: Demand }) {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Sistema</label>
           <select
-            value={draft.sistemaId || ''}
+            value={typeof draft.sistemaId === 'object' ? ((draft.sistemaId as any)?.id || '') : (draft.sistemaId || '')}
             onChange={(e) => setDraft({ ...draft, sistemaId: e.target.value || undefined })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
@@ -871,7 +895,7 @@ function EditInline({ d }: { d: Demand }) {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Área</label>
           <select
-            value={draft.areaId || ''}
+            value={typeof draft.areaId === 'object' ? ((draft.areaId as any)?.id || '') : (draft.areaId || '')}
             onChange={(e) => setDraft({ ...draft, areaId: e.target.value || undefined })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
@@ -911,7 +935,7 @@ function EditInline({ d }: { d: Demand }) {
         <label className="block text-sm font-medium text-gray-700 mb-2">Analista Responsável</label>
         <input
           type="text"
-          value={label(draft.analistaId, md.analistas)}
+          value={label(typeof draft.analistaId === 'object' ? (draft.analistaId as any)?.id : draft.analistaId, md.analistas)}
           readOnly
           className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
           placeholder="Definido na criação"
@@ -926,7 +950,7 @@ function EditInline({ d }: { d: Demand }) {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Serviço</label>
           <select
-            value={draft.tipoServicoId || ''}
+            value={typeof draft.tipoServicoId === 'object' ? ((draft.tipoServicoId as any)?.id || '') : (draft.tipoServicoId || '')}
             onChange={(e) => setDraft({ ...draft, tipoServicoId: e.target.value || undefined })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
@@ -937,7 +961,7 @@ function EditInline({ d }: { d: Demand }) {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Demanda</label>
           <select
-            value={draft.tipoId || ''}
+            value={typeof draft.tipoId === 'object' ? ((draft.tipoId as any)?.id || '') : (draft.tipoId || '')}
             onChange={(e) => setDraft({ ...draft, tipoId: e.target.value || undefined })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >

@@ -200,13 +200,38 @@ export const useDemandStore = create<DemandState>()(
           return demand
         }
       },
-      upsert: (demand) => set((s) => {
-        const exists = s.items.some((d) => d.id === demand.id)
-        if (exists) {
-          return { items: s.items.map((d) => (d.id === demand.id ? { ...demand, updatedAt: new Date().toISOString() } : d)) }
+      upsert: (demand) => {
+        // 🐛 CORREÇÃO: Normalizar IDs antes de fazer upsert
+        const normalizeId = (value: any): string | undefined => {
+          if (!value) return undefined
+          if (typeof value === 'string') return value
+          if (typeof value === 'object' && value !== null) {
+            return value.id || value.nome || undefined
+          }
+          return String(value)
         }
-        return { items: [demand, ...s.items] }
-      }),
+        
+        const normalizedDemand: Demand = {
+          ...demand,
+          analistaId: normalizeId(demand.analistaId),
+          areaId: normalizeId(demand.areaId),
+          clienteId: normalizeId(demand.clienteId),
+          contratoId: normalizeId(demand.contratoId),
+          operadoraId: normalizeId(demand.operadoraId),
+          produtoId: normalizeId(demand.produtoId),
+          sistemaId: normalizeId(demand.sistemaId),
+          tipoId: normalizeId(demand.tipoId),
+          tipoServicoId: normalizeId(demand.tipoServicoId)
+        }
+        
+        set((s) => {
+          const exists = s.items.some((d) => d.id === normalizedDemand.id)
+          if (exists) {
+            return { items: s.items.map((d) => (d.id === normalizedDemand.id ? { ...normalizedDemand, updatedAt: new Date().toISOString() } : d)) }
+          }
+          return { items: [normalizedDemand, ...s.items] }
+        })
+      },
       remove: async (id) => {
         console.log('🔍 DemandStore: Removendo demanda:', id)
         
@@ -292,11 +317,30 @@ export const useDemandStore = create<DemandState>()(
           console.log('🔍 DemandStore: Dados recebidos da API:', demandas)
           console.log('🔍 DemandStore: Quantidade de demandas:', demandas?.length || 0)
           
+          // 🐛 CORREÇÃO: Normalizar IDs para garantir que sejam strings, não objetos
+          const normalizeId = (value: any): string | undefined => {
+            if (!value) return undefined
+            if (typeof value === 'string') return value
+            if (typeof value === 'object' && value !== null) {
+              return value.id || value.nome || undefined
+            }
+            return String(value)
+          }
+          
+          const normalizeName = (value: any): string | undefined => {
+            if (!value) return undefined
+            if (typeof value === 'string') return value
+            if (typeof value === 'object' && value !== null) {
+              return value.nome || value.name || value.id || undefined
+            }
+            return String(value)
+          }
+          
           // Mapear dados da API para o formato do frontend
           const demandasMapeadas: Demand[] = demandas.map((d: any) => {
             console.log('🔍 DemandStore: Mapeando demanda:', d)
             
-            const demandaMapeada = {
+            const demandaMapeada: Demand = {
               id: d.id,
               ticket: d.ticket,
               status: d.status,
@@ -312,25 +356,25 @@ export const useDemandStore = create<DemandState>()(
               dataFinal: d.dataFinal,
               createdAt: d.createdAt,
               updatedAt: d.updatedAt,
-              // IDs para edição
-              clienteId: d.clienteId,
-              contratoId: d.contratoId,
-              operadoraId: d.operadoraId,
-              produtoId: d.produtoId,
-              sistemaId: d.sistemaId,
-              areaId: d.areaId,
-              tipoId: d.tipoId,
-              tipoServicoId: d.tipoServicoId,
-              analistaId: d.analistaId,
-              // Campos adicionais para compatibilidade
-              analista: d.analista || d.analistaId,
-              area: d.area || d.areaId,
-              cliente: d.cliente || d.clienteId,
-              operadora: d.operadora || d.operadoraId,
-              produto: d.produto || d.produtoId,
-              sistema: d.sistema || d.sistemaId,
-              tipo: d.tipo || d.tipoId,
-              tipoServico: d.tipoServico || d.tipoServicoId
+              // IDs para edição - normalizados
+              clienteId: normalizeId(d.clienteId || d.cliente),
+              contratoId: normalizeId(d.contratoId || d.contrato),
+              operadoraId: normalizeId(d.operadoraId || d.operadora),
+              produtoId: normalizeId(d.produtoId || d.produto),
+              sistemaId: normalizeId(d.sistemaId || d.sistema),
+              areaId: normalizeId(d.areaId || d.area),
+              tipoId: normalizeId(d.tipoId || d.tipo),
+              tipoServicoId: normalizeId(d.tipoServicoId || d.tipoServico),
+              analistaId: normalizeId(d.analistaId || d.analista),
+              // Campos adicionais para compatibilidade - normalizados como strings
+              analista: normalizeName(d.analista) || normalizeId(d.analistaId),
+              area: normalizeName(d.area) || normalizeId(d.areaId),
+              cliente: normalizeName(d.cliente) || normalizeId(d.clienteId),
+              operadora: normalizeName(d.operadora) || normalizeId(d.operadoraId),
+              produto: normalizeName(d.produto) || normalizeId(d.produtoId),
+              sistema: normalizeName(d.sistema) || normalizeId(d.sistemaId),
+              tipo: normalizeName(d.tipo) || normalizeId(d.tipoId),
+              tipoServico: normalizeName(d.tipoServico) || normalizeId(d.tipoServicoId)
             }
             
             console.log('🔍 DemandStore: Demanda mapeada:', demandaMapeada)
