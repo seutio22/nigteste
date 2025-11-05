@@ -570,11 +570,14 @@ export default function DemandListPage() {
         return d.tipo || ''
       })(),
       createdAt: d.createdAt || '',
+      // Manter o valor original da data (ISO string) para ordenação correta (igual Manutenção)
+      // A formatação será feita pelo valueFormatter da coluna
       updatedAt: d.updatedAt || '',
     }
   }), [finalFilteredItems, analistaMap, areaMap, clienteMap, contratoMap, operadoraMap, produtoMap, tipoServicoMap, tipoDemandaMap])
   
-  // Ordenar os dados por updatedAt (data de atualização - mais recente primeiro) antes de passar para o DataGrid
+  // 🚀 CORREÇÃO: Ordenar os dados por updatedAt (data de atualização - mais recente primeiro) antes de passar para o DataGrid
+  // Garantir que a ordenação seja idêntica à página Manutenção
   const sortedRows = [...rows].sort((a, b) => {
     // Tratar strings vazias como datas inválidas (devem ir para o final)
     const dateA = a.updatedAt && a.updatedAt.trim() !== '' ? new Date(a.updatedAt).getTime() : 0
@@ -587,7 +590,7 @@ export default function DemandListPage() {
     if (dateA === 0) return 1
     if (dateB === 0) return -1
     
-    // Ordem decrescente (mais recente primeiro)
+    // Ordem decrescente (mais recente primeiro) - igual Manutenção
     return dateB - dateA
   })
   
