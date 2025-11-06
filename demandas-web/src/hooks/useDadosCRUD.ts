@@ -550,6 +550,31 @@ export const useDadosCRUD = () => {
     try {
       const config = ENTITY_CONFIGS[activeTab]
       
+      // Mapeamento entre activeTab e nome da entidade usado no localExclusions
+      const entityNameMap: Record<TabKey, string> = {
+        'clientes': 'clientes',
+        'contratos': 'contratos',
+        'operadoras': 'operadoras',
+        'produtos': 'produtos',
+        'sistemas': 'sistemas',
+        'grupos': 'grupos',
+        'analistas': 'analistas',
+        'areas': 'areas',
+        'areasMailling': 'areasMailling',
+        'cargosMailling': 'cargosMailling',
+        'filiaisMailling': 'filiaisMailling',
+        'tipos': 'tiposDemanda',
+        'tipos-cadastro': 'tiposCadastro',
+        'servicos': 'tiposServico',
+        'solicitantes': 'solicitantes',
+        'relatorios': 'relatorios',
+        'modelos': 'modelos',
+        'padrao': 'padrao',
+        'configuracoes': 'configuracoes'
+      }
+      
+      const entityName = entityNameMap[activeTab]
+      
       // Função auxiliar para remover do store local
       const removeFromStore = (itemId: string) => {
         console.log(`🔍 removeFromStore: Removendo ${itemId} de ${activeTab}`)
@@ -619,6 +644,12 @@ export const useDadosCRUD = () => {
             dadosStore.remove(id)
             break
         }
+        
+        // Adicionar à lista de exclusões locais para evitar que volte na sincronização
+        if (entityName && entityName !== 'configuracoes') {
+          store.addLocalExclusion(entityName, itemId)
+          console.log(`✅ Item ${itemId} adicionado à lista de exclusões locais para ${entityName}`)
+        }
       }
       
       // Tentar excluir do backend primeiro
@@ -650,6 +681,7 @@ export const useDadosCRUD = () => {
         )) {
           console.log(`ℹ️ Registro ${id} não existe no backend, removendo do cache local`)
           // Remover do store local mesmo se não existir no backend
+          // E adicionar à lista de exclusões para evitar que volte
           removeFromStore(id)
           
           setSnack({
@@ -665,7 +697,7 @@ export const useDadosCRUD = () => {
       }
       
       // Se chegou até aqui, a exclusão foi bem-sucedida no backend
-      // Remover do store local
+      // Remover do store local e adicionar à lista de exclusões
       removeFromStore(id)
       
       setSnack({
