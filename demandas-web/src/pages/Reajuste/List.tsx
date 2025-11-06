@@ -26,6 +26,7 @@ const columns: GridColDef[] = [
   { field: 'acoes', headerName: 'Ações', width: 80, sortable: false, filterable: false, renderCell: (p) => (
     <ActionCell id={String(p.id)} status={String(p.row.status ?? '')} />
   ) },
+  { field: 'ticket', headerName: 'Ticket', width: 140 },
   { field: 'mesAno', headerName: 'Mês/Ano', width: 120 },
   { field: 'filial', headerName: 'Filial', width: 140 },
   { field: 'operadora', headerName: 'Operadora', width: 160 },
@@ -331,6 +332,7 @@ export default function ReajusteListPage() {
 
   const rows = finalFilteredItems.map((r) => ({
     id: r.id,
+    ticket: r.ticket ?? '',
     mesAno: `${r.mes}/${r.ano}`,
     filial: r.filial ?? '',
     operadora: md.operadoras.find(o => o.id === r.operadora)?.nome ?? '',
