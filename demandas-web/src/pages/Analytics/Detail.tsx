@@ -347,7 +347,41 @@ function EditInline({ report }: { report: any }) {
       // Filtrar campos que não devem ser enviados no update (são automáticos)
       const { id, dataCriacao, dataAtualizacao, userId, arquivo, ...updatePayload } = draft
       
-      console.log('🔍 Analytics applySave: Payload filtrado:', updatePayload)
+      // Converter dataFinalizacao para ISO-8601 DateTime se existir e não estiver no formato correto
+      if (updatePayload.dataFinalizacao) {
+        const dataFinalizacaoValue = updatePayload.dataFinalizacao
+        // Se for apenas uma data (formato YYYY-MM-DD), converter para DateTime ISO-8601
+        if (typeof dataFinalizacaoValue === 'string' && dataFinalizacaoValue.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          updatePayload.dataFinalizacao = new Date(dataFinalizacaoValue + 'T00:00:00.000Z').toISOString()
+          console.log('🔍 Analytics: dataFinalizacao convertida de data para DateTime:', updatePayload.dataFinalizacao)
+        } else if (typeof dataFinalizacaoValue === 'string' && !dataFinalizacaoValue.includes('T')) {
+          // Se não tiver 'T', provavelmente é apenas data, converter
+          updatePayload.dataFinalizacao = new Date(dataFinalizacaoValue + 'T00:00:00.000Z').toISOString()
+          console.log('🔍 Analytics: dataFinalizacao convertida para DateTime:', updatePayload.dataFinalizacao)
+        }
+      }
+      
+      // Converter dataInicio para ISO-8601 DateTime se necessário
+      if (updatePayload.dataInicio) {
+        const dataInicioValue = updatePayload.dataInicio
+        if (typeof dataInicioValue === 'string' && dataInicioValue.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          updatePayload.dataInicio = new Date(dataInicioValue + 'T00:00:00.000Z').toISOString()
+        } else if (typeof dataInicioValue === 'string' && !dataInicioValue.includes('T')) {
+          updatePayload.dataInicio = new Date(dataInicioValue + 'T00:00:00.000Z').toISOString()
+        }
+      }
+      
+      // Converter dataEntrega para ISO-8601 DateTime se necessário
+      if (updatePayload.dataEntrega) {
+        const dataEntregaValue = updatePayload.dataEntrega
+        if (typeof dataEntregaValue === 'string' && dataEntregaValue.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          updatePayload.dataEntrega = new Date(dataEntregaValue + 'T00:00:00.000Z').toISOString()
+        } else if (typeof dataEntregaValue === 'string' && !dataEntregaValue.includes('T')) {
+          updatePayload.dataEntrega = new Date(dataEntregaValue + 'T00:00:00.000Z').toISOString()
+        }
+      }
+      
+      console.log('🔍 Analytics applySave: Payload filtrado e convertido:', updatePayload)
       await api.put(`/analytics/${report.id}`, updatePayload)
       console.log('✅ Relatório atualizado no backend:', report.id)
     } catch (error) {
