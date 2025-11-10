@@ -35,6 +35,16 @@ const iconMap = {
   Assessment: AssessmentIcon
 }
 
+// Mapeamento de nomes de páginas para exibição
+const paginaNomeMap: Record<string, string> = {
+  demandas: 'Cadastro',
+  atendimentos: 'Atendimentos',
+  validacoes: 'Validações',
+  reajustes: 'Reajustes',
+  manutencoes: 'Manutenções',
+  analytics: 'Analytics'
+}
+
 export const AdvancedIndicators: React.FC<AdvancedIndicatorsProps> = ({
   indicators,
   tempoExecucaoMetrics,
@@ -201,18 +211,21 @@ export const AdvancedIndicators: React.FC<AdvancedIndicatorsProps> = ({
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                       Distribuição por página:
                     </Typography>
-                    {Object.entries(analista.itensPorPagina).map(([pagina, quantidade]) => (
-                      quantidade > 0 && (
-                        <Box key={pagina} sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                          <Typography variant="caption" sx={{ textTransform: 'capitalize' }}>
-                            {pagina}:
-                          </Typography>
-                          <Typography variant="caption" sx={{ fontWeight: 600 }}>
-                            {quantidade}
-                          </Typography>
-                        </Box>
-                      )
-                    ))}
+                    {Object.entries(analista.itensPorPagina)
+                      .sort(([, a], [, b]) => b - a) // Ordenar por quantidade (maior primeiro)
+                      .map(([pagina, quantidade]) => {
+                        const nomePagina = paginaNomeMap[pagina] || pagina
+                        return (
+                          <Box key={pagina} sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                            <Typography variant="caption" sx={{ textTransform: 'capitalize' }}>
+                              {nomePagina}:
+                            </Typography>
+                            <Typography variant="caption" sx={{ fontWeight: 600 }}>
+                              {quantidade}
+                            </Typography>
+                          </Box>
+                        )
+                      })}
                   </Box>
                 </CardContent>
               </Card>

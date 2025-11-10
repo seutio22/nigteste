@@ -5,6 +5,7 @@ import { useValidationStore } from '../store/validationStore'
 import { useReajusteStore } from '../store/reajusteStore'
 import { useManutencaoStore } from '../store/manutencaoStore'
 import { useReportStore } from '../store/reportStore'
+import { useMasterDataStore } from '../store/masterDataStore'
 
 export interface AdvancedIndicator {
   id: string
@@ -57,6 +58,7 @@ export const useAdvancedIndicators = (
   const reajusteStore = useReajusteStore()
   const manutencaoStore = useManutencaoStore()
   const reportStore = useReportStore()
+  const masterDataStore = useMasterDataStore()
 
   // Função para calcular tempo de execução em dias
   const calcularTempoExecucao = (dataInicio?: string, dataFinalizacao?: string): number => {
@@ -167,14 +169,21 @@ export const useAdvancedIndicators = (
         const analistaField = page.name === 'reajustes' ? 'responsavelAnalista' : 'analista'
         const analistaId = item[analistaField]
         
+        // Pular itens sem analistaId
+        if (!analistaId) {
+          return
+        }
+        
         // Garantir que analistaNome seja sempre uma string
         let analistaNome = 'Sem analista'
         if (item.analistaNome) {
           analistaNome = typeof item.analistaNome === 'string' ? item.analistaNome : 
                         typeof item.analistaNome === 'object' && item.analistaNome.nome ? 
                         item.analistaNome.nome : String(item.analistaNome)
-        } else if (analistaId) {
-          analistaNome = typeof analistaId === 'string' ? analistaId : String(analistaId)
+        } else {
+          // Buscar o nome do analista no masterDataStore
+          const analista = masterDataStore.analistas.find(a => a.id === analistaId)
+          analistaNome = analista ? analista.nome : 'Analista não encontrado'
         }
 
         if (!analistasMap.has(analistaId)) {
@@ -213,7 +222,7 @@ export const useAdvancedIndicators = (
     })
 
     return Array.from(analistasMap.values()).sort((a, b) => b.totalItens - a.totalItens)
-  }, [demandasFiltradas, atendimentosFiltrados, validacoesFiltradas, reajustesFiltrados, manutencoesFiltradas, analyticsFiltrados])
+  }, [demandasFiltradas, atendimentosFiltrados, validacoesFiltradas, reajustesFiltrados, manutencoesFiltradas, analyticsFiltrados, masterDataStore.analistas])
 
   // Indicadores avançados
   const advancedIndicators = useMemo((): AdvancedIndicator[] => {
