@@ -172,12 +172,15 @@ export const useAdvancedIndicators = (
     allPages.forEach(page => {
       page.items.forEach(item => {
         const analistaField = page.name === 'reajustes' ? 'responsavelAnalista' : 'analista'
-        const analistaId = item[analistaField]
+        const analistaIdRaw = item[analistaField]
         
         // Pular itens sem analistaId
-        if (!analistaId) {
+        if (!analistaIdRaw) {
           return
         }
+        
+        // Converter para string imediatamente para evitar erros
+        const analistaId = String(analistaIdRaw)
         
         // Garantir que analistaNome seja sempre uma string
         let analistaNome = 'Sem analista'
@@ -186,28 +189,28 @@ export const useAdvancedIndicators = (
         // 1. Se já tem analistaNome no item, usar ele
         if (item.analistaNome) {
           analistaNome = typeof item.analistaNome === 'string' ? item.analistaNome : 
-                        typeof item.analistaNome === 'object' && item.analistaNome.nome ? 
-                        item.analistaNome.nome : String(item.analistaNome)
+                        typeof item.analistaNome === 'object' && item.analistaNome && item.analistaNome.nome ? 
+                        String(item.analistaNome.nome) : String(item.analistaNome)
         } else if (analistaId) {
           // 2. Verificar se analistaId é um UUID (ID) ou um nome
           const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(analistaId)
           
           if (isUUID) {
             // É um ID (UUID) - buscar por ID
-            const analista = masterDataStore.analistas.find(a => a.id === analistaId)
-            if (analista) {
-              analistaNome = analista.nome
-              analistaIdFinal = analista.id
+            const analista = masterDataStore.analistas.find(a => a && a.id && String(a.id) === analistaId)
+            if (analista && analista.nome) {
+              analistaNome = String(analista.nome)
+              analistaIdFinal = String(analista.id || analistaId)
             } else {
               // Não encontrou por ID - tentar usar o valor como nome se não for UUID válido
-              analistaNome = String(analistaId).length > 36 ? 'Analista não encontrado' : String(analistaId)
+              analistaNome = analistaId.length > 36 ? 'Analista não encontrado' : analistaId
             }
           } else {
             // Não é UUID - pode ser um nome, verificar se existe no masterDataStore
-            const analistaIdStr = String(analistaId).toLowerCase()
+            const analistaIdStr = analistaId.toLowerCase()
             const analistaPorNome = masterDataStore.analistas.find(a => {
               if (!a || !a.nome || typeof a.nome !== 'string') return false
-              const nomeAnalista = a.nome.toLowerCase()
+              const nomeAnalista = String(a.nome).toLowerCase()
               return nomeAnalista === analistaIdStr ||
                      nomeAnalista.includes(analistaIdStr) ||
                      analistaIdStr.includes(nomeAnalista)
@@ -216,10 +219,10 @@ export const useAdvancedIndicators = (
             if (analistaPorNome && analistaPorNome.nome) {
               // Encontrou por nome - usar o nome e atualizar o ID
               analistaNome = String(analistaPorNome.nome)
-              analistaIdFinal = analistaPorNome.id || analistaId
+              analistaIdFinal = String(analistaPorNome.id || analistaId)
             } else {
               // Não encontrou - usar o valor original como nome
-              analistaNome = String(analistaId)
+              analistaNome = analistaId
             }
           }
         }
