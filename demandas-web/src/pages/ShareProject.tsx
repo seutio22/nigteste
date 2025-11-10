@@ -444,71 +444,167 @@ const ShareProject: React.FC = () => {
           </Box>
         </Box>
         
-                {/* Resumo do Cronograma */}
+        {/* Resumo do Cronograma - Cards Informativos */}
         <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={12} md={4}>
-            <Card sx={{ height: '100%' }}>
-              <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                <Box>
-                  <Typography variant="h6" gutterBottom color="primary">
+          <Grid item xs={12} md={3}>
+            <Card sx={{ 
+              height: '100%',
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              color: 'white',
+              '&:hover': {
+                transform: 'translateY(-4px)',
+                transition: 'all 0.3s ease-in-out',
+                boxShadow: 6
+              }
+            }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                  <CalendarIcon sx={{ fontSize: 32, mr: 1 }} />
+                  <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
                     Datas do Projeto
                   </Typography>
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" color="textSecondary">
-                      <CalendarIcon sx={{ mr: 1, fontSize: 16 }} />
-                      Início: {formatDate(project.startDate)}
-                    </Typography>
-                  </Box>
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" color="textSecondary">
-                      <CalendarIcon sx={{ mr: 1, fontSize: 16 }} />
-                      Fim: {formatDate(project.endDate)}
-                    </Typography>
-                  </Box>
                 </Box>
-                
-                {/* Espaçador para alinhar com as outras caixas */}
-                <Box sx={{ mt: 'auto', pt: 2 }}>
-                  <Typography variant="body2" color="textSecondary">
-                    Projeto em andamento
+                <Box sx={{ mb: 1.5 }}>
+                  <Typography variant="caption" sx={{ opacity: 0.9 }}>
+                    Início
+                  </Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                    {formatDate(project.startDate)}
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" sx={{ opacity: 0.9 }}>
+                    Fim Previsto
+                  </Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                    {formatDate(project.endDate)}
                   </Typography>
                 </Box>
               </CardContent>
             </Card>
           </Grid>
           
-          <Grid item xs={12} md={4}>
-            <Card sx={{ height: '100%' }}>
-              <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                <Box>
-                  <Typography variant="h6" gutterBottom color="primary">
-                    Fases do Projeto
+          <Grid item xs={12} md={3}>
+            <Card sx={{ 
+              height: '100%',
+              background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+              color: 'white',
+              '&:hover': {
+                transform: 'translateY(-4px)',
+                transition: 'all 0.3s ease-in-out',
+                boxShadow: 6
+              }
+            }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                  <AssignmentIcon sx={{ fontSize: 32, mr: 1 }} />
+                  <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                    Fases
                   </Typography>
-                  <Typography variant="h4" color="primary" sx={{ fontWeight: 'bold' }}>
-                    {phases.length}
-                  </Typography>
-                  <Typography variant="body2" color="textSecondary">
-                    Fases configuradas
-                  </Typography>
+                </Box>
+                <Typography variant="h3" sx={{ fontWeight: 'bold', mb: 1 }}>
+                  {phases.length}
+                </Typography>
+                <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                  Fases configuradas
+                </Typography>
+                <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                  <Chip 
+                    label={`${phases.filter((p: any) => p.status === 'em_andamento' || p.status === 'in-progress').length} Ativas`}
+                    size="small"
+                    sx={{ backgroundColor: 'rgba(255,255,255,0.3)', color: 'white' }}
+                  />
+                  <Chip 
+                    label={`${phases.filter((p: any) => p.status === 'concluido' || p.status === 'completed').length} Concluídas`}
+                    size="small"
+                    sx={{ backgroundColor: 'rgba(255,255,255,0.3)', color: 'white' }}
+                  />
                 </Box>
               </CardContent>
             </Card>
           </Grid>
           
-          <Grid item xs={12} md={4}>
-            <Card sx={{ height: '100%' }}>
-              <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                <Box>
-                  <Typography variant="h6" gutterBottom color="primary">
-                    Tarefas Totais
-                  </Typography>
-                  <Typography variant="h4" color="primary" sx={{ fontWeight: 'bold' }}>
-                    {project.tasks?.length || 0}
-                  </Typography>
-                  <Typography variant="body2" color="textSecondary">
-                    Tarefas planejadas
+          <Grid item xs={12} md={3}>
+            <Card sx={{ 
+              height: '100%',
+              background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+              color: 'white',
+              '&:hover': {
+                transform: 'translateY(-4px)',
+                transition: 'all 0.3s ease-in-out',
+                boxShadow: 6
+              }
+            }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                  <CheckCircleIcon sx={{ fontSize: 32, mr: 1 }} />
+                  <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                    Tarefas
                   </Typography>
                 </Box>
+                <Typography variant="h3" sx={{ fontWeight: 'bold', mb: 1 }}>
+                  {phases.reduce((total: number, p: any) => total + (p.tasks?.length || 0), 0)}
+                </Typography>
+                <Typography variant="body2" sx={{ opacity: 0.9, mb: 2 }}>
+                  Total de tarefas nas fases
+                </Typography>
+                <Box>
+                  <Typography variant="caption" sx={{ opacity: 0.9 }}>
+                    Tarefas concluídas
+                  </Typography>
+                  <LinearProgress
+                    variant="determinate"
+                    value={
+                      phases.reduce((total: number, p: any) => {
+                        const completed = p.tasks?.filter((t: any) => t.status === 'completed' || t.status === 'concluido').length || 0;
+                        return total + completed;
+                      }, 0) / Math.max(1, phases.reduce((total: number, p: any) => total + (p.tasks?.length || 0), 0)) * 100
+                    }
+                    sx={{ 
+                      height: 6, 
+                      borderRadius: 3,
+                      backgroundColor: 'rgba(255,255,255,0.3)',
+                      mt: 0.5
+                    }}
+                  />
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          <Grid item xs={12} md={3}>
+            <Card sx={{ 
+              height: '100%',
+              background: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+              color: 'white',
+              '&:hover': {
+                transform: 'translateY(-4px)',
+                transition: 'all 0.3s ease-in-out',
+                boxShadow: 6
+              }
+            }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                  <ScheduleIcon sx={{ fontSize: 32, mr: 1 }} />
+                  <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                    Progresso
+                  </Typography>
+                </Box>
+                <Typography variant="h3" sx={{ fontWeight: 'bold', mb: 1 }}>
+                  {project.progress}%
+                </Typography>
+                <Typography variant="body2" sx={{ opacity: 0.9, mb: 2 }}>
+                  Progresso geral do projeto
+                </Typography>
+                <LinearProgress
+                  variant="determinate"
+                  value={project.progress}
+                  sx={{ 
+                    height: 10, 
+                    borderRadius: 5,
+                    backgroundColor: 'rgba(255,255,255,0.3)'
+                  }}
+                />
               </CardContent>
             </Card>
           </Grid>
@@ -614,119 +710,302 @@ const ShareProject: React.FC = () => {
               {/* Tarefas da Fase */}
               {phase.tasks && phase.tasks.length > 0 && (
                 <Box>
-                  <Typography variant="subtitle2" gutterBottom color="textSecondary">
-                    Tarefas da Fase ({phase.tasks.length})
-                  </Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                    <Typography variant="subtitle1" fontWeight="bold" color="primary">
+                      Tarefas da Fase ({phase.tasks.length})
+                    </Typography>
+                    <Chip 
+                      label={isExpanded ? 'Recolher' : 'Expandir'} 
+                      size="small" 
+                      onClick={() => togglePhase(phase.id)}
+                      icon={isExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                      sx={{ cursor: 'pointer' }}
+                    />
+                  </Box>
                   {isExpanded && (
-                    <List dense>
-                    {phase.tasks.map((task: any, taskIndex: number) => (
-                      <ListItem key={task.id || taskIndex} sx={{ px: 0 }}>
-                        <ListItemAvatar>
-                          <Avatar sx={{ 
-                            backgroundColor: getStatusColor(task.status),
-                            width: 32,
-                            height: 32
-                          }}>
-                            <AssignmentIcon sx={{ fontSize: 16 }} />
-                          </Avatar>
-                        </ListItemAvatar>
-                        <ListItemText
-                          primary={task.name || `Tarefa ${taskIndex + 1}`}
-                          secondary={
-                            <Box>
-                              <Typography variant="body2" component="span">
-                                {getStatusLabel(task.status)} • {getPriorityLabel(task.priority)}
-                              </Typography>
-                              
-                              {/* Datas da Tarefa */}
-                              <Grid container spacing={1} sx={{ mt: 1 }}>
-                                {task.startDate && (
-                                  <Grid item xs={6}>
-                                    <Typography variant="body2" component="div" color="textSecondary">
-                                      <CalendarIcon sx={{ mr: 0.5, fontSize: 12 }} />
-                                      Início: {formatDate(task.startDate)}
+                    <Box sx={{ mt: 2 }}>
+                      {phase.tasks.map((task: any, taskIndex: number) => (
+                        <Card 
+                          key={task.id || taskIndex} 
+                          sx={{ 
+                            mb: 2, 
+                            borderLeft: `4px solid ${getStatusColor(task.status)}`,
+                            '&:hover': {
+                              boxShadow: 3,
+                              transform: 'translateY(-2px)',
+                              transition: 'all 0.2s ease-in-out'
+                            }
+                          }}
+                        >
+                          <CardContent>
+                            <Grid container spacing={2}>
+                              {/* Coluna Principal - Nome e Descrição */}
+                              <Grid item xs={12} md={6}>
+                                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+                                  <Avatar sx={{ 
+                                    backgroundColor: getStatusColor(task.status),
+                                    width: 40,
+                                    height: 40
+                                  }}>
+                                    <AssignmentIcon />
+                                  </Avatar>
+                                  <Box sx={{ flex: 1 }}>
+                                    <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold' }}>
+                                      {task.name || `Tarefa ${taskIndex + 1}`}
                                     </Typography>
-                                  </Grid>
-                                )}
-                                {task.plannedEndDate && (
-                                  <Grid item xs={6}>
-                                    <Typography variant="body2" component="div" color="textSecondary">
-                                      <CalendarIcon sx={{ mr: 0.5, fontSize: 12 }} />
-                                      Prazo: {formatDate(task.plannedEndDate)}
-                                    </Typography>
-                                  </Grid>
-                                )}
-                                {task.actualEndDate && (
-                                  <Grid item xs={6}>
-                                    <Typography variant="body2" component="div" color="textSecondary">
-                                      <CheckCircleIcon sx={{ mr: 0.5, fontSize: 12 }} />
-                                      Concluída: {formatDate(task.actualEndDate)}
-                                    </Typography>
-                                  </Grid>
-                                )}
-                                {task.estimatedHours && (
-                                  <Grid item xs={6}>
-                                    <Typography variant="body2" component="div" color="textSecondary">
-                                      <ScheduleIcon sx={{ mr: 0.5, fontSize: 12 }} />
-                                      Estimativa: {task.estimatedHours}h
-                                    </Typography>
-                                  </Grid>
-                                )}
-                              </Grid>
-                              
-                              {/* Responsável */}
-                              {task.assignee && (
-                                <Typography variant="body2" component="div" color="textSecondary" sx={{ mt: 1 }}>
-                                  <PersonIcon sx={{ mr: 0.5, fontSize: 12 }} />
-                                  Responsável: {task.assignee.nome || task.assignee.name}
-                                </Typography>
-                              )}
-                              
-                              {/* Observações */}
-                              {task.observations && (
-                                <Typography variant="body2" component="div" color="textSecondary" sx={{ mt: 1, fontStyle: 'italic' }}>
-                                  "{task.observations}"
-                                </Typography>
-                              )}
-                              
-                              {/* Progresso */}
-                              {task.progress !== undefined && (
-                                <Box sx={{ mt: 1 }}>
-                                  <LinearProgress
-                                    variant="determinate"
-                                    value={task.progress}
-                                    sx={{ height: 6, borderRadius: 3 }}
-                                  />
-                                  <Typography variant="caption" color="textSecondary">
-                                    {task.progress}% concluído
-                                  </Typography>
+                                    {task.description && (
+                                      <Typography variant="body2" color="textSecondary" sx={{ mb: 1 }}>
+                                        {task.description}
+                                      </Typography>
+                                    )}
+                                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1 }}>
+                                      <Chip
+                                        label={getStatusLabel(task.status)}
+                                        size="small"
+                                        sx={{ 
+                                          backgroundColor: getStatusColor(task.status),
+                                          color: 'white'
+                                        }}
+                                      />
+                                      <Chip
+                                        label={getPriorityLabel(task.priority)}
+                                        size="small"
+                                        sx={{ 
+                                          backgroundColor: getPriorityColor(task.priority),
+                                          color: 'white'
+                                        }}
+                                      />
+                                    </Box>
+                                  </Box>
                                 </Box>
-                              )}
-                              
-                              {/* Subtarefas */}
-                              {task.subtasks && task.subtasks.length > 0 && (
-                                <Box sx={{ mt: 1, pl: 2, borderLeft: '2px solid', borderColor: 'divider' }}>
-                                  <Typography variant="caption" color="textSecondary">
-                                    Subtarefas ({task.subtasks.length}):
-                                  </Typography>
-                                  {task.subtasks.slice(0, 3).map((subtask: any, subtaskIndex: number) => (
-                                    <Typography key={subtaskIndex} variant="caption" component="div" color="textSecondary">
-                                      • {subtask.title || subtask.name} - {getStatusLabel(subtask.status)}
-                                    </Typography>
-                                  ))}
-                                  {task.subtasks.length > 3 && (
-                                    <Typography variant="caption" color="textSecondary">
-                                      ... e mais {task.subtasks.length - 3} subtarefas
-                                    </Typography>
+                              </Grid>
+
+                              {/* Coluna de Informações - Datas e Responsável */}
+                              <Grid item xs={12} md={6}>
+                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                                  {/* Datas */}
+                                  <Box>
+                                    <Grid container spacing={1}>
+                                      {task.startDate && (
+                                        <Grid item xs={6}>
+                                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                            <CalendarIcon sx={{ fontSize: 16, color: 'primary.main' }} />
+                                            <Box>
+                                              <Typography variant="caption" color="textSecondary">
+                                                Início
+                                              </Typography>
+                                              <Typography variant="body2" fontWeight="medium">
+                                                {formatDate(task.startDate)}
+                                              </Typography>
+                                            </Box>
+                                          </Box>
+                                        </Grid>
+                                      )}
+                                      {task.plannedEndDate && (
+                                        <Grid item xs={6}>
+                                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                            <CalendarIcon sx={{ fontSize: 16, color: 'warning.main' }} />
+                                            <Box>
+                                              <Typography variant="caption" color="textSecondary">
+                                                Prazo
+                                              </Typography>
+                                              <Typography variant="body2" fontWeight="medium">
+                                                {formatDate(task.plannedEndDate)}
+                                              </Typography>
+                                            </Box>
+                                          </Box>
+                                        </Grid>
+                                      )}
+                                      {task.actualEndDate && (
+                                        <Grid item xs={6}>
+                                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                            <CheckCircleIcon sx={{ fontSize: 16, color: 'success.main' }} />
+                                            <Box>
+                                              <Typography variant="caption" color="textSecondary">
+                                                Concluída
+                                              </Typography>
+                                              <Typography variant="body2" fontWeight="medium" color="success.main">
+                                                {formatDate(task.actualEndDate)}
+                                              </Typography>
+                                            </Box>
+                                          </Box>
+                                        </Grid>
+                                      )}
+                                      {task.estimatedHours && (
+                                        <Grid item xs={6}>
+                                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                            <ScheduleIcon sx={{ fontSize: 16, color: 'info.main' }} />
+                                            <Box>
+                                              <Typography variant="caption" color="textSecondary">
+                                                Estimativa
+                                              </Typography>
+                                              <Typography variant="body2" fontWeight="medium">
+                                                {task.estimatedHours}h
+                                                {task.actualHours && ` / ${task.actualHours}h`}
+                                              </Typography>
+                                            </Box>
+                                          </Box>
+                                        </Grid>
+                                      )}
+                                    </Grid>
+                                  </Box>
+
+                                  {/* Responsável */}
+                                  {task.responsible && (
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                      <PersonIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
+                                      <Box>
+                                        <Typography variant="caption" color="textSecondary">
+                                          Responsável
+                                        </Typography>
+                                        <Typography variant="body2" fontWeight="medium">
+                                          {task.responsible}
+                                        </Typography>
+                                      </Box>
+                                    </Box>
+                                  )}
+
+                                  {/* Progresso */}
+                                  {task.progress !== undefined && (
+                                    <Box>
+                                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                                        <Typography variant="caption" color="textSecondary">
+                                          Progresso
+                                        </Typography>
+                                        <Typography variant="body2" fontWeight="bold" color="primary">
+                                          {task.progress}%
+                                        </Typography>
+                                      </Box>
+                                      <LinearProgress
+                                        variant="determinate"
+                                        value={task.progress}
+                                        sx={{ 
+                                          height: 8, 
+                                          borderRadius: 4,
+                                          backgroundColor: 'grey.200',
+                                          '& .MuiLinearProgress-bar': {
+                                            backgroundColor: getStatusColor(task.status)
+                                          }
+                                        }}
+                                      />
+                                    </Box>
                                   )}
                                 </Box>
+                              </Grid>
+
+                              {/* Observações */}
+                              {task.observations && (
+                                <Grid item xs={12}>
+                                  <Box sx={{ 
+                                    p: 1.5, 
+                                    backgroundColor: 'grey.50', 
+                                    borderRadius: 1,
+                                    borderLeft: '3px solid',
+                                    borderColor: 'primary.main'
+                                  }}>
+                                    <Typography variant="caption" color="textSecondary" sx={{ fontWeight: 'bold' }}>
+                                      Observações:
+                                    </Typography>
+                                    <Typography variant="body2" color="textSecondary" sx={{ mt: 0.5 }}>
+                                      {task.observations}
+                                    </Typography>
+                                  </Box>
+                                </Grid>
                               )}
-                            </Box>
-                          }
-                        />
-                      </ListItem>
-                    ))}
-                    </List>
+
+                              {/* Subtarefas */}
+                              {task.subtasks && task.subtasks.length > 0 && (
+                                <Grid item xs={12}>
+                                  <Box sx={{ 
+                                    mt: 1, 
+                                    p: 2, 
+                                    backgroundColor: 'grey.50', 
+                                    borderRadius: 2,
+                                    border: '1px solid',
+                                    borderColor: 'divider'
+                                  }}>
+                                    <Typography variant="subtitle2" gutterBottom color="primary" sx={{ fontWeight: 'bold', mb: 1 }}>
+                                      Subtarefas ({task.subtasks.length})
+                                    </Typography>
+                                    <Grid container spacing={1}>
+                                      {task.subtasks.map((subtask: any, subtaskIndex: number) => (
+                                        <Grid item xs={12} sm={6} md={4} key={subtask.id || subtaskIndex}>
+                                          <Card variant="outlined" sx={{ 
+                                            p: 1,
+                                            backgroundColor: 'white',
+                                            borderLeft: `3px solid ${getStatusColor(subtask.status)}`
+                                          }}>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                              <CheckCircleIcon 
+                                                sx={{ 
+                                                  fontSize: 16, 
+                                                  color: subtask.status === 'completed' ? 'success.main' : 'text.secondary'
+                                                }} 
+                                              />
+                                              <Box sx={{ flex: 1 }}>
+                                                <Typography variant="body2" fontWeight="medium">
+                                                  {subtask.title || subtask.name}
+                                                </Typography>
+                                                <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5 }}>
+                                                  <Chip
+                                                    label={getStatusLabel(subtask.status)}
+                                                    size="small"
+                                                    sx={{ 
+                                                      height: 20,
+                                                      fontSize: '0.65rem',
+                                                      backgroundColor: getStatusColor(subtask.status),
+                                                      color: 'white'
+                                                    }}
+                                                  />
+                                                  {subtask.priority && (
+                                                    <Chip
+                                                      label={getPriorityLabel(subtask.priority)}
+                                                      size="small"
+                                                      sx={{ 
+                                                        height: 20,
+                                                        fontSize: '0.65rem',
+                                                        backgroundColor: getPriorityColor(subtask.priority),
+                                                        color: 'white'
+                                                      }}
+                                                    />
+                                                  )}
+                                                </Box>
+                                                {subtask.dueDate && (
+                                                  <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mt: 0.5 }}>
+                                                    Prazo: {formatDate(subtask.dueDate)}
+                                                  </Typography>
+                                                )}
+                                                {subtask.assignee && (
+                                                  <Typography variant="caption" color="textSecondary" sx={{ display: 'block' }}>
+                                                    {subtask.assignee}
+                                                  </Typography>
+                                                )}
+                                                {subtask.progress !== undefined && (
+                                                  <Box sx={{ mt: 0.5 }}>
+                                                    <LinearProgress
+                                                      variant="determinate"
+                                                      value={subtask.progress}
+                                                      sx={{ height: 4, borderRadius: 2 }}
+                                                    />
+                                                    <Typography variant="caption" color="textSecondary">
+                                                      {subtask.progress}%
+                                                    </Typography>
+                                                  </Box>
+                                                )}
+                                              </Box>
+                                            </Box>
+                                          </Card>
+                                        </Grid>
+                                      ))}
+                                    </Grid>
+                                  </Box>
+                                </Grid>
+                              )}
+                            </Grid>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </Box>
                   )}
                 </Box>
               )}
