@@ -81,13 +81,29 @@ export const useAdvancedIndicators = (
       
       // Filtro por analista
       if (filters.analistaId) {
-        let analistaField = 'analista'
+        let itemAnalista: any = null
+        
         if (page === 'reajustes') {
-          analistaField = 'responsavelAnalista'
+          itemAnalista = item.responsavelAnalista
         } else if (page === 'manutencoes') {
-          analistaField = 'analistaId'
+          itemAnalista = item.analistaId || item.analista
+        } else if (page === 'validacoes') {
+          // Validações podem ter analistaId, analista (string ou objeto), ou analistaObj
+          if (item.analistaId) {
+            itemAnalista = item.analistaId
+          } else if (typeof item.analista === 'object' && item.analista?.id) {
+            itemAnalista = item.analista.id
+          } else if (typeof item.analista === 'string') {
+            itemAnalista = item.analista
+          } else if (item.analistaObj?.id) {
+            itemAnalista = item.analistaObj.id
+          } else {
+            itemAnalista = item.analista
+          }
+        } else {
+          itemAnalista = item.analista || item.analistaId
         }
-        const itemAnalista = item[analistaField] || item.analistaId || item.analista
+        
         if (itemAnalista !== filters.analistaId) {
           return false
         }
@@ -177,15 +193,30 @@ export const useAdvancedIndicators = (
     allPages.forEach(page => {
       page.items.forEach(item => {
         // Determinar o campo de analista baseado no tipo de página
-        let analistaField = 'analista'
-        if (page.name === 'reajustes') {
-          analistaField = 'responsavelAnalista'
-        } else if (page.name === 'manutencoes') {
-          // Manutenções usam analistaId, mas também podem ter analista como fallback
-          analistaField = item.analistaId ? 'analistaId' : (item.analista ? 'analista' : 'analistaId')
-        }
+        let analistaIdRaw: any = null
         
-        const analistaIdRaw = item[analistaField] || item.analistaId || item.analista
+        if (page.name === 'reajustes') {
+          analistaIdRaw = item.responsavelAnalista
+        } else if (page.name === 'manutencoes') {
+          // Manutenções usam analistaId
+          analistaIdRaw = item.analistaId || item.analista
+        } else if (page.name === 'validacoes') {
+          // Validações podem ter analistaId, analista (string ou objeto), ou analistaObj
+          if (item.analistaId) {
+            analistaIdRaw = item.analistaId
+          } else if (typeof item.analista === 'object' && item.analista?.id) {
+            analistaIdRaw = item.analista.id
+          } else if (typeof item.analista === 'string') {
+            analistaIdRaw = item.analista
+          } else if (item.analistaObj?.id) {
+            analistaIdRaw = item.analistaObj.id
+          } else {
+            analistaIdRaw = item.analista
+          }
+        } else {
+          // Outras páginas usam analista
+          analistaIdRaw = item.analista || item.analistaId
+        }
         
         // Pular itens sem analistaId
         if (!analistaIdRaw) {
@@ -199,11 +230,37 @@ export const useAdvancedIndicators = (
         let analistaNome = 'Sem analista'
         let analistaIdFinal = analistaId
         
-        // 1. Se já tem analistaNome no item, usar ele
+        // 1. Se já tem analistaNome no item, usar ele (mas verificar se não é objeto mal formatado)
         if (item.analistaNome) {
-          analistaNome = typeof item.analistaNome === 'string' ? item.analistaNome : 
-                        typeof item.analistaNome === 'object' && item.analistaNome && item.analistaNome.nome ? 
-                        String(item.analistaNome.nome) : String(item.analistaNome)
+          if (typeof item.analistaNome === 'string') {
+            analistaNome = item.analistaNome
+          } else if (typeof item.analistaNome === 'object' && item.analistaNome !== null) {
+            // Se for objeto, tentar extrair o nome
+            if (item.analistaNome.nome && typeof item.analistaNome.nome === 'string') {
+              analistaNome = item.analistaNome.nome
+            } else if (item.analistaNome.id && typeof item.analistaNome.id === 'string') {
+              // Se não tem nome mas tem ID, buscar no masterDataStore
+              const analistaEncontrado = masterDataStore.analistas.find(a => a.id === item.analistaNome.id)
+              analistaNome = analistaEncontrado ? analistaEncontrado.nome : 'Analista não encontrado'
+            } else {
+              // Evitar "object object" - não usar String() diretamente em objeto
+              analistaNome = 'Analista inválido'
+            }
+          } else {
+            analistaNome = String(item.analistaNome)
+          }
+        } else if (page.name === 'validacoes' && typeof item.analista === 'object' && item.analista?.nome) {
+          // Para validações, pode ter analista como objeto
+          analistaNome = String(item.analista.nome)
+          if (!analistaIdFinal || analistaIdFinal === 'Sem analista') {
+            analistaIdFinal = item.analista.id || analistaId
+          }
+        } else if (page.name === 'validacoes' && item.analistaObj?.nome) {
+          // Para validações, pode ter analistaObj
+          analistaNome = String(item.analistaObj.nome)
+          if (!analistaIdFinal || analistaIdFinal === 'Sem analista') {
+            analistaIdFinal = item.analistaObj.id || analistaId
+          }
         } else if (analistaId) {
           // 2. Verificar se analistaId é um UUID (ID) ou um nome
           const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(analistaId)
