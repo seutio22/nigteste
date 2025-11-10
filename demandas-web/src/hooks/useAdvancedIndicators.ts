@@ -154,6 +154,11 @@ export const useAdvancedIndicators = (
   const analistaMetrics = useMemo((): AnalistaMetrics[] => {
     const analistasMap = new Map<string, AnalistaMetrics>()
 
+    // Debug: verificar se dados mestres estão carregados
+    if (masterDataStore.analistas.length === 0) {
+      console.warn('⚠️ useAdvancedIndicators: masterDataStore.analistas está vazio. Os nomes dos analistas podem não ser encontrados.')
+    }
+
     // Processar todas as páginas
     const allPages = [
       { name: 'demandas', items: demandasFiltradas },
@@ -176,19 +181,52 @@ export const useAdvancedIndicators = (
         
         // Garantir que analistaNome seja sempre uma string
         let analistaNome = 'Sem analista'
+        let analistaIdFinal = analistaId
+        
+        // 1. Se já tem analistaNome no item, usar ele
         if (item.analistaNome) {
           analistaNome = typeof item.analistaNome === 'string' ? item.analistaNome : 
                         typeof item.analistaNome === 'object' && item.analistaNome.nome ? 
                         item.analistaNome.nome : String(item.analistaNome)
-        } else {
-          // Buscar o nome do analista no masterDataStore
-          const analista = masterDataStore.analistas.find(a => a.id === analistaId)
-          analistaNome = analista ? analista.nome : 'Analista não encontrado'
+        } else if (analistaId) {
+          // 2. Verificar se analistaId é um UUID (ID) ou um nome
+          const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(analistaId)
+          
+          if (isUUID) {
+            // É um ID (UUID) - buscar por ID
+            const analista = masterDataStore.analistas.find(a => a.id === analistaId)
+            if (analista) {
+              analistaNome = analista.nome
+              analistaIdFinal = analista.id
+            } else {
+              // Não encontrou por ID - tentar usar o valor como nome se não for UUID válido
+              analistaNome = String(analistaId).length > 36 ? 'Analista não encontrado' : String(analistaId)
+            }
+          } else {
+            // Não é UUID - pode ser um nome, verificar se existe no masterDataStore
+            const analistaPorNome = masterDataStore.analistas.find(a => 
+              a.nome.toLowerCase() === analistaId.toLowerCase() ||
+              a.nome.toLowerCase().includes(analistaId.toLowerCase()) ||
+              analistaId.toLowerCase().includes(a.nome.toLowerCase())
+            )
+            
+            if (analistaPorNome) {
+              // Encontrou por nome - usar o nome e atualizar o ID
+              analistaNome = analistaPorNome.nome
+              analistaIdFinal = analistaPorNome.id
+            } else {
+              // Não encontrou - usar o valor original como nome
+              analistaNome = analistaId
+            }
+          }
         }
 
-        if (!analistasMap.has(analistaId)) {
-          analistasMap.set(analistaId, {
-            analistaId,
+        // Usar analistaIdFinal para agrupar (pode ter sido atualizado se encontramos por nome)
+        const keyParaMap = analistaIdFinal || analistaNome
+        
+        if (!analistasMap.has(keyParaMap)) {
+          analistasMap.set(keyParaMap, {
+            analistaId: analistaIdFinal || analistaNome,
             analistaNome,
             totalItens: 0,
             tempoMedioExecucao: 0,
@@ -203,7 +241,7 @@ export const useAdvancedIndicators = (
           })
         }
 
-        const analista = analistasMap.get(analistaId)!
+        const analista = analistasMap.get(keyParaMap)!
         analista.totalItens++
         analista.itensPorPagina[page.name as keyof typeof analista.itensPorPagina]++
 
