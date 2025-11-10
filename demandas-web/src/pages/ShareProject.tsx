@@ -307,9 +307,14 @@ const ShareProject: React.FC = () => {
     );
   }
 
+  const timelineIndicatorsAllowed =
+    allowedViews.includes('timeline') ||
+    allowedViews.includes('indicators');
+
   const availableTabs = [
     { key: 'overview', label: 'Visão Geral', allowed: allowedViews.includes('overview') },
     { key: 'timeline', label: 'Cronograma Detalhado', allowed: allowedViews.includes('timeline') },
+    { key: 'indicators', label: 'Indicadores', allowed: allowedViews.includes('indicators') || timelineIndicatorsAllowed },
     { key: 'gantt', label: 'Gráfico de Gantt', allowed: allowedViews.includes('gantt') },
     { key: 'team', label: 'Equipe', allowed: allowedViews.includes('team') },
     { key: 'resources', label: 'Stakeholders', allowed: allowedViews.includes('resources') }
@@ -1142,6 +1147,312 @@ const ShareProject: React.FC = () => {
     );
   };
 
+  const renderIndicators = () => {
+    if (!project.timeline || !project.timeline.phases || project.timeline.phases.length === 0) {
+      return (
+        <Alert severity="info">
+          Nenhum cronograma configurado para este projeto. Configure o cronograma para visualizar indicadores.
+        </Alert>
+      );
+    }
+
+    const phases = project.timeline.phases;
+    const tasks = phases.flatMap((phase: any) =>
+      (phase.tasks || []).map((task: any) => ({
+        ...task,
+        phaseName: phase.name || 'Fase sem nome'
+      }))
+    );
+
+    if (tasks.length === 0) {
+      return (
+        <Alert severity="info">
+          Nenhuma tarefa cadastrada no cronograma. Adicione tarefas para acompanhar os indicadores.
+        </Alert>
+      );
+    }
+
+    const now = new Date();
+    const completedStatuses = ['completed', 'concluido', 'concluida', 'concluída', 'finalizado', 'finalizada', 'done'];
+    const inProgressStatuses = ['in_progress', 'em_andamento', 'em andamento', 'in-progress', 'ongoing', 'andamento'];
+    const pendingStatuses = ['pending', 'todo', 'nao_iniciado', 'não iniciado', 'not_started', 'aguardando'];
+
+    const parseDate = (value?: string | null) => {
+      if (!value || value === 'null' || value === 'undefined') return null;
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? null : date;
+    };
+
+    const categorized = tasks.reduce(
+      (acc, task) => {
+        const status = (task.status || '').toString().toLowerCase();
+        const planned = parseDate(task.plannedEndDate || task.dueDate);
+        const actual = parseDate(task.actualEndDate);
+        const isCompleted = completedStatuses.includes(status) || task.progress === 100;
+        const isInProgressStatus = inProgressStatuses.includes(status);
+        const isPendingStatus = pendingStatuses.includes(status);
+        const isDelayed =
+          !!planned &&
+          ((isCompleted && actual && actual > planned) ||
+            (!isCompleted && now > planned));
+
+        let category: 'delayed' | 'inProgress' | 'onTime';
+
+        if (isDelayed) {
+          category = 'delayed';
+        } else if (isCompleted) {
+          category = 'onTime';
+        } else if (isInProgressStatus || isPendingStatus || (typeof task.progress === 'number' && task.progress > 0)) {
+          category = 'inProgress';
+        } else {
+          category = 'inProgress';
+        }
+
+        acc[category].push({
+          ...task,
+          plannedDate: planned,
+          actualDate: actual
+        });
+        return acc;
+      },
+      {
+        delayed: [] as any[],
+        inProgress: [] as any[],
+        onTime: [] as any[]
+      }
+    );
+
+    const totalTasks = tasks.length;
+    const totalDelayed = categorized.delayed.length;
+    const totalInProgress = categorized.inProgress.length;
+    const totalOnTime = categorized.onTime.length;
+
+    const categoryConfig: Record<
+      'delayed' | 'inProgress' | 'onTime',
+      {
+        title: string;
+        subtitle: string;
+        palette: 'error' | 'warning' | 'success';
+        icon: typeof WarningIcon;
+      }
+    > = {
+      delayed: {
+        title: 'Tarefas Atrasadas',
+        subtitle: 'Exigem atenção imediata',
+        palette: 'error',
+        icon: WarningIcon
+      },
+      inProgress: {
+        title: 'Em Andamento',
+        subtitle: 'Dentro do prazo ou aguardando',
+        palette: 'warning',
+        icon: ScheduleIcon
+      },
+      onTime: {
+        title: 'Entregues no Prazo',
+        subtitle: 'Concluídas com sucesso',
+        palette: 'success',
+        icon: CheckCircleIcon
+      }
+    };
+
+    const getResponsibleName = (task: any) => {
+      if (!task) return 'Não informado';
+      if (typeof task.responsible === 'string' && task.responsible.trim().length > 0) {
+        return task.responsible;
+      }
+      if (task.assignee) {
+        if (typeof task.assignee === 'string') return task.assignee;
+        return task.assignee.nome || task.assignee.name || 'Não informado';
+      }
+      if (task.responsible?.nome || task.responsible?.name) {
+        return task.responsible.nome || task.responsible.name;
+      }
+      return 'Não informado';
+    };
+
+    const summaryCards = [
+      {
+        key: 'delayed' as const,
+        value: totalDelayed,
+        percentage: totalTasks ? Math.round((totalDelayed / totalTasks) * 100) : 0
+      },
+      {
+        key: 'inProgress' as const,
+        value: totalInProgress,
+        percentage: totalTasks ? Math.round((totalInProgress / totalTasks) * 100) : 0
+      },
+      {
+        key: 'onTime' as const,
+        value: totalOnTime,
+        percentage: totalTasks ? Math.round((totalOnTime / totalTasks) * 100) : 0
+      }
+    ];
+
+    return (
+      <Box>
+        <Typography variant="h6" gutterBottom>
+          Indicadores do Cronograma
+        </Typography>
+        <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
+          Acompanhe o desempenho das tarefas do projeto em tempo real. Os indicadores abaixo consideram status, prazo previsto e data de conclusão de cada tarefa.
+        </Typography>
+
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          {summaryCards.map(card => {
+            const config = categoryConfig[card.key];
+            const IconComponent = config.icon;
+            return (
+              <Grid item xs={12} md={4} key={card.key}>
+                <Card
+                  sx={{
+                    borderTop: 4,
+                    borderColor: `${config.palette}.main`,
+                    boxShadow: '0px 4px 12px rgba(0,0,0,0.05)'
+                  }}
+                >
+                  <CardContent>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                      <Avatar sx={{ bgcolor: `${config.palette}.main`, width: 36, height: 36 }}>
+                        <IconComponent fontSize="small" />
+                      </Avatar>
+                      <Box>
+                        <Typography variant="subtitle1" fontWeight="bold">
+                          {config.title}
+                        </Typography>
+                        <Typography variant="caption" color="textSecondary">
+                          {config.subtitle}
+                        </Typography>
+                      </Box>
+                    </Box>
+                    <Typography variant="h4" fontWeight="bold" color={`${config.palette}.main`}>
+                      {card.value}
+                    </Typography>
+                    <Typography variant="caption" color="textSecondary">
+                      {card.percentage}% das tarefas
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+            );
+          })}
+        </Grid>
+
+        {(['delayed', 'inProgress', 'onTime'] as const).map(categoryKey => {
+          const categoryTasks = categorized[categoryKey];
+          const config = categoryConfig[categoryKey];
+          const IconComponent = config.icon;
+
+          return (
+            <Card key={categoryKey} sx={{ mb: 3 }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <Avatar sx={{ bgcolor: `${config.palette}.main`, width: 40, height: 40 }}>
+                      <IconComponent />
+                    </Avatar>
+                    <Box>
+                      <Typography variant="h6" color={`${config.palette}.main`}>
+                        {config.title}
+                      </Typography>
+                      <Typography variant="body2" color="textSecondary">
+                        {config.subtitle}
+                      </Typography>
+                    </Box>
+                  </Box>
+                  <Chip
+                    label={`${categoryTasks.length} tarefa${categoryTasks.length === 1 ? '' : 's'}`}
+                    color={config.palette}
+                    variant="outlined"
+                  />
+                </Box>
+
+                {categoryTasks.length === 0 ? (
+                  <Typography variant="body2" color="textSecondary">
+                    Nenhuma tarefa nesta categoria.
+                  </Typography>
+                ) : (
+                  <List>
+                    {categoryTasks.map((task, index) => (
+                      <React.Fragment key={task.id || `${task.name}-${task.phaseName}`}>
+                        <ListItem
+                          alignItems="flex-start"
+                          sx={{
+                            borderRadius: 1,
+                            mb: 1,
+                            '&:hover': {
+                              backgroundColor: 'grey.50'
+                            }
+                          }}
+                        >
+                          <ListItemAvatar>
+                            <Avatar sx={{ bgcolor: `${config.palette}.light`, color: `${config.palette}.dark` }}>
+                              <IconComponent fontSize="small" />
+                            </Avatar>
+                          </ListItemAvatar>
+                          <ListItemText
+                            primary={
+                              <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
+                                <Typography variant="subtitle1" fontWeight="bold">
+                                  {task.name || 'Tarefa sem nome'}
+                                </Typography>
+                                {task.priority && (
+                                  <Chip
+                                    label={getPriorityLabel(task.priority)}
+                                    size="small"
+                                    sx={{ backgroundColor: getPriorityColor(task.priority), color: 'white' }}
+                                  />
+                                )}
+                                {task.status && (
+                                  <Chip
+                                    label={getStatusLabel(task.status)}
+                                    size="small"
+                                    variant="outlined"
+                                    sx={{ borderColor: `${config.palette}.main`, color: `${config.palette}.main` }}
+                                  />
+                                )}
+                              </Box>
+                            }
+                            secondary={
+                              <Box sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                                <Typography variant="body2" color="textSecondary">
+                                  Fase: <strong>{task.phaseName}</strong>
+                                </Typography>
+                                {task.plannedDate && (
+                                  <Typography variant="body2" color="textSecondary">
+                                    Prazo: <strong>{formatDate(task.plannedDate.toISOString())}</strong>
+                                  </Typography>
+                                )}
+                                {task.actualDate && (
+                                  <Typography variant="body2" color="textSecondary">
+                                    Conclusão: <strong>{formatDate(task.actualDate.toISOString())}</strong>
+                                  </Typography>
+                                )}
+                                <Typography variant="body2" color="textSecondary">
+                                  Responsável: <strong>{getResponsibleName(task)}</strong>
+                                </Typography>
+                                {typeof task.progress === 'number' && (
+                                  <Typography variant="body2" color="textSecondary">
+                                    Progresso: <strong>{task.progress}%</strong>
+                                  </Typography>
+                                )}
+                              </Box>
+                            }
+                          />
+                        </ListItem>
+                        {index < categoryTasks.length - 1 && <Divider component="li" />}
+                      </React.Fragment>
+                    ))}
+                  </List>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
+      </Box>
+    );
+  };
+
   const renderGantt = () => {
     console.log('🔍 Rendering Gantt, project.timeline:', project.timeline);
     
@@ -1521,6 +1832,9 @@ const ShareProject: React.FC = () => {
       case 'timeline':
         console.log('🎯 Rendering Timeline tab');
         return renderTimeline();
+      case 'indicators':
+        console.log('🎯 Rendering Indicators tab');
+        return renderIndicators();
       case 'gantt':
         console.log('🎯 Rendering Gantt tab');
         return renderGantt();
