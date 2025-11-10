@@ -3506,6 +3506,322 @@ export default function ProjectDetailPage() {
     </Box>
   )
 
+  const renderIndicatorsView = () => {
+    if (!project?.timeline?.phases || project.timeline.phases.length === 0) {
+      return (
+        <Alert severity="info">
+          Nenhum cronograma configurado para este projeto. Adicione fases e tarefas para visualizar os indicadores.
+        </Alert>
+      )
+    }
+
+    const phases = project.timeline.phases
+    const tasks = phases.flatMap((phase: any) =>
+      (phase.tasks || []).map((task: any) => ({
+        ...task,
+        phaseName: phase.name || 'Fase sem nome'
+      }))
+    )
+
+    if (tasks.length === 0) {
+      return (
+        <Alert severity="info">
+          Nenhuma tarefa cadastrada no cronograma. Adicione tarefas para acompanhar os indicadores.
+        </Alert>
+      )
+    }
+
+    const now = new Date()
+    const completedStatuses = ['completed', 'concluido', 'concluida', 'concluída', 'finalizado', 'finalizada', 'done']
+    const inProgressStatuses = ['in_progress', 'em_andamento', 'em andamento', 'in-progress', 'ongoing', 'andamento', 'pendente', 'pending']
+
+    const parseDate = (value?: string | null) => {
+      if (!value || value === 'null' || value === 'undefined') return null
+      const date = new Date(value)
+      return Number.isNaN(date.getTime()) ? null : date
+    }
+
+    const categorized = tasks.reduce(
+      (acc, task) => {
+        const status = (task.status || '').toString().toLowerCase()
+        const planned = parseDate(task.plannedEndDate || task.dueDate)
+        const actual = parseDate(task.actualEndDate)
+        const progress = typeof task.progress === 'number' ? task.progress : Number(task.progress) || 0
+        const isCompleted = completedStatuses.includes(status) || progress >= 100 || !!actual
+        const isInProgress = inProgressStatuses.includes(status) || progress > 0
+        const isDelayed =
+          !!planned &&
+          ((isCompleted && actual && actual > planned) ||
+            (!isCompleted && now > planned))
+
+        let category: 'delayed' | 'inProgress' | 'onTime'
+
+        if (isDelayed) {
+          category = 'delayed'
+        } else if (isCompleted) {
+          category = 'onTime'
+        } else if (isInProgress) {
+          category = 'inProgress'
+        } else {
+          category = 'inProgress'
+        }
+
+        acc[category].push({
+          ...task,
+          plannedDate: planned,
+          actualDate: actual,
+          normalizedStatus: status,
+          progress
+        })
+        return acc
+      },
+      {
+        delayed: [] as any[],
+        inProgress: [] as any[],
+        onTime: [] as any[]
+      }
+    )
+
+    const totalTasks = tasks.length
+    const totalDelayed = categorized.delayed.length
+    const totalInProgress = categorized.inProgress.length
+    const totalOnTime = categorized.onTime.length
+
+    const categoryConfig: Record<
+      'delayed' | 'inProgress' | 'onTime',
+      {
+        title: string
+        subtitle: string
+        palette: 'error' | 'warning' | 'success'
+        icon: typeof Warning
+      }
+    > = {
+      delayed: {
+        title: 'Tarefas Atrasadas',
+        subtitle: 'Demandam atenção imediata',
+        palette: 'error',
+        icon: Warning
+      },
+      inProgress: {
+        title: 'Em Andamento',
+        subtitle: 'Dentro do prazo ou aguardando',
+        palette: 'warning',
+        icon: Schedule
+      },
+      onTime: {
+        title: 'Entregues no Prazo',
+        subtitle: 'Concluídas com sucesso',
+        palette: 'success',
+        icon: CheckCircle
+      }
+    }
+
+    const getResponsibleName = (task: any) => {
+      if (!task) return 'Não informado'
+      if (typeof task.responsible === 'string' && task.responsible.trim().length > 0) {
+        return task.responsible
+      }
+      if (task.assignee) {
+        if (typeof task.assignee === 'string') return task.assignee
+        return task.assignee.nome || task.assignee.name || 'Não informado'
+      }
+      if (task.responsible?.nome || task.responsible?.name) {
+        return task.responsible.nome || task.responsible.name
+      }
+      return 'Não informado'
+    }
+
+    const summaryCards = [
+      {
+        key: 'delayed' as const,
+        value: totalDelayed,
+        percentage: totalTasks ? Math.round((totalDelayed / totalTasks) * 100) : 0
+      },
+      {
+        key: 'inProgress' as const,
+        value: totalInProgress,
+        percentage: totalTasks ? Math.round((totalInProgress / totalTasks) * 100) : 0
+      },
+      {
+        key: 'onTime' as const,
+        value: totalOnTime,
+        percentage: totalTasks ? Math.round((totalOnTime / totalTasks) * 100) : 0
+      }
+    ]
+
+    const orderedCategories: Array<'delayed' | 'inProgress' | 'onTime'> = ['delayed', 'inProgress', 'onTime']
+
+    return (
+      <Box>
+        <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold' }}>
+          Indicadores do Cronograma
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+          Visualize rapidamente o status das tarefas do projeto. Os indicadores consideram o status atual, o prazo planejado e a data de conclusão (quando houver).
+        </Typography>
+
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          {summaryCards.map(card => {
+            const config = categoryConfig[card.key]
+            const IconComponent = config.icon
+            return (
+              <Grid item xs={12} md={4} key={card.key}>
+                <Card
+                  sx={{
+                    borderTop: 4,
+                    borderColor: `${config.palette}.main`,
+                    boxShadow: '0px 4px 12px rgba(0,0,0,0.05)'
+                  }}
+                >
+                  <CardContent>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
+                      <Avatar sx={{ bgcolor: `${config.palette}.main`, width: 36, height: 36 }}>
+                        <IconComponent fontSize="small" />
+                      </Avatar>
+                      <Box>
+                        <Typography variant="subtitle1" fontWeight="bold">
+                          {config.title}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {config.subtitle}
+                        </Typography>
+                      </Box>
+                    </Box>
+                    <Typography variant="h4" fontWeight="bold" color={`${config.palette}.main`}>
+                      {card.value}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {card.percentage}% das tarefas
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+            )
+          })}
+        </Grid>
+
+        {orderedCategories.map(categoryKey => {
+          const categoryTasks = categorized[categoryKey]
+          const config = categoryConfig[categoryKey]
+          const IconComponent = config.icon
+
+          return (
+            <Card key={categoryKey} sx={{ mb: 3 }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <Avatar sx={{ bgcolor: `${config.palette}.main`, width: 40, height: 40 }}>
+                      <IconComponent />
+                    </Avatar>
+                    <Box>
+                      <Typography variant="h6" color={`${config.palette}.main`}>
+                        {config.title}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {config.subtitle}
+                      </Typography>
+                    </Box>
+                  </Box>
+                  <Chip
+                    label={`${categoryTasks.length} tarefa${categoryTasks.length === 1 ? '' : 's'}`}
+                    color={config.palette}
+                    variant="outlined"
+                  />
+                </Box>
+
+                {categoryTasks.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary">
+                    Nenhuma tarefa nesta categoria.
+                  </Typography>
+                ) : (
+                  <List>
+                    {categoryTasks
+                      .sort((a, b) => {
+                        const aDate = a.plannedDate ? a.plannedDate.getTime() : 0
+                        const bDate = b.plannedDate ? b.plannedDate.getTime() : 0
+                        return aDate - bDate
+                      })
+                      .map((task, index) => {
+                        const plannedDateString = task.plannedDate ? formatDate(task.plannedDate.toISOString()) : 'Sem previsão'
+                        const actualDateString = task.actualDate ? formatDate(task.actualDate.toISOString()) : null
+
+                        return (
+                          <React.Fragment key={task.id || `${task.name}-${task.phaseName}`}>
+                            <ListItem
+                              alignItems="flex-start"
+                              sx={{
+                                borderRadius: 1,
+                                mb: 1,
+                                '&:hover': {
+                                  backgroundColor: 'grey.50'
+                                }
+                              }}
+                            >
+                              <ListItemIcon sx={{ minWidth: 44 }}>
+                                <Avatar sx={{ bgcolor: `${config.palette}.light`, color: `${config.palette}.dark` }}>
+                                  <IconComponent fontSize="small" />
+                                </Avatar>
+                              </ListItemIcon>
+                              <ListItemText
+                                primary={
+                                  <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
+                                    <Typography variant="subtitle1" fontWeight="bold">
+                                      {task.name || 'Tarefa sem nome'}
+                                    </Typography>
+                                    {task.priority && (
+                                      <Chip
+                                        label={getPriorityLabel(task.priority)}
+                                        size="small"
+                                        sx={{ backgroundColor: getPriorityColor(task.priority), color: 'white' }}
+                                      />
+                                    )}
+                                    {task.status && (
+                                      <Chip
+                                        label={getTaskStatusLabel(task.status)}
+                                        size="small"
+                                        variant="outlined"
+                                        sx={{ borderColor: `${config.palette}.main`, color: `${config.palette}.main` }}
+                                      />
+                                    )}
+                                  </Box>
+                                }
+                                secondary={
+                                  <Box sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                                    <Typography variant="body2" color="text.secondary">
+                                      Fase: <strong>{task.phaseName}</strong>
+                                    </Typography>
+                                    <Typography variant="body2" color="text.secondary">
+                                      Prazo: <strong>{plannedDateString}</strong>
+                                    </Typography>
+                                    {actualDateString && (
+                                      <Typography variant="body2" color="text.secondary">
+                                        Conclusão: <strong>{actualDateString}</strong>
+                                      </Typography>
+                                    )}
+                                    <Typography variant="body2" color="text.secondary">
+                                      Responsável: <strong>{getResponsibleName(task)}</strong>
+                                    </Typography>
+                                    <Typography variant="body2" color="text.secondary">
+                                      Progresso: <strong>{task.progress}%</strong>
+                                    </Typography>
+                                  </Box>
+                                }
+                              />
+                            </ListItem>
+                            {index < categoryTasks.length - 1 && <Divider component="li" />}
+                          </React.Fragment>
+                        )
+                      })}
+                  </List>
+                )}
+              </CardContent>
+            </Card>
+          )
+        })}
+      </Box>
+    )
+  }
+
   const renderGanttView = () => (
     <ProjectGantt
       phases={project.timeline && project.timeline.phases ? project.timeline.phases : []}
@@ -3914,7 +4230,8 @@ export default function ProjectDetailPage() {
           <Paper sx={{ mb: 3 }}>
             <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)}>
               <Tab label="Visão Geral" />
-                        <Tab label="Cronograma" />
+          <Tab label="Cronograma" />
+          <Tab label="Indicadores" />
           <Tab label="Gantt" />
           <Tab label="Stakeholders" />
           <Tab label="Equipe" />
@@ -4133,10 +4450,11 @@ export default function ProjectDetailPage() {
           )}
 
           {activeTab === 1 && renderTimelineView()}
-          {activeTab === 2 && renderGanttView()}
-          {activeTab === 3 && renderStakeholdersView()}
-          {activeTab === 4 && <ProjectTeamManager projectId={project.id} />}
-          {activeTab === 5 && renderActivitiesView()}
+          {activeTab === 2 && renderIndicatorsView()}
+          {activeTab === 3 && renderGanttView()}
+          {activeTab === 4 && renderStakeholdersView()}
+          {activeTab === 5 && <ProjectTeamManager projectId={project.id} />}
+          {activeTab === 6 && renderActivitiesView()}
 
           {/* Dialog de Confirmação de Exclusão */}
           <Dialog 
