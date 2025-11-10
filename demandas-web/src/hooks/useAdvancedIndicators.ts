@@ -81,8 +81,13 @@ export const useAdvancedIndicators = (
       
       // Filtro por analista
       if (filters.analistaId) {
-        const analistaField = page === 'reajustes' ? 'responsavelAnalista' : 'analista'
-        const itemAnalista = item[analistaField]
+        let analistaField = 'analista'
+        if (page === 'reajustes') {
+          analistaField = 'responsavelAnalista'
+        } else if (page === 'manutencoes') {
+          analistaField = 'analistaId'
+        }
+        const itemAnalista = item[analistaField] || item.analistaId || item.analista
         if (itemAnalista !== filters.analistaId) {
           return false
         }
@@ -171,8 +176,16 @@ export const useAdvancedIndicators = (
 
     allPages.forEach(page => {
       page.items.forEach(item => {
-        const analistaField = page.name === 'reajustes' ? 'responsavelAnalista' : 'analista'
-        const analistaIdRaw = item[analistaField]
+        // Determinar o campo de analista baseado no tipo de página
+        let analistaField = 'analista'
+        if (page.name === 'reajustes') {
+          analistaField = 'responsavelAnalista'
+        } else if (page.name === 'manutencoes') {
+          // Manutenções usam analistaId, mas também podem ter analista como fallback
+          analistaField = item.analistaId ? 'analistaId' : (item.analista ? 'analista' : 'analistaId')
+        }
+        
+        const analistaIdRaw = item[analistaField] || item.analistaId || item.analista
         
         // Pular itens sem analistaId
         if (!analistaIdRaw) {
