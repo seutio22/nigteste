@@ -917,87 +917,161 @@ const ShareProject: React.FC = () => {
                               {task.subtasks && task.subtasks.length > 0 && (
                                 <Grid item xs={12}>
                                   <Box sx={{ 
-                                    mt: 1, 
-                                    p: 2, 
-                                    backgroundColor: 'grey.50', 
-                                    borderRadius: 2,
-                                    border: '1px solid',
-                                    borderColor: 'divider'
+                                    mt: 2, 
+                                    pl: 2, 
+                                    borderLeft: '3px solid',
+                                    borderColor: 'primary.light',
+                                    backgroundColor: 'grey.50',
+                                    borderRadius: 1
                                   }}>
-                                    <Typography variant="subtitle2" gutterBottom color="primary" sx={{ fontWeight: 'bold', mb: 1 }}>
+                                    <Typography variant="subtitle2" gutterBottom color="primary" sx={{ fontWeight: 'bold', mb: 1.5 }}>
                                       Subtarefas ({task.subtasks.length})
                                     </Typography>
-                                    <Grid container spacing={1}>
+                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                                       {task.subtasks.map((subtask: any, subtaskIndex: number) => (
-                                        <Grid item xs={12} sm={6} md={4} key={subtask.id || subtaskIndex}>
-                                          <Card variant="outlined" sx={{ 
-                                            p: 1,
+                                        <Card 
+                                          key={subtask.id || subtaskIndex}
+                                          variant="outlined" 
+                                          sx={{ 
+                                            p: 1.5,
                                             backgroundColor: 'white',
-                                            borderLeft: `3px solid ${getStatusColor(subtask.status)}`
-                                          }}>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                              <CheckCircleIcon 
-                                                sx={{ 
-                                                  fontSize: 16, 
-                                                  color: subtask.status === 'completed' ? 'success.main' : 'text.secondary'
-                                                }} 
-                                              />
-                                              <Box sx={{ flex: 1 }}>
-                                                <Typography variant="body2" fontWeight="medium">
-                                                  {subtask.title || subtask.name}
-                                                </Typography>
-                                                <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5 }}>
+                                            borderLeft: `4px solid ${getStatusColor(subtask.status)}`,
+                                            '&:hover': {
+                                              boxShadow: 2,
+                                              backgroundColor: 'grey.50'
+                                            }
+                                          }}
+                                        >
+                                          <Grid container spacing={2} alignItems="center">
+                                            {/* Nome e Descrição */}
+                                            <Grid item xs={12} md={4}>
+                                              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                                                <CheckCircleIcon 
+                                                  sx={{ 
+                                                    fontSize: 18, 
+                                                    color: subtask.status === 'completed' || subtask.status === 'concluido' ? 'success.main' : 'text.secondary',
+                                                    mt: 0.5
+                                                  }} 
+                                                />
+                                                <Box sx={{ flex: 1 }}>
+                                                  <Typography variant="body2" fontWeight="bold">
+                                                    {subtask.title || subtask.name}
+                                                  </Typography>
+                                                  {subtask.description && (
+                                                    <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mt: 0.5 }}>
+                                                      {subtask.description}
+                                                    </Typography>
+                                                  )}
+                                                </Box>
+                                              </Box>
+                                            </Grid>
+
+                                            {/* Status e Prioridade */}
+                                            <Grid item xs={12} md={2}>
+                                              <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                                                <Chip
+                                                  label={getStatusLabel(subtask.status)}
+                                                  size="small"
+                                                  sx={{ 
+                                                    fontSize: '0.7rem',
+                                                    backgroundColor: getStatusColor(subtask.status),
+                                                    color: 'white'
+                                                  }}
+                                                />
+                                                {subtask.priority && (
                                                   <Chip
-                                                    label={getStatusLabel(subtask.status)}
+                                                    label={getPriorityLabel(subtask.priority)}
                                                     size="small"
                                                     sx={{ 
-                                                      height: 20,
-                                                      fontSize: '0.65rem',
-                                                      backgroundColor: getStatusColor(subtask.status),
+                                                      fontSize: '0.7rem',
+                                                      backgroundColor: getPriorityColor(subtask.priority),
                                                       color: 'white'
                                                     }}
                                                   />
-                                                  {subtask.priority && (
-                                                    <Chip
-                                                      label={getPriorityLabel(subtask.priority)}
-                                                      size="small"
-                                                      sx={{ 
-                                                        height: 20,
-                                                        fontSize: '0.65rem',
-                                                        backgroundColor: getPriorityColor(subtask.priority),
-                                                        color: 'white'
-                                                      }}
-                                                    />
-                                                  )}
-                                                </Box>
-                                                {subtask.dueDate && (
-                                                  <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mt: 0.5 }}>
-                                                    Prazo: {formatDate(subtask.dueDate)}
-                                                  </Typography>
                                                 )}
-                                                {subtask.assignee && (
-                                                  <Typography variant="caption" color="textSecondary" sx={{ display: 'block' }}>
-                                                    {subtask.assignee}
-                                                  </Typography>
-                                                )}
-                                                {subtask.progress !== undefined && (
-                                                  <Box sx={{ mt: 0.5 }}>
-                                                    <LinearProgress
-                                                      variant="determinate"
-                                                      value={subtask.progress}
-                                                      sx={{ height: 4, borderRadius: 2 }}
-                                                    />
+                                              </Box>
+                                            </Grid>
+
+                                            {/* Datas */}
+                                            <Grid item xs={12} md={3}>
+                                              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                                                {subtask.startDate && (
+                                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                    <CalendarIcon sx={{ fontSize: 14, color: 'primary.main' }} />
                                                     <Typography variant="caption" color="textSecondary">
-                                                      {subtask.progress}%
+                                                      Início: {formatDate(subtask.startDate)}
+                                                    </Typography>
+                                                  </Box>
+                                                )}
+                                                {subtask.dueDate && (
+                                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                    <CalendarIcon sx={{ fontSize: 14, color: 'warning.main' }} />
+                                                    <Typography variant="caption" color="textSecondary">
+                                                      Prazo: {formatDate(subtask.dueDate)}
+                                                    </Typography>
+                                                  </Box>
+                                                )}
+                                                {subtask.actualEndDate && (
+                                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                    <CheckCircleIcon sx={{ fontSize: 14, color: 'success.main' }} />
+                                                    <Typography variant="caption" color="success.main">
+                                                      Concluída: {formatDate(subtask.actualEndDate)}
                                                     </Typography>
                                                   </Box>
                                                 )}
                                               </Box>
-                                            </Box>
-                                          </Card>
-                                        </Grid>
+                                            </Grid>
+
+                                            {/* Responsável e Progresso */}
+                                            <Grid item xs={12} md={3}>
+                                              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                                {subtask.assignee && (
+                                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                    <PersonIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
+                                                    <Typography variant="caption" color="textSecondary">
+                                                      {subtask.assignee}
+                                                    </Typography>
+                                                  </Box>
+                                                )}
+                                                {subtask.progress !== undefined && (
+                                                  <Box>
+                                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                                                      <Typography variant="caption" color="textSecondary">
+                                                        Progresso
+                                                      </Typography>
+                                                      <Typography variant="caption" fontWeight="bold" color="primary">
+                                                        {subtask.progress}%
+                                                      </Typography>
+                                                    </Box>
+                                                    <LinearProgress
+                                                      variant="determinate"
+                                                      value={subtask.progress}
+                                                      sx={{ 
+                                                        height: 6, 
+                                                        borderRadius: 3,
+                                                        backgroundColor: 'grey.200',
+                                                        '& .MuiLinearProgress-bar': {
+                                                          backgroundColor: getStatusColor(subtask.status)
+                                                        }
+                                                      }}
+                                                    />
+                                                  </Box>
+                                                )}
+                                                {subtask.estimatedHours && (
+                                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                    <ScheduleIcon sx={{ fontSize: 14, color: 'info.main' }} />
+                                                    <Typography variant="caption" color="textSecondary">
+                                                      {subtask.estimatedHours}h
+                                                      {subtask.actualHours && ` / ${subtask.actualHours}h`}
+                                                    </Typography>
+                                                  </Box>
+                                                )}
+                                              </Box>
+                                            </Grid>
+                                          </Grid>
+                                        </Card>
                                       ))}
-                                    </Grid>
+                                    </Box>
                                   </Box>
                                 </Grid>
                               )}
