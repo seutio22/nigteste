@@ -204,19 +204,22 @@ export const useAdvancedIndicators = (
             }
           } else {
             // Não é UUID - pode ser um nome, verificar se existe no masterDataStore
-            const analistaPorNome = masterDataStore.analistas.find(a => 
-              a.nome.toLowerCase() === analistaId.toLowerCase() ||
-              a.nome.toLowerCase().includes(analistaId.toLowerCase()) ||
-              analistaId.toLowerCase().includes(a.nome.toLowerCase())
-            )
+            const analistaIdStr = String(analistaId).toLowerCase()
+            const analistaPorNome = masterDataStore.analistas.find(a => {
+              if (!a || !a.nome || typeof a.nome !== 'string') return false
+              const nomeAnalista = a.nome.toLowerCase()
+              return nomeAnalista === analistaIdStr ||
+                     nomeAnalista.includes(analistaIdStr) ||
+                     analistaIdStr.includes(nomeAnalista)
+            })
             
-            if (analistaPorNome) {
+            if (analistaPorNome && analistaPorNome.nome) {
               // Encontrou por nome - usar o nome e atualizar o ID
-              analistaNome = analistaPorNome.nome
-              analistaIdFinal = analistaPorNome.id
+              analistaNome = String(analistaPorNome.nome)
+              analistaIdFinal = analistaPorNome.id || analistaId
             } else {
               // Não encontrou - usar o valor original como nome
-              analistaNome = analistaId
+              analistaNome = String(analistaId)
             }
           }
         }
