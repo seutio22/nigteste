@@ -828,12 +828,25 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
 
   const handleCopyOutlook = async () => {
     try {
-      const emailParaCopiar = gerarHTMLComBlocos()
-      await navigator.clipboard.writeText(emailParaCopiar)
+      const htmlContent = buildEmailHtml()
+      if (navigator.clipboard && 'write' in navigator.clipboard && typeof window.ClipboardItem !== 'undefined') {
+        const tempDiv = document.createElement('div')
+        tempDiv.innerHTML = htmlContent
+        const plainText = tempDiv.innerText
+        const clipboardItem = new window.ClipboardItem({
+          'text/html': new Blob([htmlContent], { type: 'text/html' }),
+          'text/plain': new Blob([plainText], { type: 'text/plain' })
+        })
+        await navigator.clipboard.write([clipboardItem])
+      } else {
+        await navigator.clipboard.writeText(htmlContent)
+      }
       setCopiadoEmail(true)
       setTimeout(() => setCopiadoEmail(false), 2000)
-    } catch (err) {
-      console.error('Erro ao copiar e-mail Outlook:', err)
+      showDownloadFeedback('📋 HTML copiado com formatação!')
+    } catch (error) {
+      console.error('Erro ao copiar e-mail Outlook:', error)
+      alert('Erro ao copiar o e-mail. Tente novamente.')
     }
   }
 
