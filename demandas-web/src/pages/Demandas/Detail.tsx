@@ -324,7 +324,7 @@ export default function DemandDetailPage() {
               </div>
               <div>
                 <p className="text-sm text-gray-500">Solicitante</p>
-                <p className="font-medium">{d.solicitante || '-'}</p>
+                <p className="font-medium">{md.solicitantesById?.[d.solicitante as string]?.nome || md.solicitantes.find(s => s.id === d.solicitante)?.nome || d.solicitante || '-'}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-500">Tipo de Demanda</p>
@@ -413,6 +413,20 @@ function EditInline({ d }: { d: Demand }) {
   const store = useDemandStore()
   const [draft, setDraft] = useState(d)
   const [confirmOpen, setConfirmOpen] = useState(false)
+
+  const resolveSolicitanteName = (value?: string | null) => {
+    if (!value) return undefined
+    return md.solicitantesById?.[value]?.nome
+      || md.solicitantes.find(s => s.id === value || s.nome === value)?.nome
+      || value
+  }
+
+  const resolveSolicitanteId = (value?: string | null) => {
+    if (!value) return ''
+    if (md.solicitantesById?.[value]) return value
+    const found = md.solicitantes.find(s => s.id === value || s.nome === value)
+    return found?.id || value
+  }
 
   // Função label local para o componente EditInline
   const label = (id?: string | any, arr?: { id: string, nome: string }[]) => {
@@ -539,7 +553,8 @@ function EditInline({ d }: { d: Demand }) {
       const updatePayload = {
         status: draft.status,
         ticket: draft.ticket || null,
-        solicitante: draft.solicitante || null,
+        analistaId: draft.analistaId || null,
+        solicitante: resolveSolicitanteName(draft.solicitante) || null,
         descricao: draft.descricao || null,
         observacoes: draft.observacoes || null,
         qualidade: draft.qualidade || null,
@@ -614,7 +629,7 @@ function EditInline({ d }: { d: Demand }) {
             case 'clienteId':
               return md.clientes.find(c => c.id === id)?.nome || id
             case 'contratoId':
-              return md.contratos.find(c => c.id === id)?.codigo || md.contratos.find(c => c.id === id)?.numero || id
+              return md.contratos.find(c => c.id === id)?.codigo || id
             case 'operadoraId':
               return md.operadoras.find(o => o.id === id)?.nome || id
             case 'produtoId':
@@ -630,8 +645,7 @@ function EditInline({ d }: { d: Demand }) {
             case 'analistaId':
               return md.analistas.find(a => a.id === id)?.nome || id
             case 'solicitante':
-              // Solicitante é um nome direto, não um ID
-              return id
+              return resolveSolicitanteName(id) || id
             default:
               return id
           }
@@ -745,6 +759,8 @@ function EditInline({ d }: { d: Demand }) {
       alert(`Erro ao atualizar demanda: ${errorMessage}\n\nVerifique o console para mais detalhes.`)
     }
   }
+
+  const solicitanteSelectValue = resolveSolicitanteId(draft.solicitante)
 
   return (
     <div className="space-y-6">
@@ -924,12 +940,12 @@ function EditInline({ d }: { d: Demand }) {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Solicitante</label>
           <select
-            value={draft.solicitante || ''}
+            value={solicitanteSelectValue}
             onChange={(e) => setDraft({ ...draft, solicitante: e.target.value || undefined })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="">Selecione...</option>
-            {md.solicitantes.map(s => <option key={s.id} value={s.nome}>{s.nome}</option>)}
+            {md.solicitantes.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
           </select>
         </div>
       </div>

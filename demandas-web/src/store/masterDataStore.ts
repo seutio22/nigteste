@@ -35,6 +35,7 @@ export interface MasterDataState {
   sistemasById: Record<string, Sistema>
   tiposServicoById: Record<string, TipoServico>
   tiposDemandaById: Record<string, TipoDemanda>
+  solicitantesById: Record<string, Solicitante>
   upsertMany: (payload: Partial<MasterDataState>) => void
   clearAll: () => void
   forceCleanSync: () => Promise<void>
@@ -73,6 +74,7 @@ function buildIndexes(state: Pick<
   | 'sistemas'
   | 'tiposServico'
   | 'tiposDemanda'
+  | 'solicitantes'
 >): Pick<
   MasterDataState,
   | 'analistasById'
@@ -84,6 +86,7 @@ function buildIndexes(state: Pick<
   | 'sistemasById'
   | 'tiposServicoById'
   | 'tiposDemandaById'
+  | 'solicitantesById'
 > {
   return {
     analistasById: indexById(state.analistas),
@@ -94,7 +97,8 @@ function buildIndexes(state: Pick<
     produtosById: indexById(state.produtos),
     sistemasById: indexById(state.sistemas),
     tiposServicoById: indexById(state.tiposServico),
-    tiposDemandaById: indexById(state.tiposDemanda)
+    tiposDemandaById: indexById(state.tiposDemanda),
+    solicitantesById: indexById(state.solicitantes)
   }
 }
 
@@ -133,6 +137,7 @@ export const useMasterDataStore = create<MasterDataState>()(
         sistemasById: {},
         tiposServicoById: {},
         tiposDemandaById: {},
+        solicitantesById: {},
         // Estado de sincronização
         isSyncing: false,
         lastSync: null,
@@ -143,12 +148,18 @@ export const useMasterDataStore = create<MasterDataState>()(
         // Lista de exclusões locais permanentes
         localExclusions: {},
         addLocalExclusion: (entity: string, id: string) => {
-          set((state) => ({
-            localExclusions: {
-              ...state.localExclusions,
-              [entity]: [...(state.localExclusions[entity] || []), id]
+          set((state) => {
+            const existing = state.localExclusions[entity] || []
+            if (existing.includes(id)) {
+              return state
             }
-          }))
+            return {
+              localExclusions: {
+                ...state.localExclusions,
+                [entity]: [...existing, id]
+              }
+            }
+          })
         },
         removeLocalExclusion: (entity: string, id: string) => {
           set((state) => ({
@@ -216,7 +227,9 @@ export const useMasterDataStore = create<MasterDataState>()(
           produtosById: {},
           sistemasById: {},
           tiposServicoById: {},
-          tiposDemandaById: {}
+          tiposDemandaById: {},
+          solicitantesById: {},
+          localExclusions: {}
         }),
 
         forceCleanSync: async () => {
@@ -234,11 +247,13 @@ export const useMasterDataStore = create<MasterDataState>()(
             produtosById: {},
             sistemasById: {},
             tiposServicoById: {},
-            tiposDemandaById: {}
+            tiposDemandaById: {},
+            solicitantesById: {},
+            localExclusions: {}
           })
           
           // Limpar localStorage
-          localStorage.removeItem('masterDataStore')
+          localStorage.removeItem('master-data-store')
           localStorage.removeItem('demands-v1')
           localStorage.removeItem('validations-v1')
           localStorage.removeItem('comunicados-v1')
@@ -418,7 +433,8 @@ export const useMasterDataStore = create<MasterDataState>()(
         categorias: state.categorias,
         periodicidades: state.periodicidades,
         status: state.status,
-        lastSync: state.lastSync
+        lastSync: state.lastSync,
+        localExclusions: state.localExclusions
       }),
       onRehydrateStorage: () => (state) => {
         if (state) {

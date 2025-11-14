@@ -8,7 +8,7 @@ import { api } from '../lib/api'
 interface ReajusteState {
   items: ReajusteEntry[]
   add: (e: Omit<ReajusteEntry, 'id' | 'createdAt'>) => Promise<ReajusteEntry>
-  remove: (id: string) => Promise<void>
+  remove: (id: string | string[]) => Promise<void>
   upsert: (entry: ReajusteEntry) => Promise<void>
   log: (entry: { reajusteId: string; type: string; field: string; from: unknown; to: unknown }) => void
   syncFromApi: () => Promise<void>
@@ -90,10 +90,12 @@ export const useReajusteStore = create<ReajusteState>()(
       },
       
       remove: async (id) => {
-        console.log('🗑️ Removendo reajuste:', id)
+        const ids = Array.isArray(id) ? id : [id]
+        console.log('🗑️ Removendo reajuste:', ids)
         
         // Remover do estado local imediatamente (otimista)
-        set((s) => ({ items: s.items.filter((x) => x.id !== id) }))
+        const idSet = new Set(ids)
+        set((s) => ({ items: s.items.filter((x) => !idSet.has(x.id)) }))
         console.log('✅ Reajuste removido do estado local')
         
         try {
@@ -101,13 +103,22 @@ export const useReajusteStore = create<ReajusteState>()(
           const { api } = await import('../lib/api.local')
           
           // Excluir do backend
-          await api.deleteReajuste(id)
-          console.log('✅ Reajuste excluído com sucesso no backend')
+          for (const targetId of ids) {
+            try {
+              await api.deleteReajuste(targetId)
+              console.log('✅ Reajuste excluído com sucesso no backend:', targetId)
+            } catch (error: any) {
+              if (error?.statusCode === 404) {
+                console.log('⚠️ Reajuste não encontrado no backend (já foi deletado), continuando...', targetId)
+                continue
+              }
+              throw error
+            }
+          }
           
         } catch (error: any) {
-          // Se erro 404, o registro já foi deletado ou não existe - ignorar
+          // Se erro 404, o registro já foi deletado ou não existe - ignorar (já tratado no loop)
           if (error?.statusCode === 404) {
-            console.log('⚠️ Reajuste não encontrado no backend (já foi deletado), continuando...')
             return
           }
           console.error('⚠️ Erro ao excluir reajuste no backend:', error)

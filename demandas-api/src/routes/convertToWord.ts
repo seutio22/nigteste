@@ -43,6 +43,84 @@ function parseStyle(styleStr: string): Record<string, string> {
   return styles
 }
 
+function createParagraph(text: string, options: Partial<TextRun> & { bold?: boolean; size?: number; color?: string } = {}) {
+  const runs = text.split('\n').map((line, idx) => new TextRun({
+    text: line,
+    break: idx > 0,
+    ...options
+  }))
+  return new Paragraph({ children: runs })
+}
+
+function buildResumoTable(rows: any[]) {
+  const headerRow = new TableRow({
+    tableHeader: true,
+    children: [
+      'Contrato',
+      'Operadora',
+      'Produto',
+      'Atualização',
+      'Subtipo',
+      'Tipo'
+    ].map((label) =>
+      new TableCell({
+        children: [
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            children: [
+              new TextRun({ text: label, bold: true, color: 'FFFFFF' })
+            ]
+          })
+        ],
+        shading: { type: ShadingType.SOLID, fill: '1F2937' }
+      })
+    )
+  })
+
+  const bodyRows = rows.map((row, index) =>
+    new TableRow({
+      children: [
+        row.contrato,
+        row.operadora,
+        row.produto,
+        row.atualizacao,
+        row.subtipo,
+        row.tipo
+      ].map((value: string) =>
+        new TableCell({
+          children: [
+            new Paragraph({
+              children: [new TextRun({ text: value || 'N/A' })]
+            })
+          ],
+          shading:
+            index % 2 === 1
+              ? { type: ShadingType.SOLID, fill: 'F3F4F6' }
+              : undefined
+        })
+      )
+    })
+  )
+
+  return new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    borders: {
+      top: { style: BorderStyle.SINGLE, size: 1, color: 'D1D5DB' },
+      bottom: { style: BorderStyle.SINGLE, size: 1, color: 'D1D5DB' },
+      left: { style: BorderStyle.SINGLE, size: 1, color: 'D1D5DB' },
+      right: { style: BorderStyle.SINGLE, size: 1, color: 'D1D5DB' },
+      insideHorizontal: { style: BorderStyle.SINGLE, size: 1, color: 'D1D5DB' },
+      insideVertical: { style: BorderStyle.SINGLE, size: 1, color: 'D1D5DB' }
+    },
+    rows: [headerRow, ...bodyRows]
+  })
+}
+
+function sanitizeTextValue(value?: string | null): string {
+  if (!value) return ''
+  return value.replace(/\s+/g, ' ').trim()
+}
+
 export async function convertToWordRoutes(app: FastifyInstance) {
   // Endpoint para converter HTML para Word - ABORDAGEM LEVE SEM PUPPETEER
   app.post('/convert-html-to-word', async (request: any, reply) => {
@@ -373,6 +451,160 @@ export async function convertToWordRoutes(app: FastifyInstance) {
         error: 'Erro ao converter HTML para Word',
         details: error?.message 
       })
+    }
+  })
+
+  app.post('/comunicacao-word', async (request: any, reply) => {
+    try {
+      const {
+        titulo,
+        subtitulo,
+        saudacao,
+        informacao,
+        cliente,
+        operadora,
+        produto,
+        sistema,
+        resumo,
+        descricao,
+        conclusao,
+        ticket
+      } = request.body as {
+        titulo: string
+        subtitulo: string
+        saudacao: string
+        informacao: string
+        cliente: string
+        operadora: string
+        produto: string
+        sistema: string
+        resumo: Array<{
+          contrato: string
+          operadora: string
+          produto: string
+          atualizacao: string
+          subtipo: string
+          tipo: string
+        }>
+        descricao: string
+        conclusao: string
+        ticket: string
+      }
+
+      const safeResumo = Array.isArray(resumo) && resumo.length > 0 ? resumo : [
+        {
+          contrato: 'N/A',
+          operadora: 'N/A',
+          produto: 'N/A',
+          atualizacao: 'N/A',
+          subtipo: 'N/A',
+          tipo: 'N/A'
+        }
+      ]
+
+      const doc = new Document({
+        sections: [
+          {
+            properties: {
+              page: {
+                margin: {
+                  top: 720,
+                  right: 720,
+                  bottom: 720,
+                  left: 720
+                }
+              }
+            },
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                spacing: { after: 120 },
+                children: [
+                  new TextRun({
+                    text: sanitizeTextValue(titulo) || 'Comunicado NIG',
+                    bold: true,
+                    size: 48
+                  })
+                ]
+              }),
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                spacing: { after: 400 },
+                children: [
+                  new TextRun({
+                    text: sanitizeTextValue(subtitulo) || 'Notificação Automática - Sistema NIG',
+                    size: 24,
+                    color: '6B7280'
+                  })
+                ]
+              }),
+              createParagraph(sanitizeTextValue(saudacao) || 'Prezados,'),
+              createParagraph(
+                sanitizeTextValue(informacao) ||
+                  'Informamos que houve alteração nos dados do cliente a seguir:'
+              ),
+              new Paragraph({ spacing: { after: 200 } }),
+              createParagraph(`Cliente: ${sanitizeTextValue(cliente) || 'N/A'}`),
+              createParagraph(`Operadora: ${sanitizeTextValue(operadora) || 'N/A'}`),
+              createParagraph(`Produto: ${sanitizeTextValue(produto) || 'N/A'}`),
+              createParagraph(`Sistema: ${sanitizeTextValue(sistema) || 'N/A'}`),
+              new Paragraph({ spacing: { after: 300 } }),
+              new Paragraph({
+                children: [
+                  new TextRun({ text: 'Resumo da alteração', bold: true })
+                ],
+                spacing: { after: 200 }
+              }),
+              buildResumoTable(
+                safeResumo.map((row) => ({
+                  contrato: sanitizeTextValue(row.contrato) || 'N/A',
+                  operadora: sanitizeTextValue(row.operadora) || 'N/A',
+                  produto: sanitizeTextValue(row.produto) || 'N/A',
+                  atualizacao: sanitizeTextValue(row.atualizacao) || 'N/A',
+                  subtipo: sanitizeTextValue(row.subtipo) || 'N/A',
+                  tipo: sanitizeTextValue(row.tipo) || 'N/A'
+                }))
+              ),
+              new Paragraph({ spacing: { after: 300 } }),
+              new Paragraph({
+                children: [
+                  new TextRun({ text: 'Descrição', bold: true })
+                ],
+                spacing: { after: 120 }
+              }),
+              createParagraph(descricao || '-'),
+              new Paragraph({ spacing: { after: 240 } }),
+              new Paragraph({
+                children: [
+                  new TextRun({ text: 'Conclusão', bold: true })
+                ],
+                spacing: { after: 120 }
+              }),
+              createParagraph(conclusao || '-'),
+              new Paragraph({ spacing: { after: 240 } }),
+              createParagraph('Atenciosamente,'),
+              createParagraph('NIG - Núcleo de Informações Gerenciais'),
+              createParagraph('Mensagem gerada automaticamente pelo sistema NIG.'),
+              new Paragraph({ spacing: { before: 480 } }),
+              createParagraph(`Ticket: ${sanitizeTextValue(ticket) || 'N/A'}`, {
+                color: '6B7280',
+                size: 20
+              })
+            ]
+          }
+        ]
+      })
+
+      const buffer = await Packer.toBuffer(doc)
+      const fileName = `comunicacao-${sanitizeTextValue(ticket) || 'NIG'}.docx`
+
+      reply
+        .header('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+        .header('Content-Disposition', `attachment; filename="${fileName}"`)
+        .send(buffer)
+    } catch (error) {
+      request.log.error(error)
+      reply.code(500).send({ error: 'Erro ao gerar documento Word' })
     }
   })
 }

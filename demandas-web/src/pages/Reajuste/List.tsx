@@ -188,44 +188,11 @@ export default function ReajusteListPage() {
   // Função de exclusão em massa
   const handleBulkDelete = async () => {
     try {
-      const { api } = await import('../../lib/api.local')
       console.log('🗑️ Iniciando exclusão em massa de', selectedIds.length, 'reajustes')
-      
-      let successCount = 0
-      let errorCount = 0
-      let notFoundCount = 0
-      
-      for (const id of selectedIds) {
-        try {
-          await api.delete(`/reajustes/${id}`)
-          successCount++
-        } catch (error: any) {
-          if (error?.message?.includes('404') || error?.response?.status === 404) {
-            console.log(`⚠️ Reajuste ${id} já foi excluído (404) - removendo do cache local`)
-            notFoundCount++
-          } else {
-            console.error(`❌ Erro ao excluir reajuste ${id}:`, error)
-            errorCount++
-          }
-        }
-      }
-      
-      store.remove(selectedIds)
+      await store.remove(selectedIds)
       setSelectedIds([])
       setBulkDeleteDialogOpen(false)
-      
-      const totalProcessed = successCount + notFoundCount
-      if (errorCount === 0) {
-        if (notFoundCount > 0) {
-          alert(`✅ ${totalProcessed} reajuste(s) removido(s)!\n\n${successCount} excluídos do banco\n${notFoundCount} já haviam sido excluídos (cache limpo)`)
-        } else {
-          alert(`✅ ${successCount} reajuste(s) excluído(s) com sucesso!`)
-        }
-      } else {
-        alert(`⚠️ ${totalProcessed} reajuste(s) removido(s), ${errorCount} erro(s)\n\n${successCount} excluídos\n${notFoundCount} já excluídos anteriormente`)
-      }
-      
-      store.syncFromApi()
+      alert(`✅ ${selectedIds.length} reajuste(s) removido(s)!`)
     } catch (error) {
       console.error('❌ Erro na exclusão em massa:', error)
       alert('Erro ao excluir reajustes')

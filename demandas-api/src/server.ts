@@ -1766,13 +1766,30 @@ function crud(entity: keyof PrismaClient) {
       if (entity === 'reajuste') {
         // Construir filtros se queryParams fornecidos
         const where: any = {}
+        let ticketFilter: string | undefined
         
         if (queryParams) {
           Object.keys(queryParams).forEach(key => {
+            if (key === 'ticket') {
+              const value = queryParams[key]
+              if (typeof value === 'string' && value.trim()) {
+                ticketFilter = value.trim()
+              }
+              return
+            }
             if (key !== 'entityId' && key !== 'entityType') {
               where[key] = queryParams[key]
             }
           })
+        }
+        
+        if (ticketFilter) {
+          where.demanda = {
+            ticket: {
+              contains: ticketFilter,
+              mode: 'insensitive'
+            }
+          }
         }
         
         return anyPrisma[entity].findMany({
