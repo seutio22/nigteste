@@ -1729,6 +1729,29 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
             {gerandoWord ? 'Gerando...' : '📄 Download Word'}
           </Button>
           
+          <Button
+            variant="contained"
+            onClick={handleSalvarArquivo}
+            startIcon={salvandoArquivo ? <span>⏳</span> : <span>💾</span>}
+            sx={{
+              borderRadius: '8px',
+              textTransform: 'none',
+              fontWeight: 500,
+              px: 4,
+              py: 1.5,
+              background: salvandoArquivo 
+                ? 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)'
+                : 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+              '&:hover': {
+                background: salvandoArquivo 
+                  ? 'linear-gradient(135deg, #4b5563 0%, #374151 100%)'
+                  : 'linear-gradient(135deg, #047857 0%, #065f46 100%)'
+              }
+            }}
+          >
+            {salvandoArquivo ? 'Salvando...' : '💾 Salvar Arquivo HTML'}
+          </Button>
+          
         </Box>
       </DialogActions>
     </Dialog>

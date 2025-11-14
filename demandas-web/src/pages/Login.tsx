@@ -88,8 +88,27 @@ export default function LoginPage() {
       
       navigate('/')
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Falha ao entrar';
-      setError(errorMessage);
+      let errorMessage = 'Falha ao entrar. Verifique suas credenciais e tente novamente.'
+
+      if (err && typeof err === 'object') {
+        const anyErr = err as any
+
+        if (anyErr?.responseText) {
+          try {
+            const parsed = JSON.parse(anyErr.responseText)
+            if (parsed?.message) {
+              errorMessage = parsed.message
+            }
+          } catch (parseError) {
+            // resposta não era JSON válido, manter mensagem padrão
+            console.warn('Não foi possível interpretar resposta de erro do login:', parseError)
+          }
+        } else if (err instanceof Error && err.message) {
+          errorMessage = err.message
+        }
+      }
+
+      setError(errorMessage)
     } finally {
       setIsLoading(false)
     }
