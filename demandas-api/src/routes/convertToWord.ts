@@ -46,7 +46,7 @@ function parseStyle(styleStr: string): Record<string, string> {
 function createParagraph(text: string, options: Partial<TextRun> & { bold?: boolean; size?: number; color?: string } = {}) {
   const runs = text.split('\n').map((line, idx) => new TextRun({
     text: line,
-    break: idx > 0,
+    break: idx > 0 ? 1 : undefined,
     ...options
   }))
   return new Paragraph({ children: runs })
@@ -54,7 +54,7 @@ function createParagraph(text: string, options: Partial<TextRun> & { bold?: bool
 
 function buildResumoTable(rows: any[]) {
   const headerRow = new TableRow({
-    tableHeader: 1,
+    tableHeader: true,
     children: [
       'Contrato',
       'Operadora',
