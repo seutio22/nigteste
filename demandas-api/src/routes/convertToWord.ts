@@ -54,7 +54,7 @@ function createParagraph(text: string, options: Partial<TextRun> & { bold?: bool
 
 function buildResumoTable(rows: any[]) {
   const headerRow = new TableRow({
-    tableHeader: true,
+    tableHeader: 1,
     children: [
       'Contrato',
       'Operadora',
