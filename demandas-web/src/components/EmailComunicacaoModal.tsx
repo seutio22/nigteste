@@ -17,7 +17,6 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
   const [emailCompleto, setEmailCompleto] = useState('')
   const [copiado, setCopiado] = useState(false)
   const [copiadoEmail, setCopiadoEmail] = useState(false)
-  const [salvandoArquivo, setSalvandoArquivo] = useState(false)
   const [previewAtualizado, setPreviewAtualizado] = useState(0)
   const [carregandoMailling, setCarregandoMailling] = useState(false)
   const [gerandoImagem, setGerandoImagem] = useState(false)
@@ -871,7 +870,6 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
     // Forçar atualização do preview
     setPreviewAtualizado(prev => prev + 1)
     
-    // Feedback visual
     const feedback = document.createElement('div')
     feedback.style.cssText = `
       position: fixed;
@@ -893,56 +891,8 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
     }, 3000)
   }
 
-  const handleSalvarArquivo = async () => {
-    try {
-      setSalvandoArquivo(true)
-      const emailParaSalvar = gerarHTMLComBlocos()
-      
-      // Criar nome do arquivo com timestamp e ticket
-      const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-')
-      const ticket = manutencao?.ticket || 'N/A'
-      const nomeArquivo = `email-comunicacao-${ticket}-${timestamp}.html`
-      
-      // Criar blob e fazer download
-      const blob = new Blob([emailParaSalvar], { type: 'text/html;charset=utf-8' })
-      const url = URL.createObjectURL(blob)
-      
-      const link = document.createElement('a')
-      link.href = url
-      link.download = nomeArquivo
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      
-      URL.revokeObjectURL(url)
-      
-      setSalvandoArquivo(false)
-      
-      // Mostrar feedback de sucesso
-      const feedback = document.createElement('div')
-      feedback.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: #10b981;
-        color: white;
-        padding: 12px 20px;
-        border-radius: 8px;
-        font-weight: 500;
-        z-index: 9999;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-      `
-      feedback.textContent = `✅ Arquivo salvo: ${nomeArquivo}`
-      document.body.appendChild(feedback)
-      
-      setTimeout(() => {
-        document.body.removeChild(feedback)
-      }, 3000)
-      
-    } catch (err) {
-      console.error('Erro ao salvar arquivo:', err)
-      setSalvandoArquivo(false)
-    }
+  const handleSalvarArquivo = () => {
+    console.warn('Salvar arquivo HTML foi desativado.')
   }
 
   const handleSelectAll = () => {
@@ -1738,51 +1688,18 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
           </Button>
           
           <Button
-            variant="contained"
-            onClick={handleSalvarArquivo}
-            disabled={salvandoArquivo}
-            startIcon={salvandoArquivo ? <span>⏳</span> : <span>💾</span>}
-            sx={{
-              borderRadius: '8px',
-              textTransform: 'none',
-              fontWeight: 500,
-              px: 4,
-              py: 1.5,
-              background: salvandoArquivo 
-                ? 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)'
-                : 'linear-gradient(135deg, #059669 0%, #047857 100%)',
-              '&:hover': {
-                background: salvandoArquivo 
-                  ? 'linear-gradient(135deg, #4b5563 0%, #374151 100%)'
-                  : 'linear-gradient(135deg, #047857 0%, #065f46 100%)'
-              }
-            }}
-          >
-            {salvandoArquivo ? 'Salvando...' : '💾 Salvar Arquivo HTML'}
-          </Button>
-          
-          <Button
             startIcon={copiadoEmail ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
             onClick={handleCopyOutlook}
             variant="contained"
             color={copiadoEmail ? "success" : "primary"}
-            sx={{ 
+            sx={{
               borderRadius: '8px',
-              textTransform: 'none',
               fontWeight: 500,
-              px: 4,
-              py: 1.5,
-              background: copiadoEmail 
-                ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
-                : 'linear-gradient(135deg, #0078d4 0%, #106ebe 100%)',
-              '&:hover': {
-                background: copiadoEmail 
-                  ? 'linear-gradient(135deg, #059669 0%, #047857 100%)'
-                  : 'linear-gradient(135deg, #106ebe 0%, #005a9e 100%)'
-              }
+              px: 3,
+              py: 1.5
             }}
           >
-            {copiadoEmail ? 'E-mail Copiado!' : '📧 Copiar para Outlook'}
+            {copiadoEmail ? 'Copiado!' : 'Copiar e-mail (Outlook)'}
           </Button>
           
           <Button
