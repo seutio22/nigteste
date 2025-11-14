@@ -1734,7 +1734,6 @@ function crud(entity: keyof PrismaClient) {
             tipoId: true,
             qtdRetornos: true,
             qualidade: true,
-            qtdClientesVinculados: true,
             usuariosEmpresa: true,
             total: true,
             observacoes: true,
