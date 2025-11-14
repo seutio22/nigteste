@@ -116,84 +116,93 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
     const margin = options?.bodyMargin ?? '0';
     const padding = options?.containerPadding ?? '24px';
 
+    const rowsHtml = info.linhas.map((linha, index) => {
+      const isEven = index % 2 === 0
+      const rowBg = isEven ? '#ffffff' : '#f8fafc'
+      return `
+        <tr style="background: ${rowBg};">
+          <td style="padding: 14px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600; color: #1d4ed8; font-size: 13px;">${linha.contrato}</td>
+          <td style="padding: 14px 12px; border-bottom: 1px solid #e2e8f0; color: #2d3748; font-size: 13px;">${linha.operadora}</td>
+          <td style="padding: 14px 12px; border-bottom: 1px solid #e2e8f0; background: #e6fffa; color: #115e59; font-weight: 500; font-size: 13px;">${linha.produto}</td>
+          <td style="padding: 14px 12px; border-bottom: 1px solid #e2e8f0; background: #fef3c7; color: #92400e; font-weight: 500; font-size: 13px;">${linha.atualizacao}</td>
+          <td style="padding: 14px 12px; border-bottom: 1px solid #e2e8f0; background: #ede9fe; color: #5b21b6; font-weight: 500; font-size: 13px;">${linha.subtipo}</td>
+          <td style="padding: 14px 12px; border-bottom: 1px solid #e2e8f0; background: #ecfdf5; color: #065f46; font-weight: 500; font-size: 13px;">${linha.tipo}</td>
+        </tr>`
+    }).join('')
+
     return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
   <title>Comunicado - ${info.ticket}</title>
-  <style>
-    body { font-family: Arial, sans-serif; color: #1f2937; margin: ${margin}; background: #ffffff; }
-    .container { max-width: 760px; margin: 0 auto; padding: ${padding}; }
-    h1 { font-size: 20px; margin: 0 0 6px 0; color: #111827; }
-    .subtitle { font-size: 12px; color: #6b7280; margin-bottom: 20px; }
-    section { margin-bottom: 24px; }
-    section p { margin: 4px 0; }
-    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-    th, td { border: 1px solid #d1d5db; padding: 8px 10px; font-size: 12px; text-align: left; }
-    th { background: #1f2937; color: #ffffff; font-weight: 600; }
-    tr:nth-child(even) td { background: #f3f4f6; }
-  </style>
 </head>
-<body>
-  <div class="container">
-    <h1>${info.titulo}</h1>
-    <p class="subtitle">${info.subtitulo}</p>
+<body style="font-family: Arial, sans-serif; color: #1f2937; margin: ${margin}; background: #f1f5f9;">
+  <div style="max-width: 780px; margin: 0 auto; padding: ${padding};">
+    <div style="background: linear-gradient(135deg, #1a1c2d 0%, #262b44 100%); color: #ffffff; padding: 26px 32px; border-radius: 14px 14px 0 0; box-shadow: 0 15px 30px -15px rgba(15, 23, 42, 0.5);">
+      <p style="margin: 0 0 4px 0; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; opacity: 0.75;">Notificação Automática - Sistema NIG</p>
+      <h1 style="margin: 0; font-size: 24px; font-weight: 700; letter-spacing: 0.5px;">🔔 ${info.titulo}</h1>
+    </div>
 
-    <section>
-      <p>${info.saudacao}</p>
-      <p>${info.informacao}</p>
-      <p><strong>Cliente:</strong> ${info.cliente}</p>
-      <p><strong>Operadora:</strong> ${info.operadora}</p>
-      <p><strong>Produto:</strong> ${info.produto}</p>
-      <p><strong>Sistema:</strong> ${info.sistema}</p>
-    </section>
+    <div style="background: #ffffff; border-radius: 0 0 14px 14px; box-shadow: 0 12px 25px -18px rgba(15, 23, 42, 0.5); overflow: hidden;">
+      <div style="padding: 30px;">
+        <div style="font-size: 15px; color: #1f2937; margin-bottom: 20px;">
+          <strong>${info.saudacao}</strong>
+        </div>
 
-    <section>
-      <p><strong>Resumo da alteração</strong></p>
-      <table>
-        <thead>
-          <tr>
-            <th>Contrato</th>
-            <th>Operadora</th>
-            <th>Produto</th>
-            <th>Atualização</th>
-            <th>Subtipo</th>
-            <th>Tipo</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${info.linhas.map(linha => `
-            <tr>
-              <td>${linha.contrato}</td>
-              <td>${linha.operadora}</td>
-              <td>${linha.produto}</td>
-              <td>${linha.atualizacao}</td>
-              <td>${linha.subtipo}</td>
-              <td>${linha.tipo}</td>
-            </tr>`).join('')}
-        </tbody>
-      </table>
-    </section>
+        <div style="background: #f7fafc; border-left: 4px solid #3182ce; padding: 18px 22px; border-radius: 0 12px 12px 0; margin-bottom: 24px;">
+          <p style="margin: 0; font-size: 14px; font-weight: 500; color: #1e3a8a;">📋 ${info.informacao} <strong>${info.cliente}</strong></p>
+          <div style="display: flex; flex-wrap: wrap; margin-top: 12px; gap: 12px;">
+            <span style="background: #e0f2fe; color: #1d4ed8; padding: 6px 12px; border-radius: 999px; font-size: 12px;">Operadora: <strong>${info.operadora}</strong></span>
+            <span style="background: #ede9fe; color: #5b21b6; padding: 6px 12px; border-radius: 999px; font-size: 12px;">Produto: <strong>${info.produto}</strong></span>
+            <span style="background: #dcfce7; color: #047857; padding: 6px 12px; border-radius: 999px; font-size: 12px;">Sistema: <strong>${info.sistema}</strong></span>
+          </div>
+        </div>
 
-    <section>
-      <p><strong>Descrição</strong></p>
-      <p>${info.descricaoHtml || '-'}</p>
-    </section>
+        <div style="margin-bottom: 28px;">
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px;">
+            <span style="background: #1d4ed8; color: #ffffff; width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; font-size: 16px;">📊</span>
+            <p style="margin: 0; font-size: 15px; font-weight: 600; color: #0f172a;">Resumo da alteração</p>
+          </div>
+          <table style="width: 100%; border-collapse: collapse; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 20px -18px rgba(15, 23, 42, 0.4);">
+            <thead>
+              <tr>
+                <th style="padding: 16px 12px; text-align: left; font-weight: 600; font-size: 13px; background: #1f2937; color: #ffffff;">Contrato</th>
+                <th style="padding: 16px 12px; text-align: left; font-weight: 600; font-size: 13px; background: #1f2937; color: #ffffff;">Operadora</th>
+                <th style="padding: 16px 12px; text-align: left; font-weight: 600; font-size: 13px; background: #1f2937; color: #ffffff;">Produto</th>
+                <th style="padding: 16px 12px; text-align: left; font-weight: 600; font-size: 13px; background: #1f2937; color: #ffffff;">Atualização</th>
+                <th style="padding: 16px 12px; text-align: left; font-weight: 600; font-size: 13px; background: #1f2937; color: #ffffff;">Subtipo</th>
+                <th style="padding: 16px 12px; text-align: left; font-weight: 600; font-size: 13px; background: #1f2937; color: #ffffff;">Tipo</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+        </div>
 
-    <section>
-      <p><strong>Conclusão</strong></p>
-      <p>${info.conclusao}</p>
-    </section>
+        <div style="margin-bottom: 26px;">
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+            <span style="background: #e2e8f0; color: #1f2937; width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; font-size: 14px;">📝</span>
+            <p style="margin: 0; font-size: 15px; font-weight: 600; color: #0f172a;">Descrição</p>
+          </div>
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 18px; font-size: 13px; line-height: 1.6; color: #374151;">${info.descricaoHtml || '-'}</div>
+        </div>
 
-    <section>
-      <p>Atenciosamente,</p>
-      <p><strong>NIG - Núcleo de Informações Gerenciais</strong></p>
-      <p>Mensagem gerada automaticamente pelo sistema NIG.</p>
-    </section>
+        <div style="background: #ecfdf5; border: 1px solid #10b981; border-radius: 12px; padding: 18px; margin-bottom: 28px;">
+          <p style="margin: 0; font-size: 14px; font-weight: 600; color: #047857;">✅ ${info.conclusao}</p>
+        </div>
 
-    <section>
-      <p style="font-size: 11px; color: #6b7280;">Ticket: ${info.ticket} | Gerado em ${info.timestamp}</p>
-    </section>
+        <div style="margin-bottom: 12px;">
+          <p style="margin: 0 0 6px 0; font-size: 13px; color: #475569;">Atenciosamente,</p>
+          <p style="margin: 0 0 4px 0; font-size: 15px; font-weight: 600; color: #111827;">NIG - Núcleo de Informações Gerenciais</p>
+          <p style="margin: 0; font-size: 11px; color: #64748b;">Mensagem gerada automaticamente pelo sistema NIG.</p>
+        </div>
+
+        <div style="margin-top: 24px; padding-top: 16px; border-top: 1px dashed #cbd5f5;">
+          <p style="margin: 0; font-size: 11px; color: #94a3b8;">Ticket: ${info.ticket} • Gerado em ${info.timestamp}</p>
+        </div>
+      </div>
+    </div>
   </div>
 </body>
 </html>`
