@@ -160,7 +160,6 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
 
         <div style="margin-bottom: 28px;">
           <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px;">
-            <span style="background: #1d4ed8; color: #ffffff; width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; font-size: 16px;">📊</span>
             <p style="margin: 0; font-size: 15px; font-weight: 600; color: #0f172a;">Resumo da alteração</p>
           </div>
           <table style="width: 100%; border-collapse: collapse; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 20px -18px rgba(15, 23, 42, 0.4);">
@@ -182,7 +181,6 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
 
         <div style="margin-bottom: 26px;">
           <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
-            <span style="background: #e2e8f0; color: #1f2937; width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; font-size: 14px;">📝</span>
             <p style="margin: 0; font-size: 15px; font-weight: 600; color: #0f172a;">Descrição</p>
           </div>
           <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 18px; font-size: 13px; line-height: 1.6; color: #374151;">${info.descricaoHtml || '-'}</div>
