@@ -59,6 +59,150 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;')
 
+  const buildWordDocumentHtml = () => {
+    const cliente = md.clientes.find(c => c.id === manutencao?.clienteId)
+    const operadora = md.operadoras.find(o => o.id === manutencao?.operadoraId)
+    const produto = md.produtos.find(p => p.id === manutencao?.produtoId)
+    const sistema = md.sistemas.find(s => s.id === manutencao?.sistemaId)
+    const tipoServico = md.tiposCadastro.find(t => t.id === manutencao?.tipoServicoId)
+    const tipo = md.padrao.find(t => t.id === manutencao?.tipoId)
+    const contrato = manutencao?.contratoId ? md.contratos.find(c => c.id === manutencao.contratoId) : null
+
+    const linhas = (linhasTabela.length > 0 ? linhasTabela : [{
+      contrato: contrato?.codigo || contrato?.numero || manutencao?.ticket || '',
+      operadora: operadora?.nome || '',
+      produto: produto?.nome || '',
+      atualizacao: tipoServico?.nome || '',
+      subtipo: tipo?.nome || '',
+      tipo: sistema?.nome || ''
+    }]).map((linha) => ({
+      contrato: sanitizeText(linha.contrato || contrato?.codigo || contrato?.numero || manutencao?.ticket || 'N/A'),
+      operadora: sanitizeText(linha.operadora || operadora?.nome || 'N/A'),
+      produto: sanitizeText(linha.produto || produto?.nome || 'N/A'),
+      atualizacao: sanitizeText(linha.atualizacao || tipoServico?.nome || 'N/A'),
+      subtipo: sanitizeText(linha.subtipo || tipo?.nome || 'N/A'),
+      tipo: sanitizeText(linha.tipo || sistema?.nome || 'N/A')
+    }))
+
+    const descricao = sanitizeText(descricaoEditavel || manutencao?.descricao || 'Alteração realizada').replace(/\n/g, '<br />')
+    const conclusao = sanitizeText(blocoConclusao || 'O Edge e Move encontram-se atualizados. Solicitamos replicar esta informação com a sua equipe.')
+
+    return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Comunicado - ${sanitizeText(manutencao?.ticket || 'N/A')}</title>
+  <style>
+    body { font-family: Arial, sans-serif; color: #1f2937; margin: 40px; }
+    h1 { font-size: 20px; margin: 0 0 4px 0; color: #111827; }
+    .subtitle { font-size: 12px; color: #6b7280; margin-bottom: 20px; }
+    section { margin-bottom: 24px; }
+    section p { margin: 4px 0; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    th, td { border: 1px solid #d1d5db; padding: 8px 10px; font-size: 12px; text-align: left; }
+    th { background: #1f2937; color: #ffffff; font-weight: 600; }
+    tr:nth-child(even) td { background: #f3f4f6; }
+  </style>
+</head>
+<body>
+  <h1>${sanitizeText(blocoCabecalho || 'Notificação de Alteração')}</h1>
+  <p class="subtitle">${sanitizeText(blocoSubtitulo || 'Notificação Automática - Sistema NIG')}</p>
+
+  <section>
+    <p>${sanitizeText(blocoSaudacao || 'Prezados,')}</p>
+    <p>${sanitizeText(blocoInformacao || 'Informamos que o cliente sofreu alteração, sendo:')}</p>
+    <p><strong>Cliente:</strong> ${sanitizeText(cliente?.nome || 'N/A')}</p>
+    <p><strong>Operadora:</strong> ${sanitizeText(operadora?.nome || 'N/A')}</p>
+    <p><strong>Produto:</strong> ${sanitizeText(produto?.nome || 'N/A')}</p>
+    <p><strong>Sistema:</strong> ${sanitizeText(sistema?.nome || 'N/A')}</p>
+  </section>
+
+  <section>
+    <p><strong>Resumo da alteração</strong></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Contrato</th>
+          <th>Operadora</th>
+          <th>Produto</th>
+          <th>Atualização</th>
+          <th>Subtipo</th>
+          <th>Tipo</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${linhas.map(linha => `
+          <tr>
+            <td>${linha.contrato}</td>
+            <td>${linha.operadora}</td>
+            <td>${linha.produto}</td>
+            <td>${linha.atualizacao}</td>
+            <td>${linha.subtipo}</td>
+            <td>${linha.tipo}</td>
+          </tr>`).join('')}
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <p><strong>Descrição</strong></p>
+    <p>${descricao || '-'}</p>
+  </section>
+
+  <section>
+    <p><strong>Conclusão</strong></p>
+    <p>${conclusao}</p>
+  </section>
+
+  <section>
+    <p>Atenciosamente,</p>
+    <p><strong>NIG - Núcleo de Informações Gerenciais</strong></p>
+    <p>Mensagem gerada automaticamente pelo sistema NIG.</p>
+  </section>
+
+  <section>
+    <p style="font-size: 11px; color: #6b7280;">Ticket: ${sanitizeText(manutencao?.ticket || 'N/A')} | Gerado em ${sanitizeText(new Date().toLocaleString())}</p>
+  </section>
+</body>
+</html>`
+  }
+
+  const downloadWordHtml = (html: string) => {
+    const blob = new Blob(['\ufeff', html], { type: 'application/msword;charset=utf-8' })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-')
+    const ticket = manutencao?.ticket || 'N/A'
+    link.href = url
+    link.download = `comunicado-${ticket}-${timestamp}.doc`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+  }
+
+  function showDownloadFeedback(message = '✅ Arquivo Word salvo!') {
+    const feedback = document.createElement('div')
+    feedback.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #10b981;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-weight: 500;
+      z-index: 9999;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    `
+    feedback.textContent = message
+    document.body.appendChild(feedback)
+
+    setTimeout(() => {
+      document.body.removeChild(feedback)
+    }, 3000)
+  }
+
   // Funções para gerenciar linhas da tabela
   const adicionarLinhaTabela = () => {
     const novaId = Math.max(...linhasTabela.map(l => l.id)) + 1
@@ -207,124 +351,6 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
             <p style="margin: 0;">Esta é uma mensagem automática do sistema NIG. Por favor, não responda a este e-mail.</p>
         </div>
     </div>
-</body>
-</html>`
-  }
-
-  const gerarHTMLWordFriendly = () => {
-    const cliente = md.clientes.find(c => c.id === manutencao?.clienteId)
-    const operadora = md.operadoras.find(o => o.id === manutencao?.operadoraId)
-    const produto = md.produtos.find(p => p.id === manutencao?.produtoId)
-    const sistema = md.sistemas.find(s => s.id === manutencao?.sistemaId)
-    const tipoServico = md.tiposCadastro.find(t => t.id === manutencao?.tipoServicoId)
-    const tipo = md.padrao.find(t => t.id === manutencao?.tipoId)
-    const contrato = manutencao?.contratoId ? md.contratos.find(c => c.id === manutencao.contratoId) : null
-
-    const titulo = sanitizeText(blocoCabecalho || 'Notificação de Alteração')
-    const subtitulo = sanitizeText(blocoSubtitulo || 'Atualização registrada no sistema NIG')
-    const saudacao = sanitizeText(blocoSaudacao || 'Prezados,')
-    const informacao = sanitizeText(blocoInformacao || 'Informamos que houve alteração nos dados do cliente:')
-    const descricao = sanitizeText(descricaoEditavel || manutencao?.descricao || 'Alteração realizada')
-    const conclusao = sanitizeText(blocoConclusao || 'O Edge e Move encontram-se atualizados.')
-    const ticket = sanitizeText(manutencao?.ticket || 'N/A')
-
-    const linhas = linhasTabela.length > 0 ? linhasTabela : [{
-      id: 1,
-      contrato: contrato?.codigo || contrato?.numero || manutencao?.ticket || '',
-      operadora: operadora?.nome || '',
-      produto: produto?.nome || '',
-      atualizacao: tipoServico?.nome || '',
-      subtipo: tipo?.nome || '',
-      tipo: sistema?.nome || ''
-    }]
-
-    const formatarLinha = (linha: typeof linhasTabela[number], index: number) => {
-      const contratoValor = sanitizeText(linha.contrato || contrato?.codigo || contrato?.numero || manutencao?.ticket || 'N/A')
-      const operadoraValor = sanitizeText(linha.operadora || operadora?.nome || 'N/A')
-      const produtoValor = sanitizeText(linha.produto || produto?.nome || 'N/A')
-      const atualizacaoValor = sanitizeText(linha.atualizacao || tipoServico?.nome || 'N/A')
-      const subtipoValor = sanitizeText(linha.subtipo || tipo?.nome || 'N/A')
-      const tipoValor = sanitizeText(linha.tipo || sistema?.nome || 'N/A')
-      const rowClass = index % 2 === 0 ? '' : ' class="row-alt"'
-      return `<tr${rowClass}>
-        <td>${contratoValor}</td>
-        <td>${operadoraValor}</td>
-        <td>${produtoValor}</td>
-        <td>${atualizacaoValor}</td>
-        <td>${subtipoValor}</td>
-        <td>${tipoValor}</td>
-      </tr>`
-    }
-
-    return `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8" />
-  <title>Comunicado - ${ticket}</title>
-  <style>
-    body { font-family: Arial, sans-serif; background: #ffffff; color: #1f2937; }
-    .container { max-width: 760px; margin: 0 auto; padding: 24px; }
-    h1 { font-size: 22px; color: #111827; margin: 0 0 4px 0; }
-    .subtitle { font-size: 13px; color: #4b5563; margin: 0 0 20px 0; }
-    .section { border: 1px solid #d1d5db; border-radius: 6px; padding: 16px; margin-bottom: 18px; background: #f9fafb; }
-    .section p { margin: 0 0 12px 0; }
-    .section h2 { margin: 0 0 12px 0; font-size: 16px; color: #111827; }
-    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-    th, td { border: 1px solid #d1d5db; padding: 10px; font-size: 13px; text-align: left; }
-    th { background: #1f2937; color: #ffffff; font-weight: 600; }
-    tr.row-alt td { background: #f3f4f6; }
-    .footer { margin-top: 24px; font-size: 12px; color: #4b5563; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h1>${titulo}</h1>
-    <p class="subtitle">${subtitulo}</p>
-
-    <div class="section">
-      <p>${saudacao}</p>
-      <p>${informacao}</p>
-      <p><strong>Cliente:</strong> ${sanitizeText(cliente?.nome || 'N/A')}</p>
-      <p><strong>Operadora:</strong> ${sanitizeText(operadora?.nome || 'N/A')}</p>
-      <p><strong>Produto:</strong> ${sanitizeText(produto?.nome || 'N/A')}</p>
-      <p><strong>Sistema:</strong> ${sanitizeText(sistema?.nome || 'N/A')}</p>
-    </div>
-
-    <div class="section">
-      <h2>Resumo da alteração</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>Contrato</th>
-            <th>Operadora</th>
-            <th>Produto</th>
-            <th>Atualização</th>
-            <th>Subtipo</th>
-            <th>Tipo</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${linhas.map(formatarLinha).join('')}
-        </tbody>
-      </table>
-    </div>
-
-    <div class="section">
-      <h2>Descrição</h2>
-      <p>${descricao.replace(/\r?\n/g, '<br />')}</p>
-    </div>
-
-    <div class="section">
-      <h2>Conclusão</h2>
-      <p>${conclusao}</p>
-    </div>
-
-    <div class="footer">
-      <p>Atenciosamente,</p>
-      <p><strong>NIG - Núcleo de Informações Gerenciais</strong></p>
-      <p>Mensagem gerada automaticamente pelo sistema NIG.</p>
-    </div>
-  </div>
 </body>
 </html>`
   }
@@ -993,102 +1019,37 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
     setGerandoWord(true)
     
     try {
-      const cliente = md.clientes.find(c => c.id === manutencao?.clienteId)
-      const operadora = md.operadoras.find(o => o.id === manutencao?.operadoraId)
-      const produto = md.produtos.find(p => p.id === manutencao?.produtoId)
-      const sistema = md.sistemas.find(s => s.id === manutencao?.sistemaId)
-      const tipoServico = md.tiposCadastro.find(t => t.id === manutencao?.tipoServicoId)
-      const tipo = md.padrao.find(t => t.id === manutencao?.tipoId)
-      const contrato = manutencao?.contratoId ? md.contratos.find(c => c.id === manutencao.contratoId) : null
-
-      const tabela = (linhasTabela.length > 0 ? linhasTabela : [{
-        contrato: contrato?.codigo || contrato?.numero || manutencao?.ticket || '',
-        operadora: operadora?.nome || '',
-        produto: produto?.nome || '',
-        atualizacao: tipoServico?.nome || '',
-        subtipo: tipo?.nome || '',
-        tipo: sistema?.nome || ''
-      }]).map((linha) => ({
-        contrato: linha.contrato || contrato?.codigo || contrato?.numero || manutencao?.ticket || 'N/A',
-        operadora: linha.operadora || operadora?.nome || 'N/A',
-        produto: linha.produto || produto?.nome || 'N/A',
-        atualizacao: linha.atualizacao || tipoServico?.nome || 'N/A',
-        subtipo: linha.subtipo || tipo?.nome || 'N/A',
-        tipo: linha.tipo || sistema?.nome || 'N/A'
-      }))
-
-      const payload = {
-        titulo: blocoCabecalho || 'Notificação de Alteração',
-        subtitulo: blocoSubtitulo || 'Notificação Automática - Sistema NIG',
-        saudacao: blocoSaudacao || 'Prezados,',
-        informacao: blocoInformacao || 'Informamos que houve alteração nos dados do cliente a seguir:',
-        cliente: cliente?.nome || 'N/A',
-        operadora: operadora?.nome || 'N/A',
-        produto: produto?.nome || 'N/A',
-        sistema: sistema?.nome || 'N/A',
-        resumo: tabela,
-        descricao: (descricaoEditavel || manutencao?.descricao || 'Alteração realizada').trim(),
-        conclusao: blocoConclusao || 'O Edge e Move encontram-se atualizados. Solicitamos replicar esta informação com a sua equipe.',
-        ticket: manutencao?.ticket || 'N/A'
-      }
-      
-      const { getBaseUrl } = await import('../config/api')
-      const baseUrl = getBaseUrl()
-
-      const authStore = await import('../store/authStore')
-      const token = authStore.useAuthStore.getState().token
-
-      const response = await fetch(`${baseUrl}/comunicacao-word`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token && { Authorization: `Bearer ${token}` })
-        },
-        body: JSON.stringify(payload)
-      })
-      
-      if (!response.ok) {
-        throw new Error(`Erro ao gerar Word: ${response.status} ${response.statusText}`)
-      }
-      
-      const blob = await response.blob()
-      const url = window.URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-')
-      const ticket = manutencao?.ticket || 'N/A'
-      link.href = url
-      link.download = `email-comunicacao-${ticket}-${timestamp}.docx`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      window.URL.revokeObjectURL(url)
-      
-      const feedback = document.createElement('div')
-      feedback.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: #10b981;
-        color: white;
-        padding: 12px 20px;
-        border-radius: 8px;
-        font-weight: 500;
-        z-index: 9999;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-      `
-      feedback.textContent = `✅ Arquivo Word (.docx) salvo e editável!`
-      document.body.appendChild(feedback)
-      
-      setTimeout(() => {
-        document.body.removeChild(feedback)
-      }, 3000)
-      
+      const htmlDocument = buildWordDocumentHtml()
+      downloadWordHtml(htmlDocument)
+      showDownloadFeedback('✅ Arquivo Word (.doc) salvo!')
     } catch (error) {
       console.error('Erro ao gerar Word:', error)
       alert('Erro ao gerar arquivo Word: ' + (error instanceof Error ? error.message : 'Erro desconhecido'))
     } finally {
       setGerandoWord(false)
     }
+  }
+
+  const showDownloadFeedbackWarning = () => {
+    const feedback = document.createElement('div')
+    feedback.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #ff0000;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-weight: 500;
+      z-index: 9999;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    `
+    feedback.textContent = '⚠️ Aviso: O Word não é suportado pelo Outlook. Usando fallback .docx.'
+    document.body.appendChild(feedback)
+
+    setTimeout(() => {
+      document.body.removeChild(feedback)
+    }, 3000)
   }
 
   return (
