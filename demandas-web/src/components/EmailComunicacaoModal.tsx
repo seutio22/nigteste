@@ -140,18 +140,18 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
   <div style="max-width: 780px; margin: 0 auto; padding: ${padding};">
     <div style="background: linear-gradient(135deg, #1a1c2d 0%, #262b44 100%); color: #ffffff; padding: 26px 32px; border-radius: 14px 14px 0 0; box-shadow: 0 15px 30px -15px rgba(15, 23, 42, 0.5);">
       <p style="margin: 0 0 8px 0; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; opacity: 0.75;">Notificação Automática - Sistema NIG</p>
-      <h1 style="margin: 0; font-size: 24px; font-weight: 700; letter-spacing: 0.5px;">🔔 ${info.titulo}</h1>
+      <p style="margin: 0; font-size: 26px; font-weight: 700; letter-spacing: 0.5px;">🔔 ${info.titulo}</p>
     </div>
 
-    <div style="height: 16px;"></div>
+    <p style="margin: 12px 0;">&nbsp;</p>
 
     <div style="background: #ffffff; border-radius: 14px; box-shadow: 0 12px 25px -18px rgba(15, 23, 42, 0.5); overflow: hidden;">
       <div style="padding: 30px;">
-        <div style="font-size: 15px; color: #1f2937; margin-bottom: 18px;">
+        <div style="font-size: 15px; color: #1f2937;">
           <strong>${info.saudacao}</strong>
         </div>
 
-        <div style="height: 12px;"></div>
+        <p style="margin: 12px 0;">&nbsp;</p>
 
         <div style="background: #f7fafc; border-left: 4px solid #3182ce; padding: 18px 22px; border-radius: 0 12px 12px 0;">
           <p style="margin: 0 0 10px 0; font-size: 14px; font-weight: 500; color: #1e3a8a;">📋 ${info.informacao} <strong>${info.cliente}</strong></p>
@@ -162,41 +162,41 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
           </div>
         </div>
 
-        <div style="height: 20px;"></div>
+        <p style="margin: 14px 0;">&nbsp;</p>
 
-        <div style="margin-bottom: 28px;">
-          <p style="margin: 0 0 12px 0; font-size: 15px; font-weight: 600; color: #0f172a;">Resumo da alteração</p>
-          <table style="width: 100%; border-collapse: collapse; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 20px -18px rgba(15, 23, 42, 0.4);">
-            <thead>
-              <tr>
-                <th style="padding: 16px 12px; text-align: left; font-weight: 600; font-size: 13px; background: #1f2937; color: #ffffff;">Contrato</th>
-                <th style="padding: 16px 12px; text-align: left; font-weight: 600; font-size: 13px; background: #1f2937; color: #ffffff;">Operadora</th>
-                <th style="padding: 16px 12px; text-align: left; font-weight: 600; font-size: 13px; background: #1f2937; color: #ffffff;">Produto</th>
-                <th style="padding: 16px 12px; text-align: left; font-weight: 600; font-size: 13px; background: #1f2937; color: #ffffff;">Atualização</th>
-                <th style="padding: 16px 12px; text-align: left; font-weight: 600; font-size: 13px; background: #1f2937; color: #ffffff;">Subtipo</th>
-                <th style="padding: 16px 12px; text-align: left; font-weight: 600; font-size: 13px; background: #1f2937; color: #ffffff;">Tipo</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rowsHtml}
-            </tbody>
-          </table>
+        <div style="margin-bottom: 12px;">
+          <p style="margin: 0; font-size: 15px; font-weight: 600; color: #0f172a;">Resumo da alteração</p>
         </div>
+        <table style="width: 100%; border-collapse: collapse; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 20px -18px rgba(15, 23, 42, 0.4);">
+          <thead>
+            <tr>
+              <th style="padding: 16px 12px; text-align: left; font-weight: 600; font-size: 13px; background: #1f2937; color: #ffffff;">Contrato</th>
+              <th style="padding: 16px 12px; text-align: left; font-weight: 600; font-size: 13px; background: #1f2937; color: #ffffff;">Operadora</th>
+              <th style="padding: 16px 12px; text-align: left; font-weight: 600; font-size: 13px; background: #1f2937; color: #ffffff;">Produto</th>
+              <th style="padding: 16px 12px; text-align: left; font-weight: 600; font-size: 13px; background: #1f2937; color: #ffffff;">Atualização</th>
+              <th style="padding: 16px 12px; text-align: left; font-weight: 600; font-size: 13px; background: #1f2937; color: #ffffff;">Subtipo</th>
+              <th style="padding: 16px 12px; text-align: left; font-weight: 600; font-size: 13px; background: #1f2937; color: #ffffff;">Tipo</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
 
-        <div style="height: 20px;"></div>
+        <p style="margin: 16px 0;">&nbsp;</p>
 
-        <div style="margin-bottom: 26px;">
+        <div style="margin-bottom: 12px;">
           <p style="margin: 0 0 12px 0; font-size: 15px; font-weight: 600; color: #0f172a;">Descrição</p>
           <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 18px; font-size: 13px; line-height: 1.6; color: #374151;">${info.descricaoHtml || '-'}</div>
         </div>
 
-        <div style="height: 16px;"></div>
+        <p style="margin: 16px 0;">&nbsp;</p>
 
-        <div style="background: #ecfdf5; border: 1px solid #10b981; border-radius: 12px; padding: 18px; margin-bottom: 26px;">
+        <div style="background: #ecfdf5; border: 1px solid #10b981; border-radius: 12px; padding: 18px;">
           <p style="margin: 0; font-size: 14px; font-weight: 600; color: #047857;">✅ ${info.conclusao}</p>
         </div>
 
-        <div style="height: 16px;"></div>
+        <p style="margin: 16px 0;">&nbsp;</p>
 
         <div style="margin-bottom: 12px;">
           <p style="margin: 0 0 8px 0; font-size: 13px; color: #475569;">Atenciosamente,</p>
@@ -204,7 +204,9 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
           <p style="margin: 0; font-size: 11px; color: #64748b;">Mensagem gerada automaticamente pelo sistema NIG.</p>
         </div>
 
-        <div style="margin-top: 24px; padding-top: 16px; border-top: 1px dashed #cbd5f5;">
+        <p style="margin: 14px 0;">&nbsp;</p>
+
+        <div style="padding-top: 12px; border-top: 1px dashed #cbd5f5;">
           <p style="margin: 0; font-size: 11px; color: #94a3b8;">Ticket: ${info.ticket} • Gerado em ${info.timestamp}</p>
         </div>
       </div>
