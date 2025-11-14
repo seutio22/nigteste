@@ -693,12 +693,46 @@ export default function DemandNewPage() {
             )} />
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
-            <Controller name="solicitante" control={control} render={({ field }) => (
-              <TextField {...field} select label="Solicitante" fullWidth error={!!errors.solicitante} helperText={errors.solicitante?.message}>
-                <MenuItem value="">Selecione...</MenuItem>
-                {md.solicitantes.map(s => <MenuItem key={s.id} value={s.id}>{s.nome}</MenuItem>)}
-              </TextField>
-            )} />
+            <Controller
+              name="solicitante"
+              control={control}
+              render={({ field }) => (
+                <Autocomplete
+                  {...field}
+                  options={md.solicitantes}
+                  getOptionLabel={(option) => option?.nome || ''}
+                  isOptionEqualToValue={(option, value) => option.id === value?.id}
+                  value={md.solicitantes.find((s) => s.id === field.value) || null}
+                  onChange={(_, newValue) => field.onChange(newValue?.id || '')}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Solicitante"
+                      fullWidth
+                      error={!!errors.solicitante}
+                      helperText={errors.solicitante?.message || 'Digite para buscar um solicitante'}
+                      placeholder="Digite para buscar..."
+                    />
+                  )}
+                  renderOption={(props, option) => (
+                    <Box component="li" {...props} key={option.id}>
+                      <Typography variant="body1" fontWeight="medium">
+                        {option.nome}
+                      </Typography>
+                    </Box>
+                  )}
+                  noOptionsText="Nenhum solicitante encontrado"
+                  loading={md.solicitantes.length === 0}
+                  loadingText="Carregando solicitantes..."
+                  filterOptions={(options, { inputValue }) => {
+                    const term = inputValue.toLowerCase()
+                    return options.filter((option) =>
+                      option.nome.toLowerCase().includes(term)
+                    )
+                  }}
+                />
+              )}
+            />
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
             <Controller name="area" control={control} render={({ field }) => (

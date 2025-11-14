@@ -245,21 +245,40 @@ export default function AtendimentoNewPage() {
                 control={control}
                 rules={{ required: 'Solicitante é obrigatório' }}
                 render={({ field }) => (
-                  <TextField
+                  <Autocomplete
                     {...field}
-                    select
-                    fullWidth
-                    label="Solicitante *"
-                    error={!!errors.solicitante}
-                    helperText={errors.solicitante?.message}
-                  >
-                    <MenuItem value="">Selecione...</MenuItem>
-                    {masterDataStore.solicitantes.map(s => (
-                      <MenuItem key={s.id} value={s.id}>
-                        {s.nome}
-                      </MenuItem>
-                    ))}
-                  </TextField>
+                    options={masterDataStore.solicitantes}
+                    getOptionLabel={(option) => option?.nome || ''}
+                    isOptionEqualToValue={(option, value) => option.id === value?.id}
+                    value={masterDataStore.solicitantes.find(s => s.id === field.value) || null}
+                    onChange={(_, newValue) => field.onChange(newValue?.id || '')}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Solicitante *"
+                        fullWidth
+                        error={!!errors.solicitante}
+                        helperText={errors.solicitante?.message || 'Digite para buscar um solicitante'}
+                        placeholder="Digite para buscar..."
+                      />
+                    )}
+                    renderOption={(props, option) => (
+                      <Box component="li" {...props} key={option.id}>
+                        <Typography variant="body1" fontWeight="medium">
+                          {option.nome}
+                        </Typography>
+                      </Box>
+                    )}
+                    noOptionsText="Nenhum solicitante encontrado"
+                    loading={masterDataStore.solicitantes.length === 0}
+                    loadingText="Carregando solicitantes..."
+                    filterOptions={(options, { inputValue }) => {
+                      const term = inputValue.toLowerCase()
+                      return options.filter(option =>
+                        option.nome.toLowerCase().includes(term)
+                      )
+                    }}
+                  />
                 )}
               />
             </Grid>

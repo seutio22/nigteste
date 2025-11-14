@@ -571,21 +571,38 @@ export default function AnalyticsNewPage() {
               </Typography>
               
               <Stack spacing={2}>
-                <FormControl fullWidth>
-                  <InputLabel>Solicitante</InputLabel>
-                  <Select
-                    value={form.solicitante}
-                    label="Solicitante"
-                    onChange={(e) => setForm(prev => ({ ...prev, solicitante: e.target.value }))}
-                  >
-                    <MenuItem value="">Nenhum</MenuItem>
-                    {md.solicitantes.map(solicitante => (
-                      <MenuItem key={solicitante.id} value={solicitante.id}>
-                        {solicitante.nome}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                <Autocomplete
+                  options={md.solicitantes}
+                  value={md.solicitantes.find(s => s.id === form.solicitante) || null}
+                  onChange={(_, newValue) =>
+                    setForm(prev => ({ ...prev, solicitante: newValue?.id || '' }))
+                  }
+                  getOptionLabel={(option) => option?.nome || ''}
+                  isOptionEqualToValue={(option, value) => option.id === value?.id}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Solicitante"
+                      placeholder="Digite para buscar..."
+                    />
+                  )}
+                  renderOption={(props, option) => (
+                    <Box component="li" {...props} key={option.id}>
+                      <Typography variant="body1" fontWeight="medium">
+                        {option.nome}
+                      </Typography>
+                    </Box>
+                  )}
+                  noOptionsText="Nenhum solicitante encontrado"
+                  loading={md.solicitantes.length === 0}
+                  loadingText="Carregando solicitantes..."
+                  filterOptions={(options, { inputValue }) => {
+                    const term = inputValue.toLowerCase()
+                    return options.filter(option =>
+                      option.nome.toLowerCase().includes(term)
+                    )
+                  }}
+                />
                 
                 <FormControl fullWidth>
                   <InputLabel>Tipo de Solicitação</InputLabel>
