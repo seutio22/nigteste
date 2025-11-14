@@ -50,7 +50,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
     }
   ])
   
-  const sanitizeText = (value?: string | null) =>
+  const escapeHtml = (value?: string | null) =>
     (value ?? '')
       .toString()
       .replace(/&/g, '&amp;')
@@ -59,7 +59,12 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;')
 
-  const buildWordDocumentHtml = () => {
+  const sanitizeText = (value?: string | null) =>
+    escapeHtml(value)
+      .replace(/\s+/g, ' ')
+      .trim()
+
+  const getComunicadoInfo = () => {
     const cliente = md.clientes.find(c => c.id === manutencao?.clienteId)
     const operadora = md.operadoras.find(o => o.id === manutencao?.operadoraId)
     const produto = md.produtos.find(p => p.id === manutencao?.produtoId)
@@ -84,17 +89,42 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
       tipo: sanitizeText(linha.tipo || sistema?.nome || 'N/A')
     }))
 
-    const descricao = sanitizeText(descricaoEditavel || manutencao?.descricao || 'Alteração realizada').replace(/\n/g, '<br />')
-    const conclusao = sanitizeText(blocoConclusao || 'O Edge e Move encontram-se atualizados. Solicitamos replicar esta informação com a sua equipe.')
+    const descricaoOriginal = (descricaoEditavel ?? manutencao?.descricao ?? 'Alteração realizada').toString()
+    const descricaoHtml = escapeHtml(descricaoOriginal).replace(/\r?\n/g, '<br />')
+
+    return {
+      titulo: sanitizeText(blocoCabecalho || 'Notificação de Alteração'),
+      subtitulo: sanitizeText(blocoSubtitulo || 'Notificação Automática - Sistema NIG'),
+      saudacao: sanitizeText(blocoSaudacao || 'Prezados,'),
+      informacao: sanitizeText(blocoInformacao || 'Informamos que o cliente sofreu alteração, sendo:'),
+      cliente: sanitizeText(cliente?.nome || 'N/A'),
+      operadora: sanitizeText(operadora?.nome || 'N/A'),
+      produto: sanitizeText(produto?.nome || 'N/A'),
+      sistema: sanitizeText(sistema?.nome || 'N/A'),
+      linhas,
+      descricaoHtml,
+      conclusao: sanitizeText(blocoConclusao || 'O Edge e Move encontram-se atualizados. Solicitamos replicar esta informação com a sua equipe.'),
+      ticket: sanitizeText(manutencao?.ticket || 'N/A'),
+      timestamp: sanitizeText(new Date().toLocaleString())
+    }
+  }
+
+  const renderComunicadoHtml = (
+    info: ReturnType<typeof getComunicadoInfo>,
+    options?: { bodyMargin?: string; containerPadding?: string }
+  ) => {
+    const margin = options?.bodyMargin ?? '0';
+    const padding = options?.containerPadding ?? '24px';
 
     return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>Comunicado - ${sanitizeText(manutencao?.ticket || 'N/A')}</title>
+  <title>Comunicado - ${info.ticket}</title>
   <style>
-    body { font-family: Arial, sans-serif; color: #1f2937; margin: 40px; }
-    h1 { font-size: 20px; margin: 0 0 4px 0; color: #111827; }
+    body { font-family: Arial, sans-serif; color: #1f2937; margin: ${margin}; background: #ffffff; }
+    .container { max-width: 760px; margin: 0 auto; padding: ${padding}; }
+    h1 { font-size: 20px; margin: 0 0 6px 0; color: #111827; }
     .subtitle { font-size: 12px; color: #6b7280; margin-bottom: 20px; }
     section { margin-bottom: 24px; }
     section p { margin: 4px 0; }
@@ -105,66 +135,78 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
   </style>
 </head>
 <body>
-  <h1>${sanitizeText(blocoCabecalho || 'Notificação de Alteração')}</h1>
-  <p class="subtitle">${sanitizeText(blocoSubtitulo || 'Notificação Automática - Sistema NIG')}</p>
+  <div class="container">
+    <h1>${info.titulo}</h1>
+    <p class="subtitle">${info.subtitulo}</p>
 
-  <section>
-    <p>${sanitizeText(blocoSaudacao || 'Prezados,')}</p>
-    <p>${sanitizeText(blocoInformacao || 'Informamos que o cliente sofreu alteração, sendo:')}</p>
-    <p><strong>Cliente:</strong> ${sanitizeText(cliente?.nome || 'N/A')}</p>
-    <p><strong>Operadora:</strong> ${sanitizeText(operadora?.nome || 'N/A')}</p>
-    <p><strong>Produto:</strong> ${sanitizeText(produto?.nome || 'N/A')}</p>
-    <p><strong>Sistema:</strong> ${sanitizeText(sistema?.nome || 'N/A')}</p>
-  </section>
+    <section>
+      <p>${info.saudacao}</p>
+      <p>${info.informacao}</p>
+      <p><strong>Cliente:</strong> ${info.cliente}</p>
+      <p><strong>Operadora:</strong> ${info.operadora}</p>
+      <p><strong>Produto:</strong> ${info.produto}</p>
+      <p><strong>Sistema:</strong> ${info.sistema}</p>
+    </section>
 
-  <section>
-    <p><strong>Resumo da alteração</strong></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Contrato</th>
-          <th>Operadora</th>
-          <th>Produto</th>
-          <th>Atualização</th>
-          <th>Subtipo</th>
-          <th>Tipo</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${linhas.map(linha => `
+    <section>
+      <p><strong>Resumo da alteração</strong></p>
+      <table>
+        <thead>
           <tr>
-            <td>${linha.contrato}</td>
-            <td>${linha.operadora}</td>
-            <td>${linha.produto}</td>
-            <td>${linha.atualizacao}</td>
-            <td>${linha.subtipo}</td>
-            <td>${linha.tipo}</td>
-          </tr>`).join('')}
-      </tbody>
-    </table>
-  </section>
+            <th>Contrato</th>
+            <th>Operadora</th>
+            <th>Produto</th>
+            <th>Atualização</th>
+            <th>Subtipo</th>
+            <th>Tipo</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${info.linhas.map(linha => `
+            <tr>
+              <td>${linha.contrato}</td>
+              <td>${linha.operadora}</td>
+              <td>${linha.produto}</td>
+              <td>${linha.atualizacao}</td>
+              <td>${linha.subtipo}</td>
+              <td>${linha.tipo}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </section>
 
-  <section>
-    <p><strong>Descrição</strong></p>
-    <p>${descricao || '-'}</p>
-  </section>
+    <section>
+      <p><strong>Descrição</strong></p>
+      <p>${info.descricaoHtml || '-'}</p>
+    </section>
 
-  <section>
-    <p><strong>Conclusão</strong></p>
-    <p>${conclusao}</p>
-  </section>
+    <section>
+      <p><strong>Conclusão</strong></p>
+      <p>${info.conclusao}</p>
+    </section>
 
-  <section>
-    <p>Atenciosamente,</p>
-    <p><strong>NIG - Núcleo de Informações Gerenciais</strong></p>
-    <p>Mensagem gerada automaticamente pelo sistema NIG.</p>
-  </section>
+    <section>
+      <p>Atenciosamente,</p>
+      <p><strong>NIG - Núcleo de Informações Gerenciais</strong></p>
+      <p>Mensagem gerada automaticamente pelo sistema NIG.</p>
+    </section>
 
-  <section>
-    <p style="font-size: 11px; color: #6b7280;">Ticket: ${sanitizeText(manutencao?.ticket || 'N/A')} | Gerado em ${sanitizeText(new Date().toLocaleString())}</p>
-  </section>
+    <section>
+      <p style="font-size: 11px; color: #6b7280;">Ticket: ${info.ticket} | Gerado em ${info.timestamp}</p>
+    </section>
+  </div>
 </body>
 </html>`
+  }
+
+  const buildEmailHtml = () => {
+    const info = getComunicadoInfo()
+    return renderComunicadoHtml(info, { bodyMargin: '0', containerPadding: '24px' })
+  }
+
+  const buildWordDocumentHtml = () => {
+    const info = getComunicadoInfo()
+    return renderComunicadoHtml(info, { bodyMargin: '40px', containerPadding: '0' })
   }
 
   const downloadWordHtml = (html: string) => {
@@ -714,97 +756,14 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
 </body>
 </html>`
 
-      setEmailCompleto(email)
+      // Gerar HTML completo para visualização e cópia
+      const emailHtml = buildEmailHtml()
+      setEmailCompleto(emailHtml)
       
-      // Gerar versão Outlook-friendly (HTML simples, compatível)
-      const emailOutlookCompatible = `<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>Alteração de Contrato - ${manutencao?.ticket || 'N/A'}</title>
-</head>
-<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; background-color: #f8f9fa;">
-    <div style="background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow: hidden;">
-        <!-- Header -->
-        <div style="background: #1a1a2e; color: white; padding: 30px; text-align: center;">
-            <h1 style="margin: 0; font-size: 24px; font-weight: bold;">🔔 Alteração Cadastral</h1>
-            <p style="margin: 10px 0 0 0; opacity: 0.9; font-size: 14px;">Notificação Automática - Sistema NIG</p>
-        </div>
-        
-        <!-- Content -->
-        <div style="padding: 30px;">
-            <div style="font-size: 16px; margin-bottom: 20px; color: #2d3748;">
-                <strong>Prezados,</strong>
-            </div>
-            
-            <div style="background: #f7fafc; border-left: 4px solid #4299e1; padding: 20px; margin: 20px 0; border-radius: 0 8px 8px 0;">
-                <p style="margin: 0; font-weight: 500; color: #2d3748;">
-                    📋 Informamos que o cliente <strong>${cliente?.nome || 'N/A'}</strong> sofreu alteração, sendo:
-                </p>
-            </div>
-            
-            <!-- Table -->
-            <div style="margin: 25px 0; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-                    <thead>
-                        <tr style="background: #2d3748; color: white;">
-                            <th style="padding: 15px 12px; text-align: left; font-weight: 600; font-size: 13px;">Contrato</th>
-                            <th style="padding: 15px 12px; text-align: left; font-weight: 600; font-size: 13px;">Operadora</th>
-                            <th style="padding: 15px 12px; text-align: left; font-weight: 600; font-size: 13px;">Produto</th>
-                            <th style="padding: 15px 12px; text-align: left; font-weight: 600; font-size: 13px;">Atualização</th>
-                            <th style="padding: 15px 12px; text-align: left; font-weight: 600; font-size: 13px;">Subtipo</th>
-                            <th style="padding: 15px 12px; text-align: left; font-weight: 600; font-size: 13px;">Tipo</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr style="background: #f8f9fa;">
-                            <td style="padding: 15px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600; color: #2b6cb0; font-size: 15px;">${contrato?.codigo || contrato?.numero || manutencao.ticket || 'N/A'}</td>
-                            <td style="padding: 15px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 500; color: #2d3748;">${operadora?.nome || 'N/A'}</td>
-                            <td style="padding: 15px 12px; border-bottom: 1px solid #e2e8f0; background: #e6fffa; color: #234e52; font-weight: 500;">${produto?.nome || 'N/A'}</td>
-                            <td style="padding: 15px 12px; border-bottom: 1px solid #e2e8f0; background: #fef5e7; color: #7c2d12; font-weight: 500;">${tipoServico?.nome || 'N/A'}</td>
-                            <td style="padding: 15px 12px; border-bottom: 1px solid #e2e8f0; background: #f3e8ff; color: #581c87; font-weight: 500;">${tipo?.nome || 'N/A'}</td>
-                            <td style="padding: 15px 12px; border-bottom: 1px solid #e2e8f0; background: #ecfdf5; color: #064e3b; font-weight: 500;">${sistema?.nome || 'N/A'}</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-            
-            <!-- Description -->
-            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 25px 0;">
-                <h3 style="margin: 0 0 15px 0; color: #2d3748; font-size: 16px; font-weight: 600;">📝 Descrição da Alteração</h3>
-                <div style="background: white; border: 1px solid #d1d5db; border-radius: 6px; padding: 15px; min-height: 60px;">
-                    <p style="margin: 0; line-height: 1.6; color: #4a5568; font-size: 14px; white-space: pre-wrap;">${descricaoEditavel || manutencao.descricao || 'Alteração realizada'}</p>
-                </div>
-            </div>
-            
-            <!-- Conclusion -->
-            <div style="background: #f0fff4; border: 1px solid #9ae6b4; border-radius: 8px; padding: 20px; margin: 25px 0;">
-                <p style="margin: 0; color: #22543d; font-weight: 500;">
-                    ✅ <strong>O Edge e Move encontram-se atualizados.</strong> Solicitamos replicar esta informação com a sua equipe.
-                </p>
-            </div>
-            
-            <!-- Signature -->
-            <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #e2e8f0;">
-                <p style="margin: 5px 0; color: #4a5568;">Atenciosamente,</p>
-                <p style="margin: 5px 0; font-weight: 600; color: #2d3748; font-size: 16px;">NIG - Núcleo de Informações Gerenciais</p>
-                <p style="margin: 5px 0; color: #4a5568;">
-                    <span style="display: inline-block; background: #667eea; color: white; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600;">Sistema Automatizado</span>
-                </p>
-            </div>
-        </div>
-        
-        <!-- Footer -->
-        <div style="background: #f7fafc; padding: 20px; text-align: center; color: #718096; font-size: 12px;">
-            <p style="margin: 0;">Esta é uma mensagem automática do sistema NIG. Por favor, não responda a este e-mail.</p>
-        </div>
-    </div>
-</body>
-</html>`
-      
-      setEmailOutlook(emailOutlookCompatible)
-      setEmailEditado(emailOutlookCompatible)
-      setConteudoEditavel(extrairConteudoEditavel(emailOutlookCompatible))
+      // Versão compatível com Outlook (usa o mesmo layout simplificado)
+      setEmailOutlook(emailHtml)
+      setEmailEditado(emailHtml)
+      setConteudoEditavel(extrairConteudoEditavel(emailHtml))
     }
   }, [manutencao, md.clientes, md.operadoras, md.produtos, md.sistemas, md.tiposCadastro, md.padrao, md.contratos, descricaoEditavel])
 
