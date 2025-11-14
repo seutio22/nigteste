@@ -543,10 +543,10 @@ function EditInline({ d }: { d: Demand }) {
         descricao: draft.descricao || null,
         observacoes: draft.observacoes || null,
         qualidade: draft.qualidade || null,
-        periodicidade: draft.periodicidade || null,
-        qtdRetornos: draft.qtdRetornos || null,
-        qtdClientesVinculados: draft.qtdClientesVinculados || null,
-        usuariosEmpresa: draft.usuariosEmpresa || null,
+        periodicidade: draft.periodicidade ?? null,
+        qtdRetornos: draft.qtdRetornos !== undefined && draft.qtdRetornos !== null ? Number(draft.qtdRetornos) : null,
+        qtdClientesVinculados: draft.qtdClientesVinculados !== undefined && draft.qtdClientesVinculados !== null ? Number(draft.qtdClientesVinculados) : null,
+        usuariosEmpresa: draft.usuariosEmpresa !== undefined && draft.usuariosEmpresa !== null ? Number(draft.usuariosEmpresa) : null,
         dataInicio: formatDateForAPI(draft.dataInicio),
         dataFinal: formatDateForAPI(draft.dataFinal),
         // 🐛 CORREÇÃO: Normalizar IDs antes de enviar (garantir que sejam strings)
@@ -1003,7 +1003,7 @@ function EditInline({ d }: { d: Demand }) {
           <label className="block text-sm font-medium text-gray-700 mb-2">Análise quantitativa</label>
           <input
             type="number"
-            value={draft.periodicidade || ''}
+            value={draft.periodicidade ?? ''}
             onChange={(e) => setDraft({ ...draft, periodicidade: e.target.value || undefined })}
             placeholder="Digite um número"
             min="0"
@@ -1017,7 +1017,7 @@ function EditInline({ d }: { d: Demand }) {
           <input
             type="number"
             min="0"
-            value={draft.qtdRetornos || ''}
+            value={draft.qtdRetornos ?? ''}
             onChange={(e) => setDraft({ ...draft, qtdRetornos: e.target.value ? parseInt(e.target.value) : undefined })}
             placeholder="0"
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -1047,7 +1047,7 @@ function EditInline({ d }: { d: Demand }) {
           <label className="block text-sm font-medium text-gray-700 mb-2">QTD Clientes Vinculados - EDGE</label>
           <input
             type="number"
-            value={draft.qtdClientesVinculados || ''}
+            value={draft.qtdClientesVinculados ?? ''}
             onChange={(e) => setDraft({ ...draft, qtdClientesVinculados: e.target.value ? Number(e.target.value) : undefined })}
             placeholder="Digite um número"
             min="0"
@@ -1060,7 +1060,7 @@ function EditInline({ d }: { d: Demand }) {
           <label className="block text-sm font-medium text-gray-700 mb-2">Usuários Empresa - MOVE</label>
           <input
             type="number"
-            value={draft.usuariosEmpresa || ''}
+            value={draft.usuariosEmpresa ?? ''}
             onChange={(e) => setDraft({ ...draft, usuariosEmpresa: e.target.value ? Number(e.target.value) : undefined })}
             placeholder="Digite um número"
             min="0"

@@ -119,6 +119,12 @@ export const useDemandStore = create<DemandState>()(
             tipoId: payload.tipoId,
             tipoServicoId: payload.tipoServicoId,
             analistaId: payload.analistaId,
+            solicitante: payload.solicitante ?? createdDemanda.solicitante,
+            periodicidade: payload.periodicidade ?? createdDemanda.periodicidade,
+            qtdRetornos: payload.qtdRetornos ?? createdDemanda.qtdRetornos,
+            qualidade: payload.qualidade ?? createdDemanda.qualidade,
+            qtdClientesVinculados: payload.qtdClientesVinculados ?? createdDemanda.qtdClientesVinculados,
+            usuariosEmpresa: payload.usuariosEmpresa ?? createdDemanda.usuariosEmpresa,
             // Garantir que as datas sejam strings
             dataInicio: payload.dataInicio,
             dataFinal: payload.dataFinal,
@@ -308,15 +314,12 @@ export const useDemandStore = create<DemandState>()(
         
         try {
           set({ isLoading: true })
-          
+
           // Importar API dinamicamente
           const { api } = await import('../lib/api.local')
-          
+
           const demandas = await api.getDemandas()
-          
-          console.log('🔍 DemandStore: Dados recebidos da API:', demandas)
-          console.log('🔍 DemandStore: Quantidade de demandas:', demandas?.length || 0)
-          
+
           // 🐛 CORREÇÃO: Normalizar IDs para garantir que sejam strings, não objetos
           const normalizeId = (value: any): string | undefined => {
             if (!value) return undefined
@@ -338,8 +341,6 @@ export const useDemandStore = create<DemandState>()(
           
           // Mapear dados da API para o formato do frontend
           const demandasMapeadas: Demand[] = demandas.map((d: any) => {
-            console.log('🔍 DemandStore: Mapeando demanda:', d)
-            
             const demandaMapeada: Demand = {
               id: d.id,
               ticket: d.ticket,
@@ -376,14 +377,10 @@ export const useDemandStore = create<DemandState>()(
               tipo: normalizeName(d.tipo) || normalizeId(d.tipoId),
               tipoServico: normalizeName(d.tipoServico) || normalizeId(d.tipoServicoId)
             }
-            
-            console.log('🔍 DemandStore: Demanda mapeada:', demandaMapeada)
+
             return demandaMapeada
           })
-          
-          console.log('🔍 DemandStore: Total de demandas mapeadas:', demandasMapeadas.length)
-          console.log('🔍 DemandStore: Demandas mapeadas:', demandasMapeadas)
-          
+
           set({ items: demandasMapeadas, isLoading: false })
         } catch (error) {
           console.error('❌ DemandStore: Erro no syncFromApi:', error)

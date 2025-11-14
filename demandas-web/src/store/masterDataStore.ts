@@ -26,6 +26,15 @@ export interface MasterDataState {
   categorias: any[]
   periodicidades: any[]
   status: any[]
+  analistasById: Record<string, Analista>
+  areasById: Record<string, Area>
+  clientesById: Record<string, Cliente>
+  contratosById: Record<string, Contrato>
+  operadorasById: Record<string, Operadora>
+  produtosById: Record<string, Produto>
+  sistemasById: Record<string, Sistema>
+  tiposServicoById: Record<string, TipoServico>
+  tiposDemandaById: Record<string, TipoDemanda>
   upsertMany: (payload: Partial<MasterDataState>) => void
   clearAll: () => void
   forceCleanSync: () => Promise<void>
@@ -42,6 +51,51 @@ export interface MasterDataState {
   addLocalExclusion: (entity: string, id: string) => void
   removeLocalExclusion: (entity: string, id: string) => void
   isLocallyExcluded: (entity: string, id: string) => boolean
+}
+
+function indexById<T extends { id?: string | null | undefined }>(items: T[]): Record<string, T> {
+  return items.reduce<Record<string, T>>((acc, item) => {
+    if (item?.id) {
+      acc[item.id] = item
+    }
+    return acc
+  }, {})
+}
+
+function buildIndexes(state: Pick<
+  MasterDataState,
+  | 'analistas'
+  | 'areas'
+  | 'clientes'
+  | 'contratos'
+  | 'operadoras'
+  | 'produtos'
+  | 'sistemas'
+  | 'tiposServico'
+  | 'tiposDemanda'
+>): Pick<
+  MasterDataState,
+  | 'analistasById'
+  | 'areasById'
+  | 'clientesById'
+  | 'contratosById'
+  | 'operadorasById'
+  | 'produtosById'
+  | 'sistemasById'
+  | 'tiposServicoById'
+  | 'tiposDemandaById'
+> {
+  return {
+    analistasById: indexById(state.analistas),
+    areasById: indexById(state.areas),
+    clientesById: indexById(state.clientes),
+    contratosById: indexById(state.contratos),
+    operadorasById: indexById(state.operadoras),
+    produtosById: indexById(state.produtos),
+    sistemasById: indexById(state.sistemas),
+    tiposServicoById: indexById(state.tiposServico),
+    tiposDemandaById: indexById(state.tiposDemanda)
+  }
 }
 
 export const useMasterDataStore = create<MasterDataState>()(
@@ -70,6 +124,15 @@ export const useMasterDataStore = create<MasterDataState>()(
         categorias: [],
         periodicidades: [],
         status: [],
+        analistasById: {},
+        areasById: {},
+        clientesById: {},
+        contratosById: {},
+        operadorasById: {},
+        produtosById: {},
+        sistemasById: {},
+        tiposServicoById: {},
+        tiposDemandaById: {},
         // Estado de sincronização
         isSyncing: false,
         lastSync: null,
@@ -120,6 +183,7 @@ export const useMasterDataStore = create<MasterDataState>()(
               ...payload,
               lastSync: new Date().toISOString()
             }
+            const indexes = buildIndexes(newState)
             console.log('🔍 MasterDataStore: Estado após upsertMany:', {
               clientes: newState.clientes.length,
               contratos: newState.contratos.length,
@@ -133,14 +197,26 @@ export const useMasterDataStore = create<MasterDataState>()(
               tiposServico: newState.tiposServico.length,
               padrao: newState.padrao.length
             })
-            return newState
+            return {
+              ...newState,
+              ...indexes
+            }
           })
         },
         
         clearAll: () => set({
           clientes: [], contratos: [], operadoras: [], produtos: [], sistemas: [], analistas: [], areas: [], tiposCadastro: [], tiposServico: [], padrao: [],
           areasMailling: [], cargosMailling: [], filiaisMailling: [], categorias: [], periodicidades: [], status: [],
-          isSyncing: false, lastSync: null
+          isSyncing: false, lastSync: null,
+          analistasById: {},
+          areasById: {},
+          clientesById: {},
+          contratosById: {},
+          operadorasById: {},
+          produtosById: {},
+          sistemasById: {},
+          tiposServicoById: {},
+          tiposDemandaById: {}
         }),
 
         forceCleanSync: async () => {
@@ -149,7 +225,16 @@ export const useMasterDataStore = create<MasterDataState>()(
           set({
             clientes: [], contratos: [], operadoras: [], produtos: [], sistemas: [], analistas: [], areas: [], tiposCadastro: [], tiposServico: [], padrao: [],
             areasMailling: [], cargosMailling: [], filiaisMailling: [], categorias: [], periodicidades: [], status: [],
-            isSyncing: false, lastSync: null
+            isSyncing: false, lastSync: null,
+            analistasById: {},
+            areasById: {},
+            clientesById: {},
+            contratosById: {},
+            operadorasById: {},
+            produtosById: {},
+            sistemasById: {},
+            tiposServicoById: {},
+            tiposDemandaById: {}
           })
           
           // Limpar localStorage
@@ -269,27 +354,35 @@ export const useMasterDataStore = create<MasterDataState>()(
             }
             
             // Atualizar store com dados do backend
-            set({
-              clientes: mergeData(clientes, localState.clientes, 'clientes'),
-              contratos: mergeData(contratos, localState.contratos, 'contratos'),
-              operadoras: mergeData(operadoras, localState.operadoras, 'operadoras'),
-              produtos: mergeData(produtos, localState.produtos, 'produtos'),
-              sistemas: mergeData(sistemas, localState.sistemas, 'sistemas'),
-              grupos: mergeData(grupos, localState.grupos, 'grupos'),
-              analistas: mergeData(analistas, localState.analistas, 'analistas'),
-              areas: mergeData(areas, localState.areas, 'areas'),
-              tiposCadastro: mergeData(tiposCadastro, localState.tiposCadastro, 'tiposCadastro'),
-              tiposServico: mergeData(tiposServico, localState.tiposServico, 'tiposServico'),
-              tiposDemanda: mergeData(tiposDemanda, localState.tiposDemanda, 'tiposDemanda'),
-              solicitantes: mergeData(solicitantes, localState.solicitantes, 'solicitantes'),
-              relatorios: mergeData(relatorios, localState.relatorios, 'relatorios'),
-              modelos: mergeData(modelos, localState.modelos, 'modelos'),
-              padrao: mergeData(padrao, localState.padrao, 'padrao'),
-              areasMailling: mergeData(areasMailling, localState.areasMailling, 'areasMailling'),
-              cargosMailling: mergeData(cargosMailling, localState.cargosMailling, 'cargosMailling'),
-              filiaisMailling: mergeData(filiaisMailling, localState.filiaisMailling, 'filiaisMailling'),
-              isSyncing: false,
-              lastSync: new Date().toISOString()
+            set((state) => {
+              const nextState = {
+                ...state,
+                clientes: mergeData(clientes, localState.clientes, 'clientes'),
+                contratos: mergeData(contratos, localState.contratos, 'contratos'),
+                operadoras: mergeData(operadoras, localState.operadoras, 'operadoras'),
+                produtos: mergeData(produtos, localState.produtos, 'produtos'),
+                sistemas: mergeData(sistemas, localState.sistemas, 'sistemas'),
+                grupos: mergeData(grupos, localState.grupos, 'grupos'),
+                analistas: mergeData(analistas, localState.analistas, 'analistas'),
+                areas: mergeData(areas, localState.areas, 'areas'),
+                tiposCadastro: mergeData(tiposCadastro, localState.tiposCadastro, 'tiposCadastro'),
+                tiposServico: mergeData(tiposServico, localState.tiposServico, 'tiposServico'),
+                tiposDemanda: mergeData(tiposDemanda, localState.tiposDemanda, 'tiposDemanda'),
+                solicitantes: mergeData(solicitantes, localState.solicitantes, 'solicitantes'),
+                relatorios: mergeData(relatorios, localState.relatorios, 'relatorios'),
+                modelos: mergeData(modelos, localState.modelos, 'modelos'),
+                padrao: mergeData(padrao, localState.padrao, 'padrao'),
+                areasMailling: mergeData(areasMailling, localState.areasMailling, 'areasMailling'),
+                cargosMailling: mergeData(cargosMailling, localState.cargosMailling, 'cargosMailling'),
+                filiaisMailling: mergeData(filiaisMailling, localState.filiaisMailling, 'filiaisMailling'),
+                isSyncing: false,
+                lastSync: new Date().toISOString()
+              }
+              const indexes = buildIndexes(nextState)
+              return {
+                ...nextState,
+                ...indexes
+              }
             })
             
             // Sincronização concluída
@@ -304,7 +397,7 @@ export const useMasterDataStore = create<MasterDataState>()(
     {
       name: 'master-data-store', // Nome da chave no localStorage
       partialize: (state) => ({
-        // Persistir apenas os dados, não as funções
+        // Persistir apenas os dados necessários; índices são derivados em memória
         clientes: state.clientes,
         contratos: state.contratos,
         operadoras: state.operadoras,
@@ -328,7 +421,9 @@ export const useMasterDataStore = create<MasterDataState>()(
         lastSync: state.lastSync
       }),
       onRehydrateStorage: () => (state) => {
-        // Dados restaurados do localStorage
+        if (state) {
+          Object.assign(state, buildIndexes(state as MasterDataState))
+        }
       }
     }
   )

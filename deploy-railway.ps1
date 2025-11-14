@@ -3,10 +3,16 @@
 
 Write-Host "🚂 Iniciando deploy direto no Railway..." -ForegroundColor Blue
 
-# Verificar se o Railway CLI está instalado
-if (!(Get-Command railway -ErrorAction SilentlyContinue)) {
+# Localizar binário do Railway CLI
+$railwayCmd = Join-Path $env:APPDATA 'npm\railway.cmd'
+if (!(Test-Path $railwayCmd)) {
     Write-Host "❌ Railway CLI não encontrado. Instalando..." -ForegroundColor Red
-    npm install -g @railway/cli
+    npm install -g @railway/cli | Out-Null
+}
+$railwayCmd = Join-Path $env:APPDATA 'npm\railway.cmd'
+if (!(Test-Path $railwayCmd)) {
+    Write-Host "❌ Falha ao localizar railway.cmd após a instalação. Abortando." -ForegroundColor Red
+    exit 1
 }
 
 # Navegar para o diretório do backend
@@ -14,13 +20,13 @@ Set-Location demandas-api
 
 # Verificar se está logado
 Write-Host "🔍 Verificando autenticação..." -ForegroundColor Yellow
-$authCheck = railway whoami 2>&1
+$authCheck = & $railwayCmd whoami 2>&1
 
 if ($authCheck -match "Unauthorized") {
     Write-Host "⚠️ Não autenticado. Tentando login..." -ForegroundColor Yellow
     
     # Tentar login browserless
-    railway login --browserless
+    & $railwayCmd login --browserless
     
     if ($LASTEXITCODE -ne 0) {
         Write-Host "❌ Falha no login. Usando deploy automático via Git..." -ForegroundColor Red
@@ -35,7 +41,7 @@ if ($authCheck -match "Unauthorized") {
 
 # Fazer deploy direto
 Write-Host "🚀 Fazendo deploy direto no Railway..." -ForegroundColor Green
-railway deploy
+& $railwayCmd deploy
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host "✅ Deploy Railway concluído com sucesso!" -ForegroundColor Green

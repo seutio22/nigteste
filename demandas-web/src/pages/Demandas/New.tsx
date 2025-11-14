@@ -407,13 +407,19 @@ export default function DemandNewPage() {
         console.log('  md.contratos disponíveis:', md.contratos.map(c => ({ id: c.id, codigo: (c as any).codigo, numero: (c as any).numero, clienteId: (c as any).clienteId })))
       }
       
+      const solicitanteNome = md.solicitantes.find(s => s.id === data.solicitante)?.nome || emptyToNull(data.solicitante)
+      const qualidadeValor = data.qualidade ?? ''
+      const analiseQuantitativaValor = data.analiseQuantitativa ?? ''
+      const qtdClientesVinculadosValor = data.qtdClientesVinculados ?? ''
+      const usuariosEmpresaValor = data.usuariosEmpresa ?? ''
+
              // Payload para o backend - com validação detalhada de IDs
        const backendPayload = {
          status: data.status,
          ticket: finalTicket,
                  analistaId: validateId(analistaCorrespondente?.id || null, md.analistas, 'Analista'),
         userId: user?.id || null, // ID do usuário que está criando a demanda
-       solicitante: emptyToNull(data.solicitante),
+       solicitante: solicitanteNome,
        areaId: validateId(sanitizedData.area, md.areas, 'Área'),
        tipoId: validateId(sanitizedData.tipo, md.tiposDemanda, 'TipoDemanda'),
        descricao: data.descricao || null,
@@ -425,11 +431,11 @@ export default function DemandNewPage() {
        sistemaId: validateId(sanitizedData.sistema, md.sistemas, 'Sistema'),
         dataInicio: data.dataInicio ? new Date(data.dataInicio).toISOString() : null,
         dataFinal: data.dataFinal ? new Date(data.dataFinal).toISOString() : null,
-        periodicidade: data.analiseQuantitativa ? String(data.analiseQuantitativa) : null,
-        qtdRetornos: data.qtdRetornos || null,
-        qualidade: emptyToNull(data.qualidade),
-        qtdClientesVinculados: data.qtdClientesVinculados || null,
-        usuariosEmpresa: data.usuariosEmpresa || null,
+        periodicidade: analiseQuantitativaValor !== '' && analiseQuantitativaValor !== null ? String(analiseQuantitativaValor) : null,
+        qtdRetornos: data.qtdRetornos !== undefined && data.qtdRetornos !== null ? Number(data.qtdRetornos) : null,
+        qualidade: qualidadeValor !== '' ? qualidadeValor : null,
+        qtdClientesVinculados: qtdClientesVinculadosValor !== '' && qtdClientesVinculadosValor !== null ? Number(qtdClientesVinculadosValor) : null,
+        usuariosEmpresa: usuariosEmpresaValor !== '' && usuariosEmpresaValor !== null ? Number(usuariosEmpresaValor) : null,
         observacoes: emptyToNull(data.observacoes),
       }
       
@@ -560,7 +566,7 @@ export default function DemandNewPage() {
         ticket: finalTicket, // CORRIGIDO: Usar o ticket final calculado (do usuário ou gerado)
         analista: analistaCorrespondente?.nome || null,
         analistaId: analistaCorrespondente?.id || null,
-        solicitante: emptyToNull(data.solicitante),
+        solicitante: solicitanteNome,
         area: md.areas.find(a => a.id === sanitizedData.area)?.nome || null,
         areaId: sanitizedData.area,
         tipo: md.tiposDemanda.find(t => t.id === sanitizedData.tipo)?.nome || null,
@@ -580,11 +586,11 @@ export default function DemandNewPage() {
         sistemaId: sanitizedData.sistema,
         dataInicio: data.dataInicio ? new Date(data.dataInicio).toISOString() : null,
         dataFinal: data.dataFinal ? new Date(data.dataFinal).toISOString() : null,
-        periodicidade: data.analiseQuantitativa ? String(data.analiseQuantitativa) : null,
-        qtdRetornos: data.qtdRetornos || null,
-        qualidade: emptyToNull(data.qualidade),
-        qtdClientesVinculados: data.qtdClientesVinculados || null,
-        usuariosEmpresa: data.usuariosEmpresa || null,
+        periodicidade: analiseQuantitativaValor !== '' && analiseQuantitativaValor !== null ? String(analiseQuantitativaValor) : null,
+        qtdRetornos: data.qtdRetornos !== undefined && data.qtdRetornos !== null ? Number(data.qtdRetornos) : null,
+        qualidade: qualidadeValor !== '' ? qualidadeValor : null,
+        qtdClientesVinculados: qtdClientesVinculadosValor !== '' && qtdClientesVinculadosValor !== null ? Number(qtdClientesVinculadosValor) : null,
+        usuariosEmpresa: usuariosEmpresaValor !== '' && usuariosEmpresaValor !== null ? Number(usuariosEmpresaValor) : null,
         observacoes: emptyToNull(data.observacoes),
       }
 

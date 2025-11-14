@@ -102,6 +102,65 @@ export default function DemandListPage() {
   const { items, isLoading } = useDemandStore()
   const demandStore = useDemandStore()
   const md = useMasterDataStore()
+  const {
+    analistasById,
+    areasById,
+    clientesById,
+    contratosById,
+    operadorasById,
+    produtosById,
+    tiposServicoById,
+    tiposDemandaById
+  } = md
+
+  const resolveNome = <T extends { nome?: string }>(
+    dict: Record<string, T>,
+    id?: string | null,
+    fallback?: string
+  ): string | undefined => {
+    if (!id) return fallback ?? id ?? undefined
+    return dict[id]?.nome ?? fallback ?? id
+  }
+
+  const resolveCodigoOuNumero = (
+    dict: Record<string, { codigo?: string | null; numero?: string | null }>,
+    id?: string | null,
+    fallback?: string
+  ): string | undefined => {
+    if (!id) return fallback ?? id ?? undefined
+    const item = dict[id]
+    if (!item) return fallback ?? id
+    return item.codigo ?? item.numero ?? fallback ?? id
+  }
+
+  const looksLikeId = (value?: string | null) => Boolean(value && value.length > 20)
+
+  const resolveDisplay = <T extends { nome?: string }>(
+    dict: Record<string, T>,
+    value?: string | null,
+    id?: string | null
+  ) => {
+    if (id) {
+      return resolveNome(dict, id, value ?? id ?? '')
+    }
+    if (value && looksLikeId(value)) {
+      return resolveNome(dict, value, value) ?? value
+    }
+    return value ?? ''
+  }
+
+  const resolveContratoDisplay = (
+    value?: string | null,
+    id?: string | null
+  ) => {
+    if (id) {
+      return resolveCodigoOuNumero(contratosById, id, value ?? id ?? '') ?? (value ?? '')
+    }
+    if (value && looksLikeId(value)) {
+      return resolveCodigoOuNumero(contratosById, value, value) ?? value
+    }
+    return value ?? ''
+  }
   const { user } = useAuthStore()
   const { canCreate, canDelete, canImport, canExport } = usePermissions('cadastro')
   const [smartImporterOpen, setSmartImporterOpen] = useState(false)
@@ -122,65 +181,22 @@ export default function DemandListPage() {
   // Filtrar dados por permissão do usuário
   const filteredItems = useFilteredData(items, user?.role, user?.id, user?.viewOwnDataOnly)
 
-  // 🚀 MELHORIA 2: Otimização com Map (10x mais rápido que find)
-  // Criar Maps uma vez para todas as buscas
-  const analistaMap = useMemo(() => new Map(md.analistas.map(a => [a.id, a])), [md.analistas])
-  const areaMap = useMemo(() => new Map(md.areas.map(ar => [ar.id, ar])), [md.areas])
-  const clienteMap = useMemo(() => new Map(md.clientes.map(c => [c.id, c])), [md.clientes])
-  const contratoMap = useMemo(() => new Map(md.contratos.map(c => [c.id, c])), [md.contratos])
-  const operadoraMap = useMemo(() => new Map(md.operadoras.map(o => [o.id, o])), [md.operadoras])
-  const produtoMap = useMemo(() => new Map(md.produtos.map(p => [p.id, p])), [md.produtos])
-  const tipoServicoMap = useMemo(() => new Map(md.tiposServico.map(t => [t.id, t])), [md.tiposServico])
-  const tipoDemandaMap = useMemo(() => new Map(md.tiposDemanda.map(t => [t.id, t])), [md.tiposDemanda])
-
   // Aplicar filtro baseado no switch "Minhas Demandas" vs "Todas as Demandas"
+  const dataset = filteredItems
   const finalFilteredItems = showOnlyMyDemands
-    ? items.filter(demand => {
-        // Buscar o analista correspondente ao usuário logado (usando Map para performance)
-        const analista = analistaMap.get(demand.analistaId)
-        
-        // Múltiplas verificações para identificar se a demanda é do usuário
+    ? dataset.filter(demand => {
+        const analista = demand.analistaId ? analistasById[demand.analistaId] : undefined
+
         const check1 = demand.analistaId === user?.id
         const check2 = analista && analista.nome === user?.name
         const check3 = user?.role === 'admin' && demand.analistaId === 'analista-admin'
-        const check4 = demand.analista === user?.id // Verificar campo analista também
-        const check5 = demand.analista === user?.name // Verificar se analista é o nome do usuário
-        
-        // Verificação adicional: se o usuário é admin, sempre incluir
+        const check4 = demand.analista === user?.id
+        const check5 = demand.analista === user?.name
         const check6 = user?.role === 'admin'
-        
-        const isMyDemand = check1 || check2 || check3 || check4 || check5 || check6
-        
-        console.log('🔍 FILTRO MEUS CADASTROS - Analisando demanda:', {
-          id: demand.id,
-          ticket: demand.ticket,
-          // Dados da demanda
-          demandAnalista: demand.analista,
-          demandAnalistaId: demand.analistaId,
-          // Dados do usuário
-          userId: user?.id,
-          userName: user?.name,
-          userRole: user?.role,
-          // Analista encontrado
-          analistaEncontrado: analista ? { id: analista.id, nome: analista.nome } : null,
-          // Verificações
-          check1_analistaId_igual_userId: check1,
-          check2_analistaNome_igual_userName: check2,
-          check3_admin_analistaAdmin: check3,
-          check4_analista_igual_userId: check4,
-          check5_analista_igual_userName: check5,
-          check6_usuario_eh_admin: check6,
-          // Resultado final
-          isMyDemand: isMyDemand,
-          // Debug adicional
-          todosAnalistas: md.analistas.map(a => ({ id: a.id, nome: a.nome }))
-        })
-        
-        return isMyDemand
+
+        return check1 || check2 || check3 || check4 || check5 || check6
       })
-    : items
-  
-  console.log('🔍 Demandas: finalFilteredItems:', finalFilteredItems.length, 'filteredItems:', filteredItems.length)
+    : dataset
 
   // carregar preferências
   useEffect(() => {
@@ -212,29 +228,21 @@ export default function DemandListPage() {
   // Garantir que os dados mestres sejam carregados
   useEffect(() => {
     if (md.analistas.length === 0) {
-      console.log('🔍 Demandas: Dados mestres vazios, chamando syncFromApi...')
       md.syncFromApi?.()
     }
   }, []) // Removido as dependências que causavam o loop
 
   // Carregar demandas automaticamente quando a página é carregada
   useEffect(() => {
-    console.log('🔍 Demandas: Carregando demandas da API...')
-    console.log('🔍 Demandas: Estado atual:', { items: items.length })
-    
     if (user?.id) {
-      console.log('🔍 Demandas: Usuário logado, carregando dados...')
       demandStore.syncFromApi()
-    } else {
-      console.log('🔍 Demandas: Usuário não logado, aguardando...')
     }
   }, []) // Removido a dependência que causava o loop
 
   // Recarregar dados quando a página recebe foco (volta de outras páginas)
   useEffect(() => {
     const handleFocus = () => {
-      console.log('🔍 Demandas: Página recebeu foco, recarregando dados...')
-      if (user?.id) {
+      if (user?.id && !demandStore.isLoading) {
         demandStore.syncFromApi()
       }
     }
@@ -479,102 +487,35 @@ export default function DemandListPage() {
         if (d.analista === 'analista-admin') {
           return 'ADMINISTRADOR'
         }
-        
-        // Se d.analista é um ID, buscar o nome; se já é um nome, usar diretamente
-        if (d.analista && typeof d.analista === 'string' && d.analista.length > 20) {
-          return analistaMap.get(d.analista)?.nome ?? d.analista
-        }
-        
-        // Se d.analistaId existe, buscar o nome
-        if (d.analistaId) {
-          return analistaMap.get(d.analistaId)?.nome ?? d.analistaId
-        }
-        
-        return d.analista || ''
+        return resolveDisplay(analistasById, d.analista, d.analistaId)
       })(),
       area: (() => {
-        if (d.area && typeof d.area === 'string' && d.area.length > 20) {
-          return areaMap.get(d.area)?.nome ?? d.area
-        }
-        
-        if (d.areaId) {
-          return areaMap.get(d.areaId)?.nome ?? d.areaId
-        }
-        
-        return d.area || ''
+        return resolveDisplay(areasById, d.area, d.areaId)
       })(),
       cliente: (() => {
-        if (d.cliente && typeof d.cliente === 'string' && d.cliente.length > 20) {
-          return clienteMap.get(d.cliente)?.nome ?? d.cliente
-        }
-        
-        if (d.clienteId) {
-          return clienteMap.get(d.clienteId)?.nome ?? d.clienteId
-        }
-        
-        return d.cliente || ''
+        return resolveDisplay(clientesById, d.cliente, d.clienteId)
       })(),
       contrato: (() => {
-        if (d.contrato && typeof d.contrato === 'string' && d.contrato.length > 20) {
-          return contratoMap.get(d.contrato)?.codigo ?? d.contrato
-        }
-        
-        if (d.contratoId) {
-          return contratoMap.get(d.contratoId)?.codigo ?? d.contratoId
-        }
-        
-        return d.contrato || ''
+        return resolveContratoDisplay(d.contrato, d.contratoId)
       })(),
       operadora: (() => {
-        if (d.operadora && typeof d.operadora === 'string' && d.operadora.length > 20) {
-          return operadoraMap.get(d.operadora)?.nome ?? d.operadora
-        }
-        
-        if (d.operadoraId) {
-          return operadoraMap.get(d.operadoraId)?.nome ?? d.operadoraId
-        }
-        
-        return d.operadora || ''
+        return resolveDisplay(operadorasById, d.operadora, d.operadoraId)
       })(),
       produto: (() => {
-        if (d.produto && typeof d.produto === 'string' && d.produto.length > 20) {
-          return produtoMap.get(d.produto)?.nome ?? d.produto
-        }
-        
-        if (d.produtoId) {
-          return produtoMap.get(d.produtoId)?.nome ?? d.produtoId
-        }
-        
-        return d.produto || ''
+        return resolveDisplay(produtosById, d.produto, d.produtoId)
       })(),
       tipoServico: (() => {
-        if (d.tipoServico && typeof d.tipoServico === 'string' && d.tipoServico.length > 20) {
-          return tipoServicoMap.get(d.tipoServico)?.nome ?? d.tipoServico
-        }
-        
-        if (d.tipoServicoId) {
-          return tipoServicoMap.get(d.tipoServicoId)?.nome ?? d.tipoServicoId
-        }
-        
-        return d.tipoServico || ''
+        return resolveDisplay(tiposServicoById, d.tipoServico, d.tipoServicoId)
       })(),
       tipo: (() => {
-        if (d.tipo && typeof d.tipo === 'string' && d.tipo.length > 20) {
-          return tipoDemandaMap.get(d.tipo)?.nome ?? d.tipo
-        }
-        
-        if (d.tipoId) {
-          return tipoDemandaMap.get(d.tipoId)?.nome ?? d.tipoId
-        }
-        
-        return d.tipo || ''
+        return resolveDisplay(tiposDemandaById, d.tipo, d.tipoId)
       })(),
       createdAt: d.createdAt || '',
       // Manter o valor original da data (ISO string) para ordenação correta (igual Manutenção)
       // A formatação será feita pelo valueFormatter da coluna
       updatedAt: d.updatedAt || '',
     }
-  }), [finalFilteredItems, analistaMap, areaMap, clienteMap, contratoMap, operadoraMap, produtoMap, tipoServicoMap, tipoDemandaMap])
+  }), [finalFilteredItems, analistasById, areasById, clientesById, contratosById, operadorasById, produtosById, tiposServicoById, tiposDemandaById])
   
   // 🚀 CORREÇÃO: Ordenar os dados por updatedAt (data de atualização - mais recente primeiro) antes de passar para o DataGrid
   // Garantir que a ordenação seja idêntica à página Manutenção
@@ -886,14 +827,14 @@ export default function DemandListPage() {
         onClose={() => setExportModalOpen(false)}
         data={finalFilteredItems.map(d => ({
           ...d,
-          // Mapear IDs para nomes legíveis (usando Maps para performance)
-          analista: analistaMap.get(d.analista)?.nome ?? d.analista ?? 'N/A',
-          area: areaMap.get(d.area)?.nome ?? d.area ?? 'N/A',
-          cliente: clienteMap.get(d.cliente)?.nome ?? d.cliente ?? 'N/A',
-          contrato: contratoMap.get(d.contrato)?.numero ?? d.contrato ?? 'N/A',
-          operadora: operadoraMap.get(d.operadora)?.nome ?? d.operadora ?? 'N/A',
-          produto: produtoMap.get(d.produto)?.nome ?? d.produto ?? 'N/A',
-          tipoServico: tipoServicoMap.get(d.tipoServico)?.nome ?? d.tipoServico ?? 'N/A',
+          // Mapear IDs para nomes legíveis usando índices memoizados
+          analista: resolveDisplay(analistasById, d.analista, d.analistaId) ?? 'N/A',
+          area: resolveDisplay(areasById, d.area, d.areaId) ?? 'N/A',
+          cliente: resolveDisplay(clientesById, d.cliente, d.clienteId) ?? 'N/A',
+          contrato: resolveContratoDisplay(d.contrato, d.contratoId) || 'N/A',
+          operadora: resolveDisplay(operadorasById, d.operadora, d.operadoraId) ?? 'N/A',
+          produto: resolveDisplay(produtosById, d.produto, d.produtoId) ?? 'N/A',
+          tipoServico: resolveDisplay(tiposServicoById, d.tipoServico, d.tipoServicoId) ?? 'N/A',
           // Formatar data
           updatedAt: d.updatedAt ? new Date(d.updatedAt).toLocaleString('pt-BR') : 'N/A'
         }))}
