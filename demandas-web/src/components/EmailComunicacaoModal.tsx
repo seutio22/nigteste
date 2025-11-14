@@ -139,29 +139,29 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
 <body style="font-family: Arial, sans-serif; color: #1f2937; margin: ${margin}; background: #f1f5f9;">
   <div style="max-width: 780px; margin: 0 auto; padding: ${padding};">
     <div style="background: linear-gradient(135deg, #1a1c2d 0%, #262b44 100%); color: #ffffff; padding: 26px 32px; border-radius: 14px 14px 0 0; box-shadow: 0 15px 30px -15px rgba(15, 23, 42, 0.5);">
-      <p style="margin: 0 0 4px 0; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; opacity: 0.75;">Notificação Automática - Sistema NIG</p>
+      <p style="margin: 0 0 8px 0; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; opacity: 0.75;">Notificação Automática - Sistema NIG</p>
       <h1 style="margin: 0; font-size: 24px; font-weight: 700; letter-spacing: 0.5px;">🔔 ${info.titulo}</h1>
     </div>
 
-    <div style="background: #ffffff; border-radius: 0 0 14px 14px; box-shadow: 0 12px 25px -18px rgba(15, 23, 42, 0.5); overflow: hidden;">
+    <div style="height: 16px;"></div>
+
+    <div style="background: #ffffff; border-radius: 14px; box-shadow: 0 12px 25px -18px rgba(15, 23, 42, 0.5); overflow: hidden;">
       <div style="padding: 30px;">
         <div style="font-size: 15px; color: #1f2937; margin-bottom: 20px;">
           <strong>${info.saudacao}</strong>
         </div>
 
         <div style="background: #f7fafc; border-left: 4px solid #3182ce; padding: 18px 22px; border-radius: 0 12px 12px 0; margin-bottom: 24px;">
-          <p style="margin: 0; font-size: 14px; font-weight: 500; color: #1e3a8a;">📋 ${info.informacao} <strong>${info.cliente}</strong></p>
-          <div style="display: flex; flex-wrap: wrap; margin-top: 12px; gap: 12px;">
+          <p style="margin: 0 0 12px 0; font-size: 14px; font-weight: 500; color: #1e3a8a;">📋 ${info.informacao} <strong>${info.cliente}</strong></p>
+          <div style="display: flex; flex-wrap: wrap; gap: 12px;">
             <span style="background: #e0f2fe; color: #1d4ed8; padding: 6px 12px; border-radius: 999px; font-size: 12px;">Operadora: <strong>${info.operadora}</strong></span>
             <span style="background: #ede9fe; color: #5b21b6; padding: 6px 12px; border-radius: 999px; font-size: 12px;">Produto: <strong>${info.produto}</strong></span>
             <span style="background: #dcfce7; color: #047857; padding: 6px 12px; border-radius: 999px; font-size: 12px;">Sistema: <strong>${info.sistema}</strong></span>
           </div>
         </div>
 
-        <div style="margin-bottom: 28px;">
-          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px;">
-            <p style="margin: 0; font-size: 15px; font-weight: 600; color: #0f172a;">Resumo da alteração</p>
-          </div>
+        <div style="margin-bottom: 32px;">
+          <p style="margin: 0 0 14px 0; font-size: 15px; font-weight: 600; color: #0f172a;">Resumo da alteração</p>
           <table style="width: 100%; border-collapse: collapse; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 20px -18px rgba(15, 23, 42, 0.4);">
             <thead>
               <tr>
@@ -179,10 +179,8 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
           </table>
         </div>
 
-        <div style="margin-bottom: 26px;">
-          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
-            <p style="margin: 0; font-size: 15px; font-weight: 600; color: #0f172a;">Descrição</p>
-          </div>
+        <div style="margin-bottom: 28px;">
+          <p style="margin: 0 0 14px 0; font-size: 15px; font-weight: 600; color: #0f172a;">Descrição</p>
           <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 18px; font-size: 13px; line-height: 1.6; color: #374151;">${info.descricaoHtml || '-'}</div>
         </div>
 
@@ -191,8 +189,8 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
         </div>
 
         <div style="margin-bottom: 12px;">
-          <p style="margin: 0 0 6px 0; font-size: 13px; color: #475569;">Atenciosamente,</p>
-          <p style="margin: 0 0 4px 0; font-size: 15px; font-weight: 600; color: #111827;">NIG - Núcleo de Informações Gerenciais</p>
+          <p style="margin: 0 0 8px 0; font-size: 13px; color: #475569;">Atenciosamente,</p>
+          <p style="margin: 0 0 6px 0; font-size: 15px; font-weight: 600; color: #111827;">NIG - Núcleo de Informações Gerenciais</p>
           <p style="margin: 0; font-size: 11px; color: #64748b;">Mensagem gerada automaticamente pelo sistema NIG.</p>
         </div>
 
