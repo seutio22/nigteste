@@ -147,12 +147,14 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
 
     <div style="background: #ffffff; border-radius: 14px; box-shadow: 0 12px 25px -18px rgba(15, 23, 42, 0.5); overflow: hidden;">
       <div style="padding: 30px;">
-        <div style="font-size: 15px; color: #1f2937; margin-bottom: 20px;">
+        <div style="font-size: 15px; color: #1f2937; margin-bottom: 18px;">
           <strong>${info.saudacao}</strong>
         </div>
 
-        <div style="background: #f7fafc; border-left: 4px solid #3182ce; padding: 18px 22px; border-radius: 0 12px 12px 0; margin-bottom: 24px;">
-          <p style="margin: 0 0 12px 0; font-size: 14px; font-weight: 500; color: #1e3a8a;">📋 ${info.informacao} <strong>${info.cliente}</strong></p>
+        <div style="height: 12px;"></div>
+
+        <div style="background: #f7fafc; border-left: 4px solid #3182ce; padding: 18px 22px; border-radius: 0 12px 12px 0;">
+          <p style="margin: 0 0 10px 0; font-size: 14px; font-weight: 500; color: #1e3a8a;">📋 ${info.informacao} <strong>${info.cliente}</strong></p>
           <div style="display: flex; flex-wrap: wrap; gap: 12px;">
             <span style="background: #e0f2fe; color: #1d4ed8; padding: 6px 12px; border-radius: 999px; font-size: 12px;">Operadora: <strong>${info.operadora}</strong></span>
             <span style="background: #ede9fe; color: #5b21b6; padding: 6px 12px; border-radius: 999px; font-size: 12px;">Produto: <strong>${info.produto}</strong></span>
@@ -160,8 +162,10 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
           </div>
         </div>
 
-        <div style="margin-bottom: 32px;">
-          <p style="margin: 0 0 14px 0; font-size: 15px; font-weight: 600; color: #0f172a;">Resumo da alteração</p>
+        <div style="height: 20px;"></div>
+
+        <div style="margin-bottom: 28px;">
+          <p style="margin: 0 0 12px 0; font-size: 15px; font-weight: 600; color: #0f172a;">Resumo da alteração</p>
           <table style="width: 100%; border-collapse: collapse; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 20px -18px rgba(15, 23, 42, 0.4);">
             <thead>
               <tr>
@@ -179,14 +183,20 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
           </table>
         </div>
 
-        <div style="margin-bottom: 28px;">
-          <p style="margin: 0 0 14px 0; font-size: 15px; font-weight: 600; color: #0f172a;">Descrição</p>
+        <div style="height: 20px;"></div>
+
+        <div style="margin-bottom: 26px;">
+          <p style="margin: 0 0 12px 0; font-size: 15px; font-weight: 600; color: #0f172a;">Descrição</p>
           <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 18px; font-size: 13px; line-height: 1.6; color: #374151;">${info.descricaoHtml || '-'}</div>
         </div>
 
-        <div style="background: #ecfdf5; border: 1px solid #10b981; border-radius: 12px; padding: 18px; margin-bottom: 28px;">
+        <div style="height: 16px;"></div>
+
+        <div style="background: #ecfdf5; border: 1px solid #10b981; border-radius: 12px; padding: 18px; margin-bottom: 26px;">
           <p style="margin: 0; font-size: 14px; font-weight: 600; color: #047857;">✅ ${info.conclusao}</p>
         </div>
+
+        <div style="height: 16px;"></div>
 
         <div style="margin-bottom: 12px;">
           <p style="margin: 0 0 8px 0; font-size: 13px; color: #475569;">Atenciosamente,</p>
