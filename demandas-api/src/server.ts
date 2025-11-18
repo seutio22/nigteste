@@ -4310,6 +4310,77 @@ app.get('/teste-route', async (request, reply) => {
   return { message: 'Rota de teste funcionando!', timestamp: new Date().toISOString() }
 })
 
+// Rota temporária para normalizar status de demandas
+app.post('/migrate/normalize-status', async (request: any, reply: any) => {
+  try {
+    console.log('🔄 Iniciando normalização de status via API...')
+    
+    // Status a serem normalizados
+    const statusToNormalize = [
+      'CONCLUIDO',
+      'Concluido',
+      'concluido',
+      'Concluído',
+      'concluído',
+      'Concluida',
+      'concluida',
+      'Concluída',
+      'concluída',
+      'Encerrado',
+      'encerrado',
+      'Resolvido',
+      'resolvido'
+    ]
+    
+    // Contar quantos registros serão afetados
+    const count = await prisma.demanda.count({
+      where: {
+        status: {
+          in: statusToNormalize
+        }
+      }
+    })
+    
+    console.log(`📊 Encontrados ${count} registros para normalizar`)
+    
+    if (count === 0) {
+      return { 
+        success: true, 
+        message: 'Nenhum registro precisa ser normalizado',
+        count: 0
+      }
+    }
+    
+    // Atualizar todos os registros
+    const result = await prisma.demanda.updateMany({
+      where: {
+        status: {
+          in: statusToNormalize
+        }
+      },
+      data: {
+        status: 'Concluída'
+      }
+    })
+    
+    console.log(`✅ ${result.count} registros atualizados com sucesso!`)
+    
+    return {
+      success: true,
+      message: 'Status normalizados com sucesso',
+      count: result.count,
+      normalized: 'CONCLUIDO, Concluido, Encerrado, Resolvido -> Concluída'
+    }
+  } catch (error: any) {
+    console.error('❌ Erro ao normalizar status:', error)
+    reply.code(500)
+    return {
+      success: false,
+      error: error.message || 'Erro ao normalizar status'
+    }
+  }
+})
+
 // Segundo endpoint de limpeza de duplicatas removido - substituído pelo importador inteligente
 
 // Rota GET específica para demandas removida - usando CRUD genérico

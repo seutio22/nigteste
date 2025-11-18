@@ -13,7 +13,8 @@
     "postinstall": "prisma generate",
     "railway:build": "npm run build",
     "railway:start": "node start-robust.js",
-    "setup:postgresql": "node setup-postgresql.js"
+    "setup:postgresql": "node setup-postgresql.js",
+    "migrate:normalize-status": "ts-node src/scripts/normalize-status.ts"
   },
   "keywords": [],
   "author": "",
