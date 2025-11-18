@@ -209,36 +209,130 @@ export default function ReajusteListPage() {
 
       console.log('🔍 SMART IMPORT REAJUSTES: Processando resultado:', result)
 
-      const normalizeString = (str: string) => {
-        if (!str) return ''
-        return String(str).toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ')
+      // Função para converter número de série do Excel para DateTime ISO
+      const excelDateToISO = (value: any): string => {
+        if (!value) return ''
+        
+        // Se já é uma string de data válida, retornar como está
+        if (typeof value === 'string' && value.includes('-')) {
+          return value
+        }
+        
+        // Se é um número (serial do Excel)
+        if (typeof value === 'number' || !isNaN(Number(value))) {
+          const serialNumber = Number(value)
+          // Excel epoch: 1900-01-01 (mas com bug, Excel considera 1900 como ano bissexto)
+          const excelEpoch = new Date(1900, 0, 1)
+          const days = serialNumber - 2 // Ajuste pelo bug do Excel
+          const date = new Date(excelEpoch.getTime() + days * 24 * 60 * 60 * 1000)
+          return date.toISOString()
+        }
+        
+        return ''
       }
 
-      const findIdByName = (name: string, items: any[], nameField: string = 'nome') => {
-        if (!name) return ''
-        const searchNormalized = normalizeString(String(name))
-        const item = items.find(item => {
-          const itemNameNormalized = normalizeString(item[nameField] || item.nome || '')
-          return itemNameNormalized === searchNormalized
-        })
-        return item?.id || ''
-      }
-
+      // Processar itens válidos
       for (const item of result.valid) {
         try {
           const data = item.isCorrected ? item.correctedData : item.data
+          
+          // Função para normalizar strings (remove acentos, espaços extras, converte para lowercase)
+          const normalizeString = (str: string) => {
+            if (!str) return ''
+            return String(str)
+              .toLowerCase()
+              .trim()
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '') // Remove acentos
+              .replace(/\s+/g, ' ') // Normaliza espaços
+          }
+
+          // Função para encontrar ID por nome (com normalização completa e correspondência flexível)
+          const findIdByName = (name: string, items: any[], nameField: string = 'nome') => {
+            if (!name) return ''
+            
+            const searchNormalized = normalizeString(String(name))
+            
+            // Primeiro, tentar correspondência exata (normalizada)
+            let item = items.find(item => {
+              const itemNameNormalized = normalizeString(item[nameField] || item.nome || '')
+              return itemNameNormalized === searchNormalized
+            })
+            
+            // Se não encontrou correspondência exata, tentar correspondência parcial
+            if (!item) {
+              item = items.find(item => {
+                const itemNameNormalized = normalizeString(item[nameField] || item.nome || '')
+                // Verificar se o termo de busca está contido no nome do item
+                return itemNameNormalized.includes(searchNormalized) || searchNormalized.includes(itemNameNormalized)
+              })
+            }
+            
+            // Se ainda não encontrou, tentar correspondência por palavras-chave
+            if (!item) {
+              const searchWords = searchNormalized.split(' ').filter(word => word.length > 2)
+              if (searchWords.length > 0) {
+                item = items.find(item => {
+                  const itemNameNormalized = normalizeString(item[nameField] || item.nome || '')
+                  return searchWords.some(word => itemNameNormalized.includes(word))
+                })
+              }
+            }
+            
+            const foundItem = item ? `${item.nome || item[nameField]} (${item.id})` : 'não encontrado'
+            console.log(`🔍 SMART IMPORT REAJUSTES: Buscando "${name}" (normalizado: "${searchNormalized}") em ${items.length} itens, encontrado: ${foundItem}`)
+            
+            if (item) {
+              console.log(`✅ SMART IMPORT REAJUSTES: Match encontrado - "${name}" -> "${item.nome || item[nameField]}" (${item.id})`)
+            } else {
+              console.log(`❌ SMART IMPORT REAJUSTES: Nenhum match encontrado para "${name}"`)
+              console.log(`🔍 SMART IMPORT REAJUSTES: Itens disponíveis:`, items.map(i => i.nome || i[nameField]))
+            }
+            
+            return item?.id || ''
+          }
+
+          // Debug: verificar dados disponíveis apenas se necessário
+          if (process.env.NODE_ENV === 'development') {
+            console.log('🔍 SMART IMPORT REAJUSTES: Dados disponíveis para mapeamento:')
+            console.log('  - operadoras:', md.operadoras.length, 'itens')
+            console.log('  - analistas:', md.analistas.length, 'itens')
+            console.log('  - clientes:', md.clientes.length, 'itens')
+            console.log('  - contratos:', md.contratos.length, 'itens')
+            console.log('  - produtos:', md.produtos.length, 'itens')
+          }
+
+          // Mapear dados para o formato de reajuste
+          const operadoraId = findIdByName(data.operadora || data.operadoraId, md.operadoras)
+          const responsavelAnalistaId = findIdByName(data.responsavelAnalista || data.analista || data.responsavelAnalistaId, md.analistas)
+          const clienteId = findIdByName(data.cliente || data.clienteId, md.clientes)
+          const contratoId = findIdByName(data.contrato || data.contratoId, md.contratos, 'codigo')
+          const produtoId = findIdByName(data.produto || data.produtoId, md.produtos)
+
+          // Debug: mapeamento de campos apenas em desenvolvimento
+          if (process.env.NODE_ENV === 'development') {
+            console.log('🔍 SMART IMPORT REAJUSTES: Mapeamento de campos:')
+            console.log('  - operadora:', data.operadora, '-> operadoraId:', operadoraId)
+            console.log('  - responsavelAnalista:', data.responsavelAnalista || data.analista, '-> responsavelAnalistaId:', responsavelAnalistaId)
+            console.log('  - cliente:', data.cliente, '-> clienteId:', clienteId)
+            console.log('  - contrato:', data.contrato, '-> contratoId:', contratoId)
+            console.log('  - produto:', data.produto, '-> produtoId:', produtoId)
+          }
 
           const reajusteData = {
+            // Campos obrigatórios
             mes: data.mes || new Date().getMonth() + 1,
             ano: data.ano || new Date().getFullYear(),
-            dataInicio: data.dataInicio || new Date().toISOString().split('T')[0],
-            dataFim: data.dataFim || data.dataFinal,
             status: data.status || 'Em andamento',
-            operadoraId: findIdByName(data.operadora || data.operadoraId, md.operadoras) || '',
-            responsavelAnalistaId: findIdByName(data.responsavelAnalista || data.analista || data.responsavelAnalistaId, md.analistas) || '',
-            clienteId: findIdByName(data.cliente || data.clienteId, md.clientes) || '',
-            contratoId: findIdByName(data.contrato || data.contratoId, md.contratos, 'codigo') || '',
-            produtoId: findIdByName(data.produto || data.produtoId, md.produtos) || '',
+            ...(operadoraId && { operadoraId }),
+            ...(responsavelAnalistaId && { responsavelAnalistaId }),
+            
+            // Campos opcionais
+            dataInicio: excelDateToISO(data.dataInicio || data.dataInicial) || new Date().toISOString().split('T')[0],
+            dataFim: excelDateToISO(data.dataFim || data.dataFinal || data.dataFinalizacao),
+            ...(clienteId && { clienteId }),
+            ...(contratoId && { contratoId }),
+            ...(produtoId && { produtoId }),
             filial: data.filial || '',
             ticket: data.ticket || '',
             solicitante: data.solicitante || '',
@@ -246,37 +340,62 @@ export default function ReajusteListPage() {
             qualidadeInformacao: data.qualidadeInformacao || '',
             planos: data.planos || '',
             responsavelConta: data.responsavelConta || '',
-            dataAtualizacao: data.dataAtualizacao || new Date().toISOString().split('T')[0],
+            dataAtualizacao: excelDateToISO(data.dataAtualizacao) || new Date().toISOString().split('T')[0],
             itensPendentes: data.itensPendentes || 0,
             itensConcluidos: data.itensConcluidos || 0
           }
 
+          // Remover campos vazios
           Object.keys(reajusteData).forEach(key => {
             if (reajusteData[key] === '' || reajusteData[key] === null || reajusteData[key] === undefined) {
               delete reajusteData[key]
             }
           })
 
+          console.log('🔍 SMART IMPORT REAJUSTES: Salvando reajuste:', reajusteData)
+
+          // Salvar na API
           const savedReajuste = await api.post('/reajustes', reajusteData)
+          console.log('✅ SMART IMPORT REAJUSTES: Reajuste salvo:', savedReajuste.id)
+          
           totalImported++
           totalSavedToDatabase++
+
         } catch (error) {
           console.error('❌ SMART IMPORT REAJUSTES: Erro ao salvar reajuste:', error)
           errors.push(`Erro ao salvar reajuste: ${error instanceof Error ? error.message : 'Erro desconhecido'}`)
         }
       }
 
+      // Atualizar store local
       if (totalSavedToDatabase > 0) {
         await store.syncFromApi()
       }
 
-      const successMessage = `${totalImported} reajustes processados, ${totalSavedToDatabase} salvos no banco de dados`
+      const totalFromResult = result.valid.length
+      const successMessage = `${totalImported} de ${totalFromResult} reajustes processados, ${totalSavedToDatabase} salvos no banco de dados`
+      console.log(`✅ SMART IMPORT REAJUSTES: ${successMessage}`)
+      console.log(`🔍 SMART IMPORT REAJUSTES: Detalhes do processamento:`)
+      console.log(`  - Total de itens válidos no resultado: ${totalFromResult}`)
+      console.log(`  - Total de itens processados: ${totalImported}`)
+      console.log(`  - Total salvos no banco: ${totalSavedToDatabase}`)
+      console.log(`  - Total de erros: ${errors.length}`)
+
+      // Mostrar notificação de sucesso
       if (totalSavedToDatabase > 0) {
         alert(`✅ ${successMessage}`)
       }
+
       if (errors.length > 0) {
+        console.warn('⚠️ SMART IMPORT REAJUSTES: Alguns erros ocorreram:', errors)
         alert(`⚠️ Alguns erros ocorreram:\n${errors.join('\n')}`)
       }
+
+      // Se não houve sucessos, mostrar mensagem informativa
+      if (totalSavedToDatabase === 0 && totalFromResult > 0) {
+        alert(`⚠️ Nenhum reajuste foi salvo. Verifique os logs do console para mais detalhes.`)
+      }
+
     } catch (error) {
       console.error('❌ SMART IMPORT REAJUSTES: Erro geral:', error)
       alert('Erro ao importar reajustes')
