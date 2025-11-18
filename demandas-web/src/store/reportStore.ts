@@ -7,7 +7,7 @@ export interface Report {
   descricao?: string
   ticket?: string
   total?: string
-  tipo: 'mensal' | 'trimestral' | 'semestral' | 'anual' | 'personalizado'
+  tipo: 'diaria' | 'semanal' | 'mensal' | 'trimestral' | 'semestral' | 'anual' | 'personalizado'
   status: 'pendente' | 'em_andamento' | 'concluido' | 'entregue' | 'cancelado'
   analista: string
   area: string

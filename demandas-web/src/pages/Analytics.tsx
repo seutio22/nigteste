@@ -32,7 +32,7 @@ const columns: GridColDef[] = [
   { field: 'titulo', headerName: 'Título', flex: 1, minWidth: 250 },
   { field: 'tipo', headerName: 'Tipo', width: 120, renderCell: (p) => (
     <Chip 
-      label={p.value === 'diaria' ? 'Diária' : p.value === 'mensal' ? 'Mensal' : p.value === 'trimestral' ? 'Trimestral' : p.value === 'semestral' ? 'Semestral' : p.value === 'anual' ? 'Anual' : 'Personalizado'} 
+      label={p.value === 'diaria' ? 'Diária' : p.value === 'semanal' ? 'Semanal' : p.value === 'mensal' ? 'Mensal' : p.value === 'trimestral' ? 'Trimestral' : p.value === 'semestral' ? 'Semestral' : p.value === 'anual' ? 'Anual' : 'Personalizado'} 
       size="small" 
       variant="outlined" 
     />
