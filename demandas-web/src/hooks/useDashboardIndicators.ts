@@ -115,16 +115,28 @@ const calculatePageMetrics = (items: any[], page: string, period: PeriodType, ha
             itemDate = item.createdAt
           }
           
-          // Debug para manutenções
-          if (page === 'manutencoes' && process.env.NODE_ENV === 'development' && p === 'daily') {
-            console.log('🔍 DEBUG Manutenção filtro período:', {
-              id: item.id,
-              ticket: item.ticket,
-              dataInicio: item.dataInicio,
-              createdAt: item.createdAt,
-              itemDateUsado: itemDate,
-              isInPeriod: isInPeriod(itemDate, p)
-            })
+          // Debug para manutenções (sempre ativo para diagnóstico)
+          if (page === 'manutencoes' && p === 'daily') {
+            const hoje = new Date()
+            hoje.setHours(0, 0, 0, 0)
+            const dataItem = itemDate ? new Date(itemDate) : null
+            const dataItemNormalizada = dataItem ? new Date(dataItem.getFullYear(), dataItem.getMonth(), dataItem.getDate()) : null
+            const hojeNormalizada = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())
+            const isHoje = dataItemNormalizada && dataItemNormalizada.getTime() === hojeNormalizada.getTime()
+            
+            if (manutencoesRaw.length <= 10 || isHoje) {
+              console.log('🔍 DEBUG Manutenção filtro período:', {
+                id: item.id,
+                ticket: item.ticket,
+                dataInicio: item.dataInicio,
+                createdAt: item.createdAt,
+                itemDateUsado: itemDate,
+                isInPeriod: isInPeriod(itemDate, p),
+                isHojeCalculado: isHoje,
+                hojeNormalizada: hojeNormalizada.toISOString(),
+                dataItemNormalizada: dataItemNormalizada?.toISOString()
+              })
+            }
           }
         } else if (page === 'analytics') {
           // Analytics: dataCriacao ou dataInicio ou createdAt
@@ -314,39 +326,40 @@ export const useDashboardIndicators = (
     projetos: applyFilters(Array.isArray(projectStore.items) ? projectStore.items : [], 'projetos')
   }
 
-  // Debug: verificar dados de manutenções
-  if (process.env.NODE_ENV === 'development') {
-    const manutencoesRaw = Array.isArray(manutencaoStore.items) ? manutencaoStore.items : []
-    const manutencoesFiltradas = storeMap.manutencoes
-    const hoje = new Date()
-    hoje.setHours(0, 0, 0, 0)
-    const hojeFim = new Date(hoje)
-    hojeFim.setHours(23, 59, 59, 999)
-    
-    const manutencoesHoje = manutencoesRaw.filter(m => {
-      const dataInicio = m.dataInicio && m.dataInicio !== null && m.dataInicio !== '' ? m.dataInicio : m.createdAt
-      if (!dataInicio) return false
-      const data = new Date(dataInicio)
-      return data >= hoje && data <= hojeFim
-    })
-    
-    console.log('🔍 DEBUG Manutenções:', {
-      totalNoStore: manutencoesRaw.length,
-      totalFiltradas: manutencoesFiltradas.length,
-      totalHoje: manutencoesHoje.length,
-      periodo,
-      hasDateFilters: !!(filters?.fromDate || filters?.toDate),
-      fromDate: filters?.fromDate,
-      toDate: filters?.toDate,
-      amostra: manutencoesRaw.slice(0, 3).map(m => ({
-        id: m.id,
-        ticket: m.ticket,
-        dataInicio: m.dataInicio,
-        createdAt: m.createdAt,
-        status: m.status
-      }))
-    })
-  }
+  // Debug: verificar dados de manutenções (sempre ativo para diagnóstico)
+  const manutencoesRaw = Array.isArray(manutencaoStore.items) ? manutencaoStore.items : []
+  const manutencoesFiltradas = storeMap.manutencoes
+  const hoje = new Date()
+  hoje.setHours(0, 0, 0, 0)
+  const hojeFim = new Date(hoje)
+  hojeFim.setHours(23, 59, 59, 999)
+  
+  const manutencoesHoje = manutencoesRaw.filter(m => {
+    const dataInicio = m.dataInicio && m.dataInicio !== null && m.dataInicio !== '' ? m.dataInicio : m.createdAt
+    if (!dataInicio) return false
+    const data = new Date(dataInicio)
+    const dataNormalizada = new Date(data.getFullYear(), data.getMonth(), data.getDate())
+    const hojeNormalizada = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())
+    return dataNormalizada.getTime() === hojeNormalizada.getTime()
+  })
+  
+  console.log('🔍 DEBUG Manutenções:', {
+    totalNoStore: manutencoesRaw.length,
+    totalFiltradas: manutencoesFiltradas.length,
+    totalHojeCalculado: manutencoesHoje.length,
+    periodo,
+    hasDateFilters: !!(filters?.fromDate || filters?.toDate),
+    fromDate: filters?.fromDate,
+    toDate: filters?.toDate,
+    amostraHoje: manutencoesHoje.slice(0, 5).map(m => ({
+      id: m.id,
+      ticket: m.ticket,
+      dataInicio: m.dataInicio,
+      createdAt: m.createdAt,
+      status: m.status,
+      dataUsada: m.dataInicio && m.dataInicio !== null && m.dataInicio !== '' ? m.dataInicio : m.createdAt
+    }))
+  })
 
   // Verificar se há filtros de data ativos
   const hasDateFilters = !!(filters?.fromDate || filters?.toDate)
