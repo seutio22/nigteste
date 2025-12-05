@@ -102,9 +102,23 @@ const calculatePageMetrics = (items: any[], page: string, period: PeriodType, ha
         } else if (page === 'demandas' || page === 'manutencoes') {
           // Demandas e Manutenções: dataInicio (se existir e válido) ou createdAt
           // Se dataInicio for null, undefined ou string vazia, usar createdAt
-          itemDate = (item.dataInicio && item.dataInicio !== null && item.dataInicio !== '') 
-            ? item.dataInicio 
-            : item.createdAt
+          if (item.dataInicio && item.dataInicio !== null && item.dataInicio !== '') {
+            itemDate = item.dataInicio
+          } else {
+            itemDate = item.createdAt
+          }
+          
+          // Debug para manutenções
+          if (page === 'manutencoes' && process.env.NODE_ENV === 'development' && p === 'daily') {
+            console.log('🔍 DEBUG Manutenção filtro período:', {
+              id: item.id,
+              ticket: item.ticket,
+              dataInicio: item.dataInicio,
+              createdAt: item.createdAt,
+              itemDateUsado: itemDate,
+              isInPeriod: isInPeriod(itemDate, p)
+            })
+          }
         } else if (page === 'analytics') {
           // Analytics: dataCriacao ou dataInicio ou createdAt
           itemDate = item.dataCriacao || item.dataInicio || item.createdAt
@@ -291,6 +305,40 @@ export const useDashboardIndicators = (
     mailling: applyFilters(Array.isArray(maillingStore.contacts) ? maillingStore.contacts : [], 'mailling'),
     comunicados: applyFilters(Array.isArray(comunicadoStore.items) ? comunicadoStore.items : [], 'comunicados'),
     projetos: applyFilters(Array.isArray(projectStore.items) ? projectStore.items : [], 'projetos')
+  }
+
+  // Debug: verificar dados de manutenções
+  if (process.env.NODE_ENV === 'development') {
+    const manutencoesRaw = Array.isArray(manutencaoStore.items) ? manutencaoStore.items : []
+    const manutencoesFiltradas = storeMap.manutencoes
+    const hoje = new Date()
+    hoje.setHours(0, 0, 0, 0)
+    const hojeFim = new Date(hoje)
+    hojeFim.setHours(23, 59, 59, 999)
+    
+    const manutencoesHoje = manutencoesRaw.filter(m => {
+      const dataInicio = m.dataInicio && m.dataInicio !== null && m.dataInicio !== '' ? m.dataInicio : m.createdAt
+      if (!dataInicio) return false
+      const data = new Date(dataInicio)
+      return data >= hoje && data <= hojeFim
+    })
+    
+    console.log('🔍 DEBUG Manutenções:', {
+      totalNoStore: manutencoesRaw.length,
+      totalFiltradas: manutencoesFiltradas.length,
+      totalHoje: manutencoesHoje.length,
+      periodo,
+      hasDateFilters: !!(filters?.fromDate || filters?.toDate),
+      fromDate: filters?.fromDate,
+      toDate: filters?.toDate,
+      amostra: manutencoesRaw.slice(0, 3).map(m => ({
+        id: m.id,
+        ticket: m.ticket,
+        dataInicio: m.dataInicio,
+        createdAt: m.createdAt,
+        status: m.status
+      }))
+    })
   }
 
   // Verificar se há filtros de data ativos
