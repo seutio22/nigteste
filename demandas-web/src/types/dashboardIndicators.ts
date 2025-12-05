@@ -78,7 +78,7 @@ export const PAGE_CONFIGS: IndicatorConfig[] = [
     category: 'primary',
     fields: {
       total: 'status',
-      created: 'createdAt',
+      created: 'dataAbertura', // Usar dataAbertura como campo principal
       updated: 'updatedAt',
       completed: 'status'
     }

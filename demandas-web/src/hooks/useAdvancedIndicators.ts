@@ -74,9 +74,12 @@ export const useAdvancedIndicators = (
     if (!filters) return items
     
     return items.filter(item => {
-      // Filtro por área (apenas para demandas)
-      if (filters.areaId && page === 'demandas' && item.area !== filters.areaId) {
-        return false
+      // Filtro por área (para demandas e atendimentos)
+      if (filters.areaId && (page === 'demandas' || page === 'atendimentos')) {
+        const itemArea = item.area || item.areaId
+        if (itemArea !== filters.areaId) {
+          return false
+        }
       }
       
       // Filtro por analista
@@ -115,9 +118,20 @@ export const useAdvancedIndicators = (
         dateField = 'dataCriacao'
       } else if (page === 'reajustes') {
         dateField = 'createdAt'
+      } else if (page === 'atendimentos') {
+        // Atendimentos usa dataAbertura ou createdAt como fallback
+        dateField = 'dataAbertura'
       }
       
-      const itemDate = item[dateField]
+      // Para atendimentos, tentar dataAbertura primeiro, depois createdAt
+      let itemDate = item[dateField]
+      if (page === 'atendimentos' && !itemDate) {
+        itemDate = item.createdAt || item.dataInicio
+      } else if (!itemDate && dateField === 'dataInicio') {
+        // Fallback para createdAt se dataInicio não existir
+        itemDate = item.createdAt
+      }
+      
       if (itemDate) {
         try {
           const itemDateObj = new Date(itemDate)
