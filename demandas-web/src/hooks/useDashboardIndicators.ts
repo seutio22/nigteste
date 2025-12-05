@@ -55,7 +55,7 @@ const isCompleted = (item: any, page: string): boolean => {
 }
 
 // Função para calcular métricas de uma página
-const calculatePageMetrics = (items: any[], page: string, period: PeriodType): PageMetrics => {
+const calculatePageMetrics = (items: any[], page: string, period: PeriodType, hasDateFilters: boolean = false): PageMetrics => {
   const config = PAGE_CONFIGS.find(c => c.page === page)
   if (!config) {
     return {
@@ -77,10 +77,49 @@ const calculatePageMetrics = (items: any[], page: string, period: PeriodType): P
   }
 
   const calculateForPeriod = (p: PeriodType) => {
-    const periodItems = items.filter(item => isInPeriod(item[config.fields.created], p))
+    // Se há filtros de data, os items já estão filtrados - usar todos
+    // Caso contrário, filtrar por período
+    let periodItems: any[]
+    
+    if (hasDateFilters) {
+      // Dados já filtrados por data - usar todos
+      periodItems = items
+    } else {
+      // Filtrar por período baseado no campo de criação
+      const dateField = config.fields.created
+      periodItems = items.filter(item => {
+        // Para atendimentos, usar dataAbertura se disponível, senão createdAt
+        let itemDate: string | undefined
+        if (page === 'atendimentos') {
+          itemDate = item.dataAbertura || item.createdAt || item[dateField]
+        } else {
+          itemDate = item[dateField]
+        }
+        return isInPeriod(itemDate, p)
+      })
+    }
+    
     const total = periodItems.length
-    const created = periodItems.filter(item => isInPeriod(item[config.fields.created], p)).length
-    const updated = periodItems.filter(item => isInPeriod(item[config.fields.updated], p)).length
+    const created = hasDateFilters 
+      ? periodItems.length // Se já filtrado, todos foram criados no período
+      : periodItems.filter(item => {
+          const dateField = config.fields.created
+          let itemDate: string | undefined
+          if (page === 'atendimentos') {
+            itemDate = item.dataAbertura || item.createdAt || item[dateField]
+          } else {
+            itemDate = item[dateField]
+          }
+          return isInPeriod(itemDate, p)
+        }).length
+    
+    const updated = hasDateFilters
+      ? periodItems.length // Se já filtrado, considerar todos atualizados
+      : periodItems.filter(item => {
+          const updateField = config.fields.updated
+          return isInPeriod(item[updateField], p)
+        }).length
+    
     const completed = periodItems.filter(item => isCompleted(item, page)).length
 
     return { total, created, updated, completed }
@@ -221,16 +260,19 @@ export const useDashboardIndicators = (
     projetos: applyFilters(Array.isArray(projectStore.items) ? projectStore.items : [], 'projetos')
   }
 
+  // Verificar se há filtros de data ativos
+  const hasDateFilters = !!(filters?.fromDate || filters?.toDate)
+
   // Calcular métricas para todas as páginas
   const pageMetrics = useMemo(() => {
     const metrics: { [key: string]: PageMetrics } = {}
     
     Object.entries(storeMap).forEach(([page, items]) => {
-      metrics[page] = calculatePageMetrics(items, page, period)
+      metrics[page] = calculatePageMetrics(items, page, period, hasDateFilters)
     })
     
     return metrics
-  }, [storeMap, period, filters])
+  }, [storeMap, period, hasDateFilters])
 
   // Gerar indicadores para o período selecionado
   const indicators = useMemo(() => {
@@ -240,14 +282,24 @@ export const useDashboardIndicators = (
       const metrics = pageMetrics[config.page]
       if (!metrics) return
 
+      // Quando há filtros de data, usar os dados do período atual
+      // Caso contrário, usar o período selecionado normalmente
       const periodData = metrics[period]
-      const previousPeriod = period === 'daily' ? 'monthly' : period === 'monthly' ? 'quarterly' : 'quarterly'
-      const previousData = metrics[previousPeriod]
+      
+      // Para comparação, se há filtros de data, não comparar com período anterior
+      // (pois os dados já estão filtrados)
+      let previousData = metrics[period]
+      if (!hasDateFilters) {
+        const previousPeriod = period === 'daily' ? 'monthly' : period === 'monthly' ? 'quarterly' : 'quarterly'
+        previousData = metrics[previousPeriod]
+      }
 
-      // Calcular mudança percentual
-      const change = previousData.total > 0 
-        ? ((periodData.total - previousData.total) / previousData.total) * 100
-        : 0
+      // Calcular mudança percentual (apenas se não houver filtros de data)
+      const change = hasDateFilters 
+        ? 0 // Não calcular mudança quando há filtros de data
+        : (previousData.total > 0 
+            ? ((periodData.total - previousData.total) / previousData.total) * 100
+            : 0)
 
       const changeType: 'increase' | 'decrease' | 'neutral' = 
         change > 5 ? 'increase' : change < -5 ? 'decrease' : 'neutral'
@@ -257,7 +309,7 @@ export const useDashboardIndicators = (
         page: config.page,
         title: config.title,
         value: periodData.total,
-        previousValue: previousData.total,
+        previousValue: hasDateFilters ? undefined : previousData.total,
         change: Math.round(change * 10) / 10,
         changeType,
         period,
@@ -269,7 +321,7 @@ export const useDashboardIndicators = (
     })
 
     return result
-  }, [pageMetrics, period, filters])
+  }, [pageMetrics, period, hasDateFilters])
 
   // Separar indicadores por categoria
   const indicatorsByCategory = useMemo(() => {
