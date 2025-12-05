@@ -302,10 +302,18 @@ export default function DashboardPage() {
       atendimentoStore.syncFromApi()
     }
     
-    // Carregar dados de manutenções se necessário
-    if (manutencaoStore.items.length === 0) {
-      console.log('🔍 Dashboard: Manutenções vazias, chamando syncFromApi...')
-      manutencaoStore.syncFromApi()
+    // Carregar dados de manutenções - sempre sincronizar para garantir dados atualizados
+    console.log('🔍 Dashboard: Verificando manutenções...', {
+      itemsNoStore: manutencaoStore.items.length,
+      isLoading: manutencaoStore.isLoading
+    })
+    if (manutencaoStore.items.length === 0 || !manutencaoStore.isLoading) {
+      console.log('🔍 Dashboard: Sincronizando manutenções da API...')
+      manutencaoStore.syncFromApi().then(() => {
+        console.log('✅ Dashboard: Manutenções sincronizadas:', manutencaoStore.items.length, 'itens')
+      }).catch((error) => {
+        console.error('❌ Dashboard: Erro ao sincronizar manutenções:', error)
+      })
     }
     
     // Carregar dados de validação se necessário
