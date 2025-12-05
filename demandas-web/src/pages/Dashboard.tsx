@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useMemo, useState, useEffect } from 'react'
 import {
   Box,
   Paper,
@@ -48,9 +48,51 @@ import { PeriodSelector } from '../components/dashboard/PeriodSelector'
 import { useDashboardIndicators } from '../hooks/useDashboardIndicators'
 import { useAdvancedIndicators } from '../hooks/useAdvancedIndicators'
 import { AdvancedIndicators } from '../components/dashboard/AdvancedIndicators'
+import { StatusDetails } from '../components/dashboard/StatusDetails'
 import type { PeriodType } from '../types/dashboardIndicators'
 
 const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#84cc16', '#f97316']
+
+// Função utilitária para converter período em datas
+const getPeriodDates = (period: PeriodType): { fromDate: string; toDate: string } => {
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  
+  let start: Date
+  let end: Date
+  
+  switch (period) {
+    case 'daily':
+      start = new Date(today)
+      end = new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1)
+      break
+    case 'monthly':
+      start = new Date(now.getFullYear(), now.getMonth(), 1)
+      end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
+      break
+    case 'quarterly':
+      const quarter = Math.floor(now.getMonth() / 3)
+      start = new Date(now.getFullYear(), quarter * 3, 1)
+      end = new Date(now.getFullYear(), (quarter + 1) * 3, 0, 23, 59, 59)
+      break
+    default:
+      start = today
+      end = today
+  }
+  
+  // Converter para formato YYYY-MM-DD
+  const formatDate = (date: Date): string => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+  
+  return {
+    fromDate: formatDate(start),
+    toDate: formatDate(end)
+  }
+}
 
 export default function DashboardPage() {
   const theme = useTheme()
@@ -67,8 +109,28 @@ export default function DashboardPage() {
   const [analistaId, setAnalistaId] = useState('')
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
+  const [selectedMonth, setSelectedMonth] = useState('')
   const [indicatorPeriod, setIndicatorPeriod] = useState<PeriodType>('daily')
-  
+  const [isManualDateFilter, setIsManualDateFilter] = useState(false)
+
+  // Atualizar automaticamente as datas quando o período mudar (se não for filtro manual)
+  useEffect(() => {
+    if (!isManualDateFilter) {
+      const { fromDate: newFromDate, toDate: newToDate } = getPeriodDates(indicatorPeriod)
+      setFromDate(newFromDate)
+      setToDate(newToDate)
+      
+      // Se o período for mensal, atualizar o campo de mês selecionado
+      if (indicatorPeriod === 'monthly') {
+        const monthValue = newFromDate.substring(0, 7) // YYYY-MM
+        setSelectedMonth(monthValue)
+      } else {
+        // Limpar seleção de mês para outros períodos
+        setSelectedMonth('')
+      }
+    }
+  }, [indicatorPeriod, isManualDateFilter])
+
   // Hook para indicadores do dashboard
   const { indicators, pageMetrics, generalStats } = useDashboardIndicators(indicatorPeriod, {
     areaId,
@@ -92,6 +154,47 @@ export default function DashboardPage() {
     if (fromDate && t < new Date(fromDate).getTime()) return false
     if (toDate && t > new Date(toDate + 'T23:59:59').getTime()) return false
     return true
+  }
+
+  // Handler para mudança manual de datas
+  const handleFromDateChange = (value: string) => {
+    setFromDate(value)
+    setIsManualDateFilter(true)
+    setSelectedMonth('') // Limpar seleção de mês quando data manual for alterada
+  }
+
+  const handleToDateChange = (value: string) => {
+    setToDate(value)
+    setIsManualDateFilter(true)
+    setSelectedMonth('') // Limpar seleção de mês quando data manual for alterada
+  }
+
+  // Handler para seleção de mês
+  const handleMonthChange = (value: string) => {
+    setSelectedMonth(value)
+    if (value) {
+      // Converter formato YYYY-MM para datas de início e fim do mês
+      const [year, month] = value.split('-')
+      const startDate = new Date(parseInt(year), parseInt(month) - 1, 1)
+      const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59)
+      
+      // Formatar para YYYY-MM-DD
+      const formatDate = (date: Date): string => {
+        const y = date.getFullYear()
+        const m = String(date.getMonth() + 1).padStart(2, '0')
+        const d = String(date.getDate()).padStart(2, '0')
+        return `${y}-${m}-${d}`
+      }
+      
+      setFromDate(formatDate(startDate))
+      setToDate(formatDate(endDate))
+      setIsManualDateFilter(true)
+      // Mudar período para mensal quando um mês específico for selecionado
+      setIndicatorPeriod('monthly')
+    } else {
+      // Se limpar o mês, voltar ao período atual (as datas serão atualizadas pelo useEffect)
+      setIsManualDateFilter(false)
+    }
   }
 
   // Dados filtrados
@@ -246,8 +349,16 @@ export default function DashboardPage() {
   const limparFiltros = () => {
     setAreaId('')
     setAnalistaId('')
-    setFromDate('')
-    setToDate('')
+    setSelectedMonth('')
+    setIsManualDateFilter(false)
+    // As datas serão atualizadas automaticamente pelo useEffect quando isManualDateFilter for false
+  }
+
+  // Handler para mudança de período - resetar filtro manual
+  const handlePeriodChange = (newPeriod: PeriodType) => {
+    setIndicatorPeriod(newPeriod)
+    setIsManualDateFilter(false)
+    setSelectedMonth('') // Limpar seleção de mês quando período mudar
   }
 
   return (
@@ -287,7 +398,7 @@ export default function DashboardPage() {
         <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <PeriodSelector
             period={indicatorPeriod}
-            onChange={setIndicatorPeriod}
+            onChange={handlePeriodChange}
             showLabel={true}
           />
           <ExportButton
@@ -334,11 +445,25 @@ export default function DashboardPage() {
             <TextField
               fullWidth
               size="small"
+              type="month"
+              label="Selecionar Mês"
+              value={selectedMonth}
+              onChange={(e) => handleMonthChange(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              helperText="Filtrar por mês específico"
+            />
+          </Grid>
+          
+          <Grid item xs={12} sm={6} md={2}>
+            <TextField
+              fullWidth
+              size="small"
               type="date"
               label="Data inicial"
               value={fromDate}
-              onChange={(e) => setFromDate(e.target.value)}
+              onChange={(e) => handleFromDateChange(e.target.value)}
               InputLabelProps={{ shrink: true }}
+              helperText={isManualDateFilter ? "Filtro manual ativo" : "Atualizado pelo período"}
             />
           </Grid>
           
@@ -349,8 +474,9 @@ export default function DashboardPage() {
               type="date"
               label="Data final"
               value={toDate}
-              onChange={(e) => setToDate(e.target.value)}
+              onChange={(e) => handleToDateChange(e.target.value)}
               InputLabelProps={{ shrink: true }}
+              helperText={isManualDateFilter ? "Filtro manual ativo" : "Atualizado pelo período"}
             />
           </Grid>
 
@@ -401,7 +527,21 @@ export default function DashboardPage() {
       </Box>
 
       {/* Gráficos Baseados nos Indicadores de Período */}
-      <DashboardCharts period={indicatorPeriod} />
+      <DashboardCharts 
+        period={indicatorPeriod}
+        areaId={areaId}
+        analistaId={analistaId}
+        fromDate={fromDate}
+        toDate={toDate}
+      />
+
+      {/* Detalhes de Status e Tempo de Abertura */}
+      <StatusDetails
+        areaId={areaId}
+        analistaId={analistaId}
+        fromDate={fromDate}
+        toDate={toDate}
+      />
 
       {/* Resumo Executivo */}
       <Paper sx={{ p: 3, borderRadius: 2 }}>

@@ -26,13 +26,28 @@ import type { PeriodType } from '../../types/dashboardIndicators'
 
 interface DashboardChartsProps {
   period: PeriodType
+  areaId?: string
+  analistaId?: string
+  fromDate?: string
+  toDate?: string
 }
 
 const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#84cc16', '#f97316']
 
-export const DashboardCharts: React.FC<DashboardChartsProps> = ({ period }) => {
+export const DashboardCharts: React.FC<DashboardChartsProps> = ({ 
+  period,
+  areaId,
+  analistaId,
+  fromDate,
+  toDate
+}) => {
   const theme = useTheme()
-  const { indicators, pageMetrics, generalStats } = useDashboardIndicators(period)
+  const { indicators, pageMetrics, generalStats } = useDashboardIndicators(period, {
+    areaId,
+    analistaId,
+    fromDate,
+    toDate
+  })
 
   // Dados para gráfico de pizza - Status por categoria
   const categoryData = useMemo(() => {
