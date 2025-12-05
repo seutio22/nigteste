@@ -36,6 +36,8 @@ import {
 import { ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend } from 'recharts'
 import { useMasterDataStore } from '../store/masterDataStore'
 import { useDemandStore } from '../store/demandStore'
+import { useAtendimentoStore } from '../store/atendimentoStore'
+import { useManutencaoStore } from '../store/manutencaoStore'
 import { useValidationStore } from '../store/validationStore'
 import { useReajusteStore } from '../store/reajusteStore'
 import { useMaillingStore } from '../store/maillingStore'
@@ -98,6 +100,8 @@ export default function DashboardPage() {
   const theme = useTheme()
   const masterDataStore = useMasterDataStore()
   const demandStore = useDemandStore()
+  const atendimentoStore = useAtendimentoStore()
+  const manutencaoStore = useManutencaoStore()
   const validationStore = useValidationStore()
   const reajusteStore = useReajusteStore()
   const maillingStore = useMaillingStore()
@@ -285,6 +289,18 @@ export default function DashboardPage() {
     if (demandStore.items.length === 0) {
       console.log('🔍 Dashboard: Demandas vazias, chamando syncFromApi...')
       demandStore.syncFromApi()
+    }
+    
+    // Carregar dados de atendimentos se necessário
+    if (atendimentoStore.items.length === 0) {
+      console.log('🔍 Dashboard: Atendimentos vazios, chamando syncFromApi...')
+      atendimentoStore.syncFromApi()
+    }
+    
+    // Carregar dados de manutenções se necessário
+    if (manutencaoStore.items.length === 0) {
+      console.log('🔍 Dashboard: Manutenções vazias, chamando syncFromApi...')
+      manutencaoStore.syncFromApi()
     }
     
     // Carregar dados de validação se necessário
