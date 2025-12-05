@@ -113,14 +113,17 @@ export const useAdvancedIndicators = (
       }
       
       // Filtro por data - usar campo correto para cada página com fallback
-      let itemDate: string | undefined
+      let itemDate: string | undefined | null
       
       if (page === 'atendimentos') {
         // Atendimentos: dataAbertura (obrigatório) ou createdAt
         itemDate = item.dataAbertura || item.createdAt
       } else if (page === 'demandas' || page === 'manutencoes' || page === 'validacoes') {
-        // Demandas, Manutenções e Validações: dataInicio (se existir) ou createdAt
-        itemDate = item.dataInicio || item.createdAt
+        // Demandas, Manutenções e Validações: dataInicio (se existir e válido) ou createdAt
+        // Verificar se dataInicio é válido (não null, não undefined, não string vazia)
+        itemDate = (item.dataInicio && item.dataInicio !== null && item.dataInicio !== '') 
+          ? item.dataInicio 
+          : item.createdAt
       } else if (page === 'analytics') {
         // Analytics: dataInicio ou dataCriacao ou createdAt
         itemDate = item.dataInicio || item.dataCriacao || item.createdAt
@@ -132,7 +135,9 @@ export const useAdvancedIndicators = (
         itemDate = item.createdAt
       } else {
         // Outras páginas: tentar dataInicio primeiro, depois createdAt
-        itemDate = item.dataInicio || item.createdAt
+        itemDate = (item.dataInicio && item.dataInicio !== null && item.dataInicio !== '') 
+          ? item.dataInicio 
+          : item.createdAt
       }
       
       if (itemDate) {
