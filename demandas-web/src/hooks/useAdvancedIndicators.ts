@@ -112,24 +112,27 @@ export const useAdvancedIndicators = (
         }
       }
       
-      // Filtro por data
-      let dateField = 'dataInicio'
-      if (page === 'analytics') {
-        dateField = 'dataCriacao'
-      } else if (page === 'reajustes') {
-        dateField = 'createdAt'
-      } else if (page === 'atendimentos') {
-        // Atendimentos usa dataAbertura ou createdAt como fallback
-        dateField = 'dataAbertura'
-      }
+      // Filtro por data - usar campo correto para cada página com fallback
+      let itemDate: string | undefined
       
-      // Para atendimentos, tentar dataAbertura primeiro, depois createdAt
-      let itemDate = item[dateField]
-      if (page === 'atendimentos' && !itemDate) {
-        itemDate = item.createdAt || item.dataInicio
-      } else if (!itemDate && dateField === 'dataInicio') {
-        // Fallback para createdAt se dataInicio não existir
+      if (page === 'atendimentos') {
+        // Atendimentos: dataAbertura (obrigatório) ou createdAt
+        itemDate = item.dataAbertura || item.createdAt
+      } else if (page === 'demandas' || page === 'manutencoes' || page === 'validacoes') {
+        // Demandas, Manutenções e Validações: dataInicio (se existir) ou createdAt
+        itemDate = item.dataInicio || item.createdAt
+      } else if (page === 'analytics') {
+        // Analytics: dataInicio ou dataCriacao ou createdAt
+        itemDate = item.dataInicio || item.dataCriacao || item.createdAt
+      } else if (page === 'reajustes') {
+        // Reajustes: createdAt
         itemDate = item.createdAt
+      } else if (page === 'mailling') {
+        // Mailling: createdAt
+        itemDate = item.createdAt
+      } else {
+        // Outras páginas: tentar dataInicio primeiro, depois createdAt
+        itemDate = item.dataInicio || item.createdAt
       }
       
       if (itemDate) {

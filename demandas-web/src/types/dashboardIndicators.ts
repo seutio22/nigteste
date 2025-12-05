@@ -65,7 +65,7 @@ export const PAGE_CONFIGS: IndicatorConfig[] = [
     category: 'primary',
     fields: {
       total: 'status',
-      created: 'createdAt',
+      created: 'dataInicio', // Usar dataInicio como campo principal (fallback para createdAt)
       updated: 'updatedAt',
       completed: 'status'
     }
@@ -91,7 +91,7 @@ export const PAGE_CONFIGS: IndicatorConfig[] = [
     category: 'primary',
     fields: {
       total: 'status',
-      created: 'createdAt',
+      created: 'dataInicio', // Usar dataInicio como campo principal (fallback para createdAt)
       updated: 'updatedAt',
       completed: 'status'
     }
@@ -117,7 +117,7 @@ export const PAGE_CONFIGS: IndicatorConfig[] = [
     category: 'primary',
     fields: {
       total: 'status',
-      created: 'createdAt',
+      created: 'dataInicio', // Usar dataInicio como campo principal (fallback para createdAt)
       updated: 'updatedAt',
       completed: 'status'
     }
@@ -130,7 +130,7 @@ export const PAGE_CONFIGS: IndicatorConfig[] = [
     category: 'primary',
     fields: {
       total: 'status',
-      created: 'dataCriacao',
+      created: 'dataInicio', // Usar dataInicio como campo principal (fallback para dataCriacao ou createdAt)
       updated: 'dataAtualizacao',
       completed: 'status'
     }

@@ -88,13 +88,23 @@ const calculatePageMetrics = (items: any[], page: string, period: PeriodType, ha
       // Filtrar por período baseado no campo de criação
       const dateField = config.fields.created
       periodItems = items.filter(item => {
-        // Para atendimentos, usar dataAbertura se disponível, senão createdAt
+        // Obter a data correta para cada página com fallback
         let itemDate: string | undefined
+        
         if (page === 'atendimentos') {
-          itemDate = item.dataAbertura || item.createdAt || item[dateField]
+          // Atendimentos: dataAbertura (obrigatório) ou createdAt
+          itemDate = item.dataAbertura || item.createdAt
+        } else if (page === 'demandas' || page === 'manutencoes') {
+          // Demandas e Manutenções: dataInicio (se existir) ou createdAt
+          itemDate = item.dataInicio || item.createdAt
+        } else if (page === 'analytics') {
+          // Analytics: dataCriacao ou dataInicio ou createdAt
+          itemDate = item.dataCriacao || item.dataInicio || item.createdAt
         } else {
-          itemDate = item[dateField]
+          // Outras páginas: usar o campo configurado ou createdAt como fallback
+          itemDate = item[dateField] || item.createdAt
         }
+        
         return isInPeriod(itemDate, p)
       })
     }
@@ -103,13 +113,20 @@ const calculatePageMetrics = (items: any[], page: string, period: PeriodType, ha
     const created = hasDateFilters 
       ? periodItems.length // Se já filtrado, todos foram criados no período
       : periodItems.filter(item => {
-          const dateField = config.fields.created
+          // Obter a data correta para cada página com fallback
           let itemDate: string | undefined
+          
           if (page === 'atendimentos') {
-            itemDate = item.dataAbertura || item.createdAt || item[dateField]
+            itemDate = item.dataAbertura || item.createdAt
+          } else if (page === 'demandas' || page === 'manutencoes') {
+            itemDate = item.dataInicio || item.createdAt
+          } else if (page === 'analytics') {
+            itemDate = item.dataCriacao || item.dataInicio || item.createdAt
           } else {
-            itemDate = item[dateField]
+            const dateField = config.fields.created
+            itemDate = item[dateField] || item.createdAt
           }
+          
           return isInPeriod(itemDate, p)
         }).length
     
@@ -217,26 +234,30 @@ export const useDashboardIndicators = (
         }
       }
       
-      // Filtro por data
-      let dateField = 'dataInicio'
-      if (page === 'analytics') {
-        dateField = 'dataCriacao'
-      } else if (page === 'reajustes') {
-        dateField = 'createdAt'
-      } else if (page === 'mailling') {
-        dateField = 'createdAt'
-      } else if (page === 'atendimentos') {
-        // Atendimentos usa dataAbertura ou createdAt como fallback
-        dateField = 'dataAbertura'
-      }
+      // Filtro por data - usar campo correto para cada página com fallback
+      let itemDate: string | undefined
       
-      // Para atendimentos, tentar dataAbertura primeiro, depois createdAt
-      let itemDate = item[dateField]
-      if (page === 'atendimentos' && !itemDate) {
-        itemDate = item.createdAt || item.dataInicio
-      } else if (!itemDate && dateField === 'dataInicio') {
-        // Fallback para createdAt se dataInicio não existir
+      if (page === 'atendimentos') {
+        // Atendimentos: dataAbertura (obrigatório) ou createdAt
+        itemDate = item.dataAbertura || item.createdAt
+      } else if (page === 'demandas' || page === 'manutencoes' || page === 'validacoes') {
+        // Demandas, Manutenções e Validações: dataInicio (se existir) ou createdAt
+        itemDate = item.dataInicio || item.createdAt
+      } else if (page === 'analytics') {
+        // Analytics (Report): dataInicio ou createdAt
+        itemDate = item.dataInicio || item.createdAt
+      } else if (page === 'reajustes') {
+        // Reajustes: createdAt
         itemDate = item.createdAt
+      } else if (page === 'mailling') {
+        // Mailling: createdAt
+        itemDate = item.createdAt
+      } else if (page === 'validacoes') {
+        // Validações: dataInicio ou createdAt
+        itemDate = item.dataInicio || item.createdAt
+      } else {
+        // Outras páginas: tentar dataInicio primeiro, depois createdAt
+        itemDate = item.dataInicio || item.createdAt
       }
       
       if (!inRange(itemDate)) {
