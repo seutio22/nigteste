@@ -24,15 +24,28 @@ interface DashboardIndicatorsProps {
   period: PeriodType
   showCategories?: boolean
   maxItems?: number
+  areaId?: string
+  analistaId?: string
+  fromDate?: string
+  toDate?: string
 }
 
 export const DashboardIndicators: React.FC<DashboardIndicatorsProps> = ({
   period,
   showCategories = true,
-  maxItems
+  maxItems,
+  areaId,
+  analistaId,
+  fromDate,
+  toDate
 }) => {
   const theme = useTheme()
-  const { indicators, indicatorsByCategory, generalStats } = useDashboardIndicators(period)
+  const { indicators, indicatorsByCategory, generalStats } = useDashboardIndicators(period, {
+    areaId,
+    analistaId,
+    fromDate,
+    toDate
+  })
 
   const getChangeIcon = (changeType: string) => {
     switch (changeType) {

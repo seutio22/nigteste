@@ -554,6 +554,10 @@ export default function DashboardPage() {
         <DashboardIndicators
           period={indicatorPeriod}
           showCategories={true}
+          areaId={areaId}
+          analistaId={analistaId}
+          fromDate={fromDate}
+          toDate={toDate}
         />
       </Box>
 
