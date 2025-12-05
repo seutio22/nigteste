@@ -39,11 +39,16 @@ const getPeriodDates = (period: PeriodType) => {
 }
 
 // Função para verificar se um item está no período
-const isInPeriod = (date: string | undefined, period: PeriodType): boolean => {
-  if (!date) return false
-  const itemDate = new Date(date)
-  const { start, end } = getPeriodDates(period)
-  return itemDate >= start && itemDate <= end
+const isInPeriod = (date: string | undefined | null, period: PeriodType): boolean => {
+  if (!date || date === null || date === '') return false
+  try {
+    const itemDate = new Date(date)
+    if (isNaN(itemDate.getTime())) return false
+    const { start, end } = getPeriodDates(period)
+    return itemDate >= start && itemDate <= end
+  } catch {
+    return false
+  }
 }
 
 // Função para verificar se um item está concluído
@@ -95,8 +100,11 @@ const calculatePageMetrics = (items: any[], page: string, period: PeriodType, ha
           // Atendimentos: dataAbertura (obrigatório) ou createdAt
           itemDate = item.dataAbertura || item.createdAt
         } else if (page === 'demandas' || page === 'manutencoes') {
-          // Demandas e Manutenções: dataInicio (se existir) ou createdAt
-          itemDate = item.dataInicio || item.createdAt
+          // Demandas e Manutenções: dataInicio (se existir e válido) ou createdAt
+          // Se dataInicio for null, undefined ou string vazia, usar createdAt
+          itemDate = (item.dataInicio && item.dataInicio !== null && item.dataInicio !== '') 
+            ? item.dataInicio 
+            : item.createdAt
         } else if (page === 'analytics') {
           // Analytics: dataCriacao ou dataInicio ou createdAt
           itemDate = item.dataCriacao || item.dataInicio || item.createdAt
@@ -119,8 +127,11 @@ const calculatePageMetrics = (items: any[], page: string, period: PeriodType, ha
           if (page === 'atendimentos') {
             itemDate = item.dataAbertura || item.createdAt
           } else if (page === 'demandas' || page === 'manutencoes') {
-            // Demandas e Manutenções: dataInicio (se existir) ou createdAt
-            itemDate = item.dataInicio || item.createdAt
+            // Demandas e Manutenções: dataInicio (se existir e válido) ou createdAt
+            // Se dataInicio for null, undefined ou string vazia, usar createdAt
+            itemDate = (item.dataInicio && item.dataInicio !== null && item.dataInicio !== '') 
+              ? item.dataInicio 
+              : item.createdAt
           } else if (page === 'analytics') {
             itemDate = item.dataCriacao || item.dataInicio || item.createdAt
           } else {
@@ -242,8 +253,11 @@ export const useDashboardIndicators = (
         // Atendimentos: dataAbertura (obrigatório) ou createdAt
         itemDate = item.dataAbertura || item.createdAt
       } else if (page === 'demandas' || page === 'manutencoes' || page === 'validacoes') {
-        // Demandas, Manutenções e Validações: dataInicio (se existir) ou createdAt
-        itemDate = item.dataInicio || item.createdAt
+        // Demandas, Manutenções e Validações: dataInicio (se existir e válido) ou createdAt
+        // Se dataInicio for null, undefined ou string vazia, usar createdAt
+        itemDate = (item.dataInicio && item.dataInicio !== null && item.dataInicio !== '') 
+          ? item.dataInicio 
+          : item.createdAt
       } else if (page === 'analytics') {
         // Analytics (Report): dataInicio ou createdAt
         itemDate = item.dataInicio || item.createdAt
