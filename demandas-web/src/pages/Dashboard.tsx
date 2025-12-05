@@ -136,19 +136,24 @@ export default function DashboardPage() {
   }, [indicatorPeriod, isManualDateFilter])
 
   // Hook para indicadores do dashboard
+  // Quando período é automático (não manual), não passar filtros de data
+  // para que calculatePageMetrics possa filtrar corretamente por período
   const { indicators, pageMetrics, generalStats } = useDashboardIndicators(indicatorPeriod, {
     areaId,
     analistaId,
-    fromDate,
-    toDate
+    // Só passar filtros de data se for filtro manual
+    fromDate: isManualDateFilter ? fromDate : undefined,
+    toDate: isManualDateFilter ? toDate : undefined
   })
 
   // Hook para indicadores avançados
+  // Quando período é automático (não manual), não passar filtros de data
   const { advancedIndicators, tempoExecucaoMetrics, analistaMetrics } = useAdvancedIndicators({
     areaId,
     analistaId,
-    fromDate,
-    toDate
+    // Só passar filtros de data se for filtro manual
+    fromDate: isManualDateFilter ? fromDate : undefined,
+    toDate: isManualDateFilter ? toDate : undefined
   })
 
   // Função para filtrar por data
