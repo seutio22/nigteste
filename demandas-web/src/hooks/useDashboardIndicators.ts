@@ -67,7 +67,7 @@ const isCompleted = (item: any, page: string): boolean => {
 }
 
 // Função para calcular métricas de uma página
-const calculatePageMetrics = (items: any[], page: string, period: PeriodType, hasDateFilters: boolean = false): PageMetrics => {
+const calculatePageMetrics = (items: any[], page: string, period: PeriodType, hasDateFilters: boolean = false, manutencoesRawForDebug?: any[]): PageMetrics => {
   const config = PAGE_CONFIGS.find(c => c.page === page)
   if (!config) {
     return {
@@ -124,7 +124,7 @@ const calculatePageMetrics = (items: any[], page: string, period: PeriodType, ha
             const hojeNormalizada = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())
             const isHoje = dataItemNormalizada && dataItemNormalizada.getTime() === hojeNormalizada.getTime()
             
-            if (manutencoesRaw.length <= 10 || isHoje) {
+            if ((manutencoesRawForDebug && manutencoesRawForDebug.length <= 10) || isHoje) {
               console.log('🔍 DEBUG Manutenção filtro período:', {
                 id: item.id,
                 ticket: item.ticket,
@@ -314,12 +314,13 @@ export const useDashboardIndicators = (
   }
 
   // Mapeamento de stores por página com verificações de segurança e filtros aplicados
+  const manutencoesRaw = Array.isArray(manutencaoStore.items) ? manutencaoStore.items : []
   const storeMap = {
     demandas: applyFilters(Array.isArray(demandStore.items) ? demandStore.items : [], 'demandas'),
     atendimentos: applyFilters(Array.isArray(atendimentoStore.items) ? atendimentoStore.items : [], 'atendimentos'),
     validacoes: applyFilters(Array.isArray(validationStore.items) ? validationStore.items : [], 'validacoes'),
     reajustes: applyFilters(Array.isArray(reajusteStore.items) ? reajusteStore.items : [], 'reajustes'),
-    manutencoes: applyFilters(Array.isArray(manutencaoStore.items) ? manutencaoStore.items : [], 'manutencoes'),
+    manutencoes: applyFilters(manutencoesRaw, 'manutencoes'),
     analytics: applyFilters(Array.isArray(reportStore.items) ? reportStore.items : [], 'analytics'),
     mailling: applyFilters(Array.isArray(maillingStore.contacts) ? maillingStore.contacts : [], 'mailling'),
     comunicados: applyFilters(Array.isArray(comunicadoStore.items) ? comunicadoStore.items : [], 'comunicados'),
@@ -327,7 +328,6 @@ export const useDashboardIndicators = (
   }
 
   // Debug: verificar dados de manutenções (sempre ativo para diagnóstico)
-  const manutencoesRaw = Array.isArray(manutencaoStore.items) ? manutencaoStore.items : []
   const manutencoesFiltradas = storeMap.manutencoes
   const hoje = new Date()
   hoje.setHours(0, 0, 0, 0)
@@ -347,7 +347,7 @@ export const useDashboardIndicators = (
     totalNoStore: manutencoesRaw.length,
     totalFiltradas: manutencoesFiltradas.length,
     totalHojeCalculado: manutencoesHoje.length,
-    periodo,
+    periodo: period,
     hasDateFilters: !!(filters?.fromDate || filters?.toDate),
     fromDate: filters?.fromDate,
     toDate: filters?.toDate,
@@ -369,11 +369,11 @@ export const useDashboardIndicators = (
     const metrics: { [key: string]: PageMetrics } = {}
     
     Object.entries(storeMap).forEach(([page, items]) => {
-      metrics[page] = calculatePageMetrics(items, page, period, hasDateFilters)
+      metrics[page] = calculatePageMetrics(items, page, period, hasDateFilters, page === 'manutencoes' ? manutencoesRaw : undefined)
     })
     
     return metrics
-  }, [storeMap, period, hasDateFilters])
+  }, [storeMap, period, hasDateFilters, manutencoesRaw])
 
   // Gerar indicadores para o período selecionado
   const indicators = useMemo(() => {
