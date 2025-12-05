@@ -118,10 +118,42 @@ export const useDashboardIndicators = (
   const inRange = (iso?: string) => {
     if (!filters) return true
     if (!iso) return true
-    const t = new Date(iso).getTime()
-    if (filters.fromDate && t < new Date(filters.fromDate).getTime()) return false
-    if (filters.toDate && t > new Date(filters.toDate + 'T23:59:59').getTime()) return false
-    return true
+    if (!filters.fromDate && !filters.toDate) return true
+    
+    try {
+      const itemDate = new Date(iso)
+      if (isNaN(itemDate.getTime())) return true
+      
+      // Normalizar para início do dia (00:00:00)
+      const normalizeStart = (dateStr: string) => {
+        const d = new Date(dateStr)
+        d.setHours(0, 0, 0, 0)
+        return d.getTime()
+      }
+      
+      // Normalizar para fim do dia (23:59:59.999)
+      const normalizeEnd = (dateStr: string) => {
+        const d = new Date(dateStr)
+        d.setHours(23, 59, 59, 999)
+        return d.getTime()
+      }
+      
+      const itemTime = itemDate.getTime()
+      
+      if (filters.fromDate) {
+        const fromTime = normalizeStart(filters.fromDate)
+        if (itemTime < fromTime) return false
+      }
+      
+      if (filters.toDate) {
+        const toTime = normalizeEnd(filters.toDate)
+        if (itemTime > toTime) return false
+      }
+      
+      return true
+    } catch {
+      return true
+    }
   }
 
   // Função para aplicar filtros aos dados

@@ -118,11 +118,39 @@ export const useAdvancedIndicators = (
       }
       
       const itemDate = item[dateField]
-      if (itemDate && filters.fromDate && new Date(itemDate) < new Date(filters.fromDate)) {
-        return false
-      }
-      if (itemDate && filters.toDate && new Date(itemDate) > new Date(filters.toDate + 'T23:59:59')) {
-        return false
+      if (itemDate) {
+        try {
+          const itemDateObj = new Date(itemDate)
+          if (isNaN(itemDateObj.getTime())) return true
+          
+          // Normalizar para início do dia (00:00:00)
+          const normalizeStart = (dateStr: string) => {
+            const d = new Date(dateStr)
+            d.setHours(0, 0, 0, 0)
+            return d.getTime()
+          }
+          
+          // Normalizar para fim do dia (23:59:59.999)
+          const normalizeEnd = (dateStr: string) => {
+            const d = new Date(dateStr)
+            d.setHours(23, 59, 59, 999)
+            return d.getTime()
+          }
+          
+          const itemTime = itemDateObj.getTime()
+          
+          if (filters.fromDate) {
+            const fromTime = normalizeStart(filters.fromDate)
+            if (itemTime < fromTime) return false
+          }
+          
+          if (filters.toDate) {
+            const toTime = normalizeEnd(filters.toDate)
+            if (itemTime > toTime) return false
+          }
+        } catch {
+          // Se houver erro ao processar a data, manter o item
+        }
       }
       
       return true

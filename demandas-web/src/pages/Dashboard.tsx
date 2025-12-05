@@ -150,10 +150,42 @@ export default function DashboardPage() {
   // Função para filtrar por data
   const inRange = (iso?: string) => {
     if (!iso) return true
-    const t = new Date(iso).getTime()
-    if (fromDate && t < new Date(fromDate).getTime()) return false
-    if (toDate && t > new Date(toDate + 'T23:59:59').getTime()) return false
-    return true
+    if (!fromDate && !toDate) return true
+    
+    try {
+      const itemDate = new Date(iso)
+      if (isNaN(itemDate.getTime())) return true
+      
+      // Normalizar para início do dia (00:00:00)
+      const normalizeStart = (dateStr: string) => {
+        const d = new Date(dateStr)
+        d.setHours(0, 0, 0, 0)
+        return d.getTime()
+      }
+      
+      // Normalizar para fim do dia (23:59:59.999)
+      const normalizeEnd = (dateStr: string) => {
+        const d = new Date(dateStr)
+        d.setHours(23, 59, 59, 999)
+        return d.getTime()
+      }
+      
+      const itemTime = itemDate.getTime()
+      
+      if (fromDate) {
+        const fromTime = normalizeStart(fromDate)
+        if (itemTime < fromTime) return false
+      }
+      
+      if (toDate) {
+        const toTime = normalizeEnd(toDate)
+        if (itemTime > toTime) return false
+      }
+      
+      return true
+    } catch {
+      return true
+    }
   }
 
   // Handler para mudança manual de datas
@@ -175,10 +207,18 @@ export default function DashboardPage() {
     if (value) {
       // Converter formato YYYY-MM para datas de início e fim do mês
       const [year, month] = value.split('-')
-      const startDate = new Date(parseInt(year), parseInt(month) - 1, 1)
-      const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59)
+      const yearNum = parseInt(year)
+      const monthNum = parseInt(month)
       
-      // Formatar para YYYY-MM-DD
+      // Primeiro dia do mês (00:00:00)
+      const startDate = new Date(yearNum, monthNum - 1, 1)
+      startDate.setHours(0, 0, 0, 0)
+      
+      // Último dia do mês (23:59:59)
+      const endDate = new Date(yearNum, monthNum, 0) // Dia 0 do próximo mês = último dia do mês atual
+      endDate.setHours(23, 59, 59, 999)
+      
+      // Formatar para YYYY-MM-DD (apenas a data, sem hora)
       const formatDate = (date: Date): string => {
         const y = date.getFullYear()
         const m = String(date.getMonth() + 1).padStart(2, '0')
