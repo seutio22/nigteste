@@ -44,8 +44,15 @@ const isInPeriod = (date: string | undefined | null, period: PeriodType): boolea
   try {
     const itemDate = new Date(date)
     if (isNaN(itemDate.getTime())) return false
+    
     const { start, end } = getPeriodDates(period)
-    return itemDate >= start && itemDate <= end
+    
+    // Normalizar datas para comparação correta (ignorar horas)
+    const itemDateNormalized = new Date(itemDate.getFullYear(), itemDate.getMonth(), itemDate.getDate())
+    const startNormalized = new Date(start.getFullYear(), start.getMonth(), start.getDate())
+    const endNormalized = new Date(end.getFullYear(), end.getMonth(), end.getDate())
+    
+    return itemDateNormalized >= startNormalized && itemDateNormalized <= endNormalized
   } catch {
     return false
   }
