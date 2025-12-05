@@ -47,12 +47,19 @@ const isInPeriod = (date: string | undefined | null, period: PeriodType): boolea
     
     const { start, end } = getPeriodDates(period)
     
-    // Normalizar datas para comparação correta (ignorar horas) - igual a demandas
+    // Normalizar datas para comparação correta (ignorar horas)
     const itemDateNormalized = new Date(itemDate.getFullYear(), itemDate.getMonth(), itemDate.getDate())
+    
+    // Para período daily, comparar apenas se a data é igual a hoje
+    if (period === 'daily') {
+      const todayNormalized = new Date(start.getFullYear(), start.getMonth(), start.getDate())
+      return itemDateNormalized.getTime() === todayNormalized.getTime()
+    }
+    
+    // Para outros períodos, usar comparação de range
     const startNormalized = new Date(start.getFullYear(), start.getMonth(), start.getDate())
     const endNormalized = new Date(end.getFullYear(), end.getMonth(), end.getDate())
     
-    // Comparação simples: itemDate >= start && itemDate <= end
     return itemDateNormalized >= startNormalized && itemDateNormalized <= endNormalized
   } catch {
     return false
