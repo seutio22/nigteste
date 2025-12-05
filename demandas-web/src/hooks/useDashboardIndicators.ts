@@ -47,11 +47,12 @@ const isInPeriod = (date: string | undefined | null, period: PeriodType): boolea
     
     const { start, end } = getPeriodDates(period)
     
-    // Normalizar datas para comparação correta (ignorar horas)
+    // Normalizar datas para comparação correta (ignorar horas) - igual a demandas
     const itemDateNormalized = new Date(itemDate.getFullYear(), itemDate.getMonth(), itemDate.getDate())
     const startNormalized = new Date(start.getFullYear(), start.getMonth(), start.getDate())
     const endNormalized = new Date(end.getFullYear(), end.getMonth(), end.getDate())
     
+    // Comparação simples: itemDate >= start && itemDate <= end
     return itemDateNormalized >= startNormalized && itemDateNormalized <= endNormalized
   } catch {
     return false
@@ -67,7 +68,7 @@ const isCompleted = (item: any, page: string): boolean => {
 }
 
 // Função para calcular métricas de uma página
-const calculatePageMetrics = (items: any[], page: string, period: PeriodType, hasDateFilters: boolean = false, manutencoesRawForDebug?: any[]): PageMetrics => {
+const calculatePageMetrics = (items: any[], page: string, period: PeriodType, hasDateFilters: boolean = false): PageMetrics => {
   const config = PAGE_CONFIGS.find(c => c.page === page)
   if (!config) {
     return {
@@ -120,29 +121,6 @@ const calculatePageMetrics = (items: any[], page: string, period: PeriodType, ha
             itemDate = item.createdAt
           }
           
-          // Debug para manutenções (sempre ativo para diagnóstico)
-          if (page === 'manutencoes' && p === 'daily') {
-            const hoje = new Date()
-            hoje.setHours(0, 0, 0, 0)
-            const dataItem = itemDate ? new Date(itemDate) : null
-            const dataItemNormalizada = dataItem ? new Date(dataItem.getFullYear(), dataItem.getMonth(), dataItem.getDate()) : null
-            const hojeNormalizada = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())
-            const isHoje = dataItemNormalizada && dataItemNormalizada.getTime() === hojeNormalizada.getTime()
-            
-            if ((manutencoesRawForDebug && manutencoesRawForDebug.length <= 10) || isHoje) {
-              console.log('🔍 DEBUG Manutenção filtro período:', {
-                id: item.id,
-                ticket: item.ticket,
-                dataInicio: item.dataInicio,
-                createdAt: item.createdAt,
-                itemDateUsado: itemDate,
-                isInPeriod: isInPeriod(itemDate, p),
-                isHojeCalculado: isHoje,
-                hojeNormalizada: hojeNormalizada.toISOString(),
-                dataItemNormalizada: dataItemNormalizada?.toISOString()
-              })
-            }
-          }
         } else if (page === 'analytics') {
           // Analytics: dataCriacao ou dataInicio ou createdAt
           itemDate = item.dataCriacao || item.dataInicio || item.createdAt
@@ -341,39 +319,6 @@ export const useDashboardIndicators = (
     projetos: applyFilters(Array.isArray(projectStore.items) ? projectStore.items : [], 'projetos')
   }
 
-  // Debug: verificar dados de manutenções (sempre ativo para diagnóstico)
-  const manutencoesFiltradas = storeMap.manutencoes
-  const hoje = new Date()
-  hoje.setHours(0, 0, 0, 0)
-  const hojeFim = new Date(hoje)
-  hojeFim.setHours(23, 59, 59, 999)
-  
-  const manutencoesHoje = manutencoesRaw.filter(m => {
-    const dataInicio = m.dataInicio && m.dataInicio !== null && m.dataInicio !== '' ? m.dataInicio : m.createdAt
-    if (!dataInicio) return false
-    const data = new Date(dataInicio)
-    const dataNormalizada = new Date(data.getFullYear(), data.getMonth(), data.getDate())
-    const hojeNormalizada = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())
-    return dataNormalizada.getTime() === hojeNormalizada.getTime()
-  })
-  
-  console.log('🔍 DEBUG Manutenções:', {
-    totalNoStore: manutencoesRaw.length,
-    totalFiltradas: manutencoesFiltradas.length,
-    totalHojeCalculado: manutencoesHoje.length,
-    periodo: period,
-    hasDateFilters: !!(filters?.fromDate || filters?.toDate),
-    fromDate: filters?.fromDate,
-    toDate: filters?.toDate,
-    amostraHoje: manutencoesHoje.slice(0, 5).map(m => ({
-      id: m.id,
-      ticket: m.ticket,
-      dataInicio: m.dataInicio,
-      createdAt: m.createdAt,
-      status: m.status,
-      dataUsada: m.dataInicio && m.dataInicio !== null && m.dataInicio !== '' ? m.dataInicio : m.createdAt
-    }))
-  })
 
   // Verificar se há filtros de data ativos
   const hasDateFilters = !!(filters?.fromDate || filters?.toDate)
@@ -383,7 +328,7 @@ export const useDashboardIndicators = (
     const metrics: { [key: string]: PageMetrics } = {}
     
     Object.entries(storeMap).forEach(([page, items]) => {
-      metrics[page] = calculatePageMetrics(items, page, period, hasDateFilters, page === 'manutencoes' ? manutencoesRaw : undefined)
+      metrics[page] = calculatePageMetrics(items, page, period, hasDateFilters)
     })
     
     return metrics
