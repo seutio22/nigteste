@@ -39,16 +39,11 @@ const getPeriodDates = (period: PeriodType) => {
 }
 
 // Função para verificar se um item está no período
-const isInPeriod = (date: string | undefined | null, period: PeriodType): boolean => {
-  if (!date || date === null || date === '') return false
-  try {
-    const itemDate = new Date(date)
-    if (isNaN(itemDate.getTime())) return false
-    const { start, end } = getPeriodDates(period)
-    return itemDate >= start && itemDate <= end
-  } catch {
-    return false
-  }
+const isInPeriod = (date: string | undefined, period: PeriodType): boolean => {
+  if (!date) return false
+  const itemDate = new Date(date)
+  const { start, end } = getPeriodDates(period)
+  return itemDate >= start && itemDate <= end
 }
 
 // Função para verificar se um item está concluído
@@ -97,20 +92,11 @@ const calculatePageMetrics = (items: any[], page: string, period: PeriodType, ha
         let itemDate: string | undefined | null
         
         if (page === 'atendimentos') {
-          // Para período daily sem filtros, usar createdAt (data de criação real)
-          // dataAbertura pode ser de qualquer dia e não reflete quando foi criado
-          if (p === 'daily' && !hasDateFilters) {
-            itemDate = item.createdAt
-          } else {
-            // Para outros períodos ou com filtros, usar dataAbertura
-            itemDate = item.dataAbertura || item.createdAt
-          }
+          // Atendimentos: dataAbertura (obrigatório) ou createdAt
+          itemDate = item.dataAbertura || item.createdAt
         } else if (page === 'demandas' || page === 'manutencoes') {
-          // Demandas e Manutenções: dataInicio (se existir e válido) ou createdAt
-          // Verificar se dataInicio é válido (não null, não undefined, não string vazia)
-          itemDate = (item.dataInicio && item.dataInicio !== null && item.dataInicio !== '') 
-            ? item.dataInicio 
-            : item.createdAt
+          // Demandas e Manutenções: dataInicio (se existir) ou createdAt
+          itemDate = item.dataInicio || item.createdAt
         } else if (page === 'analytics') {
           // Analytics: dataCriacao ou dataInicio ou createdAt
           itemDate = item.dataCriacao || item.dataInicio || item.createdAt
@@ -131,20 +117,10 @@ const calculatePageMetrics = (items: any[], page: string, period: PeriodType, ha
           let itemDate: string | undefined | null
           
           if (page === 'atendimentos') {
-            // Para período daily sem filtros, usar createdAt (data de criação real)
-            // dataAbertura pode ser de qualquer dia e não reflete quando foi criado
-            if (p === 'daily' && !hasDateFilters) {
-              itemDate = item.createdAt
-            } else {
-              // Para outros períodos ou com filtros, usar dataAbertura
-              itemDate = item.dataAbertura || item.createdAt
-            }
+            itemDate = item.dataAbertura || item.createdAt
           } else if (page === 'demandas' || page === 'manutencoes') {
-            // Demandas e Manutenções: dataInicio (se existir e válido) ou createdAt
-            // Verificar se dataInicio é válido (não null, não undefined, não string vazia)
-            itemDate = (item.dataInicio && item.dataInicio !== null && item.dataInicio !== '') 
-              ? item.dataInicio 
-              : item.createdAt
+            // Demandas e Manutenções: dataInicio (se existir) ou createdAt
+            itemDate = item.dataInicio || item.createdAt
           } else if (page === 'analytics') {
             itemDate = item.dataCriacao || item.dataInicio || item.createdAt
           } else {
@@ -260,25 +236,14 @@ export const useDashboardIndicators = (
       }
       
       // Filtro por data - usar campo correto para cada página com fallback
-      let itemDate: string | undefined | null
+      let itemDate: string | undefined
       
       if (page === 'atendimentos') {
-        // Atendimentos: quando há filtros de data, usar dataAbertura
-        // Quando não há filtros (período daily), usar createdAt para refletir criação real
-        // dataAbertura pode ser de qualquer dia e não reflete quando foi criado
-        if (filters.fromDate || filters.toDate) {
-          // Com filtros de data, usar dataAbertura
-          itemDate = item.dataAbertura || item.createdAt
-        } else {
-          // Sem filtros (período daily), usar createdAt
-          itemDate = item.createdAt
-        }
+        // Atendimentos: dataAbertura (obrigatório) ou createdAt
+        itemDate = item.dataAbertura || item.createdAt
       } else if (page === 'demandas' || page === 'manutencoes' || page === 'validacoes') {
-        // Demandas, Manutenções e Validações: dataInicio (se existir e válido) ou createdAt
-        // Verificar se dataInicio é válido (não null, não undefined, não string vazia)
-        itemDate = (item.dataInicio && item.dataInicio !== null && item.dataInicio !== '') 
-          ? item.dataInicio 
-          : item.createdAt
+        // Demandas, Manutenções e Validações: dataInicio (se existir) ou createdAt
+        itemDate = item.dataInicio || item.createdAt
       } else if (page === 'analytics') {
         // Analytics (Report): dataInicio ou createdAt
         itemDate = item.dataInicio || item.createdAt
@@ -290,9 +255,7 @@ export const useDashboardIndicators = (
         itemDate = item.createdAt
       } else {
         // Outras páginas: tentar dataInicio primeiro, depois createdAt
-        itemDate = (item.dataInicio && item.dataInicio !== null && item.dataInicio !== '') 
-          ? item.dataInicio 
-          : item.createdAt
+        itemDate = item.dataInicio || item.createdAt
       }
       
       if (!inRange(itemDate)) {
