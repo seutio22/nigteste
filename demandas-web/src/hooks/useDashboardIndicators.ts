@@ -105,37 +105,10 @@ const calculatePageMetrics = (items: any[], page: string, period: PeriodType, ha
       // Dados já filtrados por data - usar todos
       periodItems = items
     } else {
-      // Filtrar por período baseado no campo de criação
-      const dateField = config.fields.created
+      // Filtrar por período baseado na data de criação do chamado (createdAt)
       periodItems = items.filter(item => {
-        // Obter a data correta para cada página com fallback
-        let itemDate: string | undefined | null
-        
-        if (page === 'atendimentos') {
-          // Atendimentos: dataAbertura (se existir e válido) ou createdAt
-          // Se dataAbertura for null, undefined ou string vazia, usar createdAt
-          if (item.dataAbertura && item.dataAbertura !== null && item.dataAbertura !== '') {
-            itemDate = item.dataAbertura
-          } else {
-            itemDate = item.createdAt
-          }
-        } else if (page === 'demandas' || page === 'manutencoes') {
-          // Demandas e Manutenções: dataInicio (se existir e válido) ou createdAt
-          // Se dataInicio for null, undefined ou string vazia, usar createdAt
-          if (item.dataInicio && item.dataInicio !== null && item.dataInicio !== '') {
-            itemDate = item.dataInicio
-          } else {
-            itemDate = item.createdAt
-          }
-          
-        } else if (page === 'analytics') {
-          // Analytics: dataCriacao ou dataInicio ou createdAt
-          itemDate = item.dataCriacao || item.dataInicio || item.createdAt
-        } else {
-          // Outras páginas: usar o campo configurado ou createdAt como fallback
-          itemDate = item[dateField] || item.createdAt
-        }
-        
+        // Todos os chamados devem ser filtrados pela data de criação
+        const itemDate = item.createdAt
         return isInPeriod(itemDate, p)
       })
     }
@@ -144,30 +117,8 @@ const calculatePageMetrics = (items: any[], page: string, period: PeriodType, ha
     const created = hasDateFilters 
       ? periodItems.length // Se já filtrado, todos foram criados no período
       : periodItems.filter(item => {
-          // Obter a data correta para cada página com fallback
-          let itemDate: string | undefined | null
-          
-          if (page === 'atendimentos') {
-            // Atendimentos: dataAbertura (se existir e válido) ou createdAt
-            // Se dataAbertura for null, undefined ou string vazia, usar createdAt
-            if (item.dataAbertura && item.dataAbertura !== null && item.dataAbertura !== '') {
-              itemDate = item.dataAbertura
-            } else {
-              itemDate = item.createdAt
-            }
-          } else if (page === 'demandas' || page === 'manutencoes') {
-            // Demandas e Manutenções: dataInicio (se existir e válido) ou createdAt
-            // Se dataInicio for null, undefined ou string vazia, usar createdAt
-            itemDate = (item.dataInicio && item.dataInicio !== null && item.dataInicio !== '') 
-              ? item.dataInicio 
-              : item.createdAt
-          } else if (page === 'analytics') {
-            itemDate = item.dataCriacao || item.dataInicio || item.createdAt
-          } else {
-            const dateField = config.fields.created
-            itemDate = item[dateField] || item.createdAt
-          }
-          
+          // Todos os chamados devem ser contabilizados pela data de criação
+          const itemDate = item.createdAt
           return isInPeriod(itemDate, p)
         }).length
     
@@ -275,34 +226,8 @@ export const useDashboardIndicators = (
         }
       }
       
-      // Filtro por data - usar campo correto para cada página com fallback
-      let itemDate: string | undefined
-      
-      if (page === 'atendimentos') {
-        // Atendimentos: dataAbertura (se existir e válido) ou createdAt
-        // Se dataAbertura for null, undefined ou string vazia, usar createdAt
-        itemDate = (item.dataAbertura && item.dataAbertura !== null && item.dataAbertura !== '') 
-          ? item.dataAbertura 
-          : item.createdAt
-      } else if (page === 'demandas' || page === 'manutencoes' || page === 'validacoes') {
-        // Demandas, Manutenções e Validações: dataInicio (se existir e válido) ou createdAt
-        // Se dataInicio for null, undefined ou string vazia, usar createdAt
-        itemDate = (item.dataInicio && item.dataInicio !== null && item.dataInicio !== '') 
-          ? item.dataInicio 
-          : item.createdAt
-      } else if (page === 'analytics') {
-        // Analytics (Report): dataInicio ou createdAt
-        itemDate = item.dataInicio || item.createdAt
-      } else if (page === 'reajustes') {
-        // Reajustes: createdAt
-        itemDate = item.createdAt
-      } else if (page === 'mailling') {
-        // Mailling: createdAt
-        itemDate = item.createdAt
-      } else {
-        // Outras páginas: tentar dataInicio primeiro, depois createdAt
-        itemDate = item.dataInicio || item.createdAt
-      }
+      // Filtro por data - todos os chamados devem ser filtrados pela data de criação
+      const itemDate = item.createdAt
       
       if (!inRange(itemDate)) {
         return false
