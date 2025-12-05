@@ -97,8 +97,14 @@ const calculatePageMetrics = (items: any[], page: string, period: PeriodType, ha
         let itemDate: string | undefined | null
         
         if (page === 'atendimentos') {
-          // Atendimentos: dataAbertura (obrigatório) ou createdAt
-          itemDate = item.dataAbertura || item.createdAt
+          // Para período daily sem filtros, usar createdAt (data de criação real)
+          // dataAbertura pode ser de qualquer dia e não reflete quando foi criado
+          if (p === 'daily' && !hasDateFilters) {
+            itemDate = item.createdAt
+          } else {
+            // Para outros períodos ou com filtros, usar dataAbertura
+            itemDate = item.dataAbertura || item.createdAt
+          }
         } else if (page === 'demandas' || page === 'manutencoes') {
           // Demandas e Manutenções: dataInicio (se existir e válido) ou createdAt
           // Verificar se dataInicio é válido (não null, não undefined, não string vazia)
@@ -125,7 +131,14 @@ const calculatePageMetrics = (items: any[], page: string, period: PeriodType, ha
           let itemDate: string | undefined | null
           
           if (page === 'atendimentos') {
-            itemDate = item.dataAbertura || item.createdAt
+            // Para período daily sem filtros, usar createdAt (data de criação real)
+            // dataAbertura pode ser de qualquer dia e não reflete quando foi criado
+            if (p === 'daily' && !hasDateFilters) {
+              itemDate = item.createdAt
+            } else {
+              // Para outros períodos ou com filtros, usar dataAbertura
+              itemDate = item.dataAbertura || item.createdAt
+            }
           } else if (page === 'demandas' || page === 'manutencoes') {
             // Demandas e Manutenções: dataInicio (se existir e válido) ou createdAt
             // Verificar se dataInicio é válido (não null, não undefined, não string vazia)
@@ -250,8 +263,16 @@ export const useDashboardIndicators = (
       let itemDate: string | undefined | null
       
       if (page === 'atendimentos') {
-        // Atendimentos: dataAbertura (obrigatório) ou createdAt
-        itemDate = item.dataAbertura || item.createdAt
+        // Atendimentos: quando há filtros de data, usar dataAbertura
+        // Quando não há filtros (período daily), usar createdAt para refletir criação real
+        // dataAbertura pode ser de qualquer dia e não reflete quando foi criado
+        if (filters.fromDate || filters.toDate) {
+          // Com filtros de data, usar dataAbertura
+          itemDate = item.dataAbertura || item.createdAt
+        } else {
+          // Sem filtros (período daily), usar createdAt
+          itemDate = item.createdAt
+        }
       } else if (page === 'demandas' || page === 'manutencoes' || page === 'validacoes') {
         // Demandas, Manutenções e Validações: dataInicio (se existir e válido) ou createdAt
         // Verificar se dataInicio é válido (não null, não undefined, não string vazia)
