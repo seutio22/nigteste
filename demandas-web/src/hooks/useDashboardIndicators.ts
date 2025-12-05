@@ -204,7 +204,7 @@ export const useDashboardIndicators = (
   const comunicadoStore = useComunicadoStore()
   const projectStore = useProjectStore()
 
-  // Função para filtrar por data
+  // Função para filtrar por data - mesma lógica para todas as páginas
   const inRange = (iso?: string) => {
     if (!filters) return true
     if (!iso) return true
