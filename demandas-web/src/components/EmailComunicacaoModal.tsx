@@ -21,6 +21,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
   const [carregandoMailling, setCarregandoMailling] = useState(false)
   const [gerandoImagem, setGerandoImagem] = useState(false)
   const [gerandoWord, setGerandoWord] = useState(false)
+  const [salvandoArquivo, setSalvandoArquivo] = useState(false)
   const [editandoDescricao, setEditandoDescricao] = useState(false)
   const [descricaoEditavel, setDescricaoEditavel] = useState('')
   const [emailOutlook, setEmailOutlook] = useState('')
@@ -72,7 +73,13 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
     const tipo = md.padrao.find(t => t.id === manutencao?.tipoId)
     const contrato = manutencao?.contratoId ? md.contratos.find(c => c.id === manutencao.contratoId) : null
 
-    const linhas = (linhasTabela.length > 0 ? linhasTabela : [{
+    // Verificar se a primeira linha da tabela tem dados preenchidos
+    const primeiraLinhaPreenchida = linhasTabela.length > 0 && 
+      (linhasTabela[0].contrato || linhasTabela[0].operadora || linhasTabela[0].produto || 
+       linhasTabela[0].atualizacao || linhasTabela[0].subtipo || linhasTabela[0].tipo)
+    
+    // Se a tabela não tem dados preenchidos, usar dados da manutenção
+    const linhas = (primeiraLinhaPreenchida ? linhasTabela : [{
       contrato: contrato?.codigo || contrato?.numero || manutencao?.ticket || '',
       operadora: operadora?.nome || '',
       produto: produto?.nome || '',
@@ -325,6 +332,22 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
     const contrato = manutencao?.contratoId ? 
       md.contratos.find(c => c.id === manutencao.contratoId) : null
 
+    // Verificar se a primeira linha da tabela tem dados preenchidos
+    const primeiraLinhaPreenchida = linhasTabela.length > 0 && 
+      (linhasTabela[0].contrato || linhasTabela[0].operadora || linhasTabela[0].produto || 
+       linhasTabela[0].atualizacao || linhasTabela[0].subtipo || linhasTabela[0].tipo)
+    
+    // Se não tem dados preenchidos, usar dados da manutenção
+    const linhasParaRenderizar = primeiraLinhaPreenchida ? linhasTabela : [{
+      id: 1,
+      contrato: contrato?.codigo || contrato?.numero || manutencao?.ticket || '',
+      operadora: operadora?.nome || '',
+      produto: produto?.nome || '',
+      atualizacao: tipoServico?.nome || '',
+      subtipo: tipo?.nome || '',
+      tipo: sistema?.nome || ''
+    }]
+
     return `<!DOCTYPE html>
 <html>
 <head>
@@ -365,7 +388,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                         </tr>
                     </thead>
                     <tbody>
-                        ${linhasTabela.map((linha, index) => `
+                        ${linhasParaRenderizar.map((linha, index) => `
                         <tr style="background: ${index % 2 === 0 ? '#f8f9fa' : '#ffffff'};">
                             <td style="padding: 15px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600; color: #2b6cb0; font-size: 15px;">${linha.contrato || contrato?.codigo || contrato?.numero || manutencao?.ticket || 'N/A'}</td>
                             <td style="padding: 15px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 500; color: #2d3748;">${linha.operadora || operadora?.nome || 'N/A'}</td>
@@ -383,7 +406,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
             <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 25px 0;">
                 <h3 style="margin: 0 0 15px 0; color: #2d3748; font-size: 16px; font-weight: 600;">📝 Descrição da Alteração</h3>
                 <div style="background: white; border: 1px solid #d1d5db; border-radius: 6px; padding: 15px; min-height: 60px;">
-                    <p style="margin: 0; line-height: 1.6; color: #4a5568; font-size: 14px; white-space: pre-wrap;">${blocoDescricao}</p>
+                    <p style="margin: 0; line-height: 1.6; color: #4a5568; font-size: 14px; white-space: pre-wrap;">${descricaoEditavel || manutencao?.descricao || 'Alteração realizada'}</p>
                 </div>
             </div>
             
@@ -415,8 +438,20 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
 
   // Carregar dados do Mailling e inicializar tabela quando o modal abrir
   useEffect(() => {
-    if (open) {
+    if (open && manutencao) {
       console.log('🔄 Modal aberto, carregando dados do mailling...')
+      
+      // Aguardar dados mestres estarem carregados antes de inicializar tabela
+      const dadosMestresCarregados = md.clientes.length > 0 && md.operadoras.length > 0 && 
+        md.produtos.length > 0 && md.sistemas.length > 0 && md.tiposCadastro.length > 0 && 
+        md.padrao.length > 0 && md.contratos.length > 0
+      
+      if (!dadosMestresCarregados) {
+        console.log('⏳ Aguardando dados mestres carregarem...')
+        // Sincronizar dados mestres se necessário
+        md.syncFromApi?.()
+        return
+      }
       
       // Carregar dados existentes na primeira linha da tabela
       const cliente = md.clientes.find(c => c.id === manutencao?.clienteId)
@@ -428,6 +463,15 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
       const contrato = manutencao?.contratoId ? 
         md.contratos.find(c => c.id === manutencao.contratoId) : null
 
+      console.log('📊 Inicializando tabela com dados da manutenção:', {
+        contrato: contrato?.codigo || contrato?.numero || manutencao?.ticket,
+        operadora: operadora?.nome,
+        produto: produto?.nome,
+        atualizacao: tipoServico?.nome,
+        subtipo: tipo?.nome,
+        tipo: sistema?.nome
+      })
+
       // Atualizar primeira linha com dados existentes
       setLinhasTabela([{
         id: 1,
@@ -438,6 +482,11 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
         subtipo: tipo?.nome || '',
         tipo: sistema?.nome || ''
       }])
+      
+      // Inicializar descrição editável com a descrição da manutenção
+      if (!descricaoEditavel && manutencao?.descricao) {
+        setDescricaoEditavel(manutencao.descricao)
+      }
       console.log('📊 Contatos atuais no store:', maillingStore.contacts.length)
       console.log('📊 Contatos no localStorage:', localStorage.getItem('mailling-v1') ? JSON.parse(localStorage.getItem('mailling-v1')!).length : 0)
       
@@ -467,7 +516,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
         })
       })
     }
-  }, [open])
+  }, [open, manutencao, md.clientes.length, md.operadoras.length, md.produtos.length, md.sistemas.length, md.tiposCadastro.length, md.padrao.length, md.contratos.length, descricaoEditavel])
 
   // Gerar e-mail baseado na manutenção
   useEffect(() => {
@@ -891,8 +940,34 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
     }, 3000)
   }
 
-  const handleSalvarArquivo = () => {
-    console.warn('Salvar arquivo HTML foi desativado.')
+  const handleSalvarArquivo = async () => {
+    // Verificar se já está salvando para evitar múltiplas execuções
+    if (salvandoArquivo ?? false) return
+
+    setSalvandoArquivo(true)
+
+    try {
+      const htmlContent = buildEmailHtml()
+      const blob = new Blob(['\ufeff', htmlContent], { type: 'text/html;charset=utf-8' })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-')
+      const ticket = manutencao?.ticket || 'N/A'
+
+      link.href = url
+      link.download = `comunicado-${ticket}-${timestamp}.html`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+
+      showDownloadFeedback('💾 Arquivo HTML salvo!')
+    } catch (error) {
+      console.error('Erro ao salvar arquivo HTML:', error)
+      alert('Erro ao salvar o arquivo HTML. Tente novamente.')
+    } finally {
+      setSalvandoArquivo(false)
+    }
   }
 
   const handleSelectAll = () => {
@@ -1732,24 +1807,24 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
           <Button
             variant="contained"
             onClick={handleSalvarArquivo}
-            startIcon={salvandoArquivo ? <span>⏳</span> : <span>💾</span>}
+            startIcon={(salvandoArquivo ?? false) ? <span>⏳</span> : <span>💾</span>}
             sx={{
               borderRadius: '8px',
               textTransform: 'none',
               fontWeight: 500,
               px: 4,
               py: 1.5,
-              background: salvandoArquivo 
+              background: (salvandoArquivo ?? false)
                 ? 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)'
                 : 'linear-gradient(135deg, #059669 0%, #047857 100%)',
               '&:hover': {
-                background: salvandoArquivo 
+                background: (salvandoArquivo ?? false)
                   ? 'linear-gradient(135deg, #4b5563 0%, #374151 100%)'
                   : 'linear-gradient(135deg, #047857 0%, #065f46 100%)'
               }
             }}
           >
-            {salvandoArquivo ? 'Salvando...' : '💾 Salvar Arquivo HTML'}
+            {(salvandoArquivo ?? false) ? 'Salvando...' : '💾 Salvar Arquivo HTML'}
           </Button>
           
         </Box>
