@@ -5,49 +5,55 @@
   "framework": null,
   "cleanUrls": true,
   "trailingSlash": false,
-  "routes": [
-    {
-      "src": "/assets/(.*)",
-      "dest": "/assets/$1",
-      "headers": {
-        "Cache-Control": "no-cache, no-store, must-revalidate",
-        "Pragma": "no-cache",
-        "Expires": "0"
-      }
-    },
-    {
-      "src": "/(.*\\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot))",
-      "dest": "/$1",
-      "headers": {
-        "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0",
-        "Pragma": "no-cache",
-        "Expires": "0",
-        "X-Content-Type-Options": "nosniff"
-      }
-    },
-    {
-      "src": "/dynamic-logo.png",
-      "dest": "/dynamic-logo.png",
-      "headers": {
-        "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0",
-        "Pragma": "no-cache",
-        "Expires": "0"
-      }
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html",
-      "headers": {
-        "Cache-Control": "no-cache, no-store, must-revalidate",
-        "Pragma": "no-cache",
-        "Expires": "0"
-      }
-    }
-  ],
   "rewrites": [
+    {
+      "source": "/assets/(.*)",
+      "destination": "/assets/$1"
+    },
+    {
+      "source": "/(.*\\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot))",
+      "destination": "/$1"
+    },
+    {
+      "source": "/dynamic-logo.png",
+      "destination": "/dynamic-logo.png"
+    },
     {
       "source": "/(.*)",
       "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/(.*\\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot))",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate, max-age=0"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        }
+      ]
+    },
+    {
+      "source": "/index.html",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        }
+      ]
     }
   ],
   "env": {
