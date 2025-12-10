@@ -125,6 +125,7 @@ export default function HomePage() {
 
   // Estado para controlar se os dados já foram carregados
   const [dataLoaded, setDataLoaded] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
 
   // Carregar dados automaticamente quando a página é carregada
   useEffect(() => {
@@ -135,51 +136,130 @@ export default function HomePage() {
     if (user?.id) {
       console.log('🔍 Home: Usuário logado, carregando dados...')
       setDataLoaded(true)
+      setIsLoading(true)
       
-      // Sincronizações desabilitadas temporariamente para evitar travamento
-      console.log('🔧 Home: Sincronizações automáticas desabilitadas temporariamente')
-      // TODO: Reabilitar após otimização completa
-      // if (demandStore.items.length === 0) {
-      //   console.log('🔍 Home: Carregando demandas...')
-      //   demandStore.syncFromApi().catch(error => {
-      //     console.error('❌ Home: Erro ao carregar demandas:', error)
-      //   })
-      // }
-      // ... outras sincronizações comentadas
+      // Carregar dados de forma otimizada e paralela
+      const loadData = async () => {
+        try {
+          const promises = []
+          
+          // Carregar apenas se os stores estiverem vazios ou se precisar atualizar
+          if (demandStore.items.length === 0) {
+            console.log('🔍 Home: Carregando demandas...')
+            promises.push(demandStore.syncFromApi().catch(error => {
+              console.error('❌ Home: Erro ao carregar demandas:', error)
+            }))
+          }
+          
+          if (atendimentoStore.items.length === 0) {
+            console.log('🔍 Home: Carregando atendimentos...')
+            promises.push(atendimentoStore.syncFromApi().catch(error => {
+              console.error('❌ Home: Erro ao carregar atendimentos:', error)
+            }))
+          }
+          
+          if (validationStore.items.length === 0) {
+            console.log('🔍 Home: Carregando validações...')
+            promises.push(validationStore.syncFromApi().catch(error => {
+              console.error('❌ Home: Erro ao carregar validações:', error)
+            }))
+          }
+          
+          if (reajusteStore.items.length === 0) {
+            console.log('🔍 Home: Carregando reajustes...')
+            promises.push(reajusteStore.syncFromApi().catch(error => {
+              console.error('❌ Home: Erro ao carregar reajustes:', error)
+            }))
+          }
+          
+          if (manutencaoStore.items.length === 0) {
+            console.log('🔍 Home: Carregando manutenções...')
+            promises.push(manutencaoStore.syncFromApi().catch(error => {
+              console.error('❌ Home: Erro ao carregar manutenções:', error)
+            }))
+          }
+          
+          if (reportStore.items.length === 0) {
+            console.log('🔍 Home: Carregando analytics...')
+            promises.push(reportStore.syncFromApi().catch(error => {
+              console.error('❌ Home: Erro ao carregar analytics:', error)
+            }))
+          }
+          
+          // Mailling, comunicados e projetos são carregados em outras páginas
+          // Não precisam ser carregados aqui para evitar sobrecarga
+          
+          // Aguardar todas as promessas em paralelo
+          await Promise.allSettled(promises)
+          console.log('✅ Home: Todos os dados principais carregados')
+          
+          // Aguardar um pouco para garantir que os dados foram processados
+          await new Promise(resolve => setTimeout(resolve, 500))
+        } catch (error) {
+          console.error('❌ Home: Erro ao carregar dados:', error)
+        } finally {
+          setIsLoading(false)
+        }
+      }
+      
+      loadData()
       
     } else {
       console.log('🔍 Home: Usuário não logado, aguardando...')
+      setIsLoading(false)
     }
   }, [user?.id, dataLoaded])
 
   // Estatísticas reais baseadas nos dados carregados
+  // Só calcular quando não estiver carregando para evitar valores inconsistentes
   const stats = useMemo(() => {
-    const totalDemandas = demandStore.items.length
-    const demandasPendentes = demandStore.items.filter(d => d.status === 'Pendente').length
-    const demandasEmAndamento = demandStore.items.filter(d => d.status === 'Em Andamento').length
-    const demandasConcluidas = demandStore.items.filter(d => d.status === 'Concluída').length
+    // Se ainda está carregando, retornar valores zerados para evitar valores parciais
+    if (isLoading) {
+      return {
+        demandas: { total: 0, pendentes: 0, emAndamento: 0, concluidas: 0 },
+        atendimentos: { total: 0, abertos: 0, resolvidos: 0 },
+        validacoes: { total: 0, pendentes: 0, aprovadas: 0 },
+        reajustes: { total: 0, pendentes: 0, aprovados: 0 },
+        manutencoes: { total: 0, pendentes: 0, emAndamento: 0, concluidas: 0 },
+        analytics: { total: 0, pendentes: 0, emAndamento: 0, concluidos: 0 },
+        mailling: { total: 0, ativos: 0 },
+        comunicados: { total: 0, enviados: 0 },
+        projetos: { total: 0, concluidos: 0 }
+      }
+    }
     
-    const totalAtendimentos = atendimentoStore.items.length
-    const atendimentosAbertos = atendimentoStore.items.filter(a => a.status === 'Aberto').length
-    const atendimentosResolvidos = atendimentoStore.items.filter(a => a.status === 'Resolvido').length
+    const demandasArray = (demandStore?.items && Array.isArray(demandStore.items)) ? demandStore.items : []
+    const totalDemandas = demandasArray.length
+    const demandasPendentes = demandasArray.filter(d => d.status === 'Pendente').length
+    const demandasEmAndamento = demandasArray.filter(d => d.status === 'Em Andamento').length
+    const demandasConcluidas = demandasArray.filter(d => d.status === 'Concluída').length
     
-    const totalValidacoes = validationStore.items.length
-    const validacoesPendentes = validationStore.items.filter(v => v.status === 'Pendente').length
-    const validacoesAprovadas = validationStore.items.filter(v => v.status === 'Aprovada').length
+    const atendimentosArray = (atendimentoStore?.items && Array.isArray(atendimentoStore.items)) ? atendimentoStore.items : []
+    const totalAtendimentos = atendimentosArray.length
+    const atendimentosAbertos = atendimentosArray.filter(a => a.status === 'Aberto').length
+    const atendimentosResolvidos = atendimentosArray.filter(a => a.status === 'Resolvido').length
     
-    const totalReajustes = reajusteStore.items.length
-    const reajustesPendentes = reajusteStore.items.filter(r => !r.aprovado).length
-    const reajustesAprovados = reajusteStore.items.filter(r => r.aprovado).length
+    const validacoesArray = (validationStore?.items && Array.isArray(validationStore.items)) ? validationStore.items : []
+    const totalValidacoes = validacoesArray.length
+    const validacoesPendentes = validacoesArray.filter(v => v.status === 'Pendente').length
+    const validacoesAprovadas = validacoesArray.filter(v => v.status === 'Aprovada').length
     
-    const totalManutencoes = manutencaoStore.items.length
-    const manutencoesPendentes = manutencaoStore.items.filter(m => m.status === 'Pendente').length
-    const manutencoesEmAndamento = manutencaoStore.items.filter(m => m.status === 'Em Andamento').length
-    const manutencoesConcluidas = manutencaoStore.items.filter(m => m.status === 'Concluída').length
+    const reajustesArray = (reajusteStore?.items && Array.isArray(reajusteStore.items)) ? reajusteStore.items : []
+    const totalReajustes = reajustesArray.length
+    const reajustesPendentes = reajustesArray.filter(r => !r.aprovado).length
+    const reajustesAprovados = reajustesArray.filter(r => r.aprovado).length
     
-    const totalRelatorios = reportStore.items.length
-    const relatoriosPendentes = reportStore.items.filter(r => r.status === 'pendente').length
-    const relatoriosEmAndamento = reportStore.items.filter(r => r.status === 'em_andamento').length
-    const relatoriosConcluidos = reportStore.items.filter(r => r.status === 'concluido').length
+    const manutencoesArray = (manutencaoStore?.items && Array.isArray(manutencaoStore.items)) ? manutencaoStore.items : []
+    const totalManutencoes = manutencoesArray.length
+    const manutencoesPendentes = manutencoesArray.filter(m => m.status === 'Pendente').length
+    const manutencoesEmAndamento = manutencoesArray.filter(m => m.status === 'Em Andamento').length
+    const manutencoesConcluidas = manutencoesArray.filter(m => m.status === 'Concluída').length
+    
+    const relatoriosArray = (reportStore?.items && Array.isArray(reportStore.items)) ? reportStore.items : []
+    const totalRelatorios = relatoriosArray.length
+    const relatoriosPendentes = relatoriosArray.filter(r => r.status === 'pendente').length
+    const relatoriosEmAndamento = relatoriosArray.filter(r => r.status === 'em_andamento').length
+    const relatoriosConcluidos = relatoriosArray.filter(r => r.status === 'concluido').length
     
     const totalMailling = (maillingStore?.contacts && Array.isArray(maillingStore.contacts)) ? maillingStore.contacts.length : 0
     const maillingAtivos = (maillingStore?.contacts && Array.isArray(maillingStore.contacts)) ? maillingStore.contacts.filter(m => m.status === 'Ativo' || !m.status).length : 0
@@ -204,7 +284,7 @@ export default function HomePage() {
       comunicados: { total: totalComunicados, enviados: comunicadosEnviados },
       projetos: { total: totalProjetos, concluidos: projetosConcluidos }
     }
-  }, [demandStore.items, atendimentoStore.items, validationStore.items, reajusteStore.items, manutencaoStore.items, reportStore.items, maillingStore?.contacts, comunicadoStore?.items, projectStore?.projects])
+  }, [isLoading, demandStore?.items, atendimentoStore?.items, validationStore?.items, reajusteStore?.items, manutencaoStore?.items, reportStore?.items, maillingStore?.contacts, comunicadoStore?.items, projectStore?.projects])
 
   // 🚀 MELHORIA FASE 2A: Memoizar quickActions - 30-50% menos processamento
   const quickActions = useMemo(() => [
@@ -350,6 +430,18 @@ export default function HomePage() {
       </button>
     )
   })
+
+  // Mostrar loading enquanto os dados estão sendo carregados
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Carregando dados...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
