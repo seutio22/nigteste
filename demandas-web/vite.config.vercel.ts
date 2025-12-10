@@ -20,6 +20,16 @@ export default defineConfig({
         } else {
           console.warn('⚠️ Logo não encontrado em public/dynamic-logo.png')
         }
+        
+        // Garantir que _redirects seja copiado também
+        const redirectsPath = join(process.cwd(), 'public', '_redirects')
+        const redirectsDistPath = join(process.cwd(), 'dist', '_redirects')
+        if (existsSync(redirectsPath)) {
+          copyFileSync(redirectsPath, redirectsDistPath)
+          console.log('✅ _redirects copiado para dist/')
+        } else {
+          console.warn('⚠️ _redirects não encontrado em public/_redirects')
+        }
       }
     }
   ],
