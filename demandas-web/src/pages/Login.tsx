@@ -241,84 +241,16 @@ export default function LoginPage() {
               {/* Header do formulário */}
               <Box sx={{ textAlign: 'center', mb: 4 }}>
                 <Box
+                  component="img"
+                  src={`/dynamic-logo.png?v=0.6.3-0634`}
+                  alt="Dynamic Tecnologia"
                   sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 3,
-                    mb: 3
+                    width: { xs: '220px', md: '260px' },
+                    mx: 'auto',
+                    mb: 3,
+                    filter: 'drop-shadow(0 15px 35px rgba(37,99,235,0.35))'
                   }}
-                >
-                  <Box
-                    sx={{
-                      width: '70px',
-                      height: '70px',
-                      background: 'linear-gradient(135deg, #3b82f6 0%, #1e40af 100%)',
-                      borderRadius: '50%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      boxShadow: '0 10px 25px rgba(59, 130, 246, 0.3)'
-                    }}
-                  >
-                    <span 
-                      style={{ 
-                        color: 'white', 
-                        fontWeight: 'bold', 
-                        fontSize: '28px',
-                        fontFamily: 'Geometria, sans-serif'
-                      }}
-                    >
-                      D
-                    </span>
-                  </Box>
-                  
-                  <Typography
-                    variant="h3"
-                    sx={{
-                      fontWeight: 700,
-                      fontFamily: 'Geometria, sans-serif',
-                      fontSize: '2.5rem',
-                      letterSpacing: '-0.03em',
-                      background: 'linear-gradient(135deg, #3b82f6 0%, #1e40af 50%, #7c3aed 100%)',
-                      backgroundClip: 'text',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                      textShadow: '0 2px 4px rgba(59, 130, 246, 0.3)',
-                      position: 'relative',
-                      animation: 'techGlow 3s ease-in-out infinite alternate',
-                      '&::before': {
-                        content: '""',
-                        position: 'absolute',
-                        top: '-2px',
-                        left: '-2px',
-                        right: '-2px',
-                        bottom: '-2px',
-                        background: 'linear-gradient(135deg, #3b82f6 0%, #1e40af 50%, #7c3aed 100%)',
-                        borderRadius: '12px',
-                        padding: '2px',
-                        WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
-                        WebkitMaskComposite: 'xor',
-                        maskComposite: 'exclude',
-                        opacity: 0.4,
-                        animation: 'techPulse 2s ease-in-out infinite'
-                      },
-                      '&::after': {
-                        content: '""',
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.3) 50%, transparent 100%)',
-                        borderRadius: '8px',
-                        animation: 'techShine 2.5s ease-in-out infinite'
-                      }
-                    }}
-                  >
-                    Dynamic
-                  </Typography>
-                </Box>
+                />
                 
                 <Typography
                   variant="h4"
