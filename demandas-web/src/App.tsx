@@ -6,6 +6,7 @@ import { useMasterDataStore } from './store/masterDataStore'
 import { useDynamicSync } from './hooks/useDynamicSync'
 import { useDeadlineNotifications } from './hooks/useDeadlineNotifications'
 import { FullScreenLoading } from './components/BeautifulLoading'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { useEffect } from 'react'
 import './utils/force-cache-bust' // Force cache bust
 import './utils/smart-cache-cleaner' // Sistema inteligente de limpeza
@@ -33,9 +34,11 @@ function App() {
   }
 
   return (
-    <SidebarProvider>
-      <AppRoutes />
-    </SidebarProvider>
+    <ErrorBoundary>
+      <SidebarProvider>
+        <AppRoutes />
+      </SidebarProvider>
+    </ErrorBoundary>
   )
 }
 

@@ -2,52 +2,51 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import App from './App'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import './index.css'
 
-// Error boundary para capturar erros de carregamento de recursos
+// Error handler mais seletivo - só suprimir erros de recursos estáticos claramente de cache antigo
 window.addEventListener('error', (event) => {
-  // Ignorar erros de recursos CSS/JS que podem ser de cache antigo
   const target = event.target as HTMLElement
-  if (target) {
-    if (target.tagName === 'LINK') {
-      const link = target as HTMLLinkElement
-      if (link.href && (link.href.includes('.css') || link.href.includes('v063'))) {
-        console.warn('⚠️ Erro ao carregar CSS (pode ser cache antigo):', link.href)
-        event.preventDefault()
-        event.stopPropagation()
-        return false
-      }
-    }
-    if (target.tagName === 'SCRIPT') {
-      const script = target as HTMLScriptElement
-      if (script.src && (script.src.includes('.js') || script.src.includes('v063'))) {
-        console.warn('⚠️ Erro ao carregar JS (pode ser cache antigo):', script.src)
-        event.preventDefault()
-        event.stopPropagation()
-        return false
-      }
+  
+  // Só suprimir erros de recursos estáticos (CSS/JS) que claramente são de cache antigo
+  if (target && (target.tagName === 'LINK' || target.tagName === 'SCRIPT' || target.tagName === 'IMG')) {
+    const element = target as HTMLLinkElement | HTMLScriptElement | HTMLImageElement
+    const url = 'href' in element ? element.href : 'src' in element ? element.src : ''
+    
+    // Só suprimir se for claramente um recurso estático com versão antiga
+    if (url && (
+      (url.includes('.css') && url.includes('v063')) ||
+      (url.includes('.js') && url.includes('v063')) ||
+      (url.includes('dynamic-logo.png') && url.includes('v063'))
+    )) {
+      console.warn('⚠️ Erro ao carregar recurso estático (cache antigo):', url)
+      event.preventDefault()
+      event.stopPropagation()
+      return false
     }
   }
-  // Ignorar erros de recursos que retornam 404 (cache antigo)
-  if (event.message && event.message.includes('404')) {
-    console.warn('⚠️ Recurso não encontrado (404) - pode ser cache antigo:', event.filename)
-    event.preventDefault()
-    event.stopPropagation()
-    return false
-  }
+  
+  // Não suprimir outros erros - deixar o ErrorBoundary capturar
   return true
 }, true)
 
-// Capturar erros de promise rejeitadas
+// Capturar erros de promise rejeitadas - só suprimir 404 de recursos estáticos
 window.addEventListener('unhandledrejection', (event) => {
-  // Ignorar erros de carregamento de recursos
+  // Só suprimir se for claramente um erro 404 de recurso estático
   if (event.reason && typeof event.reason === 'object' && 'status' in event.reason) {
-    if (event.reason.status === 404) {
-      console.warn('⚠️ Promise rejeitada com 404 (pode ser cache antigo):', event.reason)
+    const reason = event.reason as { status: number; url?: string }
+    if (reason.status === 404 && reason.url && (
+      reason.url.includes('.css') || 
+      reason.url.includes('.js') || 
+      reason.url.includes('dynamic-logo.png')
+    )) {
+      console.warn('⚠️ Promise rejeitada com 404 (recurso estático):', reason.url)
       event.preventDefault()
       return false
     }
   }
+  // Deixar outros erros serem tratados normalmente
   return true
 })
 
@@ -55,7 +54,15 @@ window.addEventListener('unhandledrejection', (event) => {
 const router = createBrowserRouter([
   {
     path: "*",
-    element: <App />
+    element: <App />,
+    errorElement: (
+      <ErrorBoundary>
+        <div style={{ padding: '2rem', textAlign: 'center' }}>
+          <h2>Erro ao carregar rota</h2>
+          <button onClick={() => window.location.reload()}>Recarregar</button>
+        </div>
+      </ErrorBoundary>
+    )
   }
 ], {
   future: {
@@ -65,7 +72,9 @@ const router = createBrowserRouter([
 })
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <RouterProvider router={router} />
+  <ErrorBoundary>
+    <RouterProvider router={router} />
+  </ErrorBoundary>
 )
 
 
