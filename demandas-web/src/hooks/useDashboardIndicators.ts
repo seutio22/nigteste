@@ -45,18 +45,21 @@ const isInPeriod = (date: string | undefined | null, period: PeriodType): boolea
     const itemDate = new Date(date)
     if (isNaN(itemDate.getTime())) return false
     
-    const { start, end } = getPeriodDates(period)
+    // Obter data atual e normalizar para início do dia (timezone local)
+    const now = new Date()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
     
-    // Normalizar datas para comparação correta (ignorar horas)
+    // Normalizar data do item para início do dia (timezone local)
     const itemDateNormalized = new Date(itemDate.getFullYear(), itemDate.getMonth(), itemDate.getDate())
     
     // Para período daily, comparar apenas se a data é igual a hoje
     if (period === 'daily') {
-      const todayNormalized = new Date(start.getFullYear(), start.getMonth(), start.getDate())
-      return itemDateNormalized.getTime() === todayNormalized.getTime()
+      // Comparar apenas as datas (ignorar horas, minutos, segundos)
+      return itemDateNormalized.getTime() === today.getTime()
     }
     
-    // Para outros períodos, usar comparação de range
+    // Para outros períodos, usar getPeriodDates
+    const { start, end } = getPeriodDates(period)
     const startNormalized = new Date(start.getFullYear(), start.getMonth(), start.getDate())
     const endNormalized = new Date(end.getFullYear(), end.getMonth(), end.getDate())
     
@@ -97,33 +100,190 @@ const calculatePageMetrics = (items: any[], page: string, period: PeriodType, ha
   }
 
   const calculateForPeriod = (p: PeriodType) => {
-    // Se há filtros de data, os items já estão filtrados - usar todos
+    // Se há filtros de data manuais, usar os dados já filtrados (não filtrar por período)
     // Caso contrário, filtrar por período
     let periodItems: any[]
     
     if (hasDateFilters) {
-      // Dados já filtrados por data - usar todos
+      // Dados já filtrados por data manual - usar todos
       periodItems = items
-    } else {
-      // Filtrar por período baseado na data de criação do chamado (createdAt)
+    } else if (p === 'daily') {
+      // SEMPRE filtrar por HOJE quando período é daily e não há filtros manuais
       periodItems = items.filter(item => {
-        // Todos os chamados devem ser filtrados pela data de criação
-        const itemDate = item.createdAt
+        let itemDate: string | undefined | null = null
+        
+        if (page === 'analytics') {
+          if (item.dataCriacao && item.dataCriacao !== null && item.dataCriacao !== '') {
+            itemDate = item.dataCriacao
+          } else if (item.createdAt && item.createdAt !== null && item.createdAt !== '') {
+            itemDate = item.createdAt
+          }
+        } else if (page === 'atendimentos') {
+          if (item.createdAt && item.createdAt !== null && item.createdAt !== '') {
+            itemDate = item.createdAt
+          }
+        } else {
+          if (item.createdAt && item.createdAt !== null && item.createdAt !== '') {
+            itemDate = item.createdAt
+          }
+        }
+        
+        if (!itemDate) return false
         return isInPeriod(itemDate, p)
       })
+    } else {
+      // Filtrar por período baseado na data de criação do chamado
+      periodItems = items.filter(item => {
+        // Analytics usa dataCriacao (que vem de createdAt do backend), outros usam createdAt
+        let itemDate: string | undefined | null = null
+        
+        if (page === 'analytics') {
+          // Analytics: dataCriacao é mapeado de createdAt no store
+          // Verificar se dataCriacao existe e é válido, senão usar createdAt
+          if (item.dataCriacao && item.dataCriacao !== null && item.dataCriacao !== '') {
+            itemDate = item.dataCriacao
+          } else if (item.createdAt && item.createdAt !== null && item.createdAt !== '') {
+            itemDate = item.createdAt
+          }
+        } else if (page === 'atendimentos') {
+          // Atendimentos: usar createdAt (data de criação do chamado)
+          if (item.createdAt && item.createdAt !== null && item.createdAt !== '') {
+            itemDate = item.createdAt
+          }
+        } else {
+          // Outras páginas: usar createdAt
+          if (item.createdAt && item.createdAt !== null && item.createdAt !== '') {
+            itemDate = item.createdAt
+          }
+        }
+        
+        // Se não há data válida, não incluir no período
+        if (!itemDate) {
+          return false
+        }
+        
+        // Debug para analytics e atendimentos - logar todos os itens quando daily
+        if ((page === 'analytics' || page === 'atendimentos') && p === 'daily') {
+          const hoje = new Date()
+          const hojeNormalized = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())
+          const itemDateObj = new Date(itemDate)
+          const itemDateNormalized = new Date(itemDateObj.getFullYear(), itemDateObj.getMonth(), itemDateObj.getDate())
+          const isHoje = itemDateNormalized.getTime() === hojeNormalized.getTime()
+          const isInPeriodResult = isInPeriod(itemDate, p)
+          
+          // Debug removido para produção
+          // console.log(`🔍 DEBUG ${page} filtro período [${items.indexOf(item) + 1}/${items.length}]:`, {
+          //   id: item.id,
+          //   titulo: item.titulo || item.ticket,
+          //   createdAt: item.createdAt,
+          //   dataCriacao: item.dataCriacao,
+          //   itemDateUsado: itemDate,
+          //   isInPeriod: isInPeriodResult,
+          //   isHojeCalculado: isHoje,
+          //   hojeNormalized: hojeNormalized.toISOString(),
+          //   itemDateNormalized: itemDateNormalized.toISOString(),
+          //   itemDateObjISO: itemDateObj.toISOString()
+          // })
+        } else if (page === 'manutencoes' && p === 'daily') {
+          const hoje = new Date()
+          const hojeNormalized = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())
+          const itemDateObj = new Date(itemDate)
+          const itemDateNormalized = new Date(itemDateObj.getFullYear(), itemDateObj.getMonth(), itemDateObj.getDate())
+          const isHoje = itemDateNormalized.getTime() === hojeNormalized.getTime()
+          const isInPeriodResult = isInPeriod(itemDate, p)
+          
+          // Debug removido para produção
+          // if (isHoje) {
+          //   console.log(`🔍 DEBUG ${page} filtro período:`, {
+          //     id: item.id,
+          //     ticket: item.ticket || item.titulo,
+          //     createdAt: item.createdAt,
+          //     itemDateUsado: itemDate,
+          //     isInPeriod: isInPeriodResult,
+          //     isHojeCalculado: isHoje,
+          //     hojeNormalized: hojeNormalized.toISOString(),
+          //     itemDateNormalized: itemDateNormalized.toISOString()
+          //   })
+          // }
+        }
+        
+        return isInPeriod(itemDate, p)
+      })
+      
+      // Debug resumo - sempre logar para analytics, manutenções e atendimentos
+      if ((page === 'analytics' || page === 'manutencoes' || page === 'atendimentos') && p === 'daily') {
+        const hoje = new Date()
+        hoje.setHours(0, 0, 0, 0)
+        const hojeNormalized = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())
+        const totalHoje = items.filter(item => {
+          let itemDate: string | undefined | null = null
+          if (page === 'analytics') {
+            if (item.dataCriacao && item.dataCriacao !== null && item.dataCriacao !== '') {
+              itemDate = item.dataCriacao
+            } else if (item.createdAt && item.createdAt !== null && item.createdAt !== '') {
+              itemDate = item.createdAt
+            }
+          } else if (page === 'atendimentos') {
+            if (item.createdAt && item.createdAt !== null && item.createdAt !== '') {
+              itemDate = item.createdAt
+            }
+          } else {
+            if (item.createdAt && item.createdAt !== null && item.createdAt !== '') {
+              itemDate = item.createdAt
+            }
+          }
+          if (!itemDate) return false
+          const itemDateObj = new Date(itemDate)
+          const itemDateNormalized = new Date(itemDateObj.getFullYear(), itemDateObj.getMonth(), itemDateObj.getDate())
+          return itemDateNormalized.getTime() === hojeNormalized.getTime()
+        }).length
+        
+        // Debug removido para produção
+        // console.log(`🔍 DEBUG ${page} resumo daily:`, {
+        //   totalNoStore: items.length,
+        //   totalFiltradas: periodItems.length,
+        //   totalHojeCalculado: totalHoje,
+        //   periodo: p,
+        //   hasDateFilters: hasDateFilters,
+        //   hojeISO: hojeNormalized.toISOString(),
+        //   hojeLocal: hojeNormalized.toLocaleDateString('pt-BR')
+        // })
+      }
     }
     
     const total = periodItems.length
-    const created = hasDateFilters 
-      ? periodItems.length // Se já filtrado, todos foram criados no período
+    // Se há filtros manuais, todos os items já foram filtrados por data
+    // Se período é daily e não há filtros manuais, periodItems já foi filtrado por HOJE
+    const created = hasDateFilters
+      ? periodItems.length // Com filtros manuais, todos foram criados no período filtrado
+      : (p === 'daily')
+      ? periodItems.length // Já filtrado por HOJE
       : periodItems.filter(item => {
-          // Todos os chamados devem ser contabilizados pela data de criação
-          const itemDate = item.createdAt
+          // Analytics usa dataCriacao (verificar se é válido), outros usam createdAt
+          let itemDate: string | undefined | null = null
+          if (page === 'analytics') {
+            if (item.dataCriacao && item.dataCriacao !== null && item.dataCriacao !== '') {
+              itemDate = item.dataCriacao
+            } else if (item.createdAt && item.createdAt !== null && item.createdAt !== '') {
+              itemDate = item.createdAt
+            }
+          } else if (page === 'atendimentos') {
+            if (item.createdAt && item.createdAt !== null && item.createdAt !== '') {
+              itemDate = item.createdAt
+            }
+          } else {
+            if (item.createdAt && item.createdAt !== null && item.createdAt !== '') {
+              itemDate = item.createdAt
+            }
+          }
+          if (!itemDate) return false
           return isInPeriod(itemDate, p)
         }).length
     
     const updated = hasDateFilters
-      ? periodItems.length // Se já filtrado, considerar todos atualizados
+      ? periodItems.length // Com filtros manuais, todos foram atualizados no período filtrado
+      : (p === 'daily')
+      ? periodItems.length // Já filtrado por HOJE
       : periodItems.filter(item => {
           const updateField = config.fields.updated
           return isInPeriod(item[updateField], p)
@@ -151,6 +311,17 @@ export const useDashboardIndicators = (
     toDate?: string
   }
 ) => {
+  // Debug removido para produção
+  // if (period === 'daily') {
+  //   console.log(`🔍 DEBUG useDashboardIndicators INICIADO:`, {
+  //     period,
+  //     hasFromDate: !!filters?.fromDate,
+  //     hasToDate: !!filters?.toDate,
+  //     fromDate: filters?.fromDate,
+  //     toDate: filters?.toDate
+  //   })
+  // }
+  
   // Stores
   const demandStore = useDemandStore()
   const atendimentoStore = useAtendimentoStore()
@@ -163,46 +334,48 @@ export const useDashboardIndicators = (
   const projectStore = useProjectStore()
 
   // Função para filtrar por data - mesma lógica para todas as páginas
-  const inRange = (iso?: string) => {
-    if (!filters) return true
-    if (!iso) return true
-    if (!filters.fromDate && !filters.toDate) return true
-    
-    try {
-      const itemDate = new Date(iso)
-      if (isNaN(itemDate.getTime())) return true
+  const inRange = useMemo(() => {
+    return (iso?: string) => {
+      if (!filters) return true
+      if (!iso) return true
+      if (!filters.fromDate && !filters.toDate) return true
       
-      // Normalizar para início do dia (00:00:00)
-      const normalizeStart = (dateStr: string) => {
-        const d = new Date(dateStr)
-        d.setHours(0, 0, 0, 0)
-        return d.getTime()
+      try {
+        const itemDate = new Date(iso)
+        if (isNaN(itemDate.getTime())) return true
+        
+        // Normalizar para início do dia (00:00:00)
+        const normalizeStart = (dateStr: string) => {
+          const d = new Date(dateStr)
+          d.setHours(0, 0, 0, 0)
+          return d.getTime()
+        }
+        
+        // Normalizar para fim do dia (23:59:59.999)
+        const normalizeEnd = (dateStr: string) => {
+          const d = new Date(dateStr)
+          d.setHours(23, 59, 59, 999)
+          return d.getTime()
+        }
+        
+        const itemTime = itemDate.getTime()
+        
+        if (filters.fromDate) {
+          const fromTime = normalizeStart(filters.fromDate)
+          if (itemTime < fromTime) return false
+        }
+        
+        if (filters.toDate) {
+          const toTime = normalizeEnd(filters.toDate)
+          if (itemTime > toTime) return false
+        }
+        
+        return true
+      } catch {
+        return true
       }
-      
-      // Normalizar para fim do dia (23:59:59.999)
-      const normalizeEnd = (dateStr: string) => {
-        const d = new Date(dateStr)
-        d.setHours(23, 59, 59, 999)
-        return d.getTime()
-      }
-      
-      const itemTime = itemDate.getTime()
-      
-      if (filters.fromDate) {
-        const fromTime = normalizeStart(filters.fromDate)
-        if (itemTime < fromTime) return false
-      }
-      
-      if (filters.toDate) {
-        const toTime = normalizeEnd(filters.toDate)
-        if (itemTime > toTime) return false
-      }
-      
-      return true
-    } catch {
-      return true
     }
-  }
+  }, [filters?.fromDate, filters?.toDate])
 
   // Função para aplicar filtros aos dados
   const applyFilters = (items: any[], page: string) => {
@@ -226,10 +399,22 @@ export const useDashboardIndicators = (
         }
       }
       
-      // Filtro por data - todos os chamados devem ser filtrados pela data de criação
-      const itemDate = item.createdAt
+      // Filtro por data - Analytics usa dataCriacao, atendimentos e outros usam createdAt
+      let itemDate: string | undefined | null = null
+      if (page === 'analytics') {
+        if (item.dataCriacao && item.dataCriacao !== null && item.dataCriacao !== '') {
+          itemDate = item.dataCriacao
+        } else if (item.createdAt && item.createdAt !== null && item.createdAt !== '') {
+          itemDate = item.createdAt
+        }
+      } else {
+        // Atendimentos e outras páginas: usar createdAt
+        if (item.createdAt && item.createdAt !== null && item.createdAt !== '') {
+          itemDate = item.createdAt
+        }
+      }
       
-      if (!inRange(itemDate)) {
+      if (!itemDate || !inRange(itemDate)) {
         return false
       }
       
@@ -237,25 +422,64 @@ export const useDashboardIndicators = (
     })
   }
 
-  // Mapeamento de stores por página com verificações de segurança e filtros aplicados
-  const manutencoesRaw = Array.isArray(manutencaoStore.items) ? manutencaoStore.items : []
-  const storeMap = {
-    demandas: applyFilters(Array.isArray(demandStore.items) ? demandStore.items : [], 'demandas'),
-    atendimentos: applyFilters(Array.isArray(atendimentoStore.items) ? atendimentoStore.items : [], 'atendimentos'),
-    validacoes: applyFilters(Array.isArray(validationStore.items) ? validationStore.items : [], 'validacoes'),
-    reajustes: applyFilters(Array.isArray(reajusteStore.items) ? reajusteStore.items : [], 'reajustes'),
-    manutencoes: applyFilters(manutencoesRaw, 'manutencoes'),
-    analytics: applyFilters(Array.isArray(reportStore.items) ? reportStore.items : [], 'analytics'),
-    mailling: applyFilters(Array.isArray(maillingStore.contacts) ? maillingStore.contacts : [], 'mailling'),
-    comunicados: applyFilters(Array.isArray(comunicadoStore.items) ? comunicadoStore.items : [], 'comunicados'),
-    projetos: applyFilters(Array.isArray(projectStore.items) ? projectStore.items : [], 'projetos')
-  }
-
-
   // Verificar se há filtros de data ativos
   const hasDateFilters = !!(filters?.fromDate || filters?.toDate)
 
+  // Mapeamento de stores por página com verificações de segurança e filtros aplicados
+  // Usar useMemo para recalcular quando os stores mudarem
+  const storeMap = useMemo(() => {
+    const manutencoesRaw = Array.isArray(manutencaoStore.items) ? manutencaoStore.items : []
+    return {
+      demandas: applyFilters(Array.isArray(demandStore.items) ? demandStore.items : [], 'demandas'),
+      atendimentos: applyFilters(Array.isArray(atendimentoStore.items) ? atendimentoStore.items : [], 'atendimentos'),
+      validacoes: applyFilters(Array.isArray(validationStore.items) ? validationStore.items : [], 'validacoes'),
+      reajustes: applyFilters(Array.isArray(reajusteStore.items) ? reajusteStore.items : [], 'reajustes'),
+      manutencoes: applyFilters(manutencoesRaw, 'manutencoes'),
+      analytics: applyFilters(Array.isArray(reportStore.items) ? reportStore.items : [], 'analytics'),
+      mailling: applyFilters(Array.isArray(maillingStore.contacts) ? maillingStore.contacts : [], 'mailling'),
+      comunicados: applyFilters(Array.isArray(comunicadoStore.items) ? comunicadoStore.items : [], 'comunicados'),
+      projetos: applyFilters(Array.isArray(projectStore.items) ? projectStore.items : [], 'projetos')
+    }
+  }, [
+    demandStore.items,
+    atendimentoStore.items,
+    validationStore.items,
+    reajusteStore.items,
+    manutencaoStore.items,
+    reportStore.items,
+    maillingStore.contacts,
+    comunicadoStore.items,
+    projectStore.items,
+    filters?.areaId,
+    filters?.analistaId,
+    filters?.fromDate,
+    filters?.toDate
+  ])
+
   // Calcular métricas para todas as páginas
+  // IMPORTANTE: Forçar recálculo quando os dados dos stores mudarem
+  // Usar uma combinação de tamanho + timestamp do último item atualizado para detectar mudanças
+  const storeDataHash = useMemo(() => {
+    return Object.entries(storeMap).map(([page, items]) => {
+      if (!Array.isArray(items) || items.length === 0) return `${page}:0:0`
+      
+      // Calcular hash baseado em: tamanho + soma dos IDs + último updatedAt
+      // Isso detecta mudanças mesmo quando items são adicionados no meio
+      const idsSum = items.reduce((sum, item) => {
+        const id = item.id || item.ticket || item._id || '0'
+        return sum + (typeof id === 'string' ? id.length : id)
+      }, 0)
+      
+      // Pegar o último updatedAt para detectar atualizações
+      const lastUpdated = items.reduce((latest, item) => {
+        const updated = item.updatedAt || item.updated_at || item.createdAt || item.created_at || '0'
+        return updated > latest ? updated : latest
+      }, '0')
+      
+      return `${page}:${items.length}:${idsSum}:${lastUpdated}`
+    }).join('|')
+  }, [storeMap])
+
   const pageMetrics = useMemo(() => {
     const metrics: { [key: string]: PageMetrics } = {}
     
@@ -264,7 +488,11 @@ export const useDashboardIndicators = (
     })
     
     return metrics
-  }, [storeMap, period, hasDateFilters, manutencoesRaw])
+  }, [
+    storeDataHash, // Usar hash para detectar mudanças no conteúdo
+    period,
+    hasDateFilters
+  ])
 
   // Gerar indicadores para o período selecionado
   const indicators = useMemo(() => {

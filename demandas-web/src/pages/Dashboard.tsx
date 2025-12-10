@@ -136,24 +136,26 @@ export default function DashboardPage() {
   }, [indicatorPeriod, isManualDateFilter])
 
   // Hook para indicadores do dashboard
-  // Quando período é automático (não manual), não passar filtros de data
-  // para que calculatePageMetrics possa filtrar corretamente por período
-  const { indicators, pageMetrics, generalStats } = useDashboardIndicators(indicatorPeriod, {
+  // Quando há filtro manual de data, usar as datas manuais e ignorar o período
+  // Quando não há filtro manual, usar o período selecionado (daily/monthly/quarterly)
+  const effectivePeriod = isManualDateFilter ? 'monthly' : indicatorPeriod
+  const { indicators, pageMetrics, generalStats } = useDashboardIndicators(effectivePeriod, {
     areaId,
     analistaId,
-    // Só passar filtros de data se for filtro manual
-    fromDate: isManualDateFilter ? fromDate : undefined,
-    toDate: isManualDateFilter ? toDate : undefined
+    // Passar filtros de data apenas se for filtro manual
+    // Quando não é manual, o hook usa o período para calcular as datas automaticamente
+    fromDate: isManualDateFilter && fromDate ? fromDate : undefined,
+    toDate: isManualDateFilter && toDate ? toDate : undefined
   })
 
   // Hook para indicadores avançados
-  // Quando período é automático (não manual), não passar filtros de data
+  // Quando há filtro manual de data, usar as datas manuais
   const { advancedIndicators, tempoExecucaoMetrics, analistaMetrics } = useAdvancedIndicators({
     areaId,
     analistaId,
-    // Só passar filtros de data se for filtro manual
-    fromDate: isManualDateFilter ? fromDate : undefined,
-    toDate: isManualDateFilter ? toDate : undefined
+    // Passar filtros de data apenas se for filtro manual
+    fromDate: isManualDateFilter && fromDate ? fromDate : undefined,
+    toDate: isManualDateFilter && toDate ? toDate : undefined
   })
 
   // Função para filtrar por data
@@ -202,12 +204,16 @@ export default function DashboardPage() {
     setFromDate(value)
     setIsManualDateFilter(true)
     setSelectedMonth('') // Limpar seleção de mês quando data manual for alterada
+    // Quando há filtro manual, não usar período automático - usar 'monthly' como padrão para cálculos
+    // O hook useDashboardIndicators vai usar as datas manuais ao invés do período
   }
 
   const handleToDateChange = (value: string) => {
     setToDate(value)
     setIsManualDateFilter(true)
     setSelectedMonth('') // Limpar seleção de mês quando data manual for alterada
+    // Quando há filtro manual, não usar período automático - usar 'monthly' como padrão para cálculos
+    // O hook useDashboardIndicators vai usar as datas manuais ao invés do período
   }
 
   // Handler para seleção de mês
@@ -423,11 +429,16 @@ export default function DashboardPage() {
     // As datas serão atualizadas automaticamente pelo useEffect quando isManualDateFilter for false
   }
 
-  // Handler para mudança de período - resetar filtro manual
+  // Handler para mudança de período - resetar filtro manual e atualizar datas
   const handlePeriodChange = (newPeriod: PeriodType) => {
     setIndicatorPeriod(newPeriod)
     setIsManualDateFilter(false)
     setSelectedMonth('') // Limpar seleção de mês quando período mudar
+    
+    // Atualizar datas imediatamente quando período mudar
+    const { fromDate: newFromDate, toDate: newToDate } = getPeriodDates(newPeriod)
+    setFromDate(newFromDate)
+    setToDate(newToDate)
   }
 
   return (
@@ -474,7 +485,7 @@ export default function DashboardPage() {
             indicators={indicators}
             pageMetrics={pageMetrics}
             generalStats={generalStats}
-            period={indicatorPeriod}
+            period={effectivePeriod}
           />
         </Box>
         <Grid container spacing={3} alignItems="center">
@@ -532,7 +543,7 @@ export default function DashboardPage() {
               value={fromDate}
               onChange={(e) => handleFromDateChange(e.target.value)}
               InputLabelProps={{ shrink: true }}
-              helperText={isManualDateFilter ? "Filtro manual ativo" : "Atualizado pelo período"}
+              helperText={isManualDateFilter ? "Filtro manual ativo - período ignorado" : `Atualizado pelo período ${indicatorPeriod === 'daily' ? '(Hoje)' : indicatorPeriod === 'monthly' ? '(Este Mês)' : '(Este Trimestre)'}`}
             />
           </Grid>
           
@@ -545,7 +556,7 @@ export default function DashboardPage() {
               value={toDate}
               onChange={(e) => handleToDateChange(e.target.value)}
               InputLabelProps={{ shrink: true }}
-              helperText={isManualDateFilter ? "Filtro manual ativo" : "Atualizado pelo período"}
+              helperText={isManualDateFilter ? "Filtro manual ativo - período ignorado" : `Atualizado pelo período ${indicatorPeriod === 'daily' ? '(Hoje)' : indicatorPeriod === 'monthly' ? '(Este Mês)' : '(Este Trimestre)'}`}
             />
           </Grid>
 
@@ -581,12 +592,12 @@ export default function DashboardPage() {
       {/* Novos Indicadores de Lançamentos */}
       <Box sx={{ mb: 4 }}>
         <DashboardIndicators
-          period={indicatorPeriod}
+          period={effectivePeriod}
           showCategories={true}
           areaId={areaId}
           analistaId={analistaId}
-          fromDate={fromDate}
-          toDate={toDate}
+          fromDate={isManualDateFilter && fromDate ? fromDate : undefined}
+          toDate={isManualDateFilter && toDate ? toDate : undefined}
         />
       </Box>
 
@@ -601,19 +612,19 @@ export default function DashboardPage() {
 
       {/* Gráficos Baseados nos Indicadores de Período */}
       <DashboardCharts 
-        period={indicatorPeriod}
+        period={effectivePeriod}
         areaId={areaId}
         analistaId={analistaId}
-        fromDate={fromDate}
-        toDate={toDate}
+        fromDate={isManualDateFilter && fromDate ? fromDate : undefined}
+        toDate={isManualDateFilter && toDate ? toDate : undefined}
       />
 
       {/* Detalhes de Status e Tempo de Abertura */}
       <StatusDetails
         areaId={areaId}
         analistaId={analistaId}
-        fromDate={fromDate}
-        toDate={toDate}
+        fromDate={isManualDateFilter && fromDate ? fromDate : undefined}
+        toDate={isManualDateFilter && toDate ? toDate : undefined}
       />
 
       {/* Resumo Executivo */}
