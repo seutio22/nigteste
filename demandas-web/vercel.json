@@ -1,5 +1,5 @@
 {
-  "buildCommand": "rm -rf dist node_modules/.vite && npm install && npm run build",
+  "buildCommand": "rm -rf dist node_modules/.vite && npm install && npm run build && ls -la dist/ | head -20 || dir dist",
   "outputDirectory": "dist",
   "installCommand": "npm install",
   "framework": null,
