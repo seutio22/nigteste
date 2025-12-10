@@ -1,6 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { createBrowserRouter, RouterProvider } from 'react-router-dom'
+import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import './index.css'
@@ -50,30 +50,14 @@ window.addEventListener('unhandledrejection', (event) => {
   return true
 })
 
-// Configuração do router com future flags para v7
-const router = createBrowserRouter([
-  {
-    path: "*",
-    element: <App />,
-    errorElement: (
-      <ErrorBoundary>
-        <div style={{ padding: '2rem', textAlign: 'center' }}>
-          <h2>Erro ao carregar rota</h2>
-          <button onClick={() => window.location.reload()}>Recarregar</button>
-        </div>
-      </ErrorBoundary>
-    )
-  }
-], {
-  future: {
-    v7_startTransition: true,
-    v7_relativeSplatPath: true
-  }
-})
+// Configuração do router - usar BrowserRouter ao invés de createBrowserRouter para melhor compatibilidade
+import { BrowserRouter } from 'react-router-dom'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <ErrorBoundary>
-    <RouterProvider router={router} />
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
   </ErrorBoundary>
 )
 
