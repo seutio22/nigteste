@@ -16,7 +16,7 @@ function App() {
   useTheme()
   
   // Inicializar store de autenticação
-  const { initialize, user, loading } = useAuthStore()
+  const { initialize, user, loading, token } = useAuthStore()
   
   // Sistema de sincronização dinâmica baseado na navegação
   useDynamicSync()
@@ -25,8 +25,17 @@ function App() {
   useDeadlineNotifications()
   
   useEffect(() => {
-    initialize()
-  }, [initialize])
+    // Inicializar apenas uma vez quando o componente monta
+    const initAuth = async () => {
+      try {
+        await initialize()
+      } catch (error) {
+        console.error('❌ Erro ao inicializar autenticação:', error)
+      }
+    }
+    
+    initAuth()
+  }, []) // Remover initialize das dependências para evitar loops
   
   // Mostrar loading bonito enquanto carrega
   if (loading) {

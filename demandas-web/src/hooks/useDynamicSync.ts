@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useMasterDataStore } from '../store/masterDataStore'
+import { useAuthStore } from '../store/authStore'
 
 // Configuração de sincronização por rota
 const ROUTE_SYNC_CONFIG = {
@@ -65,10 +66,16 @@ const CACHE_DURATION = 2 * 60 * 1000 // 2 minutos
 export function useDynamicSync() {
   const location = useLocation()
   const { syncFromApi, isSyncing } = useMasterDataStore()
+  const { token, user, loading: authLoading } = useAuthStore()
   const lastSyncRef = useRef<string>('')
   const [showSyncIndicator, setShowSyncIndicator] = useState(false)
 
   useEffect(() => {
+    // Não sincronizar se ainda está carregando autenticação ou se não está autenticado
+    if (authLoading || !token || !user) {
+      return
+    }
+
     const currentPath = location.pathname
     const config = ROUTE_SYNC_CONFIG[currentPath as keyof typeof ROUTE_SYNC_CONFIG]
     
@@ -94,7 +101,7 @@ export function useDynamicSync() {
     }).catch(error => {
       console.error(`❌ useDynamicSync: Erro na sincronização para ${currentPath}:`, error)
     })
-  }, [location.pathname, syncFromApi, isSyncing])
+  }, [location.pathname, syncFromApi, isSyncing, token, user, authLoading])
 
   // Função para forçar sincronização (útil para botões de refresh)
   const forceSync = async () => {

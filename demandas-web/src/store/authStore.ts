@@ -100,23 +100,33 @@ export const useAuthStore = create<AuthState>()(
       
       // Função para inicializar o estado
       initialize: () => {
-        const { token, user, loginDate } = get()
-        
-        // Se tem token e usuário, verificar se expirou
-        if (token && user) {
-          if (hasPassedOneDay(loginDate)) {
-            console.log('⏰ Login expirado ao inicializar (passou mais de 12 horas)')
-            console.log('🔒 Limpando dados antigos...')
-            get().logout()
-            set({ loading: false })
+        try {
+          const { token, user, loginDate, loading } = get()
+          
+          // Evitar inicialização duplicada
+          if (!loading && token && user) {
+            return
+          }
+          
+          // Se tem token e usuário, verificar se expirou
+          if (token && user) {
+            if (hasPassedOneDay(loginDate)) {
+              console.log('⏰ Login expirado ao inicializar (passou mais de 12 horas)')
+              console.log('🔒 Limpando dados antigos...')
+              get().logout()
+              set({ loading: false })
+            } else {
+              const login = new Date(loginDate || '')
+              const now = new Date()
+              const hoursAgo = ((now.getTime() - login.getTime()) / (1000 * 60 * 60)).toFixed(1)
+              console.log(`✅ Login ainda válido (${hoursAgo}h atrás)`)
+              set({ loading: false })
+            }
           } else {
-            const login = new Date(loginDate || '')
-            const now = new Date()
-            const hoursAgo = ((now.getTime() - login.getTime()) / (1000 * 60 * 60)).toFixed(1)
-            console.log(`✅ Login ainda válido (${hoursAgo}h atrás)`)
             set({ loading: false })
           }
-        } else {
+        } catch (error) {
+          console.error('❌ Erro ao inicializar authStore:', error)
           set({ loading: false })
         }
       }

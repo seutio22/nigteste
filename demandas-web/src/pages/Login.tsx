@@ -248,18 +248,26 @@ export default function LoginPage() {
                     // Se falhar, tentar com timestamp para forçar reload
                     const target = e.target as HTMLImageElement
                     if (!target.src.includes('?')) {
+                      // Primeira tentativa: adicionar timestamp
                       target.src = `/dynamic-logo.png?t=${Date.now()}`
+                    } else if (!target.src.includes('&v=')) {
+                      // Segunda tentativa: adicionar versão
+                      target.src = `/dynamic-logo.png?v=0.6.3&t=${Date.now()}`
                     } else {
-                      // Se já tentou com timestamp e falhou, ocultar a imagem
-                      target.style.display = 'none'
+                      // Se todas as tentativas falharam, mostrar placeholder ao invés de ocultar
+                      console.warn('⚠️ Logo não encontrado, usando placeholder')
+                      target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjYwIiBoZWlnaHQ9IjgwIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxyZWN0IHdpZHRoPSIyNjAiIGhlaWdodD0iODAiIGZpbGw9IiMzYjgyZjYiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjI0IiBmb250LXdlaWdodD0iYm9sZCIgZmlsbD0id2hpdGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5EeW5hbWljPC90ZXh0Pjwvc3ZnPg=='
                     }
                   }}
                   sx={{
                     width: { xs: '220px', md: '260px' },
+                    height: 'auto',
+                    minHeight: '60px',
                     mx: 'auto',
                     mb: 3,
                     filter: 'drop-shadow(0 15px 35px rgba(37,99,235,0.35))',
-                    display: 'block'
+                    display: 'block',
+                    objectFit: 'contain'
                   }}
                 />
                 
