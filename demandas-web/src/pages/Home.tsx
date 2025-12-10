@@ -181,14 +181,17 @@ export default function HomePage() {
     const relatoriosEmAndamento = reportStore.items.filter(r => r.status === 'em_andamento').length
     const relatoriosConcluidos = reportStore.items.filter(r => r.status === 'concluido').length
     
-    const totalMailling = maillingStore.contacts.length
-    const maillingAtivos = maillingStore.contacts.filter(m => m.status === 'Ativo' || !m.status).length
+    const totalMailling = (maillingStore?.contacts && Array.isArray(maillingStore.contacts)) ? maillingStore.contacts.length : 0
+    const maillingAtivos = (maillingStore?.contacts && Array.isArray(maillingStore.contacts)) ? maillingStore.contacts.filter(m => m.status === 'Ativo' || !m.status).length : 0
     
-    const totalComunicados = comunicadoStore.items.length
-    const comunicadosEnviados = comunicadoStore.items.filter(c => c.status === 'Enviado' || c.status === 'enviado').length
+    const totalComunicados = (comunicadoStore?.items && Array.isArray(comunicadoStore.items)) ? comunicadoStore.items.length : 0
+    const comunicadosEnviados = (comunicadoStore?.items && Array.isArray(comunicadoStore.items)) ? comunicadoStore.items.filter(c => c.status === 'Enviado' || c.status === 'enviado').length : 0
     
-    const totalProjetos = projectStore.items.length
-    const projetosConcluidos = projectStore.items.filter(p => p.status === 'Concluído' || p.status === 'concluido').length
+    const totalProjetos = (projectStore?.projects && Array.isArray(projectStore.projects)) ? projectStore.projects.length : 0
+    const projetosConcluidos = (projectStore?.projects && Array.isArray(projectStore.projects)) ? projectStore.projects.filter(p => {
+      const status = p.status || p.timeline?.status || 'Em Andamento'
+      return status === 'Concluído' || status === 'concluido' || status === 'Finalizado'
+    }).length : 0
     
     return {
       demandas: { total: totalDemandas, pendentes: demandasPendentes, emAndamento: demandasEmAndamento, concluidas: demandasConcluidas },
@@ -201,7 +204,7 @@ export default function HomePage() {
       comunicados: { total: totalComunicados, enviados: comunicadosEnviados },
       projetos: { total: totalProjetos, concluidos: projetosConcluidos }
     }
-  }, [demandStore.items, atendimentoStore.items, validationStore.items, reajusteStore.items, manutencaoStore.items, reportStore.items, maillingStore.contacts, comunicadoStore.items, projectStore.items])
+  }, [demandStore.items, atendimentoStore.items, validationStore.items, reajusteStore.items, manutencaoStore.items, reportStore.items, maillingStore?.contacts, comunicadoStore?.items, projectStore?.projects])
 
   // 🚀 MELHORIA FASE 2A: Memoizar quickActions - 30-50% menos processamento
   const quickActions = useMemo(() => [
