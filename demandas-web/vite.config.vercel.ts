@@ -8,12 +8,20 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: false,
     minify: 'esbuild',
+    cssCodeSplit: true,
     rollupOptions: {
       output: {
         // Force new hash generation - v0.6.3 (fix cache antigo e 404 login - force rebuild)
-        entryFileNames: `assets/[name]-[hash]-v0634.js`,
-        chunkFileNames: `assets/[name]-[hash]-v0634.js`,
-        assetFileNames: `assets/[name]-[hash]-v0634.[ext]`,
+        entryFileNames: `assets/[name]-[hash]-v0635.js`,
+        chunkFileNames: `assets/[name]-[hash]-v0635.js`,
+        assetFileNames: (assetInfo) => {
+          // Garantir que CSS e outros assets usem o mesmo padrão de hash
+          const ext = assetInfo.name?.split('.').pop() || 'ext'
+          if (ext === 'css') {
+            return `assets/[name]-[hash]-v0635.css`
+          }
+          return `assets/[name]-[hash]-v0635.[ext]`
+        },
         manualChunks: {
           vendor: ['react', 'react-dom'],
           mui: ['@mui/material', '@mui/icons-material'],
