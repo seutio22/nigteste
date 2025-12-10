@@ -31,7 +31,8 @@ import {
   AttachMoney as MoneyIcon,
   CalendarToday as CalendarIcon,
   Refresh as RefreshIcon,
-  FilterList as FilterIcon
+  FilterList as FilterIcon,
+  Info as InfoIcon
 } from '@mui/icons-material'
 import { ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend } from 'recharts'
 import { useMasterDataStore } from '../store/masterDataStore'
@@ -629,19 +630,38 @@ export default function DashboardPage() {
 
       {/* Resumo Executivo */}
       <Paper sx={{ p: 3, borderRadius: 2 }}>
-        <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>
-          Resumo Executivo
-        </Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+            Resumo Executivo
+          </Typography>
+          <Tooltip 
+            title={`Dados filtrados por período: ${indicatorPeriod === 'daily' ? 'Hoje' : indicatorPeriod === 'monthly' ? 'Este mês' : 'Este trimestre'}. A Home mostra o total geral sem filtros.`}
+            arrow
+          >
+            <Chip
+              label={indicatorPeriod === 'daily' ? 'Período: Hoje' : indicatorPeriod === 'monthly' ? 'Período: Este Mês' : 'Período: Este Trimestre'}
+              size="small"
+              color="primary"
+              icon={<InfoIcon />}
+              sx={{ cursor: 'help' }}
+            />
+          </Tooltip>
+        </Box>
         <Grid container spacing={3}>
           <Grid item xs={12} md={4}>
-            <Box sx={{ textAlign: 'center', p: 2 }}>
-              <Typography variant="h4" sx={{ fontWeight: 700, color: theme.palette.primary.main, mb: 1 }}>
-                {totalDemandas}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Total de Demandas no Sistema
-              </Typography>
-            </Box>
+            <Tooltip 
+              title={`Total filtrado por período e filtros aplicados. Diferente da Home que mostra o total geral.`}
+              arrow
+            >
+              <Box sx={{ textAlign: 'center', p: 2, cursor: 'help' }}>
+                <Typography variant="h4" sx={{ fontWeight: 700, color: theme.palette.primary.main, mb: 1 }}>
+                  {totalDemandas}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Total de Demandas (Filtrado)
+                </Typography>
+              </Box>
+            </Tooltip>
           </Grid>
           <Grid item xs={12} md={4}>
             <Box sx={{ textAlign: 'center', p: 2 }}>

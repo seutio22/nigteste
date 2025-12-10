@@ -8,6 +8,9 @@ import { useReajusteStore } from '../store/reajusteStore'
 import { useManutencaoStore } from '../store/manutencaoStore'
 import { useReportStore } from '../store/reportStore'
 import { useMasterDataStore } from '../store/masterDataStore'
+import { useMaillingStore } from '../store/maillingStore'
+import { useComunicadoStore } from '../store/comunicadoStore'
+import { useProjectStore } from '../store/projectStore'
 import { 
   Plus, 
   CheckCircle, 
@@ -34,6 +37,9 @@ export default function HomePage() {
   const manutencaoStore = useManutencaoStore()
   const reportStore = useReportStore()
   const masterDataStore = useMasterDataStore()
+  const maillingStore = useMaillingStore()
+  const comunicadoStore = useComunicadoStore()
+  const projectStore = useProjectStore()
 
   // Atividades recentes baseadas em dados reais
   const recentActivities = useMemo(() => {
@@ -175,15 +181,27 @@ export default function HomePage() {
     const relatoriosEmAndamento = reportStore.items.filter(r => r.status === 'em_andamento').length
     const relatoriosConcluidos = reportStore.items.filter(r => r.status === 'concluido').length
     
+    const totalMailling = maillingStore.contacts.length
+    const maillingAtivos = maillingStore.contacts.filter(m => m.status === 'Ativo' || !m.status).length
+    
+    const totalComunicados = comunicadoStore.items.length
+    const comunicadosEnviados = comunicadoStore.items.filter(c => c.status === 'Enviado' || c.status === 'enviado').length
+    
+    const totalProjetos = projectStore.items.length
+    const projetosConcluidos = projectStore.items.filter(p => p.status === 'Concluído' || p.status === 'concluido').length
+    
     return {
       demandas: { total: totalDemandas, pendentes: demandasPendentes, emAndamento: demandasEmAndamento, concluidas: demandasConcluidas },
       atendimentos: { total: totalAtendimentos, abertos: atendimentosAbertos, resolvidos: atendimentosResolvidos },
       validacoes: { total: totalValidacoes, pendentes: validacoesPendentes, aprovadas: validacoesAprovadas },
       reajustes: { total: totalReajustes, pendentes: reajustesPendentes, aprovados: reajustesAprovados },
       manutencoes: { total: totalManutencoes, pendentes: manutencoesPendentes, emAndamento: manutencoesEmAndamento, concluidas: manutencoesConcluidas },
-      analytics: { total: totalRelatorios, pendentes: relatoriosPendentes, emAndamento: relatoriosEmAndamento, concluidos: relatoriosConcluidos }
+      analytics: { total: totalRelatorios, pendentes: relatoriosPendentes, emAndamento: relatoriosEmAndamento, concluidos: relatoriosConcluidos },
+      mailling: { total: totalMailling, ativos: maillingAtivos },
+      comunicados: { total: totalComunicados, enviados: comunicadosEnviados },
+      projetos: { total: totalProjetos, concluidos: projetosConcluidos }
     }
-  }, [demandStore.items, atendimentoStore.items, validationStore.items, reajusteStore.items, manutencaoStore.items, reportStore.items])
+  }, [demandStore.items, atendimentoStore.items, validationStore.items, reajusteStore.items, manutencaoStore.items, reportStore.items, maillingStore.contacts, comunicadoStore.items, projectStore.items])
 
   // 🚀 MELHORIA FASE 2A: Memoizar quickActions - 30-50% menos processamento
   const quickActions = useMemo(() => [
@@ -365,22 +383,26 @@ export default function HomePage() {
               </div>
             </div>
             <div className="flex items-center space-x-4">
-            <div className="text-center">
+            <div className="text-center" title="Total geral de todas as atividades do sistema (sem filtros de período)">
               <div className="text-3xl font-bold">
                 {stats.demandas.total + stats.atendimentos.total + stats.validacoes.total + 
-                 stats.reajustes.total + stats.manutencoes.total + stats.analytics.total}
+                 stats.reajustes.total + stats.manutencoes.total + stats.analytics.total +
+                 stats.mailling.total + stats.comunicados.total + stats.projetos.total}
               </div>
               <div className="text-blue-100 text-sm">Total de Atividades</div>
+              <div className="text-blue-200 text-xs mt-1">(Geral - Histórico Completo)</div>
             </div>
             <div className="text-center">
               <div className="text-3xl font-bold">
                 {(() => {
                   const totalConcluidas = stats.demandas.concluidas + stats.atendimentos.resolvidos + 
                                         stats.validacoes.aprovadas + stats.reajustes.aprovados + 
-                                        stats.manutencoes.concluidas + stats.analytics.concluidos
+                                        stats.manutencoes.concluidas + stats.analytics.concluidos +
+                                        stats.mailling.ativos + stats.comunicados.enviados + stats.projetos.concluidos
                   const totalAtividades = stats.demandas.total + stats.atendimentos.total + 
                                         stats.validacoes.total + stats.reajustes.total + 
-                                        stats.manutencoes.total + stats.analytics.total
+                                        stats.manutencoes.total + stats.analytics.total +
+                                        stats.mailling.total + stats.comunicados.total + stats.projetos.total
                   return totalAtividades > 0 ? Math.round((totalConcluidas / totalAtividades) * 100) : 0
                 })()}%
               </div>
@@ -435,13 +457,14 @@ export default function HomePage() {
             
             {/* Métricas Principais */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-              <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl border border-blue-200">
+              <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl border border-blue-200" title="Total geral de todas as atividades do sistema (sem filtros de período)">
                 <div className="text-3xl font-bold text-blue-600 mb-2">
                   {stats.demandas.total + stats.atendimentos.total + stats.validacoes.total + 
-                   stats.reajustes.total + stats.manutencoes.total + stats.analytics.total}
+                   stats.reajustes.total + stats.manutencoes.total + stats.analytics.total +
+                   stats.mailling.total + stats.comunicados.total + stats.projetos.total}
                 </div>
                 <div className="text-sm font-medium text-blue-800">Total de Atividades</div>
-                <div className="text-xs text-blue-600 mt-1">Todas as categorias</div>
+                <div className="text-xs text-blue-600 mt-1">Geral - Histórico Completo</div>
               </div>
               
               <div className="text-center p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-xl border border-green-200">
@@ -449,10 +472,12 @@ export default function HomePage() {
                   {(() => {
                     const totalConcluidas = stats.demandas.concluidas + stats.atendimentos.resolvidos + 
                                           stats.validacoes.aprovadas + stats.reajustes.aprovados + 
-                                          stats.manutencoes.concluidas + stats.analytics.concluidos
+                                          stats.manutencoes.concluidas + stats.analytics.concluidos +
+                                          stats.mailling.ativos + stats.comunicados.enviados + stats.projetos.concluidos
                     const totalAtividades = stats.demandas.total + stats.atendimentos.total + 
                                           stats.validacoes.total + stats.reajustes.total + 
-                                          stats.manutencoes.total + stats.analytics.total
+                                          stats.manutencoes.total + stats.analytics.total +
+                                          stats.mailling.total + stats.comunicados.total + stats.projetos.total
                     return totalAtividades > 0 ? Math.round((totalConcluidas / totalAtividades) * 100) : 0
                   })()}%
                 </div>

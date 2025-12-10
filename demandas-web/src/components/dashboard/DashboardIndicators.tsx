@@ -94,13 +94,19 @@ export const DashboardIndicators: React.FC<DashboardIndicatorsProps> = ({
               color: indicator.color,
               fontWeight: 500
             }}
+            title={`Filtrado por período: ${period === 'daily' ? 'Hoje' : period === 'monthly' ? 'Este mês' : 'Este trimestre'}`}
           />
         </Box>
 
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-          <Typography variant="h4" sx={{ fontWeight: 700, color: theme.palette.text.primary }}>
-            {indicator.value}
-          </Typography>
+          <Tooltip 
+            title={`Total filtrado por período: ${period === 'daily' ? 'Hoje' : period === 'monthly' ? 'Este mês' : 'Este trimestre'}. Diferente da Home que mostra o total geral.`}
+            arrow
+          >
+            <Typography variant="h4" sx={{ fontWeight: 700, color: theme.palette.text.primary, cursor: 'help' }}>
+              {indicator.value}
+            </Typography>
+          </Tooltip>
           {indicator.change !== undefined && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               {getChangeIcon(indicator.changeType)}
