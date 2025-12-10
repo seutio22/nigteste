@@ -242,13 +242,16 @@ export default function LoginPage() {
               <Box sx={{ textAlign: 'center', mb: 4 }}>
                 <Box
                   component="img"
-                  src={`/dynamic-logo.png?v=0.6.3-0635&t=${Date.now()}`}
+                  src="/dynamic-logo.png"
                   alt="Dynamic Tecnologia"
                   onError={(e) => {
-                    // Fallback: tentar carregar sem query parameter
+                    // Se falhar, tentar com timestamp para forçar reload
                     const target = e.target as HTMLImageElement
-                    if (target.src.includes('?')) {
-                      target.src = '/dynamic-logo.png'
+                    if (!target.src.includes('?')) {
+                      target.src = `/dynamic-logo.png?t=${Date.now()}`
+                    } else {
+                      // Se já tentou com timestamp e falhou, ocultar a imagem
+                      target.style.display = 'none'
                     }
                   }}
                   sx={{
