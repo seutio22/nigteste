@@ -76,7 +76,7 @@ export class ErrorBoundary extends Component<Props, State> {
               Ocorreu um erro ao carregar esta página. Isso pode acontecer após uma atualização.
             </Typography>
             
-            {process.env.NODE_ENV === 'development' && this.state.error && (
+            {this.state.error && (
               <Box
                 sx={{
                   mt: 2,

@@ -26,15 +26,31 @@ function App() {
   
   useEffect(() => {
     // Inicializar apenas uma vez quando o componente monta
-    const initAuth = async () => {
+    let mounted = true
+    
+    const initAuth = () => {
       try {
-        await initialize()
+        if (mounted) {
+          initialize()
+        }
       } catch (error) {
         console.error('❌ Erro ao inicializar autenticação:', error)
+        if (mounted) {
+          // Em caso de erro, garantir que loading seja false para não travar a aplicação
+          useAuthStore.getState().setLoading(false)
+        }
       }
     }
     
-    initAuth()
+    // Usar setTimeout para garantir que o estado do persist já foi reidratado
+    const timeoutId = setTimeout(() => {
+      initAuth()
+    }, 0)
+    
+    return () => {
+      mounted = false
+      clearTimeout(timeoutId)
+    }
   }, []) // Remover initialize das dependências para evitar loops
   
   // Mostrar loading bonito enquanto carrega
