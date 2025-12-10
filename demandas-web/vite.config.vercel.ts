@@ -4,11 +4,13 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   base: '/',
+  publicDir: 'public', // Garantir que a pasta public seja copiada
   build: {
     outDir: 'dist',
     sourcemap: false,
     minify: 'esbuild',
     cssCodeSplit: true,
+    copyPublicDir: true, // Garantir que arquivos públicos sejam copiados
     rollupOptions: {
       output: {
         // Force new hash generation - v0.6.3 (fix cache antigo e 404 login - force rebuild)
@@ -16,6 +18,10 @@ export default defineConfig({
         chunkFileNames: `assets/[name]-[hash]-v0635.js`,
         assetFileNames: (assetInfo) => {
           // Garantir que CSS e outros assets usem o mesmo padrão de hash
+          // Arquivos da pasta public devem ir para a raiz, não para assets
+          if (assetInfo.name && assetInfo.name.includes('dynamic-logo')) {
+            return '[name][extname]'
+          }
           const ext = assetInfo.name?.split('.').pop() || 'ext'
           if (ext === 'css') {
             return `assets/[name]-[hash]-v0635.css`
