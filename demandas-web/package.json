@@ -1,7 +1,7 @@
 {
   "name": "demandas-web",
   "private": true,
-  "version": "0.6.2",
+  "version": "0.6.3",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,7 +10,9 @@
     "build:prod": "vite build --config vite.config.prod.ts",
     "build:local": "vite build --config vite.config.simple.ts",
     "preview": "vite preview --port 5173",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "deploy": "vercel deploy --prod --yes",
+    "deploy:vercel": "npx vercel@latest deploy --prod --yes"
   },
   "dependencies": {
     "@emotion/react": "^11.11.4",
