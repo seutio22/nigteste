@@ -1,8 +1,25 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
+import { copyFileSync, existsSync } from 'fs'
+import { join } from 'path'
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    {
+      name: 'copy-logo',
+      closeBundle() {
+        // Garantir que o logo seja copiado após o build
+        const logoPath = join(process.cwd(), 'public', 'dynamic-logo.png')
+        const distPath = join(process.cwd(), 'dist', 'dynamic-logo.png')
+        if (existsSync(logoPath) && !existsSync(distPath)) {
+          copyFileSync(logoPath, distPath)
+          console.log('✅ Logo copiado para dist/')
+        }
+      }
+    }
+  ],
   base: '/',
   publicDir: 'public', // Garantir que a pasta public seja copiada
   build: {
