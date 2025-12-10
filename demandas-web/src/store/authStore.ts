@@ -142,7 +142,10 @@ export const useAuthStore = create<AuthState>()(
       onRehydrateStorage: () => (state) => {
         // Quando o estado é reidratado do localStorage, verificar expiração
         if (state) {
-          state.initialize()
+          // Usar setTimeout para garantir que o estado está completamente reidratado
+          setTimeout(() => {
+            state.initialize()
+          }, 0)
         }
       }
     }

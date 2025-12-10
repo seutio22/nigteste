@@ -25,33 +25,20 @@ function App() {
   useDeadlineNotifications()
   
   useEffect(() => {
-    // Inicializar apenas uma vez quando o componente monta
-    let mounted = true
-    
-    const initAuth = () => {
-      try {
-        if (mounted) {
-          initialize()
-        }
-      } catch (error) {
-        console.error('❌ Erro ao inicializar autenticação:', error)
-        if (mounted) {
-          // Em caso de erro, garantir que loading seja false para não travar a aplicação
-          useAuthStore.getState().setLoading(false)
-        }
-      }
-    }
-    
-    // Usar setTimeout para garantir que o estado do persist já foi reidratado
+    // O initialize() já é chamado automaticamente pelo onRehydrateStorage do persist
+    // Não precisamos chamar novamente aqui para evitar duplicação
+    // Apenas garantir que loading seja false se já tiver passado muito tempo
     const timeoutId = setTimeout(() => {
-      initAuth()
-    }, 0)
+      if (loading) {
+        console.warn('⚠️ Loading ainda true após timeout, forçando false')
+        useAuthStore.getState().setLoading(false)
+      }
+    }, 2000) // Timeout de segurança de 2 segundos
     
     return () => {
-      mounted = false
       clearTimeout(timeoutId)
     }
-  }, []) // Remover initialize das dependências para evitar loops
+  }, [loading])
   
   // Mostrar loading bonito enquanto carrega
   if (loading) {
