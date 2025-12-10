@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm install && npm run build",
+  "buildCommand": "npm install && npm run build && echo 'Build v0.6.3-0634 completed at $(date)'",
   "outputDirectory": "dist",
   "installCommand": "npm install",
   "framework": null,
