@@ -1,16 +1,19 @@
-# Script simples para deploy direto
-Write-Host "🚀 Deploy direto Railway + Vercel" -ForegroundColor Magenta
+# Script simples para commit e deploy
+param(
+    [string]$Message = "Deploy automático"
+)
 
-# Deploy Railway
-Write-Host "🚂 Deploy Railway..." -ForegroundColor Blue
-Set-Location demandas-api
-railway deploy
-Set-Location ..
+# Commit e push
+Write-Host "Commit e push..." -ForegroundColor Cyan
+git add -A
+git commit -m "$Message - $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" --author="silmahayla@gmail.com"
+git push origin main
 
-# Deploy Vercel  
-Write-Host "🎨 Deploy Vercel..." -ForegroundColor Blue
+# Deploy Vercel
+Write-Host "Deploy Vercel..." -ForegroundColor Cyan
 Set-Location demandas-web
-vercel --prod --yes
+$env:VERCEL_TOKEN="1zGvh5dfuG1p6TVf4uHxd04E"
+npx vercel@latest deploy --prod --yes --token $env:VERCEL_TOKEN
 Set-Location ..
 
-Write-Host "✅ Deploy concluído!" -ForegroundColor Green
+Write-Host "Concluído!" -ForegroundColor Green

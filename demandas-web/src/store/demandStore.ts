@@ -309,16 +309,29 @@ export const useDemandStore = create<DemandState>()(
       async syncFromApi() {
         const state = get()
         if (state.isLoading) {
+          console.log('⏸️ DemandStore: Já está carregando, ignorando chamada duplicada')
           return
         }
         
+        // Timeout de segurança para evitar travamento
+        const timeoutId = setTimeout(() => {
+          console.warn('⚠️ DemandStore: Timeout de 30s atingido, resetando isLoading')
+          set({ isLoading: false })
+        }, 30000) // 30 segundos
+        
         try {
           set({ isLoading: true })
+          console.log('🔄 DemandStore: Iniciando syncFromApi...')
 
           // Importar API dinamicamente
           const { api } = await import('../lib/api.local')
 
+          console.log('🔄 DemandStore: Buscando demandas da API...')
           const demandas = await api.getDemandas()
+          console.log(`✅ DemandStore: ${demandas.length} demandas recebidas da API`)
+          
+          // Limpar timeout se a requisição foi bem-sucedida
+          clearTimeout(timeoutId)
 
           // 🐛 CORREÇÃO: Normalizar IDs para garantir que sejam strings, não objetos
           const normalizeId = (value: any): string | undefined => {
@@ -381,9 +394,19 @@ export const useDemandStore = create<DemandState>()(
             return demandaMapeada
           })
 
+          console.log(`✅ DemandStore: ${demandasMapeadas.length} demandas mapeadas, atualizando store...`)
           set({ items: demandasMapeadas, isLoading: false })
-        } catch (error) {
+          console.log('✅ DemandStore: syncFromApi concluído com sucesso')
+        } catch (error: any) {
           console.error('❌ DemandStore: Erro no syncFromApi:', error)
+          console.error('❌ DemandStore: Detalhes do erro:', {
+            message: error?.message,
+            stack: error?.stack,
+            name: error?.name
+          })
+          // Limpar timeout em caso de erro
+          clearTimeout(timeoutId)
+          // Garantir que isLoading seja resetado mesmo em caso de erro
           set({ isLoading: false })
         }
       },

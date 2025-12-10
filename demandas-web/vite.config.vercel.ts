@@ -13,9 +13,12 @@ export default defineConfig({
         // Garantir que o logo seja copiado após o build
         const logoPath = join(process.cwd(), 'public', 'dynamic-logo.png')
         const distPath = join(process.cwd(), 'dist', 'dynamic-logo.png')
-        if (existsSync(logoPath) && !existsSync(distPath)) {
+        if (existsSync(logoPath)) {
+          // Sempre copiar, mesmo se já existir, para garantir que está atualizado
           copyFileSync(logoPath, distPath)
           console.log('✅ Logo copiado para dist/')
+        } else {
+          console.warn('⚠️ Logo não encontrado em public/dynamic-logo.png')
         }
       }
     }

@@ -112,33 +112,19 @@ export const useAdvancedIndicators = (
         }
       }
       
-      // Filtro por data - usar campo correto para cada página com fallback
-      let itemDate: string | undefined
-      
-      if (page === 'atendimentos') {
-        // Atendimentos: dataAbertura (se existir e válido) ou createdAt
-        // Se dataAbertura for null, undefined ou string vazia, usar createdAt
-        itemDate = (item.dataAbertura && item.dataAbertura !== null && item.dataAbertura !== '') 
-          ? item.dataAbertura 
-          : item.createdAt
-      } else if (page === 'demandas' || page === 'manutencoes' || page === 'validacoes') {
-        // Demandas, Manutenções e Validações: dataInicio (se existir e válido) ou createdAt
-        // Se dataInicio for null, undefined ou string vazia, usar createdAt
-        itemDate = (item.dataInicio && item.dataInicio !== null && item.dataInicio !== '') 
-          ? item.dataInicio 
-          : item.createdAt
-      } else if (page === 'analytics') {
-        // Analytics: dataInicio ou dataCriacao ou createdAt
-        itemDate = item.dataInicio || item.dataCriacao || item.createdAt
-      } else if (page === 'reajustes') {
-        // Reajustes: createdAt
-        itemDate = item.createdAt
-      } else if (page === 'mailling') {
-        // Mailling: createdAt
-        itemDate = item.createdAt
+      // Filtro por data - Analytics usa dataCriacao, atendimentos e outros usam createdAt
+      let itemDate: string | undefined | null = null
+      if (page === 'analytics') {
+        if (item.dataCriacao && item.dataCriacao !== null && item.dataCriacao !== '') {
+          itemDate = item.dataCriacao
+        } else if (item.createdAt && item.createdAt !== null && item.createdAt !== '') {
+          itemDate = item.createdAt
+        }
       } else {
-        // Outras páginas: tentar dataInicio primeiro, depois createdAt
-        itemDate = item.dataInicio || item.createdAt
+        // Atendimentos e outras páginas: usar createdAt
+        if (item.createdAt && item.createdAt !== null && item.createdAt !== '') {
+          itemDate = item.createdAt
+        }
       }
       
       if (itemDate) {

@@ -21,10 +21,25 @@ import { useNavigate } from 'react-router-dom'
 import { api } from '../lib/api.local'
 import { useAuthStore } from '../store/authStore'
 
-// Componente de Logo que sempre mostra algo
+// Componente de Logo - tenta carregar o arquivo real, mostra placeholder apenas se falhar
 const LogoComponent = () => {
   const [logoError, setLogoError] = React.useState(false)
-  const [logoLoaded, setLogoLoaded] = React.useState(false)
+  const [retryCount, setRetryCount] = React.useState(0)
+
+  const handleError = () => {
+    if (retryCount < 2) {
+      // Tentar novamente com timestamp para forçar reload
+      setRetryCount(prev => prev + 1)
+      const img = document.querySelector('img[alt="Dynamic Tecnologia"]') as HTMLImageElement
+      if (img) {
+        img.src = `/dynamic-logo.png?t=${Date.now()}&retry=${retryCount + 1}`
+      }
+    } else {
+      // Após 2 tentativas, mostrar placeholder
+      console.warn('⚠️ Logo não encontrado após múltiplas tentativas, usando placeholder')
+      setLogoError(true)
+    }
+  }
 
   return (
     <Box
@@ -44,21 +59,16 @@ const LogoComponent = () => {
           component="img"
           src="/dynamic-logo.png"
           alt="Dynamic Tecnologia"
-          onLoad={() => setLogoLoaded(true)}
-          onError={() => {
-            console.warn('⚠️ Logo não encontrado, usando placeholder')
-            setLogoError(true)
-          }}
+          onError={handleError}
           sx={{
             width: '100%',
             height: '100%',
             objectFit: 'contain',
             filter: 'drop-shadow(0 15px 35px rgba(37,99,235,0.35))',
-            display: logoLoaded ? 'block' : 'none'
+            display: 'block'
           }}
         />
-      ) : null}
-      {logoError && (
+      ) : (
         <Box
           sx={{
             width: '100%',

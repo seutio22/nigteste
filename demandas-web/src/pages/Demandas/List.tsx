@@ -225,19 +225,22 @@ export default function DemandListPage() {
     }
   }, [])
 
-  // Garantir que os dados mestres sejam carregados
+  // Carregar dados mestres e demandas uma única vez
   useEffect(() => {
-    if (md.analistas.length === 0) {
-      md.syncFromApi?.()
+    const loadData = async () => {
+      // Carregar dados mestres se necessário
+      if (md.analistas.length === 0 || md.tiposServico.length === 0 || md.tiposDemanda.length === 0) {
+        await md.syncFromApi?.()
+      }
+      
+      // Carregar demandas se usuário estiver logado
+      if (user?.id) {
+        await demandStore.syncFromApi()
+      }
     }
-  }, []) // Removido as dependências que causavam o loop
-
-  // Carregar demandas automaticamente quando a página é carregada
-  useEffect(() => {
-    if (user?.id) {
-      demandStore.syncFromApi()
-    }
-  }, []) // Removido a dependência que causava o loop
+    
+    loadData()
+  }, [user?.id]) // Apenas quando usuário muda
 
   // Recarregar dados quando a página recebe foco (volta de outras páginas)
   useEffect(() => {
@@ -466,7 +469,7 @@ export default function DemandListPage() {
     }
   }
 
-  const rows = useMemo(() => finalFilteredItems.map((d) => {
+  const rows = finalFilteredItems.map((d) => {
     // Gerar ticket se não existir
     const generateTicket = (id: string) => {
       const now = new Date()
@@ -515,10 +518,9 @@ export default function DemandListPage() {
       // A formatação será feita pelo valueFormatter da coluna
       updatedAt: d.updatedAt || '',
     }
-  }), [finalFilteredItems, analistasById, areasById, clientesById, contratosById, operadorasById, produtosById, tiposServicoById, tiposDemandaById])
+  })
   
-  // 🚀 CORREÇÃO: Ordenar os dados por updatedAt (data de atualização - mais recente primeiro) antes de passar para o DataGrid
-  // Garantir que a ordenação seja idêntica à página Manutenção
+  // Ordenar os dados por updatedAt (data de atualização - mais recente primeiro) - igual Manutenção
   const sortedRows = [...rows].sort((a, b) => {
     // Tratar strings vazias como datas inválidas (devem ir para o final)
     const dateA = a.updatedAt && a.updatedAt.trim() !== '' ? new Date(a.updatedAt).getTime() : 0
@@ -531,7 +533,7 @@ export default function DemandListPage() {
     if (dateA === 0) return 1
     if (dateB === 0) return -1
     
-    // Ordem decrescente (mais recente primeiro) - igual Manutenção
+    // Ordem decrescente (mais recente primeiro)
     return dateB - dateA
   })
   

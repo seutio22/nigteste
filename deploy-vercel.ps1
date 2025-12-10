@@ -1,52 +1,41 @@
-# Script para deploy direto no Vercel
-# Este script usa o Vercel CLI para fazer deploy direto
+# Script para fazer deploy no Vercel e salvar output
+$ErrorActionPreference = "Continue"
 
-Write-Host "🎨 Iniciando deploy direto no Vercel..." -ForegroundColor Blue
+Write-Host "=== INICIANDO DEPLOY VERCEL ===" -ForegroundColor Green
 
-# Verificar se o Vercel CLI está instalado
-if (!(Get-Command vercel -ErrorAction SilentlyContinue)) {
-    Write-Host "❌ Vercel CLI não encontrado. Instalando..." -ForegroundColor Red
-    npm install -g vercel
-}
+$logFile = "deploy-vercel-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
 
-# Navegar para o diretório do frontend
-Set-Location demandas-web
+# Mudar para o diretório do projeto
+Set-Location "c:\Users\Larissa\nigteste\nigteste\demandas-web"
 
-# Verificar se está logado
-Write-Host "🔍 Verificando autenticação..." -ForegroundColor Yellow
-$authCheck = vercel whoami 2>&1
+# Token do Vercel
+$env:VERCEL_TOKEN = "1zGvh5dfuG1p6TVf4uHxd04E"
 
-if ($authCheck -match "Not authenticated") {
-    Write-Host "⚠️ Não autenticado. Tentando login..." -ForegroundColor Yellow
+Write-Host "Executando deploy..." -ForegroundColor Yellow
+Write-Host "Log será salvo em: $logFile" -ForegroundColor Cyan
+
+# Executar deploy e salvar output
+try {
+    $output = npx vercel@latest deploy --prod --yes --token $env:VERCEL_TOKEN 2>&1 | Tee-Object -FilePath $logFile
     
-    # Tentar login
-    vercel login
+    Write-Host "`n=== OUTPUT DO DEPLOY ===" -ForegroundColor Green
+    Write-Host $output
     
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "❌ Falha no login. Usando deploy automático via Git..." -ForegroundColor Red
-        Set-Location ..
-        git add .
-        git commit -m "trigger: Deploy Vercel via script - $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" --allow-empty
-        git push origin main
-        Write-Host "✅ Deploy automático iniciado via Git push" -ForegroundColor Green
-        exit 0
+    Write-Host "`n=== DEPLOY CONCLUÍDO ===" -ForegroundColor Green
+    Write-Host "Log completo salvo em: $logFile" -ForegroundColor Cyan
+    
+    # Verificar se há URL no output
+    if ($output -match "https://.*\.vercel\.app") {
+        $url = $matches[0]
+        Write-Host "`n✅ URL do Deploy: $url" -ForegroundColor Green
     }
+} catch {
+    Write-Host "❌ Erro durante deploy: $_" -ForegroundColor Red
+    $_ | Out-File -FilePath $logFile -Append
 }
 
-# Fazer deploy direto
-Write-Host "🚀 Fazendo deploy direto no Vercel..." -ForegroundColor Green
-vercel --prod --yes
+# Voltar para o diretório raiz
+Set-Location "c:\Users\Larissa\nigteste\nigteste"
 
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "✅ Deploy Vercel concluído com sucesso!" -ForegroundColor Green
-} else {
-    Write-Host "❌ Erro no deploy Vercel. Usando fallback..." -ForegroundColor Red
-    Set-Location ..
-    git add .
-    git commit -m "trigger: Deploy Vercel fallback - $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" --allow-empty
-    git push origin main
-    Write-Host "✅ Deploy automático iniciado via Git push (fallback)" -ForegroundColor Green
-}
-
-Set-Location ..
-Write-Host "🎉 Deploy Vercel finalizado!" -ForegroundColor Cyan
+Write-Host "`nPressione qualquer tecla para continuar..."
+$null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")

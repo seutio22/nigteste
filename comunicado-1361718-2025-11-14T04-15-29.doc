@@ -1,0 +1,78 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Comunicado - 1361718</title>
+  <style>
+    body { font-family: Arial, sans-serif; color: #1f2937; margin: 40px; }
+    h1 { font-size: 20px; margin: 0 0 4px 0; color: #111827; }
+    .subtitle { font-size: 12px; color: #6b7280; margin-bottom: 20px; }
+    section { margin-bottom: 24px; }
+    section p { margin: 4px 0; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    th, td { border: 1px solid #d1d5db; padding: 8px 10px; font-size: 12px; text-align: left; }
+    th { background: #1f2937; color: #ffffff; font-weight: 600; }
+    tr:nth-child(even) td { background: #f3f4f6; }
+  </style>
+</head>
+<body>
+  <h1>🔔 Alteração Cadastral</h1>
+  <p class="subtitle">Notificação Automática - Sistema NIG</p>
+
+  <section>
+    <p>Prezados,</p>
+    <p>Informamos que o cliente sofreu alteração, sendo:</p>
+    <p><strong>Cliente:</strong> VENANCIO PRODUTOS FARMACEUTICOS LTDA</p>
+    <p><strong>Operadora:</strong> ASSIM</p>
+    <p><strong>Produto:</strong> SAUDE</p>
+    <p><strong>Sistema:</strong> EDGE</p>
+  </section>
+
+  <section>
+    <p><strong>Resumo da alteração</strong></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Contrato</th>
+          <th>Operadora</th>
+          <th>Produto</th>
+          <th>Atualização</th>
+          <th>Subtipo</th>
+          <th>Tipo</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+          <tr>
+            <td>10554</td>
+            <td>ASSIM</td>
+            <td>SAUDE</td>
+            <td>DOCUMENTACAO</td>
+            <td>CONTRATO</td>
+            <td>EDGE</td>
+          </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <p><strong>Descrição</strong></p>
+    <p>Upload de documento.</p>
+  </section>
+
+  <section>
+    <p><strong>Conclusão</strong></p>
+    <p>O Edge e Move encontram-se atualizados. Solicitamos replicar esta informação com a sua equipe.</p>
+  </section>
+
+  <section>
+    <p>Atenciosamente,</p>
+    <p><strong>NIG - Núcleo de Informações Gerenciais</strong></p>
+    <p>Mensagem gerada automaticamente pelo sistema NIG.</p>
+  </section>
+
+  <section>
+    <p style="font-size: 11px; color: #6b7280;">Ticket: 1361718 | Gerado em 14/11/2025, 01:15:29</p>
+  </section>
+</body>
+</html>
