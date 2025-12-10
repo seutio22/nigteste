@@ -10,7 +10,6 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate deploy",
     "db:generate": "prisma generate",
-    "postinstall": "prisma generate",
     "railway:build": "npm run build",
     "railway:start": "npm run start"
   },
