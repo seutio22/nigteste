@@ -50,9 +50,6 @@ window.addEventListener('unhandledrejection', (event) => {
   return true
 })
 
-// Configuração do router - usar BrowserRouter ao invés de createBrowserRouter para melhor compatibilidade
-import { BrowserRouter } from 'react-router-dom'
-
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <ErrorBoundary>
     <BrowserRouter>

@@ -1,11 +1,11 @@
 {
-  "buildCommand": "rm -rf dist node_modules/.vite && npm install && npm run build && ls -la dist/ | head -20 || dir dist",
+  "buildCommand": "rm -rf dist node_modules/.vite && npm install && npm run build",
   "outputDirectory": "dist",
   "installCommand": "npm install",
   "framework": null,
   "rewrites": [
     {
-      "source": "/((?!\\.).)*$",
+      "source": "/(.*)",
       "destination": "/index.html"
     }
   ],
