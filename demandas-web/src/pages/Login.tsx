@@ -242,13 +242,21 @@ export default function LoginPage() {
               <Box sx={{ textAlign: 'center', mb: 4 }}>
                 <Box
                   component="img"
-                  src={`/dynamic-logo.png?v=0.6.3-0634`}
+                  src={`/dynamic-logo.png?v=0.6.3-0635&t=${Date.now()}`}
                   alt="Dynamic Tecnologia"
+                  onError={(e) => {
+                    // Fallback: tentar carregar sem query parameter
+                    const target = e.target as HTMLImageElement
+                    if (target.src.includes('?')) {
+                      target.src = '/dynamic-logo.png'
+                    }
+                  }}
                   sx={{
                     width: { xs: '220px', md: '260px' },
                     mx: 'auto',
                     mb: 3,
-                    filter: 'drop-shadow(0 15px 35px rgba(37,99,235,0.35))'
+                    filter: 'drop-shadow(0 15px 35px rgba(37,99,235,0.35))',
+                    display: 'block'
                   }}
                 />
                 
