@@ -8,7 +8,7 @@ import { StatusBadge } from '../../components/StatusBadge'
 import { SmartImporter } from '../../components/SmartImporter'
 import { smartImporterConfigs } from '../../config/smartImporterConfigs'
 import { useFilteredData } from '../../lib/utils'
-import React, { useEffect, useState, useMemo, memo } from 'react'
+import React, { useEffect, useState, useMemo, memo, useCallback } from 'react'
 import ExportDataModal from '../../components/ExportDataModal'
 import type { ImportResult } from '../../types/smartImporter'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
@@ -113,16 +113,17 @@ export default function DemandListPage() {
     tiposDemandaById
   } = md
 
-  const resolveNome = <T extends { nome?: string }>(
+  // 🚀 OTIMIZAÇÃO: Funções memoizadas para melhor performance
+  const resolveNome = useCallback(<T extends { nome?: string }>(
     dict: Record<string, T>,
     id?: string | null,
     fallback?: string
   ): string | undefined => {
     if (!id) return fallback ?? id ?? undefined
     return dict[id]?.nome ?? fallback ?? id
-  }
+  }, [])
 
-  const resolveCodigoOuNumero = (
+  const resolveCodigoOuNumero = useCallback((
     dict: Record<string, { codigo?: string | null; numero?: string | null }>,
     id?: string | null,
     fallback?: string
@@ -131,11 +132,11 @@ export default function DemandListPage() {
     const item = dict[id]
     if (!item) return fallback ?? id
     return item.codigo ?? item.numero ?? fallback ?? id
-  }
+  }, [])
 
-  const looksLikeId = (value?: string | null) => Boolean(value && value.length > 20)
+  const looksLikeId = useCallback((value?: string | null) => Boolean(value && value.length > 20), [])
 
-  const resolveDisplay = <T extends { nome?: string }>(
+  const resolveDisplay = useCallback(<T extends { nome?: string }>(
     dict: Record<string, T>,
     value?: string | null,
     id?: string | null
@@ -147,9 +148,9 @@ export default function DemandListPage() {
       return resolveNome(dict, value, value) ?? value
     }
     return value ?? ''
-  }
+  }, [resolveNome, looksLikeId])
 
-  const resolveContratoDisplay = (
+  const resolveContratoDisplay = useCallback((
     value?: string | null,
     id?: string | null
   ) => {
@@ -160,7 +161,7 @@ export default function DemandListPage() {
       return resolveCodigoOuNumero(contratosById, value, value) ?? value
     }
     return value ?? ''
-  }
+  }, [contratosById, resolveCodigoOuNumero, looksLikeId])
   const { user } = useAuthStore()
   const { canCreate, canDelete, canImport, canExport } = usePermissions('cadastro')
   const [smartImporterOpen, setSmartImporterOpen] = useState(false)
@@ -181,22 +182,32 @@ export default function DemandListPage() {
   // Filtrar dados por permissão do usuário
   const filteredItems = useFilteredData(items, user?.role, user?.id, user?.viewOwnDataOnly)
 
-  // Aplicar filtro baseado no switch "Minhas Demandas" vs "Todas as Demandas"
-  const dataset = filteredItems
-  const finalFilteredItems = showOnlyMyDemands
-    ? dataset.filter(demand => {
+  // 🚀 OTIMIZAÇÃO: Filtro memoizado e simplificado
+  const finalFilteredItems = useMemo(() => {
+    if (!showOnlyMyDemands) return filteredItems
+    
+    // Se usuário é admin, retornar todos
+    if (user?.role === 'admin') return filteredItems
+    
+    const userId = user?.id
+    const userName = user?.name
+    
+    // Filtro otimizado - verificar apenas campos necessários
+    return filteredItems.filter(demand => {
+      // Verificação rápida por ID primeiro (mais comum)
+      if (demand.analistaId === userId) return true
+      if (demand.analista === userId) return true
+      
+      // Verificação por nome (menos comum)
+      if (userName) {
+        if (demand.analista === userName) return true
         const analista = demand.analistaId ? analistasById[demand.analistaId] : undefined
-
-        const check1 = demand.analistaId === user?.id
-        const check2 = analista && analista.nome === user?.name
-        const check3 = user?.role === 'admin' && demand.analistaId === 'analista-admin'
-        const check4 = demand.analista === user?.id
-        const check5 = demand.analista === user?.name
-        const check6 = user?.role === 'admin'
-
-        return check1 || check2 || check3 || check4 || check5 || check6
-      })
-    : dataset
+        if (analista?.nome === userName) return true
+      }
+      
+      return false
+    })
+  }, [filteredItems, showOnlyMyDemands, user?.id, user?.name, user?.role, analistasById])
 
   // carregar preferências
   useEffect(() => {
@@ -469,73 +480,61 @@ export default function DemandListPage() {
     }
   }
 
-  const rows = finalFilteredItems.map((d) => {
-    // Gerar ticket se não existir
-    const generateTicket = (id: string) => {
-      const now = new Date()
-      const year = now.getFullYear()
-      const month = String(now.getMonth() + 1).padStart(2, '0')
-      const day = String(now.getDate()).padStart(2, '0')
-      const random = Math.random().toString(36).substr(2, 4).toUpperCase()
-      return `CAD-${year}${month}${day}-${random}`
-    }
-    
-    return {
-      id: d.id,
-      ticket: d.ticket || generateTicket(d.id),
-      descricao: d.descricao ?? '',
-      status: d.status,
-      analista: (() => {
-        // Tratamento especial para analista-admin
-        if (d.analista === 'analista-admin') {
-          return 'ADMINISTRADOR'
-        }
-        return resolveDisplay(analistasById, d.analista, d.analistaId)
-      })(),
-      area: (() => {
-        return resolveDisplay(areasById, d.area, d.areaId)
-      })(),
-      cliente: (() => {
-        return resolveDisplay(clientesById, d.cliente, d.clienteId)
-      })(),
-      contrato: (() => {
-        return resolveContratoDisplay(d.contrato, d.contratoId)
-      })(),
-      operadora: (() => {
-        return resolveDisplay(operadorasById, d.operadora, d.operadoraId)
-      })(),
-      produto: (() => {
-        return resolveDisplay(produtosById, d.produto, d.produtoId)
-      })(),
-      tipoServico: (() => {
-        return resolveDisplay(tiposServicoById, d.tipoServico, d.tipoServicoId)
-      })(),
-      tipo: (() => {
-        return resolveDisplay(tiposDemandaById, d.tipo, d.tipoId)
-      })(),
-      createdAt: d.createdAt || '',
-      // Manter o valor original da data (ISO string) para ordenação correta (igual Manutenção)
-      // A formatação será feita pelo valueFormatter da coluna
-      updatedAt: d.updatedAt || '',
-    }
-  })
+  // 🚀 OTIMIZAÇÃO: Função de geração de ticket memoizada
+  const generateTicket = useCallback((id: string) => {
+    const now = new Date()
+    const year = now.getFullYear()
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+    const day = String(now.getDate()).padStart(2, '0')
+    const random = Math.random().toString(36).substr(2, 4).toUpperCase()
+    return `CAD-${year}${month}${day}-${random}`
+  }, [])
   
-  // Ordenar os dados por updatedAt (data de atualização - mais recente primeiro) - igual Manutenção
-  const sortedRows = [...rows].sort((a, b) => {
-    // Tratar strings vazias como datas inválidas (devem ir para o final)
-    const dateA = a.updatedAt && a.updatedAt.trim() !== '' ? new Date(a.updatedAt).getTime() : 0
-    const dateB = b.updatedAt && b.updatedAt.trim() !== '' ? new Date(b.updatedAt).getTime() : 0
-    
-    // Se ambos são inválidos, manter ordem original
-    if (dateA === 0 && dateB === 0) return 0
-    
-    // Datas inválidas vão para o final
-    if (dateA === 0) return 1
-    if (dateB === 0) return -1
-    
-    // Ordem decrescente (mais recente primeiro)
-    return dateB - dateA
-  })
+  // 🚀 OTIMIZAÇÃO: Processamento de rows memoizado
+  const rows = useMemo(() => {
+    return finalFilteredItems.map((d) => {
+      // Tratamento especial para analista-admin (verificar primeiro para evitar chamadas desnecessárias)
+      const analistaDisplay = d.analista === 'analista-admin' 
+        ? 'ADMINISTRADOR' 
+        : resolveDisplay(analistasById, d.analista, d.analistaId)
+      
+      return {
+        id: d.id,
+        ticket: d.ticket || generateTicket(d.id),
+        descricao: d.descricao ?? '',
+        status: d.status,
+        analista: analistaDisplay,
+        area: resolveDisplay(areasById, d.area, d.areaId),
+        cliente: resolveDisplay(clientesById, d.cliente, d.clienteId),
+        contrato: resolveContratoDisplay(d.contrato, d.contratoId),
+        operadora: resolveDisplay(operadorasById, d.operadora, d.operadoraId),
+        produto: resolveDisplay(produtosById, d.produto, d.produtoId),
+        tipoServico: resolveDisplay(tiposServicoById, d.tipoServico, d.tipoServicoId),
+        tipo: resolveDisplay(tiposDemandaById, d.tipo, d.tipoId),
+        createdAt: d.createdAt || '',
+        updatedAt: d.updatedAt || '',
+      }
+    })
+  }, [finalFilteredItems, analistasById, areasById, clientesById, contratosById, operadorasById, produtosById, tiposServicoById, tiposDemandaById, resolveDisplay, resolveContratoDisplay, generateTicket])
+  
+  // 🚀 OTIMIZAÇÃO: Ordenação memoizada
+  const sortedRows = useMemo(() => {
+    return [...rows].sort((a, b) => {
+      // Tratar strings vazias como datas inválidas (devem ir para o final)
+      const dateA = a.updatedAt && a.updatedAt.trim() !== '' ? new Date(a.updatedAt).getTime() : 0
+      const dateB = b.updatedAt && b.updatedAt.trim() !== '' ? new Date(b.updatedAt).getTime() : 0
+      
+      // Se ambos são inválidos, manter ordem original
+      if (dateA === 0 && dateB === 0) return 0
+      
+      // Datas inválidas vão para o final
+      if (dateA === 0) return 1
+      if (dateB === 0) return -1
+      
+      // Ordem decrescente (mais recente primeiro)
+      return dateB - dateA
+    })
+  }, [rows])
   
   // Debug: mostrar primeiras linhas ordenadas
   console.log('🔍 Demandas: Total de rows:', sortedRows.length)
