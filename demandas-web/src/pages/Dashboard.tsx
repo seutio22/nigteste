@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react'
+import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react'
 import {
   Box,
   Paper,
@@ -117,6 +117,9 @@ export default function DashboardPage() {
   const [selectedMonth, setSelectedMonth] = useState('')
   const [indicatorPeriod, setIndicatorPeriod] = useState<PeriodType>('daily')
   const [isManualDateFilter, setIsManualDateFilter] = useState(false)
+  
+  // Ref para controlar carregamento inicial de dados
+  const dataLoadedRef = useRef(false)
 
   // Atualizar automaticamente as datas quando o período mudar (se não for filtro manual)
   useEffect(() => {
@@ -200,58 +203,49 @@ export default function DashboardPage() {
     }
   }
 
-  // Handler para mudança manual de datas
-  const handleFromDateChange = (value: string) => {
+  // Função utilitária para formatar data
+  const formatDateToString = useCallback((date: Date): string => {
+    const y = date.getFullYear()
+    const m = String(date.getMonth() + 1).padStart(2, '0')
+    const d = String(date.getDate()).padStart(2, '0')
+    return `${y}-${m}-${d}`
+  }, [])
+
+  // Handler para mudança manual de datas - simplificado
+  const handleFromDateChange = useCallback((value: string) => {
     setFromDate(value)
     setIsManualDateFilter(true)
-    setSelectedMonth('') // Limpar seleção de mês quando data manual for alterada
-    // Quando há filtro manual, não usar período automático - usar 'monthly' como padrão para cálculos
-    // O hook useDashboardIndicators vai usar as datas manuais ao invés do período
-  }
+    setSelectedMonth('')
+  }, [])
 
-  const handleToDateChange = (value: string) => {
+  const handleToDateChange = useCallback((value: string) => {
     setToDate(value)
     setIsManualDateFilter(true)
-    setSelectedMonth('') // Limpar seleção de mês quando data manual for alterada
-    // Quando há filtro manual, não usar período automático - usar 'monthly' como padrão para cálculos
-    // O hook useDashboardIndicators vai usar as datas manuais ao invés do período
-  }
+    setSelectedMonth('')
+  }, [])
 
-  // Handler para seleção de mês
-  const handleMonthChange = (value: string) => {
+  // Handler para seleção de mês - simplificado
+  const handleMonthChange = useCallback((value: string) => {
     setSelectedMonth(value)
     if (value) {
-      // Converter formato YYYY-MM para datas de início e fim do mês
       const [year, month] = value.split('-')
       const yearNum = parseInt(year)
       const monthNum = parseInt(month)
       
-      // Primeiro dia do mês (00:00:00)
       const startDate = new Date(yearNum, monthNum - 1, 1)
       startDate.setHours(0, 0, 0, 0)
       
-      // Último dia do mês (23:59:59)
-      const endDate = new Date(yearNum, monthNum, 0) // Dia 0 do próximo mês = último dia do mês atual
+      const endDate = new Date(yearNum, monthNum, 0)
       endDate.setHours(23, 59, 59, 999)
       
-      // Formatar para YYYY-MM-DD (apenas a data, sem hora)
-      const formatDate = (date: Date): string => {
-        const y = date.getFullYear()
-        const m = String(date.getMonth() + 1).padStart(2, '0')
-        const d = String(date.getDate()).padStart(2, '0')
-        return `${y}-${m}-${d}`
-      }
-      
-      setFromDate(formatDate(startDate))
-      setToDate(formatDate(endDate))
+      setFromDate(formatDateToString(startDate))
+      setToDate(formatDateToString(endDate))
       setIsManualDateFilter(true)
-      // Mudar período para mensal quando um mês específico for selecionado
       setIndicatorPeriod('monthly')
     } else {
-      // Se limpar o mês, voltar ao período atual (as datas serão atualizadas pelo useEffect)
       setIsManualDateFilter(false)
     }
-  }
+  }, [formatDateToString])
 
   // Dados filtrados
   const demandasFiltradas = useMemo(() => 
@@ -286,67 +280,102 @@ export default function DashboardPage() {
     [maillingStore.contacts, fromDate, toDate]
   )
 
-  // Carregar dados automaticamente quando a página é carregada
-  React.useEffect(() => {
+  // Carregar dados automaticamente quando a página é carregada - OTIMIZADO
+  useEffect(() => {
+    // Evitar múltiplas chamadas usando ref
+    if (dataLoadedRef.current) return
+    dataLoadedRef.current = true
+    
     console.log('🔍 Dashboard: Carregando dados da API...')
     
-    // Carregar dados mestres se necessário
-    // Dados mestres são carregados apenas na página Dados Mestres
-    // if (masterDataStore.analistas.length === 0) {
-    //   console.log('🔍 Dashboard: Dados mestres vazios, chamando syncFromApi...')
-    //   masterDataStore.syncFromApi?.()
-    // }
-    
-    // Carregar dados das demandas se necessário
-    if (demandStore.items.length === 0) {
-      console.log('🔍 Dashboard: Demandas vazias, chamando syncFromApi...')
-      demandStore.syncFromApi()
+    const loadData = async () => {
+      try {
+        const promises: Promise<any>[] = []
+        
+        // Carregar dados das demandas se necessário
+        if (demandStore.items.length === 0) {
+          console.log('🔍 Dashboard: Demandas vazias, chamando syncFromApi...')
+          promises.push(
+            demandStore.syncFromApi().catch(error => {
+              console.error('❌ Dashboard: Erro ao carregar demandas:', error)
+            })
+          )
+        }
+        
+        // Carregar dados de atendimentos se necessário
+        if (atendimentoStore.items.length === 0) {
+          console.log('🔍 Dashboard: Atendimentos vazios, chamando syncFromApi...')
+          promises.push(
+            atendimentoStore.syncFromApi().catch(error => {
+              console.error('❌ Dashboard: Erro ao carregar atendimentos:', error)
+            })
+          )
+        }
+        
+        // Carregar dados de manutenções - sempre sincronizar para garantir dados atualizados
+        if (manutencaoStore.items.length === 0 || !manutencaoStore.isLoading) {
+          console.log('🔍 Dashboard: Sincronizando manutenções da API...')
+          promises.push(
+            manutencaoStore.syncFromApi()
+              .then(() => {
+                console.log('✅ Dashboard: Manutenções sincronizadas:', manutencaoStore.items.length, 'itens')
+              })
+              .catch((error) => {
+                console.error('❌ Dashboard: Erro ao sincronizar manutenções:', error)
+              })
+          )
+        }
+        
+        // Carregar dados de validação se necessário
+        if (validationStore.items.length === 0) {
+          console.log('🔍 Dashboard: Validações vazias, chamando syncFromApi...')
+          promises.push(
+            validationStore.syncFromApi().catch(error => {
+              console.error('❌ Dashboard: Erro ao carregar validações:', error)
+            })
+          )
+        }
+        
+        // Carregar dados de reajuste se necessário
+        if (reajusteStore.items.length === 0) {
+          console.log('🔍 Dashboard: Reajustes vazios, chamando syncFromApi...')
+          promises.push(
+            reajusteStore.syncFromApi().catch(error => {
+              console.error('❌ Dashboard: Erro ao carregar reajustes:', error)
+            })
+          )
+        }
+        
+        // Carregar dados do dashboard se necessário
+        if (dashboardStore.dashboards.length === 0) {
+          console.log('🔍 Dashboard: Dashboards vazios, chamando syncFromApi...')
+          promises.push(
+            dashboardStore.syncFromApi().catch(error => {
+              console.error('❌ Dashboard: Erro ao carregar dashboards:', error)
+            })
+          )
+        }
+        
+        // Carregar dados de analytics se necessário
+        if (reportStore.items.length === 0) {
+          console.log('🔍 Dashboard: Analytics vazios, chamando syncFromApi...')
+          promises.push(
+            reportStore.syncFromApi().catch(error => {
+              console.error('❌ Dashboard: Erro ao carregar analytics:', error)
+            })
+          )
+        }
+        
+        // Aguardar todas as promessas em paralelo
+        await Promise.allSettled(promises)
+        console.log('✅ Dashboard: Todos os dados carregados')
+      } catch (error) {
+        console.error('❌ Dashboard: Erro geral ao carregar dados:', error)
+      }
     }
     
-    // Carregar dados de atendimentos se necessário
-    if (atendimentoStore.items.length === 0) {
-      console.log('🔍 Dashboard: Atendimentos vazios, chamando syncFromApi...')
-      atendimentoStore.syncFromApi()
-    }
-    
-    // Carregar dados de manutenções - sempre sincronizar para garantir dados atualizados
-    console.log('🔍 Dashboard: Verificando manutenções...', {
-      itemsNoStore: manutencaoStore.items.length,
-      isLoading: manutencaoStore.isLoading
-    })
-    if (manutencaoStore.items.length === 0 || !manutencaoStore.isLoading) {
-      console.log('🔍 Dashboard: Sincronizando manutenções da API...')
-      manutencaoStore.syncFromApi().then(() => {
-        console.log('✅ Dashboard: Manutenções sincronizadas:', manutencaoStore.items.length, 'itens')
-      }).catch((error) => {
-        console.error('❌ Dashboard: Erro ao sincronizar manutenções:', error)
-      })
-    }
-    
-    // Carregar dados de validação se necessário
-    if (validationStore.items.length === 0) {
-      console.log('🔍 Dashboard: Validações vazias, chamando syncFromApi...')
-      validationStore.syncFromApi()
-    }
-    
-    // Carregar dados de reajuste se necessário
-    if (reajusteStore.items.length === 0) {
-      console.log('🔍 Dashboard: Reajustes vazios, chamando syncFromApi...')
-      reajusteStore.syncFromApi()
-    }
-    
-    // Carregar dados do dashboard se necessário
-    if (dashboardStore.dashboards.length === 0) {
-      console.log('🔍 Dashboard: Dashboards vazios, chamando syncFromApi...')
-      dashboardStore.syncFromApi()
-    }
-    
-    // CORREÇÃO: Carregar dados de analytics se necessário
-    if (reportStore.items.length === 0) {
-      console.log('🔍 Dashboard: Analytics vazios, chamando syncFromApi...')
-      reportStore.syncFromApi()
-    }
-  }, [])
+    loadData()
+  }, [demandStore, atendimentoStore, manutencaoStore, validationStore, reajusteStore, dashboardStore, reportStore])
 
   // Estatísticas principais
   const totalDemandas = demandasFiltradas.length
@@ -422,25 +451,25 @@ export default function DashboardPage() {
   }, [reajustesFiltrados])
 
 
-  const limparFiltros = () => {
+  const limparFiltros = useCallback(() => {
     setAreaId('')
     setAnalistaId('')
     setSelectedMonth('')
     setIsManualDateFilter(false)
     // As datas serão atualizadas automaticamente pelo useEffect quando isManualDateFilter for false
-  }
+  }, [])
 
   // Handler para mudança de período - resetar filtro manual e atualizar datas
-  const handlePeriodChange = (newPeriod: PeriodType) => {
+  const handlePeriodChange = useCallback((newPeriod: PeriodType) => {
     setIndicatorPeriod(newPeriod)
     setIsManualDateFilter(false)
-    setSelectedMonth('') // Limpar seleção de mês quando período mudar
+    setSelectedMonth('')
     
     // Atualizar datas imediatamente quando período mudar
     const { fromDate: newFromDate, toDate: newToDate } = getPeriodDates(newPeriod)
     setFromDate(newFromDate)
     setToDate(newToDate)
-  }
+  }, [])
 
   return (
     <Box sx={{ p: 3, backgroundColor: theme.palette.grey[50], minHeight: '100vh' }}>

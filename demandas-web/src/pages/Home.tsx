@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, memo, useCallback } from 'react'
+import React, { useEffect, useMemo, useState, memo, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { useDemandStore } from '../store/demandStore'
@@ -123,168 +123,199 @@ export default function HomePage() {
       .slice(0, 8) // Limitar a 8 atividades
   }, [demandStore.items, atendimentoStore.items, validationStore.items, reajusteStore.items, manutencaoStore.items, reportStore.items])
 
-  // Estado para controlar se os dados já foram carregados
-  const [dataLoaded, setDataLoaded] = useState(false)
+  // Estado para controlar loading
   const [isLoading, setIsLoading] = useState(true)
+  
+  // Ref para controlar carregamento único - evita loops
+  const dataLoadedRef = useRef(false)
 
-  // Carregar dados automaticamente quando a página é carregada
+  // Carregar dados automaticamente quando a página é carregada - CORRIGIDO
   useEffect(() => {
-    if (dataLoaded) return // Evitar múltiplas chamadas
+    // Evitar múltiplas chamadas usando ref ao invés de state
+    if (dataLoadedRef.current) return
     
     console.log('🔍 Home: Carregando dados da API...')
     
-    if (user?.id) {
-      console.log('🔍 Home: Usuário logado, carregando dados...')
-      setDataLoaded(true)
-      setIsLoading(true)
-      
-      // Carregar dados de forma otimizada e paralela
-      const loadData = async () => {
-        try {
-          const promises = []
-          
-          // Carregar apenas se os stores estiverem vazios ou se precisar atualizar
-          if (demandStore.items.length === 0) {
-            console.log('🔍 Home: Carregando demandas...')
-            promises.push(demandStore.syncFromApi().catch(error => {
-              console.error('❌ Home: Erro ao carregar demandas:', error)
-            }))
-          }
-          
-          if (atendimentoStore.items.length === 0) {
-            console.log('🔍 Home: Carregando atendimentos...')
-            promises.push(atendimentoStore.syncFromApi().catch(error => {
-              console.error('❌ Home: Erro ao carregar atendimentos:', error)
-            }))
-          }
-          
-          if (validationStore.items.length === 0) {
-            console.log('🔍 Home: Carregando validações...')
-            promises.push(validationStore.syncFromApi().catch(error => {
-              console.error('❌ Home: Erro ao carregar validações:', error)
-            }))
-          }
-          
-          if (reajusteStore.items.length === 0) {
-            console.log('🔍 Home: Carregando reajustes...')
-            promises.push(reajusteStore.syncFromApi().catch(error => {
-              console.error('❌ Home: Erro ao carregar reajustes:', error)
-            }))
-          }
-          
-          if (manutencaoStore.items.length === 0) {
-            console.log('🔍 Home: Carregando manutenções...')
-            promises.push(manutencaoStore.syncFromApi().catch(error => {
-              console.error('❌ Home: Erro ao carregar manutenções:', error)
-            }))
-          }
-          
-          if (reportStore.items.length === 0) {
-            console.log('🔍 Home: Carregando analytics...')
-            promises.push(reportStore.syncFromApi().catch(error => {
-              console.error('❌ Home: Erro ao carregar analytics:', error)
-            }))
-          }
-          
-          // Mailling, comunicados e projetos são carregados em outras páginas
-          // Não precisam ser carregados aqui para evitar sobrecarga
-          
-          // Aguardar todas as promessas em paralelo
-          await Promise.allSettled(promises)
-          console.log('✅ Home: Todos os dados principais carregados')
-          
-          // Aguardar um pouco para garantir que os dados foram processados
-          await new Promise(resolve => setTimeout(resolve, 500))
-        } catch (error) {
-          console.error('❌ Home: Erro ao carregar dados:', error)
-        } finally {
-          setIsLoading(false)
-        }
-      }
-      
-      loadData()
-      
-    } else {
+    if (!user?.id) {
       console.log('🔍 Home: Usuário não logado, aguardando...')
       setIsLoading(false)
+      return
     }
-  }, [user?.id, dataLoaded])
-
-  // Estatísticas reais baseadas nos dados carregados
-  // Só calcular quando não estiver carregando para evitar valores inconsistentes
-  const stats = useMemo(() => {
-    // Se ainda está carregando, retornar valores zerados para evitar valores parciais
-    if (isLoading) {
-      return {
-        demandas: { total: 0, pendentes: 0, emAndamento: 0, concluidas: 0 },
-        atendimentos: { total: 0, abertos: 0, resolvidos: 0 },
-        validacoes: { total: 0, pendentes: 0, aprovadas: 0 },
-        reajustes: { total: 0, pendentes: 0, aprovados: 0 },
-        manutencoes: { total: 0, pendentes: 0, emAndamento: 0, concluidas: 0 },
-        analytics: { total: 0, pendentes: 0, emAndamento: 0, concluidos: 0 },
-        mailling: { total: 0, ativos: 0 },
-        comunicados: { total: 0, enviados: 0 },
-        projetos: { total: 0, concluidos: 0 }
+    
+    // Marcar como carregado antes de iniciar para evitar chamadas duplicadas
+    dataLoadedRef.current = true
+    setIsLoading(true)
+    
+    // Carregar dados de forma otimizada e paralela
+    const loadData = async () => {
+      try {
+        const promises: Promise<any>[] = []
+        
+        // Carregar apenas se os stores estiverem vazios
+        if (demandStore.items.length === 0) {
+          console.log('🔍 Home: Carregando demandas...')
+          promises.push(demandStore.syncFromApi().catch(error => {
+            console.error('❌ Home: Erro ao carregar demandas:', error)
+          }))
+        }
+        
+        if (atendimentoStore.items.length === 0) {
+          console.log('🔍 Home: Carregando atendimentos...')
+          promises.push(atendimentoStore.syncFromApi().catch(error => {
+            console.error('❌ Home: Erro ao carregar atendimentos:', error)
+          }))
+        }
+        
+        if (validationStore.items.length === 0) {
+          console.log('🔍 Home: Carregando validações...')
+          promises.push(validationStore.syncFromApi().catch(error => {
+            console.error('❌ Home: Erro ao carregar validações:', error)
+          }))
+        }
+        
+        if (reajusteStore.items.length === 0) {
+          console.log('🔍 Home: Carregando reajustes...')
+          promises.push(reajusteStore.syncFromApi().catch(error => {
+            console.error('❌ Home: Erro ao carregar reajustes:', error)
+          }))
+        }
+        
+        if (manutencaoStore.items.length === 0) {
+          console.log('🔍 Home: Carregando manutenções...')
+          promises.push(manutencaoStore.syncFromApi().catch(error => {
+            console.error('❌ Home: Erro ao carregar manutenções:', error)
+          }))
+        }
+        
+        if (reportStore.items.length === 0) {
+          console.log('🔍 Home: Carregando analytics...')
+          promises.push(reportStore.syncFromApi().catch(error => {
+            console.error('❌ Home: Erro ao carregar analytics:', error)
+          }))
+        }
+        
+        // Aguardar todas as promessas em paralelo
+        await Promise.allSettled(promises)
+        console.log('✅ Home: Todos os dados principais carregados')
+        
+        // Aguardar um pouco para garantir que os dados foram processados
+        await new Promise(resolve => setTimeout(resolve, 500))
+      } catch (error) {
+        console.error('❌ Home: Erro ao carregar dados:', error)
+      } finally {
+        setIsLoading(false)
       }
     }
     
+    loadData()
+  }, [user?.id, demandStore, atendimentoStore, validationStore, reajusteStore, manutencaoStore, reportStore])
+
+  // Estatísticas divididas em múltiplos useMemo para melhor performance - OTIMIZADO
+  const statsDemandas = useMemo(() => {
+    if (isLoading) return { total: 0, pendentes: 0, emAndamento: 0, concluidas: 0 }
     const demandasArray = (demandStore?.items && Array.isArray(demandStore.items)) ? demandStore.items : []
-    const totalDemandas = demandasArray.length
-    const demandasPendentes = demandasArray.filter(d => d.status === 'Pendente').length
-    const demandasEmAndamento = demandasArray.filter(d => d.status === 'Em Andamento').length
-    const demandasConcluidas = demandasArray.filter(d => d.status === 'Concluída').length
-    
-    const atendimentosArray = (atendimentoStore?.items && Array.isArray(atendimentoStore.items)) ? atendimentoStore.items : []
-    const totalAtendimentos = atendimentosArray.length
-    const atendimentosAbertos = atendimentosArray.filter(a => a.status === 'Aberto').length
-    const atendimentosResolvidos = atendimentosArray.filter(a => a.status === 'Resolvido').length
-    
-    const validacoesArray = (validationStore?.items && Array.isArray(validationStore.items)) ? validationStore.items : []
-    const totalValidacoes = validacoesArray.length
-    const validacoesPendentes = validacoesArray.filter(v => v.status === 'Pendente').length
-    const validacoesAprovadas = validacoesArray.filter(v => v.status === 'Aprovada').length
-    
-    const reajustesArray = (reajusteStore?.items && Array.isArray(reajusteStore.items)) ? reajusteStore.items : []
-    const totalReajustes = reajustesArray.length
-    const reajustesPendentes = reajustesArray.filter(r => !r.aprovado).length
-    const reajustesAprovados = reajustesArray.filter(r => r.aprovado).length
-    
-    const manutencoesArray = (manutencaoStore?.items && Array.isArray(manutencaoStore.items)) ? manutencaoStore.items : []
-    const totalManutencoes = manutencoesArray.length
-    const manutencoesPendentes = manutencoesArray.filter(m => m.status === 'Pendente').length
-    const manutencoesEmAndamento = manutencoesArray.filter(m => m.status === 'Em Andamento').length
-    const manutencoesConcluidas = manutencoesArray.filter(m => m.status === 'Concluída').length
-    
-    const relatoriosArray = (reportStore?.items && Array.isArray(reportStore.items)) ? reportStore.items : []
-    const totalRelatorios = relatoriosArray.length
-    const relatoriosPendentes = relatoriosArray.filter(r => r.status === 'pendente').length
-    const relatoriosEmAndamento = relatoriosArray.filter(r => r.status === 'em_andamento').length
-    const relatoriosConcluidos = relatoriosArray.filter(r => r.status === 'concluido').length
-    
-    const totalMailling = (maillingStore?.contacts && Array.isArray(maillingStore.contacts)) ? maillingStore.contacts.length : 0
-    const maillingAtivos = (maillingStore?.contacts && Array.isArray(maillingStore.contacts)) ? maillingStore.contacts.filter(m => m.status === 'Ativo' || !m.status).length : 0
-    
-    const totalComunicados = (comunicadoStore?.items && Array.isArray(comunicadoStore.items)) ? comunicadoStore.items.length : 0
-    const comunicadosEnviados = (comunicadoStore?.items && Array.isArray(comunicadoStore.items)) ? comunicadoStore.items.filter(c => c.status === 'Enviado' || c.status === 'enviado').length : 0
-    
-    const totalProjetos = (projectStore?.projects && Array.isArray(projectStore.projects)) ? projectStore.projects.length : 0
-    const projetosConcluidos = (projectStore?.projects && Array.isArray(projectStore.projects)) ? projectStore.projects.filter(p => {
-      const status = p.status || p.timeline?.status || 'Em Andamento'
-      return status === 'Concluído' || status === 'concluido' || status === 'Finalizado'
-    }).length : 0
-    
     return {
-      demandas: { total: totalDemandas, pendentes: demandasPendentes, emAndamento: demandasEmAndamento, concluidas: demandasConcluidas },
-      atendimentos: { total: totalAtendimentos, abertos: atendimentosAbertos, resolvidos: atendimentosResolvidos },
-      validacoes: { total: totalValidacoes, pendentes: validacoesPendentes, aprovadas: validacoesAprovadas },
-      reajustes: { total: totalReajustes, pendentes: reajustesPendentes, aprovados: reajustesAprovados },
-      manutencoes: { total: totalManutencoes, pendentes: manutencoesPendentes, emAndamento: manutencoesEmAndamento, concluidas: manutencoesConcluidas },
-      analytics: { total: totalRelatorios, pendentes: relatoriosPendentes, emAndamento: relatoriosEmAndamento, concluidos: relatoriosConcluidos },
-      mailling: { total: totalMailling, ativos: maillingAtivos },
-      comunicados: { total: totalComunicados, enviados: comunicadosEnviados },
-      projetos: { total: totalProjetos, concluidos: projetosConcluidos }
+      total: demandasArray.length,
+      pendentes: demandasArray.filter(d => d.status === 'Pendente').length,
+      emAndamento: demandasArray.filter(d => d.status === 'Em Andamento').length,
+      concluidas: demandasArray.filter(d => d.status === 'Concluída').length
     }
-  }, [isLoading, demandStore?.items, atendimentoStore?.items, validationStore?.items, reajusteStore?.items, manutencaoStore?.items, reportStore?.items, maillingStore?.contacts, comunicadoStore?.items, projectStore?.projects])
+  }, [isLoading, demandStore?.items])
+
+  const statsAtendimentos = useMemo(() => {
+    if (isLoading) return { total: 0, abertos: 0, resolvidos: 0 }
+    const atendimentosArray = (atendimentoStore?.items && Array.isArray(atendimentoStore.items)) ? atendimentoStore.items : []
+    return {
+      total: atendimentosArray.length,
+      abertos: atendimentosArray.filter(a => a.status === 'Aberto').length,
+      resolvidos: atendimentosArray.filter(a => a.status === 'Resolvido').length
+    }
+  }, [isLoading, atendimentoStore?.items])
+
+  const statsValidacoes = useMemo(() => {
+    if (isLoading) return { total: 0, pendentes: 0, aprovadas: 0 }
+    const validacoesArray = (validationStore?.items && Array.isArray(validationStore.items)) ? validationStore.items : []
+    return {
+      total: validacoesArray.length,
+      pendentes: validacoesArray.filter(v => v.status === 'Pendente').length,
+      aprovadas: validacoesArray.filter(v => v.status === 'Aprovada').length
+    }
+  }, [isLoading, validationStore?.items])
+
+  const statsReajustes = useMemo(() => {
+    if (isLoading) return { total: 0, pendentes: 0, aprovados: 0 }
+    const reajustesArray = (reajusteStore?.items && Array.isArray(reajusteStore.items)) ? reajusteStore.items : []
+    return {
+      total: reajustesArray.length,
+      pendentes: reajustesArray.filter(r => !r.aprovado).length,
+      aprovados: reajustesArray.filter(r => r.aprovado).length
+    }
+  }, [isLoading, reajusteStore?.items])
+
+  const statsManutencoes = useMemo(() => {
+    if (isLoading) return { total: 0, pendentes: 0, emAndamento: 0, concluidas: 0 }
+    const manutencoesArray = (manutencaoStore?.items && Array.isArray(manutencaoStore.items)) ? manutencaoStore.items : []
+    return {
+      total: manutencoesArray.length,
+      pendentes: manutencoesArray.filter(m => m.status === 'Pendente').length,
+      emAndamento: manutencoesArray.filter(m => m.status === 'Em Andamento').length,
+      concluidas: manutencoesArray.filter(m => m.status === 'Concluída').length
+    }
+  }, [isLoading, manutencaoStore?.items])
+
+  const statsAnalytics = useMemo(() => {
+    if (isLoading) return { total: 0, pendentes: 0, emAndamento: 0, concluidos: 0 }
+    const relatoriosArray = (reportStore?.items && Array.isArray(reportStore.items)) ? reportStore.items : []
+    return {
+      total: relatoriosArray.length,
+      pendentes: relatoriosArray.filter(r => r.status === 'pendente').length,
+      emAndamento: relatoriosArray.filter(r => r.status === 'em_andamento').length,
+      concluidos: relatoriosArray.filter(r => r.status === 'concluido').length
+    }
+  }, [isLoading, reportStore?.items])
+
+  const statsMailling = useMemo(() => {
+    if (isLoading) return { total: 0, ativos: 0 }
+    const contactsArray = (maillingStore?.contacts && Array.isArray(maillingStore.contacts)) ? maillingStore.contacts : []
+    return {
+      total: contactsArray.length,
+      ativos: contactsArray.filter(m => m.status === 'Ativo' || !m.status).length
+    }
+  }, [isLoading, maillingStore?.contacts])
+
+  const statsComunicados = useMemo(() => {
+    if (isLoading) return { total: 0, enviados: 0 }
+    const comunicadosArray = (comunicadoStore?.items && Array.isArray(comunicadoStore.items)) ? comunicadoStore.items : []
+    return {
+      total: comunicadosArray.length,
+      enviados: comunicadosArray.filter(c => c.status === 'Enviado' || c.status === 'enviado').length
+    }
+  }, [isLoading, comunicadoStore?.items])
+
+  const statsProjetos = useMemo(() => {
+    if (isLoading) return { total: 0, concluidos: 0 }
+    const projetosArray = (projectStore?.projects && Array.isArray(projectStore.projects)) ? projectStore.projects : []
+    return {
+      total: projetosArray.length,
+      concluidos: projetosArray.filter(p => {
+        const status = p.status || p.timeline?.status || 'Em Andamento'
+        return status === 'Concluído' || status === 'concluido' || status === 'Finalizado'
+      }).length
+    }
+  }, [isLoading, projectStore?.projects])
+
+  // Combinar todas as estatísticas
+  const stats = useMemo(() => ({
+    demandas: statsDemandas,
+    atendimentos: statsAtendimentos,
+    validacoes: statsValidacoes,
+    reajustes: statsReajustes,
+    manutencoes: statsManutencoes,
+    analytics: statsAnalytics,
+    mailling: statsMailling,
+    comunicados: statsComunicados,
+    projetos: statsProjetos
+  }), [statsDemandas, statsAtendimentos, statsValidacoes, statsReajustes, statsManutencoes, statsAnalytics, statsMailling, statsComunicados, statsProjetos])
 
   // 🚀 MELHORIA FASE 2A: Memoizar quickActions - 30-50% menos processamento
   const quickActions = useMemo(() => [
