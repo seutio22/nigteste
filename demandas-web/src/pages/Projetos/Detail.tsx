@@ -2748,12 +2748,30 @@ export default function ProjectDetailPage() {
   }
 
   // Função para formatar data para input type="date"
+  // CORRIGIDA: Evita problemas de timezone extraindo diretamente a data
   const formatDateForInput = (dateString: string | null | undefined) => {
     if (!dateString || dateString === 'null' || dateString === '') return ''
     try {
+      // Se já está no formato YYYY-MM-DD, retorna diretamente
+      if (typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+        return dateString
+      }
+      
+      // Se tem hora (formato ISO), extrai apenas a parte da data
+      if (typeof dateString === 'string' && dateString.includes('T')) {
+        return dateString.split('T')[0]
+      }
+      
+      // Para outros formatos, usa Date mas com cuidado com timezone
+      // Usa getFullYear, getMonth, getDate para evitar problemas de timezone
       const date = new Date(dateString)
       if (isNaN(date.getTime())) return ''
-      return date.toISOString().split('T')[0] // Retorna yyyy-MM-dd
+      
+      // Usa métodos locais para evitar conversão de timezone
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      return `${year}-${month}-${day}`
     } catch (error) {
       console.error('❌ Erro ao formatar data para input:', dateString, error)
       return ''
