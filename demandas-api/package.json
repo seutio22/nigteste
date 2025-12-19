@@ -1,7 +1,7 @@
 {
   "name": "demandas-api-novo",
-  "version": "2.4.28",
-  "description": "Backend API - 2.4.28 - Simplificar buildCommand para corrigir falha na inicialização",
+  "version": "2.5.0",
+  "description": "Backend API - 2.5.0 - Correções importantes: DATABASE_URL, package-lock.json, configuração Railway e deploy",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",

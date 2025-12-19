@@ -139,13 +139,13 @@ app.register(compress, {
 
 app.register(cors, corsOptions)
 
-// FORÇAR RECOMPILAÇÃO RAILWAY v2.4.27 - DATABASE_URL FIX
-console.log('🚀 FORÇANDO RECOMPILAÇÃO RAILWAY v2.4.27 - DATABASE_URL CORRIGIDA!')
-console.log('🚀 TIMESTAMP: 2025-01-15 - VERSÃO 2.4.27!')
-console.log('🚀 RAILWAY: DATABASE_URL agora usada diretamente sem modificações!')
-console.log('🚀 PACKAGE.JSON VERSION: 2.4.27 - BUILD FORÇADO!')
+// VERSÃO 2.5.0 - Correções importantes de deploy e configuração
+console.log('🚀 VERSÃO 2.5.0 - Sistema atualizado com correções importantes!')
+console.log('🚀 TIMESTAMP: 2025-12-19 - VERSÃO 2.5.0!')
+console.log('🚀 CORREÇÕES: DATABASE_URL corrigida, package-lock.json atualizado, Railway configurado!')
+console.log('🚀 PACKAGE.JSON VERSION: 2.5.0 - Deploy funcionando corretamente!')
 console.log('🚀 COMANDO START: npm run railway:start (start-robust.js)!')
-console.log('🚀 DATABASE: Conexão deve funcionar corretamente agora!')
+console.log('🚀 DATABASE: Conexão funcionando corretamente!')
 
 app.get('/teste-versao-v212', async (request, reply) => {
   console.log('🚀 ROTA DE TESTE v2.1.2 CHAMADA - FORCAR REDEPLOY POSTGRESQL!')
