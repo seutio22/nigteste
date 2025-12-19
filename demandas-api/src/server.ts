@@ -2222,8 +2222,52 @@ function crud(entity: keyof PrismaClient) {
       return anyPrisma[entity].create({ data });
     },
     update: async (id: string, data: unknown) => {
-      // Atualização simplificada (lógica específica já está nas rotas dedicadas)
-      return anyPrisma[entity].update({ where: { id }, data: data as any });
+      // Tratamento específico para demandas - converter IDs para relacionamentos connect
+      if (entity === 'demanda') {
+        const demandaData = { ...data as any };
+        
+        // Remover campos que não devem ser atualizados diretamente
+        delete demandaData.id;
+        delete demandaData.createdAt;
+        delete demandaData.analista; // Campo virtual do frontend
+        delete demandaData.tipo; // Campo virtual do frontend
+        delete demandaData.tipoServico; // Campo virtual do frontend
+        
+        // Converter IDs para relacionamentos connect
+        const relationshipFields = [
+          { field: 'tipoServicoId', relation: 'tipoServico' },
+          { field: 'tipoId', relation: 'tipo' },
+          { field: 'analistaId', relation: 'analista' },
+          { field: 'areaId', relation: 'area' },
+          { field: 'clienteId', relation: 'cliente' },
+          { field: 'contratoId', relation: 'contrato' },
+          { field: 'operadoraId', relation: 'operadora' },
+          { field: 'produtoId', relation: 'produto' },
+          { field: 'sistemaId', relation: 'sistema' },
+          { field: 'userId', relation: 'user' }
+        ];
+        
+        for (const { field, relation } of relationshipFields) {
+          if (demandaData[field] !== undefined) {
+            if (demandaData[field] === null || demandaData[field] === '') {
+              demandaData[relation] = { disconnect: true };
+            } else {
+              demandaData[relation] = { connect: { id: demandaData[field] } };
+            }
+            delete demandaData[field];
+          }
+        }
+        
+        console.log('🔍 DEMANDA UPDATE: Dados processados:', JSON.stringify(demandaData, null, 2));
+        return anyPrisma[entity].update({ where: { id }, data: demandaData });
+      }
+      
+      // Para outras entidades, atualização simplificada
+      const updateData = { ...data as any };
+      delete updateData.id;
+      delete updateData.createdAt;
+      
+      return anyPrisma[entity].update({ where: { id }, data: updateData });
     },
     remove: async (id: string) => {
       // Verificar dependências antes de excluir
