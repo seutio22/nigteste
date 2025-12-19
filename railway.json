@@ -1,8 +1,6 @@
 {
   "$schema": "https://railway.app/railway.schema.json",
-  "$service": {
-    "rootDirectory": "demandas-api"
-  },
+  "rootDirectory": "demandas-api",
   "build": {
     "builder": "NIXPACKS",
     "buildCommand": "npm install && npm run build"
