@@ -139,15 +139,13 @@ app.register(compress, {
 
 app.register(cors, corsOptions)
 
-// FORÇAR RECOMPILAÇÃO RAILWAY v23 - DIST LIMPO
-console.log('🚀 FORÇANDO RECOMPILAÇÃO RAILWAY v24 - SCHEMA REPORT ATUALIZADO!')
-console.log('🚀 TIMESTAMP: 2025-10-15-02:30 - VERSÃO 2.4.2!')
-console.log('🚀 PRISMA SCHEMA: Campo userId adicionado ao modelo Report!')
-console.log('🚀 PACKAGE.JSON VERSION: 2.4.2 - BUILD FORÇADO!')
-console.log('🚀 COMANDO START: prisma db push + npm start!')
-console.log('🚀 RAILWAY: Migration automática do campo userId!')
-console.log('🚀 ANALISTAS: Rastreabilidade completa implementada!')
-console.log('🚀 DATABASE: Coluna userId será adicionada ao Report!')
+// FORÇAR RECOMPILAÇÃO RAILWAY v2.4.26 - DEPLOY FIX
+console.log('🚀 FORÇANDO RECOMPILAÇÃO RAILWAY v2.4.26 - CONFIGURAÇÃO AJUSTADA!')
+console.log('🚀 TIMESTAMP: 2025-01-15 - VERSÃO 2.4.26!')
+console.log('🚀 RAILWAY: Configuração sincronizada e buildCommand simplificado!')
+console.log('🚀 PACKAGE.JSON VERSION: 2.4.26 - BUILD FORÇADO!')
+console.log('🚀 COMANDO START: npm run railway:start (start-robust.js)!')
+console.log('🚀 RAILWAY: Deploy deve ser aceito agora!')
 
 app.get('/teste-versao-v212', async (request, reply) => {
   console.log('🚀 ROTA DE TESTE v2.1.2 CHAMADA - FORCAR REDEPLOY POSTGRESQL!')
