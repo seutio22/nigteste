@@ -1,6 +1,6 @@
 [build]
 builder = "nixpacks"
-buildCommand = "rm -rf dist && npx prisma generate && npm run build"
+buildCommand = "npm install && npx prisma generate && npm run build"
 
 [deploy]
 startCommand = "npm run railway:start"
@@ -10,5 +10,4 @@ restartPolicyType = "on_failure"
 
 [env]
 NODE_ENV = "production"
-NO_CACHE = "1"
 

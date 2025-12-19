@@ -8,7 +8,7 @@ const path = require('path')
 const { execSync } = require('child_process')
 
 console.log('🚀 Iniciando servidor com script robusto...')
-console.log('📦 Versão: 2.4.25 - Railway Deploy Fix')
+console.log('📦 Versão: 2.4.28 - Railway Deploy Fix')
 
 // Configurar tratamento de sinais
 process.on('SIGTERM', () => {
