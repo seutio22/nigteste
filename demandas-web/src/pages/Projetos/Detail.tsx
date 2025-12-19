@@ -2735,12 +2735,34 @@ export default function ProjectDetailPage() {
     }
   }
 
+  // CORRIGIDA: Evita problemas de timezone ao exibir datas
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString || dateString === 'null' || dateString === '') return '-'
     try {
+      // Se já está no formato YYYY-MM-DD, formata diretamente
+      if (typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+        const [year, month, day] = dateString.split('-')
+        return `${day}/${month}/${year}`
+      }
+      
+      // Se tem hora (formato ISO), extrai apenas a parte da data
+      if (typeof dateString === 'string' && dateString.includes('T')) {
+        const datePart = dateString.split('T')[0]
+        if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+          const [year, month, day] = datePart.split('-')
+          return `${day}/${month}/${year}`
+        }
+      }
+      
+      // Para outros formatos, usa Date mas com métodos locais para evitar timezone
       const date = new Date(dateString)
       if (isNaN(date.getTime())) return '-'
-      return date.toLocaleDateString('pt-BR')
+      
+      // Usa métodos locais para evitar conversão de timezone
+      const day = String(date.getDate()).padStart(2, '0')
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const year = date.getFullYear()
+      return `${day}/${month}/${year}`
     } catch (error) {
       console.error('❌ Erro ao formatar data:', dateString, error)
       return '-'
