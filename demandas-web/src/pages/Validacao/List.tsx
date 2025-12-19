@@ -35,14 +35,19 @@ function ActionCell({ id, status }: { id: string, status: string }) {
   const handleMenuOpen = (e: React.MouseEvent<HTMLElement>) => setAnchorEl(e.currentTarget)
   const handleMenuClose = () => setAnchorEl(null)
 
-  const doChangeStatus = () => {
-    const v = store.items.find((x) => x.id === id)
-    if (!v) return
-    const from = v.status
-    const next = { ...v, status: newStatus, updatedAt: new Date().toISOString() }
-    store.upsert(next)
-    store.log?.({ validationId: id, type: 'status_change', field: 'status', from, to: newStatus })
-    setOpenStatus(false)
+  const doChangeStatus = async () => {
+    try {
+      const v = store.items.find((x) => x.id === id)
+      if (!v) return
+      const from = v.status
+      const next = { ...v, status: newStatus, updatedAt: new Date().toISOString() }
+      await store.upsert(next)
+      store.log?.({ validationId: id, type: 'status_change', field: 'status', from, to: newStatus })
+      setOpenStatus(false)
+    } catch (error) {
+      console.error('Erro ao alterar status:', error)
+      alert('Erro ao alterar status. Tente novamente.')
+    }
   }
 
   const doDelete = async () => {

@@ -33,7 +33,7 @@ interface AtendimentoState {
   timeline: TimelineEvent[]
   isLoading: boolean
   add: (atendimento: Omit<AtendimentoEntry, 'id' | 'createdAt' | 'updatedAt'>, user?: { name?: string; id?: string }) => AtendimentoEntry
-  update: (id: string, atendimento: Partial<AtendimentoEntry>, user?: { name?: string; id?: string }) => void
+  update: (id: string, atendimento: Partial<AtendimentoEntry>, user?: { name?: string; id?: string }) => Promise<void>
   remove: (id: string) => void
   clear: () => void
   log: (e: Omit<TimelineEvent, 'id' | 'timestamp'>) => void

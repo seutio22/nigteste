@@ -45,7 +45,7 @@ interface ReportState {
   add: (report: Omit<Report, 'id' | 'dataCriacao' | 'dataAtualizacao'>) => Promise<Report>
   update: (id: string, updates: Partial<Report>) => void
   remove: (id: string) => Promise<void>
-  upsert: (report: Report) => void
+  upsert: (report: Report) => Promise<void>
   log: (entry: { reportId: string; type: string; field: string; from: any; to: any }) => void
   addTimelineEvent: (event: Omit<TimelineEvent, 'id' | 'timestamp'>) => void
   getEventsByReport: (reportId: string) => TimelineEvent[]
@@ -374,6 +374,32 @@ export const useReportStore = create<ReportState>()(
       },
       clearTimeline: () => {
         set({ timeline: [] })
+      },
+      
+      upsert: async (report: Report) => {
+        const exists = get().items.some((r) => r.id === report.id)
+        
+        if (exists) {
+          // Atualizar no backend
+          try {
+            const { api } = await import('../lib/api.local')
+            await api.put(`/analytics/${report.id}`, report)
+            console.log('✅ ReportStore.upsert: Relatório atualizado no backend')
+          } catch (error) {
+            console.error('❌ ReportStore.upsert: Erro ao atualizar no backend:', error)
+            throw error
+          }
+          
+          // Atualizar estado local
+          set((state) => ({
+            items: state.items.map((r) =>
+              r.id === report.id ? { ...report, dataAtualizacao: new Date().toISOString() } : r
+            )
+          }))
+        } else {
+          // Adicionar novo (usar método add)
+          await get().add(report)
+        }
       },
       
       async syncTimeline(reportId: string) {

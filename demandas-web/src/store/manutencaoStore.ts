@@ -9,7 +9,7 @@ interface ManutencaoState {
   timeline: TimelineEvent[]
   isLoading: boolean
   add: (d: any) => Promise<any>
-  upsert: (d: any) => void
+  upsert: (d: any) => Promise<void>
   remove: (id: string) => Promise<void>
   clear: () => void
   clearLocal: () => void
@@ -207,13 +207,29 @@ export const useManutencaoStore = create<ManutencaoState>()(
           }
         }
       },
-      upsert: (manutencao) => set((s) => {
-        const exists = s.items.some((d) => d.id === manutencao.id)
+      upsert: async (manutencao) => {
+        const exists = get().items.some((d) => d.id === manutencao.id)
+        
         if (exists) {
-          return { items: s.items.map((d) => (d.id === manutencao.id ? { ...manutencao, updatedAt: new Date().toISOString() } : d)) }
+          // Atualizar no backend
+          try {
+            const { api } = await import('../lib/api.local')
+            await api.updateManutencao(manutencao.id, manutencao)
+            console.log('✅ ManutencaoStore.upsert: Manutenção atualizada no backend')
+          } catch (error) {
+            console.error('❌ ManutencaoStore.upsert: Erro ao atualizar no backend:', error)
+            throw error
+          }
+          
+          // Atualizar estado local
+          set((s) => ({
+            items: s.items.map((d) => (d.id === manutencao.id ? { ...manutencao, updatedAt: new Date().toISOString() } : d))
+          }))
+        } else {
+          // Adicionar novo (usar método add)
+          get().add(manutencao)
         }
-        return { items: [{ ...manutencao, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }, ...s.items] }
-      }),
+      },
       remove: async (id) => {
         console.log('🗑️ Removendo manutenção:', id)
         

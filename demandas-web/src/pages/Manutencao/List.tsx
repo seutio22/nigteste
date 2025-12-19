@@ -952,14 +952,19 @@ const ActionCell = memo(function ActionCell({ id, status }: { id: string, status
   const handleMenuOpen = (e: React.MouseEvent<HTMLElement>) => setAnchorEl(e.currentTarget)
   const handleMenuClose = () => setAnchorEl(null)
 
-  const doChangeStatus = () => {
-    const d = store.items.find((x) => x.id === id)
-    if (!d) return
-    const from = d.status
-    const next = { ...d, status: newStatus, updatedAt: new Date().toISOString() }
-    store.upsert(next)
-    store.log?.({ demandaId: id, type: 'status_change', field: 'status', from, to: newStatus })
-    setOpenStatus(false)
+  const doChangeStatus = async () => {
+    try {
+      const d = store.items.find((x) => x.id === id)
+      if (!d) return
+      const from = d.status
+      const next = { ...d, status: newStatus, updatedAt: new Date().toISOString() }
+      await store.upsert(next)
+      store.log?.({ demandaId: id, type: 'status_change', field: 'status', from, to: newStatus })
+      setOpenStatus(false)
+    } catch (error) {
+      console.error('Erro ao alterar status:', error)
+      alert('Erro ao alterar status. Tente novamente.')
+    }
   }
 
   const doDelete = async () => {

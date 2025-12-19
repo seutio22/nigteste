@@ -8,7 +8,7 @@ interface DemandState {
   timeline: TimelineEvent[]
   isLoading: boolean
   add: (d: Omit<Demand, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Demand>
-  upsert: (d: Demand) => void
+  upsert: (d: Demand) => Promise<void>
   remove: (id: DemandId) => Promise<void>
   clear: () => void
   log: (e: Omit<TimelineEvent, 'id' | 'timestamp'>) => void
@@ -206,7 +206,7 @@ export const useDemandStore = create<DemandState>()(
           return demand
         }
       },
-      upsert: (demand) => {
+      upsert: async (demand) => {
         // 🐛 CORREÇÃO: Normalizar IDs antes de fazer upsert
         const normalizeId = (value: any): string | undefined => {
           if (!value) return undefined
@@ -230,13 +230,27 @@ export const useDemandStore = create<DemandState>()(
           tipoServicoId: normalizeId(demand.tipoServicoId)
         }
         
-        set((s) => {
-          const exists = s.items.some((d) => d.id === normalizedDemand.id)
-          if (exists) {
-            return { items: s.items.map((d) => (d.id === normalizedDemand.id ? { ...normalizedDemand, updatedAt: new Date().toISOString() } : d)) }
+        const exists = get().items.some((d) => d.id === normalizedDemand.id)
+        
+        if (exists) {
+          // Atualizar no backend
+          try {
+            const { api } = await import('../lib/api.local')
+            await api.updateDemanda(normalizedDemand.id, normalizedDemand)
+            console.log('✅ DemandStore.upsert: Demanda atualizada no backend')
+          } catch (error) {
+            console.error('❌ DemandStore.upsert: Erro ao atualizar no backend:', error)
+            throw error
           }
-          return { items: [normalizedDemand, ...s.items] }
-        })
+          
+          // Atualizar estado local
+          set((s) => ({
+            items: s.items.map((d) => (d.id === normalizedDemand.id ? { ...normalizedDemand, updatedAt: new Date().toISOString() } : d))
+          }))
+        } else {
+          // Adicionar novo (usar método add)
+          get().add(normalizedDemand)
+        }
       },
       remove: async (id) => {
         console.log('🔍 DemandStore: Removendo demanda:', id)
