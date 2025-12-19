@@ -6,31 +6,27 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
-// 🚀 MELHORIA 2: Connection Pooling Otimizado - 20-40% mais rápido
-// Preparar DATABASE_URL com parâmetros de pool otimizados se necessário
-let databaseUrl = process.env.DATABASE_URL || ''
-if (databaseUrl && !databaseUrl.includes('connection_limit') && !databaseUrl.includes('pool_timeout')) {
-  // Adicionar parâmetros de pool otimizados
-  // Prisma gerencia o pool automaticamente, mas podemos otimizar via URL
-  const separator = databaseUrl.includes('?') ? '&' : '?'
-  // connection_limit: 10 conexões simultâneas (otimizado para produção)
-  // pool_timeout: timeout para obter conexão do pool (20 segundos)
-  // connect_timeout: timeout para estabelecer conexão inicial (30 segundos)
-  // max_connections: máximo de conexões no pool (10)
-  databaseUrl = `${databaseUrl}${separator}connection_limit=10&pool_timeout=20&connect_timeout=30&max_connections=10`
+// Usar DATABASE_URL diretamente - Prisma gerencia o pool automaticamente
+// Não modificar a URL para evitar problemas com proxies do Railway
+const databaseUrl = process.env.DATABASE_URL || ''
+
+if (!databaseUrl) {
+  console.warn('⚠️ DATABASE_URL não configurada!')
+}
+
+// Log da URL (sem senha) para debug
+if (databaseUrl) {
+  const maskedUrl = databaseUrl.replace(/:[^:@]+@/, ':***@')
+  console.log('🔗 DATABASE_URL configurada:', maskedUrl)
 }
 
 // Configuração do PrismaClient
-// Prisma gerencia o pool automaticamente via DATABASE_URL
+// Prisma gerencia o pool automaticamente - não precisa modificar a URL
 const prismaConfig: Prisma.PrismaClientOptions = {
   log: process.env.NODE_ENV === 'development' 
     ? (['query', 'error', 'warn'] as Prisma.LogLevel[])
     : (['error'] as Prisma.LogLevel[]),
-  datasources: {
-    db: {
-      url: databaseUrl
-    }
-  },
+  // Não especificar datasources.url aqui - Prisma usa DATABASE_URL do schema.prisma automaticamente
   // Configurações adicionais para estabilidade de conexão
   errorFormat: 'pretty'
 }

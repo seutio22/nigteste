@@ -1,7 +1,7 @@
 {
   "name": "demandas-api-novo",
-  "version": "2.4.26",
-  "description": "Backend API - 2.4.26 - Forçar Railway reconhecer deploy - Timestamp: 2025-01-15",
+  "version": "2.4.27",
+  "description": "Backend API - 2.4.27 - Corrigir DATABASE_URL - Remover modificação de pool que quebrava conexão",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
