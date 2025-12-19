@@ -1,6 +1,6 @@
 [build]
 builder = "nixpacks"
-buildCommand = "echo 'SETUP POSTGRESQL v24' && rm -rf dist && npm run build && echo 'BUILD COMPLETED v24 - POSTGRESQL READY'"
+buildCommand = "echo 'SETUP POSTGRESQL v24 - DEPLOY COM CORREÇÃO tipoId' && rm -rf dist && npm run build && echo 'BUILD COMPLETED v24 - POSTGRESQL READY - CÓDIGO CORRIGIDO'"
 
 [deploy]
 startCommand = "npm run railway:start"
