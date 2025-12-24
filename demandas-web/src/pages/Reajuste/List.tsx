@@ -756,6 +756,8 @@ export default function ReajusteListPage() {
           sistema: md.sistemas.find(s => s.id === r.sistema)?.nome ?? r.sistema ?? 'N/A',
           tipo: md.tiposDemanda.find(t => t.id === r.tipo)?.nome ?? r.tipo ?? 'N/A',
           tipoServico: md.tiposServico.find(ts => ts.id === r.tipoServico)?.nome ?? r.tipoServico ?? 'N/A',
+          // Incluir campo ticket
+          ticket: r.ticket ?? 'N/A',
           // Formatar datas
           dataInicio: r.dataInicio ? new Date(r.dataInicio).toLocaleString('pt-BR') : 'N/A',
           dataFinal: r.dataFinal ? new Date(r.dataFinal).toLocaleString('pt-BR') : 'N/A',
@@ -771,6 +773,7 @@ export default function ReajusteListPage() {
         }}
         columns={[
           { key: 'mesAno', label: 'Mês/Ano' },
+          { key: 'ticket', label: 'Ticket' },
           { key: 'filial', label: 'Filial' },
           { key: 'operadora', label: 'Operadora' },
           { key: 'responsavelAnalista', label: 'Analista' },
