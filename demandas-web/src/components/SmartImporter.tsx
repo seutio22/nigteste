@@ -120,9 +120,20 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
       setProcessingStep('Processando dados...')
 
       // Encontrar a aba correta
-      const sheetName = workbook.SheetNames.find(name => 
-        name.toLowerCase().includes(config.entityType.toLowerCase())
-      ) || workbook.SheetNames[0]
+      // Para Analytics, procurar por "relatório", "relatorio" ou "analytics"
+      const entityTypeLower = config.entityType.toLowerCase()
+      const searchTerms = entityTypeLower.includes('relatório') || entityTypeLower.includes('relatorio') || entityTypeLower.includes('analytics')
+        ? ['relatório', 'relatorio', 'analytics', 'report']
+        : [entityTypeLower]
+      
+      const sheetName = workbook.SheetNames.find(name => {
+        const nameLower = name.toLowerCase()
+        return searchTerms.some(term => nameLower.includes(term))
+      }) || workbook.SheetNames[0]
+      
+      console.log('🔍 SMART IMPORTER: Abas disponíveis:', workbook.SheetNames)
+      console.log('🔍 SMART IMPORTER: Aba selecionada:', sheetName)
+      console.log('🔍 SMART IMPORTER: Termos de busca:', searchTerms)
 
       const worksheet = workbook.Sheets[sheetName]
       const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 })
@@ -437,6 +448,72 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
                 item.usuariosEmpresa = value
               } else if (cleanHeader === 'observacoes' || cleanHeader === 'observações' || cleanHeader === 'observacao' || cleanHeader === 'observação') {
                 item.observacoes = value
+              }
+            } else if (config.entityType.toLowerCase().includes('relatório') || config.entityType.toLowerCase().includes('relatorio') || config.entityType.toLowerCase().includes('analytics')) {
+              // Mapeamento específico para relatórios/analytics
+              console.log(`🔍 SMART IMPORTER: Mapeando relatório - header: "${cleanHeader}", value: "${value}"`)
+              if (cleanHeader === 'id' && value) {
+                item.id = value
+                console.log(`🔍 SMART IMPORTER: Mapeado id: ${value}`)
+              } else if (cleanHeader === 'titulo' || cleanHeader === 'título') {
+                item.titulo = value
+                console.log(`🔍 SMART IMPORTER: Mapeado titulo: ${value}`)
+              } else if (cleanHeader === 'descricao' || cleanHeader === 'descrição') {
+                item.descricao = value
+                console.log(`🔍 SMART IMPORTER: Mapeado descricao: ${value}`)
+              } else if (cleanHeader === 'ticket') {
+                item.ticket = value
+                console.log(`🔍 SMART IMPORTER: Mapeado ticket: ${value}`)
+              } else if (cleanHeader === 'total') {
+                item.total = value
+                console.log(`🔍 SMART IMPORTER: Mapeado total: ${value}`)
+              } else if (cleanHeader === 'tipo') {
+                item.tipo = value
+                console.log(`🔍 SMART IMPORTER: Mapeado tipo: ${value}`)
+              } else if (cleanHeader === 'status') {
+                item.status = value
+                console.log(`🔍 SMART IMPORTER: Mapeado status: ${value}`)
+              } else if (cleanHeader === 'analista' || cleanHeader === 'analistaid' || cleanHeader === 'analistald') {
+                item.analista = value
+                console.log(`🔍 SMART IMPORTER: Mapeado analista: ${value}`)
+              } else if (cleanHeader === 'area' || cleanHeader === 'área' || cleanHeader === 'areaid' || cleanHeader === 'áreaid') {
+                item.area = value
+                console.log(`🔍 SMART IMPORTER: Mapeado area: ${value}`)
+              } else if (cleanHeader === 'cliente' || cleanHeader === 'clienteid' || cleanHeader === 'clienteld') {
+                item.cliente = value
+                console.log(`🔍 SMART IMPORTER: Mapeado cliente: ${value}`)
+              } else if (cleanHeader === 'contrato' || cleanHeader === 'contratoid' || cleanHeader === 'contratold') {
+                item.contrato = value
+                console.log(`🔍 SMART IMPORTER: Mapeado contrato: ${value}`)
+              } else if (cleanHeader === 'datainicio' || cleanHeader === 'datainicial' || cleanHeader === 'datainício' || cleanHeader === 'datainícial') {
+                item.dataInicio = value
+                console.log(`🔍 SMART IMPORTER: Mapeado dataInicio: ${value}`)
+              } else if (cleanHeader === 'datafinalizacao' || cleanHeader === 'datafinalização' || cleanHeader === 'datafinal' || cleanHeader === 'datafinal') {
+                item.dataFinalizacao = value
+                console.log(`🔍 SMART IMPORTER: Mapeado dataFinalizacao: ${value}`)
+              } else if (cleanHeader === 'dataentrega' || cleanHeader === 'dataentregaprevista' || cleanHeader === 'dataentrega_prevista') {
+                item.dataEntrega = value
+                console.log(`🔍 SMART IMPORTER: Mapeado dataEntrega: ${value}`)
+              } else if (cleanHeader === 'prioridade' || cleanHeader === 'prioridad') {
+                item.prioridade = value
+                console.log(`🔍 SMART IMPORTER: Mapeado prioridade: ${value}`)
+              } else if (cleanHeader === 'solicitante') {
+                item.solicitante = value
+                console.log(`🔍 SMART IMPORTER: Mapeado solicitante: ${value}`)
+              } else if (cleanHeader === 'solicitacao' || cleanHeader === 'solicitação') {
+                item.solicitacao = value
+                console.log(`🔍 SMART IMPORTER: Mapeado solicitacao: ${value}`)
+              } else if (cleanHeader === 'tiposolicitacao' || cleanHeader === 'tiposolicitação') {
+                item.tipoSolicitacao = value
+                console.log(`🔍 SMART IMPORTER: Mapeado tipoSolicitacao: ${value}`)
+              } else if (cleanHeader === 'tiposervico' || cleanHeader === 'tiposerviço' || cleanHeader === 'tiposervicoid' || cleanHeader === 'tiposervicold') {
+                item.tipoServico = value
+                console.log(`🔍 SMART IMPORTER: Mapeado tipoServico: ${value}`)
+              } else if (cleanHeader === 'observacoes' || cleanHeader === 'observações' || cleanHeader === 'observacao' || cleanHeader === 'observação') {
+                item.observacoes = value
+                console.log(`🔍 SMART IMPORTER: Mapeado observacoes: ${value}`)
+              } else {
+                console.log(`🔍 SMART IMPORTER: Header não mapeado para relatório: "${cleanHeader}" = "${value}"`)
               }
             } else {
               // Para outras entidades, usar mapeamento genérico
