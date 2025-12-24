@@ -746,6 +746,10 @@ export default function ReajusteListPage() {
         onClose={() => setExportModalOpen(false)}
         data={finalFilteredItems.map(r => ({
           ...r,
+          // Gerar campo mesAno a partir de mes e ano
+          mesAno: r.mes && r.ano ? `${String(r.mes).padStart(2, '0')}/${r.ano}` : 'N/A',
+          // Incluir campo ticket (garantir que seja string ou 'N/A')
+          ticket: (r.ticket && typeof r.ticket === 'string' && r.ticket.trim() !== '') ? r.ticket.trim() : 'N/A',
           // Mapear IDs para nomes legíveis
           responsavelAnalista: md.analistas.find(a => a.id === r.responsavelAnalista)?.nome ?? r.responsavelAnalista ?? 'N/A',
           area: md.areas.find(ar => ar.id === r.area)?.nome ?? r.area ?? 'N/A',
@@ -756,8 +760,6 @@ export default function ReajusteListPage() {
           sistema: md.sistemas.find(s => s.id === r.sistema)?.nome ?? r.sistema ?? 'N/A',
           tipo: md.tiposDemanda.find(t => t.id === r.tipo)?.nome ?? r.tipo ?? 'N/A',
           tipoServico: md.tiposServico.find(ts => ts.id === r.tipoServico)?.nome ?? r.tipoServico ?? 'N/A',
-          // Incluir campo ticket
-          ticket: r.ticket ?? 'N/A',
           // Formatar datas
           dataInicio: r.dataInicio ? new Date(r.dataInicio).toLocaleString('pt-BR') : 'N/A',
           dataFinal: r.dataFinal ? new Date(r.dataFinal).toLocaleString('pt-BR') : 'N/A',
