@@ -210,7 +210,6 @@ export default function AnalyticsPage() {
   const handleBulkDelete = async () => {
     try {
       const { api } = await import('../lib/api.local')
-      console.log('🗑️ Iniciando exclusão em massa de', selectedIds.length, 'relatórios')
       
       let successCount = 0
       let errorCount = 0
@@ -222,10 +221,8 @@ export default function AnalyticsPage() {
           successCount++
         } catch (error: any) {
           if (error?.message?.includes('404') || error?.response?.status === 404) {
-            console.log(`⚠️ Relatório ${id} já foi excluído (404) - removendo do cache local`)
             notFoundCount++
           } else {
-            console.error(`❌ Erro ao excluir relatório ${id}:`, error)
             errorCount++
           }
         }
@@ -248,7 +245,6 @@ export default function AnalyticsPage() {
       
       reportStore.syncFromApi()
     } catch (error) {
-      console.error('❌ Erro na exclusão em massa:', error)
       alert('Erro ao excluir relatórios')
     }
   }
@@ -260,8 +256,6 @@ export default function AnalyticsPage() {
       let totalImported = 0
       let totalSavedToDatabase = 0
       const errors: string[] = []
-
-      console.log('🔍 SMART IMPORT RELATÓRIOS: Processando resultado:', result)
 
       // Função para converter número de série do Excel para DateTime ISO
       const excelDateToISO = (value: any): string => {
@@ -293,16 +287,10 @@ export default function AnalyticsPage() {
         try {
           const data = item.isCorrected ? item.correctedData : item.data
           
-          console.log(`\n📋 SMART IMPORT RELATÓRIOS: Processando item ${itemNumber}/${result.valid.length}`)
-          console.log(`   Título: ${data.titulo || '(vazio)'}`)
-          console.log(`   Analista: ${data.analista || data.analistaId || '(vazio)'}`)
-          
           // Validar campos obrigatórios ANTES de processar
           if (!data.titulo || data.titulo.trim() === '') {
-            const errorMsg = `Item ${itemNumber}: Título é obrigatório`
-            console.error(`❌ ${errorMsg}`)
-            errors.push(errorMsg)
-            continue // Pular este item
+            errors.push(`Item ${itemNumber}: Título é obrigatório`)
+            continue
           }
           
           // Função para normalizar strings (remove acentos, espaços extras, converte para lowercase)
@@ -348,28 +336,7 @@ export default function AnalyticsPage() {
               }
             }
             
-            const foundItemName = foundItem ? `${foundItem.nome || foundItem[nameField]} (${foundItem.id})` : 'não encontrado'
-            console.log(`🔍 SMART IMPORT RELATÓRIOS: Buscando "${name}" (normalizado: "${searchNormalized}") em ${items.length} itens, encontrado: ${foundItemName}`)
-            
-            if (foundItem) {
-              console.log(`✅ SMART IMPORT RELATÓRIOS: Match encontrado - "${name}" -> "${foundItem.nome || foundItem[nameField]}" (${foundItem.id})`)
-            } else {
-              console.log(`❌ SMART IMPORT RELATÓRIOS: Nenhum match encontrado para "${name}"`)
-              if (process.env.NODE_ENV === 'development') {
-                console.log(`🔍 SMART IMPORT RELATÓRIOS: Itens disponíveis:`, items.map(i => i.nome || i[nameField]))
-              }
-            }
-            
             return foundItem?.id || ''
-          }
-
-          // Debug: verificar dados disponíveis apenas se necessário
-          if (process.env.NODE_ENV === 'development') {
-            console.log('🔍 SMART IMPORT RELATÓRIOS: Dados disponíveis para mapeamento:')
-            console.log('  - areas:', md.areas.length, 'itens')
-            console.log('  - clientes:', md.clientes.length, 'itens')
-            console.log('  - contratos:', md.contratos.length, 'itens')
-            console.log('  - analistas:', md.analistas.length, 'itens')
           }
 
           // Mapear dados para o formato de relatório
@@ -385,22 +352,11 @@ export default function AnalyticsPage() {
           const contratoCodigo = contratoId ? (md.contratos.find(c => c.id === contratoId)?.codigo || md.contratos.find(c => c.id === contratoId)?.numero || data.contrato || data.contratoId || '') : (data.contrato || data.contratoId || '')
           const analistaNome = analistaId ? (md.analistas.find(a => a.id === analistaId)?.nome || data.analista || data.analistaId || '') : (data.analista || data.analistaId || '')
 
-          // Debug: mapeamento de campos apenas em desenvolvimento
-          if (process.env.NODE_ENV === 'development') {
-            console.log('🔍 SMART IMPORT RELATÓRIOS: Mapeamento de campos:')
-            console.log('  - area:', data.area || data.areaId, '-> areaId:', areaId, '-> areaNome:', areaNome)
-            console.log('  - cliente:', data.cliente || data.clienteId, '-> clienteId:', clienteId, '-> clienteNome:', clienteNome)
-            console.log('  - contrato:', data.contrato || data.contratoId, '-> contratoId:', contratoId, '-> contratoCodigo:', contratoCodigo)
-            console.log('  - analista:', data.analista || data.analistaId, '-> analistaId:', analistaId, '-> analistaNome:', analistaNome)
-          }
-
           // Validar analista ANTES de criar relatorioData
           const analistaFinal = analistaNome && analistaNome.trim() !== '' ? analistaNome.trim() : (data.analista || data.analistaId || 'N/A')
           if (!analistaFinal || analistaFinal.trim() === '' || analistaFinal === 'N/A') {
-            const errorMsg = `Item ${itemNumber} (${data.titulo || 'sem título'}): Analista é obrigatório e não foi encontrado`
-            console.error(`❌ ${errorMsg}`)
-            errors.push(errorMsg)
-            continue // Pular este item
+            errors.push(`Item ${itemNumber} (${data.titulo || 'sem título'}): Analista é obrigatório e não foi encontrado`)
+            continue
           }
 
           const relatorioData = {
@@ -435,26 +391,15 @@ export default function AnalyticsPage() {
             }
           })
 
-          console.log(`🔍 SMART IMPORT RELATÓRIOS [Item ${itemNumber}]: Salvando relatório:`, {
-            titulo: relatorioData.titulo,
-            analista: relatorioData.analista,
-            status: relatorioData.status,
-            tipo: relatorioData.tipo
-          })
-
           // Salvar na API (usar /analytics que usa o modelo Report com todos os campos)
-          const savedRelatorio = await api.post('/analytics', relatorioData)
-          console.log(`✅ SMART IMPORT RELATÓRIOS [Item ${itemNumber}]: Relatório salvo com sucesso - ID: ${savedRelatorio.id}`)
+          await api.post('/analytics', relatorioData)
           
           totalImported++
           totalSavedToDatabase++
 
         } catch (error: any) {
           const errorDetails = error?.response?.data || error?.message || JSON.stringify(error)
-          const errorMsg = `Item ${itemNumber} (${item.isCorrected ? item.correctedData?.titulo : item.data?.titulo || 'sem título'}): ${errorDetails}`
-          console.error(`❌ SMART IMPORT RELATÓRIOS [Item ${itemNumber}]: Erro ao salvar relatório:`, error)
-          console.error(`❌ SMART IMPORT RELATÓRIOS [Item ${itemNumber}]: Detalhes do erro:`, errorDetails)
-          errors.push(errorMsg)
+          errors.push(`Item ${itemNumber} (${item.isCorrected ? item.correctedData?.titulo : item.data?.titulo || 'sem título'}): ${errorDetails}`)
         }
       }
 
@@ -465,12 +410,6 @@ export default function AnalyticsPage() {
 
       const totalFromResult = result.valid.length
       const successMessage = `${totalImported} de ${totalFromResult} relatórios processados, ${totalSavedToDatabase} salvos no banco de dados`
-      console.log(`✅ SMART IMPORT RELATÓRIOS: ${successMessage}`)
-      console.log(`🔍 SMART IMPORT RELATÓRIOS: Detalhes do processamento:`)
-      console.log(`  - Total de itens válidos no resultado: ${totalFromResult}`)
-      console.log(`  - Total de itens processados: ${totalImported}`)
-      console.log(`  - Total salvos no banco: ${totalSavedToDatabase}`)
-      console.log(`  - Total de erros: ${errors.length}`)
 
       // Mostrar notificação de sucesso
       if (totalSavedToDatabase > 0) {
@@ -478,7 +417,6 @@ export default function AnalyticsPage() {
       }
 
       if (errors.length > 0) {
-        console.warn('⚠️ SMART IMPORT RELATÓRIOS: Alguns erros ocorreram:', errors)
         alert(`⚠️ Alguns erros ocorreram:\n${errors.join('\n')}`)
       }
 
@@ -488,7 +426,6 @@ export default function AnalyticsPage() {
       }
 
     } catch (error) {
-      console.error('❌ SMART IMPORT RELATÓRIOS: Erro geral:', error)
       alert('Erro ao importar relatórios')
     }
   }
