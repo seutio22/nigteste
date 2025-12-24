@@ -286,9 +286,24 @@ export default function AnalyticsPage() {
       }
 
       // Processar itens válidos
-      for (const item of result.valid) {
+      for (let itemIndex = 0; itemIndex < result.valid.length; itemIndex++) {
+        const item = result.valid[itemIndex]
+        const itemNumber = itemIndex + 1
+        
         try {
           const data = item.isCorrected ? item.correctedData : item.data
+          
+          console.log(`\n📋 SMART IMPORT RELATÓRIOS: Processando item ${itemNumber}/${result.valid.length}`)
+          console.log(`   Título: ${data.titulo || '(vazio)'}`)
+          console.log(`   Analista: ${data.analista || data.analistaId || '(vazio)'}`)
+          
+          // Validar campos obrigatórios ANTES de processar
+          if (!data.titulo || data.titulo.trim() === '') {
+            const errorMsg = `Item ${itemNumber}: Título é obrigatório`
+            console.error(`❌ ${errorMsg}`)
+            errors.push(errorMsg)
+            continue // Pular este item
+          }
           
           // Função para normalizar strings (remove acentos, espaços extras, converte para lowercase)
           const normalizeString = (str: string) => {
@@ -379,12 +394,21 @@ export default function AnalyticsPage() {
             console.log('  - analista:', data.analista || data.analistaId, '-> analistaId:', analistaId, '-> analistaNome:', analistaNome)
           }
 
+          // Validar analista ANTES de criar relatorioData
+          const analistaFinal = analistaNome && analistaNome.trim() !== '' ? analistaNome.trim() : (data.analista || data.analistaId || 'N/A')
+          if (!analistaFinal || analistaFinal.trim() === '' || analistaFinal === 'N/A') {
+            const errorMsg = `Item ${itemNumber} (${data.titulo || 'sem título'}): Analista é obrigatório e não foi encontrado`
+            console.error(`❌ ${errorMsg}`)
+            errors.push(errorMsg)
+            continue // Pular este item
+          }
+
           const relatorioData = {
             // Campos obrigatórios
-            titulo: data.titulo || '',
+            titulo: data.titulo.trim(), // Já validado acima
             status: data.status || 'pendente',
             tipo: data.tipo || 'mensal',
-            analista: analistaNome || 'N/A', // Campo obrigatório no modelo Report
+            analista: analistaFinal, // Campo obrigatório no modelo Report - já validado
             dataInicio: excelDateToISO(data.dataInicio || data.dataInicial) || new Date().toISOString().split('T')[0],
             dataEntrega: excelDateToISO(data.dataEntrega || data.dataEntregaPrevista) || new Date().toISOString().split('T')[0],
             
@@ -392,9 +416,9 @@ export default function AnalyticsPage() {
             descricao: data.descricao || '',
             ticket: data.ticket ? String(data.ticket) : `REL-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
             total: data.total ? String(data.total) : undefined,
-            ...(areaNome && { area: areaNome }),
-            ...(clienteNome && { cliente: clienteNome }),
-            ...(contratoCodigo && { contrato: contratoCodigo }),
+            ...(areaNome && areaNome.trim() !== '' && { area: areaNome }),
+            ...(clienteNome && clienteNome.trim() !== '' && { cliente: clienteNome }),
+            ...(contratoCodigo && contratoCodigo.trim() !== '' && { contrato: contratoCodigo }),
             dataFinalizacao: excelDateToISO(data.dataFinalizacao || data.dataFinal),
             prioridade: data.prioridade || 'media',
             solicitante: data.solicitante || '',
@@ -404,25 +428,33 @@ export default function AnalyticsPage() {
             observacoes: data.observacoes || data.observacao || ''
           }
 
-          // Remover campos vazios
+          // Remover campos vazios (mas manter analista e titulo que são obrigatórios)
           Object.keys(relatorioData).forEach(key => {
-            if (relatorioData[key] === '' || relatorioData[key] === null || relatorioData[key] === undefined) {
+            if (key !== 'analista' && key !== 'titulo' && (relatorioData[key] === '' || relatorioData[key] === null || relatorioData[key] === undefined)) {
               delete relatorioData[key]
             }
           })
 
-          console.log('🔍 SMART IMPORT RELATÓRIOS: Salvando relatório:', relatorioData)
+          console.log(`🔍 SMART IMPORT RELATÓRIOS [Item ${itemNumber}]: Salvando relatório:`, {
+            titulo: relatorioData.titulo,
+            analista: relatorioData.analista,
+            status: relatorioData.status,
+            tipo: relatorioData.tipo
+          })
 
           // Salvar na API (usar /analytics que usa o modelo Report com todos os campos)
           const savedRelatorio = await api.post('/analytics', relatorioData)
-          console.log('✅ SMART IMPORT RELATÓRIOS: Relatório salvo:', savedRelatorio.id)
+          console.log(`✅ SMART IMPORT RELATÓRIOS [Item ${itemNumber}]: Relatório salvo com sucesso - ID: ${savedRelatorio.id}`)
           
           totalImported++
           totalSavedToDatabase++
 
-        } catch (error) {
-          console.error('❌ SMART IMPORT RELATÓRIOS: Erro ao salvar relatório:', error)
-          errors.push(`Erro ao salvar relatório: ${error instanceof Error ? error.message : 'Erro desconhecido'}`)
+        } catch (error: any) {
+          const errorDetails = error?.response?.data || error?.message || JSON.stringify(error)
+          const errorMsg = `Item ${itemNumber} (${item.isCorrected ? item.correctedData?.titulo : item.data?.titulo || 'sem título'}): ${errorDetails}`
+          console.error(`❌ SMART IMPORT RELATÓRIOS [Item ${itemNumber}]: Erro ao salvar relatório:`, error)
+          console.error(`❌ SMART IMPORT RELATÓRIOS [Item ${itemNumber}]: Detalhes do erro:`, errorDetails)
+          errors.push(errorMsg)
         }
       }
 
