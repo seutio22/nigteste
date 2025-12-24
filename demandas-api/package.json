@@ -15,7 +15,8 @@
     "railway:start": "node start-robust.js",
     "setup:postgresql": "node setup-postgresql.js",
     "migrate:normalize-status": "ts-node src/scripts/normalize-status.ts",
-    "bulk-update-status": "ts-node src/scripts/bulk-update-status.ts"
+    "bulk-update-status": "ts-node src/scripts/bulk-update-status.ts",
+    "fix:project-dates": "node fix-project-dates-timezone.js"
   },
   "keywords": [],
   "author": "",
