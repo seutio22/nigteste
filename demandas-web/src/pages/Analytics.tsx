@@ -261,73 +261,193 @@ export default function AnalyticsPage() {
       let totalSavedToDatabase = 0
       const errors: string[] = []
 
-      const normalizeString = (str: string) => {
-        if (!str) return ''
-        return String(str).toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ')
+      console.log('🔍 SMART IMPORT RELATÓRIOS: Processando resultado:', result)
+
+      // Função para converter número de série do Excel para DateTime ISO
+      const excelDateToISO = (value: any): string => {
+        if (!value) return ''
+        
+        // Se já é uma string de data válida, retornar como está
+        if (typeof value === 'string' && value.includes('-')) {
+          return value
+        }
+        
+        // Se é um número (serial do Excel)
+        if (typeof value === 'number' || !isNaN(Number(value))) {
+          const serialNumber = Number(value)
+          // Excel epoch: 1900-01-01 (mas com bug, Excel considera 1900 como ano bissexto)
+          const excelEpoch = new Date(1900, 0, 1)
+          const days = serialNumber - 2 // Ajuste pelo bug do Excel
+          const date = new Date(excelEpoch.getTime() + days * 24 * 60 * 60 * 1000)
+          return date.toISOString().split('T')[0] // Retornar apenas a data (YYYY-MM-DD)
+        }
+        
+        return ''
       }
 
-      const findIdByName = (name: string, items: any[], nameField: string = 'nome') => {
-        if (!name) return ''
-        const searchNormalized = normalizeString(String(name))
-        const item = items.find(item => {
-          const itemNameNormalized = normalizeString(item[nameField] || item.nome || '')
-          return itemNameNormalized === searchNormalized
-        })
-        return item?.id || ''
-      }
-
+      // Processar itens válidos
       for (const item of result.valid) {
         try {
           const data = item.isCorrected ? item.correctedData : item.data
+          
+          // Função para normalizar strings (remove acentos, espaços extras, converte para lowercase)
+          const normalizeString = (str: string) => {
+            if (!str) return ''
+            return String(str)
+              .toLowerCase()
+              .trim()
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '') // Remove acentos
+              .replace(/\s+/g, ' ') // Normaliza espaços
+          }
+
+          // Função para encontrar ID por nome (com normalização completa e correspondência flexível)
+          const findIdByName = (name: string, items: any[], nameField: string = 'nome') => {
+            if (!name) return ''
+            
+            const searchNormalized = normalizeString(String(name))
+            
+            // Primeiro, tentar correspondência exata (normalizada)
+            let foundItem = items.find(item => {
+              const itemNameNormalized = normalizeString(item[nameField] || item.nome || '')
+              return itemNameNormalized === searchNormalized
+            })
+            
+            // Se não encontrou correspondência exata, tentar correspondência parcial
+            if (!foundItem) {
+              foundItem = items.find(item => {
+                const itemNameNormalized = normalizeString(item[nameField] || item.nome || '')
+                // Verificar se o termo de busca está contido no nome do item
+                return itemNameNormalized.includes(searchNormalized) || searchNormalized.includes(itemNameNormalized)
+              })
+            }
+            
+            // Se ainda não encontrou, tentar correspondência por palavras-chave
+            if (!foundItem) {
+              const searchWords = searchNormalized.split(' ').filter(word => word.length > 2)
+              if (searchWords.length > 0) {
+                foundItem = items.find(item => {
+                  const itemNameNormalized = normalizeString(item[nameField] || item.nome || '')
+                  return searchWords.some(word => itemNameNormalized.includes(word))
+                })
+              }
+            }
+            
+            const foundItemName = foundItem ? `${foundItem.nome || foundItem[nameField]} (${foundItem.id})` : 'não encontrado'
+            console.log(`🔍 SMART IMPORT RELATÓRIOS: Buscando "${name}" (normalizado: "${searchNormalized}") em ${items.length} itens, encontrado: ${foundItemName}`)
+            
+            if (foundItem) {
+              console.log(`✅ SMART IMPORT RELATÓRIOS: Match encontrado - "${name}" -> "${foundItem.nome || foundItem[nameField]}" (${foundItem.id})`)
+            } else {
+              console.log(`❌ SMART IMPORT RELATÓRIOS: Nenhum match encontrado para "${name}"`)
+              if (process.env.NODE_ENV === 'development') {
+                console.log(`🔍 SMART IMPORT RELATÓRIOS: Itens disponíveis:`, items.map(i => i.nome || i[nameField]))
+              }
+            }
+            
+            return foundItem?.id || ''
+          }
+
+          // Debug: verificar dados disponíveis apenas se necessário
+          if (process.env.NODE_ENV === 'development') {
+            console.log('🔍 SMART IMPORT RELATÓRIOS: Dados disponíveis para mapeamento:')
+            console.log('  - areas:', md.areas.length, 'itens')
+            console.log('  - clientes:', md.clientes.length, 'itens')
+            console.log('  - contratos:', md.contratos.length, 'itens')
+            console.log('  - analistas:', md.analistas.length, 'itens')
+          }
+
+          // Mapear dados para o formato de relatório
+          const areaId = findIdByName(data.area || data.areaId, md.areas)
+          const clienteId = findIdByName(data.cliente || data.clienteId, md.clientes)
+          const contratoId = findIdByName(data.contrato || data.contratoId, md.contratos, 'codigo')
+          const analistaId = findIdByName(data.analista || data.analistaId, md.analistas)
+
+          // Debug: mapeamento de campos apenas em desenvolvimento
+          if (process.env.NODE_ENV === 'development') {
+            console.log('🔍 SMART IMPORT RELATÓRIOS: Mapeamento de campos:')
+            console.log('  - area:', data.area || data.areaId, '-> areaId:', areaId)
+            console.log('  - cliente:', data.cliente || data.clienteId, '-> clienteId:', clienteId)
+            console.log('  - contrato:', data.contrato || data.contratoId, '-> contratoId:', contratoId)
+            console.log('  - analista:', data.analista || data.analistaId, '-> analistaId:', analistaId)
+          }
 
           const relatorioData = {
+            // Campos obrigatórios
             titulo: data.titulo || '',
-            descricao: data.descricao || '',
-            ticket: data.ticket || `REL-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-            total: data.total || 0,
-            tipo: data.tipo || 'mensal',
             status: data.status || 'pendente',
-            analista: data.analista || '',
-            areaId: findIdByName(data.area || data.areaId, md.areas) || '',
-            clienteId: findIdByName(data.cliente || data.clienteId, md.clientes) || '',
-            contratoId: findIdByName(data.contrato || data.contratoId, md.contratos, 'codigo') || '',
-            dataInicio: data.dataInicio || new Date().toISOString().split('T')[0],
-            dataFinalizacao: data.dataFinalizacao,
-            dataEntrega: data.dataEntrega || new Date().toISOString().split('T')[0],
+            tipo: data.tipo || 'mensal',
+            dataInicio: excelDateToISO(data.dataInicio || data.dataInicial) || new Date().toISOString().split('T')[0],
+            dataEntrega: excelDateToISO(data.dataEntrega || data.dataEntregaPrevista) || new Date().toISOString().split('T')[0],
+            
+            // Campos opcionais
+            descricao: data.descricao || '',
+            ticket: data.ticket ? String(data.ticket) : `REL-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+            total: data.total || 0,
+            ...(analistaId && { analistaId }),
+            ...(areaId && { areaId }),
+            ...(clienteId && { clienteId }),
+            ...(contratoId && { contratoId }),
+            dataFinalizacao: excelDateToISO(data.dataFinalizacao || data.dataFinal),
             prioridade: data.prioridade || 'media',
             solicitante: data.solicitante || '',
             solicitacao: data.solicitacao || '',
             tipoSolicitacao: data.tipoSolicitacao || '',
             tipoServico: data.tipoServico || '',
-            observacoes: data.observacoes || ''
+            observacoes: data.observacoes || data.observacao || ''
           }
 
+          // Remover campos vazios
           Object.keys(relatorioData).forEach(key => {
             if (relatorioData[key] === '' || relatorioData[key] === null || relatorioData[key] === undefined) {
               delete relatorioData[key]
             }
           })
 
+          console.log('🔍 SMART IMPORT RELATÓRIOS: Salvando relatório:', relatorioData)
+
+          // Salvar na API
           const savedRelatorio = await api.post('/relatorios', relatorioData)
+          console.log('✅ SMART IMPORT RELATÓRIOS: Relatório salvo:', savedRelatorio.id)
+          
           totalImported++
           totalSavedToDatabase++
+
         } catch (error) {
           console.error('❌ SMART IMPORT RELATÓRIOS: Erro ao salvar relatório:', error)
           errors.push(`Erro ao salvar relatório: ${error instanceof Error ? error.message : 'Erro desconhecido'}`)
         }
       }
 
+      // Atualizar store local
       if (totalSavedToDatabase > 0) {
         await reportStore.syncFromApi()
       }
 
-      const successMessage = `${totalImported} relatórios processados, ${totalSavedToDatabase} salvos no banco de dados`
+      const totalFromResult = result.valid.length
+      const successMessage = `${totalImported} de ${totalFromResult} relatórios processados, ${totalSavedToDatabase} salvos no banco de dados`
+      console.log(`✅ SMART IMPORT RELATÓRIOS: ${successMessage}`)
+      console.log(`🔍 SMART IMPORT RELATÓRIOS: Detalhes do processamento:`)
+      console.log(`  - Total de itens válidos no resultado: ${totalFromResult}`)
+      console.log(`  - Total de itens processados: ${totalImported}`)
+      console.log(`  - Total salvos no banco: ${totalSavedToDatabase}`)
+      console.log(`  - Total de erros: ${errors.length}`)
+
+      // Mostrar notificação de sucesso
       if (totalSavedToDatabase > 0) {
         alert(`✅ ${successMessage}`)
       }
+
       if (errors.length > 0) {
+        console.warn('⚠️ SMART IMPORT RELATÓRIOS: Alguns erros ocorreram:', errors)
         alert(`⚠️ Alguns erros ocorreram:\n${errors.join('\n')}`)
       }
+
+      // Se não houve sucessos, mostrar mensagem informativa
+      if (totalSavedToDatabase === 0 && totalFromResult > 0) {
+        alert(`⚠️ Nenhum relatório foi salvo. Verifique os logs do console para mais detalhes.`)
+      }
+
     } catch (error) {
       console.error('❌ SMART IMPORT RELATÓRIOS: Erro geral:', error)
       alert('Erro ao importar relatórios')
