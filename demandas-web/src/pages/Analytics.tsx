@@ -218,7 +218,7 @@ export default function AnalyticsPage() {
       
       for (const id of selectedIds) {
         try {
-          await api.delete(`/relatorios/${id}`)
+          await api.delete(`/analytics/${id}`)
           successCount++
         } catch (error: any) {
           if (error?.message?.includes('404') || error?.response?.status === 404) {
@@ -358,18 +358,25 @@ export default function AnalyticsPage() {
           }
 
           // Mapear dados para o formato de relatório
+          // O modelo Report espera strings (nomes), não IDs
           const areaId = findIdByName(data.area || data.areaId, md.areas)
           const clienteId = findIdByName(data.cliente || data.clienteId, md.clientes)
           const contratoId = findIdByName(data.contrato || data.contratoId, md.contratos, 'codigo')
           const analistaId = findIdByName(data.analista || data.analistaId, md.analistas)
 
+          // Converter IDs para nomes (o modelo Report espera strings, não IDs)
+          const areaNome = areaId ? (md.areas.find(a => a.id === areaId)?.nome || data.area || data.areaId || '') : (data.area || data.areaId || '')
+          const clienteNome = clienteId ? (md.clientes.find(c => c.id === clienteId)?.nome || data.cliente || data.clienteId || '') : (data.cliente || data.clienteId || '')
+          const contratoCodigo = contratoId ? (md.contratos.find(c => c.id === contratoId)?.codigo || md.contratos.find(c => c.id === contratoId)?.numero || data.contrato || data.contratoId || '') : (data.contrato || data.contratoId || '')
+          const analistaNome = analistaId ? (md.analistas.find(a => a.id === analistaId)?.nome || data.analista || data.analistaId || '') : (data.analista || data.analistaId || '')
+
           // Debug: mapeamento de campos apenas em desenvolvimento
           if (process.env.NODE_ENV === 'development') {
             console.log('🔍 SMART IMPORT RELATÓRIOS: Mapeamento de campos:')
-            console.log('  - area:', data.area || data.areaId, '-> areaId:', areaId)
-            console.log('  - cliente:', data.cliente || data.clienteId, '-> clienteId:', clienteId)
-            console.log('  - contrato:', data.contrato || data.contratoId, '-> contratoId:', contratoId)
-            console.log('  - analista:', data.analista || data.analistaId, '-> analistaId:', analistaId)
+            console.log('  - area:', data.area || data.areaId, '-> areaId:', areaId, '-> areaNome:', areaNome)
+            console.log('  - cliente:', data.cliente || data.clienteId, '-> clienteId:', clienteId, '-> clienteNome:', clienteNome)
+            console.log('  - contrato:', data.contrato || data.contratoId, '-> contratoId:', contratoId, '-> contratoCodigo:', contratoCodigo)
+            console.log('  - analista:', data.analista || data.analistaId, '-> analistaId:', analistaId, '-> analistaNome:', analistaNome)
           }
 
           const relatorioData = {
@@ -377,17 +384,17 @@ export default function AnalyticsPage() {
             titulo: data.titulo || '',
             status: data.status || 'pendente',
             tipo: data.tipo || 'mensal',
+            analista: analistaNome || 'N/A', // Campo obrigatório no modelo Report
             dataInicio: excelDateToISO(data.dataInicio || data.dataInicial) || new Date().toISOString().split('T')[0],
             dataEntrega: excelDateToISO(data.dataEntrega || data.dataEntregaPrevista) || new Date().toISOString().split('T')[0],
             
             // Campos opcionais
             descricao: data.descricao || '',
             ticket: data.ticket ? String(data.ticket) : `REL-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-            total: data.total || 0,
-            ...(analistaId && { analistaId }),
-            ...(areaId && { areaId }),
-            ...(clienteId && { clienteId }),
-            ...(contratoId && { contratoId }),
+            total: data.total ? String(data.total) : undefined,
+            ...(areaNome && { area: areaNome }),
+            ...(clienteNome && { cliente: clienteNome }),
+            ...(contratoCodigo && { contrato: contratoCodigo }),
             dataFinalizacao: excelDateToISO(data.dataFinalizacao || data.dataFinal),
             prioridade: data.prioridade || 'media',
             solicitante: data.solicitante || '',
@@ -406,8 +413,8 @@ export default function AnalyticsPage() {
 
           console.log('🔍 SMART IMPORT RELATÓRIOS: Salvando relatório:', relatorioData)
 
-          // Salvar na API
-          const savedRelatorio = await api.post('/relatorios', relatorioData)
+          // Salvar na API (usar /analytics que usa o modelo Report com todos os campos)
+          const savedRelatorio = await api.post('/analytics', relatorioData)
           console.log('✅ SMART IMPORT RELATÓRIOS: Relatório salvo:', savedRelatorio.id)
           
           totalImported++
