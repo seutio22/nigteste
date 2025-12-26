@@ -121,10 +121,15 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
 
       // Encontrar a aba correta
       // Para Analytics, procurar por "relatório", "relatorio" ou "analytics"
+      // Para Reajuste, procurar por "reajuste" ou "reajustes"
       const entityTypeLower = config.entityType.toLowerCase()
-      const searchTerms = entityTypeLower.includes('relatório') || entityTypeLower.includes('relatorio') || entityTypeLower.includes('analytics')
-        ? ['relatório', 'relatorio', 'analytics', 'report']
-        : [entityTypeLower]
+      let searchTerms: string[] = [entityTypeLower]
+      
+      if (entityTypeLower.includes('relatório') || entityTypeLower.includes('relatorio') || entityTypeLower.includes('analytics')) {
+        searchTerms = ['relatório', 'relatorio', 'analytics', 'report']
+      } else if (entityTypeLower.includes('reajuste') || entityTypeLower.includes('reajustes')) {
+        searchTerms = ['reajuste', 'reajustes']
+      }
       
       const sheetName = workbook.SheetNames.find(name => {
         const nameLower = name.toLowerCase()
@@ -514,6 +519,49 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
                 console.log(`🔍 SMART IMPORTER: Mapeado observacoes: ${value}`)
               } else {
                 console.log(`🔍 SMART IMPORTER: Header não mapeado para relatório: "${cleanHeader}" = "${value}"`)
+              }
+            } else if (config.entityType.toLowerCase().includes('reajuste') || config.entityType.toLowerCase().includes('reajustes')) {
+              // Mapeamento específico para reajustes
+              if (cleanHeader === 'mes' || cleanHeader === 'mês') {
+                item.mes = value
+              } else if (cleanHeader === 'ano') {
+                item.ano = value
+              } else if (cleanHeader === 'status') {
+                item.status = value
+              } else if (cleanHeader === 'operadora' || cleanHeader === 'operadoraid' || cleanHeader === 'operadorald') {
+                item.operadora = value
+              } else if (cleanHeader === 'responsavelanalista' || cleanHeader === 'responsávelanalista' || cleanHeader === 'analista' || cleanHeader === 'analistaid' || cleanHeader === 'analistald') {
+                item.responsavelAnalista = value
+              } else if (cleanHeader === 'cliente' || cleanHeader === 'clienteid' || cleanHeader === 'clienteld') {
+                item.cliente = value
+              } else if (cleanHeader === 'contrato' || cleanHeader === 'contratoid' || cleanHeader === 'contratold') {
+                item.contrato = value
+              } else if (cleanHeader === 'produto' || cleanHeader === 'produtoid' || cleanHeader === 'produtold') {
+                item.produto = value
+              } else if (cleanHeader === 'datainicio' || cleanHeader === 'datainicial' || cleanHeader === 'datainício' || cleanHeader === 'datainícial') {
+                item.dataInicio = value
+              } else if (cleanHeader === 'datafim' || cleanHeader === 'datafinal' || cleanHeader === 'datafinalizacao' || cleanHeader === 'datafinalização') {
+                item.dataFim = value
+              } else if (cleanHeader === 'filial') {
+                item.filial = value
+              } else if (cleanHeader === 'ticket') {
+                item.ticket = value
+              } else if (cleanHeader === 'solicitante') {
+                item.solicitante = value
+              } else if (cleanHeader === 'qualidade') {
+                item.qualidade = value
+              } else if (cleanHeader === 'qualidadeinformacao' || cleanHeader === 'qualidadeinformação') {
+                item.qualidadeInformacao = value
+              } else if (cleanHeader === 'planos') {
+                item.planos = value
+              } else if (cleanHeader === 'responsavelconta' || cleanHeader === 'responsávelconta') {
+                item.responsavelConta = value
+              } else if (cleanHeader === 'dataatualizacao' || cleanHeader === 'dataatualização') {
+                item.dataAtualizacao = value
+              } else if (cleanHeader === 'itenspendentes' || cleanHeader === 'itens_pendentes') {
+                item.itensPendentes = value
+              } else if (cleanHeader === 'itensconcluidos' || cleanHeader === 'itens_concluidos') {
+                item.itensConcluidos = value
               }
             } else {
               // Para outras entidades, usar mapeamento genérico
