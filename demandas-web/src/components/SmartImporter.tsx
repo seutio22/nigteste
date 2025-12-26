@@ -564,10 +564,15 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
                 item.itensConcluidos = value
               } else {
                 // Fallback: aceitar qualquer campo não mapeado para Reajuste
-                // Usar o header original (com espaços e acentos) como chave
+                // Tentar usar o header original primeiro, depois o limpo
                 const originalHeader = header?.toString().trim() || ''
                 if (originalHeader) {
+                  // Usar header original (preserva espaços e acentos)
                   item[originalHeader] = value
+                  // Também adicionar com header limpo para compatibilidade
+                  if (cleanHeader && cleanHeader !== originalHeader.toLowerCase()) {
+                    item[cleanHeader] = value
+                  }
                 }
               }
             } else {
