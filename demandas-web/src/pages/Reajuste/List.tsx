@@ -207,8 +207,6 @@ export default function ReajusteListPage() {
       let totalSavedToDatabase = 0
       const errors: string[] = []
 
-      console.log('🔍 SMART IMPORT REAJUSTES: Processando resultado:', result)
-
       // Função para converter número de série do Excel para DateTime ISO
       const excelDateToISO = (value: any): string => {
         if (!value) return ''
@@ -232,7 +230,10 @@ export default function ReajusteListPage() {
       }
 
       // Processar itens válidos
-      for (const item of result.valid) {
+      for (let itemIndex = 0; itemIndex < result.valid.length; itemIndex++) {
+        const item = result.valid[itemIndex]
+        const itemNumber = itemIndex + 1
+        
         try {
           const data = item.isCorrected ? item.correctedData : item.data
           
@@ -254,14 +255,14 @@ export default function ReajusteListPage() {
             const searchNormalized = normalizeString(String(name))
             
             // Primeiro, tentar correspondência exata (normalizada)
-            let item = items.find(item => {
+            let foundItem = items.find(item => {
               const itemNameNormalized = normalizeString(item[nameField] || item.nome || '')
               return itemNameNormalized === searchNormalized
             })
             
             // Se não encontrou correspondência exata, tentar correspondência parcial
-            if (!item) {
-              item = items.find(item => {
+            if (!foundItem) {
+              foundItem = items.find(item => {
                 const itemNameNormalized = normalizeString(item[nameField] || item.nome || '')
                 // Verificar se o termo de busca está contido no nome do item
                 return itemNameNormalized.includes(searchNormalized) || searchNormalized.includes(itemNameNormalized)
@@ -269,37 +270,17 @@ export default function ReajusteListPage() {
             }
             
             // Se ainda não encontrou, tentar correspondência por palavras-chave
-            if (!item) {
+            if (!foundItem) {
               const searchWords = searchNormalized.split(' ').filter(word => word.length > 2)
               if (searchWords.length > 0) {
-                item = items.find(item => {
+                foundItem = items.find(item => {
                   const itemNameNormalized = normalizeString(item[nameField] || item.nome || '')
                   return searchWords.some(word => itemNameNormalized.includes(word))
                 })
               }
             }
             
-            const foundItem = item ? `${item.nome || item[nameField]} (${item.id})` : 'não encontrado'
-            console.log(`🔍 SMART IMPORT REAJUSTES: Buscando "${name}" (normalizado: "${searchNormalized}") em ${items.length} itens, encontrado: ${foundItem}`)
-            
-            if (item) {
-              console.log(`✅ SMART IMPORT REAJUSTES: Match encontrado - "${name}" -> "${item.nome || item[nameField]}" (${item.id})`)
-            } else {
-              console.log(`❌ SMART IMPORT REAJUSTES: Nenhum match encontrado para "${name}"`)
-              console.log(`🔍 SMART IMPORT REAJUSTES: Itens disponíveis:`, items.map(i => i.nome || i[nameField]))
-            }
-            
-            return item?.id || ''
-          }
-
-          // Debug: verificar dados disponíveis apenas se necessário
-          if (process.env.NODE_ENV === 'development') {
-            console.log('🔍 SMART IMPORT REAJUSTES: Dados disponíveis para mapeamento:')
-            console.log('  - operadoras:', md.operadoras.length, 'itens')
-            console.log('  - analistas:', md.analistas.length, 'itens')
-            console.log('  - clientes:', md.clientes.length, 'itens')
-            console.log('  - contratos:', md.contratos.length, 'itens')
-            console.log('  - produtos:', md.produtos.length, 'itens')
+            return foundItem?.id || ''
           }
 
           // Mapear dados para o formato de reajuste
@@ -308,16 +289,6 @@ export default function ReajusteListPage() {
           const clienteId = findIdByName(data.cliente || data.clienteId, md.clientes)
           const contratoId = findIdByName(data.contrato || data.contratoId, md.contratos, 'codigo')
           const produtoId = findIdByName(data.produto || data.produtoId, md.produtos)
-
-          // Debug: mapeamento de campos apenas em desenvolvimento
-          if (process.env.NODE_ENV === 'development') {
-            console.log('🔍 SMART IMPORT REAJUSTES: Mapeamento de campos:')
-            console.log('  - operadora:', data.operadora, '-> operadoraId:', operadoraId)
-            console.log('  - responsavelAnalista:', data.responsavelAnalista || data.analista, '-> responsavelAnalistaId:', responsavelAnalistaId)
-            console.log('  - cliente:', data.cliente, '-> clienteId:', clienteId)
-            console.log('  - contrato:', data.contrato, '-> contratoId:', contratoId)
-            console.log('  - produto:', data.produto, '-> produtoId:', produtoId)
-          }
 
           const reajusteData = {
             // Campos obrigatórios
@@ -328,7 +299,7 @@ export default function ReajusteListPage() {
             ...(responsavelAnalistaId && { responsavelAnalistaId }),
             
             // Campos opcionais
-            dataInicio: excelDateToISO(data.dataInicio || data.dataInicial) || new Date().toISOString().split('T')[0],
+            dataInicio: excelDateToISO(data.dataInicio || data.dataInicial) || new Date().toISOString(),
             dataFim: excelDateToISO(data.dataFim || data.dataFinal || data.dataFinalizacao),
             ...(clienteId && { clienteId }),
             ...(contratoId && { contratoId }),
@@ -340,7 +311,7 @@ export default function ReajusteListPage() {
             qualidadeInformacao: data.qualidadeInformacao || '',
             planos: data.planos || '',
             responsavelConta: data.responsavelConta || '',
-            dataAtualizacao: excelDateToISO(data.dataAtualizacao) || new Date().toISOString().split('T')[0],
+            dataAtualizacao: excelDateToISO(data.dataAtualizacao) || new Date().toISOString(),
             itensPendentes: data.itensPendentes || 0,
             itensConcluidos: data.itensConcluidos || 0
           }
@@ -352,18 +323,15 @@ export default function ReajusteListPage() {
             }
           })
 
-          console.log('🔍 SMART IMPORT REAJUSTES: Salvando reajuste:', reajusteData)
-
           // Salvar na API
-          const savedReajuste = await api.post('/reajustes', reajusteData)
-          console.log('✅ SMART IMPORT REAJUSTES: Reajuste salvo:', savedReajuste.id)
+          await api.post('/reajustes', reajusteData)
           
           totalImported++
           totalSavedToDatabase++
 
-        } catch (error) {
-          console.error('❌ SMART IMPORT REAJUSTES: Erro ao salvar reajuste:', error)
-          errors.push(`Erro ao salvar reajuste: ${error instanceof Error ? error.message : 'Erro desconhecido'}`)
+        } catch (error: any) {
+          const errorDetails = error?.response?.data || error?.message || JSON.stringify(error)
+          errors.push(`Item ${itemNumber} (${item.isCorrected ? item.correctedData?.ticket || item.correctedData?.mes + '/' + item.correctedData?.ano : item.data?.ticket || item.data?.mes + '/' + item.data?.ano || 'sem identificação'}): ${errorDetails}`)
         }
       }
 
@@ -374,12 +342,6 @@ export default function ReajusteListPage() {
 
       const totalFromResult = result.valid.length
       const successMessage = `${totalImported} de ${totalFromResult} reajustes processados, ${totalSavedToDatabase} salvos no banco de dados`
-      console.log(`✅ SMART IMPORT REAJUSTES: ${successMessage}`)
-      console.log(`🔍 SMART IMPORT REAJUSTES: Detalhes do processamento:`)
-      console.log(`  - Total de itens válidos no resultado: ${totalFromResult}`)
-      console.log(`  - Total de itens processados: ${totalImported}`)
-      console.log(`  - Total salvos no banco: ${totalSavedToDatabase}`)
-      console.log(`  - Total de erros: ${errors.length}`)
 
       // Mostrar notificação de sucesso
       if (totalSavedToDatabase > 0) {
@@ -387,17 +349,15 @@ export default function ReajusteListPage() {
       }
 
       if (errors.length > 0) {
-        console.warn('⚠️ SMART IMPORT REAJUSTES: Alguns erros ocorreram:', errors)
         alert(`⚠️ Alguns erros ocorreram:\n${errors.join('\n')}`)
       }
 
       // Se não houve sucessos, mostrar mensagem informativa
       if (totalSavedToDatabase === 0 && totalFromResult > 0) {
-        alert(`⚠️ Nenhum reajuste foi salvo. Verifique os logs do console para mais detalhes.`)
+        alert(`⚠️ Nenhum reajuste foi salvo. Verifique os erros acima.`)
       }
 
     } catch (error) {
-      console.error('❌ SMART IMPORT REAJUSTES: Erro geral:', error)
       alert('Erro ao importar reajustes')
     }
   }
