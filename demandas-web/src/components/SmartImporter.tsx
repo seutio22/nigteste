@@ -174,7 +174,56 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
             const entityTypeLower = config.entityType.toLowerCase()
             const isReajuste = entityTypeLower.includes('reajuste') || entityTypeLower.includes('reajustes')
             
-            if (config.entityType.toLowerCase().includes('manutenções') || config.entityType.toLowerCase().includes('manutencoes')) {
+            if (isReajuste) {
+              // Mapeamento específico para reajustes
+              if (cleanHeader === 'mes' || cleanHeader === 'mês') {
+                item.mes = value
+              } else if (cleanHeader === 'ano') {
+                item.ano = value
+              } else if (cleanHeader === 'status') {
+                item.status = value
+              } else if (cleanHeader === 'operadora' || cleanHeader === 'operadoraid' || cleanHeader === 'operadorald') {
+                item.operadora = value
+              } else if (cleanHeader === 'responsavelanalista' || cleanHeader === 'responsávelanalista' || cleanHeader === 'analista' || cleanHeader === 'analistaid' || cleanHeader === 'analistald') {
+                item.responsavelAnalista = value
+              } else if (cleanHeader === 'cliente' || cleanHeader === 'clienteid' || cleanHeader === 'clienteld') {
+                item.cliente = value
+              } else if (cleanHeader === 'contrato' || cleanHeader === 'contratoid' || cleanHeader === 'contratold') {
+                item.contrato = value
+              } else if (cleanHeader === 'produto' || cleanHeader === 'produtoid' || cleanHeader === 'produtold') {
+                item.produto = value
+              } else if (cleanHeader === 'datainicio' || cleanHeader === 'datainicial' || cleanHeader === 'datainício' || cleanHeader === 'datainícial') {
+                item.dataInicio = value
+              } else if (cleanHeader === 'datafim' || cleanHeader === 'datafinal' || cleanHeader === 'datafinalizacao' || cleanHeader === 'datafinalização') {
+                item.dataFim = value
+              } else if (cleanHeader === 'filial') {
+                item.filial = value
+              } else if (cleanHeader === 'ticket') {
+                item.ticket = value
+              } else if (cleanHeader === 'solicitante') {
+                item.solicitante = value
+              } else if (cleanHeader === 'qualidade') {
+                item.qualidade = value
+              } else if (cleanHeader === 'qualidadeinformacao' || cleanHeader === 'qualidadeinformação') {
+                item.qualidadeInformacao = value
+              } else if (cleanHeader === 'planos') {
+                item.planos = value
+              } else if (cleanHeader === 'responsavelconta' || cleanHeader === 'responsávelconta') {
+                item.responsavelConta = value
+              } else if (cleanHeader === 'dataatualizacao' || cleanHeader === 'dataatualização') {
+                item.dataAtualizacao = value
+              } else if (cleanHeader === 'itenspendentes' || cleanHeader === 'itens_pendentes') {
+                item.itensPendentes = value
+              } else if (cleanHeader === 'itensconcluidos' || cleanHeader === 'itens_concluidos') {
+                item.itensConcluidos = value
+              } else {
+                // Fallback: aceitar qualquer campo não mapeado para Reajuste
+                const originalHeader = header?.toString().trim() || ''
+                if (originalHeader) {
+                  item[originalHeader] = value
+                }
+              }
+            } else if (config.entityType.toLowerCase().includes('manutenções') || config.entityType.toLowerCase().includes('manutencoes')) {
               // Mapeamento específico para manutenções
               if (cleanHeader === 'status') {
                 item.status = value
@@ -520,55 +569,6 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
                 console.log(`🔍 SMART IMPORTER: Mapeado observacoes: ${value}`)
               } else {
                 console.log(`🔍 SMART IMPORTER: Header não mapeado para relatório: "${cleanHeader}" = "${value}"`)
-              }
-            } else if (isReajuste) {
-              // Mapeamento específico para reajustes
-              if (cleanHeader === 'mes' || cleanHeader === 'mês') {
-                item.mes = value
-              } else if (cleanHeader === 'ano') {
-                item.ano = value
-              } else if (cleanHeader === 'status') {
-                item.status = value
-              } else if (cleanHeader === 'operadora' || cleanHeader === 'operadoraid' || cleanHeader === 'operadorald') {
-                item.operadora = value
-              } else if (cleanHeader === 'responsavelanalista' || cleanHeader === 'responsávelanalista' || cleanHeader === 'analista' || cleanHeader === 'analistaid' || cleanHeader === 'analistald') {
-                item.responsavelAnalista = value
-              } else if (cleanHeader === 'cliente' || cleanHeader === 'clienteid' || cleanHeader === 'clienteld') {
-                item.cliente = value
-              } else if (cleanHeader === 'contrato' || cleanHeader === 'contratoid' || cleanHeader === 'contratold') {
-                item.contrato = value
-              } else if (cleanHeader === 'produto' || cleanHeader === 'produtoid' || cleanHeader === 'produtold') {
-                item.produto = value
-              } else if (cleanHeader === 'datainicio' || cleanHeader === 'datainicial' || cleanHeader === 'datainício' || cleanHeader === 'datainícial') {
-                item.dataInicio = value
-              } else if (cleanHeader === 'datafim' || cleanHeader === 'datafinal' || cleanHeader === 'datafinalizacao' || cleanHeader === 'datafinalização') {
-                item.dataFim = value
-              } else if (cleanHeader === 'filial') {
-                item.filial = value
-              } else if (cleanHeader === 'ticket') {
-                item.ticket = value
-              } else if (cleanHeader === 'solicitante') {
-                item.solicitante = value
-              } else if (cleanHeader === 'qualidade') {
-                item.qualidade = value
-              } else if (cleanHeader === 'qualidadeinformacao' || cleanHeader === 'qualidadeinformação') {
-                item.qualidadeInformacao = value
-              } else if (cleanHeader === 'planos') {
-                item.planos = value
-              } else if (cleanHeader === 'responsavelconta' || cleanHeader === 'responsávelconta') {
-                item.responsavelConta = value
-              } else if (cleanHeader === 'dataatualizacao' || cleanHeader === 'dataatualização') {
-                item.dataAtualizacao = value
-              } else if (cleanHeader === 'itenspendentes' || cleanHeader === 'itens_pendentes') {
-                item.itensPendentes = value
-              } else if (cleanHeader === 'itensconcluidos' || cleanHeader === 'itens_concluidos') {
-                item.itensConcluidos = value
-              } else {
-                // Fallback: aceitar qualquer campo não mapeado para Reajuste
-                const originalHeader = header?.toString().trim() || ''
-                if (originalHeader) {
-                  item[originalHeader] = value
-                }
               }
             } else {
               // Para outras entidades, usar mapeamento genérico
