@@ -283,29 +283,50 @@ export default function ReajusteListPage() {
             return foundItem?.id || ''
           }
 
-          // Mapear dados para o formato de reajuste
+          // Mapear dados para o formato de ReajusteLancamento
+          // O modelo ReajusteLancamento usa strings (nomes) para operadora, cliente, contrato, produto
+          // e analistaId para responsavelAnalista
           const operadoraId = findIdByName(data.operadora || data.operadoraId, md.operadoras)
           const responsavelAnalistaId = findIdByName(data.responsavelAnalista || data.analista || data.responsavelAnalistaId, md.analistas)
           const clienteId = findIdByName(data.cliente || data.clienteId, md.clientes)
           const contratoId = findIdByName(data.contrato || data.contratoId, md.contratos, 'codigo')
           const produtoId = findIdByName(data.produto || data.produtoId, md.produtos)
 
+          // Obter nomes dos itens encontrados
+          const operadoraNome = operadoraId ? (md.operadoras.find(o => o.id === operadoraId)?.nome || data.operadora || data.operadoraId || '') : (data.operadora || data.operadoraId || '')
+          const responsavelAnalistaNome = responsavelAnalistaId ? (md.analistas.find(a => a.id === responsavelAnalistaId)?.nome || data.responsavelAnalista || data.analista || data.responsavelAnalistaId || '') : (data.responsavelAnalista || data.analista || data.responsavelAnalistaId || '')
+          const clienteNome = clienteId ? (md.clientes.find(c => c.id === clienteId)?.nome || data.cliente || data.clienteId || '') : (data.cliente || data.clienteId || '')
+          const contratoCodigo = contratoId ? (md.contratos.find(c => c.id === contratoId)?.codigo || md.contratos.find(c => c.id === contratoId)?.numero || data.contrato || data.contratoId || '') : (data.contrato || data.contratoId || '')
+          const produtoNome = produtoId ? (md.produtos.find(p => p.id === produtoId)?.nome || data.produto || data.produtoId || '') : (data.produto || data.produtoId || '')
+
+          // Validar campos obrigatórios
+          if (!operadoraNome || operadoraNome.trim() === '') {
+            errors.push(`Item ${itemNumber}: Operadora é obrigatória e não foi encontrada.`)
+            continue
+          }
+          
+          if (!responsavelAnalistaNome || responsavelAnalistaNome.trim() === '') {
+            errors.push(`Item ${itemNumber}: Responsável Analista é obrigatório e não foi encontrado.`)
+            continue
+          }
+
           const reajusteData = {
-            // Campos obrigatórios
-            mes: data.mes || new Date().getMonth() + 1,
-            ano: data.ano || new Date().getFullYear(),
+            // Campos obrigatórios (ReajusteLancamento usa String para mes e ano)
+            mes: String(data.mes || new Date().getMonth() + 1),
+            ano: String(data.ano || new Date().getFullYear()),
             status: data.status || 'Em andamento',
-            ...(operadoraId && { operadoraId }),
-            ...(responsavelAnalistaId && { responsavelAnalistaId }),
+            operadora: operadoraNome, // String, obrigatório
+            responsavelAnalista: responsavelAnalistaNome, // String, obrigatório
+            ...(responsavelAnalistaId && { analistaId: responsavelAnalistaId }), // ID do analista (opcional)
             
             // Campos opcionais
             dataInicio: excelDateToISO(data.dataInicio || data.dataInicial) || new Date().toISOString(),
             dataFim: excelDateToISO(data.dataFim || data.dataFinal || data.dataFinalizacao),
-            ...(clienteId && { clienteId }),
-            ...(contratoId && { contratoId }),
-            ...(produtoId && { produtoId }),
+            cliente: clienteNome || '', // String, não ID
+            contrato: contratoCodigo || '', // String, não ID
+            produto: produtoNome || '', // String, não ID
             filial: data.filial || '',
-            ticket: data.ticket || '',
+            ticket: data.ticket ? String(data.ticket) : '',
             solicitante: data.solicitante || '',
             qualidade: data.qualidade ? String(data.qualidade) : null,
             qualidadeInformacao: data.qualidadeInformacao || '',
@@ -323,8 +344,8 @@ export default function ReajusteListPage() {
             }
           })
 
-          // Salvar na API
-          await api.post('/reajustes', reajusteData)
+          // Salvar na API (usar endpoint correto para ReajusteLancamento)
+          await api.post('/reajusteLancamentos', reajusteData)
           
           totalImported++
           totalSavedToDatabase++
