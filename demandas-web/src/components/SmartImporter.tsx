@@ -171,8 +171,9 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
             console.log(`🔍 SMART IMPORTER: Header "${header}" -> limpo: "${cleanHeader}" (índice ${index}) = valor "${value}"`)
             
             // Mapear campos baseado no tipo de entidade
-            console.log(`🔍 SMART IMPORTER: Tipo de entidade: "${config.entityType.toLowerCase()}"`)
-            console.log(`🔍 SMART IMPORTER: Verificando condição validação: ${config.entityType.toLowerCase().includes('validação')} || ${config.entityType.toLowerCase().includes('validacao')}`)
+            const entityTypeLower = config.entityType.toLowerCase()
+            const isReajuste = entityTypeLower.includes('reajuste') || entityTypeLower.includes('reajustes')
+            
             if (config.entityType.toLowerCase().includes('manutenções') || config.entityType.toLowerCase().includes('manutencoes')) {
               // Mapeamento específico para manutenções
               if (cleanHeader === 'status') {
@@ -520,7 +521,7 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
               } else {
                 console.log(`🔍 SMART IMPORTER: Header não mapeado para relatório: "${cleanHeader}" = "${value}"`)
               }
-            } else if (config.entityType.toLowerCase().includes('reajuste') || config.entityType.toLowerCase().includes('reajustes')) {
+            } else if (isReajuste) {
               // Mapeamento específico para reajustes
               if (cleanHeader === 'mes' || cleanHeader === 'mês') {
                 item.mes = value
@@ -564,15 +565,9 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
                 item.itensConcluidos = value
               } else {
                 // Fallback: aceitar qualquer campo não mapeado para Reajuste
-                // Tentar usar o header original primeiro, depois o limpo
                 const originalHeader = header?.toString().trim() || ''
                 if (originalHeader) {
-                  // Usar header original (preserva espaços e acentos)
                   item[originalHeader] = value
-                  // Também adicionar com header limpo para compatibilidade
-                  if (cleanHeader && cleanHeader !== originalHeader.toLowerCase()) {
-                    item[cleanHeader] = value
-                  }
                 }
               }
             } else {
