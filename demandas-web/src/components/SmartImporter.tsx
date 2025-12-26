@@ -174,8 +174,6 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
             const entityTypeLower = config.entityType.toLowerCase()
             const isReajuste = entityTypeLower.includes('reajuste') || entityTypeLower.includes('reajustes')
             
-            console.log(`🔍 SMART IMPORTER: isReajuste = ${isReajuste}, entityTypeLower = "${entityTypeLower}", cleanHeader = "${cleanHeader}"`)
-            
             if (isReajuste) {
               // Mapeamento específico para reajustes
               if (cleanHeader === 'mes' || cleanHeader === 'mês') {
@@ -224,7 +222,6 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
                 const originalHeader = header?.toString().trim() || ''
                 if (originalHeader) {
                   item[originalHeader] = value
-                  console.log(`✅ REAJUSTE FALLBACK: Mapeado ${originalHeader} = ${value}`)
                 }
               }
             } else if (config.entityType.toLowerCase().includes('manutenções') || config.entityType.toLowerCase().includes('manutencoes')) {
