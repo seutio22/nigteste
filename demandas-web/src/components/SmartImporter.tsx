@@ -562,6 +562,13 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
                 item.itensPendentes = value
               } else if (cleanHeader === 'itensconcluidos' || cleanHeader === 'itens_concluidos') {
                 item.itensConcluidos = value
+              } else {
+                // Fallback: aceitar qualquer campo não mapeado para Reajuste
+                // Usar o header original (com espaços e acentos) como chave
+                const originalHeader = header?.toString().trim() || ''
+                if (originalHeader) {
+                  item[originalHeader] = value
+                }
               }
             } else {
               // Para outras entidades, usar mapeamento genérico
