@@ -482,29 +482,29 @@ export default function ReajusteListPage() {
           console.log(`🚀 REAJUSTE IMPORT Item ${itemNumber} - Payload final:`, JSON.stringify(reajusteData, null, 2))
 
           // Salvar na API (usar endpoint correto para ReajusteLancamento)
+          // SEGUINDO PADRÃO DE MANUTENÇÃO: api.post retorna os dados diretamente, não response.data
           try {
-            const response = await api.post('/reajusteLancamentos', reajusteData)
-            console.log(`✅ REAJUSTE IMPORT Item ${itemNumber} - Resposta da API:`, JSON.stringify(response.data, null, 2))
+            const savedReajuste = await api.post('/reajusteLancamentos', reajusteData)
+            console.log(`✅ REAJUSTE IMPORT Item ${itemNumber} - Reajuste salvo:`, savedReajuste?.id || 'sem ID')
             
             // Verificar se os dados foram salvos corretamente
-            if (response.data) {
-              const savedData = response.data
+            if (savedReajuste) {
               console.log(`✅ REAJUSTE IMPORT Item ${itemNumber} - Dados salvos:`, {
-                id: savedData.id,
-                cliente: savedData.cliente,
-                contrato: savedData.contrato,
-                operadora: savedData.operadora,
-                produto: savedData.produto,
-                responsavelAnalista: savedData.responsavelAnalista
+                id: savedReajuste.id,
+                cliente: savedReajuste.cliente,
+                contrato: savedReajuste.contrato,
+                operadora: savedReajuste.operadora,
+                produto: savedReajuste.produto,
+                responsavelAnalista: savedReajuste.responsavelAnalista
               })
               
               // Verificar se algum campo importante está vazio
-              if (!savedData.cliente || !savedData.contrato || !savedData.operadora || !savedData.responsavelAnalista) {
+              if (!savedReajuste.cliente || !savedReajuste.contrato || !savedReajuste.operadora || !savedReajuste.responsavelAnalista) {
                 console.warn(`⚠️ REAJUSTE IMPORT Item ${itemNumber} - Alguns campos estão vazios após salvar:`, {
-                  cliente: savedData.cliente || 'VAZIO',
-                  contrato: savedData.contrato || 'VAZIO',
-                  operadora: savedData.operadora || 'VAZIO',
-                  responsavelAnalista: savedData.responsavelAnalista || 'VAZIO'
+                  cliente: savedReajuste.cliente || 'VAZIO',
+                  contrato: savedReajuste.contrato || 'VAZIO',
+                  operadora: savedReajuste.operadora || 'VAZIO',
+                  responsavelAnalista: savedReajuste.responsavelAnalista || 'VAZIO'
                 })
               }
             }
@@ -513,7 +513,7 @@ export default function ReajusteListPage() {
             totalSavedToDatabase++
           } catch (apiError: any) {
             console.error(`❌ REAJUSTE IMPORT Item ${itemNumber} - Erro na API:`, apiError)
-            console.error(`❌ REAJUSTE IMPORT Item ${itemNumber} - Resposta do erro:`, apiError?.response?.data)
+            console.error(`❌ REAJUSTE IMPORT Item ${itemNumber} - Resposta do erro:`, apiError?.response || apiError?.message)
             throw apiError
           }
 
