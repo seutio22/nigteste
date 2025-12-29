@@ -179,10 +179,9 @@ export default function ReajusteListPage() {
 
   // Carregar dados do banco de dados ao iniciar
   useEffect(() => {
-    console.log('🔄 ReajusteListPage: Carregando dados do banco...')
     if (store.syncFromApi) {
-      store.syncFromApi().catch((error) => {
-        console.error('❌ ReajusteListPage: Erro ao carregar dados:', error)
+      store.syncFromApi().catch(() => {
+        // Erro silencioso - dados serão carregados quando necessário
       })
     }
   }, [store.syncFromApi])
