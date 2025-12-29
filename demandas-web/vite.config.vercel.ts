@@ -10,25 +10,35 @@ export default defineConfig({
     {
       name: 'copy-logo',
       closeBundle() {
-        // Garantir que o logo seja copiado após o build
-        const logoPath = join(process.cwd(), 'public', 'dynamic-logo.png')
-        const distPath = join(process.cwd(), 'dist', 'dynamic-logo.png')
-        if (existsSync(logoPath)) {
-          // Sempre copiar, mesmo se já existir, para garantir que está atualizado
-          copyFileSync(logoPath, distPath)
-          console.log('✅ Logo copiado para dist/')
-        } else {
-          console.warn('⚠️ Logo não encontrado em public/dynamic-logo.png')
+        try {
+          // Garantir que o logo seja copiado após o build
+          const logoPath = join(process.cwd(), 'public', 'dynamic-logo.png')
+          const distPath = join(process.cwd(), 'dist', 'dynamic-logo.png')
+          if (existsSync(logoPath)) {
+            // Sempre copiar, mesmo se já existir, para garantir que está atualizado
+            copyFileSync(logoPath, distPath)
+            console.log('✅ Logo copiado para dist/')
+          } else {
+            console.warn('⚠️ Logo não encontrado em public/dynamic-logo.png - continuando build sem logo')
+          }
+        } catch (error) {
+          console.warn('⚠️ Erro ao copiar logo (não crítico):', error)
+          // Não falhar o build se o logo não puder ser copiado
         }
         
-        // Garantir que _redirects seja copiado também
-        const redirectsPath = join(process.cwd(), 'public', '_redirects')
-        const redirectsDistPath = join(process.cwd(), 'dist', '_redirects')
-        if (existsSync(redirectsPath)) {
-          copyFileSync(redirectsPath, redirectsDistPath)
-          console.log('✅ _redirects copiado para dist/')
-        } else {
-          console.warn('⚠️ _redirects não encontrado em public/_redirects')
+        try {
+          // Garantir que _redirects seja copiado também
+          const redirectsPath = join(process.cwd(), 'public', '_redirects')
+          const redirectsDistPath = join(process.cwd(), 'dist', '_redirects')
+          if (existsSync(redirectsPath)) {
+            copyFileSync(redirectsPath, redirectsDistPath)
+            console.log('✅ _redirects copiado para dist/')
+          } else {
+            console.warn('⚠️ _redirects não encontrado em public/_redirects')
+          }
+        } catch (error) {
+          console.warn('⚠️ Erro ao copiar _redirects (não crítico):', error)
+          // Não falhar o build se _redirects não puder ser copiado
         }
       }
     }
