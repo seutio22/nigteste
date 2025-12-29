@@ -248,11 +248,14 @@ export default function ReajusteListPage() {
               .replace(/\s+/g, ' ') // Normaliza espaços
           }
 
-          // Função para encontrar ID por nome (com normalização completa e correspondência flexível)
-          const findIdByName = (name: string, items: any[], nameField: string = 'nome') => {
-            if (!name) return ''
+          // Função para encontrar ID e nome por busca (com normalização completa e correspondência flexível)
+          // Retorna objeto com { id, nome } - se não encontrar, retorna o valor original do Excel
+          const findIdAndName = (value: string, items: any[], nameField: string = 'nome', originalValue?: string) => {
+            const searchValue = value || originalValue || ''
+            if (!searchValue) return { id: '', nome: originalValue || '' }
             
-            const searchNormalized = normalizeString(String(name))
+            const searchNormalized = normalizeString(String(searchValue))
+            const original = String(originalValue || value || '').trim()
             
             // Primeiro, tentar correspondência exata (normalizada)
             let foundItem = items.find(item => {
@@ -280,24 +283,67 @@ export default function ReajusteListPage() {
               }
             }
             
-            return foundItem?.id || ''
+            // Se encontrou, retornar ID e nome do item encontrado
+            if (foundItem) {
+              return {
+                id: foundItem.id || '',
+                nome: foundItem[nameField] || foundItem.nome || original
+              }
+            }
+            
+            // Se não encontrou, retornar valor original do Excel
+            return { id: '', nome: original }
           }
 
           // Mapear dados para o formato de ReajusteLancamento
           // O modelo ReajusteLancamento usa strings (nomes) para operadora, cliente, contrato, produto
           // e analistaId para responsavelAnalista
-          const operadoraId = findIdByName(data.operadora || data.operadoraId, md.operadoras)
-          const responsavelAnalistaId = findIdByName(data.responsavelAnalista || data.analista || data.responsavelAnalistaId, md.analistas)
-          const clienteId = findIdByName(data.cliente || data.clienteId, md.clientes)
-          const contratoId = findIdByName(data.contrato || data.contratoId, md.contratos, 'codigo')
-          const produtoId = findIdByName(data.produto || data.produtoId, md.produtos)
+          const operadoraData = findIdAndName(
+            data.operadora || data.operadoraId || '', 
+            md.operadoras, 
+            'nome',
+            data.operadora || data.operadoraId
+          )
+          const responsavelAnalistaData = findIdAndName(
+            data.responsavelAnalista || data.analista || data.responsavelAnalistaId || '',
+            md.analistas,
+            'nome',
+            data.responsavelAnalista || data.analista || data.responsavelAnalistaId
+          )
+          const clienteData = findIdAndName(
+            data.cliente || data.clienteId || '',
+            md.clientes,
+            'nome',
+            data.cliente || data.clienteId
+          )
+          // Para contratos, buscar por codigo primeiro, depois por numero
+          const contratoValue = data.contrato || data.contratoId || ''
+          let contratoData = findIdAndName(contratoValue, md.contratos, 'codigo', contratoValue)
+          
+          // Se não encontrou por codigo, tentar buscar por numero
+          if (!contratoData.id && contratoValue) {
+            const contratoDataByNumero = findIdAndName(contratoValue, md.contratos, 'numero', contratoValue)
+            if (contratoDataByNumero.id) {
+              contratoData = contratoDataByNumero
+            }
+          }
+          
+          const produtoData = findIdAndName(
+            data.produto || data.produtoId || '',
+            md.produtos,
+            'nome',
+            data.produto || data.produtoId
+          )
 
-          // Obter nomes dos itens encontrados
-          const operadoraNome = operadoraId ? (md.operadoras.find(o => o.id === operadoraId)?.nome || data.operadora || data.operadoraId || '') : (data.operadora || data.operadoraId || '')
-          const responsavelAnalistaNome = responsavelAnalistaId ? (md.analistas.find(a => a.id === responsavelAnalistaId)?.nome || data.responsavelAnalista || data.analista || data.responsavelAnalistaId || '') : (data.responsavelAnalista || data.analista || data.responsavelAnalistaId || '')
-          const clienteNome = clienteId ? (md.clientes.find(c => c.id === clienteId)?.nome || data.cliente || data.clienteId || '') : (data.cliente || data.clienteId || '')
-          const contratoCodigo = contratoId ? (md.contratos.find(c => c.id === contratoId)?.codigo || md.contratos.find(c => c.id === contratoId)?.numero || data.contrato || data.contratoId || '') : (data.contrato || data.contratoId || '')
-          const produtoNome = produtoId ? (md.produtos.find(p => p.id === produtoId)?.nome || data.produto || data.produtoId || '') : (data.produto || data.produtoId || '')
+          // Usar nomes encontrados ou valores originais do Excel
+          const operadoraNome = operadoraData.nome || data.operadora || data.operadoraId || ''
+          const responsavelAnalistaNome = responsavelAnalistaData.nome || data.responsavelAnalista || data.analista || data.responsavelAnalistaId || ''
+          const clienteNome = clienteData.nome || data.cliente || data.clienteId || ''
+          // Para contrato, usar codigo se encontrado, senão numero, senão valor original
+          const contratoCodigo = contratoData.id 
+            ? (md.contratos.find(c => c.id === contratoData.id)?.codigo || md.contratos.find(c => c.id === contratoData.id)?.numero || contratoData.nome)
+            : (contratoData.nome || data.contrato || data.contratoId || '')
+          const produtoNome = produtoData.nome || data.produto || data.produtoId || ''
 
           // Validar campos obrigatórios
           if (!operadoraNome || operadoraNome.trim() === '') {
@@ -310,39 +356,88 @@ export default function ReajusteListPage() {
             continue
           }
 
-          const reajusteData = {
+          const reajusteData: any = {
             // Campos obrigatórios (ReajusteLancamento usa String para mes e ano)
             mes: String(data.mes || new Date().getMonth() + 1),
             ano: String(data.ano || new Date().getFullYear()),
             status: data.status || 'Em andamento',
             operadora: operadoraNome, // String, obrigatório
             responsavelAnalista: responsavelAnalistaNome, // String, obrigatório
-            ...(responsavelAnalistaId && { analistaId: responsavelAnalistaId }), // ID do analista (opcional)
-            
-            // Campos opcionais
-            dataInicio: excelDateToISO(data.dataInicio || data.dataInicial) || new Date().toISOString(),
-            dataFim: excelDateToISO(data.dataFim || data.dataFinal || data.dataFinalizacao),
-            cliente: clienteNome || '', // String, não ID
-            contrato: contratoCodigo || '', // String, não ID
-            produto: produtoNome || '', // String, não ID
-            filial: data.filial || '',
-            ticket: data.ticket ? String(data.ticket) : '',
-            solicitante: data.solicitante || '',
-            qualidade: data.qualidade ? String(data.qualidade) : null,
-            qualidadeInformacao: data.qualidadeInformacao || '',
-            planos: data.planos || '',
-            responsavelConta: data.responsavelConta || '',
-            dataAtualizacao: excelDateToISO(data.dataAtualizacao) || new Date().toISOString(),
-            itensPendentes: data.itensPendentes || 0,
-            itensConcluidos: data.itensConcluidos || 0
           }
 
-          // Remover campos vazios
-          Object.keys(reajusteData).forEach(key => {
-            if (reajusteData[key] === '' || reajusteData[key] === null || reajusteData[key] === undefined) {
-              delete reajusteData[key]
-            }
-          })
+          // Adicionar analistaId se encontrado
+          if (responsavelAnalistaData.id) {
+            reajusteData.analistaId = responsavelAnalistaData.id
+          }
+          
+          // Campos opcionais - sempre incluir se tiverem valores do Excel
+          if (clienteNome && clienteNome.trim() !== '') {
+            reajusteData.cliente = clienteNome
+          }
+          
+          if (contratoCodigo && contratoCodigo.trim() !== '') {
+            reajusteData.contrato = contratoCodigo
+          }
+          
+          if (produtoNome && produtoNome.trim() !== '') {
+            reajusteData.produto = produtoNome
+          }
+
+          // Outros campos opcionais
+          const dataInicioValue = excelDateToISO(data.dataInicio || data.dataInicial)
+          if (dataInicioValue) {
+            reajusteData.dataInicio = dataInicioValue
+          } else {
+            reajusteData.dataInicio = new Date().toISOString()
+          }
+
+          const dataFimValue = excelDateToISO(data.dataFim || data.dataFinal || data.dataFinalizacao)
+          if (dataFimValue) {
+            reajusteData.dataFim = dataFimValue
+          }
+
+          if (data.filial && String(data.filial).trim() !== '') {
+            reajusteData.filial = String(data.filial).trim()
+          }
+
+          if (data.ticket && String(data.ticket).trim() !== '') {
+            reajusteData.ticket = String(data.ticket).trim()
+          }
+
+          if (data.solicitante && String(data.solicitante).trim() !== '') {
+            reajusteData.solicitante = String(data.solicitante).trim()
+          }
+
+          if (data.qualidade !== undefined && data.qualidade !== null && data.qualidade !== '') {
+            reajusteData.qualidade = String(data.qualidade)
+          }
+
+          if (data.qualidadeInformacao && String(data.qualidadeInformacao).trim() !== '') {
+            reajusteData.qualidadeInformacao = String(data.qualidadeInformacao).trim()
+          }
+
+          if (data.planos && String(data.planos).trim() !== '') {
+            reajusteData.planos = String(data.planos).trim()
+          }
+
+          if (data.responsavelConta && String(data.responsavelConta).trim() !== '') {
+            reajusteData.responsavelConta = String(data.responsavelConta).trim()
+          }
+
+          const dataAtualizacaoValue = excelDateToISO(data.dataAtualizacao)
+          if (dataAtualizacaoValue) {
+            reajusteData.dataAtualizacao = dataAtualizacaoValue
+          } else {
+            reajusteData.dataAtualizacao = new Date().toISOString()
+          }
+
+          if (data.itensPendentes !== undefined && data.itensPendentes !== null) {
+            reajusteData.itensPendentes = Number(data.itensPendentes) || 0
+          }
+
+          if (data.itensConcluidos !== undefined && data.itensConcluidos !== null) {
+            reajusteData.itensConcluidos = Number(data.itensConcluidos) || 0
+          }
 
           // Salvar na API (usar endpoint correto para ReajusteLancamento)
           await api.post('/reajusteLancamentos', reajusteData)
