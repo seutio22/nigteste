@@ -2222,6 +2222,13 @@ function crud(entity: keyof PrismaClient) {
         const reajusteData = { ...data as any };
         console.log('🔍 REAJUSTE CREATE: Dados recebidos:', JSON.stringify(reajusteData, null, 2));
         
+        // Se analistaId estiver presente, conectar ao relacionamento analista
+        if (reajusteData.analistaId) {
+          console.log(`🔧 REAJUSTE CREATE: Conectando analistaId: ${reajusteData.analistaId}`);
+          reajusteData.analista = { connect: { id: reajusteData.analistaId } };
+          delete reajusteData.analistaId;
+        }
+        
         // Garantir que campos de string sejam preservados (cliente, contrato, operadora, produto)
         // Esses campos são strings no schema, não relacionamentos
         const camposString = ['cliente', 'contrato', 'operadora', 'produto', 'responsavelAnalista', 'mes', 'ano', 'status', 'qualidade', 'qualidadeInformacao', 'planos', 'responsavelConta', 'filial', 'ticket', 'solicitante'];
