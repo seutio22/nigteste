@@ -2217,6 +2217,52 @@ function crud(entity: keyof PrismaClient) {
         }
       }
       
+      // Tratamento especial para reajusteLancamentos - preservar campos de string
+      if (entity === 'reajusteLancamento') {
+        const reajusteData = { ...data as any };
+        console.log('🔍 REAJUSTE CREATE: Dados recebidos:', JSON.stringify(reajusteData, null, 2));
+        
+        // Garantir que campos de string sejam preservados (cliente, contrato, operadora, produto)
+        // Esses campos são strings no schema, não relacionamentos
+        const camposString = ['cliente', 'contrato', 'operadora', 'produto', 'responsavelAnalista', 'mes', 'ano', 'status', 'qualidade', 'qualidadeInformacao', 'planos', 'responsavelConta', 'filial', 'ticket', 'solicitante'];
+        
+        camposString.forEach(campo => {
+          if (reajusteData[campo] !== undefined && reajusteData[campo] !== null) {
+            // Converter para string se necessário
+            reajusteData[campo] = String(reajusteData[campo]);
+            console.log(`🔍 REAJUSTE CREATE: Campo ${campo} preservado:`, reajusteData[campo]);
+          }
+        });
+        
+        // Converter mes de nome do mês para número se necessário
+        if (reajusteData.mes && typeof reajusteData.mes === 'string') {
+          const mesesMap: { [key: string]: string } = {
+            'janeiro': '1', 'fevereiro': '2', 'março': '3', 'abril': '4',
+            'maio': '5', 'junho': '6', 'julho': '7', 'agosto': '8',
+            'setembro': '9', 'outubro': '10', 'novembro': '11', 'dezembro': '12'
+          };
+          const mesLower = reajusteData.mes.toLowerCase();
+          if (mesesMap[mesLower]) {
+            console.log(`🔍 REAJUSTE CREATE: Convertendo mês "${reajusteData.mes}" para "${mesesMap[mesLower]}"`);
+            reajusteData.mes = mesesMap[mesLower];
+          }
+        }
+        
+        // Remover apenas campos que são realmente vazios/null/undefined (exceto obrigatórios)
+        Object.keys(reajusteData).forEach(key => {
+          if (reajusteData[key] === null || reajusteData[key] === undefined || reajusteData[key] === '') {
+            // Manter campos obrigatórios mesmo se vazios
+            if (!['mes', 'ano', 'status', 'operadora', 'responsavelAnalista'].includes(key)) {
+              console.log(`🔍 REAJUSTE CREATE: Removendo campo vazio: ${key}`);
+              delete reajusteData[key];
+            }
+          }
+        });
+        
+        console.log('🔍 REAJUSTE CREATE: Dados finais para criação:', JSON.stringify(reajusteData, null, 2));
+        return anyPrisma[entity].create({ data: reajusteData });
+      }
+      
       return anyPrisma[entity].create({ data });
     },
     update: async (id: string, data: unknown) => {
