@@ -499,6 +499,7 @@ export default function ReajusteListPage() {
           try {
             const savedReajuste = await api.post('/reajusteLancamentos', reajusteData)
             console.log(`✅ REAJUSTE IMPORT Item ${itemNumber} - Reajuste salvo:`, savedReajuste?.id || 'sem ID')
+            console.log(`🔍 REAJUSTE IMPORT Item ${itemNumber} - Resposta completa do backend:`, JSON.stringify(savedReajuste, null, 2))
             
             // Verificar se os dados foram salvos corretamente
             if (savedReajuste) {
@@ -519,7 +520,11 @@ export default function ReajusteListPage() {
                   operadora: savedReajuste.operadora || 'VAZIO',
                   responsavelAnalista: savedReajuste.responsavelAnalista || 'VAZIO'
                 })
+              } else {
+                console.log(`✅ REAJUSTE IMPORT Item ${itemNumber} - TODOS os campos importantes foram salvos corretamente!`)
               }
+            } else {
+              console.error(`❌ REAJUSTE IMPORT Item ${itemNumber} - Resposta do backend está vazia ou undefined!`)
             }
             
             totalImported++
