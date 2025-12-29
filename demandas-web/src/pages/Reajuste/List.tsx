@@ -431,10 +431,40 @@ export default function ReajusteListPage() {
             continue
           }
 
+          // Função para converter nome do mês para número
+          const converterMesParaNumero = (mes: any): string => {
+            if (!mes) return String(new Date().getMonth() + 1)
+            
+            const mesStr = String(mes).trim()
+            
+            // Se já é um número (1-12), retornar como string
+            const mesNum = Number(mesStr)
+            if (!isNaN(mesNum) && mesNum >= 1 && mesNum <= 12) {
+              return String(mesNum)
+            }
+            
+            // Se é um nome do mês, converter para número
+            const mesesMap: { [key: string]: string } = {
+              'janeiro': '1', 'fevereiro': '2', 'março': '3', 'marco': '3', 'abril': '4',
+              'maio': '5', 'junho': '6', 'julho': '7', 'agosto': '8',
+              'setembro': '9', 'outubro': '10', 'novembro': '11', 'dezembro': '12'
+            }
+            
+            const mesLower = mesStr.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Remove acentos
+            if (mesesMap[mesLower]) {
+              console.log(`🔍 REAJUSTE IMPORT Item ${itemNumber}: Convertendo mês "${mesStr}" para "${mesesMap[mesLower]}"`)
+              return mesesMap[mesLower]
+            }
+            
+            // Se não conseguir converter, usar o valor original como string
+            console.warn(`⚠️ REAJUSTE IMPORT Item ${itemNumber}: Não foi possível converter mês "${mesStr}", usando valor original`)
+            return mesStr
+          }
+
           // Construir payload seguindo padrão de Manutenção
           const reajusteData: any = {
             // Campos obrigatórios (ReajusteLancamento usa String para mes e ano)
-            mes: String(data.mes || new Date().getMonth() + 1),
+            mes: converterMesParaNumero(data.mes),
             ano: String(data.ano || new Date().getFullYear()),
             status: data.status || 'Em andamento',
             operadora: operadoraNome, // String, obrigatório
