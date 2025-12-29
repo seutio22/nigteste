@@ -259,24 +259,22 @@ export default function ReajusteListPage() {
               .replace(/\s+/g, ' ') // Normaliza espaços
           }
 
-          // Função para encontrar ID e nome por busca (com normalização completa e correspondência flexível)
-          // Retorna objeto com { id, nome } - se não encontrar, retorna o valor original do Excel
-          const findIdAndName = (value: string, items: any[], nameField: string = 'nome', originalValue?: string) => {
-            const searchValue = value || originalValue || ''
-            if (!searchValue) return { id: '', nome: originalValue || '' }
+          // Função para encontrar nome por busca (seguindo padrão de Manutenção, mas retornando nome ao invés de ID)
+          // Retorna o nome encontrado ou string vazia se não encontrar
+          const findName = (name: string, items: any[], nameField: string = 'nome') => {
+            if (!name || !name.trim()) return ''
             
-            const searchNormalized = normalizeString(String(searchValue))
-            const original = String(originalValue || value || '').trim()
+            const searchNormalized = normalizeString(String(name))
             
             // Primeiro, tentar correspondência exata (normalizada)
-            let foundItem = items.find(item => {
+            let item = items.find(item => {
               const itemNameNormalized = normalizeString(item[nameField] || item.nome || '')
               return itemNameNormalized === searchNormalized
             })
             
             // Se não encontrou correspondência exata, tentar correspondência parcial
-            if (!foundItem) {
-              foundItem = items.find(item => {
+            if (!item) {
+              item = items.find(item => {
                 const itemNameNormalized = normalizeString(item[nameField] || item.nome || '')
                 // Verificar se o termo de busca está contido no nome do item
                 return itemNameNormalized.includes(searchNormalized) || searchNormalized.includes(itemNameNormalized)
@@ -284,93 +282,104 @@ export default function ReajusteListPage() {
             }
             
             // Se ainda não encontrou, tentar correspondência por palavras-chave
-            if (!foundItem) {
+            if (!item) {
               const searchWords = searchNormalized.split(' ').filter(word => word.length > 2)
               if (searchWords.length > 0) {
-                foundItem = items.find(item => {
+                item = items.find(item => {
                   const itemNameNormalized = normalizeString(item[nameField] || item.nome || '')
                   return searchWords.some(word => itemNameNormalized.includes(word))
                 })
               }
             }
             
-            // Se encontrou, retornar ID e nome do item encontrado
-            if (foundItem) {
-              return {
-                id: foundItem.id || '',
-                nome: foundItem[nameField] || foundItem.nome || original
+            // Se encontrou, retornar o nome do item encontrado (padronizado)
+            if (item) {
+              return item[nameField] || item.nome || ''
+            }
+            
+            // Se não encontrou, retornar string vazia (seguindo padrão de Manutenção)
+            return ''
+          }
+
+          // Função para encontrar ID (para analistaId)
+          const findId = (name: string, items: any[], nameField: string = 'nome') => {
+            if (!name || !name.trim()) return ''
+            
+            const searchNormalized = normalizeString(String(name))
+            
+            // Primeiro, tentar correspondência exata (normalizada)
+            let item = items.find(item => {
+              const itemNameNormalized = normalizeString(item[nameField] || item.nome || '')
+              return itemNameNormalized === searchNormalized
+            })
+            
+            // Se não encontrou correspondência exata, tentar correspondência parcial
+            if (!item) {
+              item = items.find(item => {
+                const itemNameNormalized = normalizeString(item[nameField] || item.nome || '')
+                return itemNameNormalized.includes(searchNormalized) || searchNormalized.includes(itemNameNormalized)
+              })
+            }
+            
+            // Se ainda não encontrou, tentar correspondência por palavras-chave
+            if (!item) {
+              const searchWords = searchNormalized.split(' ').filter(word => word.length > 2)
+              if (searchWords.length > 0) {
+                item = items.find(item => {
+                  const itemNameNormalized = normalizeString(item[nameField] || item.nome || '')
+                  return searchWords.some(word => itemNameNormalized.includes(word))
+                })
               }
             }
             
-            // Se não encontrou, retornar valor original do Excel
-            return { id: '', nome: original }
+            return item?.id || ''
           }
 
           // Mapear dados para o formato de ReajusteLancamento
+          // SEGUINDO PADRÃO DE MANUTENÇÃO: buscar nomes e usar valores originais do Excel se não encontrar
           // O modelo ReajusteLancamento usa strings (nomes) para operadora, cliente, contrato, produto
-          // e analistaId para responsavelAnalista
-          const operadoraData = findIdAndName(
-            data.operadora || data.operadoraId || '', 
-            md.operadoras, 
-            'nome',
-            data.operadora || data.operadoraId
-          )
-          const responsavelAnalistaData = findIdAndName(
-            data.responsavelAnalista || data.analista || data.responsavelAnalistaId || '',
-            md.analistas,
-            'nome',
-            data.responsavelAnalista || data.analista || data.responsavelAnalistaId
-          )
-          const clienteData = findIdAndName(
-            data.cliente || data.clienteId || '',
-            md.clientes,
-            'nome',
-            data.cliente || data.clienteId
-          )
+          
+          // Buscar nomes nos dados mestres (seguindo padrão de Manutenção)
+          const operadoraNomeEncontrado = findName(data.operadora || data.operadoraId || '', md.operadoras, 'nome')
+          const responsavelAnalistaNomeEncontrado = findName(data.responsavelAnalista || data.analista || data.responsavelAnalistaId || '', md.analistas, 'nome')
+          const clienteNomeEncontrado = findName(data.cliente || data.clienteId || '', md.clientes, 'nome')
+          
           // Para contratos, buscar por codigo primeiro, depois por numero
           const contratoValue = data.contrato || data.contratoId || ''
-          let contratoData = findIdAndName(contratoValue, md.contratos, 'codigo', contratoValue)
+          let contratoCodigoEncontrado = findName(contratoValue, md.contratos, 'codigo')
           
           // Se não encontrou por codigo, tentar buscar por numero
-          if (!contratoData.id && contratoValue) {
-            const contratoDataByNumero = findIdAndName(contratoValue, md.contratos, 'numero', contratoValue)
-            if (contratoDataByNumero.id) {
-              contratoData = contratoDataByNumero
+          if (!contratoCodigoEncontrado && contratoValue) {
+            const contratoEncontrado = md.contratos.find(c => {
+              const cNumero = normalizeString(String(c.numero || ''))
+              const searchNormalized = normalizeString(contratoValue)
+              return cNumero === searchNormalized || cNumero.includes(searchNormalized) || searchNormalized.includes(cNumero)
+            })
+            if (contratoEncontrado) {
+              contratoCodigoEncontrado = contratoEncontrado.codigo || contratoEncontrado.numero || ''
             }
           }
           
-          const produtoData = findIdAndName(
-            data.produto || data.produtoId || '',
-            md.produtos,
-            'nome',
-            data.produto || data.produtoId
-          )
-
-          // Usar nomes encontrados ou valores originais do Excel
-          // IMPORTANTE: Sempre preservar valores originais do Excel, mesmo se não encontrar correspondência
-          const operadoraNome = operadoraData.nome || String(data.operadora || data.operadoraId || '').trim()
-          const responsavelAnalistaNome = responsavelAnalistaData.nome || String(data.responsavelAnalista || data.analista || data.responsavelAnalistaId || '').trim()
-          const clienteNome = clienteData.nome || String(data.cliente || data.clienteId || '').trim()
+          const produtoNomeEncontrado = findName(data.produto || data.produtoId || '', md.produtos, 'nome')
           
-          // Para contrato, usar codigo se encontrado, senão numero, senão valor original do Excel
-          let contratoCodigo = ''
-          if (contratoData.id) {
-            const contratoEncontrado = md.contratos.find(c => c.id === contratoData.id)
-            contratoCodigo = contratoEncontrado?.codigo || contratoEncontrado?.numero || contratoData.nome || ''
-          } else {
-            // Se não encontrou, usar valor original do Excel
-            contratoCodigo = contratoData.nome || String(data.contrato || data.contratoId || '').trim()
-          }
+          // Buscar ID do analista (para analistaId)
+          const analistaId = findId(data.responsavelAnalista || data.analista || data.responsavelAnalistaId || '', md.analistas, 'nome')
           
-          const produtoNome = produtoData.nome || String(data.produto || data.produtoId || '').trim()
+          // Usar nomes encontrados OU valores originais do Excel (se não encontrar, preservar original)
+          // IMPORTANTE: Sempre preservar valores originais do Excel se não encontrar correspondência
+          const operadoraNome = operadoraNomeEncontrado || String(data.operadora || data.operadoraId || '').trim()
+          const responsavelAnalistaNome = responsavelAnalistaNomeEncontrado || String(data.responsavelAnalista || data.analista || data.responsavelAnalistaId || '').trim()
+          const clienteNome = clienteNomeEncontrado || String(data.cliente || data.clienteId || '').trim()
+          const contratoCodigo = contratoCodigoEncontrado || String(data.contrato || data.contratoId || '').trim()
+          const produtoNome = produtoNomeEncontrado || String(data.produto || data.produtoId || '').trim()
           
           // Debug: Log dos valores encontrados
           console.log(`🔍 REAJUSTE IMPORT Item ${itemNumber}:`, {
-            operadora: { encontrado: !!operadoraData.id, valor: operadoraNome },
-            analista: { encontrado: !!responsavelAnalistaData.id, valor: responsavelAnalistaNome },
-            cliente: { encontrado: !!clienteData.id, valor: clienteNome },
-            contrato: { encontrado: !!contratoData.id, valor: contratoCodigo },
-            produto: { encontrado: !!produtoData.id, valor: produtoNome }
+            operadora: { encontrado: !!operadoraNomeEncontrado, valor: operadoraNome },
+            analista: { encontrado: !!responsavelAnalistaNomeEncontrado, id: analistaId, valor: responsavelAnalistaNome },
+            cliente: { encontrado: !!clienteNomeEncontrado, valor: clienteNome },
+            contrato: { encontrado: !!contratoCodigoEncontrado, valor: contratoCodigo },
+            produto: { encontrado: !!produtoNomeEncontrado, valor: produtoNome }
           })
 
           // Validar campos obrigatórios
@@ -384,6 +393,7 @@ export default function ReajusteListPage() {
             continue
           }
 
+          // Construir payload seguindo padrão de Manutenção
           const reajusteData: any = {
             // Campos obrigatórios (ReajusteLancamento usa String para mes e ano)
             mes: String(data.mes || new Date().getMonth() + 1),
@@ -393,12 +403,13 @@ export default function ReajusteListPage() {
             responsavelAnalista: responsavelAnalistaNome, // String, obrigatório
           }
 
-          // Adicionar analistaId se encontrado
-          if (responsavelAnalistaData.id) {
-            reajusteData.analistaId = responsavelAnalistaData.id
+          // Adicionar analistaId se encontrado (seguindo padrão de Manutenção)
+          if (analistaId) {
+            reajusteData.analistaId = analistaId
           }
           
-          // Campos opcionais - sempre incluir se tiverem valores do Excel
+          // Campos opcionais - SEGUINDO PADRÃO DE MANUTENÇÃO: só adicionar se tiver valor válido
+          // IMPORTANTE: Preservar valores originais do Excel mesmo se não encontrar correspondência
           if (clienteNome && clienteNome.trim() !== '') {
             reajusteData.cliente = clienteNome
           }
