@@ -384,12 +384,16 @@ export default function ReajusteListPage() {
 
           // Validar campos obrigatórios
           if (!operadoraNome || operadoraNome.trim() === '') {
+            console.warn(`⚠️ REAJUSTE IMPORT Item ${itemNumber}: Operadora é obrigatória e não foi encontrada. Valor original do Excel: "${data.operadora || data.operadoraId || ''}"`)
             errors.push(`Item ${itemNumber}: Operadora é obrigatória e não foi encontrada.`)
+            totalImported++ // Contar como processado mesmo que tenha erro
             continue
           }
           
           if (!responsavelAnalistaNome || responsavelAnalistaNome.trim() === '') {
+            console.warn(`⚠️ REAJUSTE IMPORT Item ${itemNumber}: Responsável Analista é obrigatório e não foi encontrado. Valor original do Excel: "${data.responsavelAnalista || data.analista || data.responsavelAnalistaId || ''}"`)
             errors.push(`Item ${itemNumber}: Responsável Analista é obrigatório e não foi encontrado.`)
+            totalImported++ // Contar como processado mesmo que tenha erro
             continue
           }
 
@@ -514,10 +518,12 @@ export default function ReajusteListPage() {
           } catch (apiError: any) {
             console.error(`❌ REAJUSTE IMPORT Item ${itemNumber} - Erro na API:`, apiError)
             console.error(`❌ REAJUSTE IMPORT Item ${itemNumber} - Resposta do erro:`, apiError?.response || apiError?.message)
-            throw apiError
+            errors.push(`Item ${itemNumber}: Erro ao salvar - ${apiError instanceof Error ? apiError.message : 'Erro desconhecido'}`)
+            // NÃO fazer throw - seguir padrão de Manutenção e continuar processando outros itens
           }
 
         } catch (error: any) {
+          console.error(`❌ REAJUSTE IMPORT Item ${itemNumber} - Erro geral:`, error)
           const errorDetails = error?.response?.data || error?.message || JSON.stringify(error)
           errors.push(`Item ${itemNumber} (${item.isCorrected ? item.correctedData?.ticket || item.correctedData?.mes + '/' + item.correctedData?.ano : item.data?.ticket || item.data?.mes + '/' + item.data?.ano || 'sem identificação'}): ${errorDetails}`)
         }
@@ -530,6 +536,15 @@ export default function ReajusteListPage() {
 
       const totalFromResult = result.valid.length
       const successMessage = `${totalImported} de ${totalFromResult} reajustes processados, ${totalSavedToDatabase} salvos no banco de dados`
+      console.log(`✅ SMART IMPORT REAJUSTES: ${successMessage}`)
+      console.log(`🔍 SMART IMPORT REAJUSTES: Detalhes do processamento:`)
+      console.log(`  - Total de itens válidos no resultado: ${totalFromResult}`)
+      console.log(`  - Total de itens processados: ${totalImported}`)
+      console.log(`  - Total salvos no banco: ${totalSavedToDatabase}`)
+      console.log(`  - Total de erros: ${errors.length}`)
+      if (errors.length > 0) {
+        console.warn('⚠️ SMART IMPORT REAJUSTES: Erros ocorridos:', errors)
+      }
 
       // Mostrar notificação de sucesso
       if (totalSavedToDatabase > 0) {
@@ -537,12 +552,13 @@ export default function ReajusteListPage() {
       }
 
       if (errors.length > 0) {
+        console.warn('⚠️ SMART IMPORT REAJUSTES: Alguns erros ocorreram:', errors)
         alert(`⚠️ Alguns erros ocorreram:\n${errors.join('\n')}`)
       }
 
       // Se não houve sucessos, mostrar mensagem informativa
       if (totalSavedToDatabase === 0 && totalFromResult > 0) {
-        alert(`⚠️ Nenhum reajuste foi salvo. Verifique os erros acima.`)
+        alert(`⚠️ Nenhum reajuste foi salvo. Verifique os logs do console para mais detalhes.`)
       }
 
     } catch (error) {
