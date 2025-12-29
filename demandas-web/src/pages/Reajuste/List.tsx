@@ -249,11 +249,12 @@ export default function ReajusteListPage() {
           })
           
           // Função para normalizar strings (remove acentos, espaços extras, converte para lowercase)
-          const normalizeString = (str: string) => {
-            if (!str) return ''
-            return String(str)
+          const normalizeString = (str: any) => {
+            if (str === null || str === undefined) return ''
+            const strValue = String(str).trim()
+            if (!strValue) return ''
+            return strValue
               .toLowerCase()
-              .trim()
               .normalize('NFD')
               .replace(/[\u0300-\u036f]/g, '') // Remove acentos
               .replace(/\s+/g, ' ') // Normaliza espaços
@@ -269,14 +270,16 @@ export default function ReajusteListPage() {
             
             // Primeiro, tentar correspondência exata (normalizada)
             let item = items.find(item => {
-              const itemNameNormalized = normalizeString(item[nameField] || item.nome || '')
+              const itemValue = item[nameField] ?? item.nome ?? ''
+              const itemNameNormalized = normalizeString(itemValue)
               return itemNameNormalized === searchNormalized
             })
             
             // Se não encontrou correspondência exata, tentar correspondência parcial
             if (!item) {
               item = items.find(item => {
-                const itemNameNormalized = normalizeString(item[nameField] || item.nome || '')
+                const itemValue = item[nameField] ?? item.nome ?? ''
+                const itemNameNormalized = normalizeString(itemValue)
                 // Verificar se o termo de busca está contido no nome do item
                 return itemNameNormalized.includes(searchNormalized) || searchNormalized.includes(itemNameNormalized)
               })
@@ -287,7 +290,8 @@ export default function ReajusteListPage() {
               const searchWords = searchNormalized.split(' ').filter(word => word.length > 2)
               if (searchWords.length > 0) {
                 item = items.find(item => {
-                  const itemNameNormalized = normalizeString(item[nameField] || item.nome || '')
+                  const itemValue = item[nameField] ?? item.nome ?? ''
+                  const itemNameNormalized = normalizeString(itemValue)
                   return searchWords.some(word => itemNameNormalized.includes(word))
                 })
               }
@@ -311,14 +315,16 @@ export default function ReajusteListPage() {
             
             // Primeiro, tentar correspondência exata (normalizada)
             let item = items.find(item => {
-              const itemNameNormalized = normalizeString(item[nameField] || item.nome || '')
+              const itemValue = item[nameField] ?? item.nome ?? ''
+              const itemNameNormalized = normalizeString(itemValue)
               return itemNameNormalized === searchNormalized
             })
             
             // Se não encontrou correspondência exata, tentar correspondência parcial
             if (!item) {
               item = items.find(item => {
-                const itemNameNormalized = normalizeString(item[nameField] || item.nome || '')
+                const itemValue = item[nameField] ?? item.nome ?? ''
+                const itemNameNormalized = normalizeString(itemValue)
                 return itemNameNormalized.includes(searchNormalized) || searchNormalized.includes(itemNameNormalized)
               })
             }
@@ -328,7 +334,8 @@ export default function ReajusteListPage() {
               const searchWords = searchNormalized.split(' ').filter(word => word.length > 2)
               if (searchWords.length > 0) {
                 item = items.find(item => {
-                  const itemNameNormalized = normalizeString(item[nameField] || item.nome || '')
+                  const itemValue = item[nameField] ?? item.nome ?? ''
+                  const itemNameNormalized = normalizeString(itemValue)
                   return searchWords.some(word => itemNameNormalized.includes(word))
                 })
               }

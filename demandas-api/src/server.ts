@@ -2255,12 +2255,13 @@ function crud(entity: keyof PrismaClient) {
           }
         }
         
-        // Remover apenas campos que são realmente vazios/null/undefined (exceto obrigatórios)
+        // NÃO remover campos opcionais mesmo se vazios - preservar todos os campos enviados
+        // Apenas remover campos que são undefined (não null ou string vazia)
         Object.keys(reajusteData).forEach(key => {
-          if (reajusteData[key] === null || reajusteData[key] === undefined || reajusteData[key] === '') {
-            // Manter campos obrigatórios mesmo se vazios
+          if (reajusteData[key] === undefined) {
+            // Manter campos obrigatórios mesmo se undefined
             if (!['mes', 'ano', 'status', 'operadora', 'responsavelAnalista'].includes(key)) {
-              console.log(`🔍 REAJUSTE CREATE: Removendo campo vazio: ${key}`);
+              console.log(`🔍 REAJUSTE CREATE: Removendo campo undefined: ${key}`);
               delete reajusteData[key];
             }
           }
