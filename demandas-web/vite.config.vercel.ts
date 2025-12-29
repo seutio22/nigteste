@@ -1,57 +1,11 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-import { copyFileSync, existsSync, mkdirSync } from 'fs'
-import { join, dirname } from 'path'
-
 export default defineConfig({
   plugins: [
-    react(),
-    {
-      name: 'copy-logo',
-      closeBundle() {
-        // Copiar logo - não crítico se falhar
-        try {
-          const logoPath = join(process.cwd(), 'public', 'dynamic-logo.png')
-          const distPath = join(process.cwd(), 'dist', 'dynamic-logo.png')
-          
-          if (existsSync(logoPath)) {
-            const distDir = dirname(distPath)
-            if (!existsSync(distDir)) {
-              mkdirSync(distDir, { recursive: true })
-            }
-            copyFileSync(logoPath, distPath)
-            console.log('✅ Logo copiado para dist/')
-          }
-        } catch (error: any) {
-          // Ignorar erro silenciosamente - o Vite já copia arquivos da pasta public automaticamente
-          if (process.env.VERCEL) {
-            // No Vercel, apenas logar se necessário
-            console.log('ℹ️ Logo não copiado (será copiado automaticamente pelo Vite)')
-          }
-        }
-        
-        // Copiar _redirects - não crítico se falhar
-        try {
-          const redirectsPath = join(process.cwd(), 'public', '_redirects')
-          const redirectsDistPath = join(process.cwd(), 'dist', '_redirects')
-          
-          if (existsSync(redirectsPath)) {
-            const distDir = dirname(redirectsDistPath)
-            if (!existsSync(distDir)) {
-              mkdirSync(distDir, { recursive: true })
-            }
-            copyFileSync(redirectsPath, redirectsDistPath)
-            console.log('✅ _redirects copiado para dist/')
-          }
-        } catch (error: any) {
-          // Ignorar erro silenciosamente - o Vite já copia arquivos da pasta public automaticamente
-          if (process.env.VERCEL) {
-            console.log('ℹ️ _redirects não copiado (será copiado automaticamente pelo Vite)')
-          }
-        }
-      }
-    }
+    react()
+    // Removido plugin de cópia manual - o Vite já copia automaticamente arquivos da pasta public
+    // quando copyPublicDir: true está configurado (linha 86)
   ],
   base: '/',
   publicDir: 'public', // Garantir que a pasta public seja copiada
