@@ -2260,7 +2260,18 @@ function crud(entity: keyof PrismaClient) {
         });
         
         console.log('🔍 REAJUSTE CREATE: Dados finais para criação:', JSON.stringify(reajusteData, null, 2));
-        return anyPrisma[entity].create({ data: reajusteData });
+        const created = await anyPrisma[entity].create({ data: reajusteData });
+        console.log('✅ REAJUSTE CREATE: Dados criados com sucesso:', JSON.stringify({
+          id: created.id,
+          cliente: created.cliente,
+          contrato: created.contrato,
+          operadora: created.operadora,
+          produto: created.produto,
+          responsavelAnalista: created.responsavelAnalista,
+          mes: created.mes,
+          ano: created.ano
+        }, null, 2));
+        return created;
       }
       
       return anyPrisma[entity].create({ data });

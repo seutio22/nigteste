@@ -471,10 +471,40 @@ export default function ReajusteListPage() {
           console.log(`🚀 REAJUSTE IMPORT Item ${itemNumber} - Payload final:`, JSON.stringify(reajusteData, null, 2))
 
           // Salvar na API (usar endpoint correto para ReajusteLancamento)
-          await api.post('/reajusteLancamentos', reajusteData)
-          
-          totalImported++
-          totalSavedToDatabase++
+          try {
+            const response = await api.post('/reajusteLancamentos', reajusteData)
+            console.log(`✅ REAJUSTE IMPORT Item ${itemNumber} - Resposta da API:`, JSON.stringify(response.data, null, 2))
+            
+            // Verificar se os dados foram salvos corretamente
+            if (response.data) {
+              const savedData = response.data
+              console.log(`✅ REAJUSTE IMPORT Item ${itemNumber} - Dados salvos:`, {
+                id: savedData.id,
+                cliente: savedData.cliente,
+                contrato: savedData.contrato,
+                operadora: savedData.operadora,
+                produto: savedData.produto,
+                responsavelAnalista: savedData.responsavelAnalista
+              })
+              
+              // Verificar se algum campo importante está vazio
+              if (!savedData.cliente || !savedData.contrato || !savedData.operadora || !savedData.responsavelAnalista) {
+                console.warn(`⚠️ REAJUSTE IMPORT Item ${itemNumber} - Alguns campos estão vazios após salvar:`, {
+                  cliente: savedData.cliente || 'VAZIO',
+                  contrato: savedData.contrato || 'VAZIO',
+                  operadora: savedData.operadora || 'VAZIO',
+                  responsavelAnalista: savedData.responsavelAnalista || 'VAZIO'
+                })
+              }
+            }
+            
+            totalImported++
+            totalSavedToDatabase++
+          } catch (apiError: any) {
+            console.error(`❌ REAJUSTE IMPORT Item ${itemNumber} - Erro na API:`, apiError)
+            console.error(`❌ REAJUSTE IMPORT Item ${itemNumber} - Resposta do erro:`, apiError?.response?.data)
+            throw apiError
+          }
 
         } catch (error: any) {
           const errorDetails = error?.response?.data || error?.message || JSON.stringify(error)
