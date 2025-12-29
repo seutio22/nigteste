@@ -141,29 +141,6 @@ export default function ReajusteListPage() {
     })
   }, [showOnlyMyReajustes, filteredItems, user?.name, md.analistas])
 
-  // Debug logs
-  console.log('🔍 ReajustePage: Total de items:', items.length)
-  console.log('🔍 ReajustePage: FilteredItems:', filteredItems.length)
-  console.log('🔍 ReajustePage: User:', user)
-  console.log('🔍 ReajustePage: ShowOnlyMyReajustes:', showOnlyMyReajustes)
-  console.log('🔍 ReajustePage: Analistas disponíveis:', md.analistas)
-  
-  // Debug do filtro
-  if (showOnlyMyReajustes && user?.name) {
-    const analistaCorrespondente = md.analistas.find(analista => 
-      analista.nome.toLowerCase() === user?.name?.toLowerCase() ||
-      analista.nome.toLowerCase().includes(user?.name?.toLowerCase() || '') ||
-      (user?.name?.toLowerCase() || '').includes(analista.nome.toLowerCase())
-    )
-    console.log('🔍 ReajustePage: Analista correspondente ao usuário:', analistaCorrespondente)
-    
-    if (analistaCorrespondente) {
-      const meusReajustes = filteredItems.filter(reajuste => reajuste.responsavelAnalista === analistaCorrespondente.id)
-      console.log('🔍 ReajustePage: Reajustes do analista correspondente:', meusReajustes.length, meusReajustes)
-    }
-  }
-  
-  console.log('🔍 ReajustePage: FinalFilteredItems:', finalFilteredItems.length)
 
 
   // carregar preferências
@@ -213,13 +190,11 @@ export default function ReajusteListPage() {
   // Função de exclusão em massa
   const handleBulkDelete = async () => {
     try {
-      console.log('🗑️ Iniciando exclusão em massa de', selectedIds.length, 'reajustes')
       await store.remove(selectedIds)
       setSelectedIds([])
       setBulkDeleteDialogOpen(false)
       alert(`✅ ${selectedIds.length} reajuste(s) removido(s)!`)
     } catch (error) {
-      console.error('❌ Erro na exclusão em massa:', error)
       alert('Erro ao excluir reajustes')
     }
   }
@@ -261,17 +236,6 @@ export default function ReajusteListPage() {
         
         try {
           const data = item.isCorrected ? item.correctedData : item.data
-          
-          // Debug: Log dos dados recebidos do Excel
-          console.log(`🔍 REAJUSTE IMPORT Item ${itemNumber} - Dados do Excel:`, {
-            operadora: data.operadora || data.operadoraId,
-            analista: data.responsavelAnalista || data.analista || data.responsavelAnalistaId,
-            cliente: data.cliente || data.clienteId,
-            contrato: data.contrato || data.contratoId,
-            produto: data.produto || data.produtoId,
-            mes: data.mes,
-            ano: data.ano
-          })
           
           // Função para normalizar strings (remove acentos, espaços extras, converte para lowercase)
           const normalizeString = (str: any) => {
@@ -407,25 +371,14 @@ export default function ReajusteListPage() {
           const contratoCodigo = contratoCodigoEncontrado || String(data.contrato || data.contratoId || '').trim()
           const produtoNome = produtoNomeEncontrado || String(data.produto || data.produtoId || '').trim()
           
-          // Debug: Log dos valores encontrados
-          console.log(`🔍 REAJUSTE IMPORT Item ${itemNumber}:`, {
-            operadora: { encontrado: !!operadoraNomeEncontrado, valor: operadoraNome },
-            analista: { encontrado: !!responsavelAnalistaNomeEncontrado, id: analistaId, valor: responsavelAnalistaNome },
-            cliente: { encontrado: !!clienteNomeEncontrado, valor: clienteNome },
-            contrato: { encontrado: !!contratoCodigoEncontrado, valor: contratoCodigo },
-            produto: { encontrado: !!produtoNomeEncontrado, valor: produtoNome }
-          })
-
           // Validar campos obrigatórios
           if (!operadoraNome || operadoraNome.trim() === '') {
-            console.warn(`⚠️ REAJUSTE IMPORT Item ${itemNumber}: Operadora é obrigatória e não foi encontrada. Valor original do Excel: "${data.operadora || data.operadoraId || ''}"`)
             errors.push(`Item ${itemNumber}: Operadora é obrigatória e não foi encontrada.`)
             totalImported++ // Contar como processado mesmo que tenha erro
             continue
           }
           
           if (!responsavelAnalistaNome || responsavelAnalistaNome.trim() === '') {
-            console.warn(`⚠️ REAJUSTE IMPORT Item ${itemNumber}: Responsável Analista é obrigatório e não foi encontrado. Valor original do Excel: "${data.responsavelAnalista || data.analista || data.responsavelAnalistaId || ''}"`)
             errors.push(`Item ${itemNumber}: Responsável Analista é obrigatório e não foi encontrado.`)
             totalImported++ // Contar como processado mesmo que tenha erro
             continue
@@ -452,12 +405,10 @@ export default function ReajusteListPage() {
             
             const mesLower = mesStr.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Remove acentos
             if (mesesMap[mesLower]) {
-              console.log(`🔍 REAJUSTE IMPORT Item ${itemNumber}: Convertendo mês "${mesStr}" para "${mesesMap[mesLower]}"`)
               return mesesMap[mesLower]
             }
             
             // Se não conseguir converter, usar o valor original como string
-            console.warn(`⚠️ REAJUSTE IMPORT Item ${itemNumber}: Não foi possível converter mês "${mesStr}", usando valor original`)
             return mesStr
           }
 
@@ -546,53 +497,18 @@ export default function ReajusteListPage() {
             reajusteData.itensConcluidos = Number(data.itensConcluidos) || 0
           }
 
-          // Debug: Log do payload final antes de enviar
-          console.log(`🚀 REAJUSTE IMPORT Item ${itemNumber} - Payload final:`, JSON.stringify(reajusteData, null, 2))
-
           // Salvar na API (usar endpoint correto para ReajusteLancamento)
           // SEGUINDO PADRÃO DE MANUTENÇÃO: api.post retorna os dados diretamente, não response.data
           try {
             const savedReajuste = await api.post('/reajusteLancamentos', reajusteData)
-            console.log(`✅ REAJUSTE IMPORT Item ${itemNumber} - Reajuste salvo:`, savedReajuste?.id || 'sem ID')
-            console.log(`🔍 REAJUSTE IMPORT Item ${itemNumber} - Resposta completa do backend:`, JSON.stringify(savedReajuste, null, 2))
-            
-            // Verificar se os dados foram salvos corretamente
-            if (savedReajuste) {
-              console.log(`✅ REAJUSTE IMPORT Item ${itemNumber} - Dados salvos:`, {
-                id: savedReajuste.id,
-                cliente: savedReajuste.cliente,
-                contrato: savedReajuste.contrato,
-                operadora: savedReajuste.operadora,
-                produto: savedReajuste.produto,
-                responsavelAnalista: savedReajuste.responsavelAnalista
-              })
-              
-              // Verificar se algum campo importante está vazio
-              if (!savedReajuste.cliente || !savedReajuste.contrato || !savedReajuste.operadora || !savedReajuste.responsavelAnalista) {
-                console.warn(`⚠️ REAJUSTE IMPORT Item ${itemNumber} - Alguns campos estão vazios após salvar:`, {
-                  cliente: savedReajuste.cliente || 'VAZIO',
-                  contrato: savedReajuste.contrato || 'VAZIO',
-                  operadora: savedReajuste.operadora || 'VAZIO',
-                  responsavelAnalista: savedReajuste.responsavelAnalista || 'VAZIO'
-                })
-              } else {
-                console.log(`✅ REAJUSTE IMPORT Item ${itemNumber} - TODOS os campos importantes foram salvos corretamente!`)
-              }
-            } else {
-              console.error(`❌ REAJUSTE IMPORT Item ${itemNumber} - Resposta do backend está vazia ou undefined!`)
-            }
-            
             totalImported++
             totalSavedToDatabase++
           } catch (apiError: any) {
-            console.error(`❌ REAJUSTE IMPORT Item ${itemNumber} - Erro na API:`, apiError)
-            console.error(`❌ REAJUSTE IMPORT Item ${itemNumber} - Resposta do erro:`, apiError?.response || apiError?.message)
             errors.push(`Item ${itemNumber}: Erro ao salvar - ${apiError instanceof Error ? apiError.message : 'Erro desconhecido'}`)
             // NÃO fazer throw - seguir padrão de Manutenção e continuar processando outros itens
           }
 
         } catch (error: any) {
-          console.error(`❌ REAJUSTE IMPORT Item ${itemNumber} - Erro geral:`, error)
           const errorDetails = error?.response?.data || error?.message || JSON.stringify(error)
           errors.push(`Item ${itemNumber} (${item.isCorrected ? item.correctedData?.ticket || item.correctedData?.mes + '/' + item.correctedData?.ano : item.data?.ticket || item.data?.mes + '/' + item.data?.ano || 'sem identificação'}): ${errorDetails}`)
         }
@@ -605,15 +521,6 @@ export default function ReajusteListPage() {
 
       const totalFromResult = result.valid.length
       const successMessage = `${totalImported} de ${totalFromResult} reajustes processados, ${totalSavedToDatabase} salvos no banco de dados`
-      console.log(`✅ SMART IMPORT REAJUSTES: ${successMessage}`)
-      console.log(`🔍 SMART IMPORT REAJUSTES: Detalhes do processamento:`)
-      console.log(`  - Total de itens válidos no resultado: ${totalFromResult}`)
-      console.log(`  - Total de itens processados: ${totalImported}`)
-      console.log(`  - Total salvos no banco: ${totalSavedToDatabase}`)
-      console.log(`  - Total de erros: ${errors.length}`)
-      if (errors.length > 0) {
-        console.warn('⚠️ SMART IMPORT REAJUSTES: Erros ocorridos:', errors)
-      }
 
       // Mostrar notificação de sucesso
       if (totalSavedToDatabase > 0) {
@@ -1125,7 +1032,6 @@ function ActionCell({ id, status }: { id: string, status: string }) {
       store.log?.({ reajusteId: id, type: 'status_change', field: 'status', from, to: newStatus })
       setOpenStatus(false)
     } catch (error) {
-      console.error('Erro ao alterar status:', error)
       alert('Erro ao alterar status. Tente novamente.')
     }
   }
@@ -1135,8 +1041,7 @@ function ActionCell({ id, status }: { id: string, status: string }) {
       await store.remove(id)
       setOpenDelete(false)
     } catch (error) {
-      console.error('Erro ao excluir reajuste:', error)
-      alert('Erro ao excluir reajuste. Verifique o console para mais detalhes.')
+      alert('Erro ao excluir reajuste.')
     }
   }
 
@@ -1214,8 +1119,7 @@ function ActionCell({ id, status }: { id: string, status: string }) {
       
       navigate(`/reajuste/${navigateId}`)
     } catch (error) {
-      console.error('Erro ao duplicar reajuste:', error)
-      alert('Erro ao duplicar reajuste. Verifique o console para mais detalhes.')
+      alert('Erro ao duplicar reajuste.')
     }
   }
 

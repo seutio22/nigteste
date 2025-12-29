@@ -2220,11 +2220,9 @@ function crud(entity: keyof PrismaClient) {
       // Tratamento especial para reajusteLancamentos - preservar campos de string
       if (entity === 'reajusteLancamento') {
         const reajusteData = { ...data as any };
-        console.log('🔍 REAJUSTE CREATE: Dados recebidos:', JSON.stringify(reajusteData, null, 2));
         
         // Se analistaId estiver presente, conectar ao relacionamento analista
         if (reajusteData.analistaId) {
-          console.log(`🔧 REAJUSTE CREATE: Conectando analistaId: ${reajusteData.analistaId}`);
           reajusteData.analista = { connect: { id: reajusteData.analistaId } };
           delete reajusteData.analistaId;
         }
@@ -2237,7 +2235,6 @@ function crud(entity: keyof PrismaClient) {
           if (reajusteData[campo] !== undefined && reajusteData[campo] !== null) {
             // Converter para string se necessário
             reajusteData[campo] = String(reajusteData[campo]);
-            console.log(`🔍 REAJUSTE CREATE: Campo ${campo} preservado:`, reajusteData[campo]);
           }
         });
         
@@ -2250,7 +2247,6 @@ function crud(entity: keyof PrismaClient) {
           };
           const mesLower = reajusteData.mes.toLowerCase();
           if (mesesMap[mesLower]) {
-            console.log(`🔍 REAJUSTE CREATE: Convertendo mês "${reajusteData.mes}" para "${mesesMap[mesLower]}"`);
             reajusteData.mes = mesesMap[mesLower];
           }
         }
@@ -2261,24 +2257,12 @@ function crud(entity: keyof PrismaClient) {
           if (reajusteData[key] === undefined) {
             // Manter campos obrigatórios mesmo se undefined
             if (!['mes', 'ano', 'status', 'operadora', 'responsavelAnalista'].includes(key)) {
-              console.log(`🔍 REAJUSTE CREATE: Removendo campo undefined: ${key}`);
               delete reajusteData[key];
             }
           }
         });
         
-        console.log('🔍 REAJUSTE CREATE: Dados finais para criação:', JSON.stringify(reajusteData, null, 2));
         const created = await anyPrisma[entity].create({ data: reajusteData });
-        console.log('✅ REAJUSTE CREATE: Dados criados com sucesso:', JSON.stringify({
-          id: created.id,
-          cliente: created.cliente,
-          contrato: created.contrato,
-          operadora: created.operadora,
-          produto: created.produto,
-          responsavelAnalista: created.responsavelAnalista,
-          mes: created.mes,
-          ano: created.ano
-        }, null, 2));
         return created;
       }
       
