@@ -648,17 +648,6 @@ export default function ReajusteListPage() {
     } catch {}
   }
 
-
-  // Função para normalizar strings (remove acentos, espaços extras, converte para lowercase)
-  const normalizeString = (str: any) => {
-    return String(str ?? '')
-      .toLowerCase()
-      .trim()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '') // Remove acentos
-      .replace(/\s+/g, ' ') // Normaliza espaços
-  }
-
   // Função para buscar por nome quando não encontrar por ID (para ReajusteLancamento que armazena nomes)
   const findByName = (value: string | undefined, arr: { id: string, nome: string }[]) => {
     if (!value) return null
