@@ -136,14 +136,50 @@ export default function ReajusteDetailPage() {
     )
   }
 
-  const label = (id?: string, arr?: { id: string, nome: string }[]) => 
-    arr?.find(a => a.id === id)?.nome || '-'
+  // Função para normalizar strings (remove acentos, espaços extras, converte para lowercase)
+  const normalizeString = (str: any) => {
+    return String(str ?? '')
+      .toLowerCase()
+      .trim()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // Remove acentos
+      .replace(/\s+/g, ' ') // Normaliza espaços
+  }
 
-  // Função específica para exibir cliente com grupo econômico
-  const labelCliente = (id?: string) => {
-    if (!id) return '-'
-    const cliente = md.clientes.find(c => c.id === id)
-    if (!cliente) return '-'
+  // Função para buscar por nome (para ReajusteLancamento que armazena nomes como strings)
+  const findByName = (name: string | undefined, arr?: { id: string, nome: string }[]) => {
+    if (!name || !arr) return null
+    const normalizedName = normalizeString(name)
+    return arr.find(a => normalizeString(a.nome) === normalizedName) || null
+  }
+
+  // Função label que funciona tanto com ID quanto com nome (para compatibilidade)
+  const label = (value?: string, arr?: { id: string, nome: string }[]) => {
+    if (!value || !arr) return '-'
+    // Primeiro tentar buscar por ID
+    const byId = arr.find(a => a.id === value)
+    if (byId) return byId.nome
+    // Se não encontrar por ID, tentar buscar por nome (para ReajusteLancamento)
+    const byName = findByName(value, arr)
+    if (byName) return byName.nome
+    // Se não encontrar, retornar o valor original (pode ser um nome que não está nos dados mestres)
+    return value
+  }
+
+  // Função específica para exibir cliente com grupo econômico (busca por ID ou nome)
+  const labelCliente = (value?: string) => {
+    if (!value) return '-'
+    // Primeiro tentar buscar por ID
+    let cliente = md.clientes.find(c => c.id === value)
+    // Se não encontrar por ID, tentar buscar por nome (para ReajusteLancamento)
+    if (!cliente) {
+      const normalizedValue = normalizeString(value)
+      cliente = md.clientes.find(c => normalizeString(c.nome) === normalizedValue) || null
+    }
+    if (!cliente) {
+      // Se não encontrar nos dados mestres, retornar o valor original (pode ser um nome que não está nos dados mestres)
+      return value
+    }
     
     if (cliente.grupoEconomico) {
       return `${cliente.nome} (${cliente.grupoEconomico})`
@@ -436,30 +472,176 @@ function EditInline({ reajuste }: { reajuste: any }) {
   const [draft, setDraft] = useState(reajuste)
   const [confirmOpen, setConfirmOpen] = useState(false)
 
+  // Função para normalizar strings (remove acentos, espaços extras, converte para lowercase)
+  const normalizeString = (str: any) => {
+    return String(str ?? '')
+      .toLowerCase()
+      .trim()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // Remove acentos
+      .replace(/\s+/g, ' ') // Normaliza espaços
+  }
+
+  // Função para converter nome (string) em ID
+  const findIdByName = (name: string | undefined, arr: { id: string, nome: string }[]) => {
+    if (!name) return undefined
+    const normalizedName = normalizeString(name)
+    const found = arr.find(a => normalizeString(a.nome) === normalizedName)
+    return found?.id || undefined
+  }
+
+  // Função para converter código/número de contrato em ID
+  const findContratoIdByCodigo = (codigo: string | undefined, arr: any[]) => {
+    if (!codigo) return undefined
+    const normalizedCodigo = normalizeString(codigo)
+    const found = arr.find((c: any) => 
+      normalizeString(c.codigo) === normalizedCodigo || 
+      normalizeString(c.numero) === normalizedCodigo
+    )
+    return found?.id || undefined
+  }
+
   useEffect(() => {
-    // Inicializar draft exatamente como o reajuste original (igual páginas Cadastro/Manutenção)
-    setDraft(reajuste)
-  }, [reajuste])
+    // Converter nomes (strings) para IDs ao inicializar draft
+    // ReajusteLancamento armazena operadora, cliente, contrato, produto como strings (nomes)
+    const convertedDraft = { ...reajuste }
+    
+    // Converter operadora (nome) para ID
+    if (reajuste.operadora && typeof reajuste.operadora === 'string' && !reajuste.operadora.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+      const operadoraId = findIdByName(reajuste.operadora, md.operadoras)
+      if (operadoraId) {
+        convertedDraft.operadora = operadoraId
+      }
+    }
+    
+    // Converter cliente (nome) para ID
+    if (reajuste.cliente && typeof reajuste.cliente === 'string' && !reajuste.cliente.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+      const clienteId = findIdByName(reajuste.cliente, md.clientes)
+      if (clienteId) {
+        convertedDraft.cliente = clienteId
+      }
+    }
+    
+    // Converter contrato (código/número) para ID
+    if (reajuste.contrato && typeof reajuste.contrato === 'string' && !reajuste.contrato.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+      const contratoId = findContratoIdByCodigo(reajuste.contrato, md.contratos)
+      if (contratoId) {
+        convertedDraft.contrato = contratoId
+      }
+    }
+    
+    // Converter produto (nome) para ID
+    if (reajuste.produto && typeof reajuste.produto === 'string' && !reajuste.produto.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+      const produtoId = findIdByName(reajuste.produto, md.produtos)
+      if (produtoId) {
+        convertedDraft.produto = produtoId
+      }
+    }
+    
+    // Converter responsavelAnalista (nome) para ID
+    if (reajuste.responsavelAnalista && typeof reajuste.responsavelAnalista === 'string' && !reajuste.responsavelAnalista.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+      const analistaId = findIdByName(reajuste.responsavelAnalista, md.analistas)
+      if (analistaId) {
+        convertedDraft.responsavelAnalista = analistaId
+      }
+    }
+    
+    setDraft(convertedDraft)
+  }, [reajuste, md.operadoras, md.clientes, md.contratos, md.produtos, md.analistas])
 
   const changedKeys = useMemo(() => {
     const keys = ['mes', 'ano', 'dataInicio', 'dataFim', 'status', 'operadora', 'qualidade', 'qualidadeInformacao', 'planos', 'responsavelConta', 'filial', 'ticket', 'solicitante', 'responsavelAnalista', 'cliente', 'contrato', 'produto', 'dataAtualizacao', 'itensPendentes', 'itensConcluidos'] as const
+    
+    // Campos que precisam de conversão nome <-> ID para comparação
+    const fieldsWithNameIdConversion = ['operadora', 'cliente', 'contrato', 'produto', 'responsavelAnalista']
+    
     return keys.filter((k) => {
-      const reajusteValue = reajuste[k as keyof typeof reajuste]
-      const draftValue = draft[k as keyof typeof draft]
+      let reajusteValue = reajuste[k as keyof typeof reajuste]
+      let draftValue = draft[k as keyof typeof draft]
+      
+      // Para campos que armazenam nomes no reajuste mas IDs no draft, converter para comparar
+      if (fieldsWithNameIdConversion.includes(k)) {
+        // Se o reajuste tem um nome (string) e o draft tem um ID, converter o ID para nome
+        if (reajusteValue && typeof reajusteValue === 'string' && !reajusteValue.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+          // reajusteValue é um nome (string)
+          if (draftValue && typeof draftValue === 'string' && draftValue.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+            // draftValue é um ID, converter para nome
+            let draftName = ''
+            if (k === 'operadora') {
+              draftName = md.operadoras.find(o => o.id === draftValue)?.nome || ''
+            } else if (k === 'cliente') {
+              draftName = md.clientes.find(c => c.id === draftValue)?.nome || ''
+            } else if (k === 'contrato') {
+              const contrato = md.contratos.find((c: any) => c.id === draftValue)
+              draftName = contrato?.codigo || contrato?.numero || ''
+            } else if (k === 'produto') {
+              draftName = md.produtos.find(p => p.id === draftValue)?.nome || ''
+            } else if (k === 'responsavelAnalista') {
+              draftName = md.analistas.find(a => a.id === draftValue)?.nome || ''
+            }
+            // Comparar nomes normalizados
+            return normalizeString(reajusteValue) !== normalizeString(draftName)
+          }
+        }
+      }
       
       // Normalizar todos os valores: null, undefined, '' → ''
       // Isso evita falsos positivos como null !== ''
       const isChanged = String(reajusteValue ?? '') !== String(draftValue ?? '')
       return isChanged
     })
-  }, [reajuste, draft])
+  }, [reajuste, draft, md.operadoras, md.clientes, md.contratos, md.produtos, md.analistas])
 
   async function applySave() {
     try {
       const { user: currentUser } = useAuthStore.getState()
       
+      // Converter IDs de volta para nomes (strings) antes de salvar
+      // ReajusteLancamento armazena operadora, cliente, contrato, produto como strings (nomes)
+      const saveDraft = { ...draft }
+      
+      // Converter operadora (ID) para nome
+      if (saveDraft.operadora) {
+        const operadora = md.operadoras.find(o => o.id === saveDraft.operadora)
+        if (operadora) {
+          saveDraft.operadora = operadora.nome
+        }
+      }
+      
+      // Converter cliente (ID) para nome
+      if (saveDraft.cliente) {
+        const cliente = md.clientes.find(c => c.id === saveDraft.cliente)
+        if (cliente) {
+          saveDraft.cliente = cliente.nome
+        }
+      }
+      
+      // Converter contrato (ID) para código
+      if (saveDraft.contrato) {
+        const contrato = md.contratos.find((c: any) => c.id === saveDraft.contrato)
+        if (contrato) {
+          saveDraft.contrato = contrato.codigo || contrato.numero || saveDraft.contrato
+        }
+      }
+      
+      // Converter produto (ID) para nome
+      if (saveDraft.produto) {
+        const produto = md.produtos.find(p => p.id === saveDraft.produto)
+        if (produto) {
+          saveDraft.produto = produto.nome
+        }
+      }
+      
+      // Converter responsavelAnalista (ID) para nome
+      if (saveDraft.responsavelAnalista) {
+        const analista = md.analistas.find(a => a.id === saveDraft.responsavelAnalista)
+        if (analista) {
+          saveDraft.responsavelAnalista = analista.nome
+        }
+      }
+      
       // Atualizar no store (que salva no banco)
-      await store.upsert(draft)
+      await store.upsert(saveDraft)
       
       // Log manual apenas dos campos que realmente mudaram (EXATA RÉPLICA de Demandas/Manutenção)
       changedKeys.forEach((k) => {
@@ -485,16 +667,24 @@ function EditInline({ reajuste }: { reajuste: any }) {
           }
         }
         
-        // Converter valores para string legível (IDs para nomes) - IGUAL OUTRAS PÁGINAS
+        // Converter valores para string legível
+        // ReajusteLancamento armazena operadora, cliente, contrato, produto como nomes (strings)
+        // Mas o draft tem IDs, então precisamos converter
         const fieldsWithIdConversion = ['operadora', 'cliente', 'contrato', 'produto', 'responsavelAnalista', 'solicitante']
         
-        const from = fieldsWithIdConversion.includes(k) 
-          ? convertIdToName((reajuste as any)[k], k)
-          : String((reajuste as any)[k] ?? '')
+        // Para o valor original (reajuste), pode ser nome (string) ou ID
+        let from = String((reajuste as any)[k] ?? '')
+        if (fieldsWithIdConversion.includes(k) && from && from.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+          // Se for um ID, converter para nome
+          from = convertIdToName(from, k)
+        }
         
-        const to = fieldsWithIdConversion.includes(k)
-          ? convertIdToName((draft as any)[k], k)
-          : String((draft as any)[k] ?? '')
+        // Para o valor do draft, sempre é ID (se existir), então converter para nome
+        let to = String((draft as any)[k] ?? '')
+        if (fieldsWithIdConversion.includes(k) && to && to.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+          // Se for um ID, converter para nome
+          to = convertIdToName(to, k)
+        }
         
         // Mapear campos para nomes legíveis
         const fieldMapping: { [key: string]: string } = {
