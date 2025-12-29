@@ -94,6 +94,16 @@ export default function ReajusteListPage() {
   // Filtrar dados por permissão do usuário
   const filteredItems = useFilteredData(items, user?.role, user?.id, false) // false = não filtrar por permissão
 
+  // Função para normalizar strings (remove acentos, espaços extras, converte para lowercase)
+  const normalizeString = (str: any) => {
+    return String(str ?? '')
+      .toLowerCase()
+      .trim()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // Remove acentos
+      .replace(/\s+/g, ' ') // Normaliza espaços
+  }
+
   // Aplicar filtro adicional para reajustes do usuário logado (otimizado com useMemo)
   const finalFilteredItems = useMemo(() => {
     if (!showOnlyMyReajustes) return filteredItems
@@ -106,9 +116,24 @@ export default function ReajusteListPage() {
         (user?.name?.toLowerCase() || '').includes(analista.nome.toLowerCase())
       )
       
-      // Se encontrou o analista correspondente, comparar IDs
-      if (analistaCorrespondente) {
-        return reajuste.responsavelAnalista === analistaCorrespondente.id
+      if (!reajuste.responsavelAnalista) return false
+      
+      // ReajusteLancamento armazena responsavelAnalista como string (nome) ou ID
+      // Verificar se é um ID (UUID) ou um nome (string)
+      const isId = reajuste.responsavelAnalista.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+      
+      if (isId) {
+        // Se for ID, comparar diretamente
+        if (analistaCorrespondente) {
+          return reajuste.responsavelAnalista === analistaCorrespondente.id
+        }
+      } else {
+        // Se for nome (string), comparar nomes normalizados
+        if (analistaCorrespondente) {
+          const reajusteAnalistaNormalized = normalizeString(reajuste.responsavelAnalista)
+          const analistaNomeNormalized = normalizeString(analistaCorrespondente.nome)
+          return reajusteAnalistaNormalized === analistaNomeNormalized
+        }
       }
       
       // Se não encontrou correspondência, retornar false (não mostrar)
@@ -594,22 +619,111 @@ export default function ReajusteListPage() {
   }
 
 
-  const rows = finalFilteredItems.map((r) => ({
-    id: r.id,
-    ticket: r.ticket ?? '',
-    mesAno: `${r.mes}/${r.ano}`,
-    filial: r.filial ?? '',
-    operadora: md.operadoras.find(o => o.id === r.operadora)?.nome ?? '',
-    responsavelAnalista: md.analistas.find(a => a.id === r.responsavelAnalista)?.nome ?? '',
-    cliente: md.clientes.find(c => c.id === r.cliente)?.nome ?? '',
-    contrato: md.contratos.find(c => c.id === r.contrato)?.codigo ?? '',
-    produto: md.produtos.find(p => p.id === r.produto)?.nome ?? '',
-    status: r.status ?? 'Ativo',
-    total: r.total ?? 0,
-    // Manter o valor original da data (ISO string) para ordenação correta
-    // A formatação será feita pelo valueFormatter da coluna
-    updatedAt: r.updatedAt || '',
-  }))
+  // Função para normalizar strings (remove acentos, espaços extras, converte para lowercase)
+  const normalizeString = (str: any) => {
+    return String(str ?? '')
+      .toLowerCase()
+      .trim()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // Remove acentos
+      .replace(/\s+/g, ' ') // Normaliza espaços
+  }
+
+  // Função para buscar por nome quando não encontrar por ID (para ReajusteLancamento que armazena nomes)
+  const findByName = (value: string | undefined, arr: { id: string, nome: string }[]) => {
+    if (!value) return null
+    const normalizedValue = normalizeString(value)
+    return arr.find(a => normalizeString(a.nome) === normalizedValue) || null
+  }
+
+  // Função para buscar contrato por código ou número
+  const findContratoByCodigo = (value: string | undefined, arr: any[]) => {
+    if (!value) return null
+    const normalizedValue = normalizeString(value)
+    return arr.find((c: any) => 
+      normalizeString(c.codigo) === normalizedValue || 
+      normalizeString(c.numero) === normalizedValue
+    ) || null
+  }
+
+  const rows = finalFilteredItems.map((r) => {
+    // ReajusteLancamento armazena operadora, cliente, contrato, produto como strings (nomes)
+    // Tentar buscar por ID primeiro, depois por nome
+    let operadoraNome = ''
+    if (r.operadora) {
+      // Verificar se é um ID (UUID) ou um nome (string)
+      const isId = r.operadora.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+      if (isId) {
+        operadoraNome = md.operadoras.find(o => o.id === r.operadora)?.nome ?? ''
+      } else {
+        // É um nome, buscar nos dados mestres
+        const found = findByName(r.operadora, md.operadoras)
+        operadoraNome = found?.nome ?? r.operadora // Se não encontrar, usar o valor original
+      }
+    }
+
+    let analistaNome = ''
+    if (r.responsavelAnalista) {
+      const isId = r.responsavelAnalista.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+      if (isId) {
+        analistaNome = md.analistas.find(a => a.id === r.responsavelAnalista)?.nome ?? ''
+      } else {
+        const found = findByName(r.responsavelAnalista, md.analistas)
+        analistaNome = found?.nome ?? r.responsavelAnalista
+      }
+    }
+
+    let clienteNome = ''
+    if (r.cliente) {
+      const isId = r.cliente.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+      if (isId) {
+        clienteNome = md.clientes.find(c => c.id === r.cliente)?.nome ?? ''
+      } else {
+        const found = findByName(r.cliente, md.clientes)
+        clienteNome = found?.nome ?? r.cliente
+      }
+    }
+
+    let contratoCodigo = ''
+    if (r.contrato) {
+      const isId = r.contrato.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+      if (isId) {
+        contratoCodigo = md.contratos.find(c => c.id === r.contrato)?.codigo ?? md.contratos.find(c => c.id === r.contrato)?.numero ?? ''
+      } else {
+        // É um código/número, buscar nos dados mestres
+        const found = findContratoByCodigo(r.contrato, md.contratos)
+        contratoCodigo = found?.codigo ?? found?.numero ?? r.contrato
+      }
+    }
+
+    let produtoNome = ''
+    if (r.produto) {
+      const isId = r.produto.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+      if (isId) {
+        produtoNome = md.produtos.find(p => p.id === r.produto)?.nome ?? ''
+      } else {
+        const found = findByName(r.produto, md.produtos)
+        produtoNome = found?.nome ?? r.produto
+      }
+    }
+
+    return {
+      id: r.id,
+      ticket: r.ticket ?? '',
+      mesAno: `${r.mes}/${r.ano}`,
+      filial: r.filial ?? '',
+      operadora: operadoraNome,
+      responsavelAnalista: analistaNome,
+      cliente: clienteNome,
+      contrato: contratoCodigo,
+      produto: produtoNome,
+      status: r.status ?? 'Ativo',
+      total: r.total ?? 0,
+      // Manter o valor original da data (ISO string) para ordenação correta
+      // A formatação será feita pelo valueFormatter da coluna
+      updatedAt: r.updatedAt || '',
+    }
+  })
   
   // Ordenar os dados por updatedAt (mais recente primeiro) antes de passar para o DataGrid
   const sortedRows = [...rows].sort((a, b) => {
