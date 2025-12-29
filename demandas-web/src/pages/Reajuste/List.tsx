@@ -237,6 +237,17 @@ export default function ReajusteListPage() {
         try {
           const data = item.isCorrected ? item.correctedData : item.data
           
+          // Debug: Log dos dados recebidos do Excel
+          console.log(`🔍 REAJUSTE IMPORT Item ${itemNumber} - Dados do Excel:`, {
+            operadora: data.operadora || data.operadoraId,
+            analista: data.responsavelAnalista || data.analista || data.responsavelAnalistaId,
+            cliente: data.cliente || data.clienteId,
+            contrato: data.contrato || data.contratoId,
+            produto: data.produto || data.produtoId,
+            mes: data.mes,
+            ano: data.ano
+          })
+          
           // Função para normalizar strings (remove acentos, espaços extras, converte para lowercase)
           const normalizeString = (str: string) => {
             if (!str) return ''
@@ -336,14 +347,31 @@ export default function ReajusteListPage() {
           )
 
           // Usar nomes encontrados ou valores originais do Excel
-          const operadoraNome = operadoraData.nome || data.operadora || data.operadoraId || ''
-          const responsavelAnalistaNome = responsavelAnalistaData.nome || data.responsavelAnalista || data.analista || data.responsavelAnalistaId || ''
-          const clienteNome = clienteData.nome || data.cliente || data.clienteId || ''
-          // Para contrato, usar codigo se encontrado, senão numero, senão valor original
-          const contratoCodigo = contratoData.id 
-            ? (md.contratos.find(c => c.id === contratoData.id)?.codigo || md.contratos.find(c => c.id === contratoData.id)?.numero || contratoData.nome)
-            : (contratoData.nome || data.contrato || data.contratoId || '')
-          const produtoNome = produtoData.nome || data.produto || data.produtoId || ''
+          // IMPORTANTE: Sempre preservar valores originais do Excel, mesmo se não encontrar correspondência
+          const operadoraNome = operadoraData.nome || String(data.operadora || data.operadoraId || '').trim()
+          const responsavelAnalistaNome = responsavelAnalistaData.nome || String(data.responsavelAnalista || data.analista || data.responsavelAnalistaId || '').trim()
+          const clienteNome = clienteData.nome || String(data.cliente || data.clienteId || '').trim()
+          
+          // Para contrato, usar codigo se encontrado, senão numero, senão valor original do Excel
+          let contratoCodigo = ''
+          if (contratoData.id) {
+            const contratoEncontrado = md.contratos.find(c => c.id === contratoData.id)
+            contratoCodigo = contratoEncontrado?.codigo || contratoEncontrado?.numero || contratoData.nome || ''
+          } else {
+            // Se não encontrou, usar valor original do Excel
+            contratoCodigo = contratoData.nome || String(data.contrato || data.contratoId || '').trim()
+          }
+          
+          const produtoNome = produtoData.nome || String(data.produto || data.produtoId || '').trim()
+          
+          // Debug: Log dos valores encontrados
+          console.log(`🔍 REAJUSTE IMPORT Item ${itemNumber}:`, {
+            operadora: { encontrado: !!operadoraData.id, valor: operadoraNome },
+            analista: { encontrado: !!responsavelAnalistaData.id, valor: responsavelAnalistaNome },
+            cliente: { encontrado: !!clienteData.id, valor: clienteNome },
+            contrato: { encontrado: !!contratoData.id, valor: contratoCodigo },
+            produto: { encontrado: !!produtoData.id, valor: produtoNome }
+          })
 
           // Validar campos obrigatórios
           if (!operadoraNome || operadoraNome.trim() === '') {
@@ -438,6 +466,9 @@ export default function ReajusteListPage() {
           if (data.itensConcluidos !== undefined && data.itensConcluidos !== null) {
             reajusteData.itensConcluidos = Number(data.itensConcluidos) || 0
           }
+
+          // Debug: Log do payload final antes de enviar
+          console.log(`🚀 REAJUSTE IMPORT Item ${itemNumber} - Payload final:`, JSON.stringify(reajusteData, null, 2))
 
           // Salvar na API (usar endpoint correto para ReajusteLancamento)
           await api.post('/reajusteLancamentos', reajusteData)
