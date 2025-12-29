@@ -262,9 +262,10 @@ export default function ReajusteListPage() {
           // Função para encontrar nome por busca (seguindo padrão de Manutenção, mas retornando nome ao invés de ID)
           // Retorna o nome encontrado ou string vazia se não encontrar
           const findName = (name: string, items: any[], nameField: string = 'nome') => {
-            if (!name || !name.trim()) return ''
+            const nameStr = String(name || '').trim()
+            if (!nameStr) return ''
             
-            const searchNormalized = normalizeString(String(name))
+            const searchNormalized = normalizeString(nameStr)
             
             // Primeiro, tentar correspondência exata (normalizada)
             let item = items.find(item => {
@@ -303,9 +304,10 @@ export default function ReajusteListPage() {
 
           // Função para encontrar ID (para analistaId)
           const findId = (name: string, items: any[], nameField: string = 'nome') => {
-            if (!name || !name.trim()) return ''
+            const nameStr = String(name || '').trim()
+            if (!nameStr) return ''
             
-            const searchNormalized = normalizeString(String(name))
+            const searchNormalized = normalizeString(nameStr)
             
             // Primeiro, tentar correspondência exata (normalizada)
             let item = items.find(item => {
