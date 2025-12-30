@@ -11,7 +11,7 @@ export const StatusBadge = memo(function StatusBadge({ status, size = 'medium' }
   const getStatusConfig = (status: string): { label: string; color: ChipProps['color'] } => {
     const s = status?.toLowerCase()
     
-    if (['concluída', 'concluida', 'fechada', 'concluido'].includes(s)) {
+    if (['concluída', 'concluida', 'fechada', 'concluido', 'concluído'].includes(s)) {
       return { label: 'Concluído', color: 'success' }
     }
     if (['aberta'].includes(s)) {
