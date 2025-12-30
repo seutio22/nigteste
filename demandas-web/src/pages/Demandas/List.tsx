@@ -8,7 +8,7 @@ import { StatusBadge } from '../../components/StatusBadge'
 import { SmartImporter } from '../../components/SmartImporter'
 import { smartImporterConfigs } from '../../config/smartImporterConfigs'
 import { useFilteredData } from '../../lib/utils'
-import React, { useEffect, useState, useMemo, memo, useCallback } from 'react'
+import React, { useEffect, useState, useMemo, memo, useCallback, useRef } from 'react'
 import ExportDataModal from '../../components/ExportDataModal'
 import type { ImportResult } from '../../types/smartImporter'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
@@ -182,18 +182,22 @@ export default function DemandListPage() {
   // Filtrar dados por permissão do usuário
   const filteredItems = useFilteredData(items, user?.role, user?.id, user?.viewOwnDataOnly)
 
-  // 🚀 OTIMIZAÇÃO: Filtro memoizado e simplificado
+  // 🚀 OTIMIZAÇÃO: Filtro memoizado e simplificado - usando items diretamente para melhor performance
   const finalFilteredItems = useMemo(() => {
-    if (!showOnlyMyDemands) return filteredItems
+    // Primeiro aplicar filtro de permissões
+    const permissionFiltered = filteredItems
+    
+    // Depois aplicar filtro de "Meus Cadastros"
+    if (!showOnlyMyDemands) return permissionFiltered
     
     // Se usuário é admin, retornar todos
-    if (user?.role === 'admin') return filteredItems
+    if (user?.role === 'admin') return permissionFiltered
     
     const userId = user?.id
     const userName = user?.name
     
     // Filtro otimizado - verificar apenas campos necessários
-    return filteredItems.filter(demand => {
+    return permissionFiltered.filter(demand => {
       // Verificação rápida por ID primeiro (mais comum)
       if (demand.analistaId === userId) return true
       if (demand.analista === userId) return true
@@ -236,17 +240,36 @@ export default function DemandListPage() {
     }
   }, [])
 
+  // Ref para controlar carregamento único - evita loops
+  const dataLoadedRef = useRef(false)
+  
   // Carregar dados mestres e demandas uma única vez
   useEffect(() => {
+    // Evitar múltiplas chamadas usando ref
+    if (dataLoadedRef.current) return
+    
+    if (!user?.id) {
+      return
+    }
+    
+    // Marcar como carregado antes de iniciar para evitar chamadas duplicadas
+    dataLoadedRef.current = true
+    
     const loadData = async () => {
-      // Carregar dados mestres se necessário
-      if (md.analistas.length === 0 || md.tiposServico.length === 0 || md.tiposDemanda.length === 0) {
-        await md.syncFromApi?.()
-      }
-      
-      // Carregar demandas se usuário estiver logado
-      if (user?.id) {
-        await demandStore.syncFromApi()
+      try {
+        // Carregar dados mestres se necessário
+        if (md.analistas.length === 0 || md.tiposServico.length === 0 || md.tiposDemanda.length === 0) {
+          await md.syncFromApi?.()
+        }
+        
+        // Carregar demandas se usuário estiver logado
+        if (user?.id && demandStore.items.length === 0) {
+          await demandStore.syncFromApi()
+        }
+      } catch (error) {
+        console.error('❌ Erro ao carregar dados:', error)
+        // Resetar ref em caso de erro para permitir nova tentativa
+        dataLoadedRef.current = false
       }
     }
     
@@ -263,7 +286,7 @@ export default function DemandListPage() {
 
     window.addEventListener('focus', handleFocus)
     return () => window.removeEventListener('focus', handleFocus)
-  }, []) // Removido a dependência que causava o loop
+  }, [user?.id, demandStore]) // Dependências corretas para evitar problemas
 
   // Persistir preferência do filtro de usuário
   useEffect(() => {
@@ -535,13 +558,6 @@ export default function DemandListPage() {
       return dateB - dateA
     })
   }, [rows])
-  
-  // Debug: mostrar primeiras linhas ordenadas
-  console.log('🔍 Demandas: Total de rows:', sortedRows.length)
-  console.log('🔍 Demandas: Primeiras 5 linhas ordenadas por updatedAt:')
-  sortedRows.slice(0, 5).forEach((row, idx) => {
-    console.log(`  [${idx}] ID: ${row.id}, updatedAt: ${row.updatedAt}, Data: ${row.updatedAt ? new Date(row.updatedAt).toLocaleString('pt-BR') : 'N/A'}`)
-  })
 
   return (
     <Box sx={{ height: '100vh', width: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -729,7 +745,7 @@ export default function DemandListPage() {
           rows={sortedRows}
           columns={columns}
           getRowId={(row) => row.id}
-          loading={isLoading}
+          loading={isLoading && sortedRows.length === 0}
           initialState={{
             pagination: {
               paginationModel: { page: 0, pageSize: 10 },
