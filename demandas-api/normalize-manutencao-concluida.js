@@ -1,28 +1,71 @@
 /**
- * Script para normalizar status de Manutenção: "CONCLUIDO" e "Concluido" -> "Concluída"
+ * Script para normalizar status de Manutenção: todas variações de "CONCLUIDO" -> "Concluída"
  * Execute: npx @railway/cli run --service nigteste node normalize-manutencao-concluida.js
+ * OU localmente: cd demandas-api && node normalize-manutencao-concluida.js
  */
 
 const { PrismaClient } = require('@prisma/client')
 
 const prisma = new PrismaClient()
 
+// Lista de todas as variações possíveis de "concluido" que devem ser normalizadas
+const VARIACOES_PARA_NORMALIZAR = [
+  'CONCLUIDO',
+  'Concluido',
+  'concluido',
+  'CONCLUIDA',
+  'Concluida',
+  'concluida',
+  'CONCLUÍDO',
+  'Concluído',
+  'concluído',
+  'CONCLUÍDA',
+  'Concluída', // Já está no padrão, mas vamos manter para garantir
+  'concluída'
+]
+
 async function normalizeStatus() {
   console.log('🔍 Normalizando status de Manutenções...\n')
   
   try {
-    // Verificar quantos registros têm cada variação
-    const countCONCLUIDO = await prisma.manutencao.count({
-      where: {
-        status: 'CONCLUIDO'
+    // Primeiro, buscar todas as manutenções para ver quais status existem
+    const todasManutencoes = await prisma.manutencao.findMany({
+      select: {
+        status: true
       }
     })
     
-    const countConcluido = await prisma.manutencao.count({
-      where: {
-        status: 'Concluido'
-      }
+    // Agrupar por status
+    const statusCount = {}
+    todasManutencoes.forEach(m => {
+      const status = m.status || '(vazio)'
+      statusCount[status] = (statusCount[status] || 0) + 1
     })
+    
+    console.log('📊 Status encontrados na tabela Manutencao:\n')
+    Object.keys(statusCount).sort().forEach(status => {
+      console.log(`  "${status}": ${statusCount[status]} registro(s)`)
+    })
+    
+    // Verificar quantos registros têm cada variação que precisa ser normalizada
+    console.log('\n🔍 Verificando variações de "concluido" que precisam ser normalizadas...\n')
+    
+    const variacoesEncontradas = {}
+    let totalParaNormalizar = 0
+    
+    for (const variacao of VARIACOES_PARA_NORMALIZAR) {
+      const count = await prisma.manutencao.count({
+        where: {
+          status: variacao
+        }
+      })
+      
+      if (count > 0) {
+        variacoesEncontradas[variacao] = count
+        totalParaNormalizar += count
+        console.log(`  "${variacao}": ${count} registro(s)`)
+      }
+    }
     
     const countConcluida = await prisma.manutencao.count({
       where: {
@@ -30,42 +73,29 @@ async function normalizeStatus() {
       }
     })
     
-    console.log(`📊 Status encontrados:`)
-    console.log(`  "CONCLUIDO" (todo maiúsculo): ${countCONCLUIDO} registro(s)`)
-    console.log(`  "Concluido" (sem acento): ${countConcluido} registro(s)`)
-    console.log(`  "Concluída" (padrão nativo): ${countConcluida} registro(s)`)
-    console.log(`  Total a normalizar: ${countCONCLUIDO + countConcluido} registro(s)\n`)
+    console.log(`\n  "Concluída" (padrão correto): ${countConcluida} registro(s)`)
+    console.log(`\n  Total a normalizar: ${totalParaNormalizar} registro(s)\n`)
     
-    if (countCONCLUIDO === 0 && countConcluido === 0) {
+    if (totalParaNormalizar === 0) {
       console.log('✅ Nenhum registro encontrado para normalizar.')
       await prisma.$disconnect()
       return
     }
     
-    // Normalizar "CONCLUIDO" -> "Concluída"
-    if (countCONCLUIDO > 0) {
-      console.log(`✨ Normalizando ${countCONCLUIDO} registro(s) de "CONCLUIDO" para "Concluída"...`)
-      
-      const result1 = await prisma.manutencao.updateMany({
-        where: {
-          status: 'CONCLUIDO'
-        },
-        data: {
-          status: 'Concluída',
-          updatedAt: new Date()
-        }
-      })
-      
-      console.log(`✅ ${result1.count} registro(s) normalizado(s)!`)
-    }
+    // Normalizar cada variação encontrada
+    let totalNormalizado = 0
     
-    // Normalizar "Concluido" -> "Concluída"
-    if (countConcluido > 0) {
-      console.log(`\n✨ Normalizando ${countConcluido} registro(s) de "Concluido" para "Concluída"...`)
+    for (const [variacao, count] of Object.entries(variacoesEncontradas)) {
+      if (variacao === 'Concluída') {
+        // Já está no padrão correto, pular
+        continue
+      }
       
-      const result2 = await prisma.manutencao.updateMany({
+      console.log(`✨ Normalizando ${count} registro(s) de "${variacao}" para "Concluída"...`)
+      
+      const result = await prisma.manutencao.updateMany({
         where: {
-          status: 'Concluido'
+          status: variacao
         },
         data: {
           status: 'Concluída',
@@ -73,21 +103,12 @@ async function normalizeStatus() {
         }
       })
       
-      console.log(`✅ ${result2.count} registro(s) normalizado(s)!`)
+      console.log(`✅ ${result.count} registro(s) normalizado(s)!`)
+      totalNormalizado += result.count
     }
     
     // Verificar resultado final
-    const countFinalCONCLUIDO = await prisma.manutencao.count({
-      where: {
-        status: 'CONCLUIDO'
-      }
-    })
-    
-    const countFinalConcluido = await prisma.manutencao.count({
-      where: {
-        status: 'Concluido'
-      }
-    })
+    console.log('\n📊 Verificando resultado final...\n')
     
     const countFinalConcluida = await prisma.manutencao.count({
       where: {
@@ -95,15 +116,33 @@ async function normalizeStatus() {
       }
     })
     
-    console.log('\n📊 Resultado final:')
-    console.log(`  "Concluída" (padrão nativo): ${countFinalConcluida} registro(s)`)
+    // Verificar se ainda há variações não normalizadas
+    const variacoesRestantes = {}
+    for (const variacao of VARIACOES_PARA_NORMALIZAR) {
+      if (variacao === 'Concluída') continue
+      
+      const count = await prisma.manutencao.count({
+        where: {
+          status: variacao
+        }
+      })
+      
+      if (count > 0) {
+        variacoesRestantes[variacao] = count
+      }
+    }
     
-    if (countFinalCONCLUIDO > 0 || countFinalConcluido > 0) {
-      console.log(`  "CONCLUIDO" (ainda existe): ${countFinalCONCLUIDO} registro(s)`)
-      console.log(`  "Concluido" (ainda existe): ${countFinalConcluido} registro(s)`)
-      console.log(`  ⚠️  Ainda há variações não normalizadas!`)
+    console.log('📊 Resultado final:')
+    console.log(`  "Concluída" (padrão correto): ${countFinalConcluida} registro(s)`)
+    
+    if (Object.keys(variacoesRestantes).length > 0) {
+      console.log(`\n  ⚠️  Ainda há variações não normalizadas:`)
+      Object.entries(variacoesRestantes).forEach(([variacao, count]) => {
+        console.log(`    "${variacao}": ${count} registro(s)`)
+      })
     } else {
-      console.log(`  ✅ Todos os registros foram normalizados para "Concluída"!`)
+      console.log(`\n  ✅ Todos os registros foram normalizados para "Concluída"!`)
+      console.log(`  📈 Total de registros normalizados: ${totalNormalizado}`)
       console.log(`  📈 Total de registros com status "Concluída": ${countFinalConcluida}`)
     }
     
