@@ -58,16 +58,6 @@ export function Sidebar() {
     // Verificar se tem permissão de visualizar o módulo
     const hasPermission = checkPermission(userPermissions, item.module as any, 'view')
     
-    // 🔍 DEBUG: Log específico para usuários
-    if (item.module === 'usuarios') {
-      console.log(`🔍 SIDEBAR DEBUG - Usuários:`, {
-        userRole: user.role,
-        userPermissions: userPermissions.usuarios,
-        hasPermission,
-        itemLabel: item.label
-      })
-    }
-    
     return hasPermission
   })
 

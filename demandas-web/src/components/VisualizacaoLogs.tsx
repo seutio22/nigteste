@@ -41,33 +41,21 @@ export function VisualizacaoLogs({ comunicadoId }: VisualizacaoLogsProps) {
   const comunicadoStore = useComunicadoStore()
   const { user } = useAuthStore()
   
-  console.log('🔍 VisualizacaoLogs: Renderizando...')
-  console.log('🔍 VisualizacaoLogs: ComunicadoId:', comunicadoId)
-  console.log('🔍 VisualizacaoLogs: User:', user)
-  console.log('🔍 VisualizacaoLogs: User role:', user?.role)
-  
   // As permissões são controladas pelo painel de usuário, não por código
   const hasPermission = true
-
-  console.log('🔍 VisualizacaoLogs: Has permission:', hasPermission)
 
   if (!hasPermission) {
     return null
   }
-  
+
   const comunicado = comunicadoStore.items.find(c => c.id === comunicadoId)
-  console.log('🔍 VisualizacaoLogs: Comunicado encontrado:', comunicado)
-  
+
   if (!comunicado) {
-    console.log('🔍 VisualizacaoLogs: Comunicado não encontrado, retornando null')
     return null
   }
-  
+
   const estatisticas = comunicadoStore.getEstatisticasVisualizacao(comunicadoId)
   const visualizacoes = comunicado.visualizacoes || []
-  
-  console.log('🔍 VisualizacaoLogs: Estatísticas:', estatisticas)
-  console.log('🔍 VisualizacaoLogs: Visualizações:', visualizacoes)
   
   // Retornar componente simplificado para teste
   return (
@@ -80,9 +68,6 @@ export function VisualizacaoLogs({ comunicadoId }: VisualizacaoLogsProps) {
       </Typography>
       <Typography variant="body2" className="text-gray-600">
         Total de visualizações: {estatisticas.totalVisualizacoes}
-      </Typography>
-      <Typography variant="body2" className="text-gray-600">
-        Usuário logado: {user?.name} ({user?.role})
       </Typography>
     </Paper>
   )
