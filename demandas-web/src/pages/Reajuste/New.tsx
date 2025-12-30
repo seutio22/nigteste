@@ -29,6 +29,7 @@ const schema = z.object({
   dataAtualizacao: z.string().optional(),
   itensPendentes: z.coerce.number().min(0).optional(),
   itensConcluidos: z.coerce.number().min(0).optional(),
+  observacoes: z.string().optional(),
 })
 
 type FormValues = z.infer<typeof schema>
@@ -61,7 +62,8 @@ export default function ReajusteNewPage() {
       produto: '',
       dataAtualizacao: new Date().toISOString().split('T')[0],
       itensPendentes: undefined,
-      itensConcluidos: undefined
+      itensConcluidos: undefined,
+      observacoes: ''
     }
   })
 
@@ -102,7 +104,8 @@ export default function ReajusteNewPage() {
       produto: '',
       dataAtualizacao: new Date().toISOString().split('T')[0],
       itensPendentes: undefined,
-      itensConcluidos: undefined
+      itensConcluidos: undefined,
+      observacoes: ''
     })
   }, [reset])
 
@@ -215,7 +218,8 @@ export default function ReajusteNewPage() {
         produto: '',
         dataAtualizacao: new Date().toISOString().split('T')[0],
         itensPendentes: undefined,
-        itensConcluidos: undefined
+        itensConcluidos: undefined,
+        observacoes: ''
       })
       
       navigate('/reajuste')
@@ -606,6 +610,21 @@ export default function ReajusteNewPage() {
                 label="Itens Concluídos" 
                 fullWidth 
                 inputProps={{ min: 0 }}
+                value={field.value || ''}
+              />
+            )} />
+          </Grid>
+          
+          {/* Campo de Observações */}
+          <Grid item xs={12}>
+            <Controller name="observacoes" control={control} render={({ field }) => (
+              <TextField 
+                {...field} 
+                label="Observações" 
+                fullWidth 
+                multiline
+                rows={4}
+                placeholder="Digite observações sobre este reajuste..."
                 value={field.value || ''}
               />
             )} />

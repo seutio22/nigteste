@@ -550,7 +550,7 @@ function EditInline({ reajuste }: { reajuste: any }) {
   }, [reajuste, md.operadoras, md.clientes, md.contratos, md.produtos, md.analistas])
 
   const changedKeys = useMemo(() => {
-    const keys = ['mes', 'ano', 'dataInicio', 'dataFim', 'status', 'operadora', 'qualidade', 'qualidadeInformacao', 'planos', 'responsavelConta', 'filial', 'ticket', 'solicitante', 'responsavelAnalista', 'cliente', 'contrato', 'produto', 'dataAtualizacao', 'itensPendentes', 'itensConcluidos'] as const
+    const keys = ['mes', 'ano', 'dataInicio', 'dataFim', 'status', 'operadora', 'qualidade', 'qualidadeInformacao', 'planos', 'responsavelConta', 'filial', 'ticket', 'solicitante', 'responsavelAnalista', 'cliente', 'contrato', 'produto', 'dataAtualizacao', 'itensPendentes', 'itensConcluidos', 'observacoes'] as const
     
     // Campos que precisam de conversão nome <-> ID para comparação
     const fieldsWithNameIdConversion = ['operadora', 'cliente', 'contrato', 'produto', 'responsavelAnalista']
@@ -707,7 +707,8 @@ function EditInline({ reajuste }: { reajuste: any }) {
           'produto': 'Produto',
           'dataAtualizacao': 'Data de Atualização',
           'itensPendentes': 'Itens Pendentes',
-          'itensConcluidos': 'Itens Concluídos'
+          'itensConcluidos': 'Itens Concluídos',
+          'observacoes': 'Observações'
         }
         
         const fieldLabel = fieldMapping[k] || k
@@ -1106,6 +1107,21 @@ function EditInline({ reajuste }: { reajuste: any }) {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
+        </div>
+      </div>
+
+      {/* Campo de Observações */}
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Observações</h3>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Observações</label>
+          <textarea
+            value={draft.observacoes || ''}
+            onChange={(e) => setDraft({ ...draft, observacoes: e.target.value || undefined })}
+            placeholder="Digite observações sobre este reajuste..."
+            rows={4}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y"
+          />
         </div>
       </div>
 
