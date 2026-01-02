@@ -187,10 +187,13 @@ export const useReajusteStore = create<ReajusteState>()(
             console.log('✅ ReajusteStore.upsert: Reajuste atualizado no banco de dados')
             console.log('✅ ReajusteStore.upsert: Resposta da API:', response)
             
-            // Atualizar estado local
+            // Extrair dados atualizados da resposta da API (pode vir como response.data ou diretamente como response)
+            const updatedData = response?.data || response
+            
+            // Atualizar estado local com os dados retornados pela API (garantir que está sincronizado)
             set((s) => ({
               items: s.items.map((x) =>
-                x.id === entry.id ? { ...entry, updatedAt: new Date().toISOString() } : x
+                x.id === entry.id ? { ...x, ...updatedData, updatedAt: updatedData?.updatedAt || new Date().toISOString() } : x
               )
             }))
             

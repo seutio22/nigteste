@@ -643,6 +643,56 @@ function EditInline({ reajuste }: { reajuste: any }) {
       // Atualizar no store (que salva no banco)
       await store.upsert(saveDraft)
       
+      // Atualizar o draft com os dados salvos (garantir sincronização)
+      // Buscar o item atualizado do store
+      const updatedItem = store.items.find(r => r.id === reajuste.id)
+      if (updatedItem) {
+        // Converter nomes de volta para IDs no draft para manter consistência
+        const updatedDraft = { ...updatedItem }
+        
+        // Converter operadora (nome) para ID
+        if (updatedDraft.operadora && typeof updatedDraft.operadora === 'string' && !updatedDraft.operadora.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+          const operadoraId = findIdByName(updatedDraft.operadora, md.operadoras)
+          if (operadoraId) {
+            updatedDraft.operadora = operadoraId
+          }
+        }
+        
+        // Converter cliente (nome) para ID
+        if (updatedDraft.cliente && typeof updatedDraft.cliente === 'string' && !updatedDraft.cliente.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+          const clienteId = findIdByName(updatedDraft.cliente, md.clientes)
+          if (clienteId) {
+            updatedDraft.cliente = clienteId
+          }
+        }
+        
+        // Converter contrato (código) para ID
+        if (updatedDraft.contrato && typeof updatedDraft.contrato === 'string' && !updatedDraft.contrato.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+          const contratoId = findContratoIdByCodigo(updatedDraft.contrato, md.contratos)
+          if (contratoId) {
+            updatedDraft.contrato = contratoId
+          }
+        }
+        
+        // Converter produto (nome) para ID
+        if (updatedDraft.produto && typeof updatedDraft.produto === 'string' && !updatedDraft.produto.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+          const produtoId = findIdByName(updatedDraft.produto, md.produtos)
+          if (produtoId) {
+            updatedDraft.produto = produtoId
+          }
+        }
+        
+        // Converter responsavelAnalista (nome) para ID
+        if (updatedDraft.responsavelAnalista && typeof updatedDraft.responsavelAnalista === 'string' && !updatedDraft.responsavelAnalista.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+          const analistaId = findIdByName(updatedDraft.responsavelAnalista, md.analistas)
+          if (analistaId) {
+            updatedDraft.responsavelAnalista = analistaId
+          }
+        }
+        
+        setDraft(updatedDraft)
+      }
+      
       // Log manual apenas dos campos que realmente mudaram (EXATA RÉPLICA de Demandas/Manutenção)
       changedKeys.forEach((k) => {
         // Função para converter ID em nome para logs

@@ -2309,6 +2309,53 @@ function crud(entity: keyof PrismaClient) {
         return anyPrisma[entity].update({ where: { id }, data: demandaData });
       }
       
+      // Tratamento especial para reajusteLancamento - preservar campos de string
+      if (entity === 'reajusteLancamento') {
+        const reajusteData = { ...data as any };
+        
+        // Remover campos que não devem ser atualizados diretamente
+        delete reajusteData.id;
+        delete reajusteData.createdAt;
+        
+        // Se analistaId estiver presente, conectar ao relacionamento analista
+        if (reajusteData.analistaId) {
+          reajusteData.analista = { connect: { id: reajusteData.analistaId } };
+          delete reajusteData.analistaId;
+        }
+        
+        // Garantir que campos de string sejam preservados (cliente, contrato, operadora, produto)
+        // Esses campos são strings no schema, não relacionamentos
+        const camposString = ['cliente', 'contrato', 'operadora', 'produto', 'responsavelAnalista', 'mes', 'ano', 'status', 'qualidade', 'qualidadeInformacao', 'planos', 'responsavelConta', 'filial', 'ticket', 'solicitante', 'observacoes'];
+        
+        camposString.forEach(campo => {
+          if (reajusteData[campo] !== undefined) {
+            // Se for null ou string vazia, manter como null
+            if (reajusteData[campo] === null || reajusteData[campo] === '') {
+              reajusteData[campo] = null;
+            } else {
+              // Converter para string se necessário
+              reajusteData[campo] = String(reajusteData[campo]);
+            }
+          }
+        });
+        
+        // Converter mes de nome do mês para número se necessário
+        if (reajusteData.mes && typeof reajusteData.mes === 'string') {
+          const mesesMap: { [key: string]: string } = {
+            'janeiro': '1', 'fevereiro': '2', 'março': '3', 'abril': '4',
+            'maio': '5', 'junho': '6', 'julho': '7', 'agosto': '8',
+            'setembro': '9', 'outubro': '10', 'novembro': '11', 'dezembro': '12'
+          };
+          const mesLower = reajusteData.mes.toLowerCase();
+          if (mesesMap[mesLower]) {
+            reajusteData.mes = mesesMap[mesLower];
+          }
+        }
+        
+        console.log('🔍 REAJUSTE UPDATE: Dados processados:', JSON.stringify(reajusteData, null, 2));
+        return anyPrisma[entity].update({ where: { id }, data: reajusteData });
+      }
+      
       // Para outras entidades, atualização simplificada
       const updateData = { ...data as any };
       delete updateData.id;
@@ -4259,8 +4306,47 @@ for (const [path, repo] of Object.entries(resources)) {
         }
       }
       
+      // Tratamento especial para reajusteLancamentos - preservar campos de string
+      if (path === 'reajusteLancamentos') {
+        console.log(`🔧 PUT /reajusteLancamentos/${req.params.id}: Aplicando tratamento especial para reajusteLancamentos`)
+        
+        const cleanedData = { ...req.body }
+        
+        // Garantir que campos de string sejam preservados (cliente, contrato, operadora, produto)
+        // Esses campos são strings no schema, não relacionamentos
+        const camposString = ['cliente', 'contrato', 'operadora', 'produto', 'responsavelAnalista', 'mes', 'ano', 'status', 'qualidade', 'qualidadeInformacao', 'planos', 'responsavelConta', 'filial', 'ticket', 'solicitante', 'observacoes'];
+        
+        camposString.forEach(campo => {
+          if (cleanedData[campo] !== undefined) {
+            // Se for null ou string vazia, manter como null
+            if (cleanedData[campo] === null || cleanedData[campo] === '') {
+              cleanedData[campo] = null;
+            } else {
+              // Converter para string se necessário
+              cleanedData[campo] = String(cleanedData[campo]);
+            }
+          }
+        });
+        
+        // Converter mes de nome do mês para número se necessário
+        if (cleanedData.mes && typeof cleanedData.mes === 'string') {
+          const mesesMap: { [key: string]: string } = {
+            'janeiro': '1', 'fevereiro': '2', 'março': '3', 'abril': '4',
+            'maio': '5', 'junho': '6', 'julho': '7', 'agosto': '8',
+            'setembro': '9', 'outubro': '10', 'novembro': '11', 'dezembro': '12'
+          };
+          const mesLower = cleanedData.mes.toLowerCase();
+          if (mesesMap[mesLower]) {
+            cleanedData.mes = mesesMap[mesLower];
+          }
+        }
+        
+        console.log(`🔧 PUT /reajusteLancamentos: Dados processados:`, JSON.stringify(cleanedData, null, 2))
+        
+        updated = await repo.update(req.params.id, cleanedData)
+      }
       // Tratamento especial para atendimentos - similar ao POST
-      if (path === 'atendimentos') {
+      else if (path === 'atendimentos') {
         console.log(`🔧 PUT /atendimentos/${req.params.id}: Aplicando tratamento especial para atendimentos`)
         
         const cleanedData = { ...req.body }
