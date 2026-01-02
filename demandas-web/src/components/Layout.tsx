@@ -75,7 +75,7 @@ export function Layout() {
   const drawer = (
     <div>
       <Toolbar>
-        <Typography variant="h6">Dynamics - v0.7.0</Typography>
+        <Typography variant="h6">Dynamics - v0.8.0</Typography>
       </Toolbar>
       <Divider />
       <List>
@@ -99,7 +99,7 @@ export function Layout() {
           <IconButton color="inherit" edge="start" onClick={handleDrawerToggle} sx={{ mr: 2, display: { sm: 'none' } }}>
             <MenuIcon />
           </IconButton>
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>Dynamics - v0.7.0</Typography>
+          <Typography variant="h6" sx={{ flexGrow: 1 }}>Dynamics - v0.8.0</Typography>
           {auth.user ? (
             <Typography 
               variant="body2" 

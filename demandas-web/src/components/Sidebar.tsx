@@ -160,7 +160,7 @@ export function Sidebar() {
               {/* Versão do Sistema */}
               <div className="text-center">
                 <div className="inline-flex items-center px-2 py-1 bg-white/10 rounded-full">
-                  <span className="text-xs font-medium text-white/80">v0.7.0</span>
+                  <span className="text-xs font-medium text-white/80">v0.8.0</span>
                 </div>
               </div>
               
