@@ -471,6 +471,7 @@ function EditInline({ reajuste }: { reajuste: any }) {
   const { user } = useAuthStore()
   const [draft, setDraft] = useState(reajuste)
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const draftInitializedRef = useRef<string | null>(null) // Rastrear qual reajuste já foi inicializado
 
   // Função para normalizar strings (remove acentos, espaços extras, converte para lowercase)
   const normalizeString = (str: any) => {
@@ -502,6 +503,12 @@ function EditInline({ reajuste }: { reajuste: any }) {
   }
 
   useEffect(() => {
+    // Só inicializar o draft uma vez por reajuste (quando o ID mudar)
+    // Isso evita resetar o draft quando o reajuste é atualizado após salvamento
+    if (draftInitializedRef.current === reajuste.id) {
+      return // Já inicializamos este reajuste
+    }
+    
     // Converter nomes (strings) para IDs ao inicializar draft
     // ReajusteLancamento armazena operadora, cliente, contrato, produto como strings (nomes)
     const convertedDraft = { ...reajuste }
@@ -547,7 +554,8 @@ function EditInline({ reajuste }: { reajuste: any }) {
     }
     
     setDraft(convertedDraft)
-  }, [reajuste, md.operadoras, md.clientes, md.contratos, md.produtos, md.analistas])
+    draftInitializedRef.current = reajuste.id // Marcar como inicializado
+  }, [reajuste.id, md.operadoras, md.clientes, md.contratos, md.produtos, md.analistas]) // Usar apenas reajuste.id como dependência
 
   const changedKeys = useMemo(() => {
     const keys = ['mes', 'ano', 'dataInicio', 'dataFim', 'status', 'operadora', 'qualidade', 'qualidadeInformacao', 'planos', 'responsavelConta', 'filial', 'ticket', 'solicitante', 'responsavelAnalista', 'cliente', 'contrato', 'produto', 'dataAtualizacao', 'itensPendentes', 'itensConcluidos', 'observacoes'] as const
@@ -644,54 +652,51 @@ function EditInline({ reajuste }: { reajuste: any }) {
       await store.upsert(saveDraft)
       
       // Atualizar o draft com os dados salvos (garantir sincronização)
-      // Buscar o item atualizado do store
-      const updatedItem = store.items.find(r => r.id === reajuste.id)
-      if (updatedItem) {
-        // Converter nomes de volta para IDs no draft para manter consistência
-        const updatedDraft = { ...updatedItem }
-        
-        // Converter operadora (nome) para ID
-        if (updatedDraft.operadora && typeof updatedDraft.operadora === 'string' && !updatedDraft.operadora.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-          const operadoraId = findIdByName(updatedDraft.operadora, md.operadoras)
-          if (operadoraId) {
-            updatedDraft.operadora = operadoraId
-          }
+      // Usar o saveDraft que foi salvo (já tem os valores corretos) e converter de volta para IDs
+      const updatedDraft = { ...saveDraft }
+      
+      // Converter operadora (nome) para ID
+      if (updatedDraft.operadora && typeof updatedDraft.operadora === 'string' && !updatedDraft.operadora.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+        const operadoraId = findIdByName(updatedDraft.operadora, md.operadoras)
+        if (operadoraId) {
+          updatedDraft.operadora = operadoraId
         }
-        
-        // Converter cliente (nome) para ID
-        if (updatedDraft.cliente && typeof updatedDraft.cliente === 'string' && !updatedDraft.cliente.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-          const clienteId = findIdByName(updatedDraft.cliente, md.clientes)
-          if (clienteId) {
-            updatedDraft.cliente = clienteId
-          }
-        }
-        
-        // Converter contrato (código) para ID
-        if (updatedDraft.contrato && typeof updatedDraft.contrato === 'string' && !updatedDraft.contrato.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-          const contratoId = findContratoIdByCodigo(updatedDraft.contrato, md.contratos)
-          if (contratoId) {
-            updatedDraft.contrato = contratoId
-          }
-        }
-        
-        // Converter produto (nome) para ID
-        if (updatedDraft.produto && typeof updatedDraft.produto === 'string' && !updatedDraft.produto.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-          const produtoId = findIdByName(updatedDraft.produto, md.produtos)
-          if (produtoId) {
-            updatedDraft.produto = produtoId
-          }
-        }
-        
-        // Converter responsavelAnalista (nome) para ID
-        if (updatedDraft.responsavelAnalista && typeof updatedDraft.responsavelAnalista === 'string' && !updatedDraft.responsavelAnalista.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-          const analistaId = findIdByName(updatedDraft.responsavelAnalista, md.analistas)
-          if (analistaId) {
-            updatedDraft.responsavelAnalista = analistaId
-          }
-        }
-        
-        setDraft(updatedDraft)
       }
+      
+      // Converter cliente (nome) para ID
+      if (updatedDraft.cliente && typeof updatedDraft.cliente === 'string' && !updatedDraft.cliente.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+        const clienteId = findIdByName(updatedDraft.cliente, md.clientes)
+        if (clienteId) {
+          updatedDraft.cliente = clienteId
+        }
+      }
+      
+      // Converter contrato (código) para ID
+      if (updatedDraft.contrato && typeof updatedDraft.contrato === 'string' && !updatedDraft.contrato.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+        const contratoId = findContratoIdByCodigo(updatedDraft.contrato, md.contratos)
+        if (contratoId) {
+          updatedDraft.contrato = contratoId
+        }
+      }
+      
+      // Converter produto (nome) para ID
+      if (updatedDraft.produto && typeof updatedDraft.produto === 'string' && !updatedDraft.produto.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+        const produtoId = findIdByName(updatedDraft.produto, md.produtos)
+        if (produtoId) {
+          updatedDraft.produto = produtoId
+        }
+      }
+      
+      // Converter responsavelAnalista (nome) para ID
+      if (updatedDraft.responsavelAnalista && typeof updatedDraft.responsavelAnalista === 'string' && !updatedDraft.responsavelAnalista.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+        const analistaId = findIdByName(updatedDraft.responsavelAnalista, md.analistas)
+        if (analistaId) {
+          updatedDraft.responsavelAnalista = analistaId
+        }
+      }
+      
+      // Atualizar o draft com os valores salvos (incluindo status)
+      setDraft(updatedDraft)
       
       // Log manual apenas dos campos que realmente mudaram (EXATA RÉPLICA de Demandas/Manutenção)
       changedKeys.forEach((k) => {
