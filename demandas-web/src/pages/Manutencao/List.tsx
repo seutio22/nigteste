@@ -1,4 +1,4 @@
-import { Box, Button, Stack, Typography, IconButton, Menu, MenuItem, ListItemIcon, ListItemText, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Switch, FormControlLabel, Chip } from '@mui/material'
+import { Box, Button, Stack, Typography, IconButton, Menu, MenuItem, ListItemIcon, ListItemText, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Switch, FormControlLabel, Chip, CircularProgress } from '@mui/material'
 import { DataGrid, GridColDef, GridToolbar, GridColumnVisibilityModel, GridFilterModel, GridPaginationModel, GridSortModel } from '@mui/x-data-grid'
 import { useNavigate } from 'react-router-dom'
 import { useManutencaoStore } from '../../store/manutencaoStore'
@@ -81,6 +81,7 @@ export default function ManutencaoListPage() {
   const [exportModalOpen, setExportModalOpen] = useState(false)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const STORAGE_KEY = 'manutencoes-list-view-v1'
   const FILTER_KEY = 'manutencoes-user-filter-v1'
@@ -181,6 +182,9 @@ export default function ManutencaoListPage() {
 
   // Função de exclusão em massa
   const handleBulkDelete = async () => {
+    if (isDeleting || selectedIds.length === 0) return
+    
+    setIsDeleting(true)
     try {
       const { api } = await import('../../lib/api.local')
       
@@ -226,10 +230,12 @@ export default function ManutencaoListPage() {
       }
       
       // Recarregar dados
-      manutencaoStore.syncFromApi()
+      await manutencaoStore.syncFromApi()
     } catch (error) {
       console.error('❌ Erro na exclusão em massa:', error)
       alert('Erro ao excluir manutenções')
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -907,9 +913,10 @@ export default function ManutencaoListPage() {
       {/* Modal de confirmação de exclusão em massa */}
       <Dialog
         open={bulkDeleteDialogOpen}
-        onClose={() => setBulkDeleteDialogOpen(false)}
+        onClose={() => !isDeleting && setBulkDeleteDialogOpen(false)}
         maxWidth="sm"
         fullWidth
+        disableEscapeKeyDown={isDeleting}
       >
         <DialogTitle>Confirmar Exclusão em Massa</DialogTitle>
         <DialogContent>
@@ -921,16 +928,20 @@ export default function ManutencaoListPage() {
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setBulkDeleteDialogOpen(false)}>
+          <Button 
+            onClick={() => setBulkDeleteDialogOpen(false)}
+            disabled={isDeleting}
+          >
             Cancelar
           </Button>
           <Button 
             onClick={handleBulkDelete} 
             color="error" 
             variant="contained"
-            startIcon={<DeleteIcon />}
+            startIcon={isDeleting ? <CircularProgress size={20} color="inherit" /> : <DeleteIcon />}
+            disabled={isDeleting || selectedIds.length === 0}
           >
-            Excluir
+            {isDeleting ? 'Excluindo...' : 'Excluir'}
           </Button>
         </DialogActions>
       </Dialog>
