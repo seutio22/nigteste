@@ -278,7 +278,11 @@ export default function DemandListPage() {
       }
       
       // Atualizar store local (remover TODOS os IDs, incluindo os 404)
-      demandStore.remove(selectedIds)
+      // Remover todos os IDs selecionados do estado local de uma vez
+      const currentItems = demandStore.getState().items
+      const filteredItems = currentItems.filter((item) => !selectedIds.includes(item.id))
+      // Atualizar o estado do store diretamente
+      demandStore.setState({ items: filteredItems })
       
       // Limpar seleção
       setSelectedIds([])

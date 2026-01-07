@@ -189,11 +189,57 @@ export default function ReajusteListPage() {
   // Função de exclusão em massa
   const handleBulkDelete = async () => {
     try {
-      await store.remove(selectedIds)
+      const { api } = await import('../../lib/api.local')
+      
+      console.log('🗑️ Iniciando exclusão em massa de', selectedIds.length, 'reajustes')
+      
+      let successCount = 0
+      let errorCount = 0
+      let notFoundCount = 0
+      
+      for (const id of selectedIds) {
+        try {
+          await api.delete(`/reajusteLancamentos/${id}`)
+          successCount++
+        } catch (error: any) {
+          // Se for erro 404, significa que já foi excluído - ignorar
+          if (error?.message?.includes('404') || error?.response?.status === 404) {
+            console.log(`⚠️ Reajuste ${id} já foi excluído (404) - removendo do cache local`)
+            notFoundCount++
+          } else {
+            console.error(`❌ Erro ao excluir reajuste ${id}:`, error)
+            errorCount++
+          }
+        }
+      }
+      
+      // Atualizar store local (remover TODOS os IDs, incluindo os 404)
+      // Remover todos os IDs selecionados do estado local de uma vez
+      const currentItems = store.getState().items
+      const filteredItems = currentItems.filter((item) => !selectedIds.includes(item.id))
+      // Atualizar o estado do store diretamente
+      store.setState({ items: filteredItems })
+      
+      // Limpar seleção
       setSelectedIds([])
       setBulkDeleteDialogOpen(false)
-      alert(`✅ ${selectedIds.length} reajuste(s) removido(s)!`)
+      
+      // Mostrar resultado
+      const totalProcessed = successCount + notFoundCount
+      if (errorCount === 0) {
+        if (notFoundCount > 0) {
+          alert(`✅ ${totalProcessed} reajuste(s) removido(s)!\n\n${successCount} excluídos do banco\n${notFoundCount} já haviam sido excluídos (cache limpo)`)
+        } else {
+          alert(`✅ ${successCount} reajuste(s) excluído(s) com sucesso!`)
+        }
+      } else {
+        alert(`⚠️ ${totalProcessed} reajuste(s) removido(s), ${errorCount} erro(s)\n\n${successCount} excluídos\n${notFoundCount} já excluídos anteriormente`)
+      }
+      
+      // Recarregar dados
+      await store.syncFromApi()
     } catch (error) {
+      console.error('❌ Erro na exclusão em massa:', error)
       alert('Erro ao excluir reajustes')
     }
   }

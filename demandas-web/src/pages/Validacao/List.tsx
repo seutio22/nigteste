@@ -532,8 +532,12 @@ export default function ValidationListPage() {
         }
       }
       
-      // Atualizar store local
-      store.remove(selectedIds)
+      // Atualizar store local (remover TODOS os IDs, incluindo os 404)
+      // Remover todos os IDs selecionados do estado local de uma vez
+      const currentItems = store.getState().items
+      const filteredItems = currentItems.filter((item) => !selectedIds.includes(item.id))
+      // Atualizar o estado do store diretamente
+      store.setState({ items: filteredItems })
       
       // Limpar seleção
       setSelectedIds([])
