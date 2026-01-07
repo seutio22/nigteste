@@ -41,87 +41,112 @@ export default function HomePage() {
   const comunicadoStore = useComunicadoStore()
   const projectStore = useProjectStore()
 
-  // Atividades recentes baseadas em dados reais
+  // Atividades recentes baseadas em dados reais - OTIMIZADO
   const recentActivities = useMemo(() => {
     const activities = []
     
-    // Adicionar demandas recentes
-    const recentDemandas = demandStore.items
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .slice(0, 3)
-      .map(demanda => ({
-        id: `demanda-${demanda.id}`,
-        title: `Nova demanda: ${demanda.descricao || 'Sem descrição'}`,
-        time: new Date(demanda.createdAt).toLocaleString('pt-BR'),
-        type: 'Demanda',
-        status: demanda.status === 'Concluída' ? 'success' : demanda.status === 'Em Andamento' ? 'warning' : 'info'
-      }))
+    // Adicionar demandas recentes (usar cópia para não mutar o array original)
+    if (demandStore.items.length > 0) {
+      const recentDemandas = [...demandStore.items]
+        .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+        .slice(0, 3)
+        .map(demanda => ({
+          id: `demanda-${demanda.id}`,
+          title: `Nova demanda: ${demanda.descricao || 'Sem descrição'}`,
+          time: new Date(demanda.createdAt).toLocaleString('pt-BR'),
+          type: 'Demanda',
+          status: demanda.status === 'Concluída' ? 'success' : demanda.status === 'Em Andamento' ? 'warning' : 'info'
+        }))
+      activities.push(...recentDemandas)
+    }
     
     // Adicionar atendimentos recentes
-    const recentAtendimentos = atendimentoStore.items
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .slice(0, 2)
-      .map(atendimento => ({
-        id: `atendimento-${atendimento.id}`,
-        title: `Atendimento: ${atendimento.titulo || 'Sem título'}`,
-        time: new Date(atendimento.createdAt).toLocaleString('pt-BR'),
-        type: 'Atendimento',
-        status: atendimento.status === 'Resolvido' ? 'success' : atendimento.status === 'Em Andamento' ? 'warning' : 'info'
-      }))
+    if (atendimentoStore.items.length > 0) {
+      const recentAtendimentos = [...atendimentoStore.items]
+        .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+        .slice(0, 2)
+        .map(atendimento => ({
+          id: `atendimento-${atendimento.id}`,
+          title: `Atendimento: ${atendimento.titulo || 'Sem título'}`,
+          time: new Date(atendimento.createdAt).toLocaleString('pt-BR'),
+          type: 'Atendimento',
+          status: atendimento.status === 'Resolvido' ? 'success' : atendimento.status === 'Em Andamento' ? 'warning' : 'info'
+        }))
+      activities.push(...recentAtendimentos)
+    }
     
     // Adicionar validações recentes
-    const recentValidacoes = validationStore.items
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .slice(0, 2)
-      .map(validacao => ({
-        id: `validacao-${validacao.id}`,
-        title: `Validação: ${validacao.observacoes || 'Sem observações'}`,
-        time: new Date(validacao.createdAt).toLocaleString('pt-BR'),
-        type: 'Validação',
-        status: validacao.status === 'Aprovada' ? 'success' : validacao.status === 'Pendente' ? 'warning' : 'info'
-      }))
+    if (validationStore.items.length > 0) {
+      const recentValidacoes = [...validationStore.items]
+        .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+        .slice(0, 2)
+        .map(validacao => ({
+          id: `validacao-${validacao.id}`,
+          title: `Validação: ${validacao.observacoes || 'Sem observações'}`,
+          time: new Date(validacao.createdAt).toLocaleString('pt-BR'),
+          type: 'Validação',
+          status: validacao.status === 'Aprovada' ? 'success' : validacao.status === 'Pendente' ? 'warning' : 'info'
+        }))
+      activities.push(...recentValidacoes)
+    }
     
     // Adicionar reajustes recentes
-    const recentReajustes = reajusteStore.items
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .slice(0, 1)
-      .map(reajuste => ({
-        id: `reajuste-${reajuste.id}`,
-        title: `Reajuste: ${reajuste.motivo || 'Sem motivo'}`,
-        time: new Date(reajuste.createdAt).toLocaleString('pt-BR'),
-        type: 'Reajuste',
-        status: reajuste.aprovado ? 'success' : 'warning'
-      }))
+    if (reajusteStore.items.length > 0) {
+      const recentReajustes = [...reajusteStore.items]
+        .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+        .slice(0, 1)
+        .map(reajuste => ({
+          id: `reajuste-${reajuste.id}`,
+          title: `Reajuste: ${reajuste.motivo || 'Sem motivo'}`,
+          time: new Date(reajuste.createdAt).toLocaleString('pt-BR'),
+          type: 'Reajuste',
+          status: reajuste.aprovado ? 'success' : 'warning'
+        }))
+      activities.push(...recentReajustes)
+    }
     
     // Adicionar manutenções recentes
-    const recentManutencoes = manutencaoStore.items
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .slice(0, 1)
-      .map(manutencao => ({
-        id: `manutencao-${manutencao.id}`,
-        title: `Manutenção: ${manutencao.descricao || 'Sem descrição'}`,
-        time: new Date(manutencao.createdAt).toLocaleString('pt-BR'),
-        type: 'Manutenção',
-        status: manutencao.status === 'Concluída' ? 'success' : manutencao.status === 'Em Andamento' ? 'warning' : 'info'
-      }))
+    if (manutencaoStore.items.length > 0) {
+      const recentManutencoes = [...manutencaoStore.items]
+        .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+        .slice(0, 1)
+        .map(manutencao => ({
+          id: `manutencao-${manutencao.id}`,
+          title: `Manutenção: ${manutencao.descricao || 'Sem descrição'}`,
+          time: new Date(manutencao.createdAt).toLocaleString('pt-BR'),
+          type: 'Manutenção',
+          status: manutencao.status === 'Concluída' ? 'success' : manutencao.status === 'Em Andamento' ? 'warning' : 'info'
+        }))
+      activities.push(...recentManutencoes)
+    }
     
-    // Adicionar relatórios recentes (analytics)
-    const recentRelatorios = reportStore.items
-      .sort((a, b) => new Date(b.dataCriacao).getTime() - new Date(a.dataCriacao).getTime())
-      .slice(0, 1)
-      .map(relatorio => ({
-        id: `relatorio-${relatorio.id}`,
-        title: `Relatório: ${relatorio.titulo || 'Sem título'}`,
-        time: new Date(relatorio.dataCriacao).toLocaleString('pt-BR'),
-        type: 'Analytics',
-        status: relatorio.status === 'concluido' ? 'success' : relatorio.status === 'em_andamento' ? 'warning' : 'info'
-      }))
+    // Adicionar relatórios recentes
+    if (reportStore.items.length > 0) {
+      const recentRelatorios = [...reportStore.items]
+        .sort((a, b) => new Date(b.dataCriacao || 0).getTime() - new Date(a.dataCriacao || 0).getTime())
+        .slice(0, 1)
+        .map(relatorio => ({
+          id: `relatorio-${relatorio.id}`,
+          title: `Relatório: ${relatorio.titulo || 'Sem título'}`,
+          time: new Date(relatorio.dataCriacao).toLocaleString('pt-BR'),
+          type: 'Analytics',
+          status: relatorio.status === 'concluido' ? 'success' : relatorio.status === 'em_andamento' ? 'warning' : 'info'
+        }))
+      activities.push(...recentRelatorios)
+    }
     
     // Combinar todas as atividades e ordenar por data
-    return [...recentDemandas, ...recentAtendimentos, ...recentValidacoes, ...recentReajustes, ...recentManutencoes, ...recentRelatorios]
+    return activities
       .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
       .slice(0, 8) // Limitar a 8 atividades
-  }, [demandStore.items, atendimentoStore.items, validationStore.items, reajusteStore.items, manutencaoStore.items, reportStore.items])
+  }, [
+    demandStore.items.length,
+    atendimentoStore.items.length,
+    validationStore.items.length,
+    reajusteStore.items.length,
+    manutencaoStore.items.length,
+    reportStore.items.length
+  ])
 
   // Estado para controlar loading
   const [isLoading, setIsLoading] = useState(true)
@@ -129,77 +154,61 @@ export default function HomePage() {
   // Ref para controlar carregamento único - evita loops
   const dataLoadedRef = useRef(false)
 
-  // Carregar dados automaticamente quando a página é carregada - CORRIGIDO
+  // Carregar dados automaticamente quando a página é carregada - OTIMIZADO
   useEffect(() => {
     // Evitar múltiplas chamadas usando ref ao invés de state
     if (dataLoadedRef.current) return
     
-    console.log('🔍 Home: Carregando dados da API...')
-    
     if (!user?.id) {
-      console.log('🔍 Home: Usuário não logado, aguardando...')
       setIsLoading(false)
       return
     }
     
     // Marcar como carregado antes de iniciar para evitar chamadas duplicadas
     dataLoadedRef.current = true
-    setIsLoading(true)
     
-    // Carregar dados de forma otimizada e paralela
+    // Não bloquear renderização inicial - mostrar dados existentes primeiro
+    // Carregar dados em background
     const loadData = async () => {
       try {
         const promises: Promise<any>[] = []
         
-        // Carregar apenas se os stores estiverem vazios
+        // Carregar apenas se os stores estiverem vazios (carregamento lazy)
         if (demandStore.items.length === 0) {
-          console.log('🔍 Home: Carregando demandas...')
-          promises.push(demandStore.syncFromApi().catch(error => {
-            console.error('❌ Home: Erro ao carregar demandas:', error)
-          }))
+          promises.push(demandStore.syncFromApi().catch(() => {}))
         }
         
         if (atendimentoStore.items.length === 0) {
-          console.log('🔍 Home: Carregando atendimentos...')
-          promises.push(atendimentoStore.syncFromApi().catch(error => {
-            console.error('❌ Home: Erro ao carregar atendimentos:', error)
-          }))
+          promises.push(atendimentoStore.syncFromApi().catch(() => {}))
         }
         
         if (validationStore.items.length === 0) {
-          console.log('🔍 Home: Carregando validações...')
-          promises.push(validationStore.syncFromApi().catch(error => {
-            console.error('❌ Home: Erro ao carregar validações:', error)
-          }))
+          promises.push(validationStore.syncFromApi().catch(() => {}))
         }
         
         if (reajusteStore.items.length === 0) {
-          console.log('🔍 Home: Carregando reajustes...')
-          promises.push(reajusteStore.syncFromApi().catch(error => {
-            console.error('❌ Home: Erro ao carregar reajustes:', error)
-          }))
+          promises.push(reajusteStore.syncFromApi().catch(() => {}))
         }
         
         if (manutencaoStore.items.length === 0) {
-          console.log('🔍 Home: Carregando manutenções...')
-          promises.push(manutencaoStore.syncFromApi().catch(error => {
-            console.error('❌ Home: Erro ao carregar manutenções:', error)
-          }))
+          promises.push(manutencaoStore.syncFromApi().catch(() => {}))
         }
         
         if (reportStore.items.length === 0) {
-          console.log('🔍 Home: Carregando analytics...')
-          promises.push(reportStore.syncFromApi().catch(error => {
-            console.error('❌ Home: Erro ao carregar analytics:', error)
-          }))
+          promises.push(reportStore.syncFromApi().catch(() => {}))
         }
+        
+        // Se não há dados para carregar, não mostrar loading
+        if (promises.length === 0) {
+          setIsLoading(false)
+          return
+        }
+        
+        // Mostrar loading apenas se realmente precisar carregar dados
+        setIsLoading(true)
         
         // Aguardar todas as promessas em paralelo
         await Promise.allSettled(promises)
-        console.log('✅ Home: Todos os dados principais carregados')
-        
-        // Aguardar um pouco para garantir que os dados foram processados
-        await new Promise(resolve => setTimeout(resolve, 500))
       } catch (error) {
         console.error('❌ Home: Erro ao carregar dados:', error)
       } finally {
@@ -208,7 +217,7 @@ export default function HomePage() {
     }
     
     loadData()
-  }, [user?.id, demandStore, atendimentoStore, validationStore, reajusteStore, manutencaoStore, reportStore])
+  }, [user?.id]) // Apenas dependência do user.id para evitar re-execuções
 
   // Estatísticas divididas em múltiplos useMemo para melhor performance - OTIMIZADO
   const statsDemandas = useMemo(() => {
