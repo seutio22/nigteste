@@ -959,6 +959,7 @@ const ActionCell = memo(function ActionCell({ id, status }: { id: string, status
   const [openStatus, setOpenStatus] = useState(false)
   const [newStatus, setNewStatus] = useState(status)
   const [openDelete, setOpenDelete] = useState(false)
+  const [isDuplicating, setIsDuplicating] = useState(false)
 
   const handleMenuOpen = (e: React.MouseEvent<HTMLElement>) => setAnchorEl(e.currentTarget)
   const handleMenuClose = () => setAnchorEl(null)
@@ -988,9 +989,15 @@ const ActionCell = memo(function ActionCell({ id, status }: { id: string, status
   }
 
   const doDuplicate = async () => {
-    const d = store.items.find((x) => x.id === id)
-    if (!d) return
+    if (isDuplicating) return // Prevenir múltiplos cliques
     
+    const d = store.items.find((x) => x.id === id)
+    if (!d) {
+      alert('Manutenção não encontrada')
+      return
+    }
+    
+    setIsDuplicating(true)
     try {
       // Função para gerar ticket único com sufixo numérico
       const generateUniqueTicket = async (originalTicket: string | undefined): Promise<string | undefined> => {
@@ -998,67 +1005,134 @@ const ActionCell = memo(function ActionCell({ id, status }: { id: string, status
           return undefined // Se não tinha ticket, retornar undefined
         }
         
-        // Verificar se o ticket original já tem sufixo numérico (ex: "SR-1346706-1")
-        // IMPORTANTE: Não aceitar números longos como sufixo (mais de 3 dígitos)
-        const ticketMatch = originalTicket.match(/^(.+)-(\d{1,3})$/)
-        let baseTicket = originalTicket
-        let startSuffix = 1
-        
-        if (ticketMatch) {
-          // Se já tem sufixo, usar o base e incrementar
-          baseTicket = ticketMatch[1]
-          startSuffix = parseInt(ticketMatch[2]) + 1
-        }
-        
-        // Buscar ticket disponível incrementando sufixo
-        const { api } = await import('../../lib/api.local')
-        let suffix = startSuffix
-        let newTicket = `${baseTicket}-${suffix}`
-        
-        // Verificar até encontrar um ticket disponível (máximo 10 tentativas)
-        for (let i = 0; i < 10; i++) {
-          const existing = await api.getManutencoes(`?ticket=${encodeURIComponent(newTicket)}`)
-          if (!Array.isArray(existing) || existing.length === 0) {
-            // Ticket disponível encontrado
-            return newTicket
+        try {
+          // Verificar se o ticket original já tem sufixo numérico (ex: "SR-1346706-1")
+          // IMPORTANTE: Não aceitar números longos como sufixo (mais de 3 dígitos)
+          const ticketMatch = originalTicket.match(/^(.+)-(\d{1,3})$/)
+          let baseTicket = originalTicket
+          let startSuffix = 1
+          
+          if (ticketMatch) {
+            // Se já tem sufixo, usar o base e incrementar
+            baseTicket = ticketMatch[1]
+            startSuffix = parseInt(ticketMatch[2]) + 1
           }
-          // Ticket já existe, tentar próximo sufixo
-          suffix++
-          newTicket = `${baseTicket}-${suffix}`
+          
+          // Buscar ticket disponível incrementando sufixo
+          const { api } = await import('../../lib/api.local')
+          let suffix = startSuffix
+          let newTicket = `${baseTicket}-${suffix}`
+          
+          // Verificar até encontrar um ticket disponível (máximo 10 tentativas)
+          for (let i = 0; i < 10; i++) {
+            try {
+              const existing = await api.getManutencoes(`?ticket=${encodeURIComponent(newTicket)}`)
+              if (!Array.isArray(existing) || existing.length === 0) {
+                // Ticket disponível encontrado
+                return newTicket
+              }
+            } catch (apiError) {
+              // Se houver erro na API, assumir que o ticket está disponível após algumas tentativas
+              console.warn(`Erro ao verificar ticket ${newTicket}, tentando próximo:`, apiError)
+              if (i >= 5) {
+                // Após 5 tentativas com erro, usar o ticket atual
+                return newTicket
+              }
+            }
+            // Ticket já existe, tentar próximo sufixo
+            suffix++
+            newTicket = `${baseTicket}-${suffix}`
+          }
+          
+          // Se não encontrou após 10 tentativas, gerar com timestamp
+          const timestamp = Date.now().toString().slice(-4)
+          return `${baseTicket}-${timestamp}`
+        } catch (error) {
+          console.error('Erro ao gerar ticket único:', error)
+          // Em caso de erro, gerar ticket com timestamp
+          const timestamp = Date.now().toString().slice(-4)
+          return `${originalTicket}-${timestamp}`
         }
-        
-        // Se não encontrou após 10 tentativas, gerar com timestamp
-        const timestamp = Date.now().toString().slice(-4)
-        return `${baseTicket}-${timestamp}`
       }
       
       // Gerar novo ticket único
       const newTicket = await generateUniqueTicket(d.ticket)
       
-      const { id: _omit, createdAt: _c, updatedAt: _u, ticket: _ticket, ...rest } = d
-      const duplicated = await store.add({ 
-        ...rest, 
-        ticket: newTicket, // Usar novo ticket com sufixo
-        status: 'Aberta', 
-        updatedAt: new Date().toISOString() 
+      // Limpar campos que não devem ser duplicados e garantir que apenas IDs sejam enviados
+      const { 
+        id: _omit, 
+        createdAt: _c, 
+        updatedAt: _u, 
+        ticket: _ticket,
+        // Remover campos de texto que podem causar erro (manter apenas IDs)
+        analista: _analista,
+        area: _area,
+        cliente: _cliente,
+        contrato: _contrato,
+        operadora: _operadora,
+        produto: _produto,
+        sistema: _sistema,
+        tipo: _tipo,
+        tipoServico: _tipoServico,
+        ...rest 
+      } = d
+      
+      // Preparar dados para duplicação, garantindo que campos opcionais sejam tratados
+      const duplicateData: any = {
+        ...rest,
+        ticket: newTicket || undefined, // Usar novo ticket com sufixo ou undefined
+        status: 'Aberta',
+        updatedAt: new Date().toISOString(),
+        // Garantir que apenas IDs sejam enviados (não strings de nomes)
+        analistaId: d.analistaId || undefined,
+        areaId: d.areaId || undefined,
+        clienteId: d.clienteId || undefined,
+        contratoId: d.contratoId || undefined,
+        operadoraId: d.operadoraId || undefined,
+        produtoId: d.produtoId || undefined,
+        sistemaId: d.sistemaId || undefined,
+        tipoId: d.tipoId || undefined,
+        tipoServicoId: d.tipoServicoId || undefined,
+      }
+      
+      // Remover apenas campos undefined/null (manter strings vazias para campos de texto)
+      Object.keys(duplicateData).forEach(key => {
+        if (duplicateData[key] === undefined || duplicateData[key] === null) {
+          delete duplicateData[key]
+        }
       })
       
+      const duplicated = await store.add(duplicateData)
+      
+      if (!duplicated || !duplicated.id) {
+        throw new Error('Falha ao criar manutenção duplicada: ID não retornado')
+      }
+      
       // Garantir navegação usando o ID real do backend
-      let navigateId = duplicated?.id
+      let navigateId = duplicated.id
       try {
-        const { api } = await import('../../lib/api.local')
-        const found = await api.getManutencoes(`?ticket=${encodeURIComponent(String(newTicket || ''))}`)
-        if (Array.isArray(found) && found.length > 0 && found[0]?.id) {
-          navigateId = found[0].id
+        // Se temos um ticket, tentar buscar pelo ticket para garantir que temos o ID correto
+        if (newTicket) {
+          const { api } = await import('../../lib/api.local')
+          const found = await api.getManutencoes(`?ticket=${encodeURIComponent(newTicket)}`)
+          if (Array.isArray(found) && found.length > 0 && found[0]?.id) {
+            navigateId = found[0].id
+          }
         }
       } catch (e) {
         console.warn('Não foi possível confirmar ID pelo ticket; usando ID retornado localmente', e)
       }
       
+      // Fechar menu antes de navegar
+      handleMenuClose()
+      
       navigate(`/manutencao/${navigateId}`)
     } catch (error) {
       console.error('Erro ao duplicar manutenção:', error)
-      alert('Erro ao duplicar manutenção. Verifique o console para mais detalhes.')
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido'
+      alert(`Erro ao duplicar manutenção: ${errorMessage}`)
+    } finally {
+      setIsDuplicating(false)
     }
   }
 
@@ -1112,9 +1186,20 @@ const ActionCell = memo(function ActionCell({ id, status }: { id: string, status
         )}
         
         {canEdit && (
-          <MenuItem onClick={() => { handleMenuClose(); doDuplicate() }}>
-            <ListItemIcon><FileCopyIcon fontSize="small" /></ListItemIcon>
-            <ListItemText>Duplicar</ListItemText>
+          <MenuItem 
+            onClick={() => { handleMenuClose(); doDuplicate() }}
+            disabled={isDuplicating}
+          >
+            <ListItemIcon>
+              {isDuplicating ? (
+                <CircularProgress size={16} />
+              ) : (
+                <FileCopyIcon fontSize="small" />
+              )}
+            </ListItemIcon>
+            <ListItemText>
+              {isDuplicating ? 'Duplicando...' : 'Duplicar'}
+            </ListItemText>
           </MenuItem>
         )}
         
