@@ -335,13 +335,18 @@ const columns: GridColDef[] = [
   { 
     field: 'cliente', 
     headerName: 'Cliente', 
-    width: 160, 
+    width: 160,
+    valueGetter: (value, row) => {
+      // Garantir que sempre retorne uma string para busca rápida
+      if (!row.cliente) return ''
+      return String(row.cliente)
+    },
     getQuickFilterText: (value) => {
       // Garantir que sempre retorne uma string para busca rápida
       if (!value) return ''
-      if (typeof value === 'string') return value
-      if (typeof value === 'object' && value?.nome) return value.nome
-      return String(value)
+      if (typeof value === 'string') return value.toLowerCase()
+      if (typeof value === 'object' && value?.nome) return value.nome.toLowerCase()
+      return String(value).toLowerCase()
     },
     renderCell: (params) => {
       // O valor já vem como string do mapeamento dos rows
@@ -352,12 +357,17 @@ const columns: GridColDef[] = [
     field: 'contrato', 
     headerName: 'Contrato', 
     width: 160,
+    valueGetter: (value, row) => {
+      // Garantir que sempre retorne uma string para busca rápida
+      if (!row.contrato) return ''
+      return String(row.contrato)
+    },
     getQuickFilterText: (value) => {
       // Garantir que sempre retorne uma string para busca rápida
       if (!value) return ''
-      if (typeof value === 'string') return value
-      if (typeof value === 'object' && value?.numero) return value.numero
-      return String(value)
+      if (typeof value === 'string') return value.toLowerCase()
+      if (typeof value === 'object' && value?.numero) return value.numero.toLowerCase()
+      return String(value).toLowerCase()
     },
     renderCell: (params) => {
       // O valor já vem como string do mapeamento dos rows
@@ -368,12 +378,17 @@ const columns: GridColDef[] = [
     field: 'operadora', 
     headerName: 'Operadora', 
     width: 160,
+    valueGetter: (value, row) => {
+      // Garantir que sempre retorne uma string para busca rápida
+      if (!row.operadora) return ''
+      return String(row.operadora)
+    },
     getQuickFilterText: (value) => {
       // Garantir que sempre retorne uma string para busca rápida
       if (!value) return ''
-      if (typeof value === 'string') return value
-      if (typeof value === 'object' && value?.nome) return value.nome
-      return String(value)
+      if (typeof value === 'string') return value.toLowerCase()
+      if (typeof value === 'object' && value?.nome) return value.nome.toLowerCase()
+      return String(value).toLowerCase()
     },
     renderCell: (params) => {
       // O valor já vem como string do mapeamento dos rows
@@ -747,55 +762,76 @@ export default function ValidationListPage() {
 
   const rows = sortedItems.map((v) => {
     // Converter objetos relacionados para strings (nomes) para permitir busca rápida
-    // Cliente
-    let clienteNome = ''
-    if (typeof v.cliente === 'object' && v.cliente !== null && v.cliente?.nome) {
-      clienteNome = v.cliente.nome
-    } else if (typeof v.cliente === 'string') {
-      // Se é string longa (provavelmente ID UUID), buscar nos dados mestres
-      if (v.cliente.length > 20 || v.cliente.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-        clienteNome = md.clientes.find(c => c.id === v.cliente)?.nome ?? v.cliente
-      } else {
-        // String curta, provavelmente já é o nome
-        clienteNome = v.cliente
+    // Função auxiliar para extrair nome de cliente
+    const getClienteNome = (cliente: any): string => {
+      if (!cliente) return ''
+      if (typeof cliente === 'object' && cliente !== null) {
+        return cliente.nome || ''
       }
+      if (typeof cliente === 'string') {
+        // Se é UUID, buscar nos dados mestres
+        if (cliente.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+          return md.clientes.find(c => c.id === cliente)?.nome || cliente
+        }
+        // Se é string curta, pode ser nome ou ID curto - tentar buscar primeiro
+        const found = md.clientes.find(c => c.id === cliente || c.nome === cliente)
+        return found?.nome || cliente
+      }
+      return String(cliente || '')
     }
     
-    // Contrato
-    let contratoNumero = ''
-    if (typeof v.contrato === 'object' && v.contrato !== null && v.contrato?.numero) {
-      contratoNumero = v.contrato.numero
-    } else if (typeof v.contrato === 'string') {
-      if (v.contrato.length > 20 || v.contrato.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-        contratoNumero = md.contratos.find(c => c.id === v.contrato)?.numero ?? v.contrato
-      } else {
-        contratoNumero = v.contrato
+    // Função auxiliar para extrair número de contrato
+    const getContratoNumero = (contrato: any): string => {
+      if (!contrato) return ''
+      if (typeof contrato === 'object' && contrato !== null) {
+        return contrato.numero || contrato.codigo || ''
       }
+      if (typeof contrato === 'string') {
+        if (contrato.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+          return md.contratos.find(c => c.id === contrato)?.numero || md.contratos.find(c => c.id === contrato)?.codigo || contrato
+        }
+        const found = md.contratos.find(c => c.id === contrato || c.numero === contrato || c.codigo === contrato)
+        return found?.numero || found?.codigo || contrato
+      }
+      return String(contrato || '')
     }
     
-    // Operadora
-    let operadoraNome = ''
-    if (typeof v.operadora === 'object' && v.operadora !== null && v.operadora?.nome) {
-      operadoraNome = v.operadora.nome
-    } else if (typeof v.operadora === 'string') {
-      if (v.operadora.length > 20 || v.operadora.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-        operadoraNome = md.operadoras.find(o => o.id === v.operadora)?.nome ?? v.operadora
-      } else {
-        operadoraNome = v.operadora
+    // Função auxiliar para extrair nome de operadora
+    const getOperadoraNome = (operadora: any): string => {
+      if (!operadora) return ''
+      if (typeof operadora === 'object' && operadora !== null) {
+        return operadora.nome || ''
       }
+      if (typeof operadora === 'string') {
+        if (operadora.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+          return md.operadoras.find(o => o.id === operadora)?.nome || operadora
+        }
+        const found = md.operadoras.find(o => o.id === operadora || o.nome === operadora)
+        return found?.nome || operadora
+      }
+      return String(operadora || '')
     }
     
-    // Solicitante
-    let solicitanteNome = ''
-    if (typeof v.solicitante === 'object' && v.solicitante !== null && v.solicitante?.nome) {
-      solicitanteNome = v.solicitante.nome
-    } else if (typeof v.solicitante === 'string') {
-      if (v.solicitante.length > 20 || v.solicitante.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-        solicitanteNome = md.solicitantes.find(s => s.id === v.solicitante)?.nome ?? v.solicitante
-      } else {
-        solicitanteNome = v.solicitante
+    // Função auxiliar para extrair nome de solicitante
+    const getSolicitanteNome = (solicitante: any): string => {
+      if (!solicitante) return ''
+      if (typeof solicitante === 'object' && solicitante !== null) {
+        return solicitante.nome || ''
       }
+      if (typeof solicitante === 'string') {
+        if (solicitante.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+          return md.solicitantes.find(s => s.id === solicitante)?.nome || solicitante
+        }
+        const found = md.solicitantes.find(s => s.id === solicitante || s.nome === solicitante)
+        return found?.nome || solicitante
+      }
+      return String(solicitante || '')
     }
+    
+    const clienteNome = getClienteNome(v.cliente || v.clienteId || v.clienteObj)
+    const contratoNumero = getContratoNumero(v.contrato || v.contratoId || v.contratoObj)
+    const operadoraNome = getOperadoraNome(v.operadora || v.operadoraId || v.operadoraObj)
+    const solicitanteNome = getSolicitanteNome(v.solicitante)
     
     const row = {
       id: v.id,

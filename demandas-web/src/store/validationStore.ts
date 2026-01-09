@@ -373,11 +373,11 @@ export const useValidationStore = create<ValidationState>()(
             contratoId: validacao.contratoId,
             operadoraId: validacao.operadoraId,
             produtoId: validacao.produtoId,
-            // Mapear campos para formulário usando IDs
-            cliente: validacao.clienteId,
-            contrato: validacao.contratoId,
-            operadora: validacao.operadoraId,
-            produto: validacao.produtoId,
+            // Mapear campos - usar objetos populados se disponíveis, senão usar IDs
+            cliente: validacao.cliente || validacao.clienteObj || validacao.clienteId,
+            contrato: validacao.contrato || validacao.contratoObj || validacao.contratoId,
+            operadora: validacao.operadora || validacao.operadoraObj || validacao.operadoraId,
+            produto: validacao.produto || validacao.produtoObj || validacao.produtoId,
             // Novos campos para estruturas EDGE, MOVE e formalização
             estruturaEdge: (() => {
               console.log('🔍 Estrutura EDGE da API:', validacao.estruturaEdge, 'Tipo:', typeof validacao.estruturaEdge)
