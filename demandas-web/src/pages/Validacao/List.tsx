@@ -728,16 +728,41 @@ export default function ValidationListPage() {
   })
 
   const rows = sortedItems.map((v) => {
+    // Converter objetos relacionados para strings (nomes) para permitir busca rápida
+    const clienteNome = typeof v.cliente === 'object' && v.cliente?.nome 
+      ? v.cliente.nome 
+      : (typeof v.cliente === 'string' && v.cliente.length > 20
+          ? md.clientes.find(c => c.id === v.cliente)?.nome ?? v.cliente
+          : (v.cliente || ''))
+    
+    const contratoNumero = typeof v.contrato === 'object' && v.contrato?.numero
+      ? v.contrato.numero
+      : (typeof v.contrato === 'string' && v.contrato.length > 20
+          ? md.contratos.find(c => c.id === v.contrato)?.numero ?? v.contrato
+          : (v.contrato || ''))
+    
+    const operadoraNome = typeof v.operadora === 'object' && v.operadora?.nome
+      ? v.operadora.nome
+      : (typeof v.operadora === 'string' && v.operadora.length > 20
+          ? md.operadoras.find(o => o.id === v.operadora)?.nome ?? v.operadora
+          : (v.operadora || ''))
+    
+    const solicitanteNome = typeof v.solicitante === 'object' && v.solicitante?.nome
+      ? v.solicitante.nome
+      : (typeof v.solicitante === 'string' && v.solicitante.length > 20
+          ? md.solicitantes.find(s => s.id === v.solicitante)?.nome ?? v.solicitante
+          : (v.solicitante || ''))
+    
     const row = {
       id: v.id,
       ticket: v.ticket ?? '',
       descricao: v.descricao ?? '',
       status: v.status ?? '',
       analista: v.analista?.nome ?? '',
-      cliente: v.cliente,
-      contrato: v.contrato,
-      operadora: v.operadora,
-      solicitante: v.solicitante,
+      cliente: clienteNome,
+      contrato: contratoNumero,
+      operadora: operadoraNome,
+      solicitante: solicitanteNome,
       dataInicio: v.dataInicio ?? '',
       dataFinal: v.dataFinal ?? '',
       // Manter o valor original da data (ISO string) para ordenação correta
