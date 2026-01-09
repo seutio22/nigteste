@@ -35,7 +35,21 @@ const columns: GridColDef[] = [
   { field: 'contrato', headerName: 'Contrato', width: 140 },
   { field: 'produto', headerName: 'Produto', width: 160 },
   { field: 'status', headerName: 'Status', width: 150, renderCell: (p) => <StatusBadge status={String(p.value ?? '')} /> },
-  { field: 'total', headerName: 'Total', width: 120 },
+  { 
+    field: 'total', 
+    headerName: 'Total', 
+    width: 120,
+    type: 'number',
+    valueFormatter: (value) => {
+      if (!value && value !== 0) return '-'
+      return Number(value).toLocaleString('pt-BR')
+    },
+    sortComparator: (v1, v2) => {
+      const num1 = Number(v1) || 0
+      const num2 = Number(v2) || 0
+      return num1 - num2
+    }
+  },
   { 
     field: 'updatedAt', 
     headerName: 'Atualizado em', 
@@ -689,7 +703,7 @@ export default function ReajusteListPage() {
       contrato: contratoCodigo,
       produto: produtoNome,
       status: r.status ?? 'Ativo',
-      total: r.total ?? 0,
+      total: r.itensConcluidos ?? 0,
       // Manter o valor original da data (ISO string) para ordenação correta
       // A formatação será feita pelo valueFormatter da coluna
       updatedAt: r.updatedAt || '',
@@ -1027,8 +1041,8 @@ export default function ReajusteListPage() {
           dataInicio: r.dataInicio ? new Date(r.dataInicio).toLocaleString('pt-BR') : 'N/A',
           dataFinal: r.dataFinal ? new Date(r.dataFinal).toLocaleString('pt-BR') : 'N/A',
           updatedAt: r.updatedAt ? new Date(r.updatedAt).toLocaleString('pt-BR') : 'N/A',
-          // Formatar valores monetários
-          total: r.total ? `R$ ${r.total.toLocaleString('pt-BR')}` : 'R$ 0,00'
+          // Total de itens concluídos (numérico)
+          total: r.itensConcluidos ?? 0
         }))}
         moduleName="reajustes"
         moduleTitle="Reajustes"
