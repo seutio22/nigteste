@@ -332,36 +332,54 @@ const columns: GridColDef[] = [
   { field: 'descricao', headerName: 'Descrição', flex: 1, minWidth: 220 },
   { field: 'status', headerName: 'Status', width: 150, renderCell: (p) => <StatusBadge status={String(p.value ?? '')} /> },
   { field: 'analista', headerName: 'Analista', width: 160 },
-  { field: 'cliente', headerName: 'Cliente', width: 160, renderCell: (params) => {
-    // Se já é um objeto, usar diretamente
-    if (typeof params.value === 'object' && params.value?.nome) {
-      return params.value.nome
+  { 
+    field: 'cliente', 
+    headerName: 'Cliente', 
+    width: 160, 
+    getQuickFilterText: (value) => {
+      // Garantir que sempre retorne uma string para busca rápida
+      if (!value) return ''
+      if (typeof value === 'string') return value
+      if (typeof value === 'object' && value?.nome) return value.nome
+      return String(value)
+    },
+    renderCell: (params) => {
+      // O valor já vem como string do mapeamento dos rows
+      return params.value || '-'
     }
-    // Se é ID, buscar nos dados mestres (fallback)
-    const md = useMasterDataStore.getState()
-    const cliente = md.clientes.find(c => c.id === params.value)
-    return cliente ? cliente.nome : '-'
-  }},
-  { field: 'contrato', headerName: 'Contrato', width: 160, renderCell: (params) => {
-    // Se já é um objeto, usar diretamente
-    if (typeof params.value === 'object' && params.value?.numero) {
-      return params.value.numero
+  },
+  { 
+    field: 'contrato', 
+    headerName: 'Contrato', 
+    width: 160,
+    getQuickFilterText: (value) => {
+      // Garantir que sempre retorne uma string para busca rápida
+      if (!value) return ''
+      if (typeof value === 'string') return value
+      if (typeof value === 'object' && value?.numero) return value.numero
+      return String(value)
+    },
+    renderCell: (params) => {
+      // O valor já vem como string do mapeamento dos rows
+      return params.value || '-'
     }
-    // Se é ID, buscar nos dados mestres (fallback)
-    const md = useMasterDataStore.getState()
-    const contrato = md.contratos.find(c => c.id === params.value)
-    return contrato ? contrato.numero : '-'
-  }},
-  { field: 'operadora', headerName: 'Operadora', width: 160, renderCell: (params) => {
-    // Se já é um objeto, usar diretamente
-    if (typeof params.value === 'object' && params.value?.nome) {
-      return params.value.nome
+  },
+  { 
+    field: 'operadora', 
+    headerName: 'Operadora', 
+    width: 160,
+    getQuickFilterText: (value) => {
+      // Garantir que sempre retorne uma string para busca rápida
+      if (!value) return ''
+      if (typeof value === 'string') return value
+      if (typeof value === 'object' && value?.nome) return value.nome
+      return String(value)
+    },
+    renderCell: (params) => {
+      // O valor já vem como string do mapeamento dos rows
+      return params.value || '-'
     }
-    // Se é ID, buscar nos dados mestres (fallback)
-    const md = useMasterDataStore.getState()
-    const operadora = md.operadoras.find(o => o.id === params.value)
-    return operadora ? operadora.nome : '-'
-  }},
+  },
   { field: 'solicitante', headerName: 'Solicitante', width: 160, renderCell: (params) => {
     // Se já é um objeto, usar diretamente
     if (typeof params.value === 'object' && params.value?.nome) {
@@ -729,29 +747,55 @@ export default function ValidationListPage() {
 
   const rows = sortedItems.map((v) => {
     // Converter objetos relacionados para strings (nomes) para permitir busca rápida
-    const clienteNome = typeof v.cliente === 'object' && v.cliente?.nome 
-      ? v.cliente.nome 
-      : (typeof v.cliente === 'string' && v.cliente.length > 20
-          ? md.clientes.find(c => c.id === v.cliente)?.nome ?? v.cliente
-          : (v.cliente || ''))
+    // Cliente
+    let clienteNome = ''
+    if (typeof v.cliente === 'object' && v.cliente !== null && v.cliente?.nome) {
+      clienteNome = v.cliente.nome
+    } else if (typeof v.cliente === 'string') {
+      // Se é string longa (provavelmente ID UUID), buscar nos dados mestres
+      if (v.cliente.length > 20 || v.cliente.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+        clienteNome = md.clientes.find(c => c.id === v.cliente)?.nome ?? v.cliente
+      } else {
+        // String curta, provavelmente já é o nome
+        clienteNome = v.cliente
+      }
+    }
     
-    const contratoNumero = typeof v.contrato === 'object' && v.contrato?.numero
-      ? v.contrato.numero
-      : (typeof v.contrato === 'string' && v.contrato.length > 20
-          ? md.contratos.find(c => c.id === v.contrato)?.numero ?? v.contrato
-          : (v.contrato || ''))
+    // Contrato
+    let contratoNumero = ''
+    if (typeof v.contrato === 'object' && v.contrato !== null && v.contrato?.numero) {
+      contratoNumero = v.contrato.numero
+    } else if (typeof v.contrato === 'string') {
+      if (v.contrato.length > 20 || v.contrato.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+        contratoNumero = md.contratos.find(c => c.id === v.contrato)?.numero ?? v.contrato
+      } else {
+        contratoNumero = v.contrato
+      }
+    }
     
-    const operadoraNome = typeof v.operadora === 'object' && v.operadora?.nome
-      ? v.operadora.nome
-      : (typeof v.operadora === 'string' && v.operadora.length > 20
-          ? md.operadoras.find(o => o.id === v.operadora)?.nome ?? v.operadora
-          : (v.operadora || ''))
+    // Operadora
+    let operadoraNome = ''
+    if (typeof v.operadora === 'object' && v.operadora !== null && v.operadora?.nome) {
+      operadoraNome = v.operadora.nome
+    } else if (typeof v.operadora === 'string') {
+      if (v.operadora.length > 20 || v.operadora.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+        operadoraNome = md.operadoras.find(o => o.id === v.operadora)?.nome ?? v.operadora
+      } else {
+        operadoraNome = v.operadora
+      }
+    }
     
-    const solicitanteNome = typeof v.solicitante === 'object' && v.solicitante?.nome
-      ? v.solicitante.nome
-      : (typeof v.solicitante === 'string' && v.solicitante.length > 20
-          ? md.solicitantes.find(s => s.id === v.solicitante)?.nome ?? v.solicitante
-          : (v.solicitante || ''))
+    // Solicitante
+    let solicitanteNome = ''
+    if (typeof v.solicitante === 'object' && v.solicitante !== null && v.solicitante?.nome) {
+      solicitanteNome = v.solicitante.nome
+    } else if (typeof v.solicitante === 'string') {
+      if (v.solicitante.length > 20 || v.solicitante.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+        solicitanteNome = md.solicitantes.find(s => s.id === v.solicitante)?.nome ?? v.solicitante
+      } else {
+        solicitanteNome = v.solicitante
+      }
+    }
     
     const row = {
       id: v.id,
@@ -1010,9 +1054,14 @@ export default function ValidationListPage() {
               showQuickFilter: true, 
               quickFilterProps: { 
                 debounceMs: 300,
-                placeholder: 'Buscar validações... (ex: ticket, analista, área)'
+                placeholder: 'Buscar validações... (ex: ticket, cliente, operadora, analista)'
               } 
             } 
+          }}
+          quickFilterValues={filterModel.quickFilterValues}
+          onQuickFilterValuesChange={(values) => {
+            setFilterModel({ ...filterModel, quickFilterValues: values })
+            persist({ filterModel: { ...filterModel, quickFilterValues: values } })
           }}
           pageSizeOptions={[10, 25, 50, 100]}
           initialState={{
