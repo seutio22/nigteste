@@ -37,6 +37,7 @@ const columns: GridColDef[] = [
       variant="outlined" 
     />
   ) },
+  { field: 'ticket', headerName: 'Ticket', width: 140 },
   { field: 'status', headerName: 'Status', width: 150, renderCell: (p) => <ReportStatusBadge status={String(p.value ?? '')} /> },
   { field: 'prioridade', headerName: 'Prioridade', width: 120, renderCell: (p) => <PriorityBadge priority={String(p.value ?? '')} /> },
   { field: 'analista', headerName: 'Analista', width: 160 },
@@ -457,6 +458,7 @@ export default function AnalyticsPage() {
       id: r.id,
       titulo: r.titulo,
       tipo: r.tipo,
+      ticket: r.ticket || '-',
       status: r.status,
       prioridade: r.prioridade,
       analista: r.analista || 'N/A', // JÁ vem convertido do syncFromApi!
@@ -785,6 +787,7 @@ export default function AnalyticsPage() {
         columns={[
           { key: 'titulo', label: 'Título' },
           { key: 'tipo', label: 'Tipo' },
+          { key: 'ticket', label: 'Ticket' },
           { key: 'status', label: 'Status' },
           { key: 'prioridade', label: 'Prioridade' },
           { key: 'analista', label: 'Analista' },
