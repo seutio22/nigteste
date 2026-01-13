@@ -824,16 +824,19 @@ export default function ValidationListPage() {
     }
     
     // Função auxiliar para extrair nome de solicitante
-    // O solicitante é uma string simples (nome), não um relacionamento
     const getSolicitanteNome = (solicitante: any): string => {
       if (!solicitante) return ''
-      // Se já é uma string, retornar diretamente
-      if (typeof solicitante === 'string') {
-        return solicitante.trim()
-      }
-      // Se é objeto, tentar extrair nome
       if (typeof solicitante === 'object' && solicitante !== null) {
-        return solicitante.nome || String(solicitante || '')
+        return solicitante.nome || ''
+      }
+      if (typeof solicitante === 'string') {
+        // Se é UUID, buscar nos dados mestres
+        if (solicitante.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+          return md.solicitantes.find(s => s.id === solicitante)?.nome || solicitante
+        }
+        // Se é string curta, pode ser nome ou ID curto - tentar buscar primeiro
+        const found = md.solicitantes.find(s => s.id === solicitante || s.nome === solicitante)
+        return found?.nome || solicitante
       }
       return String(solicitante || '')
     }
