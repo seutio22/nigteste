@@ -82,25 +82,45 @@ const ProjectGantt: React.FC<ProjectGanttProps> = ({ phases, projectStartDate, p
   const [expandedPhases, setExpandedPhases] = useState<Set<string>>(new Set())
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set())
 
+  // Função auxiliar para normalizar data (extrair apenas YYYY-MM-DD para evitar timezone)
+  const normalizeDate = (dateString: string): string => {
+    if (!dateString) return ''
+    // Se já está no formato YYYY-MM-DD, retornar diretamente
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+      return dateString
+    }
+    // Se tem hora (formato ISO), extrair apenas a parte da data
+    if (dateString.includes('T')) {
+      return dateString.split('T')[0]
+    }
+    return dateString
+  }
+
   // Calcular a duração total do projeto em dias
   const projectDuration = useMemo(() => {
-    const start = new Date(projectStartDate)
-    const end = new Date(projectEndDate)
+    const startStr = normalizeDate(projectStartDate)
+    const endStr = normalizeDate(projectEndDate)
+    const start = new Date(startStr + 'T00:00:00')
+    const end = new Date(endStr + 'T00:00:00')
     return Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
   }, [projectStartDate, projectEndDate])
 
   // Calcular a posição horizontal de uma data
   const getDatePosition = (date: string) => {
-    const start = new Date(projectStartDate)
-    const current = new Date(date)
+    const startStr = normalizeDate(projectStartDate)
+    const currentStr = normalizeDate(date)
+    const start = new Date(startStr + 'T00:00:00')
+    const current = new Date(currentStr + 'T00:00:00')
     const daysDiff = Math.ceil((current.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
     return Math.max(0, (daysDiff / projectDuration) * 100)
   }
 
   // Calcular a largura de uma tarefa/fase
   const getDurationWidth = (startDate: string, endDate: string) => {
-    const start = new Date(startDate)
-    const end = new Date(endDate)
+    const startStr = normalizeDate(startDate)
+    const endStr = normalizeDate(endDate)
+    const start = new Date(startStr + 'T00:00:00')
+    const end = new Date(endStr + 'T00:00:00')
     const daysDiff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
     return Math.max(1, (daysDiff / projectDuration) * 100)
   }
@@ -171,8 +191,38 @@ const ProjectGantt: React.FC<ProjectGanttProps> = ({ phases, projectStartDate, p
     setExpandedTasks(newExpanded)
   }
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('pt-BR')
+  // CORRIGIDA: Evita problemas de timezone ao exibir datas
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString || dateString === 'null' || dateString === '') return '-'
+    try {
+      // Se já está no formato YYYY-MM-DD, formata diretamente
+      if (typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+        const [year, month, day] = dateString.split('-')
+        return `${day}/${month}/${year}`
+      }
+      
+      // Se tem hora (formato ISO), extrai apenas a parte da data
+      if (typeof dateString === 'string' && dateString.includes('T')) {
+        const datePart = dateString.split('T')[0]
+        if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+          const [year, month, day] = datePart.split('-')
+          return `${day}/${month}/${year}`
+        }
+      }
+      
+      // Para outros formatos, usa Date mas com métodos locais para evitar timezone
+      const date = new Date(dateString)
+      if (isNaN(date.getTime())) return '-'
+      
+      // Usa métodos locais para evitar conversão de timezone
+      const day = String(date.getDate()).padStart(2, '0')
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const year = date.getFullYear()
+      return `${day}/${month}/${year}`
+    } catch (error) {
+      console.error('❌ Erro ao formatar data:', dateString, error)
+      return '-'
+    }
   }
 
   const formatDuration = (startDate: string, endDate: string) => {
@@ -212,7 +262,8 @@ const ProjectGantt: React.FC<ProjectGanttProps> = ({ phases, projectStartDate, p
             borderLeft: `1px solid ${theme.palette.divider}`
           }}>
             {Array.from({ length: Math.ceil(projectDuration / 7) + 1 }, (_, i) => {
-              const weekStart = new Date(projectStartDate)
+              const startStr = normalizeDate(projectStartDate)
+              const weekStart = new Date(startStr + 'T00:00:00')
               weekStart.setDate(weekStart.getDate() + (i * 7))
               return (
                 <Box
