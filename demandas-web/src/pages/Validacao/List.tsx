@@ -395,16 +395,27 @@ const columns: GridColDef[] = [
       return params.value || '-'
     }
   },
-  { field: 'solicitante', headerName: 'Solicitante', width: 160, renderCell: (params) => {
-    // Se já é um objeto, usar diretamente
-    if (typeof params.value === 'object' && params.value?.nome) {
-      return params.value.nome
+  { 
+    field: 'solicitante', 
+    headerName: 'Solicitante', 
+    width: 160,
+    valueGetter: (value, row) => {
+      // Garantir que sempre retorne uma string para busca rápida
+      if (!row.solicitante) return ''
+      return String(row.solicitante)
+    },
+    getQuickFilterText: (value) => {
+      // Garantir que sempre retorne uma string para busca rápida
+      if (!value) return ''
+      if (typeof value === 'string') return value.toLowerCase()
+      if (typeof value === 'object' && value?.nome) return value.nome.toLowerCase()
+      return String(value).toLowerCase()
+    },
+    renderCell: (params) => {
+      // O valor já vem como string do mapeamento dos rows
+      return params.value || '-'
     }
-    // Se é ID, buscar nos dados mestres (fallback)
-    const md = useMasterDataStore.getState()
-    const solicitante = md.solicitantes.find(s => s.id === params.value)
-    return solicitante ? solicitante.nome : '-'
-  }},
+  },
   { field: 'dataInicio', headerName: 'Data Início', width: 140 },
   { field: 'dataFinal', headerName: 'Data Final', width: 140 },
   { 
@@ -813,17 +824,16 @@ export default function ValidationListPage() {
     }
     
     // Função auxiliar para extrair nome de solicitante
+    // O solicitante é uma string simples (nome), não um relacionamento
     const getSolicitanteNome = (solicitante: any): string => {
       if (!solicitante) return ''
-      if (typeof solicitante === 'object' && solicitante !== null) {
-        return solicitante.nome || ''
-      }
+      // Se já é uma string, retornar diretamente
       if (typeof solicitante === 'string') {
-        if (solicitante.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-          return md.solicitantes.find(s => s.id === solicitante)?.nome || solicitante
-        }
-        const found = md.solicitantes.find(s => s.id === solicitante || s.nome === solicitante)
-        return found?.nome || solicitante
+        return solicitante.trim()
+      }
+      // Se é objeto, tentar extrair nome
+      if (typeof solicitante === 'object' && solicitante !== null) {
+        return solicitante.nome || String(solicitante || '')
       }
       return String(solicitante || '')
     }
