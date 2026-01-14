@@ -411,31 +411,106 @@ export const useMasterDataStore = create<MasterDataState>()(
     }),
     {
       name: 'master-data-store', // Nome da chave no localStorage
-      partialize: (state) => ({
-        // Persistir apenas os dados necessários; índices são derivados em memória
-        clientes: state.clientes,
-        contratos: state.contratos,
-        operadoras: state.operadoras,
-        produtos: state.produtos,
-        sistemas: state.sistemas,
-        analistas: state.analistas,
-        areas: state.areas,
-        tiposDemanda: state.tiposDemanda,
-        tiposCadastro: state.tiposCadastro,
-        tiposServico: state.tiposServico,
-        solicitantes: state.solicitantes,
-        relatorios: state.relatorios,
-        modelos: state.modelos,
-        padrao: state.padrao,
-        areasMailling: state.areasMailling,
-        cargosMailling: state.cargosMailling,
-        filiaisMailling: state.filiaisMailling,
-        categorias: state.categorias,
-        periodicidades: state.periodicidades,
-        status: state.status,
-        lastSync: state.lastSync,
-        localExclusions: state.localExclusions
-      }),
+      partialize: (state) => {
+        // Reduzir dados persistidos: apenas dados essenciais e limitar tamanho
+        const maxItems = 1000; // Limitar quantidade de itens por array
+        
+        return {
+          // Limitar arrays grandes para evitar exceder quota
+          clientes: state.clientes.slice(0, maxItems),
+          contratos: state.contratos.slice(0, maxItems),
+          operadoras: state.operadoras.slice(0, maxItems),
+          produtos: state.produtos.slice(0, maxItems),
+          sistemas: state.sistemas.slice(0, maxItems),
+          analistas: state.analistas.slice(0, maxItems),
+          areas: state.areas.slice(0, maxItems),
+          tiposDemanda: state.tiposDemanda,
+          tiposCadastro: state.tiposCadastro,
+          tiposServico: state.tiposServico,
+          solicitantes: state.solicitantes.slice(0, maxItems),
+          relatorios: state.relatorios,
+          modelos: state.modelos,
+          padrao: state.padrao.slice(0, 100), // Limitar padrões
+          areasMailling: state.areasMailling.slice(0, 100),
+          cargosMailling: state.cargosMailling.slice(0, 100),
+          filiaisMailling: state.filiaisMailling.slice(0, 100),
+          categorias: state.categorias,
+          periodicidades: state.periodicidades,
+          status: state.status,
+          lastSync: state.lastSync,
+          localExclusions: state.localExclusions
+        };
+      },
+      // Tratamento de erro para quota excedida
+      storage: {
+        getItem: (name) => {
+          try {
+            return localStorage.getItem(name);
+          } catch (error) {
+            console.warn('⚠️ Erro ao ler localStorage:', error);
+            return null;
+          }
+        },
+        setItem: (name, value) => {
+          try {
+            // Verificar tamanho antes de salvar
+            const size = new Blob([value]).size;
+            const maxSize = 4 * 1024 * 1024; // 4MB (deixar margem de segurança)
+            
+            if (size > maxSize) {
+              console.warn('⚠️ Dados muito grandes para localStorage, limpando cache antigo...');
+              // Limpar dados antigos e tentar novamente
+              try {
+                // Remover apenas este store para liberar espaço
+                localStorage.removeItem(name);
+                // Tentar salvar novamente
+                if (new Blob([value]).size <= maxSize) {
+                  localStorage.setItem(name, value);
+                } else {
+                  console.error('❌ Dados ainda muito grandes após limpeza. Não será persistido.');
+                  // Salvar apenas dados essenciais
+                  const essential = JSON.parse(value);
+                  const minimal = {
+                    lastSync: essential.lastSync,
+                    localExclusions: essential.localExclusions || {}
+                  };
+                  localStorage.setItem(name, JSON.stringify(minimal));
+                }
+              } catch (retryError) {
+                console.error('❌ Erro ao salvar no localStorage após limpeza:', retryError);
+              }
+            } else {
+              localStorage.setItem(name, value);
+            }
+          } catch (error) {
+            if (error instanceof DOMException && error.name === 'QuotaExceededError') {
+              console.error('❌ Quota do localStorage excedida! Limpando cache...');
+              try {
+                // Limpar este store e tentar salvar apenas dados essenciais
+                localStorage.removeItem(name);
+                const data = JSON.parse(value);
+                const minimal = {
+                  lastSync: data.lastSync,
+                  localExclusions: data.localExclusions || {}
+                };
+                localStorage.setItem(name, JSON.stringify(minimal));
+                console.warn('⚠️ Apenas dados essenciais foram salvos. Faça uma nova sincronização.');
+              } catch (cleanupError) {
+                console.error('❌ Não foi possível salvar dados no localStorage:', cleanupError);
+              }
+            } else {
+              console.error('❌ Erro ao salvar no localStorage:', error);
+            }
+          }
+        },
+        removeItem: (name) => {
+          try {
+            localStorage.removeItem(name);
+          } catch (error) {
+            console.warn('⚠️ Erro ao remover do localStorage:', error);
+          }
+        }
+      },
       onRehydrateStorage: () => (state) => {
         if (state) {
           Object.assign(state, buildIndexes(state as MasterDataState))
