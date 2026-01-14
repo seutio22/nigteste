@@ -3789,16 +3789,21 @@ for (const [path, repo] of Object.entries(resources)) {
         // Verificar se já existe contrato com mesmo grupo econômico + número
         if (cleanedData.numero) {
           try {
+            // Normalizar grupoEconomico: string vazia ou undefined vira null
+            const grupoEconomicoValue = cleanedData.grupoEconomico && cleanedData.grupoEconomico.trim() !== '' 
+              ? cleanedData.grupoEconomico 
+              : null;
+            
             const contratoExiste = await prisma.contrato.findFirst({ 
               where: { 
                 numero: cleanedData.numero,
-                grupoEconomico: cleanedData.grupoEconomico || null
+                grupoEconomico: grupoEconomicoValue
               } 
             });
             
             if (contratoExiste) {
-              const grupoInfo = cleanedData.grupoEconomico 
-                ? `do grupo econômico "${cleanedData.grupoEconomico}"` 
+              const grupoInfo = grupoEconomicoValue 
+                ? `do grupo econômico "${grupoEconomicoValue}"` 
                 : 'sem grupo econômico';
               
               console.warn(`⚠️ POST /contratos: Contrato "${cleanedData.numero}" ${grupoInfo} já existe`);

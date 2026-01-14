@@ -109,7 +109,7 @@ model Cliente {
 
 model Contrato {
   id             String        @id @default(uuid())
-  numero         String        @unique
+  numero         String
   codigo         String?
   grupoEconomico String?
   clienteId      String?

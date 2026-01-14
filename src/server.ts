@@ -1309,29 +1309,41 @@ for (const [path, repo] of Object.entries(resources)) {
       //   res.code(201)
       //   return created
       } else if (path === 'contratos') {
-        // Tratamento especial para contratos - evitar duplicatas de número
+        // Tratamento especial para contratos - validar duplicatas de grupo econômico + número
         const cleanedData = { ...req.body }
         
         console.log(`🔍 POST /contratos: Dados originais recebidos:`, JSON.stringify(req.body, null, 2))
         
-        // Verificar se número já existe
+        // Verificar se já existe contrato com mesmo grupo econômico + número
         if (cleanedData.numero) {
           try {
-            const numeroExiste = await prisma.contrato.findFirst({ 
-              where: { numero: cleanedData.numero } 
+            // Normalizar grupoEconomico: string vazia ou undefined vira null
+            const grupoEconomicoValue = cleanedData.grupoEconomico && cleanedData.grupoEconomico.trim() !== '' 
+              ? cleanedData.grupoEconomico 
+              : null;
+            
+            const contratoExiste = await prisma.contrato.findFirst({ 
+              where: { 
+                numero: cleanedData.numero,
+                grupoEconomico: grupoEconomicoValue
+              } 
             });
-            if (numeroExiste) {
-              console.warn(`⚠️ POST /contratos: Número "${cleanedData.numero}" já existe, atualizando registro existente`);
-              const updated = await prisma.contrato.update({
-                where: { id: numeroExiste.id },
-                data: cleanedData
-              });
-              console.log(`✅ POST /contratos: Registro atualizado:`, updated.id);
-              res.code(200);
-              return updated;
+            
+            if (contratoExiste) {
+              const grupoInfo = grupoEconomicoValue 
+                ? `do grupo econômico "${grupoEconomicoValue}"` 
+                : 'sem grupo econômico';
+              
+              console.warn(`⚠️ POST /contratos: Contrato "${cleanedData.numero}" ${grupoInfo} já existe`);
+              
+              res.code(400);
+              return { 
+                error: 'Contrato duplicado', 
+                message: `Contrato "${cleanedData.numero}" ${grupoInfo} já existe. Por favor, escolha um número diferente ou verifique o grupo econômico.` 
+              };
             }
           } catch (error) {
-            console.error(`❌ POST /contratos: Erro ao verificar número:`, error);
+            console.error(`❌ POST /contratos: Erro ao verificar duplicação:`, error);
           }
         }
         
