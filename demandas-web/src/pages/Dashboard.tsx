@@ -158,9 +158,9 @@ export default function DashboardPage() {
   const { advancedIndicators, tempoExecucaoMetrics, analistaMetrics } = useAdvancedIndicators({
     areaId,
     analistaId,
-    // Passar filtros de data apenas se for filtro manual
-    fromDate: isManualDateFilter && fromDate ? fromDate : undefined,
-    toDate: isManualDateFilter && toDate ? toDate : undefined
+    // Sempre usar as datas do período atual (ou manual, se aplicado)
+    fromDate: fromDate || undefined,
+    toDate: toDate || undefined
   })
 
   // Função para filtrar por data
@@ -633,8 +633,8 @@ export default function DashboardPage() {
           showCategories={true}
           areaId={areaId}
           analistaId={analistaId}
-          fromDate={isManualDateFilter && fromDate ? fromDate : undefined}
-          toDate={isManualDateFilter && toDate ? toDate : undefined}
+        fromDate={fromDate || undefined}
+        toDate={toDate || undefined}
         />
       </Box>
 
@@ -652,16 +652,16 @@ export default function DashboardPage() {
         period={effectivePeriod}
         areaId={areaId}
         analistaId={analistaId}
-        fromDate={isManualDateFilter && fromDate ? fromDate : undefined}
-        toDate={isManualDateFilter && toDate ? toDate : undefined}
+        fromDate={fromDate || undefined}
+        toDate={toDate || undefined}
       />
 
       {/* Detalhes de Status e Tempo de Abertura */}
       <StatusDetails
         areaId={areaId}
         analistaId={analistaId}
-        fromDate={isManualDateFilter && fromDate ? fromDate : undefined}
-        toDate={isManualDateFilter && toDate ? toDate : undefined}
+        fromDate={fromDate || undefined}
+        toDate={toDate || undefined}
       />
 
       {/* Resumo Executivo */}
