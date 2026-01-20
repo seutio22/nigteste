@@ -6,7 +6,7 @@ import { useReajusteStore } from '../store/reajusteStore'
 import { useManutencaoStore } from '../store/manutencaoStore'
 import { useReportStore } from '../store/reportStore'
 import { useMasterDataStore } from '../store/masterDataStore'
-import { getItemDateForPage, getItemEndDate, getItemStartDate, matchesByIdOrName } from '../utils/dashboardFilters'
+import { calculateBusinessDays, getItemDateForPage, getItemEndDate, getItemStartDate, matchesByIdOrName } from '../utils/dashboardFilters'
 
 export interface AdvancedIndicator {
   id: string
@@ -65,9 +65,11 @@ export const useAdvancedIndicators = (
   const calcularTempoExecucao = (dataInicio?: string, dataFinalizacao?: string): number => {
     if (!dataInicio) return 0
     const inicio = new Date(dataInicio)
+    if (isNaN(inicio.getTime())) return 0
     const fim = dataFinalizacao ? new Date(dataFinalizacao) : new Date()
-    const diffTime = Math.abs(fim.getTime() - inicio.getTime())
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) // dias
+    if (isNaN(fim.getTime())) return 0
+    if (fim < inicio) return 0
+    return calculateBusinessDays(inicio, fim)
   }
 
   // Função para aplicar filtros

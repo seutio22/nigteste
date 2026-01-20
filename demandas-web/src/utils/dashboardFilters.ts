@@ -111,3 +111,21 @@ export const getItemEndDate = (page: string, item: any): string | undefined => {
       return item.dataFinal || item.dataFinalizacao
   }
 }
+
+export const calculateBusinessDays = (startDate: Date, endDate: Date): number => {
+  let count = 0
+  const current = new Date(startDate)
+  current.setHours(0, 0, 0, 0)
+  const end = new Date(endDate)
+  end.setHours(0, 0, 0, 0)
+
+  while (current <= end) {
+    const dayOfWeek = current.getDay()
+    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+      count++
+    }
+    current.setDate(current.getDate() + 1)
+  }
+
+  return count
+}
