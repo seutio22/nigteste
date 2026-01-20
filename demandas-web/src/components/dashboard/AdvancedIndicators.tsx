@@ -200,10 +200,13 @@ export const AdvancedIndicators: React.FC<AdvancedIndicatorsProps> = ({
                   
                   <Box sx={{ mb: 2 }}>
                     <Typography variant="h3" sx={{ fontWeight: 700, color: theme.palette.text.primary }}>
-                      {analista.totalItens} <span style={{ fontSize: '0.5em', color: theme.palette.text.secondary }}>itens</span>
+                      {analista.itensPorPagina.demandas} <span style={{ fontSize: '0.5em', color: theme.palette.text.secondary }}>cadastros</span>
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
                       Tempo médio: {analista.tempoMedioExecucao} dias
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Total geral (todas as páginas): {analista.totalItens}
                     </Typography>
                   </Box>
 
