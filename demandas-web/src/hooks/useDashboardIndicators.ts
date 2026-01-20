@@ -8,8 +8,10 @@ import { useReportStore } from '../store/reportStore'
 import { useMaillingStore } from '../store/maillingStore'
 import { useComunicadoStore } from '../store/comunicadoStore'
 import { useProjectStore } from '../store/projectStore'
+import { useMasterDataStore } from '../store/masterDataStore'
 import type { DashboardIndicator, PageMetrics, PeriodType } from '../types/dashboardIndicators'
 import { PAGE_CONFIGS, COMPLETION_STATUS } from '../types/dashboardIndicators'
+import { getItemDateForPage, matchesByIdOrName } from '../utils/dashboardFilters'
 
 // Função utilitária para calcular períodos
 const getPeriodDates = (period: PeriodType) => {
@@ -332,6 +334,7 @@ export const useDashboardIndicators = (
   const maillingStore = useMaillingStore()
   const comunicadoStore = useComunicadoStore()
   const projectStore = useProjectStore()
+  const masterDataStore = useMasterDataStore()
 
   // Função para filtrar por data - mesma lógica para todas as páginas
   const inRange = useMemo(() => {
@@ -381,39 +384,36 @@ export const useDashboardIndicators = (
   const applyFilters = (items: any[], page: string) => {
     if (!filters) return items
     
+    const getAnalistaValue = (item: any) => {
+      if (page === 'reajustes') return item.responsavelAnalista
+      if (page === 'manutencoes') return item.analistaId || item.analista
+      if (page === 'validacoes') {
+        return item.analistaId
+          || item.analistaObj?.id
+          || (typeof item.analista === 'object' ? item.analista?.id : item.analista)
+      }
+      return item.analistaId || item.analista
+    }
+
     return items.filter(item => {
       // Filtro por área (para demandas e atendimentos)
       if (filters.areaId && (page === 'demandas' || page === 'atendimentos')) {
-        const itemArea = item.area || item.areaId
-        if (itemArea !== filters.areaId) {
+        const itemArea = item.areaId || item.area
+        if (!matchesByIdOrName(itemArea, filters.areaId, masterDataStore.areas)) {
           return false
         }
       }
       
       // Filtro por analista
       if (filters.analistaId) {
-        const analistaField = page === 'reajustes' ? 'responsavelAnalista' : 'analista'
-        const itemAnalista = item[analistaField]
-        if (itemAnalista !== filters.analistaId) {
+        const itemAnalista = getAnalistaValue(item)
+        if (!matchesByIdOrName(itemAnalista, filters.analistaId, masterDataStore.analistas)) {
           return false
         }
       }
       
       // Filtro por data - Analytics usa dataCriacao, atendimentos e outros usam createdAt
-      let itemDate: string | undefined | null = null
-      if (page === 'analytics') {
-        if (item.dataCriacao && item.dataCriacao !== null && item.dataCriacao !== '') {
-          itemDate = item.dataCriacao
-        } else if (item.createdAt && item.createdAt !== null && item.createdAt !== '') {
-          itemDate = item.createdAt
-        }
-      } else {
-        // Atendimentos e outras páginas: usar createdAt
-        if (item.createdAt && item.createdAt !== null && item.createdAt !== '') {
-          itemDate = item.createdAt
-        }
-      }
-      
+      const itemDate = getItemDateForPage(page, item)
       if (!itemDate || !inRange(itemDate)) {
         return false
       }
@@ -453,7 +453,9 @@ export const useDashboardIndicators = (
     filters?.areaId,
     filters?.analistaId,
     filters?.fromDate,
-    filters?.toDate
+    filters?.toDate,
+    masterDataStore.areas,
+    masterDataStore.analistas
   ])
 
   // Calcular métricas para todas as páginas

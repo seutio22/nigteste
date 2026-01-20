@@ -53,6 +53,7 @@ import { useAdvancedIndicators } from '../hooks/useAdvancedIndicators'
 import { AdvancedIndicators } from '../components/dashboard/AdvancedIndicators'
 import { StatusDetails } from '../components/dashboard/StatusDetails'
 import type { PeriodType } from '../types/dashboardIndicators'
+import { getItemDateForPage, matchesByIdOrName } from '../utils/dashboardFilters'
 
 const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#84cc16', '#f97316']
 
@@ -250,32 +251,32 @@ export default function DashboardPage() {
   // Dados filtrados
   const demandasFiltradas = useMemo(() => 
     demandStore.items.filter(d => 
-      (!areaId || d.area === areaId) && 
-      (!analistaId || d.analista === analistaId) && 
-      inRange(d.dataInicio || d.createdAt)
+      matchesByIdOrName(d.areaId || d.area, areaId, masterDataStore.areas) && 
+      matchesByIdOrName(d.analistaId || d.analista, analistaId, masterDataStore.analistas) && 
+      inRange(getItemDateForPage('demandas', d))
     ), 
-    [demandStore.items, areaId, analistaId, fromDate, toDate]
+    [demandStore.items, areaId, analistaId, fromDate, toDate, masterDataStore.areas, masterDataStore.analistas]
   )
 
   const validacoesFiltradas = useMemo(() => 
     validationStore.items.filter(v => 
-      (!analistaId || v.analista === analistaId) && 
-      inRange(v.dataInicio)
+      matchesByIdOrName((v as any).analistaId || v.analista, analistaId, masterDataStore.analistas) && 
+      inRange(getItemDateForPage('validacoes', v))
     ), 
-    [validationStore.items, analistaId, fromDate, toDate]
+    [validationStore.items, analistaId, fromDate, toDate, masterDataStore.analistas]
   )
 
   const reajustesFiltrados = useMemo(() => 
     reajusteStore.items.filter(r => 
-      (!analistaId || r.responsavelAnalista === analistaId) && 
-      inRange(r.createdAt)
+      matchesByIdOrName(r.responsavelAnalista, analistaId, masterDataStore.analistas) && 
+      inRange(getItemDateForPage('reajustes', r))
     ), 
-    [reajusteStore.items, analistaId, fromDate, toDate]
+    [reajusteStore.items, analistaId, fromDate, toDate, masterDataStore.analistas]
   )
 
   const maillingFiltrados = useMemo(() => 
     maillingStore.contacts.filter(m => 
-      inRange(m.createdAt)
+      inRange(getItemDateForPage('mailling', m))
     ), 
     [maillingStore.contacts, fromDate, toDate]
   )
@@ -380,6 +381,12 @@ export default function DashboardPage() {
   // Estatísticas principais
   const totalDemandas = demandasFiltradas.length
   const totalValidacoes = validacoesFiltradas.length
+  const validacoesEmAndamento = useMemo(() => {
+    return validacoesFiltradas.filter((v) => {
+      const status = String(v.status || '').toLowerCase()
+      return status.includes('em valida') || status.includes('em andamento')
+    }).length
+  }, [validacoesFiltradas])
   const totalReajustes = reajustesFiltrados.length
   const totalMailling = maillingFiltrados.length
 
@@ -695,7 +702,7 @@ export default function DashboardPage() {
           <Grid item xs={12} md={4}>
             <Box sx={{ textAlign: 'center', p: 2 }}>
               <Typography variant="h4" sx={{ fontWeight: 700, color: theme.palette.warning.main, mb: 1 }}>
-                {totalValidacoes}
+                {validacoesEmAndamento}
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Validações em Andamento

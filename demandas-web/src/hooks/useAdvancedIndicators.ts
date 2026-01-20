@@ -6,6 +6,7 @@ import { useReajusteStore } from '../store/reajusteStore'
 import { useManutencaoStore } from '../store/manutencaoStore'
 import { useReportStore } from '../store/reportStore'
 import { useMasterDataStore } from '../store/masterDataStore'
+import { getItemDateForPage, matchesByIdOrName } from '../utils/dashboardFilters'
 
 export interface AdvancedIndicator {
   id: string
@@ -73,60 +74,36 @@ export const useAdvancedIndicators = (
   const applyFilters = (items: any[], page: string) => {
     if (!filters) return items
     
+    const getAnalistaValue = (item: any) => {
+      if (page === 'reajustes') return item.responsavelAnalista
+      if (page === 'manutencoes') return item.analistaId || item.analista
+      if (page === 'validacoes') {
+        return item.analistaId
+          || item.analistaObj?.id
+          || (typeof item.analista === 'object' ? item.analista?.id : item.analista)
+      }
+      return item.analistaId || item.analista
+    }
+
     return items.filter(item => {
       // Filtro por área (para demandas e atendimentos)
       if (filters.areaId && (page === 'demandas' || page === 'atendimentos')) {
-        const itemArea = item.area || item.areaId
-        if (itemArea !== filters.areaId) {
+        const itemArea = item.areaId || item.area
+        if (!matchesByIdOrName(itemArea, filters.areaId, masterDataStore.areas)) {
           return false
         }
       }
       
       // Filtro por analista
       if (filters.analistaId) {
-        let itemAnalista: any = null
-        
-        if (page === 'reajustes') {
-          itemAnalista = item.responsavelAnalista
-        } else if (page === 'manutencoes') {
-          itemAnalista = item.analistaId || item.analista
-        } else if (page === 'validacoes') {
-          // Validações podem ter analistaId, analista (string ou objeto), ou analistaObj
-          if (item.analistaId) {
-            itemAnalista = item.analistaId
-          } else if (typeof item.analista === 'object' && item.analista?.id) {
-            itemAnalista = item.analista.id
-          } else if (typeof item.analista === 'string') {
-            itemAnalista = item.analista
-          } else if (item.analistaObj?.id) {
-            itemAnalista = item.analistaObj.id
-          } else {
-            itemAnalista = item.analista
-          }
-        } else {
-          itemAnalista = item.analista || item.analistaId
-        }
-        
-        if (itemAnalista !== filters.analistaId) {
+        const itemAnalista = getAnalistaValue(item)
+        if (!matchesByIdOrName(itemAnalista, filters.analistaId, masterDataStore.analistas)) {
           return false
         }
       }
       
       // Filtro por data - Analytics usa dataCriacao, atendimentos e outros usam createdAt
-      let itemDate: string | undefined | null = null
-      if (page === 'analytics') {
-        if (item.dataCriacao && item.dataCriacao !== null && item.dataCriacao !== '') {
-          itemDate = item.dataCriacao
-        } else if (item.createdAt && item.createdAt !== null && item.createdAt !== '') {
-          itemDate = item.createdAt
-        }
-      } else {
-        // Atendimentos e outras páginas: usar createdAt
-        if (item.createdAt && item.createdAt !== null && item.createdAt !== '') {
-          itemDate = item.createdAt
-        }
-      }
-      
+      const itemDate = getItemDateForPage(page, item)
       if (itemDate) {
         try {
           const itemDateObj = new Date(itemDate)

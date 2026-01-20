@@ -28,6 +28,8 @@ import { useReajusteStore } from '../../store/reajusteStore'
 import { useValidationStore } from '../../store/validationStore'
 import { useAtendimentoStore } from '../../store/atendimentoStore'
 import { useReportStore } from '../../store/reportStore'
+import { useMasterDataStore } from '../../store/masterDataStore'
+import { getItemDateForPage, matchesByIdOrName } from '../../utils/dashboardFilters'
 
 interface StatusDetailsProps {
   areaId?: string
@@ -125,6 +127,7 @@ export const StatusDetails: React.FC<StatusDetailsProps> = ({
   const validationStore = useValidationStore()
   const atendimentoStore = useAtendimentoStore()
   const reportStore = useReportStore()
+  const masterDataStore = useMasterDataStore()
 
   // Função para filtrar por data
   const inRange = (iso?: string) => {
@@ -170,52 +173,52 @@ export const StatusDetails: React.FC<StatusDetailsProps> = ({
   // Filtrar dados
   const demandasFiltradas = useMemo(() => 
     demandStore.items.filter(d => 
-      (!areaId || d.area === areaId) && 
-      (!analistaId || d.analista === analistaId) && 
-      inRange(d.dataInicio || d.createdAt)
+      matchesByIdOrName(d.areaId || d.area, areaId, masterDataStore.areas) && 
+      matchesByIdOrName(d.analistaId || d.analista, analistaId, masterDataStore.analistas) && 
+      inRange(getItemDateForPage('demandas', d))
     ), 
-    [demandStore.items, areaId, analistaId, fromDate, toDate]
+    [demandStore.items, areaId, analistaId, fromDate, toDate, masterDataStore.areas, masterDataStore.analistas]
   )
 
   const manutencoesFiltradas = useMemo(() => 
     manutencaoStore.items.filter(m => 
-      (!analistaId || m.analista === analistaId) && 
-      inRange(m.dataInicio || m.createdAt)
+      matchesByIdOrName(m.analistaId || m.analista, analistaId, masterDataStore.analistas) && 
+      inRange(getItemDateForPage('manutencoes', m))
     ), 
-    [manutencaoStore.items, analistaId, fromDate, toDate]
+    [manutencaoStore.items, analistaId, fromDate, toDate, masterDataStore.analistas]
   )
 
   const reajustesFiltrados = useMemo(() => 
     reajusteStore.items.filter(r => 
-      (!analistaId || r.responsavelAnalista === analistaId) && 
-      inRange(r.createdAt)
+      matchesByIdOrName(r.responsavelAnalista, analistaId, masterDataStore.analistas) && 
+      inRange(getItemDateForPage('reajustes', r))
     ), 
-    [reajusteStore.items, analistaId, fromDate, toDate]
+    [reajusteStore.items, analistaId, fromDate, toDate, masterDataStore.analistas]
   )
 
   const validacoesFiltradas = useMemo(() => 
     validationStore.items.filter(v => 
-      (!analistaId || v.analista === analistaId) && 
-      inRange(v.dataInicio)
+      matchesByIdOrName((v as any).analistaId || v.analista, analistaId, masterDataStore.analistas) && 
+      inRange(getItemDateForPage('validacoes', v))
     ), 
-    [validationStore.items, analistaId, fromDate, toDate]
+    [validationStore.items, analistaId, fromDate, toDate, masterDataStore.analistas]
   )
 
   const atendimentosFiltrados = useMemo(() => 
     atendimentoStore.items.filter(a => 
-      (!areaId || a.area === areaId) && 
-      (!analistaId || a.analista === analistaId) && 
-      inRange(a.dataInicio || a.createdAt)
+      matchesByIdOrName(a.areaId || a.area, areaId, masterDataStore.areas) && 
+      matchesByIdOrName(a.analistaId || a.analista, analistaId, masterDataStore.analistas) && 
+      inRange(getItemDateForPage('atendimentos', a))
     ), 
-    [atendimentoStore.items, areaId, analistaId, fromDate, toDate]
+    [atendimentoStore.items, areaId, analistaId, fromDate, toDate, masterDataStore.areas, masterDataStore.analistas]
   )
 
   const analyticsFiltrados = useMemo(() => 
     reportStore.items.filter(r => 
-      (!analistaId || r.analista === analistaId) && 
-      inRange(r.dataCriacao || r.createdAt)
+      matchesByIdOrName(r.analista, analistaId, masterDataStore.analistas) && 
+      inRange(getItemDateForPage('analytics', r))
     ), 
-    [reportStore.items, analistaId, fromDate, toDate]
+    [reportStore.items, analistaId, fromDate, toDate, masterDataStore.analistas]
   )
 
   // Calcular estatísticas por status
