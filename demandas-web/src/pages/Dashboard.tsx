@@ -53,7 +53,7 @@ import { useAdvancedIndicators } from '../hooks/useAdvancedIndicators'
 import { AdvancedIndicators } from '../components/dashboard/AdvancedIndicators'
 import { StatusDetails } from '../components/dashboard/StatusDetails'
 import type { PeriodType } from '../types/dashboardIndicators'
-import { getItemDateForPage, matchesByIdOrName } from '../utils/dashboardFilters'
+import { getItemDateForPage, matchesByIdOrName, parseDateForFilter } from '../utils/dashboardFilters'
 
 const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#84cc16', '#f97316']
 
@@ -169,19 +169,21 @@ export default function DashboardPage() {
     if (!fromDate && !toDate) return true
     
     try {
-      const itemDate = new Date(iso)
-      if (isNaN(itemDate.getTime())) return true
+      const itemDate = parseDateForFilter(iso)
+      if (!itemDate || isNaN(itemDate.getTime())) return true
       
       // Normalizar para início do dia (00:00:00)
       const normalizeStart = (dateStr: string) => {
-        const d = new Date(dateStr)
+        const d = parseDateForFilter(dateStr)
+        if (!d) return new Date().getTime()
         d.setHours(0, 0, 0, 0)
         return d.getTime()
       }
       
       // Normalizar para fim do dia (23:59:59.999)
       const normalizeEnd = (dateStr: string) => {
-        const d = new Date(dateStr)
+        const d = parseDateForFilter(dateStr)
+        if (!d) return new Date().getTime()
         d.setHours(23, 59, 59, 999)
         return d.getTime()
       }

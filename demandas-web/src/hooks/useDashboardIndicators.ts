@@ -11,7 +11,7 @@ import { useProjectStore } from '../store/projectStore'
 import { useMasterDataStore } from '../store/masterDataStore'
 import type { DashboardIndicator, PageMetrics, PeriodType } from '../types/dashboardIndicators'
 import { PAGE_CONFIGS, COMPLETION_STATUS } from '../types/dashboardIndicators'
-import { getItemDateForPage, matchesByIdOrName } from '../utils/dashboardFilters'
+import { getItemDateForPage, matchesByIdOrName, parseDateForFilter } from '../utils/dashboardFilters'
 
 // Função utilitária para calcular períodos
 const getPeriodDates = (period: PeriodType) => {
@@ -44,8 +44,8 @@ const getPeriodDates = (period: PeriodType) => {
 const isInPeriod = (date: string | undefined | null, period: PeriodType): boolean => {
   if (!date || date === null || date === '') return false
   try {
-    const itemDate = new Date(date)
-    if (isNaN(itemDate.getTime())) return false
+    const itemDate = parseDateForFilter(date)
+    if (!itemDate || isNaN(itemDate.getTime())) return false
     
     // Obter data atual e normalizar para início do dia (timezone local)
     const now = new Date()
@@ -344,19 +344,21 @@ export const useDashboardIndicators = (
       if (!filters.fromDate && !filters.toDate) return true
       
       try {
-        const itemDate = new Date(iso)
-        if (isNaN(itemDate.getTime())) return true
+        const itemDate = parseDateForFilter(iso)
+        if (!itemDate || isNaN(itemDate.getTime())) return true
         
         // Normalizar para início do dia (00:00:00)
         const normalizeStart = (dateStr: string) => {
-          const d = new Date(dateStr)
+          const d = parseDateForFilter(dateStr)
+          if (!d) return new Date().getTime()
           d.setHours(0, 0, 0, 0)
           return d.getTime()
         }
         
         // Normalizar para fim do dia (23:59:59.999)
         const normalizeEnd = (dateStr: string) => {
-          const d = new Date(dateStr)
+          const d = parseDateForFilter(dateStr)
+          if (!d) return new Date().getTime()
           d.setHours(23, 59, 59, 999)
           return d.getTime()
         }

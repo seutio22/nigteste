@@ -129,3 +129,11 @@ export const calculateBusinessDays = (startDate: Date, endDate: Date): number =>
 
   return count
 }
+
+export const parseDateForFilter = (value?: string | null): Date | null => {
+  if (!value) return null
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return new Date(`${value}T00:00:00`)
+  }
+  return new Date(value)
+}

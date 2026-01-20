@@ -29,7 +29,7 @@ import { useValidationStore } from '../../store/validationStore'
 import { useAtendimentoStore } from '../../store/atendimentoStore'
 import { useReportStore } from '../../store/reportStore'
 import { useMasterDataStore } from '../../store/masterDataStore'
-import { getItemDateForPage, matchesByIdOrName } from '../../utils/dashboardFilters'
+import { getItemDateForPage, matchesByIdOrName, parseDateForFilter } from '../../utils/dashboardFilters'
 
 interface StatusDetailsProps {
   areaId?: string
@@ -135,19 +135,21 @@ export const StatusDetails: React.FC<StatusDetailsProps> = ({
     if (!fromDate && !toDate) return true
     
     try {
-      const itemDate = new Date(iso)
-      if (isNaN(itemDate.getTime())) return true
+      const itemDate = parseDateForFilter(iso)
+      if (!itemDate || isNaN(itemDate.getTime())) return true
       
       // Normalizar para início do dia (00:00:00)
       const normalizeStart = (dateStr: string) => {
-        const d = new Date(dateStr)
+        const d = parseDateForFilter(dateStr)
+        if (!d) return new Date().getTime()
         d.setHours(0, 0, 0, 0)
         return d.getTime()
       }
       
       // Normalizar para fim do dia (23:59:59.999)
       const normalizeEnd = (dateStr: string) => {
-        const d = new Date(dateStr)
+        const d = parseDateForFilter(dateStr)
+        if (!d) return new Date().getTime()
         d.setHours(23, 59, 59, 999)
         return d.getTime()
       }

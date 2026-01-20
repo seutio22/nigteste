@@ -6,7 +6,7 @@ import { useReajusteStore } from '../store/reajusteStore'
 import { useManutencaoStore } from '../store/manutencaoStore'
 import { useReportStore } from '../store/reportStore'
 import { useMasterDataStore } from '../store/masterDataStore'
-import { calculateBusinessDays, getItemDateForPage, getItemEndDate, getItemStartDate, matchesByIdOrName, resolveIdFromValue, resolveNameFromValue } from '../utils/dashboardFilters'
+import { calculateBusinessDays, getItemDateForPage, getItemEndDate, getItemStartDate, matchesByIdOrName, parseDateForFilter, resolveIdFromValue, resolveNameFromValue } from '../utils/dashboardFilters'
 
 export interface AdvancedIndicator {
   id: string
@@ -108,19 +108,21 @@ export const useAdvancedIndicators = (
       const itemDate = getItemDateForPage(page, item)
       if (itemDate) {
         try {
-          const itemDateObj = new Date(itemDate)
-          if (isNaN(itemDateObj.getTime())) return true
+          const itemDateObj = parseDateForFilter(itemDate)
+          if (!itemDateObj || isNaN(itemDateObj.getTime())) return true
           
           // Normalizar para início do dia (00:00:00)
           const normalizeStart = (dateStr: string) => {
-            const d = new Date(dateStr)
+            const d = parseDateForFilter(dateStr)
+            if (!d) return new Date().getTime()
             d.setHours(0, 0, 0, 0)
             return d.getTime()
           }
           
           // Normalizar para fim do dia (23:59:59.999)
           const normalizeEnd = (dateStr: string) => {
-            const d = new Date(dateStr)
+            const d = parseDateForFilter(dateStr)
+            if (!d) return new Date().getTime()
             d.setHours(23, 59, 59, 999)
             return d.getTime()
           }
