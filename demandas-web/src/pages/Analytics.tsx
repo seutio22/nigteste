@@ -931,10 +931,11 @@ function ActionCell({ id, status }: { id: string, status: string }) {
         <DialogTitle>Alterar status</DialogTitle>
         <DialogContent>
           <TextField select label="Novo status" value={newStatus} onChange={(e) => setNewStatus(e.target.value)} sx={{ mt: 1, minWidth: 280 }}>
-            {['pendente','emandamento','concluido','entregue','cancelado'].map(s => (
+            {['pendente','emandamento','transfanalista','concluido','entregue','cancelado'].map(s => (
               <MenuItem key={s} value={s}>
                 {s === 'pendente' ? 'Pendente' : 
                  s === 'emandamento' ? 'Em Andamento' : 
+                 s === 'transfanalista' ? 'Transf. Analista' :
                  s === 'concluido' ? 'Concluído' : 
                  s === 'entregue' ? 'Entregue' : 'Cancelado'}
               </MenuItem>

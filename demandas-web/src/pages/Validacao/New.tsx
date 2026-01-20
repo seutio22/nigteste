@@ -330,7 +330,7 @@ export default function ValidationNewPage() {
                 <MenuItem value="">
                   <em>Selecione o status</em>
                 </MenuItem>
-                {['Aberta','Em andamento','Aguardando validação','Com erros','Em reajuste','Concluída','Cancelada'].map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                {['Aberta','Em andamento','Transf. Analista','Aguardando validação','Com erros','Em reajuste','Concluída','Cancelada'].map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
               </TextField>
             )} />
           </Grid>

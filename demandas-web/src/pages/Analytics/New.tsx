@@ -392,6 +392,7 @@ export default function AnalyticsNewPage() {
                   >
                     <MenuItem value="CONCLUIDO">CONCLUIDO</MenuItem>
                     <MenuItem value="EM ANDAMENTO">EM ANDAMENTO</MenuItem>
+                    <MenuItem value="TRANSF. ANALISTA">TRANSF. ANALISTA</MenuItem>
                     <MenuItem value="ESPERA DE TERCEIROS">ESPERA DE TERCEIROS</MenuItem>
                     <MenuItem value="PENDENTE">PENDENTE</MenuItem>
                   </Select>

@@ -484,6 +484,7 @@ function EditInline({ report }: { report: any }) {
           >
             <option value="pendente">Pendente</option>
             <option value="em_andamento">Em Andamento</option>
+            <option value="transf_analista">Transf. Analista</option>
             <option value="concluido">Concluído</option>
             <option value="entregue">Entregue</option>
             <option value="cancelado">Cancelado</option>

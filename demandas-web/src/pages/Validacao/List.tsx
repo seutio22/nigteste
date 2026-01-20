@@ -216,7 +216,7 @@ function ActionCell({ id, status }: { id: string, status: string }) {
         <DialogTitle>Alterar status</DialogTitle>
         <DialogContent>
           <TextField select label="Novo status" value={newStatus} onChange={(e) => setNewStatus(e.target.value)} sx={{ mt: 1, minWidth: 280 }}>
-            {['Aberto','Em validação','Aprovada','Rejeitada','Pendente','Cancelada'].map(s => (
+            {['Aberto','Em validação','Transf. Analista','Aprovada','Rejeitada','Pendente','Cancelada'].map(s => (
               <MenuItem key={s} value={s}>{s}</MenuItem>
             ))}
           </TextField>
@@ -682,6 +682,7 @@ export default function ValidationListPage() {
             if (statusUpper === 'AGUARDANDO VALIDACAO' || statusUpper === 'AGUARDANDO VALIDAÇÃO') return 'Aguardando validação'
             if (statusUpper === 'COM ERROS') return 'Com erros'
             if (statusUpper === 'EM REAJUSTE') return 'Em reajuste'
+            if (statusUpper === 'TRANSF. ANALISTA' || statusUpper === 'TRANSF ANALISTA') return 'Transf. Analista'
             if (statusUpper === 'CANCELADA') return 'Cancelada'
             return status
           }

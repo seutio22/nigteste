@@ -22,6 +22,10 @@ export function ReportStatusBadge({ status, size = 'medium' }: ReportStatusBadge
       case 'emandamento':
       case 'em andamento':
         return { label: 'Em Andamento', color: 'info' }
+      case 'transf. analista':
+      case 'transf_analista':
+      case 'transfanalista':
+        return { label: 'Transf. Analista', color: 'info' }
       case 'entregue':
         return { label: 'Entregue', color: 'success' }
       case 'cancelado':

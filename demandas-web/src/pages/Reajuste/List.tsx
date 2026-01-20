@@ -138,8 +138,8 @@ export default function ReajusteListPage() {
       
       if (isId) {
         // Se for ID, comparar diretamente
-        if (analistaCorrespondente) {
-          return reajuste.responsavelAnalista === analistaCorrespondente.id
+      if (analistaCorrespondente) {
+        return reajuste.responsavelAnalista === analistaCorrespondente.id
         }
       } else {
         // Se for nome (string), comparar nomes normalizados
@@ -404,7 +404,7 @@ export default function ReajusteListPage() {
           // Para contratos, buscar por codigo primeiro, depois por numero
           const contratoValue = data.contrato || data.contratoId || ''
           let contratoCodigoEncontrado = findName(contratoValue, md.contratos, 'codigo')
-          
+
           // Se não encontrou por codigo, tentar buscar por numero
           if (!contratoCodigoEncontrado && contratoValue) {
             const contratoEncontrado = md.contratos.find(c => {
@@ -429,7 +429,7 @@ export default function ReajusteListPage() {
           const clienteNome = clienteNomeEncontrado || String(data.cliente || data.clienteId || '').trim()
           const contratoCodigo = contratoCodigoEncontrado || String(data.contrato || data.contratoId || '').trim()
           const produtoNome = produtoNomeEncontrado || String(data.produto || data.produtoId || '').trim()
-          
+
           // Validar campos obrigatórios
           if (!operadoraNome || operadoraNome.trim() === '') {
             errors.push(`Item ${itemNumber}: Operadora é obrigatória e não foi encontrada.`)
@@ -560,8 +560,8 @@ export default function ReajusteListPage() {
           // SEGUINDO PADRÃO DE MANUTENÇÃO: api.post retorna os dados diretamente, não response.data
           try {
             const savedReajuste = await api.post('/reajusteLancamentos', reajusteData)
-            totalImported++
-            totalSavedToDatabase++
+          totalImported++
+          totalSavedToDatabase++
           } catch (apiError: any) {
             errors.push(`Item ${itemNumber}: Erro ao salvar - ${apiError instanceof Error ? apiError.message : 'Erro desconhecido'}`)
             // NÃO fazer throw - seguir padrão de Manutenção e continuar processando outros itens
@@ -693,20 +693,20 @@ export default function ReajusteListPage() {
     }
 
     return {
-      id: r.id,
-      ticket: r.ticket ?? '',
-      mesAno: `${r.mes}/${r.ano}`,
-      filial: r.filial ?? '',
+    id: r.id,
+    ticket: r.ticket ?? '',
+    mesAno: `${r.mes}/${r.ano}`,
+    filial: r.filial ?? '',
       operadora: operadoraNome,
       responsavelAnalista: analistaNome,
       cliente: clienteNome,
       contrato: contratoCodigo,
       produto: produtoNome,
-      status: r.status ?? 'Ativo',
+    status: r.status ?? 'Ativo',
       total: r.itensConcluidos ?? 0,
-      // Manter o valor original da data (ISO string) para ordenação correta
-      // A formatação será feita pelo valueFormatter da coluna
-      updatedAt: r.updatedAt || '',
+    // Manter o valor original da data (ISO string) para ordenação correta
+    // A formatação será feita pelo valueFormatter da coluna
+    updatedAt: r.updatedAt || '',
     }
   })
   
@@ -1253,7 +1253,7 @@ function ActionCell({ id, status }: { id: string, status: string }) {
         <DialogTitle>Alterar status</DialogTitle>
         <DialogContent>
           <TextField select label="Novo status" value={newStatus} onChange={(e) => setNewStatus(e.target.value)} sx={{ mt: 1, minWidth: 280 }}>
-            {['Ativo','Inativo','Pendente','Aprovado','Rejeitado'].map(s => (
+            {['Ativo','Inativo','Pendente','Transf. Analista','Aprovado','Rejeitado'].map(s => (
               <MenuItem key={s} value={s}>{s}</MenuItem>
             ))}
           </TextField>

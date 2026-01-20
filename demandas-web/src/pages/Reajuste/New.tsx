@@ -293,6 +293,7 @@ export default function ReajusteNewPage() {
               <TextField {...field} select label="Status *" required fullWidth error={!!errors.status} helperText={errors.status?.message || 'Campo obrigatório'}>
                 <MenuItem value="Pendente">Pendente</MenuItem>
                 <MenuItem value="Em Andamento">Em Andamento</MenuItem>
+                <MenuItem value="Transf. Analista">Transf. Analista</MenuItem>
                 <MenuItem value="Concluído">Concluído</MenuItem>
                 <MenuItem value="Cancelado">Cancelado</MenuItem>
               </TextField>
