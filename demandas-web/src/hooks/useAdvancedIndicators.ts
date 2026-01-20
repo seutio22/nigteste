@@ -6,7 +6,7 @@ import { useReajusteStore } from '../store/reajusteStore'
 import { useManutencaoStore } from '../store/manutencaoStore'
 import { useReportStore } from '../store/reportStore'
 import { useMasterDataStore } from '../store/masterDataStore'
-import { getItemDateForPage, matchesByIdOrName } from '../utils/dashboardFilters'
+import { getItemDateForPage, getItemEndDate, getItemStartDate, matchesByIdOrName } from '../utils/dashboardFilters'
 
 export interface AdvancedIndicator {
   id: string
@@ -154,18 +154,20 @@ export const useAdvancedIndicators = (
   // Métricas de tempo de execução por página
   const tempoExecucaoMetrics = useMemo((): TempoExecucaoMetrics[] => {
     const pages = [
-      { name: 'demandas', items: demandasFiltradas, dataInicio: 'dataInicio', dataFim: 'dataFinalizacao' },
-      { name: 'atendimentos', items: atendimentosFiltrados, dataInicio: 'dataInicio', dataFim: 'dataFinalizacao' },
-      { name: 'validacoes', items: validacoesFiltradas, dataInicio: 'dataInicio', dataFim: 'dataFinalizacao' },
-      { name: 'reajustes', items: reajustesFiltrados, dataInicio: 'createdAt', dataFim: 'dataFinalizacao' },
-      { name: 'manutencoes', items: manutencoesFiltradas, dataInicio: 'dataInicio', dataFim: 'dataFinalizacao' },
-      { name: 'analytics', items: analyticsFiltrados, dataInicio: 'dataCriacao', dataFim: 'dataFinalizacao' }
+      { name: 'demandas', items: demandasFiltradas },
+      { name: 'atendimentos', items: atendimentosFiltrados },
+      { name: 'validacoes', items: validacoesFiltradas },
+      { name: 'reajustes', items: reajustesFiltrados },
+      { name: 'manutencoes', items: manutencoesFiltradas },
+      { name: 'analytics', items: analyticsFiltrados }
     ]
 
     return pages.map(page => {
-      const tempos = page.items.map(item => 
-        calcularTempoExecucao(item[page.dataInicio], item[page.dataFim])
-      ).filter(tempo => tempo > 0)
+      const tempos = page.items.map(item => {
+        const inicio = getItemStartDate(page.name, item)
+        const fim = getItemEndDate(page.name, item)
+        return calcularTempoExecucao(inicio, fim)
+      }).filter(tempo => tempo > 0)
 
       const chamadosConcluidos = page.items.filter(item => 
         item.status === 'Concluída' || item.status === 'Finalizada' || 
@@ -336,9 +338,8 @@ export const useAdvancedIndicators = (
         analista.itensPorPagina[page.name as keyof typeof analista.itensPorPagina]++
 
         // Calcular tempo de execução
-        const dataInicio = page.name === 'analytics' ? item.dataCriacao : 
-                          page.name === 'reajustes' ? item.createdAt : item.dataInicio
-        const dataFim = item.dataFinalizacao
+        const dataInicio = getItemStartDate(page.name, item)
+        const dataFim = getItemEndDate(page.name, item)
         const tempo = calcularTempoExecucao(dataInicio, dataFim)
         
         if (tempo > 0) {

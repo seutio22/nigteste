@@ -77,3 +77,37 @@ export const getItemDateForPage = (page: string, item: any): string | undefined 
       return item.createdAt || item.dataInicio
   }
 }
+
+export const getItemStartDate = (page: string, item: any): string | undefined => {
+  switch (page) {
+    case 'demandas':
+    case 'manutencoes':
+    case 'validacoes':
+    case 'atendimentos':
+      return item.dataInicio || item.createdAt
+    case 'reajustes':
+      return item.dataInicio || item.createdAt
+    case 'analytics':
+      return item.dataCriacao || item.dataInicio || item.createdAt
+    default:
+      return item.dataInicio || item.createdAt
+  }
+}
+
+export const getItemEndDate = (page: string, item: any): string | undefined => {
+  switch (page) {
+    case 'demandas':
+    case 'manutencoes':
+      return item.dataFinal || item.dataFinalizacao
+    case 'validacoes':
+      return item.dataFinal || item.dataFim || item.dataFinalizacao
+    case 'atendimentos':
+      return item.dataFinal || item.dataFinalizacao
+    case 'reajustes':
+      return item.dataFim || item.dataFinal || item.dataFinalizacao
+    case 'analytics':
+      return item.dataAtualizacao || item.dataFinalizacao
+    default:
+      return item.dataFinal || item.dataFinalizacao
+  }
+}
