@@ -187,7 +187,7 @@ export const AdvancedIndicators: React.FC<AdvancedIndicatorsProps> = ({
           👥 Performance por Analista
         </Typography>
         <Grid container spacing={3}>
-          {analistaMetrics.slice(0, 6).map((analista) => (
+          {analistaMetrics.map((analista) => (
             <Grid item xs={12} sm={6} md={4} key={analista.analistaId}>
               <Card sx={{ borderRadius: 3, height: '100%' }}>
                 <CardContent sx={{ p: 3 }}>
