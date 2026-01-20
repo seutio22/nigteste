@@ -236,13 +236,8 @@ export const useAdvancedIndicators = (
           analistaIdRaw = item.analista || item.analistaId
         }
         
-        // Pular itens sem analistaId
-        if (!analistaIdRaw) {
-          return
-        }
-        
-        // Converter para string imediatamente para evitar erros
-        const analistaId = String(analistaIdRaw)
+        // Se não há analista informado, contabilizar como "Sem analista"
+        const analistaId = analistaIdRaw ? String(analistaIdRaw) : 'sem-analista'
         
         // Garantir que analistaNome seja sempre uma string
         let analistaNome = 'Sem analista'
@@ -279,7 +274,7 @@ export const useAdvancedIndicators = (
           if (!analistaIdFinal || analistaIdFinal === 'Sem analista') {
             analistaIdFinal = item.analistaObj.id || analistaId
           }
-        } else if (analistaId) {
+        } else if (analistaId && analistaId !== 'sem-analista') {
           // 2. Verificar se analistaId é um UUID (ID) ou um nome
           const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(analistaId)
           
