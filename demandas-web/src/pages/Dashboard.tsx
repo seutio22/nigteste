@@ -116,7 +116,7 @@ export default function DashboardPage() {
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
   const [selectedMonth, setSelectedMonth] = useState('')
-  const [indicatorPeriod, setIndicatorPeriod] = useState<PeriodType>('daily')
+  const [indicatorPeriod, setIndicatorPeriod] = useState<PeriodType>('monthly')
   const [isManualDateFilter, setIsManualDateFilter] = useState(false)
   
   // Ref para controlar carregamento inicial de dados
