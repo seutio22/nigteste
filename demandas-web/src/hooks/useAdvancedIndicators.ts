@@ -6,7 +6,7 @@ import { useReajusteStore } from '../store/reajusteStore'
 import { useManutencaoStore } from '../store/manutencaoStore'
 import { useReportStore } from '../store/reportStore'
 import { useMasterDataStore } from '../store/masterDataStore'
-import { calculateBusinessDays, getItemDateForPage, getItemEndDate, getItemStartDate, matchesByIdOrName } from '../utils/dashboardFilters'
+import { calculateBusinessDays, getItemDateForPage, getItemEndDate, getItemStartDate, matchesByIdOrName, resolveIdFromValue, resolveNameFromValue } from '../utils/dashboardFilters'
 
 export interface AdvancedIndicator {
   id: string
@@ -211,108 +211,29 @@ export const useAdvancedIndicators = (
     allPages.forEach(page => {
       page.items.forEach(item => {
         // Determinar o campo de analista baseado no tipo de página
-        let analistaIdRaw: any = null
+        let analistaRaw: any = null
         
         if (page.name === 'reajustes') {
-          analistaIdRaw = item.responsavelAnalista
+          analistaRaw = item.responsavelAnalista
         } else if (page.name === 'manutencoes') {
-          // Manutenções usam analistaId
-          analistaIdRaw = item.analistaId || item.analista
+          analistaRaw = item.analistaId || item.analista
         } else if (page.name === 'validacoes') {
-          // Validações podem ter analistaId, analista (string ou objeto), ou analistaObj
-          if (item.analistaId) {
-            analistaIdRaw = item.analistaId
-          } else if (typeof item.analista === 'object' && item.analista?.id) {
-            analistaIdRaw = item.analista.id
-          } else if (typeof item.analista === 'string') {
-            analistaIdRaw = item.analista
-          } else if (item.analistaObj?.id) {
-            analistaIdRaw = item.analistaObj.id
-          } else {
-            analistaIdRaw = item.analista
-          }
+          analistaRaw = item.analistaId || item.analistaObj || item.analista
         } else {
-          // Outras páginas usam analista
-          analistaIdRaw = item.analista || item.analistaId
+          analistaRaw = item.analistaId || item.analista
         }
         
-        // Se não há analista informado, contabilizar como "Sem analista"
-        const analistaId = analistaIdRaw ? String(analistaIdRaw) : 'sem-analista'
-        
-        // Garantir que analistaNome seja sempre uma string
-        let analistaNome = 'Sem analista'
-        let analistaIdFinal = analistaId
-        
-        // 1. Se já tem analistaNome no item, usar ele (mas verificar se não é objeto mal formatado)
-        if (item.analistaNome) {
-          if (typeof item.analistaNome === 'string') {
-            analistaNome = item.analistaNome
-          } else if (typeof item.analistaNome === 'object' && item.analistaNome !== null) {
-            // Se for objeto, tentar extrair o nome
-            if (item.analistaNome.nome && typeof item.analistaNome.nome === 'string') {
-              analistaNome = item.analistaNome.nome
-            } else if (item.analistaNome.id && typeof item.analistaNome.id === 'string') {
-              // Se não tem nome mas tem ID, buscar no masterDataStore
-              const analistaEncontrado = masterDataStore.analistas.find(a => a.id === item.analistaNome.id)
-              analistaNome = analistaEncontrado ? analistaEncontrado.nome : 'Analista não encontrado'
-            } else {
-              // Evitar "object object" - não usar String() diretamente em objeto
-              analistaNome = 'Analista inválido'
-            }
-          } else {
-            analistaNome = String(item.analistaNome)
-          }
-        } else if (page.name === 'validacoes' && typeof item.analista === 'object' && item.analista?.nome) {
-          // Para validações, pode ter analista como objeto
-          analistaNome = String(item.analista.nome)
-          if (!analistaIdFinal || analistaIdFinal === 'Sem analista') {
-            analistaIdFinal = item.analista.id || analistaId
-          }
-        } else if (page.name === 'validacoes' && item.analistaObj?.nome) {
-          // Para validações, pode ter analistaObj
-          analistaNome = String(item.analistaObj.nome)
-          if (!analistaIdFinal || analistaIdFinal === 'Sem analista') {
-            analistaIdFinal = item.analistaObj.id || analistaId
-          }
-        } else if (analistaId && analistaId !== 'sem-analista') {
-          // 2. Verificar se analistaId é um UUID (ID) ou um nome
-          const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(analistaId)
-          
-          if (isUUID) {
-            // É um ID (UUID) - buscar por ID
-            const analista = masterDataStore.analistas.find(a => a && a.id && String(a.id) === analistaId)
-            if (analista && analista.nome) {
-              analistaNome = String(analista.nome)
-              analistaIdFinal = String(analista.id || analistaId)
-            } else {
-              // ID não encontrado: agrupar como "Sem analista" para não aparecer como UUID
-              analistaNome = 'Sem analista'
-              analistaIdFinal = 'sem-analista'
-            }
-          } else {
-            // Não é UUID - pode ser um nome, verificar se existe no masterDataStore
-            const analistaIdStr = analistaId.toLowerCase()
-            const analistaPorNome = masterDataStore.analistas.find(a => {
-              if (!a || !a.nome || typeof a.nome !== 'string') return false
-              const nomeAnalista = String(a.nome).toLowerCase()
-              return nomeAnalista === analistaIdStr ||
-                     nomeAnalista.includes(analistaIdStr) ||
-                     analistaIdStr.includes(nomeAnalista)
-            })
-            
-            if (analistaPorNome && analistaPorNome.nome) {
-              // Encontrou por nome - usar o nome e atualizar o ID
-              analistaNome = String(analistaPorNome.nome)
-              analistaIdFinal = String(analistaPorNome.id || analistaId)
-            } else {
-              // Não encontrou - agrupar como "Sem analista"
-              analistaNome = 'Sem analista'
-              analistaIdFinal = 'sem-analista'
-            }
-          }
+        const resolvedId = resolveIdFromValue(analistaRaw, masterDataStore.analistas)
+        const nameFromMaster = resolvedId
+          ? masterDataStore.analistas.find(a => String(a.id) === String(resolvedId))?.nome
+          : undefined
+        let analistaNome = nameFromMaster || resolveNameFromValue(analistaRaw) || 'Analista não encontrado'
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+        if (uuidRegex.test(analistaNome)) {
+          analistaNome = 'Analista não encontrado'
         }
 
-        // Usar analistaIdFinal para agrupar (pode ter sido atualizado se encontramos por nome)
+        const analistaIdFinal = resolvedId ? String(resolvedId) : analistaNome
         const keyParaMap = analistaIdFinal || analistaNome
         
         if (!analistasMap.has(keyParaMap)) {
