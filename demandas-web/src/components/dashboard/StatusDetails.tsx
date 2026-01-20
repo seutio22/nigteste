@@ -29,7 +29,7 @@ import { useValidationStore } from '../../store/validationStore'
 import { useAtendimentoStore } from '../../store/atendimentoStore'
 import { useReportStore } from '../../store/reportStore'
 import { useMasterDataStore } from '../../store/masterDataStore'
-import { getItemDateForPage, isOpenStatus, matchesByIdOrName } from '../../utils/dashboardFilters'
+import { getItemDateForPage, matchesByIdOrName } from '../../utils/dashboardFilters'
 
 interface StatusDetailsProps {
   areaId?: string
@@ -249,32 +249,32 @@ export const StatusDetails: React.FC<StatusDetailsProps> = ({
   }
 
   const demandasPorStatus = useMemo(() => 
-    calculateStatusStats(demandasFiltradas.filter(d => isOpenStatus('demandas', d.status)), 'dataInicio', 'dataFinal'),
+    calculateStatusStats(demandasFiltradas, 'dataInicio', 'dataFinal'),
     [demandasFiltradas]
   )
 
   const manutencoesPorStatus = useMemo(() => 
-    calculateStatusStats(manutencoesFiltradas.filter(m => isOpenStatus('manutencoes', m.status)), 'dataInicio', 'dataFinal'),
+    calculateStatusStats(manutencoesFiltradas, 'dataInicio', 'dataFinal'),
     [manutencoesFiltradas]
   )
 
   const reajustesPorStatus = useMemo(() => 
-    calculateStatusStats(reajustesFiltrados.filter(r => isOpenStatus('reajustes', r.status)), 'createdAt'),
+    calculateStatusStats(reajustesFiltrados, 'createdAt'),
     [reajustesFiltrados]
   )
 
   const validacoesPorStatus = useMemo(() => 
-    calculateStatusStats(validacoesFiltradas.filter(v => isOpenStatus('validacoes', v.status)), 'dataInicio', 'dataFim'),
+    calculateStatusStats(validacoesFiltradas, 'dataInicio', 'dataFim'),
     [validacoesFiltradas]
   )
 
   const atendimentosPorStatus = useMemo(() => 
-    calculateStatusStats(atendimentosFiltrados.filter(a => isOpenStatus('atendimentos', a.status)), 'dataInicio', 'dataFinal'),
+    calculateStatusStats(atendimentosFiltrados, 'dataInicio', 'dataFinal'),
     [atendimentosFiltrados]
   )
 
   const analyticsPorStatus = useMemo(() => 
-    calculateStatusStats(analyticsFiltrados.filter(r => isOpenStatus('analytics', r.status)), 'dataCriacao', 'dataAtualizacao'),
+    calculateStatusStats(analyticsFiltrados, 'dataCriacao', 'dataAtualizacao'),
     [analyticsFiltrados]
   )
 

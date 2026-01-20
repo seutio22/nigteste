@@ -1,5 +1,3 @@
-import { COMPLETION_STATUS } from '../types/dashboardIndicators'
-
 type MasterItem = {
   id?: string
   nome?: string
@@ -130,20 +128,4 @@ export const calculateBusinessDays = (startDate: Date, endDate: Date): number =>
   }
 
   return count
-}
-
-export const isOpenStatus = (page: string, status?: string | null): boolean => {
-  if (!status) return true
-  const normalizedStatus = normalize(status)
-  if (!normalizedStatus) return true
-
-  const completedList = COMPLETION_STATUS[page as keyof typeof COMPLETION_STATUS] || []
-  const completedNormalized = completedList.map((item) => normalize(item))
-  if (completedNormalized.includes(normalizedStatus)) return false
-
-  if (normalizedStatus.includes('cancel')) return false
-  if (normalizedStatus.includes('rejeit')) return false
-  if (normalizedStatus.includes('inativo')) return false
-
-  return true
 }
