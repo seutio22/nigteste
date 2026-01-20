@@ -285,8 +285,9 @@ export const useAdvancedIndicators = (
               analistaNome = String(analista.nome)
               analistaIdFinal = String(analista.id || analistaId)
             } else {
-              // Não encontrou por ID - tentar usar o valor como nome se não for UUID válido
-              analistaNome = analistaId.length > 36 ? 'Analista não encontrado' : analistaId
+              // ID não encontrado: agrupar como "Sem analista" para não aparecer como UUID
+              analistaNome = 'Sem analista'
+              analistaIdFinal = 'sem-analista'
             }
           } else {
             // Não é UUID - pode ser um nome, verificar se existe no masterDataStore
@@ -304,8 +305,9 @@ export const useAdvancedIndicators = (
               analistaNome = String(analistaPorNome.nome)
               analistaIdFinal = String(analistaPorNome.id || analistaId)
             } else {
-              // Não encontrou - usar o valor original como nome
-              analistaNome = analistaId
+              // Não encontrou - agrupar como "Sem analista"
+              analistaNome = 'Sem analista'
+              analistaIdFinal = 'sem-analista'
             }
           }
         }
