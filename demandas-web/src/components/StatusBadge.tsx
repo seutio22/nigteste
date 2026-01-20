@@ -23,8 +23,8 @@ export const StatusBadge = memo(function StatusBadge({ status, size = 'medium' }
     if (['em andamento', 'em-andamento'].includes(s)) {
       return { label: 'Em Andamento', color: 'info' }
     }
-    if (['aguardando validação', 'aguardando validacao', 'aguardando-aprovacao'].includes(s)) {
-      return { label: 'Aguardando Validação', color: 'warning' }
+    if (['aguardando validação', 'aguardando validacao', 'aguardando-aprovacao', 'aguardando aprovação', 'aguardando aprovacao'].includes(s)) {
+      return { label: 'Aguardando aprovação', color: 'warning' }
     }
     if (['com erros', 'pausado'].includes(s)) {
       return { label: 'Com Erros', color: 'error' }

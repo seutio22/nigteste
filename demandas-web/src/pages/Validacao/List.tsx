@@ -679,7 +679,7 @@ export default function ValidationListPage() {
             const statusUpper = status.toUpperCase()
             if (statusUpper === 'CONCLUIDA' || statusUpper === 'CONCLUÍDA') return 'Concluída'
             if (statusUpper === 'EM ANDAMENTO') return 'Em andamento'
-            if (statusUpper === 'AGUARDANDO VALIDACAO' || statusUpper === 'AGUARDANDO VALIDAÇÃO') return 'Aguardando validação'
+            if (statusUpper === 'AGUARDANDO VALIDACAO' || statusUpper === 'AGUARDANDO VALIDAÇÃO' || statusUpper === 'AGUARDANDO APROVACAO' || statusUpper === 'AGUARDANDO APROVAÇÃO') return 'Aguardando aprovação'
             if (statusUpper === 'COM ERROS') return 'Com erros'
             if (statusUpper === 'EM REAJUSTE') return 'Em reajuste'
             if (statusUpper === 'CANCELADA') return 'Cancelada'

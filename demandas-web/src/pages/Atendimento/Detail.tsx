@@ -363,7 +363,7 @@ function EditInline({ atendimento, user }: { atendimento: any; user: any }) {
           onChange={(e) => setDraft({ ...draft, status: e.target.value })}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         >
-          {['Aberto', 'Em andamento', 'Aguardando validação', 'Com erros', 'Em reajuste', 'Concluído', 'Cancelado'].map(s => (
+          {['Aberto', 'Em andamento', 'Aguardando aprovação', 'Com erros', 'Em reajuste', 'Concluído', 'Cancelado'].map(s => (
             <option key={s} value={s}>{s}</option>
           ))}
         </select>

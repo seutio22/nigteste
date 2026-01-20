@@ -145,9 +145,9 @@ export class SmartValidationEngine {
     if (rule.type === 'status') {
       // Status válidos para manutenções
       const validStatuses = [
-        'Aberta', 'Em andamento', 'Aguardando validação', 'Com erros', 
+        'Aberta', 'Em andamento', 'Aguardando aprovação', 'Com erros', 
         'Em reajuste', 'Concluída', 'Cancelada', 'CONCLUIDO', 'EM ANDAMENTO',
-        'AGUARDANDO VALIDACAO', 'COM ERROS', 'EM REAJUSTE', 'CANCELADA'
+        'AGUARDANDO VALIDACAO', 'AGUARDANDO APROVACAO', 'COM ERROS', 'EM REAJUSTE', 'CANCELADA'
       ]
       return {
         isValid: !value || validStatuses.includes(value),

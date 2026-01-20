@@ -37,7 +37,7 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>
 
 const listas = {
-  status: ['Aberta', 'Em andamento', 'Aguardando validação', 'Com erros', 'Em reajuste', 'Concluída', 'Cancelada'],
+  status: ['Aberta', 'Em andamento', 'Aguardando aprovação', 'Com erros', 'Em reajuste', 'Concluída', 'Cancelada'],
   qualidade: [
     { value: '0', label: '0 - RUIM - MAIS DE 3 RETORNOS; ITENS INCOMPLETOS, SEM RETORNO' },
     { value: '1', label: '1 - MEDIANO - NO MÁX 2 RETORNOS' },
