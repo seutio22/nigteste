@@ -6,7 +6,7 @@ import { useReajusteStore } from '../store/reajusteStore'
 import { useManutencaoStore } from '../store/manutencaoStore'
 import { useReportStore } from '../store/reportStore'
 import { useMasterDataStore } from '../store/masterDataStore'
-import { calculateBusinessDays, getItemDateForPage, getItemEndDate, getItemStartDate, matchesByIdOrName } from '../utils/dashboardFilters'
+import { calculateBusinessDays, getItemDateForPage, getItemEndDate, getItemStartDate, isOpenStatus, matchesByIdOrName } from '../utils/dashboardFilters'
 
 export interface AdvancedIndicator {
   id: string
@@ -210,6 +210,9 @@ export const useAdvancedIndicators = (
 
     allPages.forEach(page => {
       page.items.forEach(item => {
+        if (!isOpenStatus(page.name, item.status)) {
+          return
+        }
         // Determinar o campo de analista baseado no tipo de página
         let analistaIdRaw: any = null
         
