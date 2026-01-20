@@ -1232,7 +1232,7 @@ const ActionCell = memo(function ActionCell({ id, status }: { id: string, status
         <DialogTitle>Alterar status</DialogTitle>
         <DialogContent>
           <TextField select label="Novo status" value={newStatus} onChange={(e) => setNewStatus(e.target.value)} sx={{ mt: 1, minWidth: 280 }}>
-            {['Aberta','Em andamento','Aguardando validação','Com erros','Em reajuste','Concluída','Cancelada'].map(s => (
+            {['Aberta','Em andamento','Aguardando validação','Com erros','Concluída','Cancelada'].map(s => (
               <MenuItem key={s} value={s}>{s}</MenuItem>
             ))}
           </TextField>
