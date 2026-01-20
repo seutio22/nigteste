@@ -293,6 +293,16 @@ export default function DashboardPage() {
       try {
         const promises: Promise<any>[] = []
         
+        // Carregar dados mestres para garantir nomes de analistas
+        if (masterDataStore.analistas.length === 0 && masterDataStore.syncFromApi) {
+          console.log('🔍 Dashboard: Analistas vazios, sincronizando masterData...')
+          promises.push(
+            masterDataStore.syncFromApi().catch(error => {
+              console.error('❌ Dashboard: Erro ao carregar masterData:', error)
+            })
+          )
+        }
+        
         // Carregar dados das demandas se necessário
         if (demandStore.items.length === 0) {
           console.log('🔍 Dashboard: Demandas vazias, chamando syncFromApi...')
@@ -376,7 +386,7 @@ export default function DashboardPage() {
     }
     
     loadData()
-  }, [demandStore, atendimentoStore, manutencaoStore, validationStore, reajusteStore, dashboardStore, reportStore])
+  }, [demandStore, atendimentoStore, manutencaoStore, validationStore, reajusteStore, dashboardStore, reportStore, masterDataStore])
 
   // Estatísticas principais
   const totalDemandas = demandasFiltradas.length

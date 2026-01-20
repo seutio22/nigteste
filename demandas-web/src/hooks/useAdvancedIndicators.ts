@@ -227,10 +227,13 @@ export const useAdvancedIndicators = (
         const nameFromMaster = resolvedId
           ? masterDataStore.analistas.find(a => String(a.id) === String(resolvedId))?.nome
           : undefined
-        let analistaNome = nameFromMaster || resolveNameFromValue(analistaRaw) || 'Analista não encontrado'
+        const fallbackName = resolveNameFromValue(analistaRaw)
+        let analistaNome = nameFromMaster
+          || fallbackName
+          || (resolvedId ? 'Carregando analista...' : 'Analista não encontrado')
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
         if (uuidRegex.test(analistaNome)) {
-          analistaNome = 'Analista não encontrado'
+          analistaNome = resolvedId ? 'Carregando analista...' : 'Analista não encontrado'
         }
 
         const analistaIdFinal = resolvedId ? String(resolvedId) : analistaNome
