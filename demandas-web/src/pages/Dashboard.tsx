@@ -640,6 +640,7 @@ export default function DashboardPage() {
         analistaId={analistaId}
         fromDate={fromDate || undefined}
         toDate={toDate || undefined}
+        showAnalistaFilter={true}
       />
 
       {/* Resumo Executivo */}

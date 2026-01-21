@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import {
   Box,
   Paper,
@@ -14,7 +14,11 @@ import {
   TableRow,
   Chip,
   useTheme,
-  alpha
+  alpha,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem
 } from '@mui/material'
 import {
   AccessTime as TimeIcon,
@@ -36,6 +40,7 @@ interface StatusDetailsProps {
   analistaId?: string
   fromDate?: string
   toDate?: string
+  showAnalistaFilter?: boolean
 }
 
 // Função para calcular dias úteis (exclui sábados e domingos)
@@ -118,7 +123,8 @@ export const StatusDetails: React.FC<StatusDetailsProps> = ({
   areaId,
   analistaId,
   fromDate,
-  toDate
+  toDate,
+  showAnalistaFilter = false
 }) => {
   const theme = useTheme()
   const demandStore = useDemandStore()
@@ -128,6 +134,15 @@ export const StatusDetails: React.FC<StatusDetailsProps> = ({
   const atendimentoStore = useAtendimentoStore()
   const reportStore = useReportStore()
   const masterDataStore = useMasterDataStore()
+  const [selectedAnalistaId, setSelectedAnalistaId] = useState('')
+
+  useEffect(() => {
+    if (!selectedAnalistaId) {
+      setSelectedAnalistaId(analistaId || '')
+    }
+  }, [analistaId, selectedAnalistaId])
+
+  const analistaIdForFilter = selectedAnalistaId || analistaId || ''
 
   // Função para filtrar por data
   const inRange = (iso?: string) => {
@@ -176,51 +191,51 @@ export const StatusDetails: React.FC<StatusDetailsProps> = ({
   const demandasFiltradas = useMemo(() => 
     demandStore.items.filter(d => 
       matchesByIdOrName(d.areaId || d.area, areaId, masterDataStore.areas) && 
-      matchesByIdOrName(d.analistaId || d.analista, analistaId, masterDataStore.analistas) && 
+      matchesByIdOrName(d.analistaId || d.analista, analistaIdForFilter, masterDataStore.analistas) && 
       inRange(getItemDateForPage('demandas', d))
     ), 
-    [demandStore.items, areaId, analistaId, fromDate, toDate, masterDataStore.areas, masterDataStore.analistas]
+    [demandStore.items, areaId, analistaIdForFilter, fromDate, toDate, masterDataStore.areas, masterDataStore.analistas]
   )
 
   const manutencoesFiltradas = useMemo(() => 
     manutencaoStore.items.filter(m => 
-      matchesByIdOrName(m.analistaId || m.analista, analistaId, masterDataStore.analistas) && 
+      matchesByIdOrName(m.analistaId || m.analista, analistaIdForFilter, masterDataStore.analistas) && 
       inRange(getItemDateForPage('manutencoes', m))
     ), 
-    [manutencaoStore.items, analistaId, fromDate, toDate, masterDataStore.analistas]
+    [manutencaoStore.items, analistaIdForFilter, fromDate, toDate, masterDataStore.analistas]
   )
 
   const reajustesFiltrados = useMemo(() => 
     reajusteStore.items.filter(r => 
-      matchesByIdOrName(r.responsavelAnalista, analistaId, masterDataStore.analistas) && 
+      matchesByIdOrName(r.responsavelAnalista, analistaIdForFilter, masterDataStore.analistas) && 
       inRange(getItemDateForPage('reajustes', r))
     ), 
-    [reajusteStore.items, analistaId, fromDate, toDate, masterDataStore.analistas]
+    [reajusteStore.items, analistaIdForFilter, fromDate, toDate, masterDataStore.analistas]
   )
 
   const validacoesFiltradas = useMemo(() => 
     validationStore.items.filter(v => 
-      matchesByIdOrName((v as any).analistaId || v.analista, analistaId, masterDataStore.analistas) && 
+      matchesByIdOrName((v as any).analistaId || v.analista, analistaIdForFilter, masterDataStore.analistas) && 
       inRange(getItemDateForPage('validacoes', v))
     ), 
-    [validationStore.items, analistaId, fromDate, toDate, masterDataStore.analistas]
+    [validationStore.items, analistaIdForFilter, fromDate, toDate, masterDataStore.analistas]
   )
 
   const atendimentosFiltrados = useMemo(() => 
     atendimentoStore.items.filter(a => 
       matchesByIdOrName(a.areaId || a.area, areaId, masterDataStore.areas) && 
-      matchesByIdOrName(a.analistaId || a.analista, analistaId, masterDataStore.analistas) && 
+      matchesByIdOrName(a.analistaId || a.analista, analistaIdForFilter, masterDataStore.analistas) && 
       inRange(getItemDateForPage('atendimentos', a))
     ), 
-    [atendimentoStore.items, areaId, analistaId, fromDate, toDate, masterDataStore.areas, masterDataStore.analistas]
+    [atendimentoStore.items, areaId, analistaIdForFilter, fromDate, toDate, masterDataStore.areas, masterDataStore.analistas]
   )
 
   const analyticsFiltrados = useMemo(() => 
     reportStore.items.filter(r => 
-      matchesByIdOrName(r.analista, analistaId, masterDataStore.analistas) && 
+      matchesByIdOrName(r.analista, analistaIdForFilter, masterDataStore.analistas) && 
       inRange(getItemDateForPage('analytics', r))
     ), 
-    [reportStore.items, analistaId, fromDate, toDate, masterDataStore.analistas]
+    [reportStore.items, analistaIdForFilter, fromDate, toDate, masterDataStore.analistas]
   )
 
   // Calcular estatísticas por status
@@ -378,11 +393,28 @@ export const StatusDetails: React.FC<StatusDetailsProps> = ({
   return (
     <Box>
       <Paper sx={{ p: 3, mb: 3, borderRadius: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, gap: 2, flexWrap: 'wrap' }}>
           <TimeIcon sx={{ mr: 1, color: theme.palette.primary.main }} />
           <Typography variant="h5" sx={{ fontWeight: 600 }}>
             Detalhes de Status e Tempo de Abertura
           </Typography>
+          {showAnalistaFilter && (
+            <FormControl size="small" sx={{ minWidth: 240, ml: 'auto' }}>
+              <InputLabel>Analista</InputLabel>
+              <Select
+                value={selectedAnalistaId}
+                label="Analista"
+                onChange={(e) => setSelectedAnalistaId(String(e.target.value))}
+              >
+                <MenuItem value="">Todos os analistas</MenuItem>
+                {masterDataStore.analistas.map((analista) => (
+                  <MenuItem key={analista.id} value={analista.id}>
+                    {analista.nome}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
           Análise detalhada dos status e tempo médio (em dias úteis) que cada item permanece aberto no sistema
