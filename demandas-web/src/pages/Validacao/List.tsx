@@ -581,9 +581,9 @@ export default function ValidationListPage() {
       }
       
       // Atualizar store local (remover TODOS os IDs, incluindo os 404)
-      const currentItems = store.getState().items
+      const currentItems = useValidationStore.getState().items
       const filteredItems = currentItems.filter((item) => !idsToDelete.includes(item.id))
-      store.setState({ items: filteredItems })
+      useValidationStore.setState({ items: filteredItems })
       
       // Limpar seleção
       setSelectedIds([])

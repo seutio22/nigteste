@@ -213,10 +213,10 @@ export default function ManutencaoListPage() {
       // Atualizar store local (remover TODOS os IDs, incluindo os 404)
       // Remover todos os IDs selecionados do estado local de uma vez
       // Usar o método interno do store para atualizar o estado
-      const currentItems = manutencaoStore.getState().items
+      const currentItems = useManutencaoStore.getState().items
       const filteredItems = currentItems.filter((item) => !selectedIds.includes(item.id))
       // Atualizar o estado do store diretamente
-      manutencaoStore.setState({ items: filteredItems })
+      useManutencaoStore.setState({ items: filteredItems })
       
       // Limpar seleção
       setSelectedIds([])

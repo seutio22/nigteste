@@ -232,9 +232,9 @@ export default function ReajusteListPage() {
       }
       
       // Atualizar store local (remover TODOS os IDs, incluindo os 404)
-      const currentItems = store.getState().items
+      const currentItems = useReajusteStore.getState().items
       const filteredItems = currentItems.filter((item) => !idsToDelete.includes(item.id))
-      store.setState({ items: filteredItems })
+      useReajusteStore.setState({ items: filteredItems })
       
       // Limpar seleção
       setSelectedIds([])
