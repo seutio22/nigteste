@@ -66,11 +66,11 @@ export const getItemDateForPage = (page: string, item: any): string | undefined 
     case 'manutencoes':
     case 'validacoes':
     case 'atendimentos':
-      return item.dataInicio || item.createdAt
+      return item.createdAt || item.dataInicio
     case 'reajustes':
-      return item.dataInicio || item.createdAt
+      return item.createdAt || item.dataInicio
     case 'analytics':
-      return item.dataCriacao || item.dataInicio || item.createdAt
+      return item.dataCriacao || item.createdAt || item.dataInicio
     case 'mailling':
       return item.createdAt
     default:
