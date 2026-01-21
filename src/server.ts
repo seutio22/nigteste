@@ -2508,6 +2508,16 @@ app.delete('/kanban/tickets', async () => {
   }
 })
 
+const normalizeAnalyticsStatus = (status?: string | null): string | null | undefined => {
+  if (!status) return status
+  const normalized = String(status).trim().toLowerCase()
+  if (['concluido', 'concluído', 'concluida', 'concluída'].includes(normalized)) return 'CONCLUIDO'
+  if (['em andamento', 'emandamento', 'em_andamento', 'em-andamento'].includes(normalized)) return 'EM ANDAMENTO'
+  if (['pendente'].includes(normalized)) return 'PENDENTE'
+  if (['espera de terceiros', 'espera_de_terceiros', 'espera-de-terceiros'].includes(normalized)) return 'ESPERA DE TERCEIROS'
+  return String(status).trim()
+}
+
 // Endpoints para Analytics
 app.get('/analytics', async () => {
   try {
@@ -2724,6 +2734,26 @@ app.get('/analytics', async () => {
     const reports = await prisma.report.findMany({
       orderBy: { createdAt: 'desc' }
     })
+
+    const normalizedReports = reports.map((report: any) => ({
+      ...report,
+      status: normalizeAnalyticsStatus(report.status)
+    }))
+
+    const reportsToUpdate = reports.filter((report: any, index: number) => {
+      return normalizedReports[index].status !== report.status
+    })
+
+    if (reportsToUpdate.length > 0) {
+      await Promise.all(
+        reportsToUpdate.map((report: any) =>
+          prisma.report.update({
+            where: { id: report.id },
+            data: { status: normalizeAnalyticsStatus(report.status) }
+          })
+        )
+      )
+    }
     
     console.log('✅ Analytics gerados com sucesso:', analytics.length, 'relatórios')
     console.log('✅ Relatórios encontrados:', reports.length, 'relatórios salvos')
@@ -2735,7 +2765,7 @@ app.get('/analytics', async () => {
     
     return {
       analytics: analytics,
-      reports: reports
+      reports: normalizedReports
     }
     
   } catch (error: any) {
@@ -2827,7 +2857,7 @@ app.post('/analytics', async (req: any) => {
         ticket: req.body.ticket,
         total: req.body.total,
         tipo: req.body.tipo,
-        status: req.body.status,
+        status: normalizeAnalyticsStatus(req.body.status),
         analista: req.body.analista,
         area: req.body.area,
         cliente: req.body.cliente,
@@ -2849,6 +2879,39 @@ app.post('/analytics', async (req: any) => {
     return report
   } catch (error) {
     console.error('❌ Erro ao criar relatório:', error)
+    throw error
+  }
+})
+
+// Endpoint para normalizar status dos relatórios no banco
+app.post('/analytics/normalize-status', async () => {
+  try {
+    const reports = await prisma.report.findMany({
+      select: { id: true, status: true }
+    })
+
+    const updates = reports
+      .map((report: any) => ({
+        id: report.id,
+        status: report.status,
+        normalized: normalizeAnalyticsStatus(report.status)
+      }))
+      .filter((item) => item.normalized !== item.status)
+
+    if (updates.length > 0) {
+      await Promise.all(
+        updates.map((item) =>
+          prisma.report.update({
+            where: { id: item.id },
+            data: { status: item.normalized }
+          })
+        )
+      )
+    }
+
+    return { updated: updates.length }
+  } catch (error) {
+    console.error('❌ Erro ao normalizar status dos relatórios:', error)
     throw error
   }
 })
