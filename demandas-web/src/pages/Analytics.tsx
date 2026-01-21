@@ -89,6 +89,7 @@ export default function AnalyticsPage() {
   const [exportModalOpen, setExportModalOpen] = useState(false)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const STORAGE_KEY = 'reports-list-view-v1'
   const FILTER_KEY = 'reports-user-filter-v1'
@@ -209,6 +210,9 @@ export default function AnalyticsPage() {
 
   // Função de exclusão em massa
   const handleBulkDelete = async () => {
+    if (isDeleting || selectedIds.length === 0) return
+    const idsToDelete = [...selectedIds]
+    setIsDeleting(true)
     try {
       const { api } = await import('../lib/api.local')
       
@@ -216,7 +220,7 @@ export default function AnalyticsPage() {
       let errorCount = 0
       let notFoundCount = 0
       
-      for (const id of selectedIds) {
+      for (const id of idsToDelete) {
         try {
           await api.delete(`/analytics/${id}`)
           successCount++
@@ -229,7 +233,7 @@ export default function AnalyticsPage() {
         }
       }
       
-      reportStore.remove(selectedIds)
+      reportStore.remove(idsToDelete)
       setSelectedIds([])
       setBulkDeleteDialogOpen(false)
       
@@ -244,9 +248,11 @@ export default function AnalyticsPage() {
         alert(`⚠️ ${totalProcessed} relatório(s) removido(s), ${errorCount} erro(s)\n\n${successCount} excluídos\n${notFoundCount} já excluídos anteriormente`)
       }
       
-      reportStore.syncFromApi()
+      await reportStore.syncFromApi()
     } catch (error) {
       alert('Erro ao excluir relatórios')
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -755,8 +761,9 @@ export default function AnalyticsPage() {
             color="error" 
             variant="contained"
             startIcon={<DeleteIcon />}
+            disabled={isDeleting || selectedIds.length === 0}
           >
-            Excluir
+            {isDeleting ? 'Excluindo...' : 'Excluir'}
           </Button>
         </DialogActions>
       </Dialog>

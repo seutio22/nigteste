@@ -121,6 +121,7 @@ export default function DemandListPage() {
   const [exportModalOpen, setExportModalOpen] = useState(false)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const STORAGE_KEY = 'demands-list-view-v1'
   const FILTER_KEY = 'demands-user-filter-v1'
@@ -252,16 +253,19 @@ export default function DemandListPage() {
   }
 
   const handleBulkDelete = async () => {
+    if (isDeleting || selectedIds.length === 0) return
+    const idsToDelete = [...selectedIds]
+    setIsDeleting(true)
     try {
       const { api } = await import('../../lib/api.local')
       
-      console.log('🗑️ Iniciando exclusão em massa de', selectedIds.length, 'itens')
+      console.log('🗑️ Iniciando exclusão em massa de', idsToDelete.length, 'itens')
       
       let successCount = 0
       let errorCount = 0
       let notFoundCount = 0
       
-      for (const id of selectedIds) {
+      for (const id of idsToDelete) {
         try {
           await api.delete(`/demandas/${id}`)
           successCount++
@@ -278,10 +282,8 @@ export default function DemandListPage() {
       }
       
       // Atualizar store local (remover TODOS os IDs, incluindo os 404)
-      // Remover todos os IDs selecionados do estado local de uma vez
       const currentItems = demandStore.getState().items
-      const filteredItems = currentItems.filter((item) => !selectedIds.includes(item.id))
-      // Atualizar o estado do store diretamente
+      const filteredItems = currentItems.filter((item) => !idsToDelete.includes(item.id))
       demandStore.setState({ items: filteredItems })
       
       // Limpar seleção
@@ -301,10 +303,12 @@ export default function DemandListPage() {
       }
       
       // Recarregar dados
-      demandStore.syncFromApi()
+      await demandStore.syncFromApi()
     } catch (error) {
       console.error('❌ Erro na exclusão em massa:', error)
       alert('Erro ao excluir demandas')
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -858,8 +862,9 @@ export default function DemandListPage() {
             color="error" 
             variant="contained"
             startIcon={<DeleteIcon />}
+            disabled={isDeleting || selectedIds.length === 0}
           >
-            Excluir
+            {isDeleting ? 'Excluindo...' : 'Excluir'}
           </Button>
         </DialogActions>
       </Dialog>

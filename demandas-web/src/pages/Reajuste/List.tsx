@@ -93,6 +93,7 @@ export default function ReajusteListPage() {
   const [exportModalOpen, setExportModalOpen] = useState(false)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const STORAGE_KEY = 'reajustes-list-view-v1'
   const FILTER_KEY = 'reajustes-user-filter-v1'
@@ -202,16 +203,19 @@ export default function ReajusteListPage() {
 
   // Função de exclusão em massa
   const handleBulkDelete = async () => {
+    if (isDeleting || selectedIds.length === 0) return
+    const idsToDelete = [...selectedIds]
+    setIsDeleting(true)
     try {
       const { api } = await import('../../lib/api.local')
       
-      console.log('🗑️ Iniciando exclusão em massa de', selectedIds.length, 'reajustes')
+      console.log('🗑️ Iniciando exclusão em massa de', idsToDelete.length, 'reajustes')
       
       let successCount = 0
       let errorCount = 0
       let notFoundCount = 0
       
-      for (const id of selectedIds) {
+      for (const id of idsToDelete) {
         try {
           await api.delete(`/reajusteLancamentos/${id}`)
           successCount++
@@ -228,10 +232,8 @@ export default function ReajusteListPage() {
       }
       
       // Atualizar store local (remover TODOS os IDs, incluindo os 404)
-      // Remover todos os IDs selecionados do estado local de uma vez
       const currentItems = store.getState().items
-      const filteredItems = currentItems.filter((item) => !selectedIds.includes(item.id))
-      // Atualizar o estado do store diretamente
+      const filteredItems = currentItems.filter((item) => !idsToDelete.includes(item.id))
       store.setState({ items: filteredItems })
       
       // Limpar seleção
@@ -255,6 +257,8 @@ export default function ReajusteListPage() {
     } catch (error) {
       console.error('❌ Erro na exclusão em massa:', error)
       alert('Erro ao excluir reajustes')
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -1011,8 +1015,9 @@ export default function ReajusteListPage() {
             color="error" 
             variant="contained"
             startIcon={<DeleteIcon />}
+            disabled={isDeleting || selectedIds.length === 0}
           >
-            Excluir
+            {isDeleting ? 'Excluindo...' : 'Excluir'}
           </Button>
         </DialogActions>
       </Dialog>
