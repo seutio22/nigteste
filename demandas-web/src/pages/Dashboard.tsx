@@ -283,112 +283,78 @@ export default function DashboardPage() {
     [maillingStore.contacts, fromDate, toDate]
   )
 
-  // Carregar dados automaticamente quando a página é carregada - OTIMIZADO
+  const refreshData = useCallback(async () => {
+    try {
+      const promises: Promise<any>[] = []
+
+      console.log('🔍 Dashboard: Sincronizando dados da API...')
+
+      if (masterDataStore.syncFromApi) {
+        promises.push(
+          masterDataStore.syncFromApi().catch(error => {
+            console.error('❌ Dashboard: Erro ao carregar masterData:', error)
+          })
+        )
+      }
+
+      promises.push(
+        demandStore.syncFromApi().catch(error => {
+          console.error('❌ Dashboard: Erro ao carregar demandas:', error)
+        })
+      )
+      promises.push(
+        atendimentoStore.syncFromApi().catch(error => {
+          console.error('❌ Dashboard: Erro ao carregar atendimentos:', error)
+        })
+      )
+      promises.push(
+        manutencaoStore.syncFromApi().catch(error => {
+          console.error('❌ Dashboard: Erro ao carregar manutenções:', error)
+        })
+      )
+      promises.push(
+        validationStore.syncFromApi().catch(error => {
+          console.error('❌ Dashboard: Erro ao carregar validações:', error)
+        })
+      )
+      promises.push(
+        reajusteStore.syncFromApi().catch(error => {
+          console.error('❌ Dashboard: Erro ao carregar reajustes:', error)
+        })
+      )
+      promises.push(
+        dashboardStore.syncFromApi().catch(error => {
+          console.error('❌ Dashboard: Erro ao carregar dashboards:', error)
+        })
+      )
+      promises.push(
+        reportStore.syncFromApi().catch(error => {
+          console.error('❌ Dashboard: Erro ao carregar analytics:', error)
+        })
+      )
+
+      await Promise.allSettled(promises)
+      console.log('✅ Dashboard: Dados sincronizados')
+    } catch (error) {
+      console.error('❌ Dashboard: Erro geral ao carregar dados:', error)
+    }
+  }, [
+    demandStore,
+    atendimentoStore,
+    manutencaoStore,
+    validationStore,
+    reajusteStore,
+    dashboardStore,
+    reportStore,
+    masterDataStore
+  ])
+
+  // Carregar dados automaticamente quando a página é carregada
   useEffect(() => {
-    // Evitar múltiplas chamadas usando ref
     if (dataLoadedRef.current) return
     dataLoadedRef.current = true
-    
-    console.log('🔍 Dashboard: Carregando dados da API...')
-    
-    const loadData = async () => {
-      try {
-        const promises: Promise<any>[] = []
-        
-        // Carregar dados mestres para garantir nomes de analistas
-        if (masterDataStore.analistas.length === 0 && masterDataStore.syncFromApi) {
-          console.log('🔍 Dashboard: Analistas vazios, sincronizando masterData...')
-          promises.push(
-            masterDataStore.syncFromApi().catch(error => {
-              console.error('❌ Dashboard: Erro ao carregar masterData:', error)
-            })
-          )
-        }
-        
-        // Carregar dados das demandas se necessário
-        if (demandStore.items.length === 0) {
-          console.log('🔍 Dashboard: Demandas vazias, chamando syncFromApi...')
-          promises.push(
-            demandStore.syncFromApi().catch(error => {
-              console.error('❌ Dashboard: Erro ao carregar demandas:', error)
-            })
-          )
-        }
-        
-        // Carregar dados de atendimentos se necessário
-        if (atendimentoStore.items.length === 0) {
-          console.log('🔍 Dashboard: Atendimentos vazios, chamando syncFromApi...')
-          promises.push(
-            atendimentoStore.syncFromApi().catch(error => {
-              console.error('❌ Dashboard: Erro ao carregar atendimentos:', error)
-            })
-          )
-        }
-        
-        // Carregar dados de manutenções - sempre sincronizar para garantir dados atualizados
-        if (manutencaoStore.items.length === 0 || !manutencaoStore.isLoading) {
-          console.log('🔍 Dashboard: Sincronizando manutenções da API...')
-          promises.push(
-            manutencaoStore.syncFromApi()
-              .then(() => {
-                console.log('✅ Dashboard: Manutenções sincronizadas:', manutencaoStore.items.length, 'itens')
-              })
-              .catch((error) => {
-                console.error('❌ Dashboard: Erro ao sincronizar manutenções:', error)
-              })
-          )
-        }
-        
-        // Carregar dados de validação se necessário
-        if (validationStore.items.length === 0) {
-          console.log('🔍 Dashboard: Validações vazias, chamando syncFromApi...')
-          promises.push(
-            validationStore.syncFromApi().catch(error => {
-              console.error('❌ Dashboard: Erro ao carregar validações:', error)
-            })
-          )
-        }
-        
-        // Carregar dados de reajuste se necessário
-        if (reajusteStore.items.length === 0) {
-          console.log('🔍 Dashboard: Reajustes vazios, chamando syncFromApi...')
-          promises.push(
-            reajusteStore.syncFromApi().catch(error => {
-              console.error('❌ Dashboard: Erro ao carregar reajustes:', error)
-            })
-          )
-        }
-        
-        // Carregar dados do dashboard se necessário
-        if (dashboardStore.dashboards.length === 0) {
-          console.log('🔍 Dashboard: Dashboards vazios, chamando syncFromApi...')
-          promises.push(
-            dashboardStore.syncFromApi().catch(error => {
-              console.error('❌ Dashboard: Erro ao carregar dashboards:', error)
-            })
-          )
-        }
-        
-        // Carregar dados de analytics se necessário
-        if (reportStore.items.length === 0) {
-          console.log('🔍 Dashboard: Analytics vazios, chamando syncFromApi...')
-          promises.push(
-            reportStore.syncFromApi().catch(error => {
-              console.error('❌ Dashboard: Erro ao carregar analytics:', error)
-            })
-          )
-        }
-        
-        // Aguardar todas as promessas em paralelo
-        await Promise.allSettled(promises)
-        console.log('✅ Dashboard: Todos os dados carregados')
-      } catch (error) {
-        console.error('❌ Dashboard: Erro geral ao carregar dados:', error)
-      }
-    }
-    
-    loadData()
-  }, [demandStore, atendimentoStore, manutencaoStore, validationStore, reajusteStore, dashboardStore, reportStore, masterDataStore])
+    refreshData()
+  }, [refreshData])
 
   // Estatísticas principais
   const totalDemandas = demandasFiltradas.length
@@ -503,7 +469,7 @@ export default function DashboardPage() {
               Última atualização: {new Date().toLocaleString('pt-BR')}
             </Typography>
             <Tooltip title="Atualizar dados">
-              <IconButton size="small">
+              <IconButton size="small" onClick={refreshData}>
                 <RefreshIcon />
               </IconButton>
             </Tooltip>
