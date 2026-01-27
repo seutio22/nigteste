@@ -1926,8 +1926,9 @@ export default function ProjectDetailPage() {
         alert('Erro ao salvar fase no banco de dados')
       })
       
-      // Atualizar progresso automaticamente após edição
-      setTimeout(() => updateAllTaskProgress(), 100)
+      // Não chamar updateAllTaskProgress após editar fase manualmente
+      // pois isso pode sobrescrever mudanças manuais do usuário (como status)
+      // O progresso será atualizado automaticamente quando necessário (ex: ao editar tarefas)
     }
   }
 
@@ -2953,6 +2954,24 @@ export default function ProjectDetailPage() {
       const updatedProject = JSON.parse(JSON.stringify(currentProject))
       console.log('🔍 Projeto copiado para atualização:', updatedProject)
       
+      // Array para coletar atividades geradas durante a atualização
+      const activitiesToAdd: any[] = []
+      
+      // Função auxiliar para criar atividade e adicionar à lista
+      const createActivity = (action: string, itemType: string, itemName: string, details?: any) => {
+        const activity = {
+          id: `activity${Date.now()}-${Math.random()}`,
+          timestamp: new Date().toISOString(),
+          action,
+          itemType,
+          itemName,
+          details,
+          user: 'Usuário Atual'
+        }
+        activitiesToAdd.push(activity)
+        return activity
+      }
+      
       updatedProject.timeline.phases.forEach((phase: any) => {
         if (!phase.tasks) {
           phase.tasks = []
@@ -2980,7 +2999,7 @@ export default function ProjectDetailPage() {
           
           // Registrar log se o progresso mudou automaticamente
           if (oldProgress !== newProgress && task.subtasks && task.subtasks.length > 0) {
-            logActivity(
+            createActivity(
               'Atualização Automática de Progresso',
               'Tarefa',
               task.name,
@@ -2999,19 +3018,31 @@ export default function ProjectDetailPage() {
           const oldPhaseProgress = phase.progress
           phase.progress = calculatePhaseProgress(phase)
           
-          // Atualizar status da fase automaticamente baseado no progresso
+          // Função auxiliar para determinar o status esperado baseado no progresso
+          const getExpectedStatusFromProgress = (progress: number) => {
+            if (progress === 0) return 'nao_iniciado'
+            if (progress === 100) return 'concluido'
+            if (progress > 0) return 'em_andamento'
+            return 'pendente'
+          }
+          
+          // Só atualizar status automaticamente se:
+          // 1. O progresso mudou E
+          // 2. O status atual não é consistente com o novo progresso
           const oldPhaseStatus = phase.status
-          if (phase.progress === 0) {
-            phase.status = 'nao_iniciado'
-          } else if (phase.progress === 100) {
-            phase.status = 'concluido'
-          } else if (phase.progress > 0) {
-            phase.status = 'em_andamento'
+          const expectedStatus = getExpectedStatusFromProgress(phase.progress)
+          const isStatusInconsistent = phase.status !== expectedStatus
+          const didProgressChange = oldPhaseProgress !== phase.progress
+          
+          // Só atualizar o status se o progresso mudou E o status está inconsistente
+          // Isso evita sobrescrever mudanças manuais do usuário quando o progresso não mudou
+          if (didProgressChange && isStatusInconsistent) {
+            phase.status = expectedStatus
           }
           
           // Registrar log se o progresso da fase mudou
-          if (oldPhaseProgress !== phase.progress) {
-            logActivity(
+          if (didProgressChange) {
+            createActivity(
               'Atualização Automática de Progresso',
               'Fase',
               phase.name,
@@ -3026,8 +3057,8 @@ export default function ProjectDetailPage() {
           }
           
           // Registrar log se o status da fase mudou automaticamente
-          if (oldPhaseStatus !== phase.status) {
-            logActivity(
+          if (oldPhaseStatus !== phase.status && didProgressChange) {
+            createActivity(
               'Mudança Automática de Status',
               'Fase',
               phase.name,
@@ -3053,7 +3084,7 @@ export default function ProjectDetailPage() {
       
       // Registrar log se o progresso do projeto mudou
       if (oldProjectProgress !== updatedProject.progress) {
-        logActivity(
+        createActivity(
           'Atualização Automática de Progresso',
           'Projeto',
           updatedProject.name,
@@ -3065,6 +3096,22 @@ export default function ProjectDetailPage() {
             fases: updatedProject.timeline.phases.length
           }
         )
+      }
+      
+      // Adicionar todas as atividades ao projeto
+      if (activitiesToAdd.length > 0) {
+        if (!updatedProject.activities) {
+          updatedProject.activities = []
+        }
+        // Adicionar no início do array
+        updatedProject.activities.unshift(...activitiesToAdd)
+        
+        // Manter apenas as últimas 100 atividades
+        if (updatedProject.activities.length > 100) {
+          updatedProject.activities = updatedProject.activities.slice(0, 100)
+        }
+        
+        console.log(`📝 ${activitiesToAdd.length} atividade(s) adicionada(s) ao projeto`)
       }
     
       console.log('🔍 Projeto atualizado, retornando novo estado...')
@@ -3559,11 +3606,33 @@ export default function ProjectDetailPage() {
     const tasks = phases.flatMap((phase: any) =>
       (phase.tasks || []).map((task: any) => ({
         ...task,
-        phaseName: phase.name || 'Fase sem nome'
+        phaseName: phase.name || 'Fase sem nome',
+        type: 'task' as const
       }))
     )
+    const subtasks = phases.flatMap((phase: any) =>
+      (phase.tasks || []).flatMap((task: any) =>
+        (task.subtasks || []).map((subtask: any) => ({
+          ...subtask,
+          id: subtask.id || `${task.id || task.name}-subtask-${subtask.title || subtask.name}`,
+          name: subtask.title || subtask.name || 'Subtarefa sem nome',
+          phaseName: phase.name || 'Fase sem nome',
+          taskName: task.name || task.title || 'Tarefa sem nome',
+          taskId: task.id,
+          plannedEndDate: subtask.plannedEndDate || subtask.dueDate,
+          actualEndDate: subtask.actualEndDate,
+          responsible: subtask.responsible || subtask.assignee,
+          progress:
+            typeof subtask.progress === 'number'
+              ? subtask.progress
+              : Number(subtask.progress) || calculateSubtaskProgress(subtask),
+          type: 'subtask' as const
+        }))
+      )
+    )
+    const allItems = [...tasks, ...subtasks]
 
-    if (tasks.length === 0) {
+    if (allItems.length === 0) {
       return (
         <Alert severity="info">
           Nenhuma tarefa cadastrada no cronograma. Adicione tarefas para acompanhar os indicadores.
@@ -3581,12 +3650,15 @@ export default function ProjectDetailPage() {
       return Number.isNaN(date.getTime()) ? null : date
     }
 
-    const categorized = tasks.reduce(
-      (acc, task) => {
-        const status = (task.status || '').toString().toLowerCase()
-        const planned = parseDate(task.plannedEndDate || task.dueDate)
-        const actual = parseDate(task.actualEndDate)
-        const progress = typeof task.progress === 'number' ? task.progress : Number(task.progress) || 0
+    const categorized = allItems.reduce(
+      (acc, item) => {
+        const status = (item.status || '').toString().toLowerCase()
+        const planned = parseDate(item.plannedEndDate || item.dueDate)
+        const actual = parseDate(item.actualEndDate)
+        const progress =
+          typeof item.progress === 'number'
+            ? item.progress
+            : Number(item.progress) || (item.type === 'subtask' ? calculateSubtaskProgress(item) : 0)
         const isCompleted = completedStatuses.includes(status) || progress >= 100 || !!actual
         const isInProgress = inProgressStatuses.includes(status) || progress > 0
         const isDelayed =
@@ -3607,7 +3679,7 @@ export default function ProjectDetailPage() {
         }
 
         acc[category].push({
-          ...task,
+          ...item,
           plannedDate: planned,
           actualDate: actual,
           normalizedStatus: status,
@@ -3623,6 +3695,8 @@ export default function ProjectDetailPage() {
     )
 
     const totalTasks = tasks.length
+    const totalSubtasks = subtasks.length
+    const totalItems = allItems.length
     const totalDelayed = categorized.delayed.length
     const totalInProgress = categorized.inProgress.length
     const totalOnTime = categorized.onTime.length
@@ -3675,17 +3749,17 @@ export default function ProjectDetailPage() {
       {
         key: 'delayed' as const,
         value: totalDelayed,
-        percentage: totalTasks ? Math.round((totalDelayed / totalTasks) * 100) : 0
+        percentage: totalItems ? Math.round((totalDelayed / totalItems) * 100) : 0
       },
       {
         key: 'inProgress' as const,
         value: totalInProgress,
-        percentage: totalTasks ? Math.round((totalInProgress / totalTasks) * 100) : 0
+        percentage: totalItems ? Math.round((totalInProgress / totalItems) * 100) : 0
       },
       {
         key: 'onTime' as const,
         value: totalOnTime,
-        percentage: totalTasks ? Math.round((totalOnTime / totalTasks) * 100) : 0
+        percentage: totalItems ? Math.round((totalOnTime / totalItems) * 100) : 0
       }
     ]
 
@@ -3697,7 +3771,7 @@ export default function ProjectDetailPage() {
           Indicadores do Cronograma
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Visualize rapidamente o status das tarefas do projeto. Os indicadores consideram o status atual, o prazo planejado e a data de conclusão (quando houver).
+          Visualize rapidamente o status das tarefas e subtarefas do projeto. Os indicadores consideram o status atual, o prazo planejado e a data de conclusão (quando houver).
         </Typography>
 
         <Grid container spacing={3} sx={{ mb: 4 }}>
@@ -3731,7 +3805,7 @@ export default function ProjectDetailPage() {
                       {card.value}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      {card.percentage}% das tarefas
+                      {card.percentage}% dos itens ({totalTasks} tarefa{totalTasks === 1 ? '' : 's'} + {totalSubtasks} subtarefa{totalSubtasks === 1 ? '' : 's'})
                     </Typography>
                   </CardContent>
                 </Card>
@@ -3763,7 +3837,7 @@ export default function ProjectDetailPage() {
                     </Box>
                   </Box>
                   <Chip
-                    label={`${categoryTasks.length} tarefa${categoryTasks.length === 1 ? '' : 's'}`}
+                    label={`${categoryTasks.length} item${categoryTasks.length === 1 ? '' : 's'}`}
                     color={config.palette}
                     variant="outlined"
                   />
@@ -3771,7 +3845,7 @@ export default function ProjectDetailPage() {
 
                 {categoryTasks.length === 0 ? (
                   <Typography variant="body2" color="text.secondary">
-                    Nenhuma tarefa nesta categoria.
+                    Nenhum item nesta categoria.
                   </Typography>
                 ) : (
                   <List>
@@ -3806,8 +3880,11 @@ export default function ProjectDetailPage() {
                                 primary={
                                   <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
                                     <Typography variant="subtitle1" fontWeight="bold">
-                                      {task.name || 'Tarefa sem nome'}
+                                      {task.name || (task.type === 'subtask' ? 'Subtarefa sem nome' : 'Tarefa sem nome')}
                                     </Typography>
+                                    {task.type === 'subtask' && (
+                                      <Chip label="Subtarefa" size="small" variant="outlined" />
+                                    )}
                                     {task.priority && (
                                       <Chip
                                         label={getPriorityLabel(task.priority)}
@@ -3830,6 +3907,11 @@ export default function ProjectDetailPage() {
                                     <Typography variant="body2" color="text.secondary">
                                       Fase: <strong>{task.phaseName}</strong>
                                     </Typography>
+                                    {task.type === 'subtask' && task.taskName && (
+                                      <Typography variant="body2" color="text.secondary">
+                                        Tarefa: <strong>{task.taskName}</strong>
+                                      </Typography>
+                                    )}
                                     <Typography variant="body2" color="text.secondary">
                                       Prazo: <strong>{plannedDateString}</strong>
                                     </Typography>
@@ -4041,11 +4123,15 @@ export default function ProjectDetailPage() {
   )
 
   // Função para registrar log de atividade
-  const logActivity = React.useCallback((action: string, itemType: string, itemName: string, details?: any) => {
+  // projectParam: projeto opcional para usar quando chamado de dentro de callbacks de setState
+  const logActivity = React.useCallback((action: string, itemType: string, itemName: string, details?: any, projectParam?: any) => {
     try {
       console.log('📝 logActivity chamada com:', { action, itemType, itemName, details })
       
-      if (!project) {
+      // Usar o projeto passado como parâmetro ou o projeto do estado
+      const projectToUse = projectParam || project
+      
+      if (!projectToUse) {
         console.warn('⚠️ Tentativa de log de atividade com projeto nulo')
         return
       }
@@ -4061,6 +4147,14 @@ export default function ProjectDetailPage() {
       }
 
       console.log('📝 Atividade criada:', activity)
+
+      // Se um projeto foi passado como parâmetro, adicionar a atividade diretamente nele
+      // Caso contrário, usar setProject com callback
+      if (projectParam) {
+        // Quando chamado de dentro de updateAllTaskProgress, o projeto já está sendo atualizado
+        // então não precisamos fazer nada aqui, a atividade será adicionada depois
+        return activity
+      }
 
       // Usar setProject com callback para evitar loops
       setProject((prevProject: any) => {
