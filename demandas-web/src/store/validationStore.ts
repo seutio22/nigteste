@@ -18,6 +18,7 @@ interface ValidationState {
   logs: ValidationLog[]
   loading: boolean
   error: string | null
+  lastSync: number
   add: (e: Omit<ValidationEntry, 'id' | 'createdAt'>) => Promise<ValidationEntry>
   remove: (id: string) => Promise<void>
   clear: () => void
@@ -37,6 +38,7 @@ export const useValidationStore = create<ValidationState>()(
       logs: [],
       loading: false,
       error: null,
+      lastSync: 0,
       add: async (payload: Omit<ValidationEntry, 'id' | 'createdAt'>) => {
         try {
           console.log('🔄 Adicionando nova validação:', payload)
@@ -263,7 +265,7 @@ export const useValidationStore = create<ValidationState>()(
         }
       },
       
-      clear: () => set({ items: [], logs: [] }),
+      clear: () => set({ items: [], logs: [], lastSync: 0 }),
       clearError: () => set({ error: null }),
       
       upsert: async (entry: ValidationEntry) => {
@@ -329,6 +331,10 @@ export const useValidationStore = create<ValidationState>()(
       syncFromApi: async () => {
         const state = get()
         if (state.loading) {
+          return
+        }
+        const now = Date.now()
+        if (now - state.lastSync < 2 * 60 * 1000) {
           return
         }
         
@@ -418,7 +424,7 @@ export const useValidationStore = create<ValidationState>()(
           });
           
           // Aplicar dados ao store
-          set({ items: validacoesMapeadas, loading: false })
+          set({ items: validacoesMapeadas, loading: false, lastSync: now })
           console.log('✅ ValidationStore: syncFromApi concluído com sucesso!')
           
         } catch (error) {

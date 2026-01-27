@@ -32,6 +32,7 @@ interface DashboardState {
   dashboards: Dashboard[]
   widgets: DashboardWidget[]
   currentDashboard: Dashboard | null
+  lastSync: number
   addDashboard: (dashboard: Omit<Dashboard, 'id'>) => Dashboard
   updateDashboard: (id: string, updates: Partial<Dashboard>) => void
   removeDashboard: (id: string) => void
@@ -48,6 +49,7 @@ export const useDashboardStore = create<DashboardState>()(
       dashboards: [],
       widgets: [],
       currentDashboard: null,
+      lastSync: 0,
       
       addDashboard: (payload) => {
         const dashboard: Dashboard = {
@@ -101,6 +103,9 @@ export const useDashboardStore = create<DashboardState>()(
       
       async syncFromApi() {
         try {
+          const state = get()
+          const now = Date.now()
+          if (now - state.lastSync < 2 * 60 * 1000) return
           console.log('🔍 DashboardStore: Iniciando syncFromApi...')
           
           // Dashboard não tem endpoints específicos na API ainda
@@ -110,7 +115,8 @@ export const useDashboardStore = create<DashboardState>()(
           set({ 
             dashboards: [],
             widgets: [],
-            currentDashboard: null
+            currentDashboard: null,
+            lastSync: now
           })
           
           console.log('✅ DashboardStore: syncFromApi concluído com sucesso!')

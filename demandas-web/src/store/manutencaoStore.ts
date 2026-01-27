@@ -8,6 +8,7 @@ interface ManutencaoState {
   items: any[]
   timeline: TimelineEvent[]
   isLoading: boolean
+  lastSync: number
   add: (d: any) => Promise<any>
   upsert: (d: any) => Promise<void>
   remove: (id: string) => Promise<void>
@@ -24,6 +25,7 @@ export const useManutencaoStore = create<ManutencaoState>()(
       items: [],
       timeline: [],
       isLoading: false,
+      lastSync: 0,
       add: async (payload) => {
         console.log('🔍 ManutencaoStore.add: Iniciando criação de manutenção...')
         console.log('🔍 ManutencaoStore.add: Payload recebido:', payload)
@@ -255,10 +257,10 @@ export const useManutencaoStore = create<ManutencaoState>()(
           console.error('⚠️ Erro ao excluir manutenção no backend:', error)
         }
       },
-      clear: () => set({ items: [] }),
+      clear: () => set({ items: [], lastSync: 0 }),
       clearLocal: () => {
         console.log('🔍 ManutencaoStore: Limpando todas as manutenções locais')
-        set({ items: [] })
+        set({ items: [], lastSync: 0 })
         console.log('✅ ManutencaoStore: Manutenções locais limpas')
       },
       log: async (e) => {
@@ -295,6 +297,10 @@ export const useManutencaoStore = create<ManutencaoState>()(
       async syncFromApi() {
         const state = get()
         if (state.isLoading) {
+          return
+        }
+        const now = Date.now()
+        if (now - state.lastSync < 2 * 60 * 1000) {
           return
         }
         
@@ -342,7 +348,7 @@ export const useManutencaoStore = create<ManutencaoState>()(
             return
           }
           
-          set({ items: manutencoesMapeadas, isLoading: false })
+          set({ items: manutencoesMapeadas, isLoading: false, lastSync: now })
         } catch (error) {
           console.error('❌ ManutencaoStore: Erro no syncFromApi:', error)
           set({ isLoading: false })

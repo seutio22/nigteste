@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
   Typography,
   Box,
@@ -110,6 +110,13 @@ export default function UserMonitoring() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
 
   const { token } = useAuthStore()
+  const isDev = import.meta.env.DEV
+  const logDev = (...args: unknown[]) => {
+    if (isDev) console.log(...args)
+  }
+  const isFetchingRef = useRef(false)
+  const lastFetchRef = useRef(0)
+  const monitoringCacheTtlMs = 2 * 60 * 1000
   
   // Tracking de atividade na página de monitoramento
   useActivityTracking({
@@ -121,6 +128,8 @@ export default function UserMonitoring() {
   // Carregar dados de monitoramento
   const loadMonitoringData = useCallback(async () => {
     try {
+      if (isFetchingRef.current) return
+      isFetchingRef.current = true
       setLoading(true)
       setError(null)
 
@@ -129,7 +138,7 @@ export default function UserMonitoring() {
         return
       }
 
-      console.log('🔍 Carregando dados de monitoramento REAIS...')
+      logDev('🔍 Carregando dados de monitoramento REAIS...')
       
       // Buscar dados reais de monitoramento da API
       const monitoringResponse = await fetch(`https://nigteste-production.up.railway.app/monitoring/users`, {
@@ -144,12 +153,12 @@ export default function UserMonitoring() {
       }
 
       const monitoringData = await monitoringResponse.json()
-      console.log(`✅ Dados de monitoramento carregados: ${monitoringData.length} usuários`)
+      logDev(`✅ Dados de monitoramento carregados: ${monitoringData.length} usuários`)
 
       // Usar dados reais de monitoramento da API
-      console.log(`✅ Usando dados reais de monitoramento: ${monitoringData.length} registros`)
+      logDev(`✅ Usando dados reais de monitoramento: ${monitoringData.length} registros`)
 
-      console.log('🎯 DADOS REAIS - Sistema de monitoramento ativo!')
+      logDev('🎯 DADOS REAIS - Sistema de monitoramento ativo!')
 
       // Usar dados reais de monitoramento
       setActivities(monitoringData)
@@ -184,19 +193,26 @@ export default function UserMonitoring() {
       console.error('Erro ao carregar monitoramento:', err)
     } finally {
       setLoading(false)
+      isFetchingRef.current = false
     }
   }, [token])
 
   // Carregar dados ao montar componente
   useEffect(() => {
+    lastFetchRef.current = Date.now()
     loadMonitoringData()
   }, [loadMonitoringData])
 
-  // Atualizar dados automaticamente a cada 30 segundos
+  // Atualizar dados automaticamente a cada 60 segundos
   useEffect(() => {
     const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return
+      if (isFetchingRef.current) return
+      const now = Date.now()
+      if (now - lastFetchRef.current < monitoringCacheTtlMs) return
+      lastFetchRef.current = now
       loadMonitoringData()
-    }, 30000) // 30 segundos
+    }, 60000) // 60 segundos
 
     return () => clearInterval(interval)
   }, [loadMonitoringData])

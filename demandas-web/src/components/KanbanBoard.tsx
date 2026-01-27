@@ -328,7 +328,10 @@ export const KanbanBoard: React.FC = () => {
     checkOverdueTasks()
     
     // Verificar a cada hora
-    const interval = setInterval(checkOverdueTasks, 60 * 60 * 1000)
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return
+      checkOverdueTasks()
+    }, 60 * 60 * 1000)
     
     return () => clearInterval(interval)
   }, [userTickets, notificationStore])

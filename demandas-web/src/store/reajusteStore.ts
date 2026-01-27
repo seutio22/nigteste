@@ -7,6 +7,7 @@ import { api } from '../lib/api'
 
 interface ReajusteState {
   items: ReajusteEntry[]
+  lastSync: number
   add: (e: Omit<ReajusteEntry, 'id' | 'createdAt'>) => Promise<ReajusteEntry>
   remove: (id: string | string[]) => Promise<void>
   upsert: (entry: ReajusteEntry) => Promise<void>
@@ -17,6 +18,7 @@ interface ReajusteState {
 export const useReajusteStore = create<ReajusteState>()(
   (set, get) => ({
       items: [],
+      lastSync: 0,
       
       add: async (payload) => {
         try {
@@ -217,6 +219,9 @@ export const useReajusteStore = create<ReajusteState>()(
       
       syncFromApi: async () => {
         try {
+          const state = get()
+          const now = Date.now()
+          if (now - state.lastSync < 2 * 60 * 1000) return
           console.log('🔍 ReajusteStore: Iniciando syncFromApi...')
           
           const response = await api.get('/reajusteLancamentos')
@@ -229,7 +234,7 @@ export const useReajusteStore = create<ReajusteState>()(
           console.log('🔍 ReajusteStore: Dados recebidos da API:', reajustes.length, 'itens')
           console.log('🔍 ReajusteStore: Dados:', reajustes)
           
-          set({ items: reajustes })
+          set({ items: reajustes, lastSync: now })
           
           console.log('✅ ReajusteStore: syncFromApi concluído com sucesso!')
         } catch (error) {

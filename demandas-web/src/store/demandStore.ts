@@ -7,6 +7,7 @@ interface DemandState {
   items: Demand[]
   timeline: TimelineEvent[]
   isLoading: boolean
+  lastSync: number
   add: (d: Omit<Demand, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Demand>
   upsert: (d: Demand) => Promise<void>
   remove: (id: DemandId) => Promise<void>
@@ -22,6 +23,7 @@ export const useDemandStore = create<DemandState>()(
       items: [],
       timeline: [],
       isLoading: false,
+      lastSync: 0,
       add: async (payload) => {
         console.log('🔍 DemandStore.add: Iniciando criação de demanda...')
         console.log('🔍 DemandStore.add: Payload recebido:', payload)
@@ -289,7 +291,7 @@ export const useDemandStore = create<DemandState>()(
           console.error('⚠️ DemandStore: Erro ao excluir no backend:', error)
         }
       },
-      clear: () => set({ items: [] }),
+      clear: () => set({ items: [], lastSync: 0 }),
       log: async (e) => {
         const eventId = crypto.randomUUID()
         const timestamp = new Date().toISOString()
@@ -324,6 +326,10 @@ export const useDemandStore = create<DemandState>()(
         const state = get()
         if (state.isLoading) {
           console.log('⏸️ DemandStore: Já está carregando, ignorando chamada duplicada')
+          return
+        }
+        const now = Date.now()
+        if (now - state.lastSync < 2 * 60 * 1000) {
           return
         }
         
@@ -432,7 +438,7 @@ export const useDemandStore = create<DemandState>()(
           })
 
           console.log(`✅ DemandStore: ${demandasMapeadas.length} demandas mapeadas, atualizando store...`)
-          set({ items: demandasMapeadas, isLoading: false })
+          set({ items: demandasMapeadas, isLoading: false, lastSync: now })
           console.log('✅ DemandStore: syncFromApi concluído com sucesso')
         } catch (error: any) {
           console.error('❌ DemandStore: Erro no syncFromApi:', error)

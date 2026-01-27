@@ -32,6 +32,7 @@ interface AtendimentoState {
   items: AtendimentoEntry[]
   timeline: TimelineEvent[]
   isLoading: boolean
+  lastSync: number
   add: (atendimento: Omit<AtendimentoEntry, 'id' | 'createdAt' | 'updatedAt'>, user?: { name?: string; id?: string }) => AtendimentoEntry
   update: (id: string, atendimento: Partial<AtendimentoEntry>, user?: { name?: string; id?: string }) => Promise<void>
   remove: (id: string) => void
@@ -47,6 +48,7 @@ export const useAtendimentoStore = create<AtendimentoState>()(
       items: [],
       timeline: [],
       isLoading: false,
+      lastSync: 0,
       
       add: async (payload, user) => {
         const now = new Date().toISOString()
@@ -293,7 +295,7 @@ export const useAtendimentoStore = create<AtendimentoState>()(
         }
       },
       
-      clear: () => set({ items: [] }),
+      clear: () => set({ items: [], lastSync: 0 }),
       
       log: async (e) => {
         const eventId = crypto.randomUUID()
@@ -336,6 +338,10 @@ export const useAtendimentoStore = create<AtendimentoState>()(
         if (state.isLoading) {
           return
         }
+        const now = Date.now()
+        if (now - state.lastSync < 2 * 60 * 1000) {
+          return
+        }
         
         try {
           set({ isLoading: true })
@@ -368,7 +374,7 @@ export const useAtendimentoStore = create<AtendimentoState>()(
             updatedAt: apiAtendimento.updatedAt || ''
           }))
           
-          set({ items: mappedAtendimentos, isLoading: false })
+          set({ items: mappedAtendimentos, isLoading: false, lastSync: now })
         } catch (error) {
           console.error('❌ AtendimentoStore: Erro no syncFromApi:', error)
           set({ isLoading: false })

@@ -58,11 +58,16 @@ export const useDeadlineNotifications = () => {
   }, [addNotification, user])
 
   useEffect(() => {
+    const runCheck = () => {
+      if (typeof document !== 'undefined' && document.hidden) return
+      checkDeadlineNotifications()
+    }
+
     // Verificar imediatamente ao carregar
-    checkDeadlineNotifications()
+    runCheck()
     
     // Verificar a cada hora
-    const interval = setInterval(checkDeadlineNotifications, 60 * 60 * 1000)
+    const interval = setInterval(runCheck, 60 * 60 * 1000)
     
     return () => clearInterval(interval)
   }, [checkDeadlineNotifications])

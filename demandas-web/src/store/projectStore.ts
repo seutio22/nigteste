@@ -27,6 +27,7 @@ interface ProjectState {
   timelines: ProjectTimeline[]
   loading: boolean
   error: string | null
+  lastSync: number
   
   // Projetos
   add: (p: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Project>
@@ -80,6 +81,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   timelines: [],
   loading: false,
   error: null,
+  lastSync: 0,
   
   // Projetos
   add: async (payload) => {
@@ -413,6 +415,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   
   // Sincronização com API
   syncFromApi: async () => {
+    const state = get()
+    const now = Date.now()
+    if (now - state.lastSync < 2 * 60 * 1000) return
     set({ loading: true, error: null })
     try {
       // Importar API dinamicamente baseado no ambiente
@@ -427,7 +432,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       // Aplicar dados ao store
       set({ 
         projects: Array.isArray(projects) ? projects : [], 
-        loading: false 
+        loading: false,
+        lastSync: now
       })
       
       console.log('✅ ProjectStore: Dados sincronizados com sucesso:', projects.length, 'projetos')
@@ -449,6 +455,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     milestones: [], 
     timelines: [],
     loading: false,
-    error: null
+    error: null,
+    lastSync: 0
   })
 }))

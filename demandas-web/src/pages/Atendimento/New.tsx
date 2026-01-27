@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useForm, Controller, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -9,6 +9,9 @@ import { useAtendimentoStore, type AtendimentoEntry } from '../../store/atendime
 import { useMasterDataStore } from '../../store/masterDataStore'
 import { useAuthStore } from '../../store/authStore'
 import { api } from '../../lib/api.local'
+import { createPerfLogger } from '../../utils/perf'
+import { AsyncClienteAutocomplete, type ClienteOption } from '../../components/AsyncClienteAutocomplete'
+import { AsyncContratoAutocomplete } from '../../components/AsyncContratoAutocomplete'
 
 
 // Schema de validação com Zod
@@ -66,24 +69,32 @@ export default function AtendimentoNewPage() {
       observacoes: ''
     }
   })
+  const perfRef = useRef(createPerfLogger('Atendimento/Novo'))
+  const perfReadyRef = useRef(false)
 
   // Observar o valor do campo tipoServico para filtrar tipos de demanda
   const tipoServicoValue = useWatch({ control, name: 'tipoServico' })
   
-  // FILTRO DE CONTRATOS: Observar cliente selecionado e filtrar contratos
+  // Cliente selecionado para filtro de contratos
   const selectedClienteId = useWatch({ control, name: 'cliente' })
-  const grupoDoCliente = masterDataStore.clientes.find(c => c.id === selectedClienteId)?.grupoEconomico
-  
-  // Filtrar contratos por clienteId (relação direta) OU por grupoEconomico (relação indireta)
-  const contratosDoCliente = masterDataStore.contratos.filter((c: any) => 
-    c.clienteId === selectedClienteId || // Relação direta por clienteId
-    (grupoDoCliente && c.grupoEconomico === grupoDoCliente) // Relação indireta por grupo
-  )
-  
-  console.log('🔍 ATENDIMENTO - CONTRATO: Cliente selecionado:', selectedClienteId)
-  console.log('🔍 ATENDIMENTO - CONTRATO: Grupo do cliente:', grupoDoCliente)
-  console.log('🔍 ATENDIMENTO - CONTRATO: Contratos disponíveis:', contratosDoCliente.map(c => ({ id: c.id, codigo: c.codigo, clienteId: c.clienteId, grupoEconomico: c.grupoEconomico })))
+  const [selectedCliente, setSelectedCliente] = useState<ClienteOption | null>(null)
 
+  useEffect(() => {
+    perfRef.current.log('mount')
+  }, [])
+
+  useEffect(() => {
+    if (perfReadyRef.current) return
+    if (masterDataStore.analistas.length && masterDataStore.tiposServico.length && masterDataStore.sistemas.length) {
+      perfReadyRef.current = true
+      perfRef.current.log('data-ready', {
+        analistas: masterDataStore.analistas.length,
+        tiposServico: masterDataStore.tiposServico.length,
+        sistemas: masterDataStore.sistemas.length
+      })
+    }
+  }, [masterDataStore.analistas.length, masterDataStore.tiposServico.length, masterDataStore.sistemas.length])
+  
   // Limpar contrato quando cliente mudar
   useEffect(() => {
     if (selectedClienteId) {
@@ -414,46 +425,15 @@ export default function AtendimentoNewPage() {
                 name="cliente"
                 control={control}
                 render={({ field }) => (
-                  <Autocomplete
-                    {...field}
-                    options={masterDataStore.clientes}
-                    getOptionLabel={(option) => option.nome || ''}
-                    isOptionEqualToValue={(option, value) => option.id === value?.id}
-                    value={masterDataStore.clientes.find(c => c.id === field.value) || null}
-                    onChange={(_, newValue) => field.onChange(newValue?.id || '')}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        label="Cliente"
-                        fullWidth
-                        helperText="Digite para buscar um cliente"
-                        placeholder="Digite para buscar..."
-                      />
-                    )}
-                    renderOption={(props, option) => (
-                      <Box component="li" {...props} key={option.id}>
-                        <Box>
-                          <Typography variant="body1" fontWeight="medium">
-                            {option.nome}
-                          </Typography>
-                          {option.grupoEconomico && (
-                            <Typography variant="caption" color="text.secondary">
-                              Grupo: {option.grupoEconomico}
-                            </Typography>
-                          )}
-                        </Box>
-                      </Box>
-                    )}
-                    noOptionsText="Nenhum cliente encontrado"
-                    loading={masterDataStore.clientes.length === 0}
-                    loadingText="Carregando clientes..."
-                    filterOptions={(options, { inputValue }) => {
-                      const filtered = options.filter(option =>
-                        option.nome.toLowerCase().includes(inputValue.toLowerCase()) ||
-                        (option.grupoEconomico && option.grupoEconomico.toLowerCase().includes(inputValue.toLowerCase()))
-                      )
-                      return filtered
+                  <AsyncClienteAutocomplete
+                    valueId={field.value}
+                    onChangeId={(nextId) => {
+                      field.onChange(nextId)
+                      setValue('contrato', '')
                     }}
+                    label="Cliente"
+                    helperText="Digite para buscar um cliente"
+                    onSelectOption={setSelectedCliente}
                   />
                 )}
               />
@@ -464,30 +444,14 @@ export default function AtendimentoNewPage() {
                 name="contrato"
                 control={control}
                 render={({ field }) => (
-                  <FormControl fullWidth>
-                    <InputLabel>Contrato</InputLabel>
-                    <Select 
-                      {...field} 
-                      label="Contrato"
-                      disabled={!selectedClienteId}
-                    >
-                      <MenuItem value="">
-                        {selectedClienteId 
-                          ? 'Selecione um contrato...' 
-                          : 'Selecione um cliente primeiro'}
-                      </MenuItem>
-                      {contratosDoCliente.map(contrato => (
-                        <MenuItem key={contrato.id} value={contrato.id}>
-                          {contrato.codigo}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                    {selectedClienteId && contratosDoCliente.length === 0 && (
-                      <Typography variant="caption" color="text.secondary" sx={{ mt: 1, ml: 2 }}>
-                        Nenhum contrato encontrado para este cliente
-                      </Typography>
-                    )}
-                  </FormControl>
+                  <AsyncContratoAutocomplete
+                    valueId={field.value}
+                    onChangeId={field.onChange}
+                    label="Contrato"
+                    disabled={!selectedClienteId}
+                    clienteId={selectedClienteId}
+                    grupoEconomico={selectedCliente?.grupoEconomico || null}
+                  />
                 )}
               />
             </Grid>

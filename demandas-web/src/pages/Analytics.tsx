@@ -10,7 +10,7 @@ import { SmartImporter } from '../components/SmartImporter'
 import { smartImporterConfigs } from '../config/smartImporterConfigs'
 import type { ImportResult } from '../types/smartImporter'
 import { useFilteredData } from '../lib/utils'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import ExportDataModal from '../components/ExportDataModal'
 import { usePermissions } from '../hooks/usePermissions'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
@@ -24,6 +24,11 @@ import AssessmentIcon from '@mui/icons-material/Assessment'
 import PersonIcon from '@mui/icons-material/Person'
 import GroupIcon from '@mui/icons-material/Group'
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
+
+const isDev = import.meta.env.DEV
+const logDev = (...args: unknown[]) => {
+  if (isDev) console.log(...args)
+}
 
 const columns: GridColDef[] = [
   { field: 'acoes', headerName: 'Ações', width: 80, sortable: false, filterable: false, renderCell: (p) => (
@@ -100,33 +105,33 @@ export default function AnalyticsPage() {
   const [filterModel, setFilterModel] = useState<GridFilterModel>({ items: [], quickFilterValues: [] })
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({ page: 0, pageSize: 10 })
   const [showOnlyMyReports, setShowOnlyMyReports] = useState(true) // SEMPRE inicia como "Meus relatórios"
-
   // Aplicar filtro "Meus relatórios" baseado no usuário logado
-  const finalFilteredItems = showOnlyMyReports 
-    ? items.filter(item => {
-        // Buscar o analista correspondente ao usuário logado
-        const analistaCorrespondente = md.analistas.find(analista => 
-          analista.nome.toLowerCase() === user?.name?.toLowerCase() ||
-          analista.nome.toLowerCase().includes(user?.name?.toLowerCase() || '') ||
-          (user?.name?.toLowerCase() || '').includes(analista.nome.toLowerCase())
-        )
-        
-        // Se encontrou o analista correspondente, comparar NOMES (não IDs)
-        if (analistaCorrespondente) {
-          return item.analista?.toLowerCase() === analistaCorrespondente.nome.toLowerCase()
-        }
-        
-        // Se não encontrou correspondência, retornar false (não mostrar)
-        return false
-      })
-    : items
+  const finalFilteredItems = useMemo(() => {
+    if (!showOnlyMyReports) return items
+    return items.filter(item => {
+      // Buscar o analista correspondente ao usuário logado
+      const analistaCorrespondente = md.analistas.find(analista => 
+        analista.nome.toLowerCase() === user?.name?.toLowerCase() ||
+        analista.nome.toLowerCase().includes(user?.name?.toLowerCase() || '') ||
+        (user?.name?.toLowerCase() || '').includes(analista.nome.toLowerCase())
+      )
+      
+      // Se encontrou o analista correspondente, comparar NOMES (não IDs)
+      if (analistaCorrespondente) {
+        return item.analista?.toLowerCase() === analistaCorrespondente.nome.toLowerCase()
+      }
+      
+      // Se não encontrou correspondência, retornar false (não mostrar)
+      return false
+    })
+  }, [showOnlyMyReports, items, md.analistas, user?.name])
   
   // Debug logs
-  console.log('🔍 AnalyticsPage: Total de items:', items.length)
-  console.log('🔍 AnalyticsPage: Items:', items)
-  console.log('🔍 AnalyticsPage: User:', user)
-  console.log('🔍 AnalyticsPage: ShowOnlyMyReports:', showOnlyMyReports)
-  console.log('🔍 AnalyticsPage: Analistas disponíveis:', md.analistas)
+  logDev('🔍 AnalyticsPage: Total de items:', items.length)
+  logDev('🔍 AnalyticsPage: Items:', items)
+  logDev('🔍 AnalyticsPage: User:', user)
+  logDev('🔍 AnalyticsPage: ShowOnlyMyReports:', showOnlyMyReports)
+  logDev('🔍 AnalyticsPage: Analistas disponíveis:', md.analistas)
   
   // Debug do filtro
   if (showOnlyMyReports && user?.name) {
@@ -135,20 +140,20 @@ export default function AnalyticsPage() {
       analista.nome.toLowerCase().includes(user?.name?.toLowerCase() || '') ||
       (user?.name?.toLowerCase() || '').includes(analista.nome.toLowerCase())
     )
-    console.log('🔍 AnalyticsPage: Analista correspondente ao usuário:', analistaCorrespondente)
+    logDev('🔍 AnalyticsPage: Analista correspondente ao usuário:', analistaCorrespondente)
     
     if (analistaCorrespondente) {
       const meusRelatorios = items.filter(item => item.analista?.toLowerCase() === analistaCorrespondente.nome.toLowerCase())
-      console.log('🔍 AnalyticsPage: Relatórios do analista correspondente:', meusRelatorios.length, meusRelatorios)
+      logDev('🔍 AnalyticsPage: Relatórios do analista correspondente:', meusRelatorios.length, meusRelatorios)
     }
   }
   
-  console.log('🔍 AnalyticsPage: FinalFilteredItems:', finalFilteredItems.length)
+  logDev('🔍 AnalyticsPage: FinalFilteredItems:', finalFilteredItems.length)
 
   // Sincronizar dados mestres ao abrir a página
   useEffect(() => {
     if (md.syncFromApi) {
-      console.log('🔄 AnalyticsPage: Sincronizando dados mestres (analistas)...')
+      logDev('🔄 AnalyticsPage: Sincronizando dados mestres (analistas)...')
       md.syncFromApi()
     }
   }, [])
@@ -182,22 +187,22 @@ export default function AnalyticsPage() {
 
   // Carregar dados automaticamente quando a página é carregada
   useEffect(() => {
-    console.log('🔄 AnalyticsPage: useEffect executado, user.id:', user?.id)
+    logDev('🔄 AnalyticsPage: useEffect executado, user.id:', user?.id)
     if (user?.id) {
       // FORÇAR sincronização IMEDIATA ignorando cache
-      console.log('🔄 AnalyticsPage: FORÇANDO syncFromApi...')
+      logDev('🔄 AnalyticsPage: FORÇANDO syncFromApi...')
       const syncNow = async () => {
         try {
           const store = useReportStore.getState()
           await store.syncFromApi()
-          console.log('✅ AnalyticsPage: syncFromApi completado!')
+          logDev('✅ AnalyticsPage: syncFromApi completado!')
         } catch (error) {
           console.error('❌ AnalyticsPage: Erro no syncFromApi:', error)
         }
       }
       syncNow()
     } else {
-      console.log('⚠️ AnalyticsPage: Usuário não encontrado')
+      logDev('⚠️ AnalyticsPage: Usuário não encontrado')
     }
   }, [user?.id])
 
@@ -453,7 +458,7 @@ export default function AnalyticsPage() {
 
   const rows = finalFilteredItems.map((r) => {
     // DEBUG: Verificar dados de data
-    console.log('🔍 DEBUG Analytics - Item:', r.id, {
+    logDev('🔍 DEBUG Analytics - Item:', r.id, {
       dataInicio: r.dataInicio,
       dataFinalizacao: r.dataFinalizacao,
       dataEntrega: r.dataEntrega,
@@ -825,7 +830,7 @@ function ActionCell({ id, status }: { id: string, status: string }) {
   const canEdit = permissions.canEdit && (report?.userId === user?.id || user?.role === 'admin' || !report?.userId)
   
   // Debug: Log para verificar dados
-  console.log('🔍 Analytics ActionCell Debug:', {
+  logDev('🔍 Analytics ActionCell Debug:', {
     reportId: id,
     reportUserId: report?.userId,
     currentUserId: user?.id,

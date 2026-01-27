@@ -8,7 +8,7 @@ import { StatusBadge } from '../../components/StatusBadge'
 import { SmartImporter } from '../../components/SmartImporter'
 import { smartImporterConfigs } from '../../config/smartImporterConfigs'
 import { useFilteredData } from '../../lib/utils'
-import React, { useEffect, useState, memo, useRef } from 'react'
+import React, { useEffect, useState, memo, useRef, useMemo } from 'react'
 import ExportDataModal from '../../components/ExportDataModal'
 import type { ImportResult } from '../../types/smartImporter'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
@@ -122,6 +122,10 @@ export default function DemandListPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const isDev = import.meta.env.DEV
+  const logDev = (...args: unknown[]) => {
+    if (isDev) console.log(...args)
+  }
 
   const STORAGE_KEY = 'demands-list-view-v1'
   const FILTER_KEY = 'demands-user-filter-v1'
@@ -136,26 +140,27 @@ export default function DemandListPage() {
   const filteredItems = useFilteredData(items, user?.role, user?.id, user?.viewOwnDataOnly)
 
   // Filtro simplificado (mesma abordagem da página Manutenção)
-  const finalFilteredItems = showOnlyMyDemands
-    ? filteredItems.filter(demand => {
-        // Buscar o analista correspondente ao usuário logado
-        const analista = demand.analistaId ? analistasById[demand.analistaId] : undefined
-        
-        // Múltiplas verificações para identificar se a demanda é do usuário
-        const check1 = demand.analistaId === user?.id
-        const check2 = analista && analista.nome === user?.name
-        const check3 = user?.role === 'admin' && demand.analistaId === 'analista-admin'
-        const check4 = demand.analista === user?.id // Verificar campo analista também
-        const check5 = demand.analista === user?.name // Verificar se analista é o nome do usuário
-        
-        // Verificação adicional: se o usuário é admin, sempre incluir
-        const check6 = user?.role === 'admin'
-        
-        const isMyDemand = check1 || check2 || check3 || check4 || check5 || check6
-        
-        return isMyDemand
-      })
-    : filteredItems
+  const finalFilteredItems = useMemo(() => {
+    if (!showOnlyMyDemands) return filteredItems
+    return filteredItems.filter(demand => {
+      // Buscar o analista correspondente ao usuário logado
+      const analista = demand.analistaId ? analistasById[demand.analistaId] : undefined
+      
+      // Múltiplas verificações para identificar se a demanda é do usuário
+      const check1 = demand.analistaId === user?.id
+      const check2 = analista && analista.nome === user?.name
+      const check3 = user?.role === 'admin' && demand.analistaId === 'analista-admin'
+      const check4 = demand.analista === user?.id // Verificar campo analista também
+      const check5 = demand.analista === user?.name // Verificar se analista é o nome do usuário
+      
+      // Verificação adicional: se o usuário é admin, sempre incluir
+      const check6 = user?.role === 'admin'
+      
+      const isMyDemand = check1 || check2 || check3 || check4 || check5 || check6
+      
+      return isMyDemand
+    })
+  }, [showOnlyMyDemands, filteredItems, analistasById, user?.id, user?.name, user?.role])
 
   // carregar preferências
   useEffect(() => {
@@ -186,6 +191,8 @@ export default function DemandListPage() {
 
   // Ref para controlar carregamento único - evita loops
   const dataLoadedRef = useRef(false)
+  const lastFocusSyncRef = useRef(0)
+  const focusSyncCooldownMs = 2 * 60 * 1000
   
   // Carregar dados mestres e demandas uma única vez
   useEffect(() => {
@@ -223,7 +230,10 @@ export default function DemandListPage() {
   // Recarregar dados quando a página recebe foco (volta de outras páginas)
   useEffect(() => {
     const handleFocus = () => {
+      const now = Date.now()
+      if (now - lastFocusSyncRef.current < focusSyncCooldownMs) return
       if (user?.id && !demandStore.isLoading) {
+        lastFocusSyncRef.current = now
         demandStore.syncFromApi()
       }
     }
@@ -259,7 +269,7 @@ export default function DemandListPage() {
     try {
       const { api } = await import('../../lib/api.local')
       
-      console.log('🗑️ Iniciando exclusão em massa de', idsToDelete.length, 'itens')
+      logDev('🗑️ Iniciando exclusão em massa de', idsToDelete.length, 'itens')
       
       let successCount = 0
       let errorCount = 0
@@ -272,7 +282,7 @@ export default function DemandListPage() {
         } catch (error: any) {
           // Se for erro 404, significa que já foi excluído - ignorar
           if (error?.message?.includes('404') || error?.response?.status === 404) {
-            console.log(`⚠️ Demanda ${id} já foi excluída (404) - removendo do cache local`)
+            logDev(`⚠️ Demanda ${id} já foi excluída (404) - removendo do cache local`)
             notFoundCount++
           } else {
             console.error(`❌ Erro ao excluir demanda ${id}:`, error)
@@ -319,7 +329,7 @@ export default function DemandListPage() {
       let totalSavedToDatabase = 0
       const errors: string[] = []
 
-      console.log('🔍 SMART IMPORT DEMANDAS: Processando resultado:', result)
+      logDev('🔍 SMART IMPORT DEMANDAS: Processando resultado:', result)
 
       // Função para converter número de série do Excel para DateTime ISO
       const excelDateToISO = (value: any): string => {
@@ -371,7 +381,7 @@ export default function DemandListPage() {
               return itemNameNormalized === searchNormalized
             })
             
-            console.log(`🔍 SMART IMPORT DEMANDAS: Buscando "${name}" (normalizado: "${searchNormalized}") em ${items.length} itens, encontrado:`, item ? `${item.nome || item[nameField]} (${item.id})` : 'não encontrado')
+            logDev(`🔍 SMART IMPORT DEMANDAS: Buscando "${name}" (normalizado: "${searchNormalized}") em ${items.length} itens, encontrado:`, item ? `${item.nome || item[nameField]} (${item.id})` : 'não encontrado')
             return item?.id || ''
           }
 
@@ -414,13 +424,13 @@ export default function DemandListPage() {
             }
           })
 
-          console.log('🔍 SMART IMPORT DEMANDAS: Salvando demanda:', demandaData)
-          console.log('🔍 SMART IMPORT DEMANDAS: Tipo de tipoServicoId:', typeof demandaData.tipoServicoId)
-          console.log('🔍 SMART IMPORT DEMANDAS: Valor de tipoServicoId:', demandaData.tipoServicoId)
+          logDev('🔍 SMART IMPORT DEMANDAS: Salvando demanda:', demandaData)
+          logDev('🔍 SMART IMPORT DEMANDAS: Tipo de tipoServicoId:', typeof demandaData.tipoServicoId)
+          logDev('🔍 SMART IMPORT DEMANDAS: Valor de tipoServicoId:', demandaData.tipoServicoId)
 
           // Salvar na API
           const savedDemanda = await api.post('/demandas', demandaData)
-          console.log('✅ SMART IMPORT DEMANDAS: Demanda salva:', savedDemanda.id)
+          logDev('✅ SMART IMPORT DEMANDAS: Demanda salva:', savedDemanda.id)
           
           totalImported++
           totalSavedToDatabase++
@@ -437,12 +447,12 @@ export default function DemandListPage() {
       }
 
       const successMessage = `${totalImported} demandas processadas, ${totalSavedToDatabase} salvas no banco de dados`
-      console.log(`✅ SMART IMPORT DEMANDAS: ${successMessage}`)
+      logDev(`✅ SMART IMPORT DEMANDAS: ${successMessage}`)
 
       // Mostrar notificação de sucesso
       if (totalSavedToDatabase > 0) {
         // Aqui você pode adicionar uma notificação de sucesso
-        console.log('✅ SMART IMPORT DEMANDAS: Importação concluída com sucesso!')
+        logDev('✅ SMART IMPORT DEMANDAS: Importação concluída com sucesso!')
       }
 
       if (errors.length > 0) {
@@ -455,139 +465,139 @@ export default function DemandListPage() {
   }
 
   // 🚀 OTIMIZAÇÃO: Geração de rows simplificada (mesma abordagem da página Manutenção)
-  const rows = finalFilteredItems.map((d) => {
-    // Gerar ticket se não existir
-    const generateTicket = (id: string) => {
-      const now = new Date()
-      const year = now.getFullYear()
-      const month = String(now.getMonth() + 1).padStart(2, '0')
-      const day = String(now.getDate()).padStart(2, '0')
-      const random = Math.random().toString(36).substr(2, 4).toUpperCase()
-      return `CAD-${year}${month}${day}-${random}`
-    }
-    
-    return {
-      id: d.id,
-      ticket: d.ticket || generateTicket(d.id),
-      descricao: d.descricao ?? '',
-      status: d.status,
-      analista: (() => {
-        // Tratamento especial para analista-admin
-        if (d.analista === 'analista-admin') {
-          return 'ADMINISTRADOR'
-        }
-        
-        // Se d.analista é um ID, buscar o nome; se já é um nome, usar diretamente
-        if (d.analista && typeof d.analista === 'string' && d.analista.length > 20) {
-          // Parece ser um ID (UUID), buscar o nome
-          return analistasById[d.analista]?.nome ?? d.analista
-        }
-        
-        // Se d.analistaId existe, buscar o nome
-        if (d.analistaId) {
-          return analistasById[d.analistaId]?.nome ?? d.analistaId
-        }
-        
-        return d.analista || ''
-      })(),
-      area: (() => {
-        if (d.area && typeof d.area === 'string' && d.area.length > 20) {
-          return areasById[d.area]?.nome ?? d.area
-        }
-        
-        if (d.areaId) {
-          return areasById[d.areaId]?.nome ?? d.areaId
-        }
-        
-        return d.area || ''
-      })(),
-      cliente: (() => {
-        if (d.cliente && typeof d.cliente === 'string' && d.cliente.length > 20) {
-          return clientesById[d.cliente]?.nome ?? d.cliente
-        }
-        
-        if (d.clienteId) {
-          return clientesById[d.clienteId]?.nome ?? d.clienteId
-        }
-        
-        return d.cliente || ''
-      })(),
-      contrato: (() => {
-        if (d.contrato && typeof d.contrato === 'string' && d.contrato.length > 20) {
-          return contratosById[d.contrato]?.codigo ?? contratosById[d.contrato]?.numero ?? d.contrato
-        }
-        
-        if (d.contratoId) {
-          return contratosById[d.contratoId]?.codigo ?? contratosById[d.contratoId]?.numero ?? d.contratoId
-        }
-        
-        return d.contrato || ''
-      })(),
-      operadora: (() => {
-        if (d.operadora && typeof d.operadora === 'string' && d.operadora.length > 20) {
-          return operadorasById[d.operadora]?.nome ?? d.operadora
-        }
-        
-        if (d.operadoraId) {
-          return operadorasById[d.operadoraId]?.nome ?? d.operadoraId
-        }
-        
-        return d.operadora || ''
-      })(),
-      produto: (() => {
-        if (d.produto && typeof d.produto === 'string' && d.produto.length > 20) {
-          return produtosById[d.produto]?.nome ?? d.produto
-        }
-        
-        if (d.produtoId) {
-          return produtosById[d.produtoId]?.nome ?? d.produtoId
-        }
-        
-        return d.produto || ''
-      })(),
-      tipoServico: (() => {
-        if (d.tipoServico && typeof d.tipoServico === 'string' && d.tipoServico.length > 20) {
-          return tiposServicoById[d.tipoServico]?.nome ?? d.tipoServico
-        }
-        
-        if (d.tipoServicoId) {
-          return tiposServicoById[d.tipoServicoId]?.nome ?? d.tipoServicoId
-        }
-        
-        return d.tipoServico || ''
-      })(),
-      tipo: (() => {
-        if (d.tipo && typeof d.tipo === 'string' && d.tipo.length > 20) {
-          return tiposDemandaById[d.tipo]?.nome ?? d.tipo
-        }
-        
-        if (d.tipoId) {
-          return tiposDemandaById[d.tipoId]?.nome ?? d.tipoId
-        }
-        
-        return d.tipo || ''
-      })(),
-      createdAt: d.createdAt || '',
-      updatedAt: d.updatedAt || '',
-    }
-  })
+  const rows = useMemo(() => finalFilteredItems.map((d) => ({
+    id: d.id,
+    ticket: d.ticket || d.id,
+    descricao: d.descricao ?? '',
+    status: d.status,
+    analista: (() => {
+      // Tratamento especial para analista-admin
+      if (d.analista === 'analista-admin') {
+        return 'ADMINISTRADOR'
+      }
+      
+      // Se d.analista é um ID, buscar o nome; se já é um nome, usar diretamente
+      if (d.analista && typeof d.analista === 'string' && d.analista.length > 20) {
+        // Parece ser um ID (UUID), buscar o nome
+        return analistasById[d.analista]?.nome ?? d.analista
+      }
+      
+      // Se d.analistaId existe, buscar o nome
+      if (d.analistaId) {
+        return analistasById[d.analistaId]?.nome ?? d.analistaId
+      }
+      
+      return d.analista || ''
+    })(),
+    area: (() => {
+      if (d.area && typeof d.area === 'string' && d.area.length > 20) {
+        return areasById[d.area]?.nome ?? d.area
+      }
+      
+      if (d.areaId) {
+        return areasById[d.areaId]?.nome ?? d.areaId
+      }
+      
+      return d.area || ''
+    })(),
+    cliente: (() => {
+      if (d.cliente && typeof d.cliente === 'string' && d.cliente.length > 20) {
+        return clientesById[d.cliente]?.nome ?? d.cliente
+      }
+      
+      if (d.clienteId) {
+        return clientesById[d.clienteId]?.nome ?? d.clienteId
+      }
+      
+      return d.cliente || ''
+    })(),
+    contrato: (() => {
+      if (d.contrato && typeof d.contrato === 'string' && d.contrato.length > 20) {
+        return contratosById[d.contrato]?.codigo ?? contratosById[d.contrato]?.numero ?? d.contrato
+      }
+      
+      if (d.contratoId) {
+        return contratosById[d.contratoId]?.codigo ?? contratosById[d.contratoId]?.numero ?? d.contratoId
+      }
+      
+      return d.contrato || ''
+    })(),
+    operadora: (() => {
+      if (d.operadora && typeof d.operadora === 'string' && d.operadora.length > 20) {
+        return operadorasById[d.operadora]?.nome ?? d.operadora
+      }
+      
+      if (d.operadoraId) {
+        return operadorasById[d.operadoraId]?.nome ?? d.operadoraId
+      }
+      
+      return d.operadora || ''
+    })(),
+    produto: (() => {
+      if (d.produto && typeof d.produto === 'string' && d.produto.length > 20) {
+        return produtosById[d.produto]?.nome ?? d.produto
+      }
+      
+      if (d.produtoId) {
+        return produtosById[d.produtoId]?.nome ?? d.produtoId
+      }
+      
+      return d.produto || ''
+    })(),
+    tipoServico: (() => {
+      if (d.tipoServico && typeof d.tipoServico === 'string' && d.tipoServico.length > 20) {
+        return tiposServicoById[d.tipoServico]?.nome ?? d.tipoServico
+      }
+      
+      if (d.tipoServicoId) {
+        return tiposServicoById[d.tipoServicoId]?.nome ?? d.tipoServicoId
+      }
+      
+      return d.tipoServico || ''
+    })(),
+    tipo: (() => {
+      if (d.tipo && typeof d.tipo === 'string' && d.tipo.length > 20) {
+        return tiposDemandaById[d.tipo]?.nome ?? d.tipo
+      }
+      
+      if (d.tipoId) {
+        return tiposDemandaById[d.tipoId]?.nome ?? d.tipoId
+      }
+      
+      return d.tipo || ''
+    })(),
+    createdAt: d.createdAt || '',
+    updatedAt: d.updatedAt || '',
+  })), [
+    finalFilteredItems,
+    analistasById,
+    areasById,
+    clientesById,
+    contratosById,
+    operadorasById,
+    produtosById,
+    tiposServicoById,
+    tiposDemandaById
+  ])
   
   // Ordenar os dados por updatedAt (data de atualização - mais recente primeiro) antes de passar para o DataGrid
-  const sortedRows = [...rows].sort((a, b) => {
-    // Tratar strings vazias como datas inválidas (devem ir para o final)
-    const dateA = a.updatedAt && a.updatedAt.trim() !== '' ? new Date(a.updatedAt).getTime() : 0
-    const dateB = b.updatedAt && b.updatedAt.trim() !== '' ? new Date(b.updatedAt).getTime() : 0
-    
-    // Se ambos são inválidos, manter ordem original
-    if (dateA === 0 && dateB === 0) return 0
-    
-    // Datas inválidas vão para o final
-    if (dateA === 0) return 1
-    if (dateB === 0) return -1
-    
-    // Ordem decrescente (mais recente primeiro)
-    return dateB - dateA
-  })
+  const sortedRows = useMemo(() => (
+    [...rows].sort((a, b) => {
+      // Tratar strings vazias como datas inválidas (devem ir para o final)
+      const dateA = a.updatedAt && a.updatedAt.trim() !== '' ? new Date(a.updatedAt).getTime() : 0
+      const dateB = b.updatedAt && b.updatedAt.trim() !== '' ? new Date(b.updatedAt).getTime() : 0
+      
+      // Se ambos são inválidos, manter ordem original
+      if (dateA === 0 && dateB === 0) return 0
+      
+      // Datas inválidas vão para o final
+      if (dateA === 0) return 1
+      if (dateB === 0) return -1
+      
+      // Ordem decrescente (mais recente primeiro)
+      return dateB - dateA
+    })
+  ), [rows])
 
   return (
     <Box sx={{ height: '100vh', width: '100%', display: 'flex', flexDirection: 'column' }}>

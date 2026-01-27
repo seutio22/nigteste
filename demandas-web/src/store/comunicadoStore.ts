@@ -41,6 +41,7 @@ interface ComunicadoState {
   items: Comunicado[]
   loading: boolean
   error: string | null
+  lastSync: number
   fetchComunicados: () => Promise<void>
   fetchComunicado: (id: string) => Promise<Comunicado | null>
   add: (comunicado: Omit<Comunicado, 'id' | 'createdAt' | 'updatedAt' | 'comentarios' | 'visualizacoes'>) => Promise<Comunicado | null>
@@ -70,6 +71,7 @@ export const useComunicadoStore = create<ComunicadoState>()(
         items: [],
         loading: false,
         error: null,
+        lastSync: 0,
         
         fetchComunicados: async () => {
           try {
@@ -192,7 +194,7 @@ export const useComunicadoStore = create<ComunicadoState>()(
           }
         },
         
-        clear: () => set({ items: [] }),
+        clear: () => set({ items: [], lastSync: 0 }),
         
         addComentario: async (comunicadoId, comentario) => {
           try {
@@ -279,10 +281,14 @@ export const useComunicadoStore = create<ComunicadoState>()(
 
         syncFromApi: async () => {
           try {
+            const state = get()
+            const now = Date.now()
+            if (now - state.lastSync < 2 * 60 * 1000) return
             // Limpar estado antes de começar
             set({ loading: true, error: null })
             
             await get().fetchComunicados()
+            set({ lastSync: now })
           } catch (error) {
             console.error('Erro ao sincronizar comunicados:', error)
             const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido'
@@ -295,7 +301,7 @@ export const useComunicadoStore = create<ComunicadoState>()(
         // Função para limpar completamente o localStorage e forçar nova sincronização
         clearAll: () => {
           localStorage.removeItem('comunicado-storage')
-          set({ items: [], loading: false, error: null })
+          set({ items: [], loading: false, error: null, lastSync: 0 })
         }
       }
     },

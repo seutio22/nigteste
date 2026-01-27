@@ -150,24 +150,6 @@ export const useReportStore = create<ReportState>()(
           throw error
         }
       },
-      upsert: (report) => {
-        const existing = get().items.find((r) => r.id === report.id)
-        if (existing) {
-          // Atualizar sem criar eventos de timeline
-          set((state) => ({
-            items: state.items.map((r) =>
-              r.id === report.id
-                ? { ...r, ...report, dataAtualizacao: new Date().toISOString() }
-                : r
-            )
-          }))
-        } else {
-          // Adicionar sem criar eventos de timeline
-          set((state) => ({
-            items: [{ ...report, dataCriacao: new Date().toISOString(), dataAtualizacao: new Date().toISOString() }, ...state.items]
-          }))
-        }
-      },
       log: async (entry) => {
         const eventId = crypto.randomUUID()
         const timestamp = new Date().toISOString()

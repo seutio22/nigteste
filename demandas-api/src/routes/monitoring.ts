@@ -61,14 +61,29 @@ export default async function monitoringRoutes(fastify: FastifyInstance) {
         where: {
           active: true
         },
-        include: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          lastLogin: true,
+          createdAt: true,
           userActivities: {
             take: 1,
-            orderBy: { createdAt: 'desc' }
+            orderBy: { createdAt: 'desc' },
+            select: {
+              action: true,
+              createdAt: true
+            }
           },
           userSessions: {
             where: { isActive: true },
-            take: 1
+            take: 1,
+            select: {
+              isActive: true,
+              loginTime: true,
+              lastActivity: true
+            }
           },
           userMonitoring: {
             where: {
@@ -77,7 +92,19 @@ export default async function monitoringRoutes(fastify: FastifyInstance) {
               }
             },
             take: 1,
-            orderBy: { date: 'desc' }
+            orderBy: { date: 'desc' },
+            select: {
+              totalTimeToday: true,
+              totalTimeThisWeek: true,
+              totalTimeThisMonth: true,
+              totalTimeThisQuarter: true,
+              sessionCount: true,
+              loginCount: true,
+              logoutCount: true,
+              pageViewCount: true,
+              apiCallCount: true,
+              date: true
+            }
           }
         }
       })

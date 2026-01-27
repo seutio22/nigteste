@@ -10,6 +10,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Save, Edit3, Clock, ArrowLeft } from 'lucide-react'
 import { Demand } from '../../types/demand'
 import { Autocomplete, TextField, Box, Typography } from '@mui/material'
+import { createPerfLogger } from '../../utils/perf'
 
 // Função para converter código de qualidade em texto legível
 const getQualidadeLabel = (value?: string) => {
@@ -28,6 +29,8 @@ export default function DemandDetailPage() {
   const { items, timeline, syncFromApi, syncTimeline, isLoading } = useDemandStore()
   const md = useMasterDataStore()
   const { user } = useAuthStore()
+  const perfRef = useRef(createPerfLogger('Cadastro/Editar'))
+  const perfReadyRef = useRef(false)
   const d = items.find((x) => x.id === id)
   
   // Controle para sincronizar timeline apenas uma vez
@@ -35,6 +38,22 @@ export default function DemandDetailPage() {
   
   // Estado para controlar se os dados mestres estão carregados
   const [masterDataLoaded, setMasterDataLoaded] = useState(false)
+
+  useEffect(() => {
+    perfRef.current.log('mount')
+  }, [])
+
+  useEffect(() => {
+    if (perfReadyRef.current) return
+    if (md.clientes.length && md.contratos.length && md.analistas.length) {
+      perfReadyRef.current = true
+      perfRef.current.log('data-ready', {
+        clientes: md.clientes.length,
+        contratos: md.contratos.length,
+        analistas: md.analistas.length
+      })
+    }
+  }, [md.clientes.length, md.contratos.length, md.analistas.length])
 
   // Carregar dados quando a página for acessada (apenas uma vez)
   useEffect(() => {

@@ -50,7 +50,10 @@ export const useSmartCache = (): UseSmartCacheReturn => {
     refreshStats();
     
     // Atualizar estatísticas a cada 30 segundos
-    const interval = setInterval(refreshStats, 30000);
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      refreshStats();
+    }, 30000);
     return () => clearInterval(interval);
   }, [refreshStats]);
 

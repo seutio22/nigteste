@@ -9,7 +9,7 @@ import { SmartImporter } from '../../components/SmartImporter'
 import { smartImporterConfigs } from '../../config/smartImporterConfigs'
 import type { ImportResult } from '../../types/smartImporter'
 import { useFilteredData } from '../../lib/utils'
-import { useEffect, useState, memo } from 'react'
+import { useEffect, useState, memo, useMemo, useRef } from 'react'
 import ExportDataModal from '../../components/ExportDataModal'
 import { usePermissions } from '../../hooks/usePermissions'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
@@ -74,6 +74,15 @@ export default function ManutencaoListPage() {
   const { items } = useManutencaoStore()
   const manutencaoStore = useManutencaoStore()
   const md = useMasterDataStore()
+  const {
+    analistasById,
+    areasById,
+    clientesById,
+    contratosById,
+    operadorasById,
+    produtosById,
+    sistemasById
+  } = md
   const { user } = useAuthStore()
   const { canCreate, canImport, canExport, canDelete } = usePermissions('manutencao')
   const [smartImporterOpen, setSmartImporterOpen] = useState(false)
@@ -82,6 +91,12 @@ export default function ManutencaoListPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const lastFocusSyncRef = useRef(0)
+  const focusSyncCooldownMs = 2 * 60 * 1000
+  const isDev = import.meta.env.DEV
+  const logDev = (...args: unknown[]) => {
+    if (isDev) console.log(...args)
+  }
 
   const STORAGE_KEY = 'manutencoes-list-view-v1'
   const FILTER_KEY = 'manutencoes-user-filter-v1'
@@ -96,26 +111,27 @@ export default function ManutencaoListPage() {
   // Filtrar dados por permissão do usuário
   const filteredItems = useFilteredData(items, user?.role, user?.id, user?.viewOwnDataOnly)
   
-  const finalFilteredItems = showOnlyMyManutencoes
-    ? items.filter(manutencao => {
-        // Buscar o analista correspondente ao usuário logado
-        const analista = md.analistas.find(a => a.id === manutencao.analistaId)
-        
-        // Múltiplas verificações para identificar se a manutenção é do usuário
-        const check1 = manutencao.analistaId === user?.id
-        const check2 = analista && analista.nome === user?.name
-        const check3 = user?.role === 'admin' && manutencao.analistaId === 'analista-admin'
-        const check4 = manutencao.analista === user?.id // Verificar campo analista também
-        const check5 = manutencao.analista === user?.name // Verificar se analista é o nome do usuário
-        
-        // Verificação adicional: se o usuário é admin, sempre incluir
-        const check6 = user?.role === 'admin'
-        
-        const isMyManutencao = check1 || check2 || check3 || check4 || check5 || check6
-        
-        return isMyManutencao
-      })
-    : items
+  const finalFilteredItems = useMemo(() => {
+    if (!showOnlyMyManutencoes) return filteredItems
+    return filteredItems.filter(manutencao => {
+      // Buscar o analista correspondente ao usuário logado
+      const analista = manutencao.analistaId ? analistasById[manutencao.analistaId] : undefined
+      
+      // Múltiplas verificações para identificar se a manutenção é do usuário
+      const check1 = manutencao.analistaId === user?.id
+      const check2 = analista && analista.nome === user?.name
+      const check3 = user?.role === 'admin' && manutencao.analistaId === 'analista-admin'
+      const check4 = manutencao.analista === user?.id // Verificar campo analista também
+      const check5 = manutencao.analista === user?.name // Verificar se analista é o nome do usuário
+      
+      // Verificação adicional: se o usuário é admin, sempre incluir
+      const check6 = user?.role === 'admin'
+      
+      const isMyManutencao = check1 || check2 || check3 || check4 || check5 || check6
+      
+      return isMyManutencao
+    })
+  }, [showOnlyMyManutencoes, filteredItems, analistasById, user?.id, user?.name, user?.role])
 
   // carregar preferências
   useEffect(() => {
@@ -164,7 +180,10 @@ export default function ManutencaoListPage() {
   // Recarregar dados quando a página recebe foco (volta de outras páginas)
   useEffect(() => {
     const handleFocus = () => {
+      const now = Date.now()
+      if (now - lastFocusSyncRef.current < focusSyncCooldownMs) return
       if (user?.id) {
+        lastFocusSyncRef.current = now
         manutencaoStore.syncFromApi()
       }
     }
@@ -188,7 +207,7 @@ export default function ManutencaoListPage() {
     try {
       const { api } = await import('../../lib/api.local')
       
-      console.log('🗑️ Iniciando exclusão em massa de', selectedIds.length, 'manutenções')
+      logDev('🗑️ Iniciando exclusão em massa de', selectedIds.length, 'manutenções')
       
       let successCount = 0
       let errorCount = 0
@@ -201,7 +220,7 @@ export default function ManutencaoListPage() {
         } catch (error: any) {
           // Se for erro 404, significa que já foi excluído - ignorar
           if (error?.message?.includes('404') || error?.response?.status === 404) {
-            console.log(`⚠️ Manutenção ${id} já foi excluída (404) - removendo do cache local`)
+            logDev(`⚠️ Manutenção ${id} já foi excluída (404) - removendo do cache local`)
             notFoundCount++
           } else {
             console.error(`❌ Erro ao excluir manutenção ${id}:`, error)
@@ -252,7 +271,7 @@ export default function ManutencaoListPage() {
       let totalSavedToDatabase = 0
       const errors: string[] = []
 
-      console.log('🔍 SMART IMPORT MANUTENÇÕES: Processando resultado:', result)
+      logDev('🔍 SMART IMPORT MANUTENÇÕES: Processando resultado:', result)
 
       // Função para converter número de série do Excel para DateTime ISO
       const excelDateToISO = (value: any): string => {
@@ -325,13 +344,13 @@ export default function ManutencaoListPage() {
             }
             
             const foundItem = item ? `${item.nome || item[nameField]} (${item.id})` : 'não encontrado'
-            console.log(`🔍 SMART IMPORT MANUTENÇÕES: Buscando "${name}" (normalizado: "${searchNormalized}") em ${items.length} itens, encontrado: ${foundItem}`)
+            logDev(`🔍 SMART IMPORT MANUTENÇÕES: Buscando "${name}" (normalizado: "${searchNormalized}") em ${items.length} itens, encontrado: ${foundItem}`)
             
             if (item) {
-              console.log(`✅ SMART IMPORT MANUTENÇÕES: Match encontrado - "${name}" -> "${item.nome || item[nameField]}" (${item.id})`)
+              logDev(`✅ SMART IMPORT MANUTENÇÕES: Match encontrado - "${name}" -> "${item.nome || item[nameField]}" (${item.id})`)
             } else {
-              console.log(`❌ SMART IMPORT MANUTENÇÕES: Nenhum match encontrado para "${name}"`)
-              console.log(`🔍 SMART IMPORT MANUTENÇÕES: Itens disponíveis:`, items.map(i => i.nome || i[nameField]))
+              logDev(`❌ SMART IMPORT MANUTENÇÕES: Nenhum match encontrado para "${name}"`)
+              logDev(`🔍 SMART IMPORT MANUTENÇÕES: Itens disponíveis:`, items.map(i => i.nome || i[nameField]))
             }
             
             return item?.id || ''
@@ -339,10 +358,10 @@ export default function ManutencaoListPage() {
 
                   // Debug: verificar dados disponíveis apenas se necessário
                   if (process.env.NODE_ENV === 'development') {
-                    console.log('🔍 SMART IMPORT MANUTENÇÕES: Dados disponíveis para mapeamento:')
-                    console.log('  - tiposCadastro:', md.tiposCadastro.length, 'itens')
-                    console.log('  - padrao:', md.padrao.length, 'itens')
-                    console.log('  - analistas:', md.analistas.length, 'itens')
+                    logDev('🔍 SMART IMPORT MANUTENÇÕES: Dados disponíveis para mapeamento:')
+                    logDev('  - tiposCadastro:', md.tiposCadastro.length, 'itens')
+                    logDev('  - padrao:', md.padrao.length, 'itens')
+                    logDev('  - analistas:', md.analistas.length, 'itens')
                   }
 
                   // Mapear dados para o formato de manutenção
@@ -352,10 +371,10 @@ export default function ManutencaoListPage() {
 
                   // Debug: mapeamento de campos apenas em desenvolvimento
                   if (process.env.NODE_ENV === 'development') {
-                    console.log('🔍 SMART IMPORT MANUTENÇÕES: Mapeamento de campos:')
-                    console.log('  - tipoServico:', data.tipoServico, '-> tipoServicoId:', tipoServicoId)
-                    console.log('  - tipo:', data.tipo, '-> tipoId:', tipoId)
-                    console.log('  - analista:', data.analista, '-> analistaId:', analistaId)
+                    logDev('🔍 SMART IMPORT MANUTENÇÕES: Mapeamento de campos:')
+                    logDev('  - tipoServico:', data.tipoServico, '-> tipoServicoId:', tipoServicoId)
+                    logDev('  - tipo:', data.tipo, '-> tipoId:', tipoId)
+                    logDev('  - analista:', data.analista, '-> analistaId:', analistaId)
                   }
           
           const manutencaoData = {
@@ -386,11 +405,11 @@ export default function ManutencaoListPage() {
 
           // Campos vazios já são filtrados na construção do objeto
 
-          console.log('🔍 SMART IMPORT MANUTENÇÕES: Salvando manutenção:', manutencaoData)
+          logDev('🔍 SMART IMPORT MANUTENÇÕES: Salvando manutenção:', manutencaoData)
 
           // Salvar na API
           const savedManutencao = await api.post('/manutencoes', manutencaoData)
-          console.log('✅ SMART IMPORT MANUTENÇÕES: Manutenção salva:', savedManutencao.id)
+          logDev('✅ SMART IMPORT MANUTENÇÕES: Manutenção salva:', savedManutencao.id)
           
           totalImported++
           totalSavedToDatabase++
@@ -408,12 +427,12 @@ export default function ManutencaoListPage() {
 
       const totalFromResult = result.valid.length
       const successMessage = `${totalImported} de ${totalFromResult} manutenções processadas, ${totalSavedToDatabase} salvas no banco de dados`
-      console.log(`✅ SMART IMPORT MANUTENÇÕES: ${successMessage}`)
-      console.log(`🔍 SMART IMPORT MANUTENÇÕES: Detalhes do processamento:`)
-      console.log(`  - Total de itens válidos no resultado: ${totalFromResult}`)
-      console.log(`  - Total de itens processados: ${totalImported}`)
-      console.log(`  - Total salvos no banco: ${totalSavedToDatabase}`)
-      console.log(`  - Total de erros: ${errors.length}`)
+      logDev(`✅ SMART IMPORT MANUTENÇÕES: ${successMessage}`)
+      logDev(`🔍 SMART IMPORT MANUTENÇÕES: Detalhes do processamento:`)
+      logDev(`  - Total de itens válidos no resultado: ${totalFromResult}`)
+      logDev(`  - Total de itens processados: ${totalImported}`)
+      logDev(`  - Total salvos no banco: ${totalSavedToDatabase}`)
+      logDev(`  - Total de erros: ${errors.length}`)
 
       // Mostrar notificação de sucesso
       if (totalSavedToDatabase > 0) {
@@ -449,21 +468,18 @@ export default function ManutencaoListPage() {
     } catch {}
   }
 
+  const tiposCadastroById = useMemo(() => (
+    Object.fromEntries(md.tiposCadastro.map((t: any) => [t.id, t]))
+  ), [md.tiposCadastro])
+  const padraoById = useMemo(() => (
+    Object.fromEntries(md.padrao.map((p: any) => [p.id, p]))
+  ), [md.padrao])
 
-  const rows = finalFilteredItems.map((d) => {
-    // Gerar ticket se não existir
-    const generateTicket = (id: string) => {
-      const now = new Date()
-      const year = now.getFullYear()
-      const month = String(now.getMonth() + 1).padStart(2, '0')
-      const day = String(now.getDate()).padStart(2, '0')
-      const random = Math.random().toString(36).substr(2, 4).toUpperCase()
-      return `MAN-${year}${month}${day}-${random}`
-    }
-    
+
+  const rows = useMemo(() => finalFilteredItems.map((d) => {
     return {
       id: d.id,
-      ticket: d.ticket || generateTicket(d.id),
+      ticket: d.ticket || d.id,
       descricao: d.descricao ?? '',
       status: d.status,
       analista: (() => {
@@ -475,72 +491,72 @@ export default function ManutencaoListPage() {
         // Se d.analista é um ID, buscar o nome; se já é um nome, usar diretamente
         if (d.analista && typeof d.analista === 'string' && d.analista.length > 20) {
           // Parece ser um ID (UUID), buscar o nome
-          return md.analistas.find(a => a.id === d.analista)?.nome ?? d.analista
+          return analistasById[d.analista]?.nome ?? d.analista
         }
         
         // Se d.analistaId existe, buscar o nome
         if (d.analistaId) {
-          return md.analistas.find(a => a.id === d.analistaId)?.nome ?? d.analistaId
+          return analistasById[d.analistaId]?.nome ?? d.analistaId
         }
         
         return d.analista || ''
       })(),
       area: (() => {
         if (d.area && typeof d.area === 'string' && d.area.length > 20) {
-          return md.areas.find(ar => ar.id === d.area)?.nome ?? d.area
+          return areasById[d.area]?.nome ?? d.area
         }
         
         // Se d.areaId existe, buscar o nome
         if (d.areaId) {
-          return md.areas.find(ar => ar.id === d.areaId)?.nome ?? d.areaId
+          return areasById[d.areaId]?.nome ?? d.areaId
         }
         
         return d.area || ''
       })(),
       cliente: (() => {
         if (d.cliente && typeof d.cliente === 'string' && d.cliente.length > 20) {
-          return md.clientes.find(c => c.id === d.cliente)?.nome ?? d.cliente
+          return clientesById[d.cliente]?.nome ?? d.cliente
         }
         
         // Se d.clienteId existe, buscar o nome
         if (d.clienteId) {
-          return md.clientes.find(c => c.id === d.clienteId)?.nome ?? d.clienteId
+          return clientesById[d.clienteId]?.nome ?? d.clienteId
         }
         
         return d.cliente || ''
       })(),
       contrato: (() => {
         if (d.contrato && typeof d.contrato === 'string' && d.contrato.length > 20) {
-          return md.contratos.find(c => c.id === d.contrato)?.numero ?? d.contrato
+          return contratosById[d.contrato]?.numero ?? d.contrato
         }
         
         // Se d.contratoId existe, buscar o código
         if (d.contratoId) {
-          return md.contratos.find(c => c.id === d.contratoId)?.numero ?? d.contratoId
+          return contratosById[d.contratoId]?.numero ?? d.contratoId
         }
         
         return d.contrato || ''
       })(),
       operadora: (() => {
         if (d.operadora && typeof d.operadora === 'string' && d.operadora.length > 20) {
-          return md.operadoras.find(o => o.id === d.operadora)?.nome ?? d.operadora
+          return operadorasById[d.operadora]?.nome ?? d.operadora
         }
         
         // Se d.operadoraId existe, buscar o nome
         if (d.operadoraId) {
-          return md.operadoras.find(o => o.id === d.operadoraId)?.nome ?? d.operadoraId
+          return operadorasById[d.operadoraId]?.nome ?? d.operadoraId
         }
         
         return d.operadora || ''
       })(),
       produto: (() => {
         if (d.produto && typeof d.produto === 'string' && d.produto.length > 20) {
-          return md.produtos.find(p => p.id === d.produto)?.nome ?? d.produto
+          return produtosById[d.produto]?.nome ?? d.produto
         }
         
         // Se d.produtoId existe, buscar o nome
         if (d.produtoId) {
-          return md.produtos.find(p => p.id === d.produtoId)?.nome ?? d.produtoId
+          return produtosById[d.produtoId]?.nome ?? d.produtoId
         }
         
         return d.produto || ''
@@ -548,13 +564,13 @@ export default function ManutencaoListPage() {
       tipoServico: (() => {
         if (d.tipoServico && typeof d.tipoServico === 'string' && d.tipoServico.length > 20) {
           // Usar tiposCadastro para tipo de serviço
-          const tipoServico = md.tiposCadastro.find(ts => ts.id === d.tipoServico)
+          const tipoServico = tiposCadastroById[d.tipoServico]
           return tipoServico?.nome ?? d.tipoServico
         }
         
         // Se d.tipoServicoId existe, buscar o nome
         if (d.tipoServicoId) {
-          const tipoServico = md.tiposCadastro.find(ts => ts.id === d.tipoServicoId)
+          const tipoServico = tiposCadastroById[d.tipoServicoId]
           return tipoServico?.nome ?? d.tipoServicoId
         }
         
@@ -563,13 +579,13 @@ export default function ManutencaoListPage() {
       tipo: (() => {
         if (d.tipo && typeof d.tipo === 'string' && d.tipo.length > 20) {
         // Buscar o tipo de manutenção nos dados mestres (padrao)
-        const tipo = md.padrao.find(p => p.id === d.tipo)
+        const tipo = padraoById[d.tipo]
         return tipo?.nome ?? d.tipo
         }
         
         // Se d.tipoId existe, buscar o nome
         if (d.tipoId) {
-          const tipo = md.padrao.find(p => p.id === d.tipoId)
+          const tipo = padraoById[d.tipoId]
           return tipo?.nome ?? d.tipoId
         }
         
@@ -579,30 +595,42 @@ export default function ManutencaoListPage() {
       // A formatação será feita pelo valueFormatter da coluna
       updatedAt: d.updatedAt || '',
     }
-  })
+  }), [
+    finalFilteredItems,
+    analistasById,
+    areasById,
+    clientesById,
+    contratosById,
+    operadorasById,
+    produtosById,
+    tiposCadastroById,
+    padraoById
+  ])
   
   // Ordenar os dados por updatedAt (data de atualização - mais recente primeiro) antes de passar para o DataGrid
-  const sortedRows = [...rows].sort((a, b) => {
-    // Tratar strings vazias como datas inválidas (devem ir para o final)
-    const dateA = a.updatedAt && a.updatedAt.trim() !== '' ? new Date(a.updatedAt).getTime() : 0
-    const dateB = b.updatedAt && b.updatedAt.trim() !== '' ? new Date(b.updatedAt).getTime() : 0
-    
-    // Se ambos são inválidos, manter ordem original
-    if (dateA === 0 && dateB === 0) return 0
-    
-    // Datas inválidas vão para o final
-    if (dateA === 0) return 1
-    if (dateB === 0) return -1
-    
-    // Ordem decrescente (mais recente primeiro)
-    return dateB - dateA
-  })
+  const sortedRows = useMemo(() => (
+    [...rows].sort((a, b) => {
+      // Tratar strings vazias como datas inválidas (devem ir para o final)
+      const dateA = a.updatedAt && a.updatedAt.trim() !== '' ? new Date(a.updatedAt).getTime() : 0
+      const dateB = b.updatedAt && b.updatedAt.trim() !== '' ? new Date(b.updatedAt).getTime() : 0
+      
+      // Se ambos são inválidos, manter ordem original
+      if (dateA === 0 && dateB === 0) return 0
+      
+      // Datas inválidas vão para o final
+      if (dateA === 0) return 1
+      if (dateB === 0) return -1
+      
+      // Ordem decrescente (mais recente primeiro)
+      return dateB - dateA
+    })
+  ), [rows])
   
   // Debug: mostrar primeiras linhas ordenadas
-  console.log('🔍 Manutenção: Total de rows:', sortedRows.length)
-  console.log('🔍 Manutenção: Primeiras 5 linhas ordenadas por updatedAt:')
+  logDev('🔍 Manutenção: Total de rows:', sortedRows.length)
+  logDev('🔍 Manutenção: Primeiras 5 linhas ordenadas por updatedAt:')
   sortedRows.slice(0, 5).forEach((row, idx) => {
-    console.log(`  [${idx}] ID: ${row.id}, updatedAt: ${row.updatedAt}, Data: ${row.updatedAt ? new Date(row.updatedAt).toLocaleString('pt-BR') : 'N/A'}`)
+    logDev(`  [${idx}] ID: ${row.id}, updatedAt: ${row.updatedAt}, Data: ${row.updatedAt ? new Date(row.updatedAt).toLocaleString('pt-BR') : 'N/A'}`)
   })
 
   return (
@@ -851,15 +879,15 @@ export default function ManutencaoListPage() {
         data={finalFilteredItems.map(d => ({
           ...d,
           // Mapear IDs para nomes legíveis
-          analista: md.analistas.find(a => a.id === d.analistaId)?.nome ?? d.analista ?? 'N/A',
-          area: md.areas.find(ar => ar.id === d.areaId)?.nome ?? d.area ?? 'N/A',
-          cliente: md.clientes.find(c => c.id === d.clienteId)?.nome ?? d.cliente ?? 'N/A',
-          contrato: md.contratos.find(c => c.id === d.contratoId)?.numero ?? d.contrato ?? 'N/A',
-          operadora: md.operadoras.find(o => o.id === d.operadoraId)?.nome ?? d.operadora ?? 'N/A',
-          produto: md.produtos.find(p => p.id === d.produtoId)?.nome ?? d.produto ?? 'N/A',
-          sistema: md.sistemas.find(s => s.id === d.sistemaId)?.nome ?? d.sistema ?? 'N/A',
-          tipoServico: md.tiposCadastro.find(ts => ts.id === d.tipoServicoId)?.nome ?? d.tipoServico ?? 'N/A',
-          tipo: md.padrao.find(p => p.id === d.tipoId)?.nome ?? d.tipo ?? 'N/A',
+          analista: analistasById[d.analistaId]?.nome ?? d.analista ?? 'N/A',
+          area: areasById[d.areaId]?.nome ?? d.area ?? 'N/A',
+          cliente: clientesById[d.clienteId]?.nome ?? d.cliente ?? 'N/A',
+          contrato: contratosById[d.contratoId]?.numero ?? d.contrato ?? 'N/A',
+          operadora: operadorasById[d.operadoraId]?.nome ?? d.operadora ?? 'N/A',
+          produto: produtosById[d.produtoId]?.nome ?? d.produto ?? 'N/A',
+          sistema: sistemasById[d.sistemaId]?.nome ?? d.sistema ?? 'N/A',
+          tipoServico: tiposCadastroById[d.tipoServicoId]?.nome ?? d.tipoServico ?? 'N/A',
+          tipo: padraoById[d.tipoId]?.nome ?? d.tipo ?? 'N/A',
           // Formatar datas
           dataInicio: d.dataInicio ? new Date(d.dataInicio).toLocaleDateString('pt-BR') : 'N/A',
           dataFinal: d.dataFinal ? new Date(d.dataFinal).toLocaleDateString('pt-BR') : 'N/A',
@@ -959,6 +987,16 @@ const ActionCell = memo(function ActionCell({ id, status }: { id: string, status
   const navigate = useNavigate()
   const store = useManutencaoStore()
   const md = useMasterDataStore()
+  const {
+    analistasById,
+    areasById,
+    clientesById,
+    contratosById,
+    operadorasById,
+    produtosById,
+    sistemasById,
+    tiposDemandaById
+  } = md
   const { canEdit, canDelete } = usePermissions('manutencao')
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
   const [openStatus, setOpenStatus] = useState(false)
@@ -1144,22 +1182,22 @@ const ActionCell = memo(function ActionCell({ id, status }: { id: string, status
   const doExportPdf = () => {
     const d = store.items.find((x) => x.id === id)
     if (!d) return
-    const label = (val?: string, arr?: { id: string, nome: string }[]) => arr?.find(a => a.id === val)?.nome || '-'
-    const contrato = md.contratos.find(c => c.id === d.contrato)?.codigo || '-'
+    const label = (val?: string, map?: Record<string, { nome?: string }>) => map?.[val || '']?.nome || '-'
+    const contrato = contratosById[d.contrato || '']?.codigo || '-'
     const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Manutenção ${d.id}</title>
     <style>body{font-family:Arial, sans-serif; padding:24px;} h1{font-size:18px;} table{width:100%; border-collapse:collapse;} td{padding:6px; border-bottom:1px solid #ddd;} .muted{color:#555;}</style>
     </head><body>
     <h1>Manutenção ${d.id}</h1>
     <table>
       <tr><td class="muted">Status</td><td>${d.status}</td></tr>
-      <tr><td class="muted">Cliente</td><td>${label(d.cliente, md.clientes)}</td></tr>
+      <tr><td class="muted">Cliente</td><td>${label(d.cliente, clientesById)}</td></tr>
       <tr><td class="muted">Contrato</td><td>${contrato}</td></tr>
-      <tr><td class="muted">Operadora</td><td>${label(d.operadora, md.operadoras)}</td></tr>
-      <tr><td class="muted">Produto</td><td>${label(d.produto, md.produtos)}</td></tr>
-      <tr><td class="muted">Sistema</td><td>${label(d.sistema, md.sistemas)}</td></tr>
-      <tr><td class="muted">Área</td><td>${label(d.area, md.areas)}</td></tr>
-      <tr><td class="muted">Analista</td><td>${label(d.analista, md.analistas)}</td></tr>
-      <tr><td class="muted">Tipo</td><td>${label(d.tipo, md.tiposDemanda)}</td></tr>
+      <tr><td class="muted">Operadora</td><td>${label(d.operadora, operadorasById)}</td></tr>
+      <tr><td class="muted">Produto</td><td>${label(d.produto, produtosById)}</td></tr>
+      <tr><td class="muted">Sistema</td><td>${label(d.sistema, sistemasById)}</td></tr>
+      <tr><td class="muted">Área</td><td>${label(d.area, areasById)}</td></tr>
+      <tr><td class="muted">Analista</td><td>${label(d.analista, analistasById)}</td></tr>
+      <tr><td class="muted">Tipo</td><td>${label(d.tipo, tiposDemandaById)}</td></tr>
       <tr><td class="muted">Descrição</td><td>${d.descricao ?? '-'}</td></tr>
       <tr><td class="muted">Atualizado em</td><td>${new Date(d.updatedAt).toLocaleString('pt-BR')}</td></tr>
     </table>

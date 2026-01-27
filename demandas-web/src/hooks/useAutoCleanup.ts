@@ -66,7 +66,10 @@ export function useAutoCleanup(options: UseAutoCleanupOptions = {}) {
     const intervalMs = intervalMinutes * 60 * 1000
     log(`Iniciando limpeza automática (intervalo: ${intervalMinutes} minutos)`)
     
-    intervalRef.current = setInterval(executeCleanup, intervalMs)
+    intervalRef.current = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return
+      executeCleanup()
+    }, intervalMs)
     isActiveRef.current = true
   }
 
@@ -134,7 +137,10 @@ export function useSimpleAutoCleanup(intervalMinutes: number = 5) {
     cleanup()
 
     // Configurar limpeza periódica
-    const interval = setInterval(cleanup, intervalMs)
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return
+      cleanup()
+    }, intervalMs)
 
     return () => clearInterval(interval)
   }, [intervalMinutes])

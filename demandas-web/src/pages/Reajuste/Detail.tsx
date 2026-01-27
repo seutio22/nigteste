@@ -9,6 +9,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { StatusBadge } from '../../components/StatusBadge'
 import { Timeline } from '../../components/Timeline'
 import { fmt, calcTempo } from '../../lib/utils'
+import { createPerfLogger } from '../../utils/perf'
 
 export default function ReajusteDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -16,6 +17,8 @@ export default function ReajusteDetailPage() {
   const store = useReajusteStore()
   const timelineStore = useTimelineStore()
   const md = useMasterDataStore()
+  const perfRef = useRef(createPerfLogger('Reajuste/Editar'))
+  const perfReadyRef = useRef(false)
   const reajuste = store.items.find(r => r.id === id)
   
   // Controle para sincronizar timeline apenas uma vez
@@ -23,6 +26,22 @@ export default function ReajusteDetailPage() {
   const syncedOnceRef = useRef<boolean>(false)
   const [masterDataLoaded, setMasterDataLoaded] = useState(false)
   const [triedDirectFetch, setTriedDirectFetch] = useState(false)
+
+  useEffect(() => {
+    perfRef.current.log('mount')
+  }, [])
+
+  useEffect(() => {
+    if (perfReadyRef.current) return
+    if (md.clientes.length && md.contratos.length && md.analistas.length) {
+      perfReadyRef.current = true
+      perfRef.current.log('data-ready', {
+        clientes: md.clientes.length,
+        contratos: md.contratos.length,
+        analistas: md.analistas.length
+      })
+    }
+  }, [md.clientes.length, md.contratos.length, md.analistas.length])
 
   // Fluxo base igual Manutenção: tentar sync quando entra e carregar masters
   useEffect(() => {

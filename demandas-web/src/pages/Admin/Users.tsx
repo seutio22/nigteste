@@ -59,6 +59,7 @@ interface User {
   active: boolean
   permissions?: string
   createdAt: string
+  passwordUpdatedAt?: string | null
 }
 
 export default function UsersPage() {
@@ -482,6 +483,12 @@ export default function UsersPage() {
                   
                   <Typography variant="caption" color="text.secondary" display="block">
                     Criado em: {new Date(user.createdAt).toLocaleDateString('pt-BR')}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" display="block">
+                    Última troca de senha:{' '}
+                    {user.passwordUpdatedAt
+                      ? new Date(user.passwordUpdatedAt).toLocaleDateString('pt-BR')
+                      : 'Não informado'}
                   </Typography>
                   
                   <Stack direction="row" spacing={1} sx={{ mt: 2 }}>

@@ -2,6 +2,11 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { Area, Analista, Cliente, Contrato, Operadora, Produto, Sistema, Grupo, TipoDemanda, TipoServico, TipoCadastro, Solicitante, Relatorio, Modelo } from '../types/masterData'
 
+const isDev = import.meta.env.DEV
+const logDev = (...args: unknown[]) => {
+  if (isDev) console.log(...args)
+}
+
 export interface MasterDataState {
   clientes: Cliente[]
   contratos: Contrato[]
@@ -40,10 +45,12 @@ export interface MasterDataState {
   clearAll: () => void
   forceCleanSync: () => Promise<void>
   clearAreasLocalData: () => void
-  syncFromApi?: () => Promise<void>
+  syncFromApi?: (options?: boolean | { force?: boolean; entities?: Array<keyof MasterDataState> }) => Promise<void>
   // Estado de sincronização
   isSyncing: boolean
   lastSync: string | null
+  lastSyncMs: number
+  lastSyncByEntity: Record<string, number>
   // Controle de filtro de contratos
   showOnlyActiveContracts: boolean
   toggleActiveContractsFilter: () => void
@@ -141,6 +148,8 @@ export const useMasterDataStore = create<MasterDataState>()(
         // Estado de sincronização
         isSyncing: false,
         lastSync: null,
+        lastSyncMs: 0,
+        lastSyncByEntity: {},
         // Controle de filtro de contratos
         showOnlyActiveContracts: false,
         toggleActiveContractsFilter: () => set((state) => ({ showOnlyActiveContracts: !state.showOnlyActiveContracts })),
@@ -188,11 +197,13 @@ export const useMasterDataStore = create<MasterDataState>()(
             padrao: get().padrao.length
           })
           
+          const now = Date.now()
           set((state) => {
             const newState = { 
               ...state, 
               ...payload,
-              lastSync: new Date().toISOString()
+              lastSync: new Date().toISOString(),
+              lastSyncMs: now
             }
             const indexes = buildIndexes(newState)
             console.log('🔍 MasterDataStore: Estado após upsertMany:', {
@@ -218,7 +229,7 @@ export const useMasterDataStore = create<MasterDataState>()(
         clearAll: () => set({
           clientes: [], contratos: [], operadoras: [], produtos: [], sistemas: [], analistas: [], areas: [], tiposCadastro: [], tiposServico: [], padrao: [],
           areasMailling: [], cargosMailling: [], filiaisMailling: [], categorias: [], periodicidades: [], status: [],
-          isSyncing: false, lastSync: null,
+          isSyncing: false, lastSync: null, lastSyncMs: 0, lastSyncByEntity: {},
           analistasById: {},
           areasById: {},
           clientesById: {},
@@ -238,7 +249,7 @@ export const useMasterDataStore = create<MasterDataState>()(
           set({
             clientes: [], contratos: [], operadoras: [], produtos: [], sistemas: [], analistas: [], areas: [], tiposCadastro: [], tiposServico: [], padrao: [],
             areasMailling: [], cargosMailling: [], filiaisMailling: [], categorias: [], periodicidades: [], status: [],
-            isSyncing: false, lastSync: null,
+            isSyncing: false, lastSync: null, lastSyncMs: 0, lastSyncByEntity: {},
             analistasById: {},
             areasById: {},
             clientesById: {},
@@ -276,63 +287,69 @@ export const useMasterDataStore = create<MasterDataState>()(
           }))
         },
         
-        async syncFromApi(force = false) {
-          console.log('🔄 MasterDataStore: Iniciando sincronização com API...')
+        async syncFromApi(options: boolean | { force?: boolean; entities?: Array<keyof MasterDataState> } = false) {
+          logDev('🔄 MasterDataStore: Iniciando sincronização com API...')
           
+          const force = typeof options === 'boolean' ? options : !!options?.force
+          const requestedEntities = typeof options === 'object' ? options?.entities : undefined
           const state = get()
           if (state.isSyncing) {
-            console.log('🔍 MasterDataStore: Sincronização já em andamento, ignorando...')
+            logDev('🔍 MasterDataStore: Sincronização já em andamento, ignorando...')
+            return
+          }
+          const now = Date.now()
+          if (!force && !requestedEntities && now - state.lastSyncMs < 2 * 60 * 1000) {
             return
           }
           
           set({ isSyncing: true })
           
           try {
-            console.log('🔍 MasterDataStore: Fazendo requisições para API...')
-            
-            // Fazer requisições paralelas para todos os endpoints
-            const [
-              clientes, contratos, operadoras, produtos, sistemas, grupos, analistas, areas,
-              tiposCadastro, tiposServico, tiposDemanda, solicitantes, relatorios, modelos, padrao,
-              areasMailling, cargosMailling, filiaisMailling
-            ] = await Promise.all([
-              fetch('https://nigteste-production.up.railway.app/clientes').then(r => r.json()).catch(() => []),
-              fetch('https://nigteste-production.up.railway.app/contratos').then(r => r.json()).catch(() => []),
-              fetch('https://nigteste-production.up.railway.app/operadoras').then(r => r.json()).catch(() => []),
-              fetch('https://nigteste-production.up.railway.app/produtos').then(r => r.json()).catch(() => []),
-              fetch('https://nigteste-production.up.railway.app/sistemas').then(r => r.json()).catch(() => []),
-              fetch('https://nigteste-production.up.railway.app/grupos').then(r => r.json()).catch(() => []),
-              fetch('https://nigteste-production.up.railway.app/analistas').then(r => r.json()).catch(() => []),
-              fetch('https://nigteste-production.up.railway.app/areas').then(r => r.json()).catch(() => []),
-              fetch('https://nigteste-production.up.railway.app/tiposCadastro').then(r => r.json()).catch(() => []),
-              fetch('https://nigteste-production.up.railway.app/tiposServico').then(r => r.json()).catch(() => []),
-              fetch('https://nigteste-production.up.railway.app/tiposDemanda').then(r => r.json()).catch(() => []),
-              fetch('https://nigteste-production.up.railway.app/solicitantes').then(r => r.json()).catch(() => []),
-              fetch('https://nigteste-production.up.railway.app/relatorios').then(r => r.json()).catch(() => []),
-              fetch('https://nigteste-production.up.railway.app/modelos').then(r => r.json()).catch(() => []),
-              fetch('https://nigteste-production.up.railway.app/padrao').then(r => r.json()).catch(() => []),
-              // Endpoints Mailling ATIVADOS - Dados agora vêm do banco de dados
-              fetch('https://nigteste-production.up.railway.app/areas-mailling').then(r => r.json()).catch(() => []),
-              fetch('https://nigteste-production.up.railway.app/cargos-mailling').then(r => r.json()).catch(() => []),
-              fetch('https://nigteste-production.up.railway.app/filiais-mailling').then(r => r.json()).catch(() => [])
-            ])
-            
-            console.log('✅ MasterDataStore: Dados recebidos da API:', {
-              clientes: clientes?.length || 0,
-              contratos: contratos?.length || 0,
-              operadoras: operadoras?.length || 0,
-              produtos: produtos?.length || 0,
-              sistemas: sistemas?.length || 0,
-              grupos: grupos?.length || 0,
-              analistas: analistas?.length || 0,
-              areas: areas?.length || 0,
-              areasMailling: areasMailling?.length || 0,
-              cargosMailling: cargosMailling?.length || 0,
-              filiaisMailling: filiaisMailling?.length || 0
-            })
+            logDev('🔍 MasterDataStore: Fazendo requisições para API...')
+            const fetchJson = (url: string) => fetch(url).then(r => r.json()).catch(() => [])
+
+            const fetchMap: Record<string, () => Promise<any[]>> = {
+              clientes: () => fetchJson('https://nigteste-production.up.railway.app/clientes'),
+              contratos: () => fetchJson('https://nigteste-production.up.railway.app/contratos'),
+              operadoras: () => fetchJson('https://nigteste-production.up.railway.app/operadoras'),
+              produtos: () => fetchJson('https://nigteste-production.up.railway.app/produtos'),
+              sistemas: () => fetchJson('https://nigteste-production.up.railway.app/sistemas'),
+              grupos: () => fetchJson('https://nigteste-production.up.railway.app/grupos'),
+              analistas: () => fetchJson('https://nigteste-production.up.railway.app/analistas'),
+              areas: () => fetchJson('https://nigteste-production.up.railway.app/areas'),
+              tiposCadastro: () => fetchJson('https://nigteste-production.up.railway.app/tiposCadastro'),
+              tiposServico: () => fetchJson('https://nigteste-production.up.railway.app/tiposServico'),
+              tiposDemanda: () => fetchJson('https://nigteste-production.up.railway.app/tiposDemanda'),
+              solicitantes: () => fetchJson('https://nigteste-production.up.railway.app/solicitantes'),
+              relatorios: () => fetchJson('https://nigteste-production.up.railway.app/relatorios'),
+              modelos: () => fetchJson('https://nigteste-production.up.railway.app/modelos'),
+              padrao: () => fetchJson('https://nigteste-production.up.railway.app/padrao'),
+              areasMailling: () => fetchJson('https://nigteste-production.up.railway.app/areas-mailling'),
+              cargosMailling: () => fetchJson('https://nigteste-production.up.railway.app/cargos-mailling'),
+              filiaisMailling: () => fetchJson('https://nigteste-production.up.railway.app/filiais-mailling')
+            }
+
+            const allEntities = Object.keys(fetchMap)
+            const entities = (requestedEntities && requestedEntities.length > 0)
+              ? requestedEntities.map(String).filter((e) => allEntities.includes(e))
+              : allEntities
+
+            const ttlMs = 2 * 60 * 1000
+            const toFetch = (requestedEntities && requestedEntities.length > 0 && !force)
+              ? entities.filter((entity) => now - (state.lastSyncByEntity?.[entity] || 0) >= ttlMs)
+              : entities
+
+            if (toFetch.length === 0) {
+              set({ isSyncing: false })
+              return
+            }
+
+            const results = await Promise.all(
+              toFetch.map(async (entity) => [entity, await fetchMap[entity]()] as const)
+            )
+            const dataMap = Object.fromEntries(results)
             
             // Fazer merge inteligente dos dados
-            const localState = get()
             const mergeData = (apiData: any[], localData: any[], entityName: string) => {
               // Filtrar dados excluídos localmente
               const excludedIds = get().localExclusions[entityName] || []
@@ -340,68 +357,46 @@ export const useMasterDataStore = create<MasterDataState>()(
               // Se API retornou dados, usar API (filtrando exclusões locais)
               if (apiData && apiData.length > 0) {
                 const filteredApiData = apiData.filter(item => !excludedIds.includes(item.id))
-                console.log(`✅ MasterDataStore: Usando dados da API para ${entityName}: ${filteredApiData.length} registros (${excludedIds.length} excluídos localmente)`)
+                logDev(`✅ MasterDataStore: Usando dados da API para ${entityName}: ${filteredApiData.length} registros (${excludedIds.length} excluídos localmente)`)
                 return filteredApiData
               }
               // Se não há dados da API mas há dados locais, manter locais (filtrando exclusões locais)
               if (localData && localData.length > 0) {
                 const filteredLocalData = localData.filter(item => !excludedIds.includes(item.id))
-                console.log(`⚠️ MasterDataStore: API vazia para ${entityName}, mantendo dados locais: ${filteredLocalData.length} registros (${excludedIds.length} excluídos localmente)`)
+                logDev(`⚠️ MasterDataStore: API vazia para ${entityName}, mantendo dados locais: ${filteredLocalData.length} registros (${excludedIds.length} excluídos localmente)`)
                 return filteredLocalData
               }
               // Se não há dados nem da API nem locais, retornar array vazio
-              console.log(`❌ MasterDataStore: Nenhum dado disponível para ${entityName}`)
+              logDev(`❌ MasterDataStore: Nenhum dado disponível para ${entityName}`)
               return []
             }
-            
-            // Função para usar apenas dados da API (sem merge com dados locais)
-            const useOnlyApiData = (apiData: any[], entityName: string) => {
-              if (apiData && apiData.length > 0) {
-                // Filtrar dados excluídos localmente
-                const excludedIds = get().localExclusions[entityName] || []
-                const filteredData = apiData.filter(item => !excludedIds.includes(item.id))
-                
-                console.log(`✅ MasterDataStore: Usando APENAS dados da API para ${entityName}: ${filteredData.length} registros (${excludedIds.length} excluídos localmente)`)
-                return filteredData
-              }
-              console.log(`❌ MasterDataStore: API vazia para ${entityName}, retornando array vazio`)
-              return []
-            }
-            
-            // Atualizar store com dados do backend
+
+            logDev('✅ MasterDataStore: Dados recebidos da API:', Object.fromEntries(
+              toFetch.map((entity) => [entity, dataMap[entity]?.length || 0])
+            ))
+
             set((state) => {
-              const nextState = {
-                ...state,
-                clientes: mergeData(clientes, localState.clientes, 'clientes'),
-                contratos: mergeData(contratos, localState.contratos, 'contratos'),
-                operadoras: mergeData(operadoras, localState.operadoras, 'operadoras'),
-                produtos: mergeData(produtos, localState.produtos, 'produtos'),
-                sistemas: mergeData(sistemas, localState.sistemas, 'sistemas'),
-                grupos: mergeData(grupos, localState.grupos, 'grupos'),
-                analistas: mergeData(analistas, localState.analistas, 'analistas'),
-                areas: mergeData(areas, localState.areas, 'areas'),
-                tiposCadastro: mergeData(tiposCadastro, localState.tiposCadastro, 'tiposCadastro'),
-                tiposServico: mergeData(tiposServico, localState.tiposServico, 'tiposServico'),
-                tiposDemanda: mergeData(tiposDemanda, localState.tiposDemanda, 'tiposDemanda'),
-                solicitantes: mergeData(solicitantes, localState.solicitantes, 'solicitantes'),
-                relatorios: mergeData(relatorios, localState.relatorios, 'relatorios'),
-                modelos: mergeData(modelos, localState.modelos, 'modelos'),
-                padrao: mergeData(padrao, localState.padrao, 'padrao'),
-                areasMailling: mergeData(areasMailling, localState.areasMailling, 'areasMailling'),
-                cargosMailling: mergeData(cargosMailling, localState.cargosMailling, 'cargosMailling'),
-                filiaisMailling: mergeData(filiaisMailling, localState.filiaisMailling, 'filiaisMailling'),
-                isSyncing: false,
-                lastSync: new Date().toISOString()
+              const nextState: MasterDataState = { ...state }
+              toFetch.forEach((entity) => {
+                const localData = (state as any)[entity] || []
+                const apiData = dataMap[entity] || []
+                ;(nextState as any)[entity] = mergeData(apiData, localData, entity)
+              })
+              nextState.isSyncing = false
+              if (!requestedEntities || requestedEntities.length === 0) {
+                nextState.lastSync = new Date().toISOString()
+                nextState.lastSyncMs = now
+              }
+              nextState.lastSyncByEntity = {
+                ...state.lastSyncByEntity,
+                ...Object.fromEntries(toFetch.map((entity) => [entity, now]))
               }
               const indexes = buildIndexes(nextState)
-              return {
-                ...nextState,
-                ...indexes
-              }
+              return { ...nextState, ...indexes }
             })
             
             // Sincronização concluída
-            console.log('✅ MasterDataStore: Sincronização concluída com sucesso!')
+            logDev('✅ MasterDataStore: Sincronização concluída com sucesso!')
             
           } catch (error) {
             console.error('❌ MasterDataStore: Erro na sincronização:', error)
@@ -438,6 +433,8 @@ export const useMasterDataStore = create<MasterDataState>()(
           periodicidades: state.periodicidades,
           status: state.status,
           lastSync: state.lastSync,
+          lastSyncMs: state.lastSyncMs,
+          lastSyncByEntity: state.lastSyncByEntity,
           localExclusions: state.localExclusions
         };
       },
@@ -472,6 +469,8 @@ export const useMasterDataStore = create<MasterDataState>()(
                   const essential = JSON.parse(value);
                   const minimal = {
                     lastSync: essential.lastSync,
+                    lastSyncMs: essential.lastSyncMs || 0,
+                    lastSyncByEntity: essential.lastSyncByEntity || {},
                     localExclusions: essential.localExclusions || {}
                   };
                   localStorage.setItem(name, JSON.stringify(minimal));
@@ -491,6 +490,8 @@ export const useMasterDataStore = create<MasterDataState>()(
                 const data = JSON.parse(value);
                 const minimal = {
                   lastSync: data.lastSync,
+                  lastSyncMs: data.lastSyncMs || 0,
+                  lastSyncByEntity: data.lastSyncByEntity || {},
                   localExclusions: data.localExclusions || {}
                 };
                 localStorage.setItem(name, JSON.stringify(minimal));

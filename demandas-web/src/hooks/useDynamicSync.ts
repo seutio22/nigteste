@@ -14,7 +14,7 @@ const ROUTE_SYNC_CONFIG = {
     priority: 'high'
   },
   '/cadastro/nova': {
-    entities: ['clientes', 'contratos', 'analistas', 'tiposDemanda', 'tiposServico', 'operadoras', 'produtos', 'sistemas', 'areas'],
+    entities: ['analistas', 'tiposDemanda', 'tiposServico', 'operadoras', 'produtos', 'sistemas', 'areas'],
     priority: 'high'
   },
   '/manutencao': {
@@ -22,7 +22,7 @@ const ROUTE_SYNC_CONFIG = {
     priority: 'medium'
   },
   '/manutencao/nova': {
-    entities: ['analistas', 'tiposServico', 'sistemas', 'clientes', 'contratos'],
+    entities: ['analistas', 'tiposServico', 'sistemas'],
     priority: 'high'
   },
   '/atendimento': {
@@ -30,7 +30,7 @@ const ROUTE_SYNC_CONFIG = {
     priority: 'medium'
   },
   '/atendimento/nova': {
-    entities: ['analistas', 'tiposServico', 'sistemas', 'clientes', 'contratos'],
+    entities: ['analistas', 'tiposServico', 'sistemas'],
     priority: 'high'
   },
   '/validacao': {
@@ -38,7 +38,7 @@ const ROUTE_SYNC_CONFIG = {
     priority: 'medium'
   },
   '/validacao/nova': {
-    entities: ['analistas', 'tiposServico', 'sistemas', 'clientes', 'contratos'],
+    entities: ['analistas', 'tiposServico', 'sistemas'],
     priority: 'high'
   },
   '/reajuste': {
@@ -46,7 +46,7 @@ const ROUTE_SYNC_CONFIG = {
     priority: 'medium'
   },
   '/reajuste/nova': {
-    entities: ['analistas', 'tiposServico', 'sistemas', 'clientes', 'contratos'],
+    entities: ['analistas', 'tiposServico', 'sistemas'],
     priority: 'high'
   },
   '/analytics': {
@@ -68,6 +68,7 @@ export function useDynamicSync() {
   const { syncFromApi, isSyncing } = useMasterDataStore()
   const { token, user, loading: authLoading } = useAuthStore()
   const lastSyncRef = useRef<string>('')
+  const isSyncingRef = useRef(false)
   const [showSyncIndicator, setShowSyncIndicator] = useState(false)
 
   useEffect(() => {
@@ -79,7 +80,7 @@ export function useDynamicSync() {
     const currentPath = location.pathname
     const config = ROUTE_SYNC_CONFIG[currentPath as keyof typeof ROUTE_SYNC_CONFIG]
     
-    if (!config || !syncFromApi || isSyncing) {
+    if (!config || !syncFromApi || isSyncing || isSyncingRef.current) {
       return
     }
     
@@ -88,34 +89,30 @@ export function useDynamicSync() {
     const now = Date.now()
     
     if (cached && (now - cached.timestamp) < CACHE_DURATION) {
-      console.log(`🔍 useDynamicSync: Cache válido para ${currentPath}`)
       return
     }
     
-    console.log(`🔄 useDynamicSync: Sincronizando dados para ${currentPath} (${config.priority})`)
-    
     // Executar sincronização
-    syncFromApi().then(() => {
+    isSyncingRef.current = true
+    syncFromApi({ entities: config.entities }).then(() => {
       syncCache.set(currentPath, { timestamp: now, entities: config.entities })
-      console.log(`✅ useDynamicSync: Sincronização concluída para ${currentPath}`)
-    }).catch(error => {
-      console.error(`❌ useDynamicSync: Erro na sincronização para ${currentPath}:`, error)
+    }).finally(() => {
+      isSyncingRef.current = false
     })
   }, [location.pathname, syncFromApi, isSyncing, token, user, authLoading])
 
   // Função para forçar sincronização (útil para botões de refresh)
   const forceSync = async () => {
-    if (!syncFromApi || isSyncing) return
+    if (!syncFromApi || isSyncing || isSyncingRef.current) return
     
-    console.log('🔄 useDynamicSync: Forçando sincronização...')
     syncCache.clear() // Limpar cache
     lastSyncRef.current = '' // Limpar referência
     
     try {
-      await syncFromApi()
-      console.log('✅ useDynamicSync: Sincronização forçada concluída')
-    } catch (error) {
-      console.error('❌ useDynamicSync: Erro na sincronização forçada:', error)
+      isSyncingRef.current = true
+      await syncFromApi({ force: true })
+    } finally {
+      isSyncingRef.current = false
     }
   }
 

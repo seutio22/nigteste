@@ -812,6 +812,7 @@ model User {
   name                 String
   email                String                @unique
   password             String?
+  passwordUpdatedAt    DateTime?             @default(now())
   role                 String                @default("analista")
   active               Boolean               @default(true)
   viewOwnDataOnly      Boolean               @default(false)

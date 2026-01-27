@@ -9,6 +9,7 @@ import { Edit3, ArrowLeft, Clock, Copy, FileText, Lock } from 'lucide-react'
 import { Timeline } from '../../components/Timeline'
 import { fmt, canEditAtendimento } from '../../lib/utils'
 import { Autocomplete, Box, TextField, Typography } from '@mui/material'
+import { createPerfLogger } from '../../utils/perf'
 
 export default function AtendimentoDetailPage() {
   const navigate = useNavigate()
@@ -16,6 +17,8 @@ export default function AtendimentoDetailPage() {
   const atendimentoStore = useAtendimentoStore()
   const md = useMasterDataStore()
   const { user } = useAuthStore()
+  const perfRef = useRef(createPerfLogger('Atendimento/Editar'))
+  const perfReadyRef = useRef(false)
   const atendimento = atendimentoStore.items.find(a => a.id === id)
   
   // Controle para sincronizar timeline apenas uma vez
@@ -29,6 +32,22 @@ export default function AtendimentoDetailPage() {
       atendimentoStore.syncTimeline(id)
     }
   }, [id]) // Apenas quando ID muda, não quando dados mudam
+
+  useEffect(() => {
+    perfRef.current.log('mount')
+  }, [])
+
+  useEffect(() => {
+    if (perfReadyRef.current) return
+    if (md.clientes.length && md.contratos.length && md.analistas.length) {
+      perfReadyRef.current = true
+      perfRef.current.log('data-ready', {
+        clientes: md.clientes.length,
+        contratos: md.contratos.length,
+        analistas: md.analistas.length
+      })
+    }
+  }, [md.clientes.length, md.contratos.length, md.analistas.length])
 
 
   console.log('🔍 AtendimentoDetailPage: Renderizando...', {
@@ -332,6 +351,15 @@ function EditInline({ atendimento, user }: { atendimento: any; user: any }) {
     }
   }, [atendimento.id])
 
+  const clienteIdNormalized = typeof draft.cliente === 'object' && draft.cliente !== null
+    ? draft.cliente.id
+    : draft.cliente
+  const grupoDoCliente = md.clientes.find(c => c.id === clienteIdNormalized)?.grupoEconomico
+  const contratosFiltrados = md.contratos.filter((c: any) =>
+    c.clienteId === clienteIdNormalized ||
+    (grupoDoCliente && c.grupoEconomico === grupoDoCliente)
+  )
+
 
   const changedKeys = ((): string[] => {
     const keys = ['status', 'cliente', 'contrato', 'operadora', 'produto', 'sistema', 'area', 'analista', 'tipo', 'tipoServico', 'descricao', 'solicitante', 'dataInicio', 'dataFinal', 'periodicidade', 'qtdRetornos', 'qualidade', 'observacoes'] as const
@@ -378,7 +406,7 @@ function EditInline({ atendimento, user }: { atendimento: any; user: any }) {
             getOptionLabel={(option) => option.nome || ''}
             isOptionEqualToValue={(option, value) => option.id === value?.id}
             value={md.clientes.find(c => c.id === draft.cliente) || null}
-            onChange={(_, newValue) => setDraft({ ...draft, cliente: newValue?.id || undefined })}
+            onChange={(_, newValue) => setDraft({ ...draft, cliente: newValue?.id || undefined, contrato: undefined })}
             renderInput={(params) => (
               <TextField
                 {...params}
@@ -415,14 +443,48 @@ function EditInline({ atendimento, user }: { atendimento: any; user: any }) {
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Contrato</label>
-          <select
-            value={draft.contrato || ''}
-            onChange={(e) => setDraft({ ...draft, contrato: e.target.value || undefined })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="">Selecione...</option>
-            {md.contratos.map(ct => <option key={ct.id} value={ct.id}>{ct.codigo}</option>)}
-          </select>
+          <Autocomplete
+            options={contratosFiltrados}
+            getOptionLabel={(option: any) => option?.codigo || option?.numero || ''}
+            isOptionEqualToValue={(option: any, value: any) => option.id === value?.id}
+            value={contratosFiltrados.find((c: any) => c.id === (typeof draft.contrato === 'object' ? draft.contrato?.id : draft.contrato)) || null}
+            onChange={(_, newValue: any | null) => setDraft({ ...draft, contrato: newValue?.id || undefined })}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                placeholder={clienteIdNormalized ? 'Digite para buscar...' : 'Selecione um cliente primeiro'}
+                variant="outlined"
+                size="small"
+                fullWidth
+                disabled={!clienteIdNormalized}
+              />
+            )}
+            renderOption={(props, option: any) => (
+              <Box component="li" {...props} key={option.id}>
+                <Box>
+                  <Typography variant="body1" fontWeight="medium">
+                    {option.codigo || option.numero}
+                  </Typography>
+                  {option.grupoEconomico && (
+                    <Typography variant="caption" color="text.secondary">
+                      Grupo: {option.grupoEconomico}
+                    </Typography>
+                  )}
+                </Box>
+              </Box>
+            )}
+            noOptionsText={clienteIdNormalized ? 'Nenhum contrato encontrado' : 'Selecione um cliente primeiro'}
+            loading={contratosFiltrados.length === 0 && !!clienteIdNormalized}
+            loadingText="Carregando contratos..."
+            filterOptions={(options, { inputValue }) => {
+              const term = inputValue.toLowerCase()
+              return options.filter((option: any) =>
+                (option.codigo && option.codigo.toLowerCase().includes(term)) ||
+                (option.numero && option.numero.toLowerCase().includes(term)) ||
+                (option.grupoEconomico && option.grupoEconomico.toLowerCase().includes(term))
+              )
+            }}
+          />
         </div>
       </div>
 

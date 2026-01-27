@@ -1,6 +1,6 @@
 
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { Autocomplete, Box, Button, Container, Paper, Stack, TextField, Typography, MenuItem, FormControl, InputLabel, Select, Grid } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 import { useForm, Controller, useWatch } from 'react-hook-form'
@@ -10,6 +10,9 @@ import { useMasterDataStore } from '../../store/masterDataStore'
 import { useDemandStore } from '../../store/demandStore'
 import { useAuthStore } from '../../store/authStore'
 import { api } from '../../lib/api.local'
+import { createPerfLogger } from '../../utils/perf'
+import { AsyncClienteAutocomplete, type ClienteOption } from '../../components/AsyncClienteAutocomplete'
+import { AsyncContratoAutocomplete } from '../../components/AsyncContratoAutocomplete'
 
 const schema = z.object({
   // Campos obrigatórios
@@ -84,21 +87,29 @@ export default function DemandNewPage() {
       observacoes: '',
     }
   })
+  const perfRef = useRef(createPerfLogger('Cadastro/Novo'))
+  const perfReadyRef = useRef(false)
   const md = useMasterDataStore()
   const demandStore = useDemandStore()
   const selectedClienteId = useWatch({ control, name: 'cliente' })
-  const grupoDoCliente = md.clientes.find(c => c.id === selectedClienteId)?.grupoEconomico
-  
-  // CORRIGIDO: Filtrar contratos por clienteId (relação direta) OU por grupoEconomico (relação indireta)
-  const contratosDoCliente = md.contratos.filter((c: any) => 
-    c.clienteId === selectedClienteId || // Relação direta por clienteId
-    (grupoDoCliente && c.grupoEconomico === grupoDoCliente) // Relação indireta por grupo
-  )
-  
-  console.log('🔍 CONTRATO: Cliente selecionado:', selectedClienteId)
-  console.log('🔍 CONTRATO: Grupo do cliente:', grupoDoCliente)
-  console.log('🔍 CONTRATO: Contratos disponíveis para o cliente:', contratosDoCliente.map(c => ({ id: c.id, codigo: c.codigo, clienteId: c.clienteId, grupoEconomico: c.grupoEconomico })))
+  const [selectedCliente, setSelectedCliente] = useState<ClienteOption | null>(null)
   const selectedTipoId = useWatch({ control, name: 'tipo' })
+
+  useEffect(() => {
+    perfRef.current.log('mount')
+  }, [])
+
+  useEffect(() => {
+    if (perfReadyRef.current) return
+    if (md.analistas.length && md.tiposDemanda.length && md.tiposServico.length) {
+      perfReadyRef.current = true
+      perfRef.current.log('data-ready', {
+        analistas: md.analistas.length,
+        tiposDemanda: md.tiposDemanda.length,
+        tiposServico: md.tiposServico.length
+      })
+    }
+  }, [md.analistas.length, md.tiposDemanda.length, md.tiposServico.length])
 
   // Sincronização desabilitada temporariamente para evitar travamento
   useEffect(() => {
@@ -756,61 +767,31 @@ export default function DemandNewPage() {
           
           <Grid item xs={12} sm={6} md={4}>
             <Controller name="cliente" control={control} render={({ field }) => (
-              <Autocomplete
-                {...field}
-                options={md.clientes}
-                getOptionLabel={(option) => option.nome || ''}
-                isOptionEqualToValue={(option, value) => option.id === value?.id}
-                value={md.clientes.find(c => c.id === field.value) || null}
-                onChange={(_, newValue) => field.onChange(newValue?.id || '')}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Cliente"
-                    fullWidth
-                    error={!!errors.cliente}
-                    helperText={errors.cliente?.message || 'Digite para buscar um cliente'}
-                    placeholder="Digite para buscar..."
-                  />
-                )}
-                renderOption={(props, option) => (
-                  <Box component="li" {...props} key={option.id}>
-                    <Box>
-                      <Typography variant="body1" fontWeight="medium">
-                        {option.nome}
-                      </Typography>
-                      {option.grupoEconomico && (
-                        <Typography variant="caption" color="text.secondary">
-                          Grupo: {option.grupoEconomico}
-                        </Typography>
-                      )}
-                    </Box>
-                  </Box>
-                )}
-                noOptionsText="Nenhum cliente encontrado"
-                loading={md.clientes.length === 0}
-                loadingText="Carregando clientes..."
-                filterOptions={(options, { inputValue }) => {
-                  const filtered = options.filter(option =>
-                    option.nome.toLowerCase().includes(inputValue.toLowerCase()) ||
-                    (option.grupoEconomico && option.grupoEconomico.toLowerCase().includes(inputValue.toLowerCase()))
-                  )
-                  return filtered
+              <AsyncClienteAutocomplete
+                valueId={field.value}
+                onChangeId={(nextId) => {
+                  field.onChange(nextId)
+                  setValue('contrato', '')
                 }}
+                label="Cliente"
+                error={!!errors.cliente}
+                helperText={errors.cliente?.message || 'Digite para buscar um cliente'}
+                onSelectOption={setSelectedCliente}
               />
             )} />
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
             <Controller name="contrato" control={control} render={({ field }) => (
-              <TextField {...field} select label="Contrato" fullWidth error={!!errors.contrato} helperText={errors.contrato?.message}>
-                {contratosDoCliente.length > 0 ? (
-                  contratosDoCliente.map(ct => <MenuItem key={ct.id} value={ct.id}>{(ct as any).codigo || (ct as any).numero}</MenuItem>)
-                ) : (
-                  <MenuItem disabled>
-                    {selectedClienteId ? 'Nenhum contrato encontrado para este cliente' : 'Selecione um cliente primeiro'}
-                  </MenuItem>
-                )}
-              </TextField>
+              <AsyncContratoAutocomplete
+                valueId={field.value}
+                onChangeId={field.onChange}
+                label="Contrato"
+                error={!!errors.contrato}
+                helperText={errors.contrato?.message}
+                disabled={!selectedClienteId}
+                clienteId={selectedClienteId}
+                grupoEconomico={selectedCliente?.grupoEconomico || null}
+              />
             )} />
           </Grid>
           <Grid item xs={12} sm={6} md={4}>

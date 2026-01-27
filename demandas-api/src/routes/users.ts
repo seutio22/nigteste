@@ -151,6 +151,7 @@ export async function userRoutes(app: FastifyInstance, options: { prisma: Prisma
           viewOwnDataOnly: true,
           permissions: true,
           lastLogin: true,
+          passwordUpdatedAt: true,
           createdAt: true,
           updatedAt: true
         },
@@ -187,6 +188,7 @@ export async function userRoutes(app: FastifyInstance, options: { prisma: Prisma
           viewOwnDataOnly: true,
           permissions: true,
           lastLogin: true,
+          passwordUpdatedAt: true,
           createdAt: true,
           updatedAt: true
         }
@@ -231,6 +233,7 @@ export async function userRoutes(app: FastifyInstance, options: { prisma: Prisma
           name: userData.name,
           email: userData.email,
           password: hashedPassword,
+          passwordUpdatedAt: hashedPassword ? new Date() : null,
           role: userData.role,
           active: userData.active,
           viewOwnDataOnly: userData.viewOwnDataOnly,
@@ -305,6 +308,7 @@ export async function userRoutes(app: FastifyInstance, options: { prisma: Prisma
         data: {
           ...updateData,
           password: hashedPassword,
+          passwordUpdatedAt: updateData.password ? new Date() : undefined,
           permissions: permissionsToUpdate,
           updatedAt: new Date()
         },

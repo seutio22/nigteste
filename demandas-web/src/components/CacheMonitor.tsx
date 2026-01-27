@@ -44,7 +44,10 @@ export const CacheMonitor: React.FC<CacheMonitorProps> = ({
     loadStats();
     
     // Atualizar estatísticas a cada 30 segundos
-    const interval = setInterval(loadStats, 30000);
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      loadStats();
+    }, 30000);
     return () => clearInterval(interval);
   }, []);
 

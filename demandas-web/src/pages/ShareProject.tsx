@@ -1190,11 +1190,63 @@ const ShareProject: React.FC = () => {
     const tasks = phases.flatMap((phase: any) =>
       (phase.tasks || []).map((task: any) => ({
         ...task,
-        phaseName: phase.name || 'Fase sem nome'
+        phaseName: phase.name || 'Fase sem nome',
+        type: 'task' as const
       }))
     );
+    const calculateSubtaskProgress = (subtask: any) => {
+      switch (subtask.status) {
+        case 'pending':
+        case 'todo':
+        case 'nao_iniciado':
+        case 'não iniciado':
+        case 'not_started':
+        case 'aguardando':
+          return 0;
+        case 'in_progress':
+        case 'em_andamento':
+        case 'em andamento':
+        case 'in-progress':
+        case 'ongoing':
+        case 'andamento':
+          return 50;
+        case 'completed':
+        case 'concluido':
+        case 'concluida':
+        case 'concluída':
+        case 'finalizado':
+        case 'finalizada':
+        case 'done':
+          return 100;
+        case 'blocked':
+          return 25;
+        default:
+          return 0;
+      }
+    };
+    const subtasks = phases.flatMap((phase: any) =>
+      (phase.tasks || []).flatMap((task: any) =>
+        (task.subtasks || []).map((subtask: any) => ({
+          ...subtask,
+          id: subtask.id || `${task.id || task.name}-subtask-${subtask.title || subtask.name}`,
+          name: subtask.title || subtask.name || 'Subtarefa sem nome',
+          phaseName: phase.name || 'Fase sem nome',
+          taskName: task.name || task.title || 'Tarefa sem nome',
+          taskId: task.id,
+          plannedEndDate: subtask.plannedEndDate || subtask.dueDate,
+          actualEndDate: subtask.actualEndDate,
+          responsible: subtask.responsible || subtask.assignee,
+          progress:
+            typeof subtask.progress === 'number'
+              ? subtask.progress
+              : Number(subtask.progress) || calculateSubtaskProgress(subtask),
+          type: 'subtask' as const
+        }))
+      )
+    );
+    const allItems = [...tasks, ...subtasks];
 
-    if (tasks.length === 0) {
+    if (allItems.length === 0) {
       return (
         <Alert severity="info">
           Nenhuma tarefa cadastrada no cronograma. Adicione tarefas para acompanhar os indicadores.
@@ -1213,12 +1265,16 @@ const ShareProject: React.FC = () => {
       return Number.isNaN(date.getTime()) ? null : date;
     };
 
-    const categorized = tasks.reduce(
-      (acc, task) => {
-        const status = (task.status || '').toString().toLowerCase();
-        const planned = parseDate(task.plannedEndDate || task.dueDate);
-        const actual = parseDate(task.actualEndDate);
-        const isCompleted = completedStatuses.includes(status) || task.progress === 100;
+    const categorized = allItems.reduce(
+      (acc, item) => {
+        const status = (item.status || '').toString().toLowerCase();
+        const planned = parseDate(item.plannedEndDate || item.dueDate);
+        const actual = parseDate(item.actualEndDate);
+        const progress =
+          typeof item.progress === 'number'
+            ? item.progress
+            : Number(item.progress) || (item.type === 'subtask' ? calculateSubtaskProgress(item) : 0);
+        const isCompleted = completedStatuses.includes(status) || progress === 100;
         const isInProgressStatus = inProgressStatuses.includes(status);
         const isPendingStatus = pendingStatuses.includes(status);
         const isDelayed =
@@ -1232,16 +1288,17 @@ const ShareProject: React.FC = () => {
           category = 'delayed';
         } else if (isCompleted) {
           category = 'onTime';
-        } else if (isInProgressStatus || isPendingStatus || (typeof task.progress === 'number' && task.progress > 0)) {
+        } else if (isInProgressStatus || isPendingStatus || progress > 0) {
           category = 'inProgress';
         } else {
           category = 'inProgress';
         }
 
         acc[category].push({
-          ...task,
+          ...item,
           plannedDate: planned,
-          actualDate: actual
+          actualDate: actual,
+          progress
         });
         return acc;
       },
@@ -1253,6 +1310,8 @@ const ShareProject: React.FC = () => {
     );
 
     const totalTasks = tasks.length;
+    const totalSubtasks = subtasks.length;
+    const totalItems = allItems.length;
     const totalDelayed = categorized.delayed.length;
     const totalInProgress = categorized.inProgress.length;
     const totalOnTime = categorized.onTime.length;
@@ -1305,17 +1364,17 @@ const ShareProject: React.FC = () => {
       {
         key: 'delayed' as const,
         value: totalDelayed,
-        percentage: totalTasks ? Math.round((totalDelayed / totalTasks) * 100) : 0
+        percentage: totalItems ? Math.round((totalDelayed / totalItems) * 100) : 0
       },
       {
         key: 'inProgress' as const,
         value: totalInProgress,
-        percentage: totalTasks ? Math.round((totalInProgress / totalTasks) * 100) : 0
+        percentage: totalItems ? Math.round((totalInProgress / totalItems) * 100) : 0
       },
       {
         key: 'onTime' as const,
         value: totalOnTime,
-        percentage: totalTasks ? Math.round((totalOnTime / totalTasks) * 100) : 0
+        percentage: totalItems ? Math.round((totalOnTime / totalItems) * 100) : 0
       }
     ];
 
@@ -1325,7 +1384,7 @@ const ShareProject: React.FC = () => {
           Indicadores do Cronograma
         </Typography>
         <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
-          Acompanhe o desempenho das tarefas do projeto em tempo real. Os indicadores abaixo consideram status, prazo previsto e data de conclusão de cada tarefa.
+          Acompanhe o desempenho das tarefas e subtarefas do projeto em tempo real. Os indicadores abaixo consideram status, prazo previsto e data de conclusão de cada item.
         </Typography>
 
         <Grid container spacing={3} sx={{ mb: 4 }}>
@@ -1359,7 +1418,7 @@ const ShareProject: React.FC = () => {
                       {card.value}
                     </Typography>
                     <Typography variant="caption" color="textSecondary">
-                      {card.percentage}% das tarefas
+                      {card.percentage}% dos itens ({totalTasks} tarefa{totalTasks === 1 ? '' : 's'} + {totalSubtasks} subtarefa{totalSubtasks === 1 ? '' : 's'})
                     </Typography>
                   </CardContent>
                 </Card>
@@ -1391,7 +1450,7 @@ const ShareProject: React.FC = () => {
                     </Box>
                   </Box>
                   <Chip
-                    label={`${categoryTasks.length} tarefa${categoryTasks.length === 1 ? '' : 's'}`}
+                    label={`${categoryTasks.length} item${categoryTasks.length === 1 ? '' : 's'}`}
                     color={config.palette}
                     variant="outlined"
                   />
@@ -1399,7 +1458,7 @@ const ShareProject: React.FC = () => {
 
                 {categoryTasks.length === 0 ? (
                   <Typography variant="body2" color="textSecondary">
-                    Nenhuma tarefa nesta categoria.
+                    Nenhum item nesta categoria.
                   </Typography>
                 ) : (
                   <List>
@@ -1424,8 +1483,11 @@ const ShareProject: React.FC = () => {
                             primary={
                               <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
                                 <Typography variant="subtitle1" fontWeight="bold">
-                                  {task.name || 'Tarefa sem nome'}
+                                  {task.name || (task.type === 'subtask' ? 'Subtarefa sem nome' : 'Tarefa sem nome')}
                                 </Typography>
+                                {task.type === 'subtask' && (
+                                  <Chip label="Subtarefa" size="small" variant="outlined" />
+                                )}
                                 {task.priority && (
                                   <Chip
                                     label={getPriorityLabel(task.priority)}
@@ -1448,6 +1510,11 @@ const ShareProject: React.FC = () => {
                                 <Typography variant="body2" color="textSecondary">
                                   Fase: <strong>{task.phaseName}</strong>
                                 </Typography>
+                                {task.type === 'subtask' && task.taskName && (
+                                  <Typography variant="body2" color="textSecondary">
+                                    Tarefa: <strong>{task.taskName}</strong>
+                                  </Typography>
+                                )}
                                 {task.plannedDate && (
                                   <Typography variant="body2" color="textSecondary">
                                     Prazo: <strong>{formatDate(task.plannedDate.toISOString())}</strong>
@@ -1653,7 +1720,7 @@ const ShareProject: React.FC = () => {
                     {project.manager?.name || 'Gerente não especificado'}
                   </Typography>
                   <Typography variant="body2" color="textSecondary">
-                    {project.manager?.email || 'Email não disponível'}
+                    Gestor do projeto
                   </Typography>
                 </Box>
               </Box>
@@ -1700,7 +1767,7 @@ const ShareProject: React.FC = () => {
                       </ListItemAvatar>
                       <ListItemText
                         primary={member.user.name}
-                        secondary={`${member.role} • ${member.user.email}`}
+                        secondary={member.role}
                       />
                     </ListItem>
                     {index < (project.members?.length || 0) - 1 && <Divider />}

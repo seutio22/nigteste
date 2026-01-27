@@ -496,6 +496,7 @@ app.post('/setup-admin', async (request, reply) => {
         where: { email: email },
         data: {
           password: hashedPassword,
+          passwordUpdatedAt: new Date(),
           role: 'admin',
           active: true,
           permissions: JSON.stringify({
@@ -540,6 +541,7 @@ app.post('/setup-admin', async (request, reply) => {
           name: name,
           email: email,
           password: hashedPassword,
+          passwordUpdatedAt: new Date(),
           role: 'admin',
           active: true,
           permissions: JSON.stringify({
@@ -617,6 +619,7 @@ app.post('/create-new-user', async (request, reply) => {
         name: name,
         email: email,
         password: hashedPassword,
+        passwordUpdatedAt: new Date(),
         role: role || 'admin',
         active: true,
         permissions: JSON.stringify({
@@ -696,6 +699,7 @@ app.post('/create-admin', async (request, reply) => {
         data: {
           name: name || 'Administrador',
           password: hashedPassword,
+          passwordUpdatedAt: new Date(),
           role: 'admin',
           active: true,
           permissions: JSON.stringify({
@@ -737,6 +741,7 @@ app.post('/create-admin', async (request, reply) => {
           name: name || 'Administrador',
           email: email,
           password: hashedPassword,
+          passwordUpdatedAt: new Date(),
           role: 'admin',
           active: true,
           permissions: JSON.stringify({
@@ -1571,6 +1576,14 @@ app.get('/users/validate/:id', async (req: any) => {
 // CRUD genérico simples para entidades mestres
 function crud(entity: keyof PrismaClient) {
   const anyPrisma = prisma as any;
+  const parsePagination = (queryParams?: any) => {
+    const limit = queryParams?.limit ? parseInt(queryParams.limit.toString()) : undefined
+    const offset = queryParams?.offset ? parseInt(queryParams.offset.toString()) : undefined
+    return {
+      take: Number.isFinite(limit) ? limit : undefined,
+      skip: Number.isFinite(offset) ? offset : undefined
+    }
+  }
   return {
     list: async (queryParams?: any) => {
       // Filtrar timelineEvents por entityId e entityType
@@ -1578,6 +1591,7 @@ function crud(entity: keyof PrismaClient) {
         const where: any = {}
         if (queryParams.entityId) where.entityId = queryParams.entityId
         if (queryParams.entityType) where.entityType = queryParams.entityType
+        const pagination = parsePagination(queryParams)
         
         console.log('🔍 Buscando timelineEvents com filtros:', where)
         const events = await anyPrisma[entity].findMany({
@@ -1591,7 +1605,8 @@ function crud(entity: keyof PrismaClient) {
               }
             }
           },
-          orderBy: { createdAt: 'desc' }
+          orderBy: { createdAt: 'desc' },
+          ...pagination
         })
         console.log('✅ TimelineEvents encontrados:', events.length)
         
@@ -1604,6 +1619,7 @@ function crud(entity: keyof PrismaClient) {
       
       // Incluir relacionamentos para atendimentos
       if (entity === 'atendimento') {
+        const pagination = parsePagination(queryParams)
         return anyPrisma[entity].findMany({
           include: {
             cliente: true,
@@ -1622,7 +1638,8 @@ function crud(entity: keyof PrismaClient) {
             },
             tipo: true,
             tipoServico: true
-          }
+          },
+          ...pagination
         });
       }
 
@@ -1638,11 +1655,12 @@ function crud(entity: keyof PrismaClient) {
           }
           // Aplicar outros filtros genéricos se houver
           Object.keys(queryParams).forEach(key => {
-            if (key !== 'entityId' && key !== 'entityType' && key !== 'ticket') {
+            if (key !== 'entityId' && key !== 'entityType' && key !== 'ticket' && key !== 'limit' && key !== 'offset') {
               where[key] = queryParams[key]
             }
           })
         }
+        const pagination = parsePagination(queryParams)
         
         // 🚀 MELHORIA FASE 2A: Select específico - 30-50% menos dados transferidos
         return anyPrisma[entity].findMany({
@@ -1690,7 +1708,8 @@ function crud(entity: keyof PrismaClient) {
             demanda: { select: { id: true, ticket: true, descricao: true } },
             user: { select: { id: true, name: true, email: true } }
           },
-          orderBy: { updatedAt: 'desc' }
+          orderBy: { updatedAt: 'desc' },
+          ...pagination
         });
       }
 
@@ -1706,11 +1725,12 @@ function crud(entity: keyof PrismaClient) {
           }
           // Aplicar outros filtros genéricos se houver
           Object.keys(queryParams).forEach(key => {
-            if (key !== 'entityId' && key !== 'entityType' && key !== 'ticket') {
+            if (key !== 'entityId' && key !== 'entityType' && key !== 'ticket' && key !== 'limit' && key !== 'offset') {
               where[key] = queryParams[key]
             }
           })
         }
+        const pagination = parsePagination(queryParams)
         
         // 🚀 MELHORIA FASE 2A: Select específico - 30-50% menos dados transferidos
         return anyPrisma[entity].findMany({
@@ -1756,7 +1776,8 @@ function crud(entity: keyof PrismaClient) {
             tipoServico: { select: { id: true, nome: true } },
             tipo: { select: { id: true, nome: true } }
           },
-          orderBy: { updatedAt: 'desc' }
+          orderBy: { updatedAt: 'desc' },
+          ...pagination
         });
       }
       
@@ -1775,11 +1796,12 @@ function crud(entity: keyof PrismaClient) {
               }
               return
             }
-            if (key !== 'entityId' && key !== 'entityType') {
+            if (key !== 'entityId' && key !== 'entityType' && key !== 'limit' && key !== 'offset') {
               where[key] = queryParams[key]
             }
           })
         }
+        const pagination = parsePagination(queryParams)
         
         if (ticketFilter) {
           where.demanda = {
@@ -1827,7 +1849,8 @@ function crud(entity: keyof PrismaClient) {
               }
             }
           },
-          orderBy: { updatedAt: 'desc' }
+          orderBy: { updatedAt: 'desc' },
+          ...pagination
         });
       }
 
@@ -1838,11 +1861,12 @@ function crud(entity: keyof PrismaClient) {
         
         if (queryParams) {
           Object.keys(queryParams).forEach(key => {
-            if (key !== 'entityId' && key !== 'entityType') {
+            if (key !== 'entityId' && key !== 'entityType' && key !== 'limit' && key !== 'offset') {
               where[key] = queryParams[key]
             }
           })
         }
+        const pagination = parsePagination(queryParams)
         
         return anyPrisma[entity].findMany({
           where: Object.keys(where).length > 0 ? where : undefined,
@@ -1870,16 +1894,18 @@ function crud(entity: keyof PrismaClient) {
             createdAt: true,
             updatedAt: true
           },
-          orderBy: { updatedAt: 'desc' }
+          orderBy: { updatedAt: 'desc' },
+          ...pagination
         });
       }
       
       // Contratos - sempre retornar todos (ativos e inativos)
       if (entity === 'contrato') {
         console.log('🔍 Contratos - buscando todos os contratos (ativos e inativos)');
-        
+        const pagination = parsePagination(queryParams)
         const contratos = await anyPrisma[entity].findMany({
-          orderBy: { createdAt: 'desc' }
+          orderBy: { createdAt: 'desc' },
+          ...pagination
         });
         
         console.log('🔍 Contratos - encontrados:', contratos.length, 'contratos');
@@ -1888,7 +1914,10 @@ function crud(entity: keyof PrismaClient) {
       
       // Tratamento específico para projetos - converter campos JSON
       if (entity === 'project') {
-        const projects = await anyPrisma[entity].findMany();
+        const pagination = parsePagination(queryParams)
+        const projects = await anyPrisma[entity].findMany({
+          ...pagination
+        });
         return projects.map((project: any) => {
           // Converter campos JSON de volta para objetos
           if (project.timeline && typeof project.timeline === 'string') {
@@ -1923,6 +1952,40 @@ function crud(entity: keyof PrismaClient) {
         });
       }
       
+      // Busca com "search" para clientes/contratos (autocomplete)
+      if ((entity === 'cliente' || entity === 'contrato') && queryParams?.search) {
+        const term = queryParams.search.toString().trim()
+        const pagination = parsePagination(queryParams)
+        const where: any = {}
+
+        if (entity === 'cliente') {
+          where.OR = [
+            { nome: { contains: term, mode: 'insensitive' } },
+            { grupoEconomico: { contains: term, mode: 'insensitive' } }
+          ]
+        } else {
+          if (queryParams.clienteId) {
+            where.clienteId = queryParams.clienteId
+          }
+          if (queryParams.grupoEconomico) {
+            where.grupoEconomico = queryParams.grupoEconomico
+          }
+          where.OR = [
+            { numero: { contains: term, mode: 'insensitive' } },
+            { codigo: { contains: term, mode: 'insensitive' } },
+            { grupoEconomico: { contains: term, mode: 'insensitive' } }
+          ]
+        }
+
+        const result = await anyPrisma[entity].findMany({
+          where,
+          orderBy: entity === 'cliente' ? { nome: 'asc' } : { numero: 'asc' },
+          ...pagination
+        })
+        console.log(`🔍 CRUD ${String(entity)}: Resultado search:`, result.length, 'registros')
+        return result
+      }
+
       // Aplicar filtros genéricos se fornecidos nos queryParams
       const where: any = {}
       
@@ -1932,22 +1995,23 @@ function crud(entity: keyof PrismaClient) {
         // Para cada parâmetro de query, adicionar ao where
         Object.keys(queryParams).forEach(key => {
           // Ignorar parâmetros especiais que não são filtros de campo
-          if (key !== 'entityId' && key !== 'entityType') {
+          if (key !== 'entityId' && key !== 'entityType' && key !== 'limit' && key !== 'offset' && key !== 'search') {
             where[key] = queryParams[key]
           }
         })
         
         console.log(`🔍 CRUD ${String(entity)}: Filtros aplicados:`, where)
       }
+      const pagination = parsePagination(queryParams)
       
       // Se houver filtros, usar where; caso contrário, retornar todos
       if (Object.keys(where).length > 0) {
-        const result = await anyPrisma[entity].findMany({ where })
+        const result = await anyPrisma[entity].findMany({ where, ...pagination })
         console.log(`🔍 CRUD ${String(entity)}: Resultado com filtros:`, result.length, 'registros')
         return result
       }
       
-      const result = await anyPrisma[entity].findMany()
+      const result = await anyPrisma[entity].findMany({ ...pagination })
       console.log(`🔍 CRUD ${String(entity)}: Resultado sem filtros:`, result.length, 'registros')
       return result
     },
@@ -2659,6 +2723,14 @@ const resources = {
     ...crud('demanda'),
     list: async (queryParams?: any) => {
       const anyPrisma = prisma as any;
+      const parsePagination = (params?: any) => {
+        const limit = params?.limit ? parseInt(params.limit.toString()) : undefined
+        const offset = params?.offset ? parseInt(params.offset.toString()) : undefined
+        return {
+          take: Number.isFinite(limit) ? limit : undefined,
+          skip: Number.isFinite(offset) ? offset : undefined
+        }
+      }
       
       // Aplicar filtros genéricos se fornecidos nos queryParams
       const where: any = {}
@@ -2669,13 +2741,14 @@ const resources = {
         // Para cada parâmetro de query, adicionar ao where
         Object.keys(queryParams).forEach(key => {
           // Ignorar parâmetros especiais que não são filtros de campo
-          if (key !== 'entityId' && key !== 'entityType') {
+          if (key !== 'entityId' && key !== 'entityType' && key !== 'limit' && key !== 'offset') {
             where[key] = queryParams[key]
           }
         })
         
         console.log(`🔍 DEMANDAS: Filtros aplicados:`, where)
       }
+      const pagination = parsePagination(queryParams)
       
       // 🚀 MELHORIA FASE 2A: Select específico - 30-50% menos dados transferidos
       // Se houver filtros, usar where; caso contrário, retornar todos
@@ -2724,7 +2797,8 @@ const resources = {
               }
             }
           },
-          orderBy: { updatedAt: 'desc' }
+          orderBy: { updatedAt: 'desc' },
+          ...pagination
         })
         console.log(`🔍 DEMANDAS: Resultado com filtros:`, result.length, 'registros')
         return result
@@ -2773,7 +2847,8 @@ const resources = {
             }
           }
         },
-        orderBy: { updatedAt: 'desc' }
+        orderBy: { updatedAt: 'desc' },
+        ...pagination
       });
       console.log(`🔍 DEMANDAS: Resultado sem filtros:`, result.length, 'registros')
       return result
@@ -2835,6 +2910,14 @@ const resources = {
       console.log(`🔍 ATENDIMENTOS LIST: QueryParams:`, queryParams)
       
       const anyPrisma = prisma as any;
+      const parsePagination = (params?: any) => {
+        const limit = params?.limit ? parseInt(params.limit.toString()) : undefined
+        const offset = params?.offset ? parseInt(params.offset.toString()) : undefined
+        return {
+          take: Number.isFinite(limit) ? limit : undefined,
+          skip: Number.isFinite(offset) ? offset : undefined
+        }
+      }
       
       // Aplicar filtros genéricos se fornecidos nos queryParams
       const where: any = {}
@@ -2845,7 +2928,7 @@ const resources = {
         // Para cada parâmetro de query, adicionar ao where
         Object.keys(queryParams).forEach(key => {
           // Ignorar parâmetros especiais que não são filtros de campo
-          if (key !== 'entityId' && key !== 'entityType') {
+          if (key !== 'entityId' && key !== 'entityType' && key !== 'limit' && key !== 'offset') {
             where[key] = queryParams[key]
             console.log(`🔍 ATENDIMENTOS: Adicionando filtro ${key} = ${queryParams[key]}`)
           }
@@ -2853,6 +2936,7 @@ const resources = {
         
         console.log(`🔍 ATENDIMENTOS: Filtros aplicados:`, where)
       }
+      const pagination = parsePagination(queryParams)
       
       // 🚀 MELHORIA FASE 2A: Select específico - 30-50% menos dados transferidos
       // 🐛 CORREÇÃO: Usar campos corretos do modelo Atendimento (dataAbertura, dataFechamento)
@@ -2900,7 +2984,8 @@ const resources = {
           tipoServico: { select: { id: true, nome: true } },
           user: { select: { id: true, name: true, email: true } }
         },
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: 'desc' },
+        ...pagination
       })
       
       console.log(`🔍 ATENDIMENTOS: Encontrados ${atendimentos.length} atendimentos`)

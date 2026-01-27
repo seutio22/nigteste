@@ -84,8 +84,8 @@ class SimpleCache {
 // Singleton do cache
 export const masterDataCache = new SimpleCache()
 
-// Limpar cache expirado a cada 10 minutos
+// Limpar cache expirado a cada 30 minutos (menos CPU sem impacto funcional)
 setInterval(() => {
   masterDataCache.cleanExpired()
-}, 10 * 60 * 1000)
+}, 30 * 60 * 1000)
 

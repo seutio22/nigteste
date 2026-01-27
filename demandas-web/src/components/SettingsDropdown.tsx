@@ -4,6 +4,7 @@ import { Settings, X, User, Palette, Bell, Moon, Sun, Globe, LogOut, Check, Eye,
 import { useAuthStore } from '../store/authStore'
 import { useNotificationStore } from '../store/notificationStore'
 import { useKanbanStore } from '../store/kanbanStore'
+import { api } from '../lib/api.local'
 
 export function SettingsDropdown() {
   const [isOpen, setIsOpen] = useState(false)
@@ -36,6 +37,13 @@ export function SettingsDropdown() {
   const { user, logout: clearAuth, setAuth, updateUserPhoto } = useAuthStore()
   const { clear: clearNotifications } = useNotificationStore()
   
+  const formattedPasswordUpdatedAt = React.useMemo(() => {
+    if (!user?.passwordUpdatedAt) return null
+    const parsed = new Date(user.passwordUpdatedAt)
+    if (Number.isNaN(parsed.getTime())) return null
+    return parsed.toLocaleString('pt-BR')
+  }, [user?.passwordUpdatedAt])
+
   // Fechar dropdown ao clicar fora
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -112,9 +120,16 @@ export function SettingsDropdown() {
     }
     
     try {
-      // Aqui você implementaria a chamada real para a API
-      // Por enquanto, vamos simular uma alteração bem-sucedida
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      if (!user?.email) {
+        setPasswordError('Usuário não encontrado. Faça login novamente.')
+        return
+      }
+
+      await api.changePassword({
+        email: user.email,
+        currentPassword,
+        newPassword
+      })
       
       setPasswordSuccess('Senha alterada com sucesso!')
       
@@ -130,7 +145,23 @@ export function SettingsDropdown() {
       }, 2000)
       
     } catch (error) {
-      setPasswordError('Erro ao alterar senha. Tente novamente.')
+      let errorMessage = 'Erro ao alterar senha. Tente novamente.'
+
+      if (error && typeof error === 'object') {
+        const anyErr = error as any
+        if (anyErr?.responseText) {
+          try {
+            const parsed = JSON.parse(anyErr.responseText)
+            if (parsed?.message) {
+              errorMessage = parsed.message
+            }
+          } catch {}
+        } else if (error instanceof Error && error.message) {
+          errorMessage = error.message
+        }
+      }
+
+      setPasswordError(errorMessage)
     }
   }
 
@@ -398,6 +429,12 @@ export function SettingsDropdown() {
               </div>
               <h3 className="text-xl font-bold text-violet-900 mb-1">{user?.name || 'Usuário'}</h3>
               <p className="text-violet-700 mb-2">{user?.email || 'user@example.com'}</p>
+              <p className="text-xs text-violet-700 mb-2">
+                Última troca de senha:{' '}
+                <span className="font-medium">
+                  {formattedPasswordUpdatedAt || 'Não informado'}
+                </span>
+              </p>
               <span className="inline-block px-3 py-1 bg-violet-100 text-violet-800 text-xs font-medium rounded-full capitalize">
                 {user?.role || 'user'}
               </span>

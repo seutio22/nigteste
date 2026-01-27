@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Autocomplete, Box, Button, Container, Paper, Stack, TextField, Typography, MenuItem, FormControl, InputLabel, Select, Grid } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 import { useForm, Controller } from 'react-hook-form'
@@ -7,6 +7,9 @@ import { z } from 'zod'
 import { useMasterDataStore } from '../../store/masterDataStore'
 import { useValidationStore } from '../../store/validationStore'
 import { useAuthStore } from '../../store/authStore'
+import { createPerfLogger } from '../../utils/perf'
+import { AsyncClienteAutocomplete, type ClienteOption } from '../../components/AsyncClienteAutocomplete'
+import { AsyncContratoAutocomplete } from '../../components/AsyncContratoAutocomplete'
 
 const schema = z.object({
   analista: z.string().min(1, 'Obrigatório'),
@@ -45,6 +48,9 @@ export default function ValidationNewPage() {
   const md = useMasterDataStore()
   const store = useValidationStore()
   const { user } = useAuthStore()
+  const perfRef = useRef(createPerfLogger('Validacao/Novo'))
+  const perfReadyRef = useRef(false)
+  const [selectedCliente, setSelectedCliente] = useState<ClienteOption | null>(null)
   
   console.log('🔍 ValidationNewPage: Hooks carregados:', {
     user: user?.name,
@@ -84,24 +90,27 @@ export default function ValidationNewPage() {
     }
   })
 
+  useEffect(() => {
+    perfRef.current.log('mount')
+  }, [])
+
+  useEffect(() => {
+    if (perfReadyRef.current) return
+    if (md.analistas.length && md.tiposServico.length && md.sistemas.length) {
+      perfReadyRef.current = true
+      perfRef.current.log('data-ready', {
+        analistas: md.analistas.length,
+        tiposServico: md.tiposServico.length,
+        sistemas: md.sistemas.length
+      })
+    }
+  }, [md.analistas.length, md.tiposServico.length, md.sistemas.length])
+
   // Watch para dependências entre campos
   const clienteSelecionado = watch('cliente')
   const operadoraSelecionada = watch('operadora')
   const estruturaEdge = watch('estruturaEdge')
   const estruturaMove = watch('estruturaMove')
-
-  // Buscar o grupo econômico do cliente selecionado
-  const clienteSelecionadoData = clienteSelecionado 
-    ? md.clientes.find(cliente => cliente.id === clienteSelecionado)
-    : null
-
-  // Filtrar contratos por clienteId (relação direta) OU por grupoEconomico (relação indireta)
-  const contratosFiltrados = md.contratos.filter((c: any) => {
-    const matchClienteId = c.clienteId === clienteSelecionado
-    const matchGrupo = clienteSelecionadoData?.grupoEconomico && c.grupoEconomico === clienteSelecionadoData.grupoEconomico
-    
-    return matchClienteId || matchGrupo
-  })
 
 
   // Filtrar produtos por operadora selecionada
@@ -391,79 +400,31 @@ export default function ValidationNewPage() {
           
           <Grid item xs={12} sm={6} md={4}>
             <Controller name="cliente" control={control} render={({ field }) => (
-              <Autocomplete
-                {...field}
-                options={md.clientes}
-                getOptionLabel={(option) => option.nome || ''}
-                isOptionEqualToValue={(option, value) => option.id === value?.id}
-                value={md.clientes.find(c => c.id === field.value) || null}
-                onChange={(_, newValue) => {
-                  field.onChange(newValue?.id || '')
-                  // Limpar contrato quando cliente mudar
-                  control._formValues.contrato = ''
+              <AsyncClienteAutocomplete
+                valueId={field.value}
+                onChangeId={(nextId) => {
+                  field.onChange(nextId)
+                  setValue('contrato', '')
                 }}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Cliente"
-                    fullWidth
-                    error={!!errors.cliente}
-                    helperText={errors.cliente?.message || 'Digite para buscar um cliente'}
-                    placeholder="Digite para buscar..."
-                  />
-                )}
-                renderOption={(props, option) => (
-                  <Box component="li" {...props} key={option.id}>
-                    <Box>
-                      <Typography variant="body1" fontWeight="medium">
-                        {option.nome}
-                      </Typography>
-                      {option.grupoEconomico && (
-                        <Typography variant="caption" color="text.secondary">
-                          Grupo: {option.grupoEconomico}
-                        </Typography>
-                      )}
-                    </Box>
-                  </Box>
-                )}
-                noOptionsText="Nenhum cliente encontrado"
-                loading={md.clientes.length === 0}
-                loadingText="Carregando clientes..."
-                filterOptions={(options, { inputValue }) => {
-                  const filtered = options.filter(option =>
-                    option.nome.toLowerCase().includes(inputValue.toLowerCase()) ||
-                    (option.grupoEconomico && option.grupoEconomico.toLowerCase().includes(inputValue.toLowerCase()))
-                  )
-                  return filtered
-                }}
+                label="Cliente"
+                error={!!errors.cliente}
+                helperText={errors.cliente?.message || 'Digite para buscar um cliente'}
+                onSelectOption={setSelectedCliente}
               />
             )} />
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
             <Controller name="contrato" control={control} render={({ field }) => (
-              <TextField 
-                {...field} 
-                select 
-                label="Contrato" 
-                fullWidth 
-                error={!!errors.contrato} 
+              <AsyncContratoAutocomplete
+                valueId={field.value}
+                onChangeId={field.onChange}
+                label="Contrato"
+                error={!!errors.contrato}
                 helperText={errors.contrato?.message}
-              >
-                <MenuItem value="">
-                  <em>Selecione um contrato</em>
-                </MenuItem>
-                {contratosFiltrados.length > 0 ? (
-                  contratosFiltrados.map((ct: any) => (
-                    <MenuItem key={ct.id} value={ct.id}>
-                      {ct.codigo || ct.numero}
-                    </MenuItem>
-                  ))
-                ) : (
-                  <MenuItem disabled>
-                    {clienteSelecionado ? 'Nenhum contrato encontrado para este cliente' : 'Selecione um cliente primeiro'}
-                  </MenuItem>
-                )}
-              </TextField>
+                disabled={!clienteSelecionado}
+                clienteId={clienteSelecionado || undefined}
+                grupoEconomico={selectedCliente?.grupoEconomico || null}
+              />
             )} />
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
@@ -613,6 +574,7 @@ export default function ValidationNewPage() {
                 <MenuItem value="1-COPARTICIPACAO">1-ERRO Coparticipação</MenuItem>
                 <MenuItem value="1-CONTRIBUICAO">1-ERRO Contribuição</MenuItem>
                 <MenuItem value="1-DADOS_GERAIS">1-ERRO Dados Gerais</MenuItem>
+                <MenuItem value="1-ERRO_EQUIPE_ATENDIMENTO_MDS">1-ERRO EQUIPE ATENDIMENTO MDS</MenuItem>
               </TextField>
             )} />
           </Grid>

@@ -10,6 +10,7 @@ interface User {
   role: string
   photo?: string
   permissions?: SystemPermissions
+  passwordUpdatedAt?: string
 }
 
 interface AuthState {

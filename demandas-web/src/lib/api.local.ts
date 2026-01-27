@@ -141,6 +141,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(credentials),
     }),
+  changePassword: (payload: { email: string; currentPassword: string; newPassword: string }) =>
+    apiRequest(API_CONFIG.ENDPOINTS.AUTH + '/change-password', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
 
   // Usuários
   getUsers: () => apiRequest(API_CONFIG.ENDPOINTS.USERS),

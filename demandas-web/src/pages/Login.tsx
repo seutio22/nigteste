@@ -101,9 +101,63 @@ export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [requirePasswordChange, setRequirePasswordChange] = useState(false)
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmNewPassword, setConfirmNewPassword] = useState('')
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const navigate = useNavigate()
+
+  async function finalizeLogin(data: any) {
+    console.log('✅ Login bem-sucedido para:', data.user.name)
+    
+    // 2. Salvar o token PRIMEIRO para que as próximas requisições funcionem
+    useAuthStore.getState().setAuth(data.token, data.user)
+    console.log('✅ Token salvo no authStore')
+    
+    // 3. Buscar permissões atualizadas do usuário no banco de dados
+    console.log('🔍 Buscando permissões do usuário no banco de dados...')
+    
+    try {
+      // Agora a requisição terá o token disponível
+      const userData = await api.get(`/users/${data.user.id}`)
+      
+      if (userData) {
+        console.log('✅ Permissões carregadas do banco de dados')
+        console.log('📋 Permissões:', userData.permissions)
+        
+        // Parse das permissões
+        let permissions = null
+        if (userData.permissions) {
+          try {
+            permissions = typeof userData.permissions === 'string' 
+              ? JSON.parse(userData.permissions) 
+              : userData.permissions
+            console.log('✅ Permissões parseadas com sucesso')
+            console.log('🔐 Permissão DELETE para CADASTRO:', permissions.cadastro?.delete)
+          } catch (e) {
+            console.error('❌ Erro ao parsear permissões:', e)
+          }
+        }
+        
+        // 4. Atualizar o authStore com as permissões do banco
+          useAuthStore.getState().setAuth(data.token, {
+            ...data.user,
+            permissions: permissions,
+            passwordUpdatedAt: userData.passwordUpdatedAt
+          })
+        
+        console.log('✅ AuthStore atualizado com permissões do banco de dados')
+      } else {
+        console.warn('⚠️  Não foi possível carregar permissões do usuário')
+      }
+    } catch (permError) {
+      console.error('❌ Erro ao buscar permissões:', permError)
+      console.warn('⚠️  Continuando com permissões do login')
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -113,58 +167,48 @@ export default function LoginPage() {
     setError('')
     
     try {
+      if (requirePasswordChange) {
+        if (!newPassword || !confirmNewPassword) {
+          setError('Informe a nova senha e a confirmação')
+          setIsLoading(false)
+          return
+        }
+        
+        if (newPassword.length < 6) {
+          setError('A nova senha deve ter pelo menos 6 caracteres')
+          setIsLoading(false)
+          return
+        }
+        
+        if (newPassword !== confirmNewPassword) {
+          setError('As senhas não coincidem')
+          setIsLoading(false)
+          return
+        }
+        
+        await api.changePassword({
+          email,
+          currentPassword: password,
+          newPassword
+        })
+        
+        const data = await api.login({ email, password: newPassword })
+        setPassword(newPassword)
+        await finalizeLogin(data)
+        setRequirePasswordChange(false)
+        setNewPassword('')
+        setConfirmNewPassword('')
+        navigate('/')
+        return
+      }
+
       // 1. Fazer login
       const data = await api.login({ email, password })
-      
-      console.log('✅ Login bem-sucedido para:', data.user.name)
-      
-      // 2. Salvar o token PRIMEIRO para que as próximas requisições funcionem
-      useAuthStore.getState().setAuth(data.token, data.user)
-      console.log('✅ Token salvo no authStore')
-      
-      // 3. Buscar permissões atualizadas do usuário no banco de dados
-      console.log('🔍 Buscando permissões do usuário no banco de dados...')
-      
-      try {
-        // Agora a requisição terá o token disponível
-        const userData = await api.get(`/users/${data.user.id}`)
-        
-        if (userData) {
-          console.log('✅ Permissões carregadas do banco de dados')
-          console.log('📋 Permissões:', userData.permissions)
-          
-          // Parse das permissões
-          let permissions = null
-          if (userData.permissions) {
-            try {
-              permissions = typeof userData.permissions === 'string' 
-                ? JSON.parse(userData.permissions) 
-                : userData.permissions
-              console.log('✅ Permissões parseadas com sucesso')
-              console.log('🔐 Permissão DELETE para CADASTRO:', permissions.cadastro?.delete)
-            } catch (e) {
-              console.error('❌ Erro ao parsear permissões:', e)
-            }
-          }
-          
-          // 4. Atualizar o authStore com as permissões do banco
-          useAuthStore.getState().setAuth(data.token, {
-            ...data.user,
-            permissions: permissions
-          })
-          
-          console.log('✅ AuthStore atualizado com permissões do banco de dados')
-        } else {
-          console.warn('⚠️  Não foi possível carregar permissões do usuário')
-        }
-      } catch (permError) {
-        console.error('❌ Erro ao buscar permissões:', permError)
-        console.warn('⚠️  Continuando com permissões do login')
-      }
-      
+      await finalizeLogin(data)
       navigate('/')
     } catch (err: unknown) {
       let errorMessage = 'Falha ao entrar. Verifique suas credenciais e tente novamente.'
+      let requiresPasswordChange = false
 
       if (err && typeof err === 'object') {
         const anyErr = err as any
@@ -175,6 +219,9 @@ export default function LoginPage() {
             if (parsed?.message) {
               errorMessage = parsed.message
             }
+            if (parsed?.code === 'PASSWORD_EXPIRED' || parsed?.requirePasswordChange) {
+              requiresPasswordChange = true
+            }
           } catch (parseError) {
             // resposta não era JSON válido, manter mensagem padrão
             console.warn('Não foi possível interpretar resposta de erro do login:', parseError)
@@ -182,6 +229,10 @@ export default function LoginPage() {
         } else if (err instanceof Error && err.message) {
           errorMessage = err.message
         }
+      }
+
+      if (requiresPasswordChange) {
+        setRequirePasswordChange(true)
       }
 
       setError(errorMessage)
@@ -406,6 +457,84 @@ export default function LoginPage() {
                   }}
                 />
 
+                {requirePasswordChange && (
+                  <>
+                    <Alert severity="warning" sx={{ borderRadius: 2 }}>
+                      Sua senha expirou. Defina uma nova senha para continuar.
+                    </Alert>
+                    <TextField
+                      label="Nova senha"
+                      type={showNewPassword ? 'text' : 'password'}
+                      required
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <Lock sx={{ color: '#3b82f6' }} />
+                          </InputAdornment>
+                        ),
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <IconButton
+                              onClick={() => setShowNewPassword(!showNewPassword)}
+                              edge="end"
+                            >
+                              {showNewPassword ? <VisibilityOff /> : <Visibility />}
+                            </IconButton>
+                          </InputAdornment>
+                        )
+                      }}
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          borderRadius: 2,
+                          '&:hover fieldset': {
+                            borderColor: '#3b82f6',
+                          },
+                          '&.Mui-focused fieldset': {
+                            borderColor: '#3b82f6',
+                          }
+                        }
+                      }}
+                    />
+                    <TextField
+                      label="Confirmar nova senha"
+                      type={showConfirmNewPassword ? 'text' : 'password'}
+                      required
+                      value={confirmNewPassword}
+                      onChange={(e) => setConfirmNewPassword(e.target.value)}
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <Lock sx={{ color: '#3b82f6' }} />
+                          </InputAdornment>
+                        ),
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <IconButton
+                              onClick={() => setShowConfirmNewPassword(!showConfirmNewPassword)}
+                              edge="end"
+                            >
+                              {showConfirmNewPassword ? <VisibilityOff /> : <Visibility />}
+                            </IconButton>
+                          </InputAdornment>
+                        )
+                      }}
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          borderRadius: 2,
+                          '&:hover fieldset': {
+                            borderColor: '#3b82f6',
+                          },
+                          '&.Mui-focused fieldset': {
+                            borderColor: '#3b82f6',
+                          }
+                        }
+                      }}
+                    />
+                  </>
+                )}
+
                 {/* Mensagem de erro */}
                 {error && (
                   <Fade in={!!error}>
@@ -440,7 +569,7 @@ export default function LoginPage() {
                     }
                   }}
                 >
-                  {isLoading ? 'Entrando...' : 'Entrar'}
+                  {isLoading ? (requirePasswordChange ? 'Alterando...' : 'Entrando...') : (requirePasswordChange ? 'Alterar senha' : 'Entrar')}
                 </Button>
 
                 {/* Links adicionais */}

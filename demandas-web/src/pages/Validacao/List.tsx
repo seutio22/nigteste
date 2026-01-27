@@ -9,7 +9,7 @@ import { SmartImporter } from '../../components/SmartImporter'
 import { smartImporterConfigs } from '../../config/smartImporterConfigs'
 import type { ImportResult } from '../../types/smartImporter'
 import { useFilteredData } from '../../lib/utils'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
 import ExportDataModal from '../../components/ExportDataModal'
 import { usePermissions } from '../../hooks/usePermissions'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
@@ -26,6 +26,12 @@ function ActionCell({ id, status }: { id: string, status: string }) {
   const navigate = useNavigate()
   const store = useValidationStore()
   const md = useMasterDataStore()
+  const {
+    analistasById,
+    clientesById,
+    contratosById,
+    operadorasById
+  } = md
   const { canEdit, canDelete } = usePermissions('validacao')
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
   const [openStatus, setOpenStatus] = useState(false)
@@ -141,7 +147,27 @@ function ActionCell({ id, status }: { id: string, status: string }) {
   const doExportPdf = () => {
     const v = store.items.find((x) => x.id === id)
     if (!v) return
-    const label = (val?: string, arr?: { id: string, nome: string }[]) => arr?.find(a => a.id === val)?.nome || '-'
+    const label = (val: unknown, map?: Record<string, { nome?: string }>) => {
+      if (val && typeof val === 'object') {
+        const obj = val as { nome?: string; name?: string; titulo?: string }
+        return obj.nome || obj.name || obj.titulo || '-'
+      }
+      if (typeof val === 'string') {
+        return map?.[val]?.nome || val || '-'
+      }
+      return '-'
+    }
+    const contratoLabel = (val: unknown) => {
+      if (val && typeof val === 'object') {
+        const obj = val as { numero?: string; codigo?: string }
+        return obj.numero || obj.codigo || '-'
+      }
+      if (typeof val === 'string') {
+        const c = contratosById[val]
+        return c?.numero || c?.codigo || val || '-'
+      }
+      return '-'
+    }
     const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Validação ${v.id}</title>
     <style>body{font-family:Arial, sans-serif; padding:24px;} h1{font-size:18px;} table{width:100%; border-collapse:collapse;} td{padding:6px; border-bottom:1px solid #ddd;} .muted{color:#555;}</style>
     </head><body>
@@ -150,10 +176,10 @@ function ActionCell({ id, status }: { id: string, status: string }) {
       <tr><td class="muted">Status</td><td>${v.status}</td></tr>
       <tr><td class="muted">Ticket</td><td>${v.ticket || '-'}</td></tr>
       <tr><td class="muted">Solicitante</td><td>${v.solicitante || '-'}</td></tr>
-      <tr><td class="muted">Analista</td><td>${v.analista?.nome || '-'}</td></tr>
-      <tr><td class="muted">Cliente</td><td>${v.cliente?.nome || '-'}</td></tr>
-      <tr><td class="muted">Contrato</td><td>${v.contrato?.numero || '-'}</td></tr>
-      <tr><td class="muted">Operadora</td><td>${v.operadora?.nome || '-'}</td></tr>
+      <tr><td class="muted">Analista</td><td>${label(v.analista, analistasById)}</td></tr>
+      <tr><td class="muted">Cliente</td><td>${label(v.cliente, clientesById)}</td></tr>
+      <tr><td class="muted">Contrato</td><td>${contratoLabel(v.contrato)}</td></tr>
+      <tr><td class="muted">Operadora</td><td>${label(v.operadora, operadorasById)}</td></tr>
       <tr><td class="muted">Data Início</td><td>${v.dataInicio || '-'}</td></tr>
       <tr><td class="muted">Data Final</td><td>${v.dataFinal || '-'}</td></tr>
       <tr><td class="muted">Descrição</td><td>${v.descricao || '-'}</td></tr>
@@ -461,6 +487,17 @@ export default function ValidationListPage() {
   }
   
   const md = useMasterDataStore()
+  const {
+    analistasById,
+    clientesById,
+    contratosById,
+    operadorasById,
+    solicitantesById,
+    areasById,
+    sistemasById,
+    tiposDemandaById,
+    tiposServicoById
+  } = md
   const { user } = useAuthStore()
   const { canCreate, canImport, canExport, canDelete } = usePermissions('validacao')
   const [smartImporterOpen, setSmartImporterOpen] = useState(false)
@@ -478,31 +515,35 @@ export default function ValidationListPage() {
   const [filterModel, setFilterModel] = useState<GridFilterModel>({ items: [], quickFilterValues: [] })
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({ page: 0, pageSize: 10 })
   const [showOnlyMyValidations, setShowOnlyMyValidations] = useState(true)
+  const isDev = import.meta.env.DEV
+  const logDev = (...args: unknown[]) => {
+    if (isDev) console.log(...args)
+  }
 
   // Filtrar dados por permissão do usuário
   const filteredItems = useFilteredData(items, user?.role, user?.id, user?.viewOwnDataOnly)
   // Aplicar filtro adicional para validações do usuário logado
-  const finalFilteredItems = showOnlyMyValidations 
-    ? filteredItems.filter(validation => {
-        // Múltiplas verificações para identificar se a validação é do usuário
-        const analistaId = typeof validation.analista === 'object' ? validation.analista?.id : validation.analista
-        const analistaNome = typeof validation.analista === 'object' ? validation.analista?.nome : null
-        
-        const check1 = analistaId === user?.id
-        const check2 = analistaNome === user?.name
-        const check3 = user?.role === 'admin' && analistaId === 'analista-admin'
-        const check4 = validation.analista === user?.id // Verificar campo analista também
-        const check5 = validation.analista === user?.name // Verificar se analista é o nome do usuário
-        
-        // Verificação adicional: se o usuário é admin, sempre incluir validações criadas por ele
-        const check6 = user?.role === 'admin'
-        
-        const isMyValidation = check1 || check2 || check3 || check4 || check5 || check6
-        
-        
-        return isMyValidation
-      })
-    : filteredItems
+  const finalFilteredItems = useMemo(() => {
+    if (!showOnlyMyValidations) return filteredItems
+    return filteredItems.filter(validation => {
+      // Múltiplas verificações para identificar se a validação é do usuário
+      const analistaId = typeof validation.analista === 'object' ? validation.analista?.id : validation.analista
+      const analistaNome = typeof validation.analista === 'object' ? validation.analista?.nome : null
+      
+      const check1 = analistaId === user?.id
+      const check2 = analistaNome === user?.name
+      const check3 = user?.role === 'admin' && analistaId === 'analista-admin'
+      const check4 = validation.analista === user?.id // Verificar campo analista também
+      const check5 = validation.analista === user?.name // Verificar se analista é o nome do usuário
+      
+      // Verificação adicional: se o usuário é admin, sempre incluir validações criadas por ele
+      const check6 = user?.role === 'admin'
+      
+      const isMyValidation = check1 || check2 || check3 || check4 || check5 || check6
+      
+      return isMyValidation
+    })
+  }, [showOnlyMyValidations, filteredItems, user?.id, user?.name, user?.role])
   // carregar preferências
   useEffect(() => {
     try {
@@ -539,7 +580,7 @@ export default function ValidationListPage() {
   useEffect(() => {
     if (md.clientes.length === 0 && !masterDataLoadedRef.current && md.syncFromApi) {
       masterDataLoadedRef.current = true
-      console.log('🔍 Validacao: Dados mestres vazios, chamando syncFromApi...')
+      logDev('🔍 Validacao: Dados mestres vazios, chamando syncFromApi...')
       md.syncFromApi()
     }
   }, [md.clientes.length, md.syncFromApi]) // Apenas quando necessário
@@ -559,7 +600,7 @@ export default function ValidationListPage() {
     try {
       const { api } = await import('../../lib/api.local')
       
-      console.log('🗑️ Iniciando exclusão em massa de', idsToDelete.length, 'validações')
+      logDev('🗑️ Iniciando exclusão em massa de', idsToDelete.length, 'validações')
       
       let successCount = 0
       let errorCount = 0
@@ -571,7 +612,7 @@ export default function ValidationListPage() {
           successCount++
         } catch (error: any) {
           if (error?.message?.includes('404') || error?.response?.status === 404) {
-            console.log(`⚠️ Validação ${id} já foi excluída (404) - removendo do cache local`)
+            logDev(`⚠️ Validação ${id} já foi excluída (404) - removendo do cache local`)
             notFoundCount++
           } else {
             console.error(`❌ Erro ao excluir validação ${id}:`, error)
@@ -619,7 +660,7 @@ export default function ValidationListPage() {
       let totalSavedToDatabase = 0
       const errors: string[] = []
 
-      console.log('🔍 SMART IMPORT VALIDAÇÕES: Processando resultado:', result)
+      logDev('🔍 SMART IMPORT VALIDAÇÕES: Processando resultado:', result)
 
       // Função para converter número de série do Excel para DateTime ISO
       const excelDateToISO = (value: any): string => {
@@ -657,8 +698,8 @@ export default function ValidationListPage() {
         try {
           const data = item.isCorrected ? item.correctedData : item.data
 
-          console.log('🔍 SMART IMPORT VALIDAÇÕES: Dados recebidos do SmartImporter:', data)
-          console.log('🔍 SMART IMPORT VALIDAÇÕES: Campos específicos:', {
+          logDev('🔍 SMART IMPORT VALIDAÇÕES: Dados recebidos do SmartImporter:', data)
+          logDev('🔍 SMART IMPORT VALIDAÇÕES: Campos específicos:', {
             solicitante: data.solicitante,
             analistaId: data.analistaId,
             clienteId: data.clienteId,
@@ -670,7 +711,7 @@ export default function ValidationListPage() {
           })
           
           // Log específico para dataFinal
-          console.log('🔍 SMART IMPORT VALIDAÇÕES: Processando dataFinal:', {
+          logDev('🔍 SMART IMPORT VALIDAÇÕES: Processando dataFinal:', {
             dataFinal: data.dataFinal,
             dataFinalizacao: data.dataFinalizacao,
             excelDateToISO_result: excelDateToISO(data.dataFinal || data.dataFinalizacao)
@@ -715,7 +756,7 @@ export default function ValidationListPage() {
             itensConcluidos: data.itensConcluidos || 0
           }
 
-          console.log('🔍 SMART IMPORT VALIDAÇÕES: Dados que serão enviados para o backend:', validacaoData)
+          logDev('🔍 SMART IMPORT VALIDAÇÕES: Dados que serão enviados para o backend:', validacaoData)
 
           Object.keys(validacaoData).forEach(key => {
             if (validacaoData[key] === '' || validacaoData[key] === null || validacaoData[key] === undefined) {
@@ -738,7 +779,7 @@ export default function ValidationListPage() {
       }
 
       const successMessage = `${totalImported} validações processadas, ${totalSavedToDatabase} salvas no banco de dados`
-      console.log(`✅ SMART IMPORT VALIDAÇÕES: ${successMessage}`)
+      logDev(`✅ SMART IMPORT VALIDAÇÕES: ${successMessage}`)
 
       if (totalSavedToDatabase > 0) {
         alert(`✅ ${successMessage}`)
@@ -768,95 +809,68 @@ export default function ValidationListPage() {
     } catch {}
   }
 
+  const normalizeText = (value?: string) => (value || '').trim().toLowerCase()
+  const analistasByName = useMemo(() => new Map(md.analistas.map(a => [normalizeText(a.nome), a.id])), [md.analistas])
+  const clientesByName = useMemo(() => new Map(md.clientes.map(c => [normalizeText(c.nome), c.id])), [md.clientes])
+  const contratosByName = useMemo(() => new Map(md.contratos.map(c => [normalizeText(c.numero || c.codigo || ''), c.id])), [md.contratos])
+  const operadorasByName = useMemo(() => new Map(md.operadoras.map(o => [normalizeText(o.nome), o.id])), [md.operadoras])
+  const solicitantesByName = useMemo(() => new Map(md.solicitantes.map(s => [normalizeText(s.nome), s.id])), [md.solicitantes])
+
   // Ordenar os dados por updatedAt (mais recente primeiro) antes de passar para o DataGrid
   // Isso garante ordenação correta mesmo se o sortModel não estiver aplicado
-  const sortedItems = [...finalFilteredItems].sort((a, b) => {
-    const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0
-    const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0
-    return dateB - dateA // Ordem decrescente (mais recente primeiro)
-  })
+  const sortedItems = useMemo(() => (
+    [...finalFilteredItems].sort((a, b) => {
+      const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0
+      const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0
+      return dateB - dateA // Ordem decrescente (mais recente primeiro)
+    })
+  ), [finalFilteredItems])
 
-  const rows = sortedItems.map((v) => {
+  const rows = useMemo(() => sortedItems.map((v) => {
     // Converter objetos relacionados para strings (nomes) para permitir busca rápida
-    // Função auxiliar para extrair nome de cliente
-    const getClienteNome = (cliente: any): string => {
-      if (!cliente) return ''
-      if (typeof cliente === 'object' && cliente !== null) {
-        return cliente.nome || ''
+    const getNomeFromValue = (value: any, byId?: Record<string, { nome?: string }>, byName?: Map<string, string>) => {
+      if (!value) return ''
+      if (typeof value === 'object') {
+        return value.nome || ''
       }
-      if (typeof cliente === 'string') {
-        // Se é UUID, buscar nos dados mestres
-        if (cliente.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-          return md.clientes.find(c => c.id === cliente)?.nome || cliente
-        }
-        // Se é string curta, pode ser nome ou ID curto - tentar buscar primeiro
-        const found = md.clientes.find(c => c.id === cliente || c.nome === cliente)
-        return found?.nome || cliente
+      if (typeof value === 'string') {
+        const byIdMatch = byId?.[value]?.nome
+        if (byIdMatch) return byIdMatch
+        const mappedId = byName?.get(normalizeText(value))
+        return mappedId ? (byId?.[mappedId]?.nome || value) : value
       }
-      return String(cliente || '')
+      return String(value || '')
     }
-    
-    // Função auxiliar para extrair número de contrato
-    const getContratoNumero = (contrato: any): string => {
-      if (!contrato) return ''
-      if (typeof contrato === 'object' && contrato !== null) {
-        return contrato.numero || contrato.codigo || ''
+    const getContratoNumero = (value: any) => {
+      if (!value) return ''
+      if (typeof value === 'object') {
+        return value.numero || value.codigo || ''
       }
-      if (typeof contrato === 'string') {
-        if (contrato.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-          return md.contratos.find(c => c.id === contrato)?.numero || md.contratos.find(c => c.id === contrato)?.codigo || contrato
+      if (typeof value === 'string') {
+        const byIdMatch = contratosById[value]
+        if (byIdMatch) return byIdMatch.numero || byIdMatch.codigo || value
+        const mappedId = contratosByName.get(normalizeText(value))
+        if (mappedId) {
+          const contract = contratosById[mappedId]
+          return contract?.numero || contract?.codigo || value
         }
-        const found = md.contratos.find(c => c.id === contrato || c.numero === contrato || c.codigo === contrato)
-        return found?.numero || found?.codigo || contrato
+        return value
       }
-      return String(contrato || '')
+      return String(value || '')
     }
-    
-    // Função auxiliar para extrair nome de operadora
-    const getOperadoraNome = (operadora: any): string => {
-      if (!operadora) return ''
-      if (typeof operadora === 'object' && operadora !== null) {
-        return operadora.nome || ''
-      }
-      if (typeof operadora === 'string') {
-        if (operadora.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-          return md.operadoras.find(o => o.id === operadora)?.nome || operadora
-        }
-        const found = md.operadoras.find(o => o.id === operadora || o.nome === operadora)
-        return found?.nome || operadora
-      }
-      return String(operadora || '')
-    }
-    
-    // Função auxiliar para extrair nome de solicitante
-    const getSolicitanteNome = (solicitante: any): string => {
-      if (!solicitante) return ''
-      if (typeof solicitante === 'object' && solicitante !== null) {
-        return solicitante.nome || ''
-      }
-      if (typeof solicitante === 'string') {
-        // Se é UUID, buscar nos dados mestres
-        if (solicitante.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-          return md.solicitantes.find(s => s.id === solicitante)?.nome || solicitante
-        }
-        // Se é string curta, pode ser nome ou ID curto - tentar buscar primeiro
-        const found = md.solicitantes.find(s => s.id === solicitante || s.nome === solicitante)
-        return found?.nome || solicitante
-      }
-      return String(solicitante || '')
-    }
-    
-    const clienteNome = getClienteNome(v.cliente || v.clienteId || v.clienteObj)
+
+    const analistaNome = getNomeFromValue(v.analista, analistasById, analistasByName)
+    const clienteNome = getNomeFromValue(v.cliente || v.clienteId || v.clienteObj, clientesById, clientesByName)
     const contratoNumero = getContratoNumero(v.contrato || v.contratoId || v.contratoObj)
-    const operadoraNome = getOperadoraNome(v.operadora || v.operadoraId || v.operadoraObj)
-    const solicitanteNome = getSolicitanteNome(v.solicitante)
+    const operadoraNome = getNomeFromValue(v.operadora || v.operadoraId || v.operadoraObj, operadorasById, operadorasByName)
+    const solicitanteNome = getNomeFromValue(v.solicitante, solicitantesById, solicitantesByName)
     
-    const row = {
+    return {
       id: v.id,
       ticket: v.ticket ?? '',
       descricao: v.descricao ?? '',
       status: v.status ?? '',
-      analista: v.analista?.nome ?? '',
+      analista: analistaNome,
       cliente: clienteNome,
       contrato: contratoNumero,
       operadora: operadoraNome,
@@ -867,8 +881,19 @@ export default function ValidationListPage() {
       // A formatação será feita pelo valueFormatter da coluna
       updatedAt: v.updatedAt || '',
     }
-    return row
-  })
+  }), [
+    sortedItems,
+    analistasById,
+    clientesById,
+    contratosById,
+    operadorasById,
+    solicitantesById,
+    analistasByName,
+    clientesByName,
+    contratosByName,
+    operadorasByName,
+    solicitantesByName
+  ])
 
   // Verificar se há dados
   const hasData = rows.length > 0
@@ -1211,16 +1236,18 @@ export default function ValidationListPage() {
         data={finalFilteredItems.map(v => ({
           ...v,
           // Usar objetos relacionados diretamente
-          analista: v.analista?.nome ?? 'N/A',
-          area: md.areas.find(ar => ar.id === v.area)?.nome ?? v.area ?? 'N/A',
+          analista: typeof (v as any).analista === 'string'
+            ? (analistasById[(v as any).analista]?.nome ?? (v as any).analista ?? 'N/A')
+            : ((v as any).analista?.nome ?? 'N/A'),
+          area: areasById[v.area || '']?.nome ?? v.area ?? 'N/A',
           cliente: v.cliente,
           contrato: v.contrato,
           operadora: v.operadora,
-          produto: v.produto?.nome ?? 'N/A',
-          sistema: md.sistemas.find(s => s.id === v.sistema)?.nome ?? v.sistema ?? 'N/A',
-          tipo: md.tiposDemanda.find(t => t.id === v.tipo)?.nome ?? v.tipo ?? 'N/A',
-          tipoServico: md.tiposServico.find(ts => ts.id === v.tipoServico)?.nome ?? v.tipoServico ?? 'N/A',
-          solicitante: md.solicitantes.find(s => s.id === v.solicitante)?.nome ?? v.solicitante ?? 'N/A',
+          produto: (v.produto && typeof v.produto === 'object') ? (v.produto as any).nome ?? 'N/A' : (v as any).produto ?? 'N/A',
+          sistema: sistemasById[v.sistema || '']?.nome ?? v.sistema ?? 'N/A',
+          tipo: tiposDemandaById[v.tipo || '']?.nome ?? v.tipo ?? 'N/A',
+      tipoServico: tiposServicoById[(v as any).tipoServico || '']?.nome ?? (v as any).tipoServico ?? 'N/A',
+          solicitante: solicitantesById[v.solicitante || '']?.nome ?? v.solicitante ?? 'N/A',
           // Formatar datas
           dataInicio: v.dataInicio ? new Date(v.dataInicio).toLocaleString('pt-BR') : 'N/A',
           dataFinal: v.dataFinal ? new Date(v.dataFinal).toLocaleString('pt-BR') : 'N/A',

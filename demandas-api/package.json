@@ -1,7 +1,7 @@
 {
   "name": "demandas-api-novo",
-  "version": "2.5.0",
-  "description": "Backend API - 2.5.0 - Correções importantes: DATABASE_URL, package-lock.json, configuração Railway e deploy",
+  "version": "2.5.1",
+  "description": "Backend API - 2.5.1 - Ajustes de paginação e deploy Railway",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",

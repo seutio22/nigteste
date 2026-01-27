@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Outlet, useNavigate } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
@@ -15,11 +15,39 @@ import { useAuthStore } from '../store/authStore'
 import { useSimpleAutoCleanup } from '../hooks/useAutoCleanup'
 import { motion } from 'framer-motion'
 
+const globalLastSync = new Map<string, number>()
+const globalSyncInFlight = new Set<string>()
+
 export function AppLayout() {
   const { isCollapsed, isMobile } = useSidebar()
   const navigate = useNavigate()
   const { logout, checkLoginExpiration } = useAuthStore()
   const [showTimeoutWarning, setShowTimeoutWarning] = useState(false)
+  const isDev = import.meta.env.DEV
+  const logDev = (...args: unknown[]) => {
+    if (isDev) console.log(...args)
+  }
+  const syncCooldownMs = 2 * 60 * 1000
+
+  const shouldSync = (key: string) => {
+    const now = Date.now()
+    const last = globalLastSync.get(key) || 0
+    if (now - last < syncCooldownMs) return false
+    globalLastSync.set(key, now)
+    return true
+  }
+
+  const runSync = (key: string, syncFn: () => Promise<void>) => {
+    if (!shouldSync(key) || globalSyncInFlight.has(key)) return
+    globalSyncInFlight.add(key)
+    syncFn()
+      .catch((error) => {
+        console.error(`❌ AppLayout: Erro no sync ${key}:`, error)
+      })
+      .finally(() => {
+        globalSyncInFlight.delete(key)
+      })
+  }
   
   const syncMasterData = useMasterDataStore((s) => s.syncFromApi)
   const syncComunicados = useComunicadoStore((s) => s.syncFromApi)
@@ -34,7 +62,7 @@ export function AppLayout() {
     const checkExpiration = () => {
       const expired = checkLoginExpiration()
       if (expired) {
-        console.log('⏰ Login expirado detectado - redirecionando para login')
+        logDev('⏰ Login expirado detectado - redirecionando para login')
         navigate('/login')
       }
     }
@@ -43,7 +71,10 @@ export function AppLayout() {
     checkExpiration()
 
     // Verificar a cada 5 minutos
-    const interval = setInterval(checkExpiration, 5 * 60 * 1000)
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return
+      checkExpiration()
+    }, 5 * 60 * 1000)
 
     return () => clearInterval(interval)
   }, [checkLoginExpiration, navigate])
@@ -53,29 +84,30 @@ export function AppLayout() {
     timeout: 30 * 60 * 1000, // 30 minutos
     warningTime: 5 * 60 * 1000, // 5 minutos de aviso
     onWarning: () => {
-      console.log('⚠️ Aviso: Sessão expirando em 5 minutos')
+      logDev('⚠️ Aviso: Sessão expirando em 5 minutos')
       setShowTimeoutWarning(true)
     },
     onTimeout: () => {
-      console.log('🔒 Timeout: Fazendo logout automático por inatividade')
+      logDev('🔒 Timeout: Fazendo logout automático por inatividade')
       handleLogout()
     }
   })
 
   const handleLogout = () => {
-    console.log('🔒 Timeout: Executando logout automático por inatividade')
+    logDev('🔒 Timeout: Executando logout automático por inatividade')
     // O logout já limpa todos os dados automaticamente
     logout()
     navigate('/login')
   }
 
   const handleExtendSession = () => {
-    console.log('✅ Sessão estendida pelo usuário')
+    logDev('✅ Sessão estendida pelo usuário')
     setShowTimeoutWarning(false)
     resetTimeout()
   }
 
   useEffect(() => {
+    if (typeof document !== 'undefined' && document.hidden) return
     
     // Inicializar dados mestres apenas se necessário (removido para evitar conflito)
     // if (syncMasterData) {
@@ -87,33 +119,23 @@ export function AppLayout() {
     
     // Inicializar dados automaticamente
     if (syncComunicados) {
-      syncComunicados().catch((error) => {
-        console.error('❌ AppLayout: Erro no syncComunicados:', error)
-      })
+      runSync('comunicados', syncComunicados)
     }
     
     if (syncValidacoes) {
-      syncValidacoes().catch((error) => {
-        console.error('❌ AppLayout: Erro no syncValidacoes:', error)
-      })
+      runSync('validacoes', syncValidacoes)
     }
     
     if (syncDemandas) {
-      syncDemandas().catch((error) => {
-        console.error('❌ AppLayout: Erro no syncDemandas:', error)
-      })
+      runSync('demandas', syncDemandas)
     }
     
     if (syncManutencoes) {
-      syncManutencoes().catch((error) => {
-        console.error('❌ AppLayout: Erro no syncManutencoes:', error)
-      })
+      runSync('manutencoes', syncManutencoes)
     }
     
     if (syncProjetos) {
-      syncProjetos().catch((error) => {
-        console.error('❌ AppLayout: Erro no syncProjetos:', error)
-      })
+      runSync('projetos', syncProjetos)
     }
   }, [syncMasterData, syncComunicados, syncValidacoes, syncDemandas, syncManutencoes, syncProjetos])
 

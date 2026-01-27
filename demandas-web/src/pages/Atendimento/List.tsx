@@ -12,21 +12,48 @@ import PersonIcon from '@mui/icons-material/Person'
 import GroupIcon from '@mui/icons-material/Group'
 import { usePermissions } from '../../hooks/usePermissions'
 
+const tipoServicoLabel: Record<string, string> = {
+  duvida: 'Dúvida',
+  solicitacao: 'Solicitação',
+}
+
+const canalLabel: Record<string, string> = {
+  teams: 'Teams',
+  email: 'E-mail',
+  ligacao: 'Ligação',
+  mensagem: 'Mensagem',
+}
+
 export default function AtendimentoListPage() {
   const navigate = useNavigate()
   const atendimentoStore = useAtendimentoStore()
   const masterDataStore = useMasterDataStore()
+  const {
+    analistasById,
+    areasById,
+    clientesById,
+    contratosById,
+    operadorasById,
+    produtosById,
+    sistemasById,
+    solicitantesById,
+  } = masterDataStore
   const { user } = useAuthStore()
   const { canCreate, canExport } = usePermissions('atendimento')
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   
   // Estados para filtros e DataGrid
+  const STORAGE_KEY = 'atendimentos-list-view-v1'
+  const FILTER_KEY = 'atendimento-user-filter-v1'
+  const [columnVisibilityModel, setColumnVisibilityModel] = useState<GridColumnVisibilityModel>({})
   const [showOnlyMyAtendimentos, setShowOnlyMyAtendimentos] = useState(true)
   const [exportModalOpen, setExportModalOpen] = useState(false)
   const [sortModel, setSortModel] = useState<GridSortModel>([
     { field: 'createdAt', sort: 'desc' } // Ordenar por data de criação (mais recentes primeiro)
   ])
+  const [filterModel, setFilterModel] = useState<GridFilterModel>({ items: [], quickFilterValues: [] })
+  const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({ page: 0, pageSize: 10 })
 
   // Carregar dados mestres e atendimentos
   useEffect(() => {
@@ -38,10 +65,22 @@ export default function AtendimentoListPage() {
     }
   }, [])
 
-  // Carregar preferência do filtro de usuário - SEMPRE inicia como "Meus atendimentos" (true)
+  // Carregar preferências
   useEffect(() => {
     try {
-      const filterPreference = localStorage.getItem('atendimento-user-filter-v1')
+      const raw = localStorage.getItem(STORAGE_KEY)
+      if (raw) {
+        const saved = JSON.parse(raw)
+        if (saved.columnVisibilityModel) setColumnVisibilityModel(saved.columnVisibilityModel)
+        if (saved.sortModel) setSortModel(saved.sortModel)
+        if (saved.filterModel) setFilterModel(saved.filterModel)
+        if (saved.paginationModel) setPaginationModel(saved.paginationModel)
+      }
+    } catch {}
+    
+    // Carregar preferência do filtro de usuário - SEMPRE inicia como "Meus atendimentos" (true)
+    try {
+      const filterPreference = localStorage.getItem(FILTER_KEY)
       if (filterPreference !== null) {
         setShowOnlyMyAtendimentos(JSON.parse(filterPreference))
       } else {
@@ -57,22 +96,36 @@ export default function AtendimentoListPage() {
   // Persistir preferência do filtro de usuário
   useEffect(() => {
     try {
-      localStorage.setItem('atendimento-user-filter-v1', JSON.stringify(showOnlyMyAtendimentos))
+      localStorage.setItem(FILTER_KEY, JSON.stringify(showOnlyMyAtendimentos))
     } catch {}
   }, [showOnlyMyAtendimentos])
+
+  function persist(next: Partial<{ columnVisibilityModel: GridColumnVisibilityModel; sortModel: GridSortModel; filterModel: GridFilterModel; paginationModel: GridPaginationModel }>) {
+    try {
+      const current = {
+        columnVisibilityModel,
+        sortModel,
+        filterModel,
+        paginationModel,
+      }
+      const merged = { ...current, ...next }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged))
+    } catch {}
+  }
 
   // Usar dados do store em vez de array vazio
   const atendimentos = atendimentoStore.items
 
   // Aplicar filtro adicional para atendimentos do usuário logado
-  const filteredByUser = showOnlyMyAtendimentos 
-    ? atendimentos.filter(atendimento => {
-        const analista = masterDataStore.analistas.find(a => a.id === atendimento.analista)
-        return user?.role === 'admin' || 
-               atendimento.analista === user?.id || 
-               (analista && analista.nome === user?.name)
-      })
-    : atendimentos
+  const filteredByUser = useMemo(() => {
+    if (!showOnlyMyAtendimentos) return atendimentos
+    return atendimentos.filter(atendimento => {
+      const analista = analistasById?.[atendimento.analista || '']
+      return user?.role === 'admin' || 
+             atendimento.analista === user?.id || 
+             (analista && analista.nome === user?.name)
+    })
+  }, [showOnlyMyAtendimentos, atendimentos, analistasById, user?.id, user?.name, user?.role])
 
 
   // Ordenar por data de criação (mais recente primeiro)
@@ -139,12 +192,12 @@ export default function AtendimentoListPage() {
     ) },
     { field: 'ticket', headerName: 'Ticket', width: 140 },
     { field: 'cliente', headerName: 'Cliente', width: 200, renderCell: (p) => {
-      const cliente = masterDataStore.clientes.find(c => c.id === p.value)
-      return cliente ? cliente.nome : p.value || '-'
+      const cliente = clientesById?.[String(p.value || '')]
+      return cliente?.nome || p.value || '-'
     }},
     { field: 'solicitante', headerName: 'Solicitante', width: 160, renderCell: (p) => {
-      const solicitante = masterDataStore.solicitantes.find(s => s.id === p.value)
-      return solicitante ? solicitante.nome : p.value || '-'
+      const solicitante = solicitantesById?.[String(p.value || '')]
+      return solicitante?.nome || p.value || '-'
     }},
     { field: 'status', headerName: 'Status', width: 150, renderCell: (p) => (
       <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(p.value)}`}>
@@ -155,29 +208,18 @@ export default function AtendimentoListPage() {
       p.value ? new Date(p.value).toLocaleDateString('pt-BR') : '-'
     },
     { field: 'area', headerName: 'Área', width: 160, renderCell: (p) => {
-      const area = masterDataStore.areas.find(a => a.id === p.value)
-      return area ? area.nome : p.value || '-'
+      const area = areasById?.[String(p.value || '')]
+      return area?.nome || p.value || '-'
     }},
     { field: 'analista', headerName: 'Analista', width: 160, renderCell: (p) => {
-      const analista = masterDataStore.analistas.find(a => a.id === p.value)
-      return analista ? analista.nome : p.value || '-'
+      const analista = analistasById?.[String(p.value || '')]
+      return analista?.nome || p.value || '-'
     }},
     { field: 'tipoServico', headerName: 'Tipo de Serviço', width: 160, renderCell: (p) => {
-      const tiposServicoMap: { [key: string]: string } = {
-        'duvida': 'Dúvida',
-        'solicitacao': 'Solicitação'
-      }
-      return tiposServicoMap[p.value as string] || p.value || '-'
+      return tipoServicoLabel[String(p.value || '')] || p.value || '-'
     }},
     { field: 'tipo', headerName: 'Canal de Atendimento', width: 160, renderCell: (p) => {
-      // Mapear valores para texto legível
-      const canalMap: { [key: string]: string } = {
-        'teams': 'Teams',
-        'email': 'E-mail',
-        'ligacao': 'Ligação',
-        'mensagem': 'Mensagem'
-      }
-      return canalMap[p.value as string] || p.value || '-'
+      return canalLabel[String(p.value || '')] || p.value || '-'
     }},
     { 
       field: 'createdAt', 
@@ -396,7 +438,30 @@ export default function AtendimentoListPage() {
             },
           }}
           sortModel={sortModel}
-          onSortModelChange={(newModel) => setSortModel(newModel)}
+          onSortModelChange={(newModel) => {
+            setSortModel(newModel)
+            persist({ sortModel: newModel })
+          }}
+          columnVisibilityModel={columnVisibilityModel}
+          onColumnVisibilityModelChange={(model) => {
+            setColumnVisibilityModel(model)
+            persist({ columnVisibilityModel: model })
+          }}
+          filterModel={filterModel}
+          onFilterModelChange={(model) => {
+            setFilterModel(model)
+            persist({ filterModel: model })
+          }}
+          initialState={{
+            pagination: {
+              paginationModel: { page: 0, pageSize: 10 },
+            },
+          }}
+          paginationModel={paginationModel}
+          onPaginationModelChange={(model) => {
+            setPaginationModel(model)
+            persist({ paginationModel: model })
+          }}
           sx={{
             height: '100%',
             minHeight: '400px',
@@ -455,22 +520,16 @@ export default function AtendimentoListPage() {
         data={sortedAtendimentos.map(a => ({
           ...a,
           // Mapear IDs para nomes legíveis
-          analista: masterDataStore.analistas.find(an => an.id === a.analista)?.nome ?? a.analista ?? 'N/A',
-          area: masterDataStore.areas.find(ar => ar.id === a.area)?.nome ?? a.area ?? 'N/A',
-          cliente: masterDataStore.clientes.find(c => c.id === a.cliente)?.nome ?? a.cliente ?? 'N/A',
-          contrato: masterDataStore.contratos.find(c => c.id === a.contrato)?.numero ?? a.contrato ?? 'N/A',
-          operadora: masterDataStore.operadoras.find(o => o.id === a.operadora)?.nome ?? a.operadora ?? 'N/A',
-          produto: masterDataStore.produtos.find(p => p.id === a.produto)?.nome ?? a.produto ?? 'N/A',
-          sistema: masterDataStore.sistemas.find(s => s.id === a.sistema)?.nome ?? a.sistema ?? 'N/A',
-          tipoServico: (a.tipoServico === 'duvida' ? 'Dúvida' : a.tipoServico === 'solicitacao' ? 'Solicitação' : a.tipoServico) ?? 'N/A',
+          analista: analistasById?.[a.analista || '']?.nome ?? a.analista ?? 'N/A',
+          area: areasById?.[a.area || '']?.nome ?? a.area ?? 'N/A',
+          cliente: clientesById?.[a.cliente || '']?.nome ?? a.cliente ?? 'N/A',
+          contrato: contratosById?.[a.contrato || '']?.numero ?? a.contrato ?? 'N/A',
+          operadora: operadorasById?.[a.operadora || '']?.nome ?? a.operadora ?? 'N/A',
+          produto: produtosById?.[a.produto || '']?.nome ?? a.produto ?? 'N/A',
+          sistema: sistemasById?.[a.sistema || '']?.nome ?? a.sistema ?? 'N/A',
+          tipoServico: tipoServicoLabel[String(a.tipoServico || '')] || a.tipoServico || 'N/A',
           tipo: (() => {
-            const canalMap: { [key: string]: string } = {
-              'teams': 'Teams',
-              'email': 'E-mail',
-              'ligacao': 'Ligação',
-              'mensagem': 'Mensagem'
-            }
-            return canalMap[a.tipo as string] || a.tipo || 'N/A'
+            return canalLabel[String(a.tipo || '')] || a.tipo || 'N/A'
           })(),
           // Formatar datas
           dataInicio: a.dataInicio ? new Date(a.dataInicio).toLocaleString('pt-BR') : 'N/A',

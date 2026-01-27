@@ -56,72 +56,127 @@ export default async function deletionHistoryRoutes(fastify: FastifyInstance) {
         skip: query.offset ? parseInt(query.offset.toString()) : 0
       })
 
-      // Buscar dados dos itens excluídos
-      const enrichedLogs = await Promise.all(
-        deletionLogs.map(async (log) => {
-          let entityData = null
-          
-          try {
-            // Buscar dados do item excluído baseado no tipo
-            switch (log.entityType) {
-              case 'demanda':
-                entityData = await prisma.demanda.findUnique({
-                  where: { id: log.entityId },
-                  include: {
-                    user: { select: { name: true, email: true } },
-                    contrato: true
-                  }
-                })
-                break
-              case 'manutencao':
-                entityData = await prisma.manutencao.findUnique({
-                  where: { id: log.entityId },
-                  include: {
-                    user: { select: { name: true, email: true } },
-                    contrato: true
-                  }
-                })
-                break
-              case 'analytics':
-                entityData = await prisma.report.findUnique({
-                  where: { id: log.entityId }
-                })
-                break
-              case 'atendimento':
-                entityData = await prisma.atendimento.findUnique({
-                  where: { id: log.entityId },
-                  include: {
-                    user: { select: { name: true, email: true } }
-                  }
-                })
-                break
-              case 'validacao':
-                entityData = await prisma.validacao.findUnique({
-                  where: { id: log.entityId },
-                  include: {
-                    user: { select: { name: true, email: true } }
-                  }
-                })
-                break
-              case 'reajuste':
-                entityData = await prisma.reajuste.findUnique({
-                  where: { id: log.entityId },
-                  include: {
-                    user: { select: { name: true, email: true } }
-                  }
-                })
-                break
-            }
-          } catch (error) {
-            console.error(`Erro ao buscar dados da entidade ${log.entityType}:`, error)
-          }
+      // Buscar dados dos itens excluídos (batch por tipo para evitar N+1)
+      const idsByType = deletionLogs.reduce<Record<string, string[]>>((acc, log) => {
+        if (!acc[log.entityType]) acc[log.entityType] = []
+        acc[log.entityType].push(log.entityId)
+        return acc
+      }, {})
 
-          return {
-            ...log,
-            entityData
-          }
-        })
-      )
+      const [
+        demandas,
+        manutencoes,
+        atendimentos,
+        validacoes,
+        reajustes,
+        reports
+      ] = await Promise.all([
+        idsByType.demanda?.length
+          ? prisma.demanda.findMany({
+              where: { id: { in: idsByType.demanda } },
+              select: {
+                id: true,
+                ticket: true,
+                descricao: true,
+                status: true,
+                user: { select: { name: true, email: true } },
+                contrato: true
+              }
+            })
+          : Promise.resolve([]),
+        idsByType.manutencao?.length
+          ? prisma.manutencao.findMany({
+              where: { id: { in: idsByType.manutencao } },
+              select: {
+                id: true,
+                ticket: true,
+                descricao: true,
+                status: true,
+                user: { select: { name: true, email: true } },
+                contrato: true
+              }
+            })
+          : Promise.resolve([]),
+        idsByType.atendimento?.length
+          ? prisma.atendimento.findMany({
+              where: { id: { in: idsByType.atendimento } },
+              select: {
+                id: true,
+                ticket: true,
+                descricao: true,
+                status: true,
+                user: { select: { name: true, email: true } }
+              }
+            })
+          : Promise.resolve([]),
+        idsByType.validacao?.length
+          ? prisma.validacao.findMany({
+              where: { id: { in: idsByType.validacao } },
+              select: {
+                id: true,
+                ticket: true,
+                descricao: true,
+                status: true,
+                user: { select: { name: true, email: true } }
+              }
+            })
+          : Promise.resolve([]),
+        idsByType.reajuste?.length
+          ? prisma.reajuste.findMany({
+              where: { id: { in: idsByType.reajuste } },
+              select: {
+                id: true,
+                ticket: true,
+                descricao: true,
+                status: true,
+                user: { select: { name: true, email: true } }
+              }
+            })
+          : Promise.resolve([]),
+        idsByType.analytics?.length
+          ? prisma.report.findMany({
+              where: { id: { in: idsByType.analytics } }
+            })
+          : Promise.resolve([])
+      ])
+
+      const mapById = <T extends { id: string }>(rows: T[]) =>
+        rows.reduce<Record<string, T>>((acc, row) => {
+          acc[row.id] = row
+          return acc
+        }, {})
+
+      const demandMap = mapById(demandas)
+      const manutencaoMap = mapById(manutencoes)
+      const atendimentoMap = mapById(atendimentos)
+      const validacaoMap = mapById(validacoes)
+      const reajusteMap = mapById(reajustes)
+      const reportMap = mapById(reports)
+
+      const enrichedLogs = deletionLogs.map((log) => {
+        let entityData: any = null
+        switch (log.entityType) {
+          case 'demanda':
+            entityData = demandMap[log.entityId] || null
+            break
+          case 'manutencao':
+            entityData = manutencaoMap[log.entityId] || null
+            break
+          case 'analytics':
+            entityData = reportMap[log.entityId] || null
+            break
+          case 'atendimento':
+            entityData = atendimentoMap[log.entityId] || null
+            break
+          case 'validacao':
+            entityData = validacaoMap[log.entityId] || null
+            break
+          case 'reajuste':
+            entityData = reajusteMap[log.entityId] || null
+            break
+        }
+        return { ...log, entityData }
+      })
 
       return reply.send({
         logs: enrichedLogs,

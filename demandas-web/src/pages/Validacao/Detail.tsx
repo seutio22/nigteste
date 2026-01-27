@@ -9,6 +9,7 @@ import { Timeline } from '../../components/Timeline'
 import { fmt, calcTempo } from '../../lib/utils'
 import { ValidationEntry } from '../../types/validation'
 import { Autocomplete, Box, TextField, Typography } from '@mui/material'
+import { createPerfLogger } from '../../utils/perf'
 
 export default function ValidationDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -16,6 +17,8 @@ export default function ValidationDetailPage() {
   const { items, logs, syncFromApi, syncTimeline, isLoading } = useValidationStore()
   const md = useMasterDataStore()
   const { user } = useAuthStore()
+  const perfRef = useRef(createPerfLogger('Validacao/Editar'))
+  const perfReadyRef = useRef(false)
   const validation = items.find(v => v.id === id)
   // Removido fallback por sessionStorage para evitar loops; fluxo replica manutenção
 
@@ -130,6 +133,22 @@ export default function ValidationDetailPage() {
   
   // Estado para controlar se os dados mestres estão carregados
   const [masterDataLoaded, setMasterDataLoaded] = useState(false)
+
+  useEffect(() => {
+    perfRef.current.log('mount')
+  }, [])
+
+  useEffect(() => {
+    if (perfReadyRef.current) return
+    if (md.clientes.length && md.contratos.length && md.analistas.length) {
+      perfReadyRef.current = true
+      perfRef.current.log('data-ready', {
+        clientes: md.clientes.length,
+        contratos: md.contratos.length,
+        analistas: md.analistas.length
+      })
+    }
+  }, [md.clientes.length, md.contratos.length, md.analistas.length])
 
   // Carregar dados quando a página for acessada (modelo igual Manutenção)
   useEffect(() => {
@@ -1183,7 +1202,8 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
               { value: "1-LIMITE_TECNICO", label: "1-ERRO Limite Técnico" },
               { value: "1-COPARTICIPACAO", label: "1-ERRO Coparticipação" },
               { value: "1-CONTRIBUICAO", label: "1-ERRO Contribuição" },
-              { value: "1-DADOS_GERAIS", label: "1-ERRO Dados Gerais" }
+              { value: "1-DADOS_GERAIS", label: "1-ERRO Dados Gerais" },
+              { value: "1-ERRO_EQUIPE_ATENDIMENTO_MDS", label: "1-ERRO EQUIPE ATENDIMENTO MDS" }
             ].map((option) => {
               const estruturaEdgeArray = Array.isArray(draft.estruturaEdge) ? draft.estruturaEdge : []
               return (

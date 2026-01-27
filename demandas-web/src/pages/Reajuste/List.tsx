@@ -104,6 +104,10 @@ export default function ReajusteListPage() {
   const [filterModel, setFilterModel] = useState<GridFilterModel>({ items: [], quickFilterValues: [] })
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({ page: 0, pageSize: 10 })
   const [showOnlyMyReajustes, setShowOnlyMyReajustes] = useState(true)
+  const isDev = import.meta.env.DEV
+  const logDev = (...args: unknown[]) => {
+    if (isDev) console.log(...args)
+  }
 
 
   // Filtrar dados por permissão do usuário
@@ -209,7 +213,7 @@ export default function ReajusteListPage() {
     try {
       const { api } = await import('../../lib/api.local')
       
-      console.log('🗑️ Iniciando exclusão em massa de', idsToDelete.length, 'reajustes')
+      logDev('🗑️ Iniciando exclusão em massa de', idsToDelete.length, 'reajustes')
       
       let successCount = 0
       let errorCount = 0
@@ -222,7 +226,7 @@ export default function ReajusteListPage() {
         } catch (error: any) {
           // Se for erro 404, significa que já foi excluído - ignorar
           if (error?.message?.includes('404') || error?.response?.status === 404) {
-            console.log(`⚠️ Reajuste ${id} já foi excluído (404) - removendo do cache local`)
+            logDev(`⚠️ Reajuste ${id} já foi excluído (404) - removendo do cache local`)
             notFoundCount++
           } else {
             console.error(`❌ Erro ao excluir reajuste ${id}:`, error)
