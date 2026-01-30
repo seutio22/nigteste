@@ -4626,7 +4626,10 @@ export default function ProjectDetailPage() {
                               value={editing ? editData.status : project.status || 'active'}
                               label="Status"
                               onChange={(e) => handleInputChange('status', e.target.value)}
-                              MenuProps={{ PaperProps: { style: { zIndex: 1300 } }, slotProps: { paper: { style: { zIndex: 1300 } } } }
+                              MenuProps={{
+                                PaperProps: { style: { zIndex: 1300 } },
+                                slotProps: { paper: { style: { zIndex: 1300 } } }
+                              }}
                             >
                               <MenuItem value="active">Ativo</MenuItem>
                               <MenuItem value="paused">Pausado</MenuItem>
@@ -4642,7 +4645,10 @@ export default function ProjectDetailPage() {
                               value={editing ? editData.priority : project.priority || 'medium'}
                               label="Prioridade"
                               onChange={(e) => handleInputChange('priority', e.target.value)}
-                              MenuProps={{ PaperProps: { style: { zIndex: 1300 } }, slotProps: { paper: { style: { zIndex: 1300 } } } }
+                              MenuProps={{
+                                PaperProps: { style: { zIndex: 1300 } },
+                                slotProps: { paper: { style: { zIndex: 1300 } } }
+                              }}
                             >
                               <MenuItem value="low">Baixa</MenuItem>
                               <MenuItem value="medium">Média</MenuItem>
