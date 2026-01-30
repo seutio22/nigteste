@@ -1635,6 +1635,44 @@ export default function ProjectDetailPage() {
     })
   }
 
+  // Função para subir subtarefa na ordem
+  const handleMoveSubtaskUp = (phaseId: string, taskId: string, subtaskIndex: number) => {
+    if (!project || subtaskIndex <= 0) return
+    const updatedProject = JSON.parse(JSON.stringify(project))
+    const phaseIndex = updatedProject.timeline.phases.findIndex((p: any) => p.id === phaseId)
+    if (phaseIndex === -1) return
+    const taskIndex = updatedProject.timeline.phases[phaseIndex].tasks.findIndex((t: any) => t.id === taskId)
+    if (taskIndex === -1 || !updatedProject.timeline.phases[phaseIndex].tasks[taskIndex].subtasks?.length) return
+    const subtasks = updatedProject.timeline.phases[phaseIndex].tasks[taskIndex].subtasks
+    ;[subtasks[subtaskIndex - 1], subtasks[subtaskIndex]] = [subtasks[subtaskIndex], subtasks[subtaskIndex - 1]]
+    setProject(updatedProject)
+    upsertProject(updatedProject).catch((err: any) => {
+      console.error('❌ Erro ao salvar ordem da subtarefa:', err)
+      alert('Erro ao salvar ordem no banco de dados')
+    })
+  }
+
+  // Função para descer subtarefa na ordem
+  const handleMoveSubtaskDown = (phaseId: string, taskId: string, subtaskIndex: number) => {
+    if (!project) return
+    const phase = project.timeline?.phases?.find((p: any) => p.id === phaseId)
+    const task = phase?.tasks?.find((t: any) => t.id === taskId)
+    const subtaskCount = task?.subtasks?.length ?? 0
+    if (subtaskIndex < 0 || subtaskIndex >= subtaskCount - 1) return
+    const updatedProject = JSON.parse(JSON.stringify(project))
+    const phaseIndex = updatedProject.timeline.phases.findIndex((p: any) => p.id === phaseId)
+    if (phaseIndex === -1) return
+    const taskIndex = updatedProject.timeline.phases[phaseIndex].tasks.findIndex((t: any) => t.id === taskId)
+    if (taskIndex === -1 || !updatedProject.timeline.phases[phaseIndex].tasks[taskIndex].subtasks?.length) return
+    const subtasks = updatedProject.timeline.phases[phaseIndex].tasks[taskIndex].subtasks
+    ;[subtasks[subtaskIndex], subtasks[subtaskIndex + 1]] = [subtasks[subtaskIndex + 1], subtasks[subtaskIndex]]
+    setProject(updatedProject)
+    upsertProject(updatedProject).catch((err: any) => {
+      console.error('❌ Erro ao salvar ordem da subtarefa:', err)
+      alert('Erro ao salvar ordem no banco de dados')
+    })
+  }
+
   // Função para gerar numeração hierárquica
   const generateTaskNumber = (phaseIndex: number, taskIndex: number) => {
     return `${phaseIndex + 1}.${taskIndex + 1}`
@@ -3566,7 +3604,33 @@ export default function ProjectDetailPage() {
                             </TableCell>
                             
                             <TableCell>
-                              <Box sx={{ display: 'flex', gap: 0.5 }}>
+                              <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+                                <Tooltip title="Subir subtarefa">
+                                  <span>
+                                    <IconButton
+                                      size="small"
+                                      onClick={() => handleMoveSubtaskUp(phase.id, task.id, subtaskIndex)}
+                                      disabled={subtaskIndex === 0}
+                                      color="default"
+                                      sx={{ width: 20, height: 20 }}
+                                    >
+                                      <KeyboardArrowUp sx={{ fontSize: '0.8rem' }} />
+                                    </IconButton>
+                                  </span>
+                                </Tooltip>
+                                <Tooltip title="Descer subtarefa">
+                                  <span>
+                                    <IconButton
+                                      size="small"
+                                      onClick={() => handleMoveSubtaskDown(phase.id, task.id, subtaskIndex)}
+                                      disabled={subtaskIndex === (task.subtasks?.length ?? 1) - 1}
+                                      color="default"
+                                      sx={{ width: 20, height: 20 }}
+                                    >
+                                      <KeyboardArrowDown sx={{ fontSize: '0.8rem' }} />
+                                    </IconButton>
+                                  </span>
+                                </Tooltip>
                                 <IconButton 
                                   size="small" 
                                   onClick={() => handleEditSubtask(subtask, task)}
