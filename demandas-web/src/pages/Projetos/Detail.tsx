@@ -78,6 +78,8 @@ import {
   Visibility,
   VisibilityOff,
   DragIndicator,
+  KeyboardArrowUp,
+  KeyboardArrowDown,
   Business,
   Share,
   Download as DownloadIcon
@@ -1598,6 +1600,39 @@ export default function ProjectDetailPage() {
         alert('Erro ao excluir tarefa: ' + error)
       }
     }
+  }
+
+  // Função para subir tarefa (e suas subtarefas) na ordem
+  const handleMoveTaskUp = (phaseId: string, taskIndex: number) => {
+    if (!project || taskIndex <= 0) return
+    const updatedProject = JSON.parse(JSON.stringify(project))
+    const phaseIndex = updatedProject.timeline.phases.findIndex((p: any) => p.id === phaseId)
+    if (phaseIndex === -1 || !updatedProject.timeline.phases[phaseIndex].tasks?.length) return
+    const tasks = updatedProject.timeline.phases[phaseIndex].tasks
+    ;[tasks[taskIndex - 1], tasks[taskIndex]] = [tasks[taskIndex], tasks[taskIndex - 1]]
+    setProject(updatedProject)
+    upsertProject(updatedProject).catch((err: any) => {
+      console.error('❌ Erro ao salvar ordem da tarefa:', err)
+      alert('Erro ao salvar ordem no banco de dados')
+    })
+  }
+
+  // Função para descer tarefa (e suas subtarefas) na ordem
+  const handleMoveTaskDown = (phaseId: string, taskIndex: number) => {
+    if (!project) return
+    const phase = project.timeline?.phases?.find((p: any) => p.id === phaseId)
+    const taskCount = phase?.tasks?.length ?? 0
+    if (taskIndex < 0 || taskIndex >= taskCount - 1) return
+    const updatedProject = JSON.parse(JSON.stringify(project))
+    const phaseIndex = updatedProject.timeline.phases.findIndex((p: any) => p.id === phaseId)
+    if (phaseIndex === -1 || !updatedProject.timeline.phases[phaseIndex].tasks?.length) return
+    const tasks = updatedProject.timeline.phases[phaseIndex].tasks
+    ;[tasks[taskIndex], tasks[taskIndex + 1]] = [tasks[taskIndex + 1], tasks[taskIndex]]
+    setProject(updatedProject)
+    upsertProject(updatedProject).catch((err: any) => {
+      console.error('❌ Erro ao salvar ordem da tarefa:', err)
+      alert('Erro ao salvar ordem no banco de dados')
+    })
   }
 
   // Função para gerar numeração hierárquica
@@ -3240,7 +3275,7 @@ export default function ProjectDetailPage() {
                     <TableCell sx={{ fontWeight: 'bold', width: '100px' }}>Progresso</TableCell>
                     <TableCell sx={{ fontWeight: 'bold', width: '100px' }}>Horas</TableCell>
                     <TableCell sx={{ fontWeight: 'bold', width: '150px' }}>Observações</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', width: '80px' }}>Ações</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', width: '140px' }}>Ações</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -3353,7 +3388,33 @@ export default function ProjectDetailPage() {
                         </TableCell>
                         
                         <TableCell>
-                          <Box sx={{ display: 'flex', gap: 1 }}>
+                          <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+                            <Tooltip title="Subir tarefa">
+                              <span>
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleMoveTaskUp(phase.id, taskIndex)}
+                                  disabled={taskIndex === 0}
+                                  color="default"
+                                  sx={{ width: 28, height: 28 }}
+                                >
+                                  <KeyboardArrowUp />
+                                </IconButton>
+                              </span>
+                            </Tooltip>
+                            <Tooltip title="Descer tarefa">
+                              <span>
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleMoveTaskDown(phase.id, taskIndex)}
+                                  disabled={taskIndex === phase.tasks.length - 1}
+                                  color="default"
+                                  sx={{ width: 28, height: 28 }}
+                                >
+                                  <KeyboardArrowDown />
+                                </IconButton>
+                              </span>
+                            </Tooltip>
                             <IconButton 
                               size="small" 
                               onClick={() => handleEditTask(task)}
