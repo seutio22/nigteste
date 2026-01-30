@@ -44,7 +44,6 @@ import {
   Group as GroupIcon,
   Dashboard as DashboardIcon,
   TrendingUp as TrendingUpIcon,
-  Settings as SettingsIcon,
   BarChart as BarChartIcon,
   PieChart as PieChartIcon,
   Visibility as VisibilityIcon,
@@ -54,7 +53,7 @@ import {
 import { api } from '../lib/api.local';
 import ProjectGantt from '../components/ProjectGantt';
 
-// Componente de Sidebar Moderna
+// Componente de Sidebar Moderna - com nomes dos menus
 const ModernSidebar: React.FC<{
   activeTab: number;
   onTabChange: (index: number) => void;
@@ -72,13 +71,12 @@ const ModernSidebar: React.FC<{
   return (
     <Box
       sx={{
-        width: 72,
+        width: 220,
         minHeight: '100vh',
-        background: 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)',
+        background: '#ffffff',
         borderRight: '1px solid rgba(0,0,0,0.08)',
         display: 'flex',
         flexDirection: 'column',
-        alignItems: 'center',
         py: 3,
         position: 'fixed',
         left: 0,
@@ -87,65 +85,61 @@ const ModernSidebar: React.FC<{
         boxShadow: '2px 0 8px rgba(0,0,0,0.04)'
       }}
     >
-      {/* Logo */}
-      <Box
-        sx={{
-          width: 44,
-          height: 44,
-          borderRadius: 2,
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          mb: 4,
-          boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)'
-        }}
-      >
-        <ShareIcon sx={{ color: 'white', fontSize: 24 }} />
+      {/* Logo e título */}
+      <Box sx={{ px: 2, mb: 4 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Box
+            sx={{
+              width: 40,
+              height: 40,
+              borderRadius: 2,
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0
+            }}
+          >
+            <ShareIcon sx={{ color: 'white', fontSize: 22 }} />
+          </Box>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#1e293b' }}>
+            Compartilhado
+          </Typography>
+        </Box>
       </Box>
 
-      {/* Navigation Icons */}
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, flex: 1 }}>
+      {/* Menu com ícones e nomes */}
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, flex: 1, px: 1.5 }}>
         {availableTabs.map((tab, index) => (
-          <Tooltip key={tab.key} title={tab.label} placement="right" arrow>
-            <IconButton
-              onClick={() => onTabChange(index)}
-              sx={{
-                width: 44,
-                height: 44,
-                borderRadius: 2,
-                backgroundColor: activeTab === index ? 'rgba(102, 126, 234, 0.12)' : 'transparent',
-                color: activeTab === index ? '#667eea' : '#94a3b8',
-                transition: 'all 0.2s ease-in-out',
-                '&:hover': {
-                  backgroundColor: 'rgba(102, 126, 234, 0.08)',
-                  color: '#667eea',
-                  transform: 'scale(1.05)'
-                }
-              }}
-            >
+          <Box
+            key={tab.key}
+            onClick={() => onTabChange(index)}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 2,
+              px: 2,
+              py: 1.5,
+              borderRadius: 2,
+              cursor: 'pointer',
+              backgroundColor: activeTab === index ? 'rgba(102, 126, 234, 0.12)' : 'transparent',
+              color: activeTab === index ? '#667eea' : '#64748b',
+              transition: 'all 0.2s ease-in-out',
+              borderLeft: activeTab === index ? '3px solid #667eea' : '3px solid transparent',
+              '&:hover': {
+                backgroundColor: activeTab === index ? 'rgba(102, 126, 234, 0.12)' : 'rgba(0,0,0,0.04)',
+                color: activeTab === index ? '#667eea' : '#1e293b'
+              }
+            }}
+          >
+            <Box sx={{ color: 'inherit', display: 'flex', alignItems: 'center' }}>
               {iconMap[tab.key] || <DashboardIcon />}
-            </IconButton>
-          </Tooltip>
+            </Box>
+            <Typography variant="body2" sx={{ fontWeight: activeTab === index ? 600 : 500 }}>
+              {tab.label}
+            </Typography>
+          </Box>
         ))}
-      </Box>
-
-      {/* Settings Icon at bottom */}
-      <Box sx={{ mt: 'auto' }}>
-        <IconButton
-          sx={{
-            width: 44,
-            height: 44,
-            borderRadius: 2,
-            color: '#94a3b8',
-            '&:hover': {
-              backgroundColor: 'rgba(102, 126, 234, 0.08)',
-              color: '#667eea'
-            }
-          }}
-        >
-          <SettingsIcon />
-        </IconButton>
       </Box>
     </Box>
   );
@@ -2685,7 +2679,7 @@ const ShareProject: React.FC = () => {
     <Box
       sx={{
         minHeight: '100vh',
-        background: 'linear-gradient(135deg, #fdf2f8 0%, #ede9fe 25%, #e0f2fe 50%, #ecfdf5 75%, #fef3c7 100%)',
+        background: '#ffffff',
         display: 'flex'
       }}
     >
@@ -2702,7 +2696,7 @@ const ShareProject: React.FC = () => {
       <Box
         sx={{
           flex: 1,
-          ml: { xs: 0, md: '72px' },
+          ml: { xs: 0, md: '220px' },
           minHeight: '100vh'
         }}
       >
