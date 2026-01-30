@@ -1320,13 +1320,25 @@ const ShareProject: React.FC = () => {
                       <Typography variant="h6" sx={{ fontWeight: 700, color: '#1e293b', mb: 0.5 }}>
                         {phase.name || `Fase ${phaseIndex + 1}`}
                       </Typography>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-                        <Typography variant="body2" sx={{ color: '#64748b', display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <CalendarIcon sx={{ fontSize: 14 }} />
-                          {phase.startDate ? formatDate(phase.startDate) : 'Não definido'}
-                          {' → '}
-                          {phase.endDate ? formatDate(phase.endDate) : 'Não definido'}
-                        </Typography>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Início:</Typography>
+                          <Typography variant="body2" sx={{ color: '#1e293b', fontWeight: 500 }}>
+                            {phase.startDate ? formatDate(phase.startDate) : 'Não definido'}
+                          </Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Programada:</Typography>
+                          <Typography variant="body2" sx={{ color: '#1e293b', fontWeight: 500 }}>
+                            {phase.endDate ? formatDate(phase.endDate) : 'Não definido'}
+                          </Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography variant="caption" sx={{ color: phase.actualEndDate ? '#10b981' : '#64748b', fontWeight: 600 }}>Finalização:</Typography>
+                          <Typography variant="body2" sx={{ color: phase.actualEndDate ? '#10b981' : '#64748b', fontWeight: 500 }}>
+                            {phase.actualEndDate ? formatDate(phase.actualEndDate) : 'Não definido'}
+                          </Typography>
+                        </Box>
                         {hasTasks && (
                           <Typography variant="body2" sx={{ color: '#64748b' }}>
                             {phase.tasks.length} tarefa{phase.tasks.length > 1 ? 's' : ''}
@@ -1479,65 +1491,67 @@ const ShareProject: React.FC = () => {
                                   {/* Coluna de Informações - Datas e Responsável */}
                                   <Grid item xs={12} md={6}>
                                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                      {/* Informações em Grid */}
-                                      <Grid container spacing={1.5}>
-                                        {task.startDate && (
-                                          <Grid item xs={6}>
+                                      {/* Datas sempre visíveis: Início, Programada, Finalização */}
+                                      <Box sx={{ mb: 1.5 }}>
+                                        <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, display: 'block', mb: 1 }}>
+                                          Datas da Tarefa
+                                        </Typography>
+                                        <Grid container spacing={1.5}>
+                                          <Grid item xs={12} sm={4}>
                                             <Box
                                               sx={{
                                                 p: 1.5,
                                                 borderRadius: 1.5,
                                                 backgroundColor: 'rgba(102, 126, 234, 0.06)',
-                                                border: '1px solid rgba(102, 126, 234, 0.1)'
+                                                border: '1px solid rgba(102, 126, 234, 0.15)'
                                               }}
                                             >
                                               <Typography variant="caption" sx={{ color: '#64748b', display: 'block', mb: 0.5 }}>
-                                                Início
+                                                Data de Início
                                               </Typography>
                                               <Typography variant="body2" sx={{ fontWeight: 600, color: '#1e293b' }}>
-                                                {formatDate(task.startDate)}
+                                                {task.startDate ? formatDate(task.startDate) : 'Não definido'}
                                               </Typography>
                                             </Box>
                                           </Grid>
-                                        )}
-                                        {task.plannedEndDate && (
-                                          <Grid item xs={6}>
+                                          <Grid item xs={12} sm={4}>
                                             <Box
                                               sx={{
                                                 p: 1.5,
                                                 borderRadius: 1.5,
                                                 backgroundColor: 'rgba(245, 158, 11, 0.06)',
-                                                border: '1px solid rgba(245, 158, 11, 0.1)'
+                                                border: '1px solid rgba(245, 158, 11, 0.15)'
                                               }}
                                             >
                                               <Typography variant="caption" sx={{ color: '#64748b', display: 'block', mb: 0.5 }}>
-                                                Prazo
+                                                Data Programada
                                               </Typography>
                                               <Typography variant="body2" sx={{ fontWeight: 600, color: '#1e293b' }}>
-                                                {formatDate(task.plannedEndDate)}
+                                                {task.plannedEndDate ? formatDate(task.plannedEndDate) : 'Não definido'}
                                               </Typography>
                                             </Box>
                                           </Grid>
-                                        )}
-                                        {task.actualEndDate && (
-                                          <Grid item xs={6}>
+                                          <Grid item xs={12} sm={4}>
                                             <Box
                                               sx={{
                                                 p: 1.5,
                                                 borderRadius: 1.5,
                                                 backgroundColor: 'rgba(16, 185, 129, 0.06)',
-                                                border: '1px solid rgba(16, 185, 129, 0.1)'
+                                                border: '1px solid rgba(16, 185, 129, 0.15)'
                                               }}
                                             >
                                               <Typography variant="caption" sx={{ color: '#64748b', display: 'block', mb: 0.5 }}>
-                                                Concluída
+                                                Data de Finalização
                                               </Typography>
-                                              <Typography variant="body2" sx={{ fontWeight: 600, color: '#10b981' }}>
-                                                {formatDate(task.actualEndDate)}
+                                              <Typography variant="body2" sx={{ fontWeight: 600, color: task.actualEndDate ? '#10b981' : '#64748b' }}>
+                                                {task.actualEndDate ? formatDate(task.actualEndDate) : 'Não definido'}
                                               </Typography>
                                             </Box>
                                           </Grid>
-                                        )}
+                                        </Grid>
+                                      </Box>
+                                      {/* Responsável */}
+                                      <Grid container spacing={1.5}>
                                         {task.responsible && (
                                           <Grid item xs={6}>
                                             <Box
@@ -1723,17 +1737,14 @@ const ShareProject: React.FC = () => {
                                                     </Box>
                                                   </Grid>
 
-                                                  {/* Datas e Responsável */}
-                                                  <Grid item xs={6} md={3}>
+                                                  {/* Datas sempre visíveis */}
+                                                  <Grid item xs={12} md={3}>
                                                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                                                      {subtask.dueDate && (
-                                                        <Typography variant="caption" sx={{ color: '#64748b', display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                                          <CalendarIcon sx={{ fontSize: 12 }} />
-                                                          {formatDate(subtask.dueDate)}
-                                                        </Typography>
-                                                      )}
+                                                      <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Início: {subtask.startDate ? formatDate(subtask.startDate) : 'Não definido'}</Typography>
+                                                      <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Programada: {(subtask.plannedEndDate || subtask.dueDate) ? formatDate(subtask.plannedEndDate || subtask.dueDate) : 'Não definido'}</Typography>
+                                                      <Typography variant="caption" sx={{ color: subtask.actualEndDate ? '#10b981' : '#64748b', fontWeight: 600 }}>Finalização: {subtask.actualEndDate ? formatDate(subtask.actualEndDate) : 'Não definido'}</Typography>
                                                       {subtask.assignee && (
-                                                        <Typography variant="caption" sx={{ color: '#64748b', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                        <Typography variant="caption" sx={{ color: '#64748b', display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
                                                           <PersonIcon sx={{ fontSize: 12 }} />
                                                           {subtask.assignee}
                                                         </Typography>
