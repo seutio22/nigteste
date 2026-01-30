@@ -1709,51 +1709,6 @@ const ShareProject: React.FC = () => {
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
-                Gerente do Projeto
-              </Typography>
-              <Box display="flex" alignItems="center" sx={{ mb: 2 }}>
-                <Avatar sx={{ mr: 2 }}>
-                  <PersonIcon />
-                </Avatar>
-                <Box>
-                  <Typography variant="subtitle1">
-                    {project.manager?.name || 'Gerente não especificado'}
-                  </Typography>
-                  <Typography variant="body2" color="textSecondary">
-                    Gestor do projeto
-                  </Typography>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} md={6}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Cliente
-              </Typography>
-              {project.client ? (
-                <Box display="flex" alignItems="center">
-                  <BusinessIcon sx={{ mr: 2, fontSize: 40 }} />
-                  <Typography variant="subtitle1">
-                    {project.client.nome}
-                  </Typography>
-                </Box>
-              ) : (
-                <Typography variant="body2" color="textSecondary">
-                  Cliente não especificado
-                </Typography>
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} md={6}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
                 Membros da Equipe ({project.members?.length || 0})
               </Typography>
               <List>
