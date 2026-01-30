@@ -4500,212 +4500,306 @@ export default function ProjectDetailPage() {
 
           {/* Conteúdo das Tabs */}
           {activeTab === 0 && (
-            <Grid container spacing={3}>
-              {/* Informações Principais */}
-              <Grid item xs={12} md={8}>
-                <Paper sx={{ p: 3, mb: 3 }}>
-                  <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', mb: 2 }}>
-                    Informações do Projeto
+            <Box>
+              {/* Cabeçalho da Visão Geral */}
+              <Paper
+                sx={{
+                  p: 3,
+                  mb: 3,
+                  background: 'linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%)',
+                  borderRadius: 2,
+                  border: '1px solid',
+                  borderColor: 'divider'
+                }}
+              >
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 2, mb: 2 }}>
+                  <Box sx={{ flex: 1, minWidth: 200 }}>
+                    <Typography variant="h5" fontWeight="bold" color="text.primary" gutterBottom>
+                      {editing ? (editData.name || project.name) : (project.name || 'Sem nome')}
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
+                      <Chip
+                        size="small"
+                        label={project.status === 'active' ? 'Ativo' : project.status === 'completed' ? 'Concluído' : project.status === 'paused' ? 'Pausado' : 'Cancelado'}
+                        color={project.status === 'active' ? 'success' : project.status === 'completed' ? 'primary' : project.status === 'paused' ? 'warning' : 'default'}
+                        sx={{ fontWeight: 600 }}
+                      />
+                      <Chip
+                        size="small"
+                        variant="outlined"
+                        label={project.priority === 'urgent' ? 'Urgente' : project.priority === 'high' ? 'Alta' : project.priority === 'medium' ? 'Média' : 'Baixa'}
+                        color={project.priority === 'urgent' || project.priority === 'high' ? 'error' : 'default'}
+                      />
+                      {(project as any)?.isPrivate && (
+                        <Chip size="small" icon={<VisibilityOff sx={{ fontSize: 16 }} />} label="Privado" variant="outlined" />
+                      )}
+                    </Box>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Box sx={{ position: 'relative', display: 'inline-flex' }}>
+                      <CircularProgress
+                        variant="determinate"
+                        value={project.progress ?? 0}
+                        size={72}
+                        thickness={4}
+                        sx={{ color: 'primary.main' }}
+                      />
+                      <Box
+                        sx={{
+                          top: 0,
+                          left: 0,
+                          bottom: 0,
+                          right: 0,
+                          position: 'absolute',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                      >
+                        <Typography variant="body2" fontWeight="bold" color="text.secondary">
+                          {project.progress ?? 0}%
+                        </Typography>
+                      </Box>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary" display="block">Progresso geral</Typography>
+                      <Typography variant="body2" fontWeight="bold">
+                        {project.timeline?.phases?.length ?? 0} fases · {(project.timeline?.phases ?? []).reduce((acc: number, p: any) => acc + (p.tasks?.length ?? 0), 0)} tarefas
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+                {project.description && (
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                    {project.description}
                   </Typography>
-                  
-                  <Grid container spacing={3}>
-                    <Grid item xs={12}>
-                      <TextField
-                        fullWidth
-                        label="Nome do Projeto"
-                        value={editing ? (editData.name || '') : (project.name || '')}
-                        onChange={(e) => handleInputChange('name', e.target.value)}
-                        disabled={!editing}
-                        multiline
-                        rows={2}
-                      />
-                    </Grid>
-                    
-                    <Grid item xs={12}>
-                      <TextField
-                        fullWidth
-                        label="Descrição"
-                        value={editing ? (editData.description || '') : (project.description || '')}
-                        onChange={(e) => handleInputChange('description', e.target.value)}
-                        disabled={!editing}
-                        multiline
-                        rows={4}
-                      />
-                    </Grid>
-                    
-                    <Grid item xs={12} md={6}>
-                      <FormControl fullWidth disabled={!editing}>
-                        <InputLabel>Status</InputLabel>
-                        <Select
-                          value={editing ? editData.status : project.status || 'active'}
-                          label="Status"
-                          onChange={(e) => handleInputChange('status', e.target.value)}
-                          MenuProps={{
-                            PaperProps: {
-                              style: {
-                                zIndex: 1300
-                              }
-                            },
-                            slotProps: {
-                              paper: {
-                                style: {
-                                  zIndex: 1300
-                                }
-                              }
-                            }
-                          }}
-                        >
-                          <MenuItem value="active">Ativo</MenuItem>
-                          <MenuItem value="paused">Pausado</MenuItem>
-                          <MenuItem value="completed">Concluído</MenuItem>
-                          <MenuItem value="cancelled">Cancelado</MenuItem>
-                        </Select>
-                      </FormControl>
-                    </Grid>
-                    
-                    <Grid item xs={12} md={6}>
-                      <FormControl fullWidth disabled={!editing}>
-                        <InputLabel>Prioridade</InputLabel>
-                        <Select
-                          value={editing ? editData.priority : project.priority || 'medium'}
-                          label="Prioridade"
-                          onChange={(e) => handleInputChange('priority', e.target.value)}
-                          MenuProps={{
-                            PaperProps: {
-                              style: {
-                                zIndex: 1300
-                              }
-                            },
-                            slotProps: {
-                              paper: {
-                                style: {
-                                  zIndex: 1300
-                                }
-                              }
-                            }
-                          }}
-                        >
-                          <MenuItem value="low">Baixa</MenuItem>
-                          <MenuItem value="medium">Média</MenuItem>
-                          <MenuItem value="high">Alta</MenuItem>
-                          <MenuItem value="urgent">Urgente</MenuItem>
-                        </Select>
-                      </FormControl>
-                    </Grid>
-                    
-                    <Grid item xs={12} md={6}>
-                      <TextField
-                        fullWidth
-                        label="Data de Início"
-                        type="date"
-                        value={editing ? formatDateForInput(editData.startDate) : formatDateForInput(project.startDate) || ''}
-                        onChange={(e) => handleInputChange('startDate', e.target.value)}
-                        disabled={!editing}
-                        InputLabelProps={{ shrink: true }}
-                      />
-                    </Grid>
-                    
-                    <Grid item xs={12} md={6}>
-                      <TextField
-                        fullWidth
-                        label="Data de Término"
-                        type="date"
-                        value={editing ? formatDateForInput(editData.endDate) : formatDateForInput(project.endDate) || ''}
-                        onChange={(e) => handleInputChange('endDate', e.target.value)}
-                        disabled={!editing}
-                        InputLabelProps={{ shrink: true }}
-                      />
-                    </Grid>
-                    
-                    <Grid item xs={12} md={6}>
-                      <TextField
-                        fullWidth
-                        label="Gerente"
-                        value={editing ? (editData.manager || '') : (project.manager || '')}
-                        onChange={(e) => handleInputChange('manager', e.target.value)}
-                        disabled={!editing}
-                      />
-                    </Grid>
-                    
-                    <Grid item xs={12} md={6}>
-                      <TextField
-                        fullWidth
-                        label="Orçamento (R$)"
-                        type="number"
-                        value={editing ? (editData.budget || '') : (project.budget || '')}
-                        onChange={(e) => handleInputChange('budget', Number(e.target.value))}
-                        disabled={!editing}
-                        inputProps={{ min: 0, step: 0.01 }}
-                      />
-                    </Grid>
+                )}
+              </Paper>
 
-                    {/* Privacidade do Projeto */}
-                    <Grid item xs={12} md={6}>
-                      <FormControlLabel
-                        control={
-                          <Switch
-                            checked={Boolean(editing ? (editData as any)?.isPrivate : (project as any)?.isPrivate)}
-                            onChange={(e) => {
-                              if (!editing) return
-                              setEditData((prev: any) => ({ ...prev, isPrivate: e.target.checked }))
-                            }}
+              <Grid container spacing={3}>
+                {/* Coluna principal */}
+                <Grid item xs={12} md={8}>
+                  <Card sx={{ mb: 3, borderRadius: 2, boxShadow: 2 }}>
+                    <CardContent sx={{ p: 3 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                        <Assignment color="primary" />
+                        <Typography variant="h6" fontWeight="bold">Informações do Projeto</Typography>
+                      </Box>
+                      <Grid container spacing={3}>
+                        <Grid item xs={12}>
+                          <TextField
+                            fullWidth
+                            label="Nome do Projeto"
+                            value={editing ? (editData.name || '') : (project.name || '')}
+                            onChange={(e) => handleInputChange('name', e.target.value)}
+                            disabled={!editing}
+                            multiline
+                            rows={2}
+                          />
+                        </Grid>
+                        <Grid item xs={12}>
+                          <TextField
+                            fullWidth
+                            label="Descrição"
+                            value={editing ? (editData.description || '') : (project.description || '')}
+                            onChange={(e) => handleInputChange('description', e.target.value)}
+                            disabled={!editing}
+                            multiline
+                            rows={4}
+                          />
+                        </Grid>
+                      </Grid>
+                    </CardContent>
+                  </Card>
+
+                  <Card sx={{ mb: 3, borderRadius: 2, boxShadow: 2 }}>
+                    <CardContent sx={{ p: 3 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                        <Flag color="primary" />
+                        <Typography variant="h6" fontWeight="bold">Status e Datas</Typography>
+                      </Box>
+                      <Grid container spacing={3}>
+                        <Grid item xs={12} sm={6}>
+                          <FormControl fullWidth disabled={!editing}>
+                            <InputLabel>Status</InputLabel>
+                            <Select
+                              value={editing ? editData.status : project.status || 'active'}
+                              label="Status"
+                              onChange={(e) => handleInputChange('status', e.target.value)}
+                              MenuProps={{ PaperProps: { style: { zIndex: 1300 } }, slotProps: { paper: { style: { zIndex: 1300 } } } }
+                            >
+                              <MenuItem value="active">Ativo</MenuItem>
+                              <MenuItem value="paused">Pausado</MenuItem>
+                              <MenuItem value="completed">Concluído</MenuItem>
+                              <MenuItem value="cancelled">Cancelado</MenuItem>
+                            </Select>
+                          </FormControl>
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <FormControl fullWidth disabled={!editing}>
+                            <InputLabel>Prioridade</InputLabel>
+                            <Select
+                              value={editing ? editData.priority : project.priority || 'medium'}
+                              label="Prioridade"
+                              onChange={(e) => handleInputChange('priority', e.target.value)}
+                              MenuProps={{ PaperProps: { style: { zIndex: 1300 } }, slotProps: { paper: { style: { zIndex: 1300 } } } }
+                            >
+                              <MenuItem value="low">Baixa</MenuItem>
+                              <MenuItem value="medium">Média</MenuItem>
+                              <MenuItem value="high">Alta</MenuItem>
+                              <MenuItem value="urgent">Urgente</MenuItem>
+                            </Select>
+                          </FormControl>
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            fullWidth
+                            label="Data de Início"
+                            type="date"
+                            value={editing ? formatDateForInput(editData.startDate) : formatDateForInput(project.startDate) || ''}
+                            onChange={(e) => handleInputChange('startDate', e.target.value)}
+                            disabled={!editing}
+                            InputLabelProps={{ shrink: true }}
+                          />
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            fullWidth
+                            label="Data de Término"
+                            type="date"
+                            value={editing ? formatDateForInput(editData.endDate) : formatDateForInput(project.endDate) || ''}
+                            onChange={(e) => handleInputChange('endDate', e.target.value)}
+                            disabled={!editing}
+                            InputLabelProps={{ shrink: true }}
+                          />
+                        </Grid>
+                      </Grid>
+                    </CardContent>
+                  </Card>
+
+                  <Card sx={{ mb: 3, borderRadius: 2, boxShadow: 2 }}>
+                    <CardContent sx={{ p: 3 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                        <Notes color="primary" />
+                        <Typography variant="h6" fontWeight="bold">Outros</Typography>
+                      </Box>
+                      <Grid container spacing={3}>
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            fullWidth
+                            label="Gerente"
+                            value={editing ? (editData.manager || '') : (project.manager || '')}
+                            onChange={(e) => handleInputChange('manager', e.target.value)}
                             disabled={!editing}
                           />
-                        }
-                        label="Projeto privado (visível só para mim)"
-                      />
-                    </Grid>
-
-                    {/* Dono do Projeto */}
-                    <Grid item xs={12} md={6}>
-                      <TextField
-                        fullWidth
-                        label="Dono do projeto"
-                        value={(project as any)?.ownerName || (project as any)?.ownerId || '—'}
-                        disabled
-                      />
-                    </Grid>
-
-                  </Grid>
-                </Paper>
-              </Grid>
-
-              {/* Sidebar */}
-              <Grid item xs={12} md={4}>
-                {/* Resumo do Cronograma */}
-                <Paper sx={{ p: 3 }}>
-                  <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold' }}>
-                    Resumo do Cronograma
-                  </Typography>
-                  
-                  <Stack spacing={2}>
-                    {project.timeline && project.timeline.phases && project.timeline.phases.length > 0 ? (
-                      project.timeline.phases.map((phase: any) => (
-                        <Box key={phase.id}>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                            <Typography variant="body2" fontWeight="bold">
-                              {phase.name.split(':')[0]}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {calculatePhaseProgress(phase)}%
-                            </Typography>
-                          </Box>
-                          <LinearProgress
-                            variant="determinate"
-                            value={calculatePhaseProgress(phase)}
-                            sx={{ height: 6, borderRadius: 3 }}
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            fullWidth
+                            label="Orçamento (R$)"
+                            type="number"
+                            value={editing ? (editData.budget || '') : (project.budget || '')}
+                            onChange={(e) => handleInputChange('budget', Number(e.target.value))}
+                            disabled={!editing}
+                            inputProps={{ min: 0, step: 0.01 }}
                           />
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <FormControlLabel
+                            control={
+                              <Switch
+                                checked={Boolean(editing ? (editData as any)?.isPrivate : (project as any)?.isPrivate)}
+                                onChange={(e) => {
+                                  if (!editing) return
+                                  setEditData((prev: any) => ({ ...prev, isPrivate: e.target.checked }))
+                                }}
+                                disabled={!editing}
+                              />
+                            }
+                            label="Projeto privado (visível só para mim)"
+                          />
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            fullWidth
+                            label="Dono do projeto"
+                            value={(project as any)?.ownerName || (project as any)?.ownerId || '—'}
+                            disabled
+                          />
+                        </Grid>
+                      </Grid>
+                    </CardContent>
+                  </Card>
+                </Grid>
+
+                {/* Sidebar */}
+                <Grid item xs={12} md={4}>
+                  <Card sx={{ mb: 3, borderRadius: 2, boxShadow: 2 }}>
+                    <CardContent sx={{ p: 3 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                        <Timeline color="primary" />
+                        <Typography variant="h6" fontWeight="bold">Resumo Rápido</Typography>
+                      </Box>
+                      <Stack spacing={2}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Typography variant="body2" color="text.secondary">Fases</Typography>
+                          <Typography variant="h6" fontWeight="bold" color="primary.main">
+                            {project.timeline?.phases?.length ?? 0}
+                          </Typography>
                         </Box>
-                      ))
-                    ) : (
-                      <Typography variant="body2" color="text.secondary">
-                        Nenhuma fase cadastrada para este projeto.
-                      </Typography>
-                    )}
-                  </Stack>
-                </Paper>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Typography variant="body2" color="text.secondary">Tarefas</Typography>
+                          <Typography variant="h6" fontWeight="bold" color="primary.main">
+                            {(project.timeline?.phases ?? []).reduce((acc: number, p: any) => acc + (p.tasks?.length ?? 0), 0)}
+                          </Typography>
+                        </Box>
+                        <Divider />
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Typography variant="body2" color="text.secondary">Progresso</Typography>
+                          <Typography variant="h6" fontWeight="bold" color="success.main">
+                            {project.progress ?? 0}%
+                          </Typography>
+                        </Box>
+                      </Stack>
+                    </CardContent>
+                  </Card>
+
+                  <Card sx={{ borderRadius: 2, boxShadow: 2 }}>
+                    <CardContent sx={{ p: 3 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                        <DateRange color="primary" />
+                        <Typography variant="h6" fontWeight="bold">Resumo do Cronograma</Typography>
+                      </Box>
+                      <Stack spacing={2}>
+                        {project.timeline?.phases?.length ? (
+                          project.timeline.phases.map((phase: any) => (
+                            <Box key={phase.id}>
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                                <Typography variant="body2" fontWeight="600" noWrap sx={{ maxWidth: '70%' }}>
+                                  {phase.name?.split(':')[0] ?? phase.name}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary" fontWeight="600">
+                                  {calculatePhaseProgress(phase)}%
+                                </Typography>
+                              </Box>
+                              <LinearProgress
+                                variant="determinate"
+                                value={calculatePhaseProgress(phase)}
+                                sx={{ height: 8, borderRadius: 1 }}
+                              />
+                            </Box>
+                          ))
+                        ) : (
+                          <Typography variant="body2" color="text.secondary">
+                            Nenhuma fase cadastrada.
+                          </Typography>
+                        )}
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                </Grid>
               </Grid>
-            </Grid>
+            </Box>
           )}
 
           {activeTab === 1 && renderTimelineView()}
