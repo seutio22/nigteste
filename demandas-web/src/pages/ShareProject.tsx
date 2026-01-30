@@ -2120,52 +2120,120 @@ const ShareProject: React.FC = () => {
   };
 
   return (
-    <Box sx={{ backgroundColor: '#f5f5f5', minHeight: '100vh', py: 3 }}>
-      <Container maxWidth="lg">
-        {/* Header */}
-        <Paper sx={{ p: 3, mb: 3 }}>
-          <Box display="flex" justifyContent="space-between" alignItems="flex-start">
-            <Box>
-              <Typography variant="h4" gutterBottom>
-                {project.name}
-              </Typography>
-              {shareInfo && (
-                <Typography variant="body2" color="textSecondary" sx={{ mb: 1 }}>
-                  Compartilhado por: {shareInfo.name}
-                  {shareInfo.description && ` - ${shareInfo.description}`}
+    <Box
+      sx={{
+        minHeight: '100vh',
+        background: 'linear-gradient(180deg, #f8fafc 0%, #f1f5f9 50%, #e2e8f0 100%)',
+        py: { xs: 2, sm: 3 },
+        px: { xs: 1, sm: 2 }
+      }}
+    >
+      <Container maxWidth="lg" disableGutters={false}>
+        {/* Header moderno */}
+        <Paper
+          elevation={0}
+          sx={{
+            p: { xs: 2, sm: 3 },
+            mb: 3,
+            borderRadius: 2,
+            border: '1px solid',
+            borderColor: 'divider',
+            background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.06)'
+          }}
+        >
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2 }}>
+            <Box sx={{ flex: 1, minWidth: 200 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
+                <Box
+                  sx={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 2,
+                    background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <ShareIcon sx={{ color: 'white', fontSize: 22 }} />
+                </Box>
+                <Box>
+                  <Typography variant="h5" fontWeight="bold" color="text.primary">
+                    {project.name}
+                  </Typography>
+                  {shareInfo && (
+                    <Typography variant="body2" color="text.secondary">
+                      Compartilhado por {shareInfo.name}
+                      {shareInfo.description ? ` · ${shareInfo.description}` : ''}
+                    </Typography>
+                  )}
+                </Box>
+              </Box>
+              {shareInfo?.createdAt && (
+                <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                  Criado em {formatDateTime(shareInfo.createdAt)}
                 </Typography>
               )}
-              <Typography variant="body2" color="textSecondary">
-                Criado em: {formatDateTime(shareInfo?.createdAt || '')}
-              </Typography>
             </Box>
-            <Box display="flex" alignItems="center" gap={1}>
-              <ShareIcon color="primary" />
-              <Typography variant="body2" color="primary">
-                Visualização Pública
-              </Typography>
-            </Box>
+            <Chip
+              icon={<ShareIcon sx={{ fontSize: 18 }} />}
+              label="Visualização pública"
+              color="primary"
+              variant="outlined"
+              sx={{
+                fontWeight: 600,
+                borderWidth: 2,
+                '& .MuiChip-icon': { color: 'inherit' }
+              }}
+            />
           </Box>
         </Paper>
 
-        {/* Tabs */}
+        {/* Abas modernas */}
         {availableTabs.length > 1 && (
-          <Paper sx={{ mb: 3 }}>
+          <Paper
+            elevation={0}
+            sx={{
+              mb: 3,
+              borderRadius: 2,
+              border: '1px solid',
+              borderColor: 'divider',
+              overflow: 'hidden',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.06)'
+            }}
+          >
             <Tabs
               value={activeTab}
               onChange={(_, newValue) => setActiveTab(newValue)}
               variant="scrollable"
               scrollButtons="auto"
+              sx={{
+                minHeight: 48,
+                '& .MuiTab-root': { fontWeight: 600, textTransform: 'none', fontSize: '0.9375rem' },
+                '& .Mui-selected': { fontWeight: 700 },
+                '& .MuiTabs-indicator': { height: 3, borderRadius: '3px 3px 0 0' }
+              }}
             >
-              {availableTabs.map((tab, index) => (
+              {availableTabs.map((tab) => (
                 <Tab key={tab.key} label={tab.label} />
               ))}
             </Tabs>
           </Paper>
         )}
 
-        {/* Tab Content */}
-        <Paper sx={{ p: 3 }}>
+        {/* Conteúdo */}
+        <Paper
+          elevation={0}
+          sx={{
+            p: { xs: 2, sm: 3, md: 4 },
+            borderRadius: 2,
+            border: '1px solid',
+            borderColor: 'divider',
+            background: '#ffffff',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.06)'
+          }}
+        >
           {renderTabContent()}
         </Paper>
       </Container>
