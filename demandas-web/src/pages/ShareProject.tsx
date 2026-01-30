@@ -53,98 +53,6 @@ import {
 import { api } from '../lib/api.local';
 import ProjectGantt from '../components/ProjectGantt';
 
-// Componente de Sidebar Moderna - com nomes dos menus
-const ModernSidebar: React.FC<{
-  activeTab: number;
-  onTabChange: (index: number) => void;
-  availableTabs: Array<{ key: string; label: string; icon: React.ReactNode }>;
-}> = ({ activeTab, onTabChange, availableTabs }) => {
-  const iconMap: { [key: string]: React.ReactNode } = {
-    overview: <DashboardIcon />,
-    timeline: <DateRangeIcon />,
-    indicators: <TrendingUpIcon />,
-    gantt: <BarChartIcon />,
-    team: <GroupIcon />,
-    resources: <AssignmentIcon />
-  };
-
-  return (
-    <Box
-      sx={{
-        width: 220,
-        minHeight: '100vh',
-        background: '#ffffff',
-        borderRight: '1px solid rgba(0,0,0,0.08)',
-        display: 'flex',
-        flexDirection: 'column',
-        py: 3,
-        position: 'fixed',
-        left: 0,
-        top: 0,
-        zIndex: 100,
-        boxShadow: '2px 0 8px rgba(0,0,0,0.04)'
-      }}
-    >
-      {/* Logo e título */}
-      <Box sx={{ px: 2, mb: 4 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Box
-            sx={{
-              width: 40,
-              height: 40,
-              borderRadius: 2,
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0
-            }}
-          >
-            <ShareIcon sx={{ color: 'white', fontSize: 22 }} />
-          </Box>
-          <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#1e293b' }}>
-            Compartilhado
-          </Typography>
-        </Box>
-      </Box>
-
-      {/* Menu com ícones e nomes */}
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, flex: 1, px: 1.5 }}>
-        {availableTabs.map((tab, index) => (
-          <Box
-            key={tab.key}
-            onClick={() => onTabChange(index)}
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 2,
-              px: 2,
-              py: 1.5,
-              borderRadius: 2,
-              cursor: 'pointer',
-              backgroundColor: activeTab === index ? 'rgba(102, 126, 234, 0.12)' : 'transparent',
-              color: activeTab === index ? '#667eea' : '#64748b',
-              transition: 'all 0.2s ease-in-out',
-              borderLeft: activeTab === index ? '3px solid #667eea' : '3px solid transparent',
-              '&:hover': {
-                backgroundColor: activeTab === index ? 'rgba(102, 126, 234, 0.12)' : 'rgba(0,0,0,0.04)',
-                color: activeTab === index ? '#667eea' : '#1e293b'
-              }
-            }}
-          >
-            <Box sx={{ color: 'inherit', display: 'flex', alignItems: 'center' }}>
-              {iconMap[tab.key] || <DashboardIcon />}
-            </Box>
-            <Typography variant="body2" sx={{ fontWeight: activeTab === index ? 600 : 500 }}>
-              {tab.label}
-            </Typography>
-          </Box>
-        ))}
-      </Box>
-    </Box>
-  );
-};
-
 // Componente de Card Estatístico Moderno
 const StatCard: React.FC<{
   title: string;
@@ -496,15 +404,20 @@ const ShareProject: React.FC = () => {
   const getStatusColor = (status: string) => {
     const statusColors: { [key: string]: string } = {
       active: '#4caf50',
-      completed: '#2196f3',
+      completed: '#10b981',
       paused: '#ff9800',
       cancelled: '#f44336',
-      todo: '#9e9e9e',
-      in_progress: '#2196f3',
+      todo: '#94a3b8',
+      in_progress: '#3b82f6',
       review: '#ff9800',
-      done: '#4caf50'
+      done: '#10b981',
+      concluido: '#10b981',
+      em_andamento: '#3b82f6',
+      nao_iniciado: '#f59e0b',
+      'in-progress': '#3b82f6',
+      not_started: '#f59e0b'
     };
-    return statusColors[status] || '#9e9e9e';
+    return statusColors[status] || '#94a3b8';
   };
 
   const getPriorityColor = (priority: string) => {
@@ -570,7 +483,12 @@ const ShareProject: React.FC = () => {
       todo: 'A fazer',
       in_progress: 'Em andamento',
       review: 'Em revisão',
-      done: 'Concluído'
+      done: 'Concluído',
+      concluido: 'Concluído',
+      em_andamento: 'Em andamento',
+      nao_iniciado: 'Não iniciado',
+      'in-progress': 'Em andamento',
+      not_started: 'Não iniciado'
     };
     return statusLabels[status] || status;
   };
@@ -1347,16 +1265,42 @@ const ShareProject: React.FC = () => {
                       </Box>
                     </Box>
                   </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Chip
-                      label={getStatusLabel(phase.status || 'nao_iniciado')}
-                      size="small"
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <Box
                       sx={{
-                        backgroundColor: getStatusColor(phase.status || 'nao_iniciado'),
-                        color: 'white',
-                        fontWeight: 600
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1,
+                        px: 2,
+                        py: 1,
+                        borderRadius: 2,
+                        backgroundColor: `${getStatusColor(phase.status || 'nao_iniciado')}18`,
+                        border: `2px solid ${getStatusColor(phase.status || 'nao_iniciado')}`,
+                        minWidth: 140
                       }}
-                    />
+                    >
+                      <Box
+                        sx={{
+                          width: 10,
+                          height: 10,
+                          borderRadius: '50%',
+                          backgroundColor: getStatusColor(phase.status || 'nao_iniciado'),
+                          flexShrink: 0
+                        }}
+                      />
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          fontWeight: 700,
+                          color: getStatusColor(phase.status || 'nao_iniciado'),
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px',
+                          fontSize: '0.8rem'
+                        }}
+                      >
+                        {getStatusLabel(phase.status || 'nao_iniciado')}
+                      </Typography>
+                    </Box>
                     {hasTasks && (
                       <IconButton
                         onClick={() => togglePhase(phase.id)}
@@ -2673,74 +2617,42 @@ const ShareProject: React.FC = () => {
     }
   };
 
-  // Adicionar ícones às tabs
-  const tabsWithIcons = availableTabs.map(tab => ({
-    ...tab,
-    icon: {
-      overview: <DashboardIcon />,
-      timeline: <DateRangeIcon />,
-      indicators: <TrendingUpIcon />,
-      gantt: <BarChartIcon />,
-      team: <GroupIcon />,
-      resources: <AssignmentIcon />
-    }[tab.key] || <DashboardIcon />
-  }));
-
   return (
     <Box
       sx={{
         minHeight: '100vh',
-        background: '#ffffff',
-        display: 'flex'
+        background: '#ffffff'
       }}
     >
-      {/* Sidebar Moderna - Desktop */}
-      <Box sx={{ display: { xs: 'none', md: 'block' } }}>
-        <ModernSidebar
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          availableTabs={tabsWithIcons}
-        />
-      </Box>
-
-      {/* Conteúdo Principal */}
-      <Box
-        sx={{
-          flex: 1,
-          ml: { xs: 0, md: '220px' },
-          minHeight: '100vh'
-        }}
-      >
-        {/* Header Moderno Flutuante */}
-        <Box sx={{ p: { xs: 2, sm: 3 }, pb: 0 }}>
-          <Paper
-            elevation={0}
-            sx={{
-              p: { xs: 2, sm: 3 },
-              mb: 3,
-              borderRadius: 3,
-              background: 'rgba(255, 255, 255, 0.9)',
-              backdropFilter: 'blur(20px)',
-              border: '1px solid rgba(255, 255, 255, 0.8)',
-              boxShadow: '0 4px 24px rgba(0, 0, 0, 0.06)'
-            }}
-          >
+      <Box sx={{ p: { xs: 2, sm: 3 } }}>
+        {/* Header e Menu no topo */}
+        <Paper
+          elevation={0}
+          sx={{
+            mb: 3,
+            borderRadius: 3,
+            border: '1px solid rgba(0, 0, 0, 0.08)',
+            boxShadow: '0 2px 12px rgba(0, 0, 0, 0.04)',
+            overflow: 'hidden'
+          }}
+        >
+          {/* Cabeçalho do projeto */}
+          <Box sx={{ p: { xs: 2, sm: 3 }, borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 2 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                {/* Logo/Avatar do Projeto */}
                 <Box
                   sx={{
-                    width: 56,
-                    height: 56,
-                    borderRadius: 3,
+                    width: 48,
+                    height: 48,
+                    borderRadius: 2,
                     background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    boxShadow: '0 4px 14px rgba(102, 126, 234, 0.4)'
+                    flexShrink: 0
                   }}
                 >
-                  <ShareIcon sx={{ color: 'white', fontSize: 28 }} />
+                  <ShareIcon sx={{ color: 'white', fontSize: 24 }} />
                 </Box>
                 <Box>
                   <Typography variant="h5" sx={{ fontWeight: 700, color: '#1e293b', mb: 0.5, letterSpacing: '-0.02em' }}>
@@ -2764,12 +2676,11 @@ const ShareProject: React.FC = () => {
                   </Box>
                 </Box>
               </Box>
-
-              {/* Badges */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                 <Chip
                   icon={<VisibilityIcon sx={{ fontSize: 16 }} />}
                   label="Visualização Pública"
+                  size="small"
                   sx={{
                     backgroundColor: 'rgba(102, 126, 234, 0.1)',
                     color: '#667eea',
@@ -2780,6 +2691,7 @@ const ShareProject: React.FC = () => {
                 />
                 <Chip
                   label={getStatusLabel(project.status)}
+                  size="small"
                   sx={{
                     backgroundColor: getStatusColor(project.status),
                     color: 'white',
@@ -2788,75 +2700,60 @@ const ShareProject: React.FC = () => {
                 />
               </Box>
             </Box>
-          </Paper>
+          </Box>
 
-          {/* Abas Modernas - Estilo Pills */}
+          {/* Menu horizontal no topo */}
           {availableTabs.length > 1 && (
-            <Paper
-              elevation={0}
+            <Tabs
+              value={activeTab}
+              onChange={(_, newValue) => setActiveTab(newValue)}
+              variant="scrollable"
+              scrollButtons="auto"
               sx={{
-                mb: 3,
-                p: 1,
-                borderRadius: 3,
-                background: 'rgba(255, 255, 255, 0.7)',
-                backdropFilter: 'blur(20px)',
-                border: '1px solid rgba(255, 255, 255, 0.8)',
-                boxShadow: '0 4px 24px rgba(0, 0, 0, 0.04)',
-                display: { xs: 'block', md: 'none' } // Só mostra em mobile
+                minHeight: 48,
+                px: 1,
+                '& .MuiTab-root': {
+                  fontWeight: 600,
+                  textTransform: 'none',
+                  fontSize: '0.875rem',
+                  minHeight: 48,
+                  color: '#64748b',
+                  transition: 'all 0.2s ease-in-out',
+                  '&:hover': {
+                    color: '#667eea'
+                  }
+                },
+                '& .Mui-selected': {
+                  fontWeight: 700,
+                  color: '#667eea !important'
+                },
+                '& .MuiTabs-indicator': {
+                  height: 3,
+                  borderRadius: '3px 3px 0 0',
+                  backgroundColor: '#667eea'
+                }
               }}
             >
-              <Tabs
-                value={activeTab}
-                onChange={(_, newValue) => setActiveTab(newValue)}
-                variant="scrollable"
-                scrollButtons="auto"
-                sx={{
-                  minHeight: 48,
-                  '& .MuiTab-root': {
-                    fontWeight: 600,
-                    textTransform: 'none',
-                    fontSize: '0.875rem',
-                    minHeight: 40,
-                    borderRadius: 2,
-                    mx: 0.5,
-                    color: '#64748b',
-                    transition: 'all 0.2s ease-in-out',
-                    '&:hover': {
-                      backgroundColor: 'rgba(102, 126, 234, 0.08)',
-                      color: '#667eea'
-                    }
-                  },
-                  '& .Mui-selected': {
-                    fontWeight: 700,
-                    backgroundColor: 'rgba(102, 126, 234, 0.12) !important',
-                    color: '#667eea !important'
-                  },
-                  '& .MuiTabs-indicator': { display: 'none' }
-                }}
-              >
-                {availableTabs.map((tab) => (
-                  <Tab key={tab.key} label={tab.label} />
-                ))}
-              </Tabs>
-            </Paper>
+              {availableTabs.map((tab) => (
+                <Tab key={tab.key} label={tab.label} />
+              ))}
+            </Tabs>
           )}
+        </Paper>
 
-          {/* Conteúdo Principal */}
-          <Paper
-            elevation={0}
-            sx={{
-              p: { xs: 2, sm: 3, md: 4 },
-              borderRadius: 3,
-              background: 'rgba(255, 255, 255, 0.95)',
-              backdropFilter: 'blur(20px)',
-              border: '1px solid rgba(255, 255, 255, 0.8)',
-              boxShadow: '0 4px 24px rgba(0, 0, 0, 0.06)',
-              minHeight: 'calc(100vh - 200px)'
-            }}
-          >
-            {renderTabContent()}
-          </Paper>
-        </Box>
+        {/* Conteúdo Principal */}
+        <Paper
+          elevation={0}
+          sx={{
+            p: { xs: 2, sm: 3, md: 4 },
+            borderRadius: 3,
+            border: '1px solid rgba(0, 0, 0, 0.08)',
+            boxShadow: '0 2px 12px rgba(0, 0, 0, 0.04)',
+            minHeight: 'calc(100vh - 280px)'
+          }}
+        >
+          {renderTabContent()}
+        </Paper>
       </Box>
     </Box>
   );
