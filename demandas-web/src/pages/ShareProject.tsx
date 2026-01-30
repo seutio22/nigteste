@@ -40,7 +40,8 @@ import {
   Flag as FlagIcon,
   Notes as NotesIcon,
   DateRange as DateRangeIcon,
-  Timeline as TimelineIcon
+  Timeline as TimelineIcon,
+  Group as GroupIcon
 } from '@mui/icons-material';
 import { api } from '../lib/api.local';
 import ProjectGantt from '../components/ProjectGantt';
@@ -588,42 +589,48 @@ const ShareProject: React.FC = () => {
 
     return (
       <Box>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Typography variant="h6">
-            Cronograma Detalhado do Projeto
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <Button
-              size="small"
-              startIcon={<UnfoldMoreIcon />}
-              onClick={expandAllPhases}
-              variant="outlined"
-            >
-              Expandir Todas
-            </Button>
-            <Button
-              size="small"
-              startIcon={<UnfoldLessIcon />}
-              onClick={collapseAllPhases}
-              variant="outlined"
-            >
-              Recolher Todas
-            </Button>
+        <Paper
+          sx={{
+            p: 3,
+            mb: 3,
+            background: 'linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%)',
+            borderRadius: 2,
+            border: '1px solid',
+            borderColor: 'divider'
+          }}
+        >
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <DateRangeIcon color="primary" sx={{ fontSize: 32 }} />
+              <Box>
+                <Typography variant="h5" fontWeight="bold" color="text.primary">
+                  Cronograma Detalhado
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {phases.length} fases · {phases.reduce((t: number, p: any) => t + (p.tasks?.length ?? 0), 0)} tarefas
+                </Typography>
+              </Box>
+            </Box>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button size="small" startIcon={<UnfoldMoreIcon />} onClick={expandAllPhases} variant="outlined">
+                Expandir Todas
+              </Button>
+              <Button size="small" startIcon={<UnfoldLessIcon />} onClick={collapseAllPhases} variant="outlined">
+                Recolher Todas
+              </Button>
+            </Box>
           </Box>
-        </Box>
-        
-        {/* Resumo do Cronograma - Cards Informativos */}
+        </Paper>
+
         <Grid container spacing={3} sx={{ mb: 4 }}>
           <Grid item xs={12} md={3}>
-            <Card sx={{ 
+            <Card sx={{
               height: '100%',
+              borderRadius: 2,
+              boxShadow: 2,
               background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
               color: 'white',
-              '&:hover': {
-                transform: 'translateY(-4px)',
-                transition: 'all 0.3s ease-in-out',
-                boxShadow: 6
-              }
+              '&:hover': { transform: 'translateY(-4px)', transition: 'all 0.3s ease-in-out', boxShadow: 6 }
             }}>
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
@@ -653,15 +660,13 @@ const ShareProject: React.FC = () => {
           </Grid>
           
           <Grid item xs={12} md={3}>
-            <Card sx={{ 
+            <Card sx={{
               height: '100%',
+              borderRadius: 2,
+              boxShadow: 2,
               background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
               color: 'white',
-              '&:hover': {
-                transform: 'translateY(-4px)',
-                transition: 'all 0.3s ease-in-out',
-                boxShadow: 6
-              }
+              '&:hover': { transform: 'translateY(-4px)', transition: 'all 0.3s ease-in-out', boxShadow: 6 }
             }}>
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
@@ -693,15 +698,13 @@ const ShareProject: React.FC = () => {
           </Grid>
           
           <Grid item xs={12} md={3}>
-            <Card sx={{ 
+            <Card sx={{
               height: '100%',
+              borderRadius: 2,
+              boxShadow: 2,
               background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
               color: 'white',
-              '&:hover': {
-                transform: 'translateY(-4px)',
-                transition: 'all 0.3s ease-in-out',
-                boxShadow: 6
-              }
+              '&:hover': { transform: 'translateY(-4px)', transition: 'all 0.3s ease-in-out', boxShadow: 6 }
             }}>
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
@@ -741,15 +744,13 @@ const ShareProject: React.FC = () => {
           </Grid>
 
           <Grid item xs={12} md={3}>
-            <Card sx={{ 
+            <Card sx={{
               height: '100%',
+              borderRadius: 2,
+              boxShadow: 2,
               background: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
               color: 'white',
-              '&:hover': {
-                transform: 'translateY(-4px)',
-                transition: 'all 0.3s ease-in-out',
-                boxShadow: 6
-              }
+              '&:hover': { transform: 'translateY(-4px)', transition: 'all 0.3s ease-in-out', boxShadow: 6 }
             }}>
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
@@ -778,43 +779,37 @@ const ShareProject: React.FC = () => {
           </Grid>
         </Grid>
 
-        {/* Cronograma Detalhado por Fases */}
-        <Typography variant="h6" gutterBottom sx={{ mt: 4, mb: 2 }}>
-          Detalhamento por Fases
-        </Typography>
-        
-        {/* Filtros e Estatísticas */}
-        <Box sx={{ mb: 3, p: 2, backgroundColor: 'grey.50', borderRadius: 2 }}>
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} md={3}>
-              <Typography variant="subtitle2" color="primary">
-                Fases Ativas: {phases.filter((p: any) => p.status === 'em_andamento').length}
-              </Typography>
+        <Card sx={{ mb: 3, borderRadius: 2, boxShadow: 2 }}>
+          <CardContent sx={{ p: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+              <AssignmentIcon color="primary" />
+              <Typography variant="h6" fontWeight="bold">Detalhamento por Fases</Typography>
+            </Box>
+            <Grid container spacing={2} alignItems="center">
+              <Grid item xs={12} sm={6} md={3}>
+                <Chip label={`${phases.filter((p: any) => p.status === 'em_andamento').length} Ativas`} size="small" color="primary" variant="outlined" />
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <Chip label={`${phases.filter((p: any) => p.status === 'concluido').length} Concluídas`} size="small" color="success" variant="outlined" />
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <Chip label={`${phases.filter((p: any) => p.status === 'nao_iniciado').length} Pendentes`} size="small" color="warning" variant="outlined" />
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <Typography variant="body2" color="text.secondary">
+                  Total: <strong>{phases.reduce((total: number, p: any) => total + (p.tasks?.length || 0), 0)}</strong> tarefas
+                </Typography>
+              </Grid>
             </Grid>
-            <Grid item xs={12} md={3}>
-              <Typography variant="subtitle2" color="success.main">
-                Fases Concluídas: {phases.filter((p: any) => p.status === 'concluido').length}
-              </Typography>
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <Typography variant="subtitle2" color="warning.main">
-                Fases Pendentes: {phases.filter((p: any) => p.status === 'nao_iniciado').length}
-              </Typography>
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <Typography variant="subtitle2" color="info.main">
-                Total de Tarefas: {phases.reduce((total: number, p: any) => total + (p.tasks?.length || 0), 0)}
-              </Typography>
-            </Grid>
-          </Grid>
-        </Box>
-        
+          </CardContent>
+        </Card>
+
         {phases.map((phase: any, phaseIndex: number) => {
           const isExpanded = expandedPhases.has(phase.id);
           const hasTasks = phase.tasks && phase.tasks.length > 0;
-          
+
           return (
-            <Card key={phase.id || phaseIndex} sx={{ mb: 3 }}>
+            <Card key={phase.id || phaseIndex} sx={{ mb: 3, borderRadius: 2, boxShadow: 2 }}>
               <CardContent>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -893,16 +888,14 @@ const ShareProject: React.FC = () => {
                   {isExpanded && (
                     <Box sx={{ mt: 2 }}>
                       {phase.tasks.map((task: any, taskIndex: number) => (
-                        <Card 
-                          key={task.id || taskIndex} 
-                          sx={{ 
-                            mb: 2, 
+                        <Card
+                          key={task.id || taskIndex}
+                          sx={{
+                            mb: 2,
+                            borderRadius: 2,
+                            boxShadow: 2,
                             borderLeft: `4px solid ${getStatusColor(task.status)}`,
-                            '&:hover': {
-                              boxShadow: 3,
-                              transform: 'translateY(-2px)',
-                              transition: 'all 0.2s ease-in-out'
-                            }
+                            '&:hover': { boxShadow: 4, transform: 'translateY(-2px)', transition: 'all 0.2s ease-in-out' }
                           }}
                         >
                           <CardContent>
@@ -1513,12 +1506,28 @@ const ShareProject: React.FC = () => {
 
     return (
       <Box>
-        <Typography variant="h6" gutterBottom>
-          Indicadores do Cronograma
-        </Typography>
-        <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
-          Acompanhe o desempenho das tarefas e subtarefas do projeto em tempo real. Os indicadores abaixo consideram status, prazo previsto e data de conclusão de cada item.
-        </Typography>
+        <Paper
+          sx={{
+            p: 3,
+            mb: 3,
+            background: 'linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%)',
+            borderRadius: 2,
+            border: '1px solid',
+            borderColor: 'divider'
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+            <ScheduleIcon color="primary" sx={{ fontSize: 32 }} />
+            <Box>
+              <Typography variant="h5" fontWeight="bold" color="text.primary">
+                Indicadores do Cronograma
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Desempenho das tarefas e subtarefas por status, prazo e conclusão.
+              </Typography>
+            </Box>
+          </Box>
+        </Paper>
 
         <Grid container spacing={3} sx={{ mb: 4 }}>
           {summaryCards.map(card => {
@@ -1528,9 +1537,11 @@ const ShareProject: React.FC = () => {
               <Grid item xs={12} md={4} key={card.key}>
                 <Card
                   sx={{
+                    borderRadius: 2,
+                    boxShadow: 2,
                     borderTop: 4,
                     borderColor: `${config.palette}.main`,
-                    boxShadow: '0px 4px 12px rgba(0,0,0,0.05)'
+                    '&:hover': { boxShadow: 4 }
                   }}
                 >
                   <CardContent>
@@ -1566,8 +1577,8 @@ const ShareProject: React.FC = () => {
           const IconComponent = config.icon;
 
           return (
-            <Card key={categoryKey} sx={{ mb: 3 }}>
-              <CardContent>
+            <Card key={categoryKey} sx={{ mb: 3, borderRadius: 2, boxShadow: 2 }}>
+              <CardContent sx={{ p: 3 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                     <Avatar sx={{ bgcolor: `${config.palette}.main`, width: 40, height: 40 }}>
@@ -1697,135 +1708,143 @@ const ShareProject: React.FC = () => {
 
     const phases = project.timeline.phases;
 
+    const totalTasksGantt = phases.reduce((acc: number, p: any) => acc + (p.tasks?.length ?? 0), 0);
+
     return (
       <Box>
-        <Typography variant="h6" gutterBottom>
-          Gráfico de Gantt - Cronograma Visual
-        </Typography>
-        
-        {/* Informações do Gantt */}
-        <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Paper
+          sx={{
+            p: 3,
+            mb: 3,
+            background: 'linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%)',
+            borderRadius: 2,
+            border: '1px solid',
+            borderColor: 'divider'
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <TimelineIcon color="primary" sx={{ fontSize: 32 }} />
+            <Box>
+              <Typography variant="h5" fontWeight="bold" color="text.primary">
+                Gráfico de Gantt
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Cronograma visual do projeto · {phases.length} fases · {totalTasksGantt} tarefas
+              </Typography>
+            </Box>
+          </Box>
+        </Paper>
+
+        <Grid container spacing={3} sx={{ mb: 3 }}>
           <Grid item xs={12} md={6}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom color="primary">
-                  Informações do Gantt
+            <Card sx={{ borderRadius: 2, boxShadow: 2 }}>
+              <CardContent sx={{ p: 3 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                  <AssignmentIcon color="primary" />
+                  <Typography variant="h6" fontWeight="bold">Informações do Gantt</Typography>
+                </Box>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Visualização gráfica do cronograma: fases, tarefas e subtarefas com datas e responsáveis.
                 </Typography>
-                <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
-                  Visualização gráfica completa do cronograma do projeto, incluindo:
-                </Typography>
-                <List dense>
+                <List dense disablePadding>
                   <ListItem sx={{ px: 0 }}>
                     <ListItemAvatar>
-                      <Avatar sx={{ backgroundColor: 'primary.main', width: 24, height: 24 }}>
-                        <CalendarIcon sx={{ fontSize: 14 }} />
+                      <Avatar sx={{ backgroundColor: 'primary.main', width: 28, height: 28 }}>
+                        <CalendarIcon sx={{ fontSize: 16 }} />
                       </Avatar>
                     </ListItemAvatar>
-                    <ListItemText
-                      primary="Fases do projeto"
-                      secondary="Com datas de início e fim"
-                    />
+                    <ListItemText primary="Fases" secondary="Datas de início e fim" />
                   </ListItem>
                   <ListItem sx={{ px: 0 }}>
                     <ListItemAvatar>
-                      <Avatar sx={{ backgroundColor: 'secondary.main', width: 24, height: 24 }}>
-                        <AssignmentIcon sx={{ fontSize: 14 }} />
+                      <Avatar sx={{ backgroundColor: 'secondary.main', width: 28, height: 28 }}>
+                        <AssignmentIcon sx={{ fontSize: 16 }} />
                       </Avatar>
                     </ListItemAvatar>
-                    <ListItemText
-                      primary="Tarefas e subtarefas"
-                      secondary="Com dependências e responsáveis"
-                    />
+                    <ListItemText primary="Tarefas e subtarefas" secondary="Responsáveis e prazos" />
                   </ListItem>
                   <ListItem sx={{ px: 0 }}>
                     <ListItemAvatar>
-                      <Avatar sx={{ backgroundColor: 'success.main', width: 24, height: 24 }}>
-                        <CheckCircleIcon sx={{ fontSize: 14 }} />
+                      <Avatar sx={{ backgroundColor: 'success.main', width: 28, height: 28 }}>
+                        <CheckCircleIcon sx={{ fontSize: 16 }} />
                       </Avatar>
                     </ListItemAvatar>
-                    <ListItemText
-                      primary="Marcos importantes"
-                      secondary="Pontos de controle do projeto"
-                    />
+                    <ListItemText primary="Marcos" secondary="Pontos de controle" />
                   </ListItem>
                 </List>
               </CardContent>
             </Card>
           </Grid>
-          
           <Grid item xs={12} md={6}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom color="primary">
-                  Estatísticas do Cronograma
-                </Typography>
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="body2" color="textSecondary">
-                    Total de Fases: <strong>{phases.length}</strong>
-                  </Typography>
+            <Card sx={{ borderRadius: 2, boxShadow: 2 }}>
+              <CardContent sx={{ p: 3 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                  <ScheduleIcon color="primary" />
+                  <Typography variant="h6" fontWeight="bold">Estatísticas</Typography>
                 </Box>
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="body2" color="textSecondary">
-                    Total de Tarefas: <strong>{project.tasks?.length || 0}</strong>
-                  </Typography>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography variant="body2" color="text.secondary">Fases</Typography>
+                    <Typography variant="body1" fontWeight="bold" color="primary.main">{phases.length}</Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography variant="body2" color="text.secondary">Tarefas (cronograma)</Typography>
+                    <Typography variant="body1" fontWeight="bold" color="primary.main">{totalTasksGantt}</Typography>
+                  </Box>
+                  <Divider />
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography variant="body2" color="text.secondary">Marcos</Typography>
+                    <Typography variant="body1" fontWeight="bold" color="primary.main">{project.milestones?.length || 0}</Typography>
+                  </Box>
                 </Box>
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="body2" color="textSecondary">
-                    Marcos: <strong>{project.milestones?.length || 0}</strong>
-                  </Typography>
-                </Box>
-
               </CardContent>
             </Card>
           </Grid>
         </Grid>
 
-        {/* Gráfico de Gantt */}
-        <Card sx={{ mb: 3 }}>
-          <CardContent>
-            <Typography variant="h6" gutterBottom color="primary">
-              Visualização do Cronograma
-        </Typography>
-        <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
-              Gráfico de Gantt interativo mostrando a sequência temporal de todas as atividades do projeto.
-        </Typography>
-        <ProjectGantt
-          phases={phases}
-          projectStartDate={project.startDate}
-          projectEndDate={project.endDate}
-        />
+        <Card sx={{ mb: 3, borderRadius: 2, boxShadow: 2 }}>
+          <CardContent sx={{ p: 3 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+              <DateRangeIcon color="primary" />
+              <Typography variant="h6" fontWeight="bold">Visualização do Cronograma</Typography>
+            </Box>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              Gráfico de Gantt interativo com a sequência temporal das atividades.
+            </Typography>
+            <ProjectGantt
+              phases={phases}
+              projectStartDate={project.startDate}
+              projectEndDate={project.endDate}
+            />
           </CardContent>
         </Card>
 
-        {/* Legenda do Gantt */}
-        <Card>
-          <CardContent>
-            <Typography variant="h6" gutterBottom color="primary">
-              Legenda do Gráfico
-            </Typography>
+        <Card sx={{ borderRadius: 2, boxShadow: 2 }}>
+          <CardContent sx={{ p: 3 }}>
+            <Typography variant="h6" fontWeight="bold" gutterBottom color="primary.main">Legenda</Typography>
             <Grid container spacing={2}>
-              <Grid item xs={12} md={3}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                  <Box sx={{ width: 20, height: 20, backgroundColor: 'primary.main', mr: 1, borderRadius: 1 }} />
-                  <Typography variant="body2">Fases do Projeto</Typography>
+              <Grid item xs={12} sm={6} md={3}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box sx={{ width: 16, height: 16, backgroundColor: 'primary.main', borderRadius: 0.5 }} />
+                  <Typography variant="body2">Fases</Typography>
                 </Box>
               </Grid>
-              <Grid item xs={12} md={3}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                  <Box sx={{ width: 20, height: 20, backgroundColor: 'secondary.main', mr: 1, borderRadius: 1 }} />
-                  <Typography variant="body2">Tarefas Principais</Typography>
+              <Grid item xs={12} sm={6} md={3}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box sx={{ width: 16, height: 16, backgroundColor: 'secondary.main', borderRadius: 0.5 }} />
+                  <Typography variant="body2">Tarefas</Typography>
                 </Box>
               </Grid>
-              <Grid item xs={12} md={3}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                  <Box sx={{ width: 20, height: 20, backgroundColor: 'success.main', mr: 1, borderRadius: 1 }} />
-                  <Typography variant="body2">Marcos (Milestones)</Typography>
+              <Grid item xs={12} sm={6} md={3}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box sx={{ width: 16, height: 16, backgroundColor: 'success.main', borderRadius: 0.5 }} />
+                  <Typography variant="body2">Marcos</Typography>
                 </Box>
               </Grid>
-              <Grid item xs={12} md={3}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                  <Box sx={{ width: 20, height: 20, backgroundColor: 'warning.main', mr: 1, borderRadius: 1 }} />
-                  <Typography variant="body2">Tarefas em Andamento</Typography>
+              <Grid item xs={12} sm={6} md={3}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box sx={{ width: 16, height: 16, backgroundColor: 'warning.main', borderRadius: 0.5 }} />
+                  <Typography variant="body2">Em andamento</Typography>
                 </Box>
               </Grid>
             </Grid>
@@ -1837,54 +1856,88 @@ const ShareProject: React.FC = () => {
 
   const renderTeam = () => (
     <Box>
+      <Paper
+        sx={{
+          p: 3,
+          mb: 3,
+          background: 'linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%)',
+          borderRadius: 2,
+          border: '1px solid',
+          borderColor: 'divider'
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <GroupIcon color="primary" sx={{ fontSize: 32 }} />
+          <Box>
+            <Typography variant="h5" fontWeight="bold" color="text.primary">
+              Equipe do Projeto
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Membros internos e externos vinculados ao projeto
+            </Typography>
+          </Box>
+        </Box>
+      </Paper>
       <Grid container spacing={3}>
         <Grid item xs={12} md={6}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Membros da Equipe ({project.members?.length || 0})
-              </Typography>
-              <List>
+          <Card sx={{ borderRadius: 2, boxShadow: 2 }}>
+            <CardContent sx={{ p: 3 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                <PersonIcon color="primary" />
+                <Typography variant="h6" fontWeight="bold">
+                  Membros da Equipe ({project.members?.length || 0})
+                </Typography>
+              </Box>
+              <List disablePadding>
                 {(project.members || []).map((member, index) => (
                   <React.Fragment key={member.id}>
-                    <ListItem>
+                    <ListItem sx={{ px: 0 }}>
                       <ListItemAvatar>
-                        <Avatar>
+                        <Avatar sx={{ bgcolor: 'primary.main' }}>
                           <PersonIcon />
                         </Avatar>
                       </ListItemAvatar>
                       <ListItemText
                         primary={member.user.name}
                         secondary={member.role}
+                        primaryTypographyProps={{ fontWeight: 600 }}
                       />
                     </ListItem>
                     {index < (project.members?.length || 0) - 1 && <Divider />}
                   </React.Fragment>
                 ))}
               </List>
+              {(project.members?.length || 0) === 0 && (
+                <Typography variant="body2" color="text.secondary">
+                  Nenhum membro da equipe configurado.
+                </Typography>
+              )}
             </CardContent>
           </Card>
         </Grid>
-
         <Grid item xs={12} md={6}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Membros Externos ({project.externalMembers?.length || 0})
-              </Typography>
+          <Card sx={{ borderRadius: 2, boxShadow: 2 }}>
+            <CardContent sx={{ p: 3 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                <PersonIcon color="primary" />
+                <Typography variant="h6" fontWeight="bold">
+                  Membros Externos ({project.externalMembers?.length || 0})
+                </Typography>
+              </Box>
               {(project.externalMembers?.length || 0) > 0 ? (
-                <List>
+                <List disablePadding>
                   {(project.externalMembers || []).map((member, index) => (
                     <React.Fragment key={member.id}>
-                      <ListItem>
+                      <ListItem sx={{ px: 0 }}>
                         <ListItemAvatar>
-                          <Avatar>
+                          <Avatar sx={{ bgcolor: 'secondary.main' }}>
                             <PersonIcon />
                           </Avatar>
                         </ListItemAvatar>
                         <ListItemText
                           primary={member.name}
                           secondary={`${member.role}${member.company ? ` • ${member.company}` : ''}`}
+                          primaryTypographyProps={{ fontWeight: 600 }}
                         />
                       </ListItem>
                       {index < (project.externalMembers?.length || 0) - 1 && <Divider />}
@@ -1892,7 +1945,7 @@ const ShareProject: React.FC = () => {
                   ))}
                 </List>
               ) : (
-                <Typography variant="body2" color="textSecondary">
+                <Typography variant="body2" color="text.secondary">
                   Nenhum membro externo configurado.
                 </Typography>
               )}
@@ -1905,37 +1958,62 @@ const ShareProject: React.FC = () => {
 
   const renderResources = () => (
     <Box>
+      <Paper
+        sx={{
+          p: 3,
+          mb: 3,
+          background: 'linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%)',
+          borderRadius: 2,
+          border: '1px solid',
+          borderColor: 'divider'
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <AssignmentIcon color="primary" sx={{ fontSize: 32 }} />
+          <Box>
+            <Typography variant="h5" fontWeight="bold" color="text.primary">
+              Stakeholders e Marcos
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Tarefas de alto nível e marcos do projeto
+            </Typography>
+          </Box>
+        </Box>
+      </Paper>
       <Grid container spacing={3}>
         <Grid item xs={12} md={6}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Tarefas ({project.tasks?.length || 0})
-              </Typography>
+          <Card sx={{ borderRadius: 2, boxShadow: 2 }}>
+            <CardContent sx={{ p: 3 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                <AssignmentIcon color="primary" />
+                <Typography variant="h6" fontWeight="bold">
+                  Tarefas ({project.tasks?.length || 0})
+                </Typography>
+              </Box>
               {(project.tasks?.length || 0) > 0 ? (
-                <List>
+                <List disablePadding>
                   {(project.tasks || []).map((task, index) => (
                     <React.Fragment key={task.id}>
-                      <ListItem>
+                      <ListItem sx={{ px: 0, alignItems: 'flex-start' }}>
                         <ListItemAvatar>
                           <Avatar sx={{ backgroundColor: getStatusColor(task.status) }}>
-                            <AssignmentIcon />
+                            <AssignmentIcon sx={{ fontSize: 20 }} />
                           </Avatar>
                         </ListItemAvatar>
                         <ListItemText
                           primary={task.title}
+                          primaryTypographyProps={{ fontWeight: 600 }}
                           secondary={
-                            <Box>
-                              <Typography variant="body2" component="span">
-                                {getStatusLabel(task.status)} • {getPriorityLabel(task.priority)}
-                              </Typography>
+                            <Box sx={{ mt: 0.5 }}>
+                              <Chip label={getStatusLabel(task.status)} size="small" sx={{ mr: 0.5, mb: 0.5, backgroundColor: getStatusColor(task.status), color: 'white' }} />
+                              <Chip label={getPriorityLabel(task.priority)} size="small" variant="outlined" sx={{ mr: 0.5, mb: 0.5 }} />
                               {task.dueDate && (
-                                <Typography variant="body2" component="div" color="textSecondary">
+                                <Typography variant="body2" color="text.secondary" display="block">
                                   Prazo: {formatDate(task.dueDate)}
                                 </Typography>
                               )}
                               {task.assignee && (
-                                <Typography variant="body2" component="div" color="textSecondary">
+                                <Typography variant="body2" color="text.secondary">
                                   Responsável: {task.assignee.nome}
                                 </Typography>
                               )}
@@ -1948,38 +2026,44 @@ const ShareProject: React.FC = () => {
                   ))}
                 </List>
               ) : (
-                <Typography variant="body2" color="textSecondary">
+                <Typography variant="body2" color="text.secondary">
                   Nenhuma tarefa configurada.
                 </Typography>
               )}
             </CardContent>
           </Card>
         </Grid>
-
         <Grid item xs={12} md={6}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Marcos ({project.milestones?.length || 0})
-              </Typography>
+          <Card sx={{ borderRadius: 2, boxShadow: 2 }}>
+            <CardContent sx={{ p: 3 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                <CheckCircleIcon color="primary" />
+                <Typography variant="h6" fontWeight="bold">
+                  Marcos ({project.milestones?.length || 0})
+                </Typography>
+              </Box>
               {(project.milestones?.length || 0) > 0 ? (
-                <List>
+                <List disablePadding>
                   {(project.milestones || []).map((milestone, index) => (
                     <React.Fragment key={milestone.id}>
-                      <ListItem>
+                      <ListItem sx={{ px: 0 }}>
                         <ListItemAvatar>
-                          <Avatar sx={{ backgroundColor: milestone.completed ? '#4caf50' : '#ff9800' }}>
-                            {milestone.completed ? <CheckCircleIcon /> : <ScheduleIcon />}
+                          <Avatar sx={{ backgroundColor: milestone.completed ? 'success.main' : 'warning.main' }}>
+                            {milestone.completed ? <CheckCircleIcon sx={{ fontSize: 20 }} /> : <ScheduleIcon sx={{ fontSize: 20 }} />}
                           </Avatar>
                         </ListItemAvatar>
                         <ListItemText
                           primary={milestone.title}
+                          primaryTypographyProps={{ fontWeight: 600 }}
                           secondary={
-                            <Box>
-                              <Typography variant="body2" component="span">
-                                {milestone.completed ? 'Concluído' : 'Pendente'}
-                              </Typography>
-                              <Typography variant="body2" component="div" color="textSecondary">
+                            <Box sx={{ mt: 0.5 }}>
+                              <Chip
+                                label={milestone.completed ? 'Concluído' : 'Pendente'}
+                                size="small"
+                                color={milestone.completed ? 'success' : 'warning'}
+                                sx={{ mr: 0.5 }}
+                              />
+                              <Typography variant="body2" color="text.secondary" component="span">
                                 Prazo: {formatDate(milestone.dueDate)}
                               </Typography>
                             </Box>
@@ -1991,7 +2075,7 @@ const ShareProject: React.FC = () => {
                   ))}
                 </List>
               ) : (
-                <Typography variant="body2" color="textSecondary">
+                <Typography variant="body2" color="text.secondary">
                   Nenhum marco configurado.
                 </Typography>
               )}
