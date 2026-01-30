@@ -36,7 +36,11 @@ import {
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
   UnfoldMore as UnfoldMoreIcon,
-  UnfoldLess as UnfoldLessIcon
+  UnfoldLess as UnfoldLessIcon,
+  Flag as FlagIcon,
+  Notes as NotesIcon,
+  DateRange as DateRangeIcon,
+  Timeline as TimelineIcon
 } from '@mui/icons-material';
 import { api } from '../lib/api.local';
 import ProjectGantt from '../components/ProjectGantt';
@@ -350,94 +354,223 @@ const ShareProject: React.FC = () => {
     { key: 'resources', label: 'Stakeholders', allowed: allowedViews.includes('resources') }
   ].filter(tab => tab.allowed);
 
-  const renderOverview = () => (
-    <Box>
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={6}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Informações do Projeto
-              </Typography>
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="body2" color="textSecondary">
-                  Status
-                </Typography>
-                <Chip
-                  label={getStatusLabel(project.status)}
-                  sx={{ backgroundColor: getStatusColor(project.status), color: 'white' }}
-                />
-              </Box>
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="body2" color="textSecondary">
-                  Prioridade
-                </Typography>
-                <Chip
-                  label={getPriorityLabel(project.priority)}
-                  sx={{ backgroundColor: getPriorityColor(project.priority), color: 'white' }}
-                />
-              </Box>
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="body2" color="textSecondary">
-                  Progresso
-                </Typography>
-                <LinearProgress
-                  variant="determinate"
-                  value={project.progress}
-                  sx={{ height: 8, borderRadius: 4 }}
-                />
-                <Typography variant="body2" sx={{ mt: 1 }}>
-                  {project.progress}% concluído
-                </Typography>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
+  const calculatePhaseProgress = (phase: any) => {
+    if (!phase?.tasks?.length) return 0;
+    const total = phase.tasks.reduce((sum: number, t: any) => sum + (t.progress ?? 0), 0);
+    return Math.round(total / phase.tasks.length);
+  };
 
-        <Grid item xs={12} md={6}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Datas
+  const renderOverview = () => {
+    const phases = project.timeline?.phases ?? [];
+    const totalTasks = phases.reduce((acc: number, p: any) => acc + (p.tasks?.length ?? 0), 0);
+
+    return (
+      <Box>
+        {/* Cabeçalho da Visão Geral */}
+        <Paper
+          sx={{
+            p: 3,
+            mb: 3,
+            background: 'linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%)',
+            borderRadius: 2,
+            border: '1px solid',
+            borderColor: 'divider'
+          }}
+        >
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 2, mb: 2 }}>
+            <Box sx={{ flex: 1, minWidth: 200 }}>
+              <Typography variant="h5" fontWeight="bold" color="text.primary" gutterBottom>
+                {project.name || 'Sem nome'}
               </Typography>
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="body2" color="textSecondary">
-                  <CalendarIcon sx={{ mr: 1, fontSize: 16 }} />
-                  Início: {formatDate(project.startDate)}
-                </Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
+                <Chip
+                  size="small"
+                  label={getStatusLabel(project.status)}
+                  sx={{ backgroundColor: getStatusColor(project.status), color: 'white', fontWeight: 600 }}
+                />
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  label={getPriorityLabel(project.priority)}
+                  sx={{
+                    borderColor: (project.priority === 'urgent' || project.priority === 'high') ? 'error.main' : undefined,
+                    color: (project.priority === 'urgent' || project.priority === 'high') ? 'error.main' : undefined
+                  }}
+                />
               </Box>
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="body2" color="textSecondary">
-                  <CalendarIcon sx={{ mr: 1, fontSize: 16 }} />
-                  Fim: {formatDate(project.endDate)}
-                </Typography>
-              </Box>
-              {project.budget && (
-                <Box>
-                  <Typography variant="body2" color="textSecondary">
-                    Orçamento: R$ {project.budget ? project.budget.toLocaleString('pt-BR') : 'Não especificado'}
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Box sx={{ position: 'relative', display: 'inline-flex' }}>
+                <CircularProgress
+                  variant="determinate"
+                  value={project.progress ?? 0}
+                  size={72}
+                  thickness={4}
+                  sx={{ color: 'primary.main' }}
+                />
+                <Box
+                  sx={{
+                    top: 0,
+                    left: 0,
+                    bottom: 0,
+                    right: 0,
+                    position: 'absolute',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <Typography variant="body2" fontWeight="bold" color="text.secondary">
+                    {project.progress ?? 0}%
                   </Typography>
                 </Box>
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary" display="block">Progresso geral</Typography>
+                <Typography variant="body2" fontWeight="bold">
+                  {phases.length} fases · {totalTasks} tarefas
+                </Typography>
+              </Box>
+            </Box>
+          </Box>
+          {project.description && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              {project.description}
+            </Typography>
+          )}
+        </Paper>
 
-        <Grid item xs={12}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Descrição
-              </Typography>
-              <Typography variant="body1">
-                {project.description}
-              </Typography>
-            </CardContent>
-          </Card>
+        <Grid container spacing={3}>
+          {/* Coluna principal */}
+          <Grid item xs={12} md={8}>
+            <Card sx={{ mb: 3, borderRadius: 2, boxShadow: 2 }}>
+              <CardContent sx={{ p: 3 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                  <AssignmentIcon color="primary" />
+                  <Typography variant="h6" fontWeight="bold">Informações do Projeto</Typography>
+                </Box>
+                <Typography variant="body1" color="text.secondary">
+                  {project.description || 'Sem descrição.'}
+                </Typography>
+              </CardContent>
+            </Card>
+
+            <Card sx={{ mb: 3, borderRadius: 2, boxShadow: 2 }}>
+              <CardContent sx={{ p: 3 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                  <FlagIcon color="primary" />
+                  <Typography variant="h6" fontWeight="bold">Status e Datas</Typography>
+                </Box>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="caption" color="text.secondary" display="block">Status</Typography>
+                    <Chip
+                      label={getStatusLabel(project.status)}
+                      sx={{ backgroundColor: getStatusColor(project.status), color: 'white', mt: 0.5 }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="caption" color="text.secondary" display="block">Prioridade</Typography>
+                    <Chip
+                      label={getPriorityLabel(project.priority)}
+                      sx={{ backgroundColor: getPriorityColor(project.priority), color: 'white', mt: 0.5 }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="caption" color="text.secondary" display="block">Data de Início</Typography>
+                    <Typography variant="body1" fontWeight="medium" sx={{ mt: 0.5 }}>
+                      <CalendarIcon sx={{ mr: 0.5, fontSize: 18, verticalAlign: 'middle' }} />
+                      {formatDate(project.startDate)}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="caption" color="text.secondary" display="block">Data de Término</Typography>
+                    <Typography variant="body1" fontWeight="medium" sx={{ mt: 0.5 }}>
+                      <CalendarIcon sx={{ mr: 0.5, fontSize: 18, verticalAlign: 'middle' }} />
+                      {formatDate(project.endDate)}
+                    </Typography>
+                  </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
+
+            {project.budget != null && project.budget > 0 && (
+              <Card sx={{ mb: 3, borderRadius: 2, boxShadow: 2 }}>
+                <CardContent sx={{ p: 3 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                    <NotesIcon color="primary" />
+                    <Typography variant="h6" fontWeight="bold">Orçamento</Typography>
+                  </Box>
+                  <Typography variant="h6" color="primary.main" fontWeight="bold">
+                    R$ {Number(project.budget).toLocaleString('pt-BR')}
+                  </Typography>
+                </CardContent>
+              </Card>
+            )}
+          </Grid>
+
+          {/* Sidebar */}
+          <Grid item xs={12} md={4}>
+            <Card sx={{ mb: 3, borderRadius: 2, boxShadow: 2 }}>
+              <CardContent sx={{ p: 3 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                  <TimelineIcon color="primary" />
+                  <Typography variant="h6" fontWeight="bold">Resumo Rápido</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1.5 }}>
+                  <Typography variant="body2" color="text.secondary">Fases</Typography>
+                  <Typography variant="h6" fontWeight="bold" color="primary.main">{phases.length}</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1.5 }}>
+                  <Typography variant="body2" color="text.secondary">Tarefas</Typography>
+                  <Typography variant="h6" fontWeight="bold" color="primary.main">{totalTasks}</Typography>
+                </Box>
+                <Divider />
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1.5 }}>
+                  <Typography variant="body2" color="text.secondary">Progresso</Typography>
+                  <Typography variant="h6" fontWeight="bold" color="success.main">{project.progress ?? 0}%</Typography>
+                </Box>
+              </CardContent>
+            </Card>
+
+            <Card sx={{ borderRadius: 2, boxShadow: 2 }}>
+              <CardContent sx={{ p: 3 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                  <DateRangeIcon color="primary" />
+                  <Typography variant="h6" fontWeight="bold">Resumo do Cronograma</Typography>
+                </Box>
+                {phases.length > 0 ? (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {phases.map((phase: any) => (
+                      <Box key={phase.id}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                          <Typography variant="body2" fontWeight="600" noWrap sx={{ maxWidth: '70%' }}>
+                            {phase.name?.split(':')[0] ?? phase.name}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" fontWeight="600">
+                            {calculatePhaseProgress(phase)}%
+                          </Typography>
+                        </Box>
+                        <LinearProgress
+                          variant="determinate"
+                          value={calculatePhaseProgress(phase)}
+                          sx={{ height: 8, borderRadius: 1 }}
+                        />
+                      </Box>
+                    ))}
+                  </Box>
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    Nenhuma fase cadastrada.
+                  </Typography>
+                )}
+              </CardContent>
+            </Card>
+          </Grid>
         </Grid>
-      </Grid>
-    </Box>
-  );
+      </Box>
+    );
+  };
 
   const renderTimeline = () => {
     console.log('🔍 Rendering timeline, project.timeline:', project.timeline);
