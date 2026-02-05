@@ -2407,9 +2407,18 @@ function crud(entity: keyof PrismaClient) {
       if (entity === 'reajusteLancamento') {
         const reajusteData = { ...data as any };
         
-        // Remover campos que não devem ser atualizados diretamente
+        // Remover campos que não devem ser atualizados diretamente (incl. objetos de relação)
         delete reajusteData.id;
         delete reajusteData.createdAt;
+        delete reajusteData.updatedAt;
+        delete reajusteData.user;
+        delete reajusteData.analista;
+        
+        // Prisma aceita relação via user: { connect/disconnect }, não userId
+        if (reajusteData.userId !== undefined) {
+          reajusteData.user = (reajusteData.userId && reajusteData.userId !== '') ? { connect: { id: reajusteData.userId } } : { disconnect: true };
+          delete reajusteData.userId;
+        }
         
         // Se analistaId estiver presente, conectar ao relacionamento analista
         if (reajusteData.analistaId) {
@@ -4517,6 +4526,9 @@ for (const [path, repo] of Object.entries(resources)) {
         console.log(`🔧 PUT /reajusteLancamentos/${req.params.id}: Aplicando tratamento especial para reajusteLancamentos`)
         
         const cleanedData = { ...req.body }
+        // Remover objetos de relação enviados pelo frontend (Prisma aceita só userId/analistaId no data)
+        delete cleanedData.user
+        delete cleanedData.analista
         
         // Garantir que campos de string sejam preservados (cliente, contrato, operadora, produto)
         // Esses campos são strings no schema, não relacionamentos
