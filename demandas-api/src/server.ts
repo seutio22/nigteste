@@ -2432,10 +2432,17 @@ function crud(entity: keyof PrismaClient) {
         }
         if (raw.userId !== undefined) {
           reajusteData.user = (raw.userId && String(raw.userId).trim()) ? { connect: { id: String(raw.userId).trim() } } : { disconnect: true };
+        } else if (raw.user && typeof raw.user === 'object' && ('connect' in raw.user || 'disconnect' in raw.user)) {
+          reajusteData.user = raw.user;
         }
         if (raw.analistaId !== undefined) {
           reajusteData.analista = (raw.analistaId && String(raw.analistaId).trim()) ? { connect: { id: String(raw.analistaId).trim() } } : { disconnect: true };
+        } else if (raw.analista && typeof raw.analista === 'object' && ('connect' in raw.analista || 'disconnect' in raw.analista)) {
+          reajusteData.analista = raw.analista;
         }
+        delete (reajusteData as any).userId;
+        delete (reajusteData as any).analistaId;
+        delete (reajusteData as any).updatedAt;
         console.log('🔍 REAJUSTE UPDATE: Dados processados:', JSON.stringify(reajusteData, null, 2));
         return anyPrisma[entity].update({ where: { id }, data: reajusteData });
       }
@@ -4507,9 +4514,20 @@ for (const [path, repo] of Object.entries(resources)) {
         console.log(`🔧 PUT /reajusteLancamentos/${req.params.id}: Aplicando tratamento especial para reajusteLancamentos`)
         
         const cleanedData = { ...req.body }
-        // Remover objetos de relação enviados pelo frontend (Prisma aceita só userId/analistaId no data)
+        // Prisma não aceita userId/updatedAt no data - usa user: { connect/disconnect }; updatedAt é automático
         delete cleanedData.user
         delete cleanedData.analista
+        delete cleanedData.userId
+        delete cleanedData.updatedAt
+        
+        // Converter userId/analistaId para relação antes de passar ao crud (que fará connect/disconnect)
+        if (req.body.userId !== undefined) {
+          cleanedData.user = (req.body.userId && String(req.body.userId).trim()) ? { connect: { id: String(req.body.userId).trim() } } : { disconnect: true }
+        }
+        if (req.body.analistaId !== undefined) {
+          cleanedData.analista = (req.body.analistaId && String(req.body.analistaId).trim()) ? { connect: { id: String(req.body.analistaId).trim() } } : { disconnect: true }
+        }
+        delete cleanedData.analistaId
         
         // Garantir que campos de string sejam preservados (cliente, contrato, operadora, produto)
         // Esses campos são strings no schema, não relacionamentos
