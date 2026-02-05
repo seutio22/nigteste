@@ -8,7 +8,7 @@ export interface Report {
   ticket?: string
   total?: string
   tipo: 'diaria' | 'semanal' | 'mensal' | 'trimestral' | 'semestral' | 'anual' | 'personalizado'
-  status: 'pendente' | 'em_andamento' | 'concluido' | 'entregue' | 'cancelado'
+  status: string // Padrão Cadastro: Pendente, Em andamento, Transf. Analista, Concluída, Entregue, Cancelada
   analista: string
   area: string
   cliente?: string

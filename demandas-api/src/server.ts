@@ -1572,6 +1572,28 @@ app.get('/users/validate/:id', async (req: any) => {
   }
 })
 
+/** Status padrão Report (Analytics), alinhado ao Cadastro. Normaliza ao gravar e ao ler. */
+function normalizeReportStatus(value: string | null | undefined): string {
+  if (value == null || value === '') return 'Pendente'
+  const s = String(value).trim()
+  const padroes = ['Pendente', 'Em andamento', 'Transf. Analista', 'Concluída', 'Entregue', 'Cancelada']
+  if (padroes.includes(s)) return s
+  const key = s.toLowerCase().replace(/\s+/g, ' ')
+  const map: Record<string, string> = {
+    pendente: 'Pendente', aberta: 'Pendente',
+    'em andamento': 'Em andamento', em_andamento: 'Em andamento', emandamento: 'Em andamento',
+    'transf. analista': 'Transf. Analista', transf_analista: 'Transf. Analista', transfanalista: 'Transf. Analista',
+    concluída: 'Concluída', concluida: 'Concluída', concluido: 'Concluída', concluído: 'Concluída',
+    entregue: 'Entregue', cancelada: 'Cancelada', cancelado: 'Cancelada'
+  }
+  if (map[key]) return map[key]
+  if (/concluíd?a?o?/i.test(s)) return 'Concluída'
+  if (/em\s*andamento|andamento/i.test(s)) return 'Em andamento'
+  if (/transf|analista/i.test(s)) return 'Transf. Analista'
+  if (/entregue/i.test(s)) return 'Entregue'
+  if (/cancelad/i.test(s)) return 'Cancelada'
+  return 'Pendente'
+}
 
 // CRUD genérico simples para entidades mestres
 function crud(entity: keyof PrismaClient) {
@@ -1868,7 +1890,7 @@ function crud(entity: keyof PrismaClient) {
         }
         const pagination = parsePagination(queryParams)
         
-        return anyPrisma[entity].findMany({
+        const list = await anyPrisma[entity].findMany({
           where: Object.keys(where).length > 0 ? where : undefined,
           select: {
             id: true,
@@ -1897,6 +1919,8 @@ function crud(entity: keyof PrismaClient) {
           orderBy: { updatedAt: 'desc' },
           ...pagination
         });
+        // Padronizar status na leitura (conforme Cadastro)
+        return list.map((r: any) => ({ ...r, status: normalizeReportStatus(r.status) }));
       }
       
       // Contratos - sempre retornar todos (ativos e inativos)
@@ -2233,6 +2257,11 @@ function crud(entity: keyof PrismaClient) {
       if (entity === 'report') {
         const reportData = { ...data as any };
         
+        // Padronizar status conforme Cadastro (evita variações no banco)
+        if (reportData.status != null) {
+          reportData.status = normalizeReportStatus(reportData.status);
+        }
+        
         // Verificar e validar campo analista OBRIGATÓRIO
         if (!reportData.analista || reportData.analista === '') {
           throw new Error('Campo analista é obrigatório');
@@ -2418,6 +2447,17 @@ function crud(entity: keyof PrismaClient) {
         
         console.log('🔍 REAJUSTE UPDATE: Dados processados:', JSON.stringify(reajusteData, null, 2));
         return anyPrisma[entity].update({ where: { id }, data: reajusteData });
+      }
+      
+      // Report (Analytics): padronizar status conforme Cadastro
+      if (entity === 'report') {
+        const updateData = { ...data as any };
+        delete updateData.id;
+        delete updateData.createdAt;
+        if (updateData.status != null) {
+          updateData.status = normalizeReportStatus(updateData.status);
+        }
+        return anyPrisma[entity].update({ where: { id }, data: updateData });
       }
       
       // Para outras entidades, atualização simplificada

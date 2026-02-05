@@ -6,6 +6,7 @@ import { useMasterDataStore } from '../store/masterDataStore'
 import { useAuthStore } from '../store/authStore'
 import { ReportStatusBadge } from '../components/ReportStatusBadge'
 import { PriorityBadge } from '../components/PriorityBadge'
+import { normalizeReportStatus } from '../utils/statusPadrao'
 import { SmartImporter } from '../components/SmartImporter'
 import { smartImporterConfigs } from '../config/smartImporterConfigs'
 import type { ImportResult } from '../types/smartImporter'
@@ -374,7 +375,7 @@ export default function AnalyticsPage() {
           const relatorioData = {
             // Campos obrigatórios
             titulo: data.titulo.trim(), // Já validado acima
-            status: data.status || 'pendente',
+            status: normalizeReportStatus(data.status),
             tipo: data.tipo || 'mensal',
             analista: analistaFinal, // Campo obrigatório no modelo Report - já validado
             dataInicio: excelDateToISO(data.dataInicio || data.dataInicial) || new Date().toISOString().split('T')[0],
@@ -873,7 +874,7 @@ function ActionCell({ id, status }: { id: string, status: string }) {
     const r = store.items.find((x) => x.id === id)
     if (!r) return
     const { id: _omit, dataCriacao: _c, dataAtualizacao: _u, ...rest } = r
-    const duplicated = await store.add({ ...rest, status: 'pendente' })
+    const duplicated = await store.add({ ...rest, status: 'Pendente' })
     navigate(`/analytics/${duplicated.id}`)
   }
 

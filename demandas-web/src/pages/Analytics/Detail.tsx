@@ -5,6 +5,7 @@ import { useMasterDataStore } from '../../store/masterDataStore'
 import { Timeline } from '../../components/Timeline'
 import { ReportStatusBadge } from '../../components/ReportStatusBadge'
 import { PriorityBadge } from '../../components/PriorityBadge'
+import { normalizeReportStatus, STATUS_REPORT_PADRAO } from '../../utils/statusPadrao'
 import { ArrowLeft, Edit3, Save, Clock } from 'lucide-react'
 
 export default function AnalyticsDetailPage() {
@@ -228,7 +229,7 @@ export default function AnalyticsDetailPage() {
                 <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
                 <div>
                   <p className="text-sm text-gray-500">Status Atual</p>
-                  <p className="font-medium">{report.status}</p>
+                  <p className="font-medium">{normalizeReportStatus(report.status)}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
@@ -262,7 +263,7 @@ export default function AnalyticsDetailPage() {
 function EditInline({ report }: { report: any }) {
   const md = useMasterDataStore()
   const { update } = useReportStore()
-  const [draft, setDraft] = useState(report)
+  const [draft, setDraft] = useState({ ...report, status: normalizeReportStatus(report?.status) })
   const [confirmOpen, setConfirmOpen] = useState(false)
   
   const label = (id?: string, arr?: { id: string, nome: string }[]) => 
@@ -287,7 +288,7 @@ function EditInline({ report }: { report: any }) {
   }, [selectedClienteId])
 
   useEffect(() => {
-    setDraft(report)
+    setDraft({ ...report, status: normalizeReportStatus(report?.status) })
   }, [report.id])
 
   const changedKeys = ((): string[] => {
@@ -478,16 +479,13 @@ function EditInline({ report }: { report: any }) {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Status *</label>
           <select
-            value={draft.status}
-            onChange={(e) => setDraft({ ...draft, status: e.target.value as any })}
+            value={normalizeReportStatus(draft.status)}
+            onChange={(e) => setDraft({ ...draft, status: e.target.value })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
-            <option value="pendente">Pendente</option>
-            <option value="em_andamento">Em Andamento</option>
-            <option value="transf_analista">Transf. Analista</option>
-            <option value="concluido">Concluído</option>
-            <option value="entregue">Entregue</option>
-            <option value="cancelado">Cancelado</option>
+            {STATUS_REPORT_PADRAO.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
           </select>
         </div>
       </div>

@@ -184,7 +184,7 @@ export const COMPLETION_STATUS = {
   validacoes: ['Aprovada', 'Validada', 'Concluída'],
   reajustes: ['Aprovado', 'Finalizado', 'Concluído'],
   manutencoes: ['Concluída', 'Finalizada', 'Resolvida'],
-  analytics: ['Concluído', 'Finalizado', 'Gerado'],
+  analytics: ['Concluída', 'Concluído', 'concluido', 'CONCLUIDO', 'Finalizado', 'Gerado'],
   mailling: ['Ativo', 'Enviado', 'Processado'],
   comunicados: ['Enviado', 'Lido', 'Processado'],
   projetos: ['Concluído', 'Finalizado', 'Entregue']

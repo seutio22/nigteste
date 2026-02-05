@@ -21,6 +21,7 @@ import { useNavigate } from 'react-router-dom'
 import { useReportStore } from '../../store/reportStore'
 import { useMasterDataStore } from '../../store/masterDataStore'
 import { useAuthStore } from '../../store/authStore'
+import { STATUS_REPORT_PADRAO } from '../../utils/statusPadrao'
 import { ArrowBack, Save, Cancel } from '@mui/icons-material'
 
 export default function AnalyticsNewPage() {
@@ -35,7 +36,7 @@ export default function AnalyticsNewPage() {
     ticket: '',
     total: '',
     tipo: 'mensal' as const,
-    status: 'pendente' as const,
+    status: 'Pendente',
     analista: '',
     area: '',
     cliente: '',
@@ -387,14 +388,12 @@ export default function AnalyticsNewPage() {
                   <Select
                     value={form.status}
                     label="Status *"
-                    onChange={(e) => setForm(prev => ({ ...prev, status: e.target.value as any }))}
+                    onChange={(e) => setForm(prev => ({ ...prev, status: e.target.value }))}
                     required
                   >
-                    <MenuItem value="CONCLUIDO">CONCLUIDO</MenuItem>
-                    <MenuItem value="EM ANDAMENTO">EM ANDAMENTO</MenuItem>
-                    <MenuItem value="TRANSF. ANALISTA">TRANSF. ANALISTA</MenuItem>
-                    <MenuItem value="ESPERA DE TERCEIROS">ESPERA DE TERCEIROS</MenuItem>
-                    <MenuItem value="PENDENTE">PENDENTE</MenuItem>
+                    {STATUS_REPORT_PADRAO.map((s) => (
+                      <MenuItem key={s} value={s}>{s}</MenuItem>
+                    ))}
                   </Select>
                 </FormControl>
               </Stack>

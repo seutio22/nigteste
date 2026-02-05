@@ -275,11 +275,14 @@ export default function HomePage() {
   const statsAnalytics = useMemo(() => {
     if (isLoading) return { total: 0, pendentes: 0, emAndamento: 0, concluidos: 0 }
     const relatoriosArray = (reportStore?.items && Array.isArray(reportStore.items)) ? reportStore.items : []
+    const statusConcluido = ['Concluída', 'Concluído', 'concluido', 'CONCLUIDO']
+    const statusPendente = ['Pendente', 'pendente', 'PENDENTE']
+    const statusEmAndamento = ['Em andamento', 'em_andamento', 'EM ANDAMENTO']
     return {
       total: relatoriosArray.length,
-      pendentes: relatoriosArray.filter(r => r.status === 'pendente').length,
-      emAndamento: relatoriosArray.filter(r => r.status === 'em_andamento').length,
-      concluidos: relatoriosArray.filter(r => r.status === 'concluido').length
+      pendentes: relatoriosArray.filter(r => statusPendente.includes(r.status)).length,
+      emAndamento: relatoriosArray.filter(r => statusEmAndamento.includes(r.status)).length,
+      concluidos: relatoriosArray.filter(r => statusConcluido.includes(r.status)).length
     }
   }, [isLoading, reportStore?.items])
 

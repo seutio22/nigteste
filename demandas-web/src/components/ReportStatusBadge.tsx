@@ -7,32 +7,26 @@ interface ReportStatusBadgeProps {
 
 export function ReportStatusBadge({ status, size = 'medium' }: ReportStatusBadgeProps) {
   const getStatusConfig = (status: string): { label: string; color: ChipProps['color'] } => {
-    // Normalizar status para lowercase para comparação
-    const normalizedStatus = status?.toLowerCase().trim() || ''
-    
-    // Verificar variações de "concluido" (com e sem acento, maiúsculas/minúsculas)
-    if (normalizedStatus === 'concluido' || normalizedStatus === 'concluído' || normalizedStatus === 'concluida' || normalizedStatus === 'concluída') {
-      return { label: 'Concluído', color: 'success' }
+    const s = status?.trim() || ''
+    // Valores padrão (conforme Cadastro) – exibir como estão
+    const padroes: Record<string, ChipProps['color']> = {
+      'Pendente': 'warning',
+      'Em andamento': 'info',
+      'Transf. Analista': 'info',
+      'Concluída': 'success',
+      'Entregue': 'success',
+      'Cancelada': 'error'
     }
-    
-    switch (normalizedStatus) {
-      case 'pendente':
-        return { label: 'Pendente', color: 'warning' }
-      case 'em_andamento':
-      case 'emandamento':
-      case 'em andamento':
-        return { label: 'Em Andamento', color: 'info' }
-      case 'transf. analista':
-      case 'transf_analista':
-      case 'transfanalista':
-        return { label: 'Transf. Analista', color: 'info' }
-      case 'entregue':
-        return { label: 'Entregue', color: 'success' }
-      case 'cancelado':
-        return { label: 'Cancelado', color: 'error' }
-      default:
-        return { label: status, color: 'default' }
-    }
+    if (padroes[s]) return { label: s, color: padroes[s] }
+    // Fallback para variações antigas
+    const lower = s.toLowerCase()
+    if (lower === 'concluido' || lower === 'concluído' || lower === 'concluida' || lower === 'concluída') return { label: 'Concluída', color: 'success' }
+    if (lower === 'pendente') return { label: 'Pendente', color: 'warning' }
+    if (lower === 'em_andamento' || lower === 'em andamento' || lower === 'emandamento') return { label: 'Em andamento', color: 'info' }
+    if (lower === 'transf_analista' || lower === 'transf. analista') return { label: 'Transf. Analista', color: 'info' }
+    if (lower === 'entregue') return { label: 'Entregue', color: 'success' }
+    if (lower === 'cancelado' || lower === 'cancelada') return { label: 'Cancelada', color: 'error' }
+    return { label: s || '—', color: 'default' }
   }
 
   const config = getStatusConfig(status)
