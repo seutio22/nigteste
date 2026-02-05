@@ -4361,14 +4361,17 @@ export default function ProjectDetailPage() {
   }
 
   // Pode editar: prioridade ao endpoint can-edit (fonte única). Fallback local se ainda não carregou.
-  const userCanEdit = projectCanEdit === true || (projectCanEdit === null && project && (
+  const fallbackCanEdit = project && user?.id && (
     (project as any).canEdit === true ||
     (project as any).isPrivate === true ||
-    (user?.id && ((user as any)?.role === 'admin' ||
-      String((project as any).ownerId || '').trim() === String(user.id).trim() ||
-      String((project as any).managerId || '').trim() === String(user.id).trim() ||
-      ((project as any).ownerName && (user as any)?.name && String((project as any).ownerName).trim().toLowerCase().split(/\s+/)[0] === String((user as any).name).trim().toLowerCase().split(/\s+/)[0]))
-  ))
+    (user as any)?.role === 'admin' ||
+    String((project as any).ownerId || '').trim() === String(user.id).trim() ||
+    String((project as any).managerId || '').trim() === String(user.id).trim() ||
+    ((project as any).ownerName && (user as any)?.name &&
+      String((project as any).ownerName).trim().toLowerCase().split(/\s+/)[0] ===
+      String((user as any).name).trim().toLowerCase().split(/\s+/)[0])
+  )
+  const userCanEdit = projectCanEdit === true || (projectCanEdit === null && !!fallbackCanEdit)
 
   // Loading state
   if (loading) {
