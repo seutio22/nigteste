@@ -23,6 +23,5 @@ RUN npm run build
 ENV HOST=0.0.0.0
 EXPOSE 3333
 
-# Servidor mínimo primeiro para healthcheck passar; depois troque para: node dist/server.js
-CMD ["node", "health-server.js"]
+CMD ["node", "dist/server.js"]
 

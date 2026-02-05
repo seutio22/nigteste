@@ -87,6 +87,7 @@ import {
 import { api } from '../../lib/api.local'
 import { useProjectStore } from '../../store/projectStore'
 import { useAuthStore } from '../../store/authStore'
+import { useMasterDataStore } from '../../store/masterDataStore'
 // Removido dados mockados - usar apenas dados reais do banco
 /* const mockProject = {
   id: 'proj-001',
@@ -2815,6 +2816,17 @@ export default function ProjectDetailPage() {
     }
   }
 
+  const getResponsibleName = (task: any) => {
+    if (!task) return 'Não informado'
+    if (typeof task.responsible === 'string' && task.responsible.trim().length > 0) return task.responsible
+    if (task.assignee) {
+      if (typeof task.assignee === 'string') return task.assignee
+      return task.assignee.nome || task.assignee.name || 'Não informado'
+    }
+    if (task.responsible?.nome || task.responsible?.name) return task.responsible.nome || task.responsible.name
+    return 'Não informado'
+  }
+
   // CORRIGIDA: Evita problemas de timezone ao exibir datas
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString || dateString === 'null' || dateString === '') return '-'
@@ -3809,19 +3821,20 @@ export default function ProjectDetailPage() {
             : Number(item.progress) || (item.type === 'subtask' ? calculateSubtaskProgress(item) : 0)
         const isCompleted = completedStatuses.includes(status) || progress >= 100 || !!actual
         const isInProgress = inProgressStatuses.includes(status) || progress > 0
-        const isDelayed =
-          !!planned &&
-          ((isCompleted && actual && actual > planned) ||
-            (!isCompleted && now > planned))
+        // Tarefas atrasadas: apenas não concluídas e fora do prazo
+        const isDelayed = !!planned && !isCompleted && now > planned
+        // Finalizadas: concluídas - subdividir em entregues no prazo vs com atraso
+        const isCompletedLate = isCompleted && !!planned && !!actual && actual > planned
+        const isCompletedOnTime = isCompleted && !isCompletedLate
 
-        let category: 'delayed' | 'inProgress' | 'onTime'
+        let category: 'delayed' | 'inProgress' | 'completedOnTime' | 'completedLate'
 
         if (isDelayed) {
           category = 'delayed'
-        } else if (isCompleted) {
-          category = 'onTime'
-        } else if (isInProgress) {
-          category = 'inProgress'
+        } else if (isCompletedLate) {
+          category = 'completedLate'
+        } else if (isCompletedOnTime) {
+          category = 'completedOnTime'
         } else {
           category = 'inProgress'
         }
@@ -3838,7 +3851,8 @@ export default function ProjectDetailPage() {
       {
         delayed: [] as any[],
         inProgress: [] as any[],
-        onTime: [] as any[]
+        completedOnTime: [] as any[],
+        completedLate: [] as any[]
       }
     )
 
@@ -3847,10 +3861,10 @@ export default function ProjectDetailPage() {
     const totalItems = allItems.length
     const totalDelayed = categorized.delayed.length
     const totalInProgress = categorized.inProgress.length
-    const totalOnTime = categorized.onTime.length
+    const totalFinalized = categorized.completedOnTime.length + categorized.completedLate.length
 
     const categoryConfig: Record<
-      'delayed' | 'inProgress' | 'onTime',
+      'delayed' | 'inProgress' | 'completedOnTime' | 'completedLate',
       {
         title: string
         subtitle: string
@@ -3860,7 +3874,7 @@ export default function ProjectDetailPage() {
     > = {
       delayed: {
         title: 'Tarefas Atrasadas',
-        subtitle: 'Demandam atenção imediata',
+        subtitle: 'Ainda não concluídas e fora do prazo',
         palette: 'error',
         icon: Warning
       },
@@ -3870,27 +3884,18 @@ export default function ProjectDetailPage() {
         palette: 'warning',
         icon: Schedule
       },
-      onTime: {
+      completedOnTime: {
         title: 'Entregues no Prazo',
-        subtitle: 'Concluídas com sucesso',
+        subtitle: 'Concluídas dentro do prazo',
+        palette: 'success',
+        icon: CheckCircle
+      },
+      completedLate: {
+        title: 'Entregues com Atraso',
+        subtitle: 'Concluídas após o prazo',
         palette: 'success',
         icon: CheckCircle
       }
-    }
-
-    const getResponsibleName = (task: any) => {
-      if (!task) return 'Não informado'
-      if (typeof task.responsible === 'string' && task.responsible.trim().length > 0) {
-        return task.responsible
-      }
-      if (task.assignee) {
-        if (typeof task.assignee === 'string') return task.assignee
-        return task.assignee.nome || task.assignee.name || 'Não informado'
-      }
-      if (task.responsible?.nome || task.responsible?.name) {
-        return task.responsible.nome || task.responsible.name
-      }
-      return 'Não informado'
     }
 
     const summaryCards = [
@@ -3905,13 +3910,22 @@ export default function ProjectDetailPage() {
         percentage: totalItems ? Math.round((totalInProgress / totalItems) * 100) : 0
       },
       {
-        key: 'onTime' as const,
-        value: totalOnTime,
-        percentage: totalItems ? Math.round((totalOnTime / totalItems) * 100) : 0
+        key: 'finalized' as const,
+        value: totalFinalized,
+        percentage: totalItems ? Math.round((totalFinalized / totalItems) * 100) : 0
       }
     ]
 
-    const orderedCategories: Array<'delayed' | 'inProgress' | 'onTime'> = ['delayed', 'inProgress', 'onTime']
+    const summaryCardConfig: Record<'delayed' | 'inProgress' | 'finalized', { title: string; subtitle: string; palette: 'error' | 'warning' | 'success'; icon: typeof Warning }> = {
+      delayed: categoryConfig.delayed,
+      inProgress: categoryConfig.inProgress,
+      finalized: {
+        title: 'Finalizadas',
+        subtitle: 'Entregues no prazo e com atraso',
+        palette: 'success',
+        icon: CheckCircle
+      }
+    }
 
     return (
       <Box>
@@ -3924,7 +3938,7 @@ export default function ProjectDetailPage() {
 
         <Grid container spacing={3} sx={{ mb: 4 }}>
           {summaryCards.map(card => {
-            const config = categoryConfig[card.key]
+            const config = summaryCardConfig[card.key]
             const IconComponent = config.icon
             return (
               <Grid item xs={12} md={4} key={card.key}>
@@ -3962,7 +3976,7 @@ export default function ProjectDetailPage() {
           })}
         </Grid>
 
-        {orderedCategories.map(categoryKey => {
+        {(['delayed', 'inProgress'] as const).map(categoryKey => {
           const categoryTasks = categorized[categoryKey]
           const config = categoryConfig[categoryKey]
           const IconComponent = config.icon
@@ -4088,6 +4102,112 @@ export default function ProjectDetailPage() {
             </Card>
           )
         })}
+
+        {/* Card Finalizadas - com sub-status Entregues no Prazo e Entregues com Atraso */}
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <Avatar sx={{ bgcolor: 'success.main', width: 40, height: 40 }}>
+                  <CheckCircle />
+                </Avatar>
+                <Box>
+                  <Typography variant="h6" color="success.main">
+                    Finalizadas
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Entregues no prazo e com atraso
+                  </Typography>
+                </Box>
+              </Box>
+              <Chip
+                label={`${totalFinalized} item${totalFinalized === 1 ? '' : 's'}`}
+                color="success"
+                variant="outlined"
+              />
+            </Box>
+
+            {totalFinalized === 0 ? (
+              <Typography variant="body2" color="text.secondary">
+                Nenhum item nesta categoria.
+              </Typography>
+            ) : (
+              <Box>
+                {(['completedOnTime', 'completedLate'] as const).map(subKey => {
+                  const subTasks = categorized[subKey]
+                  const subConfig = categoryConfig[subKey]
+                  const SubIcon = subConfig.icon
+                  if (subTasks.length === 0) return null
+                  return (
+                    <Box key={subKey} sx={{ mb: 3 }}>
+                      <Typography variant="subtitle1" fontWeight="bold" color="text.secondary" sx={{ mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <SubIcon fontSize="small" />
+                        {subConfig.title} ({subTasks.length})
+                      </Typography>
+                      <List>
+                        {subTasks
+                          .sort((a, b) => {
+                            const aDate = a.plannedDate ? a.plannedDate.getTime() : 0
+                            const bDate = b.plannedDate ? b.plannedDate.getTime() : 0
+                            return aDate - bDate
+                          })
+                          .map((task, index) => {
+                            const plannedDateString = task.plannedDate ? formatDate(task.plannedDate.toISOString()) : 'Sem previsão'
+                            const actualDateString = task.actualDate ? formatDate(task.actualDate.toISOString()) : null
+                            return (
+                              <React.Fragment key={task.id || `${task.name}-${task.phaseName}`}>
+                                <ListItem
+                                  alignItems="flex-start"
+                                  sx={{ borderRadius: 1, mb: 1, '&:hover': { backgroundColor: 'grey.50' } }}
+                                >
+                                  <ListItemIcon sx={{ minWidth: 44 }}>
+                                    <Avatar sx={{ bgcolor: 'success.light', color: 'success.dark' }}>
+                                      <SubIcon fontSize="small" />
+                                    </Avatar>
+                                  </ListItemIcon>
+                                  <ListItemText
+                                    primary={
+                                      <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
+                                        <Typography variant="subtitle1" fontWeight="bold">
+                                          {task.name || (task.type === 'subtask' ? 'Subtarefa sem nome' : 'Tarefa sem nome')}
+                                        </Typography>
+                                        {task.type === 'subtask' && <Chip label="Subtarefa" size="small" variant="outlined" />}
+                                        {task.priority && (
+                                          <Chip label={getPriorityLabel(task.priority)} size="small" sx={{ backgroundColor: getPriorityColor(task.priority), color: 'white' }} />
+                                        )}
+                                        {task.status && (
+                                          <Chip label={getTaskStatusLabel(task.status)} size="small" variant="outlined" sx={{ borderColor: 'success.main', color: 'success.main' }} />
+                                        )}
+                                      </Box>
+                                    }
+                                    secondary={
+                                      <Box sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                                        <Typography variant="body2" color="text.secondary">Fase: <strong>{task.phaseName}</strong></Typography>
+                                        {task.type === 'subtask' && task.taskName && (
+                                          <Typography variant="body2" color="text.secondary">Tarefa: <strong>{task.taskName}</strong></Typography>
+                                        )}
+                                        <Typography variant="body2" color="text.secondary">Prazo: <strong>{plannedDateString}</strong></Typography>
+                                        {actualDateString && (
+                                          <Typography variant="body2" color="text.secondary">Conclusão: <strong>{actualDateString}</strong></Typography>
+                                        )}
+                                        <Typography variant="body2" color="text.secondary">Responsável: <strong>{getResponsibleName(task)}</strong></Typography>
+                                        <Typography variant="body2" color="text.secondary">Progresso: <strong>{task.progress}%</strong></Typography>
+                                      </Box>
+                                    }
+                                  />
+                                </ListItem>
+                                {index < subTasks.length - 1 && <Divider component="li" />}
+                              </React.Fragment>
+                            )
+                          })}
+                      </List>
+                    </Box>
+                  )
+                })}
+              </Box>
+            )}
+          </CardContent>
+        </Card>
       </Box>
     )
   }
@@ -4207,68 +4327,252 @@ export default function ProjectDetailPage() {
     </Box>
   )
 
-  // Função para renderizar a aba de atividades
-  const renderActivitiesView = () => (
-    <Box>
-      <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>
-        Histórico de Atividades
-      </Typography>
-      
-      {(!project.activities || project.activities.length === 0) ? (
-        <Alert severity="info">
-          Nenhuma atividade registrada ainda. As atividades aparecerão aqui conforme você interagir com o projeto.
-        </Alert>
-      ) : (
-        <Paper>
-          <List>
-            {project.activities.map((activity: any) => (
-              <ListItem key={activity.id} divider>
-                <ListItemIcon>
-                  <Avatar sx={{ width: 40, height: 40, bgcolor: 'primary.main' }}>
-                    <Assignment />
-                  </Avatar>
-                </ListItemIcon>
-                <ListItemText
-                  primary={
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Typography variant="body1" fontWeight="bold">
-                        {activity.action}
-                      </Typography>
-                      <Chip 
-                        label={activity.itemType} 
-                        size="small" 
-                        color="primary" 
-                        variant="outlined"
-                      />
-                    </Box>
-                  }
-                  secondary={
-                    <Box>
-                      <Typography variant="body2" color="text.primary">
-                        {activity.itemName}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {new Date(activity.timestamp).toLocaleString('pt-BR')} • {getUserName(activity.user)}
-                      </Typography>
-                      {activity.details && (
-                        <Box sx={{ mt: 1 }}>
-                          <Typography variant="caption" color="text.secondary">
-                            {Object.entries(activity.details).map(([key, value]) => 
-                              `${key}: ${JSON.stringify(value)}`
-                            ).join(' • ')}
-                          </Typography>
-                        </Box>
-                      )}
-                    </Box>
-                  }
-                />
-              </ListItem>
-            ))}
-          </List>
-        </Paper>
-      )}
-    </Box>
+  // Estado para mapeamento responsável -> departamento e filtro (persistido no timeline)
+  const [responsibleDepartments, setResponsibleDepartments] = React.useState<Record<string, string>>(() =>
+    (project?.timeline as any)?.responsibleDepartments || (project as any)?.responsibleDepartments || {}
   )
+  const [departmentFilter, setDepartmentFilter] = React.useState<string>('')
+  const [editDepartmentFor, setEditDepartmentFor] = React.useState<string | null>(null)
+  const { areas, syncFromApi: syncMasterData } = useMasterDataStore()
+
+  React.useEffect(() => {
+    if (activeTab === 6 && areas.length === 0 && syncMasterData) {
+      syncMasterData({ entities: ['areas'] }).catch(() => {})
+    }
+  }, [activeTab, areas.length, syncMasterData])
+
+  React.useEffect(() => {
+    const rd = (project?.timeline as any)?.responsibleDepartments || (project as any)?.responsibleDepartments
+    if (rd && typeof rd === 'object') setResponsibleDepartments(rd)
+  }, [project])
+
+  const handleSaveDepartment = (responsibleName: string, department: string) => {
+    const updated = { ...responsibleDepartments, [responsibleName]: department || '' }
+    setResponsibleDepartments(updated)
+    setEditDepartmentFor(null)
+    const timeline = { ...(project?.timeline || {}), responsibleDepartments: updated } as any
+    const updatedProject = { ...project, timeline } as any
+    setProject(updatedProject)
+    upsertProject(updatedProject).catch(() => {})
+  }
+
+  // Função para renderizar a aba de atividades (por responsável e departamento)
+  const renderActivitiesView = () => {
+    if (!project?.timeline?.phases || project.timeline.phases.length === 0) {
+      return (
+        <Box>
+          <Alert severity="info">
+            Nenhum cronograma configurado. Adicione fases e tarefas para visualizar as atividades por responsável.
+          </Alert>
+        </Box>
+      )
+    }
+    const phases = project.timeline.phases
+    const allItems = phases.flatMap((phase: any) => {
+      const tasks = (phase.tasks || []).map((task: any) => ({
+        ...task,
+        name: task.name || task.title || 'Tarefa sem nome',
+        phaseName: phase.name || 'Fase sem nome',
+        type: 'task' as const,
+        responsible: getResponsibleName({ responsible: task.responsible, assignee: task.assignee })
+      }))
+      const subtasks = (phase.tasks || []).flatMap((task: any) =>
+        (task.subtasks || []).map((subtask: any) => ({
+          ...subtask,
+          name: subtask.title || subtask.name || 'Subtarefa sem nome',
+          phaseName: phase.name || 'Fase sem nome',
+          taskName: task.name || task.title || 'Tarefa sem nome',
+          type: 'subtask' as const,
+          responsible: getResponsibleName({ responsible: subtask.responsible, assignee: subtask.assignee })
+        }))
+      )
+      return [...tasks, ...subtasks]
+    }).filter((item: any) => item.responsible && item.responsible !== 'Não informado')
+
+    const grouped = allItems.reduce((acc: Record<string, any[]>, item: any) => {
+      const key = item.responsible
+      if (!acc[key]) acc[key] = []
+      acc[key].push(item)
+      return acc
+    }, {})
+
+    let groupedEntries = Object.entries(grouped)
+    if (departmentFilter) {
+      groupedEntries = groupedEntries.filter(([resp]) => responsibleDepartments[resp] === departmentFilter)
+    }
+    groupedEntries.sort((a, b) => a[0].localeCompare(b[0]))
+
+    return (
+      <Box>
+        <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>
+          Atividades por Responsável
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Tarefas e subtarefas do cronograma organizadas por responsável. Vincule cada responsável a um departamento para filtrar.
+        </Typography>
+
+        <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
+          <FormControl size="small" sx={{ minWidth: 200 }}>
+            <InputLabel>Filtrar por departamento</InputLabel>
+            <Select
+              value={departmentFilter}
+              label="Filtrar por departamento"
+              onChange={(e) => setDepartmentFilter(e.target.value)}
+            >
+              <MenuItem value="">Todos</MenuItem>
+              {areas.map((area) => (
+                <MenuItem key={area.id} value={area.nome}>{area.nome}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
+
+        {groupedEntries.length === 0 ? (
+          <Alert severity="info">
+            {departmentFilter
+              ? `Nenhum responsável vinculado ao departamento "${departmentFilter}".`
+              : 'Nenhuma tarefa ou subtarefa com responsável atribuído.'}
+          </Alert>
+        ) : (
+          <Stack spacing={2}>
+            {groupedEntries.map(([responsibleName, items]) => {
+              const dept = responsibleDepartments[responsibleName] || ''
+              return (
+                <Card key={responsibleName} sx={{ overflow: 'visible' }}>
+                  <CardContent>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <Avatar sx={{ bgcolor: 'primary.main' }}>
+                          <Person />
+                        </Avatar>
+                        <Box>
+                          <Typography variant="h6" fontWeight="bold">{responsibleName}</Typography>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                            {editDepartmentFor === responsibleName ? (
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Select
+                                  size="small"
+                                  value={dept}
+                                  onChange={(e) => handleSaveDepartment(responsibleName, e.target.value)}
+                                  sx={{ minWidth: 140 }}
+                                  autoFocus
+                                >
+                                  <MenuItem value="">Sem departamento</MenuItem>
+                                  {areas.map((area) => (
+                                    <MenuItem key={area.id} value={area.nome}>{area.nome}</MenuItem>
+                                  ))}
+                                </Select>
+                                <IconButton size="small" onClick={() => setEditDepartmentFor(null)}><Cancel fontSize="small" /></IconButton>
+                              </Box>
+                            ) : (
+                              <>
+                                {dept ? (
+                                  <Chip label={dept} size="small" color="primary" variant="outlined" icon={<Business sx={{ fontSize: 16 }} />} />
+                                ) : (
+                                  <Typography variant="caption" color="text.secondary">Sem departamento</Typography>
+                                )}
+                                <IconButton size="small" onClick={() => setEditDepartmentFor(responsibleName)} title="Vincular departamento">
+                                  <Edit sx={{ fontSize: 18 }} />
+                                </IconButton>
+                              </>
+                            )}
+                          </Box>
+                        </Box>
+                      </Box>
+                      <Chip label={`${items.length} atividade${items.length === 1 ? '' : 's'}`} color="primary" variant="outlined" />
+                    </Box>
+                    <List dense>
+                      {items
+                        .sort((a: any, b: any) => {
+                          const ad = a.plannedEndDate || a.dueDate || ''
+                          const bd = b.plannedEndDate || b.dueDate || ''
+                          return (ad || '').localeCompare(bd || '')
+                        })
+                        .map((item: any) => (
+                          <ListItem key={item.id || `${item.name}-${item.phaseName}`} divider sx={{ py: 1 }}>
+                            <ListItemIcon sx={{ minWidth: 40 }}>
+                              <Avatar sx={{ width: 32, height: 32, bgcolor: item.type === 'subtask' ? 'grey.400' : 'primary.light' }}>
+                                <Assignment sx={{ fontSize: 18 }} />
+                              </Avatar>
+                            </ListItemIcon>
+                            <ListItemText
+                              primary={
+                                <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
+                                  <Typography variant="body2" fontWeight="bold">{item.name}</Typography>
+                                  {item.type === 'subtask' && <Chip label="Subtarefa" size="small" variant="outlined" />}
+                                  {item.status && (
+                                    <Chip
+                                      label={item.status}
+                                      size="small"
+                                      color={item.status?.toLowerCase().includes('conclu') ? 'success' : 'default'}
+                                      variant="outlined"
+                                    />
+                                  )}
+                                </Box>
+                              }
+                              secondary={
+                                <Box sx={{ mt: 0.5, display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                                  <Typography variant="caption" color="text.secondary">Fase: {item.phaseName}</Typography>
+                                  {item.type === 'subtask' && item.taskName && (
+                                    <Typography variant="caption" color="text.secondary">Tarefa: {item.taskName}</Typography>
+                                  )}
+                                  {(item.plannedEndDate || item.dueDate) && (
+                                    <Typography variant="caption" color="text.secondary">
+                                      Prazo: {formatDate(String(item.plannedEndDate || item.dueDate || ''))}
+                                    </Typography>
+                                  )}
+                                  {typeof item.progress === 'number' && (
+                                    <Typography variant="caption" color="text.secondary">Progresso: {item.progress}%</Typography>
+                                  )}
+                                </Box>
+                              }
+                            />
+                          </ListItem>
+                        ))}
+                    </List>
+                  </CardContent>
+                </Card>
+              )
+            })}
+          </Stack>
+        )}
+
+        {project?.activities && project.activities.length > 0 && (
+          <Box sx={{ mt: 4 }}>
+            <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>
+              Histórico de Atividades
+            </Typography>
+            <Paper>
+              <List>
+                {project.activities.slice(0, 20).map((activity: any) => (
+                  <ListItem key={activity.id} divider>
+                    <ListItemIcon>
+                      <Avatar sx={{ width: 40, height: 40, bgcolor: 'grey.400' }}>
+                        <Assignment />
+                      </Avatar>
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography variant="body2" fontWeight="bold">{activity.action}</Typography>
+                          <Chip label={activity.itemType} size="small" color="default" variant="outlined" />
+                        </Box>
+                      }
+                      secondary={
+                        <Typography variant="caption" color="text.secondary">
+                          {activity.itemName} • {new Date(activity.timestamp).toLocaleString('pt-BR')}
+                        </Typography>
+                      }
+                    />
+                  </ListItem>
+                ))}
+              </List>
+            </Paper>
+          </Box>
+        )}
+      </Box>
+    )
+  }
 
   // Função para registrar log de atividade
   // projectParam: projeto opcional para usar quando chamado de dentro de callbacks de setState

@@ -1901,19 +1901,20 @@ const ShareProject: React.FC = () => {
         const isCompleted = completedStatuses.includes(status) || progress === 100;
         const isInProgressStatus = inProgressStatuses.includes(status);
         const isPendingStatus = pendingStatuses.includes(status);
-        const isDelayed =
-          !!planned &&
-          ((isCompleted && actual && actual > planned) ||
-            (!isCompleted && now > planned));
+        // Tarefas atrasadas: apenas não concluídas e fora do prazo
+        const isDelayed = !!planned && !isCompleted && now > planned;
+        // Finalizadas: concluídas - subdividir em entregues no prazo vs com atraso
+        const isCompletedLate = isCompleted && !!planned && !!actual && actual > planned;
+        const isCompletedOnTime = isCompleted && !isCompletedLate;
 
-        let category: 'delayed' | 'inProgress' | 'onTime';
+        let category: 'delayed' | 'inProgress' | 'completedOnTime' | 'completedLate';
 
         if (isDelayed) {
           category = 'delayed';
-        } else if (isCompleted) {
-          category = 'onTime';
-        } else if (isInProgressStatus || isPendingStatus || progress > 0) {
-          category = 'inProgress';
+        } else if (isCompletedLate) {
+          category = 'completedLate';
+        } else if (isCompletedOnTime) {
+          category = 'completedOnTime';
         } else {
           category = 'inProgress';
         }
@@ -1929,7 +1930,8 @@ const ShareProject: React.FC = () => {
       {
         delayed: [] as any[],
         inProgress: [] as any[],
-        onTime: [] as any[]
+        completedOnTime: [] as any[],
+        completedLate: [] as any[]
       }
     );
 
@@ -1938,10 +1940,10 @@ const ShareProject: React.FC = () => {
     const totalItems = allItems.length;
     const totalDelayed = categorized.delayed.length;
     const totalInProgress = categorized.inProgress.length;
-    const totalOnTime = categorized.onTime.length;
+    const totalFinalized = categorized.completedOnTime.length + categorized.completedLate.length;
 
     const categoryConfig: Record<
-      'delayed' | 'inProgress' | 'onTime',
+      'delayed' | 'inProgress' | 'completedOnTime' | 'completedLate',
       {
         title: string;
         subtitle: string;
@@ -1951,7 +1953,7 @@ const ShareProject: React.FC = () => {
     > = {
       delayed: {
         title: 'Tarefas Atrasadas',
-        subtitle: 'Exigem atenção imediata',
+        subtitle: 'Ainda não concluídas e fora do prazo',
         palette: 'error',
         icon: WarningIcon
       },
@@ -1961,9 +1963,26 @@ const ShareProject: React.FC = () => {
         palette: 'warning',
         icon: ScheduleIcon
       },
-      onTime: {
+      completedOnTime: {
         title: 'Entregues no Prazo',
-        subtitle: 'Concluídas com sucesso',
+        subtitle: 'Concluídas dentro do prazo',
+        palette: 'success',
+        icon: CheckCircleIcon
+      },
+      completedLate: {
+        title: 'Entregues com Atraso',
+        subtitle: 'Concluídas após o prazo',
+        palette: 'success',
+        icon: CheckCircleIcon
+      }
+    };
+
+    const summaryCardConfig: Record<'delayed' | 'inProgress' | 'finalized', { title: string; subtitle: string; palette: 'error' | 'warning' | 'success'; icon: typeof WarningIcon }> = {
+      delayed: categoryConfig.delayed,
+      inProgress: categoryConfig.inProgress,
+      finalized: {
+        title: 'Finalizadas',
+        subtitle: 'Entregues no prazo e com atraso',
         palette: 'success',
         icon: CheckCircleIcon
       }
@@ -1996,9 +2015,9 @@ const ShareProject: React.FC = () => {
         percentage: totalItems ? Math.round((totalInProgress / totalItems) * 100) : 0
       },
       {
-        key: 'onTime' as const,
-        value: totalOnTime,
-        percentage: totalItems ? Math.round((totalOnTime / totalItems) * 100) : 0
+        key: 'finalized' as const,
+        value: totalFinalized,
+        percentage: totalItems ? Math.round((totalFinalized / totalItems) * 100) : 0
       }
     ];
 
@@ -2029,7 +2048,7 @@ const ShareProject: React.FC = () => {
 
         <Grid container spacing={3} sx={{ mb: 4 }}>
           {summaryCards.map(card => {
-            const config = categoryConfig[card.key];
+            const config = summaryCardConfig[card.key];
             const IconComponent = config.icon;
             return (
               <Grid item xs={12} md={4} key={card.key}>
@@ -2069,7 +2088,7 @@ const ShareProject: React.FC = () => {
           })}
         </Grid>
 
-        {(['delayed', 'inProgress', 'onTime'] as const).map(categoryKey => {
+        {(['delayed', 'inProgress'] as const).map(categoryKey => {
           const categoryTasks = categorized[categoryKey];
           const config = categoryConfig[categoryKey];
           const IconComponent = config.icon;
@@ -2188,6 +2207,112 @@ const ShareProject: React.FC = () => {
             </Card>
           );
         })}
+
+        {/* Card Finalizadas - com sub-status Entregues no Prazo e Entregues com Atraso */}
+        <Card sx={{ mb: 3, borderRadius: 2, boxShadow: 2 }}>
+          <CardContent sx={{ p: 3 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <Avatar sx={{ bgcolor: 'success.main', width: 40, height: 40 }}>
+                  <CheckCircleIcon />
+                </Avatar>
+                <Box>
+                  <Typography variant="h6" color="success.main">
+                    Finalizadas
+                  </Typography>
+                  <Typography variant="body2" color="textSecondary">
+                    Entregues no prazo e com atraso
+                  </Typography>
+                </Box>
+              </Box>
+              <Chip
+                label={`${totalFinalized} item${totalFinalized === 1 ? '' : 's'}`}
+                color="success"
+                variant="outlined"
+              />
+            </Box>
+
+            {totalFinalized === 0 ? (
+              <Typography variant="body2" color="textSecondary">
+                Nenhum item nesta categoria.
+              </Typography>
+            ) : (
+              <Box>
+                {(['completedOnTime', 'completedLate'] as const).map(subKey => {
+                  const subTasks = categorized[subKey];
+                  const subConfig = categoryConfig[subKey];
+                  const SubIcon = subConfig.icon;
+                  if (subTasks.length === 0) return null;
+                  return (
+                    <Box key={subKey} sx={{ mb: 3 }}>
+                      <Typography variant="subtitle1" fontWeight="bold" color="textSecondary" sx={{ mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <SubIcon fontSize="small" />
+                        {subConfig.title} ({subTasks.length})
+                      </Typography>
+                      <List>
+                        {subTasks
+                          .sort((a, b) => {
+                            const aDate = a.plannedDate ? a.plannedDate.getTime() : 0;
+                            const bDate = b.plannedDate ? b.plannedDate.getTime() : 0;
+                            return aDate - bDate;
+                          })
+                          .map((task, index) => (
+                            <React.Fragment key={task.id || `${task.name}-${task.phaseName}`}>
+                              <ListItem
+                                alignItems="flex-start"
+                                sx={{ borderRadius: 1, mb: 1, '&:hover': { backgroundColor: 'grey.50' } }}
+                              >
+                                <ListItemAvatar>
+                                  <Avatar sx={{ bgcolor: 'success.light', color: 'success.dark' }}>
+                                    <SubIcon fontSize="small" />
+                                  </Avatar>
+                                </ListItemAvatar>
+                                <ListItemText
+                                  primary={
+                                    <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
+                                      <Typography variant="subtitle1" fontWeight="bold">
+                                        {task.name || (task.type === 'subtask' ? 'Subtarefa sem nome' : 'Tarefa sem nome')}
+                                      </Typography>
+                                      {task.type === 'subtask' && <Chip label="Subtarefa" size="small" variant="outlined" />}
+                                      {task.priority && (
+                                        <Chip label={getPriorityLabel(task.priority)} size="small" sx={{ backgroundColor: getPriorityColor(task.priority), color: 'white' }} />
+                                      )}
+                                      {task.status && (
+                                        <Chip label={getStatusLabel(task.status)} size="small" variant="outlined" sx={{ borderColor: 'success.main', color: 'success.main' }} />
+                                      )}
+                                    </Box>
+                                  }
+                                  secondary={
+                                    <Box sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                                    <Typography variant="body2" color="textSecondary">Fase: <strong>{task.phaseName}</strong></Typography>
+                                    {task.type === 'subtask' && task.taskName && (
+                                      <Typography variant="body2" color="textSecondary">Tarefa: <strong>{task.taskName}</strong></Typography>
+                                    )}
+                                    {task.plannedDate && (
+                                      <Typography variant="body2" color="textSecondary">Prazo: <strong>{formatDate(task.plannedDate.toISOString())}</strong></Typography>
+                                    )}
+                                    {task.actualDate && (
+                                      <Typography variant="body2" color="textSecondary">Conclusão: <strong>{formatDate(task.actualDate.toISOString())}</strong></Typography>
+                                    )}
+                                    <Typography variant="body2" color="textSecondary">Responsável: <strong>{getResponsibleName(task)}</strong></Typography>
+                                    {typeof task.progress === 'number' && (
+                                      <Typography variant="body2" color="textSecondary">Progresso: <strong>{task.progress}%</strong></Typography>
+                                    )}
+                                  </Box>
+                                  }
+                                />
+                              </ListItem>
+                              {index < subTasks.length - 1 && <Divider component="li" />}
+                            </React.Fragment>
+                          ))}
+                      </List>
+                    </Box>
+                  );
+                })}
+              </Box>
+            )}
+          </CardContent>
+        </Card>
       </Box>
     );
   };

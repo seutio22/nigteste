@@ -47,9 +47,12 @@ export const canEditManutencao = (
 }
 
 // Função para verificar se o usuário pode editar um atendimento específico
+// Nota: atendimento.analista é o analistaId (Analista), user.id é o userId (User) - entidades diferentes.
+// Por isso aceita analistaNome opcional para comparar por nome (analista.nome === user.name)
 export const canEditAtendimento = (
   atendimento: { analista?: string },
-  user: { id?: string; role?: string } | null
+  user: { id?: string; name?: string; role?: string } | null,
+  analistaNome?: string
 ): boolean => {
   // Se não há usuário logado, não pode editar
   if (!user) return false
@@ -58,7 +61,18 @@ export const canEditAtendimento = (
   if (isAdmin(user.role)) return true
   
   // Outros usuários só podem editar seus próprios atendimentos
-  return atendimento.analista === user.id
+  // 1) Comparar por ID (caso analista e user compartilhem o mesmo ID em alguns cenários)
+  if (atendimento.analista && atendimento.analista === user.id) return true
+  
+  // 2) Comparar por nome: analista (master data) e user (auth) são entidades diferentes,
+  //    então usamos o nome para identificar se o usuário é o dono do atendimento
+  if (analistaNome && user.name) {
+    const a = analistaNome.toLowerCase().trim()
+    const u = user.name.toLowerCase().trim()
+    if (a === u || a.includes(u) || u.includes(a)) return true
+  }
+  
+  return false
 }
 
 // Hook para obter dados filtrados por permissão do usuário

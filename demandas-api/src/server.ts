@@ -45,6 +45,18 @@ const app = Fastify({
 })
 // Usar singleton do PrismaClient para evitar múltiplas conexões
 
+// CORS deve ser o primeiro plugin para preflight OPTIONS funcionar corretamente
+const corsOptions = {
+  origin: true,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept', 'X-Requested-With', 'X-Session-ID', 'x-user-id', 'x-user-role'],
+  exposedHeaders: ['Content-Length', 'Content-Type'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
+}
+app.register(cors, corsOptions)
+
 // Garantir que as colunas de privacidade do Project existam (fallback sem CLI)
 async function ensureProjectPrivacyColumns() {
   try {
@@ -65,11 +77,14 @@ async function ensureProjectPrivacyColumns() {
   }
 }
 
-// Executar o fallback de migração de colunas no boot
-ensureProjectPrivacyColumns()
+// NÃO executar no boot - deferir para depois do listen (evita bloquear healthcheck)
+// ensureProjectPrivacyColumns() mover para dentro de start()
 
 // Middleware para reconexão automática do Prisma
 app.addHook('onRequest', async (request, reply) => {
+  // /health e OPTIONS (preflight CORS) não devem depender do banco
+  const url = (request as any).url || ''
+  if (url.startsWith('/health') || (request as any).method === 'OPTIONS') return
   try {
     // Testar conexão antes de cada request
     await prisma.$queryRaw`SELECT 1`
@@ -90,17 +105,6 @@ app.addHook('onRequest', async (request, reply) => {
 // Schema PostgreSQL gerenciado pelo Prisma migrations
 console.log('🔧 PostgreSQL configurado - schema gerenciado por migrations')
 console.log('🚀 REAJUSTE SCHEMA ATUALIZADO - v2.4.3 - CAMPOS ADICIONADOS')
-
-// Configuração de CORS mais permissiva para desenvolvimento
-const corsOptions = {
-  origin: true, // Aceitar qualquer origem em desenvolvimento
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept', 'X-Requested-With', 'X-Session-ID', 'x-user-id', 'x-user-role'],
-  exposedHeaders: ['Content-Length', 'Content-Type'],
-  preflightContinue: false,
-  optionsSuccessStatus: 204
-}
 
 // Middleware para forçar UTF-8 em todas as respostas
 app.addHook('onSend', async (request, reply, payload) => {
@@ -136,8 +140,6 @@ app.register(compress, {
   encodings: ['gzip', 'deflate'],
   threshold: 1024 // Comprimir apenas respostas > 1KB
 })
-
-app.register(cors, corsOptions)
 
 // VERSÃO 2.5.0 - Correções importantes de deploy e configuração
 console.log('🚀 VERSÃO 2.5.0 - Sistema atualizado com correções importantes!')
@@ -5575,80 +5577,58 @@ app.delete('/analytics/:id', async (req: any) => {
 
 // Endpoint GET /setup-admin removido - usando apenas POST para evitar conflitos
 
-// Iniciar servidor
+// Iniciar servidor - LISTEN PRIMEIRO para healthcheck passar, depois verifica DB em background
 const start = async () => {
   try {
-    console.log('🔄 Iniciando servidor com tratamento robusto de sinais...')
-    console.log('📊 Variáveis de ambiente:')
-    console.log('- NODE_ENV:', process.env.NODE_ENV)
-    console.log('- PORT:', process.env.PORT)
-    console.log('- JWT_SECRET:', process.env.JWT_SECRET ? '✅ Definido' : '❌ Não definido')
-    console.log('- DATABASE_URL:', process.env.DATABASE_URL ? '✅ Definido' : '❌ Não definido')
-    
-    // Testar conexão com o banco usando função auxiliar
-    console.log('🔌 Testando conexão com o banco...')
-    const { ensureConnection } = await import('./lib/prisma')
-    const connectedToDatabase = await ensureConnection()
-    
-    if (!connectedToDatabase) {
-      console.log('⚠️ Não foi possível conectar ao banco após tentativas')
-      console.log('⚠️ Continuando sem banco - aplicação funcionará com limitações')
-    } else {
-      console.log('✅ Conexão com banco estabelecida e mantida!')
-    }
+    console.log('🔄 Iniciando servidor...')
+    const port = Number(process.env.PORT || 3333)
 
-    // Verificação automática de coluna e correção (rename) se necessário
-    try {
-      console.log('🔍 Verificando estrutura da tabela Manutencao (coluna total)...')
-      const checkResult = await prisma.$queryRawUnsafe<{ exists: boolean }[]>(
-        "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Manutencao' AND column_name = 'total') as exists;"
-      )
-      const hasTotal = Array.isArray(checkResult) && checkResult[0]?.exists === true
-      if (!hasTotal) {
-        console.warn('⚠️ Coluna total NÃO encontrada. Tentando renomear qtdClientesVinculados → total...')
-        // Confirmar se a coluna antiga existe antes de renomear
-        const checkOld = await prisma.$queryRawUnsafe<{ exists: boolean }[]>(
-          "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Manutencao' AND column_name = 'qtdClientesVinculados') as exists;"
-        )
-        const hasOld = Array.isArray(checkOld) && checkOld[0]?.exists === true
-        if (hasOld) {
-          await prisma.$executeRawUnsafe(
-            'ALTER TABLE "Manutencao" RENAME COLUMN "qtdClientesVinculados" TO "total";'
-          )
-          console.log('✅ Coluna renomeada com sucesso: qtdClientesVinculados → total')
-        } else {
-          console.warn('⚠️ Nem total nem qtdClientesVinculados encontrados. Pulando ajuste automático.')
-        }
-      } else {
-        console.log('✅ Coluna total já existe. Nenhuma ação necessária.')
-      }
-    } catch (schemaErr) {
-      console.error('❌ Erro ao verificar/ajustar coluna total:', schemaErr)
-    }
-    
-    const port = process.env.PORT || 3333
-    console.log(`🌐 Tentando iniciar na porta: ${port}`)
-    
     // Configurar graceful shutdown
     const gracefulShutdown = async (signal: string) => {
-      console.log(`📡 ${signal} recebido, iniciando shutdown gracioso...`)
+      console.log(`📡 ${signal} recebido, shutdown gracioso...`)
       try {
         await app.close()
         await prisma.$disconnect()
-        console.log('✅ Shutdown gracioso concluído')
         process.exit(0)
       } catch (error) {
-        console.error('❌ Erro durante shutdown:', error)
+        console.error('❌ Erro no shutdown:', error)
         process.exit(1)
       }
     }
-    
     process.on('SIGTERM', () => gracefulShutdown('SIGTERM'))
     process.on('SIGINT', () => gracefulShutdown('SIGINT'))
-    
-    await app.listen({ port: Number(port), host: '0.0.0.0' })
-    console.log(`🚀 Servidor rodando em http://0.0.0.0:${port}`)
-    console.log('✅ Healthcheck disponível em /health')
+
+    // INICIAR SERVIDOR IMEDIATAMENTE - healthcheck depende disso
+    await app.listen({ port, host: '0.0.0.0' })
+    console.log(`🚀 Servidor rodando em http://0.0.0.0:${port} - /health pronto`)
+
+    // Verificações do banco em BACKGROUND (não bloqueiam o boot)
+    setImmediate(async () => {
+      try {
+        const { ensureConnection } = await import('./lib/prisma')
+        const ok = await ensureConnection()
+        console.log(ok ? '✅ Banco conectado' : '⚠️ Banco indisponível (continuando)')
+        if (ok) {
+          await ensureProjectPrivacyColumns()
+          const checkResult = await prisma.$queryRawUnsafe<{ exists: boolean }[]>(
+            "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Manutencao' AND column_name = 'total') as exists;"
+          )
+          const hasTotal = Array.isArray(checkResult) && checkResult[0]?.exists === true
+          if (!hasTotal) {
+            const checkOld = await prisma.$queryRawUnsafe<{ exists: boolean }[]>(
+              "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Manutencao' AND column_name = 'qtdClientesVinculados') as exists;"
+            )
+            const hasOld = Array.isArray(checkOld) && checkOld[0]?.exists === true
+            if (hasOld) {
+              await prisma.$executeRawUnsafe('ALTER TABLE "Manutencao" RENAME COLUMN "qtdClientesVinculados" TO "total";')
+              console.log('✅ Coluna total renomeada')
+            }
+          }
+        }
+      } catch (e) {
+        console.error('⚠️ Verificação DB em background:', e)
+      }
+    })
   } catch (err) {
     console.error('❌ Erro ao iniciar servidor:', err)
     process.exit(1)

@@ -157,7 +157,7 @@ export const useReajusteStore = create<ReajusteState>()(
             
             console.log('🔄 ReajusteStore.upsert: Campos alterados:', changes)
             
-            // Whitelist: só enviar campos aceitos pelo Prisma (evita user/analista como objeto)
+            // Whitelist: só enviar campos aceitos (backend converte userId→user connect/disconnect)
             const ALLOWED_FIELDS = new Set([
               'mes', 'ano', 'dataInicio', 'dataFim', 'status', 'operadora', 'qualidade',
               'qualidadeInformacao', 'planos', 'responsavelConta', 'filial', 'ticket', 'solicitante',

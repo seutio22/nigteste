@@ -28,7 +28,5 @@ node_modules/
 .git/
 .gitignore
 
-# Manter apenas o diretório demandas-api
-demandas-api/
-railway.json
-.railwayignore
+# Manter demandas-api (NAO ignorar - Railway precisa dela)
+# demandas-api/ <- REMOVIDO - estava excluindo a pasta do upload!
