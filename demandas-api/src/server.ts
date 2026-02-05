@@ -3444,11 +3444,10 @@ for (const [path, repo] of Object.entries(resources)) {
           return reply.code(404).send({ error: 'Projeto não encontrado' })
         }
 
-        // Verificar se o usuário tem permissão para editar
+        // Edição apenas para admin, owner, manager ou membro (projeto público ou privado)
         const isMember = project.members?.some((m: any) => m.userId === userId) || false
-        const canEdit = userRole === 'admin' || 
-                        !project.isPrivate || 
-                        (userId && (project.ownerId === userId || project.managerId === userId || isMember))
+        const canEdit = userRole === 'admin' ||
+                        (!!userId && (project.ownerId === userId || project.managerId === userId || isMember))
 
         console.log('🔍 PUT /projetos: Verificação de permissão:', {
           projectId: id,
@@ -3462,8 +3461,8 @@ for (const [path, repo] of Object.entries(resources)) {
         })
 
         if (!canEdit) {
-          console.log('❌ PUT /projetos: Sem permissão para editar projeto privado -> 403')
-          return reply.code(403).send({ error: 'Você não tem permissão para editar este projeto.' })
+          console.log('❌ PUT /projetos: Sem permissão para editar (apenas owner/manager/membro) -> 403')
+          return reply.code(403).send({ error: 'Você não tem permissão para editar este projeto. Apenas owner, manager ou membros podem editar.' })
         }
 
         const body = req.body || {}
@@ -3626,12 +3625,13 @@ for (const [path, repo] of Object.entries(resources)) {
           return reply.code(404).send({ error: 'Projeto não encontrado' })
         }
         
-        // Verificar permissões: admin, owner, ou manager pode excluir
+        // Exclusão apenas para admin, owner, manager ou membro (projeto público ou privado)
         const isAdmin = userRole === 'admin'
         const isOwner = !!userId && project.ownerId === userId
         const isManager = !!userId && project.managerId === userId
-        const canDelete = isAdmin || isOwner || isManager
-        
+        const isMember = !!userId && project.members?.some((m: any) => m.userId === userId && m.isActive !== false)
+        const canDelete = isAdmin || isOwner || isManager || isMember
+
         console.log('🔍 DELETE /projetos/:id: Verificação de permissão:', {
           projectId: id,
           isPrivate: project.isPrivate,
@@ -3642,12 +3642,13 @@ for (const [path, repo] of Object.entries(resources)) {
           isAdmin,
           isOwner,
           isManager,
+          isMember,
           canDelete
         })
-        
+
         if (!canDelete) {
-          console.log('❌ DELETE /projetos/:id: Sem permissão para excluir projeto -> 403')
-          return reply.code(403).send({ error: 'Você não tem permissão para excluir este projeto.' })
+          console.log('❌ DELETE /projetos/:id: Sem permissão para excluir (apenas owner/manager/membro) -> 403')
+          return reply.code(403).send({ error: 'Você não tem permissão para excluir este projeto. Apenas owner, manager ou membros podem excluir.' })
         }
         
         // Excluir relacionamentos primeiro (cascata pode não estar configurada)
