@@ -73,9 +73,10 @@ interface ProjectExternalMember {
 
 interface ProjectTeamManagerProps {
   projectId: string
+  readOnly?: boolean
 }
 
-export default function ProjectTeamManager({ projectId }: ProjectTeamManagerProps) {
+export default function ProjectTeamManager({ projectId, readOnly = false }: ProjectTeamManagerProps) {
   const [activeTab, setActiveTab] = useState(0)
   const [members, setMembers] = useState<ProjectMember[]>([])
   const [externalMembers, setExternalMembers] = useState<ProjectExternalMember[]>([])
@@ -201,17 +202,19 @@ export default function ProjectTeamManager({ projectId }: ProjectTeamManagerProp
             Usuários cadastrados no sistema que fazem parte da equipe do projeto
           </Typography>
         </Box>
-        <Button
-          variant="contained"
-          startIcon={<Add />}
-          onClick={() => setShowAddInternalDialog(true)}
-          disabled={availableUsers.length === 0}
-        >
-          Adicionar Membro
-        </Button>
+        {!readOnly && (
+          <Button
+            variant="contained"
+            startIcon={<Add />}
+            onClick={() => setShowAddInternalDialog(true)}
+            disabled={availableUsers.length === 0}
+          >
+            Adicionar Membro
+          </Button>
+        )}
       </Box>
       
-      {availableUsers.length === 0 && (
+      {!readOnly && availableUsers.length === 0 && (
         <Alert severity="info" sx={{ mb: 2 }}>
           <Typography variant="body2">
             <strong>Nenhum usuário disponível para adicionar:</strong>
@@ -259,15 +262,17 @@ export default function ProjectTeamManager({ projectId }: ProjectTeamManagerProp
                   </Box>
                 }
               />
-              <ListItemSecondaryAction>
-                <IconButton
-                  edge="end"
-                  onClick={() => handleRemoveMember(member.id, false)}
-                  color="error"
-                >
-                  <Delete />
-                </IconButton>
-              </ListItemSecondaryAction>
+              {!readOnly && (
+                <ListItemSecondaryAction>
+                  <IconButton
+                    edge="end"
+                    onClick={() => handleRemoveMember(member.id, false)}
+                    color="error"
+                  >
+                    <Delete />
+                  </IconButton>
+                </ListItemSecondaryAction>
+              )}
             </ListItem>
           ))}
         </List>
@@ -284,13 +289,15 @@ export default function ProjectTeamManager({ projectId }: ProjectTeamManagerProp
             Clientes, fornecedores, consultores e outras pessoas que não são usuários do sistema
           </Typography>
         </Box>
-        <Button
-          variant="contained"
-          startIcon={<Add />}
-          onClick={() => setShowAddExternalDialog(true)}
-        >
-          Adicionar Membro Externo
-        </Button>
+        {!readOnly && (
+          <Button
+            variant="contained"
+            startIcon={<Add />}
+            onClick={() => setShowAddExternalDialog(true)}
+          >
+            Adicionar Membro Externo
+          </Button>
+        )}
       </Box>
       
       {externalMembers.length === 0 ? (
@@ -336,15 +343,17 @@ export default function ProjectTeamManager({ projectId }: ProjectTeamManagerProp
                   </Box>
                 }
               />
-              <ListItemSecondaryAction>
-                <IconButton
-                  edge="end"
-                  onClick={() => handleRemoveMember(member.id, true)}
-                  color="error"
-                >
-                  <Delete />
-                </IconButton>
-              </ListItemSecondaryAction>
+              {!readOnly && (
+                <ListItemSecondaryAction>
+                  <IconButton
+                    edge="end"
+                    onClick={() => handleRemoveMember(member.id, true)}
+                    color="error"
+                  >
+                    <Delete />
+                  </IconButton>
+                </ListItemSecondaryAction>
+              )}
             </ListItem>
           ))}
         </List>

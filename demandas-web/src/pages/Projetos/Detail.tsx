@@ -3209,36 +3209,37 @@ export default function ProjectDetailPage() {
     })
   }, [])
 
-  const renderTimelineView = () => (
+  const renderTimelineView = (readOnly: boolean) => (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
           Cronograma do Projeto
         </Typography>
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={<Add />}
-          size="medium"
-          onClick={() => {
-            console.log('🎯 CLIQUE NO BOTÃO NOVA ETAPA DETECTADO!')
-            console.log('📊 Estado atual do projeto:', project)
-            console.log('📊 Estado atual de showAddPhaseDialog:', showAddPhaseDialog)
-            handleAddPhase()
-          }}
-          sx={{
-            backgroundColor: '#1976d2',
-            color: 'white',
-            '&:hover': {
-              backgroundColor: '#1565c0'
-            },
-            fontWeight: 'bold',
-            boxShadow: 2
-          }}
-        >
-          Nova Etapa
-        </Button>
-
+        {!readOnly && (
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<Add />}
+            size="medium"
+            onClick={() => {
+              console.log('🎯 CLIQUE NO BOTÃO NOVA ETAPA DETECTADO!')
+              console.log('📊 Estado atual do projeto:', project)
+              console.log('📊 Estado atual de showAddPhaseDialog:', showAddPhaseDialog)
+              handleAddPhase()
+            }}
+            sx={{
+              backgroundColor: '#1976d2',
+              color: 'white',
+              '&:hover': {
+                backgroundColor: '#1565c0'
+              },
+              fontWeight: 'bold',
+              boxShadow: 2
+            }}
+          >
+            Nova Etapa
+          </Button>
+        )}
       </Box>
 
       {project.timeline && project.timeline.phases && project.timeline.phases.length > 0 ? (
@@ -3270,25 +3271,27 @@ export default function ProjectDetailPage() {
                   sx={{ width: 100, height: 8, borderRadius: 4 }}
                 />
                 
-                {/* Botões de ação da fase */}
-                <Box sx={{ display: 'flex', gap: 0.5 }}>
-                  <IconButton
-                    size="small"
-                    onClick={() => handleEditPhase(phase)}
-                    color="primary"
-                    sx={{ width: 28, height: 28 }}
-                  >
-                    <Edit sx={{ fontSize: '1rem' }} />
-                  </IconButton>
-                  <IconButton
-                    size="small"
-                    onClick={() => handleDeletePhase(phase.id)}
-                    color="error"
-                    sx={{ width: 28, height: 28 }}
-                  >
-                    <Delete sx={{ fontSize: '1rem' }} />
-                  </IconButton>
-                </Box>
+                {/* Botões de ação da fase - apenas para quem pode editar */}
+                {!readOnly && (
+                  <Box sx={{ display: 'flex', gap: 0.5 }}>
+                    <IconButton
+                      size="small"
+                      onClick={() => handleEditPhase(phase)}
+                      color="primary"
+                      sx={{ width: 28, height: 28 }}
+                    >
+                      <Edit sx={{ fontSize: '1rem' }} />
+                    </IconButton>
+                    <IconButton
+                      size="small"
+                      onClick={() => handleDeletePhase(phase.id)}
+                      color="error"
+                      sx={{ width: 28, height: 28 }}
+                    >
+                      <Delete sx={{ fontSize: '1rem' }} />
+                    </IconButton>
+                  </Box>
+                )}
               </Box>
             </Box>
           </AccordionSummary>
@@ -3299,16 +3302,18 @@ export default function ProjectDetailPage() {
                 <Typography variant="subtitle1" fontWeight="bold">
                   Tarefas da Fase
                 </Typography>
-                <Button
-                  size="small"
-                  startIcon={<Add />}
-                  onClick={() => handleAddTask(phase.id)}
-                  variant="outlined"
-                  color="primary"
-                  sx={{ fontSize: '0.8rem' }}
-                >
-                  Nova Tarefa
-                </Button>
+                {!readOnly && (
+                  <Button
+                    size="small"
+                    startIcon={<Add />}
+                    onClick={() => handleAddTask(phase.id)}
+                    variant="outlined"
+                    color="primary"
+                    sx={{ fontSize: '0.8rem' }}
+                  >
+                    Nova Tarefa
+                  </Button>
+                )}
               </Box>
               <Table size="small">
                 <TableHead>
@@ -3324,7 +3329,7 @@ export default function ProjectDetailPage() {
                     <TableCell sx={{ fontWeight: 'bold', width: '100px' }}>Progresso</TableCell>
                     <TableCell sx={{ fontWeight: 'bold', width: '100px' }}>Horas</TableCell>
                     <TableCell sx={{ fontWeight: 'bold', width: '150px' }}>Observações</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', width: '140px' }}>Ações</TableCell>
+                    {!readOnly && <TableCell sx={{ fontWeight: 'bold', width: '140px' }}>Ações</TableCell>}
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -3436,50 +3441,52 @@ export default function ProjectDetailPage() {
                           </Tooltip>
                         </TableCell>
                         
-                        <TableCell>
-                          <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
-                            <Tooltip title="Subir tarefa">
-                              <span>
-                                <IconButton
-                                  size="small"
-                                  onClick={() => handleMoveTaskUp(phase.id, taskIndex)}
-                                  disabled={taskIndex === 0}
-                                  color="default"
-                                  sx={{ width: 28, height: 28 }}
-                                >
-                                  <KeyboardArrowUp />
-                                </IconButton>
-                              </span>
-                            </Tooltip>
-                            <Tooltip title="Descer tarefa">
-                              <span>
-                                <IconButton
-                                  size="small"
-                                  onClick={() => handleMoveTaskDown(phase.id, taskIndex)}
-                                  disabled={taskIndex === phase.tasks.length - 1}
-                                  color="default"
-                                  sx={{ width: 28, height: 28 }}
-                                >
-                                  <KeyboardArrowDown />
-                                </IconButton>
-                              </span>
-                            </Tooltip>
-                            <IconButton 
-                              size="small" 
-                              onClick={() => handleEditTask(task)}
-                              color="primary"
-                            >
-                              <Edit />
-                            </IconButton>
-                            <IconButton 
-                              size="small" 
-                              onClick={() => handleDeleteTask(phase.id, task.id)}
-                              color="error"
-                            >
-                              <Delete />
-                            </IconButton>
-                          </Box>
-                        </TableCell>
+                        {!readOnly && (
+                          <TableCell>
+                            <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+                              <Tooltip title="Subir tarefa">
+                                <span>
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleMoveTaskUp(phase.id, taskIndex)}
+                                    disabled={taskIndex === 0}
+                                    color="default"
+                                    sx={{ width: 28, height: 28 }}
+                                  >
+                                    <KeyboardArrowUp />
+                                  </IconButton>
+                                </span>
+                              </Tooltip>
+                              <Tooltip title="Descer tarefa">
+                                <span>
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleMoveTaskDown(phase.id, taskIndex)}
+                                    disabled={taskIndex === phase.tasks.length - 1}
+                                    color="default"
+                                    sx={{ width: 28, height: 28 }}
+                                  >
+                                    <KeyboardArrowDown />
+                                  </IconButton>
+                                </span>
+                              </Tooltip>
+                              <IconButton 
+                                size="small" 
+                                onClick={() => handleEditTask(task)}
+                                color="primary"
+                              >
+                                <Edit />
+                              </IconButton>
+                              <IconButton 
+                                size="small" 
+                                onClick={() => handleDeleteTask(phase.id, task.id)}
+                                color="error"
+                              >
+                                <Delete />
+                              </IconButton>
+                            </Box>
+                          </TableCell>
+                        )}
                       </TableRow>
                       
                       {/* Subtarefas da Tarefa Atual */}
@@ -3497,21 +3504,23 @@ export default function ProjectDetailPage() {
                                 <Typography variant="caption" fontWeight="bold" color="info.main">
                                   {generateSubtaskNumber(phaseIndex, taskIndex, subtaskIndex)}
                                 </Typography>
-                                <Button
-                                  size="small"
-                                  startIcon={<Add />}
-                                  onClick={() => {
-                                    console.log('🎯 BOTÃO + SUBTAREFA CLICADO!')
-                                    console.log('🔍 Fase ID:', phase.id, 'Tarefa ID:', task.id)
-                                    console.log('🔍 Tipo da fase ID:', typeof phase.id, 'Tipo da tarefa ID:', typeof task.id)
-                                    handleAddSubtask(phase.id, task.id)
-                                  }}
-                                  variant="outlined"
-                                  color="info"
-                                  sx={{ fontSize: '0.6rem', py: 0, ml: 1 }}
-                                >
-                                  +
-                                </Button>
+                                {!readOnly && (
+                                  <Button
+                                    size="small"
+                                    startIcon={<Add />}
+                                    onClick={() => {
+                                      console.log('🎯 BOTÃO + SUBTAREFA CLICADO!')
+                                      console.log('🔍 Fase ID:', phase.id, 'Tarefa ID:', task.id)
+                                      console.log('🔍 Tipo da fase ID:', typeof phase.id, 'Tipo da tarefa ID:', typeof task.id)
+                                      handleAddSubtask(phase.id, task.id)
+                                    }}
+                                    variant="outlined"
+                                    color="info"
+                                    sx={{ fontSize: '0.6rem', py: 0, ml: 1 }}
+                                  >
+                                    +
+                                  </Button>
+                                )}
                               </Box>
                             </TableCell>
                             
@@ -3614,70 +3623,72 @@ export default function ProjectDetailPage() {
                               </Tooltip>
                             </TableCell>
                             
-                            <TableCell>
-                              <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
-                                <Tooltip title="Subir subtarefa">
-                                  <span>
-                                    <IconButton
-                                      size="small"
-                                      onClick={() => handleMoveSubtaskUp(phase.id, task.id, subtaskIndex)}
-                                      disabled={subtaskIndex === 0}
-                                      color="default"
-                                      sx={{ width: 20, height: 20 }}
-                                    >
-                                      <KeyboardArrowUp sx={{ fontSize: '0.8rem' }} />
-                                    </IconButton>
-                                  </span>
-                                </Tooltip>
-                                <Tooltip title="Descer subtarefa">
-                                  <span>
-                                    <IconButton
-                                      size="small"
-                                      onClick={() => handleMoveSubtaskDown(phase.id, task.id, subtaskIndex)}
-                                      disabled={subtaskIndex === (task.subtasks?.length ?? 1) - 1}
-                                      color="default"
-                                      sx={{ width: 20, height: 20 }}
-                                    >
-                                      <KeyboardArrowDown sx={{ fontSize: '0.8rem' }} />
-                                    </IconButton>
-                                  </span>
-                                </Tooltip>
-                                <IconButton 
-                                  size="small" 
-                                  onClick={() => handleEditSubtask(subtask, task)}
-                                  color="primary"
-                                  sx={{ width: 20, height: 20 }}
-                                >
-                                  <Edit sx={{ fontSize: '0.8rem' }} />
-                                </IconButton>
-                                <IconButton 
-                                  size="small" 
-                                  onClick={() => {
-                                    console.log('🔍 IDs para exclusão:', { 
-                                      phaseId: phase.id, 
-                                      taskId: task.id, 
-                                      subtaskId: subtask.id 
-                                    })
-                                    handleDeleteSubtask(phase.id, task.id, subtask.id)
-                                  }}
-                                  color="error"
-                                  disabled={deleteLoading}
-                                  sx={{ width: 20, height: 20 }}
-                                >
-                                  {deleteLoading ? (
-                                    <CircularProgress size={16} color="error" />
-                                  ) : (
-                                    <Delete sx={{ fontSize: '0.8rem' }} />
-                                  )}
-                                </IconButton>
-                              </Box>
-                            </TableCell>
+                            {!readOnly && (
+                              <TableCell>
+                                <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+                                  <Tooltip title="Subir subtarefa">
+                                    <span>
+                                      <IconButton
+                                        size="small"
+                                        onClick={() => handleMoveSubtaskUp(phase.id, task.id, subtaskIndex)}
+                                        disabled={subtaskIndex === 0}
+                                        color="default"
+                                        sx={{ width: 20, height: 20 }}
+                                      >
+                                        <KeyboardArrowUp sx={{ fontSize: '0.8rem' }} />
+                                      </IconButton>
+                                    </span>
+                                  </Tooltip>
+                                  <Tooltip title="Descer subtarefa">
+                                    <span>
+                                      <IconButton
+                                        size="small"
+                                        onClick={() => handleMoveSubtaskDown(phase.id, task.id, subtaskIndex)}
+                                        disabled={subtaskIndex === (task.subtasks?.length ?? 1) - 1}
+                                        color="default"
+                                        sx={{ width: 20, height: 20 }}
+                                      >
+                                        <KeyboardArrowDown sx={{ fontSize: '0.8rem' }} />
+                                      </IconButton>
+                                    </span>
+                                  </Tooltip>
+                                  <IconButton 
+                                    size="small" 
+                                    onClick={() => handleEditSubtask(subtask, task)}
+                                    color="primary"
+                                    sx={{ width: 20, height: 20 }}
+                                  >
+                                    <Edit sx={{ fontSize: '0.8rem' }} />
+                                  </IconButton>
+                                  <IconButton 
+                                    size="small" 
+                                    onClick={() => {
+                                      console.log('🔍 IDs para exclusão:', { 
+                                        phaseId: phase.id, 
+                                        taskId: task.id, 
+                                        subtaskId: subtask.id 
+                                      })
+                                      handleDeleteSubtask(phase.id, task.id, subtask.id)
+                                    }}
+                                    color="error"
+                                    disabled={deleteLoading}
+                                    sx={{ width: 20, height: 20 }}
+                                  >
+                                    {deleteLoading ? (
+                                      <CircularProgress size={16} color="error" />
+                                    ) : (
+                                      <Delete sx={{ fontSize: '0.8rem' }} />
+                                    )}
+                                  </IconButton>
+                                </Box>
+                              </TableCell>
+                            )}
                           </TableRow>
                         ))
                       )}
                       
                       {/* Linha para adicionar nova subtarefa se não houver nenhuma */}
-                      {(!task.subtasks || task.subtasks.length === 0) && (
+                      {!readOnly && (!task.subtasks || task.subtasks.length === 0) && (
                         <TableRow sx={{ 
                           backgroundColor: '#f8f9fa',
                           borderLeft: '4px solid #e3f2fd'
@@ -4348,11 +4359,11 @@ export default function ProjectDetailPage() {
     return true // Todas as tarefas podem ser editadas
   }
 
-  // Verificar se o usuário pode editar/excluir ESTE projeto.
-  // Preferir o flag canEdit vindo da API (GET /projetos/:id); fallback local por ownerId/managerId/members.
+  // Verificar se o usuário pode editar/excluir ESTE projeto (owner, manager, membro ou admin).
+  // Se a API enviar canEdit: true, confiar. Se canEdit: false, ainda fazer fallback local (ex.: projetos antigos sem ownerId).
   const canEditThisProject = (p: any) => {
     if (!p) return false
-    if (typeof (p as any).canEdit === 'boolean') return (p as any).canEdit
+    if ((p as any).canEdit === true) return true
     if (!user?.id) return false
     const uid = user.id
     if ((user as any)?.role === 'admin') return true
@@ -4398,6 +4409,8 @@ export default function ProjectDetailPage() {
       </Box>
     )
   }
+
+  const readOnly = !canEditThisProject(project)
 
   return (
     <Box sx={{ p: 4 }}>
@@ -4839,11 +4852,11 @@ export default function ProjectDetailPage() {
             </Box>
           )}
 
-          {activeTab === 1 && renderTimelineView()}
+          {activeTab === 1 && renderTimelineView(readOnly)}
           {activeTab === 2 && renderIndicatorsView()}
           {activeTab === 3 && renderGanttView()}
           {activeTab === 4 && renderStakeholdersView()}
-          {activeTab === 5 && <ProjectTeamManager projectId={project.id} />}
+          {activeTab === 5 && <ProjectTeamManager projectId={project.id} readOnly={readOnly} />}
           {activeTab === 6 && renderActivitiesView()}
 
           {/* Dialog de Confirmação de Exclusão */}
