@@ -86,6 +86,7 @@ import {
 } from '@mui/icons-material'
 import { api } from '../../lib/api.local'
 import { useProjectStore } from '../../store/projectStore'
+import { PermissionGate } from '../../components/PermissionGate'
 
 // Removido dados mockados - usar apenas dados reais do banco
 /* const mockProject = {
@@ -2523,9 +2524,11 @@ export default function ProjectDetailPage() {
         setProject(migratedProject)
         setEditData({ ...migratedProject })
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Erro ao carregar projeto:', error)
-      setError('Erro ao carregar projeto. Verifique se o ID está correto.')
+      const msg = (error?.message || '').toString()
+      const is403 = msg.includes('403') || error?.status === 403
+      setError(is403 ? 'Acesso negado a este projeto.' : 'Erro ao carregar projeto. Verifique se o ID está correto.')
     } finally {
       setLoading(false)
     }
@@ -4434,6 +4437,7 @@ export default function ProjectDetailPage() {
                       Exportar
                     </Button>
 
+                    <PermissionGate module="projetos" action="edit">
                     <Button
                       variant="outlined"
                       startIcon={<Edit />}
@@ -4441,7 +4445,9 @@ export default function ProjectDetailPage() {
                     >
                       Editar
                     </Button>
+                    </PermissionGate>
 
+                    <PermissionGate module="projetos" action="delete">
                     <Button
                       variant="outlined"
                       startIcon={<Delete />}
@@ -4451,6 +4457,7 @@ export default function ProjectDetailPage() {
                     >
                       {deletingProject ? 'Excluindo...' : 'Excluir'}
                     </Button>
+                    </PermissionGate>
                   </>
                 )}
               </Stack>

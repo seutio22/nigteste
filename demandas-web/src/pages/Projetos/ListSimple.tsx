@@ -99,6 +99,7 @@ import {
 import { useProjectStore } from '../../store/projectStore'
 import { useAuthStore } from '../../store/authStore'
 import { getApi } from '../../lib/apiConfig'
+import { PermissionGate } from '../../components/PermissionGate'
 
 export default function ProjectListPageSimple() {
   const navigate = useNavigate()
@@ -371,14 +372,16 @@ export default function ProjectListPageSimple() {
         <Typography variant="body1" color="text.secondary">
           Nenhum projeto encontrado
         </Typography>
-        <Button
-          variant="contained"
-          startIcon={<Add />}
-          onClick={() => navigate('/projetos/novo')}
-          sx={{ mt: 2 }}
-        >
-          Criar Projeto
-        </Button>
+        <PermissionGate module="projetos" action="create">
+          <Button
+            variant="contained"
+            startIcon={<Add />}
+            onClick={() => navigate('/projetos/novo')}
+            sx={{ mt: 2 }}
+          >
+            Criar Projeto
+          </Button>
+        </PermissionGate>
       </Box>
     )
   }
@@ -503,6 +506,7 @@ export default function ProjectListPageSimple() {
               >
                 Exportar
               </Button>
+              <PermissionGate module="projetos" action="create">
               <Button
                 variant="outlined"
                 startIcon={<Upload />}
@@ -526,6 +530,8 @@ export default function ProjectListPageSimple() {
               >
                 Incluir Vários
               </Button>
+            </PermissionGate>
+              <PermissionGate module="projetos" action="create">
               <Button
                 variant="contained"
                 startIcon={<Add />}
@@ -549,6 +555,7 @@ export default function ProjectListPageSimple() {
               >
                 Novo Projeto
               </Button>
+            </PermissionGate>
             </div>
           </div>
         </div>
@@ -627,6 +634,7 @@ export default function ProjectListPageSimple() {
                 : 'Crie seu primeiro projeto para começar'
               }
       </Typography>
+            <PermissionGate module="projetos" action="create">
             <Button
               variant="contained"
               startIcon={<Add />}
@@ -636,6 +644,7 @@ export default function ProjectListPageSimple() {
             >
               Criar Projeto
             </Button>
+          </PermissionGate>
           </div>
         ) : (
           <>
@@ -666,18 +675,20 @@ export default function ProjectListPageSimple() {
                   {project.description || 'Sem descrição'}
                 </Typography>
                           </Box>
-                          <IconButton
-                            size="small"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              if (window.confirm('Tem certeza que deseja excluir este projeto?')) {
-                                handleRemoveProject(project.id)
-                              }
-                            }}
-                            sx={{ color: 'error.main' }}
-                          >
-                            <Delete />
-                          </IconButton>
+                          <PermissionGate module="projetos" action="delete">
+                            <IconButton
+                              size="small"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                if (window.confirm('Tem certeza que deseja excluir este projeto?')) {
+                                  handleRemoveProject(project.id)
+                                }
+                              }}
+                              sx={{ color: 'error.main' }}
+                            >
+                              <Delete />
+                            </IconButton>
+                          </PermissionGate>
                         </Box>
 
                         {/* Status e Prioridade */}
@@ -813,6 +824,7 @@ export default function ProjectListPageSimple() {
                                 {formatTimeAgo(project.createdAt)}
                               </Typography>
                             </Box>
+                            <PermissionGate module="projetos" action="delete">
                             <IconButton
                               size="small"
                               onClick={(e) => {
@@ -825,6 +837,7 @@ export default function ProjectListPageSimple() {
                             >
                               <Delete />
                             </IconButton>
+                          </PermissionGate>
                           </Box>
                         </ListItemSecondaryAction>
                       </ListItem>
@@ -912,6 +925,7 @@ export default function ProjectListPageSimple() {
                                     <Typography variant="caption" color="text.secondary">
                                       {formatTimeAgo(project.createdAt)}
                                     </Typography>
+                                    <PermissionGate module="projetos" action="delete">
                                     <IconButton
                                       size="small"
                                       onClick={(e) => {
@@ -924,6 +938,7 @@ export default function ProjectListPageSimple() {
                                     >
                                       <Delete fontSize="small" />
                                     </IconButton>
+                                  </PermissionGate>
                                   </Box>
                                 </Box>
                               </CardContent>

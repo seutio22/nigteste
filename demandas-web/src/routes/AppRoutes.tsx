@@ -171,7 +171,7 @@ export function AppRoutes() {
               </ProtectedRoute>
             } />
             <Route path="nova" element={
-              <ProtectedRoute module="reajuste" requiredPermission="create">
+              <ProtectedRoute module="reajuste" action="create">
                 <ReajusteNewPage />
               </ProtectedRoute>
             } />
@@ -195,7 +195,7 @@ export function AppRoutes() {
               </ProtectedRoute>
             } />
             <Route path="novo" element={
-              <ProtectedRoute module="analytics" requiredPermission="create">
+              <ProtectedRoute module="analytics" action="create">
                 <AnalyticsNewPage />
               </ProtectedRoute>
             } />
@@ -229,7 +229,7 @@ export function AppRoutes() {
               </ProtectedRoute>
             } />
             <Route path="novo" element={
-              <ProtectedRoute module="projetos" requiredPermission="create">
+              <ProtectedRoute module="projetos" action="create">
                 <ProjectNewPage />
               </ProtectedRoute>
             } />
