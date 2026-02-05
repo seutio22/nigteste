@@ -675,20 +675,22 @@ export default function ProjectListPageSimple() {
                   {project.description || 'Sem descrição'}
                 </Typography>
                           </Box>
-                          <PermissionGate module="projetos" action="delete">
-                            <IconButton
-                              size="small"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                if (window.confirm('Tem certeza que deseja excluir este projeto?')) {
-                                  handleRemoveProject(project.id)
-                                }
-                              }}
-                              sx={{ color: 'error.main' }}
-                            >
-                              <Delete />
-                            </IconButton>
-                          </PermissionGate>
+                          {(project as any).canEdit && (
+                            <PermissionGate module="projetos" action="delete">
+                              <IconButton
+                                size="small"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  if (window.confirm('Tem certeza que deseja excluir este projeto?')) {
+                                    handleRemoveProject(project.id)
+                                  }
+                                }}
+                                sx={{ color: 'error.main' }}
+                              >
+                                <Delete />
+                              </IconButton>
+                            </PermissionGate>
+                          )}
                         </Box>
 
                         {/* Status e Prioridade */}
@@ -824,20 +826,22 @@ export default function ProjectListPageSimple() {
                                 {formatTimeAgo(project.createdAt)}
                               </Typography>
                             </Box>
-                            <PermissionGate module="projetos" action="delete">
-                            <IconButton
-                              size="small"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                if (window.confirm('Tem certeza que deseja excluir este projeto?')) {
-                                  handleRemoveProject(project.id)
-                                }
-                              }}
-                              sx={{ color: 'error.main' }}
-                            >
-                              <Delete />
-                            </IconButton>
-                          </PermissionGate>
+                            {(project as any).canEdit && (
+                              <PermissionGate module="projetos" action="delete">
+                                <IconButton
+                                  size="small"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    if (window.confirm('Tem certeza que deseja excluir este projeto?')) {
+                                      handleRemoveProject(project.id)
+                                    }
+                                  }}
+                                  sx={{ color: 'error.main' }}
+                                >
+                                  <Delete />
+                                </IconButton>
+                              </PermissionGate>
+                            )}
                           </Box>
                         </ListItemSecondaryAction>
                       </ListItem>
@@ -925,20 +929,22 @@ export default function ProjectListPageSimple() {
                                     <Typography variant="caption" color="text.secondary">
                                       {formatTimeAgo(project.createdAt)}
                                     </Typography>
-                                    <PermissionGate module="projetos" action="delete">
-                                    <IconButton
-                                      size="small"
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        if (window.confirm('Tem certeza que deseja excluir este projeto?')) {
-                                          handleRemoveProject(project.id)
-                                        }
-                                      }}
-                                      sx={{ color: 'error.main', p: 0.5 }}
-                                    >
-                                      <Delete fontSize="small" />
-                                    </IconButton>
-                                  </PermissionGate>
+                                    {(project as any).canEdit && (
+                                      <PermissionGate module="projetos" action="delete">
+                                        <IconButton
+                                          size="small"
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            if (window.confirm('Tem certeza que deseja excluir este projeto?')) {
+                                              handleRemoveProject(project.id)
+                                            }
+                                          }}
+                                          sx={{ color: 'error.main', p: 0.5 }}
+                                        >
+                                          <Delete fontSize="small" />
+                                        </IconButton>
+                                      </PermissionGate>
+                                    )}
                                   </Box>
                                 </Box>
                               </CardContent>

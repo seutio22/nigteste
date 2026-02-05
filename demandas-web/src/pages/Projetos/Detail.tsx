@@ -86,6 +86,7 @@ import {
 } from '@mui/icons-material'
 import { api } from '../../lib/api.local'
 import { useProjectStore } from '../../store/projectStore'
+import { useAuthStore } from '../../store/authStore'
 import { PermissionGate } from '../../components/PermissionGate'
 
 // Removido dados mockados - usar apenas dados reais do banco
@@ -889,6 +890,7 @@ export default function ProjectDetailPage() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
   const { remove: removeProject, upsert: upsertProject, syncFromApi } = useProjectStore()
+  const user = useAuthStore(s => s.user)
   const [project, setProject] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -4346,6 +4348,19 @@ export default function ProjectDetailPage() {
     return true // Todas as tarefas podem ser editadas
   }
 
+  // Verificar se o usuário pode editar/excluir ESTE projeto.
+  // Preferir o flag canEdit vindo da API (GET /projetos/:id); fallback local por ownerId/managerId/members.
+  const canEditThisProject = (p: any) => {
+    if (!p) return false
+    if (typeof (p as any).canEdit === 'boolean') return (p as any).canEdit
+    if (!user?.id) return false
+    const uid = user.id
+    if ((user as any)?.role === 'admin') return true
+    if (p.ownerId === uid || p.managerId === uid) return true
+    const members = p.members || []
+    return members.some((m: any) => m.userId === uid || (m.user && m.user.id === uid))
+  }
+
   // Loading state
   if (loading) {
     return (
@@ -4443,27 +4458,30 @@ export default function ProjectDetailPage() {
                       Exportar
                     </Button>
 
-                    <PermissionGate module="projetos" action="edit">
-                    <Button
-                      variant="outlined"
-                      startIcon={<Edit />}
-                      onClick={handleEdit}
-                    >
-                      Editar
-                    </Button>
-                    </PermissionGate>
-
-                    <PermissionGate module="projetos" action="delete">
-                    <Button
-                      variant="outlined"
-                      startIcon={<Delete />}
-                      onClick={() => setDeleteDialogOpen(true)}
-                      color="error"
-                      disabled={deletingProject}
-                    >
-                      {deletingProject ? 'Excluindo...' : 'Excluir'}
-                    </Button>
-                    </PermissionGate>
+                    {canEditThisProject(project) && (
+                      <PermissionGate module="projetos" action="edit">
+                        <Button
+                          variant="outlined"
+                          startIcon={<Edit />}
+                          onClick={handleEdit}
+                        >
+                          Editar
+                        </Button>
+                      </PermissionGate>
+                    )}
+                    {canEditThisProject(project) && (
+                      <PermissionGate module="projetos" action="delete">
+                        <Button
+                          variant="outlined"
+                          startIcon={<Delete />}
+                          onClick={() => setDeleteDialogOpen(true)}
+                          color="error"
+                          disabled={deletingProject}
+                        >
+                          {deletingProject ? 'Excluindo...' : 'Excluir'}
+                        </Button>
+                      </PermissionGate>
+                    )}
                   </>
                 )}
               </Stack>

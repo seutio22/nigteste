@@ -3198,7 +3198,17 @@ for (const [path, repo] of Object.entries(resources)) {
 
         console.log('✅ GET /projetos: encontrados', projects.length, 'projetos')
 
-        // Converter campos JSON conforme regra já aplicada no crud('project')
+        // Projetos em que o usuário é membro (para canEdit na lista)
+        let memberProjectIds: string[] = []
+        if (userId) {
+          const memberRows = await prisma.projectMember.findMany({
+            where: { userId, isActive: true },
+            select: { projectId: true }
+          })
+          memberProjectIds = memberRows.map((r: any) => r.projectId)
+        }
+
+        // Converter campos JSON e adicionar canEdit (admin, owner, manager ou membro)
         const mapped = projects.map((project: any) => {
           if (project.timeline && typeof project.timeline === 'string') {
             try { project.timeline = JSON.parse(project.timeline) } catch (err) { project.timeline = { phases: [] } }
@@ -3212,7 +3222,12 @@ for (const [path, repo] of Object.entries(resources)) {
           if (project.tags && typeof project.tags === 'string') {
             try { project.tags = JSON.parse(project.tags) } catch (err) { project.tags = [] }
           }
-          return project
+          const isAdmin = userRole === 'admin'
+          const isOwner = !!userId && project.ownerId === userId
+          const isManager = !!userId && project.managerId === userId
+          const isMember = !!userId && memberProjectIds.includes(project.id)
+          const canEdit = isAdmin || isOwner || isManager || isMember
+          return { ...project, canEdit }
         })
 
         return mapped
@@ -3313,11 +3328,15 @@ for (const [path, repo] of Object.entries(resources)) {
           return reply.code(403).send({ error: 'Acesso negado a este projeto' })
         }
 
+        // Quem pode editar/excluir: admin, owner, manager ou membro (mesma regra do PUT/DELETE)
+        const canEdit = isAdmin || isOwner || isManager || isMember
+
         // Remover lista de membros do payload simples (mantemos endpoint próprio para equipe)
         const { members, owner, ...safeProject } = project as any
         return {
           ...safeProject,
-          ownerName: owner?.name || owner?.email || safeProject.ownerId || null
+          ownerName: owner?.name || owner?.email || safeProject.ownerId || null,
+          canEdit
         }
       } catch (error) {
         req.log.error(error)
