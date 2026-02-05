@@ -87,8 +87,6 @@ import {
 import { api } from '../../lib/api.local'
 import { useProjectStore } from '../../store/projectStore'
 import { useAuthStore } from '../../store/authStore'
-import { PermissionGate } from '../../components/PermissionGate'
-
 // Removido dados mockados - usar apenas dados reais do banco
 /* const mockProject = {
   id: 'proj-001',
@@ -4485,28 +4483,24 @@ export default function ProjectDetailPage() {
                     </Button>
 
                     {canEditThisProject(project) && (
-                      <PermissionGate module="projetos" action="edit">
-                        <Button
-                          variant="outlined"
-                          startIcon={<Edit />}
-                          onClick={handleEdit}
-                        >
-                          Editar
-                        </Button>
-                      </PermissionGate>
+                      <Button
+                        variant="outlined"
+                        startIcon={<Edit />}
+                        onClick={handleEdit}
+                      >
+                        Editar
+                      </Button>
                     )}
                     {canEditThisProject(project) && (
-                      <PermissionGate module="projetos" action="delete">
-                        <Button
-                          variant="outlined"
-                          startIcon={<Delete />}
-                          onClick={() => setDeleteDialogOpen(true)}
-                          color="error"
-                          disabled={deletingProject}
-                        >
-                          {deletingProject ? 'Excluindo...' : 'Excluir'}
-                        </Button>
-                      </PermissionGate>
+                      <Button
+                        variant="outlined"
+                        startIcon={<Delete />}
+                        onClick={() => setDeleteDialogOpen(true)}
+                        color="error"
+                        disabled={deletingProject}
+                      >
+                        {deletingProject ? 'Excluindo...' : 'Excluir'}
+                      </Button>
                     )}
                   </>
                 )}
