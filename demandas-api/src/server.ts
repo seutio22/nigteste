@@ -4641,7 +4641,15 @@ for (const [path, repo] of Object.entries(resources)) {
         }
       }
       
-      throw error
+      // Retornar 500 com a mensagem real para debug (evita throw que pode não serializar)
+      console.error(`❌ PUT /${path}/${req.params.id}: Erro completo:`, error)
+      res.code(500)
+      return { 
+        error: 'Erro ao atualizar', 
+        message: error?.message || 'Erro interno do servidor',
+        code: error?.code,
+        details: path === 'reajusteLancamentos' ? String(error) : undefined
+      }
     }
   })
   app.delete(`/${path}/:id`, async (req: any, reply: any) => {

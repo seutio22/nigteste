@@ -213,8 +213,9 @@ export const useReajusteStore = create<ReajusteState>()(
             console.log('🆕 ReajusteStore.upsert: Criando novo reajuste')
             await get().add(entry)
           }
-        } catch (error) {
-          console.error('❌ ReajusteStore.upsert: Erro ao atualizar reajuste:', error)
+        } catch (error: any) {
+          console.error('❌ ReajusteStore.upsert: Erro ao atualizar reajuste:', error?.message || error)
+          if (error?.data) console.error('❌ Detalhes da API:', error.data)
           throw error
         }
       },
