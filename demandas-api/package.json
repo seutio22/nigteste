@@ -12,7 +12,7 @@
     "db:generate": "prisma generate",
     "postinstall": "prisma generate",
     "railway:build": "npm run build",
-    "railway:start": "node start-robust.js",
+    "railway:start": "npx prisma generate && node dist/server.js",
     "setup:postgresql": "node setup-postgresql.js",
     "migrate:normalize-status": "ts-node src/scripts/normalize-status.ts",
     "bulk-update-status": "ts-node src/scripts/bulk-update-status.ts",

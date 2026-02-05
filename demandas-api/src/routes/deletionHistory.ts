@@ -126,9 +126,8 @@ export default async function deletionHistoryRoutes(fastify: FastifyInstance) {
               where: { id: { in: idsByType.reajuste } },
               select: {
                 id: true,
-                ticket: true,
-                descricao: true,
-                status: true,
+                motivo: true,
+                aprovado: true,
                 user: { select: { name: true, email: true } }
               }
             })

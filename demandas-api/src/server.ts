@@ -1977,12 +1977,13 @@ function crud(entity: keyof PrismaClient) {
       }
       
       // Busca com "search" para clientes/contratos (autocomplete)
-      if ((entity === 'cliente' || entity === 'contrato') && queryParams?.search) {
+      const entityStr = entity as string
+      if ((entityStr === 'cliente' || entityStr === 'contrato') && queryParams?.search) {
         const term = queryParams.search.toString().trim()
         const pagination = parsePagination(queryParams)
         const where: any = {}
 
-        if (entity === 'cliente') {
+        if (entityStr === 'cliente') {
           where.OR = [
             { nome: { contains: term, mode: 'insensitive' } },
             { grupoEconomico: { contains: term, mode: 'insensitive' } }
@@ -2003,7 +2004,7 @@ function crud(entity: keyof PrismaClient) {
 
         const result = await anyPrisma[entity].findMany({
           where,
-          orderBy: entity === 'cliente' ? { nome: 'asc' } : { numero: 'asc' },
+          orderBy: entityStr === 'cliente' ? { nome: 'asc' } : { numero: 'asc' },
           ...pagination
         })
         console.log(`🔍 CRUD ${String(entity)}: Resultado search:`, result.length, 'registros')
