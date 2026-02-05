@@ -4360,16 +4360,21 @@ export default function ProjectDetailPage() {
   }
 
   // Verificar se o usuário pode editar/excluir ESTE projeto (owner, manager, membro ou admin).
-  // Se a API enviar canEdit: true, confiar. Se canEdit: false, ainda fazer fallback local (ex.: projetos antigos sem ownerId).
+  // Se a API enviar canEdit: true, confiar. Se canEdit: false, fallback local (ownerId/managerId/members ou ownerName).
   const canEditThisProject = (p: any) => {
     if (!p) return false
     if ((p as any).canEdit === true) return true
-    if (!user?.id) return false
-    const uid = user.id
-    if ((user as any)?.role === 'admin') return true
-    if (p.ownerId === uid || p.managerId === uid) return true
-    const members = p.members || []
-    return members.some((m: any) => m.userId === uid || (m.user && m.user.id === uid))
+    const uid = user?.id
+    const norm = (v: any) => (v != null ? String(v).trim() : '')
+    if (uid) {
+      if ((user as any)?.role === 'admin') return true
+      if (norm(p.ownerId) === norm(uid) || norm(p.managerId) === norm(uid)) return true
+      const members = p.members || []
+      if (members.some((m: any) => norm(m.userId) === norm(uid) || (m.user && norm(m.user.id) === norm(uid)))) return true
+      // Fallback: owner por nome (quando ownerId não vem ou não bate, ex. API sem header)
+      if (p.ownerName && (user as any)?.name && norm(p.ownerName).toLowerCase() === norm((user as any).name).toLowerCase()) return true
+    }
+    return false
   }
 
   // Loading state

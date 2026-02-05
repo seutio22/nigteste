@@ -3208,6 +3208,7 @@ for (const [path, repo] of Object.entries(resources)) {
           memberProjectIds = memberRows.map((r: any) => r.projectId)
         }
 
+        const norm = (v: any) => (v != null ? String(v).trim() : '')
         // Converter campos JSON e adicionar canEdit (admin, owner, manager ou membro)
         const mapped = projects.map((project: any) => {
           if (project.timeline && typeof project.timeline === 'string') {
@@ -3223,8 +3224,8 @@ for (const [path, repo] of Object.entries(resources)) {
             try { project.tags = JSON.parse(project.tags) } catch (err) { project.tags = [] }
           }
           const isAdmin = userRole === 'admin'
-          const isOwner = !!userId && project.ownerId === userId
-          const isManager = !!userId && project.managerId === userId
+          const isOwner = !!userId && norm(project.ownerId) === norm(userId)
+          const isManager = !!userId && norm(project.managerId) === norm(userId)
           const isMember = !!userId && memberProjectIds.includes(project.id)
           const canEdit = isAdmin || isOwner || isManager || isMember
           return { ...project, canEdit }
@@ -3291,11 +3292,14 @@ for (const [path, repo] of Object.entries(resources)) {
         // Verificar se é membro usando a mesma lógica da lista
         const isMember = !!userId && project.members?.some((m: any) => m.userId === userId && m.isActive !== false)
         
+        // Normalizar para comparação (string trim, evita diferença de tipo)
+        const norm = (v: any) => (v != null ? String(v).trim() : '')
+        
         // Verificações detalhadas para debug
         const isAdmin = userRole === 'admin'
         const isPublic = !project.isPrivate
-        const isOwner = !!userId && project.ownerId === userId
-        const isManager = !!userId && project.managerId === userId
+        const isOwner = !!userId && (norm(project.ownerId) === norm(userId) || (project as any).owner?.id && norm((project as any).owner.id) === norm(userId))
+        const isManager = !!userId && (norm(project.managerId) === norm(userId))
         
         // FALLBACK: Se projeto é privado mas não tem ownerId, e usuário está nos membros, permitir acesso
         // Isso cobre casos onde projetos antigos foram tornados privados antes da correção
