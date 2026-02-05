@@ -19,9 +19,10 @@ COPY . .
 # Build da aplicação
 RUN npm run build
 
-# Expor porta
+# Railway injeta PORT - usar 0.0.0.0 para aceitar conexões externas
+ENV HOST=0.0.0.0
 EXPOSE 3333
 
-# Comando de inicialização
-CMD ["npm", "start"]
+# Servidor mínimo primeiro para healthcheck passar; depois troque para: node dist/server.js
+CMD ["node", "health-server.js"]
 
