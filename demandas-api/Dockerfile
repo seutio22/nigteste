@@ -1,4 +1,5 @@
-FROM node:18-alpine
+# Usar espelho GCR para evitar falha de rede ao Docker Hub (ex.: us-east4)
+FROM mirror.gcr.io/library/node:18-alpine
 
 WORKDIR /app
 
