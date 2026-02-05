@@ -157,27 +157,34 @@ export const useReajusteStore = create<ReajusteState>()(
             
             console.log('🔄 ReajusteStore.upsert: Campos alterados:', changes)
             
-            // Sanitizar entry: converter strings vazias em null e garantir formato ISO de datas
-            const sanitizedEntry = Object.entries(entry).reduce((acc, [key, value]) => {
-              // Campos de data que precisam ser convertidos
+            // Whitelist: só enviar campos aceitos pelo Prisma (evita user/analista como objeto)
+            const ALLOWED_FIELDS = new Set([
+              'mes', 'ano', 'dataInicio', 'dataFim', 'status', 'operadora', 'qualidade',
+              'qualidadeInformacao', 'planos', 'responsavelConta', 'filial', 'ticket', 'solicitante',
+              'responsavelAnalista', 'cliente', 'contrato', 'produto', 'dataAtualizacao',
+              'itensPendentes', 'itensConcluidos', 'valorTotal', 'descricao', 'tipoReajuste',
+              'percentual', 'dataAplicacao', 'observacoes', 'analistaId', 'userId'
+            ])
+            const raw = { ...entry } as any
+            // Extrair IDs de objetos de relação se existirem
+            if (raw.analista?.id && !raw.analistaId) raw.analistaId = raw.analista.id
+            if (raw.user?.id && !raw.userId) raw.userId = raw.user.id
+
+            const sanitizedEntry = Object.entries(raw).reduce((acc, [key, value]) => {
+              if (!ALLOWED_FIELDS.has(key)) return acc
               if (['dataInicio', 'dataFim', 'dataAtualizacao', 'dataAplicacao'].includes(key)) {
-                if (!value || value === '') {
-                  acc[key] = null
-                } else {
-                  // Se já é uma data válida em formato ISO, manter
-                  // Se é uma string de data (YYYY-MM-DD), converter para ISO
+                if (!value || value === '') acc[key] = null
+                else {
                   try {
-                    const date = new Date(value as string)
-                    acc[key] = date.toISOString()
+                    acc[key] = new Date(value as string).toISOString()
                   } catch {
                     acc[key] = null
                   }
                 }
               } else if (value === '' || value === undefined) {
-                // Converter strings vazias e undefined em null
                 acc[key] = null
               } else {
-                acc[key] = value
+                acc[key] = typeof value === 'object' && value !== null ? null : value
               }
               return acc
             }, {} as any)
