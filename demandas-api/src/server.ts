@@ -2403,58 +2403,39 @@ function crud(entity: keyof PrismaClient) {
         return anyPrisma[entity].update({ where: { id }, data: demandaData });
       }
       
-      // Tratamento especial para reajusteLancamento - preservar campos de string
+      // Tratamento especial para reajusteLancamento - whitelist + conversões seguras
       if (entity === 'reajusteLancamento') {
-        const reajusteData = { ...data as any };
-        
-        // Remover campos que não devem ser atualizados diretamente (incl. objetos de relação)
-        delete reajusteData.id;
-        delete reajusteData.createdAt;
-        delete reajusteData.updatedAt;
-        delete reajusteData.user;
-        delete reajusteData.analista;
-        
-        // Prisma aceita relação via user: { connect/disconnect }, não userId
-        if (reajusteData.userId !== undefined) {
-          reajusteData.user = (reajusteData.userId && reajusteData.userId !== '') ? { connect: { id: reajusteData.userId } } : { disconnect: true };
-          delete reajusteData.userId;
+        const raw = data as Record<string, unknown>;
+        const SCALAR_FIELDS = ['mes', 'ano', 'status', 'operadora', 'qualidade', 'qualidadeInformacao', 'planos', 'responsavelConta', 'filial', 'ticket', 'solicitante', 'responsavelAnalista', 'cliente', 'contrato', 'produto', 'itensPendentes', 'itensConcluidos', 'valorTotal', 'descricao', 'tipoReajuste', 'percentual', 'observacoes'];
+        const DATE_FIELDS = ['dataInicio', 'dataFim', 'dataAtualizacao', 'dataAplicacao'];
+        const STRING_FIELDS = new Set(['cliente', 'contrato', 'operadora', 'produto', 'responsavelAnalista', 'mes', 'ano', 'status', 'qualidade', 'qualidadeInformacao', 'planos', 'responsavelConta', 'filial', 'ticket', 'solicitante', 'observacoes']);
+        const mesesMap: Record<string, string> = { 'janeiro': '1', 'fevereiro': '2', 'março': '3', 'abril': '4', 'maio': '5', 'junho': '6', 'julho': '7', 'agosto': '8', 'setembro': '9', 'outubro': '10', 'novembro': '11', 'dezembro': '12' };
+
+        const reajusteData: Record<string, unknown> = {};
+        for (const k of SCALAR_FIELDS) {
+          if (raw[k] === undefined) continue;
+          const v = raw[k];
+          if (typeof v === 'object' && v !== null) continue;
+          reajusteData[k] = (v === null || v === '') ? null : (STRING_FIELDS.has(k) ? String(v) : v);
         }
-        
-        // Se analistaId estiver presente, conectar ao relacionamento analista
-        if (reajusteData.analistaId) {
-          reajusteData.analista = { connect: { id: reajusteData.analistaId } };
-          delete reajusteData.analistaId;
-        }
-        
-        // Garantir que campos de string sejam preservados (cliente, contrato, operadora, produto)
-        // Esses campos são strings no schema, não relacionamentos
-        const camposString = ['cliente', 'contrato', 'operadora', 'produto', 'responsavelAnalista', 'mes', 'ano', 'status', 'qualidade', 'qualidadeInformacao', 'planos', 'responsavelConta', 'filial', 'ticket', 'solicitante', 'observacoes'];
-        
-        camposString.forEach(campo => {
-          if (reajusteData[campo] !== undefined) {
-            // Se for null ou string vazia, manter como null
-            if (reajusteData[campo] === null || reajusteData[campo] === '') {
-              reajusteData[campo] = null;
-            } else {
-              // Converter para string se necessário
-              reajusteData[campo] = String(reajusteData[campo]);
-            }
-          }
-        });
-        
-        // Converter mes de nome do mês para número se necessário
         if (reajusteData.mes && typeof reajusteData.mes === 'string') {
-          const mesesMap: { [key: string]: string } = {
-            'janeiro': '1', 'fevereiro': '2', 'março': '3', 'abril': '4',
-            'maio': '5', 'junho': '6', 'julho': '7', 'agosto': '8',
-            'setembro': '9', 'outubro': '10', 'novembro': '11', 'dezembro': '12'
-          };
-          const mesLower = reajusteData.mes.toLowerCase();
-          if (mesesMap[mesLower]) {
-            reajusteData.mes = mesesMap[mesLower];
-          }
+          const m = (reajusteData.mes as string).toLowerCase();
+          if (mesesMap[m]) reajusteData.mes = mesesMap[m];
         }
-        
+        for (const k of DATE_FIELDS) {
+          if (raw[k] === undefined) continue;
+          const v = raw[k];
+          if (v === null || v === '') reajusteData[k] = null;
+          else if (typeof v === 'string') reajusteData[k] = new Date(v);
+          else if (v instanceof Date) reajusteData[k] = v;
+          else reajusteData[k] = null;
+        }
+        if (raw.userId !== undefined) {
+          reajusteData.user = (raw.userId && String(raw.userId).trim()) ? { connect: { id: String(raw.userId).trim() } } : { disconnect: true };
+        }
+        if (raw.analistaId !== undefined) {
+          reajusteData.analista = (raw.analistaId && String(raw.analistaId).trim()) ? { connect: { id: String(raw.analistaId).trim() } } : { disconnect: true };
+        }
         console.log('🔍 REAJUSTE UPDATE: Dados processados:', JSON.stringify(reajusteData, null, 2));
         return anyPrisma[entity].update({ where: { id }, data: reajusteData });
       }
