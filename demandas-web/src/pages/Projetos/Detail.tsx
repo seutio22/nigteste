@@ -2987,7 +2987,13 @@ export default function ProjectDetailPage() {
   // Função para calcular progresso automático da tarefa baseado nas subtarefas
   const calculateTaskProgress = (task: any) => {
     if (!task.subtasks || task.subtasks.length === 0) {
-      return task.progress || 0 // Manter progresso manual se não houver subtarefas
+      // Tarefa sem subtarefas: se estiver concluída com data de conclusão, considerar 100%
+      const completedStatuses = ['completed', 'concluída', 'concluido', 'concluida']
+      const isCompletedWithDate =
+        completedStatuses.includes(String(task.status).toLowerCase()) &&
+        !!task.actualEndDate
+      if (isCompletedWithDate) return 100
+      return task.progress || 0 // Manter progresso manual caso contrário
     }
     
     // Calcular média do progresso das subtarefas baseado no status
