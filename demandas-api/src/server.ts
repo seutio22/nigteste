@@ -3240,6 +3240,51 @@ for (const [path, repo] of Object.entries(resources)) {
       }
     })
 
+    // Endpoint dedicado: pode editar este projeto? (fonte única de verdade para o frontend)
+    app.get(`/${path}/:id/can-edit`, async (req: any, reply) => {
+      try {
+        const { id } = req.params as { id: string }
+        let userId: string | null = null
+        let userRole: string | null = null
+        const hdrId = (req?.headers?.['x-user-id'] || req?.headers?.['X-User-Id']) as string | undefined
+        const hdrRole = (req?.headers?.['x-user-role'] || req?.headers?.['X-User-Role']) as string | undefined
+        if (hdrId && typeof hdrId === 'string') userId = hdrId
+        if (hdrRole && typeof hdrRole === 'string') userRole = hdrRole
+        if (!userId || !userRole) {
+          try {
+            await (req as any).jwtVerify?.()
+            const u = (req as any).user
+            userId = userId || (u?.id ?? u?.sub) ?? null
+            userRole = userRole || u?.role ?? null
+          } catch {
+            const f = extractUserFromAuthHeader(req)
+            userId = userId || f.id
+            userRole = userRole || f.role
+          }
+        }
+        if (!userId) {
+          return reply.code(200).send({ canEdit: false, reason: 'no-user' })
+        }
+        const project = await prisma.project.findUnique({
+          where: { id },
+          select: { id: true, ownerId: true, managerId: true, isPrivate: true, members: { where: { isActive: true }, select: { userId: true } } }
+        })
+        if (!project) {
+          return reply.code(404).send({ canEdit: false, error: 'Projeto não encontrado' })
+        }
+        const norm = (v: any) => (v != null ? String(v).trim() : '')
+        const isAdmin = userRole === 'admin'
+        const isOwner = norm(project.ownerId) === norm(userId)
+        const isManager = norm(project.managerId) === norm(userId)
+        const isMember = (project.members as any[])?.some((m: any) => norm(m.userId) === norm(userId)) ?? false
+        const canEdit = isAdmin || isOwner || isManager || isMember
+        return reply.code(200).send({ canEdit })
+      } catch (err) {
+        req.log.error(err)
+        return reply.code(500).send({ canEdit: false, error: 'Erro ao verificar permissão' })
+      }
+    })
+
     app.get(`/${path}/:id`, async (req: any, reply) => {
       try {
         const { id } = req.params as { id: string }

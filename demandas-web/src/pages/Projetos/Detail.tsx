@@ -915,6 +915,7 @@ export default function ProjectDetailPage() {
   const [teamMembers, setTeamMembers] = useState<any[]>([])
   const [externalMembers, setExternalMembers] = useState<any[]>([])
   const [loadingTeam, setLoadingTeam] = useState(false)
+  const [projectCanEdit, setProjectCanEdit] = useState<boolean | null>(null)
 
   // Função auxiliar para parsear campos JSON do projeto retornado pela API
   const parseProjectFromApi = React.useCallback((project: any) => {
@@ -2500,27 +2501,28 @@ export default function ProjectDetailPage() {
     
     setLoading(true)
     setError(null)
+    setProjectCanEdit(null)
     
     try {
       console.log('🔍 Buscando projeto:', id)
-      const response = await api.getProject(id)
+      const [response, canEditRes] = await Promise.all([
+        api.getProject(id),
+        api.getProjectCanEdit(id).catch(() => ({ canEdit: false }))
+      ])
       console.log('🔍 Resposta da API:', response)
+      console.log('🔍 can-edit:', canEditRes)
+      
+      setProjectCanEdit(canEditRes.canEdit)
       
       if (response) {
         console.log('✅ Projeto carregado:', response)
-        // Parsear campos JSON do projeto retornado pela API
         const parsedProject = parseProjectFromApi(response)
-        
-        // Garantir que o projeto tenha uma estrutura básica
         const projectWithTimeline = {
           ...parsedProject,
           timeline: parsedProject.timeline || { phases: [] },
           activities: parsedProject.activities || []
         }
-        
-        // Migrar status antigos das fases para os novos valores
         const migratedProject = migratePhaseStatuses(projectWithTimeline)
-        
         setProject(migratedProject)
         setEditData({ ...migratedProject })
       }
@@ -2529,6 +2531,7 @@ export default function ProjectDetailPage() {
       const msg = (error?.message || '').toString()
       const is403 = msg.includes('403') || error?.status === 403
       setError(is403 ? 'Acesso negado a este projeto.' : 'Erro ao carregar projeto. Verifique se o ID está correto.')
+      setProjectCanEdit(false)
     } finally {
       setLoading(false)
     }
@@ -4357,31 +4360,15 @@ export default function ProjectDetailPage() {
     return true // Todas as tarefas podem ser editadas
   }
 
-  // Verificar se o usuário pode editar/excluir ESTE projeto (owner, manager, membro ou admin).
-  const canEditThisProject = (p: any) => {
-    if (!p) return false
-    if ((p as any).canEdit === true) return true
-    const norm = (v: any) => (v != null ? String(v).trim() : '')
-    const uid = user?.id
-    // Projeto privado: quem conseguiu carregar já foi autorizado pelo backend (admin/owner/manager/membro) → permitir edição
-    if (p.isPrivate === true) return true
-    if (uid) {
-      if ((user as any)?.role === 'admin') return true
-      if (norm(p.ownerId) === norm(uid) || norm(p.managerId) === norm(uid)) return true
-      const members = p.members || []
-      if (members.some((m: any) => norm(m.userId) === norm(uid) || (m.user && norm(m.user.id) === norm(uid)))) return true
-      // Fallback: owner por nome (igualdade ou primeiro nome, ex. "Denison" com "Denison Silva")
-      const ownerName = norm(p.ownerName).toLowerCase()
-      const userName = norm((user as any)?.name).toLowerCase()
-      if (ownerName && userName) {
-        if (ownerName === userName) return true
-        const ownerFirst = ownerName.split(/\s+/)[0]
-        const userFirst = userName.split(/\s+/)[0]
-        if (ownerFirst && userFirst && ownerFirst === userFirst) return true
-      }
-    }
-    return false
-  }
+  // Pode editar: prioridade ao endpoint can-edit (fonte única). Fallback local se ainda não carregou.
+  const userCanEdit = projectCanEdit === true || (projectCanEdit === null && project && (
+    (project as any).canEdit === true ||
+    (project as any).isPrivate === true ||
+    (user?.id && ((user as any)?.role === 'admin' ||
+      String((project as any).ownerId || '').trim() === String(user.id).trim() ||
+      String((project as any).managerId || '').trim() === String(user.id).trim() ||
+      ((project as any).ownerName && (user as any)?.name && String((project as any).ownerName).trim().toLowerCase().split(/\s+/)[0] === String((user as any).name).trim().toLowerCase().split(/\s+/)[0]))
+  ))
 
   // Loading state
   if (loading) {
@@ -4421,7 +4408,7 @@ export default function ProjectDetailPage() {
     )
   }
 
-  const readOnly = !canEditThisProject(project)
+  const readOnly = !userCanEdit
 
   return (
     <Box sx={{ p: 4 }}>
@@ -4482,7 +4469,7 @@ export default function ProjectDetailPage() {
                       Exportar
                     </Button>
 
-                    {canEditThisProject(project) && (
+                    {userCanEdit && (
                       <Button
                         variant="outlined"
                         startIcon={<Edit />}
@@ -4491,7 +4478,7 @@ export default function ProjectDetailPage() {
                         Editar
                       </Button>
                     )}
-                    {canEditThisProject(project) && (
+                    {userCanEdit && (
                       <Button
                         variant="outlined"
                         startIcon={<Delete />}

@@ -212,6 +212,7 @@ export const api = {
 
   // Projetos
   getProject: (id: string) => apiRequest(`${API_CONFIG.ENDPOINTS.PROJECTS}/${id}`),
+  getProjectCanEdit: (id: string) => apiRequest(`${API_CONFIG.ENDPOINTS.PROJECTS}/${id}/can-edit`) as Promise<{ canEdit: boolean }>,
   getProjectMembers: (id: string) => apiRequest(`${API_CONFIG.ENDPOINTS.PROJECTS}/${id}/members`),
   updateProject: (id: string, projectData: unknown) =>
     apiRequest(`${API_CONFIG.ENDPOINTS.PROJECTS}/${id}`, {
