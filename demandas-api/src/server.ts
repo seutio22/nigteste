@@ -4531,7 +4531,9 @@ for (const [path, repo] of Object.entries(resources)) {
         }
         if (raw.userId !== undefined) data.user = (raw.userId && String(raw.userId).trim()) ? { connect: { id: String(raw.userId).trim() } } : { disconnect: true }
         if (raw.analistaId !== undefined) data.analista = (raw.analistaId && String(raw.analistaId).trim()) ? { connect: { id: String(raw.analistaId).trim() } } : { disconnect: true }
-        updated = await prisma.reajusteLancamento.update({ where: { id: req.params.id }, data })
+        const allowedKeys = new Set([...FIELDS, ...DATE_FIELDS, 'user', 'analista'])
+        const finalData = Object.fromEntries(Object.entries(data).filter(([k]) => allowedKeys.has(k)))
+        updated = await prisma.reajusteLancamento.update({ where: { id: req.params.id }, data: finalData })
       }
       // Tratamento especial para atendimentos - similar ao POST
       else if (path === 'atendimentos') {
