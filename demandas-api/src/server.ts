@@ -3159,8 +3159,9 @@ for (const [path, repo] of Object.entries(resources)) {
         let userRole: string | null = null
         try {
           await (req as any).jwtVerify?.()
-          userId = (req as any).user?.id || null
-          userRole = (req as any).user?.role || null
+          const u = (req as any).user
+          userId = (u?.id ?? u?.sub) ?? null
+          userRole = u?.role ?? null
         } catch (e) {
           const f = extractUserFromAuthHeader(req)
           userId = f.id
@@ -3258,12 +3259,13 @@ for (const [path, repo] of Object.entries(resources)) {
         if (hdrId && typeof hdrId === 'string') userId = hdrId
         if (hdrRole && typeof hdrRole === 'string') userRole = hdrRole
         
-        // PRIORIDADE 2: Tentar validar JWT (fallback)
+        // PRIORIDADE 2: Tentar validar JWT (fallback). JWT do login usa "sub" como id do usuário, não "id".
         if (!userId || !userRole) {
           try {
             await (req as any).jwtVerify?.()
-            userId = userId || (req as any).user?.id || null
-            userRole = userRole || (req as any).user?.role || null
+            const u = (req as any).user
+            userId = userId || (u?.id ?? u?.sub) ?? null
+            userRole = userRole || u?.role ?? null
           } catch (e) {
             // Se JWT falhar, tentar extrair do token no header
             if (!userId || !userRole) {
@@ -3353,7 +3355,8 @@ for (const [path, repo] of Object.entries(resources)) {
         let userId: string | null = null
         try {
           await (req as any).jwtVerify?.()
-          userId = (req as any).user?.id || null
+          const u = (req as any).user
+          userId = (u?.id ?? u?.sub) ?? null
         } catch (e) {
           const f = extractUserFromAuthHeader(req)
           userId = f.id
@@ -3437,7 +3440,8 @@ for (const [path, repo] of Object.entries(resources)) {
         let userId: string | null = null
         try {
           await (req as any).jwtVerify?.()
-          userId = (req as any).user?.id || null
+          const u = (req as any).user
+          userId = (u?.id ?? u?.sub) ?? null
         } catch (e) {
           const f = extractUserFromAuthHeader(req)
           userId = f.id
@@ -3449,7 +3453,8 @@ for (const [path, repo] of Object.entries(resources)) {
         }
 
         // Verificar permissões antes de atualizar
-        const userRole = (req as any).user?.role || (req.headers?.['x-user-role'] as string) || null
+        const u = (req as any).user
+        const userRole = u?.role ?? (req.headers?.['x-user-role'] as string) ?? null
         
         console.log('🔍 PUT /projetos: userId capturado:', userId, 'userRole:', userRole)
         const project = await prisma.project.findUnique({
@@ -3620,12 +3625,13 @@ for (const [path, repo] of Object.entries(resources)) {
         if (hdrId && typeof hdrId === 'string') userId = hdrId
         if (hdrRole && typeof hdrRole === 'string') userRole = hdrRole
         
-        // PRIORIDADE 2: Tentar validar JWT (fallback)
+        // PRIORIDADE 2: Tentar validar JWT (fallback). JWT usa "sub" como id do usuário.
         if (!userId || !userRole) {
           try {
             await (req as any).jwtVerify?.()
-            userId = userId || (req as any).user?.id || null
-            userRole = userRole || (req as any).user?.role || null
+            const u = (req as any).user
+            userId = userId || (u?.id ?? u?.sub) ?? null
+            userRole = userRole || u?.role ?? null
           } catch (e) {
             const f = extractUserFromAuthHeader(req)
             userId = userId || f.id
