@@ -4360,19 +4360,27 @@ export default function ProjectDetailPage() {
   }
 
   // Verificar se o usuário pode editar/excluir ESTE projeto (owner, manager, membro ou admin).
-  // Se a API enviar canEdit: true, confiar. Se canEdit: false, fallback local (ownerId/managerId/members ou ownerName).
   const canEditThisProject = (p: any) => {
     if (!p) return false
     if ((p as any).canEdit === true) return true
-    const uid = user?.id
     const norm = (v: any) => (v != null ? String(v).trim() : '')
+    const uid = user?.id
+    // Projeto privado: quem conseguiu carregar já foi autorizado pelo backend (admin/owner/manager/membro) → permitir edição
+    if (p.isPrivate === true) return true
     if (uid) {
       if ((user as any)?.role === 'admin') return true
       if (norm(p.ownerId) === norm(uid) || norm(p.managerId) === norm(uid)) return true
       const members = p.members || []
       if (members.some((m: any) => norm(m.userId) === norm(uid) || (m.user && norm(m.user.id) === norm(uid)))) return true
-      // Fallback: owner por nome (quando ownerId não vem ou não bate, ex. API sem header)
-      if (p.ownerName && (user as any)?.name && norm(p.ownerName).toLowerCase() === norm((user as any).name).toLowerCase()) return true
+      // Fallback: owner por nome (igualdade ou primeiro nome, ex. "Denison" com "Denison Silva")
+      const ownerName = norm(p.ownerName).toLowerCase()
+      const userName = norm((user as any)?.name).toLowerCase()
+      if (ownerName && userName) {
+        if (ownerName === userName) return true
+        const ownerFirst = ownerName.split(/\s+/)[0]
+        const userFirst = userName.split(/\s+/)[0]
+        if (ownerFirst && userFirst && ownerFirst === userFirst) return true
+      }
     }
     return false
   }
