@@ -11,6 +11,7 @@ import { useMasterDataStore } from '../store/masterDataStore'
 import { useMaillingStore } from '../store/maillingStore'
 import { useComunicadoStore } from '../store/comunicadoStore'
 import { useProjectStore } from '../store/projectStore'
+import { isItemConcluido, isItemPendente } from '../types/dashboardIndicators'
 import { 
   Plus, 
   CheckCircle, 
@@ -223,66 +224,75 @@ export default function HomePage() {
   const statsDemandas = useMemo(() => {
     if (isLoading) return { total: 0, pendentes: 0, emAndamento: 0, concluidas: 0 }
     const demandasArray = (demandStore?.items && Array.isArray(demandStore.items)) ? demandStore.items : []
+    const concluidas = demandasArray.filter(d => isItemConcluido('demandas', d)).length
+    const pendentes = demandasArray.filter(d => isItemPendente('demandas', d)).length
     return {
       total: demandasArray.length,
-      pendentes: demandasArray.filter(d => d.status === 'Pendente').length,
-      emAndamento: demandasArray.filter(d => d.status === 'Em Andamento').length,
-      concluidas: demandasArray.filter(d => d.status === 'Concluída').length
+      pendentes,
+      emAndamento: demandasArray.filter(d => ['Em andamento', 'Em Andamento'].includes(String(d.status || ''))).length,
+      concluidas
     }
   }, [isLoading, demandStore?.items])
 
   const statsAtendimentos = useMemo(() => {
     if (isLoading) return { total: 0, abertos: 0, resolvidos: 0 }
     const atendimentosArray = (atendimentoStore?.items && Array.isArray(atendimentoStore.items)) ? atendimentoStore.items : []
+    const resolvidos = atendimentosArray.filter(a => isItemConcluido('atendimentos', a)).length
+    const abertos = atendimentosArray.filter(a => isItemPendente('atendimentos', a)).length
     return {
       total: atendimentosArray.length,
-      abertos: atendimentosArray.filter(a => a.status === 'Aberto').length,
-      resolvidos: atendimentosArray.filter(a => a.status === 'Resolvido').length
+      abertos,
+      resolvidos
     }
   }, [isLoading, atendimentoStore?.items])
 
   const statsValidacoes = useMemo(() => {
     if (isLoading) return { total: 0, pendentes: 0, aprovadas: 0 }
     const validacoesArray = (validationStore?.items && Array.isArray(validationStore.items)) ? validationStore.items : []
+    const aprovadas = validacoesArray.filter(v => isItemConcluido('validacoes', v)).length
+    const pendentes = validacoesArray.filter(v => isItemPendente('validacoes', v)).length
     return {
       total: validacoesArray.length,
-      pendentes: validacoesArray.filter(v => v.status === 'Pendente').length,
-      aprovadas: validacoesArray.filter(v => v.status === 'Aprovada').length
+      pendentes,
+      aprovadas
     }
   }, [isLoading, validationStore?.items])
 
   const statsReajustes = useMemo(() => {
     if (isLoading) return { total: 0, pendentes: 0, aprovados: 0 }
     const reajustesArray = (reajusteStore?.items && Array.isArray(reajusteStore.items)) ? reajusteStore.items : []
+    const aprovados = reajustesArray.filter(r => isItemConcluido('reajustes', r)).length
+    const pendentes = reajustesArray.filter(r => isItemPendente('reajustes', r)).length
     return {
       total: reajustesArray.length,
-      pendentes: reajustesArray.filter(r => !r.aprovado).length,
-      aprovados: reajustesArray.filter(r => r.aprovado).length
+      pendentes,
+      aprovados
     }
   }, [isLoading, reajusteStore?.items])
 
   const statsManutencoes = useMemo(() => {
     if (isLoading) return { total: 0, pendentes: 0, emAndamento: 0, concluidas: 0 }
     const manutencoesArray = (manutencaoStore?.items && Array.isArray(manutencaoStore.items)) ? manutencaoStore.items : []
+    const concluidas = manutencoesArray.filter(m => isItemConcluido('manutencoes', m)).length
+    const pendentes = manutencoesArray.filter(m => isItemPendente('manutencoes', m)).length
     return {
       total: manutencoesArray.length,
-      pendentes: manutencoesArray.filter(m => m.status === 'Pendente').length,
-      emAndamento: manutencoesArray.filter(m => m.status === 'Em Andamento').length,
-      concluidas: manutencoesArray.filter(m => m.status === 'Concluída').length
+      pendentes,
+      emAndamento: manutencoesArray.filter(m => ['Em andamento', 'Em Andamento'].includes(String(m.status || ''))).length,
+      concluidas
     }
   }, [isLoading, manutencaoStore?.items])
 
   const statsAnalytics = useMemo(() => {
     if (isLoading) return { total: 0, pendentes: 0, emAndamento: 0, concluidos: 0 }
     const relatoriosArray = (reportStore?.items && Array.isArray(reportStore.items)) ? reportStore.items : []
-    const statusConcluido = ['Concluída', 'Concluído', 'concluido', 'CONCLUIDO']
-    const statusPendente = ['Pendente', 'pendente', 'PENDENTE']
-    const statusEmAndamento = ['Em andamento', 'em_andamento', 'EM ANDAMENTO']
+    const concluidos = relatoriosArray.filter(r => isItemConcluido('analytics', r)).length
+    const pendentes = relatoriosArray.filter(r => isItemPendente('analytics', r)).length
     return {
       total: relatoriosArray.length,
-      pendentes: relatoriosArray.filter(r => statusPendente.includes(r.status)).length,
-      emAndamento: relatoriosArray.filter(r => statusEmAndamento.includes(r.status)).length,
-      concluidos: relatoriosArray.filter(r => statusConcluido.includes(r.status)).length
+      pendentes,
+      emAndamento: relatoriosArray.filter(r => ['Em andamento', 'em_andamento', 'EM ANDAMENTO'].includes(String(r.status || ''))).length,
+      concluidos
     }
   }, [isLoading, reportStore?.items])
 

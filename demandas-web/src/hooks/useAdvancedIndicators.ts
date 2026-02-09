@@ -7,6 +7,7 @@ import { useManutencaoStore } from '../store/manutencaoStore'
 import { useReportStore } from '../store/reportStore'
 import { useMasterDataStore } from '../store/masterDataStore'
 import { calculateBusinessDays, getItemDateForPage, getItemEndDate, getItemStartDate, matchesByIdOrName, parseDateForFilter, resolveIdFromValue, resolveNameFromValue } from '../utils/dashboardFilters'
+import { isItemConcluido } from '../types/dashboardIndicators'
 
 export interface AdvancedIndicator {
   id: string
@@ -173,11 +174,7 @@ export const useAdvancedIndicators = (
         return calcularTempoExecucao(inicio, fim)
       }).filter(tempo => tempo > 0)
 
-      const chamadosConcluidos = page.items.filter(item => 
-        item.status === 'Concluída' || item.status === 'Finalizada' || 
-        item.status === 'Resolvida' || item.status === 'Aprovada' ||
-        item.status === 'Concluído' || item.status === 'Finalizado'
-      ).length
+      const chamadosConcluidos = page.items.filter(item => isItemConcluido(page.name, item)).length
 
       return {
         pagina: page.name,

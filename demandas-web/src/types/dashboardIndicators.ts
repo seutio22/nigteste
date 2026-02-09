@@ -178,7 +178,7 @@ export const PAGE_CONFIGS: IndicatorConfig[] = [
 ]
 
 // Status que indicam conclusão por página
-export const COMPLETION_STATUS = {
+export const COMPLETION_STATUS: Record<string, string[]> = {
   demandas: ['Concluída', 'Finalizada', 'Resolvida'],
   atendimentos: ['Resolvido', 'Finalizado', 'Concluído'],
   validacoes: ['Aprovada', 'Validada', 'Concluída'],
@@ -188,4 +188,33 @@ export const COMPLETION_STATUS = {
   mailling: ['Ativo', 'Enviado', 'Processado'],
   comunicados: ['Enviado', 'Lido', 'Processado'],
   projetos: ['Concluído', 'Finalizado', 'Entregue']
+}
+
+// Status que indicam pendência (não concluído) por página
+export const PENDING_STATUS: Record<string, string[]> = {
+  demandas: ['Pendente', 'Aberta', 'Em andamento', 'Em Andamento', 'Transf. Analista', 'Aguardando aprovação', 'Com erros'],
+  atendimentos: ['Aberto', 'Em Andamento', 'Em andamento'],
+  validacoes: ['Pendente', 'Em validação', 'Em andamento', 'Transf. Analista', 'Aguardando validação'],
+  manutencoes: ['Pendente', 'Aberta', 'Em andamento', 'Em Andamento', 'Transf. Analista', 'Aguardando validação', 'Com erros'],
+  analytics: ['Pendente', 'pendente', 'PENDENTE', 'Em andamento', 'em_andamento', 'EM ANDAMENTO']
+}
+
+/** Verifica se item está concluído (por página). Reajustes usam aprovado. */
+export function isItemConcluido(page: string, item: any): boolean {
+  if (page === 'reajustes') {
+    return item.aprovado === true || (COMPLETION_STATUS.reajustes || []).includes(String(item.status || ''))
+  }
+  const statuses = COMPLETION_STATUS[page]
+  if (!statuses) return false
+  const s = String(item.status || '').trim()
+  return statuses.some(st => st.toLowerCase() === s.toLowerCase())
+}
+
+/** Verifica se item está pendente (por página). Reajustes: !aprovado. */
+export function isItemPendente(page: string, item: any): boolean {
+  if (page === 'reajustes') return item.aprovado !== true
+  const statuses = PENDING_STATUS[page]
+  if (!statuses) return !isItemConcluido(page, item)
+  const s = String(item.status || '').trim()
+  return statuses.some(st => st.toLowerCase() === s.toLowerCase())
 }
