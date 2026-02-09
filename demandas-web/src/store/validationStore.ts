@@ -110,6 +110,7 @@ export const useValidationStore = create<ValidationState>()(
           }
 
           const requestBody = {
+            id: validation.id,
             demandaId: validation.demanda,
             analistaId: typeof validation.analista === 'object' ? validation.analista?.id : validation.analista,
             status: validation.status,
@@ -280,8 +281,25 @@ export const useValidationStore = create<ValidationState>()(
           console.log('📝 Dados originais:', existing)
           console.log('📝 Dados novos:', entry)
           
-          // Atualizar no banco de dados
-          await get().updateValidationInDatabase(entry)
+          try {
+            await get().updateValidationInDatabase(entry)
+          } catch (err: any) {
+            const is404 = err?.message?.includes('404') || err?.statusCode === 404
+            if (is404) {
+              console.warn('⚠️ Registro não encontrado no banco (404) - criando via POST com o ID do cliente')
+              const created = await get().saveValidationToDatabase(entry)
+              if (created?.id) {
+                set((s) => ({
+                  items: s.items.map((x) =>
+                    x.id === entry.id ? { ...entry, id: created.id, updatedAt: new Date().toISOString() } : x
+                  )
+                }))
+                console.log('✅ Validação criada no banco após 404 no PUT')
+                return
+              }
+            }
+            throw err
+          }
           
           // Atualizar estado local
           set((s) => ({
