@@ -3553,6 +3553,7 @@ for (const [path, repo] of Object.entries(resources)) {
         delete updateData.clientId
         delete updateData.activities // evitar estruturas complexas no update
         delete updateData.ownerName // Campo virtual, não existe no schema
+        delete updateData.canEdit // Campo virtual do frontend, não existe no schema
         // Relações e objetos que o frontend envia mas o Prisma.update não aceita como objeto bruto
         delete updateData.manager
         delete updateData.owner
