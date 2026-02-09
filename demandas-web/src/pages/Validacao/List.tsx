@@ -510,7 +510,8 @@ export default function ValidationListPage() {
   const FILTER_KEY = 'validations-user-filter-v1'
   const [columnVisibilityModel, setColumnVisibilityModel] = useState<GridColumnVisibilityModel>({})
   const [sortModel, setSortModel] = useState<GridSortModel>([
-    { field: 'updatedAt', sort: 'desc' } // Ordenar por data de atualização (mais recentes primeiro)
+    { field: 'createdAt', sort: 'desc' }, // Primária: data de criação (mais recentes primeiro)
+    { field: 'updatedAt', sort: 'desc' }  // Secundária: data de atualização
   ])
   const [filterModel, setFilterModel] = useState<GridFilterModel>({ items: [], quickFilterValues: [] })
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({ page: 0, pageSize: 10 })
