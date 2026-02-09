@@ -3545,7 +3545,7 @@ for (const [path, repo] of Object.entries(resources)) {
         
         if ('isPrivate' in updateData) updateData.isPrivate = !!updateData.isPrivate
 
-        // Campos que não devem ser atualizados diretamente
+        // Campos que não devem ser atualizados diretamente (só escalares do Project no Prisma)
         delete updateData.id
         delete updateData.createdAt
         delete updateData.updatedAt
@@ -3553,6 +3553,16 @@ for (const [path, repo] of Object.entries(resources)) {
         delete updateData.clientId
         delete updateData.activities // evitar estruturas complexas no update
         delete updateData.ownerName // Campo virtual, não existe no schema
+        // Relações e objetos que o frontend envia mas o Prisma.update não aceita como objeto bruto
+        delete updateData.manager
+        delete updateData.owner
+        delete updateData.client
+        delete updateData.members
+        delete updateData.milestones
+        delete updateData.tasks
+        delete updateData.timelines
+        delete updateData.shareTokens
+        delete updateData.externalMembers
         // Bloquear alteração de ownerId via PUT, EXCETO se estiver virando privado e não tiver ownerId
         if ('ownerId' in updateData) {
           // Se o projeto está virando privado e não tem ownerId, definir o userId como owner
@@ -3583,6 +3593,11 @@ for (const [path, repo] of Object.entries(resources)) {
         // Objetos JSON -> string
         if (updateData.timeline && typeof updateData.timeline === 'object') {
           updateData.timeline = JSON.stringify(updateData.timeline)
+        }
+
+        // progress é Int no schema
+        if (typeof updateData.progress === 'number' && !Number.isInteger(updateData.progress)) {
+          updateData.progress = Math.round(updateData.progress)
         }
 
         // Regras de privacidade: exigir auth para tornar privado (só se realmente estiver tentando tornar privado)
