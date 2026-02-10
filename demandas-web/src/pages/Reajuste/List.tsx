@@ -1253,7 +1253,7 @@ function ActionCell({ id, status }: { id: string, status: string }) {
         )}
         
         <MenuItem onClick={() => { handleMenuClose(); doExportPdf() }}>
-          <ListItemIcon><PictureAsPdfIcon fontSize="small" /></ListItemIcon>
+          <ListItemIcon><TableChartIcon fontSize="small" /></ListItemIcon>
           <ListItemText>Exportar PDF</ListItemText>
         </MenuItem>
         
