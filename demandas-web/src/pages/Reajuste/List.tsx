@@ -1073,13 +1073,24 @@ export default function ReajusteListPage() {
             else produtoNome = findByName(r.produto, md.produtos)?.nome ?? r.produto
           }
 
+          let solicitanteNome = ''
+          const solicitanteVal = (r as any).solicitante
+          if (solicitanteVal) {
+            if (isUuid(solicitanteVal)) solicitanteNome = md.solicitantes.find(s => s.id === solicitanteVal)?.nome ?? ''
+            else solicitanteNome = findByName(solicitanteVal, md.solicitantes)?.nome ?? solicitanteVal
+          }
+
           const responsavelId = isUuid(r.responsavelAnalista) ? r.responsavelAnalista : (md.analistas.find(a => a.nome === r.responsavelAnalista || normalizeString(a.nome) === normalizeString(String(r.responsavelAnalista ?? '')))?.id ?? '')
 
           const dataFim = (r as any).dataFim ?? r.dataFinal
           const dataAtualizacao = (r as any).dataAtualizacao
+          const mes = r.mes != null && r.mes !== '' ? String(r.mes) : ''
+          const ano = r.ano != null && r.ano !== '' ? String(r.ano) : ''
           return {
             ...r,
-            mesAno: r.mes && r.ano ? `${String(r.mes).padStart(2, '0')}/${r.ano}` : 'N/A',
+            mes,
+            ano,
+            mesAno: r.mes != null && r.ano != null && r.mes !== '' && r.ano !== '' ? `${String(r.mes).padStart(2, '0')}/${r.ano}` : '',
             ticket: (r.ticket && typeof r.ticket === 'string' && r.ticket.trim() !== '') ? r.ticket.trim() : '',
             filial: r.filial?.trim() ?? '',
             operadora: orNa(operadoraNome),
@@ -1095,14 +1106,10 @@ export default function ReajusteListPage() {
             qualidadeInformacao: (r as any).qualidadeInformacao?.trim() ?? '',
             planos: (r as any).planos?.trim() ?? '',
             responsavelConta: (r as any).responsavelConta?.trim() ?? '',
-            solicitante: (r as any).solicitante?.trim() ?? '',
+            solicitante: orNa(solicitanteNome),
             itensPendentes: (r as any).itensPendentes ?? '',
             itensConcluidos: (r as any).itensConcluidos ?? '',
             total: r.total != null ? Number(r.total) : (r.itensConcluidos ?? 0),
-            valorTotal: (r as any).valorTotal != null ? Number((r as any).valorTotal) : '',
-            descricao: (r as any).descricao?.trim() ?? '',
-            tipoReajuste: (r as any).tipoReajuste?.trim() ?? '',
-            percentual: (r as any).percentual != null ? Number((r as any).percentual) : '',
             dataAplicacao: (r as any).dataAplicacao ? new Date((r as any).dataAplicacao).toLocaleString('pt-BR') : '',
             observacoes: (r as any).observacoes?.trim() ?? '',
             createdAt: r.createdAt ? new Date(r.createdAt).toLocaleString('pt-BR') : '',
@@ -1119,6 +1126,8 @@ export default function ReajusteListPage() {
           'Total na lista': finalFilteredItems.length
         }}
         columns={[
+          { key: 'mes', label: 'Mês' },
+          { key: 'ano', label: 'Ano' },
           { key: 'mesAno', label: 'Mês/Ano' },
           { key: 'ticket', label: 'Ticket' },
           { key: 'filial', label: 'Filial' },
@@ -1139,10 +1148,6 @@ export default function ReajusteListPage() {
           { key: 'itensPendentes', label: 'Itens Pendentes' },
           { key: 'itensConcluidos', label: 'Itens Concluídos' },
           { key: 'total', label: 'Total' },
-          { key: 'valorTotal', label: 'Valor Total' },
-          { key: 'descricao', label: 'Descrição' },
-          { key: 'tipoReajuste', label: 'Tipo Reajuste' },
-          { key: 'percentual', label: 'Percentual' },
           { key: 'dataAplicacao', label: 'Data Aplicação' },
           { key: 'observacoes', label: 'Observações' },
           { key: 'createdAt', label: 'Criado em' },
