@@ -1039,24 +1039,76 @@ export default function ReajusteListPage() {
           analistas: md.analistas
         }}
         data={finalFilteredItems.map(r => {
-          const responsavelId = typeof r.responsavelAnalista === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(r.responsavelAnalista)
-            ? r.responsavelAnalista
-            : (md.analistas.find(a => a.nome === r.responsavelAnalista || normalizeString(a.nome) === normalizeString(String(r.responsavelAnalista ?? '')))?.id ?? '')
+          const isUuid = (v: string | undefined) => v && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)
+          const orNa = (v: string | undefined) => (!v || isUuid(v)) ? 'N/A' : v
+
+          let operadoraNome = ''
+          if (r.operadora) {
+            if (isUuid(r.operadora)) operadoraNome = md.operadoras.find(o => o.id === r.operadora)?.nome ?? ''
+            else operadoraNome = findByName(r.operadora, md.operadoras)?.nome ?? r.operadora
+          }
+          let analistaNome = ''
+          if (r.responsavelAnalista) {
+            if (isUuid(r.responsavelAnalista)) analistaNome = md.analistas.find(a => a.id === r.responsavelAnalista)?.nome ?? ''
+            else analistaNome = findByName(r.responsavelAnalista, md.analistas)?.nome ?? r.responsavelAnalista
+          }
+          let clienteNome = ''
+          if (r.cliente) {
+            if (isUuid(r.cliente)) clienteNome = md.clientes.find(c => c.id === r.cliente)?.nome ?? ''
+            else clienteNome = findByName(r.cliente, md.clientes)?.nome ?? r.cliente
+          }
+          let contratoLabel = ''
+          if (r.contrato) {
+            if (isUuid(r.contrato)) {
+              const c = md.contratos.find(x => x.id === r.contrato)
+              contratoLabel = (c as any)?.codigo ?? (c as any)?.numero ?? ''
+            } else {
+              const found = findContratoByCodigo(r.contrato, md.contratos)
+              contratoLabel = (found as any)?.codigo ?? (found as any)?.numero ?? r.contrato
+            }
+          }
+          let produtoNome = ''
+          if (r.produto) {
+            if (isUuid(r.produto)) produtoNome = md.produtos.find(p => p.id === r.produto)?.nome ?? ''
+            else produtoNome = findByName(r.produto, md.produtos)?.nome ?? r.produto
+          }
+
+          const responsavelId = isUuid(r.responsavelAnalista) ? r.responsavelAnalista : (md.analistas.find(a => a.nome === r.responsavelAnalista || normalizeString(a.nome) === normalizeString(String(r.responsavelAnalista ?? '')))?.id ?? '')
+
+          const dataFim = (r as any).dataFim ?? r.dataFinal
+          const dataAtualizacao = (r as any).dataAtualizacao
           return {
             ...r,
             mesAno: r.mes && r.ano ? `${String(r.mes).padStart(2, '0')}/${r.ano}` : 'N/A',
-            ticket: (r.ticket && typeof r.ticket === 'string' && r.ticket.trim() !== '') ? r.ticket.trim() : 'N/A',
-            responsavelAnalista: md.analistas.find(a => a.id === r.responsavelAnalista)?.nome ?? r.responsavelAnalista ?? 'N/A',
-            cliente: md.clientes.find(c => c.id === r.cliente)?.nome ?? r.cliente ?? 'N/A',
-            contrato: md.contratos.find(c => c.id === r.contrato)?.numero ?? r.contrato ?? 'N/A',
-            operadora: md.operadoras.find(o => o.id === r.operadora)?.nome ?? r.operadora ?? 'N/A',
-            produto: md.produtos.find(p => p.id === r.produto)?.nome ?? r.produto ?? 'N/A',
-            dataInicio: r.dataInicio ? new Date(r.dataInicio).toLocaleString('pt-BR') : 'N/A',
-            dataFinal: (r.dataFinal ?? (r as any).dataFim) ? new Date((r.dataFinal ?? (r as any).dataFim)).toLocaleString('pt-BR') : 'N/A',
-            updatedAt: r.updatedAt ? new Date(r.updatedAt).toLocaleString('pt-BR') : 'N/A',
+            ticket: (r.ticket && typeof r.ticket === 'string' && r.ticket.trim() !== '') ? r.ticket.trim() : '',
+            filial: r.filial?.trim() ?? '',
+            operadora: orNa(operadoraNome),
+            responsavelAnalista: orNa(analistaNome),
+            cliente: orNa(clienteNome),
+            contrato: orNa(contratoLabel),
+            produto: orNa(produtoNome),
+            status: r.status?.trim() ?? '',
+            dataInicio: r.dataInicio ? new Date(r.dataInicio).toLocaleString('pt-BR') : '',
+            dataFinal: dataFim ? new Date(dataFim).toLocaleString('pt-BR') : '',
+            dataAtualizacao: dataAtualizacao ? new Date(dataAtualizacao).toLocaleString('pt-BR') : '',
+            qualidade: (r as any).qualidade?.trim() ?? '',
+            qualidadeInformacao: (r as any).qualidadeInformacao?.trim() ?? '',
+            planos: (r as any).planos?.trim() ?? '',
+            responsavelConta: (r as any).responsavelConta?.trim() ?? '',
+            solicitante: (r as any).solicitante?.trim() ?? '',
+            itensPendentes: (r as any).itensPendentes ?? '',
+            itensConcluidos: (r as any).itensConcluidos ?? '',
             total: r.total != null ? Number(r.total) : (r.itensConcluidos ?? 0),
-            _dataInicioRaw: r.dataInicio ?? (r as any).dataAtualizacao ?? '',
-            _dataFinalRaw: r.dataFinal ?? (r as any).dataFim ?? r.dataInicio ?? (r as any).dataAtualizacao ?? '',
+            valorTotal: (r as any).valorTotal != null ? Number((r as any).valorTotal) : '',
+            descricao: (r as any).descricao?.trim() ?? '',
+            tipoReajuste: (r as any).tipoReajuste?.trim() ?? '',
+            percentual: (r as any).percentual != null ? Number((r as any).percentual) : '',
+            dataAplicacao: (r as any).dataAplicacao ? new Date((r as any).dataAplicacao).toLocaleString('pt-BR') : '',
+            observacoes: (r as any).observacoes?.trim() ?? '',
+            createdAt: r.createdAt ? new Date(r.createdAt).toLocaleString('pt-BR') : '',
+            updatedAt: r.updatedAt ? new Date(r.updatedAt).toLocaleString('pt-BR') : '',
+            _dataInicioRaw: r.dataInicio ?? dataAtualizacao ?? '',
+            _dataFinalRaw: r.dataFinal ?? dataFim ?? r.dataInicio ?? dataAtualizacao ?? '',
             _analistaId: responsavelId
           }
         })}
@@ -1076,7 +1128,24 @@ export default function ReajusteListPage() {
           { key: 'contrato', label: 'Contrato' },
           { key: 'produto', label: 'Produto' },
           { key: 'status', label: 'Status' },
+          { key: 'dataInicio', label: 'Data Início' },
+          { key: 'dataFinal', label: 'Data Fim' },
+          { key: 'dataAtualizacao', label: 'Data Atualização' },
+          { key: 'qualidade', label: 'Qualidade' },
+          { key: 'qualidadeInformacao', label: 'Qualidade Informação' },
+          { key: 'planos', label: 'Planos' },
+          { key: 'responsavelConta', label: 'Responsável Conta' },
+          { key: 'solicitante', label: 'Solicitante' },
+          { key: 'itensPendentes', label: 'Itens Pendentes' },
+          { key: 'itensConcluidos', label: 'Itens Concluídos' },
           { key: 'total', label: 'Total' },
+          { key: 'valorTotal', label: 'Valor Total' },
+          { key: 'descricao', label: 'Descrição' },
+          { key: 'tipoReajuste', label: 'Tipo Reajuste' },
+          { key: 'percentual', label: 'Percentual' },
+          { key: 'dataAplicacao', label: 'Data Aplicação' },
+          { key: 'observacoes', label: 'Observações' },
+          { key: 'createdAt', label: 'Criado em' },
           { key: 'updatedAt', label: 'Atualizado em' }
         ]}
       />
