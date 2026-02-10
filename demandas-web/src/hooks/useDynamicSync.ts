@@ -6,7 +6,7 @@ import { useAuthStore } from '../store/authStore'
 // Configuração de sincronização por rota
 const ROUTE_SYNC_CONFIG = {
   '/dados': {
-    entities: ['clientes', 'contratos', 'analistas', 'operadoras', 'produtos', 'sistemas', 'grupos', 'areas', 'tiposCadastro', 'solicitantes', 'relatorios', 'modelos'],
+    entities: ['clientes', 'contratos', 'analistas', 'operadoras', 'produtos', 'sistemas', 'grupos', 'areas', 'tiposDemanda', 'tiposCadastro', 'tiposServico', 'solicitantes', 'relatorios', 'modelos', 'padrao', 'areasMailling', 'cargosMailling', 'filiaisMailling'],
     priority: 'high'
   },
   '/cadastro': {
