@@ -3867,7 +3867,7 @@ export default function ProjectDetailPage() {
     }
 
     const now = new Date()
-    const completedStatuses = ['completed', 'concluido', 'concluida', 'concluída', 'finalizado', 'finalizada', 'done', 'cancelado']
+    const completedStatuses = ['completed', 'concluido', 'concluida', 'concluída', 'finalizado', 'finalizada', 'done']
     const inProgressStatuses = ['in_progress', 'em_andamento', 'em andamento', 'in-progress', 'ongoing', 'andamento', 'pendente', 'pending']
 
     const parseDate = (value?: string | null) => {
@@ -3885,17 +3885,18 @@ export default function ProjectDetailPage() {
           typeof item.progress === 'number'
             ? item.progress
             : Number(item.progress) || (item.type === 'subtask' ? calculateSubtaskProgress(item) : 0)
-        const isCompleted = completedStatuses.includes(status) || progress >= 100 || !!actual
+        const isCancelled = status === 'cancelado'
+        const isCompleted = !isCancelled && (completedStatuses.includes(status) || progress >= 100 || !!actual)
         const isInProgress = inProgressStatuses.includes(status) || progress > 0
-        // Tarefas atrasadas: apenas não concluídas e fora do prazo
-        const isDelayed = !!planned && !isCompleted && now > planned
-        // Finalizadas: concluídas - subdividir em entregues no prazo vs com atraso
+        const isDelayed = !!planned && !isCompleted && !isCancelled && now > planned
         const isCompletedLate = isCompleted && !!planned && !!actual && actual > planned
         const isCompletedOnTime = isCompleted && !isCompletedLate
 
-        let category: 'delayed' | 'inProgress' | 'completedOnTime' | 'completedLate'
+        let category: 'delayed' | 'inProgress' | 'completedOnTime' | 'completedLate' | 'cancelled'
 
-        if (isDelayed) {
+        if (isCancelled) {
+          category = 'cancelled'
+        } else if (isDelayed) {
           category = 'delayed'
         } else if (isCompletedLate) {
           category = 'completedLate'
@@ -3918,7 +3919,8 @@ export default function ProjectDetailPage() {
         delayed: [] as any[],
         inProgress: [] as any[],
         completedOnTime: [] as any[],
-        completedLate: [] as any[]
+        completedLate: [] as any[],
+        cancelled: [] as any[]
       }
     )
 
@@ -3927,14 +3929,15 @@ export default function ProjectDetailPage() {
     const totalItems = allItems.length
     const totalDelayed = categorized.delayed.length
     const totalInProgress = categorized.inProgress.length
-    const totalFinalized = categorized.completedOnTime.length + categorized.completedLate.length
+    const totalCancelled = categorized.cancelled.length
+    const totalFinalized = categorized.completedOnTime.length + categorized.completedLate.length + totalCancelled
 
     const categoryConfig: Record<
-      'delayed' | 'inProgress' | 'completedOnTime' | 'completedLate',
+      'delayed' | 'inProgress' | 'completedOnTime' | 'completedLate' | 'cancelled',
       {
         title: string
         subtitle: string
-        palette: 'error' | 'warning' | 'success'
+        palette: 'error' | 'warning' | 'success' | 'default'
         icon: typeof Warning
       }
     > = {
@@ -3961,6 +3964,12 @@ export default function ProjectDetailPage() {
         subtitle: 'Concluídas após o prazo',
         palette: 'success',
         icon: CheckCircle
+      },
+      cancelled: {
+        title: 'Cancelado',
+        subtitle: 'Itens cancelados (sem data de conclusão)',
+        palette: 'default',
+        icon: Cancel
       }
     }
 
@@ -3987,7 +3996,7 @@ export default function ProjectDetailPage() {
       inProgress: categoryConfig.inProgress,
       finalized: {
         title: 'Finalizadas',
-        subtitle: 'Entregues no prazo e com atraso',
+        subtitle: 'Entregues no prazo, com atraso e cancelados',
         palette: 'success',
         icon: CheckCircle
       }
@@ -4182,7 +4191,7 @@ export default function ProjectDetailPage() {
                     Finalizadas
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Entregues no prazo e com atraso
+                    Entregues no prazo, com atraso e cancelados
                   </Typography>
                 </Box>
               </Box>
@@ -4199,7 +4208,7 @@ export default function ProjectDetailPage() {
               </Typography>
             ) : (
               <Box>
-                {(['completedOnTime', 'completedLate'] as const).map(subKey => {
+                {(['completedOnTime', 'completedLate', 'cancelled'] as const).map(subKey => {
                   const subTasks = categorized[subKey]
                   const subConfig = categoryConfig[subKey]
                   const SubIcon = subConfig.icon
@@ -4227,7 +4236,7 @@ export default function ProjectDetailPage() {
                                   sx={{ borderRadius: 1, mb: 1, '&:hover': { backgroundColor: 'grey.50' } }}
                                 >
                                   <ListItemIcon sx={{ minWidth: 44 }}>
-                                    <Avatar sx={{ bgcolor: 'success.light', color: 'success.dark' }}>
+                                    <Avatar sx={{ bgcolor: subKey === 'cancelled' ? 'grey.400' : 'success.light', color: subKey === 'cancelled' ? 'grey.800' : 'success.dark' }}>
                                       <SubIcon fontSize="small" />
                                     </Avatar>
                                   </ListItemIcon>
@@ -4242,7 +4251,7 @@ export default function ProjectDetailPage() {
                                           <Chip label={getPriorityLabel(task.priority)} size="small" sx={{ backgroundColor: getPriorityColor(task.priority), color: 'white' }} />
                                         )}
                                         {task.status && (
-                                          <Chip label={getTaskStatusLabel(task.status)} size="small" variant="outlined" sx={{ borderColor: 'success.main', color: 'success.main' }} />
+                                          <Chip label={getTaskStatusLabel(task.status)} size="small" variant="outlined" sx={task.status === 'cancelado' ? { borderColor: 'grey.500', color: 'grey.700' } : { borderColor: 'success.main', color: 'success.main' }} />
                                         )}
                                       </Box>
                                     }
