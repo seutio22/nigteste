@@ -575,6 +575,15 @@ export const useDadosCRUD = () => {
       
       const entityName = entityNameMap[activeTab]
       
+      // Para Tipos / Tipos Cadastro / Serviços: registrar exclusão por nome para que não voltem após sync
+      if (entityName && (entityName === 'tiposDemanda' || entityName === 'tiposCadastro' || entityName === 'tiposServico')) {
+        const list = entityName === 'tiposDemanda' ? store.tiposDemanda : entityName === 'tiposCadastro' ? store.tiposCadastro : store.tiposServico
+        const item = list.find((t: any) => t.id === id)
+        if (item?.nome) {
+          store.addLocalExclusionByNome(entityName, item.nome)
+        }
+      }
+      
       // Função auxiliar para remover do store local
       const removeFromStore = (itemId: string) => {
         console.log(`🔍 removeFromStore: Removendo ${itemId} de ${activeTab}`)

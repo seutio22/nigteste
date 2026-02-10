@@ -54,11 +54,14 @@ export interface MasterDataState {
   // Controle de filtro de contratos
   showOnlyActiveContracts: boolean
   toggleActiveContractsFilter: () => void
-  // Lista de exclusões locais permanentes
+  // Lista de exclusões locais permanentes (por ID)
   localExclusions: Record<string, string[]>
   addLocalExclusion: (entity: string, id: string) => void
   removeLocalExclusion: (entity: string, id: string) => void
   isLocallyExcluded: (entity: string, id: string) => boolean
+  // Exclusões por nome (evita que registros com mesmo nome voltem após sync/recriação)
+  localExclusionsByNome: Record<string, string[]>
+  addLocalExclusionByNome: (entity: string, nome: string) => void
 }
 
 function indexById<T extends { id?: string | null | undefined }>(items: T[]): Record<string, T> {
@@ -182,6 +185,21 @@ export const useMasterDataStore = create<MasterDataState>()(
           const state = get()
           return (state.localExclusions[entity] || []).includes(id)
         },
+        localExclusionsByNome: {},
+        addLocalExclusionByNome: (entity: string, nome: string) => {
+          const normalized = (nome || '').trim()
+          if (!normalized) return
+          set((state) => {
+            const existing = state.localExclusionsByNome[entity] || []
+            if (existing.some((n) => n.toLowerCase() === normalized.toLowerCase())) return state
+            return {
+              localExclusionsByNome: {
+                ...state.localExclusionsByNome,
+                [entity]: [...existing, normalized]
+              }
+            }
+          })
+        },
         
         upsertMany: (payload) => {
           console.log('🔍 MasterDataStore: Estado atual antes de upsertMany:', {
@@ -240,7 +258,8 @@ export const useMasterDataStore = create<MasterDataState>()(
           tiposServicoById: {},
           tiposDemandaById: {},
           solicitantesById: {},
-          localExclusions: {}
+          localExclusions: {},
+          localExclusionsByNome: {}
         }),
 
         forceCleanSync: async () => {
@@ -258,12 +277,13 @@ export const useMasterDataStore = create<MasterDataState>()(
             produtosById: {},
             sistemasById: {},
             tiposServicoById: {},
-            tiposDemandaById: {},
-            solicitantesById: {},
-            localExclusions: {}
-          })
-          
-          // Limpar localStorage
+          tiposDemandaById: {},
+          solicitantesById: {},
+          localExclusions: {},
+          localExclusionsByNome: {}
+        })
+        
+        // Limpar localStorage
           localStorage.removeItem('master-data-store')
           localStorage.removeItem('demands-v1')
           localStorage.removeItem('validations-v1')
@@ -351,22 +371,26 @@ export const useMasterDataStore = create<MasterDataState>()(
             
             // Fazer merge inteligente dos dados
             const mergeData = (apiData: any[], localData: any[], entityName: string) => {
-              // Filtrar dados excluídos localmente
               const excludedIds = get().localExclusions[entityName] || []
+              const excludedNomes = get().localExclusionsByNome[entityName] || []
+              const byId = (item: any) => !excludedIds.includes(item.id)
+              const byNome = (item: any) => {
+                if (excludedNomes.length === 0) return true
+                const n = (item.nome || '').trim().toLowerCase()
+                return !excludedNomes.some((ex) => ex.toLowerCase() === n)
+              }
+              const filterItem = (item: any) => byId(item) && byNome(item)
               
-              // Se API retornou dados, usar API (filtrando exclusões locais)
               if (apiData && apiData.length > 0) {
-                const filteredApiData = apiData.filter(item => !excludedIds.includes(item.id))
-                logDev(`✅ MasterDataStore: Usando dados da API para ${entityName}: ${filteredApiData.length} registros (${excludedIds.length} excluídos localmente)`)
+                const filteredApiData = apiData.filter(filterItem)
+                logDev(`✅ MasterDataStore: Usando dados da API para ${entityName}: ${filteredApiData.length} registros (${excludedIds.length} ids, ${excludedNomes.length} nomes excluídos)`)
                 return filteredApiData
               }
-              // Se não há dados da API mas há dados locais, manter locais (filtrando exclusões locais)
               if (localData && localData.length > 0) {
-                const filteredLocalData = localData.filter(item => !excludedIds.includes(item.id))
-                logDev(`⚠️ MasterDataStore: API vazia para ${entityName}, mantendo dados locais: ${filteredLocalData.length} registros (${excludedIds.length} excluídos localmente)`)
+                const filteredLocalData = localData.filter(filterItem)
+                logDev(`⚠️ MasterDataStore: API vazia para ${entityName}, mantendo dados locais: ${filteredLocalData.length} registros`)
                 return filteredLocalData
               }
-              // Se não há dados nem da API nem locais, retornar array vazio
               logDev(`❌ MasterDataStore: Nenhum dado disponível para ${entityName}`)
               return []
             }
@@ -435,7 +459,8 @@ export const useMasterDataStore = create<MasterDataState>()(
           lastSync: state.lastSync,
           lastSyncMs: state.lastSyncMs,
           lastSyncByEntity: state.lastSyncByEntity,
-          localExclusions: state.localExclusions
+          localExclusions: state.localExclusions,
+          localExclusionsByNome: state.localExclusionsByNome
         };
       },
       // Tratamento de erro para quota excedida
