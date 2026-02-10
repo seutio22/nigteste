@@ -1676,6 +1676,34 @@ export default function ProjectDetailPage() {
     })
   }
 
+  // Função para subir etapa (fase) na ordem
+  const handleMovePhaseUp = (phaseIndex: number) => {
+    if (!project || phaseIndex <= 0) return
+    const updatedProject = JSON.parse(JSON.stringify(project))
+    const phases = updatedProject.timeline.phases
+    ;[phases[phaseIndex - 1], phases[phaseIndex]] = [phases[phaseIndex], phases[phaseIndex - 1]]
+    setProject(updatedProject)
+    upsertProject(updatedProject).catch((err: any) => {
+      console.error('❌ Erro ao salvar ordem da etapa:', err)
+      alert('Erro ao salvar ordem no banco de dados')
+    })
+  }
+
+  // Função para descer etapa (fase) na ordem
+  const handleMovePhaseDown = (phaseIndex: number) => {
+    if (!project) return
+    const phaseCount = project.timeline?.phases?.length ?? 0
+    if (phaseIndex < 0 || phaseIndex >= phaseCount - 1) return
+    const updatedProject = JSON.parse(JSON.stringify(project))
+    const phases = updatedProject.timeline.phases
+    ;[phases[phaseIndex], phases[phaseIndex + 1]] = [phases[phaseIndex + 1], phases[phaseIndex]]
+    setProject(updatedProject)
+    upsertProject(updatedProject).catch((err: any) => {
+      console.error('❌ Erro ao salvar ordem da etapa:', err)
+      alert('Erro ao salvar ordem no banco de dados')
+    })
+  }
+
   // Função para gerar numeração hierárquica
   const generateTaskNumber = (phaseIndex: number, taskIndex: number) => {
     return `${phaseIndex + 1}.${taskIndex + 1}`
@@ -3287,6 +3315,32 @@ export default function ProjectDetailPage() {
                 {/* Botões de ação da fase - apenas para quem pode editar */}
                 {!readOnly && (
                   <Box sx={{ display: 'flex', gap: 0.5 }}>
+                    <Tooltip title="Subir etapa">
+                      <span>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleMovePhaseUp(phaseIndex)}
+                          disabled={phaseIndex === 0}
+                          color="default"
+                          sx={{ width: 28, height: 28 }}
+                        >
+                          <KeyboardArrowUp sx={{ fontSize: '1rem' }} />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+                    <Tooltip title="Descer etapa">
+                      <span>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleMovePhaseDown(phaseIndex)}
+                          disabled={phaseIndex === (project.timeline?.phases?.length ?? 0) - 1}
+                          color="default"
+                          sx={{ width: 28, height: 28 }}
+                        >
+                          <KeyboardArrowDown sx={{ fontSize: '1rem' }} />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
                     <IconButton
                       size="small"
                       onClick={() => handleEditPhase(phase)}
