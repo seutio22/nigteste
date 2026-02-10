@@ -40,7 +40,7 @@ export default function ValidationDetailPage() {
             // Inserir diretamente no store para evitar espera do sync
             const mapOne = (validacao: any): ValidationEntry => ({
               id: validacao.id,
-              analista: validacao.analista || { nome: 'N/A' },
+              analista: validacao.analista || validacao.analistaId || { nome: 'N/A' },
               dataInicio: validacao.dataInicio,
               dataFinal: validacao.dataFim,
               status: validacao.status,
@@ -186,7 +186,7 @@ export default function ValidationDetailPage() {
             }
             const mapOne = (validacao: any): ValidationEntry => ({
               id: validacao.id,
-              analista: validacao.analista || { nome: 'N/A' },
+              analista: validacao.analista || validacao.analistaId || { nome: 'N/A' },
               dataInicio: validacao.dataInicio,
               dataFinal: validacao.dataFim,
               status: validacao.status,
@@ -556,68 +556,43 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
     ? md.produtos.filter(produto => produto.operadoraId === draft.operadora || !produto.operadoraId)
     : md.produtos
 
-  // Buscar o analista correspondente ao usuário logado
-  const analistaCorrespondente = React.useMemo(() => {
-    if (!user || !md.analistas.length) return null
-    
-    // Tentar diferentes estratégias de busca
-    const analista = md.analistas.find(analista => 
-      analista.nome.toLowerCase() === user.name?.toLowerCase() ||
-      analista.nome.toLowerCase().includes(user.name?.toLowerCase() || '') ||
-      (user.name?.toLowerCase() || '').includes(analista.nome.toLowerCase()) ||
-      analista.id === user.id
-    )
-    
-    return analista
-  }, [user, md.analistas])
+  // Nome do analista responsável (sempre o da validação, nunca o usuário que está acessando)
+  const analistaResponsavelNome = (() => {
+    const a = draft.analista ?? validation.analista
+    if (typeof a === 'object' && a !== null && 'nome' in a) return (a as { nome?: string }).nome || '-'
+    const id = typeof a === 'string' ? a : ''
+    return md.analistas.find(x => x.id === id)?.nome || id || '-'
+  })()
 
   useEffect(() => {
     // Normalizar valores da validação antes de definir no draft
-    // Isso garante que campos como tipo e contrato sejam tratados corretamente
+    // Analista: sempre usar o da validação (quem criou/responsável), nunca o usuário que está acessando
     const normalizedDraft = {
       ...validation,
-      // Normalizar tipo - garantir que seja string ou undefined
       tipo: validation.tipo || '',
-      // Normalizar contrato - se for objeto, usar ID; se for string, usar diretamente
       contrato: typeof validation.contrato === 'object' && validation.contrato !== null
         ? validation.contrato.id
         : validation.contrato || '',
-      // Normalizar cliente - se for objeto, usar ID; se for string, usar diretamente
       cliente: typeof validation.cliente === 'object' && validation.cliente !== null
         ? validation.cliente.id
         : validation.cliente || '',
-      // Normalizar operadora - se for objeto, usar ID; se for string, usar diretamente
       operadora: typeof validation.operadora === 'object' && validation.operadora !== null
         ? validation.operadora.id
         : validation.operadora || '',
-      // Normalizar produto - se for objeto, usar ID; se for string, usar diretamente
       produto: typeof validation.produto === 'object' && validation.produto !== null
         ? validation.produto.id
         : validation.produto || '',
-      // Normalizar analista - se for objeto, usar ID; se for string, usar diretamente
       analista: typeof validation.analista === 'object' && validation.analista !== null
         ? validation.analista.id
         : validation.analista || '',
-      // Normalizar solicitante - se for objeto, usar ID; se for string, usar diretamente
       solicitante: typeof validation.solicitante === 'object' && validation.solicitante !== null
         ? validation.solicitante.id
         : validation.solicitante || '',
-      // Normalizar estruturaEdge e estruturaMove para garantir que sejam sempre arrays
       estruturaEdge: normalizeArrayField(validation.estruturaEdge),
       estruturaMove: normalizeArrayField(validation.estruturaMove)
     }
-    
-    console.log('🔍 EditInline: Normalizando draft:', {
-      original: validation,
-      normalized: normalizedDraft,
-      tipo: { original: validation.tipo, normalized: normalizedDraft.tipo },
-      contrato: { original: validation.contrato, normalized: normalizedDraft.contrato },
-      estruturaEdge: { original: validation.estruturaEdge, normalized: normalizedDraft.estruturaEdge },
-      estruturaMove: { original: validation.estruturaMove, normalized: normalizedDraft.estruturaMove }
-    })
-    
     setDraft(normalizedDraft)
-  }, [validation.id, validation.tipo, validation.contrato, validation.estruturaEdge, validation.estruturaMove])
+  }, [validation.id, validation.tipo, validation.contrato, validation.analista, validation.estruturaEdge, validation.estruturaMove])
 
   const changedKeys = ((): string[] => {
     // Excluir 'total' da lista pois é calculado automaticamente
@@ -901,25 +876,19 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
 
   return (
     <div className="space-y-6">
-      {/* Analista e Status */}
+      {/* Analista e Status - analista somente leitura (definido na criação), como em Manutenção */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Analista responsável *</label>
-          <select
-            value={analistaCorrespondente?.id || ''}
-            onChange={(e) => setDraft({ ...draft, analista: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-100 cursor-not-allowed"
-            disabled
-            style={{ backgroundColor: '#f5f5f5', cursor: 'not-allowed' }}
-          >
-            <option value={analistaCorrespondente?.id || ''}>
-              {analistaCorrespondente?.nome || 'Analista não encontrado'}
-            </option>
-          </select>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Analista responsável</label>
+          <input
+            type="text"
+            value={analistaResponsavelNome}
+            readOnly
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
+            placeholder="Definido na criação"
+          />
           <p className="text-xs text-gray-500 mt-1">
-            {analistaCorrespondente 
-              ? `Analista vinculado ao usuário: ${user?.name || 'Carregando...'}` 
-              : `Usuário logado: ${user?.name || 'Carregando...'} - Analista não encontrado`}
+            ⚠️ O analista responsável é definido na criação e não pode ser alterado
           </p>
         </div>
         <div>

@@ -374,7 +374,7 @@ export const useValidationStore = create<ValidationState>()(
             
             return {
             id: validacao.id,
-            analista: validacao.analista || { nome: 'N/A' },
+            analista: validacao.analista || validacao.analistaId || { nome: 'N/A' },
             dataInicio: validacao.dataInicio,
             dataFinal: validacao.dataFim,
             status: validacao.status,

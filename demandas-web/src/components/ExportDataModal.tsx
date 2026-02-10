@@ -27,7 +27,8 @@ import {
   TableHead,
   TableRow,
   Paper,
-  FormGroup
+  FormGroup,
+  TextField
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -53,6 +54,14 @@ interface ExportDataModalProps {
     label: string;
     width?: number;
   }[];
+  /** Se informado, apenas os formatos listados são oferecidos (ex: só Excel) */
+  formats?: ('pdf' | 'excel')[];
+  /** Filtros exibidos dentro do modal (ex: data e analista para Validações) */
+  filterOptions?: {
+    showDateFilter?: boolean;
+    showAnalistaFilter?: boolean;
+    analistas?: { id: string; nome: string }[];
+  };
 }
 
 interface ExportOptions {
@@ -72,10 +81,14 @@ const ExportDataModal: React.FC<ExportDataModalProps> = ({
   moduleName,
   moduleTitle,
   appliedFilters = {},
-  columns = []
+  columns = [],
+  formats = ['pdf', 'excel'],
+  filterOptions
 }) => {
+  const allowedFormats = Array.isArray(formats) && formats.length > 0 ? formats : ['pdf', 'excel'];
+  const defaultFormat = allowedFormats.includes('excel') ? 'excel' : 'pdf';
   const [exportOptions, setExportOptions] = useState<ExportOptions>({
-    format: 'pdf',
+    format: defaultFormat,
     includeOverview: true,
     includeDataList: true,
     includeDetails: false,
@@ -88,9 +101,54 @@ const ExportDataModal: React.FC<ExportDataModalProps> = ({
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  const [filterDateInicio, setFilterDateInicio] = useState('');
+  const [filterDateFim, setFilterDateFim] = useState('');
+  const [filterAnalistaId, setFilterAnalistaId] = useState('');
+
+  const filteredData = React.useMemo(() => {
+    if (!data || !Array.isArray(data)) return [];
+    let list = data;
+    if (filterOptions?.showDateFilter && filterDateInicio) {
+      const dInicio = new Date(filterDateInicio);
+      dInicio.setHours(0, 0, 0, 0);
+      list = list.filter((item: any) => {
+        const raw = item._dataInicioRaw ?? item.dataInicio;
+        if (!raw) return false;
+        const d = new Date(raw);
+        return d >= dInicio;
+      });
+    }
+    if (filterOptions?.showDateFilter && filterDateFim) {
+      const dFim = new Date(filterDateFim);
+      dFim.setHours(23, 59, 59, 999);
+      list = list.filter((item: any) => {
+        const raw = item._dataFinalRaw ?? item._dataInicioRaw ?? item.dataFinal ?? item.dataInicio;
+        if (!raw) return false;
+        const d = new Date(raw);
+        return d <= dFim;
+      });
+    }
+    if (filterOptions?.showAnalistaFilter && filterAnalistaId && filterOptions.analistas?.length) {
+      const nomeSelecionado = filterOptions.analistas.find(a => a.id === filterAnalistaId)?.nome;
+      list = list.filter((item: any) => {
+        const id = item._analistaId;
+        const nome = item.analista;
+        return id === filterAnalistaId || (nomeSelecionado && nome === nomeSelecionado);
+      });
+    }
+    return list;
+  }, [data, filterOptions, filterDateInicio, filterDateFim, filterAnalistaId]);
+
+  // Garantir formato correto quando só um formato é permitido (ex: apenas Excel)
+  React.useEffect(() => {
+    if (open && allowedFormats.length === 1) {
+      setExportOptions(prev => ({ ...prev, format: allowedFormats[0] }));
+    }
+  }, [open, allowedFormats]);
+
   const handleExport = async () => {
-    if (!data || data.length === 0) {
-      setError('Nenhum dado disponível para exportação.');
+    if (!filteredData || filteredData.length === 0) {
+      setError('Nenhum dado disponível para exportação. Ajuste os filtros se necessário.');
       return;
     }
 
@@ -106,7 +164,7 @@ const ExportDataModal: React.FC<ExportDataModalProps> = ({
         await exportToExcel();
       }
 
-      setSuccess(`${data.length} registros exportados com sucesso em ${exportOptions.format.toUpperCase()}!`);
+      setSuccess(`${filteredData.length} registros exportados com sucesso em ${exportOptions.format.toUpperCase()}!`);
       setTimeout(() => onClose(), 2000);
     } catch (error) {
       console.error('Erro ao exportar:', error);
@@ -118,6 +176,7 @@ const ExportDataModal: React.FC<ExportDataModalProps> = ({
   };
 
   const exportToPDF = async () => {
+    const dataToExport = filteredData;
     const doc = new jsPDF({
       orientation: exportOptions.orientation,
       unit: 'mm',
@@ -150,7 +209,7 @@ const ExportDataModal: React.FC<ExportDataModalProps> = ({
           filterData.push([key, String(value)]);
         }
       });
-      filterData.push(['Total de Registros', data.length.toString()]);
+      filterData.push(['Total de Registros', dataToExport.length.toString()]);
 
       autoTable(doc, {
         startY: yPosition,
@@ -170,7 +229,7 @@ const ExportDataModal: React.FC<ExportDataModalProps> = ({
       
       const overviewData = [
         ['Métrica', 'Valor'],
-        ['Total de Registros', data.length.toString()],
+        ['Total de Registros', dataToExport.length.toString()],
         ['Data de Geração', new Date().toLocaleDateString('pt-BR')],
         ['Módulo', moduleTitle]
       ];
@@ -194,7 +253,7 @@ const ExportDataModal: React.FC<ExportDataModalProps> = ({
       const headers = columns.map(col => col.label);
       const tableData = [headers];
 
-      data.forEach(item => {
+      dataToExport.forEach(item => {
         const row = columns.map(col => {
           const value = item[col.key];
           if (value === null || value === undefined) return 'N/A';
@@ -220,7 +279,7 @@ const ExportDataModal: React.FC<ExportDataModalProps> = ({
     if (exportOptions.includeDetails) {
       yPosition = addSectionToPDF(doc, 'DETALHES DOS REGISTROS', yPosition, margin, contentWidth);
       
-      data.forEach((item, index) => {
+      dataToExport.forEach((item, index) => {
         if (yPosition > doc.internal.pageSize.getHeight() - 60) {
           doc.addPage();
           yPosition = 20;
@@ -267,6 +326,7 @@ const ExportDataModal: React.FC<ExportDataModalProps> = ({
   };
 
   const exportToExcel = async () => {
+    const dataToExport = filteredData;
     const workbook = XLSX.utils.book_new();
 
     // Planilha 1: Resumo
@@ -275,7 +335,7 @@ const ExportDataModal: React.FC<ExportDataModalProps> = ({
         [`RELATÓRIO DE ${moduleTitle.toUpperCase()}`],
         [''],
         ['Métrica', 'Valor'],
-        ['Total de Registros', data.length],
+        ['Total de Registros', dataToExport.length],
         ['Data de Geração', new Date().toLocaleDateString('pt-BR')],
         ['Módulo', moduleTitle],
         [''],
@@ -300,8 +360,9 @@ const ExportDataModal: React.FC<ExportDataModalProps> = ({
         columns.map(col => col.label)
       ];
 
-      data.forEach(item => {
+      dataToExport.forEach(item => {
         const row = columns.map(col => {
+          if (col.key.startsWith('_')) return undefined;
           const value = item[col.key];
           if (value === null || value === undefined) return 'N/A';
           if (typeof value === 'object') return JSON.stringify(value);
@@ -352,8 +413,9 @@ const ExportDataModal: React.FC<ExportDataModalProps> = ({
           </IconButton>
         </Box>
         <Typography variant="body2" color="textSecondary">
-          {data.length} registros encontrados
-          {Object.keys(appliedFilters).length > 0 && ' • Filtros aplicados'}
+          {filteredData.length} registro(s) a exportar
+          {data.length !== filteredData.length && ` (filtrado de ${data.length} encontrados)`}
+          {Object.keys(appliedFilters).length > 0 && ' • Filtros da lista aplicados'}
         </Typography>
       </DialogTitle>
 
@@ -371,6 +433,59 @@ const ExportDataModal: React.FC<ExportDataModalProps> = ({
         )}
 
         <Grid container spacing={3}>
+          {/* Filtros para exportação (Data, Analista) */}
+          {filterOptions && (filterOptions.showDateFilter || filterOptions.showAnalistaFilter) && (
+            <Grid item xs={12}>
+              <Card variant="outlined">
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>
+                    <FilterIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+                    Filtros para exportação
+                  </Typography>
+                  <Box display="flex" flexWrap="wrap" gap={2} sx={{ mt: 1 }}>
+                    {filterOptions.showDateFilter && (
+                      <>
+                        <TextField
+                          size="small"
+                          type="date"
+                          label="Data a partir de"
+                          value={filterDateInicio}
+                          onChange={(e) => setFilterDateInicio(e.target.value)}
+                          InputLabelProps={{ shrink: true }}
+                          sx={{ width: 180 }}
+                        />
+                        <TextField
+                          size="small"
+                          type="date"
+                          label="Data até"
+                          value={filterDateFim}
+                          onChange={(e) => setFilterDateFim(e.target.value)}
+                          InputLabelProps={{ shrink: true }}
+                          sx={{ width: 180 }}
+                        />
+                      </>
+                    )}
+                    {filterOptions.showAnalistaFilter && filterOptions.analistas && filterOptions.analistas.length > 0 && (
+                      <FormControl size="small" sx={{ minWidth: 220 }}>
+                        <InputLabel>Analista</InputLabel>
+                        <Select
+                          label="Analista"
+                          value={filterAnalistaId}
+                          onChange={(e) => setFilterAnalistaId(e.target.value)}
+                        >
+                          <MenuItem value="">Todos os analistas</MenuItem>
+                          {filterOptions.analistas.map((a) => (
+                            <MenuItem key={a.id} value={a.id}>{a.nome}</MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    )}
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+          )}
+
           {/* Configurações de Formato */}
           <Grid item xs={12} md={6}>
             <Card variant="outlined">
@@ -380,23 +495,29 @@ const ExportDataModal: React.FC<ExportDataModalProps> = ({
                   Formato e Configurações
                 </Typography>
                 
-                <FormControl fullWidth sx={{ mb: 2 }}>
-                  <InputLabel>Formato de Exportação</InputLabel>
-                  <Select
-                    value={exportOptions.format}
-                    onChange={(e) => handleOptionChange('format', e.target.value)}
-                    label="Formato de Exportação"
-                  >
-                    <MenuItem value="pdf">
-                      <PdfIcon sx={{ mr: 1 }} />
-                      PDF
-                    </MenuItem>
-                    <MenuItem value="excel">
-                      <ExcelIcon sx={{ mr: 1 }} />
-                      Excel
-                    </MenuItem>
-                  </Select>
-                </FormControl>
+                {allowedFormats.length > 1 && (
+                  <FormControl fullWidth sx={{ mb: 2 }}>
+                    <InputLabel>Formato de Exportação</InputLabel>
+                    <Select
+                      value={exportOptions.format}
+                      onChange={(e) => handleOptionChange('format', e.target.value)}
+                      label="Formato de Exportação"
+                    >
+                      {allowedFormats.includes('pdf') && (
+                        <MenuItem value="pdf">
+                          <PdfIcon sx={{ mr: 1 }} />
+                          PDF
+                        </MenuItem>
+                      )}
+                      {allowedFormats.includes('excel') && (
+                        <MenuItem value="excel">
+                          <ExcelIcon sx={{ mr: 1 }} />
+                          Excel
+                        </MenuItem>
+                      )}
+                    </Select>
+                  </FormControl>
+                )}
 
                 {exportOptions.format === 'pdf' && (
                   <>
@@ -492,7 +613,7 @@ const ExportDataModal: React.FC<ExportDataModalProps> = ({
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {data.slice(0, 5).map((item, index) => (
+                  {filteredData.slice(0, 5).map((item, index) => (
                     <TableRow key={index}>
                       {columns.map((col, colIndex) => (
                         <TableCell key={colIndex}>
@@ -503,11 +624,11 @@ const ExportDataModal: React.FC<ExportDataModalProps> = ({
                       ))}
                     </TableRow>
                   ))}
-                  {data.length > 5 && (
+                  {filteredData.length > 5 && (
                     <TableRow>
                       <TableCell colSpan={columns.length} align="center">
                         <Typography variant="body2" color="textSecondary">
-                          ... e mais {data.length - 5} registros
+                          ... e mais {filteredData.length - 5} registros
                         </Typography>
                       </TableCell>
                     </TableRow>
@@ -522,7 +643,7 @@ const ExportDataModal: React.FC<ExportDataModalProps> = ({
         {exporting && (
           <Box sx={{ mt: 3 }}>
             <Typography variant="body2" gutterBottom>
-              Exportando {data.length} registros... {progress}%
+              Exportando {filteredData.length} registros... {progress}%
             </Typography>
             <LinearProgress variant="determinate" value={progress} />
           </Box>
@@ -540,7 +661,7 @@ const ExportDataModal: React.FC<ExportDataModalProps> = ({
               variant="outlined" 
             />
             <Chip 
-              label={`Registros: ${data.length}`} 
+              label={`Registros: ${filteredData.length}`} 
               color="secondary" 
               variant="outlined" 
             />
@@ -563,10 +684,10 @@ const ExportDataModal: React.FC<ExportDataModalProps> = ({
         <Button
           onClick={handleExport}
           variant="contained"
-          disabled={exporting || data.length === 0}
+          disabled={exporting || filteredData.length === 0}
           startIcon={exportOptions.format === 'pdf' ? <PdfIcon /> : <ExcelIcon />}
         >
-          {exporting ? 'Exportando...' : `Exportar ${data.length} Registros em ${exportOptions.format.toUpperCase()}`}
+          {exporting ? 'Exportando...' : `Exportar ${filteredData.length} Registros em ${exportOptions.format.toUpperCase()}`}
         </Button>
       </DialogActions>
     </Dialog>

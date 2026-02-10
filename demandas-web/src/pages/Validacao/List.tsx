@@ -1,4 +1,4 @@
-import { Box, Button, Stack, Typography, IconButton, Menu, MenuItem, ListItemIcon, ListItemText, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Switch, FormControlLabel, Chip } from '@mui/material'
+import { Box, Button, Stack, Typography, IconButton, Menu, MenuItem, ListItemIcon, ListItemText, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Switch, FormControlLabel, Chip, FormControl, InputLabel, Select } from '@mui/material'
 import { DataGrid, GridColDef, GridToolbar, GridColumnVisibilityModel, GridFilterModel, GridPaginationModel, GridSortModel } from '@mui/x-data-grid'
 import { useNavigate } from 'react-router-dom'
 import { useValidationStore } from '../../store/validationStore'
@@ -17,10 +17,10 @@ import VisibilityIcon from '@mui/icons-material/Visibility'
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
 import DeleteIcon from '@mui/icons-material/Delete'
 import FileCopyIcon from '@mui/icons-material/FileCopy'
-import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf'
 import PersonIcon from '@mui/icons-material/Person'
 import GroupIcon from '@mui/icons-material/Group'
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
+import TableChartIcon from '@mui/icons-material/TableChart'
 
 function ActionCell({ id, status }: { id: string, status: string }) {
   const navigate = useNavigate()
@@ -144,57 +144,6 @@ function ActionCell({ id, status }: { id: string, status: string }) {
     }
   }
 
-  const doExportPdf = () => {
-    const v = store.items.find((x) => x.id === id)
-    if (!v) return
-    const label = (val: unknown, map?: Record<string, { nome?: string }>) => {
-      if (val && typeof val === 'object') {
-        const obj = val as { nome?: string; name?: string; titulo?: string }
-        return obj.nome || obj.name || obj.titulo || '-'
-      }
-      if (typeof val === 'string') {
-        return map?.[val]?.nome || val || '-'
-      }
-      return '-'
-    }
-    const contratoLabel = (val: unknown) => {
-      if (val && typeof val === 'object') {
-        const obj = val as { numero?: string; codigo?: string }
-        return obj.numero || obj.codigo || '-'
-      }
-      if (typeof val === 'string') {
-        const c = contratosById[val]
-        return c?.numero || c?.codigo || val || '-'
-      }
-      return '-'
-    }
-    const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Validação ${v.id}</title>
-    <style>body{font-family:Arial, sans-serif; padding:24px;} h1{font-size:18px;} table{width:100%; border-collapse:collapse;} td{padding:6px; border-bottom:1px solid #ddd;} .muted{color:#555;}</style>
-    </head><body>
-    <h1>Validação ${v.id}</h1>
-    <table>
-      <tr><td class="muted">Status</td><td>${v.status}</td></tr>
-      <tr><td class="muted">Ticket</td><td>${v.ticket || '-'}</td></tr>
-      <tr><td class="muted">Solicitante</td><td>${v.solicitante || '-'}</td></tr>
-      <tr><td class="muted">Analista</td><td>${label(v.analista, analistasById)}</td></tr>
-      <tr><td class="muted">Cliente</td><td>${label(v.cliente, clientesById)}</td></tr>
-      <tr><td class="muted">Contrato</td><td>${contratoLabel(v.contrato)}</td></tr>
-      <tr><td class="muted">Operadora</td><td>${label(v.operadora, operadorasById)}</td></tr>
-      <tr><td class="muted">Data Início</td><td>${v.dataInicio || '-'}</td></tr>
-      <tr><td class="muted">Data Final</td><td>${v.dataFinal || '-'}</td></tr>
-      <tr><td class="muted">Descrição</td><td>${v.descricao || '-'}</td></tr>
-      <tr><td class="muted">Total</td><td>R$ ${v.total?.toLocaleString('pt-BR') || '0'}</td></tr>
-      <tr><td class="muted">Atualizado em</td><td>${new Date(v.updatedAt).toLocaleString('pt-BR')}</td></tr>
-    </table>
-    <script>window.onload=()=>window.print()</script>
-    </body></html>`
-    const w = window.open('', '_blank')
-    if (w) {
-      w.document.write(html)
-      w.document.close()
-    }
-  }
-
   return (
     <>
       <IconButton size="small" onClick={handleMenuOpen}>
@@ -224,11 +173,6 @@ function ActionCell({ id, status }: { id: string, status: string }) {
             <ListItemText>Alterar status</ListItemText>
           </MenuItem>
         )}
-        
-        <MenuItem onClick={() => { handleMenuClose(); doExportPdf() }}>
-          <ListItemIcon><PictureAsPdfIcon fontSize="small" /></ListItemIcon>
-          <ListItemText>Exportar PDF</ListItemText>
-        </MenuItem>
         
         {canDelete && (
           <MenuItem onClick={() => { handleMenuClose(); setOpenDelete(true) }}>
@@ -492,6 +436,7 @@ export default function ValidationListPage() {
     clientesById,
     contratosById,
     operadorasById,
+    produtosById,
     solicitantesById,
     areasById,
     sistemasById,
@@ -545,6 +490,9 @@ export default function ValidationListPage() {
       return isMyValidation
     })
   }, [showOnlyMyValidations, filteredItems, user?.id, user?.name, user?.role])
+
+  const itemsForGrid = finalFilteredItems
+
   // carregar preferências
   useEffect(() => {
     try {
@@ -820,12 +768,12 @@ export default function ValidationListPage() {
   // Ordenar os dados por updatedAt (mais recente primeiro) antes de passar para o DataGrid
   // Isso garante ordenação correta mesmo se o sortModel não estiver aplicado
   const sortedItems = useMemo(() => (
-    [...finalFilteredItems].sort((a, b) => {
+    [...itemsForGrid].sort((a, b) => {
       const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0
       const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0
       return dateB - dateA // Ordem decrescente (mais recente primeiro)
     })
-  ), [finalFilteredItems])
+  ), [itemsForGrid])
 
   const rows = useMemo(() => sortedItems.map((v) => {
     // Converter objetos relacionados para strings (nomes) para permitir busca rápida
@@ -910,7 +858,7 @@ export default function ValidationListPage() {
               </Typography>
               
               {/* Filtro Automático */}
-              <div className="flex items-center gap-3 mt-2">
+              <div className="flex flex-wrap items-center gap-3 mt-2">
                 <FormControlLabel
                   control={
                     <Switch
@@ -945,10 +893,9 @@ export default function ValidationListPage() {
                     </div>
                   }
                 />
-                
                 {/* Contador de validações */}
                 <Chip
-                  label={`${finalFilteredItems.length} validação${finalFilteredItems.length !== 1 ? 's' : ''}`}
+                  label={`${itemsForGrid.length} validação${itemsForGrid.length !== 1 ? 's' : ''}`}
                   size="small"
                   variant="outlined"
                   className={`${
@@ -1018,7 +965,7 @@ export default function ValidationListPage() {
               {canExport && (
                 <Button 
                   variant="outlined" 
-                  startIcon={<PictureAsPdfIcon />}
+                  startIcon={<TableChartIcon />}
                   onClick={() => setExportModalOpen(true)}
                   size="medium"
                   className="text-secondary-600 border-secondary-300 hover:text-secondary-700 hover:border-secondary-400 hover:bg-secondary-50 transition-all duration-300 font-medium"
@@ -1040,7 +987,7 @@ export default function ValidationListPage() {
                   Exportar
                 </Button>
               )}
-              
+
               {canCreate && (
                 <Button 
                   variant="contained" 
@@ -1135,7 +1082,9 @@ export default function ValidationListPage() {
               quickFilterProps: { 
                 debounceMs: 300,
                 placeholder: 'Buscar validações... (ex: ticket, cliente, operadora, analista)'
-              } 
+              },
+              printOptions: { disableToolbarButton: true },
+              csvOptions: { disableToolbarButton: true }
             } 
           }}
           quickFilterValues={filterModel.quickFilterValues}
@@ -1230,37 +1179,59 @@ export default function ValidationListPage() {
         </DialogActions>
       </Dialog>
 
-      {/* Modal de Exportação */}
+      {/* Modal de Exportação (opções e geração do arquivo) */}
       <ExportDataModal
         open={exportModalOpen}
         onClose={() => setExportModalOpen(false)}
-        data={finalFilteredItems.map(v => ({
-          ...v,
-          // Usar objetos relacionados diretamente
-          analista: typeof (v as any).analista === 'string'
-            ? (analistasById[(v as any).analista]?.nome ?? (v as any).analista ?? 'N/A')
-            : ((v as any).analista?.nome ?? 'N/A'),
-          area: areasById[v.area || '']?.nome ?? v.area ?? 'N/A',
-          cliente: v.cliente,
-          contrato: v.contrato,
-          operadora: v.operadora,
-          produto: (v.produto && typeof v.produto === 'object') ? (v.produto as any).nome ?? 'N/A' : (v as any).produto ?? 'N/A',
-          sistema: sistemasById[v.sistema || '']?.nome ?? v.sistema ?? 'N/A',
-          tipo: tiposDemandaById[v.tipo || '']?.nome ?? v.tipo ?? 'N/A',
-      tipoServico: tiposServicoById[(v as any).tipoServico || '']?.nome ?? (v as any).tipoServico ?? 'N/A',
-          solicitante: solicitantesById[v.solicitante || '']?.nome ?? v.solicitante ?? 'N/A',
-          // Formatar datas
-          dataInicio: v.dataInicio ? new Date(v.dataInicio).toLocaleString('pt-BR') : 'N/A',
-          dataFinal: v.dataFinal ? new Date(v.dataFinal).toLocaleString('pt-BR') : 'N/A',
-          updatedAt: v.updatedAt ? new Date(v.updatedAt).toLocaleString('pt-BR') : 'N/A',
-          // Formatar valores monetários
-          total: v.total ? `R$ ${v.total.toLocaleString('pt-BR')}` : 'R$ 0,00'
-        }))}
+        formats={['excel']}
+        filterOptions={{
+          showDateFilter: true,
+          showAnalistaFilter: true,
+          analistas: md.analistas
+        }}
+        data={finalFilteredItems.map(v => {
+          const clienteId = (v as any).cliente ?? (v as any).clienteId
+          const contratoId = (v as any).contrato ?? (v as any).contratoId
+          const clienteResolved = typeof clienteId === 'object' ? (clienteId?.nome ?? 'N/A') : (clientesById[clienteId || '']?.nome ?? clienteId ?? 'N/A')
+          const contratoResolved = typeof contratoId === 'object' ? (contratoId?.numero || contratoId?.codigo || 'N/A') : ((contratosById[contratoId || '']?.numero || contratosById[contratoId || '']?.codigo || contratoId) ?? 'N/A')
+          const operadoraId = (v as any).operadora ?? (v as any).operadoraId
+          const operadoraResolved = typeof operadoraId === 'object' ? (operadoraId?.nome ?? 'N/A') : (operadorasById[operadoraId || '']?.nome ?? operadoraId ?? 'N/A')
+          const analistaId = typeof (v as any).analista === 'object' ? (v as any).analista?.id : ((v as any).analistaId ?? (v as any).analista)
+          return {
+            ...v,
+            analista: typeof (v as any).analista === 'string'
+              ? (analistasById[(v as any).analista]?.nome ?? (v as any).analista ?? 'N/A')
+              : ((v as any).analista?.nome ?? 'N/A'),
+            cliente: clienteResolved,
+            contrato: contratoResolved,
+            operadora: operadoraResolved,
+            produto: (v.produto && typeof v.produto === 'object') ? ((v.produto as any).nome ?? 'N/A') : (produtosById[(v as any).produto || (v as any).produtoId || '']?.nome ?? (v as any).produto ?? 'N/A'),
+            tipo: tiposDemandaById[v.tipo || '']?.nome ?? v.tipo ?? 'N/A',
+            solicitante: solicitantesById[v.solicitante || '']?.nome ?? v.solicitante ?? 'N/A',
+            dataInicio: v.dataInicio ? new Date(v.dataInicio).toLocaleString('pt-BR') : 'N/A',
+            dataFinal: v.dataFinal ? new Date(v.dataFinal).toLocaleString('pt-BR') : 'N/A',
+            updatedAt: v.updatedAt ? new Date(v.updatedAt).toLocaleString('pt-BR') : 'N/A',
+            createdAt: v.createdAt ? new Date(v.createdAt).toLocaleString('pt-BR') : 'N/A',
+            total: v.total != null ? Number(v.total) : '',
+            observacoes: (v as any).observacoes ?? (v as any).observacao ?? '',
+            qualidade: (v as any).qualidade ?? '',
+            vigencia: (v as any).vigencia ? new Date((v as any).vigencia).toLocaleDateString('pt-BR') : '',
+            qtdRetornos: (v as any).qtdRetornos != null ? String((v as any).qtdRetornos) : '',
+            formalizacao: (v as any).formalizacao ?? '',
+            itensPendentes: (v as any).itensPendentes != null ? String((v as any).itensPendentes) : '',
+            itensConcluidos: (v as any).itensConcluidos != null ? String((v as any).itensConcluidos) : '',
+            estruturaEdge: Array.isArray((v as any).estruturaEdge) ? (v as any).estruturaEdge.join('; ') : ((v as any).estruturaEdge ?? ''),
+            estruturaMove: Array.isArray((v as any).estruturaMove) ? (v as any).estruturaMove.join('; ') : ((v as any).estruturaMove ?? ''),
+            _dataInicioRaw: v.dataInicio ?? '',
+            _dataFinalRaw: v.dataFinal ?? v.dataInicio ?? '',
+            _analistaId: analistaId ?? ''
+          }
+        })}
         moduleName="validacoes"
         moduleTitle="Validações"
         appliedFilters={{
           'Minhas Validações': showOnlyMyValidations ? 'Sim' : 'Não',
-          'Total de Registros': finalFilteredItems.length
+          'Total na lista': finalFilteredItems.length
         }}
         columns={[
           { key: 'ticket', label: 'Nº Ticket' },
@@ -1270,10 +1241,22 @@ export default function ValidationListPage() {
           { key: 'cliente', label: 'Cliente' },
           { key: 'contrato', label: 'Contrato' },
           { key: 'operadora', label: 'Operadora' },
+          { key: 'produto', label: 'Produto' },
+          { key: 'tipo', label: 'Tipo' },
           { key: 'solicitante', label: 'Solicitante' },
           { key: 'dataInicio', label: 'Data Início' },
           { key: 'dataFinal', label: 'Data Final' },
+          { key: 'vigencia', label: 'Vigência' },
           { key: 'total', label: 'Total' },
+          { key: 'observacoes', label: 'Observações' },
+          { key: 'qualidade', label: 'Qualidade' },
+          { key: 'qtdRetornos', label: 'Qtd. Retornos' },
+          { key: 'formalizacao', label: 'Formalização' },
+          { key: 'itensPendentes', label: 'Itens Pendentes' },
+          { key: 'itensConcluidos', label: 'Itens Concluídos' },
+          { key: 'estruturaEdge', label: 'Estrutura EDGE' },
+          { key: 'estruturaMove', label: 'Estrutura MOVE' },
+          { key: 'createdAt', label: 'Criado em' },
           { key: 'updatedAt', label: 'Atualizado em' }
         ]}
       />

@@ -17,7 +17,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility'
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
 import DeleteIcon from '@mui/icons-material/Delete'
 import FileCopyIcon from '@mui/icons-material/FileCopy'
-import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf'
+import TableChartIcon from '@mui/icons-material/TableChart'
 import PersonIcon from '@mui/icons-material/Person'
 import GroupIcon from '@mui/icons-material/Group'
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
@@ -857,7 +857,7 @@ export default function ReajusteListPage() {
               {canExport && (
                 <Button 
                   variant="outlined" 
-                  startIcon={<PictureAsPdfIcon />}
+                  startIcon={<TableChartIcon />}
                   onClick={() => setExportModalOpen(true)}
                   size="medium"
                   className="text-secondary-600 border-secondary-300 hover:text-secondary-700 hover:border-secondary-400 hover:bg-secondary-50 transition-all duration-300 font-medium"
@@ -936,7 +936,9 @@ export default function ReajusteListPage() {
               quickFilterProps: { 
                 debounceMs: 300,
                 placeholder: 'Buscar reajustes... (ex: filial, operadora, analista)'
-              } 
+              },
+              printOptions: { disableToolbarButton: true },
+              csvOptions: { disableToolbarButton: true }
             } 
           }}
           pageSizeOptions={[10, 25, 50, 100]}
@@ -1026,38 +1028,43 @@ export default function ReajusteListPage() {
         </DialogActions>
       </Dialog>
 
-      {/* Modal de Exportação */}
+      {/* Modal de Exportação - filtros de data e analista dentro do modal (como Validação) */}
       <ExportDataModal
         open={exportModalOpen}
         onClose={() => setExportModalOpen(false)}
-        data={finalFilteredItems.map(r => ({
-          ...r,
-          // Gerar campo mesAno a partir de mes e ano
-          mesAno: r.mes && r.ano ? `${String(r.mes).padStart(2, '0')}/${r.ano}` : 'N/A',
-          // Incluir campo ticket (garantir que seja string ou 'N/A')
-          ticket: (r.ticket && typeof r.ticket === 'string' && r.ticket.trim() !== '') ? r.ticket.trim() : 'N/A',
-          // Mapear IDs para nomes legíveis
-          responsavelAnalista: md.analistas.find(a => a.id === r.responsavelAnalista)?.nome ?? r.responsavelAnalista ?? 'N/A',
-          area: md.areas.find(ar => ar.id === r.area)?.nome ?? r.area ?? 'N/A',
-          cliente: md.clientes.find(c => c.id === r.cliente)?.nome ?? r.cliente ?? 'N/A',
-          contrato: md.contratos.find(c => c.id === r.contrato)?.numero ?? r.contrato ?? 'N/A',
-          operadora: md.operadoras.find(o => o.id === r.operadora)?.nome ?? r.operadora ?? 'N/A',
-          produto: md.produtos.find(p => p.id === r.produto)?.nome ?? r.produto ?? 'N/A',
-          sistema: md.sistemas.find(s => s.id === r.sistema)?.nome ?? r.sistema ?? 'N/A',
-          tipo: md.tiposDemanda.find(t => t.id === r.tipo)?.nome ?? r.tipo ?? 'N/A',
-          tipoServico: md.tiposServico.find(ts => ts.id === r.tipoServico)?.nome ?? r.tipoServico ?? 'N/A',
-          // Formatar datas
-          dataInicio: r.dataInicio ? new Date(r.dataInicio).toLocaleString('pt-BR') : 'N/A',
-          dataFinal: r.dataFinal ? new Date(r.dataFinal).toLocaleString('pt-BR') : 'N/A',
-          updatedAt: r.updatedAt ? new Date(r.updatedAt).toLocaleString('pt-BR') : 'N/A',
-          // Total de itens concluídos (numérico)
-          total: r.itensConcluidos ?? 0
-        }))}
+        formats={['excel']}
+        filterOptions={{
+          showDateFilter: true,
+          showAnalistaFilter: true,
+          analistas: md.analistas
+        }}
+        data={finalFilteredItems.map(r => {
+          const responsavelId = typeof r.responsavelAnalista === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(r.responsavelAnalista)
+            ? r.responsavelAnalista
+            : (md.analistas.find(a => a.nome === r.responsavelAnalista || normalizeString(a.nome) === normalizeString(String(r.responsavelAnalista ?? '')))?.id ?? '')
+          return {
+            ...r,
+            mesAno: r.mes && r.ano ? `${String(r.mes).padStart(2, '0')}/${r.ano}` : 'N/A',
+            ticket: (r.ticket && typeof r.ticket === 'string' && r.ticket.trim() !== '') ? r.ticket.trim() : 'N/A',
+            responsavelAnalista: md.analistas.find(a => a.id === r.responsavelAnalista)?.nome ?? r.responsavelAnalista ?? 'N/A',
+            cliente: md.clientes.find(c => c.id === r.cliente)?.nome ?? r.cliente ?? 'N/A',
+            contrato: md.contratos.find(c => c.id === r.contrato)?.numero ?? r.contrato ?? 'N/A',
+            operadora: md.operadoras.find(o => o.id === r.operadora)?.nome ?? r.operadora ?? 'N/A',
+            produto: md.produtos.find(p => p.id === r.produto)?.nome ?? r.produto ?? 'N/A',
+            dataInicio: r.dataInicio ? new Date(r.dataInicio).toLocaleString('pt-BR') : 'N/A',
+            dataFinal: (r.dataFinal ?? (r as any).dataFim) ? new Date((r.dataFinal ?? (r as any).dataFim)).toLocaleString('pt-BR') : 'N/A',
+            updatedAt: r.updatedAt ? new Date(r.updatedAt).toLocaleString('pt-BR') : 'N/A',
+            total: r.total != null ? Number(r.total) : (r.itensConcluidos ?? 0),
+            _dataInicioRaw: r.dataInicio ?? (r as any).dataAtualizacao ?? '',
+            _dataFinalRaw: r.dataFinal ?? (r as any).dataFim ?? r.dataInicio ?? (r as any).dataAtualizacao ?? '',
+            _analistaId: responsavelId
+          }
+        })}
         moduleName="reajustes"
         moduleTitle="Reajustes"
         appliedFilters={{
           'Meus Reajustes': showOnlyMyReajustes ? 'Sim' : 'Não',
-          'Total de Registros': finalFilteredItems.length
+          'Total na lista': finalFilteredItems.length
         }}
         columns={[
           { key: 'mesAno', label: 'Mês/Ano' },
