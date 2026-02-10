@@ -19,6 +19,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility'
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
 import DeleteIcon from '@mui/icons-material/Delete'
 import FileCopyIcon from '@mui/icons-material/FileCopy'
+import TableChartIcon from '@mui/icons-material/TableChart'
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf'
 import AddIcon from '@mui/icons-material/Add'
 import AssessmentIcon from '@mui/icons-material/Assessment'
@@ -623,7 +624,7 @@ export default function AnalyticsPage() {
               {canExport && (
                 <Button 
                   variant="outlined" 
-                  startIcon={<PictureAsPdfIcon />}
+                  startIcon={<TableChartIcon />}
                   onClick={() => setExportModalOpen(true)}
                   size="medium"
                   className="text-secondary-600 border-secondary-300 hover:text-secondary-700 hover:border-secondary-400 hover:bg-secondary-50 transition-all duration-300 font-medium"
@@ -688,7 +689,14 @@ export default function AnalyticsPage() {
           rowSelectionModel={selectedIds}
           onRowDoubleClick={(p) => navigate(`/analytics/${p.id}`)}
           slots={{ toolbar: GridToolbar }}
-          slotProps={{ toolbar: { showQuickFilter: true, quickFilterProps: { debounceMs: 300 } } }}
+          slotProps={{ 
+            toolbar: { 
+              showQuickFilter: true, 
+              quickFilterProps: { debounceMs: 300 },
+              printOptions: { disableToolbarButton: true },
+              csvOptions: { disableToolbarButton: true }
+            } 
+          }}
           pageSizeOptions={[10, 25, 50, 100]}
           initialState={{
             pagination: {
@@ -774,28 +782,83 @@ export default function AnalyticsPage() {
         </DialogActions>
       </Dialog>
 
-      {/* Modal de Exportação */}
+      {/* Modal de Exportação - filtros de data e analista dentro do modal (como Validação/Reajuste) */}
       <ExportDataModal
         open={exportModalOpen}
         onClose={() => setExportModalOpen(false)}
-        data={finalFilteredItems.map(r => ({
-          ...r,
-          // Mapear IDs para nomes legíveis
-          analista: md.analistas.find(a => a.id === r.analista)?.nome ?? r.analista ?? 'N/A',
-          area: md.areas.find(ar => ar.id === r.area)?.nome ?? r.area ?? 'N/A',
-          cliente: md.clientes.find(c => c.id === r.cliente)?.nome ?? r.cliente ?? 'N/A',
-          contrato: r.contrato ?? 'N/A',
-          // Formatar datas (já estão em formato ISO string do store)
-          dataEntrega: r.dataEntrega ? new Date(r.dataEntrega).toLocaleString('pt-BR') : 'N/A',
-          dataCriacao: r.dataInicio ? new Date(r.dataInicio).toLocaleString('pt-BR') : 'N/A',
-          dataFinalizacao: r.dataFinalizacao ? new Date(r.dataFinalizacao).toLocaleString('pt-BR') : 'N/A',
-          dataAtualizacao: r.dataAtualizacao ? new Date(r.dataAtualizacao).toLocaleString('pt-BR') : 'N/A'
-        }))}
+        formats={['excel']}
+        filterOptions={{
+          showDateFilter: true,
+          showAnalistaFilter: true,
+          analistas: md.analistas
+        }}
+        data={finalFilteredItems.map(r => {
+          const isUuid = (v: string | undefined) => v && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)
+          const orNa = (v: string | undefined) => (!v || isUuid(v)) ? 'N/A' : v
+
+          const findByName = (value: string | undefined, arr: { id: string; nome: string }[]) => {
+            if (!value) return null
+            const n = (s: string) => String(s).toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ')
+            const nv = n(value)
+            return arr.find(a => n(a.nome) === nv) ?? null
+          }
+          const findContratoByCodigo = (value: string | undefined, arr: any[]) => {
+            if (!value) return null
+            const n = (s: string) => String(s).toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ')
+            const nv = n(value)
+            return arr.find((c: any) => n(c.codigo || '') === nv || n(c.numero || '') === nv) ?? null
+          }
+
+          let analistaNome = ''
+          if (r.analista) {
+            if (isUuid(r.analista)) analistaNome = md.analistas.find(a => a.id === r.analista)?.nome ?? ''
+            else analistaNome = findByName(r.analista, md.analistas)?.nome ?? r.analista
+          }
+          let areaNome = ''
+          if (r.area) {
+            if (isUuid(r.area)) areaNome = md.areas.find(ar => ar.id === r.area)?.nome ?? ''
+            else areaNome = findByName(r.area, md.areas)?.nome ?? r.area
+          }
+          let clienteNome = ''
+          if (r.cliente) {
+            if (isUuid(r.cliente)) clienteNome = md.clientes.find(c => c.id === r.cliente)?.nome ?? ''
+            else clienteNome = findByName(r.cliente, md.clientes)?.nome ?? r.cliente
+          }
+          let contratoLabel = ''
+          if (r.contrato) {
+            if (isUuid(r.contrato)) {
+              const c = md.contratos.find(x => x.id === r.contrato)
+              contratoLabel = (c as any)?.codigo ?? (c as any)?.numero ?? ''
+            } else {
+              const found = findContratoByCodigo(r.contrato, md.contratos)
+              contratoLabel = (found as any)?.codigo ?? (found as any)?.numero ?? r.contrato
+            }
+          }
+
+          const analistaId = isUuid(r.analista) ? r.analista : (findByName(r.analista, md.analistas)?.id ?? '')
+          const dataInicioRaw = r.dataInicio ?? r.dataCriacao ?? ''
+          const dataFinalRaw = r.dataFinalizacao ?? r.dataEntrega ?? r.dataInicio ?? r.dataCriacao ?? ''
+
+          return {
+            ...r,
+            analista: orNa(analistaNome),
+            area: orNa(areaNome),
+            cliente: orNa(clienteNome),
+            contrato: orNa(contratoLabel),
+            dataEntrega: r.dataEntrega ? new Date(r.dataEntrega).toLocaleString('pt-BR') : '',
+            dataCriacao: r.dataInicio ? new Date(r.dataInicio).toLocaleString('pt-BR') : '',
+            dataFinalizacao: r.dataFinalizacao ? new Date(r.dataFinalizacao).toLocaleString('pt-BR') : '',
+            dataAtualizacao: r.dataAtualizacao ? new Date(r.dataAtualizacao).toLocaleString('pt-BR') : '',
+            _dataInicioRaw: dataInicioRaw,
+            _dataFinalRaw: dataFinalRaw,
+            _analistaId: analistaId
+          }
+        })}
         moduleName="analytics"
         moduleTitle="Analytics"
         appliedFilters={{
           'Meus Relatórios': showOnlyMyReports ? 'Sim' : 'Não',
-          'Total de Registros': finalFilteredItems.length
+          'Total na lista': finalFilteredItems.length
         }}
         columns={[
           { key: 'titulo', label: 'Título' },
@@ -808,6 +871,8 @@ export default function AnalyticsPage() {
           { key: 'cliente', label: 'Cliente' },
           { key: 'contrato', label: 'Contrato' },
           { key: 'dataEntrega', label: 'Data de Entrega' },
+          { key: 'dataCriacao', label: 'Data de Início' },
+          { key: 'dataFinalizacao', label: 'Data de Finalização' },
           { key: 'dataAtualizacao', label: 'Atualizado em' }
         ]}
       />
