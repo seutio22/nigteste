@@ -1794,11 +1794,15 @@ export default function ProjectDetailPage() {
               actualEndDate: editingTask.actualEndDate && editingTask.actualEndDate !== '' ? editingTask.actualEndDate : null
             }
             
-            // Se a data de finalização foi definida, marcar como concluída
-            if (updatedTask.actualEndDate && updatedTask.status !== 'completed') {
+            // Se a data de finalização foi definida e não for Cancelado, marcar como concluída
+            if (updatedTask.actualEndDate && updatedTask.status !== 'completed' && updatedTask.status !== 'cancelado') {
               updatedTask.status = 'completed'
               updatedTask.progress = 100
               console.log('✅ Tarefa marcada como concluída automaticamente:', updatedTask.name)
+            }
+            // Status Cancelado não exige data de conclusão; progresso 0
+            if (updatedTask.status === 'cancelado') {
+              updatedTask.progress = 0
             }
             
             console.log('🔍 Tarefa atualizada:', {
@@ -1882,12 +1886,12 @@ export default function ProjectDetailPage() {
                   actualEndDate: editingSubtask.actualEndDate && editingSubtask.actualEndDate !== '' ? editingSubtask.actualEndDate : null
                 }
                 
-                // Se a data de finalização foi definida, marcar como concluída
-                if (updatedSubtask.actualEndDate && updatedSubtask.status !== 'completed') {
+                // Se a data de finalização foi definida e não for Cancelado, marcar como concluída
+                if (updatedSubtask.actualEndDate && updatedSubtask.status !== 'completed' && updatedSubtask.status !== 'cancelado') {
                   updatedSubtask.status = 'completed'
                 }
                 
-                // Recalcular progresso baseado no status atual
+                // Recalcular progresso baseado no status atual (Cancelado = 0, não exige data de conclusão)
                 updatedSubtask.progress = calculateSubtaskProgress(updatedSubtask)
                 
                 
@@ -2103,6 +2107,7 @@ export default function ProjectDetailPage() {
                   <MenuItem value="in_progress">Em Andamento</MenuItem>
                   <MenuItem value="completed">Concluída</MenuItem>
                   <MenuItem value="overdue">Em atraso</MenuItem>
+                  <MenuItem value="cancelado">Cancelado</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
@@ -2158,7 +2163,7 @@ export default function ProjectDetailPage() {
                 value={formatDateForInput(editingTask.actualEndDate || '')}
                 onChange={(e) => setEditingTask({ ...editingTask, actualEndDate: e.target.value || undefined })}
                 InputLabelProps={{ shrink: true }}
-                helperText="Data real de conclusão da tarefa"
+                helperText={editingTask.status === 'cancelado' ? 'Opcional para status Cancelado' : 'Data real de conclusão da tarefa'}
               />
             </Grid>
             
@@ -2275,6 +2280,7 @@ export default function ProjectDetailPage() {
                   <MenuItem value="in_progress">Em Andamento</MenuItem>
                   <MenuItem value="completed">Concluída</MenuItem>
                   <MenuItem value="overdue">Em atraso</MenuItem>
+                  <MenuItem value="cancelado">Cancelado</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
@@ -2370,7 +2376,7 @@ export default function ProjectDetailPage() {
                 value={formatDateForInput(editingSubtask.actualEndDate || '')}
                 onChange={(e) => setEditingSubtask({ ...editingSubtask, actualEndDate: e.target.value || undefined })}
                 InputLabelProps={{ shrink: true }}
-                helperText="Data real de conclusão da subtarefa"
+                helperText={editingSubtask.status === 'cancelado' ? 'Opcional para status Cancelado' : 'Data real de conclusão da subtarefa'}
               />
             </Grid>
             
@@ -2472,6 +2478,7 @@ export default function ProjectDetailPage() {
                   <MenuItem value="em_andamento">Em andamento</MenuItem>
                   <MenuItem value="concluido">Concluído</MenuItem>
                   <MenuItem value="pendente">Pendente</MenuItem>
+                  <MenuItem value="cancelado">Cancelado</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
@@ -2768,6 +2775,7 @@ export default function ProjectDetailPage() {
       case 'em_andamento': return 'Em andamento'
       case 'nao_iniciado': return 'Não iniciado'
       case 'pendente': return 'Pendente'
+      case 'cancelado': return 'Cancelado'
       default: return status || 'Pendente'
     }
   }
@@ -2778,6 +2786,7 @@ export default function ProjectDetailPage() {
       case 'em_andamento': return 'primary'
       case 'nao_iniciado': return 'warning'
       case 'pendente': return 'info'
+      case 'cancelado': return 'default'
       default: return 'default'
     }
   }
@@ -2798,6 +2807,7 @@ export default function ProjectDetailPage() {
       case 'in_progress': return <Schedule color="primary" />
       case 'pending': return <Warning color="warning" />
       case 'overdue': return <Warning color="error" />
+      case 'cancelado': return <Cancel color="action" />
       default: return <Schedule />
     }
   }
@@ -2808,6 +2818,7 @@ export default function ProjectDetailPage() {
       case 'in_progress': return 'Em Andamento'
       case 'pending': return 'Não iniciado'
       case 'overdue': return 'Em atraso'
+      case 'cancelado': return 'Cancelado'
       default: return status
     }
   }
@@ -2818,6 +2829,7 @@ export default function ProjectDetailPage() {
       case 'in_progress': return 'primary'
       case 'pending': return 'warning'
       case 'overdue': return 'error'
+      case 'cancelado': return 'default'
       default: return 'default'
     }
   }
@@ -2826,20 +2838,21 @@ export default function ProjectDetailPage() {
   const getSubtaskStatusColor = (status: string) => {
     switch (status) {
       case 'completed': return 'success'
-      case 'in_progress': return 'info' // Azul mais claro
-      case 'pending': return 'default' // Cinza neutro
-      case 'overdue': return 'warning' // Laranja em vez de vermelho
+      case 'in_progress': return 'info'
+      case 'pending': return 'default'
+      case 'overdue': return 'warning'
+      case 'cancelado': return 'default'
       default: return 'default'
     }
   }
 
-  // Função específica para ícones de subtarefas (tamanho menor)
   const getSubtaskStatusIcon = (status: string) => {
     switch (status) {
       case 'completed': return <CheckCircle color="success" sx={{ fontSize: '0.9rem' }} />
       case 'in_progress': return <Schedule color="info" sx={{ fontSize: '0.9rem' }} />
       case 'pending': return <Warning color="action" sx={{ fontSize: '0.9rem' }} />
       case 'overdue': return <Warning color="warning" sx={{ fontSize: '0.9rem' }} />
+      case 'cancelado': return <Cancel color="action" sx={{ fontSize: '0.9rem' }} />
       default: return <Schedule sx={{ fontSize: '0.9rem' }} />
     }
   }
@@ -2922,7 +2935,7 @@ export default function ProjectDetailPage() {
 
   // Função para verificar se uma tarefa está em atraso
   const checkOverdueStatus = (item: any) => {
-    if (item.status === 'completed') return item.status // Não alterar status de tarefas concluídas
+    if (item.status === 'completed' || item.status === 'cancelado') return item.status
     
     const today = new Date()
     let dueDate: Date | null = null
@@ -3022,6 +3035,8 @@ export default function ProjectDetailPage() {
         return 100
       case 'blocked':
         return 25
+      case 'cancelado':
+        return 0
       default:
         return 0
     }
@@ -3030,13 +3045,13 @@ export default function ProjectDetailPage() {
   // Função para calcular progresso automático da tarefa baseado nas subtarefas
   const calculateTaskProgress = (task: any) => {
     if (!task.subtasks || task.subtasks.length === 0) {
-      // Tarefa sem subtarefas: se estiver concluída com data de conclusão, considerar 100%
       const completedStatuses = ['completed', 'concluída', 'concluido', 'concluida']
+      if (String(task.status).toLowerCase() === 'cancelado') return 0
       const isCompletedWithDate =
         completedStatuses.includes(String(task.status).toLowerCase()) &&
         !!task.actualEndDate
       if (isCompletedWithDate) return 100
-      return task.progress || 0 // Manter progresso manual caso contrário
+      return task.progress || 0
     }
     
     // Calcular média do progresso das subtarefas baseado no status
@@ -3151,18 +3166,15 @@ export default function ProjectDetailPage() {
             return 'pendente'
           }
           
-          // Só atualizar status automaticamente se:
-          // 1. O progresso mudou E
-          // 2. O status atual não é consistente com o novo progresso
+          // Não alterar status de fases Canceladas
           const oldPhaseStatus = phase.status
-          const expectedStatus = getExpectedStatusFromProgress(phase.progress)
-          const isStatusInconsistent = phase.status !== expectedStatus
           const didProgressChange = oldPhaseProgress !== phase.progress
-          
-          // Só atualizar o status se o progresso mudou E o status está inconsistente
-          // Isso evita sobrescrever mudanças manuais do usuário quando o progresso não mudou
-          if (didProgressChange && isStatusInconsistent) {
-            phase.status = expectedStatus
+          if (phase.status !== 'cancelado') {
+            const expectedStatus = getExpectedStatusFromProgress(phase.progress)
+            const isStatusInconsistent = phase.status !== expectedStatus
+            if (didProgressChange && isStatusInconsistent) {
+              phase.status = expectedStatus
+            }
           }
           
           // Registrar log se o progresso da fase mudou
@@ -3855,7 +3867,7 @@ export default function ProjectDetailPage() {
     }
 
     const now = new Date()
-    const completedStatuses = ['completed', 'concluido', 'concluida', 'concluída', 'finalizado', 'finalizada', 'done']
+    const completedStatuses = ['completed', 'concluido', 'concluida', 'concluída', 'finalizado', 'finalizada', 'done', 'cancelado']
     const inProgressStatuses = ['in_progress', 'em_andamento', 'em andamento', 'in-progress', 'ongoing', 'andamento', 'pendente', 'pending']
 
     const parseDate = (value?: string | null) => {
@@ -5319,6 +5331,7 @@ export default function ProjectDetailPage() {
                     <MenuItem value="em_andamento">Em andamento</MenuItem>
                     <MenuItem value="concluido">Concluído</MenuItem>
                     <MenuItem value="pendente">Pendente</MenuItem>
+                    <MenuItem value="cancelado">Cancelado</MenuItem>
                   </Select>
                 </FormControl>
               </Box>
@@ -5503,6 +5516,7 @@ export default function ProjectDetailPage() {
                         <MenuItem value="in_progress">Em Andamento</MenuItem>
                         <MenuItem value="completed">Concluída</MenuItem>
                         <MenuItem value="overdue">Em atraso</MenuItem>
+                        <MenuItem value="cancelado">Cancelado</MenuItem>
                       </Select>
                     </FormControl>
                   </Grid>

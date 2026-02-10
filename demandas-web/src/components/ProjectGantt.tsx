@@ -125,17 +125,22 @@ const ProjectGantt: React.FC<ProjectGanttProps> = ({ phases, projectStartDate, p
     return Math.max(1, (daysDiff / projectDuration) * 100)
   }
 
-  // Obter cor baseada no status
+  // Obter cor baseada no status (aceita valores em inglês e português do cronograma)
   const getStatusColor = (status: string) => {
-    switch (status) {
+    switch (String(status || '').toLowerCase()) {
       case 'completed':
+      case 'concluido':
+      case 'concluida':
         return theme.palette.success.main
       case 'in-progress':
+      case 'in_progress':
+      case 'em_andamento':
         return theme.palette.primary.main
       case 'paused':
         return theme.palette.warning.main
       case 'cancelled':
-        return theme.palette.error.main
+      case 'cancelado':
+        return theme.palette.grey[600]
       default:
         return theme.palette.grey[400]
     }
@@ -143,17 +148,62 @@ const ProjectGantt: React.FC<ProjectGanttProps> = ({ phases, projectStartDate, p
 
   // Obter ícone baseado no status
   const getStatusIcon = (status: string) => {
-    switch (status) {
+    switch (String(status || '').toLowerCase()) {
       case 'completed':
+      case 'concluido':
+      case 'concluida':
         return <CheckCircle fontSize="small" />
       case 'in-progress':
+      case 'in_progress':
+      case 'em_andamento':
         return <PlayArrow fontSize="small" />
       case 'paused':
         return <Pause fontSize="small" />
       case 'cancelled':
+      case 'cancelado':
         return <Stop fontSize="small" />
       default:
         return <Schedule fontSize="small" />
+    }
+  }
+
+  const getStatusLabel = (status: string) => {
+    switch (String(status || '').toLowerCase()) {
+      case 'completed':
+      case 'concluido':
+      case 'concluida':
+        return 'Concluída'
+      case 'in-progress':
+      case 'in_progress':
+      case 'em_andamento':
+        return 'Em Andamento'
+      case 'paused':
+        return 'Pausada'
+      case 'cancelled':
+      case 'cancelado':
+        return 'Cancelada'
+      default:
+        return 'Pendente'
+    }
+  }
+
+  const getStatusChipColor = (status: string): 'success' | 'primary' | 'warning' | 'error' | 'default' => {
+    switch (String(status || '').toLowerCase()) {
+      case 'completed':
+      case 'concluido':
+      case 'concluida':
+        return 'success'
+      case 'in-progress':
+      case 'in_progress':
+      case 'em_andamento':
+        return 'primary'
+      case 'paused':
+        return 'warning'
+      case 'cancelled':
+      case 'cancelado':
+        return 'default'
+      default:
+        return 'default'
     }
   }
 
@@ -347,15 +397,9 @@ const ProjectGantt: React.FC<ProjectGanttProps> = ({ phases, projectStartDate, p
               <Box sx={{ ml: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Chip
                   icon={getStatusIcon(phase.status)}
-                  label={phase.status === 'in-progress' ? 'Em Andamento' : 
-                         phase.status === 'completed' ? 'Concluída' :
-                         phase.status === 'paused' ? 'Pausada' :
-                         phase.status === 'cancelled' ? 'Cancelada' : 'Pendente'}
+                  label={getStatusLabel(phase.status)}
                   size="small"
-                  color={phase.status === 'completed' ? 'success' : 
-                         phase.status === 'in-progress' ? 'primary' :
-                         phase.status === 'paused' ? 'warning' :
-                         phase.status === 'cancelled' ? 'error' : 'default'}
+                  color={getStatusChipColor(phase.status)}
                 />
                 <Typography variant="body2" sx={{ minWidth: '60px', textAlign: 'center' }}>
                   {phase.progress}%
@@ -436,15 +480,9 @@ const ProjectGantt: React.FC<ProjectGanttProps> = ({ phases, projectStartDate, p
                       <Box sx={{ ml: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Chip
                           icon={getStatusIcon(task.status)}
-                          label={task.status === 'in-progress' ? 'Em Andamento' : 
-                                 task.status === 'completed' ? 'Concluída' :
-                                 task.status === 'paused' ? 'Pausada' :
-                                 task.status === 'cancelled' ? 'Cancelada' : 'Pendente'}
+                          label={getStatusLabel(task.status)}
                           size="small"
-                          color={task.status === 'completed' ? 'success' : 
-                                 task.status === 'in-progress' ? 'primary' :
-                                 task.status === 'paused' ? 'warning' :
-                                 task.status === 'cancelled' ? 'error' : 'default'}
+                          color={getStatusChipColor(task.status)}
                         />
                         <Chip
                           label={task.priority}
@@ -527,15 +565,9 @@ const ProjectGantt: React.FC<ProjectGanttProps> = ({ phases, projectStartDate, p
                               <Box sx={{ ml: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
                                 <Chip
                                   icon={getStatusIcon(subtask.status)}
-                                  label={subtask.status === 'in-progress' ? 'Em Andamento' : 
-                                         subtask.status === 'completed' ? 'Concluída' :
-                                         subtask.status === 'paused' ? 'Pausada' :
-                                         subtask.status === 'cancelled' ? 'Cancelada' : 'Pendente'}
+                                  label={getStatusLabel(subtask.status)}
                                   size="small"
-                                  color={subtask.status === 'completed' ? 'success' : 
-                                         subtask.status === 'in-progress' ? 'primary' :
-                                         subtask.status === 'paused' ? 'warning' :
-                                         subtask.status === 'cancelled' ? 'error' : 'default'}
+                                  color={getStatusChipColor(subtask.status)}
                                 />
                                 <Chip
                                   label={subtask.priority}
