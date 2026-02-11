@@ -17,6 +17,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility'
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
 import DeleteIcon from '@mui/icons-material/Delete'
 import FileCopyIcon from '@mui/icons-material/FileCopy'
+import TableChartIcon from '@mui/icons-material/TableChart'
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf'
 import EditIcon from '@mui/icons-material/Edit'
 import PersonIcon from '@mui/icons-material/Person'
@@ -763,7 +764,7 @@ export default function ManutencaoListPage() {
               {canExport && (
                 <Button 
                   variant="outlined" 
-                  startIcon={<PictureAsPdfIcon />}
+                  startIcon={<TableChartIcon />}
                   onClick={() => setExportModalOpen(true)}
                   size="medium"
                   className="text-secondary-600 border-secondary-300 hover:text-secondary-700 hover:border-secondary-400 hover:bg-secondary-50 transition-all duration-300 font-medium"
@@ -840,6 +841,8 @@ export default function ManutencaoListPage() {
             toolbar: {
               showQuickFilter: true,
               quickFilterProps: { debounceMs: 500 },
+              printOptions: { disableToolbarButton: true },
+              csvOptions: { disableToolbarButton: true },
             },
           }}
           columnVisibilityModel={columnVisibilityModel}
@@ -872,41 +875,46 @@ export default function ManutencaoListPage() {
         />
       </div>
 
-      {/* Modal de Exportação */}
+      {/* Modal de Exportação - filtros de data e analista dentro do modal (como Validação/Reajuste/Analytics) */}
       <ExportDataModal
         open={exportModalOpen}
         onClose={() => setExportModalOpen(false)}
+        formats={['excel']}
+        filterOptions={{
+          showDateFilter: true,
+          showAnalistaFilter: true,
+          analistas: md.analistas
+        }}
         data={finalFilteredItems.map(d => ({
           ...d,
-          // Mapear IDs para nomes legíveis
           analista: analistasById[d.analistaId]?.nome ?? d.analista ?? 'N/A',
           area: areasById[d.areaId]?.nome ?? d.area ?? 'N/A',
           cliente: clientesById[d.clienteId]?.nome ?? d.cliente ?? 'N/A',
-          contrato: contratosById[d.contratoId]?.numero ?? d.contrato ?? 'N/A',
+          contrato: contratosById[d.contratoId]?.numero ?? contratosById[d.contratoId]?.codigo ?? d.contrato ?? 'N/A',
           operadora: operadorasById[d.operadoraId]?.nome ?? d.operadora ?? 'N/A',
           produto: produtosById[d.produtoId]?.nome ?? d.produto ?? 'N/A',
           sistema: sistemasById[d.sistemaId]?.nome ?? d.sistema ?? 'N/A',
           tipoServico: tiposCadastroById[d.tipoServicoId]?.nome ?? d.tipoServico ?? 'N/A',
           tipo: padraoById[d.tipoId]?.nome ?? d.tipo ?? 'N/A',
-          // Formatar datas
-          dataInicio: d.dataInicio ? new Date(d.dataInicio).toLocaleDateString('pt-BR') : 'N/A',
-          dataFinal: d.dataFinal ? new Date(d.dataFinal).toLocaleDateString('pt-BR') : 'N/A',
-          createdAt: d.createdAt ? new Date(d.createdAt).toLocaleString('pt-BR') : 'N/A',
-          updatedAt: d.updatedAt ? new Date(d.updatedAt).toLocaleString('pt-BR') : 'N/A',
-          // Campos numéricos
+          dataInicio: d.dataInicio ? new Date(d.dataInicio).toLocaleDateString('pt-BR') : '',
+          dataFinal: d.dataFinal ? new Date(d.dataFinal).toLocaleDateString('pt-BR') : '',
+          createdAt: d.createdAt ? new Date(d.createdAt).toLocaleString('pt-BR') : '',
+          updatedAt: d.updatedAt ? new Date(d.updatedAt).toLocaleString('pt-BR') : '',
           qtdRetornos: d.qtdRetornos ?? 0,
           total: d.total ?? 0,
           usuariosEmpresa: d.usuariosEmpresa ?? 0,
-          // Campos de texto
-          solicitante: d.solicitante ?? 'N/A',
-          observacoes: d.observacoes ?? 'N/A',
-          qualidade: d.qualidade ?? 'N/A'
+          solicitante: md.solicitantesById?.[d.solicitante]?.nome ?? d.solicitante ?? '',
+          observacoes: d.observacoes ?? '',
+          qualidade: d.qualidade ?? '',
+          _dataInicioRaw: d.dataInicio ?? '',
+          _dataFinalRaw: d.dataFinal ?? d.dataInicio ?? '',
+          _analistaId: d.analistaId ?? ''
         }))}
         moduleName="manutencoes"
         moduleTitle="Manutenções"
         appliedFilters={{
           'Minhas Manutenções': showOnlyMyManutencoes ? 'Sim' : 'Não',
-          'Total de Registros': finalFilteredItems.length
+          'Total na lista': finalFilteredItems.length
         }}
         columns={[
           { key: 'ticket', label: 'Nº Ticket' },
