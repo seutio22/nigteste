@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Button, IconButton, Menu, MenuItem, TextField, FormControl, InputLabel, Select, Box, Typography, Switch, FormControlLabel, Chip, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material'
 import { DataGrid, GridColDef, GridToolbar, GridColumnVisibilityModel, GridFilterModel, GridPaginationModel, GridSortModel } from '@mui/x-data-grid'
 import { Add, Download, MoreVert, Visibility, Edit, Delete, ContentCopy, TrendingUp, Description, Search, FilterList, Person, Group } from '@mui/icons-material'
+import TableChartIcon from '@mui/icons-material/TableChart'
 import { useAtendimentoStore } from '../../store/atendimentoStore'
 import { useMasterDataStore } from '../../store/masterDataStore'
 import { useAuthStore } from '../../store/authStore'
@@ -371,7 +372,7 @@ export default function AtendimentoListPage() {
 
               <Button
                 variant="outlined"
-                startIcon={<Download />}
+                startIcon={<TableChartIcon />}
                 onClick={() => setExportModalOpen(true)}
                 size="medium"
                 className="text-secondary-600 border-secondary-300 hover:text-secondary-700 hover:border-secondary-400 hover:bg-secondary-50 transition-all duration-300 font-medium"
@@ -435,6 +436,8 @@ export default function AtendimentoListPage() {
             toolbar: {
               showQuickFilter: true,
               quickFilterProps: { debounceMs: 500 },
+              printOptions: { disableToolbarButton: true },
+              csvOptions: { disableToolbarButton: true },
             },
           }}
           sortModel={sortModel}
@@ -513,13 +516,18 @@ export default function AtendimentoListPage() {
         </MenuItem>
       </Menu>
 
-      {/* Modal de Exportação */}
+      {/* Modal de Exportação - filtros de data e analista dentro do modal (como Validação/Reajuste) */}
       <ExportDataModal
         open={exportModalOpen}
         onClose={() => setExportModalOpen(false)}
+        formats={['excel']}
+        filterOptions={{
+          showDateFilter: true,
+          showAnalistaFilter: true,
+          analistas: masterDataStore.analistas
+        }}
         data={sortedAtendimentos.map(a => ({
           ...a,
-          // Mapear IDs para nomes legíveis
           analista: analistasById?.[a.analista || '']?.nome ?? a.analista ?? 'N/A',
           area: areasById?.[a.area || '']?.nome ?? a.area ?? 'N/A',
           cliente: clientesById?.[a.cliente || '']?.nome ?? a.cliente ?? 'N/A',
@@ -527,20 +535,21 @@ export default function AtendimentoListPage() {
           operadora: operadorasById?.[a.operadora || '']?.nome ?? a.operadora ?? 'N/A',
           produto: produtosById?.[a.produto || '']?.nome ?? a.produto ?? 'N/A',
           sistema: sistemasById?.[a.sistema || '']?.nome ?? a.sistema ?? 'N/A',
+          solicitante: solicitantesById?.[a.solicitante || '']?.nome ?? a.solicitante ?? 'N/A',
           tipoServico: tipoServicoLabel[String(a.tipoServico || '')] || a.tipoServico || 'N/A',
-          tipo: (() => {
-            return canalLabel[String(a.tipo || '')] || a.tipo || 'N/A'
-          })(),
-          // Formatar datas
-          dataInicio: a.dataInicio ? new Date(a.dataInicio).toLocaleString('pt-BR') : 'N/A',
-          dataResolucao: a.dataFinal ? new Date(a.dataFinal).toLocaleString('pt-BR') : 'N/A',
-          createdAt: a.createdAt ? new Date(a.createdAt).toLocaleString('pt-BR') : 'N/A'
+          tipo: canalLabel[String(a.tipo || '')] || a.tipo || 'N/A',
+          dataInicio: a.dataInicio ? new Date(a.dataInicio).toLocaleString('pt-BR') : '',
+          dataResolucao: a.dataFinal ? new Date(a.dataFinal).toLocaleString('pt-BR') : '',
+          createdAt: a.createdAt ? new Date(a.createdAt).toLocaleString('pt-BR') : '',
+          _dataInicioRaw: a.dataInicio ?? a.createdAt ?? '',
+          _dataFinalRaw: a.dataFinal ?? a.dataInicio ?? a.createdAt ?? '',
+          _analistaId: a.analista ?? ''
         }))}
         moduleName="atendimentos"
         moduleTitle="Atendimentos"
         appliedFilters={{
           'Meus Atendimentos': showOnlyMyAtendimentos ? 'Sim' : 'Não',
-          'Total de Registros': sortedAtendimentos.length
+          'Total na lista': sortedAtendimentos.length
         }}
         columns={[
           { key: 'ticket', label: 'Ticket' },

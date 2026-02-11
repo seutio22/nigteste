@@ -16,6 +16,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility'
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
 import DeleteIcon from '@mui/icons-material/Delete'
 import FileCopyIcon from '@mui/icons-material/FileCopy'
+import TableChartIcon from '@mui/icons-material/TableChart'
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf'
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
 import EditIcon from '@mui/icons-material/Edit'
@@ -728,7 +729,7 @@ export default function DemandListPage() {
               {canExport && (
                 <Button 
                   variant="outlined" 
-                  startIcon={<PictureAsPdfIcon />}
+                  startIcon={<TableChartIcon />}
                   onClick={() => setExportModalOpen(true)}
                   size="medium"
                   className="text-secondary-600 border-secondary-300 hover:text-secondary-700 hover:border-secondary-400 hover:bg-secondary-50 transition-all duration-300 font-medium"
@@ -807,6 +808,8 @@ export default function DemandListPage() {
             toolbar: {
               showQuickFilter: true,
               quickFilterProps: { debounceMs: 500 },
+              printOptions: { disableToolbarButton: true },
+              csvOptions: { disableToolbarButton: true },
             },
           }}
           columnVisibilityModel={columnVisibilityModel}
@@ -879,13 +882,18 @@ export default function DemandListPage() {
         </DialogActions>
       </Dialog>
 
-      {/* Modal de Exportação */}
+      {/* Modal de Exportação - filtros de data e analista dentro do modal (como Validação/Reajuste) */}
       <ExportDataModal
         open={exportModalOpen}
         onClose={() => setExportModalOpen(false)}
+        formats={['excel']}
+        filterOptions={{
+          showDateFilter: true,
+          showAnalistaFilter: true,
+          analistas: md.analistas
+        }}
         data={finalFilteredItems.map(d => ({
           ...d,
-          // Mapear IDs para nomes legíveis usando acesso direto aos índices
           analista: (() => {
             if (d.analistaId) return analistasById[d.analistaId]?.nome ?? d.analistaId
             if (d.analista && typeof d.analista === 'string' && d.analista.length > 20) {
@@ -937,14 +945,16 @@ export default function DemandListPage() {
             }
             return d.tipoServico ?? 'N/A'
           })(),
-          // Formatar data
-          updatedAt: d.updatedAt ? new Date(d.updatedAt).toLocaleString('pt-BR') : 'N/A'
+          updatedAt: d.updatedAt ? new Date(d.updatedAt).toLocaleString('pt-BR') : '',
+          _dataInicioRaw: d.dataInicio ?? d.createdAt ?? '',
+          _dataFinalRaw: d.dataFinal ?? d.updatedAt ?? d.dataInicio ?? d.createdAt ?? '',
+          _analistaId: d.analistaId ?? ''
         }))}
         moduleName="demandas"
         moduleTitle="Cadastro"
         appliedFilters={{
           'Meus Cadastros': showOnlyMyDemands ? 'Sim' : 'Não',
-          'Total de Registros': finalFilteredItems.length
+          'Total na lista': finalFilteredItems.length
         }}
         columns={[
           { key: 'ticket', label: 'Nº Ticket' },
