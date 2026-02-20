@@ -8,7 +8,6 @@ import { authRoutes } from './routes/auth'
 import { userRoutes } from './routes/users'
 import comunicadosRoutes from './routes/comunicados'
 import projectTeamRoutes from './routes/projectTeam'
-import projectAlertsRoutes from './routes/projectAlerts'
 import shareRoutes from './routes/share'
 import { masterDataRoutes } from './routes/masterData'
 import { kanbanRoutes } from './routes/kanban'
@@ -47,14 +46,42 @@ const app = Fastify({
 // Usar singleton do PrismaClient para evitar múltiplas conexões
 
 // CORS deve ser o primeiro plugin para preflight OPTIONS funcionar corretamente
+const allowedOrigins = [
+  'https://nigteste.vercel.app',
+  'https://nigdynamic.com',
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:3000'
+]
+// Handler explícito para preflight OPTIONS - garante CORS mesmo se o plugin falhar
+app.addHook('onRequest', async (request, reply) => {
+  if ((request as any).method === 'OPTIONS') {
+    const origin = (request as any).headers?.origin
+    const allowOrigin = origin && allowedOrigins.includes(origin) ? origin : allowedOrigins[0]
+    reply.header('Access-Control-Allow-Origin', allowOrigin)
+    reply.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD')
+    reply.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Origin, Accept, X-Requested-With, X-Session-ID, x-user-id, x-user-role')
+    reply.header('Access-Control-Allow-Credentials', 'true')
+    reply.header('Access-Control-Max-Age', '86400')
+    return reply.code(204).send()
+  }
+})
 const corsOptions = {
-  origin: true,
+  origin: (origin: string | undefined, cb: (err: Error | null, allow?: boolean | string) => void) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      cb(null, true)
+    } else {
+      cb(null, allowedOrigins[0])
+    }
+  },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept', 'X-Requested-With', 'X-Session-ID', 'x-user-id', 'x-user-role'],
   exposedHeaders: ['Content-Length', 'Content-Type'],
   preflightContinue: false,
-  optionsSuccessStatus: 204
+  optionsSuccessStatus: 204,
+  strictPreflight: false
 }
 app.register(cors, corsOptions)
 
@@ -107,12 +134,18 @@ app.addHook('onRequest', async (request, reply) => {
 console.log('🔧 PostgreSQL configurado - schema gerenciado por migrations')
 console.log('🚀 REAJUSTE SCHEMA ATUALIZADO - v2.4.3 - CAMPOS ADICIONADOS')
 
-// Middleware para forçar UTF-8 em todas as respostas
+// Middleware para forçar UTF-8 e CORS em todas as respostas (inclui erros 404/500)
 app.addHook('onSend', async (request, reply, payload) => {
-  // Forçar charset UTF-8 em todas as respostas JSON
   const contentType = reply.getHeader('content-type')
   if (contentType && contentType.toString().includes('application/json')) {
     reply.header('Content-Type', 'application/json; charset=utf-8')
+  }
+  // Garantir CORS em todas as respostas (erros podem não passar pelo plugin)
+  if (!reply.getHeader('Access-Control-Allow-Origin')) {
+    const origin = (request as any).headers?.origin
+    const allowOrigin = origin && allowedOrigins.includes(origin) ? origin : allowedOrigins[0]
+    reply.header('Access-Control-Allow-Origin', allowOrigin)
+    reply.header('Access-Control-Allow-Credentials', 'true')
   }
   return payload
 })
@@ -3111,7 +3144,7 @@ const resources = {
   padroes: crud('padrao')
 }
 
-// Rotas de alertas de projetos - registrar ANTES do CRUD genérico para evitar 404
+// Rotas de alertas de projetos - registrar ANTES do CRUD para evitar conflito
 app.get('/projetos/:projectId/alerts', async (req: any, reply: any) => {
   try {
     const { projectId } = req.params
@@ -3190,6 +3223,119 @@ app.delete('/projetos/:projectId/alerts/:alertId', async (req: any, reply: any) 
   } catch (e) {
     console.error('Erro DELETE /projetos/:projectId/alerts/:alertId:', e)
     return reply.status(500).send({ error: 'Erro interno' })
+  }
+})
+
+// Notificações de previsão de entrega (alertas de projeto)
+app.get('/notifications/project-deadlines', async (req: any, reply: any) => {
+  try {
+    let userId: string | null = null
+    try {
+      await (req as any).jwtVerify?.()
+      userId = (req as any).user?.id ?? (req as any).user?.sub ?? null
+    } catch {
+      const auth = req?.headers?.authorization
+      if (auth?.startsWith?.('Bearer ')) {
+        const token = auth.slice(7)
+        const parts = token.split('.')
+        if (parts.length >= 2) {
+          const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString())
+          userId = payload?.id ?? payload?.userId ?? payload?.sub ?? null
+        }
+      }
+    }
+    if (!userId) return reply.status(401).send({ error: 'Não autenticado' })
+
+    const alerts = await prisma.projectAlert.findMany({
+      where: { userId, enabled: true },
+      include: { project: { select: { id: true, name: true, endDate: true, timeline: true } } }
+    })
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const notifications: any[] = []
+
+    for (const alert of alerts) {
+      const project = alert.project as any
+      const timeline = typeof project.timeline === 'string' ? JSON.parse(project.timeline || '{}') : (project.timeline || {})
+      const phases = timeline?.phases || []
+      const targetType = (alert.targetType || '').trim() || (alert.responsavelNome ? 'responsible' : 'project')
+      const targetId = (alert.targetId || '').trim()
+
+      if (targetType === 'project') {
+        const endDate = new Date(project.endDate)
+        endDate.setHours(0, 0, 0, 0)
+        const diffDays = Math.ceil((endDate.getTime() - today.getTime()) / (24 * 60 * 60 * 1000))
+        if (diffDays >= 0 && diffDays <= alert.diasAntes) {
+          const msg = diffDays === 0 ? `O projeto "${project.name}" vence hoje!` : diffDays === 1 ? `O projeto "${project.name}" vence amanhã.` : `O projeto "${project.name}" vence em ${diffDays} dias (${endDate.toLocaleDateString('pt-BR')}).`
+          notifications.push({ titulo: 'Previsão de entrega - Projeto', mensagem: msg, tipo: 'sistema', prioridade: diffDays <= 1 ? 'urgente' : 'alta', dados: { projectId: project.id, projectName: project.name, endDate: project.endDate, diasRestantes: diffDays }, link: `/projetos/${project.id}` })
+        }
+      } else if (targetType === 'task' && targetId) {
+        for (const phase of phases) {
+          const tasks = phase.tasks || []
+          const task = tasks.find((t: any) => String(t.id) === String(targetId))
+          if (!task) continue
+          const plannedDate = task.plannedEndDate || task.plannedDate
+          if (!plannedDate) continue
+          const dueDate = new Date(plannedDate)
+          dueDate.setHours(0, 0, 0, 0)
+          const diffDays = Math.ceil((dueDate.getTime() - today.getTime()) / (24 * 60 * 60 * 1000))
+          if (diffDays >= 0 && diffDays <= alert.diasAntes) {
+            const taskName = task.name || task.title || 'Tarefa'
+            const phaseName = phase.name || 'Fase'
+            const msg = diffDays === 0 ? `A tarefa "${taskName}" (${phaseName}) vence hoje!` : diffDays === 1 ? `A tarefa "${taskName}" (${phaseName}) vence amanhã.` : `A tarefa "${taskName}" (${phaseName}) vence em ${diffDays} dias (${dueDate.toLocaleDateString('pt-BR')}).`
+            notifications.push({ titulo: 'Previsão de entrega - Tarefa', mensagem: msg, tipo: 'sistema', prioridade: diffDays <= 1 ? 'urgente' : 'alta', dados: { projectId: project.id, projectName: project.name, taskId: task.id, taskName, phaseName, plannedDate, diasRestantes: diffDays }, link: `/projetos/${project.id}` })
+          }
+          break
+        }
+      } else if (targetType === 'subtask' && targetId) {
+        for (const phase of phases) {
+          const tasks = phase.tasks || []
+          for (const task of tasks) {
+            const subtasks = task.subtasks || []
+            const subtask = subtasks.find((s: any) => String(s.id) === String(targetId))
+            if (!subtask) continue
+            const plannedDate = subtask.plannedEndDate || subtask.plannedDate
+            if (!plannedDate) continue
+            const dueDate = new Date(plannedDate)
+            dueDate.setHours(0, 0, 0, 0)
+            const diffDays = Math.ceil((dueDate.getTime() - today.getTime()) / (24 * 60 * 60 * 1000))
+            if (diffDays >= 0 && diffDays <= alert.diasAntes) {
+              const subtaskName = subtask.name || subtask.title || 'Subtarefa'
+              const taskName = task.name || task.title || 'Tarefa'
+              const phaseName = phase.name || 'Fase'
+              const msg = diffDays === 0 ? `A subtarefa "${subtaskName}" (${taskName}) vence hoje!` : diffDays === 1 ? `A subtarefa "${subtaskName}" (${taskName}) vence amanhã.` : `A subtarefa "${subtaskName}" (${taskName}) vence em ${diffDays} dias (${dueDate.toLocaleDateString('pt-BR')}).`
+              notifications.push({ titulo: 'Previsão de entrega - Subtarefa', mensagem: msg, tipo: 'sistema', prioridade: diffDays <= 1 ? 'urgente' : 'alta', dados: { projectId: project.id, projectName: project.name, taskId: task.id, taskName, subtaskId: subtask.id, subtaskName, phaseName, plannedDate, diasRestantes: diffDays }, link: `/projetos/${project.id}` })
+            }
+            break
+          }
+        }
+      } else {
+        const respNome = (alert.responsavelNome || '').trim().toLowerCase()
+        for (const phase of phases) {
+          const tasks = phase.tasks || []
+          for (const task of tasks) {
+            const resp = (task.responsible || task.assignee || '')
+            const respStr = typeof resp === 'object' ? (resp?.nome || resp?.name || '') : String(resp)
+            if (!respStr.trim() || respStr.trim().toLowerCase() !== respNome) continue
+            const plannedDate = task.plannedEndDate || task.plannedDate
+            if (!plannedDate) continue
+            const dueDate = new Date(plannedDate)
+            dueDate.setHours(0, 0, 0, 0)
+            const diffDays = Math.ceil((dueDate.getTime() - today.getTime()) / (24 * 60 * 60 * 1000))
+            if (diffDays >= 0 && diffDays <= alert.diasAntes) {
+              const taskName = task.name || task.title || 'Tarefa'
+              const phaseName = phase.name || 'Fase'
+              const msg = diffDays === 0 ? `A tarefa "${taskName}" (${phaseName}) vence hoje!` : diffDays === 1 ? `A tarefa "${taskName}" (${phaseName}) vence amanhã.` : `A tarefa "${taskName}" (${phaseName}) vence em ${diffDays} dias (${dueDate.toLocaleDateString('pt-BR')}).`
+              notifications.push({ titulo: 'Previsão de entrega - Tarefa', mensagem: msg, tipo: 'sistema', prioridade: diffDays <= 1 ? 'urgente' : 'alta', dados: { projectId: project.id, projectName: project.name, taskId: task.id, taskName, phaseName, plannedDate, diasRestantes: diffDays }, link: `/projetos/${project.id}` })
+            }
+          }
+        }
+      }
+    }
+    return reply.send({ notifications, count: notifications.length })
+  } catch (error) {
+    console.error('Erro ao buscar notificações de projeto:', error)
+    return reply.status(500).send({ error: 'Erro interno do servidor' })
   }
 })
 
@@ -5146,9 +5292,6 @@ app.register(comunicadosRoutes, { prisma, prefix: '/comunicados' })
 
 // Rotas de equipe de projetos
 app.register(projectTeamRoutes, { prisma })
-
-// Rotas de alertas de projetos
-app.register(projectAlertsRoutes, { prisma })
 
 // Rotas de compartilhamento (DEVEM vir ANTES das rotas genéricas)
 app.register(shareRoutes, { prisma })
