@@ -3261,13 +3261,19 @@ app.get('/notifications/project-deadlines', async (req: any, reply: any) => {
       const targetType = (alert.targetType || '').trim() || (alert.responsavelNome ? 'responsible' : 'project')
       const targetId = (alert.targetId || '').trim()
 
+      const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'
       if (targetType === 'project') {
         const endDate = new Date(project.endDate)
         endDate.setHours(0, 0, 0, 0)
         const diffDays = Math.ceil((endDate.getTime() - today.getTime()) / (24 * 60 * 60 * 1000))
         if (diffDays >= 0 && diffDays <= alert.diasAntes) {
-          const msg = diffDays === 0 ? `O projeto "${project.name}" vence hoje!` : diffDays === 1 ? `O projeto "${project.name}" vence amanhã.` : `O projeto "${project.name}" vence em ${diffDays} dias (${endDate.toLocaleDateString('pt-BR')}).`
-          notifications.push({ titulo: 'Previsão de entrega - Projeto', mensagem: msg, tipo: 'sistema', prioridade: diffDays <= 1 ? 'urgente' : 'alta', dados: { projectId: project.id, projectName: project.name, endDate: project.endDate, diasRestantes: diffDays }, link: `/projetos/${project.id}` })
+          const dataStr = fmtDate(project.endDate)
+          const msg = diffDays === 0
+            ? `Projeto "${project.name}" vence HOJE (${dataStr}). Acompanhe o cronograma para garantir a entrega.`
+            : diffDays === 1
+              ? `Projeto "${project.name}" vence AMANHÃ (${dataStr}). Restam ${diffDays} dia. Verifique o cronograma.`
+              : `Projeto "${project.name}" vence em ${diffDays} dias (${dataStr}). Data limite: ${dataStr}.`
+          notifications.push({ titulo: 'Previsão de entrega - Projeto', mensagem: msg, tipo: 'sistema', prioridade: diffDays <= 1 ? 'urgente' : 'alta', dados: { projectId: project.id, projectName: project.name, endDate: project.endDate, diasRestantes: diffDays, targetType: 'project' }, link: `/projetos/${project.id}` })
         }
       } else if (targetType === 'task' && targetId) {
         for (const phase of phases) {
@@ -3282,8 +3288,13 @@ app.get('/notifications/project-deadlines', async (req: any, reply: any) => {
           if (diffDays >= 0 && diffDays <= alert.diasAntes) {
             const taskName = task.name || task.title || 'Tarefa'
             const phaseName = phase.name || 'Fase'
-            const msg = diffDays === 0 ? `A tarefa "${taskName}" (${phaseName}) vence hoje!` : diffDays === 1 ? `A tarefa "${taskName}" (${phaseName}) vence amanhã.` : `A tarefa "${taskName}" (${phaseName}) vence em ${diffDays} dias (${dueDate.toLocaleDateString('pt-BR')}).`
-            notifications.push({ titulo: 'Previsão de entrega - Tarefa', mensagem: msg, tipo: 'sistema', prioridade: diffDays <= 1 ? 'urgente' : 'alta', dados: { projectId: project.id, projectName: project.name, taskId: task.id, taskName, phaseName, plannedDate, diasRestantes: diffDays }, link: `/projetos/${project.id}` })
+            const dataStr = fmtDate(plannedDate)
+            const msg = diffDays === 0
+              ? `Tarefa "${taskName}" (${phaseName}) vence HOJE (${dataStr}). Projeto: ${project.name}.`
+              : diffDays === 1
+                ? `Tarefa "${taskName}" (${phaseName}) vence AMANHÃ (${dataStr}). Projeto: ${project.name}. Restam ${diffDays} dia.`
+                : `Tarefa "${taskName}" (${phaseName}) vence em ${diffDays} dias (${dataStr}). Projeto: ${project.name}. Data prevista: ${dataStr}.`
+            notifications.push({ titulo: 'Previsão de entrega - Tarefa', mensagem: msg, tipo: 'sistema', prioridade: diffDays <= 1 ? 'urgente' : 'alta', dados: { projectId: project.id, projectName: project.name, taskId: task.id, taskName, phaseName, plannedDate, diasRestantes: diffDays, targetType: 'task' }, link: `/projetos/${project.id}` })
           }
           break
         }
@@ -3303,8 +3314,13 @@ app.get('/notifications/project-deadlines', async (req: any, reply: any) => {
               const subtaskName = subtask.name || subtask.title || 'Subtarefa'
               const taskName = task.name || task.title || 'Tarefa'
               const phaseName = phase.name || 'Fase'
-              const msg = diffDays === 0 ? `A subtarefa "${subtaskName}" (${taskName}) vence hoje!` : diffDays === 1 ? `A subtarefa "${subtaskName}" (${taskName}) vence amanhã.` : `A subtarefa "${subtaskName}" (${taskName}) vence em ${diffDays} dias (${dueDate.toLocaleDateString('pt-BR')}).`
-              notifications.push({ titulo: 'Previsão de entrega - Subtarefa', mensagem: msg, tipo: 'sistema', prioridade: diffDays <= 1 ? 'urgente' : 'alta', dados: { projectId: project.id, projectName: project.name, taskId: task.id, taskName, subtaskId: subtask.id, subtaskName, phaseName, plannedDate, diasRestantes: diffDays }, link: `/projetos/${project.id}` })
+              const dataStr = fmtDate(plannedDate)
+              const msg = diffDays === 0
+                ? `Subtarefa "${subtaskName}" da tarefa "${taskName}" (${phaseName}) vence HOJE (${dataStr}). Projeto: ${project.name}.`
+                : diffDays === 1
+                  ? `Subtarefa "${subtaskName}" da tarefa "${taskName}" (${phaseName}) vence AMANHÃ (${dataStr}). Projeto: ${project.name}. Restam ${diffDays} dia.`
+                  : `Subtarefa "${subtaskName}" da tarefa "${taskName}" (${phaseName}) vence em ${diffDays} dias (${dataStr}). Projeto: ${project.name}. Data prevista: ${dataStr}.`
+              notifications.push({ titulo: 'Previsão de entrega - Subtarefa', mensagem: msg, tipo: 'sistema', prioridade: diffDays <= 1 ? 'urgente' : 'alta', dados: { projectId: project.id, projectName: project.name, taskId: task.id, taskName, subtaskId: subtask.id, subtaskName, phaseName, plannedDate, diasRestantes: diffDays, targetType: 'subtask' }, link: `/projetos/${project.id}` })
             }
             break
           }
@@ -3325,8 +3341,13 @@ app.get('/notifications/project-deadlines', async (req: any, reply: any) => {
             if (diffDays >= 0 && diffDays <= alert.diasAntes) {
               const taskName = task.name || task.title || 'Tarefa'
               const phaseName = phase.name || 'Fase'
-              const msg = diffDays === 0 ? `A tarefa "${taskName}" (${phaseName}) vence hoje!` : diffDays === 1 ? `A tarefa "${taskName}" (${phaseName}) vence amanhã.` : `A tarefa "${taskName}" (${phaseName}) vence em ${diffDays} dias (${dueDate.toLocaleDateString('pt-BR')}).`
-              notifications.push({ titulo: 'Previsão de entrega - Tarefa', mensagem: msg, tipo: 'sistema', prioridade: diffDays <= 1 ? 'urgente' : 'alta', dados: { projectId: project.id, projectName: project.name, taskId: task.id, taskName, phaseName, plannedDate, diasRestantes: diffDays }, link: `/projetos/${project.id}` })
+              const dataStr = fmtDate(plannedDate)
+              const msg = diffDays === 0
+                ? `Tarefa "${taskName}" (${phaseName}) vence HOJE (${dataStr}). Projeto: ${project.name}. Responsável: ${respStr}.`
+                : diffDays === 1
+                  ? `Tarefa "${taskName}" (${phaseName}) vence AMANHÃ (${dataStr}). Projeto: ${project.name}. Responsável: ${respStr}. Restam ${diffDays} dia.`
+                  : `Tarefa "${taskName}" (${phaseName}) vence em ${diffDays} dias (${dataStr}). Projeto: ${project.name}. Responsável: ${respStr}. Data prevista: ${dataStr}.`
+              notifications.push({ titulo: 'Previsão de entrega - Tarefa', mensagem: msg, tipo: 'sistema', prioridade: diffDays <= 1 ? 'urgente' : 'alta', dados: { projectId: project.id, projectName: project.name, taskId: task.id, taskName, phaseName, plannedDate, diasRestantes: diffDays, targetType: 'task' }, link: `/projetos/${project.id}` })
             }
           }
         }

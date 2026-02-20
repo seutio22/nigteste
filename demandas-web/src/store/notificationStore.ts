@@ -18,6 +18,17 @@ export interface Notification {
     kanbanTicketId?: string
     autor?: string
     categoria?: string
+    projectId?: string
+    projectName?: string
+    taskId?: string
+    taskName?: string
+    subtaskId?: string
+    subtaskName?: string
+    phaseName?: string
+    plannedDate?: string
+    endDate?: string
+    diasRestantes?: number
+    targetType?: string
   }
 }
 

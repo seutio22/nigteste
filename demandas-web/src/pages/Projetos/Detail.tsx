@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import ProjectTeamManager from '../../components/ProjectTeamManager'
 import ProjectAlerts from '../../components/ProjectAlerts'
 import ProjectGantt from '../../components/ProjectGantt'
@@ -889,6 +889,7 @@ import { useMasterDataStore } from '../../store/masterDataStore'
 export default function ProjectDetailPage() {
 
   const navigate = useNavigate()
+  const location = useLocation()
   const { id } = useParams<{ id: string }>()
   const { remove: removeProject, upsert: upsertProject, syncFromApi } = useProjectStore()
   const user = useAuthStore(s => s.user)
@@ -920,6 +921,7 @@ export default function ProjectDetailPage() {
   const [externalMembers, setExternalMembers] = useState<any[]>([])
   const [loadingTeam, setLoadingTeam] = useState(false)
   const [projectCanEdit, setProjectCanEdit] = useState<boolean | null>(null)
+  const [expandedPhases, setExpandedPhases] = useState<Record<string, boolean>>({})
 
   // Função auxiliar para parsear campos JSON do projeto retornado pela API
   const parseProjectFromApi = React.useCallback((project: any) => {
@@ -3310,7 +3312,11 @@ export default function ProjectDetailPage() {
 
       {project.timeline && project.timeline.phases && project.timeline.phases.length > 0 ? (
         project.timeline.phases.map((phase: any, phaseIndex: number) => (
-        <Accordion key={`${phase.id}-${forceRender}`} defaultExpanded={phaseIndex === 0}>
+        <Accordion
+          key={`${phase.id}-${forceRender}`}
+          expanded={expandedPhases[phase.id] ?? phaseIndex === 0}
+          onChange={(_, isExpanded) => setExpandedPhases(prev => ({ ...prev, [phase.id]: isExpanded }))}
+        >
           <AccordionSummary expandIcon={<ExpandMore />}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%' }}>
               <Box sx={{ flex: 1 }}>
@@ -3428,7 +3434,7 @@ export default function ProjectDetailPage() {
                   {phase.tasks.map((task: any, taskIndex: number) => (
                     <React.Fragment key={`${task.id}-${forceRender}`}>
                       {/* Linha da Tarefa Principal */}
-                      <TableRow hover sx={{ backgroundColor: '#ffffff' }}>
+                      <TableRow hover sx={{ backgroundColor: '#ffffff' }} data-task-id={task.id}>
                         <TableCell>
                           <Typography variant="body2" fontWeight="bold" color="primary">
                             {generateTaskNumber(phaseIndex, taskIndex)}
@@ -3590,7 +3596,7 @@ export default function ProjectDetailPage() {
                             '&:hover': {
                               backgroundColor: '#e8f4fd'
                             }
-                          }}>
+                          }} data-task-id={task.id} data-subtask-id={subtask.id}>
                             <TableCell>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                 <Typography variant="caption" fontWeight="bold" color="info.main">
@@ -4428,6 +4434,43 @@ export default function ProjectDetailPage() {
       syncMasterData({ entities: ['areas'] }).catch(() => {})
     }
   }, [activeTab, areas.length, syncMasterData])
+
+  // Abrir aba Cronograma e scroll para item ao vir de notificação de alerta
+  const navState = location.state as { activeTab?: number; scrollToTaskId?: string; scrollToSubtaskId?: string } | null
+  React.useEffect(() => {
+    if (!navState || !project?.id) return
+    if (navState.activeTab !== undefined) setActiveTab(navState.activeTab)
+    const scrollToSub = navState.scrollToSubtaskId
+    const scrollToTask = navState.scrollToTaskId
+    if ((scrollToSub || scrollToTask) && navState.activeTab === 1 && project?.timeline?.phases) {
+      const phases = project.timeline.phases as any[]
+      for (let i = 0; i < phases.length; i++) {
+        const phase = phases[i]
+        const hasTask = (phase.tasks || []).some((t: any) =>
+          scrollToSub
+            ? (t.subtasks || []).some((s: any) => String(s.id) === String(scrollToSub))
+            : String(t.id) === String(scrollToTask)
+        )
+        if (hasTask) {
+          setExpandedPhases(prev => ({ ...prev, [phase.id]: true }))
+          break
+        }
+      }
+      const timer = setTimeout(() => {
+        const el = scrollToSub
+          ? document.querySelector(`[data-subtask-id="${scrollToSub}"]`)
+          : document.querySelector(`[data-task-id="${scrollToTask}"]`)
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          const htmlEl = el as HTMLElement
+          htmlEl.style.backgroundColor = 'rgba(25, 118, 210, 0.12)'
+          setTimeout(() => { htmlEl.style.backgroundColor = '' }, 2500)
+        }
+        navigate(location.pathname, { replace: true, state: {} })
+      }, 600)
+      return () => clearTimeout(timer)
+    }
+  }, [navState?.activeTab, navState?.scrollToTaskId, navState?.scrollToSubtaskId, project?.id, project?.timeline?.phases, navigate, location.pathname])
 
   React.useEffect(() => {
     const rd = (project?.timeline as any)?.responsibleDepartments || (project as any)?.responsibleDepartments

@@ -49,33 +49,33 @@ export function NotificationDropdown() {
   }
 
   const handleNotificationClick = (notification: any) => {
-    console.log('🔍 NotificationDropdown: Clicou na notificação:', notification)
     markAsRead(notification.id)
     
-    // Navegar para o link se existir
-    if (notification.link) {
-      console.log('🔍 NotificationDropdown: Navegando para link:', notification.link)
+    // Alertas de previsão de entrega: ir para projeto, aba Cronograma, e item sinalizado
+    const d = notification.dados
+    if (d?.projectId) {
+      navigate(`/projetos/${d.projectId}`, {
+        state: {
+          activeTab: 1,
+          scrollToTaskId: d.taskId || null,
+          scrollToSubtaskId: d.subtaskId || null
+        }
+      })
+    } else if (notification.link) {
       navigate(notification.link)
     } else if (notification.dados?.comunicadoId) {
-      console.log('🔍 NotificationDropdown: Navegando para comunicado:', notification.dados.comunicadoId)
       navigate(`/comunicados/${notification.dados.comunicadoId}`)
     } else if (notification.dados?.demandaId) {
-      console.log('🔍 NotificationDropdown: Navegando para demanda:', notification.dados.demandaId)
       navigate(`/cadastro/${notification.dados.demandaId}`)
     } else if (notification.dados?.atendimentoId) {
-      console.log('🔍 NotificationDropdown: Navegando para atendimento:', notification.dados.atendimentoId)
       navigate(`/atendimento/${notification.dados.atendimentoId}`)
     } else if (notification.dados?.kanbanTicketId) {
-      console.log('🔍 NotificationDropdown: Navegando para Kanban com ticket:', notification.dados.kanbanTicketId)
-      // Navegar para o Kanban com a tarefa destacada
       navigate('/kanban', { 
         state: { 
           highlightTicket: notification.dados.kanbanTicketId,
           scrollToTicket: true
         }
       })
-    } else {
-      console.log('🔍 NotificationDropdown: Nenhuma rota encontrada para a notificação')
     }
     
     handleClose()
@@ -144,7 +144,7 @@ export function NotificationDropdown() {
         open={open}
         onClose={handleClose}
         PaperProps={{
-          className: 'w-96 max-h-96 overflow-y-auto'
+          className: 'w-[420px] max-h-[480px] overflow-y-auto'
         }}
         transformOrigin={{ horizontal: 'right', vertical: 'top' }}
         anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
@@ -189,7 +189,7 @@ export function NotificationDropdown() {
               <MenuItem
                 key={notification.id}
                 onClick={() => handleNotificationClick(notification)}
-                className={`p-3 hover:bg-gray-50 transition-colors ${
+                className={`p-4 hover:bg-gray-50 transition-colors ${
                   !notification.lida ? 'bg-blue-50' : ''
                 }`}
               >
@@ -219,11 +219,40 @@ export function NotificationDropdown() {
                     </div>
                     
                     <Typography 
-                      variant="body2" 
-                      className="text-gray-600 mb-2 line-clamp-2"
+                      variant="body1" 
+                      className="text-gray-700 mb-2 whitespace-pre-wrap break-words font-medium"
+                      sx={{ fontSize: '0.95rem', lineHeight: 1.5 }}
                     >
                       {notification.mensagem}
                     </Typography>
+                    
+                    {notification.dados?.projectId && (
+                      <Box className="mb-2 p-2 rounded bg-gray-50 border border-gray-100">
+                        <Typography variant="caption" className="text-gray-600 block font-medium mb-1">Detalhes:</Typography>
+                        <Typography variant="caption" className="text-gray-700 block">
+                          Projeto: {notification.dados.projectName || '—'}
+                        </Typography>
+                        {notification.dados.taskName && (
+                          <Typography variant="caption" className="text-gray-700 block">
+                            Tarefa: {notification.dados.taskName}
+                            {notification.dados.phaseName && ` (${notification.dados.phaseName})`}
+                          </Typography>
+                        )}
+                        {notification.dados.subtaskName && (
+                          <Typography variant="caption" className="text-gray-700 block">
+                            Subtarefa: {notification.dados.subtaskName}
+                          </Typography>
+                        )}
+                        {notification.dados.diasRestantes !== undefined && (
+                          <Typography variant="caption" className="text-gray-700 block font-medium">
+                            {notification.dados.diasRestantes === 0 ? 'Vence hoje' : notification.dados.diasRestantes === 1 ? 'Vence amanhã' : `${notification.dados.diasRestantes} dias restantes`}
+                          </Typography>
+                        )}
+                        <Typography variant="caption" className="text-blue-600 block mt-1 font-medium">
+                          Clique para ir ao cronograma →
+                        </Typography>
+                      </Box>
+                    )}
                     
                     <div className="flex items-center justify-between">
                       <Typography variant="caption" color="textSecondary">
