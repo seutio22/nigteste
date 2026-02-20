@@ -3111,6 +3111,87 @@ const resources = {
   padroes: crud('padrao')
 }
 
+// Rotas de alertas de projetos - registrar ANTES do CRUD genérico para evitar 404
+app.get('/projetos/:projectId/alerts', async (req: any, reply: any) => {
+  try {
+    const { projectId } = req.params
+    const project = await prisma.project.findUnique({ where: { id: projectId } })
+    if (!project) return reply.status(404).send({ error: 'Projeto não encontrado' })
+    const alerts = await prisma.projectAlert.findMany({
+      where: { projectId },
+      include: { user: { select: { id: true, name: true, email: true } } },
+      orderBy: { createdAt: 'asc' }
+    })
+    return reply.send(alerts)
+  } catch (e) {
+    console.error('Erro GET /projetos/:projectId/alerts:', e)
+    return reply.status(500).send({ error: 'Erro interno' })
+  }
+})
+app.post('/projetos/:projectId/alerts', async (req: any, reply: any) => {
+  try {
+    const { projectId } = req.params
+    const body = req.body || {}
+    const { userId, responsavelNome, diasAntes, targetType, targetId } = body
+    if (!userId) return reply.status(400).send({ error: 'userId é obrigatório' })
+    const project = await prisma.project.findUnique({ where: { id: projectId } })
+    if (!project) return reply.status(404).send({ error: 'Projeto não encontrado' })
+    const isMember = await prisma.projectMember.findUnique({ where: { projectId_userId: { projectId, userId } } })
+    const isManager = project.managerId === userId
+    const isOwner = project.ownerId === userId
+    if (!isMember && !isManager && !isOwner) {
+      return reply.status(400).send({ error: 'O usuário deve ter acesso ao projeto. Adicione-o como membro primeiro.' })
+    }
+    const validDias = [1, 3, 7, 15]
+    const dias = diasAntes && validDias.includes(diasAntes) ? diasAntes : 1
+    const respNome = (responsavelNome || '').trim()
+    const tType = (targetType || '').trim().toLowerCase()
+    const tId = (targetId || '').trim()
+    const finalTargetType = ['project', 'responsible', 'task', 'subtask'].includes(tType) ? tType : (respNome ? 'responsible' : 'project')
+    const finalTargetId = (finalTargetType === 'task' || finalTargetType === 'subtask') ? tId : ''
+    const alert = await prisma.projectAlert.create({
+      data: { projectId, userId, responsavelNome: respNome, targetType: finalTargetType, targetId: finalTargetId, diasAntes: dias, enabled: true },
+      include: { user: { select: { id: true, name: true, email: true } } }
+    })
+    return reply.status(201).send(alert)
+  } catch (e: any) {
+    if (e?.code === 'P2002') return reply.status(400).send({ error: 'Já existe um alerta idêntico.' })
+    console.error('Erro POST /projetos/:projectId/alerts:', e)
+    return reply.status(500).send({ error: 'Erro interno' })
+  }
+})
+app.put('/projetos/:projectId/alerts/:alertId', async (req: any, reply: any) => {
+  try {
+    const { projectId, alertId } = req.params
+    const { diasAntes, enabled } = req.body || {}
+    const alert = await prisma.projectAlert.findFirst({ where: { id: alertId, projectId } })
+    if (!alert) return reply.status(404).send({ error: 'Alerta não encontrado' })
+    const updates: any = {}
+    if (diasAntes !== undefined) updates.diasAntes = [1, 3, 7, 15].includes(diasAntes) ? diasAntes : alert.diasAntes
+    if (enabled !== undefined) updates.enabled = enabled
+    const updated = await prisma.projectAlert.update({
+      where: { id: alertId },
+      data: updates,
+      include: { user: { select: { id: true, name: true, email: true } } }
+    })
+    return reply.send(updated)
+  } catch (e) {
+    console.error('Erro PUT /projetos/:projectId/alerts/:alertId:', e)
+    return reply.status(500).send({ error: 'Erro interno' })
+  }
+})
+app.delete('/projetos/:projectId/alerts/:alertId', async (req: any, reply: any) => {
+  try {
+    const { projectId, alertId } = req.params
+    const alert = await prisma.projectAlert.findFirst({ where: { id: alertId, projectId } })
+    if (!alert) return reply.status(404).send({ error: 'Alerta não encontrado' })
+    await prisma.projectAlert.delete({ where: { id: alertId } })
+    return reply.status(204).send()
+  } catch (e) {
+    console.error('Erro DELETE /projetos/:projectId/alerts/:alertId:', e)
+    return reply.status(500).send({ error: 'Erro interno' })
+  }
+})
 
 for (const [path, repo] of Object.entries(resources)) {
   // Regras específicas de privacidade para Projetos: sobrescreve list/get/create
