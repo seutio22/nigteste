@@ -4431,38 +4431,59 @@ for (const [path, repo] of Object.entries(resources)) {
         
         console.log(`🔧 PUT /validacoes: Dados filtrados:`, JSON.stringify(filteredData, null, 2))
         
+        // Extrair ID quando vier como objeto { id, nome } (frontend envia assim)
+        const toId = (v: any): string | null => {
+          if (v == null) return null
+          if (typeof v === 'string') return v.trim() || null
+          if (typeof v === 'object' && v?.id) return String(v.id).trim() || null
+          return null
+        }
+        
         // Criar dados de atualização com relacionamentos corretos
         const updateData: any = { ...filteredData }
         
-        // Adicionar relacionamentos se os IDs existirem
-        if (filteredData.clienteId) {
-          updateData.cliente = { connect: { id: filteredData.clienteId } }
-          delete updateData.clienteId
+        // Adicionar relacionamentos se os IDs existirem (extrair string quando for objeto)
+        const clienteId = toId(filteredData.clienteId)
+        if (clienteId) {
+          updateData.cliente = { connect: { id: clienteId } }
         }
-        if (filteredData.contratoId) {
-          updateData.contrato = { connect: { id: filteredData.contratoId } }
-          delete updateData.contratoId
+        delete updateData.clienteId
+        
+        const contratoId = toId(filteredData.contratoId)
+        if (contratoId) {
+          updateData.contrato = { connect: { id: contratoId } }
         }
-        if (filteredData.operadoraId) {
-          updateData.operadora = { connect: { id: filteredData.operadoraId } }
-          delete updateData.operadoraId
+        delete updateData.contratoId
+        
+        const operadoraId = toId(filteredData.operadoraId)
+        if (operadoraId) {
+          updateData.operadora = { connect: { id: operadoraId } }
         }
-        if (filteredData.produtoId) {
-          updateData.produto = { connect: { id: filteredData.produtoId } }
-          delete updateData.produtoId
+        delete updateData.operadoraId
+        
+        const produtoId = toId(filteredData.produtoId)
+        if (produtoId) {
+          updateData.produto = { connect: { id: produtoId } }
         }
-        if (filteredData.analistaId) {
-          updateData.analista = { connect: { id: filteredData.analistaId } }
-          delete updateData.analistaId
+        delete updateData.produtoId
+        
+        const analistaId = toId(filteredData.analistaId)
+        if (analistaId) {
+          updateData.analista = { connect: { id: analistaId } }
         }
-        if (filteredData.demandaId) {
-          updateData.demanda = { connect: { id: filteredData.demandaId } }
-          delete updateData.demandaId
+        delete updateData.analistaId
+        
+        const demandaId = toId(filteredData.demandaId)
+        if (demandaId) {
+          updateData.demanda = { connect: { id: demandaId } }
         }
-        if (filteredData.userId) {
-          updateData.user = { connect: { id: filteredData.userId } }
-          delete updateData.userId
+        delete updateData.demandaId
+        
+        const userId = toId(filteredData.userId)
+        if (userId) {
+          updateData.user = { connect: { id: userId } }
         }
+        delete updateData.userId
         
         console.log(`🔧 PUT /validacoes: Dados finais para atualização:`, JSON.stringify(updateData, null, 2))
         
