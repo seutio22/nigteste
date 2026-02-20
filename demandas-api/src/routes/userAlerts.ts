@@ -21,6 +21,25 @@ function getUserId(req: FastifyRequest): string | null {
   return ((req as any).headers?.['x-user-id'] || (req as any).headers?.['X-User-Id']) as string || null
 }
 
+function getUserRole(req: FastifyRequest): string | null {
+  try {
+    const user = (req as any).user
+    if (user?.role) return user.role
+  } catch {}
+  const auth = (req as any).headers?.authorization
+  if (auth?.startsWith?.('Bearer ')) {
+    const token = auth.slice(7)
+    const parts = token.split('.')
+    if (parts.length >= 2) {
+      try {
+        const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString())
+        return payload?.role ?? null
+      } catch {}
+    }
+  }
+  return ((req as any).headers?.['x-user-role'] || (req as any).headers?.['X-User-Role']) as string || null
+}
+
 export async function userAlertsRoutes(app: FastifyInstance, options: { prisma: PrismaClient }) {
   const prisma = options.prisma
 
@@ -108,6 +127,32 @@ export async function userAlertsRoutes(app: FastifyInstance, options: { prisma: 
       return reply.send({ ok: true })
     } catch (e) {
       console.error('Erro POST /user-alerts/:id/view:', e)
+      return reply.status(500).send({ error: 'Erro interno' })
+    }
+  })
+
+  // GET /user-alerts/available-users - Listar usuários para seleção de destinatários (admin/gerente)
+  app.get('/user-alerts/available-users', async (req: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const userId = getUserId(req)
+      if (!userId) return reply.status(401).send({ error: 'Não autenticado' })
+
+      const role = getUserRole(req)
+      if (!['admin', 'gerente'].includes(role || '')) {
+        return reply.status(403).send({ error: 'Apenas admin ou gerente podem criar alertas' })
+      }
+
+      const users = await prisma.user.findMany({
+        where: { active: true },
+        select: { id: true, name: true, email: true },
+        orderBy: { name: 'asc' }
+      })
+
+      return reply.send(
+        users.map((u) => ({ id: u.id, name: u.name || u.email || 'Sem nome' }))
+      )
+    } catch (e) {
+      console.error('Erro GET /user-alerts/available-users:', e)
       return reply.status(500).send({ error: 'Erro interno' })
     }
   })

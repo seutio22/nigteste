@@ -53,10 +53,10 @@ export function CreateAlertModal({ open, onClose, onSuccess }: CreateAlertModalP
   }, [open])
 
   useEffect(() => {
-    if (open && users.length === 0) {
+    if (open) {
       setLoadingUsers(true)
       getApi()
-        .get('/users')
+        .get('/user-alerts/available-users')
         .then((data: any) => {
           const list = Array.isArray(data) ? data : data?.users ?? []
           setUsers(
@@ -69,7 +69,7 @@ export function CreateAlertModal({ open, onClose, onSuccess }: CreateAlertModalP
         .catch(() => setUsers([]))
         .finally(() => setLoadingUsers(false))
     }
-  }, [open, users.length])
+  }, [open])
 
   const handleSubmit = async () => {
     if (!titulo.trim()) {
