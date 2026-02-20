@@ -27,6 +27,7 @@ import { getApi } from '../lib/apiConfig'
 import { CreateAlertModal } from './CreateAlertModal'
 import { ManagedAlertsModal } from './ManagedAlertsModal'
 import { NotificationDetailModal } from './NotificationDetailModal'
+import { addDismissedAlert } from '../utils/dismissedAlerts'
 
 export function NotificationDropdown() {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
@@ -69,6 +70,24 @@ export function NotificationDropdown() {
     
     setDetailNotification(notification)
     handleClose()
+  }
+
+  const handleRemoveNotification = async (e: React.MouseEvent, notification: any) => {
+    e.stopPropagation()
+    const alertaId = notification.dados?.alertaId
+    const isCreator = user?.id === notification.dados?.autorId
+    if (alertaId) {
+      if (isCreator) {
+        try {
+          await getApi().delete(`/user-alerts/${alertaId}`)
+          window.dispatchEvent(new CustomEvent('refresh-user-alerts'))
+        } catch {}
+      } else {
+        addDismissedAlert(alertaId)
+      }
+    }
+    remove(notification.id)
+    if (detailNotification?.id === notification.id) setDetailNotification(null)
   }
 
   const handleDetailNavigate = () => {
@@ -330,10 +349,7 @@ export function NotificationDropdown() {
                     
                     <IconButton
                       size="small"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        remove(notification.id)
-                      }}
+                      onClick={(e) => handleRemoveNotification(e, notification)}
                       className="text-gray-400 hover:text-red-500"
                     >
                       <Trash2 className="w-4 h-4" />

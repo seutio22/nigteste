@@ -110,6 +110,7 @@ export function clearAllSystemData(): void {
   const additionalKeys = [
     'token', // Token JWT (caso não esteja no auth-store)
     'user', // Dados do usuário (caso não esteja no auth-store)
+    'dismissed-user-alerts', // Alertas dispensados pelo usuário
     'comunicado-storage', // Storage específico de comunicados
     'masterDataStore', // Versão antiga do master data
     'demands-v1', // Versão antiga
