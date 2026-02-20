@@ -3188,7 +3188,7 @@ app.post('/projetos/:projectId/alerts', async (req: any, reply: any) => {
     })
     return reply.status(201).send(alert)
   } catch (e: any) {
-    if (e?.code === 'P2002') return reply.status(400).send({ error: 'Já existe um alerta idêntico.' })
+    if (e?.code === 'P2002') return reply.status(400).send({ error: 'Já existe um alerta com esta configuração (mesmo usuário, escopo e dias). Edite o existente ou escolha outra opção.' })
     console.error('Erro POST /projetos/:projectId/alerts:', e)
     return reply.status(500).send({ error: 'Erro interno' })
   }
