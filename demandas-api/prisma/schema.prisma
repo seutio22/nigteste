@@ -821,6 +821,29 @@ model ComunicadoComentario {
   updatedAt    DateTime @updatedAt
 }
 
+// Alertas manuais criados pelo usuário (ex: no dropdown de notificações)
+model AlertaUsuario {
+  id           String   @id @default(uuid())
+  titulo       String
+  mensagem     String
+  autorId      String
+  autorNome    String
+  prioridade   String   @default("media") // baixa, media, alta, urgente
+  dataExibicao DateTime // Dia em que o alerta deve ser exibido
+  targetUserIds String  @default("[]") // JSON array de IDs (vazio = todos)
+  createdAt    DateTime @default(now())
+  visualizacoes AlertaUsuarioVisualizacao[]
+}
+
+model AlertaUsuarioVisualizacao {
+  id               String   @id @default(uuid())
+  alertaId         String
+  usuarioId        String
+  usuarioNome      String
+  dataVisualizacao DateTime @default(now())
+  alerta           AlertaUsuario @relation(fields: [alertaId], references: [id], onDelete: Cascade)
+}
+
 model Permission {
   id              String           @id @default(uuid())
   name            String           @unique

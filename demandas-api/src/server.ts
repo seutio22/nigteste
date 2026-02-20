@@ -6,6 +6,7 @@ import jwt from '@fastify/jwt'
 import authPlugin from './plugins/auth'
 import { authRoutes } from './routes/auth'
 import { userRoutes } from './routes/users'
+import { userAlertsRoutes } from './routes/userAlerts'
 import comunicadosRoutes from './routes/comunicados'
 import projectTeamRoutes from './routes/projectTeam'
 import shareRoutes from './routes/share'
@@ -5351,6 +5352,7 @@ app.delete('/demandas/limpar-atv-demandas', async () => {
 // Rotas de autenticação e usuários (admin)
 app.register(authRoutes, { prisma })
 app.register(userRoutes, { prisma })
+app.register(userAlertsRoutes, { prisma })
 
 // Rotas de comunicados
 app.register(comunicadosRoutes, { prisma, prefix: '/comunicados' })

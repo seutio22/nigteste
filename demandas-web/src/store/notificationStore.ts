@@ -5,7 +5,7 @@ export interface Notification {
   id: string
   titulo: string
   mensagem: string
-  tipo: 'comunicado' | 'demanda' | 'atendimento' | 'sistema'
+  tipo: 'comunicado' | 'demanda' | 'atendimento' | 'sistema' | 'alerta'
   prioridade: 'baixa' | 'media' | 'alta' | 'urgente'
   lida: boolean
   dataCriacao: string
@@ -29,13 +29,16 @@ export interface Notification {
     endDate?: string
     diasRestantes?: number
     targetType?: string
+    alertaId?: string
+    autor?: string
+    autorId?: string
   }
 }
 
 interface NotificationState {
   notifications: Notification[]
   unreadCount: number
-  add: (notification: Omit<Notification, 'id' | 'dataCriacao' | 'lida'>) => void
+  add: (notification: Omit<Notification, 'id' | 'dataCriacao'> & { lida?: boolean }) => void
   markAsRead: (id: string) => void
   markAllAsRead: () => void
   remove: (id: string) => void
@@ -54,8 +57,8 @@ export const useNotificationStore = create<NotificationState>()(
         const newNotification: Notification = {
           ...notification,
           id: crypto.randomUUID(),
-          dataCriacao: new Date().toISOString(),
-          lida: false
+          dataCriacao: notification.dataCriacao || new Date().toISOString(),
+          lida: notification.lida ?? false
         }
         
         set((state) => {

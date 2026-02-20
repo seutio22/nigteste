@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { 
   IconButton, 
   Badge, 
@@ -6,28 +6,35 @@ import {
   MenuItem, 
   Typography, 
   Box, 
-  Divider, 
   Button,
-  Chip,
-  Avatar
+  Chip
 } from '@mui/material'
 import { 
   Bell, 
-  CheckCircle, 
   Info, 
   MessageSquare,
   FileText,
   Settings,
   Trash2,
-  Eye
+  Eye,
+  Plus,
+  List
 } from 'lucide-react'
 import { useNotificationStore } from '../store/notificationStore'
+import { useAuthStore } from '../store/authStore'
 import { useNavigate } from 'react-router-dom'
+import { getApi } from '../lib/apiConfig'
+import { CreateAlertModal } from './CreateAlertModal'
+import { ManagedAlertsModal } from './ManagedAlertsModal'
 
 export function NotificationDropdown() {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
   const [showAll, setShowAll] = useState(false)
+  const [createAlertOpen, setCreateAlertOpen] = useState(false)
+  const [managedAlertsOpen, setManagedAlertsOpen] = useState(false)
   const navigate = useNavigate()
+  const { user } = useAuthStore()
+  const canCreateAlerts = ['admin', 'gerente'].includes(user?.role || '')
   
   const { 
     notifications, 
@@ -48,10 +55,17 @@ export function NotificationDropdown() {
     setAnchorEl(null)
   }
 
-  const handleNotificationClick = (notification: any) => {
+  const handleNotificationClick = async (notification: any) => {
     markAsRead(notification.id)
     
-    // Alertas de previsão de entrega: ir para projeto, aba Cronograma, e item sinalizado
+    // Marcar alerta manual como visualizado na API
+    const alertaId = notification.dados?.alertaId
+    if (alertaId) {
+      try {
+        await getApi().post(`/user-alerts/${alertaId}/view`)
+      } catch {}
+    }
+    
     const d = notification.dados
     if (d?.projectId) {
       navigate(`/projetos/${d.projectId}`, {
@@ -93,6 +107,8 @@ export function NotificationDropdown() {
         return <Settings {...iconProps} className="text-orange-500" />
       case 'sistema':
         return <Info {...iconProps} className="text-purple-500" />
+      case 'alerta':
+        return <Bell {...iconProps} className="text-amber-500" />
       default:
         return <Bell {...iconProps} className="text-gray-500" />
     }
@@ -156,6 +172,26 @@ export function NotificationDropdown() {
               Notificações
             </Typography>
             <div className="flex items-center gap-2">
+              {canCreateAlerts && (
+                <>
+                  <IconButton
+                    size="small"
+                    onClick={() => { setCreateAlertOpen(true); handleClose() }}
+                    className="text-amber-600 hover:text-amber-700"
+                    title="Criar alerta"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </IconButton>
+                  <IconButton
+                    size="small"
+                    onClick={() => { setManagedAlertsOpen(true); handleClose() }}
+                    className="text-blue-600 hover:text-blue-700"
+                    title="Meus alertas"
+                  >
+                    <List className="w-4 h-4" />
+                  </IconButton>
+                </>
+              )}
               {unreadCount > 0 && (
                 <Button
                   size="small"
@@ -323,6 +359,16 @@ export function NotificationDropdown() {
           </Box>
         )}
       </Menu>
+
+      <CreateAlertModal
+        open={createAlertOpen}
+        onClose={() => setCreateAlertOpen(false)}
+        onSuccess={() => window.dispatchEvent(new CustomEvent('refresh-user-alerts'))}
+      />
+      <ManagedAlertsModal
+        open={managedAlertsOpen}
+        onClose={() => setManagedAlertsOpen(false)}
+      />
     </>
   )
 }

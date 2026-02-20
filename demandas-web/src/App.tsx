@@ -5,6 +5,7 @@ import { useAuthStore } from './store/authStore'
 import { useMasterDataStore } from './store/masterDataStore'
 import { useDynamicSync } from './hooks/useDynamicSync'
 import { useDeadlineNotifications } from './hooks/useDeadlineNotifications'
+import { useUserAlerts } from './hooks/useUserAlerts'
 import { FullScreenLoading } from './components/BeautifulLoading'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { useEffect } from 'react'
@@ -23,6 +24,8 @@ function App() {
   
   // Sistema de notificações de vencimento (1 dia antes)
   useDeadlineNotifications()
+  // Alertas manuais criados por admin/gerente
+  useUserAlerts()
   
   useEffect(() => {
     // O initialize() já é chamado automaticamente pelo onRehydrateStorage do persist
