@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import ProjectTeamManager from '../../components/ProjectTeamManager'
+import ProjectAlerts from '../../components/ProjectAlerts'
 import ProjectGantt from '../../components/ProjectGantt'
 import ShareProjectModal from '../../components/ShareProjectModal'
 import ExportProjectModal from '../../components/ExportProjectModal'
@@ -82,7 +83,8 @@ import {
   KeyboardArrowDown,
   Business,
   Share,
-  Download as DownloadIcon
+  Download as DownloadIcon,
+  Notifications
 } from '@mui/icons-material'
 import { api } from '../../lib/api.local'
 import { useProjectStore } from '../../store/projectStore'
@@ -906,6 +908,7 @@ export default function ProjectDetailPage() {
   const [showAddTaskDialog, setShowAddTaskDialog] = useState(false)
   const [showAddSubtaskDialog, setShowAddSubtaskDialog] = useState(false)
   const [showAddPhaseDialog, setShowAddPhaseDialog] = useState(false)
+  const [showAlertsDialog, setShowAlertsDialog] = useState(false)
   
   const [selectedPhase, setSelectedPhase] = useState<any>(null)
   const [selectedTask, setSelectedTask] = useState<any>(null)
@@ -2840,7 +2843,7 @@ export default function ProjectDetailPage() {
       case 'completed': return 'success'
       case 'in_progress': return 'info'
       case 'pending': return 'default'
-      case 'overdue': return 'warning'
+      case 'overdue': return 'error'
       case 'cancelado': return 'default'
       default: return 'default'
     }
@@ -2851,7 +2854,7 @@ export default function ProjectDetailPage() {
       case 'completed': return <CheckCircle color="success" sx={{ fontSize: '0.9rem' }} />
       case 'in_progress': return <Schedule color="info" sx={{ fontSize: '0.9rem' }} />
       case 'pending': return <Warning color="action" sx={{ fontSize: '0.9rem' }} />
-      case 'overdue': return <Warning color="warning" sx={{ fontSize: '0.9rem' }} />
+      case 'overdue': return <Warning color="error" sx={{ fontSize: '0.9rem' }} />
       case 'cancelado': return <Cancel color="action" sx={{ fontSize: '0.9rem' }} />
       default: return <Schedule sx={{ fontSize: '0.9rem' }} />
     }
@@ -3268,31 +3271,41 @@ export default function ProjectDetailPage() {
         <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
           Cronograma do Projeto
         </Typography>
-        {!readOnly && (
+        <Box sx={{ display: 'flex', gap: 1 }}>
           <Button
-            variant="contained"
+            variant="outlined"
             color="primary"
-            startIcon={<Add />}
+            startIcon={<Notifications />}
             size="medium"
-            onClick={() => {
-              console.log('🎯 CLIQUE NO BOTÃO NOVA ETAPA DETECTADO!')
-              console.log('📊 Estado atual do projeto:', project)
-              console.log('📊 Estado atual de showAddPhaseDialog:', showAddPhaseDialog)
-              handleAddPhase()
-            }}
-            sx={{
-              backgroundColor: '#1976d2',
-              color: 'white',
-              '&:hover': {
-                backgroundColor: '#1565c0'
-              },
-              fontWeight: 'bold',
-              boxShadow: 2
-            }}
+            onClick={() => setShowAlertsDialog(true)}
+            sx={{ fontWeight: 600 }}
           >
-            Nova Etapa
+            {readOnly ? 'Ver Alertas' : 'Configurar Alertas'}
           </Button>
-        )}
+          {!readOnly && (
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<Add />}
+              size="medium"
+              onClick={() => {
+                console.log('🎯 CLIQUE NO BOTÃO NOVA ETAPA DETECTADO!')
+                handleAddPhase()
+              }}
+              sx={{
+                backgroundColor: '#1976d2',
+                color: 'white',
+                '&:hover': {
+                  backgroundColor: '#1565c0'
+                },
+                fontWeight: 'bold',
+                boxShadow: 2
+              }}
+            >
+              Nova Etapa
+            </Button>
+          )}
+        </Box>
       </Box>
 
       {project.timeline && project.timeline.phases && project.timeline.phases.length > 0 ? (
@@ -5262,6 +5275,29 @@ export default function ProjectDetailPage() {
               >
                 {deletingProject ? 'Excluindo...' : 'Excluir'}
               </Button>
+            </DialogActions>
+          </Dialog>
+
+          {/* Dialog de Configurar Alertas */}
+          <Dialog
+            open={showAlertsDialog}
+            onClose={() => setShowAlertsDialog(false)}
+            maxWidth="md"
+            fullWidth
+            disableEnforceFocus
+            disableAutoFocus
+            disableRestoreFocus
+          >
+            <DialogTitle>Configurar Alertas de Previsão de Entrega</DialogTitle>
+            <DialogContent>
+              <ProjectAlerts
+                projectId={project?.id || ''}
+                project={project}
+                readOnly={readOnly}
+              />
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setShowAlertsDialog(false)}>Fechar</Button>
             </DialogActions>
           </Dialog>
 

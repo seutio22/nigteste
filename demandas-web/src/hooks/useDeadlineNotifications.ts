@@ -7,55 +7,47 @@ export const useDeadlineNotifications = () => {
   const { add: addNotification } = useNotificationStore()
   const { user } = useAuthStore()
 
-  const checkDeadlineNotifications = useCallback(async () => {
+  const checkKanbanDeadlineNotifications = useCallback(async () => {
     // TEMPORARIAMENTE DESABILITADO - causando logout automático
     // TODO: Corrigir autenticação do endpoint /notifications/scheduled
-    console.log('🔔 Verificação de notificações temporariamente desabilitada')
     return
-    
-    // Não verificar notificações se o usuário não estiver logado
-    if (!user) {
-      console.log('🔔 Usuário não logado, pulando verificação de notificações')
-      return
-    }
-    
+  }, [])
+
+  const checkProjectDeadlineNotifications = useCallback(async () => {
+    if (!user) return
+
     try {
-      console.log('🔔 Verificando notificações de vencimento...')
-      
       const api = getApi()
-      const response = await api.get('/notifications/scheduled')
-      
-      if (response.notifications && response.notifications.length > 0) {
-        console.log(`🔔 ${response.notifications.length} notificações de vencimento encontradas`)
-        
-        // Adicionar cada notificação ao store
-        response.notifications.forEach((notification: any) => {
-          // Verificar se a notificação já foi exibida hoje
-          const today = new Date().toDateString()
-          const notificationKey = `deadline-${notification.dados.kanbanTicketId}-${today}`
-          
-          if (!localStorage.getItem(notificationKey)) {
-            addNotification({
-              titulo: notification.titulo,
-              mensagem: notification.mensagem,
-              tipo: notification.tipo,
-              prioridade: notification.prioridade,
-              dados: notification.dados
-            })
-            
-            // Marcar como exibida hoje
-            localStorage.setItem(notificationKey, 'true')
-            
-            console.log('🔔 Notificação de vencimento adicionada:', notification.titulo)
-          }
-        })
-      } else {
-        console.log('🔔 Nenhuma notificação de vencimento encontrada')
-      }
+      const response = await api.get('/notifications/project-deadlines')
+
+      const notifications = response?.notifications ?? []
+      if (notifications.length === 0) return
+
+      const today = new Date().toDateString()
+      notifications.forEach((n: any) => {
+        const key = `project-deadline-${n.dados?.projectId ?? ''}-${n.dados?.taskId ?? 'proj'}-${today}`
+        if (!localStorage.getItem(key)) {
+          addNotification({
+            titulo: n.titulo,
+            mensagem: n.mensagem,
+            tipo: n.tipo || 'sistema',
+            prioridade: n.prioridade || 'alta',
+            link: n.link,
+            dados: n.dados
+          })
+          localStorage.setItem(key, 'true')
+        }
+      })
     } catch (error) {
-      console.error('❌ Erro ao verificar notificações de vencimento:', error)
+      console.error('Erro ao verificar alertas de projeto:', error)
     }
   }, [addNotification, user])
+
+  const checkDeadlineNotifications = useCallback(async () => {
+    if (!user) return
+    await checkKanbanDeadlineNotifications()
+    await checkProjectDeadlineNotifications()
+  }, [user, checkKanbanDeadlineNotifications, checkProjectDeadlineNotifications])
 
   useEffect(() => {
     const runCheck = () => {
@@ -63,12 +55,8 @@ export const useDeadlineNotifications = () => {
       checkDeadlineNotifications()
     }
 
-    // Verificar imediatamente ao carregar
     runCheck()
-    
-    // Verificar a cada hora
     const interval = setInterval(runCheck, 60 * 60 * 1000)
-    
     return () => clearInterval(interval)
   }, [checkDeadlineNotifications])
 

@@ -8,6 +8,7 @@ import { authRoutes } from './routes/auth'
 import { userRoutes } from './routes/users'
 import comunicadosRoutes from './routes/comunicados'
 import projectTeamRoutes from './routes/projectTeam'
+import projectAlertsRoutes from './routes/projectAlerts'
 import shareRoutes from './routes/share'
 import { masterDataRoutes } from './routes/masterData'
 import { kanbanRoutes } from './routes/kanban'
@@ -3764,6 +3765,10 @@ for (const [path, repo] of Object.entries(resources)) {
           // Excluir tokens de compartilhamento do projeto
           await prisma.projectShareToken.deleteMany({ where: { projectId: id } })
           console.log('✅ DELETE /projetos/:id: Tokens de compartilhamento excluídos')
+          
+          // Excluir alertas do projeto
+          await prisma.projectAlert.deleteMany({ where: { projectId: id } })
+          console.log('✅ DELETE /projetos/:id: Alertas excluídos')
         } catch (relError) {
           console.warn('⚠️ DELETE /projetos/:id: Erro ao excluir relacionamentos (continuando):', relError)
           // Continuar mesmo se houver erro (pode ser que alguns relacionamentos não existam)
@@ -5060,6 +5065,9 @@ app.register(comunicadosRoutes, { prisma, prefix: '/comunicados' })
 
 // Rotas de equipe de projetos
 app.register(projectTeamRoutes, { prisma })
+
+// Rotas de alertas de projetos
+app.register(projectAlertsRoutes, { prisma })
 
 // Rotas de compartilhamento (DEVEM vir ANTES das rotas genéricas)
 app.register(shareRoutes, { prisma })

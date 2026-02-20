@@ -138,6 +138,9 @@ const ProjectGantt: React.FC<ProjectGanttProps> = ({ phases, projectStartDate, p
         return theme.palette.primary.main
       case 'paused':
         return theme.palette.warning.main
+      case 'overdue':
+      case 'em_atraso':
+        return theme.palette.error.main
       case 'cancelled':
       case 'cancelado':
         return theme.palette.grey[600]
@@ -199,6 +202,9 @@ const ProjectGantt: React.FC<ProjectGanttProps> = ({ phases, projectStartDate, p
         return 'primary'
       case 'paused':
         return 'warning'
+      case 'overdue':
+      case 'em_atraso':
+        return 'error'
       case 'cancelled':
       case 'cancelado':
         return 'default'

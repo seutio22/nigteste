@@ -639,6 +639,7 @@ model Project {
   shareTokens     ProjectShareToken[]
   tasks           ProjectTask[]
   timelines       ProjectTimeline[]
+  alerts          ProjectAlert[]
 }
 
 model ProjectMember {
@@ -761,6 +762,23 @@ model ProjectShareToken {
   project      Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
+model ProjectAlert {
+  id               String   @id @default(uuid())
+  projectId        String
+  userId           String
+  responsavelNome  String   @default("") // "" = projeto; nome = responsável
+  targetType       String   @default("") // "project" | "responsible" | "task" | "subtask"
+  targetId         String   @default("") // id da tarefa ou subtarefa quando targetType = task/subtask
+  diasAntes        Int      @default(1) // 1, 3, 7 ou 15 dias antes da previsão
+  enabled          Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  project          Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId, targetType, targetId, responsavelNome])
+}
+
 model Comunicado {
   id             String    @id @default(uuid())
   titulo         String
@@ -858,6 +876,7 @@ model User {
   userSessions         UserSession[]
   userMonitoring       UserMonitoring[]
   deletionLogs         DeletionLog[]
+  projectAlerts        ProjectAlert[]
 }
 
 model KanbanTicket {
