@@ -26,12 +26,14 @@ import { useNavigate } from 'react-router-dom'
 import { getApi } from '../lib/apiConfig'
 import { CreateAlertModal } from './CreateAlertModal'
 import { ManagedAlertsModal } from './ManagedAlertsModal'
+import { NotificationDetailModal } from './NotificationDetailModal'
 
 export function NotificationDropdown() {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
   const [showAll, setShowAll] = useState(false)
   const [createAlertOpen, setCreateAlertOpen] = useState(false)
   const [managedAlertsOpen, setManagedAlertsOpen] = useState(false)
+  const [detailNotification, setDetailNotification] = useState<any>(null)
   const navigate = useNavigate()
   const { user } = useAuthStore()
   const canCreateAlerts = ['admin', 'gerente'].includes(user?.role || '')
@@ -58,7 +60,6 @@ export function NotificationDropdown() {
   const handleNotificationClick = async (notification: any) => {
     markAsRead(notification.id)
     
-    // Marcar alerta manual como visualizado na API
     const alertaId = notification.dados?.alertaId
     if (alertaId) {
       try {
@@ -66,7 +67,13 @@ export function NotificationDropdown() {
       } catch {}
     }
     
-    const d = notification.dados
+    setDetailNotification(notification)
+    handleClose()
+  }
+
+  const handleDetailNavigate = () => {
+    if (!detailNotification) return
+    const d = detailNotification.dados
     if (d?.projectId) {
       navigate(`/projetos/${d.projectId}`, {
         state: {
@@ -75,24 +82,18 @@ export function NotificationDropdown() {
           scrollToSubtaskId: d.subtaskId || null
         }
       })
-    } else if (notification.link) {
-      navigate(notification.link)
-    } else if (notification.dados?.comunicadoId) {
-      navigate(`/comunicados/${notification.dados.comunicadoId}`)
-    } else if (notification.dados?.demandaId) {
-      navigate(`/cadastro/${notification.dados.demandaId}`)
-    } else if (notification.dados?.atendimentoId) {
-      navigate(`/atendimento/${notification.dados.atendimentoId}`)
-    } else if (notification.dados?.kanbanTicketId) {
-      navigate('/kanban', { 
-        state: { 
-          highlightTicket: notification.dados.kanbanTicketId,
-          scrollToTicket: true
-        }
-      })
+    } else if (detailNotification.link) {
+      navigate(detailNotification.link)
+    } else if (d?.comunicadoId) {
+      navigate(`/comunicados/${d.comunicadoId}`)
+    } else if (d?.demandaId) {
+      navigate(`/cadastro/${d.demandaId}`)
+    } else if (d?.atendimentoId) {
+      navigate(`/atendimento/${d.atendimentoId}`)
+    } else if (d?.kanbanTicketId) {
+      navigate('/kanban', { state: { highlightTicket: d.kanbanTicketId, scrollToTicket: true } })
     }
-    
-    handleClose()
+    setDetailNotification(null)
   }
 
   const getNotificationIcon = (tipo: string, prioridade: string) => {
@@ -255,20 +256,21 @@ export function NotificationDropdown() {
                     </div>
                     
                     <Box
-                      className="mb-2 overflow-y-auto max-h-[280px] pr-1 notification-message"
+                      className="mb-2 overflow-hidden max-h-[80px] pr-1 notification-preview cursor-pointer"
                       sx={{
-                        fontSize: '1rem',
-                        lineHeight: 1.6,
+                        fontSize: '0.95rem',
+                        lineHeight: 1.5,
                         color: '#374151',
-                        '&::-webkit-scrollbar': { width: 6 },
-                        '&::-webkit-scrollbar-thumb': { borderRadius: 3, backgroundColor: 'rgba(0,0,0,0.2)' },
-                        '& ul, & ol': { margin: '0.5em 0', paddingLeft: '1.5em' },
-                        '& p': { marginBottom: '0.5em' },
+                        '& ul, & ol': { margin: '0.25em 0', paddingLeft: '1.2em' },
+                        '& p': { marginBottom: '0.25em' },
                         '& strong': { fontWeight: 600 },
                         '& em': { fontStyle: 'italic' }
                       }}
                       dangerouslySetInnerHTML={{ __html: notification.mensagem || '' }}
                     />
+                    <Typography variant="caption" className="text-blue-600 font-medium">
+                      Clique para ver mensagem completa →
+                    </Typography>
                     
                     {notification.dados?.projectId && (
                       <Box className="mb-2 p-2 rounded bg-gray-50 border border-gray-100">
@@ -376,6 +378,14 @@ export function NotificationDropdown() {
       <ManagedAlertsModal
         open={managedAlertsOpen}
         onClose={() => setManagedAlertsOpen(false)}
+      />
+      <NotificationDetailModal
+        open={Boolean(detailNotification)}
+        onClose={() => setDetailNotification(null)}
+        notification={detailNotification}
+        onNavigate={handleDetailNavigate}
+        formatTimeAgo={formatTimeAgo}
+        getPriorityColor={getPriorityColor}
       />
     </>
   )
