@@ -839,12 +839,33 @@ export default function AnalyticsPage() {
           const dataInicioRaw = r.dataInicio ?? r.dataCriacao ?? ''
           const dataFinalRaw = r.dataFinalizacao ?? r.dataEntrega ?? r.dataInicio ?? r.dataCriacao ?? ''
 
+          // Resolver solicitante, solicitacao, tipoSolicitacao (IDs → nomes)
+          let solicitanteLabel = r.solicitante ?? ''
+          if (solicitanteLabel && isUuid(solicitanteLabel)) {
+            solicitanteLabel = md.solicitantes.find(s => s.id === solicitanteLabel)?.nome ?? solicitanteLabel
+          }
+          let solicitacaoLabel = r.solicitacao ?? ''
+          if (solicitacaoLabel && isUuid(solicitacaoLabel)) {
+            solicitacaoLabel = md.modelos.find(m => m.id === solicitacaoLabel)?.nome ?? solicitacaoLabel
+          }
+          let tipoSolicitacaoLabel = r.tipoSolicitacao ?? ''
+          if (tipoSolicitacaoLabel && isUuid(tipoSolicitacaoLabel)) {
+            tipoSolicitacaoLabel = md.relatorios.find(rel => rel.id === tipoSolicitacaoLabel)?.nome ?? tipoSolicitacaoLabel
+          }
+
           return {
             ...r,
             analista: orNa(analistaNome),
             area: orNa(areaNome),
             cliente: orNa(clienteNome),
             contrato: orNa(contratoLabel),
+            solicitante: orNa(solicitanteLabel),
+            solicitacao: orNa(solicitacaoLabel),
+            tipoSolicitacao: orNa(tipoSolicitacaoLabel),
+            descricao: r.descricao ?? '',
+            total: r.total ?? '',
+            tipoServico: r.tipoServico ?? '',
+            observacoes: r.observacoes ?? '',
             dataEntrega: r.dataEntrega ? new Date(r.dataEntrega).toLocaleString('pt-BR') : '',
             dataCriacao: r.dataInicio ? new Date(r.dataInicio).toLocaleString('pt-BR') : '',
             dataFinalizacao: r.dataFinalizacao ? new Date(r.dataFinalizacao).toLocaleString('pt-BR') : '',
@@ -862,8 +883,10 @@ export default function AnalyticsPage() {
         }}
         columns={[
           { key: 'titulo', label: 'Título' },
+          { key: 'descricao', label: 'Descrição' },
           { key: 'tipo', label: 'Tipo' },
           { key: 'ticket', label: 'Ticket' },
+          { key: 'total', label: 'Total' },
           { key: 'status', label: 'Status' },
           { key: 'prioridade', label: 'Prioridade' },
           { key: 'analista', label: 'Analista' },
@@ -873,7 +896,12 @@ export default function AnalyticsPage() {
           { key: 'dataEntrega', label: 'Data de Entrega' },
           { key: 'dataCriacao', label: 'Data de Início' },
           { key: 'dataFinalizacao', label: 'Data de Finalização' },
-          { key: 'dataAtualizacao', label: 'Atualizado em' }
+          { key: 'dataAtualizacao', label: 'Atualizado em' },
+          { key: 'solicitante', label: 'Solicitante' },
+          { key: 'solicitacao', label: 'Solicitação' },
+          { key: 'tipoSolicitacao', label: 'Tipo de Solicitação' },
+          { key: 'tipoServico', label: 'Tipo de Serviço' },
+          { key: 'observacoes', label: 'Observações' }
         ]}
       />
     </Box>

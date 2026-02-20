@@ -22,6 +22,7 @@ export interface Report {
   solicitante?: string
   solicitacao?: string
   tipoSolicitacao?: string
+  tipoServico?: string
   observacoes?: string
   arquivo?: string
   userId?: string // ID do usuário que criou o relatório
@@ -271,6 +272,7 @@ export const useReportStore = create<ReportState>()(
                 userId: report.userId, // Incluir userId do backend
                 solicitacao: report.solicitacao,
                 tipoSolicitacao: report.tipoSolicitacao,
+                tipoServico: report.tipoServico,
                 observacoes: report.observacoes,
                 arquivo: undefined
               }
@@ -321,6 +323,7 @@ export const useReportStore = create<ReportState>()(
                 userId: report.userId,
                 solicitacao: report.solicitacao,
                 tipoSolicitacao: report.tipoSolicitacao,
+                tipoServico: report.tipoServico,
                 observacoes: report.observacoes,
                 arquivo: undefined
               }

@@ -272,6 +272,7 @@ export default function AnalyticsNewPage() {
         solicitante: form.solicitante,
         solicitacao: form.solicitacao,
         tipoSolicitacao: form.tipoSolicitacao,
+        tipoServico: form.tipoServico,
         observacoes: form.observacoes
       })
       
