@@ -3260,11 +3260,14 @@ app.get('/notifications/project-deadlines', async (req: any, reply: any) => {
         const token = auth.slice(7)
         const parts = token.split('.')
         if (parts.length >= 2) {
-          const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString())
-          userId = payload?.id ?? payload?.userId ?? payload?.sub ?? null
+          try {
+            const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString())
+            userId = payload?.id ?? payload?.userId ?? payload?.sub ?? null
+          } catch {}
         }
       }
     }
+    if (!userId) userId = (req?.headers?.['x-user-id'] || req?.headers?.['X-User-Id']) as string || null
     if (!userId) return reply.status(401).send({ error: 'Não autenticado' })
 
     const alerts = await prisma.projectAlert.findMany({
@@ -3284,7 +3287,9 @@ app.get('/notifications/project-deadlines', async (req: any, reply: any) => {
 
       const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'
       if (targetType === 'project') {
+        if (!project.endDate) continue
         const endDate = new Date(project.endDate)
+        if (isNaN(endDate.getTime())) continue
         endDate.setHours(0, 0, 0, 0)
         const diffDays = Math.ceil((endDate.getTime() - today.getTime()) / (24 * 60 * 60 * 1000))
         if (diffDays >= 0 && diffDays <= alert.diasAntes) {

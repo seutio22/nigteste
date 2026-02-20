@@ -56,8 +56,15 @@ export const useDeadlineNotifications = () => {
     }
 
     runCheck()
-    const interval = setInterval(runCheck, 60 * 60 * 1000)
-    return () => clearInterval(interval)
+    const interval = setInterval(runCheck, 5 * 60 * 1000)
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') runCheck()
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
   }, [checkDeadlineNotifications])
 
   return {

@@ -22,6 +22,7 @@ import {
 } from '@mui/material'
 import { api } from '../lib/api.local'
 import { Add, Delete, Notifications } from '@mui/icons-material'
+import { useDeadlineNotifications } from '../hooks/useDeadlineNotifications'
 
 interface ProjectAlert {
   id: string
@@ -65,6 +66,7 @@ interface ProjectAlertsProps {
 }
 
 export default function ProjectAlerts({ projectId, project, readOnly = false }: ProjectAlertsProps) {
+  const { checkDeadlineNotifications } = useDeadlineNotifications()
   const [alerts, setAlerts] = useState<ProjectAlert[]>([])
   const [members, setMembers] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -132,6 +134,7 @@ export default function ProjectAlerts({ projectId, project, readOnly = false }: 
       setShowAddDialog(false)
       setNewAlert({ userId: '', targetType: 'project', responsavelNome: '', targetId: '', diasAntes: 1 })
       loadData()
+      checkDeadlineNotifications()
     } catch (err: any) {
       setError(err?.message || err?.data?.error || 'Erro ao criar alerta')
     }
