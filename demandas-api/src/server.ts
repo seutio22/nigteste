@@ -3182,13 +3182,31 @@ app.post('/projetos/:projectId/alerts', async (req: any, reply: any) => {
     const tId = (targetId || '').trim()
     const finalTargetType = ['project', 'responsible', 'task', 'subtask'].includes(tType) ? tType : (respNome ? 'responsible' : 'project')
     const finalTargetId = (finalTargetType === 'task' || finalTargetType === 'subtask') ? tId : ''
+    const existing = await prisma.projectAlert.findFirst({
+      where: { projectId, userId, targetType: finalTargetType, targetId: finalTargetId, responsavelNome: respNome, diasAntes: dias },
+      include: { user: { select: { id: true, name: true, email: true } } }
+    })
+    if (existing) {
+      return reply.status(201).send(existing)
+    }
     const alert = await prisma.projectAlert.create({
       data: { projectId, userId, responsavelNome: respNome, targetType: finalTargetType, targetId: finalTargetId, diasAntes: dias, enabled: true },
       include: { user: { select: { id: true, name: true, email: true } } }
     })
     return reply.status(201).send(alert)
   } catch (e: any) {
-    if (e?.code === 'P2002') return reply.status(400).send({ error: 'Já existe um alerta com esta configuração (mesmo usuário, escopo e dias). Edite o existente ou escolha outra opção.' })
+    if (e?.code === 'P2002') {
+      const b = req.body || {}
+      const d = b.diasAntes && [1, 3, 7, 15].includes(b.diasAntes) ? b.diasAntes : 1
+      const t = ((b.targetType || '').trim().toLowerCase()) || (b.responsavelNome ? 'responsible' : 'project')
+      const tid = ['task', 'subtask'].includes(t) ? (b.targetId || '').trim() : ''
+      const rn = (b.responsavelNome || '').trim()
+      const existing = await prisma.projectAlert.findFirst({
+        where: { projectId: req.params.projectId, userId: b.userId, targetType: t, targetId: tid, responsavelNome: rn, diasAntes: d },
+        include: { user: { select: { id: true, name: true, email: true } } }
+      })
+      if (existing) return reply.status(201).send(existing)
+    }
     console.error('Erro POST /projetos/:projectId/alerts:', e)
     return reply.status(500).send({ error: 'Erro interno' })
   }
