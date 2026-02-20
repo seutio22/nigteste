@@ -18,14 +18,15 @@ export const useDeadlineNotifications = () => {
 
     try {
       const api = getApi()
-      const response = await api.get('/notifications/project-deadlines')
+      const response = await api.get('/notifications/project-deadlines?preview=30')
 
       const notifications = response?.notifications ?? []
       if (notifications.length === 0) return
 
       const today = new Date().toDateString()
+      const dueKey = (d: any) => (d?.endDate || d?.plannedDate || '').toString().split('T')[0]
       notifications.forEach((n: any) => {
-        const key = `project-deadline-${n.dados?.projectId ?? ''}-${n.dados?.taskId ?? 'proj'}-${today}`
+        const key = `project-deadline-${n.dados?.projectId ?? ''}-${n.dados?.taskId ?? 'proj'}-${dueKey(n.dados)}`
         if (!localStorage.getItem(key)) {
           addNotification({
             titulo: n.titulo,

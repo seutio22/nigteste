@@ -3274,6 +3274,7 @@ app.get('/notifications/project-deadlines', async (req: any, reply: any) => {
       where: { userId, enabled: true },
       include: { project: { select: { id: true, name: true, endDate: true, timeline: true } } }
     })
+    const previewDays = parseInt(String(req?.query?.preview || '0'), 10) || 0
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     const notifications: any[] = []
@@ -3286,13 +3287,24 @@ app.get('/notifications/project-deadlines', async (req: any, reply: any) => {
       const targetId = (alert.targetId || '').trim()
 
       const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'
+      const parseDate = (d: any): Date | null => {
+        if (!d) return null
+        const s = String(d).trim()
+        if (!s) return null
+        let dt = new Date(s)
+        if (!isNaN(dt.getTime())) return dt
+        const m = s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/)
+        if (m) dt = new Date(parseInt(m[3], 10), parseInt(m[2], 10) - 1, parseInt(m[1], 10))
+        return !isNaN(dt.getTime()) ? dt : null
+      }
       if (targetType === 'project') {
         if (!project.endDate) continue
-        const endDate = new Date(project.endDate)
-        if (isNaN(endDate.getTime())) continue
+        const endDate = parseDate(project.endDate)
+        if (!endDate) continue
         endDate.setHours(0, 0, 0, 0)
         const diffDays = Math.ceil((endDate.getTime() - today.getTime()) / (24 * 60 * 60 * 1000))
-        if (diffDays >= 0 && diffDays <= alert.diasAntes) {
+        const maxDias = previewDays > 0 ? Math.max(alert.diasAntes, previewDays) : alert.diasAntes
+        if (diffDays >= 0 && diffDays <= maxDias) {
           const dataStr = fmtDate(project.endDate)
           const msg = diffDays === 0
             ? `Projeto "${project.name}" vence HOJE (${dataStr}). Acompanhe o cronograma para garantir a entrega.`
@@ -3306,12 +3318,14 @@ app.get('/notifications/project-deadlines', async (req: any, reply: any) => {
           const tasks = phase.tasks || []
           const task = tasks.find((t: any) => String(t.id) === String(targetId))
           if (!task) continue
-          const plannedDate = task.plannedEndDate || task.plannedDate
+          const plannedDate = task.plannedEndDate || task.plannedDate || task.dueDate
           if (!plannedDate) continue
-          const dueDate = new Date(plannedDate)
+          const dueDate = parseDate(plannedDate)
+          if (!dueDate) continue
           dueDate.setHours(0, 0, 0, 0)
           const diffDays = Math.ceil((dueDate.getTime() - today.getTime()) / (24 * 60 * 60 * 1000))
-          if (diffDays >= 0 && diffDays <= alert.diasAntes) {
+          const maxDiasTask = previewDays > 0 ? Math.max(alert.diasAntes, previewDays) : alert.diasAntes
+          if (diffDays >= 0 && diffDays <= maxDiasTask) {
             const taskName = task.name || task.title || 'Tarefa'
             const phaseName = phase.name || 'Fase'
             const dataStr = fmtDate(plannedDate)
@@ -3331,12 +3345,14 @@ app.get('/notifications/project-deadlines', async (req: any, reply: any) => {
             const subtasks = task.subtasks || []
             const subtask = subtasks.find((s: any) => String(s.id) === String(targetId))
             if (!subtask) continue
-            const plannedDate = subtask.plannedEndDate || subtask.plannedDate
+            const plannedDate = subtask.plannedEndDate || subtask.plannedDate || subtask.dueDate
             if (!plannedDate) continue
-            const dueDate = new Date(plannedDate)
+            const dueDate = parseDate(plannedDate)
+            if (!dueDate) continue
             dueDate.setHours(0, 0, 0, 0)
             const diffDays = Math.ceil((dueDate.getTime() - today.getTime()) / (24 * 60 * 60 * 1000))
-            if (diffDays >= 0 && diffDays <= alert.diasAntes) {
+            const maxDiasSub = previewDays > 0 ? Math.max(alert.diasAntes, previewDays) : alert.diasAntes
+            if (diffDays >= 0 && diffDays <= maxDiasSub) {
               const subtaskName = subtask.name || subtask.title || 'Subtarefa'
               const taskName = task.name || task.title || 'Tarefa'
               const phaseName = phase.name || 'Fase'
@@ -3359,12 +3375,14 @@ app.get('/notifications/project-deadlines', async (req: any, reply: any) => {
             const resp = (task.responsible || task.assignee || '')
             const respStr = typeof resp === 'object' ? (resp?.nome || resp?.name || '') : String(resp)
             if (!respStr.trim() || respStr.trim().toLowerCase() !== respNome) continue
-            const plannedDate = task.plannedEndDate || task.plannedDate
+            const plannedDate = task.plannedEndDate || task.plannedDate || task.dueDate
             if (!plannedDate) continue
-            const dueDate = new Date(plannedDate)
+            const dueDate = parseDate(plannedDate)
+            if (!dueDate) continue
             dueDate.setHours(0, 0, 0, 0)
             const diffDays = Math.ceil((dueDate.getTime() - today.getTime()) / (24 * 60 * 60 * 1000))
-            if (diffDays >= 0 && diffDays <= alert.diasAntes) {
+            const maxDiasResp = previewDays > 0 ? Math.max(alert.diasAntes, previewDays) : alert.diasAntes
+            if (diffDays >= 0 && diffDays <= maxDiasResp) {
               const taskName = task.name || task.title || 'Tarefa'
               const phaseName = phase.name || 'Fase'
               const dataStr = fmtDate(plannedDate)
