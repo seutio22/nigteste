@@ -160,7 +160,7 @@ export function NotificationDropdown() {
         open={open}
         onClose={handleClose}
         PaperProps={{
-          className: 'w-[420px] max-h-[480px] overflow-y-auto'
+          className: 'w-[480px] max-h-[560px] overflow-y-auto'
         }}
         transformOrigin={{ horizontal: 'right', vertical: 'top' }}
         anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
@@ -254,13 +254,21 @@ export function NotificationDropdown() {
                       />
                     </div>
                     
-                    <Typography 
-                      variant="body1" 
-                      className="text-gray-700 mb-2 whitespace-pre-wrap break-words font-medium"
-                      sx={{ fontSize: '0.95rem', lineHeight: 1.5 }}
-                    >
-                      {notification.mensagem}
-                    </Typography>
+                    <Box
+                      className="mb-2 overflow-y-auto max-h-[280px] pr-1 notification-message"
+                      sx={{
+                        fontSize: '1rem',
+                        lineHeight: 1.6,
+                        color: '#374151',
+                        '&::-webkit-scrollbar': { width: 6 },
+                        '&::-webkit-scrollbar-thumb': { borderRadius: 3, backgroundColor: 'rgba(0,0,0,0.2)' },
+                        '& ul, & ol': { margin: '0.5em 0', paddingLeft: '1.5em' },
+                        '& p': { marginBottom: '0.5em' },
+                        '& strong': { fontWeight: 600 },
+                        '& em': { fontStyle: 'italic' }
+                      }}
+                      dangerouslySetInnerHTML={{ __html: notification.mensagem || '' }}
+                    />
                     
                     {notification.dados?.projectId && (
                       <Box className="mb-2 p-2 rounded bg-gray-50 border border-gray-100">

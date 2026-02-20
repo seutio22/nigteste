@@ -19,6 +19,7 @@ import {
 } from '@mui/material'
 import { getApi } from '../lib/apiConfig'
 import { useAuthStore } from '../store/authStore'
+import { RichTextEditor } from './RichTextEditor'
 
 interface CreateAlertModalProps {
   open: boolean
@@ -76,7 +77,8 @@ export function CreateAlertModal({ open, onClose, onSuccess }: CreateAlertModalP
       setError('Título é obrigatório')
       return
     }
-    if (!mensagem.trim()) {
+    const textoMensagem = mensagem.replace(/<[^>]*>/g, '').trim()
+    if (!textoMensagem) {
       setError('Mensagem é obrigatória')
       return
     }
@@ -105,7 +107,7 @@ export function CreateAlertModal({ open, onClose, onSuccess }: CreateAlertModalP
   }
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>Criar alerta para usuários</DialogTitle>
       <DialogContent>
         {error && (
@@ -121,15 +123,17 @@ export function CreateAlertModal({ open, onClose, onSuccess }: CreateAlertModalP
             fullWidth
             required
           />
-          <TextField
-            label="Mensagem"
-            value={mensagem}
-            onChange={(e) => setMensagem(e.target.value)}
-            fullWidth
-            multiline
-            rows={3}
-            required
-          />
+          <Box>
+            <Typography variant="subtitle2" color="textSecondary" sx={{ mb: 1 }}>
+              Mensagem <span className="text-red-500">*</span>
+            </Typography>
+            <RichTextEditor
+              content={mensagem}
+              onChange={setMensagem}
+              placeholder="Digite a mensagem do alerta..."
+              minHeight={320}
+            />
+          </Box>
           <FormControl fullWidth>
             <InputLabel>Prioridade</InputLabel>
             <Select

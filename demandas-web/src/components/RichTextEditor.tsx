@@ -8,9 +8,10 @@ interface RichTextEditorProps {
   onChange: (content: string) => void
   placeholder?: string
   readOnly?: boolean
+  minHeight?: number | string
 }
 
-export function RichTextEditor({ content, onChange, placeholder = 'Digite seu conteúdo aqui...', readOnly = false }: RichTextEditorProps) {
+export function RichTextEditor({ content, onChange, placeholder = 'Digite seu conteúdo aqui...', readOnly = false, minHeight = 400 }: RichTextEditorProps) {
   const quillRef = useRef<ReactQuill>(null)
 
   // Configuração dos módulos do Quill
@@ -57,7 +58,7 @@ export function RichTextEditor({ content, onChange, placeholder = 'Digite seu co
         placeholder={placeholder}
         readOnly={readOnly}
         style={{
-          minHeight: '400px',
+          minHeight: typeof minHeight === 'number' ? `${minHeight}px` : minHeight,
           backgroundColor: 'white'
         }}
       />
