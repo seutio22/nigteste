@@ -3195,17 +3195,20 @@ app.post('/projetos/:projectId/alerts', async (req: any, reply: any) => {
     })
     return reply.status(201).send(alert)
   } catch (e: any) {
-    if (e?.code === 'P2002') {
-      const b = req.body || {}
-      const d = b.diasAntes && [1, 3, 7, 15].includes(b.diasAntes) ? b.diasAntes : 1
-      const t = ((b.targetType || '').trim().toLowerCase()) || (b.responsavelNome ? 'responsible' : 'project')
-      const tid = ['task', 'subtask'].includes(t) ? (b.targetId || '').trim() : ''
-      const rn = (b.responsavelNome || '').trim()
-      const existing = await prisma.projectAlert.findFirst({
-        where: { projectId: req.params.projectId, userId: b.userId, targetType: t, targetId: tid, responsavelNome: rn, diasAntes: d },
-        include: { user: { select: { id: true, name: true, email: true } } }
-      })
-      if (existing) return reply.status(201).send(existing)
+    if (e?.code === 'P2002' && req?.body?.userId) {
+      try {
+        const b = req.body || {}
+        const t = ((b.targetType || '').trim().toLowerCase()) || (b.responsavelNome ? 'responsible' : 'project')
+        const tid = ['task', 'subtask'].includes(t) ? (b.targetId || '').trim() : ''
+        const rn = (b.responsavelNome || '').trim()
+        const existing = await prisma.projectAlert.findFirst({
+          where: { projectId: req.params.projectId, userId: b.userId, targetType: t, targetId: tid, responsavelNome: rn },
+          include: { user: { select: { id: true, name: true, email: true } } }
+        })
+        if (existing) return reply.status(201).send(existing)
+      } catch (findErr) {
+        console.error('Erro ao buscar alerta existente:', findErr)
+      }
     }
     console.error('Erro POST /projetos/:projectId/alerts:', e)
     return reply.status(500).send({ error: 'Erro interno' })
