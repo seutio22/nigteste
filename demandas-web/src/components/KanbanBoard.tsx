@@ -188,7 +188,7 @@ export const KanbanBoard: React.FC = () => {
         console.log('🔍 KanbanBoard: Criando notificação para tarefa vencida:', task.title, 'ID:', task.id)
         
         const existingNotification = notificationStore.notifications.find(
-          n => n.mensagem.includes(taskTitle) && n.tipo === 'sistema'
+          n => n.dados?.kanbanTicketId === task.id && n.dados?.categoria === 'kanban-overdue'
         )
         
         if (!existingNotification) {
@@ -204,7 +204,7 @@ export const KanbanBoard: React.FC = () => {
           }
           
           console.log('🔍 KanbanBoard: Adicionando notificação:', notification)
-          notificationStore.add(notification)
+          notificationStore.add({ ...notification, dedupeKey: `kanban-kanban-overdue-${task.id}` })
           console.log('🔍 KanbanBoard: Notificação adicionada. Total no store:', notificationStore.notifications.length)
         } else {
           console.log('🔍 KanbanBoard: Notificação já existe para:', taskTitle)
@@ -219,7 +219,7 @@ export const KanbanBoard: React.FC = () => {
         console.log('🔍 KanbanBoard: Criando notificação para tarefa que vence hoje:', task.title, 'ID:', task.id)
         
         const existingNotification = notificationStore.notifications.find(
-          n => n.mensagem.includes(taskTitle) && n.tipo === 'sistema'
+          n => n.dados?.kanbanTicketId === task.id && n.dados?.categoria === 'kanban-due-today'
         )
         
         if (!existingNotification) {
@@ -235,7 +235,7 @@ export const KanbanBoard: React.FC = () => {
           }
           
           console.log('🔍 KanbanBoard: Adicionando notificação:', notification)
-          notificationStore.add(notification)
+          notificationStore.add({ ...notification, dedupeKey: `kanban-kanban-due-today-${task.id}` })
           console.log('🔍 KanbanBoard: Notificação adicionada. Total no store:', notificationStore.notifications.length)
         } else {
           console.log('🔍 KanbanBoard: Notificação já existe para:', taskTitle)
@@ -250,7 +250,7 @@ export const KanbanBoard: React.FC = () => {
         console.log('🔍 KanbanBoard: Criando notificação para tarefa que vence amanhã:', task.title, 'ID:', task.id)
         
         const existingNotification = notificationStore.notifications.find(
-          n => n.mensagem.includes(taskTitle) && n.tipo === 'sistema'
+          n => n.dados?.kanbanTicketId === task.id && n.dados?.categoria === 'kanban-due-tomorrow'
         )
         
         if (!existingNotification) {
@@ -266,7 +266,7 @@ export const KanbanBoard: React.FC = () => {
           }
           
           console.log('🔍 KanbanBoard: Adicionando notificação:', notification)
-          notificationStore.add(notification)
+          notificationStore.add({ ...notification, dedupeKey: `kanban-kanban-due-tomorrow-${task.id}` })
           console.log('🔍 KanbanBoard: Notificação adicionada. Total no store:', notificationStore.notifications.length)
         } else {
           console.log('🔍 KanbanBoard: Notificação já existe para:', taskTitle)
@@ -281,7 +281,7 @@ export const KanbanBoard: React.FC = () => {
         console.log('🔍 KanbanBoard: Criando notificação para tarefa que vence em breve:', task.title, 'ID:', task.id)
         
         const existingNotification = notificationStore.notifications.find(
-          n => n.mensagem.includes(taskTitle) && n.tipo === 'sistema'
+          n => n.dados?.kanbanTicketId === task.id && n.dados?.categoria === 'kanban-due-soon'
         )
         
         if (!existingNotification) {
@@ -297,7 +297,7 @@ export const KanbanBoard: React.FC = () => {
           }
           
           console.log('🔍 KanbanBoard: Adicionando notificação:', notification)
-          notificationStore.add(notification)
+          notificationStore.add({ ...notification, dedupeKey: `kanban-kanban-due-soon-${task.id}` })
           console.log('🔍 KanbanBoard: Notificação adicionada. Total no store:', notificationStore.notifications.length)
         } else {
           console.log('🔍 KanbanBoard: Notificação já existe para:', taskTitle)

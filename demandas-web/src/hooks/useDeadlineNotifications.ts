@@ -8,10 +8,34 @@ export const useDeadlineNotifications = () => {
   const { user } = useAuthStore()
 
   const checkKanbanDeadlineNotifications = useCallback(async () => {
-    // TEMPORARIAMENTE DESABILITADO - causando logout automático
-    // TODO: Corrigir autenticação do endpoint /notifications/scheduled
-    return
-  }, [])
+    if (!user) return
+    try {
+      const api = getApi()
+      const response = await api.get('/notifications/kanban-deadlines')
+      const notifications = response?.notifications ?? []
+      if (notifications.length === 0) return
+
+      notifications.forEach((n: any) => {
+        const ticketId = n.dados?.kanbanTicketId ?? ''
+        const categoria = n.dados?.categoria ?? 'kanban'
+        const key = `kanban-${categoria}-${ticketId}`
+        if (!localStorage.getItem(key)) {
+          addNotification({
+            titulo: n.titulo,
+            mensagem: n.mensagem,
+            tipo: n.tipo || 'sistema',
+            prioridade: n.prioridade || 'alta',
+            link: n.link,
+            dados: n.dados,
+            dedupeKey: key
+          })
+          localStorage.setItem(key, 'true')
+        }
+      })
+    } catch (error) {
+      console.error('Erro ao verificar notificações Kanban:', error)
+    }
+  }, [addNotification, user])
 
   const checkProjectDeadlineNotifications = useCallback(async () => {
     if (!user) return
@@ -34,7 +58,8 @@ export const useDeadlineNotifications = () => {
             tipo: n.tipo || 'sistema',
             prioridade: n.prioridade || 'alta',
             link: n.link,
-            dados: n.dados
+            dados: n.dados,
+            dedupeKey: key
           })
           localStorage.setItem(key, 'true')
         }

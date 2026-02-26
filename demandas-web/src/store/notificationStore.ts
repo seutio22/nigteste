@@ -32,13 +32,14 @@ export interface Notification {
     alertaId?: string
     autor?: string
     autorId?: string
+    dedupeKey?: string
   }
 }
 
 interface NotificationState {
   notifications: Notification[]
   unreadCount: number
-  add: (notification: Omit<Notification, 'id' | 'dataCriacao'> & { lida?: boolean }) => void
+  add: (notification: Omit<Notification, 'id' | 'dataCriacao'> & { lida?: boolean; dedupeKey?: string }) => void
   markAsRead: (id: string) => void
   markAllAsRead: () => void
   remove: (id: string) => void
@@ -54,27 +55,32 @@ export const useNotificationStore = create<NotificationState>()(
       unreadCount: 0,
       
       add: (notification) => {
-        const newNotification: Notification = {
-          ...notification,
-          id: crypto.randomUUID(),
-          dataCriacao: notification.dataCriacao || new Date().toISOString(),
-          lida: notification.lida ?? false
+        const { dedupeKey, ...rest } = notification as typeof notification & { dedupeKey?: string }
+        
+        const state = get()
+        if (dedupeKey && state.notifications.some(n => n.dados?.dedupeKey === dedupeKey)) {
+          return
         }
         
-        set((state) => {
-          const newNotifications = [newNotification, ...state.notifications]
-          const unreadCount = newNotifications.filter(n => !n.lida).length
-          
+        const newNotification: Notification = {
+          ...rest,
+          dados: { ...rest.dados, ...(dedupeKey && { dedupeKey }) },
+          id: crypto.randomUUID(),
+          dataCriacao: rest.dataCriacao || new Date().toISOString(),
+          lida: rest.lida ?? false
+        }
+        
+        set((s) => {
+          const newNotifications = [newNotification, ...s.notifications]
           return {
             notifications: newNotifications,
-            unreadCount
+            unreadCount: newNotifications.filter(n => !n.lida).length
           }
         })
         
-        // Mostrar notificação toast se disponível
-        if ('Notification' in window && Notification.permission === 'granted') {
-          new Notification(notification.titulo, {
-            body: notification.mensagem,
+        if ('Notification' in window && window.Notification.permission === 'granted') {
+          new window.Notification(newNotification.titulo, {
+            body: newNotification.mensagem,
             icon: '/favicon.ico',
             tag: newNotification.id
           })

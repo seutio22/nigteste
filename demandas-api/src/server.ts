@@ -3406,6 +3406,84 @@ app.get('/notifications/project-deadlines', async (req: any, reply: any) => {
   }
 })
 
+// Notificações Kanban: tarefas vencidas, vence hoje, vence amanhã
+app.get('/notifications/kanban-deadlines', async (req: any, reply: any) => {
+  try {
+    let userId: string | null = null
+    try {
+      await req.jwtVerify?.()
+      userId = req.user?.id ?? req.user?.sub ?? null
+    } catch {
+      const auth = req?.headers?.authorization
+      if (auth?.startsWith?.('Bearer ')) {
+        const token = auth.slice(7)
+        const parts = token.split('.')
+        if (parts.length >= 2) {
+          try {
+            const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString())
+            userId = payload?.id ?? payload?.userId ?? payload?.sub ?? null
+          } catch {}
+        }
+      }
+    }
+    if (!userId) userId = req?.headers?.['x-user-id'] || req?.headers?.['X-User-Id'] || null
+    if (!userId) return reply.status(401).send({ error: 'Não autenticado' })
+
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    const tickets = await prisma.kanbanTicket.findMany({
+      where: {
+        assignee: userId,
+        status: { not: 'done' },
+        dueDate: { not: null }
+      }
+    })
+
+    const notifications: any[] = []
+    tickets.forEach((ticket) => {
+      if (!ticket.dueDate) return
+      const dueDate = new Date(ticket.dueDate)
+      dueDate.setHours(0, 0, 0, 0)
+      const diffDays = Math.round((dueDate.getTime() - today.getTime()) / (24 * 60 * 60 * 1000))
+
+      if (diffDays < 0) {
+        notifications.push({
+          titulo: 'Tarefa Vencida',
+          mensagem: `A tarefa "${ticket.title}" está vencida!`,
+          tipo: 'sistema',
+          prioridade: 'urgente',
+          dados: { categoria: 'kanban-overdue', kanbanTicketId: ticket.id },
+          link: '/projetos'
+        })
+      } else if (diffDays === 0) {
+        notifications.push({
+          titulo: 'Tarefa Vence Hoje',
+          mensagem: `A tarefa "${ticket.title}" vence hoje!`,
+          tipo: 'sistema',
+          prioridade: 'alta',
+          dados: { categoria: 'kanban-due-today', kanbanTicketId: ticket.id },
+          link: '/projetos'
+        })
+      } else if (diffDays === 1) {
+        notifications.push({
+          titulo: 'Tarefa Vence Amanhã',
+          mensagem: `A tarefa "${ticket.title}" vence amanhã!`,
+          tipo: 'sistema',
+          prioridade: 'alta',
+          dados: { categoria: 'kanban-due-tomorrow', kanbanTicketId: ticket.id },
+          link: '/projetos'
+        })
+      }
+    })
+
+    return reply.send({ notifications, count: notifications.length })
+  } catch (error) {
+    console.error('Erro ao buscar notificações Kanban:', error)
+    return reply.status(500).send({ error: 'Erro interno do servidor' })
+  }
+})
+
 for (const [path, repo] of Object.entries(resources)) {
   // Regras específicas de privacidade para Projetos: sobrescreve list/get/create
   if (path === 'projetos' || path === 'projects') {
