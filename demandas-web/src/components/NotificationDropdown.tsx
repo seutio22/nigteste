@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { 
   IconButton, 
   Badge, 
@@ -45,8 +45,20 @@ export function NotificationDropdown() {
     markAsRead, 
     markAllAsRead, 
     remove, 
-    clearRead 
+    clearRead,
+    snoozeNotification
   } = useNotificationStore()
+
+  const [now, setNow] = useState(() => new Date())
+  const visibleNotifications = notifications.filter(n => !n.snoozedUntil || new Date(n.snoozedUntil) <= now)
+  const effectiveUnreadCount = visibleNotifications.filter(n => !n.lida).length
+
+  useEffect(() => {
+    const hasSnoozed = notifications.some(n => n.snoozedUntil && new Date(n.snoozedUntil) > new Date())
+    if (!hasSnoozed) return
+    const interval = setInterval(() => setNow(new Date()), 60 * 1000)
+    return () => clearInterval(interval)
+  }, [notifications])
 
   const open = Boolean(anchorEl)
   
@@ -155,8 +167,8 @@ export function NotificationDropdown() {
     return `${Math.floor(diffInMinutes / 1440)}d atrás`
   }
 
-  const displayedNotifications = showAll ? notifications : notifications.slice(0, 5)
-  const hasMoreNotifications = notifications.length > 5
+  const displayedNotifications = showAll ? visibleNotifications : visibleNotifications.slice(0, 5)
+  const hasMoreNotifications = visibleNotifications.length > 5
 
   return (
     <>
@@ -169,7 +181,7 @@ export function NotificationDropdown() {
         aria-haspopup="true"
         aria-expanded={open ? 'true' : undefined}
       >
-        <Badge badgeContent={unreadCount} color="error" max={99}>
+        <Badge badgeContent={effectiveUnreadCount} color="error" max={99}>
           <Bell className="w-5 h-5 text-gray-600" />
         </Badge>
       </IconButton>
@@ -212,7 +224,7 @@ export function NotificationDropdown() {
                   </IconButton>
                 </>
               )}
-              {unreadCount > 0 && (
+              {effectiveUnreadCount > 0 && (
                 <Button
                   size="small"
                   onClick={markAllAsRead}
@@ -231,9 +243,9 @@ export function NotificationDropdown() {
             </div>
           </div>
           
-          {unreadCount > 0 && (
+          {effectiveUnreadCount > 0 && (
             <Typography variant="body2" color="textSecondary" className="mt-1">
-              {unreadCount} não lida{unreadCount > 1 ? 's' : ''}
+              {effectiveUnreadCount} não lida{effectiveUnreadCount > 1 ? 's' : ''}
             </Typography>
           )}
         </Box>
@@ -368,7 +380,7 @@ export function NotificationDropdown() {
                   onClick={() => setShowAll(!showAll)}
                   size="small"
                 >
-                  {showAll ? 'Mostrar menos' : `Ver mais ${notifications.length - 5} notificação${notifications.length - 5 > 1 ? 'ões' : 'ão'}`}
+                  {showAll ? 'Mostrar menos' : `Ver mais ${visibleNotifications.length - 5} notificação${visibleNotifications.length - 5 > 1 ? 'ões' : 'ão'}`}
                 </Button>
               </div>
             )}
@@ -400,6 +412,11 @@ export function NotificationDropdown() {
         onClose={() => setDetailNotification(null)}
         notification={detailNotification}
         onNavigate={handleDetailNavigate}
+        onSnooze={(id, minutes) => {
+          snoozeNotification(id, new Date(Date.now() + minutes * 60 * 1000))
+          setDetailNotification(null)
+        }}
+        canSnooze={!!(detailNotification?.dados?.kanbanTicketId || detailNotification?.dados?.projectId)}
         formatTimeAgo={formatTimeAgo}
         getPriorityColor={getPriorityColor}
       />

@@ -8,15 +8,21 @@ import {
   Box,
   Typography,
   Chip,
-  Divider
+  Divider,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem
 } from '@mui/material'
-import { Bell, MessageSquare, FileText, Settings, Info, ArrowRight } from 'lucide-react'
+import { Bell, MessageSquare, FileText, Settings, Info, ArrowRight, Clock } from 'lucide-react'
 
 interface NotificationDetailModalProps {
   open: boolean
   onClose: () => void
   notification: any
   onNavigate?: () => void
+  onSnooze?: (id: string, minutes: number) => void
+  canSnooze?: boolean
   formatTimeAgo: (date: string) => string
   getPriorityColor: (prioridade: string) => string
 }
@@ -33,14 +39,24 @@ function getNotificationIcon(tipo: string) {
   }
 }
 
+const SNOOZE_OPTIONS = [
+  { label: '30 minutos', minutes: 30 },
+  { label: '1 hora', minutes: 60 },
+  { label: '2 horas', minutes: 120 },
+  { label: '3 horas', minutes: 180 }
+]
+
 export function NotificationDetailModal({
   open,
   onClose,
   notification,
   onNavigate,
+  onSnooze,
+  canSnooze,
   formatTimeAgo,
   getPriorityColor
 }: NotificationDetailModalProps) {
+  const [snoozeValue, setSnoozeValue] = React.useState<number>(30)
   if (!notification) return null
 
   const d = notification.dados || {}
@@ -117,7 +133,33 @@ export function NotificationDetailModal({
         )}
       </DialogContent>
       <Divider />
-      <DialogActions className="px-4 py-3">
+      <DialogActions className="px-4 py-3 flex-wrap gap-2">
+        {canSnooze && onSnooze && (
+          <Box className="flex items-center gap-2 mr-auto">
+            <Clock className="w-4 h-4 text-gray-500" />
+            <FormControl size="small" sx={{ minWidth: 140 }}>
+              <InputLabel>Adiar lembrete</InputLabel>
+              <Select
+                value={snoozeValue}
+                label="Adiar lembrete"
+                onChange={(e) => setSnoozeValue(Number(e.target.value))}
+              >
+                {SNOOZE_OPTIONS.map((opt) => (
+                  <MenuItem key={opt.minutes} value={opt.minutes}>
+                    {opt.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => onSnooze(notification.id, snoozeValue)}
+            >
+              Adiar
+            </Button>
+          </Box>
+        )}
         <Button onClick={onClose}>Fechar</Button>
         {hasLink && onNavigate && (
           <Button variant="contained" onClick={onNavigate} endIcon={<ArrowRight className="w-4 h-4" />}>

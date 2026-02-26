@@ -11,6 +11,7 @@ export interface Notification {
   dataCriacao: string
   dataLeitura?: string
   link?: string
+  snoozedUntil?: string
   dados?: {
     comunicadoId?: string
     demandaId?: string
@@ -46,6 +47,7 @@ interface NotificationState {
   clear: () => void
   clearRead: () => void
   getUnreadCount: () => number
+  snoozeNotification: (id: string, until: Date) => void
 }
 
 export const useNotificationStore = create<NotificationState>()(
@@ -146,7 +148,27 @@ export const useNotificationStore = create<NotificationState>()(
       
       getUnreadCount: () => {
         const state = get()
-        return state.notifications.filter(n => !n.lida).length
+        const now = new Date()
+        return state.notifications.filter(n => {
+          if (n.snoozedUntil && new Date(n.snoozedUntil) > now) return false
+          return !n.lida
+        }).length
+      },
+
+      snoozeNotification: (id, until) => {
+        set((state) => {
+          const newNotifications = state.notifications.map(n =>
+            n.id === id
+              ? { ...n, snoozedUntil: until.toISOString(), lida: false }
+              : n
+          )
+          const now = new Date()
+          const unreadCount = newNotifications.filter(n => {
+            if (n.snoozedUntil && new Date(n.snoozedUntil) > now) return false
+            return !n.lida
+          }).length
+          return { notifications: newNotifications, unreadCount }
+        })
       }
     }),
     { 
