@@ -245,8 +245,7 @@ jobs:
         echo "Fazendo build do backend..."
         npm run build
     
-    - name: 🚀 Deploy para Railway (upload direto - evita travamento em inicialização)
-      working-directory: ${{ env.BACKEND_DIR }}
+    - name: 🚀 Deploy para Railway (da raiz do repo - railway.json com rootDirectory)
       env:
         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
       run: |

@@ -8,9 +8,9 @@ alwaysApply: true
 
 Quando o usuário pedir para fazer deploy:
 
-1. **Railway (backend):** Executar deploy direto com o token configurado:
-   - `cd demandas-api`
-   - Carregar RAILWAY_TOKEN de .env.railway
+1. **Railway (backend):** Executar deploy da RAIZ do repo (railway.json com rootDirectory: demandas-api):
+   - Carregar RAILWAY_TOKEN de demandas-api/.env.railway
+   - `cd` para a raiz do repo (pai de demandas-api)
    - `npx @railway/cli up --service nigteste --ci`
 
 2. **Não usar apenas git push** - o deploy deve ser feito diretamente no Railway quando solicitado.
