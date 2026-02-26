@@ -101,6 +101,8 @@ export function NotificationDropdown() {
           scrollToSubtaskId: d.subtaskId || null
         }
       })
+    } else if (d?.kanbanTicketId) {
+      navigate('/kanban', { state: { highlightTicket: d.kanbanTicketId, scrollToTicket: true } })
     } else if (detailNotification.link) {
       navigate(detailNotification.link)
     } else if (d?.comunicadoId) {
@@ -109,8 +111,6 @@ export function NotificationDropdown() {
       navigate(`/cadastro/${d.demandaId}`)
     } else if (d?.atendimentoId) {
       navigate(`/atendimento/${d.atendimentoId}`)
-    } else if (d?.kanbanTicketId) {
-      navigate('/kanban', { state: { highlightTicket: d.kanbanTicketId, scrollToTicket: true } })
     }
     setDetailNotification(null)
   }

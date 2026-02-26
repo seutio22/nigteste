@@ -3454,7 +3454,7 @@ app.get('/notifications/kanban-deadlines', async (req: any, reply: any) => {
           tipo: 'sistema',
           prioridade: 'urgente',
           dados: { categoria: 'kanban-overdue', kanbanTicketId: ticket.id },
-          link: '/projetos'
+          link: '/kanban'
         })
       } else if (diffDays === 0) {
         notifications.push({
@@ -3463,7 +3463,7 @@ app.get('/notifications/kanban-deadlines', async (req: any, reply: any) => {
           tipo: 'sistema',
           prioridade: 'alta',
           dados: { categoria: 'kanban-due-today', kanbanTicketId: ticket.id },
-          link: '/projetos'
+          link: '/kanban'
         })
       } else if (diffDays === 1) {
         notifications.push({
@@ -3472,7 +3472,7 @@ app.get('/notifications/kanban-deadlines', async (req: any, reply: any) => {
           tipo: 'sistema',
           prioridade: 'alta',
           dados: { categoria: 'kanban-due-tomorrow', kanbanTicketId: ticket.id },
-          link: '/projetos'
+          link: '/kanban'
         })
       }
     })
