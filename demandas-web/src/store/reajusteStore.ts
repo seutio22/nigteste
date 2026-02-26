@@ -69,8 +69,8 @@ export const useReajusteStore = create<ReajusteState>()(
           
           console.log('✅ ReajusteStore.add: Entry criado:', entry)
           
-          // Adicionar ao estado local
-          set((s) => ({ items: [entry, ...s.items] }))
+          // Adicionar ao estado local (atualizar lastSync para evitar sync desnecessário ao voltar à lista)
+          set((s) => ({ items: [entry, ...s.items], lastSync: Date.now() }))
           console.log('✅ ReajusteStore.add: Reajuste adicionado ao estado local')
           
           // Registrar evento de criação na timeline

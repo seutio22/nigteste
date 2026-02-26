@@ -43,6 +43,7 @@ export interface TimelineEvent {
 interface ReportState {
   items: Report[]
   timeline: TimelineEvent[]
+  lastSync: number
   add: (report: Omit<Report, 'id' | 'dataCriacao' | 'dataAtualizacao'>) => Promise<Report>
   update: (id: string, updates: Partial<Report>) => void
   remove: (id: string) => Promise<void>
@@ -59,7 +60,8 @@ export const useReportStore = create<ReportState>()(
   persist(
     (set, get) => ({
       items: [],
-      timeline: [], // Timeline limpa para evitar poluição
+      timeline: [],
+      lastSync: 0,
       add: async (payload) => {
         try {
           console.log('🔍 ReportStore.add: Iniciando criação de relatório')
@@ -118,7 +120,7 @@ export const useReportStore = create<ReportState>()(
               console.log('✅ ReportStore.add: Report final criado:', JSON.stringify(report, null, 2))
               console.log('✅ ReportStore.add: Analista no report final:', report.analista)
               
-              set((state) => ({ items: [report, ...state.items] }))
+              set((state) => ({ items: [report, ...state.items], lastSync: Date.now() }))
               return report
         } catch (error) {
           console.error('❌ Erro ao criar relatório:', error)
@@ -196,6 +198,9 @@ export const useReportStore = create<ReportState>()(
         }
       },
       async syncFromApi() {
+        const state = get()
+        const now = Date.now()
+        if (now - state.lastSync < 2 * 60 * 1000) return
         try {
           const { api } = await import('../lib/api.local')
           
@@ -330,7 +335,7 @@ export const useReportStore = create<ReportState>()(
             })
           }
           
-          set({ items: reports })
+          set({ items: reports, lastSync: now })
         } catch (error) {
           console.error('❌ Erro ao sincronizar analytics:', error)
           set({ items: [] })
