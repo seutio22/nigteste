@@ -290,13 +290,8 @@ export default function ManutencaoNewPage() {
       if (sanitizedData.sistema) storePayload.sistemaId = sanitizedData.sistema
       
       try {
-        // Criar manutenção através do store (que já faz o mapeamento correto)
-        const created = await manutencaoStore.add(storePayload)
-        
-        // Forçar sincronização para garantir que a manutenção apareça na listagem
-        await manutencaoStore.syncFromApi()
-        
-        // Navegar para a listagem para ver se a manutenção foi criada
+        // Criar manutenção através do store (já adiciona ao store local - sem sync para resposta imediata)
+        await manutencaoStore.add(storePayload)
         navigate('/manutencao')
         
       } catch (error) {

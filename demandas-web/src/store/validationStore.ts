@@ -13,6 +13,51 @@ interface ValidationLog {
   userName?: string
 }
 
+function mapApiValidacaoToEntry(validacao: any): ValidationEntry {
+  const parseArray = (v: any) => {
+    if (!v) return []
+    if (typeof v === 'string') {
+      try { return Array.isArray(JSON.parse(v)) ? JSON.parse(v) : [] } catch { return [] }
+    }
+    return Array.isArray(v) ? v : []
+  }
+  return {
+    id: validacao.id,
+    analista: validacao.analista || validacao.analistaId || { nome: 'N/A' },
+    dataInicio: validacao.dataInicio,
+    dataFinal: validacao.dataFim,
+    status: validacao.status,
+    observacoes: validacao.observacoes,
+    demanda: validacao.demandaId,
+    ticket: validacao.ticket || `VAL-${validacao.id?.slice(0, 8) || ''}`,
+    solicitante: validacao.solicitante || undefined,
+    tipo: validacao.tipo || '',
+    descricao: validacao.descricao || 'Validação de demanda',
+    qualidade: validacao.qualidade || undefined,
+    qtdRetornos: validacao.qtdRetornos || 0,
+    vigencia: validacao.vigencia || undefined,
+    total: validacao.total || 0,
+    area: validacao.area || 'N/A',
+    sistema: validacao.sistema || 'N/A',
+    localizacao: validacao.localizacao || 'N/A',
+    clienteId: validacao.clienteId,
+    contratoId: validacao.contratoId,
+    operadoraId: validacao.operadoraId,
+    produtoId: validacao.produtoId,
+    cliente: validacao.cliente || validacao.clienteObj || validacao.clienteId,
+    contrato: validacao.contrato || validacao.contratoObj || validacao.contratoId,
+    operadora: validacao.operadora || validacao.operadoraObj || validacao.operadoraId,
+    produto: validacao.produto || validacao.produtoObj || validacao.produtoId,
+    estruturaEdge: parseArray(validacao.estruturaEdge),
+    estruturaMove: parseArray(validacao.estruturaMove),
+    formalizacao: validacao.formalizacao,
+    itensPendentes: validacao.itensPendentes,
+    itensConcluidos: validacao.itensConcluidos,
+    createdAt: validacao.createdAt,
+    updatedAt: validacao.updatedAt
+  }
+}
+
 interface ValidationState {
   items: ValidationEntry[]
   logs: ValidationLog[]
@@ -41,29 +86,16 @@ export const useValidationStore = create<ValidationState>()(
       lastSync: 0,
       add: async (payload: Omit<ValidationEntry, 'id' | 'createdAt'>) => {
         try {
-          console.log('🔄 Adicionando nova validação:', payload)
-          console.log('🔄 Estrutura EDGE no payload:', payload.estruturaEdge)
-          console.log('🔄 Estrutura MOVE no payload:', payload.estruturaMove)
-          
           const entry: ValidationEntry = { 
             id: crypto.randomUUID(), 
             createdAt: new Date().toISOString(), 
             ...payload 
           }
-          
-          console.log('📝 Validação criada localmente:', entry.id)
-          console.log('📝 Estrutura EDGE na entrada:', entry.estruturaEdge)
-          console.log('📝 Estrutura MOVE na entrada:', entry.estruturaMove)
-          set((s) => ({ items: [entry, ...s.items] }))
-          
-          // Salvar no banco de dados e obter registro criado (com ID real do banco)
-          console.log('💾 Salvando no banco de dados...')
           const created = await get().saveValidationToDatabase(entry)
-          
-          // Recarregar dados e retornar o registro criado para navegação correta
-          await get().syncFromApi()
-          console.log('✅ Validação adicionada com sucesso!')
-          return created?.id ? { ...entry, id: created.id } : entry
+          if (!created?.id) throw new Error('API não retornou ID da validação criada')
+          const mapped = mapApiValidacaoToEntry(created)
+          set((s) => ({ items: [mapped, ...s.items] }))
+          return mapped
         } catch (error) {
           console.error('❌ Erro ao adicionar validação:', error)
           set({ error: `Erro ao adicionar validação: ${error}` })
@@ -362,88 +394,10 @@ export const useValidationStore = create<ValidationState>()(
           // Importar API dinamicamente
           const { api } = await import('../lib/api.local')
           
-          const validacoes = await api.getValidacoes() // Sem query params - buscar todas
-          console.log('🔍 ValidationStore: Dados recebidos da API:', validacoes.length, 'itens')
+          const validacoes = await api.getValidacoes()
+          const validacoesMapeadas: ValidationEntry[] = validacoes.map((v: any) => mapApiValidacaoToEntry(v))
           
-          // Mapear os dados para o formato esperado pelo frontend - seguindo padrão do demandStore
-          const validacoesMapeadas: ValidationEntry[] = validacoes.map((validacao: any) => {
-            // Logs reduzidos para melhorar performance
-            if (validacoes.length < 50) {
-              console.log('🔍 ValidationStore: Mapeando validação:', validacao.id)
-            }
-            
-            return {
-            id: validacao.id,
-            analista: validacao.analista || validacao.analistaId || { nome: 'N/A' },
-            dataInicio: validacao.dataInicio,
-            dataFinal: validacao.dataFim,
-            status: validacao.status,
-            observacoes: validacao.observacoes,
-            demanda: validacao.demandaId,
-            ticket: validacao.ticket || `VAL-${validacao.id.slice(0, 8)}`,
-            solicitante: validacao.solicitante || undefined,
-            tipo: validacao.tipo || '', // Usar string vazia em vez de valor padrão inválido
-            descricao: validacao.descricao || 'Validação de demanda',
-            qualidade: validacao.qualidade || undefined,
-            qtdRetornos: validacao.qtdRetornos || 0,
-            vigencia: validacao.vigencia || undefined,
-            total: validacao.total || 0,
-            // Campos adicionais para compatibilidade
-            area: validacao.area || 'N/A',
-            sistema: validacao.sistema || 'N/A',
-            localizacao: validacao.localizacao || 'N/A',
-            // Campos para compatibilidade com formulário - usar IDs para selects
-            clienteId: validacao.clienteId,
-            contratoId: validacao.contratoId,
-            operadoraId: validacao.operadoraId,
-            produtoId: validacao.produtoId,
-            // Mapear campos - usar objetos populados se disponíveis, senão usar IDs
-            cliente: validacao.cliente || validacao.clienteObj || validacao.clienteId,
-            contrato: validacao.contrato || validacao.contratoObj || validacao.contratoId,
-            operadora: validacao.operadora || validacao.operadoraObj || validacao.operadoraId,
-            produto: validacao.produto || validacao.produtoObj || validacao.produtoId,
-            // Novos campos para estruturas EDGE, MOVE e formalização
-            estruturaEdge: (() => {
-              console.log('🔍 Estrutura EDGE da API:', validacao.estruturaEdge, 'Tipo:', typeof validacao.estruturaEdge)
-              if (!validacao.estruturaEdge) return []
-              if (typeof validacao.estruturaEdge === 'string') {
-                try {
-                  const parsed = JSON.parse(validacao.estruturaEdge)
-                  console.log('✅ Estrutura EDGE parseada:', parsed)
-                  return Array.isArray(parsed) ? parsed : []
-                } catch (e) {
-                  console.error('❌ Erro ao fazer parse da estrutura EDGE:', e)
-                  return []
-                }
-              }
-              return Array.isArray(validacao.estruturaEdge) ? validacao.estruturaEdge : []
-            })(),
-            estruturaMove: (() => {
-              console.log('🔍 Estrutura MOVE da API:', validacao.estruturaMove, 'Tipo:', typeof validacao.estruturaMove)
-              if (!validacao.estruturaMove) return []
-              if (typeof validacao.estruturaMove === 'string') {
-                try {
-                  const parsed = JSON.parse(validacao.estruturaMove)
-                  console.log('✅ Estrutura MOVE parseada:', parsed)
-                  return Array.isArray(parsed) ? parsed : []
-                } catch (e) {
-                  console.error('❌ Erro ao fazer parse da estrutura MOVE:', e)
-                  return []
-                }
-              }
-              return Array.isArray(validacao.estruturaMove) ? validacao.estruturaMove : []
-            })(),
-            formalizacao: validacao.formalizacao,
-            itensPendentes: validacao.itensPendentes,
-            itensConcluidos: validacao.itensConcluidos,
-            createdAt: validacao.createdAt,
-            updatedAt: validacao.updatedAt
-          }
-          });
-          
-          // Aplicar dados ao store
           set({ items: validacoesMapeadas, loading: false, lastSync: now })
-          console.log('✅ ValidationStore: syncFromApi concluído com sucesso!')
           
         } catch (error) {
           console.error('❌ ValidationStore: Erro no syncFromApi:', error)
