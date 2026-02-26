@@ -49,6 +49,7 @@ const app = Fastify({
 // CORS deve ser o primeiro plugin para preflight OPTIONS funcionar corretamente
 const allowedOrigins = [
   'https://nigteste.vercel.app',
+  'https://nigdynamic.vercel.app',
   'https://nigdynamic.com',
   'http://localhost:5173',
   'http://localhost:3000',
