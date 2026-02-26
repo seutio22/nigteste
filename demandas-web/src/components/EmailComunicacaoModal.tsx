@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Typography, Box, Chip, FormControl, InputLabel, Select, MenuItem, Checkbox, ListItemText, OutlinedInput, IconButton, Tooltip, Card, CardContent, Divider, Paper } from '@mui/material'
-import { Copy, Mail, Users, CheckCircle, X, Settings, Send, Image as ImageIcon, Download, Edit3, Eye, Code, FileText } from 'lucide-react'
+import { Copy, Mail, Users, CheckCircle, X, Settings, Send, Edit3, Eye, Code } from 'lucide-react'
 import { useMasterDataStore } from '../store/masterDataStore'
 import { useMaillingStore } from '../store/maillingStore'
 import { RichTextEditor } from './RichTextEditor'
@@ -19,9 +19,6 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
   const [copiadoEmail, setCopiadoEmail] = useState(false)
   const [previewAtualizado, setPreviewAtualizado] = useState(0)
   const [carregandoMailling, setCarregandoMailling] = useState(false)
-  const [gerandoImagem, setGerandoImagem] = useState(false)
-  const [gerandoWord, setGerandoWord] = useState(false)
-  const [salvandoArquivo, setSalvandoArquivo] = useState(false)
   const [editandoDescricao, setEditandoDescricao] = useState(false)
   const [descricaoEditavel, setDescricaoEditavel] = useState('')
   const [emailOutlook, setEmailOutlook] = useState('')
@@ -225,25 +222,6 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
   const buildEmailHtml = () => {
     const info = getComunicadoInfo()
     return renderComunicadoHtml(info, { bodyMargin: '0', containerPadding: '24px' })
-  }
-
-  const buildWordDocumentHtml = () => {
-    const info = getComunicadoInfo()
-    return renderComunicadoHtml(info, { bodyMargin: '40px', containerPadding: '0' })
-  }
-
-  const downloadWordHtml = (html: string) => {
-    const blob = new Blob(['\ufeff', html], { type: 'application/msword;charset=utf-8' })
-    const url = window.URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-')
-    const ticket = manutencao?.ticket || 'N/A'
-    link.href = url
-    link.download = `comunicado-${ticket}-${timestamp}.doc`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    window.URL.revokeObjectURL(url)
   }
 
   function showDownloadFeedback(message = '✅ Arquivo Word salvo!') {
@@ -940,130 +918,12 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
     }, 3000)
   }
 
-  const handleSalvarArquivo = async () => {
-    // Verificar se já está salvando para evitar múltiplas execuções
-    if (salvandoArquivo ?? false) return
-
-    setSalvandoArquivo(true)
-
-    try {
-      const htmlContent = buildEmailHtml()
-      const blob = new Blob(['\ufeff', htmlContent], { type: 'text/html;charset=utf-8' })
-      const url = window.URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-')
-      const ticket = manutencao?.ticket || 'N/A'
-
-      link.href = url
-      link.download = `comunicado-${ticket}-${timestamp}.html`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      window.URL.revokeObjectURL(url)
-
-      showDownloadFeedback('💾 Arquivo HTML salvo!')
-    } catch (error) {
-      console.error('Erro ao salvar arquivo HTML:', error)
-      alert('Erro ao salvar o arquivo HTML. Tente novamente.')
-    } finally {
-      setSalvandoArquivo(false)
-    }
-  }
-
   const handleSelectAll = () => {
     if (emailsSelecionados.length === destinatarios.length) {
       setEmailsSelecionados([])
     } else {
       setEmailsSelecionados([...destinatarios])
     }
-  }
-
-  const handleGerarImagem = async () => {
-    setGerandoImagem(true)
-    
-    try {
-      // Criar um elemento temporário com o HTML
-      const tempDiv = document.createElement('div')
-      tempDiv.innerHTML = emailCompleto
-      tempDiv.style.position = 'absolute'
-      tempDiv.style.left = '-9999px'
-      tempDiv.style.top = '-9999px'
-      tempDiv.style.width = '800px'
-      tempDiv.style.background = 'white'
-      document.body.appendChild(tempDiv)
-
-      // Usar html2canvas para gerar a imagem
-      const { default: html2canvas } = await import('html2canvas')
-      
-      const canvas = await html2canvas(tempDiv, {
-        width: 800,
-        height: tempDiv.scrollHeight,
-        scale: 2, // Maior resolução
-        backgroundColor: '#ffffff',
-        useCORS: true,
-        allowTaint: true
-      })
-
-      // Converter para blob e fazer download
-      canvas.toBlob((blob) => {
-        if (blob) {
-          const url = URL.createObjectURL(blob)
-          const link = document.createElement('a')
-          link.href = url
-          link.download = `email-manutencao-${manutencao?.ticket || 'N/A'}-${new Date().toISOString().split('T')[0]}.png`
-          document.body.appendChild(link)
-          link.click()
-          document.body.removeChild(link)
-          URL.revokeObjectURL(url)
-        }
-      }, 'image/png')
-
-      // Remover elemento temporário
-      document.body.removeChild(tempDiv)
-      
-    } catch (error) {
-      console.error('Erro ao gerar imagem:', error)
-      alert('Erro ao gerar imagem. Tente novamente.')
-    } finally {
-      setGerandoImagem(false)
-    }
-  }
-
-  const handleGerarWord = async () => {
-    setGerandoWord(true)
-    
-    try {
-      const htmlDocument = buildWordDocumentHtml()
-      downloadWordHtml(htmlDocument)
-      showDownloadFeedback('✅ Arquivo Word (.doc) salvo!')
-    } catch (error) {
-      console.error('Erro ao gerar Word:', error)
-      alert('Erro ao gerar arquivo Word: ' + (error instanceof Error ? error.message : 'Erro desconhecido'))
-    } finally {
-      setGerandoWord(false)
-    }
-  }
-
-  const showDownloadFeedbackWarning = () => {
-    const feedback = document.createElement('div')
-    feedback.style.cssText = `
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      background: #ff0000;
-      color: white;
-      padding: 12px 20px;
-      border-radius: 8px;
-      font-weight: 500;
-      z-index: 9999;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    `
-    feedback.textContent = '⚠️ Aviso: O Word não é suportado pelo Outlook. Usando fallback .docx.'
-    document.body.appendChild(feedback)
-
-    setTimeout(() => {
-      document.body.removeChild(feedback)
-    }, 3000)
   }
 
   return (
@@ -1736,32 +1596,6 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
           Fechar
         </Button>
         <Box className="flex gap-2 flex-wrap">
-          
-          <Button
-            startIcon={gerandoImagem ? <ImageIcon className="w-4 h-4 animate-spin" /> : <ImageIcon className="w-4 h-4" />}
-            onClick={handleGerarImagem}
-            disabled={gerandoImagem}
-            variant="outlined"
-            sx={{ 
-              borderRadius: '8px',
-              textTransform: 'none',
-              fontWeight: 500,
-              px: 3,
-              py: 1.5,
-              borderColor: '#8b5cf6',
-              color: '#8b5cf6',
-              '&:hover': {
-                borderColor: '#7c3aed',
-                background: '#f3f4f6'
-              },
-              '&:disabled': {
-                opacity: 0.6
-              }
-            }}
-          >
-            {gerandoImagem ? 'Gerando...' : '🖼️ Gerar Imagem'}
-          </Button>
-          
           <Button
             startIcon={copiadoEmail ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
             onClick={handleCopyOutlook}
@@ -1776,57 +1610,6 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
           >
             {copiadoEmail ? 'Copiado!' : 'Copiar e-mail (Outlook)'}
           </Button>
-          
-          <Button
-            startIcon={gerandoWord ? <span>⏳</span> : <FileText className="w-4 h-4" />}
-            onClick={handleGerarWord}
-            disabled={gerandoWord}
-            variant="contained"
-            sx={{ 
-              borderRadius: '8px',
-              textTransform: 'none',
-              fontWeight: 500,
-              px: 4,
-              py: 1.5,
-              background: gerandoWord 
-                ? 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)'
-                : 'linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%)',
-              '&:hover': {
-                background: gerandoWord 
-                  ? 'linear-gradient(135deg, #4b5563 0%, #374151 100%)'
-                  : 'linear-gradient(135deg, #1e3a8a 0%, #1e293b 100%)'
-              },
-              '&:disabled': {
-                opacity: 0.6
-              }
-            }}
-          >
-            {gerandoWord ? 'Gerando...' : '📄 Download Word'}
-          </Button>
-          
-          <Button
-            variant="contained"
-            onClick={handleSalvarArquivo}
-            startIcon={(salvandoArquivo ?? false) ? <span>⏳</span> : <span>💾</span>}
-            sx={{
-              borderRadius: '8px',
-              textTransform: 'none',
-              fontWeight: 500,
-              px: 4,
-              py: 1.5,
-              background: (salvandoArquivo ?? false)
-                ? 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)'
-                : 'linear-gradient(135deg, #059669 0%, #047857 100%)',
-              '&:hover': {
-                background: (salvandoArquivo ?? false)
-                  ? 'linear-gradient(135deg, #4b5563 0%, #374151 100%)'
-                  : 'linear-gradient(135deg, #047857 0%, #065f46 100%)'
-              }
-            }}
-          >
-            {(salvandoArquivo ?? false) ? 'Salvando...' : '💾 Salvar Arquivo HTML'}
-          </Button>
-          
         </Box>
       </DialogActions>
     </Dialog>
