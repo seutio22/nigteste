@@ -50,6 +50,7 @@ jspm_packages/
 
 # dotenv environment variables file
 .env
+.env.railway
 
 # IDE files
 .vscode/

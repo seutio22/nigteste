@@ -1,0 +1,18 @@
+---
+description: Regra para deploy - sempre fazer deploy direto no Railway
+globs: 
+alwaysApply: true
+---
+
+# Deploy
+
+Quando o usuário pedir para fazer deploy:
+
+1. **Railway (backend):** Executar deploy direto com o token configurado:
+   - `cd demandas-api`
+   - Carregar RAILWAY_TOKEN de .env.railway
+   - `npx @railway/cli up --service nigteste --ci`
+
+2. **Não usar apenas git push** - o deploy deve ser feito diretamente no Railway quando solicitado.
+
+3. O token está em `demandas-api/.env.railway` (arquivo não versionado).
