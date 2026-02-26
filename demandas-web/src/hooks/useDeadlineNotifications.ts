@@ -42,7 +42,7 @@ export const useDeadlineNotifications = () => {
 
     try {
       const api = getApi()
-      const response = await api.get('/notifications/project-deadlines?preview=30')
+      const response = await api.get('/notifications/project-deadlines')
 
       const notifications = response?.notifications ?? []
       if (notifications.length === 0) return
