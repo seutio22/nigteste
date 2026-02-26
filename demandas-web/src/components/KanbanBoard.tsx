@@ -410,13 +410,16 @@ export const KanbanBoard: React.FC = () => {
     // Normalizar tags para garantir que seja sempre um array antes de usar .join()
     const normalizedTags = Array.isArray(ticket.tags) ? ticket.tags : []
     
+    // input type="date" exige YYYY-MM-DD; API retorna ISO (ex: 2025-01-27T00:00:00.000Z)
+    const toDateInput = (s: string | undefined) => (s && String(s).split('T')[0]) || ''
+    
     setNewTicket({
       title: ticket.title,
-      description: ticket.description,
+      description: ticket.description || '',
       priority: ticket.priority,
-      assignee: getUserNameById(ticket.assignee || 'unassigned'), // Usar nome legível do usuário
-      startDate: ticket.startDate || '',
-      dueDate: ticket.dueDate || '',
+      assignee: getUserNameById(ticket.assignee || 'unassigned'),
+      startDate: toDateInput(ticket.startDate),
+      dueDate: toDateInput(ticket.dueDate),
       tags: normalizedTags.join(', ')
     })
     setOpenDialog(true)
