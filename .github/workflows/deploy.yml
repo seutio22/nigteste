@@ -245,22 +245,13 @@ jobs:
         echo "Fazendo build do backend..."
         npm run build
     
-    - name: 🚀 Deploy para Railway
-      uses: railwayapp/railway-deploy@v1
-      with:
-        railway-token: ${{ secrets.RAILWAY_TOKEN }}
-        service: demandas-api
-      continue-on-error: true
-    
-    - name: ✅ Verificar deploy do backend
-      if: always()
+    - name: 🚀 Deploy para Railway (upload direto - evita travamento em inicialização)
+      working-directory: ${{ env.BACKEND_DIR }}
+      env:
+        RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
       run: |
-        if [ $? -eq 0 ]; then
-          echo "🎉 Backend deployado com sucesso no Railway!"
-        else
-          echo "❌ Erro no deploy do backend"
-          exit 1
-        fi
+        npm i -g @railway/cli
+        railway up --service="demandas-api" --ci
 
   # Deploy do Frontend (Vercel)
   deploy-frontend:
