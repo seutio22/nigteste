@@ -515,13 +515,13 @@ export default function AnalyticsPage() {
                       onChange={(e) => setShowOnlyMyReports(e.target.checked)}
                       sx={{
                         '& .MuiSwitch-switchBase.Mui-checked': {
-                          color: '#667eea',
+                          color: '#050032',
                           '&:hover': {
-                            backgroundColor: 'rgba(102, 126, 234, 0.08)',
+                            backgroundColor: 'rgba(5, 0, 50, 0.08)',
                           },
                         },
                         '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                          backgroundColor: '#667eea',
+                          backgroundColor: '#050032',
                         },
                       }}
                     />
@@ -582,12 +582,12 @@ export default function AnalyticsPage() {
                     fontWeight: 500,
                     fontSize: '0.9rem',
                     height: '44px',
-                    borderColor: '#ef4444',
-                    color: '#ef4444',
+                    borderColor: '#DA3832',
+                    color: '#DA3832',
                     '&:hover': {
-                      borderColor: '#dc2626',
+                      borderColor: '#DA3832',
                       backgroundColor: '#fef2f2',
-                      color: '#dc2626'
+                      color: '#DA3832'
                     }
                   }}
                 >
@@ -609,11 +609,11 @@ export default function AnalyticsPage() {
                     fontWeight: 500,
                     fontSize: '0.9rem',
                     height: '44px',
-                    background: 'linear-gradient(135deg, #9333ea 0%, #3b82f6 100%)',
+                    background: 'linear-gradient(135deg, #050032 0%, #002561 100%)',
                     '&:hover': {
-                      background: 'linear-gradient(135deg, #7e22ce 0%, #2563eb 100%)',
+                      background: 'linear-gradient(135deg, #050032 0%, #009FDF 100%)',
                       transform: 'translateY(-2px)',
-                      boxShadow: '0 8px 20px 0 rgba(147, 51, 234, 0.3)'
+                      boxShadow: '0 8px 20px 0 rgba(5, 0, 50, 0.3)'
                     }
                   }}
                 >
@@ -639,7 +639,7 @@ export default function AnalyticsPage() {
                     '&:hover': {
                       borderWidth: '2px',
                       transform: 'translateY(-2px)',
-                      boxShadow: '0 4px 12px 0 rgba(156, 39, 176, 0.15)'
+                      boxShadow: '0 4px 12px 0 rgba(5, 0, 50, 0.15)'
                     }
                   }}
                 >
@@ -789,6 +789,7 @@ export default function AnalyticsPage() {
         formats={['excel']}
         filterOptions={{
           showDateFilter: true,
+          showCreatedAtFilter: true,
           showAnalistaFilter: true,
           analistas: md.analistas
         }}
@@ -1064,7 +1065,7 @@ function ActionCell({ id, status }: { id: string, status: string }) {
               '&:hover': {
                 borderWidth: '2px',
                 transform: 'translateY(-2px)',
-                boxShadow: '0 4px 12px 0 rgba(59, 130, 246, 0.15)'
+                boxShadow: '0 4px 12px 0 rgba(0, 37, 97, 0.15)'
               }
             }}
           >
@@ -1116,7 +1117,7 @@ function ActionCell({ id, status }: { id: string, status: string }) {
               '&:hover': {
                 borderWidth: '2px',
                 transform: 'translateY(-2px)',
-                boxShadow: '0 4px 12px 0 rgba(59, 130, 246, 0.15)'
+                boxShadow: '0 4px 12px 0 rgba(0, 37, 97, 0.15)'
               }
             }}
           >

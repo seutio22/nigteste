@@ -73,6 +73,8 @@ export const getItemDateForPage = (page: string, item: any): string | undefined 
       return item.dataCriacao || item.createdAt || item.dataInicio
     case 'mailling':
       return item.createdAt
+    case 'projetos':
+      return item.createdAt || item.startDate || item.updatedAt
     default:
       return item.createdAt || item.dataInicio
   }
@@ -89,6 +91,8 @@ export const getItemStartDate = (page: string, item: any): string | undefined =>
       return item.dataInicio || item.createdAt
     case 'analytics':
       return item.dataCriacao || item.dataInicio || item.createdAt
+    case 'projetos':
+      return item.startDate || item.createdAt || item.updatedAt
     default:
       return item.dataInicio || item.createdAt
   }

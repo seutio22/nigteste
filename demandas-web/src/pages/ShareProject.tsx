@@ -127,7 +127,7 @@ const ProgressRing: React.FC<{
   size?: number;
   strokeWidth?: number;
   color?: string;
-}> = ({ value, size = 120, strokeWidth = 10, color = '#667eea' }) => {
+}> = ({ value, size = 120, strokeWidth = 10, color = '#009FDF' }) => {
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
   const offset = circumference - (value / 100) * circumference;
@@ -404,18 +404,18 @@ const ShareProject: React.FC = () => {
   const getStatusColor = (status: string) => {
     const statusColors: { [key: string]: string } = {
       active: '#4caf50',
-      completed: '#10b981',
+      completed: '#00A649',
       paused: '#ff9800',
       cancelled: '#f44336',
       todo: '#94a3b8',
-      in_progress: '#3b82f6',
+      in_progress: '#009FDF',
       review: '#ff9800',
-      done: '#10b981',
-      concluido: '#10b981',
-      em_andamento: '#3b82f6',
-      nao_iniciado: '#f59e0b',
-      'in-progress': '#3b82f6',
-      not_started: '#f59e0b'
+      done: '#00A649',
+      concluido: '#00A649',
+      em_andamento: '#009FDF',
+      nao_iniciado: '#FCDA4F',
+      'in-progress': '#009FDF',
+      not_started: '#FCDA4F'
     };
     return statusColors[status] || '#94a3b8';
   };
@@ -558,8 +558,8 @@ const ShareProject: React.FC = () => {
 
     // Dados para o gráfico de distribuição
     const statusDistribution = [
-      { label: 'Concluídas', value: completedTasks, color: '#10b981' },
-      { label: 'Em Andamento', value: inProgressTasks, color: '#f59e0b' },
+      { label: 'Concluídas', value: completedTasks, color: '#00A649' },
+      { label: 'Em Andamento', value: inProgressTasks, color: '#FCDA4F' },
       { label: 'Pendentes', value: totalTasks - completedTasks - inProgressTasks, color: '#6366f1' }
     ];
 
@@ -573,7 +573,7 @@ const ShareProject: React.FC = () => {
               value={`${project.progress ?? 0}%`}
               subtitle="do projeto concluído"
               icon={<TrendingUpIcon sx={{ color: 'white', fontSize: 24 }} />}
-              gradient="linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+              gradient="linear-gradient(135deg, #050032 0%, #009FDF 100%)"
               trend={{ value: project.progress ?? 0, isPositive: true }}
             />
           </Grid>
@@ -643,7 +643,7 @@ const ShareProject: React.FC = () => {
                 <Grid container spacing={4} alignItems="center">
                   <Grid item xs={12} md={5}>
                     <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-                      <ProgressRing value={project.progress ?? 0} size={160} strokeWidth={12} color="#667eea" />
+                      <ProgressRing value={project.progress ?? 0} size={160} strokeWidth={12} color="#050032" />
                     </Box>
                   </Grid>
                   <Grid item xs={12} md={7}>
@@ -674,7 +674,7 @@ const ShareProject: React.FC = () => {
                       width: 40,
                       height: 40,
                       borderRadius: 2,
-                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      background: 'linear-gradient(135deg, #050032 0%, #009FDF 100%)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center'
@@ -697,7 +697,7 @@ const ShareProject: React.FC = () => {
                       sx={{
                         p: 2,
                         borderRadius: 2,
-                        backgroundColor: 'rgba(102, 126, 234, 0.08)',
+                        backgroundColor: 'rgba(5, 0, 50, 0.08)',
                         textAlign: 'center'
                       }}
                     >
@@ -800,7 +800,7 @@ const ShareProject: React.FC = () => {
                         justifyContent: 'center'
                       }}
                     >
-                      <NotesIcon sx={{ color: '#d97706', fontSize: 20 }} />
+                      <NotesIcon sx={{ color: '#FCDA4F', fontSize: 20 }} />
                     </Box>
                     <Typography variant="h6" sx={{ fontWeight: 700, color: '#92400e' }}>
                       Orçamento do Projeto
@@ -847,9 +847,9 @@ const ShareProject: React.FC = () => {
 
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   {[
-                    { label: 'Fases', value: phases.length, color: '#667eea', icon: <DateRangeIcon sx={{ fontSize: 18 }} /> },
-                    { label: 'Tarefas', value: totalTasks, color: '#f59e0b', icon: <AssignmentIcon sx={{ fontSize: 18 }} /> },
-                    { label: 'Subtarefas', value: totalSubtasks, color: '#10b981', icon: <CheckCircleIcon sx={{ fontSize: 18 }} /> },
+                    { label: 'Fases', value: phases.length, color: '#050032', icon: <DateRangeIcon sx={{ fontSize: 18 }} /> },
+                    { label: 'Tarefas', value: totalTasks, color: '#FCDA4F', icon: <AssignmentIcon sx={{ fontSize: 18 }} /> },
+                    { label: 'Subtarefas', value: totalSubtasks, color: '#00A649', icon: <CheckCircleIcon sx={{ fontSize: 18 }} /> },
                     { label: 'Membros', value: project.members?.length ?? 0, color: '#ec4899', icon: <GroupIcon sx={{ fontSize: 18 }} /> }
                   ].map((item, index) => (
                     <Box
@@ -911,7 +911,7 @@ const ShareProject: React.FC = () => {
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                     {phases.slice(0, 5).map((phase: any, index: number) => {
                       const progress = calculatePhaseProgress(phase);
-                      const colors = ['#667eea', '#f59e0b', '#10b981', '#ec4899', '#6366f1'];
+                      const colors = ['#050032', '#FCDA4F', '#00A649', '#ec4899', '#6366f1'];
                       const color = colors[index % colors.length];
                       
                       return (
@@ -1032,11 +1032,11 @@ const ShareProject: React.FC = () => {
                 width: 56,
                 height: 56,
                 borderRadius: 3,
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                background: 'linear-gradient(135deg, #050032 0%, #009FDF 100%)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                boxShadow: '0 4px 14px rgba(102, 126, 234, 0.4)'
+                boxShadow: '0 4px 14px rgba(5, 0, 50, 0.3)'
               }}
             >
               <DateRangeIcon sx={{ color: 'white', fontSize: 28 }} />
@@ -1059,11 +1059,11 @@ const ShareProject: React.FC = () => {
                 borderRadius: 2,
                 textTransform: 'none',
                 fontWeight: 600,
-                backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                color: '#667eea',
-                border: '1px solid rgba(102, 126, 234, 0.2)',
+                backgroundColor: 'rgba(5, 0, 50, 0.1)',
+                color: '#050032',
+                border: '1px solid rgba(5, 0, 50, 0.2)',
                 '&:hover': {
-                  backgroundColor: 'rgba(102, 126, 234, 0.2)'
+                  backgroundColor: 'rgba(5, 0, 50, 0.2)'
                 }
               }}
             >
@@ -1098,7 +1098,7 @@ const ShareProject: React.FC = () => {
               value={formatDate(project.startDate)}
               subtitle={`até ${formatDate(project.endDate)}`}
               icon={<CalendarIcon sx={{ color: 'white', fontSize: 24 }} />}
-              gradient="linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+              gradient="linear-gradient(135deg, #050032 0%, #009FDF 100%)"
             />
           </Grid>
           <Grid item xs={12} sm={6} lg={3}>
@@ -1161,9 +1161,9 @@ const ShareProject: React.FC = () => {
             </Box>
             <Grid container spacing={2}>
               {[
-                { label: 'Em Andamento', count: phases.filter((p: any) => p.status === 'em_andamento' || p.status === 'in-progress').length, color: '#667eea', bg: 'rgba(102, 126, 234, 0.1)' },
-                { label: 'Concluídas', count: phases.filter((p: any) => p.status === 'concluido' || p.status === 'completed').length, color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)' },
-                { label: 'Pendentes', count: phases.filter((p: any) => p.status === 'nao_iniciado' || p.status === 'not_started' || !p.status).length, color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)' },
+                { label: 'Em Andamento', count: phases.filter((p: any) => p.status === 'em_andamento' || p.status === 'in-progress').length, color: '#050032', bg: 'rgba(5, 0, 50, 0.1)' },
+                { label: 'Concluídas', count: phases.filter((p: any) => p.status === 'concluido' || p.status === 'completed').length, color: '#00A649', bg: 'rgba(0, 166, 73, 0.1)' },
+                { label: 'Pendentes', count: phases.filter((p: any) => p.status === 'nao_iniciado' || p.status === 'not_started' || !p.status).length, color: '#FCDA4F', bg: 'rgba(252, 218, 79, 0.1)' },
                 { label: 'Total Tarefas', count: totalTasks, color: '#6366f1', bg: 'rgba(99, 102, 241, 0.1)' }
               ].map((item, index) => (
                 <Grid item xs={6} sm={3} key={index}>
@@ -1193,7 +1193,7 @@ const ShareProject: React.FC = () => {
         {phases.map((phase: any, phaseIndex: number) => {
           const isExpanded = expandedPhases.has(phase.id);
           const hasTasks = phase.tasks && phase.tasks.length > 0;
-          const phaseColors = ['#667eea', '#f59e0b', '#10b981', '#ec4899', '#6366f1', '#14b8a6'];
+          const phaseColors = ['#050032', '#FCDA4F', '#00A649', '#ec4899', '#6366f1', '#14b8a6'];
           const phaseColor = phaseColors[phaseIndex % phaseColors.length];
 
           return (
@@ -1252,8 +1252,8 @@ const ShareProject: React.FC = () => {
                           </Typography>
                         </Box>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Typography variant="caption" sx={{ color: phase.actualEndDate ? '#10b981' : '#64748b', fontWeight: 600 }}>Finalização:</Typography>
-                          <Typography variant="body2" sx={{ color: phase.actualEndDate ? '#10b981' : '#64748b', fontWeight: 500 }}>
+                          <Typography variant="caption" sx={{ color: phase.actualEndDate ? '#00A649' : '#64748b', fontWeight: 600 }}>Finalização:</Typography>
+                          <Typography variant="body2" sx={{ color: phase.actualEndDate ? '#00A649' : '#64748b', fontWeight: 500 }}>
                             {phase.actualEndDate ? formatDate(phase.actualEndDate) : 'Não definido'}
                           </Typography>
                         </Box>
@@ -1446,8 +1446,8 @@ const ShareProject: React.FC = () => {
                                               sx={{
                                                 p: 1.5,
                                                 borderRadius: 1.5,
-                                                backgroundColor: 'rgba(102, 126, 234, 0.06)',
-                                                border: '1px solid rgba(102, 126, 234, 0.15)'
+                                                backgroundColor: 'rgba(5, 0, 50, 0.06)',
+                                                border: '1px solid rgba(5, 0, 50, 0.15)'
                                               }}
                                             >
                                               <Typography variant="caption" sx={{ color: '#64748b', display: 'block', mb: 0.5 }}>
@@ -1487,7 +1487,7 @@ const ShareProject: React.FC = () => {
                                               <Typography variant="caption" sx={{ color: '#64748b', display: 'block', mb: 0.5 }}>
                                                 Data de Finalização
                                               </Typography>
-                                              <Typography variant="body2" sx={{ fontWeight: 600, color: task.actualEndDate ? '#10b981' : '#64748b' }}>
+                                              <Typography variant="body2" sx={{ fontWeight: 600, color: task.actualEndDate ? '#00A649' : '#64748b' }}>
                                                 {task.actualEndDate ? formatDate(task.actualEndDate) : 'Não definido'}
                                               </Typography>
                                             </Box>
@@ -1632,8 +1632,8 @@ const ShareProject: React.FC = () => {
                                                           width: 24,
                                                           height: 24,
                                                           borderRadius: '50%',
-                                                          backgroundColor: isCompleted ? '#10b981' : 'transparent',
-                                                          border: `2px solid ${isCompleted ? '#10b981' : '#cbd5e1'}`,
+                                                          backgroundColor: isCompleted ? '#00A649' : 'transparent',
+                                                          border: `2px solid ${isCompleted ? '#00A649' : '#cbd5e1'}`,
                                                           display: 'flex',
                                                           alignItems: 'center',
                                                           justifyContent: 'center',
@@ -1686,7 +1686,7 @@ const ShareProject: React.FC = () => {
                                                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                                                       <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Início: {subtask.startDate ? formatDate(subtask.startDate) : 'Não definido'}</Typography>
                                                       <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Programada: {(subtask.plannedEndDate || subtask.dueDate) ? formatDate(subtask.plannedEndDate || subtask.dueDate) : 'Não definido'}</Typography>
-                                                      <Typography variant="caption" sx={{ color: subtask.actualEndDate ? '#10b981' : '#64748b', fontWeight: 600 }}>Finalização: {subtask.actualEndDate ? formatDate(subtask.actualEndDate) : 'Não definido'}</Typography>
+                                                      <Typography variant="caption" sx={{ color: subtask.actualEndDate ? '#00A649' : '#64748b', fontWeight: 600 }}>Finalização: {subtask.actualEndDate ? formatDate(subtask.actualEndDate) : 'Não definido'}</Typography>
                                                       {subtask.assignee && (
                                                         <Typography variant="caption" sx={{ color: '#64748b', display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
                                                           <PersonIcon sx={{ fontSize: 12 }} />
@@ -2770,7 +2770,7 @@ const ShareProject: React.FC = () => {
                     width: 48,
                     height: 48,
                     borderRadius: 2,
-                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    background: 'linear-gradient(135deg, #050032 0%, #009FDF 100%)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -2807,11 +2807,11 @@ const ShareProject: React.FC = () => {
                   label="Visualização Pública"
                   size="small"
                   sx={{
-                    backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                    color: '#667eea',
+                    backgroundColor: 'rgba(5, 0, 50, 0.1)',
+                    color: '#050032',
                     fontWeight: 600,
-                    border: '1px solid rgba(102, 126, 234, 0.2)',
-                    '& .MuiChip-icon': { color: '#667eea' }
+                    border: '1px solid rgba(5, 0, 50, 0.2)',
+                    '& .MuiChip-icon': { color: '#050032' }
                   }}
                 />
                 <Chip
@@ -2845,17 +2845,17 @@ const ShareProject: React.FC = () => {
                   color: '#64748b',
                   transition: 'all 0.2s ease-in-out',
                   '&:hover': {
-                    color: '#667eea'
+                    color: '#050032'
                   }
                 },
                 '& .Mui-selected': {
                   fontWeight: 700,
-                  color: '#667eea !important'
+                  color: '#050032 !important'
                 },
                 '& .MuiTabs-indicator': {
                   height: 3,
                   borderRadius: '3px 3px 0 0',
-                  backgroundColor: '#667eea'
+                  backgroundColor: '#050032'
                 }
               }}
             >

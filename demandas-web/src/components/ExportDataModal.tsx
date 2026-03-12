@@ -58,7 +58,10 @@ interface ExportDataModalProps {
   formats?: ('pdf' | 'excel')[];
   /** Filtros exibidos dentro do modal (ex: data e analista para Validações) */
   filterOptions?: {
+    /** Filtro por data início / data fim (do cadastro/atividade) */
     showDateFilter?: boolean;
+    /** Filtro por data de criação do ticket */
+    showCreatedAtFilter?: boolean;
     showAnalistaFilter?: boolean;
     analistas?: { id: string; nome: string }[];
   };
@@ -103,11 +106,14 @@ const ExportDataModal: React.FC<ExportDataModalProps> = ({
 
   const [filterDateInicio, setFilterDateInicio] = useState('');
   const [filterDateFim, setFilterDateFim] = useState('');
+  const [filterCreatedAtInicio, setFilterCreatedAtInicio] = useState('');
+  const [filterCreatedAtFim, setFilterCreatedAtFim] = useState('');
   const [filterAnalistaId, setFilterAnalistaId] = useState('');
 
   const filteredData = React.useMemo(() => {
     if (!data || !Array.isArray(data)) return [];
     let list = data;
+    // Filtro por data início / data fim (do cadastro/atividade)
     if (filterOptions?.showDateFilter && filterDateInicio) {
       const dInicio = new Date(filterDateInicio);
       dInicio.setHours(0, 0, 0, 0);
@@ -128,6 +134,27 @@ const ExportDataModal: React.FC<ExportDataModalProps> = ({
         return d <= dFim;
       });
     }
+    // Filtro por data de criação do ticket
+    if (filterOptions?.showCreatedAtFilter && filterCreatedAtInicio) {
+      const dInicio = new Date(filterCreatedAtInicio);
+      dInicio.setHours(0, 0, 0, 0);
+      list = list.filter((item: any) => {
+        const raw = item.createdAt ?? item._createdAtRaw;
+        if (!raw) return false;
+        const d = new Date(raw);
+        return d >= dInicio;
+      });
+    }
+    if (filterOptions?.showCreatedAtFilter && filterCreatedAtFim) {
+      const dFim = new Date(filterCreatedAtFim);
+      dFim.setHours(23, 59, 59, 999);
+      list = list.filter((item: any) => {
+        const raw = item.createdAt ?? item._createdAtRaw ?? item.updatedAt;
+        if (!raw) return false;
+        const d = new Date(raw);
+        return d <= dFim;
+      });
+    }
     if (filterOptions?.showAnalistaFilter && filterAnalistaId && filterOptions.analistas?.length) {
       const nomeSelecionado = filterOptions.analistas.find(a => a.id === filterAnalistaId)?.nome;
       list = list.filter((item: any) => {
@@ -137,7 +164,7 @@ const ExportDataModal: React.FC<ExportDataModalProps> = ({
       });
     }
     return list;
-  }, [data, filterOptions, filterDateInicio, filterDateFim, filterAnalistaId]);
+  }, [data, filterOptions, filterDateInicio, filterDateFim, filterCreatedAtInicio, filterCreatedAtFim, filterAnalistaId]);
 
   // Garantir formato correto quando só um formato é permitido (ex: apenas Excel)
   React.useEffect(() => {
@@ -434,7 +461,7 @@ const ExportDataModal: React.FC<ExportDataModalProps> = ({
 
         <Grid container spacing={3}>
           {/* Filtros para exportação (Data, Analista) */}
-          {filterOptions && (filterOptions.showDateFilter || filterOptions.showAnalistaFilter) && (
+          {filterOptions && (filterOptions.showDateFilter || filterOptions.showCreatedAtFilter || filterOptions.showAnalistaFilter) && (
             <Grid item xs={12}>
               <Card variant="outlined">
                 <CardContent>
@@ -445,23 +472,51 @@ const ExportDataModal: React.FC<ExportDataModalProps> = ({
                   <Box display="flex" flexWrap="wrap" gap={2} sx={{ mt: 1 }}>
                     {filterOptions.showDateFilter && (
                       <>
+                        <Typography variant="subtitle2" color="text.secondary" sx={{ width: '100%', mt: 0.5 }}>
+                          Por data início / data fim do cadastro
+                        </Typography>
                         <TextField
                           size="small"
                           type="date"
-                          label="Data a partir de"
+                          label="Data início (a partir de)"
                           value={filterDateInicio}
                           onChange={(e) => setFilterDateInicio(e.target.value)}
                           InputLabelProps={{ shrink: true }}
-                          sx={{ width: 180 }}
+                          sx={{ width: 200 }}
                         />
                         <TextField
                           size="small"
                           type="date"
-                          label="Data até"
+                          label="Data fim (até)"
                           value={filterDateFim}
                           onChange={(e) => setFilterDateFim(e.target.value)}
                           InputLabelProps={{ shrink: true }}
-                          sx={{ width: 180 }}
+                          sx={{ width: 200 }}
+                        />
+                      </>
+                    )}
+                    {filterOptions.showCreatedAtFilter && (
+                      <>
+                        <Typography variant="subtitle2" color="text.secondary" sx={{ width: '100%', mt: 1 }}>
+                          Por data de criação do ticket
+                        </Typography>
+                        <TextField
+                          size="small"
+                          type="date"
+                          label="Criação do ticket (a partir de)"
+                          value={filterCreatedAtInicio}
+                          onChange={(e) => setFilterCreatedAtInicio(e.target.value)}
+                          InputLabelProps={{ shrink: true }}
+                          sx={{ width: 220 }}
+                        />
+                        <TextField
+                          size="small"
+                          type="date"
+                          label="Criação do ticket (até)"
+                          value={filterCreatedAtFim}
+                          onChange={(e) => setFilterCreatedAtFim(e.target.value)}
+                          InputLabelProps={{ shrink: true }}
+                          sx={{ width: 220 }}
                         />
                       </>
                     )}

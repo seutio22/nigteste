@@ -8,7 +8,6 @@ import { StatusBadge } from '../../components/StatusBadge'
 import { SmartImporter } from '../../components/SmartImporter'
 import { smartImporterConfigs } from '../../config/smartImporterConfigs'
 import type { ImportResult } from '../../types/smartImporter'
-import { useFilteredData } from '../../lib/utils'
 import React, { useEffect, useState, useMemo } from 'react'
 import ExportDataModal from '../../components/ExportDataModal'
 import { usePermissions } from '../../hooks/usePermissions'
@@ -207,7 +206,7 @@ function ActionCell({ id, status }: { id: string, status: string }) {
               '&:hover': {
                 borderWidth: '2px',
                 transform: 'translateY(-2px)',
-                boxShadow: '0 4px 12px 0 rgba(59, 130, 246, 0.15)'
+                boxShadow: '0 4px 12px 0 rgba(0, 37, 97, 0.15)'
               }
             }}
           >
@@ -259,7 +258,7 @@ function ActionCell({ id, status }: { id: string, status: string }) {
               '&:hover': {
                 borderWidth: '2px',
                 transform: 'translateY(-2px)',
-                boxShadow: '0 4px 12px 0 rgba(59, 130, 246, 0.15)'
+                boxShadow: '0 4px 12px 0 rgba(0, 37, 97, 0.15)'
               }
             }}
           >
@@ -466,30 +465,32 @@ export default function ValidationListPage() {
     if (isDev) console.log(...args)
   }
 
-  // Filtrar dados por permissão do usuário
-  const filteredItems = useFilteredData(items, user?.role, user?.id, user?.viewOwnDataOnly)
-  // Aplicar filtro adicional para validações do usuário logado
+  // Filtro unificado (mesma abordagem de Cadastro e Manutenção): um único useMemo a partir de items
+  // para evitar recálculos desnecessários e garantir que novo ticket apareça logo com "Minhas validações"
   const finalFilteredItems = useMemo(() => {
-    if (!showOnlyMyValidations) return filteredItems
-    return filteredItems.filter(validation => {
-      // Múltiplas verificações para identificar se a validação é do usuário
-      const analistaId = typeof validation.analista === 'object' ? validation.analista?.id : validation.analista
-      const analistaNome = typeof validation.analista === 'object' ? validation.analista?.nome : null
-      
+    let list = items
+    // 1) Filtro por permissão (viewOwnDataOnly)
+    if (user?.id && user?.viewOwnDataOnly) {
+      list = list.filter(item => {
+        if ('analista' in item && (item as any).analista === user?.id) return true
+        if ('responsavelAnalista' in item && (item as any).responsavelAnalista === user?.id) return true
+        return false
+      })
+    }
+    // 2) Filtro "Minhas validações" (por analista do usuário)
+    if (!showOnlyMyValidations) return list
+    return list.filter(validation => {
+      const analistaId = validation.analistaId ?? (typeof validation.analista === 'object' ? (validation.analista as any)?.id : validation.analista)
+      const analista = analistaId ? analistasById[analistaId] : undefined
       const check1 = analistaId === user?.id
-      const check2 = analistaNome === user?.name
+      const check2 = analista && analista.nome === user?.name
       const check3 = user?.role === 'admin' && analistaId === 'analista-admin'
-      const check4 = validation.analista === user?.id // Verificar campo analista também
-      const check5 = validation.analista === user?.name // Verificar se analista é o nome do usuário
-      
-      // Verificação adicional: se o usuário é admin, sempre incluir validações criadas por ele
+      const check4 = validation.analista === user?.id
+      const check5 = validation.analista === user?.name
       const check6 = user?.role === 'admin'
-      
-      const isMyValidation = check1 || check2 || check3 || check4 || check5 || check6
-      
-      return isMyValidation
+      return !!(check1 || check2 || check3 || check4 || check5 || check6)
     })
-  }, [showOnlyMyValidations, filteredItems, user?.id, user?.name, user?.role])
+  }, [items, showOnlyMyValidations, user?.id, user?.name, user?.role, user?.viewOwnDataOnly, analistasById])
 
   const itemsForGrid = finalFilteredItems
 
@@ -866,13 +867,13 @@ export default function ValidationListPage() {
                       onChange={(e) => setShowOnlyMyValidations(e.target.checked)}
                       sx={{
                         '& .MuiSwitch-switchBase.Mui-checked': {
-                          color: '#667eea',
+                          color: '#050032',
                           '&:hover': {
-                            backgroundColor: 'rgba(102, 126, 234, 0.08)',
+                            backgroundColor: 'rgba(5, 0, 50, 0.08)',
                           },
                         },
                         '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                          backgroundColor: '#667eea',
+                          backgroundColor: '#050032',
                         },
                       }}
                     />
@@ -923,12 +924,12 @@ export default function ValidationListPage() {
                     fontWeight: 500,
                     fontSize: '0.9rem',
                     height: '44px',
-                    borderColor: '#ef4444',
-                    color: '#ef4444',
+                    borderColor: '#DA3832',
+                    color: '#DA3832',
                     '&:hover': {
-                      borderColor: '#dc2626',
+                      borderColor: '#DA3832',
                       backgroundColor: '#fef2f2',
-                      color: '#dc2626'
+                      color: '#DA3832'
                     }
                   }}
                 >
@@ -950,11 +951,11 @@ export default function ValidationListPage() {
                     fontWeight: 500,
                     fontSize: '0.9rem',
                     height: '44px',
-                    background: 'linear-gradient(135deg, #9333ea 0%, #3b82f6 100%)',
+                    background: 'linear-gradient(135deg, #050032 0%, #002561 100%)',
                     '&:hover': {
-                      background: 'linear-gradient(135deg, #7e22ce 0%, #2563eb 100%)',
+                      background: 'linear-gradient(135deg, #050032 0%, #009FDF 100%)',
                       transform: 'translateY(-2px)',
-                      boxShadow: '0 8px 20px 0 rgba(147, 51, 234, 0.3)'
+                      boxShadow: '0 8px 20px 0 rgba(5, 0, 50, 0.3)'
                     }
                   }}
                 >
@@ -980,7 +981,7 @@ export default function ValidationListPage() {
                     '&:hover': {
                       borderWidth: '2px',
                       transform: 'translateY(-2px)',
-                      boxShadow: '0 4px 12px 0 rgba(156, 39, 176, 0.15)'
+                      boxShadow: '0 4px 12px 0 rgba(5, 0, 50, 0.15)'
                     }
                   }}
                 >
@@ -1186,6 +1187,7 @@ export default function ValidationListPage() {
         formats={['excel']}
         filterOptions={{
           showDateFilter: true,
+          showCreatedAtFilter: true,
           showAnalistaFilter: true,
           analistas: md.analistas
         }}

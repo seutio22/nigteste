@@ -32,7 +32,7 @@ interface DashboardChartsProps {
   toDate?: string
 }
 
-const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#84cc16', '#f97316']
+const COLORS = ['#002561', '#009FDF', '#00A649', '#FCDA4F', '#DA3832', '#050032', '#004F75', '#A3B5BC']
 
 export const DashboardCharts: React.FC<DashboardChartsProps> = ({ 
   period,

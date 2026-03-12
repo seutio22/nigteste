@@ -105,16 +105,16 @@ const formatTime = (days: number): string => {
 const getStatusColor = (status: string): string => {
   const statusLower = status.toLowerCase()
   if (statusLower.includes('concluíd') || statusLower.includes('finalizad') || statusLower.includes('resolvid') || statusLower.includes('aprovad')) {
-    return '#10b981' // verde
+    return '#00A649' // verde
   }
   if (statusLower.includes('pendente') || statusLower.includes('aguardando')) {
-    return '#f59e0b' // amarelo
+    return '#FCDA4F' // amarelo
   }
   if (statusLower.includes('em andamento') || statusLower.includes('em progresso')) {
-    return '#3b82f6' // azul
+    return '#009FDF' // azul
   }
   if (statusLower.includes('cancelad') || statusLower.includes('rejeitad')) {
-    return '#ef4444' // vermelho
+    return '#DA3832' // vermelho
   }
   return '#6b7280' // cinza
 }
@@ -423,19 +423,19 @@ export const StatusDetails: React.FC<StatusDetailsProps> = ({
         {hasAnyData ? (
           <Grid container spacing={3}>
             <Grid item xs={12} md={6}>
-              {renderStatusTable('Demandas', demandasPorStatus, '#3b82f6')}
+              {renderStatusTable('Demandas', demandasPorStatus, '#009FDF')}
             </Grid>
             <Grid item xs={12} md={6}>
-              {renderStatusTable('Manutenções', manutencoesPorStatus, '#ef4444')}
+              {renderStatusTable('Manutenções', manutencoesPorStatus, '#DA3832')}
             </Grid>
             <Grid item xs={12} md={6}>
               {renderStatusTable('Reajustes', reajustesPorStatus, '#8b5cf6')}
             </Grid>
             <Grid item xs={12} md={6}>
-              {renderStatusTable('Validações', validacoesPorStatus, '#f59e0b')}
+              {renderStatusTable('Validações', validacoesPorStatus, '#FCDA4F')}
             </Grid>
             <Grid item xs={12} md={6}>
-              {renderStatusTable('Atendimentos', atendimentosPorStatus, '#10b981')}
+              {renderStatusTable('Atendimentos', atendimentosPorStatus, '#00A649')}
             </Grid>
             <Grid item xs={12} md={6}>
               {renderStatusTable('Analytics', analyticsPorStatus, '#06b6d4')}

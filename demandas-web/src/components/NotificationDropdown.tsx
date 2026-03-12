@@ -132,17 +132,17 @@ export function NotificationDropdown() {
     
     switch (tipo) {
       case 'comunicado':
-        return <MessageSquare {...iconProps} className="text-blue-500" />
+        return <MessageSquare {...iconProps} className="text-primary-500" />
       case 'demanda':
         return <FileText {...iconProps} className="text-green-500" />
       case 'atendimento':
         return <Settings {...iconProps} className="text-orange-500" />
       case 'sistema':
-        return <Info {...iconProps} className="text-purple-500" />
+        return <Info {...iconProps} className="text-secondary-500" />
       case 'alerta':
         return <Bell {...iconProps} className="text-amber-500" />
       default:
-        return <Bell {...iconProps} className="text-gray-500" />
+        return <Bell {...iconProps} className="text-apoio-400" />
     }
   }
 
@@ -152,7 +152,7 @@ export function NotificationDropdown() {
       case 'alta': return 'bg-orange-100 text-orange-800'
       case 'media': return 'bg-yellow-100 text-yellow-800'
       case 'baixa': return 'bg-green-100 text-green-800'
-      default: return 'bg-gray-100 text-gray-800'
+      default: return 'bg-apoio-100 text-apoio-500'
     }
   }
 
@@ -198,7 +198,7 @@ export function NotificationDropdown() {
         anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
       >
         {/* Header */}
-        <Box className="p-4 border-b border-gray-100">
+        <Box className="p-4 border-b border-apoio-100">
           <div className="flex items-center justify-between">
             <Typography variant="h6" className="font-semibold">
               Notificações
@@ -217,7 +217,7 @@ export function NotificationDropdown() {
                   <IconButton
                     size="small"
                     onClick={() => { setManagedAlertsOpen(true); handleClose() }}
-                    className="text-blue-600 hover:text-blue-700"
+                    className="text-primary-600 hover:text-primary-700"
                     title="Meus alertas"
                   >
                     <List className="w-4 h-4" />
@@ -236,7 +236,7 @@ export function NotificationDropdown() {
               <IconButton
                 size="small"
                 onClick={clearRead}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-apoio-400 hover:text-apoio-500"
               >
                 <Trash2 className="w-4 h-4" />
               </IconButton>
@@ -257,8 +257,8 @@ export function NotificationDropdown() {
               <MenuItem
                 key={notification.id}
                 onClick={() => handleNotificationClick(notification)}
-                className={`p-4 hover:bg-gray-50 transition-colors ${
-                  !notification.lida ? 'bg-blue-50' : ''
+                className={`p-4 hover:bg-apoio-50 transition-colors ${
+                  !notification.lida ? 'bg-primary-50' : ''
                 }`}
               >
                 <div className="flex items-start gap-3 w-full">
@@ -273,7 +273,7 @@ export function NotificationDropdown() {
                       <Typography 
                         variant="subtitle2" 
                         className={`font-medium ${
-                          !notification.lida ? 'text-blue-900' : 'text-gray-900'
+                          !notification.lida ? 'text-primary-900' : 'text-primary-900'
                         }`}
                       >
                         {notification.titulo}
@@ -291,7 +291,7 @@ export function NotificationDropdown() {
                       sx={{
                         fontSize: '0.95rem',
                         lineHeight: 1.5,
-                        color: '#374151',
+                        color: '#050032',
                         '& ul, & ol': { margin: '0.25em 0', paddingLeft: '1.2em' },
                         '& p': { marginBottom: '0.25em' },
                         '& strong': { fontWeight: 600 },
@@ -299,12 +299,12 @@ export function NotificationDropdown() {
                       }}
                       dangerouslySetInnerHTML={{ __html: notification.mensagem || '' }}
                     />
-                    <Typography variant="caption" className="text-blue-600 font-medium">
+                    <Typography variant="caption" className="text-primary-600 font-medium">
                       Clique para ver mensagem completa →
                     </Typography>
                     
                     {notification.dados?.projectId && (
-                      <Box className="mb-2 p-2 rounded bg-gray-50 border border-gray-100">
+                      <Box className="mb-2 p-2 rounded bg-gray-50 border border-apoio-100">
                         <Typography variant="caption" className="text-gray-600 block font-medium mb-1">Detalhes:</Typography>
                         <Typography variant="caption" className="text-gray-700 block">
                           Projeto: {notification.dados.projectName || '—'}
@@ -325,7 +325,7 @@ export function NotificationDropdown() {
                             {notification.dados.diasRestantes === 0 ? 'Vence hoje' : notification.dados.diasRestantes === 1 ? 'Vence amanhã' : `${notification.dados.diasRestantes} dias restantes`}
                           </Typography>
                         )}
-                        <Typography variant="caption" className="text-blue-600 block mt-1 font-medium">
+                        <Typography variant="caption" className="text-primary-600 block mt-1 font-medium">
                           Clique para ir ao cronograma →
                         </Typography>
                       </Box>
@@ -353,7 +353,7 @@ export function NotificationDropdown() {
                           e.stopPropagation()
                           markAsRead(notification.id)
                         }}
-                        className="text-blue-500 hover:text-blue-700"
+                        className="text-primary-500 hover:text-primary-700"
                       >
                         <Eye className="w-4 h-4" />
                       </IconButton>
@@ -387,7 +387,7 @@ export function NotificationDropdown() {
           </div>
         ) : (
           <Box className="p-8 text-center">
-            <Bell className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+            <Bell className="w-12 h-12 text-apoio-300 mx-auto mb-3" />
             <Typography variant="body1" color="textSecondary">
               Nenhuma notificação
             </Typography>

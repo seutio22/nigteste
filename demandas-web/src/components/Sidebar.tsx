@@ -97,7 +97,7 @@ export function Sidebar() {
               <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-sm">D</span>
               </div>
-              <span className="font-bold text-lg text-white" style={{ fontFamily: 'Geometria, sans-serif' }}>Dynamic</span>
+              <span className="font-bold text-lg text-white font-geometria">Dynamic</span>
             </motion.div>
           )}
         </AnimatePresence>

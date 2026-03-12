@@ -21,8 +21,10 @@ function mapApiValidacaoToEntry(validacao: any): ValidationEntry {
     }
     return Array.isArray(v) ? v : []
   }
+  const analistaId = validacao.analistaId ?? (typeof validacao.analista === 'object' ? validacao.analista?.id : validacao.analista)
   return {
     id: validacao.id,
+    analistaId,
     analista: validacao.analista || validacao.analistaId || { nome: 'N/A' },
     dataInicio: validacao.dataInicio,
     dataFinal: validacao.dataFim,

@@ -37,9 +37,13 @@ export interface Notification {
   }
 }
 
+const MAX_DISMISSED_KEYS = 500
+
 interface NotificationState {
   notifications: Notification[]
   unreadCount: number
+  /** Chaves (alertaId ou dedupeKey) que o usuário excluiu – não readicionar */
+  dismissedKeys: string[]
   add: (notification: Omit<Notification, 'id' | 'dataCriacao'> & { lida?: boolean; dedupeKey?: string }) => void
   markAsRead: (id: string) => void
   markAllAsRead: () => void
@@ -55,15 +59,19 @@ export const useNotificationStore = create<NotificationState>()(
     (set, get) => ({
       notifications: [],
       unreadCount: 0,
-      
+      dismissedKeys: [],
+
       add: (notification) => {
         const { dedupeKey, ...rest } = notification as typeof notification & { dedupeKey?: string }
-        
         const state = get()
-        if (dedupeKey && state.notifications.some(n => n.dados?.dedupeKey === dedupeKey)) {
-          return
-        }
-        
+        const alertaId = rest.dados?.alertaId
+        const dismissed = state.dismissedKeys ?? []
+
+        if (dedupeKey && dismissed.includes(dedupeKey)) return
+        if (alertaId && dismissed.includes(alertaId)) return
+        if (dedupeKey && state.notifications.some(n => n.dados?.dedupeKey === dedupeKey)) return
+        if (alertaId && state.notifications.some(n => n.dados?.alertaId === alertaId)) return
+
         const newNotification: Notification = {
           ...rest,
           dados: { ...rest.dados, ...(dedupeKey && { dedupeKey }) },
@@ -122,12 +130,21 @@ export const useNotificationStore = create<NotificationState>()(
       
       remove: (id) => {
         set((state) => {
+          const removed = state.notifications.find(n => n.id === id)
+          const currentDismissed = state.dismissedKeys ?? []
+          let newDismissed = currentDismissed
+          if (removed) {
+            const key = removed.dados?.alertaId ?? removed.dados?.dedupeKey
+            if (key && !currentDismissed.includes(key)) {
+              newDismissed = [...currentDismissed.slice(-(MAX_DISMISSED_KEYS - 1)), key]
+            }
+          }
           const newNotifications = state.notifications.filter(n => n.id !== id)
           const unreadCount = newNotifications.filter(n => !n.lida).length
-          
           return {
             notifications: newNotifications,
-            unreadCount
+            unreadCount,
+            dismissedKeys: newDismissed
           }
         })
       },

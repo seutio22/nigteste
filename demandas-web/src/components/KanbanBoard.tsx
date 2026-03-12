@@ -361,7 +361,7 @@ export const KanbanBoard: React.FC = () => {
           ticketElement.style.boxShadow = '0 0 30px rgba(239, 68, 68, 0.8)'
           ticketElement.style.transform = 'scale(1.05)'
           ticketElement.style.transition = 'all 0.5s ease'
-          ticketElement.style.border = '3px solid #ef4444'
+          ticketElement.style.border = '3px solid #DA3832'
           ticketElement.style.borderRadius = '12px'
           
           // Adicionar classe CSS para animação
@@ -753,8 +753,8 @@ export const KanbanBoard: React.FC = () => {
                         },
                         // Destaque especial para tarefa vinda de notificação
                         ...(highlightedTicket === ticket.id && {
-                          border: '2px solid #3b82f6',
-                          backgroundColor: 'rgba(59, 130, 246, 0.05)'
+                          border: '2px solid #009FDF',
+                          backgroundColor: 'rgba(0, 159, 223, 0.05)'
                         })
                       }}
                     >
@@ -767,7 +767,7 @@ export const KanbanBoard: React.FC = () => {
                             right: '-8px',
                             width: '24px',
                             height: '24px',
-                            backgroundColor: '#ef4444',
+                            backgroundColor: '#DA3832',
                             borderRadius: '50%',
                             display: 'flex',
                             alignItems: 'center',

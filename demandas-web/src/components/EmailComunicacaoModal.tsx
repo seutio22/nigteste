@@ -124,12 +124,12 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
       const rowBg = isEven ? '#ffffff' : '#f8fafc'
       return `
         <tr style="background: ${rowBg};">
-          <td style="padding: 14px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600; color: #1d4ed8; font-size: 13px;">${linha.contrato}</td>
-          <td style="padding: 14px 12px; border-bottom: 1px solid #e2e8f0; color: #2d3748; font-size: 13px;">${linha.operadora}</td>
-          <td style="padding: 14px 12px; border-bottom: 1px solid #e2e8f0; background: #e6fffa; color: #115e59; font-weight: 500; font-size: 13px;">${linha.produto}</td>
-          <td style="padding: 14px 12px; border-bottom: 1px solid #e2e8f0; background: #fef3c7; color: #92400e; font-weight: 500; font-size: 13px;">${linha.atualizacao}</td>
-          <td style="padding: 14px 12px; border-bottom: 1px solid #e2e8f0; background: #ede9fe; color: #5b21b6; font-weight: 500; font-size: 13px;">${linha.subtipo}</td>
-          <td style="padding: 14px 12px; border-bottom: 1px solid #e2e8f0; background: #ecfdf5; color: #065f46; font-weight: 500; font-size: 13px;">${linha.tipo}</td>
+          <td style="padding: 14px 12px; border-bottom: 1px solid #DCDFE3; font-weight: 600; color: #009FDF; font-size: 13px;">${linha.contrato}</td>
+          <td style="padding: 14px 12px; border-bottom: 1px solid #DCDFE3; color: #050032; font-size: 13px;">${linha.operadora}</td>
+          <td style="padding: 14px 12px; border-bottom: 1px solid #DCDFE3; background: #e6fffa; color: #115e59; font-weight: 500; font-size: 13px;">${linha.produto}</td>
+          <td style="padding: 14px 12px; border-bottom: 1px solid #DCDFE3; background: #fef3c7; color: #92400e; font-weight: 500; font-size: 13px;">${linha.atualizacao}</td>
+          <td style="padding: 14px 12px; border-bottom: 1px solid #DCDFE3; background: #ede9fe; color: #5b21b6; font-weight: 500; font-size: 13px;">${linha.subtipo}</td>
+          <td style="padding: 14px 12px; border-bottom: 1px solid #DCDFE3; background: #e6f7ed; color: #065f46; font-weight: 500; font-size: 13px;">${linha.tipo}</td>
         </tr>`
     }).join('')
 
@@ -159,7 +159,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
         <div style="background: #f7fafc; border-left: 4px solid #3182ce; padding: 18px 22px; border-radius: 0 12px 12px 0;">
           <p style="margin: 0 0 10px 0; font-size: 14px; font-weight: 500; color: #1e3a8a;">📋 ${info.informacao} <strong>${info.cliente}</strong></p>
           <div style="display: flex; flex-wrap: wrap; gap: 12px;">
-            <span style="background: #e0f2fe; color: #1d4ed8; padding: 6px 12px; border-radius: 999px; font-size: 12px;">Operadora: <strong>${info.operadora}</strong></span>
+            <span style="background: #e0f2fe; color: #009FDF; padding: 6px 12px; border-radius: 999px; font-size: 12px;">Operadora: <strong>${info.operadora}</strong></span>
             <span style="background: #ede9fe; color: #5b21b6; padding: 6px 12px; border-radius: 999px; font-size: 12px;">Produto: <strong>${info.produto}</strong></span>
             <span style="background: #dcfce7; color: #047857; padding: 6px 12px; border-radius: 999px; font-size: 12px;">Sistema: <strong>${info.sistema}</strong></span>
           </div>
@@ -190,12 +190,12 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
 
         <div style="margin-bottom: 12px;">
           <p style="margin: 0 0 12px 0; font-size: 15px; font-weight: 600; color: #0f172a;">Descrição</p>
-          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 18px; font-size: 13px; line-height: 1.6; color: #374151;">${info.descricaoHtml || '-'}</div>
+          <div style="background: #f8fafc; border: 1px solid #DCDFE3; border-radius: 10px; padding: 18px; font-size: 13px; line-height: 1.6; color: #A3B5BC;">${info.descricaoHtml || '-'}</div>
         </div>
 
         <p style="margin: 16px 0;">&nbsp;</p>
 
-        <div style="background: #ecfdf5; border: 1px solid #10b981; border-radius: 12px; padding: 18px;">
+        <div style="background: #e6f7ed; border: 1px solid #00A649; border-radius: 12px; padding: 18px;">
           <p style="margin: 0; font-size: 14px; font-weight: 600; color: #047857;">✅ ${info.conclusao}</p>
         </div>
 
@@ -230,7 +230,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
       position: fixed;
       top: 20px;
       right: 20px;
-      background: #10b981;
+      background: #00A649;
       color: white;
       padding: 12px 20px;
       border-radius: 8px;
@@ -342,12 +342,12 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
         
         <!-- Content -->
         <div class="content" style="padding: 30px;">
-            <div style="font-size: 16px; margin-bottom: 20px; color: #2d3748;">
+            <div style="font-size: 16px; margin-bottom: 20px; color: #050032;">
                 <strong>${blocoSaudacao}</strong>
             </div>
             
             <div style="background: #f7fafc; border-left: 4px solid #4299e1; padding: 20px; margin: 20px 0; border-radius: 0 8px 8px 0;">
-                <p style="margin: 0; font-weight: 500; color: #2d3748;">
+                <p style="margin: 0; font-weight: 500; color: #050032;">
                     📋 ${blocoInformacao.replace('o cliente', `<strong>${cliente?.nome || 'N/A'}</strong>`)}
                 </p>
             </div>
@@ -356,7 +356,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
             <div style="margin: 25px 0; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                 <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
                     <thead>
-                        <tr style="background: #2d3748; color: white;">
+                        <tr style="background: #050032; color: white;">
                             <th style="padding: 15px 12px; text-align: left; font-weight: 600; font-size: 13px;">Contrato</th>
                             <th style="padding: 15px 12px; text-align: left; font-weight: 600; font-size: 13px;">Operadora</th>
                             <th style="padding: 15px 12px; text-align: left; font-weight: 600; font-size: 13px;">Produto</th>
@@ -368,12 +368,12 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                     <tbody>
                         ${linhasParaRenderizar.map((linha, index) => `
                         <tr style="background: ${index % 2 === 0 ? '#f8f9fa' : '#ffffff'};">
-                            <td style="padding: 15px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600; color: #2b6cb0; font-size: 15px;">${linha.contrato || contrato?.codigo || contrato?.numero || manutencao?.ticket || 'N/A'}</td>
-                            <td style="padding: 15px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 500; color: #2d3748;">${linha.operadora || operadora?.nome || 'N/A'}</td>
-                            <td style="padding: 15px 12px; border-bottom: 1px solid #e2e8f0; background: #e6fffa; color: #234e52; font-weight: 500;">${linha.produto || produto?.nome || 'N/A'}</td>
-                            <td style="padding: 15px 12px; border-bottom: 1px solid #e2e8f0; background: #fef5e7; color: #7c2d12; font-weight: 500;">${linha.atualizacao || tipoServico?.nome || 'N/A'}</td>
-                            <td style="padding: 15px 12px; border-bottom: 1px solid #e2e8f0; background: #f3e8ff; color: #581c87; font-weight: 500;">${linha.subtipo || tipo?.nome || 'N/A'}</td>
-                            <td style="padding: 15px 12px; border-bottom: 1px solid #e2e8f0; background: #ecfdf5; color: #064e3b; font-weight: 500;">${linha.tipo || sistema?.nome || 'N/A'}</td>
+                            <td style="padding: 15px 12px; border-bottom: 1px solid #DCDFE3; font-weight: 600; color: #2b6cb0; font-size: 15px;">${linha.contrato || contrato?.codigo || contrato?.numero || manutencao?.ticket || 'N/A'}</td>
+                            <td style="padding: 15px 12px; border-bottom: 1px solid #DCDFE3; font-weight: 500; color: #050032;">${linha.operadora || operadora?.nome || 'N/A'}</td>
+                            <td style="padding: 15px 12px; border-bottom: 1px solid #DCDFE3; background: #e6fffa; color: #234e52; font-weight: 500;">${linha.produto || produto?.nome || 'N/A'}</td>
+                            <td style="padding: 15px 12px; border-bottom: 1px solid #DCDFE3; background: #fef5e7; color: #7c2d12; font-weight: 500;">${linha.atualizacao || tipoServico?.nome || 'N/A'}</td>
+                            <td style="padding: 15px 12px; border-bottom: 1px solid #DCDFE3; background: #f3e8ff; color: #581c87; font-weight: 500;">${linha.subtipo || tipo?.nome || 'N/A'}</td>
+                            <td style="padding: 15px 12px; border-bottom: 1px solid #DCDFE3; background: #e6f7ed; color: #064e3b; font-weight: 500;">${linha.tipo || sistema?.nome || 'N/A'}</td>
                         </tr>
                         `).join('')}
                     </tbody>
@@ -381,10 +381,10 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
             </div>
             
             <!-- Description -->
-            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 25px 0;">
-                <h3 style="margin: 0 0 15px 0; color: #2d3748; font-size: 16px; font-weight: 600;">📝 Descrição da Alteração</h3>
+            <div style="background: #f8fafc; border: 1px solid #DCDFE3; border-radius: 8px; padding: 20px; margin: 25px 0;">
+                <h3 style="margin: 0 0 15px 0; color: #050032; font-size: 16px; font-weight: 600;">📝 Descrição da Alteração</h3>
                 <div style="background: white; border: 1px solid #d1d5db; border-radius: 6px; padding: 15px; min-height: 60px;">
-                    <p style="margin: 0; line-height: 1.6; color: #4a5568; font-size: 14px; white-space: pre-wrap;">${descricaoEditavel || manutencao?.descricao || 'Alteração realizada'}</p>
+                    <p style="margin: 0; line-height: 1.6; color: #002561; font-size: 14px; white-space: pre-wrap;">${descricaoEditavel || manutencao?.descricao || 'Alteração realizada'}</p>
                 </div>
             </div>
             
@@ -396,17 +396,17 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
             </div>
             
             <!-- Signature -->
-            <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #e2e8f0;">
-                <p style="margin: 5px 0; color: #4a5568;">Atenciosamente,</p>
-                <p style="margin: 5px 0; font-weight: 600; color: #2d3748; font-size: 16px;">NIG - Núcleo de Informações Gerenciais</p>
-                <p style="margin: 5px 0; color: #4a5568;">
-                    <span style="display: inline-block; background: #667eea; color: white; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600;">Sistema Automatizado</span>
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #DCDFE3;">
+                <p style="margin: 5px 0; color: #002561;">Atenciosamente,</p>
+                <p style="margin: 5px 0; font-weight: 600; color: #050032; font-size: 16px;">NIG - Núcleo de Informações Gerenciais</p>
+                <p style="margin: 5px 0; color: #002561;">
+                    <span style="display: inline-block; background: #050032; color: white; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600;">Sistema Automatizado</span>
                 </p>
             </div>
         </div>
         
         <!-- Footer -->
-        <div style="background: #f7fafc; padding: 20px; text-align: center; color: #718096; font-size: 12px;">
+        <div style="background: #f7fafc; padding: 20px; text-align: center; color: #A3B5BC; font-size: 12px;">
             <p style="margin: 0;">Esta é uma mensagem automática do sistema NIG. Por favor, não responda a este e-mail.</p>
         </div>
     </div>
@@ -553,7 +553,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
             bottom: 0;
             background: 
                 radial-gradient(circle at 20% 30%, rgba(255, 215, 0, 0.1) 0%, transparent 50%),
-                radial-gradient(circle at 80% 70%, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 70%, rgba(0, 159, 223, 0.1) 0%, transparent 50%),
                 radial-gradient(circle at 50% 50%, rgba(139, 92, 246, 0.05) 0%, transparent 70%);
             pointer-events: none;
         }
@@ -598,7 +598,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
         .greeting {
             font-size: 16px;
             margin-bottom: 20px;
-            color: #2d3748;
+            color: #050032;
         }
         .info-box {
             background: #f7fafc;
@@ -610,7 +610,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
         .info-box p {
             margin: 0;
             font-weight: 500;
-            color: #2d3748;
+            color: #050032;
         }
         .table-container {
             margin: 25px 0;
@@ -624,7 +624,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
             font-size: 14px;
         }
         th {
-            background: linear-gradient(135deg, #2d3748 0%, #4a5568 100%);
+            background: linear-gradient(135deg, #050032 0%, #002561 100%);
             color: white;
             padding: 15px 12px;
             text-align: left;
@@ -635,7 +635,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
         }
         td {
             padding: 15px 12px;
-            border-bottom: 1px solid #e2e8f0;
+            border-bottom: 1px solid #DCDFE3;
             vertical-align: top;
         }
         tr:nth-child(even) {
@@ -651,7 +651,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
         }
         .operator-cell {
             font-weight: 500;
-            color: #2d3748;
+            color: #050032;
         }
         .product-cell {
             background: linear-gradient(135deg, #e6fffa 0%, #b2f5ea 100%);
@@ -669,13 +669,13 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
             font-weight: 500;
         }
         .type-cell {
-            background: linear-gradient(135deg, #ecfdf5 0%, #a7f3d0 100%);
+            background: linear-gradient(135deg, #e6f7ed 0%, #a7f3d0 100%);
             color: #064e3b;
             font-weight: 500;
         }
         .description-section {
             background: #f8fafc;
-            border: 1px solid #e2e8f0;
+            border: 1px solid #DCDFE3;
             border-radius: 8px;
             padding: 20px;
             margin: 25px 0;
@@ -702,27 +702,27 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
         .signature {
             margin-top: 30px;
             padding-top: 20px;
-            border-top: 2px solid #e2e8f0;
+            border-top: 2px solid #DCDFE3;
         }
         .signature p {
             margin: 5px 0;
-            color: #4a5568;
+            color: #002561;
         }
         .signature .company {
             font-weight: 600;
-            color: #2d3748;
+            color: #050032;
             font-size: 16px;
         }
         .footer {
             background: #f7fafc;
             padding: 20px;
             text-align: center;
-            color: #718096;
+            color: #A3B5BC;
             font-size: 12px;
         }
         .badge {
             display: inline-block;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #050032 0%, #009FDF 100%);
             color: white;
             padding: 4px 12px;
             border-radius: 20px;
@@ -775,9 +775,9 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
             </div>
             
             <div class="description-section">
-                <h3 style="margin: 0 0 15px 0; color: #2d3748; font-size: 16px; font-weight: 600;">📝 Descrição da Alteração</h3>
+                <h3 style="margin: 0 0 15px 0; color: #050032; font-size: 16px; font-weight: 600;">📝 Descrição da Alteração</h3>
                 <div class="description-content">
-                    <p style="margin: 0; line-height: 1.6; color: #4a5568; font-size: 14px; white-space: pre-wrap;">${descricaoEditavel || manutencao.descricao || 'Alteração realizada'}</p>
+                    <p style="margin: 0; line-height: 1.6; color: #002561; font-size: 14px; white-space: pre-wrap;">${descricaoEditavel || manutencao.descricao || 'Alteração realizada'}</p>
                 </div>
             </div>
             
@@ -902,7 +902,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
       position: fixed;
       top: 20px;
       right: 20px;
-      background: #3b82f6;
+      background: #009FDF;
       color: white;
       padding: 12px 20px;
       border-radius: 8px;
@@ -943,7 +943,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
       {/* Header com gradiente */}
       <Box 
         sx={{ 
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          background: 'linear-gradient(135deg, #050032 0%, #009FDF 100%)',
           color: 'white',
           p: 3,
           borderRadius: '16px 16px 0 0'
@@ -987,13 +987,13 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
       
       <DialogContent sx={{ p: 0 }}>
         {/* Informações da Manutenção */}
-        <Box sx={{ p: 3, background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)' }}>
+        <Box sx={{ p: 3, background: 'linear-gradient(135deg, #f8fafc 0%, #DCDFE3 100%)' }}>
           <Card sx={{ borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
             <CardContent sx={{ p: 3 }}>
               <Box className="flex items-center gap-3 mb-3">
                 <Box 
                   sx={{ 
-                    background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+                    background: 'linear-gradient(135deg, #002561 0%, #009FDF 100%)',
                     borderRadius: '8px',
                     p: 1,
                     display: 'flex',
@@ -1023,7 +1023,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
             <Box className="flex items-center gap-2">
               <Box 
                 sx={{ 
-                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                  background: 'linear-gradient(135deg, #00A649 0%, #008c3a 100%)',
                   borderRadius: '8px',
                   p: 1,
                   display: 'flex',
@@ -1046,7 +1046,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                 textTransform: 'none',
                 fontWeight: 500,
                 borderColor: '#d1d5db',
-                color: '#374151',
+                color: '#A3B5BC',
                 '&:hover': {
                   borderColor: '#9ca3af',
                   background: '#f9fafb'
@@ -1077,7 +1077,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                     borderColor: '#9ca3af'
                   },
                   '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                    borderColor: '#3b82f6',
+                    borderColor: '#009FDF',
                     borderWidth: '2px'
                   }
                 }}
@@ -1090,7 +1090,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                       label={email} 
                       size="small" 
                       sx={{ 
-                        background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+                        background: 'linear-gradient(135deg, #002561 0%, #009FDF 100%)',
                         color: 'white',
                         fontWeight: 500,
                         '& .MuiChip-deleteIcon': {
@@ -1115,8 +1115,8 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                     <Checkbox 
                       checked={emailsSelecionados.indexOf(email) > -1} 
                       sx={{ 
-                        color: '#3b82f6',
-                        '&.Mui-checked': { color: '#1d4ed8' }
+                        color: '#009FDF',
+                        '&.Mui-checked': { color: '#009FDF' }
                       }}
                     />
                     <ListItemText primary={email} />
@@ -1163,10 +1163,10 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                   textTransform: 'none',
                   fontWeight: 500,
                   px: 3,
-                  borderColor: '#f59e0b',
-                  color: '#f59e0b',
+                  borderColor: '#FCDA4F',
+                  color: '#FCDA4F',
                   '&:hover': {
-                    borderColor: '#d97706',
+                    borderColor: '#e5c547',
                     background: '#fef3c7'
                   }
                 }}
@@ -1204,7 +1204,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
               <Box className="flex items-center gap-2">
                 <Box 
                   sx={{ 
-                    background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                    background: 'linear-gradient(135deg, #FCDA4F 0%, #e5c547 100%)',
                     borderRadius: '8px',
                     p: 1,
                     display: 'flex',
@@ -1249,10 +1249,10 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                     textTransform: 'none',
                     fontWeight: 500,
                     px: 2,
-                    borderColor: modoEdicao === 'editar' ? '#10b981' : '#3b82f6',
-                    color: modoEdicao === 'editar' ? '#10b981' : '#3b82f6',
+                    borderColor: modoEdicao === 'editar' ? '#00A649' : '#009FDF',
+                    color: modoEdicao === 'editar' ? '#00A649' : '#009FDF',
                     '&:hover': {
-                      borderColor: modoEdicao === 'editar' ? '#059669' : '#1d4ed8',
+                      borderColor: modoEdicao === 'editar' ? '#008c3a' : '#009FDF',
                       background: modoEdicao === 'editar' ? '#f0fdf4' : '#eff6ff'
                     }
                   }}
@@ -1294,7 +1294,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                       borderColor: '#9ca3af'
                     },
                     '&.Mui-focused fieldset': {
-                      borderColor: '#3b82f6',
+                      borderColor: '#009FDF',
                       borderWidth: '2px'
                     }
                   }
@@ -1308,7 +1308,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
               borderRadius: '12px',
               overflow: 'hidden',
               boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-              border: '1px solid #e2e8f0'
+              border: '1px solid #DCDFE3'
             }}
           >
             <Box 
@@ -1335,9 +1335,9 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                         fontWeight: 500,
                         px: 2,
                         py: 1,
-                        background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                        background: 'linear-gradient(135deg, #002561 0%, #009FDF 100%)',
                         '&:hover': {
-                          background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)'
+                          background: 'linear-gradient(135deg, #002561 0%, #009FDF 100%)'
                         }
                       }}
                     >
@@ -1347,7 +1347,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                   
 
                   {/* Blocos da Tabela */}
-                  <Box sx={{ mb: 3, p: 2, backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                  <Box sx={{ mb: 3, p: 2, backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #DCDFE3' }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                       <Typography variant="subtitle1" sx={{ color: '#1e293b', fontWeight: 600 }}>
                         📊 Dados da Tabela Técnica
@@ -1369,7 +1369,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                     </Box>
                     
                     {linhasTabela.map((linha, index) => (
-                      <Box key={linha.id} sx={{ mb: 2, p: 2, backgroundColor: 'white', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                      <Box key={linha.id} sx={{ mb: 2, p: 2, backgroundColor: 'white', borderRadius: '6px', border: '1px solid #DCDFE3' }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                           <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 500 }}>
                             Linha {index + 1}
@@ -1382,7 +1382,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                               sx={{
                                 minWidth: 'auto',
                                 p: 0.5,
-                                color: '#ef4444',
+                                color: '#DA3832',
                                 '&:hover': { backgroundColor: '#fef2f2' }
                               }}
                             >
@@ -1394,7 +1394,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                         <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
                           {/* Contrato */}
                           <Box>
-                            <Typography variant="subtitle2" sx={{ mb: 1, color: '#374151', fontWeight: 600 }}>
+                            <Typography variant="subtitle2" sx={{ mb: 1, color: '#A3B5BC', fontWeight: 600 }}>
                               📄 Contrato
                             </Typography>
                             <TextField
@@ -1408,7 +1408,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                                   borderRadius: '6px',
                                   '& fieldset': { borderColor: '#d1d5db' },
                                   '&:hover fieldset': { borderColor: '#9ca3af' },
-                                  '&.Mui-focused fieldset': { borderColor: '#3b82f6', borderWidth: '2px' }
+                                  '&.Mui-focused fieldset': { borderColor: '#009FDF', borderWidth: '2px' }
                                 }
                               }}
                             />
@@ -1416,7 +1416,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
 
                           {/* Operadora */}
                           <Box>
-                            <Typography variant="subtitle2" sx={{ mb: 1, color: '#374151', fontWeight: 600 }}>
+                            <Typography variant="subtitle2" sx={{ mb: 1, color: '#A3B5BC', fontWeight: 600 }}>
                               🏢 Operadora
                             </Typography>
                             <TextField
@@ -1430,7 +1430,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                                   borderRadius: '6px',
                                   '& fieldset': { borderColor: '#d1d5db' },
                                   '&:hover fieldset': { borderColor: '#9ca3af' },
-                                  '&.Mui-focused fieldset': { borderColor: '#3b82f6', borderWidth: '2px' }
+                                  '&.Mui-focused fieldset': { borderColor: '#009FDF', borderWidth: '2px' }
                                 }
                               }}
                             />
@@ -1438,7 +1438,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
 
                           {/* Produto */}
                           <Box>
-                            <Typography variant="subtitle2" sx={{ mb: 1, color: '#374151', fontWeight: 600 }}>
+                            <Typography variant="subtitle2" sx={{ mb: 1, color: '#A3B5BC', fontWeight: 600 }}>
                               📦 Produto
                             </Typography>
                             <TextField
@@ -1452,7 +1452,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                                   borderRadius: '6px',
                                   '& fieldset': { borderColor: '#d1d5db' },
                                   '&:hover fieldset': { borderColor: '#9ca3af' },
-                                  '&.Mui-focused fieldset': { borderColor: '#3b82f6', borderWidth: '2px' }
+                                  '&.Mui-focused fieldset': { borderColor: '#009FDF', borderWidth: '2px' }
                                 }
                               }}
                             />
@@ -1460,7 +1460,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
 
                           {/* Atualização */}
                           <Box>
-                            <Typography variant="subtitle2" sx={{ mb: 1, color: '#374151', fontWeight: 600 }}>
+                            <Typography variant="subtitle2" sx={{ mb: 1, color: '#A3B5BC', fontWeight: 600 }}>
                               🔄 Atualização
                             </Typography>
                             <TextField
@@ -1474,7 +1474,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                                   borderRadius: '6px',
                                   '& fieldset': { borderColor: '#d1d5db' },
                                   '&:hover fieldset': { borderColor: '#9ca3af' },
-                                  '&.Mui-focused fieldset': { borderColor: '#3b82f6', borderWidth: '2px' }
+                                  '&.Mui-focused fieldset': { borderColor: '#009FDF', borderWidth: '2px' }
                                 }
                               }}
                             />
@@ -1482,7 +1482,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
 
                           {/* Subtipo */}
                           <Box>
-                            <Typography variant="subtitle2" sx={{ mb: 1, color: '#374151', fontWeight: 600 }}>
+                            <Typography variant="subtitle2" sx={{ mb: 1, color: '#A3B5BC', fontWeight: 600 }}>
                               🏷️ Subtipo
                             </Typography>
                             <TextField
@@ -1496,7 +1496,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                                   borderRadius: '6px',
                                   '& fieldset': { borderColor: '#d1d5db' },
                                   '&:hover fieldset': { borderColor: '#9ca3af' },
-                                  '&.Mui-focused fieldset': { borderColor: '#3b82f6', borderWidth: '2px' }
+                                  '&.Mui-focused fieldset': { borderColor: '#009FDF', borderWidth: '2px' }
                                 }
                               }}
                             />
@@ -1504,7 +1504,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
 
                           {/* Tipo */}
                           <Box>
-                            <Typography variant="subtitle2" sx={{ mb: 1, color: '#374151', fontWeight: 600 }}>
+                            <Typography variant="subtitle2" sx={{ mb: 1, color: '#A3B5BC', fontWeight: 600 }}>
                               ⚙️ Tipo
                             </Typography>
                             <TextField
@@ -1518,7 +1518,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                                   borderRadius: '6px',
                                   '& fieldset': { borderColor: '#d1d5db' },
                                   '&:hover fieldset': { borderColor: '#9ca3af' },
-                                  '&.Mui-focused fieldset': { borderColor: '#3b82f6', borderWidth: '2px' }
+                                  '&.Mui-focused fieldset': { borderColor: '#009FDF', borderWidth: '2px' }
                                 }
                               }}
                             />
@@ -1530,7 +1530,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
 
                   {/* Bloco Descrição */}
                   <Box sx={{ mb: 3 }}>
-                    <Typography variant="subtitle2" sx={{ mb: 1, color: '#374151', fontWeight: 600 }}>
+                    <Typography variant="subtitle2" sx={{ mb: 1, color: '#A3B5BC', fontWeight: 600 }}>
                       📝 Descrição da Alteração
                     </Typography>
                     <TextField
@@ -1545,7 +1545,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                           borderRadius: '8px',
                           '& fieldset': { borderColor: '#d1d5db' },
                           '&:hover fieldset': { borderColor: '#9ca3af' },
-                          '&.Mui-focused fieldset': { borderColor: '#3b82f6', borderWidth: '2px' }
+                          '&.Mui-focused fieldset': { borderColor: '#009FDF', borderWidth: '2px' }
                         }
                       }}
                     />
@@ -1586,7 +1586,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
             px: 3,
             py: 1.5,
             borderColor: '#d1d5db',
-            color: '#374151',
+            color: '#A3B5BC',
             '&:hover': {
               borderColor: '#9ca3af',
               background: '#f9fafb'

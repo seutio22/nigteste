@@ -100,7 +100,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         budget: payload.budget || null,
         team: JSON.stringify([]), // Array vazio como string
         tags: JSON.stringify([]), // Array vazio como string
-        color: '#3b82f6', // Cor padrão
+        color: '#009FDF', // Cor padrão
         isPrivate: (payload as any).isPrivate ?? false
       }
       

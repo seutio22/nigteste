@@ -30,12 +30,12 @@ interface NotificationDetailModalProps {
 function getNotificationIcon(tipo: string) {
   const iconProps = { className: 'w-5 h-5' }
   switch (tipo) {
-    case 'comunicado': return <MessageSquare {...iconProps} className="text-blue-500" />
+    case 'comunicado': return <MessageSquare {...iconProps} className="text-primary-500" />
     case 'demanda': return <FileText {...iconProps} className="text-green-500" />
     case 'atendimento': return <Settings {...iconProps} className="text-orange-500" />
-    case 'sistema': return <Info {...iconProps} className="text-purple-500" />
+    case 'sistema': return <Info {...iconProps} className="text-secondary-500" />
     case 'alerta': return <Bell {...iconProps} className="text-amber-500" />
-    default: return <Bell {...iconProps} className="text-gray-500" />
+    default: return <Bell {...iconProps} className="text-apoio-400" />
   }
 }
 
@@ -94,7 +94,7 @@ export function NotificationDetailModal({
             maxHeight: '60vh',
             fontSize: '1.05rem',
             lineHeight: 1.7,
-            color: '#374151',
+            color: '#050032',
             '&::-webkit-scrollbar': { width: 8 },
             '&::-webkit-scrollbar-thumb': { borderRadius: 4, backgroundColor: 'rgba(0,0,0,0.2)' },
             '& ul, & ol': { margin: '0.75em 0', paddingLeft: '1.5em' },
@@ -106,26 +106,26 @@ export function NotificationDetailModal({
           dangerouslySetInnerHTML={{ __html: notification.mensagem || '' }}
         />
         {d.projectId && (
-          <Box className="mt-4 p-3 rounded-lg bg-gray-50 border border-gray-100">
-            <Typography variant="subtitle2" className="text-gray-600 font-medium mb-2">
+          <Box className="mt-4 p-3 rounded-lg bg-apoio-50 border border-apoio-100">
+            <Typography variant="subtitle2" className="text-apoio-400 font-medium mb-2">
               Detalhes do projeto
             </Typography>
-            <Typography variant="body2" className="text-gray-700">
+            <Typography variant="body2" className="text-apoio-500">
               Projeto: {d.projectName || '—'}
             </Typography>
             {d.taskName && (
-              <Typography variant="body2" className="text-gray-700">
+              <Typography variant="body2" className="text-apoio-500">
                 Tarefa: {d.taskName}
                 {d.phaseName && ` (${d.phaseName})`}
               </Typography>
             )}
             {d.subtaskName && (
-              <Typography variant="body2" className="text-gray-700">
+              <Typography variant="body2" className="text-apoio-500">
                 Subtarefa: {d.subtaskName}
               </Typography>
             )}
             {d.diasRestantes !== undefined && (
-              <Typography variant="body2" className="text-gray-700 font-medium mt-1">
+              <Typography variant="body2" className="text-apoio-500 font-medium mt-1">
                 {d.diasRestantes === 0 ? 'Vence hoje' : d.diasRestantes === 1 ? 'Vence amanhã' : `${d.diasRestantes} dias restantes`}
               </Typography>
             )}
@@ -136,7 +136,7 @@ export function NotificationDetailModal({
       <DialogActions className="px-4 py-3 flex-wrap gap-2">
         {canSnooze && onSnooze && (
           <Box className="flex items-center gap-2 mr-auto">
-            <Clock className="w-4 h-4 text-gray-500" />
+            <Clock className="w-4 h-4 text-apoio-400" />
             <FormControl size="small" sx={{ minWidth: 140 }}>
               <InputLabel>Adiar lembrete</InputLabel>
               <Select

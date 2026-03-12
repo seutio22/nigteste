@@ -86,9 +86,9 @@ export function ComentariosSection({ comunicadoId, comentarios }: ComentariosSec
 
   const getRoleColor = (role?: string) => {
     switch (role) {
-      case 'admin': return '#f59e0b'
+      case 'admin': return '#FCDA4F'
       case 'manager': return '#8b5cf6'
-      case 'user': return '#10b981'
+      case 'user': return '#00A649'
       default: return '#6b7280'
     }
   }
@@ -115,8 +115,8 @@ export function ComentariosSection({ comunicadoId, comentarios }: ComentariosSec
         <Box 
           className="w-12 h-12 rounded-2xl flex items-center justify-center"
           sx={{
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            boxShadow: '0 8px 32px rgba(102, 126, 234, 0.3)'
+            background: 'linear-gradient(135deg, #050032 0%, #009FDF 100%)',
+            boxShadow: '0 8px 32px rgba(5, 0, 50, 0.3)'
           }}
         >
           <Message className="text-white" />
@@ -151,11 +151,11 @@ export function ComentariosSection({ comunicadoId, comentarios }: ComentariosSec
                   backdropFilter: 'blur(10px)',
                   border: '1px solid rgba(148, 163, 184, 0.2)',
                   '&:hover': {
-                    border: '1px solid rgba(102, 126, 234, 0.3)',
+                    border: '1px solid rgba(5, 0, 50, 0.3)',
                   },
                   '&.Mui-focused': {
-                    border: '2px solid #667eea',
-                    boxShadow: '0 0 0 3px rgba(102, 126, 234, 0.1)',
+                    border: '2px solid #050032',
+                    boxShadow: '0 0 0 3px rgba(5, 0, 50, 0.1)',
                   }
                 },
                 '& .MuiInputBase-input': {
@@ -174,14 +174,14 @@ export function ComentariosSection({ comunicadoId, comentarios }: ComentariosSec
                   borderRadius: '12px',
                   px: 3,
                   py: 1,
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  boxShadow: '0 4px 20px rgba(102, 126, 234, 0.4)',
+                  background: 'linear-gradient(135deg, #050032 0%, #009FDF 100%)',
+                  boxShadow: '0 4px 20px rgba(5, 0, 50, 0.4)',
                   textTransform: 'none',
                   fontSize: '0.9rem',
                   fontWeight: 600,
                   '&:hover': {
                     background: 'linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%)',
-                    boxShadow: '0 6px 25px rgba(102, 126, 234, 0.5)',
+                    boxShadow: '0 6px 25px rgba(5, 0, 50, 0.5)',
                     transform: 'translateY(-1px)'
                   },
                   '&:disabled': {
@@ -247,7 +247,7 @@ export function ComentariosSection({ comunicadoId, comentarios }: ComentariosSec
                       sx={{
                         width: 40,
                         height: 40,
-                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        background: 'linear-gradient(135deg, #050032 0%, #009FDF 100%)',
                         fontWeight: 'bold',
                         fontSize: '1rem'
                       }}
@@ -288,7 +288,7 @@ export function ComentariosSection({ comunicadoId, comentarios }: ComentariosSec
                       onClick={() => handleRemoverComentario(comentario.id)}
                       size="small"
                       sx={{
-                        color: '#ef4444',
+                        color: '#DA3832',
                         '&:hover': {
                           backgroundColor: 'rgba(239, 68, 68, 0.1)',
                           transform: 'scale(1.1)'

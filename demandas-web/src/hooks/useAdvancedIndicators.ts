@@ -293,7 +293,7 @@ export const useAdvancedIndicators = (
       value: tempoMedioGeral,
       unit: 'dias',
       description: 'Tempo médio para conclusão de chamados',
-      color: '#3b82f6',
+      color: '#009FDF',
       icon: 'Schedule'
     })
 
@@ -308,7 +308,7 @@ export const useAdvancedIndicators = (
       value: taxaConclusaoGeral,
       unit: '%',
       description: 'Percentual de chamados concluídos',
-      color: '#10b981',
+      color: '#00A649',
       icon: 'CheckCircle'
     })
 
@@ -321,7 +321,7 @@ export const useAdvancedIndicators = (
         value: analistaMaisProdutivo.totalItens,
         unit: 'itens',
         description: `${analistaMaisProdutivo.analistaNome} - ${analistaMaisProdutivo.totalItens} itens`,
-        color: '#f59e0b',
+        color: '#FCDA4F',
         icon: 'Person'
       })
     }
@@ -337,7 +337,7 @@ export const useAdvancedIndicators = (
       value: paginaMaiorTempo.tempoMedio,
       unit: 'dias',
       description: `${paginaMaiorTempo.pagina} - ${paginaMaiorTempo.tempoMedio} dias`,
-      color: '#ef4444',
+      color: '#DA3832',
       icon: 'Warning'
     })
 

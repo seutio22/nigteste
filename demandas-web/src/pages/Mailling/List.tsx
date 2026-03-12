@@ -328,7 +328,7 @@ export default function MaillingListPage() {
                     '&:hover': {
                       borderWidth: '2px',
                       transform: 'translateY(-2px)',
-                      boxShadow: '0 4px 12px 0 rgba(59, 130, 246, 0.15)'
+                      boxShadow: '0 4px 12px 0 rgba(0, 37, 97, 0.15)'
                     }
                   }}
                 >
@@ -467,7 +467,7 @@ export default function MaillingListPage() {
                 size="small"
                 color="secondary"
                 sx={{
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  background: 'linear-gradient(135deg, #050032 0%, #009FDF 100%)',
                   '&:hover': {
                     background: 'linear-gradient(135deg, #5568d3 0%, #66438c 100%)',
                   }

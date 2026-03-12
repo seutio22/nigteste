@@ -61,7 +61,7 @@ export const PAGE_CONFIGS: IndicatorConfig[] = [
     page: 'demandas',
     title: 'Cadastro',
     icon: 'Assignment',
-    color: '#3b82f6',
+    color: '#009FDF',
     category: 'primary',
     fields: {
       total: 'status',
@@ -74,7 +74,7 @@ export const PAGE_CONFIGS: IndicatorConfig[] = [
     page: 'atendimentos',
     title: 'Atendimentos',
     icon: 'Support',
-    color: '#10b981',
+    color: '#00A649',
     category: 'primary',
     fields: {
       total: 'status',
@@ -87,7 +87,7 @@ export const PAGE_CONFIGS: IndicatorConfig[] = [
     page: 'validacoes',
     title: 'Validações',
     icon: 'CheckCircle',
-    color: '#f59e0b',
+    color: '#FCDA4F',
     category: 'primary',
     fields: {
       total: 'status',
@@ -113,7 +113,7 @@ export const PAGE_CONFIGS: IndicatorConfig[] = [
     page: 'manutencoes',
     title: 'Manutenções',
     icon: 'Build',
-    color: '#ef4444',
+    color: '#DA3832',
     category: 'primary',
     fields: {
       total: 'status',
@@ -140,7 +140,7 @@ export const PAGE_CONFIGS: IndicatorConfig[] = [
     page: 'mailling',
     title: 'Mailling',
     icon: 'Email',
-    color: '#84cc16',
+    color: '#00A649',
     category: 'secondary',
     fields: {
       total: 'status',

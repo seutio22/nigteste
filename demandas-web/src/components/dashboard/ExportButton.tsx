@@ -93,9 +93,9 @@ export const ExportButton: React.FC<ExportButtonProps> = ({
         onClick={handleClick}
         disabled={isExporting}
         sx={{
-          backgroundColor: '#10b981',
+          backgroundColor: '#00A649',
           '&:hover': {
-            backgroundColor: '#059669'
+            backgroundColor: '#00A649'
           },
           fontWeight: 600,
           textTransform: 'none',

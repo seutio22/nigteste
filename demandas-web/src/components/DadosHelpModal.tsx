@@ -97,7 +97,7 @@ export const DadosHelpModal: React.FC<DadosHelpModalProps> = ({ open, onClose })
             '&:hover': {
               borderWidth: '2px',
               transform: 'translateY(-2px)',
-              boxShadow: '0 4px 12px 0 rgba(59, 130, 246, 0.15)'
+              boxShadow: '0 4px 12px 0 rgba(0, 37, 97, 0.15)'
             }
           }}
         >

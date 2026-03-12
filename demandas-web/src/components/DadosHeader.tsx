@@ -54,7 +54,7 @@ export const DadosHeader: React.FC<DadosHeaderProps> = ({
             '&:hover': {
               borderWidth: '2px',
               transform: 'translateY(-2px)',
-              boxShadow: '0 4px 12px 0 rgba(59, 130, 246, 0.15)'
+              boxShadow: '0 4px 12px 0 rgba(0, 37, 97, 0.15)'
             }
           }}
         >
@@ -74,9 +74,9 @@ export const DadosHeader: React.FC<DadosHeaderProps> = ({
             fontWeight: 500,
             fontSize: '0.9rem',
             height: '44px',
-            background: 'linear-gradient(135deg, #7c3aed 0%, #3b82f6 100%)',
+            background: 'linear-gradient(135deg, #050032 0%, #002561 100%)',
             '&:hover': {
-              background: 'linear-gradient(135deg, #6d28d9 0%, #2563eb 100%)',
+              background: 'linear-gradient(135deg, #050032 0%, #009FDF 100%)',
               transform: 'translateY(-2px)',
               boxShadow: '0 8px 25px 0 rgba(124, 58, 237, 0.3)'
             }
@@ -99,8 +99,8 @@ export const DadosHeader: React.FC<DadosHeaderProps> = ({
             fontSize: '0.9rem',
             height: '44px',
             borderWidth: '2px',
-            color: '#dc2626',
-            borderColor: '#ef4444',
+            color: '#DA3832',
+            borderColor: '#DA3832',
             '&:hover': {
               borderWidth: '2px',
               transform: 'translateY(-2px)',
@@ -126,8 +126,8 @@ export const DadosHeader: React.FC<DadosHeaderProps> = ({
             fontSize: '0.9rem',
             height: '44px',
             borderWidth: '2px',
-            color: '#059669',
-            borderColor: '#10b981',
+            color: '#00A649',
+            borderColor: '#00A649',
             '&:hover': {
               borderWidth: '2px',
               transform: 'translateY(-2px)',
@@ -183,7 +183,7 @@ export const DadosHeader: React.FC<DadosHeaderProps> = ({
             '&:hover': {
               borderWidth: '2px',
               transform: 'translateY(-2px)',
-              boxShadow: '0 4px 12px 0 rgba(59, 130, 246, 0.15)'
+              boxShadow: '0 4px 12px 0 rgba(0, 37, 97, 0.15)'
             }
           }}
         >

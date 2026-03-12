@@ -44,6 +44,7 @@ import { useReajusteStore } from '../store/reajusteStore'
 import { useMaillingStore } from '../store/maillingStore'
 import { useDashboardStore } from '../store/dashboardStore'
 import { useReportStore } from '../store/reportStore'
+import { useProjectStore } from '../store/projectStore'
 import { DashboardIndicators } from '../components/dashboard/DashboardIndicators'
 import { DashboardCharts } from '../components/dashboard/DashboardCharts'
 import { ExportButton } from '../components/dashboard/ExportButton'
@@ -55,7 +56,7 @@ import { StatusDetails } from '../components/dashboard/StatusDetails'
 import type { PeriodType } from '../types/dashboardIndicators'
 import { getItemDateForPage, parseDateForFilter } from '../utils/dashboardFilters'
 
-const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#84cc16', '#f97316']
+const COLORS = ['#002561', '#009FDF', '#00A649', '#FCDA4F', '#DA3832', '#050032', '#004F75', '#A3B5BC']
 const normalizeText = (value?: string) => (value || '').trim().toLowerCase()
 
 // Função utilitária para converter período em datas
@@ -119,6 +120,7 @@ export default function DashboardPage() {
   const syncReajustes = useReajusteStore((s) => s.syncFromApi)
   const syncDashboard = useDashboardStore((s) => s.syncFromApi)
   const syncReport = useReportStore((s) => s.syncFromApi)
+  const syncProjects = useProjectStore((s) => s.syncFromApi)
 
   // Filtros
   const [areaId, setAreaId] = useState('')
@@ -447,6 +449,13 @@ export default function DashboardPage() {
           console.error('❌ Dashboard: Erro ao carregar analytics:', error)
         })
       )
+      if (syncProjects) {
+        promises.push(
+          syncProjects().catch(error => {
+            console.error('❌ Dashboard: Erro ao carregar projetos:', error)
+          })
+        )
+      }
 
       await Promise.allSettled(promises)
       logDev('✅ Dashboard: Dados sincronizados')
@@ -463,7 +472,8 @@ export default function DashboardPage() {
     syncValidacoes,
     syncReajustes,
     syncDashboard,
-    syncReport
+    syncReport,
+    syncProjects
   ])
 
   // Carregar dados automaticamente quando a página é carregada
@@ -737,7 +747,7 @@ export default function DashboardPage() {
                 '&:hover': {
                   borderWidth: '2px',
                   transform: 'translateY(-2px)',
-                  boxShadow: '0 4px 12px 0 rgba(59, 130, 246, 0.15)'
+                  boxShadow: '0 4px 12px 0 rgba(0, 37, 97, 0.15)'
                 }
               }}
             >

@@ -620,13 +620,13 @@ export default function DemandListPage() {
                       onChange={(e) => setShowOnlyMyDemands(e.target.checked)}
                       sx={{
                         '& .MuiSwitch-switchBase.Mui-checked': {
-                          color: '#667eea',
+                          color: '#050032',
                           '&:hover': {
-                            backgroundColor: 'rgba(102, 126, 234, 0.08)',
+                            backgroundColor: 'rgba(5, 0, 50, 0.08)',
                           },
                         },
                         '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                          backgroundColor: '#667eea',
+                          backgroundColor: '#050032',
                         },
                       }}
                     />
@@ -714,9 +714,9 @@ export default function DemandListPage() {
                     fontWeight: 500,
                     fontSize: '0.9rem',
                     height: '44px',
-                    background: 'linear-gradient(135deg, #7c3aed 0%, #3b82f6 100%)',
+                    background: 'linear-gradient(135deg, #050032 0%, #002561 100%)',
                     '&:hover': {
-                      background: 'linear-gradient(135deg, #6d28d9 0%, #2563eb 100%)',
+                      background: 'linear-gradient(135deg, #050032 0%, #009FDF 100%)',
                       transform: 'translateY(-2px)',
                       boxShadow: '0 8px 25px 0 rgba(124, 58, 237, 0.3)'
                     }
@@ -744,7 +744,7 @@ export default function DemandListPage() {
                     '&:hover': {
                       borderWidth: '2px',
                       transform: 'translateY(-2px)',
-                      boxShadow: '0 4px 12px 0 rgba(156, 39, 176, 0.15)'
+                      boxShadow: '0 4px 12px 0 rgba(5, 0, 50, 0.15)'
                     }
                   }}
                 >
@@ -889,6 +889,7 @@ export default function DemandListPage() {
         formats={['excel']}
         filterOptions={{
           showDateFilter: true,
+          showCreatedAtFilter: true,
           showAnalistaFilter: true,
           analistas: md.analistas
         }}
@@ -1184,7 +1185,7 @@ const ActionCell = memo(function ActionCell({ id, status }: { id: string, status
               '&:hover': {
                 borderWidth: '2px',
                 transform: 'translateY(-2px)',
-                boxShadow: '0 4px 12px 0 rgba(59, 130, 246, 0.15)'
+                boxShadow: '0 4px 12px 0 rgba(0, 37, 97, 0.15)'
               }
             }}
           >
@@ -1236,7 +1237,7 @@ const ActionCell = memo(function ActionCell({ id, status }: { id: string, status
               '&:hover': {
                 borderWidth: '2px',
                 transform: 'translateY(-2px)',
-                boxShadow: '0 4px 12px 0 rgba(59, 130, 246, 0.15)'
+                boxShadow: '0 4px 12px 0 rgba(0, 37, 97, 0.15)'
               }
             }}
           >

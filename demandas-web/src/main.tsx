@@ -1,8 +1,10 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
+import { ThemeProvider } from '@mui/material/styles'
 import App from './App'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import theme from './theme'
 import './index.css'
 
 // Error handler mais seletivo - só suprimir erros de recursos estáticos claramente de cache antigo
@@ -52,9 +54,11 @@ window.addEventListener('unhandledrejection', (event) => {
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <ErrorBoundary>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
+    <ThemeProvider theme={theme}>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </ThemeProvider>
   </ErrorBoundary>
 )
 

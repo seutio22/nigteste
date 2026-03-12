@@ -440,7 +440,7 @@ export const useDashboardIndicators = (
       analytics: applyFilters(Array.isArray(reportStore.items) ? reportStore.items : [], 'analytics'),
       mailling: applyFilters(Array.isArray(maillingStore.contacts) ? maillingStore.contacts : [], 'mailling'),
       comunicados: applyFilters(Array.isArray(comunicadoStore.items) ? comunicadoStore.items : [], 'comunicados'),
-      projetos: applyFilters(Array.isArray(projectStore.items) ? projectStore.items : [], 'projetos')
+      projetos: applyFilters(Array.isArray(projectStore.projects) ? projectStore.projects : [], 'projetos')
     }
   }, [
     demandStore.items,
@@ -451,7 +451,7 @@ export const useDashboardIndicators = (
     reportStore.items,
     maillingStore.contacts,
     comunicadoStore.items,
-    projectStore.items,
+    projectStore.projects,
     filters?.areaId,
     filters?.analistaId,
     filters?.fromDate,

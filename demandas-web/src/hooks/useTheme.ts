@@ -14,17 +14,17 @@ export function useTheme() {
       
       // Adicionar classes CSS para tema escuro
       if (savedTheme === 'dark') {
-        document.documentElement.style.setProperty('--bg-primary', '#1f2937')
-        document.documentElement.style.setProperty('--bg-secondary', '#374151')
+        document.documentElement.style.setProperty('--bg-primary', '#050032')
+        document.documentElement.style.setProperty('--bg-secondary', '#002561')
         document.documentElement.style.setProperty('--text-primary', '#f9fafb')
-        document.documentElement.style.setProperty('--text-secondary', '#d1d5db')
-        document.documentElement.style.setProperty('--border-color', '#4b5563')
+        document.documentElement.style.setProperty('--text-secondary', '#A3B5BC')
+        document.documentElement.style.setProperty('--border-color', '#556268')
       } else {
         document.documentElement.style.setProperty('--bg-primary', '#ffffff')
-        document.documentElement.style.setProperty('--bg-secondary', '#f9fafb')
-        document.documentElement.style.setProperty('--text-primary', '#111827')
-        document.documentElement.style.setProperty('--text-secondary', '#6b7280')
-        document.documentElement.style.setProperty('--border-color', '#e5e7eb')
+        document.documentElement.style.setProperty('--bg-secondary', '#f5f6f7')
+        document.documentElement.style.setProperty('--text-primary', '#050032')
+        document.documentElement.style.setProperty('--text-secondary', '#A3B5BC')
+        document.documentElement.style.setProperty('--border-color', '#DCDFE3')
       }
     }
   }, [])

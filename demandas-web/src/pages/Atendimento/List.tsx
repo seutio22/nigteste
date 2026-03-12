@@ -293,13 +293,13 @@ export default function AtendimentoListPage() {
                       onChange={(e) => setShowOnlyMyAtendimentos(e.target.checked)}
                       sx={{
                         '& .MuiSwitch-switchBase.Mui-checked': {
-                          color: '#667eea',
+                          color: '#050032',
                           '&:hover': {
-                            backgroundColor: 'rgba(102, 126, 234, 0.08)',
+                            backgroundColor: 'rgba(5, 0, 50, 0.08)',
                           },
                         },
                         '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                          backgroundColor: '#667eea',
+                          backgroundColor: '#050032',
                         },
                       }}
                     />
@@ -363,7 +363,7 @@ export default function AtendimentoListPage() {
                   '&:hover': {
                     borderWidth: '2px',
                     transform: 'translateY(-2px)',
-                    boxShadow: '0 4px 12px 0 rgba(59, 130, 246, 0.15)'
+                    boxShadow: '0 4px 12px 0 rgba(0, 37, 97, 0.15)'
                   }
                 }}
               >
@@ -387,7 +387,7 @@ export default function AtendimentoListPage() {
                   '&:hover': {
                     borderWidth: '2px',
                     transform: 'translateY(-2px)',
-                    boxShadow: '0 4px 12px 0 rgba(156, 39, 176, 0.15)'
+                    boxShadow: '0 4px 12px 0 rgba(5, 0, 50, 0.15)'
                   }
                 }}
               >
@@ -523,6 +523,7 @@ export default function AtendimentoListPage() {
         formats={['excel']}
         filterOptions={{
           showDateFilter: true,
+          showCreatedAtFilter: true,
           showAnalistaFilter: true,
           analistas: masterDataStore.analistas
         }}
