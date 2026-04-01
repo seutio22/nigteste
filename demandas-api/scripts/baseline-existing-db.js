@@ -7,7 +7,8 @@
  * Garante coluna TipoDemanda.ativo e marca as 11 migrations como aplicadas
  * (baseline para banco que já tinha schema sem _prisma_migrations).
  */
-const { execSync, spawnSync } = require("child_process");
+const { execSync } = require("child_process");
+const fs = require("fs");
 const path = require("path");
 
 const root = path.resolve(__dirname, "..");
@@ -48,19 +49,18 @@ function run(cmd) {
 }
 
 console.log("1/2 Coluna TipoDemanda.ativo (idempotente)...");
-const ex = spawnSync(
-  process.platform === "win32" ? "npx.cmd" : "npx",
-  ["prisma", "db", "execute", "--stdin"],
-  {
-    cwd: root,
-    input: sqlAtivo,
-    encoding: "utf-8",
-    env: process.env,
+const sqlFile = path.join(root, ".baseline-ativo-temp.sql");
+try {
+  fs.writeFileSync(sqlFile, sqlAtivo, "utf8");
+  run(
+    `npx prisma db execute --schema prisma/schema.prisma --file "${sqlFile.replace(/\\/g, "/")}"`
+  );
+} finally {
+  try {
+    fs.unlinkSync(sqlFile);
+  } catch {
+    /* ignore */
   }
-);
-if (ex.status !== 0) {
-  console.error(ex.stderr || ex.stdout || "prisma db execute falhou");
-  process.exit(1);
 }
 
 console.log("2/2 Baseline: migrate resolve --applied (11 migrations)...");
