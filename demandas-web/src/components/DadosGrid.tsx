@@ -25,23 +25,9 @@ export const DadosGrid: React.FC<DadosGridProps> = ({
   const handleToggleChange = async () => {
     toggleActiveContractsFilter()
     // Sincronização desabilitada temporariamente para evitar travamento
-    console.log('🔧 DadosGrid: Sincronização automática desabilitada temporariamente')
-    // TODO: Reabilitar após otimização completa
-    // if (syncFromApi) {
-    //   await syncFromApi()
-    // }
+    // TODO: Reabilitar após otimização completa — if (syncFromApi) await syncFromApi()
   }
-  
-  // Debug: Log dos dados recebidos
-  console.log('🔍 DadosGrid: activeTab:', activeTab)
-  console.log('🔍 DadosGrid: data length:', data.length)
-  if (activeTab === 'tipos') {
-    console.log('🔍 DadosGrid: tipos data:', data)
-  }
-  if (activeTab === 'analistas') {
-    console.log('🔍 DadosGrid: analistas data:', data)
-    console.log('🔍 DadosGrid: Primeiro analista:', data[0])
-  }
+
   const columns = useMemo((): GridColDef[] => {
     const baseColumns: Record<TabKey, GridColDef[]> = {
       clientes: [
@@ -95,6 +81,19 @@ export const DadosGrid: React.FC<DadosGridProps> = ({
       ],
       tipos: [
         { field: 'nome', headerName: 'Nome', flex: 1 },
+        {
+          field: 'ativo',
+          headerName: 'No cadastro',
+          width: 130,
+          renderCell: (params) => (
+            <Chip
+              label={params.value === false ? 'Inativo' : 'Ativo'}
+              color={params.value === false ? 'default' : 'success'}
+              size="small"
+              variant={params.value === false ? 'outlined' : 'filled'}
+            />
+          ),
+        },
       ],
       servicos: [
         { field: 'nome', headerName: 'Nome', flex: 1 },

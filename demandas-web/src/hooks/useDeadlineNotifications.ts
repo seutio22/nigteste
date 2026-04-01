@@ -3,6 +3,9 @@ import { useNotificationStore } from '../store/notificationStore'
 import { useAuthStore } from '../store/authStore'
 import { getApi } from '../lib/apiConfig'
 
+/** Prazos Kanban/projetos mudam com menos frequência; 3 min reduz atraso sem sobrecarregar a API. */
+const DEADLINE_NOTIFICATIONS_POLL_MS = 3 * 60 * 1000
+
 export const useDeadlineNotifications = () => {
   const { add: addNotification } = useNotificationStore()
   const { user } = useAuthStore()
@@ -82,7 +85,7 @@ export const useDeadlineNotifications = () => {
     }
 
     runCheck()
-    const interval = setInterval(runCheck, 5 * 60 * 1000)
+    const interval = setInterval(runCheck, DEADLINE_NOTIFICATIONS_POLL_MS)
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') runCheck()
     }

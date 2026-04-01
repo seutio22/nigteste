@@ -289,7 +289,7 @@ const ProjectGantt: React.FC<ProjectGanttProps> = ({ phases, projectStartDate, p
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box id="project-gantt-export" sx={{ p: 3 }}>
       <Typography variant="h4" gutterBottom>
         Cronograma Gantt
       </Typography>

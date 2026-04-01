@@ -260,6 +260,16 @@ export const api = {
   getContratos: () => apiRequest(API_CONFIG.ENDPOINTS.CONTRATOS),
   getTiposDemanda: () => apiRequest(API_CONFIG.ENDPOINTS.TIPOS_DEMANDA),
   getTiposServico: () => apiRequest(API_CONFIG.ENDPOINTS.TIPOS_SERVICO),
+  /** Busca um solicitante por ID. Retorna null se não existir (ex.: foi excluído da base). */
+  getSolicitante: async (id: string): Promise<{ id: string; nome: string } | null> => {
+    try {
+      return await apiRequest<{ id: string; nome: string }>(`/solicitantes/${id}`)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      if (msg.includes('404')) return null
+      throw err
+    }
+  },
   getDados: () => apiRequest('/dados'),
 
   // Comunicados

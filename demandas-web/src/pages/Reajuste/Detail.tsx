@@ -5,6 +5,8 @@ import { useTimelineStore } from '../../store/timelineStore'
 import { useAuthStore } from '../../store/authStore'
 import { ArrowLeft, Edit3, Save, Clock } from 'lucide-react'
 import { Autocomplete, Box, TextField, Typography } from '@mui/material'
+import { Save as SaveIcon } from '@mui/icons-material'
+import { PrimaryActionButton } from '../../components/PrimaryActionButton'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { StatusBadge } from '../../components/StatusBadge'
 import { Timeline } from '../../components/Timeline'
@@ -288,119 +290,119 @@ export default function ReajusteDetailPage() {
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Mês/Ano</p>
+                  <p className="text-sm text-apoio-400">Mês/Ano</p>
                   <p className="font-medium">{reajuste.mes}/{reajuste.ano}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Status</p>
+                  <p className="text-sm text-apoio-400">Status</p>
                   <p className="font-medium">{reajuste.status || '-'}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Operadora</p>
+                  <p className="text-sm text-apoio-400">Operadora</p>
                   <p className="font-medium">{label(reajuste.operadora, md.operadoras)}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Analista Responsável</p>
+                  <p className="text-sm text-apoio-400">Analista Responsável</p>
                   <p className="font-medium">{label(reajuste.responsavelAnalista, md.analistas)}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-red-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Cliente</p>
+                  <p className="text-sm text-apoio-400">Cliente</p>
                   <p className="font-medium">{labelCliente(reajuste.cliente)}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Ticket</p>
+                  <p className="text-sm text-apoio-400">Ticket</p>
                   <p className="font-medium">{reajuste.ticket || '-'}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-pink-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Solicitante</p>
+                  <p className="text-sm text-apoio-400">Solicitante</p>
                   <p className="font-medium">{label(reajuste.solicitante, md.solicitantes)}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-teal-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Filial</p>
+                  <p className="text-sm text-apoio-400">Filial</p>
                   <p className="font-medium">{reajuste.filial || '-'}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-cyan-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Responsável da Conta</p>
+                  <p className="text-sm text-apoio-400">Responsável da Conta</p>
                   <p className="font-medium">{reajuste.responsavelConta || '-'}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-lime-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Qualidade (prazo)</p>
+                  <p className="text-sm text-apoio-400">Qualidade (prazo)</p>
                   <p className="font-medium">{reajuste.qualidade || '-'}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-amber-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Qualidade da Informação</p>
+                  <p className="text-sm text-apoio-400">Qualidade da Informação</p>
                   <p className="font-medium">{reajuste.qualidadeInformacao || '-'}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-emerald-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Planos</p>
+                  <p className="text-sm text-apoio-400">Planos</p>
                   <p className="font-medium">{reajuste.planos || '-'}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-violet-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Data de Início</p>
+                  <p className="text-sm text-apoio-400">Data de Início</p>
                   <p className="font-medium">{reajuste.dataInicio ? new Date(reajuste.dataInicio).toLocaleDateString('pt-BR') : '-'}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-rose-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Data de Finalização</p>
+                  <p className="text-sm text-apoio-400">Data de Finalização</p>
                   <p className="font-medium">{reajuste.dataFim ? new Date(reajuste.dataFim).toLocaleDateString('pt-BR') : '-'}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-slate-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Data de Atualização</p>
+                  <p className="text-sm text-apoio-400">Data de Atualização</p>
                   <p className="font-medium">{reajuste.dataAtualizacao ? new Date(reajuste.dataAtualizacao).toLocaleDateString('pt-BR') : '-'}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Itens Pendentes</p>
+                  <p className="text-sm text-apoio-400">Itens Pendentes</p>
                   <p className="font-medium">{reajuste.itensPendentes || 0}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Itens Concluídos</p>
+                  <p className="text-sm text-apoio-400">Itens Concluídos</p>
                   <p className="font-medium">{reajuste.itensConcluidos || 0}</p>
                 </div>
               </div>
@@ -431,19 +433,19 @@ export default function ReajusteDetailPage() {
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Informações Adicionais</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <p className="text-sm text-gray-500">Tipo de Reajuste</p>
+                <p className="text-sm text-apoio-400">Tipo de Reajuste</p>
                 <p className="font-medium">{reajuste.tipoReajuste || '-'}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Percentual</p>
+                <p className="text-sm text-apoio-400">Percentual</p>
                 <p className="font-medium">{reajuste.percentual ? `${reajuste.percentual}%` : '-'}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Data de Aplicação</p>
+                <p className="text-sm text-apoio-400">Data de Aplicação</p>
                 <p className="font-medium">{reajuste.dataAplicacao || '-'}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Observações</p>
+                <p className="text-sm text-apoio-400">Observações</p>
                 <p className="font-medium">{reajuste.observacoes || '-'}</p>
               </div>
             </div>
@@ -459,14 +461,14 @@ export default function ReajusteDetailPage() {
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Status Atual</p>
+                  <p className="text-sm text-apoio-400">Status Atual</p>
                   <p className="font-medium">{reajuste.status}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Última Atualização</p>
+                  <p className="text-sm text-apoio-400">Última Atualização</p>
                   <p className="font-medium">{fmt(reajuste.updatedAt)}</p>
                 </div>
               </div>
@@ -1054,7 +1056,7 @@ function EditInline({ reajuste }: { reajuste: any }) {
               <option value="">Selecione...</option>
               {md.analistas.map(a => <option key={a.id} value={a.id}>{a.nome}</option>)}
             </select>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-apoio-400 mt-1">
               Analista vinculado ao usuário: {user?.name || 'Carregando...'}
             </p>
           </div>
@@ -1202,14 +1204,13 @@ function EditInline({ reajuste }: { reajuste: any }) {
 
       {/* Botão de salvar */}
       <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-        <button
+        <PrimaryActionButton
           disabled={changedKeys.length === 0}
           onClick={() => setConfirmOpen(true)}
-          className="px-4 py-2 bg-blue-500 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-600 transition-colors"
+          startIcon={<SaveIcon />}
         >
-          <Save className="w-4 h-4 mr-2 inline" />
           Salvar alterações
-        </button>
+        </PrimaryActionButton>
         {changedKeys.length > 0 && (
           <span className="text-sm text-gray-600">
             {changedKeys.length} alteração(ões) pendente(s)

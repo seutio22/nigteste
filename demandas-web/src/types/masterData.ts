@@ -27,11 +27,13 @@ export type Operadora = SimpleEntity
 export type Produto = SimpleEntity
 export type Sistema = SimpleEntity
 export type Grupo = SimpleEntity
-export type Analista = SimpleEntity
+export type Analista = SimpleEntity & { email?: string }
 export type Area = SimpleEntity
 export interface TipoDemanda {
   id: Id
   nome: string
+  /** false = não listado no formulário de nova demanda */
+  ativo?: boolean
 }
 
 export interface TipoCadastro {

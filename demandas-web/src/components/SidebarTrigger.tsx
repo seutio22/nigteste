@@ -10,9 +10,9 @@ export function SidebarTrigger() {
       whileHover={{ scale: 1.05 }}
       whileTap={{ scale: 0.95 }}
       onClick={toggleSidebar}
-      className="p-2 hover:bg-primary-100 rounded-lg transition-colors duration-200 lg:hidden"
+      className="p-2 hover:bg-primary-100 dark:hover:bg-white/10 rounded-lg transition-colors duration-200 lg:hidden"
     >
-      <Menu className="w-6 h-6 text-primary-600" />
+      <Menu className="w-6 h-6 text-primary-600 dark:text-primary-300" />
     </motion.button>
   )
 }

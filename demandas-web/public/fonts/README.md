@@ -4,18 +4,20 @@ Coloque aqui os arquivos da família **Geometria** para que o sistema use a tipo
 
 ## Arquivos esperados
 
-| Arquivo                 | Peso (font-weight) |
-|-------------------------|--------------------|
-| `Geometria-Regular.woff2`   | 400 (Regular)   |
-| `Geometria-Medium.woff2`   | 500 (Medium)    |
-| `Geometria-Bold.woff2`     | 700 (Bold)      |
-| `Geometria-ExtraBold.woff2`| 800 (Extra Bold)|
+| Arquivo                   | Peso (font-weight) |
+|---------------------------|--------------------|
+| `Geometria-Light.woff2`   | 300 (Light)       |
+| `Geometria-Regular.woff2` | 400 (Regular)     |
+| `Geometria-Medium.woff2` | 500 (Medium)      |
+| `Geometria-Bold.woff2`   | 700 (Bold)        |
+| `Geometria-ExtraBold.woff2` | 800 (Extra Bold) |
 
 Versões `.woff` são usadas como fallback se `.woff2` não existir.
 
 ## Especificação (Figma MDS)
 
 - **font-family:** Geometria  
+- **Light:** 300, line-height 125% (32px / 40px)  
 - **Regular:** 400, line-height 125%  
 - **Medium:** 500, line-height 125%  
 - **Bold:** 700, line-height 125%  

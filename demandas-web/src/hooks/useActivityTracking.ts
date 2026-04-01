@@ -1,5 +1,6 @@
 import { useCallback, useEffect } from 'react'
 import { useAuthStore } from '../store/authStore'
+import { MONITORING_ACTIVITY_URL, MONITORING_API_BASE } from '../lib/monitoringClient'
 
 interface TrackingData {
   action: string
@@ -9,82 +10,85 @@ interface TrackingData {
   metadata?: any
 }
 
+/** Não usa await: não bloqueia a thread nem encadeia microtarefas na navegação. */
+function postMonitoringActivity(
+  token: string,
+  userId: string,
+  data: TrackingData
+): void {
+  const body = JSON.stringify({ userId, ...data })
+  try {
+    void fetch(MONITORING_ACTIVITY_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body
+    }).then((res) => {
+      if (!res.ok && import.meta.env.DEV) {
+        console.warn('monitoring/activity:', res.status)
+      }
+    })
+  } catch {
+    /* ignore */
+  }
+}
+
 export function useActivityTracking() {
   const { user, token } = useAuthStore()
 
-  // Função para registrar atividade
-  const trackActivity = useCallback(async (data: TrackingData) => {
-    if (!user || !token) return
-
-    try {
-      const response = await fetch('https://nigteste-production.up.railway.app/monitoring/activity', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          userId: user.id,
-          ...data
-        })
-      })
-
-      if (!response.ok) {
-        console.error('Erro ao registrar atividade:', response.status)
-      }
-    } catch (error) {
-      console.error('Erro ao registrar atividade:', error)
-    }
-  }, [user, token])
+  const trackActivity = useCallback(
+    (data: TrackingData) => {
+      if (!user || !token) return
+      postMonitoringActivity(token, user.id, data)
+    },
+    [user, token]
+  )
 
   // Função para iniciar sessão
-  const startSession = useCallback(async () => {
+  const startSession = useCallback(() => {
     if (!user || !token) return
 
-    try {
-      const response = await fetch('https://nigteste-production.up.railway.app/monitoring/session/start', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          userId: user.id
-        })
+    void fetch(`${MONITORING_API_BASE}/monitoring/session/start`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ userId: user.id })
+    })
+      .then(async (response) => {
+        if (!response.ok) return
+        const json = await response.json()
+        const sid = json?.session?.sessionId
+        if (sid) localStorage.setItem('sessionId', sid)
       })
-
-      if (response.ok) {
-        const { session } = await response.json()
-        localStorage.setItem('sessionId', session.sessionId)
-        console.log('✅ Sessão iniciada:', session.sessionId)
-      }
-    } catch (error) {
-      console.error('Erro ao iniciar sessão:', error)
-    }
+      .catch(() => {
+        /* não bloquear login */
+      })
   }, [user, token])
 
   // Função para finalizar sessão
-  const endSession = useCallback(async () => {
+  const endSession = useCallback(() => {
     const sessionId = localStorage.getItem('sessionId')
-    if (!sessionId || !token) return
-
-    try {
-      await fetch('https://nigteste-production.up.railway.app/monitoring/session/end', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          sessionId
-        })
-      })
-
+    if (!sessionId || !token) {
       localStorage.removeItem('sessionId')
-      console.log('✅ Sessão finalizada')
-    } catch (error) {
-      console.error('Erro ao finalizar sessão:', error)
+      return
     }
+
+    void fetch(`${MONITORING_API_BASE}/monitoring/session/end`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ sessionId }),
+      keepalive: true
+    }).catch(() => {
+      /* ignore */
+    })
+    localStorage.removeItem('sessionId')
   }, [token])
 
   // Função para trackear visualização de página
@@ -129,6 +133,24 @@ export function useActivityTracking() {
       startSession()
     }
   }, [user, token, startSession])
+
+  // Heartbeat: mantém "última atividade" e sessão atualizadas no servidor (presença / online)
+  useEffect(() => {
+    if (!user || !token) return
+
+    const send = () => {
+      trackActivity({
+        action: 'heartbeat',
+        page: typeof window !== 'undefined' ? window.location.pathname : undefined,
+        metadata: { ts: new Date().toISOString() }
+      })
+    }
+
+    send()
+    const intervalMs = 2 * 60 * 1000
+    const id = window.setInterval(send, intervalMs)
+    return () => window.clearInterval(id)
+  }, [user, token, trackActivity])
 
   // Finalizar sessão quando a página for fechada
   useEffect(() => {

@@ -1,3 +1,5 @@
+import type { PeriodType } from '../types/dashboardIndicators'
+
 type MasterItem = {
   id?: string
   nome?: string
@@ -116,6 +118,49 @@ export const getItemEndDate = (page: string, item: any): string | undefined => {
   }
 }
 
+/**
+ * Data de início do chamado para cálculo de tempo de execução (dias úteis).
+ * Não usa data de criação — apenas campos operacionais (ex.: dataInicio, dataAbertura).
+ */
+export const getExecutionStartDate = (page: string, item: any): string | undefined => {
+  switch (page) {
+    case 'demandas':
+    case 'manutencoes':
+    case 'validacoes':
+      return item.dataInicio || undefined
+    case 'atendimentos':
+      return item.dataInicio || item.dataAbertura || undefined
+    case 'reajustes':
+      return item.dataInicio || undefined
+    case 'analytics':
+      return item.dataInicio || undefined
+    default:
+      return item.dataInicio || undefined
+  }
+}
+
+/**
+ * Data final do chamado para tempo de execução. Não usa criação nem "última atualização"
+ * como substituto de encerramento (analytics usa dataFinalizacao / dataFinal).
+ */
+export const getExecutionEndDate = (page: string, item: any): string | undefined => {
+  switch (page) {
+    case 'demandas':
+    case 'manutencoes':
+      return item.dataFinal || item.dataFinalizacao
+    case 'validacoes':
+      return item.dataFinal || item.dataFim || item.dataFinalizacao
+    case 'atendimentos':
+      return item.dataFinal || item.dataResolucao || item.dataFinalizacao
+    case 'reajustes':
+      return item.dataFim || item.dataFinal || item.dataFinalizacao
+    case 'analytics':
+      return item.dataFinalizacao || item.dataFinal
+    default:
+      return item.dataFinal || item.dataFinalizacao
+  }
+}
+
 export const calculateBusinessDays = (startDate: Date, endDate: Date): number => {
   let count = 0
   const current = new Date(startDate)
@@ -140,4 +185,146 @@ export const parseDateForFilter = (value?: string | null): Date | null => {
     return new Date(`${value}T00:00:00`)
   }
   return new Date(value)
+}
+
+export const formatDateYMD = (d: Date): string => {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+/** Limites do período do indicador quando não há datas manuais. */
+export const getPeriodBounds = (period: PeriodType): { start: Date; end: Date } => {
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  switch (period) {
+    case 'daily':
+      return {
+        start: new Date(today),
+        end: new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999)
+      }
+    case 'monthly':
+      return {
+        start: new Date(now.getFullYear(), now.getMonth(), 1),
+        end: new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
+      }
+    case 'quarterly': {
+      const quarter = Math.floor(now.getMonth() / 3)
+      return {
+        start: new Date(now.getFullYear(), quarter * 3, 1),
+        end: new Date(now.getFullYear(), (quarter + 1) * 3, 0, 23, 59, 59, 999)
+      }
+    }
+    default:
+      return { start: today, end: today }
+  }
+}
+
+/** Intervalo exibido nos gráficos (datas do filtro ou período corrente). */
+export const resolveIndicatorDateRange = (
+  period: PeriodType,
+  fromDate?: string,
+  toDate?: string
+): { from: string; to: string } => {
+  if (fromDate && toDate) return { from: fromDate, to: toDate }
+  const { start, end } = getPeriodBounds(period)
+  return { from: formatDateYMD(start), to: formatDateYMD(end) }
+}
+
+/**
+ * Período imediatamente anterior para comparação: ontem (daily), mês calendário anterior (monthly),
+ * trimestre calendário anterior (quarterly).
+ */
+export const getPreviousComparisonRange = (
+  currentFrom: string,
+  currentTo: string,
+  period: PeriodType
+): { from: string; to: string } | null => {
+  const start = parseDateForFilter(currentFrom)
+  if (!start || isNaN(start.getTime())) return null
+
+  if (period === 'daily') {
+    const prev = new Date(start.getFullYear(), start.getMonth(), start.getDate() - 1)
+    const ymd = formatDateYMD(prev)
+    return { from: ymd, to: ymd }
+  }
+
+  if (period === 'monthly') {
+    const y = start.getFullYear()
+    const m = start.getMonth()
+    const prevStart = new Date(y, m - 1, 1)
+    const prevEnd = new Date(y, m, 0, 23, 59, 59, 999)
+    return { from: formatDateYMD(prevStart), to: formatDateYMD(prevEnd) }
+  }
+
+  if (period === 'quarterly') {
+    const y = start.getFullYear()
+    const m = start.getMonth()
+    const q = Math.floor(m / 3)
+    let py = y
+    let pq = q - 1
+    if (pq < 0) {
+      pq = 3
+      py -= 1
+    }
+    const prevStart = new Date(py, pq * 3, 1)
+    const prevEnd = new Date(py, pq * 3 + 3, 0, 23, 59, 59, 999)
+    return { from: formatDateYMD(prevStart), to: formatDateYMD(prevEnd) }
+  }
+
+  return null
+}
+
+export const isItemDateInRange = (
+  iso: string | undefined | null,
+  fromYmd: string,
+  toYmd: string
+): boolean => {
+  if (!iso) return false
+  const itemDate = parseDateForFilter(iso)
+  if (!itemDate || isNaN(itemDate.getTime())) return false
+  const normalizeStart = (dateStr: string) => {
+    const d = parseDateForFilter(dateStr)
+    if (!d) return 0
+    d.setHours(0, 0, 0, 0)
+    return d.getTime()
+  }
+  const normalizeEnd = (dateStr: string) => {
+    const d = parseDateForFilter(dateStr)
+    if (!d) return 0
+    d.setHours(23, 59, 59, 999)
+    return d.getTime()
+  }
+  const t = itemDate.getTime()
+  return t >= normalizeStart(fromYmd) && t <= normalizeEnd(toYmd)
+}
+
+export const isSameCalendarDay = (
+  iso: string | undefined | null,
+  dayYmd: string
+): boolean => {
+  if (!iso) return false
+  const itemDate = parseDateForFilter(iso)
+  const day = parseDateForFilter(dayYmd)
+  if (!itemDate || !day || isNaN(itemDate.getTime()) || isNaN(day.getTime())) return false
+  return (
+    itemDate.getFullYear() === day.getFullYear() &&
+    itemDate.getMonth() === day.getMonth() &&
+    itemDate.getDate() === day.getDate()
+  )
+}
+
+export const enumerateDaysYmd = (fromYmd: string, toYmd: string): string[] => {
+  const start = parseDateForFilter(fromYmd)
+  const end = parseDateForFilter(toYmd)
+  if (!start || !end || isNaN(start.getTime()) || isNaN(end.getTime())) return []
+  const out: string[] = []
+  const cur = new Date(start.getFullYear(), start.getMonth(), start.getDate())
+  const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate())
+  while (cur.getTime() <= endDay.getTime()) {
+    out.push(formatDateYMD(cur))
+    cur.setDate(cur.getDate() + 1)
+  }
+  return out
 }

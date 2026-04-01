@@ -42,6 +42,7 @@ import {
   AutoFixHigh as AutoFixHighIcon,
   Refresh as RefreshIcon
 } from '@mui/icons-material'
+import { PrimaryActionButton } from './PrimaryActionButton'
 import type { ImportItem, ValidationError, CorrectionSuggestion } from '../types/smartImporter'
 
 interface DataCorrectionModalProps {
@@ -326,13 +327,12 @@ export const DataCorrectionModal: React.FC<DataCorrectionModalProps> = ({
         </Box>
 
         <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
-          <Button
-            variant="contained"
+          <PrimaryActionButton
             onClick={handleSaveCorrection}
             startIcon={<CheckCircleIcon />}
           >
             Salvar Correção
-          </Button>
+          </PrimaryActionButton>
           <Button
             variant="outlined"
             onClick={handleSkipItem}

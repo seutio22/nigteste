@@ -6,6 +6,10 @@ import { ENTITY_CONFIGS } from '../config/entityConfigs'
 import type { TabKey, FormData, SnackMessage } from '../types/dadosTypes'
 import type { Cliente, Contrato, Operadora, Produto, Sistema, Analista, Area, TipoDemanda, TipoServico, Solicitante, Relatorio, Modelo } from '../types/masterData'
 
+const logDadosDev = (...args: unknown[]) => {
+  if (import.meta.env.DEV) console.log(...args)
+}
+
 export const useDadosCRUD = () => {
   const store = useMasterDataStore()
   const dadosStore = useDadosStore()
@@ -203,18 +207,18 @@ export const useDadosCRUD = () => {
           break
           
         case 'tipos':
-          // Payload para a API (apenas nome, conforme configuração)
-          const tipoPayload: any = { 
-            nome: form.nome
+          const tipoAtivo = form.ativo !== false
+          const tipoPayload: any = {
+            nome: form.nome,
+            ativo: tipoAtivo
           }
-          
-          // Entidade completa para o store local (com id)
-          newEntity = { 
-            id, 
-            nome: form.nome
+
+          newEntity = {
+            id,
+            nome: form.nome,
+            ativo: tipoAtivo
           }
-          
-          // PRIMEIRO: Salvar na API (banco de dados)
+
           const savedTipo = await api.post(config.endpoint, tipoPayload)
           console.log('✅ Tipo salvo no banco de dados:', savedTipo.id)
           // DEPOIS: Salvar no store local (cache) usando o retorno da API
@@ -239,9 +243,9 @@ export const useDadosCRUD = () => {
           store.upsertMany({ tiposServico: [...store.tiposServico, newEntity] })
           break
           
-        case 'solicitantes':
+        case 'solicitantes': {
           // Validar se já existe solicitante com mesmo nome
-          const existingSolicitante = store.solicitantes.find(s => 
+          const existingSolicitante = store.solicitantes.find(s =>
             s.nome.toLowerCase().trim() === form.nome?.toLowerCase().trim()
           )
           if (existingSolicitante) {
@@ -252,32 +256,26 @@ export const useDadosCRUD = () => {
             })
             throw new Error(`Solicitante "${form.nome}" já existe. Por favor, escolha um nome diferente.`)
           }
-          
-          newEntity = { id, nome: form.nome } as Solicitante
-          // PRIMEIRO: Salvar na API (banco de dados)
-          await api.post(config.endpoint, newEntity)
-          console.log('✅ Solicitante salvo no banco de dados:', newEntity.id)
-          // DEPOIS: Salvar no store local (cache)
-          store.upsertMany({ solicitantes: [...store.solicitantes, newEntity] })
+          // API aceita apenas { nome }; o id é gerado no servidor — usar resposta no store
+          const createdSolicitante = await api.post(config.endpoint, { nome: form.nome }) as Solicitante
+          console.log('✅ Solicitante salvo no banco de dados:', createdSolicitante.id)
+          store.upsertMany({ solicitantes: [...store.solicitantes, createdSolicitante] })
           break
+        }
           
-        case 'relatorios':
-          newEntity = { id, nome: form.nome } as Relatorio
-          // PRIMEIRO: Salvar na API (banco de dados)
-          await api.post(config.endpoint, newEntity)
-          console.log('✅ Relatório salvo no banco de dados:', newEntity.id)
-          // DEPOIS: Salvar no store local (cache)
-          store.upsertMany({ relatorios: [...store.relatorios, newEntity] })
+        case 'relatorios': {
+          const createdRelatorio = await api.post(config.endpoint, { nome: form.nome }) as Relatorio
+          console.log('✅ Relatório salvo no banco de dados:', createdRelatorio.id)
+          store.upsertMany({ relatorios: [...store.relatorios, createdRelatorio] })
           break
+        }
           
-        case 'modelos':
-          newEntity = { id, nome: form.nome } as Modelo
-          // PRIMEIRO: Salvar na API (banco de dados)
-          await api.post(config.endpoint, newEntity)
-          console.log('✅ Modelo salvo no banco de dados:', newEntity.id)
-          // DEPOIS: Salvar no store local (cache)
-          store.upsertMany({ modelos: [...store.modelos, newEntity] })
+        case 'modelos': {
+          const createdModelo = await api.post(config.endpoint, { nome: form.nome }) as Modelo
+          console.log('✅ Modelo salvo no banco de dados:', createdModelo.id)
+          store.upsertMany({ modelos: [...store.modelos, createdModelo] })
           break
+        }
           
         case 'padrao':
           const tipoServicoNomePadrao = form.tipoServicoId ? 
@@ -444,13 +442,17 @@ export const useDadosCRUD = () => {
           }
           break
           
-        case 'tipos':
-          const updatedTipo = { id, nome: form.nome } as TipoDemanda
+        case 'tipos': {
+          const tipoAtivoUpd = form.ativo !== false
+          const updatedTipo = { id, nome: form.nome, ativo: tipoAtivoUpd } as TipoDemanda
+          const savedTipoPut = await api.put(`${config.endpoint}/${id}`, { nome: form.nome, ativo: tipoAtivoUpd })
           store.upsertMany({
-            tiposDemanda: store.tiposDemanda.map(t => t.id === id ? updatedTipo : t)
+            tiposDemanda: store.tiposDemanda.map(t =>
+              t.id === id ? { ...updatedTipo, ...savedTipoPut } : t
+            )
           })
-          await api.put(`${config.endpoint}/${id}`, { nome: form.nome })
           break
+        }
           
         case 'tipos-cadastro':
           const updatedTipoCadastro = { id, nome: form.nome, descricao: form.descricao } as any
@@ -575,9 +577,10 @@ export const useDadosCRUD = () => {
       
       const entityName = entityNameMap[activeTab]
       
-      // Para Tipos / Tipos Cadastro / Serviços: registrar exclusão por nome para que não voltem após sync
-      if (entityName && (entityName === 'tiposDemanda' || entityName === 'tiposCadastro' || entityName === 'tiposServico')) {
-        const list = entityName === 'tiposDemanda' ? store.tiposDemanda : entityName === 'tiposCadastro' ? store.tiposCadastro : store.tiposServico
+      // Tipos Cadastro / Serviços: exclusão por nome evita recriação com mesmo nome após sync.
+      // Tipos de demanda: não usar exclusão por nome — pode esvaziar a tabela se os nomes coincidirem com a lista da API.
+      if (entityName && (entityName === 'tiposCadastro' || entityName === 'tiposServico')) {
+        const list = entityName === 'tiposCadastro' ? store.tiposCadastro : store.tiposServico
         const item = list.find((t: any) => t.id === id)
         if (item?.nome) {
           store.addLocalExclusionByNome(entityName, item.nome)
@@ -586,8 +589,8 @@ export const useDadosCRUD = () => {
       
       // Função auxiliar para remover do store local
       const removeFromStore = (itemId: string) => {
-        console.log(`🔍 removeFromStore: Removendo ${itemId} de ${activeTab}`)
-        console.log(`🔍 removeFromStore: Estado antes:`, {
+        logDadosDev(`🔍 removeFromStore: Removendo ${itemId} de ${activeTab}`)
+        logDadosDev(`🔍 removeFromStore: Estado antes:`, {
           areas: store.areas.length,
           areasIds: store.areas.map(a => a.id)
         })
@@ -616,7 +619,7 @@ export const useDadosCRUD = () => {
             break
           case 'areas':
             const filteredAreas = store.areas.filter(a => a.id !== itemId)
-            console.log(`🔍 removeFromStore: Áreas filtradas: ${filteredAreas.length} (era ${store.areas.length})`)
+            logDadosDev(`🔍 removeFromStore: Áreas filtradas: ${filteredAreas.length} (era ${store.areas.length})`)
             store.upsertMany({ areas: filteredAreas })
             break
           case 'areasMailling':
@@ -657,7 +660,7 @@ export const useDadosCRUD = () => {
         // Adicionar à lista de exclusões locais para evitar que volte na sincronização
         if (entityName && entityName !== 'configuracoes') {
           store.addLocalExclusion(entityName, itemId)
-          console.log(`✅ Item ${itemId} adicionado à lista de exclusões locais para ${entityName}`)
+          logDadosDev(`✅ Item ${itemId} adicionado à lista de exclusões locais para ${entityName}`)
         }
       }
       
@@ -665,44 +668,47 @@ export const useDadosCRUD = () => {
       try {
         const api = getApi()
         await api.delete(`${config.endpoint}/${id}`)
-        console.log(`✅ Registro ${id} excluído do backend com sucesso`)
-      } catch (apiError) {
-        console.log(`⚠️ Erro ao excluir do backend:`, apiError)
-        
-        // Verificar se é erro de dependências (não pode excluir)
-        if (apiError instanceof Error && apiError.message.includes('registros dependentes')) {
-          console.log(`⚠️ Registro ${id} não pode ser excluído - possui dependências`)
-          
+        logDadosDev(`✅ Registro ${id} excluído do backend com sucesso`)
+      } catch (apiError: unknown) {
+        const msg = typeof apiError === 'object' && apiError !== null && 'message' in apiError
+          ? String((apiError as { message?: string }).message)
+          : apiError instanceof Error
+            ? apiError.message
+            : String(apiError)
+        logDadosDev(`⚠️ Erro ao excluir do backend:`, msg)
+
+        // Verificar se é erro de dependências (não pode excluir) — api.ts lança objeto { message }, não Error
+        if (msg.includes('registros dependentes')) {
+          const extraTip =
+            activeTab === 'tipos'
+              ? ' Demandas, atendimentos, validações ou manutenções podem estar usando este tipo — por isso ele volta na lista após sincronizar.'
+              : ''
           setSnack({
             open: true,
-            message: `${config.displayName} não pode ser excluído pois possui registros dependentes. Remova as dependências primeiro.`,
+            message: `${config.displayName} não pode ser excluído pois possui registros dependentes. Remova ou altere os vínculos nos outros cadastros primeiro.${extraTip}`,
             severity: 'warning'
           })
           return false
         }
-        
-        
+
         // Verificar se é erro de registro não encontrado (500 ou 404)
-        if (apiError instanceof Error && (
-          apiError.message.includes('500') || 
-          apiError.message.includes('não foi encontrado') ||
-          apiError.message.includes('404')
-        )) {
-          console.log(`ℹ️ Registro ${id} não existe no backend, removendo do cache local`)
-          // Remover do store local mesmo se não existir no backend
-          // E adicionar à lista de exclusões para evitar que volte
+        if (msg.includes('500') || msg.includes('não foi encontrado') || msg.includes('404')) {
+          logDadosDev(`ℹ️ Registro ${id} não existe no backend, removendo do cache local`)
           removeFromStore(id)
-          
           setSnack({
             open: true,
             message: `${config.displayName} removido do cache local (não existia no servidor)`,
             severity: 'info'
           })
           return true
-        } else {
-          // Re-lançar o erro se não for de "não encontrado"
-          throw apiError
         }
+
+        setSnack({
+          open: true,
+          message: msg || `Erro ao excluir ${config.displayName}. Tente novamente.`,
+          severity: 'error'
+        })
+        return false
       }
       
       // Se chegou até aqui, a exclusão foi bem-sucedida no backend
@@ -716,12 +722,16 @@ export const useDadosCRUD = () => {
       })
       
       return true
-    } catch (error) {
+    } catch (error: unknown) {
+      const errMsg = typeof error === 'object' && error !== null && 'message' in error
+        ? String((error as { message?: string }).message)
+        : error instanceof Error
+          ? error.message
+          : 'Erro desconhecido'
       console.error('❌ Erro ao excluir entidade:', error)
-      
       setSnack({
         open: true,
-        message: `Erro ao excluir: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
+        message: `Erro ao excluir: ${errMsg}`,
         severity: 'error'
       })
       return false

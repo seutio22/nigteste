@@ -6,6 +6,7 @@ import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
 import DownloadIcon from '@mui/icons-material/Download'
 import FileDownloadIcon from '@mui/icons-material/FileDownload'
 import DeleteIcon from '@mui/icons-material/Delete'
+import { PrimaryActionButton } from './PrimaryActionButton'
 // CleaningServicesIcon removido - botão de limpeza de duplicatas removido
 import type { TabKey } from '../types/dadosTypes'
 
@@ -61,29 +62,9 @@ export const DadosHeader: React.FC<DadosHeaderProps> = ({
           Upload
         </Button>
         
-        <Button 
-          variant="contained" 
-          startIcon={<AutoFixHighIcon />}
-          onClick={onSmartImport}
-          size="medium"
-          className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white transition-all duration-300 font-medium"
-          sx={{
-            borderRadius: '14px',
-            padding: '10px 20px',
-            textTransform: 'none',
-            fontWeight: 500,
-            fontSize: '0.9rem',
-            height: '44px',
-            background: 'linear-gradient(135deg, #050032 0%, #002561 100%)',
-            '&:hover': {
-              background: 'linear-gradient(135deg, #050032 0%, #009FDF 100%)',
-              transform: 'translateY(-2px)',
-              boxShadow: '0 8px 25px 0 rgba(124, 58, 237, 0.3)'
-            }
-          }}
-        >
+        <PrimaryActionButton startIcon={<AutoFixHighIcon />} onClick={onSmartImport}>
           Importador Inteligente
-        </Button>
+        </PrimaryActionButton>
         
         <Button 
           variant="outlined" 

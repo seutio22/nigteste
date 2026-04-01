@@ -4,6 +4,9 @@ import { useAuthStore } from '../store/authStore'
 import { getApi } from '../lib/apiConfig'
 import { isAlertDismissed } from '../utils/dismissedAlerts'
 
+/** Intervalo para buscar alertas criados por admin/gerente. 90s equilibra rapidez e carga na API. */
+const USER_ALERTS_POLL_MS = 90 * 1000
+
 export const useUserAlerts = () => {
   const { add: addNotification, remove } = useNotificationStore()
   const { user } = useAuthStore()
@@ -16,11 +19,22 @@ export const useUserAlerts = () => {
       const response = await api.get('/user-alerts')
       const list = response?.notifications ?? []
       const current = useNotificationStore.getState().notifications
-      const fetchedIds = new Set(list.map((n: any) => n.id))
+      const fetchedIds = new Set(
+        list.map((n: any) => (n.id != null ? String(n.id).trim() : '')).filter(Boolean)
+      )
 
+      const dismissed = useNotificationStore.getState().dismissedKeys ?? []
+      const dismissedNorm = new Set(dismissed.map((k) => String(k).trim()).filter(Boolean))
+      const normDate = (s: string | undefined) =>
+        !s ? '' : s.trim().length >= 19 ? s.trim().slice(0, 19) : s.trim().slice(0, 30)
+      const contentKey = (item: { titulo?: string; mensagem?: string; dataCriacao?: string }) =>
+        `content:${(item.titulo ?? '').trim().slice(0, 200)}|${(item.mensagem ?? '').trim().slice(0, 500)}|${normDate(item.dataCriacao)}`
       list.forEach((n: any) => {
-        if (isAlertDismissed(n.id)) return
-        const exists = current.some((x) => x.dados?.alertaId === n.id)
+        const idStr = n.id != null ? String(n.id).trim() : ''
+        if (!idStr) return
+        if (isAlertDismissed(idStr) || dismissedNorm.has(idStr)) return
+        if (dismissedNorm.has(contentKey(n))) return
+        const exists = current.some((x) => x.dados?.alertaId != null && String(x.dados.alertaId).trim() === idStr)
         if (!exists) {
           addNotification({
             titulo: n.titulo,
@@ -54,10 +68,13 @@ export const useUserAlerts = () => {
       checkUserAlerts()
     }
 
-    const onRefresh = () => runCheck()
+    // Evento explícito: sempre consulta a API (ex.: abrir caixa de entrada), mesmo se a aba estiver em segundo plano
+    const onRefresh = () => {
+      checkUserAlerts()
+    }
     window.addEventListener('refresh-user-alerts', onRefresh)
     runCheck()
-    const interval = setInterval(runCheck, 5 * 60 * 1000)
+    const interval = setInterval(runCheck, USER_ALERTS_POLL_MS)
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') runCheck()
     }

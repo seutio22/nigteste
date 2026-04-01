@@ -12,6 +12,8 @@ import { useFilteredData } from '../../lib/utils'
 import { useEffect, useState, memo, useMemo, useRef } from 'react'
 import ExportDataModal from '../../components/ExportDataModal'
 import { usePermissions } from '../../hooks/usePermissions'
+import { PrimaryActionButton } from '../../components/PrimaryActionButton'
+import { formatIntegerPtBR } from '../../utils/formatNumber'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
@@ -22,6 +24,7 @@ import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf'
 import EditIcon from '@mui/icons-material/Edit'
 import PersonIcon from '@mui/icons-material/Person'
 import GroupIcon from '@mui/icons-material/Group'
+import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline'
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
 
 const columns: GridColDef[] = [
@@ -684,7 +687,7 @@ export default function ManutencaoListPage() {
                 
                 {/* Contador de manutenções */}
                 <Chip
-                  label={`${finalFilteredItems.length} manutenção${finalFilteredItems.length !== 1 ? 'ões' : ''}`}
+                  label={`${formatIntegerPtBR(finalFilteredItems.length)} manutenção${finalFilteredItems.length !== 1 ? 'ões' : ''}`}
                   size="small"
                   variant="outlined"
                   className={`${
@@ -731,34 +734,17 @@ export default function ManutencaoListPage() {
                     }
                   }}
                 >
-                  Excluir ({selectedIds.length})
+                  Excluir ({formatIntegerPtBR(selectedIds.length)})
                 </Button>
               )}
               
               {canImport && (
-                <Button 
-                  variant="contained" 
+                <PrimaryActionButton
                   startIcon={<AutoFixHighIcon />}
                   onClick={() => setSmartImporterOpen(true)}
-                  size="medium"
-                  className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white transition-all duration-300 font-medium"
-                  sx={{
-                    borderRadius: '14px',
-                    padding: '10px 20px',
-                    textTransform: 'none',
-                    fontWeight: 500,
-                    fontSize: '0.9rem',
-                    height: '44px',
-                    background: 'linear-gradient(135deg, #050032 0%, #002561 100%)',
-                    '&:hover': {
-                      background: 'linear-gradient(135deg, #050032 0%, #009FDF 100%)',
-                      transform: 'translateY(-2px)',
-                      boxShadow: '0 8px 20px 0 rgba(5, 0, 50, 0.3)'
-                    }
-                  }}
                 >
                   Importador Inteligente
-                </Button>
+                </PrimaryActionButton>
               )}
 
               {canExport && (
@@ -788,28 +774,9 @@ export default function ManutencaoListPage() {
               )}
 
               {canCreate && (
-                <Button 
-                  variant="contained" 
-                  onClick={() => navigate('/manutencao/nova')}
-                  size="medium"
-                  className="bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-800 hover:to-slate-900 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 font-semibold"
-                  sx={{
-                    borderRadius: '14px',
-                    padding: '10px 20px',
-                    textTransform: 'none',
-                    fontWeight: 600,
-                    fontSize: '0.9rem',
-                    height: '44px',
-                    minWidth: '140px',
-                    boxShadow: '0 4px 14px 0 rgba(15, 23, 42, 0.25)',
-                    '&:hover': {
-                      boxShadow: '0 8px 25px 0 rgba(15, 23, 42, 0.35)',
-                      transform: 'translateY(-2px)'
-                    }
-                  }}
-                >
+                <PrimaryActionButton startIcon={<AddCircleOutlineIcon />} onClick={() => navigate('/manutencao/nova')} sx={{ minWidth: '140px' }}>
                   Nova Manutenção
-                </Button>
+                </PrimaryActionButton>
               )}
             </Stack>
           </div>
@@ -870,6 +837,15 @@ export default function ManutencaoListPage() {
             minHeight: '400px',
             '& .MuiDataGrid-cell:focus': {
               outline: 'none',
+            },
+            '& .MuiDataGrid-row:nth-of-type(even)': {
+              backgroundColor: '#eef0f2',
+            },
+            '& .MuiDataGrid-row:nth-of-type(odd)': {
+              backgroundColor: '#ffffff',
+            },
+            '& .MuiDataGrid-row:hover': {
+              backgroundColor: 'rgba(0, 159, 223, 0.06) !important',
             },
           }}
         />
@@ -963,7 +939,7 @@ export default function ManutencaoListPage() {
         <DialogTitle>Confirmar Exclusão em Massa</DialogTitle>
         <DialogContent>
           <Typography>
-            Tem certeza que deseja excluir <strong>{selectedIds.length}</strong> manutenção(ões) selecionada(s)?
+            Tem certeza que deseja excluir <strong>{formatIntegerPtBR(selectedIds.length)}</strong> manutenção(ões) selecionada(s)?
           </Typography>
           <Typography variant="body2" color="error" sx={{ mt: 2 }}>
             ⚠️ Esta ação não pode ser desfeita!

@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo } from 'react'
-import { Box, Typography, Chip, IconButton, Tooltip } from '@mui/material'
-import { Refresh as RefreshIcon, FilterList as FilterIcon } from '@mui/icons-material'
+import { Box, Typography, Chip, IconButton, Tooltip, Button } from '@mui/material'
+import { Refresh as RefreshIcon, FilterList as FilterIcon, DeleteSweep as DeleteSweepIcon } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
 import { useKanbanStore } from '../store/kanbanStore'
 import { useMasterDataStore } from '../store/masterDataStore'
 import { useAuthStore } from '../store/authStore'
 import { KanbanBoard } from '../components/KanbanBoard'
+import { formatIntegerPtBR } from '../utils/formatNumber'
 
 export default function KanbanPage() {
   const kanbanStore = useKanbanStore()
@@ -57,20 +58,26 @@ export default function KanbanPage() {
     kanbanStore.syncFromApi()
   }
 
+  const handleClearAllTickets = () => {
+    if (kanbanStats.total <= 0) return
+    const ok = window.confirm('Tem certeza que deseja excluir TODAS as tarefas? Esta ação não pode ser desfeita.')
+    if (ok) kanbanStore.deleteAllTickets()
+  }
+
   return (
     <Box sx={{ height: '100vh', width: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
       <div className="bg-white/80 backdrop-blur-sm border-b border-white/20 shadow-sm sticky top-0 z-10">
-        <div className="px-6 py-4">
+        <div className="px-4 py-2">
           <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <Typography variant="h5" className="font-bold text-slate-800">
+            <div className="space-y-0.5">
+              <Typography variant="h6" className="font-bold text-slate-800 leading-tight">
                 Quadro Kanban
               </Typography>
-              <Typography variant="body2" className="text-slate-600">
+              <Typography variant="body2" className="text-slate-600 leading-tight">
                 Visualize e gerencie seus projetos e tarefas em um quadro interativo
               </Typography>
-              <Typography variant="caption" className="text-slate-500 mt-1 block">
+              <Typography variant="caption" className="text-slate-500 block leading-tight">
                 🔒 Seus tickets são privados - apenas você pode vê-los
               </Typography>
             </div>
@@ -79,31 +86,31 @@ export default function KanbanPage() {
               {/* Estatísticas */}
               <div className="flex items-center gap-2">
                 <Chip 
-                  label={`${kanbanStats.total} Tickets`} 
+                  label={`${formatIntegerPtBR(kanbanStats.total)} Tickets`} 
                   size="small" 
                   variant="outlined" 
                   className="border-blue-300 text-blue-600"
                 />
                 <Chip 
-                  label={`${kanbanStats.backlog} Backlog`} 
+                  label={`${formatIntegerPtBR(kanbanStats.backlog)} Backlog`} 
                   size="small" 
                   variant="outlined" 
                   className="border-gray-300 text-gray-600"
                 />
                 <Chip 
-                  label={`${kanbanStats.todo} A Fazer`} 
+                  label={`${formatIntegerPtBR(kanbanStats.todo)} A Fazer`} 
                   size="small" 
                   variant="outlined" 
                   className="border-yellow-300 text-yellow-600"
                 />
                 <Chip 
-                  label={`${kanbanStats.inProgress} Em Andamento`} 
+                  label={`${formatIntegerPtBR(kanbanStats.inProgress)} Em Andamento`} 
                   size="small" 
                   variant="outlined" 
                   className="border-blue-300 text-blue-600"
                 />
                 <Chip 
-                  label={`${kanbanStats.done} Concluído`} 
+                  label={`${formatIntegerPtBR(kanbanStats.done)} Concluído`} 
                   size="small" 
                   variant="outlined" 
                   className="border-green-300 text-green-600"
@@ -111,6 +118,17 @@ export default function KanbanPage() {
               </div>
               
               {/* Botões de ação */}
+              {kanbanStats.total > 0 && (
+                <Button
+                  variant="outlined"
+                  color="error"
+                  size="small"
+                  onClick={handleClearAllTickets}
+                  startIcon={<DeleteSweepIcon />}
+                >
+                  Limpar todas
+                </Button>
+              )}
               <Tooltip title="Atualizar dados">
                 <IconButton onClick={handleRefresh} size="small">
                   <RefreshIcon className="w-4 h-4" />
@@ -122,7 +140,7 @@ export default function KanbanPage() {
       </div>
 
       {/* Conteúdo */}
-      <Box sx={{ flex: 1, p: 2 }}>
+      <Box sx={{ flex: 1, p: 1, pt: 0.75 }}>
         <KanbanBoard />
       </Box>
     </Box>

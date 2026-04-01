@@ -15,7 +15,7 @@ interface ManutencaoState {
   clear: () => void
   clearLocal: () => void
   log: (e: Omit<TimelineEvent, 'id' | 'timestamp'>) => void
-  syncFromApi: () => Promise<void>
+  syncFromApi: (force?: boolean) => Promise<void>
   syncTimeline: (manutencaoId: string) => Promise<void>
 }
 
@@ -294,13 +294,13 @@ export const useManutencaoStore = create<ManutencaoState>()(
           // Não fazer nada - o evento já está salvo localmente
         }
       },
-      async syncFromApi() {
+      async syncFromApi(force?: boolean) {
         const state = get()
         if (state.isLoading) {
           return
         }
         const now = Date.now()
-        if (now - state.lastSync < 2 * 60 * 1000) {
+        if (!force && now - state.lastSync < 2 * 60 * 1000) {
           return
         }
         
@@ -338,7 +338,10 @@ export const useManutencaoStore = create<ManutencaoState>()(
             areaId: m.areaId,
             tipoId: m.tipoId,
             tipoServicoId: m.tipoServicoId,
-            analistaId: m.analistaId
+            analistaId: m.analistaId,
+            // Vínculo ao analista (para filtros/pendências na Home/export)
+            analistaObj: m.analista,
+            analista: (m.analista?.nome || m.analista?.name || m.analistaId || '') as string,
           }))
           
           // Se não há dados da API mas há dados locais, manter os dados locais
@@ -375,6 +378,9 @@ export const useManutencaoStore = create<ManutencaoState>()(
             user: event.userName || event.userId || 'Usuário desconhecido'
           }))
           
+          // Normalizar valor para comparação (evitar duplicata quando API retorna null e local tem '')
+          const norm = (v: unknown): string => (v === null || v === undefined || v === '') ? '' : String(v)
+
           // Atualizar timeline mesclando eventos do banco com os locais (sem duplicar)
           set((s) => {
             // Manter eventos de outras manutenções
@@ -383,27 +389,24 @@ export const useManutencaoStore = create<ManutencaoState>()(
             // Eventos locais desta manutenção
             const localEvents = s.timeline.filter(e => e.manutencaoId === manutencaoId)
             
-            // Mesclar: priorizar eventos do banco, mas manter eventos locais que ainda não foram sincronizados
+            // Priorizar apenas eventos do banco (fonte única após sync) para evitar duplicatas
             const mergedEvents = [...mappedEvents]
             
-            // Adicionar eventos locais que não existem no banco
-            // NÃO comparar user pois pode ser nome ou ID
+            // Incluir evento local só se não existir no banco (mesmo campo + valores + janela de tempo)
             localEvents.forEach(localEvent => {
               const existsInBank = mappedEvents.some(bankEvent => {
                 const timeDiff = Math.abs(new Date(bankEvent.timestamp).getTime() - new Date(localEvent.timestamp).getTime())
-                return timeDiff < 5000 &&
+                return timeDiff < 15000 && // 15s de tolerância (servidor vs cliente)
+                       bankEvent.type === localEvent.type &&
                        bankEvent.field === localEvent.field &&
-                       bankEvent.from === localEvent.from &&
-                       bankEvent.to === localEvent.to
+                       norm(bankEvent.from) === norm(localEvent.from) &&
+                       norm(bankEvent.to) === norm(localEvent.to)
               })
               
               if (!existsInBank) {
-                console.log('⚠️ Evento local não encontrado no banco, mantendo:', localEvent)
                 mergedEvents.push(localEvent)
               }
             })
-            
-            console.log('📊 Total de eventos após merge:', mergedEvents.length)
             
             return { timeline: [...mergedEvents, ...otherEvents] }
           })

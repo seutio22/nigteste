@@ -1494,20 +1494,27 @@ app.register(jwt, { secret: jwtSecret })
 
 app.register(authPlugin)
 
-// Middleware de tracking de atividades (após autenticação)
-app.addHook('preHandler', async (request, reply) => {
-  // Rastrear atividade do usuário
-  await trackUserActivity(request as any, reply)
+// Tracking em segundo plano: não await — evita somar latência de DB em toda requisição autenticada.
+app.addHook('preHandler', (request, reply, done) => {
+  trackUserActivity(request as any, reply).catch((err) => {
+    console.error('trackUserActivity (background):', err)
+  })
+  done()
 })
 
-// Middleware para rastrear início de sessão no login
+// Sessão login/logout: também em background para não atrasar o envio da resposta.
 app.addHook('onSend', async (request, reply, payload) => {
   if (request.url.includes('/auth/login') && reply.statusCode === 200) {
-    await trackSessionStart(request as any, reply)
+    trackSessionStart(request as any, reply).catch((err) =>
+      console.error('trackSessionStart (background):', err)
+    )
   }
   if (request.url.includes('/auth/logout') && reply.statusCode === 200) {
-    await trackSessionEnd(request as any, reply)
+    trackSessionEnd(request as any, reply).catch((err) =>
+      console.error('trackSessionEnd (background):', err)
+    )
   }
+  return payload
 })
 
 app.get('/health', async () => ({ status: 'ok' }))
@@ -2081,7 +2088,7 @@ function crud(entity: keyof PrismaClient) {
     get: async (id: string) => {
       // Incluir relacionamentos para atendimentos
       if (entity === 'atendimento') {
-        return anyPrisma[entity].findUnique({ 
+        const atendimento = await anyPrisma[entity].findUnique({
           where: { id },
           include: {
             cliente: true,
@@ -2102,6 +2109,14 @@ function crud(entity: keyof PrismaClient) {
             tipoServico: true
           }
         });
+        if (!atendimento) return null;
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        let solicitanteNome = null;
+        if ((atendimento as any).solicitante && uuidRegex.test((atendimento as any).solicitante)) {
+          const s = await (prisma as any).solicitante.findUnique({ where: { id: (atendimento as any).solicitante }, select: { nome: true } });
+          solicitanteNome = s?.nome ?? null;
+        }
+        return { ...atendimento, solicitanteNome };
       }
 
       // Incluir relacionamentos para validações - usar select para consistência
@@ -3064,9 +3079,20 @@ const resources = {
         ...pagination
       })
       
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      const solicitanteIds = [...new Set((atendimentos as any[]).map(a => a.solicitante).filter((id): id is string => typeof id === 'string' && uuidRegex.test(id)))]
+      const solicitantesMap: Record<string, string> = {}
+      if (solicitanteIds.length > 0) {
+        const solicitantes = await (prisma as any).solicitante.findMany({ where: { id: { in: solicitanteIds } }, select: { id: true, nome: true } })
+        solicitantes.forEach((s: { id: string; nome: string }) => { solicitantesMap[s.id] = s.nome })
+      }
+      const enriched = (atendimentos as any[]).map(a => ({
+        ...a,
+        solicitanteNome: a.solicitante && solicitantesMap[a.solicitante] ? solicitantesMap[a.solicitante] : null
+      }))
+      
       console.log(`🔍 ATENDIMENTOS: Encontrados ${atendimentos.length} atendimentos`)
-      console.log(`🔍 ATENDIMENTOS: Primeiros 3 atendimentos:`, atendimentos.slice(0, 3).map(a => ({ id: a.id, ticket: a.ticket })))
-      return atendimentos
+      return enriched
     },
     remove: async (id: string) => {
       console.log(`🔍 DELETE /atendimentos/${id}: MÉTODO ESPECÍFICO CHAMADO!`);
@@ -3602,7 +3628,7 @@ for (const [path, repo] of Object.entries(resources)) {
           const isManager = !!userId && norm(project.managerId) === norm(userId)
           const isMember = !!userId && memberProjectIds.includes(project.id)
           const canEdit = isAdmin || isOwner || isManager || isMember
-          return { ...project, canEdit }
+          return { ...project, canEdit, isOwner, isManager, isMember }
         })
 
         return mapped

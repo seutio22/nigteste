@@ -24,6 +24,7 @@ import {
   Event,
   Build
 } from '@mui/icons-material'
+import { PrimaryActionButton } from '../../components/PrimaryActionButton'
 import { useComunicadoStore } from '../../store/comunicadoStore'
 import { useAuthStore } from '../../store/authStore'
 import { RichTextEditor } from '../../components/RichTextEditor'
@@ -352,26 +353,33 @@ export default function ComunicadoNewPage() {
             </Typography>
             
             <div className="space-y-3">
-              <Button
+              <PrimaryActionButton
                 fullWidth
-                variant="contained"
                 startIcon={<Send />}
                 onClick={() => handleSubmitPublicar()}
                 disabled={isSubmitting}
-                className="bg-green-600 hover:bg-green-700"
               >
                 Publicar Agora
-              </Button>
+              </PrimaryActionButton>
               
-              <Button
+              <PrimaryActionButton
                 fullWidth
                 variant="outlined"
                 startIcon={<Save />}
                 onClick={() => handleSubmitRascunho()}
                 disabled={isSubmitting}
+                sx={{
+                  background: 'transparent',
+                  color: '#002561',
+                  border: '2px solid #002561',
+                  '&:hover': {
+                    background: 'rgba(0, 37, 97, 0.08)',
+                    border: '2px solid #002561',
+                  },
+                }}
               >
                 Salvar como Rascunho
-              </Button>
+              </PrimaryActionButton>
             </div>
           </Paper>
           

@@ -1,5 +1,13 @@
-/* Geometria – Design System (Regular 400, Medium 500, Bold 700, Extra Bold 800).
-   Coloque os arquivos .woff2 em public/fonts/ (ex.: Geometria-Regular.woff2, Geometria-Medium.woff2, Geometria-Bold.woff2, Geometria-ExtraBold.woff2). */
+/* Geometria – Design System (Light 300, Regular 400, Medium 500, Bold 700, Extra Bold 800).
+   Coloque os arquivos .woff2 em public/fonts/ (ex.: Geometria-Light.woff2, Geometria-Regular.woff2, …). */
+@font-face {
+  font-family: 'Geometria';
+  src: url('/fonts/Geometria-Light.woff2') format('woff2'),
+       url('/fonts/Geometria-Light.woff') format('woff');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
 @font-face {
   font-family: 'Geometria';
   src: url('/fonts/Geometria-Regular.woff2') format('woff2'),
@@ -50,7 +58,7 @@
   left: -5px;
   right: -5px;
   bottom: -5px;
-  background: linear-gradient(45deg, #DA3832, #f97316, #FCDA4F, #DA3832);
+  background: linear-gradient(45deg, #DA3832, #f97316, #E5B800, #DA3832);
   background-size: 400% 400%;
   border-radius: 16px;
   z-index: -1;
@@ -103,7 +111,7 @@
 .comunicado-content p {
   margin-bottom: 1em;
   line-height: 1.8;
-  color: #A3B5BC;
+  color: #6b7a80;
 }
 
 .comunicado-content ul,
@@ -122,7 +130,7 @@
   margin: 1em 0;
   padding-left: 1em;
   font-style: italic;
-  color: #6b7280;
+  color: #6b7a80;
   background-color: #f9fafb;
   padding: 1em;
   border-radius: 0.5rem;
@@ -158,7 +166,7 @@
 
 .comunicado-content em {
   font-style: italic;
-  color: #4b5563;
+  color: #6b7a80;
 }
 
 .comunicado-content code {
@@ -200,34 +208,33 @@
   overflow: hidden;
 }
 
-/* Variáveis CSS para temas */
+/* Variáveis CSS — atualizadas por applyThemeMode() em themeMode.ts */
 :root {
   --bg-primary: #ffffff;
-  --bg-secondary: #f9fafb;
-  --text-primary: #111827;
-  --text-secondary: #6b7280;
-  --border-color: #e5e7eb;
+  --bg-secondary: #f5f6f7;
+  --bg-elevated: #ffffff;
+  --text-primary: #050032;
+  --text-secondary: #6b7a80;
+  --border-color: #dcdfe3;
 }
 
-/* Tema escuro */
 .dark {
-  --bg-primary: #1f2937;
-  --bg-secondary: #002561;
-  --text-primary: #f9fafb;
-  --text-secondary: #d1d5db;
-  --border-color: #4b5563;
+  --bg-primary: #0d1114;
+  --bg-secondary: #151b26;
+  --bg-elevated: #1a2230;
+  --text-primary: #f5f6f7;
+  --text-secondary: #a3b5bc;
+  --border-color: #334155;
 }
 
-/* Aplicar variáveis CSS */
 body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* Estilos para componentes com tema escuro */
-.dark .bg-white {
-  background-color: var(--bg-secondary);
+.dark .bg-neutral-50 {
+  background-color: var(--bg-primary);
 }
 
 .dark .text-neutral-900 {
@@ -247,7 +254,41 @@ body {
 }
 
 .dark .hover\:bg-neutral-100:hover {
-  background-color: var(--border-color);
+  background-color: rgba(51, 65, 85, 0.45);
+}
+
+/* Conteúdo rico em comunicados — modo escuro */
+.dark .comunicado-content h1,
+.dark .comunicado-content h2,
+.dark .comunicado-content h3,
+.dark .comunicado-content h4,
+.dark .comunicado-content h5,
+.dark .comunicado-content h6 {
+  color: #f5f6f7;
+}
+
+.dark .comunicado-content p,
+.dark .comunicado-content li {
+  color: #a3b5bc;
+}
+
+.dark .comunicado-content blockquote {
+  border-left-color: #334155;
+  background-color: rgba(21, 27, 38, 0.8);
+  color: #a3b5bc;
+}
+
+.dark .comunicado-content strong {
+  color: #f5f6f7;
+}
+
+.dark .comunicado-content code {
+  background-color: #252d33;
+  color: #f9a8a8;
+}
+
+.dark .comunicado-content a {
+  color: #4db5ed;
 }
 
 @layer base {
@@ -256,7 +297,7 @@ body {
   }
   
   body {
-    @apply bg-neutral-50 text-neutral-900 antialiased;
+    @apply bg-neutral-50 text-neutral-900 antialiased dark:bg-[#0d1114] dark:text-neutral-100;
     font-family: 'Geometria', sans-serif;
     font-weight: 400;
     line-height: 1.25; /* 125% – Design System */
@@ -265,6 +306,15 @@ body {
   /* Títulos: line-height 125% conforme MDS */
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Geometria', sans-serif;
+    line-height: 1.25;
+  }
+}
+
+/* Geometria Light (300): parágrafo de abertura / lead – use a classe .text-lead */
+@layer components {
+  .text-lead {
+    font-family: 'Geometria', sans-serif;
+    font-weight: 300;
     line-height: 1.25;
   }
 }

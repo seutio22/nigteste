@@ -1,31 +1,17 @@
 import { useEffect } from 'react'
+import { applyThemeMode, getStoredTheme } from '../lib/themeMode'
 
+/** Sincroniza classe `dark`, variáveis CSS e tema MUI com o valor salvo (e entre abas). */
 export function useTheme() {
   useEffect(() => {
-    // Carregar tema salvo
-    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark'
-    
-    if (savedTheme) {
-      // Aplicar tema ao documento
-      document.documentElement.classList.toggle('dark', savedTheme === 'dark')
-      
-      // Aplicar tema ao body também
-      document.body.classList.toggle('dark', savedTheme === 'dark')
-      
-      // Adicionar classes CSS para tema escuro
-      if (savedTheme === 'dark') {
-        document.documentElement.style.setProperty('--bg-primary', '#050032')
-        document.documentElement.style.setProperty('--bg-secondary', '#002561')
-        document.documentElement.style.setProperty('--text-primary', '#f9fafb')
-        document.documentElement.style.setProperty('--text-secondary', '#A3B5BC')
-        document.documentElement.style.setProperty('--border-color', '#556268')
-      } else {
-        document.documentElement.style.setProperty('--bg-primary', '#ffffff')
-        document.documentElement.style.setProperty('--bg-secondary', '#f5f6f7')
-        document.documentElement.style.setProperty('--text-primary', '#050032')
-        document.documentElement.style.setProperty('--text-secondary', '#A3B5BC')
-        document.documentElement.style.setProperty('--border-color', '#DCDFE3')
+    applyThemeMode(getStoredTheme())
+
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'theme' && e.newValue != null) {
+        applyThemeMode(e.newValue === 'dark' ? 'dark' : 'light')
       }
     }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
   }, [])
 }

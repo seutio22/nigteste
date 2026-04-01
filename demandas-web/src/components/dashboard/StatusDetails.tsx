@@ -33,7 +33,15 @@ import { useValidationStore } from '../../store/validationStore'
 import { useAtendimentoStore } from '../../store/atendimentoStore'
 import { useReportStore } from '../../store/reportStore'
 import { useMasterDataStore } from '../../store/masterDataStore'
-import { getItemDateForPage, matchesByIdOrName, parseDateForFilter } from '../../utils/dashboardFilters'
+import {
+  calculateBusinessDays,
+  getExecutionEndDate,
+  getExecutionStartDate,
+  getItemDateForPage,
+  matchesByIdOrName,
+  parseDateForFilter
+} from '../../utils/dashboardFilters'
+import { formatIntegerPtBR } from '../../utils/formatNumber'
 
 interface StatusDetailsProps {
   areaId?: string
@@ -41,42 +49,24 @@ interface StatusDetailsProps {
   fromDate?: string
   toDate?: string
   showAnalistaFilter?: boolean
+  /** Enquanto o vínculo usuário↔analista não foi resolvido, não exibe contagens globais. */
+  userScopePending?: boolean
 }
 
-// Função para calcular dias úteis (exclui sábados e domingos)
-const calculateBusinessDays = (startDate: Date, endDate: Date): number => {
-  let count = 0
-  const current = new Date(startDate)
-  current.setHours(0, 0, 0, 0)
-  const end = new Date(endDate)
-  end.setHours(0, 0, 0, 0)
-  
-  while (current <= end) {
-    const dayOfWeek = current.getDay()
-    // 0 = domingo, 6 = sábado
-    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-      count++
-    }
-    current.setDate(current.getDate() + 1)
-  }
-  
-  return count
-}
-
-// Função para calcular tempo em aberto (dias úteis)
-const calculateOpenTime = (createdAt?: string, dataFinal?: string): number => {
-  if (!createdAt) return 0
+// Tempo em aberto = dias úteis (seg–sex) entre data de início e data final do chamado; sem data final, até hoje.
+const calculateOpenTime = (dataInicio?: string, dataFinal?: string): number => {
+  if (!dataInicio) return 0
   try {
-    const start = new Date(createdAt)
+    const start = new Date(dataInicio)
     if (isNaN(start.getTime())) return 0
-    
+
     const end = dataFinal ? new Date(dataFinal) : new Date()
     if (dataFinal && isNaN(end.getTime())) {
       return calculateBusinessDays(start, new Date())
     }
-    
+
     if (end < start) return 0
-    
+
     return calculateBusinessDays(start, end)
   } catch {
     return 0
@@ -85,20 +75,21 @@ const calculateOpenTime = (createdAt?: string, dataFinal?: string): number => {
 
 // Função para formatar tempo
 const formatTime = (days: number): string => {
+  const n = (x: number) => formatIntegerPtBR(x)
   if (days === 0) return 'Hoje'
   if (days === 1) return '1 dia'
-  if (days < 30) return `${days} dias`
+  if (days < 30) return `${n(days)} dias`
   if (days < 365) {
     const months = Math.floor(days / 30)
     const remainingDays = days % 30
-    if (remainingDays === 0) return `${months} ${months === 1 ? 'mês' : 'meses'}`
-    return `${months} ${months === 1 ? 'mês' : 'meses'} e ${remainingDays} ${remainingDays === 1 ? 'dia' : 'dias'}`
+    if (remainingDays === 0) return `${n(months)} ${months === 1 ? 'mês' : 'meses'}`
+    return `${n(months)} ${months === 1 ? 'mês' : 'meses'} e ${n(remainingDays)} ${remainingDays === 1 ? 'dia' : 'dias'}`
   }
   const years = Math.floor(days / 365)
   const remainingDays = days % 365
   const months = Math.floor(remainingDays / 30)
-  if (months === 0) return `${years} ${years === 1 ? 'ano' : 'anos'}`
-  return `${years} ${years === 1 ? 'ano' : 'anos'} e ${months} ${months === 1 ? 'mês' : 'meses'}`
+  if (months === 0) return `${n(years)} ${years === 1 ? 'ano' : 'anos'}`
+  return `${n(years)} ${years === 1 ? 'ano' : 'anos'} e ${n(months)} ${months === 1 ? 'mês' : 'meses'}`
 }
 
 // Função para obter cor do status
@@ -108,7 +99,7 @@ const getStatusColor = (status: string): string => {
     return '#00A649' // verde
   }
   if (statusLower.includes('pendente') || statusLower.includes('aguardando')) {
-    return '#FCDA4F' // amarelo
+    return '#E5B800' // amarelo
   }
   if (statusLower.includes('em andamento') || statusLower.includes('em progresso')) {
     return '#009FDF' // azul
@@ -124,7 +115,8 @@ export const StatusDetails: React.FC<StatusDetailsProps> = ({
   analistaId,
   fromDate,
   toDate,
-  showAnalistaFilter = false
+  showAnalistaFilter = false,
+  userScopePending = false
 }) => {
   const theme = useTheme()
   const demandStore = useDemandStore()
@@ -188,63 +180,65 @@ export const StatusDetails: React.FC<StatusDetailsProps> = ({
   }
 
   // Filtrar dados
-  const demandasFiltradas = useMemo(() => 
-    demandStore.items.filter(d => 
-      matchesByIdOrName(d.areaId || d.area, areaId, masterDataStore.areas) && 
-      matchesByIdOrName(d.analistaId || d.analista, analistaIdForFilter, masterDataStore.analistas) && 
+  const demandasFiltradas = useMemo(() => {
+    if (userScopePending) return []
+    return demandStore.items.filter(d =>
+      matchesByIdOrName(d.areaId || d.area, areaId, masterDataStore.areas) &&
+      matchesByIdOrName(d.analistaId || d.analista, analistaIdForFilter, masterDataStore.analistas) &&
       inRange(getItemDateForPage('demandas', d))
-    ), 
-    [demandStore.items, areaId, analistaIdForFilter, fromDate, toDate, masterDataStore.areas, masterDataStore.analistas]
-  )
+    )
+  }, [userScopePending, demandStore.items, areaId, analistaIdForFilter, fromDate, toDate, masterDataStore.areas, masterDataStore.analistas])
 
-  const manutencoesFiltradas = useMemo(() => 
-    manutencaoStore.items.filter(m => 
-      matchesByIdOrName(m.analistaId || m.analista, analistaIdForFilter, masterDataStore.analistas) && 
+  const manutencoesFiltradas = useMemo(() => {
+    if (userScopePending) return []
+    return manutencaoStore.items.filter(m =>
+      matchesByIdOrName(m.analistaId || m.analista, analistaIdForFilter, masterDataStore.analistas) &&
       inRange(getItemDateForPage('manutencoes', m))
-    ), 
-    [manutencaoStore.items, analistaIdForFilter, fromDate, toDate, masterDataStore.analistas]
-  )
+    )
+  }, [userScopePending, manutencaoStore.items, analistaIdForFilter, fromDate, toDate, masterDataStore.analistas])
 
-  const reajustesFiltrados = useMemo(() => 
-    reajusteStore.items.filter(r => 
-      matchesByIdOrName(r.responsavelAnalista, analistaIdForFilter, masterDataStore.analistas) && 
+  const reajustesFiltrados = useMemo(() => {
+    if (userScopePending) return []
+    return reajusteStore.items.filter(r =>
+      matchesByIdOrName(r.responsavelAnalista, analistaIdForFilter, masterDataStore.analistas) &&
       inRange(getItemDateForPage('reajustes', r))
-    ), 
-    [reajusteStore.items, analistaIdForFilter, fromDate, toDate, masterDataStore.analistas]
-  )
+    )
+  }, [userScopePending, reajusteStore.items, analistaIdForFilter, fromDate, toDate, masterDataStore.analistas])
 
-  const validacoesFiltradas = useMemo(() => 
-    validationStore.items.filter(v => 
-      matchesByIdOrName((v as any).analistaId || v.analista, analistaIdForFilter, masterDataStore.analistas) && 
+  const validacoesFiltradas = useMemo(() => {
+    if (userScopePending) return []
+    return validationStore.items.filter(v =>
+      matchesByIdOrName((v as any).analistaId || v.analista, analistaIdForFilter, masterDataStore.analistas) &&
       inRange(getItemDateForPage('validacoes', v))
-    ), 
-    [validationStore.items, analistaIdForFilter, fromDate, toDate, masterDataStore.analistas]
-  )
+    )
+  }, [userScopePending, validationStore.items, analistaIdForFilter, fromDate, toDate, masterDataStore.analistas])
 
-  const atendimentosFiltrados = useMemo(() => 
-    atendimentoStore.items.filter(a => 
-      matchesByIdOrName(a.areaId || a.area, areaId, masterDataStore.areas) && 
-      matchesByIdOrName(a.analistaId || a.analista, analistaIdForFilter, masterDataStore.analistas) && 
+  const atendimentosFiltrados = useMemo(() => {
+    if (userScopePending) return []
+    return atendimentoStore.items.filter(a =>
+      matchesByIdOrName(a.areaId || a.area, areaId, masterDataStore.areas) &&
+      matchesByIdOrName(a.analistaId || a.analista, analistaIdForFilter, masterDataStore.analistas) &&
       inRange(getItemDateForPage('atendimentos', a))
-    ), 
-    [atendimentoStore.items, areaId, analistaIdForFilter, fromDate, toDate, masterDataStore.areas, masterDataStore.analistas]
-  )
+    )
+  }, [userScopePending, atendimentoStore.items, areaId, analistaIdForFilter, fromDate, toDate, masterDataStore.areas, masterDataStore.analistas])
 
-  const analyticsFiltrados = useMemo(() => 
-    reportStore.items.filter(r => 
-      matchesByIdOrName(r.analista, analistaIdForFilter, masterDataStore.analistas) && 
+  const analyticsFiltrados = useMemo(() => {
+    if (userScopePending) return []
+    return reportStore.items.filter(r =>
+      matchesByIdOrName(r.analista, analistaIdForFilter, masterDataStore.analistas) &&
       inRange(getItemDateForPage('analytics', r))
-    ), 
-    [reportStore.items, analistaIdForFilter, fromDate, toDate, masterDataStore.analistas]
-  )
+    )
+  }, [userScopePending, reportStore.items, analistaIdForFilter, fromDate, toDate, masterDataStore.analistas])
 
-  // Calcular estatísticas por status
-  const calculateStatusStats = (items: any[], dateField: string = 'createdAt', finalField?: string) => {
+  // Estatísticas por status: tempo médio em dias úteis entre início e fim operacionais (mesma regra dos indicadores de execução).
+  const calculateStatusStats = (items: any[], page: string) => {
     const statusMap = new Map<string, { count: number; totalDays: number; items: any[] }>()
-    
+
     items.forEach(item => {
       const status = item.status || 'Sem status'
-      const openTime = calculateOpenTime(item[dateField] || item.createdAt, finalField ? item[finalField] : undefined)
+      const start = getExecutionStartDate(page, item)
+      const end = getExecutionEndDate(page, item)
+      const openTime = calculateOpenTime(start, end)
       
       if (!statusMap.has(status)) {
         statusMap.set(status, { count: 0, totalDays: 0, items: [] })
@@ -265,35 +259,17 @@ export const StatusDetails: React.FC<StatusDetailsProps> = ({
     })).sort((a, b) => b.count - a.count)
   }
 
-  const demandasPorStatus = useMemo(() => 
-    calculateStatusStats(demandasFiltradas, 'dataInicio', 'dataFinal'),
-    [demandasFiltradas]
-  )
+  const demandasPorStatus = useMemo(() => calculateStatusStats(demandasFiltradas, 'demandas'), [demandasFiltradas])
 
-  const manutencoesPorStatus = useMemo(() => 
-    calculateStatusStats(manutencoesFiltradas, 'dataInicio', 'dataFinal'),
-    [manutencoesFiltradas]
-  )
+  const manutencoesPorStatus = useMemo(() => calculateStatusStats(manutencoesFiltradas, 'manutencoes'), [manutencoesFiltradas])
 
-  const reajustesPorStatus = useMemo(() => 
-    calculateStatusStats(reajustesFiltrados, 'createdAt'),
-    [reajustesFiltrados]
-  )
+  const reajustesPorStatus = useMemo(() => calculateStatusStats(reajustesFiltrados, 'reajustes'), [reajustesFiltrados])
 
-  const validacoesPorStatus = useMemo(() => 
-    calculateStatusStats(validacoesFiltradas, 'dataInicio', 'dataFim'),
-    [validacoesFiltradas]
-  )
+  const validacoesPorStatus = useMemo(() => calculateStatusStats(validacoesFiltradas, 'validacoes'), [validacoesFiltradas])
 
-  const atendimentosPorStatus = useMemo(() => 
-    calculateStatusStats(atendimentosFiltrados, 'dataInicio', 'dataFinal'),
-    [atendimentosFiltrados]
-  )
+  const atendimentosPorStatus = useMemo(() => calculateStatusStats(atendimentosFiltrados, 'atendimentos'), [atendimentosFiltrados])
 
-  const analyticsPorStatus = useMemo(() => 
-    calculateStatusStats(analyticsFiltrados, 'dataCriacao', 'dataAtualizacao'),
-    [analyticsFiltrados]
-  )
+  const analyticsPorStatus = useMemo(() => calculateStatusStats(analyticsFiltrados, 'analytics'), [analyticsFiltrados])
 
   const renderStatusTable = (title: string, data: typeof demandasPorStatus, color: string) => {
     if (data.length === 0) return null
@@ -317,7 +293,7 @@ export const StatusDetails: React.FC<StatusDetailsProps> = ({
               {title}
             </Typography>
             <Chip
-              label={totalItems}
+              label={formatIntegerPtBR(totalItems)}
               size="small"
               sx={{
                 ml: 'auto',
@@ -356,7 +332,7 @@ export const StatusDetails: React.FC<StatusDetailsProps> = ({
                     </TableCell>
                     <TableCell align="right">
                       <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                        {row.count}
+                        {formatIntegerPtBR(row.count)}
                       </Typography>
                     </TableCell>
                     <TableCell align="right">
@@ -369,7 +345,7 @@ export const StatusDetails: React.FC<StatusDetailsProps> = ({
                     </TableCell>
                     <TableCell align="right">
                       <Typography variant="body2" color="text.secondary">
-                        {totalItems > 0 ? Math.round((row.count / totalItems) * 100) : 0}%
+                        {formatIntegerPtBR(totalItems > 0 ? Math.round((row.count / totalItems) * 100) : 0)}%
                       </Typography>
                     </TableCell>
                   </TableRow>
@@ -432,7 +408,7 @@ export const StatusDetails: React.FC<StatusDetailsProps> = ({
               {renderStatusTable('Reajustes', reajustesPorStatus, '#8b5cf6')}
             </Grid>
             <Grid item xs={12} md={6}>
-              {renderStatusTable('Validações', validacoesPorStatus, '#FCDA4F')}
+              {renderStatusTable('Validações', validacoesPorStatus, '#E5B800')}
             </Grid>
             <Grid item xs={12} md={6}>
               {renderStatusTable('Atendimentos', atendimentosPorStatus, '#00A649')}

@@ -22,30 +22,31 @@ export interface KanbanColumn {
   color: string
 }
 
+/** Cores do Kanban (dashboard): #C0B66D, #C7C8CA, #EA983E, #49B7C4, #A4C854, #68A79D */
 export const KANBAN_COLUMNS: KanbanColumn[] = [
   {
     id: 'backlog',
     title: 'Backlog',
     tickets: [],
-    color: '#9e9e9e'
+    color: '#C7C8CA'
   },
   {
     id: 'todo',
     title: 'A Fazer',
     tickets: [],
-    color: '#ff9800'
+    color: '#EA983E'
   },
   {
     id: 'in-progress',
     title: 'Em Andamento',
     tickets: [],
-    color: '#2196f3'
+    color: '#49B7C4'
   },
   {
     id: 'done',
     title: 'Concluído',
     tickets: [],
-    color: '#4caf50'
+    color: '#A4C854'
   }
 ]
 
@@ -56,7 +57,7 @@ interface KanbanState {
   error: string | null
   
   // Ações
-  addTicket: (ticket: Omit<KanbanTicket, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>
+  addTicket: (ticket: Omit<KanbanTicket, 'id' | 'createdAt' | 'updatedAt'>) => Promise<KanbanTicket>
   updateTicket: (id: string, updates: Partial<KanbanTicket>) => Promise<void>
   moveTicket: (ticketId: string, newStatus: KanbanTicket['status']) => Promise<void>
   deleteTicket: (id: string) => Promise<void>
@@ -117,7 +118,7 @@ export const useKanbanStore = create<KanbanState>()(
             }))
             
             console.log('✅ KanbanStore: Ticket adicionado ao estado local')
-            
+            return normalizedTicket as KanbanTicket
           } catch (error) {
             console.error('❌ Erro ao criar ticket:', error)
             set({ error: 'Erro ao criar ticket', loading: false })

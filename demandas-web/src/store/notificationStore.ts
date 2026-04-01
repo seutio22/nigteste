@@ -39,6 +39,27 @@ export interface Notification {
 
 const MAX_DISMISSED_KEYS = 500
 
+/** Normaliza data para evitar diferença de milissegundos (API vs store) */
+function normDate(s: string | undefined): string {
+  if (!s || typeof s !== 'string') return ''
+  const trimmed = s.trim()
+  if (trimmed.length >= 19) return trimmed.slice(0, 19) // YYYY-MM-DDTHH:mm:ss
+  return trimmed.slice(0, 30)
+}
+
+/** Chave estável por conteúdo: evita reaparecer notificações antigas sem alertaId/dedupeKey */
+function contentKey(n: { titulo?: string; mensagem?: string; dataCriacao?: string }): string {
+  const t = (n.titulo ?? '').trim().slice(0, 200)
+  const m = (n.mensagem ?? '').trim().slice(0, 500)
+  const d = normDate(n.dataCriacao)
+  return `content:${t}|${m}|${d}`
+}
+
+function normKey(v: string | undefined): string {
+  if (v == null || v === '') return ''
+  return String(v).trim()
+}
+
 interface NotificationState {
   notifications: Notification[]
   unreadCount: number
@@ -67,10 +88,15 @@ export const useNotificationStore = create<NotificationState>()(
         const alertaId = rest.dados?.alertaId
         const dismissed = state.dismissedKeys ?? []
 
-        if (dedupeKey && dismissed.includes(dedupeKey)) return
-        if (alertaId && dismissed.includes(alertaId)) return
-        if (dedupeKey && state.notifications.some(n => n.dados?.dedupeKey === dedupeKey)) return
-        if (alertaId && state.notifications.some(n => n.dados?.alertaId === alertaId)) return
+        const dk = normKey(dedupeKey)
+        const ak = normKey(alertaId)
+        if (dk && dismissed.some((k) => normKey(k) === dk)) return
+        if (ak && dismissed.some((k) => normKey(k) === ak)) return
+        const ck = contentKey(rest)
+        if (dismissed.some((k) => k === ck)) return
+        if (dk && state.notifications.some((n) => normKey(n.dados?.dedupeKey) === dk)) return
+        if (ak && state.notifications.some((n) => normKey(n.dados?.alertaId) === ak)) return
+        if (state.notifications.some((n) => contentKey(n) === ck)) return
 
         const newNotification: Notification = {
           ...rest,
@@ -130,17 +156,35 @@ export const useNotificationStore = create<NotificationState>()(
       
       remove: (id) => {
         set((state) => {
-          const removed = state.notifications.find(n => n.id === id)
+          const removed = state.notifications.find((n) => n.id === id)
           const currentDismissed = state.dismissedKeys ?? []
-          let newDismissed = currentDismissed
+          const toAdd: string[] = []
           if (removed) {
             const key = removed.dados?.alertaId ?? removed.dados?.dedupeKey
-            if (key && !currentDismissed.includes(key)) {
-              newDismissed = [...currentDismissed.slice(-(MAX_DISMISSED_KEYS - 1)), key]
+            const keyNorm = normKey(key)
+            if (keyNorm && !currentDismissed.some((k) => normKey(k) === keyNorm)) {
+              toAdd.push(keyNorm)
+            }
+            const ck = contentKey(removed)
+            if (ck && !currentDismissed.includes(ck)) {
+              toAdd.push(ck)
             }
           }
-          const newNotifications = state.notifications.filter(n => n.id !== id)
-          const unreadCount = newNotifications.filter(n => !n.lida).length
+          let newDismissed =
+            toAdd.length > 0
+              ? [...currentDismissed.slice(-(MAX_DISMISSED_KEYS - toAdd.length)), ...toAdd]
+              : currentDismissed
+          newDismissed = newDismissed.slice(-MAX_DISMISSED_KEYS)
+          let newNotifications = state.notifications.filter((n) => n.id !== id)
+          const dismissedSet = new Set(newDismissed)
+          const normSet = new Set(newDismissed.map((k) => normKey(k)).filter(Boolean))
+          newNotifications = newNotifications.filter((n) => {
+            const k = n.dados?.alertaId ?? n.dados?.dedupeKey
+            if (k && (dismissedSet.has(k) || normSet.has(normKey(k)))) return false
+            if (contentKey(n) && dismissedSet.has(contentKey(n))) return false
+            return true
+          })
+          const unreadCount = newNotifications.filter((n) => !n.lida).length
           return {
             notifications: newNotifications,
             unreadCount,
@@ -188,9 +232,26 @@ export const useNotificationStore = create<NotificationState>()(
         })
       }
     }),
-    { 
+    {
       name: 'notifications-store-v1',
-      version: 1
+      version: 1,
+      onRehydrateStorage: () => (state) => {
+        if (state?.notifications?.length && state?.dismissedKeys?.length) {
+          const dismissedSet = new Set(state.dismissedKeys)
+          const filtered = state.notifications.filter((n) => {
+            const k = n.dados?.alertaId ?? n.dados?.dedupeKey
+            if (k && dismissedSet.has(k)) return false
+            if (dismissedSet.has(contentKey(n))) return false
+            return true
+          })
+          if (filtered.length < state.notifications.length) {
+            useNotificationStore.setState({
+              notifications: filtered,
+              unreadCount: filtered.filter((n) => !n.lida).length
+            })
+          }
+        }
+      }
     }
   )
 )

@@ -23,6 +23,7 @@ import { useMasterDataStore } from '../../store/masterDataStore'
 import { useAuthStore } from '../../store/authStore'
 import { STATUS_REPORT_PADRAO } from '../../utils/statusPadrao'
 import { ArrowBack, Save, Cancel } from '@mui/icons-material'
+import { PrimaryActionButton } from '../../components/PrimaryActionButton'
 
 export default function AnalyticsNewPage() {
   const navigate = useNavigate()
@@ -679,13 +680,9 @@ export default function AnalyticsNewPage() {
             >
               Cancelar
             </Button>
-            <Button
-              type="submit"
-              variant="contained"
-              startIcon={<Save />}
-            >
+            <PrimaryActionButton type="submit" startIcon={<Save />}>
               Criar Relatório
-            </Button>
+            </PrimaryActionButton>
           </Stack>
         </form>
       </Paper>

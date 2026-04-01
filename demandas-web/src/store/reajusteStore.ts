@@ -12,7 +12,7 @@ interface ReajusteState {
   remove: (id: string | string[]) => Promise<void>
   upsert: (entry: ReajusteEntry) => Promise<void>
   log: (entry: { reajusteId: string; type: string; field: string; from: unknown; to: unknown }) => void
-  syncFromApi: () => Promise<void>
+  syncFromApi: (force?: boolean) => Promise<void>
 }
 
 export const useReajusteStore = create<ReajusteState>()(
@@ -225,11 +225,11 @@ export const useReajusteStore = create<ReajusteState>()(
         timelineStore.addEvent(entry)
       },
       
-      syncFromApi: async () => {
+      syncFromApi: async (force?: boolean) => {
         try {
           const state = get()
           const now = Date.now()
-          if (now - state.lastSync < 2 * 60 * 1000) return
+          if (!force && now - state.lastSync < 2 * 60 * 1000) return
           console.log('🔍 ReajusteStore: Iniciando syncFromApi...')
           
           const response = await api.get('/reajusteLancamentos')

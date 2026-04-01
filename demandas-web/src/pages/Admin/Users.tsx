@@ -50,6 +50,7 @@ import UserMonitoring from '../../components/UserMonitoring'
 import DeletionHistoryTab from '../../components/DeletionHistoryTab'
 import { SystemPermissions } from '../../types/permissions'
 import { getInitialPermissions } from '../../utils/defaultPermissions'
+import { formatIntegerPtBR } from '../../utils/formatNumber'
 
 interface User {
   id: string
@@ -60,6 +61,8 @@ interface User {
   permissions?: string
   createdAt: string
   passwordUpdatedAt?: string | null
+  /** Último login bem-sucedido (API) */
+  lastLogin?: string | null
 }
 
 export default function UsersPage() {
@@ -81,7 +84,7 @@ export default function UsersPage() {
     active: true
   })
 
-  const { token, setLoading: setAuthLoading } = useAuthStore()
+  const { token } = useAuthStore()
 
   // Carregar usuários da API
   const loadUsers = useCallback(async () => {
@@ -89,8 +92,9 @@ export default function UsersPage() {
       console.log('🔍 Carregando usuários...')
       
       if (!token) {
-        console.log('❌ Sem token, fazendo login...')
-        await manualLogin()
+        console.warn('❌ Sem token para carregar usuários - usuário deve estar autenticado.')
+        setSnackbar({ open: true, message: 'Sessão expirada. Faça login novamente.', severity: 'error' })
+        setLoading(false)
         return
       }
 
@@ -116,41 +120,6 @@ export default function UsersPage() {
       setLoading(false)
     }
   }, [token])
-
-  // Login manual para obter token
-  const manualLogin = useCallback(async () => {
-    try {
-      console.log('🔐 Fazendo login manual...')
-      const response = await fetch(`https://nigteste-production.up.railway.app/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: 'admin@admin.com',
-          password: 'admin123'
-        })
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        console.log('✅ Login bem-sucedido')
-        // Atualizar store
-        const { setAuth } = useAuthStore.getState()
-        setAuth(data.token, data.user)
-        // Recarregar usuários imediatamente
-        if (data.token) {
-          loadUsers()
-        }
-      } else {
-        console.error('❌ Login falhou:', response.status)
-        setSnackbar({ open: true, message: 'Erro no login automático', severity: 'error' })
-        setLoading(false)
-      }
-    } catch (error) {
-      console.error('❌ Erro no login:', error)
-      setSnackbar({ open: true, message: 'Erro no login automático', severity: 'error' })
-      setLoading(false)
-    }
-  }, [loadUsers])
 
   // Carregar usuários ao montar componente
   useEffect(() => {
@@ -407,7 +376,7 @@ export default function UsersPage() {
               Gerenciamento de Usuários
             </Typography>
             <Typography variant="body1" color="text.secondary">
-              {users.length} usuário{users.length !== 1 ? 's' : ''} no sistema
+              {formatIntegerPtBR(users.length)} usuário{users.length !== 1 ? 's' : ''} no sistema
             </Typography>
           </Box>
           {tabValue === 0 && (
@@ -483,6 +452,12 @@ export default function UsersPage() {
                   
                   <Typography variant="caption" color="text.secondary" display="block">
                     Criado em: {new Date(user.createdAt).toLocaleDateString('pt-BR')}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" display="block">
+                    Último login:{' '}
+                    {user.lastLogin
+                      ? new Date(user.lastLogin).toLocaleString('pt-BR')
+                      : 'Nunca registrado'}
                   </Typography>
                   <Typography variant="caption" color="text.secondary" display="block">
                     Última troca de senha:{' '}

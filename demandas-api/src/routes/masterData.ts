@@ -51,6 +51,24 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
     }
   })
 
+  // GET /solicitantes/:id — busca um solicitante por ID (útil para registros antigos ou quando o nome não veio na lista)
+  app.get('/solicitantes/:id', async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string }
+      const solicitante = await prisma.solicitante.findUnique({
+        where: { id },
+        select: { id: true, nome: true }
+      })
+      if (!solicitante) {
+        return reply.status(404).send({ error: 'Solicitante não encontrado', id })
+      }
+      return reply.send(solicitante)
+    } catch (error) {
+      console.error('Erro ao buscar solicitante por ID:', error)
+      return reply.status(500).send({ error: 'Erro interno do servidor' })
+    }
+  })
+
   // POST /solicitantes
   app.post('/solicitantes', async (request, reply) => {
     try {

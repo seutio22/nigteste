@@ -1,6 +1,6 @@
 
 
-import React, { useState, useEffect, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { Autocomplete, Box, Button, Container, Paper, Stack, TextField, Typography, MenuItem, FormControl, InputLabel, Select, Grid } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 import { useForm, Controller, useWatch } from 'react-hook-form'
@@ -13,6 +13,7 @@ import { api } from '../../lib/api.local'
 import { createPerfLogger } from '../../utils/perf'
 import { AsyncClienteAutocomplete, type ClienteOption } from '../../components/AsyncClienteAutocomplete'
 import { AsyncContratoAutocomplete } from '../../components/AsyncContratoAutocomplete'
+import { PrimaryActionButton } from '../../components/PrimaryActionButton'
 
 const schema = z.object({
   // Campos obrigatórios
@@ -44,7 +45,7 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>
 
 const listas = {
-  status: ['Aberta', 'Em andamento', 'Transf. Analista', 'Aguardando aprovação', 'Com erros', 'Concluída', 'Cancelada'],
+  status: ['Em andamento', 'Transf. Analista', 'Aguardando aprovação', 'Com erros', 'Concluído Parcialmente', 'Concluída', 'Cancelada'],
   qualidade: [
     { value: '0', label: '0 - RUIM - MAIS DE 3 RETORNOS; ITENS INCOMPLETOS, SEM RETORNO' },
     { value: '1', label: '1 - MEDIANO - NO MÁX 2 RETORNOS' },
@@ -62,7 +63,7 @@ export default function DemandNewPage() {
     mode: 'onChange',
     defaultValues: {
       // Campos obrigatórios
-      status: 'Aberta',
+      status: 'Em andamento',
       tipoServico: '',
       tipo: '',
       
@@ -95,13 +96,24 @@ export default function DemandNewPage() {
   const [selectedCliente, setSelectedCliente] = useState<ClienteOption | null>(null)
   const selectedTipoId = useWatch({ control, name: 'tipo' })
 
+  const tiposDemandaAtivos = useMemo(
+    () => md.tiposDemanda.filter((t) => t.ativo !== false),
+    [md.tiposDemanda]
+  )
+
+  useEffect(() => {
+    if (!selectedTipoId) return
+    const aindaNaLista = tiposDemandaAtivos.some((t) => t.id === selectedTipoId)
+    if (!aindaNaLista) setValue('tipo', '')
+  }, [selectedTipoId, tiposDemandaAtivos, setValue])
+
   useEffect(() => {
     perfRef.current.log('mount')
   }, [])
 
   useEffect(() => {
     if (perfReadyRef.current) return
-    if (md.analistas.length && md.tiposDemanda.length && md.tiposServico.length) {
+    if (md.analistas.length && tiposDemandaAtivos.length && md.tiposServico.length) {
       perfReadyRef.current = true
       perfRef.current.log('data-ready', {
         analistas: md.analistas.length,
@@ -109,7 +121,7 @@ export default function DemandNewPage() {
         tiposServico: md.tiposServico.length
       })
     }
-  }, [md.analistas.length, md.tiposDemanda.length, md.tiposServico.length])
+  }, [md.analistas.length, tiposDemandaAtivos.length, md.tiposServico.length])
 
   // Sincronização desabilitada temporariamente para evitar travamento
   useEffect(() => {
@@ -244,9 +256,9 @@ export default function DemandNewPage() {
   async function onSubmit(data: FormValues) {
     try {
       // Verificar se os dados obrigatórios estão carregados
-      if (md.tiposServico.length === 0 || md.tiposDemanda.length === 0) {
-        console.error('❌ DADOS NÃO CARREGADOS: Tipos de Serviço ou Tipos de Demanda estão vazios!')
-        alert('Dados não carregados! Clique em "Forçar Sincronização" para recarregar os dados.')
+      if (md.tiposServico.length === 0 || tiposDemandaAtivos.length === 0) {
+        console.error('❌ DADOS NÃO CARREGADOS: Tipos de Serviço ou nenhum tipo de demanda ativo para cadastro.')
+        alert('Não há tipos de demanda ativos para cadastro ou os dados não foram carregados. Em Dados → Tipos, marque pelo menos um tipo como ativo ou sincronize os dados.')
         return
       }
       
@@ -432,7 +444,7 @@ export default function DemandNewPage() {
         userId: user?.id || null, // ID do usuário que está criando a demanda
        solicitante: solicitanteNome,
        areaId: validateId(sanitizedData.area, md.areas, 'Área'),
-       tipoId: validateId(sanitizedData.tipo, md.tiposDemanda, 'TipoDemanda'),
+       tipoId: validateId(sanitizedData.tipo, tiposDemandaAtivos, 'TipoDemanda'),
        descricao: data.descricao || null,
        tipoServicoId: validateId(sanitizedData.tipoServico, md.tiposServico, 'TipoServiço'),
        clienteId: validateId(sanitizedData.cliente, md.clientes, 'Cliente'),
@@ -677,7 +689,7 @@ export default function DemandNewPage() {
             <Controller name="tipo" control={control} render={({ field }) => (
               <TextField {...field} select label="Tipo de demanda" fullWidth required error={!!errors.tipo} helperText={errors.tipo?.message}>
                 <MenuItem value="">Selecione...</MenuItem>
-                {md.tiposDemanda.map(td => <MenuItem key={td.id} value={td.id}>{td.nome}</MenuItem>)}
+                {tiposDemandaAtivos.map(td => <MenuItem key={td.id} value={td.id}>{td.nome}</MenuItem>)}
               </TextField>
             )} />
           </Grid>
@@ -920,7 +932,7 @@ export default function DemandNewPage() {
           </Grid>
         </Grid>
         <Box mt={2} display="flex" gap={2}>
-          <Button type="submit" variant="contained" disabled={!isValid}>Salvar</Button>
+          <PrimaryActionButton type="button" disabled={!isValid} onClick={handleSubmit(onSubmit)}>Salvar</PrimaryActionButton>
           <Button variant="outlined" onClick={() => navigate(-1)}>Cancelar</Button>
         </Box>
       </Box>

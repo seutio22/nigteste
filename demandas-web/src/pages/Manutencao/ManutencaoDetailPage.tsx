@@ -9,8 +9,10 @@ import { EmailComunicacaoModal } from '../../components/EmailComunicacaoModal'
 import { fmt } from '../../lib/utils'
 import { fixEncoding } from '../../utils/encodingFix'
 import { useState, useEffect, useRef } from 'react'
-import { Save, Edit3, Clock, ArrowLeft, Mail } from 'lucide-react'
+import { Save, Edit3, Clock, ArrowLeft } from 'lucide-react'
 import { Autocomplete, Box, TextField, Typography } from '@mui/material'
+import { Save as SaveIcon, Email as EmailIcon } from '@mui/icons-material'
+import { PrimaryActionButton } from '../../components/PrimaryActionButton'
 import { createPerfLogger } from '../../utils/perf'
 
 // Função para converter código de qualidade em texto legível
@@ -179,14 +181,13 @@ export default function ManutencaoDetailPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <button
+          <PrimaryActionButton
             onClick={() => setEmailModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            startIcon={<EmailIcon />}
             title="Comunicar alteração por e-mail"
           >
-            <Mail className="w-4 h-4" />
-            <span className="hidden sm:inline">📧 Comunicar</span>
-          </button>
+            Comunicar
+          </PrimaryActionButton>
           <StatusBadge status={d.status ?? 'Aberta'} />
         </div>
       </div>
@@ -515,6 +516,10 @@ function EditInline({ d }: { d: any }) {
       })
       
       setConfirmOpen(false)
+      // Re-sincronizar timeline do servidor para evitar duplicatas no histórico
+      if (d.id && store.syncTimeline) {
+        await store.syncTimeline(d.id)
+      }
       alert('Manutenção atualizada com sucesso!')
       
     } catch (error: any) {
@@ -854,14 +859,13 @@ function EditInline({ d }: { d: any }) {
 
       {/* Botão de salvar */}
       <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-        <button
+        <PrimaryActionButton
           disabled={changedKeys.length === 0}
           onClick={() => setConfirmOpen(true)}
-          className="px-4 py-2 bg-blue-500 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-600 transition-colors"
+          startIcon={<SaveIcon />}
         >
-          <Save className="w-4 h-4 mr-2 inline" />
           Salvar alterações
-        </button>
+        </PrimaryActionButton>
         {changedKeys.length > 0 && (
           <span className="text-sm text-gray-600">
             {changedKeys.length} alteração(ões) pendente(s)

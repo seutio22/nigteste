@@ -35,6 +35,7 @@ import ProjectListPage from '../pages/Projetos/ListSimple'
 import ProjectNewPage from '../pages/Projetos/New'
 import ProjectDetailPage from '../pages/Projetos/Detail'
 import ShareProjectPage from '../pages/ShareProject'
+import NotificationsPage from '../pages/NotificationsPage'
 
 export function AppRoutes() {
   return (
@@ -50,6 +51,11 @@ export function AppRoutes() {
           <Route path="dashboard" element={
             <ProtectedRoute module="dashboard">
               <DashboardPage />
+            </ProtectedRoute>
+          } />
+          <Route path="notificacoes" element={
+            <ProtectedRoute module="home">
+              <NotificationsPage />
             </ProtectedRoute>
           } />
           

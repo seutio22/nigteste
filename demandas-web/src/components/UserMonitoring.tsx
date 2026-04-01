@@ -23,10 +23,13 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  LinearProgress,
   Tooltip,
   IconButton,
-  RefreshIcon
+  List,
+  ListItem,
+  ListItemText,
+  Divider,
+  LinearProgress
 } from '@mui/material'
 import {
   Person,
@@ -38,10 +41,46 @@ import {
   Visibility,
   Schedule,
   CalendarToday,
-  QueryStats
+  QueryStats,
+  CalendarMonth,
+  ExpandMore
 } from '@mui/icons-material'
+import Accordion from '@mui/material/Accordion'
+import AccordionSummary from '@mui/material/AccordionSummary'
+import AccordionDetails from '@mui/material/AccordionDetails'
 import { useAuthStore } from '../store/authStore'
-import { useActivityTracking } from '../hooks/useActivityTracking'
+import { getApi } from '../lib/apiConfig'
+import { formatIntegerPtBR } from '../utils/formatNumber'
+import {
+  aggregateDwellByArea,
+  getPageAreaLabel,
+  shortenPathDisplay
+} from '../utils/pageMonitoringLabels'
+
+interface MonthlyPanoramaDay {
+  date: string
+  loginCount: number
+  sessionCount: number
+  pageDwellSeconds: number
+  pageDwellSessions: number
+  pages: Array<{ path: string; seconds: number }>
+  hasData: boolean
+}
+
+interface MonthlyPanoramaUser {
+  userId: string
+  userName: string
+  userEmail: string
+  monthTotals: {
+    loginCount: number
+    monitoringSessions: number
+    pageDwellSeconds: number
+    pageDwellSessions: number
+    distinctPaths: number
+  }
+  pagesMonth: Array<{ path: string; seconds: number }>
+  byDay: MonthlyPanoramaDay[]
+}
 
 interface UserActivity {
   id: string
@@ -51,6 +90,12 @@ interface UserActivity {
   userRole: string
   lastAccess: string
   isOnline: boolean
+  /** online | away | offline — baseado na última atividade/heartbeat */
+  presenceStatus?: 'online' | 'away' | 'offline'
+  lastSeenAt?: string
+  minutesSinceLastActivity?: number
+  /** Minutos desde o início da sessão atual (se houver sessão ativa) */
+  currentSessionMinutes?: number | null
   totalTimeToday: number // em minutos
   totalTimeThisMonth: number // em minutos
   totalTimeThisQuarter: number // em minutos
@@ -59,6 +104,21 @@ interface UserActivity {
   lastActivity: string
   loginCount: number
   logoutCount: number
+  activitiesTodayCount?: number
+  hasRealActivity?: boolean
+  /** Tempo total medido por permanência em rotas (segundos) */
+  pageDwellTotalSecondsToday?: number
+  pageDwellTotalSecondsWeek?: number
+  pageDwellTotalSecondsMonth?: number
+  pageDwellTotalSecondsQuarter?: number
+  pageDwellVisitsToday?: number
+  pageDwellVisitsWeek?: number
+  pageDwellVisitsMonth?: number
+  pageDwellVisitsQuarter?: number
+  pageDwellByPageToday?: Array<{ path: string; seconds: number }>
+  pageDwellByPageWeek?: Array<{ path: string; seconds: number }>
+  pageDwellByPageMonth?: Array<{ path: string; seconds: number }>
+  pageDwellByPageQuarter?: Array<{ path: string; seconds: number }>
 }
 
 interface MonitoringStats {
@@ -106,8 +166,19 @@ export default function UserMonitoring() {
   const [error, setError] = useState<string | null>(null)
   const [tabValue, setTabValue] = useState(0)
   const [timeFilter, setTimeFilter] = useState<'today' | 'week' | 'month' | 'quarter'>('today')
-  const [sortBy, setSortBy] = useState<'name' | 'lastAccess' | 'timeOnline' | 'sessions'>('lastAccess')
+  const [sortBy, setSortBy] = useState<'name' | 'lastAccess' | 'timeOnline' | 'sessions' | 'pageDwell'>('lastAccess')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+
+  const nowInit = new Date()
+  const [panoramaYear, setPanoramaYear] = useState(nowInit.getFullYear())
+  const [panoramaMonth, setPanoramaMonth] = useState(nowInit.getMonth() + 1)
+  const [monthlyData, setMonthlyData] = useState<{
+    year: number
+    month: number
+    users: MonthlyPanoramaUser[]
+  } | null>(null)
+  const [monthlyLoading, setMonthlyLoading] = useState(false)
+  const [monthlyError, setMonthlyError] = useState<string | null>(null)
 
   const { token } = useAuthStore()
   const isDev = import.meta.env.DEV
@@ -117,13 +188,6 @@ export default function UserMonitoring() {
   const isFetchingRef = useRef(false)
   const lastFetchRef = useRef(0)
   const monitoringCacheTtlMs = 2 * 60 * 1000
-  
-  // Tracking de atividade na página de monitoramento
-  useActivityTracking({
-    page: '/users/monitoring',
-    action: 'page_view'
-  })
-
 
   // Carregar dados de monitoramento
   const loadMonitoringData = useCallback(async () => {
@@ -173,8 +237,8 @@ export default function UserMonitoring() {
       const mostActive = monitoringData.length > 0 ? monitoringData.reduce((max, u) => u.totalTimeToday > max.totalTimeToday ? u : max) : null
       const leastActive = monitoringData.length > 0 ? monitoringData.reduce((min, u) => u.totalTimeToday < min.totalTimeToday ? u : min) : null
       
-      const totalSessionsToday = monitoringData.reduce((sum, u) => sum + u.sessionCount, 0)
-      const totalSessionsThisMonth = monitoringData.reduce((sum, u) => sum + u.loginCount, 0)
+      const totalSessionsToday = monitoringData.reduce((sum, u) => sum + (u.sessionCount || 0), 0)
+      const totalSessionsThisMonth = monitoringData.reduce((sum, u) => sum + (u.loginCount || 0), 0)
 
       setStats({
         totalUsers,
@@ -197,6 +261,29 @@ export default function UserMonitoring() {
     }
   }, [token])
 
+  const loadMonthlyPanorama = useCallback(async () => {
+    if (!token) {
+      setMonthlyError('Token de autenticação não encontrado')
+      return
+    }
+    setMonthlyLoading(true)
+    setMonthlyError(null)
+    try {
+      const api = getApi()
+      const q = `year=${panoramaYear}&month=${panoramaMonth}`
+      const data = await api.get<{ year: number; month: number; users: MonthlyPanoramaUser[] }>(
+        `/monitoring/monthly-panorama?${q}`
+      )
+      setMonthlyData(data)
+    } catch (e) {
+      console.error('monthly-panorama:', e)
+      setMonthlyError('Não foi possível carregar o panorama mensal. Verifique permissão em Usuários (visualizar).')
+      setMonthlyData(null)
+    } finally {
+      setMonthlyLoading(false)
+    }
+  }, [token, panoramaYear, panoramaMonth])
+
   // Carregar dados ao montar componente
   useEffect(() => {
     lastFetchRef.current = Date.now()
@@ -217,6 +304,11 @@ export default function UserMonitoring() {
     return () => clearInterval(interval)
   }, [loadMonitoringData])
 
+  useEffect(() => {
+    if (tabValue !== 3) return
+    void loadMonthlyPanorama()
+  }, [tabValue, loadMonthlyPanorama])
+
   // Filtrar e ordenar atividades
   const filteredActivities = useMemo(() => {
     let filtered = [...activities]
@@ -226,21 +318,21 @@ export default function UserMonitoring() {
     switch (timeFilter) {
       case 'today':
         filtered = filtered.filter(a => {
-          const lastAccess = new Date(a.lastAccess)
+          const lastAccess = new Date(a.lastSeenAt || a.lastAccess)
           return lastAccess.toDateString() === now.toDateString()
         })
         break
       case 'week':
         const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-        filtered = filtered.filter(a => new Date(a.lastAccess) >= weekAgo)
+        filtered = filtered.filter(a => new Date(a.lastSeenAt || a.lastAccess) >= weekAgo)
         break
       case 'month':
         const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-        filtered = filtered.filter(a => new Date(a.lastAccess) >= monthAgo)
+        filtered = filtered.filter(a => new Date(a.lastSeenAt || a.lastAccess) >= monthAgo)
         break
       case 'quarter':
         const quarterAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
-        filtered = filtered.filter(a => new Date(a.lastAccess) >= quarterAgo)
+        filtered = filtered.filter(a => new Date(a.lastSeenAt || a.lastAccess) >= quarterAgo)
         break
     }
 
@@ -254,8 +346,8 @@ export default function UserMonitoring() {
           bValue = b.userName
           break
         case 'lastAccess':
-          aValue = new Date(a.lastAccess).getTime()
-          bValue = new Date(b.lastAccess).getTime()
+          aValue = new Date(a.lastSeenAt || a.lastAccess).getTime()
+          bValue = new Date(b.lastSeenAt || b.lastAccess).getTime()
           break
         case 'timeOnline':
           aValue = timeFilter === 'today' ? a.totalTimeToday : 
@@ -265,6 +357,16 @@ export default function UserMonitoring() {
                    timeFilter === 'week' ? b.totalTimeToday * 7 :
                    timeFilter === 'month' ? b.totalTimeThisMonth : b.totalTimeThisQuarter
           break
+        case 'pageDwell': {
+          const sec = (u: UserActivity) =>
+            timeFilter === 'today' ? (u.pageDwellTotalSecondsToday ?? 0) :
+            timeFilter === 'week' ? (u.pageDwellTotalSecondsWeek ?? 0) :
+            timeFilter === 'month' ? (u.pageDwellTotalSecondsMonth ?? 0) :
+            (u.pageDwellTotalSecondsQuarter ?? 0)
+          aValue = sec(a)
+          bValue = sec(b)
+          break
+        }
         case 'sessions':
           aValue = a.sessionCount
           bValue = b.sessionCount
@@ -291,6 +393,46 @@ export default function UserMonitoring() {
     return `${hours}h ${mins}m`
   }
 
+  /** Duração a partir de segundos (registros page_time). */
+  const formatSecondsAsHM = (totalSeconds: number): string => {
+    if (!totalSeconds || totalSeconds < 0) return '0h 0m'
+    return formatTime(Math.floor(totalSeconds / 60))
+  }
+
+  const getPageDwellSeconds = (a: UserActivity, f: typeof timeFilter): number => {
+    switch (f) {
+      case 'today': return a.pageDwellTotalSecondsToday ?? 0
+      case 'week': return a.pageDwellTotalSecondsWeek ?? 0
+      case 'month': return a.pageDwellTotalSecondsMonth ?? 0
+      default: return a.pageDwellTotalSecondsQuarter ?? 0
+    }
+  }
+
+  const getPageDwellVisits = (a: UserActivity, f: typeof timeFilter): number => {
+    switch (f) {
+      case 'today': return a.pageDwellVisitsToday ?? 0
+      case 'week': return a.pageDwellVisitsWeek ?? 0
+      case 'month': return a.pageDwellVisitsMonth ?? 0
+      default: return a.pageDwellVisitsQuarter ?? 0
+    }
+  }
+
+  const getPageDwellBreakdown = (a: UserActivity, f: typeof timeFilter): Array<{ path: string; seconds: number }> => {
+    switch (f) {
+      case 'today': return a.pageDwellByPageToday ?? []
+      case 'week': return a.pageDwellByPageWeek ?? []
+      case 'month': return a.pageDwellByPageMonth ?? []
+      default: return a.pageDwellByPageQuarter ?? []
+    }
+  }
+
+  const periodFilterLabel: Record<typeof timeFilter, string> = {
+    today: 'Hoje',
+    week: 'Semana (segunda a domingo)',
+    month: 'Mês calendário atual',
+    quarter: 'Trimestre calendário atual'
+  }
+
   // Formatar data relativa
   const formatRelativeTime = (dateString: string): string => {
     const date = new Date(dateString)
@@ -306,9 +448,18 @@ export default function UserMonitoring() {
     return `${diffDays}d atrás`
   }
 
-  // Obter cor do status online
-  const getOnlineStatusColor = (isOnline: boolean) => {
-    return isOnline ? 'success' : 'default'
+  const presenceLabel = (u: UserActivity): string => {
+    const p = u.presenceStatus
+    if (p === 'online') return 'Online'
+    if (p === 'away') return 'Ausente'
+    return 'Offline'
+  }
+
+  const presenceChipColor = (u: UserActivity): 'success' | 'warning' | 'default' => {
+    const p = u.presenceStatus
+    if (p === 'online') return 'success'
+    if (p === 'away') return 'warning'
+    return 'default'
   }
 
   // Obter ícone do role
@@ -359,8 +510,12 @@ export default function UserMonitoring() {
             <Typography variant="body1" color="text.secondary">
               Sistema de monitoramento ativo - Coletando dados reais de atividade dos usuários
             </Typography>
-            <Typography variant="body2" color="success.main" sx={{ fontWeight: 'bold', mt: 1 }}>
-              ✅ SISTEMA ATIVO: Dados de tempo online, sessões e métricas sendo coletados em tempo real
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1, lineHeight: 1.6 }}>
+              <strong>Online</strong>: atividade ou heartbeat nos últimos 5 minutos.{' '}
+              <strong>Ausente</strong>: entre 5 e 15 minutos sem sinal.{' '}
+              <strong>Offline</strong>: mais de 15 minutos ou sem histórico.{' '}
+              Com usuário logado, o app envia heartbeat a cada 2 minutos.{' '}
+              <strong>Tempo por página</strong>: cada rota é uma sessão de tela; ao trocar de página ou sair, o tempo naquela rota é enviado ao servidor.
             </Typography>
           </Box>
           <IconButton onClick={loadMonitoringData} color="primary" size="large">
@@ -380,7 +535,7 @@ export default function UserMonitoring() {
                     <Person />
                   </Avatar>
                   <Box>
-                    <Typography variant="h4">{stats.totalUsers}</Typography>
+                    <Typography variant="h4">{formatIntegerPtBR(stats.totalUsers)}</Typography>
                     <Typography variant="body2" color="text.secondary">
                       Total de Usuários
                     </Typography>
@@ -398,7 +553,7 @@ export default function UserMonitoring() {
                     <OnlinePrediction />
                   </Avatar>
                   <Box>
-                    <Typography variant="h4">{stats.onlineUsers}</Typography>
+                    <Typography variant="h4">{formatIntegerPtBR(stats.onlineUsers)}</Typography>
                     <Typography variant="body2" color="text.secondary">
                       Usuários Online
                     </Typography>
@@ -434,7 +589,7 @@ export default function UserMonitoring() {
                     <QueryStats />
                   </Avatar>
                   <Box>
-                    <Typography variant="h4">{stats.totalSessionsToday}</Typography>
+                    <Typography variant="h4">{formatIntegerPtBR(stats.totalSessionsToday)}</Typography>
                     <Typography variant="body2" color="text.secondary">
                       Sessões Hoje
                     </Typography>
@@ -446,7 +601,8 @@ export default function UserMonitoring() {
         </Grid>
       )}
 
-      {/* Filtros e Controles */}
+      {/* Filtros e Controles (abas 0–2) */}
+      {tabValue < 3 && (
       <Paper sx={{ p: 2, mb: 3 }}>
         <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
           <FormControl size="small" sx={{ minWidth: 120 }}>
@@ -472,7 +628,8 @@ export default function UserMonitoring() {
             >
               <MenuItem value="name">Nome</MenuItem>
               <MenuItem value="lastAccess">Último Acesso</MenuItem>
-              <MenuItem value="timeOnline">Tempo Online</MenuItem>
+              <MenuItem value="timeOnline">Tempo estimado (legado)</MenuItem>
+              <MenuItem value="pageDwell">Tempo nas páginas (período)</MenuItem>
               <MenuItem value="sessions">Sessões</MenuItem>
             </Select>
           </FormControl>
@@ -490,6 +647,7 @@ export default function UserMonitoring() {
           </FormControl>
         </Stack>
       </Paper>
+      )}
 
       {/* Tabs de Visualização */}
       <Paper>
@@ -498,6 +656,7 @@ export default function UserMonitoring() {
             <Tab label="Lista Detalhada" icon={<Visibility />} />
             <Tab label="Resumo por Período" icon={<CalendarToday />} />
             <Tab label="Análise de Sessões" icon={<Schedule />} />
+            <Tab label="Panorama mensal" icon={<CalendarMonth />} />
           </Tabs>
         </Box>
 
@@ -508,11 +667,12 @@ export default function UserMonitoring() {
               <TableHead>
                 <TableRow>
                   <TableCell>Usuário</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Último Acesso</TableCell>
-                  <TableCell>Tempo Online</TableCell>
-                  <TableCell>Sessões</TableCell>
-                  <TableCell>Tempo Médio/Sessão</TableCell>
+                  <TableCell>Presença</TableCell>
+                  <TableCell>Última atividade</TableCell>
+                  <TableCell>Sessão atual</TableCell>
+                  <TableCell>Tempo nas páginas (hoje)</TableCell>
+                  <TableCell>Logins hoje</TableCell>
+                  <TableCell>Tempo médio/sessão</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -535,14 +695,22 @@ export default function UserMonitoring() {
                     </TableCell>
                     <TableCell>
                       {activity.hasRealActivity ? (
-                        <Chip
-                          label={activity.isOnline ? 'Online' : 'Offline'}
-                          color={getOnlineStatusColor(activity.isOnline)}
-                          size="small"
-                        />
+                        <Tooltip
+                          title={
+                            typeof activity.minutesSinceLastActivity === 'number'
+                              ? `Sem sinal há ${formatIntegerPtBR(activity.minutesSinceLastActivity)} min`
+                              : ''
+                          }
+                        >
+                          <Chip
+                            label={presenceLabel(activity)}
+                            color={presenceChipColor(activity)}
+                            size="small"
+                          />
+                        </Tooltip>
                       ) : (
                         <Chip
-                          label="Nunca acessou"
+                          label="Sem atividade"
                           color="default"
                           size="small"
                           variant="outlined"
@@ -551,27 +719,33 @@ export default function UserMonitoring() {
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2">
-                        {formatRelativeTime(activity.lastAccess)}
+                        {formatRelativeTime(activity.lastSeenAt || activity.lastAccess)}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {new Date(activity.lastAccess).toLocaleString('pt-BR')}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" fontWeight="medium" color={activity.hasRealActivity ? 'text.primary' : 'text.secondary'}>
-                        {activity.hasRealActivity ? (
-                          timeFilter === 'today' ? formatTime(activity.totalTimeToday) :
-                          timeFilter === 'week' ? formatTime(activity.totalTimeToday * 7) :
-                          timeFilter === 'month' ? formatTime(activity.totalTimeThisMonth) :
-                          formatTime(activity.totalTimeThisQuarter)
-                        ) : (
-                          '0h 0m'
-                        )}
+                        {new Date(activity.lastSeenAt || activity.lastAccess).toLocaleString('pt-BR')}
                       </Typography>
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2" color={activity.hasRealActivity ? 'text.primary' : 'text.secondary'}>
-                        {activity.hasRealActivity ? activity.sessionCount : 0}
+                        {activity.currentSessionMinutes != null && activity.currentSessionMinutes >= 0
+                          ? formatTime(activity.currentSessionMinutes)
+                          : '—'}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" display="block">
+                        desde o login neste navegador
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" fontWeight="medium" color="text.primary">
+                        {formatSecondsAsHM(activity.pageDwellTotalSecondsToday ?? 0)}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" display="block">
+                        permanência medida por rota
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" color={activity.hasRealActivity ? 'text.primary' : 'text.secondary'}>
+                        {activity.hasRealActivity ? formatIntegerPtBR(activity.loginCount ?? 0) : '0'}
                       </Typography>
                     </TableCell>
                     <TableCell>
@@ -588,8 +762,16 @@ export default function UserMonitoring() {
 
         {/* Tab 2: Resumo por Período */}
         <TabPanel value={tabValue} index={1}>
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Use o filtro <strong>Período</strong> acima. Os totais abaixo refletem o tempo em que o usuário permaneceu em cada <strong>rota</strong> (cada página = uma sessão de tela até sair ou navegar).
+          </Alert>
           <Grid container spacing={3}>
-            {filteredActivities.map((activity) => (
+            {filteredActivities.map((activity) => {
+              const dwellSec = getPageDwellSeconds(activity, timeFilter)
+              const visits = getPageDwellVisits(activity, timeFilter)
+              const breakdown = getPageDwellBreakdown(activity, timeFilter)
+              const byArea = aggregateDwellByArea(breakdown)
+              return (
               <Grid item xs={12} md={6} lg={4} key={activity.id}>
                 <Card>
                   <CardContent>
@@ -605,101 +787,133 @@ export default function UserMonitoring() {
                       </Box>
                     </Stack>
 
-                    <Stack spacing={1}>
+                    <Typography variant="caption" color="primary" fontWeight={600} display="block" sx={{ mb: 1 }}>
+                      {periodFilterLabel[timeFilter]}
+                    </Typography>
+
+                    <Stack spacing={1.5}>
                       <Box>
                         <Typography variant="body2" color="text.secondary">
-                          Tempo Hoje
+                          Tempo total nas páginas (rotas)
                         </Typography>
-                        <Typography variant="h6" color={activity.hasRealActivity ? 'text.primary' : 'text.secondary'}>
-                          {activity.hasRealActivity ? formatTime(activity.totalTimeToday) : '0h 0m'}
+                        <Typography variant="h5" color={dwellSec > 0 ? 'text.primary' : 'text.secondary'}>
+                          {formatSecondsAsHM(dwellSec)}
                         </Typography>
                       </Box>
 
                       <Box>
                         <Typography variant="body2" color="text.secondary">
-                          Tempo Este Mês
+                          Visitas / sessões de página encerradas
                         </Typography>
-                        <Typography variant="h6" color={activity.hasRealActivity ? 'text.primary' : 'text.secondary'}>
-                          {activity.hasRealActivity ? formatTime(activity.totalTimeThisMonth) : '0h 0m'}
+                        <Typography variant="h6" color={visits > 0 ? 'text.primary' : 'text.secondary'}>
+                          {formatIntegerPtBR(visits)}
                         </Typography>
-                      </Box>
-
-                      <Box>
-                        <Typography variant="body2" color="text.secondary">
-                          Tempo Este Trimestre
-                        </Typography>
-                        <Typography variant="h6" color={activity.hasRealActivity ? 'text.primary' : 'text.secondary'}>
-                          {activity.hasRealActivity ? formatTime(activity.totalTimeThisQuarter) : '0h 0m'}
+                        <Typography variant="caption" color="text.secondary">
+                          Uma visita = uma permanência na rota até trocar de página, fechar o app ou fazer logout
                         </Typography>
                       </Box>
 
-                      <Box>
+                      <Divider />
+
+                      <Typography variant="subtitle2" color="text.secondary">
+                        Por área do sistema (top {Math.min(12, byArea.length)})
+                      </Typography>
+                      {breakdown.length === 0 ? (
                         <Typography variant="body2" color="text.secondary">
-                          Total de Sessões
+                          Sem registros de permanência neste período.
                         </Typography>
-                        <Typography variant="h6" color={activity.hasRealActivity ? 'text.primary' : 'text.secondary'}>
-                          {activity.hasRealActivity ? activity.sessionCount : 0}
-                        </Typography>
-                      </Box>
+                      ) : (
+                        <List dense disablePadding sx={{ maxHeight: 220, overflow: 'auto' }}>
+                          {byArea.slice(0, 12).map((ar) => (
+                            <ListItem key={ar.area} disablePadding sx={{ py: 0.35 }}>
+                              <ListItemText
+                                primary={
+                                  <Stack direction="row" alignItems="center" spacing={1} sx={{ minWidth: 0 }}>
+                                    <Chip label={ar.area} size="small" color="primary" variant="outlined" sx={{ flexShrink: 0 }} />
+                                    <Typography variant="body2" fontWeight="medium" noWrap component="span">
+                                      {formatSecondsAsHM(ar.seconds)}
+                                      {dwellSec > 0 ? ` (${formatIntegerPtBR(Math.round((100 * ar.seconds) / dwellSec))}%)` : ''}
+                                    </Typography>
+                                  </Stack>
+                                }
+                                secondaryTypographyProps={{ component: 'div' }}
+                                secondary={
+                                  <LinearProgress
+                                    variant="determinate"
+                                    value={dwellSec > 0 ? Math.min(100, Math.round((100 * ar.seconds) / dwellSec)) : 0}
+                                    sx={{ mt: 0.5, height: 4, borderRadius: 1, maxWidth: 280 }}
+                                  />
+                                }
+                              />
+                            </ListItem>
+                          ))}
+                        </List>
+                      )}
+
+                      {breakdown.length > 0 && (
+                        <>
+                          <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 2 }}>
+                            Detalhe por rota (top {Math.min(12, breakdown.length)})
+                          </Typography>
+                          <List dense disablePadding sx={{ maxHeight: 200, overflow: 'auto' }}>
+                            {breakdown.slice(0, 12).map((row) => (
+                              <ListItem key={row.path} disablePadding sx={{ py: 0.25 }}>
+                                <ListItemText
+                                  primary={
+                                    <Stack direction="row" alignItems="center" spacing={1} sx={{ minWidth: 0 }}>
+                                      <Chip label={getPageAreaLabel(row.path)} size="small" variant="outlined" sx={{ flexShrink: 0 }} />
+                                      <Typography variant="body2" noWrap component="span" title={row.path}>
+                                        {shortenPathDisplay(row.path)}
+                                      </Typography>
+                                    </Stack>
+                                  }
+                                  secondary={formatSecondsAsHM(row.seconds)}
+                                />
+                              </ListItem>
+                            ))}
+                          </List>
+                        </>
+                      )}
                     </Stack>
                   </CardContent>
                 </Card>
               </Grid>
-            ))}
+              )
+            })}
           </Grid>
         </TabPanel>
 
-        {/* Tab 3: Análise de Sessões */}
+        {/* Tab 3: Análise de Sessões (sessão = permanência em uma página/rota) */}
         <TabPanel value={tabValue} index={2}>
+          <Alert severity="info" sx={{ mb: 2 }}>
+            <strong>Sessão de página</strong> = tempo em uma rota até navegar, recarregar ou sair. Abaixo, o tempo é <strong>sinalizado por área</strong> (Cadastro, Manutenção, Atendimento, etc.) e depois por URL. Período: filtro <strong>Período</strong> acima.
+          </Alert>
           <Grid container spacing={3}>
-            {filteredActivities.map((activity) => (
+            {filteredActivities.map((activity) => {
+              const dwellSec = getPageDwellSeconds(activity, timeFilter)
+              const visits = getPageDwellVisits(activity, timeFilter)
+              const avgSecPerVisit = visits > 0 ? Math.round(dwellSec / visits) : 0
+              const breakdown = getPageDwellBreakdown(activity, timeFilter)
+              const byArea = aggregateDwellByArea(breakdown)
+              return (
               <Grid item xs={12} md={6} key={activity.id}>
                 <Card>
                   <CardContent>
                     <Typography variant="h6" gutterBottom>
                       {activity.userName}
                     </Typography>
-                    
+                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 2 }}>
+                      {periodFilterLabel[timeFilter]}
+                    </Typography>
+
                     <Stack spacing={2}>
                       <Box>
                         <Stack direction="row" justifyContent="space-between" alignItems="center">
                           <Typography variant="body2" color="text.secondary">
-                            Sessões Hoje
+                            Sessões de página (visitas encerradas)
                           </Typography>
-                          <Typography variant="body2" fontWeight="medium" color={activity.hasRealActivity ? 'text.primary' : 'text.secondary'}>
-                            {activity.hasRealActivity ? activity.sessionCount : 0}
-                          </Typography>
-                        </Stack>
-                        <LinearProgress 
-                          variant="determinate" 
-                          value={activity.hasRealActivity ? (activity.sessionCount / 20) * 100 : 0} 
-                          sx={{ mt: 1 }}
-                        />
-                      </Box>
-
-                      <Box>
-                        <Stack direction="row" justifyContent="space-between" alignItems="center">
-                          <Typography variant="body2" color="text.secondary">
-                            Tempo Médio por Sessão
-                          </Typography>
-                          <Typography variant="body2" fontWeight="medium" color={activity.hasRealActivity ? 'text.primary' : 'text.secondary'}>
-                            {activity.hasRealActivity ? formatTime(activity.averageSessionTime) : '0h 0m'}
-                          </Typography>
-                        </Stack>
-                        <LinearProgress 
-                          variant="determinate" 
-                          value={activity.hasRealActivity ? (activity.averageSessionTime / 120) * 100 : 0} 
-                          sx={{ mt: 1 }}
-                        />
-                      </Box>
-
-                      <Box>
-                        <Stack direction="row" justifyContent="space-between" alignItems="center">
-                          <Typography variant="body2" color="text.secondary">
-                            Logins Totais
-                          </Typography>
-                          <Typography variant="body2" fontWeight="medium" color={activity.hasRealActivity ? 'text.primary' : 'text.secondary'}>
-                            {activity.hasRealActivity ? activity.loginCount : 0}
+                          <Typography variant="body2" fontWeight="medium">
+                            {formatIntegerPtBR(visits)}
                           </Typography>
                         </Stack>
                       </Box>
@@ -707,19 +921,284 @@ export default function UserMonitoring() {
                       <Box>
                         <Stack direction="row" justifyContent="space-between" alignItems="center">
                           <Typography variant="body2" color="text.secondary">
-                            Última Atividade
+                            Tempo total nas páginas
                           </Typography>
-                          <Typography variant="body2" fontWeight="medium" color={activity.hasRealActivity ? 'text.primary' : 'text.secondary'}>
-                            {activity.hasRealActivity ? formatRelativeTime(activity.lastActivity) : 'Nunca'}
+                          <Typography variant="body2" fontWeight="medium">
+                            {formatSecondsAsHM(dwellSec)}
                           </Typography>
                         </Stack>
                       </Box>
+
+                      <Box>
+                        <Stack direction="row" justifyContent="space-between" alignItems="center">
+                          <Typography variant="body2" color="text.secondary">
+                            Média por sessão de página
+                          </Typography>
+                          <Typography variant="body2" fontWeight="medium">
+                            {visits > 0 ? formatSecondsAsHM(avgSecPerVisit) : '—'}
+                          </Typography>
+                        </Stack>
+                      </Box>
+
+                      <Divider />
+
+                      <Box>
+                        <Stack direction="row" justifyContent="space-between" alignItems="center">
+                          <Typography variant="body2" color="text.secondary">
+                            Logins hoje (registro na API)
+                          </Typography>
+                          <Typography variant="body2" fontWeight="medium">
+                            {formatIntegerPtBR(activity.loginCount ?? 0)}
+                          </Typography>
+                        </Stack>
+                      </Box>
+
+                      <Box>
+                        <Stack direction="row" justifyContent="space-between" alignItems="center">
+                          <Typography variant="body2" color="text.secondary">
+                            Última atividade
+                          </Typography>
+                          <Typography variant="body2" fontWeight="medium">
+                            {activity.hasRealActivity ? formatRelativeTime(activity.lastSeenAt || activity.lastActivity) : 'Nunca'}
+                          </Typography>
+                        </Stack>
+                      </Box>
+
+                      {breakdown.length > 0 && (
+                        <>
+                          <Divider />
+                          <Typography variant="subtitle2" color="primary" fontWeight={600}>
+                            Tempo de atuação por página (módulo)
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1.5 }}>
+                            Áreas como Cadastro, Manutenção e Atendimento agrupam todas as URLs daquele módulo. A barra indica a participação no tempo total do período.
+                          </Typography>
+                          <Stack spacing={2}>
+                            {byArea.map((ar) => {
+                              const pct = dwellSec > 0 ? Math.min(100, Math.round((100 * ar.seconds) / dwellSec)) : 0
+                              return (
+                                <Box key={ar.area}>
+                                  <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} sx={{ mb: 0.5 }}>
+                                    <Tooltip title={`${ar.area} · ${formatIntegerPtBR(ar.routes.length)} rota(s) distinta(s)`}>
+                                      <Chip
+                                        label={ar.area}
+                                        color="primary"
+                                        variant="filled"
+                                        size="small"
+                                        sx={{ maxWidth: { xs: '100%', sm: '72%' } }}
+                                      />
+                                    </Tooltip>
+                                    <Typography variant="body2" fontWeight="bold" sx={{ flexShrink: 0 }}>
+                                      {formatSecondsAsHM(ar.seconds)}
+                                    </Typography>
+                                  </Stack>
+                                  <Stack direction="row" alignItems="center" spacing={1}>
+                                    <LinearProgress
+                                      variant="determinate"
+                                      value={pct}
+                                      sx={{ flexGrow: 1, height: 10, borderRadius: 1 }}
+                                    />
+                                    <Typography variant="caption" color="text.secondary" sx={{ minWidth: 40, textAlign: 'right' }}>
+                                      {formatIntegerPtBR(pct)}%
+                                    </Typography>
+                                  </Stack>
+                                </Box>
+                              )
+                            })}
+                          </Stack>
+
+                          <Divider sx={{ my: 2 }} />
+                          <Typography variant="subtitle2" color="text.secondary">
+                            Rotas específicas (URL + tempo)
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+                            {periodFilterLabel[timeFilter]} — até {Math.min(10, breakdown.length)} rotas com mais tempo
+                          </Typography>
+                          <List dense disablePadding sx={{ maxHeight: 300, overflow: 'auto' }}>
+                            {breakdown.slice(0, 10).map((row) => (
+                              <ListItem key={row.path} disablePadding sx={{ py: 0.35 }}>
+                                <ListItemText
+                                  primary={
+                                    <Stack direction="row" alignItems="center" spacing={1} sx={{ minWidth: 0 }}>
+                                      <Chip label={getPageAreaLabel(row.path)} size="small" color="secondary" variant="outlined" sx={{ flexShrink: 0 }} />
+                                      <Typography variant="body2" noWrap component="span" title={row.path}>
+                                        {shortenPathDisplay(row.path, 56)}
+                                      </Typography>
+                                    </Stack>
+                                  }
+                                  secondary={
+                                    dwellSec > 0
+                                      ? `${formatSecondsAsHM(row.seconds)} · ${formatIntegerPtBR(Math.round((100 * row.seconds) / dwellSec))}% do tempo no período`
+                                      : formatSecondsAsHM(row.seconds)
+                                  }
+                                />
+                              </ListItem>
+                            ))}
+                          </List>
+                        </>
+                      )}
                     </Stack>
                   </CardContent>
                 </Card>
               </Grid>
-            ))}
+              )
+            })}
           </Grid>
+        </TabPanel>
+
+        <TabPanel value={tabValue} index={3}>
+          <Alert severity="info" sx={{ mb: 2 }}>
+            <strong>Armazenamento por dia:</strong> cada login e cada encerramento de permanência em página (
+            <code>page_time</code>) atualiza o registro do <strong>dia</strong> do usuário. O panorama abaixo
+            consolida o mês: totais, dias com atividade e rotas mais visitadas (tempo acumulado). Requer permissão
+            de visualizar Usuários.
+          </Alert>
+
+          <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap" sx={{ mb: 2 }}>
+            <FormControl size="small" sx={{ minWidth: 100 }}>
+              <InputLabel>Ano</InputLabel>
+              <Select
+                value={panoramaYear}
+                label="Ano"
+                onChange={(e) => setPanoramaYear(Number(e.target.value))}
+              >
+                {Array.from({ length: 6 }, (_, i) => nowInit.getFullYear() - 2 + i).map((y) => (
+                  <MenuItem key={y} value={y}>
+                    {y}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl size="small" sx={{ minWidth: 120 }}>
+              <InputLabel>Mês</InputLabel>
+              <Select
+                value={panoramaMonth}
+                label="Mês"
+                onChange={(e) => setPanoramaMonth(Number(e.target.value))}
+              >
+                {[
+                  'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
+                  'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'
+                ].map((label, idx) => (
+                  <MenuItem key={label} value={idx + 1}>
+                    {label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <IconButton color="primary" onClick={() => void loadMonthlyPanorama()} disabled={monthlyLoading} size="large">
+              <Refresh />
+            </IconButton>
+          </Stack>
+
+          {monthlyLoading && (
+            <Box sx={{ py: 4, textAlign: 'center' }}>
+              <CircularProgress />
+              <Typography variant="body2" sx={{ mt: 1 }}>
+                Carregando panorama do mês…
+              </Typography>
+            </Box>
+          )}
+
+          {monthlyError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {monthlyError}
+            </Alert>
+          )}
+
+          {!monthlyLoading && monthlyData && (
+            <Stack spacing={1.5}>
+              {monthlyData.users.map((u) => {
+                const activeDays = u.byDay.filter((d) => d.hasData)
+                const hasMonth =
+                  u.monthTotals.pageDwellSeconds > 0 ||
+                  u.monthTotals.pageDwellSessions > 0 ||
+                  u.monthTotals.loginCount > 0 ||
+                  u.monthTotals.monitoringSessions > 0
+                if (!hasMonth && activeDays.length === 0) {
+                  return null
+                }
+                return (
+                  <Accordion key={u.userId} disableGutters>
+                    <AccordionSummary expandIcon={<ExpandMore />}>
+                      <Stack direction="row" alignItems="center" spacing={2} sx={{ width: '100%', pr: 1 }}>
+                        <Typography fontWeight={600}>{u.userName}</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {u.monthTotals.pageDwellSessions} sessões página ·{' '}
+                          {formatSecondsAsHM(u.monthTotals.pageDwellSeconds)} nas rotas ·{' '}
+                          {formatIntegerPtBR(u.monthTotals.loginCount)} logins (registro) ·{' '}
+                          {u.monthTotals.distinctPaths} rotas distintas
+                        </Typography>
+                      </Stack>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <Typography variant="subtitle2" gutterBottom>
+                        Dias com registro ({activeDays.length})
+                      </Typography>
+                      <TableContainer sx={{ maxHeight: 280, mb: 2 }}>
+                        <Table size="small" stickyHeader>
+                          <TableHead>
+                            <TableRow>
+                              <TableCell>Dia</TableCell>
+                              <TableCell align="right">Logins</TableCell>
+                              <TableCell align="right">Sessões (monitor)</TableCell>
+                              <TableCell align="right">Sessões página</TableCell>
+                              <TableCell align="right">Tempo em páginas</TableCell>
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
+                            {activeDays.map((row) => (
+                              <TableRow key={row.date}>
+                                <TableCell>{row.date}</TableCell>
+                                <TableCell align="right">{formatIntegerPtBR(row.loginCount)}</TableCell>
+                                <TableCell align="right">{formatIntegerPtBR(row.sessionCount)}</TableCell>
+                                <TableCell align="right">{formatIntegerPtBR(row.pageDwellSessions)}</TableCell>
+                                <TableCell align="right">{formatSecondsAsHM(row.pageDwellSeconds)}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
+
+                      <Typography variant="subtitle2" gutterBottom>
+                        Rotas mais usadas no mês (tempo total)
+                      </Typography>
+                      <List dense disablePadding sx={{ maxHeight: 220, overflow: 'auto' }}>
+                        {u.pagesMonth.slice(0, 15).map((row) => (
+                          <ListItem key={row.path} disablePadding sx={{ py: 0.35 }}>
+                            <ListItemText
+                              primary={
+                                <Stack direction="row" alignItems="center" spacing={1} sx={{ minWidth: 0 }}>
+                                  <Chip label={getPageAreaLabel(row.path)} size="small" variant="outlined" sx={{ flexShrink: 0 }} />
+                                  <Typography variant="body2" noWrap component="span" title={row.path}>
+                                    {shortenPathDisplay(row.path, 48)}
+                                  </Typography>
+                                </Stack>
+                              }
+                              secondary={formatSecondsAsHM(row.seconds)}
+                            />
+                          </ListItem>
+                        ))}
+                      </List>
+                    </AccordionDetails>
+                  </Accordion>
+                )
+              })}
+              {monthlyData.users.every(
+                (u) =>
+                  u.monthTotals.pageDwellSeconds === 0 &&
+                  u.monthTotals.pageDwellSessions === 0 &&
+                  u.monthTotals.loginCount === 0 &&
+                  u.monthTotals.monitoringSessions === 0 &&
+                  !u.byDay.some((d) => d.hasData)
+              ) && (
+                <Alert severity="warning">
+                  Nenhum dado agregado neste mês. Após uso do sistema com a versão atual, os totais por dia passam a
+                  aparecer aqui.
+                </Alert>
+              )}
+            </Stack>
+          )}
         </TabPanel>
       </Paper>
     </Box>

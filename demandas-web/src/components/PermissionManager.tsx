@@ -19,6 +19,7 @@ import {
   Divider
 } from '@mui/material';
 import { ExpandMore as ExpandMoreIcon } from '@mui/icons-material';
+import { PrimaryActionButton } from './PrimaryActionButton';
 import { SystemPermissions, ModulePermission } from '../types/permissions';
 
 interface PermissionManagerProps {
@@ -291,13 +292,12 @@ export default function PermissionManager({
         <Button onClick={handleCancel}>
           Cancelar
         </Button>
-        <Button
+        <PrimaryActionButton
           onClick={handleSave}
-          variant="contained"
           disabled={!hasChanges}
         >
           Salvar Permissões
-        </Button>
+        </PrimaryActionButton>
       </DialogActions>
     </Dialog>
   );

@@ -3,39 +3,77 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useAtendimentoStore } from '../../store/atendimentoStore'
 import { useMasterDataStore } from '../../store/masterDataStore'
 import { useAuthStore } from '../../store/authStore'
-import { api } from '../../lib/api.local'
 import { StatusBadge } from '../../components/StatusBadge'
 import { Edit3, ArrowLeft, Clock, Copy, FileText, Lock } from 'lucide-react'
 import { Timeline } from '../../components/Timeline'
 import { fmt, canEditAtendimento } from '../../lib/utils'
+import { api } from '../../lib/api.local'
 import { Autocomplete, Box, TextField, Typography } from '@mui/material'
+import { PrimaryActionButton } from '../../components/PrimaryActionButton'
 import { createPerfLogger } from '../../utils/perf'
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export default function AtendimentoDetailPage() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
-  const atendimentoStore = useAtendimentoStore()
+  const { items, syncFromApi, syncTimeline, isLoading } = useAtendimentoStore()
   const md = useMasterDataStore()
   const { user } = useAuthStore()
   const perfRef = useRef(createPerfLogger('Atendimento/Editar'))
   const perfReadyRef = useRef(false)
-  const atendimento = atendimentoStore.items.find(a => a.id === id)
-  
+  const atendimento = items.find((a) => a.id === id)
+
+  // Nomes de solicitantes resolvidos por ID (quando não vêm da API — ex.: registro antigo ou excluído)
+  const [resolvedSolicitanteById, setResolvedSolicitanteById] = useState<Record<string, string | 'deleted'>>({})
+  const resolvedFetchRef = useRef<Set<string>>(new Set())
+
   // Controle para sincronizar timeline apenas uma vez
   const timelineSyncedRef = useRef<Set<string>>(new Set())
-  
-  // Sincronizar timeline apenas uma vez quando a página carrega
-  useEffect(() => {
-    if (id && atendimentoStore.syncTimeline && !timelineSyncedRef.current.has(id)) {
-      console.log('🔄 Sincronizando timeline do atendimento (primeira vez):', id)
-      timelineSyncedRef.current.add(id)
-      atendimentoStore.syncTimeline(id)
-    }
-  }, [id]) // Apenas quando ID muda, não quando dados mudam
 
   useEffect(() => {
     perfRef.current.log('mount')
   }, [])
+
+  // Mesmo padrão da página Demandas (Cadastro): forçar syncFromApi quando não tem lista ou quando o item não está na lista
+  useEffect(() => {
+    if (items.length === 0) {
+      syncFromApi?.()
+    } else if (!atendimento && id) {
+      syncFromApi?.(true)
+    }
+    if (md.analistas.length === 0 || md.areas.length === 0 || md.solicitantes.length === 0) {
+      md.syncFromApi?.()
+    }
+  }, [])
+
+  // Tentar recarregar se o atendimento não for encontrado após o carregamento inicial (igual Demandas)
+  useEffect(() => {
+    if (items.length > 0 && !atendimento && id) {
+      syncFromApi?.(true)
+    }
+  }, [items.length, atendimento, id])
+
+  // Se o atendimento tem solicitante (UUID) que não está na lista de solicitantes, forçar sync dos dados mestres para carregar o nome
+  useEffect(() => {
+    if (!atendimento?.solicitante) return
+    const inList = md.solicitantes.some(s => String(s.id).trim() === String(atendimento.solicitante).trim())
+    if (!inList) md.syncFromApi?.({ entities: ['solicitantes'] })
+  }, [atendimento?.id, atendimento?.solicitante, md.solicitantes.length])
+
+  // Fallback: buscar nome do solicitante por ID quando não veio na API (registro antigo ou solicitante excluído)
+  useEffect(() => {
+    const sid = atendimento?.solicitante?.trim()
+    if (!sid || !UUID_REGEX.test(sid)) return
+    if (atendimento.solicitanteNome || md.solicitantesById?.[sid]) return
+    if (resolvedFetchRef.current.has(sid)) return
+    resolvedFetchRef.current.add(sid)
+    api.getSolicitante(sid).then((s) => {
+      setResolvedSolicitanteById((prev) => ({ ...prev, [sid]: s ? s.nome : 'deleted' }))
+    }).catch(() => {
+      setResolvedSolicitanteById((prev) => ({ ...prev, [sid]: 'deleted' }))
+    })
+  }, [atendimento?.id, atendimento?.solicitante, atendimento?.solicitanteNome, md.solicitantesById])
 
   useEffect(() => {
     if (perfReadyRef.current) return
@@ -48,6 +86,14 @@ export default function AtendimentoDetailPage() {
       })
     }
   }, [md.clientes.length, md.contratos.length, md.analistas.length])
+
+  // Sincronizar timeline apenas uma vez quando a página carrega
+  useEffect(() => {
+    if (id && syncTimeline && !timelineSyncedRef.current.has(id)) {
+      timelineSyncedRef.current.add(id)
+      syncTimeline(id)
+    }
+  }, [id, syncTimeline])
 
 
   console.log('🔍 AtendimentoDetailPage: Renderizando...', {
@@ -69,14 +115,23 @@ export default function AtendimentoDetailPage() {
     return (
       <div className="p-6">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Atendimento não encontrado</h1>
-          <p className="text-gray-600 mb-6">O atendimento solicitado não foi encontrado no sistema.</p>
-          <button
-            onClick={() => navigate('/atendimento')}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Voltar para Atendimentos
-          </button>
+          {isLoading ? (
+            <>
+              <h1 className="text-2xl font-bold text-gray-900 mb-4">Carregando atendimento...</h1>
+              <p className="text-gray-600 mb-6">Aguarde enquanto os dados são carregados.</p>
+            </>
+          ) : (
+            <>
+              <h1 className="text-2xl font-bold text-gray-900 mb-4">Atendimento não encontrado</h1>
+              <p className="text-gray-600 mb-6">O atendimento solicitado não foi encontrado no sistema.</p>
+              <button
+                onClick={() => navigate('/atendimento')}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Voltar para Atendimentos
+              </button>
+            </>
+          )}
         </div>
       </div>
     )
@@ -87,6 +142,20 @@ export default function AtendimentoDetailPage() {
     const item = arr.find(a => a.id === id)
     return item ? (item.nome || item.codigo) || '-' : '-'
   }
+
+  // Solicitante: mesmo padrão da página Demandas — resolver por ID ou por nome
+  const normId = (v: string | undefined) => (v ?? '').trim()
+  const solicitanteLabel = (solicitanteValue?: string) => {
+    if (!solicitanteValue) return ''
+    const v = normId(solicitanteValue)
+    const byId = md.solicitantesById?.[v] ?? md.solicitantes.find(s => normId(s.id) === v)
+    if (byId?.nome) return byId.nome
+    const byName = md.solicitantes.find(s => normId(s.nome) === v)
+    if (byName?.nome) return byName.nome
+    // ID de solicitante excluído (não está na lista): deixar em branco
+    return UUID_REGEX.test(v) ? '' : solicitanteValue
+  }
+  const solicitanteInList = (value?: string) => value && md.solicitantes.some(s => normId(s.id) === normId(value) || normId(s.nome) === normId(value))
 
   // Função específica para exibir cliente com grupo econômico
   const labelCliente = (id?: string) => {
@@ -191,50 +260,50 @@ export default function AtendimentoDetailPage() {
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Cliente</p>
+                  <p className="text-sm text-apoio-400">Cliente</p>
                   <p className="font-medium">{labelCliente(atendimento.cliente)}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Contrato</p>
+                  <p className="text-sm text-apoio-400">Contrato</p>
                   <p className="font-medium">{label(atendimento.contrato, md.contratos)}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Operadora</p>
+                  <p className="text-sm text-apoio-400">Operadora</p>
                   <p className="font-medium">{label(atendimento.operadora, md.operadoras)}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Produto</p>
+                  <p className="text-sm text-apoio-400">Produto</p>
                   <p className="font-medium">{label(atendimento.produto, md.produtos)}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-red-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Sistema</p>
+                  <p className="text-sm text-apoio-400">Sistema</p>
                   <p className="font-medium">{label(atendimento.sistema, md.sistemas)}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-indigo-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Área</p>
+                  <p className="text-sm text-apoio-400">Área</p>
                   <p className="font-medium">{label(atendimento.area, md.areas)}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-teal-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Solicitante</p>
-                  <p className="font-medium">{label(atendimento.solicitante, md.solicitantes)}</p>
+                  <p className="text-sm text-apoio-400">Solicitante</p>
+                  <p className="font-medium">{atendimento.solicitanteNome ?? (resolvedSolicitanteById[atendimento.solicitante] === 'deleted' ? '' : resolvedSolicitanteById[atendimento.solicitante]) ?? solicitanteLabel(atendimento.solicitante)}</p>
                 </div>
               </div>
             </div>
@@ -261,9 +330,9 @@ export default function AtendimentoDetailPage() {
             </div>
           ) : (
             <div className="bg-white p-6 rounded-lg border shadow-sm">
-              <div className="flex items-center justify-center py-8 text-gray-500">
+              <div className="flex items-center justify-center py-8 text-apoio-400">
                 <div className="text-center">
-                  <Lock className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                  <Lock className="w-12 h-12 mx-auto mb-4 text-apoio-400" />
                   <h3 className="text-lg font-semibold text-gray-700 mb-2">Acesso Restrito</h3>
                   <p className="text-sm">
                     Você só pode editar atendimentos atribuídos a você.
@@ -360,6 +429,26 @@ function EditInline({ atendimento, user }: { atendimento: any; user: any }) {
     (grupoDoCliente && c.grupoEconomico === grupoDoCliente)
   )
 
+  const normIdS = (v: string | undefined) => (v ?? '').trim()
+  const solicitanteLabelS = (val?: string) => {
+    if (!val) return ''
+    const v = normIdS(val)
+    const byId = md.solicitantesById?.[v] ?? md.solicitantes.find(s => normIdS(s.id) === v)
+    if (byId?.nome) return byId.nome
+    const byName = md.solicitantes.find(s => normIdS(s.nome) === v)
+    if (byName?.nome) return byName.nome
+    // ID de solicitante excluído: deixar em branco
+    return UUID_REGEX.test(v) ? '' : val
+  }
+  const solicitanteInList = (value?: string) => value && md.solicitantes.some(s => normIdS(s.id) === normIdS(value) || normIdS(s.nome) === normIdS(value))
+  // Igual Demandas: normalizar valor do select para ID (quando o registro veio com nome)
+  const resolveSolicitanteId = (value?: string | null) => {
+    if (!value) return ''
+    const v = normIdS(value)
+    if (md.solicitantesById?.[v]) return value
+    const found = md.solicitantes.find(s => normIdS(s.id) === v || normIdS(s.nome) === v)
+    return found?.id ?? value
+  }
 
   const changedKeys = ((): string[] => {
     const keys = ['status', 'cliente', 'contrato', 'operadora', 'produto', 'sistema', 'area', 'analista', 'tipo', 'tipoServico', 'descricao', 'solicitante', 'dataInicio', 'dataFinal', 'periodicidade', 'qtdRetornos', 'qualidade', 'observacoes'] as const
@@ -552,17 +641,20 @@ function EditInline({ atendimento, user }: { atendimento: any; user: any }) {
             <option value="">Selecione...</option>
             {md.analistas.map(a => <option key={a.id} value={a.id}>{a.nome}</option>)}
           </select>
-          <p className="text-xs text-gray-500 mt-1">O analista não pode ser alterado após a criação</p>
+          <p className="text-xs text-apoio-400 mt-1">O analista não pode ser alterado após a criação</p>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Solicitante</label>
           <select
-            value={draft.solicitante || ''}
+            value={resolveSolicitanteId(draft.solicitante)}
             onChange={(e) => setDraft({ ...draft, solicitante: e.target.value || undefined })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="">Selecione...</option>
             {md.solicitantes.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
+            {draft.solicitante && !solicitanteInList(draft.solicitante) && (
+              <option value={draft.solicitante}>{resolvedSolicitanteById[draft.solicitante] === 'deleted' ? ' ' : (draft.solicitanteNome ?? solicitanteLabelS(draft.solicitante)) || ' '}</option>
+            )}
           </select>
         </div>
       </div>
@@ -646,12 +738,9 @@ function EditInline({ atendimento, user }: { atendimento: any; user: any }) {
 
       {/* Botão Salvar */}
       <div className="flex justify-end">
-        <button
-          onClick={() => setConfirmOpen(true)}
-          className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-        >
+        <PrimaryActionButton onClick={() => setConfirmOpen(true)}>
           Salvar Alterações
-        </button>
+        </PrimaryActionButton>
       </div>
 
       {/* Modal de Confirmação */}
@@ -669,12 +758,9 @@ function EditInline({ atendimento, user }: { atendimento: any; user: any }) {
               >
                 Cancelar
               </button>
-              <button
-                onClick={applySave}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
+              <PrimaryActionButton onClick={applySave} sx={{ ml: 1 }}>
                 Salvar
-              </button>
+              </PrimaryActionButton>
             </div>
           </div>
         </div>

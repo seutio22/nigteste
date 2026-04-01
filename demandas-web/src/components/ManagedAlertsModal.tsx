@@ -18,7 +18,7 @@ import {
   AccordionDetails
 } from '@mui/material'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
-import { Trash2, Users } from 'lucide-react'
+import { Trash2, Users, Eye } from 'lucide-react'
 import { getApi } from '../lib/apiConfig'
 
 interface ManagedAlertsModalProps {
@@ -98,7 +98,7 @@ export function ManagedAlertsModal({ open, onClose, onDeleted }: ManagedAlertsMo
                     size="small"
                     onClick={() => handleDelete(a.id)}
                     disabled={deletingId === a.id}
-                    className="text-gray-400 hover:text-red-500"
+                    className="text-apoio-400 hover:text-red-500"
                   >
                     {deletingId === a.id ? (
                       <CircularProgress size={18} />
@@ -115,6 +115,13 @@ export function ManagedAlertsModal({ open, onClose, onDeleted }: ManagedAlertsMo
                   <Chip label={a.prioridade} size="small" />
                   <Chip
                     icon={<Users className="w-3 h-3" />}
+                    label={a.destinatariosLabel ?? 'Destinatários'}
+                    size="small"
+                    variant="outlined"
+                    className="text-apoio-600"
+                  />
+                  <Chip
+                    icon={<Eye className="w-3 h-3" />}
                     label={`${a.visualizacoes?.length ?? 0} visualização(ões)`}
                     size="small"
                   />

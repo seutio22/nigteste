@@ -2,6 +2,9 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { SystemPermissions } from '../types/permissions'
 import { clearAllSystemData } from '../utils/logoutCleanup'
+import { notifyServerLogout } from '../lib/monitoringClient'
+import { flushPageDwellBeforeLogout } from '../hooks/usePageDwellTracking'
+import { useNotificationStore } from './notificationStore'
 
 interface User {
   id: string
@@ -11,6 +14,8 @@ interface User {
   photo?: string
   permissions?: SystemPermissions
   passwordUpdatedAt?: string
+  /** Quando true, listagens e dashboard devem restringir ao analista vinculado ao usuário. */
+  viewOwnDataOnly?: boolean
 }
 
 interface AuthState {
@@ -64,11 +69,19 @@ export const useAuthStore = create<AuthState>()(
       
       logout: () => {
         console.log('🔒 Iniciando logout seguro...')
-        
+        const { token, user } = get()
+        flushPageDwellBeforeLogout()
+        if (token && user?.id) {
+          void notifyServerLogout(token, user.id)
+        }
+
         // 1. Limpar estado do auth
         set({ token: null, user: null, loading: false, loginDate: null })
         
-        // 2. Limpar TODOS os dados do localStorage
+        // 2. Limpar notificações em memória (evita que outro usuário veja notificações do anterior)
+        useNotificationStore.setState({ notifications: [], unreadCount: 0, dismissedKeys: [] })
+        
+        // 3. Limpar TODOS os dados do localStorage
         clearAllSystemData()
         
         console.log('✅ Logout seguro concluído - todos os dados foram removidos')

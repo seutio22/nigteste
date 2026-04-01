@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { formatIntegerPtBR } from '../utils/formatNumber';
 import {
   Dialog,
   DialogTitle,
@@ -191,7 +192,7 @@ const ExportDataModal: React.FC<ExportDataModalProps> = ({
         await exportToExcel();
       }
 
-      setSuccess(`${filteredData.length} registros exportados com sucesso em ${exportOptions.format.toUpperCase()}!`);
+      setSuccess(`${formatIntegerPtBR(filteredData.length)} registros exportados com sucesso em ${exportOptions.format.toUpperCase()}!`);
       setTimeout(() => onClose(), 2000);
     } catch (error) {
       console.error('Erro ao exportar:', error);
@@ -440,8 +441,8 @@ const ExportDataModal: React.FC<ExportDataModalProps> = ({
           </IconButton>
         </Box>
         <Typography variant="body2" color="textSecondary">
-          {filteredData.length} registro(s) a exportar
-          {data.length !== filteredData.length && ` (filtrado de ${data.length} encontrados)`}
+          {formatIntegerPtBR(filteredData.length)} registro(s) a exportar
+          {data.length !== filteredData.length && ` (filtrado de ${formatIntegerPtBR(data.length)} encontrados)`}
           {Object.keys(appliedFilters).length > 0 && ' • Filtros da lista aplicados'}
         </Typography>
       </DialogTitle>
@@ -683,7 +684,7 @@ const ExportDataModal: React.FC<ExportDataModalProps> = ({
                     <TableRow>
                       <TableCell colSpan={columns.length} align="center">
                         <Typography variant="body2" color="textSecondary">
-                          ... e mais {filteredData.length - 5} registros
+                          ... e mais {formatIntegerPtBR(filteredData.length - 5)} registros
                         </Typography>
                       </TableCell>
                     </TableRow>
@@ -698,7 +699,7 @@ const ExportDataModal: React.FC<ExportDataModalProps> = ({
         {exporting && (
           <Box sx={{ mt: 3 }}>
             <Typography variant="body2" gutterBottom>
-              Exportando {filteredData.length} registros... {progress}%
+              Exportando {formatIntegerPtBR(filteredData.length)} registros... {progress}%
             </Typography>
             <LinearProgress variant="determinate" value={progress} />
           </Box>
@@ -716,7 +717,7 @@ const ExportDataModal: React.FC<ExportDataModalProps> = ({
               variant="outlined" 
             />
             <Chip 
-              label={`Registros: ${filteredData.length}`} 
+              label={`Registros: ${formatIntegerPtBR(filteredData.length)}`} 
               color="secondary" 
               variant="outlined" 
             />
@@ -742,7 +743,7 @@ const ExportDataModal: React.FC<ExportDataModalProps> = ({
           disabled={exporting || filteredData.length === 0}
           startIcon={exportOptions.format === 'pdf' ? <PdfIcon /> : <ExcelIcon />}
         >
-          {exporting ? 'Exportando...' : `Exportar ${filteredData.length} Registros em ${exportOptions.format.toUpperCase()}`}
+          {exporting ? 'Exportando...' : `Exportar ${formatIntegerPtBR(filteredData.length)} Registros em ${exportOptions.format.toUpperCase()}`}
         </Button>
       </DialogActions>
     </Dialog>

@@ -3,12 +3,29 @@ import * as XLSX from 'xlsx'
 import { saveAs } from 'file-saver'
 import type { DashboardIndicator, PageMetrics, PeriodType } from '../types/dashboardIndicators'
 
+const emptyPeriodMetrics = () => ({
+  total: 0,
+  created: 0,
+  updated: 0,
+  completed: 0,
+  canceled: 0,
+  inProgress: 0
+})
+
+/** Taxa de conclusão de produção: concluídos ÷ (total − cancelados). */
+const taxaProducao = (p: { total: number; completed: number; canceled: number }) => {
+  const denom = p.total - p.canceled
+  return denom > 0 ? (p.completed / denom) * 100 : 0
+}
+
 interface ExcelExportData {
   indicators: DashboardIndicator[]
   pageMetrics: { [key: string]: PageMetrics }
   generalStats: {
     total: number
     completed: number
+    canceled: number
+    inProgress: number
     completionRate: number
     period: PeriodType
   }
@@ -31,11 +48,13 @@ export const useExcelExport = () => {
       [''],
       ['ESTATÍSTICAS GERAIS'],
       ['Total de Atividades:', generalStats.total],
-      ['Atividades Concluídas:', generalStats.completed],
-      ['Taxa de Conclusão:', `${generalStats.completionRate.toFixed(1)}%`],
+      ['Atividades Concluídas (produção):', generalStats.completed],
+      ['Atividades Canceladas:', generalStats.canceled],
+      ['Taxa de Conclusão (produção):', `${generalStats.completionRate.toFixed(1)}%`],
+      ['(Concluídas ÷ (Total − Canceladas))', ''],
       [''],
       ['INDICADORES POR CATEGORIA'],
-      ['Categoria', 'Página', 'Total', 'Criados', 'Concluídos', 'Taxa Conclusão'],
+      ['Categoria', 'Página', 'Total', 'Criados', 'Concluídos', 'Cancelados', 'Em andamento', 'Taxa produção %'],
     ]
     
     // Adicionar dados dos indicadores por categoria
@@ -46,8 +65,8 @@ export const useExcelExport = () => {
     // Principais
     primaryIndicators.forEach(indicator => {
       const metrics = pageMetrics[indicator.page]
-      const periodData = metrics ? metrics[period] : { total: 0, created: 0, completed: 0 }
-      const completionRate = periodData.total > 0 ? (periodData.completed / periodData.total) * 100 : 0
+      const periodData = metrics ? metrics[period] : emptyPeriodMetrics()
+      const completionRate = taxaProducao(periodData)
       
       summaryData.push([
         'Principais',
@@ -55,6 +74,8 @@ export const useExcelExport = () => {
         periodData.total,
         periodData.created,
         periodData.completed,
+        periodData.canceled,
+        periodData.inProgress,
         `${completionRate.toFixed(1)}%`
       ])
     })
@@ -62,8 +83,8 @@ export const useExcelExport = () => {
     // Secundárias
     secondaryIndicators.forEach(indicator => {
       const metrics = pageMetrics[indicator.page]
-      const periodData = metrics ? metrics[period] : { total: 0, created: 0, completed: 0 }
-      const completionRate = periodData.total > 0 ? (periodData.completed / periodData.total) * 100 : 0
+      const periodData = metrics ? metrics[period] : emptyPeriodMetrics()
+      const completionRate = taxaProducao(periodData)
       
       summaryData.push([
         'Secundárias',
@@ -71,6 +92,8 @@ export const useExcelExport = () => {
         periodData.total,
         periodData.created,
         periodData.completed,
+        periodData.canceled,
+        periodData.inProgress,
         `${completionRate.toFixed(1)}%`
       ])
     })
@@ -78,8 +101,8 @@ export const useExcelExport = () => {
     // Terciárias
     tertiaryIndicators.forEach(indicator => {
       const metrics = pageMetrics[indicator.page]
-      const periodData = metrics ? metrics[period] : { total: 0, created: 0, completed: 0 }
-      const completionRate = periodData.total > 0 ? (periodData.completed / periodData.total) * 100 : 0
+      const periodData = metrics ? metrics[period] : emptyPeriodMetrics()
+      const completionRate = taxaProducao(periodData)
       
       summaryData.push([
         'Terciárias',
@@ -87,6 +110,8 @@ export const useExcelExport = () => {
         periodData.total,
         periodData.created,
         periodData.completed,
+        periodData.canceled,
+        periodData.inProgress,
         `${completionRate.toFixed(1)}%`
       ])
     })
@@ -98,7 +123,7 @@ export const useExcelExport = () => {
     const detailedData = [
       ['DADOS DETALHADOS POR PERÍODO'],
       [''],
-      ['Página', 'Período', 'Total', 'Criados', 'Atualizados', 'Concluídos', 'Taxa Conclusão']
+      ['Página', 'Período', 'Total', 'Criados', 'Atualizados', 'Concluídos', 'Cancelados', 'Em andamento', 'Taxa produção %']
     ]
     
     indicators.forEach(indicator => {
@@ -107,7 +132,7 @@ export const useExcelExport = () => {
       
       // Dados do período selecionado
       const periodData = metrics[period]
-      const completionRate = periodData.total > 0 ? (periodData.completed / periodData.total) * 100 : 0
+      const completionRate = taxaProducao(periodData)
       
       detailedData.push([
         indicator.title,
@@ -116,13 +141,15 @@ export const useExcelExport = () => {
         periodData.created,
         periodData.updated,
         periodData.completed,
+        periodData.canceled,
+        periodData.inProgress,
         `${completionRate.toFixed(1)}%`
       ])
       
       // Dados dos outros períodos para comparação
       if (period !== 'daily') {
         const dailyData = metrics.daily
-        const dailyCompletionRate = dailyData.total > 0 ? (dailyData.completed / dailyData.total) * 100 : 0
+        const dailyCompletionRate = taxaProducao(dailyData)
         
         detailedData.push([
           indicator.title,
@@ -131,13 +158,15 @@ export const useExcelExport = () => {
           dailyData.created,
           dailyData.updated,
           dailyData.completed,
+          dailyData.canceled,
+          dailyData.inProgress,
           `${dailyCompletionRate.toFixed(1)}%`
         ])
       }
       
       if (period !== 'monthly') {
         const monthlyData = metrics.monthly
-        const monthlyCompletionRate = monthlyData.total > 0 ? (monthlyData.completed / monthlyData.total) * 100 : 0
+        const monthlyCompletionRate = taxaProducao(monthlyData)
         
         detailedData.push([
           indicator.title,
@@ -146,13 +175,15 @@ export const useExcelExport = () => {
           monthlyData.created,
           monthlyData.updated,
           monthlyData.completed,
+          monthlyData.canceled,
+          monthlyData.inProgress,
           `${monthlyCompletionRate.toFixed(1)}%`
         ])
       }
       
       if (period !== 'quarterly') {
         const quarterlyData = metrics.quarterly
-        const quarterlyCompletionRate = quarterlyData.total > 0 ? (quarterlyData.completed / quarterlyData.total) * 100 : 0
+        const quarterlyCompletionRate = taxaProducao(quarterlyData)
         
         detailedData.push([
           indicator.title,
@@ -161,6 +192,8 @@ export const useExcelExport = () => {
           quarterlyData.created,
           quarterlyData.updated,
           quarterlyData.completed,
+          quarterlyData.canceled,
+          quarterlyData.inProgress,
           `${quarterlyCompletionRate.toFixed(1)}%`
         ])
       }
@@ -173,7 +206,7 @@ export const useExcelExport = () => {
     const chartData = [
       ['DADOS PARA GRÁFICOS'],
       [''],
-      ['Página', 'Total', 'Concluídos', 'Pendentes', 'Taxa Conclusão (%)']
+      ['Página', 'Total', 'Concluídos', 'Cancelados', 'Em andamento', 'Taxa produção (%)']
     ]
     
     indicators.forEach(indicator => {
@@ -181,14 +214,15 @@ export const useExcelExport = () => {
       if (!metrics) return
       
       const periodData = metrics[period]
-      const pending = periodData.total - periodData.completed
-      const completionRate = periodData.total > 0 ? (periodData.completed / periodData.total) * 100 : 0
+      const open = periodData.inProgress
+      const completionRate = taxaProducao(periodData)
       
       chartData.push([
         indicator.title,
         periodData.total,
         periodData.completed,
-        pending,
+        periodData.canceled,
+        open,
         completionRate.toFixed(1)
       ])
     })

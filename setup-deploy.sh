@@ -77,7 +77,7 @@ VITE_API_URL="http://localhost:3333"
 
 # Configurações de ambiente
 VITE_APP_NAME="Sistema de Demandas"
-VITE_APP_VERSION="1.0.0"
+VITE_APP_VERSION="0.8.4"
 EOF
 
 print_status "Arquivos .env.example criados"

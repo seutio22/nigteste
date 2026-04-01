@@ -25,8 +25,15 @@ export function addDismissedAlert(alertaId: string) {
   setDismissed([...ids, alertaId])
 }
 
-export function isAlertDismissed(alertaId: string): boolean {
-  return getDismissed().includes(alertaId)
+export function isAlertDismissed(alertaId: string | undefined): boolean {
+  if (alertaId == null || String(alertaId).trim() === '') return false
+  const id = String(alertaId).trim()
+  return getDismissed().includes(id)
+}
+
+/** Lista de IDs já dispensados (para filtrar listas sem re-chamar localStorage por item) */
+export function getDismissedAlertIds(): string[] {
+  return getDismissed()
 }
 
 export function clearDismissedAlerts() {

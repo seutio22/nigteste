@@ -17,6 +17,8 @@ export interface AtendimentoEntry {
   tipoServico: string
   descricao: string
   solicitante: string
+  /** Nome do solicitante quando a API retorna (backend enriquece por UUID) */
+  solicitanteNome?: string
   dataInicio: string
   dataFinal?: string
   periodicidade?: string
@@ -38,8 +40,50 @@ interface AtendimentoState {
   remove: (id: string) => void
   clear: () => void
   log: (e: Omit<TimelineEvent, 'id' | 'timestamp'>) => void
-  syncFromApi: () => Promise<void>
+  syncFromApi: (force?: boolean) => Promise<void>
   syncTimeline: (atendimentoId: string) => Promise<void>
+}
+
+export function mapApiAtendimentoToEntry(apiAtendimento: any): AtendimentoEntry {
+  const normalizeSolicitante = (a: any): string => {
+    const raw = a?.solicitanteId ?? a?.solicitante
+    if (raw == null || raw === '') return ''
+    if (typeof raw === 'string') return raw
+    if (typeof raw === 'object' && raw !== null) return (raw.id ?? raw.nome ?? '') || ''
+    return ''
+  }
+  // GET por id retorna objetos aninhados (cliente, analista, area...); lista retorna IDs planos
+  const idOr = (flat: string | undefined, nested: any): string => {
+    if (flat) return flat
+    if (nested && typeof nested === 'object' && nested.id) return nested.id
+    return ''
+  }
+  const a = apiAtendimento
+  return {
+    id: a.id,
+    ticket: a.ticket || '',
+    cliente: idOr(a.clienteId, a.cliente),
+    contrato: idOr(a.contratoId, a.contrato),
+    operadora: idOr(a.operadoraId, a.operadora),
+    produto: idOr(a.produtoId, a.produto),
+    sistema: idOr(a.sistemaId, a.sistema),
+    area: idOr(a.areaId, a.area),
+    analista: idOr(a.analistaId, a.analista),
+    tipo: idOr(a.tipoId, a.tipo),
+    tipoServico: idOr(a.tipoServicoId, a.tipoServico),
+    descricao: a.descricao || '',
+    solicitante: normalizeSolicitante(a),
+    solicitanteNome: a.solicitanteNome ?? undefined,
+    dataInicio: a.dataAbertura ? (typeof a.dataAbertura === 'string' ? a.dataAbertura.split('T')[0] : '') : '',
+    dataFinal: a.dataResolucao ? (typeof a.dataResolucao === 'string' ? a.dataResolucao.split('T')[0] : '') : '',
+    periodicidade: a.periodicidade || '',
+    qtdRetornos: a.tempoResolucao ?? 0,
+    qualidade: a.categoria || '',
+    observacoes: a.comentarios || '',
+    status: a.status || 'Aberto',
+    createdAt: a.createdAt || '',
+    updatedAt: a.updatedAt || ''
+  }
 }
 
 export const useAtendimentoStore = create<AtendimentoState>()(
@@ -333,47 +377,16 @@ export const useAtendimentoStore = create<AtendimentoState>()(
         }
       },
       
-      syncFromApi: async () => {
+      syncFromApi: async (force?: boolean) => {
         const state = get()
-        if (state.isLoading) {
-          return
-        }
+        if (state.isLoading) return
         const now = Date.now()
-        if (now - state.lastSync < 2 * 60 * 1000) {
-          return
-        }
-        
+        if (!force && now - state.lastSync < 2 * 60 * 1000) return
+
         try {
           set({ isLoading: true })
           const atendimentos = await api.getAtendimentos()
-          
-          // Mapear dados da API para o formato do frontend (simplificado)
-          const mappedAtendimentos = atendimentos.map((apiAtendimento: any): AtendimentoEntry => ({
-            id: apiAtendimento.id,
-            ticket: apiAtendimento.ticket || '',
-            // Mapear apenas se os IDs não forem null/undefined
-            cliente: apiAtendimento.clienteId ? apiAtendimento.clienteId : '',
-            contrato: apiAtendimento.contratoId ? apiAtendimento.contratoId : '',
-            operadora: apiAtendimento.operadoraId ? apiAtendimento.operadoraId : '',
-            produto: apiAtendimento.produtoId ? apiAtendimento.produtoId : '',
-            sistema: apiAtendimento.sistemaId ? apiAtendimento.sistemaId : '',
-            area: apiAtendimento.areaId ? apiAtendimento.areaId : '',
-            analista: apiAtendimento.analistaId ? apiAtendimento.analistaId : '',
-            tipo: apiAtendimento.tipoId ? apiAtendimento.tipoId : '',
-            tipoServico: apiAtendimento.tipoServicoId ? apiAtendimento.tipoServicoId : '',
-            descricao: apiAtendimento.descricao || '',
-            solicitante: apiAtendimento.solicitante || '',
-            dataInicio: apiAtendimento.dataAbertura ? apiAtendimento.dataAbertura.split('T')[0] : '',
-            dataFinal: apiAtendimento.dataResolucao ? apiAtendimento.dataResolucao.split('T')[0] : '',
-            periodicidade: apiAtendimento.periodicidade || '',
-            qtdRetornos: apiAtendimento.tempoResolucao || 0,
-            qualidade: apiAtendimento.categoria || '',
-            observacoes: apiAtendimento.comentarios || '',
-            status: apiAtendimento.status || 'Aberto',
-            createdAt: apiAtendimento.createdAt || '',
-            updatedAt: apiAtendimento.updatedAt || ''
-          }))
-          
+          const mappedAtendimentos = atendimentos.map((a: any) => mapApiAtendimentoToEntry(a))
           set({ items: mappedAtendimentos, isLoading: false, lastSync: now })
         } catch (error) {
           console.error('❌ AtendimentoStore: Erro no syncFromApi:', error)

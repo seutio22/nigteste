@@ -12,6 +12,7 @@ import { api } from '../../lib/api.local'
 import { createPerfLogger } from '../../utils/perf'
 import { AsyncClienteAutocomplete, type ClienteOption } from '../../components/AsyncClienteAutocomplete'
 import { AsyncContratoAutocomplete } from '../../components/AsyncContratoAutocomplete'
+import { PrimaryActionButton } from '../../components/PrimaryActionButton'
 
 
 // Schema de validação com Zod
@@ -642,13 +643,9 @@ export default function AtendimentoNewPage() {
             >
               Cancelar
             </Button>
-            <Button
-              type="submit"
-              variant="contained"
-              startIcon={<Save />}
-            >
+            <PrimaryActionButton type="button" startIcon={<Save />} onClick={() => handleSubmit(onSubmit)()}>
               Criar Atendimento
-            </Button>
+            </PrimaryActionButton>
           </Box>
         </form>
       </Paper>

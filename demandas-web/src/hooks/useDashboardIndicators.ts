@@ -10,8 +10,42 @@ import { useComunicadoStore } from '../store/comunicadoStore'
 import { useProjectStore } from '../store/projectStore'
 import { useMasterDataStore } from '../store/masterDataStore'
 import type { DashboardIndicator, PageMetrics, PeriodType } from '../types/dashboardIndicators'
-import { PAGE_CONFIGS, COMPLETION_STATUS } from '../types/dashboardIndicators'
-import { getItemDateForPage, matchesByIdOrName, parseDateForFilter } from '../utils/dashboardFilters'
+import { PAGE_CONFIGS, isItemCancelado, isItemConcluidoProducao } from '../types/dashboardIndicators'
+import {
+  getItemDateForPage,
+  getExecutionEndDate,
+  matchesByIdOrName,
+  parseDateForFilter,
+  resolveIndicatorDateRange,
+  getPreviousComparisonRange,
+  isItemDateInRange,
+  isSameCalendarDay,
+  enumerateDaysYmd
+} from '../utils/dashboardFilters'
+
+/** Mesma regra da Home: data de encerramento operacional ou última atualização. */
+function getDataProducaoForMetrics(page: string, item: any): string | undefined {
+  const end = getExecutionEndDate(page, item)
+  if (end) return end
+  return item?.updatedAt || item?.updated_at
+}
+
+/**
+ * Mesma origem de data usada em `calculatePageMetrics` para contar itens no período (data de criação).
+ */
+function getDashboardItemCreatedDate(page: string, item: any): string | undefined {
+  if (page === 'analytics') {
+    if (item.dataCriacao && item.dataCriacao !== null && item.dataCriacao !== '') return item.dataCriacao
+    if (item.createdAt && item.createdAt !== null && item.createdAt !== '') return item.createdAt
+    return undefined
+  }
+  if (page === 'atendimentos') {
+    if (item.createdAt && item.createdAt !== null && item.createdAt !== '') return item.createdAt
+    return undefined
+  }
+  if (item.createdAt && item.createdAt !== null && item.createdAt !== '') return item.createdAt
+  return undefined
+}
 
 // Função utilitária para calcular períodos
 const getPeriodDates = (period: PeriodType) => {
@@ -71,23 +105,15 @@ const isInPeriod = (date: string | undefined | null, period: PeriodType): boolea
   }
 }
 
-// Função para verificar se um item está concluído
-const isCompleted = (item: any, page: string): boolean => {
-  const completionStatuses = COMPLETION_STATUS[page as keyof typeof COMPLETION_STATUS] || []
-  const statusField = PAGE_CONFIGS.find(config => config.page === page)?.fields.completed || 'status'
-  const status = item[statusField]
-  return completionStatuses.includes(status) || status === true
-}
-
 // Função para calcular métricas de uma página
 const calculatePageMetrics = (items: any[], page: string, period: PeriodType, hasDateFilters: boolean = false): PageMetrics => {
   const config = PAGE_CONFIGS.find(c => c.page === page)
   if (!config) {
     return {
       page,
-      daily: { total: 0, created: 0, updated: 0, completed: 0 },
-      monthly: { total: 0, created: 0, updated: 0, completed: 0 },
-      quarterly: { total: 0, created: 0, updated: 0, completed: 0 }
+      daily: { total: 0, created: 0, updated: 0, completed: 0, canceled: 0, inProgress: 0 },
+      monthly: { total: 0, created: 0, updated: 0, completed: 0, canceled: 0, inProgress: 0 },
+      quarterly: { total: 0, created: 0, updated: 0, completed: 0, canceled: 0, inProgress: 0 }
     }
   }
 
@@ -95,9 +121,9 @@ const calculatePageMetrics = (items: any[], page: string, period: PeriodType, ha
   if (!Array.isArray(items)) {
     return {
       page,
-      daily: { total: 0, created: 0, updated: 0, completed: 0 },
-      monthly: { total: 0, created: 0, updated: 0, completed: 0 },
-      quarterly: { total: 0, created: 0, updated: 0, completed: 0 }
+      daily: { total: 0, created: 0, updated: 0, completed: 0, canceled: 0, inProgress: 0 },
+      monthly: { total: 0, created: 0, updated: 0, completed: 0, canceled: 0, inProgress: 0 },
+      quarterly: { total: 0, created: 0, updated: 0, completed: 0, canceled: 0, inProgress: 0 }
     }
   }
 
@@ -291,9 +317,11 @@ const calculatePageMetrics = (items: any[], page: string, period: PeriodType, ha
           return isInPeriod(item[updateField], p)
         }).length
     
-    const completed = periodItems.filter(item => isCompleted(item, page)).length
+    const canceled = periodItems.filter(item => isItemCancelado(page, item)).length
+    const completed = periodItems.filter(item => isItemConcluidoProducao(page, item)).length
+    const inProgress = Math.max(0, total - completed - canceled)
 
-    return { total, created, updated, completed }
+    return { total, created, updated, completed, canceled, inProgress }
   }
 
   return {
@@ -311,6 +339,8 @@ export const useDashboardIndicators = (
     analistaId?: string
     fromDate?: string
     toDate?: string
+    /** Enquanto true, não agrega dados (evita flash de totais globais antes de resolver analista vinculado). */
+    userScopePending?: boolean
   }
 ) => {
   // Debug removido para produção
@@ -382,10 +412,11 @@ export const useDashboardIndicators = (
     }
   }, [filters?.fromDate, filters?.toDate])
 
-  // Função para aplicar filtros aos dados
-  const applyFilters = (items: any[], page: string) => {
+  // Função para aplicar filtros aos dados (skipDate: só área/analista — para gráficos de evolução/comparação)
+  const applyFilters = (items: any[], page: string, opts?: { skipDate?: boolean }) => {
     if (!filters) return items
-    
+    if (filters.userScopePending) return []
+
     const getAnalistaValue = (item: any) => {
       if (page === 'reajustes') return item.responsavelAnalista
       if (page === 'manutencoes') return item.analistaId || item.analista
@@ -414,12 +445,13 @@ export const useDashboardIndicators = (
         }
       }
       
-      // Filtro por data - Analytics usa dataCriacao, atendimentos e outros usam createdAt
-      const itemDate = getItemDateForPage(page, item)
-      if (!itemDate || !inRange(itemDate)) {
-        return false
+      if (!opts?.skipDate) {
+        const itemDate = getItemDateForPage(page, item)
+        if (!itemDate || !inRange(itemDate)) {
+          return false
+        }
       }
-      
+
       return true
     })
   }
@@ -454,11 +486,76 @@ export const useDashboardIndicators = (
     projectStore.projects,
     filters?.areaId,
     filters?.analistaId,
+    filters?.userScopePending,
     filters?.fromDate,
     filters?.toDate,
     masterDataStore.areas,
     masterDataStore.analistas
   ])
+
+  /** Mesmos dados com filtro de área/analista, sem recorte por data (para comparar períodos e evolução diária). */
+  const storeMapSansDate = useMemo(() => {
+    const manutencoesRaw = Array.isArray(manutencaoStore.items) ? manutencaoStore.items : []
+    return {
+      demandas: applyFilters(Array.isArray(demandStore.items) ? demandStore.items : [], 'demandas', { skipDate: true }),
+      atendimentos: applyFilters(Array.isArray(atendimentoStore.items) ? atendimentoStore.items : [], 'atendimentos', { skipDate: true }),
+      validacoes: applyFilters(Array.isArray(validationStore.items) ? validationStore.items : [], 'validacoes', { skipDate: true }),
+      reajustes: applyFilters(Array.isArray(reajusteStore.items) ? reajusteStore.items : [], 'reajustes', { skipDate: true }),
+      manutencoes: applyFilters(manutencoesRaw, 'manutencoes', { skipDate: true }),
+      analytics: applyFilters(Array.isArray(reportStore.items) ? reportStore.items : [], 'analytics', { skipDate: true }),
+      mailling: applyFilters(Array.isArray(maillingStore.contacts) ? maillingStore.contacts : [], 'mailling', { skipDate: true }),
+      comunicados: applyFilters(Array.isArray(comunicadoStore.items) ? comunicadoStore.items : [], 'comunicados', { skipDate: true }),
+      projetos: applyFilters(Array.isArray(projectStore.projects) ? projectStore.projects : [], 'projetos', { skipDate: true })
+    }
+  }, [
+    demandStore.items,
+    atendimentoStore.items,
+    validationStore.items,
+    reajusteStore.items,
+    manutencaoStore.items,
+    reportStore.items,
+    maillingStore.contacts,
+    comunicadoStore.items,
+    projectStore.projects,
+    filters?.areaId,
+    filters?.analistaId,
+    filters?.userScopePending,
+    masterDataStore.areas,
+    masterDataStore.analistas
+  ])
+
+  const chartPeriodComparison = useMemo(() => {
+    const { from, to } = resolveIndicatorDateRange(period, filters?.fromDate, filters?.toDate)
+    const prev = getPreviousComparisonRange(from, to, period)
+    if (!prev) return []
+    return PAGE_CONFIGS.map((cfg) => {
+      const items = storeMapSansDate[cfg.page as keyof typeof storeMapSansDate] || []
+      const cur = items.filter((item) =>
+        isItemDateInRange(getItemDateForPage(cfg.page, item), from, to)
+      ).length
+      const prv = items.filter((item) =>
+        isItemDateInRange(getItemDateForPage(cfg.page, item), prev.from, prev.to)
+      ).length
+      return { page: cfg.title, current: cur, previous: prv }
+    })
+  }, [storeMapSansDate, period, filters?.fromDate, filters?.toDate])
+
+  const chartDailyEvolution = useMemo(() => {
+    const { from, to } = resolveIndicatorDateRange(period, filters?.fromDate, filters?.toDate)
+    const days = enumerateDaysYmd(from, to)
+    return days.map((dateKey) => {
+      let total = 0
+      for (const cfg of PAGE_CONFIGS) {
+        const items = storeMapSansDate[cfg.page as keyof typeof storeMapSansDate] || []
+        total += items.filter((item) => isSameCalendarDay(getItemDateForPage(cfg.page, item), dateKey)).length
+      }
+      const label = new Date(`${dateKey}T12:00:00`).toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: 'short'
+      })
+      return { dateKey, label, total }
+    })
+  }, [storeMapSansDate, period, filters?.fromDate, filters?.toDate])
 
   // Calcular métricas para todas as páginas
   // IMPORTANTE: Forçar recálculo quando os dados dos stores mudarem
@@ -498,34 +595,73 @@ export const useDashboardIndicators = (
     hasDateFilters
   ])
 
+  /**
+   * Concluídos (produção) alinhados à Home: data de conclusão no intervalo do indicador,
+   * não “concluídos entre os itens criados no período”.
+   */
+  const pageMetricsWithProducao = useMemo(() => {
+    const range = resolveIndicatorDateRange(period, filters?.fromDate, filters?.toDate)
+    const out: { [key: string]: PageMetrics } = {}
+
+    PAGE_CONFIGS.forEach((cfg) => {
+      const page = cfg.page
+      const base = pageMetrics[page]
+      if (!base) return
+      const itemsSans = storeMapSansDate[page as keyof typeof storeMapSansDate] || []
+      const completedInRange = itemsSans.filter((item) => {
+        if (!isItemConcluidoProducao(page, item)) return false
+        const d = getDataProducaoForMetrics(page, item)
+        return d ? isItemDateInRange(d, range.from, range.to) : false
+      }).length
+
+      out[page] = {
+        ...base,
+        [period]: {
+          ...base[period],
+          completed: completedInRange
+        }
+      }
+    })
+
+    return out
+  }, [pageMetrics, storeMapSansDate, period, filters?.fromDate, filters?.toDate])
+
   // Gerar indicadores para o período selecionado
   const indicators = useMemo(() => {
     const result: DashboardIndicator[] = []
-    
-    PAGE_CONFIGS.forEach(config => {
-      const metrics = pageMetrics[config.page]
+
+    const comparisonPeriodLabel =
+      period === 'daily' ? 'dia anterior' : period === 'monthly' ? 'mês anterior' : 'trimestre anterior'
+
+    const currentRange = resolveIndicatorDateRange(period, filters?.fromDate, filters?.toDate)
+    const prevRange = !hasDateFilters ? getPreviousComparisonRange(currentRange.from, currentRange.to, period) : null
+
+    PAGE_CONFIGS.forEach((config) => {
+      const metrics = pageMetricsWithProducao[config.page]
       if (!metrics) return
 
       // Quando há filtros de data, usar os dados do período atual
       // Caso contrário, usar o período selecionado normalmente
       const periodData = metrics[period]
-      
-      // Para comparação, se há filtros de data, não comparar com período anterior
-      // (pois os dados já estão filtrados)
-      let previousData = metrics[period]
-      if (!hasDateFilters) {
-        const previousPeriod = period === 'daily' ? 'monthly' : period === 'monthly' ? 'quarterly' : 'quarterly'
-        previousData = metrics[previousPeriod]
+
+      let previousTotal = 0
+      if (!hasDateFilters && prevRange) {
+        const items = storeMap[config.page as keyof typeof storeMap] || []
+        previousTotal = items.filter((item) => {
+          const d = getDashboardItemCreatedDate(config.page, item)
+          return d ? isItemDateInRange(d, prevRange.from, prevRange.to) : false
+        }).length
       }
 
-      // Calcular mudança percentual (apenas se não houver filtros de data)
-      const change = hasDateFilters 
-        ? 0 // Não calcular mudança quando há filtros de data
-        : (previousData.total > 0 
-            ? ((periodData.total - previousData.total) / previousData.total) * 100
-            : 0)
+      const change = hasDateFilters
+        ? 0
+        : previousTotal > 0
+          ? ((periodData.total - previousTotal) / previousTotal) * 100
+          : periodData.total > 0
+            ? 100
+            : 0
 
-      const changeType: 'increase' | 'decrease' | 'neutral' = 
+      const changeType: 'increase' | 'decrease' | 'neutral' =
         change > 5 ? 'increase' : change < -5 ? 'decrease' : 'neutral'
 
       result.push({
@@ -533,19 +669,20 @@ export const useDashboardIndicators = (
         page: config.page,
         title: config.title,
         value: periodData.total,
-        previousValue: hasDateFilters ? undefined : previousData.total,
+        previousValue: hasDateFilters ? undefined : previousTotal,
+        comparisonPeriodLabel: hasDateFilters ? undefined : comparisonPeriodLabel,
         change: Math.round(change * 10) / 10,
         changeType,
         period,
         category: config.category,
         icon: config.icon,
         color: config.color,
-        description: `${periodData.created} criados, ${periodData.completed} concluídos`
+        description: `${periodData.created} criados, ${periodData.completed} concluídos, ${periodData.canceled} cancelados`
       })
     })
 
     return result
-  }, [pageMetrics, period, hasDateFilters])
+  }, [pageMetricsWithProducao, period, hasDateFilters, storeMap, filters?.fromDate, filters?.toDate])
 
   // Separar indicadores por categoria
   const indicatorsByCategory = useMemo(() => {
@@ -559,25 +696,48 @@ export const useDashboardIndicators = (
   // Estatísticas gerais
   const generalStats = useMemo(() => {
     const total = indicators.reduce((sum, i) => sum + i.value, 0)
-    const completed = indicators.reduce((sum, i) => {
-      const metrics = pageMetrics[i.page]
+    /** Mesmo escopo da Home “Sua produção”: só páginas primárias (sem mailling/comunicados/projetos). */
+    const primaryPages = PAGE_CONFIGS.filter((c) => c.category === 'primary').map((c) => c.page)
+    const completed = primaryPages.reduce((sum, p) => {
+      const metrics = pageMetricsWithProducao[p]
       return sum + (metrics ? metrics[period].completed : 0)
     }, 0)
-    const completionRate = total > 0 ? (completed / total) * 100 : 0
+    const canceled = indicators.reduce((sum, i) => {
+      const metrics = pageMetricsWithProducao[i.page]
+      return sum + (metrics ? metrics[period].canceled : 0)
+    }, 0)
+    const inProgress = indicators.reduce((sum, i) => {
+      const metrics = pageMetricsWithProducao[i.page]
+      return sum + (metrics ? metrics[period].inProgress : 0)
+    }, 0)
+    const totalPrimary = primaryPages.reduce((sum, p) => {
+      const ind = indicators.find((i) => i.page === p)
+      return sum + (ind?.value ?? 0)
+    }, 0)
+    const canceledPrimary = primaryPages.reduce((sum, p) => {
+      const metrics = pageMetricsWithProducao[p]
+      return sum + (metrics ? metrics[period].canceled : 0)
+    }, 0)
+    const eligible = totalPrimary - canceledPrimary
+    const completionRate = eligible > 0 ? (completed / eligible) * 100 : 0
 
     return {
       total,
       completed,
+      canceled,
+      inProgress,
       completionRate: Math.round(completionRate * 10) / 10,
       period
     }
-  }, [indicators, pageMetrics, period, filters])
+  }, [indicators, pageMetricsWithProducao, period, filters])
 
   return {
     indicators,
     indicatorsByCategory,
-    pageMetrics,
+    pageMetrics: pageMetricsWithProducao,
     generalStats,
-    period
+    period,
+    chartPeriodComparison,
+    chartDailyEvolution
   }
 }

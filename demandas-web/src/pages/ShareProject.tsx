@@ -48,10 +48,28 @@ import {
   PieChart as PieChartIcon,
   Visibility as VisibilityIcon,
   AccessTime as AccessTimeIcon,
-  DonutLarge as DonutLargeIcon
+  DonutLarge as DonutLargeIcon,
+  ChevronLeft as ChevronLeftIcon,
+  ChevronRight as ChevronRightIcon
 } from '@mui/icons-material';
+import {
+  Home as HomeIcon,
+  FileText as FileTextIcon,
+  CheckCircle as CheckCircleLucideIcon,
+  TrendingUp as TrendingUpLucideIcon,
+  BarChart3 as BarChart3Icon,
+  Grid3X3 as Grid3X3Icon,
+  Database as DatabaseIcon,
+  Users as UsersIcon,
+  Mail as MailLucideIcon,
+  Megaphone as MegaphoneIcon,
+  FolderOpen as FolderOpenIcon,
+  Wrench as WrenchIcon
+} from 'lucide-react';
 import { api } from '../lib/api.local';
 import ProjectGantt from '../components/ProjectGantt';
+import { PrimaryActionButton } from '../components/PrimaryActionButton';
+import { formatIntegerPtBR } from '../utils/formatNumber';
 
 // Componente de Card Estatístico Moderno
 const StatCard: React.FC<{
@@ -166,9 +184,9 @@ const ProgressRing: React.FC<{
         }}
       >
         <Typography variant="h4" sx={{ fontWeight: 700, color: '#1e293b', lineHeight: 1 }}>
-          {value}%
+          {formatIntegerPtBR(value)}%
         </Typography>
-        <Typography variant="caption" sx={{ color: '#64748b' }}>
+        <Typography variant="caption" sx={{ color: '#6b7a80' }}>
           Concluído
         </Typography>
       </Box>
@@ -187,11 +205,11 @@ const MiniBarChart: React.FC<{
       {data.map((item, index) => (
         <Box key={index}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-            <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 500 }}>
+            <Typography variant="caption" sx={{ color: '#6b7a80', fontWeight: 500 }}>
               {item.label}
             </Typography>
             <Typography variant="caption" sx={{ color: '#1e293b', fontWeight: 600 }}>
-              {item.value}
+              {formatIntegerPtBR(item.value)}
             </Typography>
           </Box>
           <Box
@@ -322,6 +340,7 @@ const ShareProject: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState(0);
   const [expandedPhases, setExpandedPhases] = useState<Set<string>>(new Set());
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   useEffect(() => {
     if (token) {
@@ -403,29 +422,29 @@ const ShareProject: React.FC = () => {
 
   const getStatusColor = (status: string) => {
     const statusColors: { [key: string]: string } = {
-      active: '#4caf50',
+      active: '#00A649',
       completed: '#00A649',
-      paused: '#ff9800',
-      cancelled: '#f44336',
-      todo: '#94a3b8',
+      paused: '#E5B800',
+      cancelled: '#DA3832',
+      todo: '#6b7a80',
       in_progress: '#009FDF',
-      review: '#ff9800',
+      review: '#E5B800',
       done: '#00A649',
       concluido: '#00A649',
       em_andamento: '#009FDF',
-      nao_iniciado: '#FCDA4F',
+      nao_iniciado: '#E5B800',
       'in-progress': '#009FDF',
-      not_started: '#FCDA4F'
+      not_started: '#E5B800'
     };
-    return statusColors[status] || '#94a3b8';
+    return statusColors[status] || '#6b7a80';
   };
 
   const getPriorityColor = (priority: string) => {
     const priorityColors: { [key: string]: string } = {
-      low: '#4caf50',
-      medium: '#ff9800',
-      high: '#f44336',
-      urgent: '#9c27b0'
+      low: '#00A649',
+      medium: '#E5B800',
+      high: '#DA3832',
+      urgent: '#DA3832'
     };
     return priorityColors[priority] || '#9e9e9e';
   };
@@ -517,9 +536,9 @@ const ShareProject: React.FC = () => {
         <Alert severity="error" sx={{ mb: 2 }}>
           {error || 'Projeto não encontrado'}
         </Alert>
-        <Button variant="contained" onClick={() => navigate('/')}>
+        <PrimaryActionButton onClick={() => navigate('/')}>
           Voltar ao início
-        </Button>
+        </PrimaryActionButton>
       </Container>
     );
   }
@@ -536,6 +555,25 @@ const ShareProject: React.FC = () => {
     { key: 'team', label: 'Equipe', allowed: allowedViews.includes('team') },
     { key: 'resources', label: 'Stakeholders', allowed: allowedViews.includes('resources') }
   ].filter(tab => tab.allowed);
+  
+  const getTabIcon = (key: string) => {
+    switch (key) {
+      case 'overview':
+        return <DashboardIcon className="w-5 h-5 flex-shrink-0" />;
+      case 'timeline':
+        return <TimelineIcon className="w-5 h-5 flex-shrink-0" />;
+      case 'indicators':
+        return <BarChartIcon className="w-5 h-5 flex-shrink-0" />;
+      case 'gantt':
+        return <DonutLargeIcon className="w-5 h-5 flex-shrink-0" />;
+      case 'team':
+        return <GroupIcon className="w-5 h-5 flex-shrink-0" />;
+      case 'resources':
+        return <BusinessIcon className="w-5 h-5 flex-shrink-0" />;
+      default:
+        return <DashboardIcon className="w-5 h-5 flex-shrink-0" />;
+    }
+  };
 
   const calculatePhaseProgress = (phase: any) => {
     if (!phase?.tasks?.length) return 0;
@@ -559,8 +597,8 @@ const ShareProject: React.FC = () => {
     // Dados para o gráfico de distribuição
     const statusDistribution = [
       { label: 'Concluídas', value: completedTasks, color: '#00A649' },
-      { label: 'Em Andamento', value: inProgressTasks, color: '#FCDA4F' },
-      { label: 'Pendentes', value: totalTasks - completedTasks - inProgressTasks, color: '#6366f1' }
+      { label: 'Em Andamento', value: inProgressTasks, color: '#E5B800' },
+      { label: 'Pendentes', value: totalTasks - completedTasks - inProgressTasks, color: '#004F75' }
     ];
 
     return (
@@ -570,7 +608,7 @@ const ShareProject: React.FC = () => {
           <Grid item xs={12} sm={6} lg={3}>
             <StatCard
               title="Progresso Geral"
-              value={`${project.progress ?? 0}%`}
+              value={`${formatIntegerPtBR(project.progress ?? 0)}%`}
               subtitle="do projeto concluído"
               icon={<TrendingUpIcon sx={{ color: 'white', fontSize: 24 }} />}
               gradient="linear-gradient(135deg, #050032 0%, #009FDF 100%)"
@@ -580,28 +618,28 @@ const ShareProject: React.FC = () => {
           <Grid item xs={12} sm={6} lg={3}>
             <StatCard
               title="Total de Fases"
-              value={phases.length}
-              subtitle={`${phases.filter((p: any) => p.status === 'concluido').length} concluídas`}
+              value={formatIntegerPtBR(phases.length)}
+              subtitle={`${formatIntegerPtBR(phases.filter((p: any) => p.status === 'concluido').length)} concluídas`}
               icon={<DateRangeIcon sx={{ color: 'white', fontSize: 24 }} />}
-              gradient="linear-gradient(135deg, #f093fb 0%, #f5576c 100%)"
+              gradient="linear-gradient(135deg, #DA3832 0%, #E5B800 100%)"
             />
           </Grid>
           <Grid item xs={12} sm={6} lg={3}>
             <StatCard
               title="Tarefas"
-              value={totalTasks}
-              subtitle={`${completedTasks} finalizadas`}
+              value={formatIntegerPtBR(totalTasks)}
+              subtitle={`${formatIntegerPtBR(completedTasks)} finalizadas`}
               icon={<AssignmentIcon sx={{ color: 'white', fontSize: 24 }} />}
-              gradient="linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)"
+              gradient="linear-gradient(135deg, #004F75 0%, #009FDF 100%)"
             />
           </Grid>
           <Grid item xs={12} sm={6} lg={3}>
             <StatCard
               title="Subtarefas"
-              value={totalSubtasks}
+              value={formatIntegerPtBR(totalSubtasks)}
               subtitle="total de subtarefas"
               icon={<CheckCircleIcon sx={{ color: 'white', fontSize: 24 }} />}
-              gradient="linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)"
+              gradient="linear-gradient(135deg, #00A649 0%, #009FDF 100%)"
             />
           </Grid>
         </Grid>
@@ -625,7 +663,7 @@ const ShareProject: React.FC = () => {
                     <Typography variant="h6" sx={{ fontWeight: 700, color: '#1e293b', mb: 0.5 }}>
                       Progresso do Projeto
                     </Typography>
-                    <Typography variant="body2" sx={{ color: '#64748b' }}>
+                    <Typography variant="body2" sx={{ color: '#6b7a80' }}>
                       Visão geral do andamento
                     </Typography>
                   </Box>
@@ -687,7 +725,7 @@ const ShareProject: React.FC = () => {
                   </Typography>
                 </Box>
 
-                <Typography variant="body1" sx={{ color: '#475569', mb: 3, lineHeight: 1.7 }}>
+                <Typography variant="body1" sx={{ color: '#6b7a80', mb: 3, lineHeight: 1.7 }}>
                   {project.description || 'Sem descrição disponível para este projeto.'}
                 </Typography>
 
@@ -701,7 +739,7 @@ const ShareProject: React.FC = () => {
                         textAlign: 'center'
                       }}
                     >
-                      <Typography variant="caption" sx={{ color: '#64748b', display: 'block', mb: 0.5 }}>
+                      <Typography variant="caption" sx={{ color: '#6b7a80', display: 'block', mb: 0.5 }}>
                         Status
                       </Typography>
                       <Chip
@@ -724,7 +762,7 @@ const ShareProject: React.FC = () => {
                         textAlign: 'center'
                       }}
                     >
-                      <Typography variant="caption" sx={{ color: '#64748b', display: 'block', mb: 0.5 }}>
+                      <Typography variant="caption" sx={{ color: '#6b7a80', display: 'block', mb: 0.5 }}>
                         Prioridade
                       </Typography>
                       <Chip
@@ -747,7 +785,7 @@ const ShareProject: React.FC = () => {
                         textAlign: 'center'
                       }}
                     >
-                      <Typography variant="caption" sx={{ color: '#64748b', display: 'block', mb: 0.5 }}>
+                      <Typography variant="caption" sx={{ color: '#6b7a80', display: 'block', mb: 0.5 }}>
                         Início
                       </Typography>
                       <Typography variant="body2" sx={{ fontWeight: 600, color: '#1e293b' }}>
@@ -764,7 +802,7 @@ const ShareProject: React.FC = () => {
                         textAlign: 'center'
                       }}
                     >
-                      <Typography variant="caption" sx={{ color: '#64748b', display: 'block', mb: 0.5 }}>
+                      <Typography variant="caption" sx={{ color: '#6b7a80', display: 'block', mb: 0.5 }}>
                         Término
                       </Typography>
                       <Typography variant="body2" sx={{ fontWeight: 600, color: '#1e293b' }}>
@@ -784,7 +822,7 @@ const ShareProject: React.FC = () => {
                   borderRadius: 3,
                   boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
                   border: '1px solid rgba(0,0,0,0.04)',
-                  background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)'
+                  background: 'linear-gradient(135deg, #FBF4D4 0%, #E5B800 100%)'
                 }}
               >
                 <CardContent sx={{ p: 3 }}>
@@ -800,7 +838,7 @@ const ShareProject: React.FC = () => {
                         justifyContent: 'center'
                       }}
                     >
-                      <NotesIcon sx={{ color: '#FCDA4F', fontSize: 20 }} />
+                      <NotesIcon sx={{ color: '#E5B800', fontSize: 20 }} />
                     </Box>
                     <Typography variant="h6" sx={{ fontWeight: 700, color: '#92400e' }}>
                       Orçamento do Projeto
@@ -847,10 +885,10 @@ const ShareProject: React.FC = () => {
 
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   {[
-                    { label: 'Fases', value: phases.length, color: '#050032', icon: <DateRangeIcon sx={{ fontSize: 18 }} /> },
-                    { label: 'Tarefas', value: totalTasks, color: '#FCDA4F', icon: <AssignmentIcon sx={{ fontSize: 18 }} /> },
-                    { label: 'Subtarefas', value: totalSubtasks, color: '#00A649', icon: <CheckCircleIcon sx={{ fontSize: 18 }} /> },
-                    { label: 'Membros', value: project.members?.length ?? 0, color: '#ec4899', icon: <GroupIcon sx={{ fontSize: 18 }} /> }
+                    { label: 'Fases', value: formatIntegerPtBR(phases.length), color: '#050032', icon: <DateRangeIcon sx={{ fontSize: 18 }} /> },
+                    { label: 'Tarefas', value: formatIntegerPtBR(totalTasks), color: '#E5B800', icon: <AssignmentIcon sx={{ fontSize: 18 }} /> },
+                    { label: 'Subtarefas', value: formatIntegerPtBR(totalSubtasks), color: '#00A649', icon: <CheckCircleIcon sx={{ fontSize: 18 }} /> },
+                    { label: 'Membros', value: formatIntegerPtBR(project.members?.length ?? 0), color: '#ec4899', icon: <GroupIcon sx={{ fontSize: 18 }} /> }
                   ].map((item, index) => (
                     <Box
                       key={index}
@@ -866,7 +904,7 @@ const ShareProject: React.FC = () => {
                     >
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                         <Box sx={{ color: item.color }}>{item.icon}</Box>
-                        <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569' }}>
+                        <Typography variant="body2" sx={{ fontWeight: 500, color: '#6b7a80' }}>
                           {item.label}
                         </Typography>
                       </Box>
@@ -911,7 +949,7 @@ const ShareProject: React.FC = () => {
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                     {phases.slice(0, 5).map((phase: any, index: number) => {
                       const progress = calculatePhaseProgress(phase);
-                      const colors = ['#050032', '#FCDA4F', '#00A649', '#ec4899', '#6366f1'];
+                      const colors = ['#050032', '#E5B800', '#00A649', '#ec4899', '#6366f1'];
                       const color = colors[index % colors.length];
                       
                       return (
@@ -956,14 +994,14 @@ const ShareProject: React.FC = () => {
                       );
                     })}
                     {phases.length > 5 && (
-                      <Typography variant="caption" sx={{ color: '#64748b', textAlign: 'center' }}>
-                        +{phases.length - 5} fases adicionais
+                      <Typography variant="caption" sx={{ color: '#6b7a80', textAlign: 'center' }}>
+                        +{formatIntegerPtBR(phases.length - 5)} fases adicionais
                       </Typography>
                     )}
                   </Box>
                 ) : (
                   <Box sx={{ textAlign: 'center', py: 3 }}>
-                    <Typography variant="body2" sx={{ color: '#64748b' }}>
+                    <Typography variant="body2" sx={{ color: '#6b7a80' }}>
                       Nenhuma fase cadastrada.
                     </Typography>
                   </Box>
@@ -987,7 +1025,7 @@ const ShareProject: React.FC = () => {
               width: 80,
               height: 80,
               borderRadius: '50%',
-              background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+              background: 'linear-gradient(135deg, #DA3832 0%, #E5B800 100%)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -1000,7 +1038,7 @@ const ShareProject: React.FC = () => {
           <Typography variant="h6" sx={{ color: '#1e293b', fontWeight: 600, mb: 1 }}>
             Nenhum cronograma configurado
           </Typography>
-          <Typography variant="body2" sx={{ color: '#64748b' }}>
+          <Typography variant="body2" sx={{ color: '#6b7a80' }}>
             Este projeto ainda não possui um cronograma detalhado.
           </Typography>
         </Box>
@@ -1045,47 +1083,45 @@ const ShareProject: React.FC = () => {
               <Typography variant="h5" sx={{ fontWeight: 700, color: '#1e293b', letterSpacing: '-0.02em' }}>
                 Cronograma Detalhado
               </Typography>
-              <Typography variant="body2" sx={{ color: '#64748b' }}>
-                {phases.length} fases · {totalTasks} tarefas · {completedTasks} concluídas
+              <Typography variant="body2" sx={{ color: '#6b7a80' }}>
+                {formatIntegerPtBR(phases.length)} fases · {formatIntegerPtBR(totalTasks)} tarefas · {formatIntegerPtBR(completedTasks)} concluídas
               </Typography>
             </Box>
           </Box>
           <Box sx={{ display: 'flex', gap: 1.5 }}>
-            <Button
+            <PrimaryActionButton
               size="small"
               startIcon={<UnfoldMoreIcon />}
               onClick={expandAllPhases}
               sx={{
-                borderRadius: 2,
-                textTransform: 'none',
-                fontWeight: 600,
-                backgroundColor: 'rgba(5, 0, 50, 0.1)',
-                color: '#050032',
-                border: '1px solid rgba(5, 0, 50, 0.2)',
-                '&:hover': {
-                  backgroundColor: 'rgba(5, 0, 50, 0.2)'
-                }
+                height: 40,
+                px: 2.5,
+                fontSize: '0.85rem',
+                borderRadius: '999px',
               }}
             >
-              Expandir Todas
-            </Button>
+              Expandir todas
+            </PrimaryActionButton>
             <Button
               size="small"
               startIcon={<UnfoldLessIcon />}
               onClick={collapseAllPhases}
               sx={{
-                borderRadius: 2,
+                height: 40,
+                px: 2.5,
+                borderRadius: '999px',
                 textTransform: 'none',
-                fontWeight: 600,
-                backgroundColor: 'rgba(100, 116, 139, 0.1)',
-                color: '#64748b',
-                border: '1px solid rgba(100, 116, 139, 0.2)',
+                fontWeight: 500,
+                fontSize: '0.85rem',
+                border: '1px solid #002561',
+                color: '#002561',
+                backgroundColor: '#ffffff',
                 '&:hover': {
-                  backgroundColor: 'rgba(100, 116, 139, 0.2)'
+                  backgroundColor: '#F5F7FA',
                 }
               }}
             >
-              Recolher Todas
+              Recolher todas
             </Button>
           </Box>
         </Box>
@@ -1104,28 +1140,28 @@ const ShareProject: React.FC = () => {
           <Grid item xs={12} sm={6} lg={3}>
             <StatCard
               title="Total de Fases"
-              value={phases.length}
-              subtitle={`${phases.filter((p: any) => p.status === 'em_andamento' || p.status === 'in-progress').length} em andamento`}
+              value={formatIntegerPtBR(phases.length)}
+              subtitle={`${formatIntegerPtBR(phases.filter((p: any) => p.status === 'em_andamento' || p.status === 'in-progress').length)} em andamento`}
               icon={<AssignmentIcon sx={{ color: 'white', fontSize: 24 }} />}
-              gradient="linear-gradient(135deg, #f093fb 0%, #f5576c 100%)"
+              gradient="linear-gradient(135deg, #DA3832 0%, #E5B800 100%)"
             />
           </Grid>
           <Grid item xs={12} sm={6} lg={3}>
             <StatCard
               title="Tarefas"
-              value={totalTasks}
-              subtitle={`${completedTasks} concluídas`}
+              value={formatIntegerPtBR(totalTasks)}
+              subtitle={`${formatIntegerPtBR(completedTasks)} concluídas`}
               icon={<CheckCircleIcon sx={{ color: 'white', fontSize: 24 }} />}
-              gradient="linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)"
+              gradient="linear-gradient(135deg, #004F75 0%, #009FDF 100%)"
             />
           </Grid>
           <Grid item xs={12} sm={6} lg={3}>
             <StatCard
               title="Progresso Geral"
-              value={`${project.progress}%`}
+              value={`${formatIntegerPtBR(project.progress)}%`}
               subtitle="do projeto concluído"
               icon={<TrendingUpIcon sx={{ color: 'white', fontSize: 24 }} />}
-              gradient="linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)"
+              gradient="linear-gradient(135deg, #00A649 0%, #009FDF 100%)"
               trend={{ value: project.progress, isPositive: true }}
             />
           </Grid>
@@ -1147,7 +1183,7 @@ const ShareProject: React.FC = () => {
                   width: 40,
                   height: 40,
                   borderRadius: 2,
-                  background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+                  background: 'linear-gradient(135deg, #DA3832 0%, #E5B800 100%)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center'
@@ -1163,7 +1199,7 @@ const ShareProject: React.FC = () => {
               {[
                 { label: 'Em Andamento', count: phases.filter((p: any) => p.status === 'em_andamento' || p.status === 'in-progress').length, color: '#050032', bg: 'rgba(5, 0, 50, 0.1)' },
                 { label: 'Concluídas', count: phases.filter((p: any) => p.status === 'concluido' || p.status === 'completed').length, color: '#00A649', bg: 'rgba(0, 166, 73, 0.1)' },
-                { label: 'Pendentes', count: phases.filter((p: any) => p.status === 'nao_iniciado' || p.status === 'not_started' || !p.status).length, color: '#FCDA4F', bg: 'rgba(252, 218, 79, 0.1)' },
+                { label: 'Pendentes', count: phases.filter((p: any) => p.status === 'nao_iniciado' || p.status === 'not_started' || !p.status).length, color: '#E5B800', bg: 'rgba(229, 184, 0, 0.15)' },
                 { label: 'Total Tarefas', count: totalTasks, color: '#6366f1', bg: 'rgba(99, 102, 241, 0.1)' }
               ].map((item, index) => (
                 <Grid item xs={6} sm={3} key={index}>
@@ -1177,9 +1213,9 @@ const ShareProject: React.FC = () => {
                     }}
                   >
                     <Typography variant="h4" sx={{ fontWeight: 700, color: item.color, mb: 0.5 }}>
-                      {item.count}
+                      {formatIntegerPtBR(item.count)}
                     </Typography>
-                    <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 500 }}>
+                    <Typography variant="caption" sx={{ color: '#6b7a80', fontWeight: 500 }}>
                       {item.label}
                     </Typography>
                   </Box>
@@ -1193,7 +1229,7 @@ const ShareProject: React.FC = () => {
         {phases.map((phase: any, phaseIndex: number) => {
           const isExpanded = expandedPhases.has(phase.id);
           const hasTasks = phase.tasks && phase.tasks.length > 0;
-          const phaseColors = ['#050032', '#FCDA4F', '#00A649', '#ec4899', '#6366f1', '#14b8a6'];
+          const phaseColors = ['#050032', '#E5B800', '#00A649', '#ec4899', '#6366f1', '#14b8a6'];
           const phaseColor = phaseColors[phaseIndex % phaseColors.length];
 
           return (
@@ -1240,26 +1276,26 @@ const ShareProject: React.FC = () => {
                       </Typography>
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Início:</Typography>
+                          <Typography variant="caption" sx={{ color: '#6b7a80', fontWeight: 600 }}>Início:</Typography>
                           <Typography variant="body2" sx={{ color: '#1e293b', fontWeight: 500 }}>
                             {phase.startDate ? formatDate(phase.startDate) : 'Não definido'}
                           </Typography>
                         </Box>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Programada:</Typography>
+                          <Typography variant="caption" sx={{ color: '#6b7a80', fontWeight: 600 }}>Programada:</Typography>
                           <Typography variant="body2" sx={{ color: '#1e293b', fontWeight: 500 }}>
                             {phase.endDate ? formatDate(phase.endDate) : 'Não definido'}
                           </Typography>
                         </Box>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Typography variant="caption" sx={{ color: phase.actualEndDate ? '#00A649' : '#64748b', fontWeight: 600 }}>Finalização:</Typography>
-                          <Typography variant="body2" sx={{ color: phase.actualEndDate ? '#00A649' : '#64748b', fontWeight: 500 }}>
+                          <Typography variant="caption" sx={{ color: phase.actualEndDate ? '#00A649' : '#6b7a80', fontWeight: 600 }}>Finalização:</Typography>
+                          <Typography variant="body2" sx={{ color: phase.actualEndDate ? '#00A649' : '#6b7a80', fontWeight: 500 }}>
                             {phase.actualEndDate ? formatDate(phase.actualEndDate) : 'Não definido'}
                           </Typography>
                         </Box>
                         {hasTasks && (
-                          <Typography variant="body2" sx={{ color: '#64748b' }}>
-                            {phase.tasks.length} tarefa{phase.tasks.length > 1 ? 's' : ''}
+                          <Typography variant="body2" sx={{ color: '#6b7a80' }}>
+                            {formatIntegerPtBR(phase.tasks.length)} tarefa{phase.tasks.length > 1 ? 's' : ''}
                           </Typography>
                         )}
                       </Box>
@@ -1308,7 +1344,7 @@ const ShareProject: React.FC = () => {
                           width: 36,
                           height: 36,
                           backgroundColor: isExpanded ? `${phaseColor}15` : 'transparent',
-                          color: isExpanded ? phaseColor : '#64748b',
+                          color: isExpanded ? phaseColor : '#6b7a80',
                           '&:hover': {
                             backgroundColor: `${phaseColor}15`,
                             color: phaseColor
@@ -1324,7 +1360,7 @@ const ShareProject: React.FC = () => {
                 {/* Barra de Progresso da Fase */}
                 <Box sx={{ mb: 3 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                    <Typography variant="body2" sx={{ color: '#64748b', fontWeight: 500 }}>
+                    <Typography variant="body2" sx={{ color: '#6b7a80', fontWeight: 500 }}>
                       Progresso da Fase
                     </Typography>
                     <Typography variant="body2" sx={{ fontWeight: 700, color: phaseColor }}>
@@ -1402,7 +1438,7 @@ const ShareProject: React.FC = () => {
                                           {task.name || `Tarefa ${taskIndex + 1}`}
                                         </Typography>
                                         {task.description && (
-                                          <Typography variant="body2" sx={{ color: '#64748b', mb: 1.5, lineHeight: 1.5 }}>
+                                          <Typography variant="body2" sx={{ color: '#6b7a80', mb: 1.5, lineHeight: 1.5 }}>
                                             {task.description}
                                           </Typography>
                                         )}
@@ -1437,7 +1473,7 @@ const ShareProject: React.FC = () => {
                                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                       {/* Datas sempre visíveis: Início, Programada, Finalização */}
                                       <Box sx={{ mb: 1.5 }}>
-                                        <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, display: 'block', mb: 1 }}>
+                                        <Typography variant="caption" sx={{ color: '#6b7a80', fontWeight: 600, display: 'block', mb: 1 }}>
                                           Datas da Tarefa
                                         </Typography>
                                         <Grid container spacing={1.5}>
@@ -1450,7 +1486,7 @@ const ShareProject: React.FC = () => {
                                                 border: '1px solid rgba(5, 0, 50, 0.15)'
                                               }}
                                             >
-                                              <Typography variant="caption" sx={{ color: '#64748b', display: 'block', mb: 0.5 }}>
+                                              <Typography variant="caption" sx={{ color: '#6b7a80', display: 'block', mb: 0.5 }}>
                                                 Data de Início
                                               </Typography>
                                               <Typography variant="body2" sx={{ fontWeight: 600, color: '#1e293b' }}>
@@ -1467,7 +1503,7 @@ const ShareProject: React.FC = () => {
                                                 border: '1px solid rgba(245, 158, 11, 0.15)'
                                               }}
                                             >
-                                              <Typography variant="caption" sx={{ color: '#64748b', display: 'block', mb: 0.5 }}>
+                                              <Typography variant="caption" sx={{ color: '#6b7a80', display: 'block', mb: 0.5 }}>
                                                 Data Programada
                                               </Typography>
                                               <Typography variant="body2" sx={{ fontWeight: 600, color: '#1e293b' }}>
@@ -1484,10 +1520,10 @@ const ShareProject: React.FC = () => {
                                                 border: '1px solid rgba(16, 185, 129, 0.15)'
                                               }}
                                             >
-                                              <Typography variant="caption" sx={{ color: '#64748b', display: 'block', mb: 0.5 }}>
+                                              <Typography variant="caption" sx={{ color: '#6b7a80', display: 'block', mb: 0.5 }}>
                                                 Data de Finalização
                                               </Typography>
-                                              <Typography variant="body2" sx={{ fontWeight: 600, color: task.actualEndDate ? '#00A649' : '#64748b' }}>
+                                              <Typography variant="body2" sx={{ fontWeight: 600, color: task.actualEndDate ? '#00A649' : '#6b7a80' }}>
                                                 {task.actualEndDate ? formatDate(task.actualEndDate) : 'Não definido'}
                                               </Typography>
                                             </Box>
@@ -1506,7 +1542,7 @@ const ShareProject: React.FC = () => {
                                                 border: '1px solid rgba(236, 72, 153, 0.1)'
                                               }}
                                             >
-                                              <Typography variant="caption" sx={{ color: '#64748b', display: 'block', mb: 0.5 }}>
+                                              <Typography variant="caption" sx={{ color: '#6b7a80', display: 'block', mb: 0.5 }}>
                                                 Responsável
                                               </Typography>
                                               <Typography variant="body2" sx={{ fontWeight: 600, color: '#1e293b' }}>
@@ -1521,11 +1557,11 @@ const ShareProject: React.FC = () => {
                                       {task.progress !== undefined && (
                                         <Box>
                                           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                                            <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 500 }}>
+                                            <Typography variant="caption" sx={{ color: '#6b7a80', fontWeight: 500 }}>
                                               Progresso da Tarefa
                                             </Typography>
                                             <Typography variant="body2" sx={{ fontWeight: 700, color: taskColor }}>
-                                              {task.progress}%
+                                              {formatIntegerPtBR(task.progress)}%
                                             </Typography>
                                           </Box>
                                           <Box
@@ -1565,7 +1601,7 @@ const ShareProject: React.FC = () => {
                                         <Typography variant="caption" sx={{ color: '#6366f1', fontWeight: 600, display: 'block', mb: 0.5 }}>
                                           Observações
                                         </Typography>
-                                        <Typography variant="body2" sx={{ color: '#475569', lineHeight: 1.6 }}>
+                                        <Typography variant="body2" sx={{ color: '#6b7a80', lineHeight: 1.6 }}>
                                           {task.observations}
                                         </Typography>
                                       </Box>
@@ -1599,7 +1635,7 @@ const ShareProject: React.FC = () => {
                                             <CheckCircleIcon sx={{ color: taskColor, fontSize: 16 }} />
                                           </Box>
                                           <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#1e293b' }}>
-                                            Subtarefas ({task.subtasks.length})
+                                            Subtarefas ({formatIntegerPtBR(task.subtasks.length)})
                                           </Typography>
                                         </Box>
                                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
@@ -1633,7 +1669,7 @@ const ShareProject: React.FC = () => {
                                                           height: 24,
                                                           borderRadius: '50%',
                                                           backgroundColor: isCompleted ? '#00A649' : 'transparent',
-                                                          border: `2px solid ${isCompleted ? '#00A649' : '#cbd5e1'}`,
+                                                          border: `2px solid ${isCompleted ? '#00A649' : '#DCDFE3'}`,
                                                           display: 'flex',
                                                           alignItems: 'center',
                                                           justifyContent: 'center',
@@ -1656,7 +1692,7 @@ const ShareProject: React.FC = () => {
                                                           {subtask.title || subtask.name}
                                                         </Typography>
                                                         {subtask.description && (
-                                                          <Typography variant="caption" sx={{ color: '#64748b', display: 'block', mt: 0.5 }}>
+                                                          <Typography variant="caption" sx={{ color: '#6b7a80', display: 'block', mt: 0.5 }}>
                                                             {subtask.description}
                                                           </Typography>
                                                         )}
@@ -1684,11 +1720,11 @@ const ShareProject: React.FC = () => {
                                                   {/* Datas sempre visíveis */}
                                                   <Grid item xs={12} md={3}>
                                                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                                                      <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Início: {subtask.startDate ? formatDate(subtask.startDate) : 'Não definido'}</Typography>
-                                                      <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Programada: {(subtask.plannedEndDate || subtask.dueDate) ? formatDate(subtask.plannedEndDate || subtask.dueDate) : 'Não definido'}</Typography>
-                                                      <Typography variant="caption" sx={{ color: subtask.actualEndDate ? '#00A649' : '#64748b', fontWeight: 600 }}>Finalização: {subtask.actualEndDate ? formatDate(subtask.actualEndDate) : 'Não definido'}</Typography>
+                                                      <Typography variant="caption" sx={{ color: '#6b7a80', fontWeight: 600 }}>Início: {subtask.startDate ? formatDate(subtask.startDate) : 'Não definido'}</Typography>
+                                                      <Typography variant="caption" sx={{ color: '#6b7a80', fontWeight: 600 }}>Programada: {(subtask.plannedEndDate || subtask.dueDate) ? formatDate(subtask.plannedEndDate || subtask.dueDate) : 'Não definido'}</Typography>
+                                                      <Typography variant="caption" sx={{ color: subtask.actualEndDate ? '#00A649' : '#6b7a80', fontWeight: 600 }}>Finalização: {subtask.actualEndDate ? formatDate(subtask.actualEndDate) : 'Não definido'}</Typography>
                                                       {subtask.assignee && (
-                                                        <Typography variant="caption" sx={{ color: '#64748b', display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
+                                                        <Typography variant="caption" sx={{ color: '#6b7a80', display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
                                                           <PersonIcon sx={{ fontSize: 12 }} />
                                                           {subtask.assignee}
                                                         </Typography>
@@ -1700,9 +1736,9 @@ const ShareProject: React.FC = () => {
                                                   <Grid item xs={12} md={2}>
                                                     {subtask.progress !== undefined && (
                                                       <Box>
-                                                        <Typography variant="caption" sx={{ color: '#64748b', display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                                                        <Typography variant="caption" sx={{ color: '#6b7a80', display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
                                                           <span>Progresso</span>
-                                                          <strong style={{ color: subtaskColor }}>{subtask.progress}%</strong>
+                                                          <strong style={{ color: subtaskColor }}>{formatIntegerPtBR(subtask.progress)}%</strong>
                                                         </Typography>
                                                         <Box
                                                           sx={{
@@ -2111,7 +2147,7 @@ const ShareProject: React.FC = () => {
                     </Box>
                   </Box>
                   <Chip
-                    label={`${categoryTasks.length} item${categoryTasks.length === 1 ? '' : 's'}`}
+                    label={`${formatIntegerPtBR(categoryTasks.length)} item${categoryTasks.length === 1 ? '' : 's'}`}
                     color={config.palette}
                     variant="outlined"
                   />
@@ -2191,7 +2227,7 @@ const ShareProject: React.FC = () => {
                                 </Typography>
                                 {typeof task.progress === 'number' && (
                                   <Typography variant="body2" color="textSecondary">
-                                    Progresso: <strong>{task.progress}%</strong>
+                                    Progresso: <strong>{formatIntegerPtBR(task.progress)}%</strong>
                                   </Typography>
                                 )}
                               </Box>
@@ -2247,7 +2283,7 @@ const ShareProject: React.FC = () => {
                     <Box key={subKey} sx={{ mb: 3 }}>
                       <Typography variant="subtitle1" fontWeight="bold" color="textSecondary" sx={{ mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
                         <SubIcon fontSize="small" />
-                        {subConfig.title} ({subTasks.length})
+                        {subConfig.title} ({formatIntegerPtBR(subTasks.length)})
                       </Typography>
                       <List>
                         {subTasks
@@ -2296,7 +2332,7 @@ const ShareProject: React.FC = () => {
                                     )}
                                     <Typography variant="body2" color="textSecondary">Responsável: <strong>{getResponsibleName(task)}</strong></Typography>
                                     {typeof task.progress === 'number' && (
-                                      <Typography variant="body2" color="textSecondary">Progresso: <strong>{task.progress}%</strong></Typography>
+                                      <Typography variant="body2" color="textSecondary">Progresso: <strong>{formatIntegerPtBR(task.progress)}%</strong></Typography>
                                     )}
                                   </Box>
                                   }
@@ -2352,7 +2388,7 @@ const ShareProject: React.FC = () => {
                 Gráfico de Gantt
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Cronograma visual do projeto · {phases.length} fases · {totalTasksGantt} tarefas
+                Cronograma visual do projeto · {formatIntegerPtBR(phases.length)} fases · {formatIntegerPtBR(totalTasksGantt)} tarefas
               </Typography>
             </Box>
           </Box>
@@ -2408,16 +2444,16 @@ const ShareProject: React.FC = () => {
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                     <Typography variant="body2" color="text.secondary">Fases</Typography>
-                    <Typography variant="body1" fontWeight="bold" color="primary.main">{phases.length}</Typography>
+                    <Typography variant="body1" fontWeight="bold" color="primary.main">{formatIntegerPtBR(phases.length)}</Typography>
                   </Box>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                     <Typography variant="body2" color="text.secondary">Tarefas (cronograma)</Typography>
-                    <Typography variant="body1" fontWeight="bold" color="primary.main">{totalTasksGantt}</Typography>
+                    <Typography variant="body1" fontWeight="bold" color="primary.main">{formatIntegerPtBR(totalTasksGantt)}</Typography>
                   </Box>
                   <Divider />
                   <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                     <Typography variant="body2" color="text.secondary">Marcos</Typography>
-                    <Typography variant="body1" fontWeight="bold" color="primary.main">{project.milestones?.length || 0}</Typography>
+                    <Typography variant="body1" fontWeight="bold" color="primary.main">{formatIntegerPtBR(project.milestones?.length || 0)}</Typography>
                   </Box>
                 </Box>
               </CardContent>
@@ -2508,7 +2544,7 @@ const ShareProject: React.FC = () => {
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
                 <PersonIcon color="primary" />
                 <Typography variant="h6" fontWeight="bold">
-                  Membros da Equipe ({project.members?.length || 0})
+                  Membros da Equipe ({formatIntegerPtBR(project.members?.length || 0)})
                 </Typography>
               </Box>
               <List disablePadding>
@@ -2544,7 +2580,7 @@ const ShareProject: React.FC = () => {
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
                 <PersonIcon color="primary" />
                 <Typography variant="h6" fontWeight="bold">
-                  Membros Externos ({project.externalMembers?.length || 0})
+                  Membros Externos ({formatIntegerPtBR(project.externalMembers?.length || 0)})
                 </Typography>
               </Box>
               {(project.externalMembers?.length || 0) > 0 ? (
@@ -2610,7 +2646,7 @@ const ShareProject: React.FC = () => {
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
                 <AssignmentIcon color="primary" />
                 <Typography variant="h6" fontWeight="bold">
-                  Tarefas ({project.tasks?.length || 0})
+                  Tarefas ({formatIntegerPtBR(project.tasks?.length || 0)})
                 </Typography>
               </Box>
               {(project.tasks?.length || 0) > 0 ? (
@@ -2662,7 +2698,7 @@ const ShareProject: React.FC = () => {
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
                 <CheckCircleIcon color="primary" />
                 <Typography variant="h6" fontWeight="bold">
-                  Marcos ({project.milestones?.length || 0})
+                  Marcos ({formatIntegerPtBR(project.milestones?.length || 0)})
                 </Typography>
               </Box>
               {(project.milestones?.length || 0) > 0 ? (
@@ -2744,141 +2780,164 @@ const ShareProject: React.FC = () => {
 
   return (
     <Box
+      className="min-h-screen bg-background-default"
       sx={{
-        minHeight: '100vh',
-        background: '#ffffff'
+        display: 'flex',
+        flexDirection: 'row'
       }}
     >
-      <Box sx={{ p: { xs: 2, sm: 3 } }}>
-        {/* Header e Menu no topo */}
-        <Paper
-          elevation={0}
-          sx={{
-            mb: 3,
-            borderRadius: 3,
-            border: '1px solid rgba(0, 0, 0, 0.08)',
-            boxShadow: '0 2px 12px rgba(0, 0, 0, 0.04)',
-            overflow: 'hidden'
-          }}
-        >
-          {/* Cabeçalho do projeto */}
-          <Box sx={{ p: { xs: 2, sm: 3 }, borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 2 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Box
-                  sx={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 2,
-                    background: 'linear-gradient(135deg, #050032 0%, #009FDF 100%)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0
-                  }}
+      {/* Sidebar no padrão do sistema, ocupando a lateral esquerda */}
+      <Box
+        className="bg-gradient-dark text-white"
+        sx={{
+          width: isCollapsed ? 64 : 280,
+          minHeight: '100vh',
+          transition: 'width 0.3s ease-in-out',
+          display: 'flex',
+          flexDirection: 'column'
+        }}
+      >
+        {/* Cabeçalho minimalista apenas com o botão de recolher/expandir */}
+        <div className="flex items-center justify-end p-4 border-b border-white/10">
+          <button
+            type="button"
+            onClick={() => setIsCollapsed(prev => !prev)}
+            className="p-2 hover:bg-white/10 rounded-lg transition-colors duration-200"
+          >
+            {isCollapsed ? (
+              <ChevronRightIcon className="w-5 h-5" fontSize="small" />
+            ) : (
+              <ChevronLeftIcon className="w-5 h-5" fontSize="small" />
+            )}
+          </button>
+        </div>
+
+        {/* Menu lateral apenas com as seções da página compartilhada, no estilo da sidebar */}
+        <nav className="sidebar-nav flex-1 mt-6 px-2 overflow-y-auto">
+          <div className="space-y-1">
+            {availableTabs.map((tab, index) => {
+              const isActive = activeTab === index;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setActiveTab(index)}
+                  className={`sidebar-item w-full text-left ${isActive ? 'active' : ''} ${
+                    isCollapsed ? 'justify-center px-2' : ''
+                  }`}
                 >
-                  <ShareIcon sx={{ color: 'white', fontSize: 24 }} />
-                </Box>
-                <Box>
-                  <Typography variant="h5" sx={{ fontWeight: 700, color: '#1e293b', mb: 0.5, letterSpacing: '-0.02em' }}>
-                    {project.name}
-                  </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-                    {shareInfo && (
-                      <Typography variant="body2" sx={{ color: '#64748b' }}>
-                        Compartilhado por <strong>{shareInfo.name}</strong>
-                      </Typography>
-                    )}
-                    {shareInfo?.createdAt && (
-                      <>
-                        <Box sx={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: '#cbd5e1' }} />
-                        <Typography variant="body2" sx={{ color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <AccessTimeIcon sx={{ fontSize: 14 }} />
-                          {formatDateTime(shareInfo.createdAt)}
+                  {getTabIcon(tab.key)}
+                  {!isCollapsed && (
+                    <span className="font-medium truncate">{tab.label}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+      </Box>
+
+      {/* Área principal à direita da sidebar, ocupando 100% da largura disponível e colada ao menu */}
+      <Box
+        sx={{
+          flexGrow: 1,
+          p: { xs: 2, sm: 3 },
+          display: 'flex',
+          justifyContent: 'flex-start'
+        }}
+      >
+        <Box sx={{ width: '100%', maxWidth: 'none' }}>
+          {/* Cabeçalho do projeto */}
+          <Paper
+            elevation={0}
+            sx={{
+              mb: 3,
+              borderRadius: 3,
+              border: '1px solid rgba(0, 0, 0, 0.08)',
+              boxShadow: '0 2px 12px rgba(0, 0, 0, 0.04)',
+              overflow: 'hidden'
+            }}
+          >
+            <Box sx={{ p: { xs: 2, sm: 3 } }}>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Box
+                    sx={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: 2,
+                      background: 'linear-gradient(135deg, #050032 0%, #009FDF 100%)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0
+                    }}
+                  >
+                    <ShareIcon sx={{ color: 'white', fontSize: 24 }} />
+                  </Box>
+                  <Box>
+                    <Typography variant="h5" sx={{ fontWeight: 700, color: '#1e293b', mb: 0.5, letterSpacing: '-0.02em' }}>
+                      {project.name}
+                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+                      {shareInfo && (
+                        <Typography variant="body2" sx={{ color: '#6b7a80' }}>
+                          Compartilhado por <strong>{shareInfo.name}</strong>
                         </Typography>
-                      </>
-                    )}
+                      )}
+                      {shareInfo?.createdAt && (
+                        <>
+                          <Box sx={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: '#DCDFE3' }} />
+                          <Typography variant="body2" sx={{ color: '#6b7a80', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <AccessTimeIcon sx={{ fontSize: 14 }} />
+                            {formatDateTime(shareInfo.createdAt)}
+                          </Typography>
+                        </>
+                      )}
+                    </Box>
                   </Box>
                 </Box>
-              </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                <Chip
-                  icon={<VisibilityIcon sx={{ fontSize: 16 }} />}
-                  label="Visualização Pública"
-                  size="small"
-                  sx={{
-                    backgroundColor: 'rgba(5, 0, 50, 0.1)',
-                    color: '#050032',
-                    fontWeight: 600,
-                    border: '1px solid rgba(5, 0, 50, 0.2)',
-                    '& .MuiChip-icon': { color: '#050032' }
-                  }}
-                />
-                <Chip
-                  label={getStatusLabel(project.status)}
-                  size="small"
-                  sx={{
-                    backgroundColor: getStatusColor(project.status),
-                    color: 'white',
-                    fontWeight: 600
-                  }}
-                />
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                  <Chip
+                    icon={<VisibilityIcon sx={{ fontSize: 16 }} />}
+                    label="Visualização Pública"
+                    size="small"
+                    sx={{
+                      backgroundColor: 'rgba(5, 0, 50, 0.1)',
+                      color: '#050032',
+                      fontWeight: 600,
+                      border: '1px solid rgba(5, 0, 50, 0.2)',
+                      '& .MuiChip-icon': { color: '#050032' }
+                    }}
+                  />
+                  <Chip
+                    label={getStatusLabel(project.status)}
+                    size="small"
+                    sx={{
+                      backgroundColor: getStatusColor(project.status),
+                      color: 'white',
+                      fontWeight: 600
+                    }}
+                  />
+                </Box>
               </Box>
             </Box>
-          </Box>
+          </Paper>
 
-          {/* Menu horizontal no topo */}
-          {availableTabs.length > 1 && (
-            <Tabs
-              value={activeTab}
-              onChange={(_, newValue) => setActiveTab(newValue)}
-              variant="scrollable"
-              scrollButtons="auto"
-              sx={{
-                minHeight: 48,
-                px: 1,
-                '& .MuiTab-root': {
-                  fontWeight: 600,
-                  textTransform: 'none',
-                  fontSize: '0.875rem',
-                  minHeight: 48,
-                  color: '#64748b',
-                  transition: 'all 0.2s ease-in-out',
-                  '&:hover': {
-                    color: '#050032'
-                  }
-                },
-                '& .Mui-selected': {
-                  fontWeight: 700,
-                  color: '#050032 !important'
-                },
-                '& .MuiTabs-indicator': {
-                  height: 3,
-                  borderRadius: '3px 3px 0 0',
-                  backgroundColor: '#050032'
-                }
-              }}
-            >
-              {availableTabs.map((tab) => (
-                <Tab key={tab.key} label={tab.label} />
-              ))}
-            </Tabs>
-          )}
-        </Paper>
-
-        {/* Conteúdo Principal */}
-        <Paper
-          elevation={0}
-          sx={{
-            p: { xs: 2, sm: 3, md: 4 },
-            borderRadius: 3,
-            border: '1px solid rgba(0, 0, 0, 0.08)',
-            boxShadow: '0 2px 12px rgba(0, 0, 0, 0.04)',
-            minHeight: 'calc(100vh - 280px)'
-          }}
-        >
-          {renderTabContent()}
-        </Paper>
+          {/* Conteúdo Principal */}
+          <Paper
+            elevation={0}
+            sx={{
+              p: { xs: 2, sm: 3, md: 4 },
+              borderRadius: 3,
+              border: '1px solid rgba(0, 0, 0, 0.08)',
+              boxShadow: '0 2px 12px rgba(0, 0, 0, 0.04)',
+              minHeight: 'calc(100vh - 280px)'
+            }}
+          >
+            {renderTabContent()}
+          </Paper>
+        </Box>
       </Box>
     </Box>
   );

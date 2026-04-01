@@ -140,7 +140,7 @@ export function AppLayout() {
   }, [syncMasterData, syncComunicados, syncValidacoes, syncDemandas, syncManutencoes, syncProjetos])
 
   return (
-    <div className="min-h-screen bg-neutral-50">
+    <div className="min-h-screen bg-neutral-50 dark:bg-[#0d1114] transition-colors duration-300">
       <Sidebar />
       
       <motion.div

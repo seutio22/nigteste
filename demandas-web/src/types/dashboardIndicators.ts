@@ -9,6 +9,8 @@ export interface DashboardIndicator {
   title: string
   value: number
   previousValue?: number
+  /** Texto curto para o rodapé do card (ex.: "mês anterior"). */
+  comparisonPeriodLabel?: string
   change?: number
   changeType: ChangeType
   period: PeriodType
@@ -24,19 +26,28 @@ export interface PageMetrics {
     total: number
     created: number
     updated: number
+    /** Concluídos de produção (não inclui cancelados). */
     completed: number
+    /** Encerrados por cancelamento — separado de `completed` para indicadores. */
+    canceled: number
+    /** Itens em andamento/em aberto (produção): total - concluídos - cancelados. */
+    inProgress: number
   }
   monthly: {
     total: number
     created: number
     updated: number
     completed: number
+    canceled: number
+    inProgress: number
   }
   quarterly: {
     total: number
     created: number
     updated: number
     completed: number
+    canceled: number
+    inProgress: number
   }
 }
 
@@ -87,7 +98,7 @@ export const PAGE_CONFIGS: IndicatorConfig[] = [
     page: 'validacoes',
     title: 'Validações',
     icon: 'CheckCircle',
-    color: '#FCDA4F',
+    color: '#E5B800',
     category: 'primary',
     fields: {
       total: 'status',
@@ -192,10 +203,10 @@ export const COMPLETION_STATUS: Record<string, string[]> = {
 
 // Status que indicam pendência (não concluído) por página
 export const PENDING_STATUS: Record<string, string[]> = {
-  demandas: ['Pendente', 'Aberta', 'Em andamento', 'Em Andamento', 'Transf. Analista', 'Aguardando aprovação', 'Com erros'],
+  demandas: ['Pendente', 'Aberta', 'Em andamento', 'Em Andamento', 'Aguardando aprovação', 'Com erros'],
   atendimentos: ['Aberto', 'Em Andamento', 'Em andamento'],
-  validacoes: ['Pendente', 'Em validação', 'Em andamento', 'Transf. Analista', 'Aguardando validação'],
-  manutencoes: ['Pendente', 'Aberta', 'Em andamento', 'Em Andamento', 'Transf. Analista', 'Aguardando validação', 'Com erros'],
+  validacoes: ['Pendente', 'Em validação', 'Em andamento', 'Aguardando validação'],
+  manutencoes: ['Pendente', 'Aberta', 'Em andamento', 'Em Andamento', 'Aguardando validação', 'Com erros'],
   analytics: ['Pendente', 'pendente', 'PENDENTE', 'Em andamento', 'em_andamento', 'EM ANDAMENTO']
 }
 
@@ -210,6 +221,28 @@ export function isItemConcluido(page: string, item: any): boolean {
   return statuses.some(st => st.toLowerCase() === s.toLowerCase())
 }
 
+/** Status de cancelamento (encerramento sem conclusão de produção). */
+export function isItemCancelado(page: string, item: any): boolean {
+  const s = String(item?.status ?? '').trim()
+  if (!s) return false
+  const t = normalizeStatusParaPendencia(s)
+  if (t.includes('cancelad')) return true
+  // Transferido de analista: status de encerramento sem produção (equivalente a cancelado para o Dashboard).
+  if (t.includes('transf') && t.includes('analista')) return true
+  return false
+}
+
+/**
+ * Conclusão para indicadores de produção: concluído pelo fluxo normal e **não** cancelado.
+ * Cancelados ficam só em `canceled`, não em `completed`.
+ */
+export function isItemConcluidoProducao(page: string, item: any): boolean {
+  if (isItemCancelado(page, item)) return false
+  // Compatível com métricas antigas que tratavam `status === true` como concluído
+  if (item?.status === true) return true
+  return isItemConcluido(page, item)
+}
+
 /** Verifica se item está pendente (por página). Reajustes: !aprovado. */
 export function isItemPendente(page: string, item: any): boolean {
   if (page === 'reajustes') return item.aprovado !== true
@@ -217,4 +250,44 @@ export function isItemPendente(page: string, item: any): boolean {
   if (!statuses) return !isItemConcluido(page, item)
   const s = String(item.status || '').trim()
   return statuses.some(st => st.toLowerCase() === s.toLowerCase())
+}
+
+/** Normaliza status para comparação (minúsculas, sem acentos). */
+export function normalizeStatusParaPendencia(raw: string | undefined | null): string {
+  if (raw == null) return ''
+  return String(raw)
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+}
+
+/**
+ * Status que fecham o chamado para a lista/export "pendências do meu usuário" na Home:
+ * Concluído (e Concluída), Concluído Parcialmente, Cancelado (e Cancelada),
+ * além de Resolvido/Finalizado (encerrados em atendimentos) e Aprovado/Aprovada/Validada (encerrados em validação).
+ * Retorna true se o item deve ser EXCLUÍDO da lista (está fechado/cancelado).
+ */
+export function isStatusFechadoOuCanceladoParaListaUsuario(statusRaw: string | undefined | null): boolean {
+  const t = normalizeStatusParaPendencia(statusRaw)
+  if (!t) return false
+  if (t.includes('cancelad')) return true
+  // Transferido para outro analista: para o analista atual, trata como encerrado (não pendente).
+  if (t.includes('transf') && t.includes('analista')) return true
+  if (t.includes('parcialmente') && t.includes('concluid')) return true
+  if (t.includes('concluid')) return true
+  if (t.includes('resolvid')) return true
+  if (t.includes('finaliz')) return true
+  // Validação encerrada (evita confundir com "aguardando aprovação" / "não aprovado")
+  if (t === 'aprovada' || t === 'aprovado' || t === 'validada' || t === 'validado') return true
+  return false
+}
+
+/**
+ * Chamado "em aberto" para pendências do usuário na Home / export CSV:
+ * não cancelado, não concluído, não concluído parcialmente; reajustes não aprovados.
+ */
+export function isItemAbertoParaPendenciasUsuario(page: string, item: any): boolean {
+  if (page === 'reajustes' && item?.aprovado === true) return false
+  return !isStatusFechadoOuCanceladoParaListaUsuario(item?.status)
 }

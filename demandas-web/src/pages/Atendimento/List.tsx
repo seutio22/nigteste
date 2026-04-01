@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, IconButton, Menu, MenuItem, TextField, FormControl, InputLabel, Select, Box, Typography, Switch, FormControlLabel, Chip, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material'
 import { DataGrid, GridColDef, GridToolbar, GridColumnVisibilityModel, GridFilterModel, GridPaginationModel, GridSortModel } from '@mui/x-data-grid'
-import { Add, Download, MoreVert, Visibility, Edit, Delete, ContentCopy, TrendingUp, Description, Search, FilterList, Person, Group } from '@mui/icons-material'
+import { AddCircleOutline as AddCircleOutlineIcon, Download, MoreVert, Visibility, Edit, Delete, ContentCopy, TrendingUp, Description, Search, FilterList, Person, Group } from '@mui/icons-material'
 import TableChartIcon from '@mui/icons-material/TableChart'
 import { useAtendimentoStore } from '../../store/atendimentoStore'
 import { useMasterDataStore } from '../../store/masterDataStore'
@@ -12,6 +12,8 @@ import ExportDataModal from '../../components/ExportDataModal'
 import PersonIcon from '@mui/icons-material/Person'
 import GroupIcon from '@mui/icons-material/Group'
 import { usePermissions } from '../../hooks/usePermissions'
+import { PrimaryActionButton } from '../../components/PrimaryActionButton'
+import { formatIntegerPtBR } from '../../utils/formatNumber'
 
 const tipoServicoLabel: Record<string, string> = {
   duvida: 'Dúvida',
@@ -197,8 +199,20 @@ export default function AtendimentoListPage() {
       return cliente?.nome || p.value || '-'
     }},
     { field: 'solicitante', headerName: 'Solicitante', width: 160, renderCell: (p) => {
-      const solicitante = solicitantesById?.[String(p.value || '')]
-      return solicitante?.nome || p.value || '-'
+      const nomeFromApi = (p.row as { solicitanteNome?: string }).solicitanteNome
+      if (nomeFromApi) return nomeFromApi
+      const raw = p.value
+      const idOrName = typeof raw === 'object' && raw !== null
+        ? (raw as { id?: string; nome?: string }).id ?? (raw as { id?: string; nome?: string }).nome ?? ''
+        : String(raw || '')
+      const v = (idOrName || '').trim()
+      const byId = solicitantesById?.[v]
+      const byName = !byId && v ? masterDataStore.solicitantes?.find(s => (s.id && String(s.id).trim() === v) || (s.nome && String(s.nome).trim() === v)) : null
+      const nome = byId?.nome ?? byName?.nome
+      if (nome) return nome
+      // ID de solicitante excluído (não encontrado): deixar em branco
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)
+      return isUuid ? '' : (idOrName || '-')
     }},
     { field: 'status', headerName: 'Status', width: 150, renderCell: (p) => (
       <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(p.value)}`}>
@@ -323,7 +337,7 @@ export default function AtendimentoListPage() {
                 
                 {/* Contador de atendimentos */}
                 <Chip
-                  label={`${sortedAtendimentos.length} atendimento${sortedAtendimentos.length !== 1 ? 's' : ''}`}
+                  label={`${formatIntegerPtBR(sortedAtendimentos.length)} atendimento${sortedAtendimentos.length !== 1 ? 's' : ''}`}
                   size="small"
                   variant="outlined"
                   className={`${
@@ -394,29 +408,13 @@ export default function AtendimentoListPage() {
                 Exportar
               </Button>
               {canCreate && (
-                <Button
-                  variant="contained"
-                  startIcon={<Add />}
+                <PrimaryActionButton
+                  startIcon={<AddCircleOutlineIcon />}
                   onClick={() => navigate('/atendimento/nova')}
-                  size="medium"
-                  className="bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-800 hover:to-slate-900 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 font-semibold"
-                  sx={{
-                    borderRadius: '14px',
-                    padding: '10px 20px',
-                    textTransform: 'none',
-                    fontWeight: 600,
-                    fontSize: '0.9rem',
-                    height: '44px',
-                    minWidth: '160px',
-                    boxShadow: '0 4px 14px 0 rgba(15, 23, 42, 0.25)',
-                    '&:hover': {
-                      boxShadow: '0 8px 25px 0 rgba(15, 23, 42, 0.35)',
-                      transform: 'translateY(-2px)'
-                    }
-                  }}
+                  sx={{ minWidth: '160px' }}
                 >
                   Novo Atendimento
-                </Button>
+                </PrimaryActionButton>
               )}
             </div>
           </div>
@@ -470,6 +468,15 @@ export default function AtendimentoListPage() {
             minHeight: '400px',
             '& .MuiDataGrid-cell:focus': {
               outline: 'none',
+            },
+            '& .MuiDataGrid-row:nth-of-type(even)': {
+              backgroundColor: '#eef0f2',
+            },
+            '& .MuiDataGrid-row:nth-of-type(odd)': {
+              backgroundColor: '#ffffff',
+            },
+            '& .MuiDataGrid-row:hover': {
+              backgroundColor: 'rgba(0, 159, 223, 0.06) !important',
             },
             '& .MuiDataGrid-cell': {
               textTransform: 'none',
@@ -536,7 +543,7 @@ export default function AtendimentoListPage() {
           operadora: operadorasById?.[a.operadora || '']?.nome ?? a.operadora ?? 'N/A',
           produto: produtosById?.[a.produto || '']?.nome ?? a.produto ?? 'N/A',
           sistema: sistemasById?.[a.sistema || '']?.nome ?? a.sistema ?? 'N/A',
-          solicitante: solicitantesById?.[a.solicitante || '']?.nome ?? a.solicitante ?? 'N/A',
+          solicitante: solicitantesById?.[a.solicitante || '']?.nome ?? (a.solicitante && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(a.solicitante).trim()) ? '' : a.solicitante) ?? '',
           tipoServico: tipoServicoLabel[String(a.tipoServico || '')] || a.tipoServico || 'N/A',
           tipo: canalLabel[String(a.tipo || '')] || a.tipo || 'N/A',
           dataInicio: a.dataInicio ? new Date(a.dataInicio).toLocaleString('pt-BR') : '',

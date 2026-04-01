@@ -52,7 +52,7 @@ interface ReportState {
   addTimelineEvent: (event: Omit<TimelineEvent, 'id' | 'timestamp'>) => void
   getEventsByReport: (reportId: string) => TimelineEvent[]
   clearTimeline: () => void
-  syncFromApi: () => Promise<void>
+  syncFromApi: (force?: boolean) => Promise<void>
   syncTimeline: (reportId: string) => Promise<void>
 }
 
@@ -197,10 +197,10 @@ export const useReportStore = create<ReportState>()(
           console.error('❌ Erro ao salvar evento de timeline no banco:', error)
         }
       },
-      async syncFromApi() {
+      async syncFromApi(force?: boolean) {
         const state = get()
         const now = Date.now()
-        if (now - state.lastSync < 2 * 60 * 1000) return
+        if (!force && now - state.lastSync < 2 * 60 * 1000) return
         try {
           const { api } = await import('../lib/api.local')
           

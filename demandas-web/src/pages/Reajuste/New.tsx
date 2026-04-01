@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPerfLogger } from '../../utils/perf'
 import { AsyncClienteAutocomplete, type ClienteOption } from '../../components/AsyncClienteAutocomplete'
 import { AsyncContratoAutocomplete } from '../../components/AsyncContratoAutocomplete'
+import { PrimaryActionButton } from '../../components/PrimaryActionButton'
 
 const schema = z.object({
   mes: z.coerce.number().min(1).max(12),
@@ -616,7 +617,7 @@ export default function ReajusteNewPage() {
           </Grid>
         </Grid>
         <Box mt={2} display="flex" gap={2}>
-          <Button type="submit" variant="contained" disabled={!isValid}>Salvar</Button>
+          <PrimaryActionButton type="button" disabled={!isValid} onClick={handleSubmit(onSubmit)}>Salvar</PrimaryActionButton>
           <Button variant="outlined" onClick={() => navigate('/reajuste')}>Cancelar</Button>
         </Box>
       </Box>

@@ -6,7 +6,9 @@ import { Timeline } from '../../components/Timeline'
 import { ReportStatusBadge } from '../../components/ReportStatusBadge'
 import { PriorityBadge } from '../../components/PriorityBadge'
 import { normalizeReportStatus, STATUS_REPORT_PADRAO } from '../../utils/statusPadrao'
-import { ArrowLeft, Edit3, Save, Clock } from 'lucide-react'
+import { ArrowLeft, Edit3, Clock } from 'lucide-react'
+import { Save as SaveIcon } from '@mui/icons-material'
+import { PrimaryActionButton } from '../../components/PrimaryActionButton'
 
 export default function AnalyticsDetailPage() {
   const navigate = useNavigate()
@@ -108,14 +110,14 @@ export default function AnalyticsDetailPage() {
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Tipo</p>
+                  <p className="text-sm text-apoio-400">Tipo</p>
                   <p className="font-medium">{report.tipo}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Analista</p>
+                  <p className="text-sm text-apoio-400">Analista</p>
                   <p className="font-medium">
                     {(() => {
                       // Se analista é um ID (UUID), converter para nome
@@ -131,21 +133,21 @@ export default function AnalyticsDetailPage() {
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Área</p>
+                  <p className="text-sm text-apoio-400">Área</p>
                   <p className="font-medium">{label(report.area, md.areas)}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Cliente</p>
+                  <p className="text-sm text-apoio-400">Cliente</p>
                   <p className="font-medium">{labelCliente(report.cliente)}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-red-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Contrato</p>
+                  <p className="text-sm text-apoio-400">Contrato</p>
                   <p className="font-medium">
                     {report.contrato ? 
                       (md.contratos.find(c => c.id === report.contrato)?.nome || 
@@ -159,7 +161,7 @@ export default function AnalyticsDetailPage() {
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-indigo-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Data de Entrega</p>
+                  <p className="text-sm text-apoio-400">Data de Entrega</p>
                   <p className="font-medium">
                     {report.dataEntrega ? report.dataEntrega.split('T')[0].split('-').reverse().join('/') : '-'}
                   </p>
@@ -192,27 +194,27 @@ export default function AnalyticsDetailPage() {
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Informações Adicionais</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <p className="text-sm text-gray-500">Solicitante</p>
+                <p className="text-sm text-apoio-400">Solicitante</p>
                 <p className="font-medium">{label(report.solicitante, md.solicitantes)}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Tipo de Solicitação</p>
+                <p className="text-sm text-apoio-400">Tipo de Solicitação</p>
                 <p className="font-medium">{label(report.tipoSolicitacao, md.relatorios)}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Solicitação</p>
+                <p className="text-sm text-apoio-400">Solicitação</p>
                 <p className="font-medium">{label(report.solicitacao, md.modelos)}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Ticket</p>
+                <p className="text-sm text-apoio-400">Ticket</p>
                 <p className="font-medium">{report.ticket || '-'}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Total (Quantitativo)</p>
+                <p className="text-sm text-apoio-400">Total (Quantitativo)</p>
                 <p className="font-medium">{report.total || '-'}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Observações</p>
+                <p className="text-sm text-apoio-400">Observações</p>
                 <p className="font-medium">{report.observacoes || '-'}</p>
               </div>
             </div>
@@ -228,21 +230,21 @@ export default function AnalyticsDetailPage() {
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Status Atual</p>
+                  <p className="text-sm text-apoio-400">Status Atual</p>
                   <p className="font-medium">{normalizeReportStatus(report.status)}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Prioridade</p>
+                  <p className="text-sm text-apoio-400">Prioridade</p>
                   <p className="font-medium">{report.prioridade}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Última Atualização</p>
+                  <p className="text-sm text-apoio-400">Última Atualização</p>
                   <p className="font-medium">{new Date(report.dataAtualizacao).toLocaleDateString('pt-BR')}</p>
                 </div>
               </div>
@@ -532,7 +534,7 @@ function EditInline({ report }: { report: any }) {
             className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
             placeholder="Definido na criação"
           />
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-apoio-400 mt-1">
             ⚠️ O analista responsável é definido na criação e não pode ser alterado
           </p>
         </div>
@@ -765,14 +767,13 @@ function EditInline({ report }: { report: any }) {
 
       {/* Botão de salvar */}
       <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-        <button
+        <PrimaryActionButton
           disabled={changedKeys.length === 0}
           onClick={() => setConfirmOpen(true)}
-          className="px-4 py-2 bg-blue-500 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-600 transition-colors"
+          startIcon={<SaveIcon />}
         >
-          <Save className="w-4 h-4 mr-2 inline" />
           Salvar alterações
-        </button>
+        </PrimaryActionButton>
         {changedKeys.length > 0 && (
           <span className="text-sm text-gray-600">
             {changedKeys.length} alteração(ões) pendente(s)

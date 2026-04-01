@@ -1,5 +1,6 @@
 import React from 'react'
 import { Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField, Button, MenuItem } from '@mui/material'
+import { PrimaryActionButton } from './PrimaryActionButton'
 import { useMasterDataStore } from '../store/masterDataStore'
 import { useDadosCRUD } from '../hooks/useDadosCRUD'
 import type { TabKey, FormData } from '../types/dadosTypes'
@@ -230,6 +231,16 @@ export const DadosForm: React.FC<DadosFormProps> = ({
               onChange={(e) => handleFieldChange('nome', e.target.value)}
               required
             />
+            <TextField 
+              select
+              label="Disponível no cadastro de demandas"
+              value={form.ativo !== false ? 'ativo' : 'inativo'}
+              onChange={(e) => handleFieldChange('ativo', e.target.value === 'ativo')}
+              helperText="Ativo: aparece na lista ao criar nova demanda. Inativo: oculto nesse formulário."
+            >
+              <MenuItem value="ativo">Ativo</MenuItem>
+              <MenuItem value="inativo">Inativo</MenuItem>
+            </TextField>
           </Stack>
         )
 
@@ -362,28 +373,9 @@ export const DadosForm: React.FC<DadosFormProps> = ({
         >
           Cancelar
         </Button>
-        <Button 
-          variant="contained" 
-          onClick={handleSave}
-          size="medium"
-          className="bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-800 hover:to-slate-900 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 font-semibold"
-          sx={{
-            borderRadius: '14px',
-            padding: '10px 20px',
-            textTransform: 'none',
-            fontWeight: 600,
-            fontSize: '0.9rem',
-            height: '44px',
-            minWidth: '100px',
-            boxShadow: '0 4px 14px 0 rgba(15, 23, 42, 0.25)',
-            '&:hover': {
-              boxShadow: '0 8px 25px 0 rgba(15, 23, 42, 0.35)',
-              transform: 'translateY(-2px)'
-            }
-          }}
-        >
+        <PrimaryActionButton onClick={handleSave} sx={{ minWidth: '100px' }}>
           {form.id ? 'Salvar Alterações' : 'Salvar'}
-        </Button>
+        </PrimaryActionButton>
       </DialogActions>
     </Dialog>
   )

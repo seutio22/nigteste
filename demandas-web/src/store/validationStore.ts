@@ -72,10 +72,10 @@ interface ValidationState {
   clearError: () => void
   upsert: (entry: ValidationEntry) => Promise<void>
   log: (entry: { validationId: string; type: string; field: string; from: unknown; to: unknown; user?: string; userName?: string }) => void
-  syncFromApi: () => Promise<void>
+  syncFromApi: (opts?: { force?: boolean }) => Promise<void>
   syncTimeline: (validationId: string) => Promise<void>
   saveValidationToDatabase: (validation: ValidationEntry) => Promise<void>
-  updateValidationInDatabase: (validation: ValidationEntry) => Promise<void>
+  updateValidationInDatabase: (validation: ValidationEntry) => Promise<unknown>
 }
 
 export const useValidationStore = create<ValidationState>()(
@@ -256,16 +256,25 @@ export const useValidationStore = create<ValidationState>()(
           const responseData = await api.updateValidacao(validation.id, requestBody)
           console.log('✅ Validação atualizada com sucesso no banco!')
           console.log('✅ Resposta da API:', responseData)
-          
-          // Recarregar dados da API após atualizar
-          console.log('🔄 Recarregando dados da API...')
-          await get().syncFromApi()
-          console.log('✅ Dados recarregados!')
-          
+
+          // Atualizar o estado local com o que veio do backend (evita depender do throttle do sync)
+          try {
+            const mapped = mapApiValidacaoToEntry(responseData)
+            set((s) => ({
+              items: s.items.map((x) => (x.id === validation.id ? mapped : x))
+            }))
+          } catch (e) {
+            // fallback: mantém estado local; sync manual pode resolver depois
+            console.warn('⚠️ Não foi possível mapear resposta de updateValidacao para o store:', e)
+          }
+
+          return responseData
         } catch (error) {
           console.error('❌ Erro ao atualizar validação:', error)
           console.error('❌ Stack trace:', error.stack)
-          set({ error: `Erro ao atualizar validação: ${error}` })
+          const msg = error instanceof Error ? error.message : String(error)
+          set({ error: `Erro ao atualizar validação: ${msg}` })
+          throw error
         }
       },
 
@@ -335,13 +344,8 @@ export const useValidationStore = create<ValidationState>()(
             throw err
           }
           
-          // Atualizar estado local
-          set((s) => ({
-            items: s.items.map((x) =>
-              x.id === entry.id ? { ...entry, updatedAt: new Date().toISOString() } : x
-            )
-          }))
-          console.log('✅ Estado local atualizado')
+          // OBS: O estado local é atualizado a partir da resposta do backend em updateValidationInDatabase.
+          console.log('✅ Upsert concluído')
         } else {
           console.log('➕ Adicionando novo item...')
           get().add(entry)
@@ -380,13 +384,13 @@ export const useValidationStore = create<ValidationState>()(
         }
       },
       
-      syncFromApi: async () => {
+      syncFromApi: async (opts?: { force?: boolean }) => {
         const state = get()
         if (state.loading) {
           return
         }
         const now = Date.now()
-        if (now - state.lastSync < 2 * 60 * 1000) {
+        if (!opts?.force && now - state.lastSync < 2 * 60 * 1000) {
           return
         }
         

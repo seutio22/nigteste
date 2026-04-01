@@ -20,6 +20,7 @@ import {
 } from '@mui/material';
 import { Close as CloseIcon, ContentCopy as CopyIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { api } from '../lib/api.local';
+import { PrimaryActionButton } from './PrimaryActionButton';
 
 interface ShareProjectModalProps {
   open: boolean;
@@ -151,35 +152,83 @@ const ShareProjectModal: React.FC<ShareProjectModalProps> = ({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="md"
+      fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: 3,
+          py: 1,
+          px: { xs: 1, sm: 2 },
+          bgcolor: '#F5F7FA',
+          fontFamily: 'Geometria, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+        }
+      }}
+    >
+      <DialogTitle sx={{ pb: 1.5 }}>
         <Box display="flex" justifyContent="space-between" alignItems="center">
-          <Typography variant="h6">Compartilhar Projeto</Typography>
-          <IconButton onClick={onClose} size="small">
-            <CloseIcon />
+          <Box>
+            <Typography
+              variant="h6"
+              sx={{
+                fontFamily: 'Geometria, system-ui, sans-serif',
+                fontWeight: 600,
+                color: '#002561'
+              }}
+            >
+              Compartilhar projeto
+            </Typography>
+            <Typography
+              variant="body2"
+              sx={{
+                color: '#6b7a80',
+                fontFamily: 'Geometria, system-ui, sans-serif',
+                mt: 0.5
+              }}
+            >
+              {projectName}
+            </Typography>
+          </Box>
+          <IconButton onClick={onClose} size="small" sx={{ color: '#6b7a80' }}>
+            <CloseIcon fontSize="small" />
           </IconButton>
         </Box>
-        <Typography variant="body2" color="textSecondary">
-          {projectName}
-        </Typography>
       </DialogTitle>
 
-      <DialogContent>
+      <DialogContent sx={{ pt: 0.5 }}>
         {error && (
-          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
+          <Alert
+            severity="error"
+            sx={{ mb: 2, borderRadius: 2, fontFamily: 'Geometria, system-ui, sans-serif' }}
+            onClose={() => setError('')}
+          >
             {error}
           </Alert>
         )}
 
         {success && (
-          <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>
+          <Alert
+            severity="success"
+            sx={{ mb: 2, borderRadius: 2, fontFamily: 'Geometria, system-ui, sans-serif' }}
+            onClose={() => setSuccess('')}
+          >
             {success}
           </Alert>
         )}
 
         {/* Criar novo compartilhamento */}
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="h6" gutterBottom>
+        <Box sx={{ mb: 3, bgcolor: 'white', borderRadius: 2, p: 2.5, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+          <Typography
+            variant="subtitle1"
+            gutterBottom
+            sx={{
+              fontFamily: 'Geometria, system-ui, sans-serif',
+              fontWeight: 600,
+              color: '#050032'
+            }}
+          >
             Criar Novo Link
           </Typography>
           
@@ -190,6 +239,8 @@ const ShareProjectModal: React.FC<ShareProjectModalProps> = ({
               onChange={(e) => setNewShare({ ...newShare, name: e.target.value })}
               placeholder="Ex: Compartilhamento com cliente"
               fullWidth
+              InputLabelProps={{ sx: { fontFamily: 'Geometria, system-ui, sans-serif' } }}
+              inputProps={{ style: { fontFamily: 'Geometria, system-ui, sans-serif' } }}
             />
             
             <TextField
@@ -197,7 +248,7 @@ const ShareProjectModal: React.FC<ShareProjectModalProps> = ({
               type="datetime-local"
               value={newShare.expiresAt}
               onChange={(e) => setNewShare({ ...newShare, expiresAt: e.target.value })}
-              InputLabelProps={{ shrink: true }}
+              InputLabelProps={{ shrink: true, sx: { fontFamily: 'Geometria, system-ui, sans-serif' } }}
               fullWidth
             />
           </Box>
@@ -211,10 +262,12 @@ const ShareProjectModal: React.FC<ShareProjectModalProps> = ({
             rows={2}
             fullWidth
             sx={{ mb: 2 }}
+            InputLabelProps={{ sx: { fontFamily: 'Geometria, system-ui, sans-serif' } }}
+            inputProps={{ style: { fontFamily: 'Geometria, system-ui, sans-serif' } }}
           />
 
           <FormControl fullWidth sx={{ mb: 2 }}>
-            <InputLabel>Seções permitidas</InputLabel>
+            <InputLabel sx={{ fontFamily: 'Geometria, system-ui, sans-serif' }}>Seções permitidas</InputLabel>
             <Select
               multiple
               value={newShare.allowedViews.split(',')}
@@ -222,6 +275,9 @@ const ShareProjectModal: React.FC<ShareProjectModalProps> = ({
                 ...newShare, 
                 allowedViews: Array.isArray(e.target.value) ? e.target.value.join(',') : e.target.value 
               })}
+              sx={{
+                fontFamily: 'Geometria, system-ui, sans-serif'
+              }}
               renderValue={(selected) => (
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                   {selected.map((value) => {
@@ -244,50 +300,68 @@ const ShareProjectModal: React.FC<ShareProjectModalProps> = ({
             </Select>
           </FormControl>
 
-          <Button
-            variant="contained"
+          <PrimaryActionButton
             onClick={handleCreateShare}
             disabled={creating || !newShare.name}
             fullWidth
+            label={creating ? 'Criando...' : 'Criar link de compartilhamento'}
           >
-            {creating ? 'Criando...' : 'Criar Link de Compartilhamento'}
-          </Button>
+            {creating ? 'Criando...' : 'Criar link de compartilhamento'}
+          </PrimaryActionButton>
         </Box>
 
         <Divider sx={{ my: 2 }} />
 
         {/* Lista de compartilhamentos existentes */}
-        <Box>
-          <Typography variant="h6" gutterBottom>
+        <Box sx={{ bgcolor: 'white', borderRadius: 2, p: 2.5, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+          <Typography
+            variant="subtitle1"
+            gutterBottom
+            sx={{
+              fontFamily: 'Geometria, system-ui, sans-serif',
+              fontWeight: 600,
+              color: '#050032'
+            }}
+          >
             Links Ativos
           </Typography>
 
           {loading ? (
-            <Typography>Carregando...</Typography>
+            <Typography sx={{ fontFamily: 'Geometria, system-ui, sans-serif' }}>Carregando...</Typography>
           ) : shareTokens.length === 0 ? (
-            <Typography color="textSecondary">
+            <Typography sx={{ color: '#6b7a80', fontFamily: 'Geometria, system-ui, sans-serif' }}>
               Nenhum link de compartilhamento criado ainda.
             </Typography>
           ) : (
-            <Box>
+            <Box sx={{ mt: 1 }}>
               {shareTokens.map((token) => (
                 <Box
                   key={token.id}
                   sx={{
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    borderRadius: 1,
+                    borderRadius: 2,
                     p: 2,
-                    mb: 2
+                    mb: 1.5,
+                    border: '1px solid #E2E8F0',
+                    backgroundColor: '#F9FAFB'
                   }}
                 >
                   <Box display="flex" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 1 }}>
                     <Box>
-                      <Typography variant="subtitle1" fontWeight="bold">
+                      <Typography
+                        variant="subtitle2"
+                        sx={{
+                          fontFamily: 'Geometria, system-ui, sans-serif',
+                          fontWeight: 600,
+                          color: '#050032'
+                        }}
+                      >
                         {token.name}
                       </Typography>
                       {token.description && (
-                        <Typography variant="body2" color="textSecondary">
+                        <Typography
+                          variant="body2"
+                          sx={{ color: '#6b7a80', fontFamily: 'Geometria, system-ui, sans-serif' }}
+                        >
                           {token.description}
                         </Typography>
                       )}
@@ -299,24 +373,36 @@ const ShareProjectModal: React.FC<ShareProjectModalProps> = ({
                         size="small"
                         color="error"
                       >
-                        <DeleteIcon />
+                        <DeleteIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
                   </Box>
 
                   <Box sx={{ mb: 1 }}>
-                    <Typography variant="body2" color="textSecondary">
+                    <Typography
+                      variant="body2"
+                      sx={{ color: '#4b5563', fontFamily: 'Geometria, system-ui, sans-serif' }}
+                    >
                       Seções: {getViewsLabel(token.allowedViews)}
                     </Typography>
-                    <Typography variant="body2" color="textSecondary">
+                    <Typography
+                      variant="body2"
+                      sx={{ color: '#4b5563', fontFamily: 'Geometria, system-ui, sans-serif' }}
+                    >
                       Criado em: {formatDate(token.createdAt)}
                     </Typography>
                     {token.expiresAt && (
-                      <Typography variant="body2" color="textSecondary">
+                      <Typography
+                        variant="body2"
+                        sx={{ color: '#4b5563', fontFamily: 'Geometria, system-ui, sans-serif' }}
+                      >
                         Expira em: {formatDate(token.expiresAt)}
                       </Typography>
                     )}
-                    <Typography variant="body2" color="textSecondary">
+                    <Typography
+                      variant="body2"
+                      sx={{ color: '#4b5563', fontFamily: 'Geometria, system-ui, sans-serif' }}
+                    >
                       Visualizações: {token.viewCount}
                     </Typography>
                   </Box>
@@ -332,8 +418,9 @@ const ShareProjectModal: React.FC<ShareProjectModalProps> = ({
                       <IconButton
                         onClick={() => copyToClipboard(getShareUrl(token.token))}
                         size="small"
+                        sx={{ color: '#002561' }}
                       >
-                        <CopyIcon />
+                        <CopyIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
                   </Box>
@@ -345,7 +432,16 @@ const ShareProjectModal: React.FC<ShareProjectModalProps> = ({
       </DialogContent>
 
       <DialogActions>
-        <Button onClick={onClose}>Fechar</Button>
+        <Button
+          onClick={onClose}
+          sx={{
+            fontFamily: 'Geometria, system-ui, sans-serif',
+            textTransform: 'none',
+            color: '#4b5563'
+          }}
+        >
+          Fechar
+        </Button>
       </DialogActions>
     </Dialog>
   );

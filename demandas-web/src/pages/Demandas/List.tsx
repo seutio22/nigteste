@@ -18,11 +18,14 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import FileCopyIcon from '@mui/icons-material/FileCopy'
 import TableChartIcon from '@mui/icons-material/TableChart'
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf'
+import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline'
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
 import EditIcon from '@mui/icons-material/Edit'
 import PersonIcon from '@mui/icons-material/Person'
 import GroupIcon from '@mui/icons-material/Group'
 import { usePermissions } from '../../hooks/usePermissions'
+import { PrimaryActionButton } from '../../components/PrimaryActionButton'
+import { formatIntegerPtBR } from '../../utils/formatNumber'
 
 const columns: GridColDef[] = [
   { field: 'acoes', headerName: 'Ações', width: 80, sortable: false, filterable: false, renderCell: (p) => (
@@ -97,6 +100,26 @@ const columns: GridColDef[] = [
   },
 ]
 
+/** Rótulos de qualidade (alinhado ao cadastro New.tsx) para exportação legível */
+const QUALIDADE_EXPORT_LABELS: Record<string, string> = {
+  '0': '0 - RUIM - MAIS DE 3 RETORNOS; ITENS INCOMPLETOS, SEM RETORNO',
+  '1': '1 - MEDIANO - NO MÁX 2 RETORNOS',
+  '2': '2 - BOM - NO MÁX 1 RETORNO; TODOS OS ITENS COMPLETOS',
+  '3': '3 - EXCELENTE - SEM NENHUMA CONSIDERAÇÃO',
+}
+
+function formatQualidadeExport(q: string | number | undefined | null): string {
+  if (q === undefined || q === null || q === '') return ''
+  const k = String(q).trim()
+  return QUALIDADE_EXPORT_LABELS[k] ?? k
+}
+
+function formatDateTimeBR(iso?: string | null): string {
+  if (!iso) return ''
+  const date = new Date(iso)
+  return isNaN(date.getTime()) ? '' : date.toLocaleString('pt-BR')
+}
+
 export default function DemandListPage() {
   // FORÇAR DEPLOY - v2
   const navigate = useNavigate()
@@ -111,7 +134,8 @@ export default function DemandListPage() {
     operadorasById,
     produtosById,
     tiposServicoById,
-    tiposDemandaById
+    tiposDemandaById,
+    sistemasById
   } = md
 
   // Funções auxiliares removidas - usando acesso direto aos índices para melhor performance
@@ -389,7 +413,7 @@ export default function DemandListPage() {
           // Mapear dados para o formato de demanda
           const demandaData = {
             // Campos obrigatórios
-            status: data.status || 'Aberta',
+            status: data.status || 'Em andamento',
             // CORRIGIDO: Buscar tipoServico por nome no Excel
             tipoServicoId: findIdByName(data.tipoServico || data.tipoServicoId, md.tiposServico) || '',
             // CORRIGIDO: Buscar tipoId (ID do tipo de demanda) ou aceitar nome diretamente
@@ -567,6 +591,24 @@ export default function DemandListPage() {
       
       return d.tipo || ''
     })(),
+    sistema: (() => {
+      if (d.sistema && typeof d.sistema === 'string' && d.sistema.length > 20) {
+        return sistemasById[d.sistema]?.nome ?? d.sistema
+      }
+      if (d.sistemaId) {
+        return sistemasById[d.sistemaId]?.nome ?? d.sistemaId
+      }
+      return d.sistema || ''
+    })(),
+    solicitante: d.solicitante ?? '',
+    dataInicio: formatDateTimeBR(d.dataInicio),
+    dataFinal: formatDateTimeBR(d.dataFinal),
+    periodicidade: d.periodicidade != null && d.periodicidade !== '' ? String(d.periodicidade) : '',
+    qtdRetornos: d.qtdRetornos != null ? d.qtdRetornos : '',
+    qualidade: formatQualidadeExport(d.qualidade),
+    qtdClientesVinculados: d.qtdClientesVinculados != null ? d.qtdClientesVinculados : '',
+    usuariosEmpresa: d.usuariosEmpresa != null ? d.usuariosEmpresa : '',
+    observacoes: d.observacoes ?? '',
     createdAt: d.createdAt || '',
     updatedAt: d.updatedAt || '',
   })), [
@@ -578,7 +620,8 @@ export default function DemandListPage() {
     operadorasById,
     produtosById,
     tiposServicoById,
-    tiposDemandaById
+    tiposDemandaById,
+    sistemasById
   ])
   
   // Ordenar os dados por updatedAt (data de atualização - mais recente primeiro) antes de passar para o DataGrid
@@ -599,6 +642,11 @@ export default function DemandListPage() {
       return dateB - dateA
     })
   ), [rows])
+
+  const demandById = useMemo(
+    () => Object.fromEntries(finalFilteredItems.map((d) => [d.id, d])),
+    [finalFilteredItems]
+  )
 
   return (
     <Box sx={{ height: '100vh', width: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -650,7 +698,7 @@ export default function DemandListPage() {
                 
                 {/* Contador de demandas */}
                 <Chip
-                  label={`${finalFilteredItems.length} demanda${finalFilteredItems.length !== 1 ? 's' : ''}`}
+                  label={`${formatIntegerPtBR(finalFilteredItems.length)} demanda${finalFilteredItems.length !== 1 ? 's' : ''}`}
                   size="small"
                   variant="outlined"
                   className={`${
@@ -696,34 +744,17 @@ export default function DemandListPage() {
                     }
                   }}
                 >
-                  Excluir ({selectedIds.length})
+                  Excluir ({formatIntegerPtBR(selectedIds.length)})
                 </Button>
               )}
               
               {canImport && (
-                <Button 
-                  variant="contained" 
+                <PrimaryActionButton
                   startIcon={<AutoFixHighIcon />}
                   onClick={() => setSmartImporterOpen(true)}
-                  size="medium"
-                  className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white transition-all duration-300 font-medium"
-                  sx={{
-                    borderRadius: '14px',
-                    padding: '10px 20px',
-                    textTransform: 'none',
-                    fontWeight: 500,
-                    fontSize: '0.9rem',
-                    height: '44px',
-                    background: 'linear-gradient(135deg, #050032 0%, #002561 100%)',
-                    '&:hover': {
-                      background: 'linear-gradient(135deg, #050032 0%, #009FDF 100%)',
-                      transform: 'translateY(-2px)',
-                      boxShadow: '0 8px 25px 0 rgba(124, 58, 237, 0.3)'
-                    }
-                  }}
                 >
                   Importador Inteligente
-                </Button>
+                </PrimaryActionButton>
               )}
 
               {canExport && (
@@ -753,28 +784,9 @@ export default function DemandListPage() {
               )}
               
               {canCreate && (
-                <Button 
-                  variant="contained" 
-                  onClick={() => navigate('/cadastro/nova')}
-                  size="medium"
-                  className="bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-800 hover:to-slate-900 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 font-semibold"
-                  sx={{
-                    borderRadius: '14px',
-                    padding: '10px 20px',
-                    textTransform: 'none',
-                    fontWeight: 600,
-                    fontSize: '0.9rem',
-                    height: '44px',
-                    minWidth: '140px',
-                    boxShadow: '0 4px 14px 0 rgba(15, 23, 42, 0.25)',
-                    '&:hover': {
-                      boxShadow: '0 8px 25px 0 rgba(15, 23, 42, 0.35)',
-                      transform: 'translateY(-2px)'
-                    }
-                  }}
-                >
+                <PrimaryActionButton startIcon={<AddCircleOutlineIcon />} onClick={() => navigate('/cadastro/nova')} sx={{ minWidth: '140px' }}>
                   Nova Demanda
-                </Button>
+                </PrimaryActionButton>
               )}
             </Stack>
           </div>
@@ -838,6 +850,15 @@ export default function DemandListPage() {
             '& .MuiDataGrid-cell:focus': {
               outline: 'none',
             },
+            '& .MuiDataGrid-row:nth-of-type(even)': {
+              backgroundColor: '#eef0f2',
+            },
+            '& .MuiDataGrid-row:nth-of-type(odd)': {
+              backgroundColor: '#ffffff',
+            },
+            '& .MuiDataGrid-row:hover': {
+              backgroundColor: 'rgba(0, 159, 223, 0.06) !important',
+            },
           }}
         />
       </div>
@@ -860,7 +881,7 @@ export default function DemandListPage() {
         <DialogTitle>Confirmar Exclusão em Massa</DialogTitle>
         <DialogContent>
           <Typography>
-            Tem certeza que deseja excluir <strong>{selectedIds.length}</strong> demanda(s) selecionada(s)?
+            Tem certeza que deseja excluir <strong>{formatIntegerPtBR(selectedIds.length)}</strong> demanda(s) selecionada(s)?
           </Typography>
           <Typography variant="body2" color="error" sx={{ mt: 2 }}>
             ⚠️ Esta ação não pode ser desfeita!
@@ -893,64 +914,17 @@ export default function DemandListPage() {
           showAnalistaFilter: true,
           analistas: md.analistas
         }}
-        data={finalFilteredItems.map(d => ({
-          ...d,
-          analista: (() => {
-            if (d.analistaId) return analistasById[d.analistaId]?.nome ?? d.analistaId
-            if (d.analista && typeof d.analista === 'string' && d.analista.length > 20) {
-              return analistasById[d.analista]?.nome ?? d.analista
-            }
-            return d.analista ?? 'N/A'
-          })(),
-          area: (() => {
-            if (d.areaId) return areasById[d.areaId]?.nome ?? d.areaId
-            if (d.area && typeof d.area === 'string' && d.area.length > 20) {
-              return areasById[d.area]?.nome ?? d.area
-            }
-            return d.area ?? 'N/A'
-          })(),
-          cliente: (() => {
-            if (d.clienteId) return clientesById[d.clienteId]?.nome ?? d.clienteId
-            if (d.cliente && typeof d.cliente === 'string' && d.cliente.length > 20) {
-              return clientesById[d.cliente]?.nome ?? d.cliente
-            }
-            return d.cliente ?? 'N/A'
-          })(),
-          contrato: (() => {
-            if (d.contratoId) {
-              return contratosById[d.contratoId]?.codigo ?? contratosById[d.contratoId]?.numero ?? d.contratoId
-            }
-            if (d.contrato && typeof d.contrato === 'string' && d.contrato.length > 20) {
-              return contratosById[d.contrato]?.codigo ?? contratosById[d.contrato]?.numero ?? d.contrato
-            }
-            return d.contrato ?? 'N/A'
-          })(),
-          operadora: (() => {
-            if (d.operadoraId) return operadorasById[d.operadoraId]?.nome ?? d.operadoraId
-            if (d.operadora && typeof d.operadora === 'string' && d.operadora.length > 20) {
-              return operadorasById[d.operadora]?.nome ?? d.operadora
-            }
-            return d.operadora ?? 'N/A'
-          })(),
-          produto: (() => {
-            if (d.produtoId) return produtosById[d.produtoId]?.nome ?? d.produtoId
-            if (d.produto && typeof d.produto === 'string' && d.produto.length > 20) {
-              return produtosById[d.produto]?.nome ?? d.produto
-            }
-            return d.produto ?? 'N/A'
-          })(),
-          tipoServico: (() => {
-            if (d.tipoServicoId) return tiposServicoById[d.tipoServicoId]?.nome ?? d.tipoServicoId
-            if (d.tipoServico && typeof d.tipoServico === 'string' && d.tipoServico.length > 20) {
-              return tiposServicoById[d.tipoServico]?.nome ?? d.tipoServico
-            }
-            return d.tipoServico ?? 'N/A'
-          })(),
-          updatedAt: d.updatedAt ? new Date(d.updatedAt).toLocaleString('pt-BR') : '',
-          _dataInicioRaw: d.dataInicio ?? d.createdAt ?? '',
-          _dataFinalRaw: d.dataFinal ?? d.updatedAt ?? d.dataInicio ?? d.createdAt ?? '',
-          _analistaId: d.analistaId ?? ''
-        }))}
+        data={sortedRows.map((row) => {
+          const d = demandById[row.id]
+          return {
+            ...row,
+            createdAt: row.createdAt ? new Date(String(row.createdAt)).toLocaleString('pt-BR') : '',
+            updatedAt: row.updatedAt ? new Date(String(row.updatedAt)).toLocaleString('pt-BR') : '',
+            _dataInicioRaw: d?.dataInicio ?? d?.createdAt ?? '',
+            _dataFinalRaw: d?.dataFinal ?? d?.updatedAt ?? d?.dataInicio ?? d?.createdAt ?? '',
+            _analistaId: d?.analistaId ?? ''
+          }
+        })}
         moduleName="demandas"
         moduleTitle="Cadastro"
         appliedFilters={{
@@ -958,16 +932,29 @@ export default function DemandListPage() {
           'Total na lista': finalFilteredItems.length
         }}
         columns={[
+          { key: 'id', label: 'ID' },
           { key: 'ticket', label: 'Nº Ticket' },
-          { key: 'descricao', label: 'Descrição' },
           { key: 'status', label: 'Status' },
+          { key: 'solicitante', label: 'Solicitante' },
+          { key: 'descricao', label: 'Descrição' },
           { key: 'analista', label: 'Analista' },
           { key: 'area', label: 'Área' },
           { key: 'cliente', label: 'Cliente' },
           { key: 'contrato', label: 'Contrato' },
           { key: 'operadora', label: 'Operadora' },
           { key: 'produto', label: 'Produto' },
+          { key: 'sistema', label: 'Sistema' },
           { key: 'tipoServico', label: 'Tipo de Serviço' },
+          { key: 'tipo', label: 'Tipo de Demanda' },
+          { key: 'dataInicio', label: 'Data início' },
+          { key: 'dataFinal', label: 'Data fim' },
+          { key: 'periodicidade', label: 'Análise quantitativa' },
+          { key: 'qtdRetornos', label: 'Qtd. retornos' },
+          { key: 'qualidade', label: 'Qualidade' },
+          { key: 'qtdClientesVinculados', label: 'Qtd. clientes vinculados' },
+          { key: 'usuariosEmpresa', label: 'Usuários empresa' },
+          { key: 'observacoes', label: 'Observações' },
+          { key: 'createdAt', label: 'Data de criação' },
           { key: 'updatedAt', label: 'Atualizado em' }
         ]}
       />
@@ -1063,7 +1050,7 @@ const ActionCell = memo(function ActionCell({ id, status }: { id: string, status
       const newTicket = await generateUniqueTicket(d.ticket)
       
       const { id: _omit, createdAt: _c, updatedAt: _u, ticket: _t, ...rest } = d
-      const duplicated = await store.add({ ...rest, status: 'Aberta', ticket: newTicket })
+      const duplicated = await store.add({ ...rest, status: 'Em andamento', ticket: newTicket })
       
       // Garantir navegação usando o ID real do backend
       let navigateId = duplicated?.id
@@ -1164,7 +1151,7 @@ const ActionCell = memo(function ActionCell({ id, status }: { id: string, status
         <DialogTitle>Alterar status</DialogTitle>
         <DialogContent>
           <TextField select label="Novo status" value={newStatus} onChange={(e) => setNewStatus(e.target.value)} sx={{ mt: 1, minWidth: 280 }}>
-            {['Aberta','Em andamento','Transf. Analista','Aguardando aprovação','Com erros','Em reajuste','Concluída','Cancelada'].map(s => (
+            {['Em andamento','Transf. Analista','Aguardando aprovação','Com erros','Em reajuste','Concluído Parcialmente','Concluída','Cancelada'].map(s => (
               <MenuItem key={s} value={s}>{s}</MenuItem>
             ))}
           </TextField>

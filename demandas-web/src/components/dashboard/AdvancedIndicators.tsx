@@ -19,6 +19,7 @@ import {
   Assessment as AssessmentIcon
 } from '@mui/icons-material'
 import type { AdvancedIndicator, TempoExecucaoMetrics, AnalistaMetrics } from '../hooks/useAdvancedIndicators'
+import { formatDecimalPtBR, formatIntegerPtBR, formatNumberPtBR } from '../../utils/formatNumber'
 
 interface AdvancedIndicatorsProps {
   indicators: AdvancedIndicator[]
@@ -95,7 +96,8 @@ export const AdvancedIndicators: React.FC<AdvancedIndicatorsProps> = ({
                       )}
                     </Box>
                     <Typography variant="h4" sx={{ fontWeight: 700, color: theme.palette.text.primary, mb: 1 }}>
-                      {indicator.value}{indicator.unit && <span style={{ fontSize: '0.6em', color: theme.palette.text.secondary }}> {indicator.unit}</span>}
+                      {typeof indicator.value === 'number' ? formatNumberPtBR(indicator.value) : indicator.value}
+                      {indicator.unit && <span style={{ fontSize: '0.6em', color: theme.palette.text.secondary }}> {indicator.unit}</span>}
                     </Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500, mb: 1 }}>
                       {indicator.title}
@@ -130,10 +132,13 @@ export const AdvancedIndicators: React.FC<AdvancedIndicatorsProps> = ({
                   
                   <Box sx={{ mb: 2 }}>
                     <Typography variant="h3" sx={{ fontWeight: 700, color: theme.palette.text.primary }}>
-                      {metric.tempoMedio} <span style={{ fontSize: '0.5em', color: theme.palette.text.secondary }}>dias</span>
+                      {formatDecimalPtBR(metric.tempoMedio, 1)} <span style={{ fontSize: '0.5em', color: theme.palette.text.secondary }}>dias</span>
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
                       Tempo médio de execução
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                      Dias úteis (seg–sex) entre data de início e data final
                     </Typography>
                   </Box>
 
@@ -143,7 +148,7 @@ export const AdvancedIndicators: React.FC<AdvancedIndicatorsProps> = ({
                         Taxa de conclusão
                       </Typography>
                       <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                        {metric.taxaConclusao}%
+                        {formatIntegerPtBR(metric.taxaConclusao)}%
                       </Typography>
                     </Box>
                     <LinearProgress 
@@ -165,12 +170,12 @@ export const AdvancedIndicators: React.FC<AdvancedIndicatorsProps> = ({
                   <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                     <Box>
                       <Typography variant="caption" color="text.secondary">
-                        Total: {metric.totalChamados}
+                        Total: {formatIntegerPtBR(metric.totalChamados)}
                       </Typography>
                     </Box>
                     <Box>
                       <Typography variant="caption" color="text.secondary">
-                        Concluídos: {metric.chamadosConcluidos}
+                        Concluídos: {formatIntegerPtBR(metric.chamadosConcluidos)}
                       </Typography>
                     </Box>
                   </Box>
@@ -200,10 +205,10 @@ export const AdvancedIndicators: React.FC<AdvancedIndicatorsProps> = ({
                   
                   <Box sx={{ mb: 2 }}>
                     <Typography variant="h3" sx={{ fontWeight: 700, color: theme.palette.text.primary }}>
-                      {analista.totalItens} <span style={{ fontSize: '0.5em', color: theme.palette.text.secondary }}>itens</span>
+                      {formatIntegerPtBR(analista.totalItens)} <span style={{ fontSize: '0.5em', color: theme.palette.text.secondary }}>itens</span>
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Tempo médio: {analista.tempoMedioExecucao} dias
+                      Tempo médio: {formatDecimalPtBR(analista.tempoMedioExecucao, 1)} dias
                     </Typography>
                   </Box>
 
@@ -221,7 +226,7 @@ export const AdvancedIndicators: React.FC<AdvancedIndicatorsProps> = ({
                               {nomePagina}:
                             </Typography>
                             <Typography variant="caption" sx={{ fontWeight: 600 }}>
-                              {quantidade}
+                              {formatIntegerPtBR(quantidade)}
                             </Typography>
                           </Box>
                         )

@@ -17,7 +17,7 @@ export default defineConfig({
     copyPublicDir: true, // Garantir que arquivos públicos sejam copiados
     rollupOptions: {
       output: {
-        // Force new hash generation - v0.8.1 (fix cache antigo e 404 login - force rebuild)
+        // Force new hash generation - v0.8.4 (alinha versão com package.json / UI)
         entryFileNames: `assets/[name]-[hash]-v0636.js`,
         chunkFileNames: `assets/[name]-[hash]-v0636.js`,
         assetFileNames: (assetInfo) => {

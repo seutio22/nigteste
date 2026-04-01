@@ -8,6 +8,7 @@ import { useDeadlineNotifications } from './hooks/useDeadlineNotifications'
 import { useUserAlerts } from './hooks/useUserAlerts'
 import { FullScreenLoading } from './components/BeautifulLoading'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import { AppActivityBridge } from './components/AppActivityBridge'
 import { useEffect } from 'react'
 import './utils/force-cache-bust' // Force cache bust
 import './utils/smart-cache-cleaner' // Sistema inteligente de limpeza
@@ -51,6 +52,7 @@ function App() {
   return (
     <ErrorBoundary>
       <SidebarProvider>
+        <AppActivityBridge />
         <AppRoutes />
       </SidebarProvider>
     </ErrorBoundary>

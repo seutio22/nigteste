@@ -6,10 +6,12 @@ import { api } from '../../lib/api.local'
 import { StatusBadge } from '../../components/StatusBadge'
 import { Timeline } from '../../components/Timeline'
 import { fmt } from '../../lib/utils'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { Save, Edit3, Clock, ArrowLeft } from 'lucide-react'
 import { Demand } from '../../types/demand'
 import { Autocomplete, TextField, Box, Typography } from '@mui/material'
+import { Save as SaveIcon } from '@mui/icons-material'
+import { PrimaryActionButton } from '../../components/PrimaryActionButton'
 import { createPerfLogger } from '../../utils/perf'
 
 // Função para converter código de qualidade em texto legível
@@ -255,7 +257,7 @@ export default function DemandDetailPage() {
             Criada em {fmt(d.createdAt)}
           </p>
         </div>
-        <StatusBadge status={d.status ?? 'Aberta'} />
+        <StatusBadge status={d.status ?? 'Em andamento'} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -268,42 +270,42 @@ export default function DemandDetailPage() {
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Tipo de Serviço</p>
+                  <p className="text-sm text-apoio-400">Tipo de Serviço</p>
                   <p className="font-medium">{label(d.tipoServicoId, md.tiposServico)}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Tipo de Demanda</p>
+                  <p className="text-sm text-apoio-400">Tipo de Demanda</p>
                   <p className="font-medium">{label(d.tipoId, md.tiposDemanda)}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-red-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Sistema</p>
+                  <p className="text-sm text-apoio-400">Sistema</p>
                   <p className="font-medium">{label(d.sistemaId, md.sistemas)}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-indigo-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Área</p>
+                  <p className="text-sm text-apoio-400">Área</p>
                   <p className="font-medium">{label(d.areaId, md.areas)}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Cliente</p>
+                  <p className="text-sm text-apoio-400">Cliente</p>
                   <p className="font-medium">{labelCliente(d.clienteId)}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Contrato</p>
+                  <p className="text-sm text-apoio-400">Contrato</p>
                   <p className="font-medium">{labelContrato(d.contratoId)}</p>
                 </div>
               </div>
@@ -334,31 +336,31 @@ export default function DemandDetailPage() {
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Informações Adicionais</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <p className="text-sm text-gray-500">Tipo de Serviço</p>
+                <p className="text-sm text-apoio-400">Tipo de Serviço</p>
                 <p className="font-medium">{label(d.tipoServicoId, md.tiposServico)}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Analista</p>
+                <p className="text-sm text-apoio-400">Analista</p>
                 <p className="font-medium">{label(d.analistaId, md.analistas)}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Solicitante</p>
+                <p className="text-sm text-apoio-400">Solicitante</p>
                 <p className="font-medium">{md.solicitantesById?.[d.solicitante as string]?.nome || md.solicitantes.find(s => s.id === d.solicitante)?.nome || d.solicitante || '-'}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Tipo de Demanda</p>
+                <p className="text-sm text-apoio-400">Tipo de Demanda</p>
                 <p className="font-medium">{label(d.tipoId, md.tiposDemanda)}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Data de Início</p>
+                <p className="text-sm text-apoio-400">Data de Início</p>
                 <p className="font-medium">{fmt(d.dataInicio)}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Data Final</p>
+                <p className="text-sm text-apoio-400">Data Final</p>
                 <p className="font-medium">{fmt(d.dataFinal)}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Criado por</p>
+                <p className="text-sm text-apoio-400">Criado por</p>
                 <p className="font-medium">
                   {typeof d.analista === 'object' && d.analista !== null
                     ? (d.analista as any)?.nome || (d.analista as any)?.name || label(d.analistaId, md.analistas)
@@ -366,27 +368,27 @@ export default function DemandDetailPage() {
                 </p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Análise quantitativa</p>
+                <p className="text-sm text-apoio-400">Análise quantitativa</p>
                 <p className="font-medium">{d.periodicidade || '-'}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Quantidade de Retornos</p>
+                <p className="text-sm text-apoio-400">Quantidade de Retornos</p>
                 <p className="font-medium">{d.qtdRetornos || 0}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Qualidade</p>
+                <p className="text-sm text-apoio-400">Qualidade</p>
                 <p className="font-medium text-xs leading-tight">{getQualidadeLabel(d.qualidade)}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">QTD Clientes Vinculados - EDGE</p>
+                <p className="text-sm text-apoio-400">QTD Clientes Vinculados - EDGE</p>
                 <p className="font-medium">{d.qtdClientesVinculados || 0}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Usuários Empresa - MOVE</p>
+                <p className="text-sm text-apoio-400">Usuários Empresa - MOVE</p>
                 <p className="font-medium">{d.usuariosEmpresa || 0}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Observações</p>
+                <p className="text-sm text-apoio-400">Observações</p>
                 <p className="font-medium">{d.observacoes || '-'}</p>
               </div>
             </div>
@@ -402,14 +404,14 @@ export default function DemandDetailPage() {
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Status Atual</p>
+                  <p className="text-sm text-apoio-400">Status Atual</p>
                   <p className="font-medium">{d.status}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Última Atualização</p>
+                  <p className="text-sm text-apoio-400">Última Atualização</p>
                   <p className="font-medium">{fmt(d.updatedAt)}</p>
                 </div>
               </div>
@@ -446,6 +448,19 @@ function EditInline({ d }: { d: Demand }) {
     const found = md.solicitantes.find(s => s.id === value || s.nome === value)
     return found?.id || value
   }
+
+  const tiposDemandaParaEdicao = useMemo(() => {
+    const all = md.tiposDemanda
+    const active = all.filter((t) => t.ativo !== false)
+    const rawId = typeof draft.tipoId === 'object' ? (draft.tipoId as { id?: string })?.id : draft.tipoId
+    const idStr = rawId ? String(rawId) : ''
+    if (!idStr) return active
+    const current = all.find((t) => t.id === idStr)
+    if (current && !active.some((t) => t.id === idStr)) {
+      return [current, ...active]
+    }
+    return active
+  }, [md.tiposDemanda, draft.tipoId])
 
   // Função label local para o componente EditInline
   const label = (id?: string | any, arr?: { id: string, nome: string }[]) => {
@@ -791,7 +806,7 @@ function EditInline({ d }: { d: Demand }) {
           onChange={(e) => setDraft({ ...draft, status: e.target.value })}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         >
-          {['Aberta', 'Em andamento', 'Transf. Analista', 'Aguardando aprovação', 'Com erros', 'Em reajuste', 'Concluída', 'Cancelada'].map(s => (
+          {['Em andamento', 'Transf. Analista', 'Aguardando aprovação', 'Com erros', 'Em reajuste', 'Concluído Parcialmente', 'Concluída', 'Cancelada'].map(s => (
             <option key={s} value={s}>{s}</option>
           ))}
         </select>
@@ -838,7 +853,7 @@ function EditInline({ d }: { d: Demand }) {
                     {option.nome}
                   </div>
                   {option.grupoEconomico && (
-                    <div className="text-sm text-gray-500">
+                    <div className="text-sm text-apoio-400">
                       Grupo: {option.grupoEconomico}
                     </div>
                   )}
@@ -979,7 +994,7 @@ function EditInline({ d }: { d: Demand }) {
           className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
           placeholder="Definido na criação"
         />
-        <p className="text-xs text-gray-500 mt-1">
+        <p className="text-xs text-apoio-400 mt-1">
           ⚠️ O analista responsável é definido na criação e não pode ser alterado
         </p>
       </div>
@@ -1005,8 +1020,11 @@ function EditInline({ d }: { d: Demand }) {
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="">Selecione...</option>
-            {md.tiposDemanda.map(ts => <option key={ts.id} value={ts.id}>{ts.nome}</option>)}
+            {tiposDemandaParaEdicao.map(ts => <option key={ts.id} value={ts.id}>{ts.nome}</option>)}
           </select>
+          <p className="text-xs text-gray-500 mt-1">
+            No cadastro de novas demandas só aparecem tipos ativos (Dados → Tipos). Aqui o tipo atual da demanda continua listado mesmo se estiver inativo.
+          </p>
         </div>
       </div>
 
@@ -1045,7 +1063,7 @@ function EditInline({ d }: { d: Demand }) {
             step="any"
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
-          <p className="text-xs text-gray-500 mt-1">Campo numérico livre para análise quantitativa</p>
+          <p className="text-xs text-apoio-400 mt-1">Campo numérico livre para análise quantitativa</p>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Quantidade de Retornos</label>
@@ -1089,7 +1107,7 @@ function EditInline({ d }: { d: Demand }) {
             step="1"
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
-          <p className="text-xs text-gray-500 mt-1">Quantidade de clientes vinculados ao EDGE</p>
+          <p className="text-xs text-apoio-400 mt-1">Quantidade de clientes vinculados ao EDGE</p>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Usuários Empresa - MOVE</label>
@@ -1102,7 +1120,7 @@ function EditInline({ d }: { d: Demand }) {
             step="1"
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
-          <p className="text-xs text-gray-500 mt-1">Quantidade de usuários da empresa no MOVE</p>
+          <p className="text-xs text-apoio-400 mt-1">Quantidade de usuários da empresa no MOVE</p>
         </div>
       </div>
 
@@ -1133,15 +1151,13 @@ function EditInline({ d }: { d: Demand }) {
       {/* Botão de salvar */}
       <div className="flex items-center justify-between pt-4 border-t border-gray-200">
         <div className="flex gap-2">
-          <button
+          <PrimaryActionButton
             disabled={changedKeys.length === 0}
             onClick={() => setConfirmOpen(true)}
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-600 transition-colors"
+            startIcon={<SaveIcon />}
           >
-            <Save className="w-4 h-4 mr-2 inline" />
             Salvar alterações
-          </button>
-          
+          </PrimaryActionButton>
         </div>
         
         {changedKeys.length > 0 && (

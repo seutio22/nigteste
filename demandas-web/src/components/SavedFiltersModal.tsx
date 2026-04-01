@@ -23,6 +23,7 @@ import {
   Bookmark as BookmarkIcon,
   Edit as EditIcon
 } from '@mui/icons-material'
+import { PrimaryActionButton } from './PrimaryActionButton'
 import { useMaillingStore } from '../store/maillingStore'
 import type { MaillingFilter, SavedFilter } from '../types/mailling'
 
@@ -157,14 +158,13 @@ export function SavedFiltersModal({ open, onClose, currentFilters, onApplyFilter
               size="small"
             />
             <Box sx={{ display: 'flex', gap: 1 }}>
-              <Button
-                variant="contained"
+              <PrimaryActionButton
                 onClick={editingFilter ? handleUpdateFilter : handleSaveNewFilter}
                 disabled={!filterName.trim()}
                 fullWidth
               >
                 {editingFilter ? 'Atualizar' : 'Salvar'}
-              </Button>
+              </PrimaryActionButton>
               <Button
                 variant="outlined"
                 onClick={() => {

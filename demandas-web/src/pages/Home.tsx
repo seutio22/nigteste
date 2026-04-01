@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, memo, useCallback, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { useDemandStore } from '../store/demandStore'
 import { useAtendimentoStore } from '../store/atendimentoStore'
@@ -9,27 +9,70 @@ import { useManutencaoStore } from '../store/manutencaoStore'
 import { useReportStore } from '../store/reportStore'
 import { useMasterDataStore } from '../store/masterDataStore'
 import { useMaillingStore } from '../store/maillingStore'
-import { useComunicadoStore } from '../store/comunicadoStore'
 import { useProjectStore } from '../store/projectStore'
-import { isItemConcluido, isItemPendente } from '../types/dashboardIndicators'
+import {
+  isItemConcluido,
+  isItemAbertoParaPendenciasUsuario,
+  isItemPendente,
+  isItemConcluidoProducao
+} from '../types/dashboardIndicators'
+import { getExecutionEndDate, parseDateForFilter, matchesByIdOrName } from '../utils/dashboardFilters'
 import { 
   Plus, 
   CheckCircle, 
   TrendingUp, 
   BarChart3, 
-  Users, 
   FileText, 
   Mail, 
   Settings,
   Bell,
-  Calendar,
   Clock,
   Star,
-  Wrench
+  Wrench,
+  Inbox,
+  ArrowRight,
+  ChevronRight,
+  LayoutDashboard,
+  LayoutGrid,
+  FolderOpen,
+  Zap,
+  type LucideIcon
 } from 'lucide-react'
+import { useNotificationStore } from '../store/notificationStore'
+import { getDismissedAlertIds } from '../utils/dismissedAlerts'
+import { formatIntegerPtBR } from '../utils/formatNumber'
+import { getUserPermissions, checkPermission } from '../utils/defaultPermissions'
+import type { SystemPermissions, ModulePermission } from '../types/permissions'
+
+const normalizeTextHome = (value?: string) => (value || '').trim().toLowerCase()
+
+/** Catálogo de atalhos; a Home filtra pelo que o usuário pode fazer (view/create). */
+const QUICK_ACTION_DEFS: Array<{
+  id: string
+  title: string
+  subtitle: string
+  path: string
+  icon: LucideIcon
+  module: keyof SystemPermissions
+  action: keyof ModulePermission
+}> = [
+  { id: 'nova-demanda', title: 'Nova demanda', subtitle: 'Registrar solicitação', path: '/cadastro/nova', icon: Plus, module: 'cadastro', action: 'create' },
+  { id: 'novo-atendimento', title: 'Novo atendimento', subtitle: 'Abrir chamado', path: '/atendimento/nova', icon: FileText, module: 'atendimento', action: 'create' },
+  { id: 'dashboard', title: 'Dashboard', subtitle: 'Indicadores e visão geral', path: '/dashboard', icon: LayoutDashboard, module: 'dashboard', action: 'view' },
+  { id: 'kanban', title: 'Kanban', subtitle: 'Quadro de trabalho', path: '/kanban', icon: LayoutGrid, module: 'kanban', action: 'view' },
+  { id: 'validacao', title: 'Validações', subtitle: 'Fila e aprovações', path: '/validacao', icon: CheckCircle, module: 'validacao', action: 'view' },
+  { id: 'manutencao', title: 'Manutenções', subtitle: 'Chamados de manutenção', path: '/manutencao', icon: Wrench, module: 'manutencao', action: 'view' },
+  { id: 'reajuste', title: 'Reajustes', subtitle: 'Lançamentos e preços', path: '/reajuste', icon: TrendingUp, module: 'reajuste', action: 'view' },
+  { id: 'analytics', title: 'Analytics', subtitle: 'Relatórios analíticos', path: '/analytics', icon: BarChart3, module: 'analytics', action: 'view' },
+  { id: 'mailling', title: 'Mailling', subtitle: 'Contatos e disparos', path: '/mailling', icon: Mail, module: 'mailling', action: 'view' },
+  { id: 'projetos', title: 'Projetos', subtitle: 'Gestão de projetos', path: '/projetos', icon: FolderOpen, module: 'projetos', action: 'view' },
+  /** Mesma rota; visível se tiver usuários OU configurações (evita duplicar botão). */
+  { id: 'admin', title: 'Administração', subtitle: 'Usuários e permissões', path: '/admin/usuarios', icon: Settings, module: 'usuarios', action: 'view' }
+]
 
 export default function HomePage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { user } = useAuthStore()
   const demandStore = useDemandStore()
   const atendimentoStore = useAtendimentoStore()
@@ -39,186 +82,378 @@ export default function HomePage() {
   const reportStore = useReportStore()
   const masterDataStore = useMasterDataStore()
   const maillingStore = useMaillingStore()
-  const comunicadoStore = useComunicadoStore()
   const projectStore = useProjectStore()
+  const { notifications, dismissedKeys } = useNotificationStore()
+  const [isLoading, setIsLoading] = useState(true)
 
-  // Atividades recentes baseadas em dados reais - OTIMIZADO
-  const recentActivities = useMemo(() => {
-    const activities = []
-    
-    // Adicionar demandas recentes (usar cópia para não mutar o array original)
-    if (demandStore.items.length > 0) {
-      const recentDemandas = [...demandStore.items]
-        .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
-        .slice(0, 3)
-        .map(demanda => ({
-          id: `demanda-${demanda.id}`,
-          title: `Nova demanda: ${demanda.descricao || 'Sem descrição'}`,
-          time: new Date(demanda.createdAt).toLocaleString('pt-BR'),
-          type: 'Demanda',
-          status: demanda.status === 'Concluída' ? 'success' : demanda.status === 'Em Andamento' ? 'warning' : 'info'
-        }))
-      activities.push(...recentDemandas)
+  /** Vínculo ao usuário: ids + nome do analista (igual ao uso nas listas de cadastro). */
+  const isOwnedByUser = useCallback((item: any, userId?: string | null, userName?: string | null) => {
+    if (!userId) return false
+    if (item.userId === userId) return true
+    if (item.analistaId === userId) return true
+    if ((item as any).responsavelAnalista === userId) return true
+    // Alguns módulos usam `responsavelAnalista` como NOME (string) e não como id.
+    const nomeUser = (userName || '').toString().trim()
+    if (nomeUser && typeof (item as any).responsavelAnalista === 'string') {
+      const ra = String((item as any).responsavelAnalista || '').trim()
+      if (ra && ra.toLowerCase() === nomeUser.toLowerCase()) return true
     }
-    
-    // Adicionar atendimentos recentes
-    if (atendimentoStore.items.length > 0) {
-      const recentAtendimentos = [...atendimentoStore.items]
-        .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
-        .slice(0, 2)
-        .map(atendimento => ({
-          id: `atendimento-${atendimento.id}`,
-          title: `Atendimento: ${atendimento.titulo || 'Sem título'}`,
-          time: new Date(atendimento.createdAt).toLocaleString('pt-BR'),
-          type: 'Atendimento',
-          status: atendimento.status === 'Resolvido' ? 'success' : atendimento.status === 'Em Andamento' ? 'warning' : 'info'
-        }))
-      activities.push(...recentAtendimentos)
+    if (item.analistaObj?.id === userId) return true
+    // Alguns endpoints retornam `analista` como objeto (ex.: { id, nome }).
+    if (item.analista && typeof item.analista === 'object') {
+      if (item.analista.id === userId) return true
+      const nomeAnalista = (item.analista.nome || item.analista.name || '').toString().trim()
+      if (nomeAnalista && nomeUser && nomeAnalista.toLowerCase() === nomeUser.toLowerCase()) return true
     }
-    
-    // Adicionar validações recentes
-    if (validationStore.items.length > 0) {
-      const recentValidacoes = [...validationStore.items]
-        .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
-        .slice(0, 2)
-        .map(validacao => ({
-          id: `validacao-${validacao.id}`,
-          title: `Validação: ${validacao.observacoes || 'Sem observações'}`,
-          time: new Date(validacao.createdAt).toLocaleString('pt-BR'),
-          type: 'Validação',
-          status: validacao.status === 'Aprovada' ? 'success' : validacao.status === 'Pendente' ? 'warning' : 'info'
-        }))
-      activities.push(...recentValidacoes)
+    const nome = userName?.trim()
+    if (nome && item.analista && String(item.analista).trim().toLowerCase() === nome.toLowerCase()) return true
+    return false
+  }, [])
+
+  /** Mesmo critério do Dashboard: analista vinculado ao cadastro (email/nome). */
+  const restrictAnalistaFilter =
+    user?.role === 'gerente' || user?.role === 'analista' || Boolean(user?.viewOwnDataOnly)
+
+  const linkedAnalistaId = useMemo(() => {
+    if (!restrictAnalistaFilter || !user) return ''
+    const analistas = masterDataStore.analistas
+    if (!analistas?.length) return ''
+    const emailNorm = (user.email || '').trim().toLowerCase()
+    const nameNorm = normalizeTextHome(user.name || '')
+    const found = analistas.find((a) => {
+      const aEmail = (a.email || '').trim().toLowerCase()
+      const aNome = (a.nome || '').trim()
+      if (emailNorm && aEmail && aEmail === emailNorm) return true
+      if (nameNorm && aNome && normalizeTextHome(aNome) === nameNorm) return true
+      if (nameNorm && aNome && normalizeTextHome(aNome).includes(nameNorm)) return true
+      if (nameNorm && aNome && nameNorm.includes(normalizeTextHome(aNome))) return true
+      return false
+    })
+    return found?.id ?? ''
+  }, [restrictAnalistaFilter, user?.id, user?.email, user?.name, masterDataStore.analistas])
+
+  const getAnalistaValueForProducao = useCallback((page: string, item: any) => {
+    if (page === 'reajustes') return item.responsavelAnalista
+    if (page === 'manutencoes') return item.analistaId || item.analista
+    if (page === 'validacoes') {
+      return (
+        item.analistaId ||
+        item.analistaObj?.id ||
+        (typeof item.analista === 'object' ? item.analista?.id : item.analista)
+      )
     }
-    
-    // Adicionar reajustes recentes
-    if (reajusteStore.items.length > 0) {
-      const recentReajustes = [...reajusteStore.items]
-        .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
-        .slice(0, 1)
-        .map(reajuste => ({
-          id: `reajuste-${reajuste.id}`,
-          title: `Reajuste: ${reajuste.motivo || 'Sem motivo'}`,
-          time: new Date(reajuste.createdAt).toLocaleString('pt-BR'),
-          type: 'Reajuste',
-          status: reajuste.aprovado ? 'success' : 'warning'
-        }))
-      activities.push(...recentReajustes)
+    return item.analistaId || item.analista
+  }, [])
+
+  /** Data de conclusão no dia/semana civil local (evita YYYY-MM-DD virar “dia anterior” em UTC). */
+  const isProducaoDateInHomePeriod = useCallback((iso: string | undefined, period: 'hoje' | 'semana') => {
+    if (!iso) return false
+    const itemDate = parseDateForFilter(iso)
+    if (!itemDate || isNaN(itemDate.getTime())) return false
+    const now = new Date()
+    if (period === 'hoje') {
+      return (
+        itemDate.getFullYear() === now.getFullYear() &&
+        itemDate.getMonth() === now.getMonth() &&
+        itemDate.getDate() === now.getDate()
+      )
     }
-    
-    // Adicionar manutenções recentes
-    if (manutencaoStore.items.length > 0) {
-      const recentManutencoes = [...manutencaoStore.items]
-        .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
-        .slice(0, 1)
-        .map(manutencao => ({
-          id: `manutencao-${manutencao.id}`,
-          title: `Manutenção: ${manutencao.descricao || 'Sem descrição'}`,
-          time: new Date(manutencao.createdAt).toLocaleString('pt-BR'),
-          type: 'Manutenção',
-          status: manutencao.status === 'Concluída' ? 'success' : manutencao.status === 'Em Andamento' ? 'warning' : 'info'
-        }))
-      activities.push(...recentManutencoes)
+    const day = now.getDay()
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1)
+    const ws = new Date(now.getFullYear(), now.getMonth(), diff)
+    ws.setHours(0, 0, 0, 0)
+    const we = new Date(ws)
+    we.setDate(we.getDate() + 6)
+    we.setHours(23, 59, 59, 999)
+    const t = itemDate.getTime()
+    return t >= ws.getTime() && t <= we.getTime()
+  }, [])
+
+  const itemContaParaProducaoUsuario = useCallback(
+    (page: string, item: any) => {
+      if (isOwnedByUser(item, user?.id, user?.name)) return true
+      if (linkedAnalistaId && masterDataStore.analistas?.length) {
+        return matchesByIdOrName(
+          getAnalistaValueForProducao(page, item),
+          linkedAnalistaId,
+          masterDataStore.analistas
+        )
+      }
+      return false
+    },
+    [user?.id, user?.name, isOwnedByUser, linkedAnalistaId, masterDataStore.analistas, getAnalistaValueForProducao]
+  )
+
+  // Caixa de entrada: notificações visíveis (respeitando dispensados) para resumo na Home
+  const inboxSummary = useMemo(() => {
+    const contentKey = (n: { titulo?: string; mensagem?: string; dataCriacao?: string }) =>
+      `content:${(n.titulo ?? '').trim().slice(0, 200)}|${(n.mensagem ?? '').trim().slice(0, 500)}|${(n.dataCriacao ?? '').trim().slice(0, 19)}`
+    const dismissedIdsSet = new Set(getDismissedAlertIds().map((id) => String(id).trim()).filter(Boolean))
+    const now = new Date()
+    const visible = notifications
+      .filter((n) => !n.snoozedUntil || new Date(n.snoozedUntil) <= now)
+      .filter((n) => {
+        const alertaId = n.dados?.alertaId != null ? String(n.dados.alertaId).trim() : ''
+        if (alertaId && dismissedIdsSet.has(alertaId)) return false
+        const key = n.dados?.alertaId ?? n.dados?.dedupeKey
+        if (key && dismissedKeys?.includes(key)) return false
+        if (dismissedKeys?.includes(contentKey(n))) return false
+        return true
+      })
+    const unread = visible.filter((n) => !n.lida).length
+    const preview = visible.slice(0, 2)
+    return { total: visible.length, unread, preview }
+  }, [notifications, dismissedKeys])
+
+  const formatTimeAgo = useCallback((dateString: string) => {
+    const now = new Date()
+    const date = new Date(dateString)
+    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60))
+    if (diffInMinutes < 1) return 'Agora'
+    if (diffInMinutes < 60) return `${diffInMinutes} min`
+    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h`
+    return `${Math.floor(diffInMinutes / 1440)}d`
+  }, [])
+
+  const [periodHome, setPeriodHome] = useState<'hoje' | 'semana'>('hoje')
+
+  /** Data de referência da conclusão (produção) — fim operacional ou última atualização. */
+  const getDataProducao = (page: string, item: any): string | undefined => {
+    const end = getExecutionEndDate(page, item)
+    if (end) return end
+    return item?.updatedAt || item?.updated_at
+  }
+
+  /**
+   * Produção do usuário no período: chamados concluídos (produção) com data de encerramento no intervalo.
+   * "Hoje" / "Esta semana" passam a refletir o que você efetivamente concluiu, não criação nem só pendências abertas.
+   */
+  const producaoUsuarioNoPeriodo = useMemo(() => {
+    if (isLoading || !user?.id) return 0
+
+    let n = 0
+    const countIf = (page: string, item: any) => {
+      if (!itemContaParaProducaoUsuario(page, item)) return
+      if (!isItemConcluidoProducao(page, item)) return
+      const d = getDataProducao(page, item)
+      if (isProducaoDateInHomePeriod(d, periodHome)) n++
     }
-    
-    // Adicionar relatórios recentes
-    if (reportStore.items.length > 0) {
-      const recentRelatorios = [...reportStore.items]
-        .sort((a, b) => new Date(b.dataCriacao || 0).getTime() - new Date(a.dataCriacao || 0).getTime())
-        .slice(0, 1)
-        .map(relatorio => ({
-          id: `relatorio-${relatorio.id}`,
-          title: `Relatório: ${relatorio.titulo || 'Sem título'}`,
-          time: new Date(relatorio.dataCriacao).toLocaleString('pt-BR'),
-          type: 'Analytics',
-          status: relatorio.status === 'concluido' ? 'success' : relatorio.status === 'em_andamento' ? 'warning' : 'info'
-        }))
-      activities.push(...recentRelatorios)
-    }
-    
-    // Combinar todas as atividades e ordenar por data
-    return activities
-      .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
-      .slice(0, 8) // Limitar a 8 atividades
+
+    demandStore.items.forEach((d) => countIf('demandas', d))
+    atendimentoStore.items.forEach((a) => countIf('atendimentos', a))
+    validationStore.items.forEach((v) => countIf('validacoes', v))
+    manutencaoStore.items.forEach((m) => countIf('manutencoes', m))
+    reajusteStore.items.forEach((r) => countIf('reajustes', r))
+    reportStore.items.forEach((rel) => countIf('analytics', rel))
+    return n
   }, [
-    demandStore.items.length,
-    atendimentoStore.items.length,
-    validationStore.items.length,
-    reajusteStore.items.length,
-    manutencaoStore.items.length,
-    reportStore.items.length
+    isLoading,
+    periodHome,
+    demandStore.items,
+    atendimentoStore.items,
+    validationStore.items,
+    manutencaoStore.items,
+    reajusteStore.items,
+    reportStore.items,
+    itemContaParaProducaoUsuario,
+    isProducaoDateInHomePeriod,
+    user?.id
   ])
 
-  // Estado para controlar loading
-  const [isLoading, setIsLoading] = useState(true)
-  
-  // Ref para controlar carregamento único - evita loops
-  const dataLoadedRef = useRef(false)
+  // Lista de pendências do usuário para exportação
+  const pendingByUser = useMemo(() => {
+    if (!user?.id || isLoading) return []
+    const rows: { tipo: string; id: string; ticket: string; titulo: string; status: string; criadoEm?: string }[] = []
 
-  // Carregar dados automaticamente quando a página é carregada - OTIMIZADO
+    demandStore.items.forEach((d: any) => {
+      if (isOwnedByUser(d, user.id, user.name) && isItemAbertoParaPendenciasUsuario('demandas', d)) {
+        rows.push({
+          tipo: 'Cadastro',
+          id: d.id,
+          ticket: String(d.ticket || '').trim(),
+          titulo: d.descricao || '',
+          status: String(d.status || ''),
+          criadoEm: d.createdAt || d.dataInicio
+        })
+      }
+    })
+    atendimentoStore.items.forEach((a: any) => {
+      if (isOwnedByUser(a, user.id, user.name) && isItemAbertoParaPendenciasUsuario('atendimentos', a)) {
+        rows.push({
+          tipo: 'Atendimento',
+          id: a.id,
+          ticket: String(a.ticket || '').trim(),
+          titulo: a.titulo || '',
+          status: String(a.status || ''),
+          criadoEm: a.createdAt || a.dataAbertura
+        })
+      }
+    })
+    validationStore.items.forEach((v: any) => {
+      if (isOwnedByUser(v, user.id, user.name) && isItemAbertoParaPendenciasUsuario('validacoes', v)) {
+        rows.push({
+          tipo: 'Validação',
+          id: v.id,
+          ticket: String(v.ticket || '').trim(),
+          titulo: v.observacoes || '',
+          status: String(v.status || ''),
+          criadoEm: v.createdAt
+        })
+      }
+    })
+    manutencaoStore.items.forEach((m: any) => {
+      if (isOwnedByUser(m, user.id, user.name) && isItemAbertoParaPendenciasUsuario('manutencoes', m)) {
+        rows.push({
+          tipo: 'Manutenção',
+          id: m.id,
+          ticket: String(m.ticket || '').trim(),
+          titulo: m.descricao || '',
+          status: String(m.status || ''),
+          criadoEm: m.createdAt || m.dataInicio
+        })
+      }
+    })
+    reajusteStore.items.forEach((r: any) => {
+      if (isOwnedByUser(r, user.id, user.name) && isItemAbertoParaPendenciasUsuario('reajustes', r)) {
+        rows.push({
+          tipo: 'Reajuste',
+          id: r.id,
+          ticket: String(r.ticket || '').trim(),
+          titulo: r.motivo || '',
+          status: r.aprovado ? 'Aprovado' : String(r.status || ''),
+          criadoEm: r.createdAt || r.dataInicio
+        })
+      }
+    })
+    reportStore.items.forEach((rel: any) => {
+      if (isOwnedByUser(rel, user.id, user.name) && isItemAbertoParaPendenciasUsuario('analytics', rel)) {
+        rows.push({
+          tipo: 'Analytics',
+          id: rel.id,
+          ticket: String(rel.ticket || rel.numeroTicket || '').trim(),
+          titulo: rel.titulo || '',
+          status: String(rel.status || ''),
+          criadoEm: rel.dataCriacao || rel.createdAt
+        })
+      }
+    })
+
+    return rows
+  }, [user?.id, user?.name, isLoading, demandStore.items, atendimentoStore.items, validationStore.items, manutencaoStore.items, reajusteStore.items, reportStore.items, isOwnedByUser])
+
+  /** Lista alinhada ao card "Suas pendências": só itens em aberto do usuário, mais recentes primeiro */
+  const atividadesPendentesUsuario = useMemo(() => {
+    if (!user?.id || isLoading) return []
+    const toPath = (tipo: string, id: string): string | undefined => {
+      switch (tipo) {
+        case 'Cadastro':
+          return `/cadastro/${id}`
+        case 'Atendimento':
+          return `/atendimento/${id}`
+        case 'Validação':
+          return `/validacao/${id}`
+        case 'Manutenção':
+          return `/manutencao/${id}`
+        case 'Reajuste':
+          return `/reajuste/${id}`
+        case 'Analytics':
+          return `/analytics/${id}`
+        default:
+          return undefined
+      }
+    }
+    return [...pendingByUser]
+      .sort((a, b) => new Date(b.criadoEm || 0).getTime() - new Date(a.criadoEm || 0).getTime())
+      .slice(0, 8)
+      .map((r) => ({
+        id: `${r.tipo}-${r.id}`,
+        title: r.titulo || r.ticket || '(Sem título)',
+        time: r.criadoEm ? new Date(r.criadoEm).toLocaleString('pt-BR') : '',
+        type: r.tipo,
+        status: 'warning',
+        linkPath: toPath(r.tipo, r.id)
+      }))
+  }, [pendingByUser, user?.id, isLoading])
+
+  // Sincronizar dados ao abrir a Home (stores têm throttle interno ~2 min para não sobrecarregar a API)
   useEffect(() => {
-    // Evitar múltiplas chamadas usando ref ao invés de state
-    if (dataLoadedRef.current) return
-    
     if (!user?.id) {
       setIsLoading(false)
       return
     }
-    
-    // Marcar como carregado antes de iniciar para evitar chamadas duplicadas
-    dataLoadedRef.current = true
-    
-    // Não bloquear renderização inicial - mostrar dados existentes primeiro
-    // Carregar dados em background
+
     const loadData = async () => {
+      setIsLoading(true)
       try {
-        const promises: Promise<any>[] = []
-        
-        // Carregar apenas se os stores estiverem vazios (carregamento lazy)
-        if (demandStore.items.length === 0) {
-          promises.push(demandStore.syncFromApi().catch(() => {}))
-        }
-        
-        if (atendimentoStore.items.length === 0) {
-          promises.push(atendimentoStore.syncFromApi().catch(() => {}))
-        }
-        
-        if (validationStore.items.length === 0) {
-          promises.push(validationStore.syncFromApi().catch(() => {}))
-        }
-        
-        if (reajusteStore.items.length === 0) {
-          promises.push(reajusteStore.syncFromApi().catch(() => {}))
-        }
-        
-        if (manutencaoStore.items.length === 0) {
-          promises.push(manutencaoStore.syncFromApi().catch(() => {}))
-        }
-        
-        if (reportStore.items.length === 0) {
-          promises.push(reportStore.syncFromApi().catch(() => {}))
-        }
-        
-        // Se não há dados para carregar, não mostrar loading
-        if (promises.length === 0) {
-          setIsLoading(false)
-          return
-        }
-        
-        // Mostrar loading apenas se realmente precisar carregar dados
-        setIsLoading(true)
-        
-        // Aguardar todas as promessas em paralelo
-        await Promise.allSettled(promises)
+        const masterSync = masterDataStore.syncFromApi
+        await Promise.allSettled([
+          masterSync ? masterSync({ force: false }) : Promise.resolve(),
+          demandStore.syncFromApi().catch(() => {}),
+          atendimentoStore.syncFromApi().catch(() => {}),
+          validationStore.syncFromApi().catch(() => {}),
+          reajusteStore.syncFromApi().catch(() => {}),
+          manutencaoStore.syncFromApi().catch(() => {}),
+          reportStore.syncFromApi().catch(() => {})
+        ])
       } catch (error) {
         console.error('❌ Home: Erro ao carregar dados:', error)
       } finally {
         setIsLoading(false)
       }
     }
-    
+
     loadData()
-  }, [user?.id]) // Apenas dependência do user.id para evitar re-execuções
+  }, [user?.id])
+
+  const refreshHomeData = useCallback(() => {
+    if (!user?.id) return
+    Promise.allSettled([
+      demandStore.syncFromApi().catch(() => {}),
+      atendimentoStore.syncFromApi().catch(() => {}),
+      validationStore.syncFromApi().catch(() => {}),
+      reajusteStore.syncFromApi().catch(() => {}),
+      manutencaoStore.syncFromApi().catch(() => {}),
+      reportStore.syncFromApi().catch(() => {})
+    ]).catch(() => {})
+  }, [user?.id])
+
+  /** Ignora throttle de 2 min — atualiza “Sua produção” ao voltar à aba/página. */
+  const refreshHomeDataForce = useCallback(() => {
+    if (!user?.id) return
+    const masterSync = masterDataStore.syncFromApi
+    Promise.allSettled([
+      masterSync ? masterSync({ force: true }) : Promise.resolve(),
+      demandStore.syncFromApi(true).catch(() => {}),
+      atendimentoStore.syncFromApi(true).catch(() => {}),
+      validationStore.syncFromApi({ force: true }).catch(() => {}),
+      reajusteStore.syncFromApi(true).catch(() => {}),
+      manutencaoStore.syncFromApi(true).catch(() => {}),
+      reportStore.syncFromApi(true).catch(() => {})
+    ]).catch(() => {})
+  }, [user?.id, masterDataStore.syncFromApi])
+
+  const prevPathForHomeRef = useRef<string | undefined>(undefined)
+
+  useEffect(() => {
+    if (!user?.id) return
+    const p = location.pathname
+    if (p !== '/') {
+      prevPathForHomeRef.current = p
+      return
+    }
+    if (prevPathForHomeRef.current !== undefined && prevPathForHomeRef.current !== '/') {
+      refreshHomeDataForce()
+    }
+    prevPathForHomeRef.current = '/'
+  }, [location.pathname, user?.id, refreshHomeDataForce])
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') refreshHomeDataForce()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [refreshHomeDataForce])
 
   // Estatísticas divididas em múltiplos useMemo para melhor performance - OTIMIZADO
   const statsDemandas = useMemo(() => {
@@ -305,15 +540,6 @@ export default function HomePage() {
     }
   }, [isLoading, maillingStore?.contacts])
 
-  const statsComunicados = useMemo(() => {
-    if (isLoading) return { total: 0, enviados: 0 }
-    const comunicadosArray = (comunicadoStore?.items && Array.isArray(comunicadoStore.items)) ? comunicadoStore.items : []
-    return {
-      total: comunicadosArray.length,
-      enviados: comunicadosArray.filter(c => c.status === 'Enviado' || c.status === 'enviado').length
-    }
-  }, [isLoading, comunicadoStore?.items])
-
   const statsProjetos = useMemo(() => {
     if (isLoading) return { total: 0, concluidos: 0 }
     const projetosArray = (projectStore?.projects && Array.isArray(projectStore.projects)) ? projectStore.projects : []
@@ -335,363 +561,522 @@ export default function HomePage() {
     manutencoes: statsManutencoes,
     analytics: statsAnalytics,
     mailling: statsMailling,
-    comunicados: statsComunicados,
     projetos: statsProjetos
-  }), [statsDemandas, statsAtendimentos, statsValidacoes, statsReajustes, statsManutencoes, statsAnalytics, statsMailling, statsComunicados, statsProjetos])
+  }), [statsDemandas, statsAtendimentos, statsValidacoes, statsReajustes, statsManutencoes, statsAnalytics, statsMailling, statsProjetos])
 
-  // 🚀 MELHORIA FASE 2A: Memoizar quickActions - 30-50% menos processamento
-  const quickActions = useMemo(() => [
-    {
-      title: 'Nova Demanda',
-      description: 'Criar nova solicitação',
-      icon: Plus,
-      color: 'blue',
-      path: '/cadastro/nova',
-      bgColor: 'bg-blue-50',
-      borderColor: 'border-blue-200',
-      hoverColor: 'hover:border-blue-400',
-      iconColor: 'text-blue-600'
-    },
-    {
-      title: 'Novo Atendimento',
-      description: 'Criar novo atendimento',
-      icon: FileText,
-      color: 'teal',
-      path: '/atendimento/nova',
-      bgColor: 'bg-teal-50',
-      borderColor: 'border-teal-200',
-      hoverColor: 'hover:border-teal-400',
-      iconColor: 'text-teal-600'
-    },
-    {
-      title: 'Validar',
-      description: 'Aprovar pendências',
-      icon: CheckCircle,
-      color: 'green',
-      path: '/validacao',
-      bgColor: 'bg-green-50',
-      borderColor: 'border-green-200',
-      hoverColor: 'hover:border-green-400',
-      iconColor: 'text-green-600'
-    },
-    {
-      title: 'Reajustes',
-      description: 'Gerenciar preços',
-      icon: TrendingUp,
-      color: 'orange',
-      path: '/reajuste',
-      bgColor: 'bg-orange-50',
-      borderColor: 'border-orange-200',
-      hoverColor: 'hover:border-orange-400',
-      iconColor: 'text-orange-600'
-    },
-    {
-      title: 'Analytics',
-      description: 'Ver relatórios',
-      icon: BarChart3,
-      color: 'purple',
-      path: '/analytics',
-      bgColor: 'bg-purple-50',
-      borderColor: 'border-purple-200',
-      hoverColor: 'hover:border-purple-400',
-      iconColor: 'text-purple-600'
-    },
-    {
-      title: 'Mailling',
-      description: 'Gerenciar contatos',
-      icon: Mail,
-      color: 'indigo',
-      path: '/mailling',
-      bgColor: 'bg-indigo-50',
-      borderColor: 'border-indigo-200',
-      hoverColor: 'hover:border-indigo-400',
-      iconColor: 'text-indigo-600'
-    },
-    {
-      title: 'Configurações',
-      description: 'Ajustar sistema',
-      icon: Settings,
-      color: 'gray',
-      path: '/admin/usuarios',
-      bgColor: 'bg-gray-50',
-      borderColor: 'border-gray-200',
-      hoverColor: 'hover:border-gray-400',
-      iconColor: 'text-gray-600'
-    }
-  ], [])
+  const totalAtividades = useMemo(() =>
+    stats.demandas.total + stats.atendimentos.total + stats.validacoes.total +
+    stats.reajustes.total + stats.manutencoes.total + stats.analytics.total +
+    stats.mailling.total + stats.projetos.total
+  , [stats])
+  const totalConcluidas = useMemo(() =>
+    stats.demandas.concluidas + stats.atendimentos.resolvidos + stats.validacoes.aprovadas +
+    stats.reajustes.aprovados + stats.manutencoes.concluidas + stats.analytics.concluidos +
+    stats.mailling.ativos + stats.projetos.concluidos
+  , [stats])
+  const taxaConclusao = totalAtividades > 0 ? Math.round((totalConcluidas / totalAtividades) * 100) : 0
+  /** Pendências em aberto vinculadas ao usuário (mesma base do CSV e da lista) */
+  const pendenciasDoUsuario = pendingByUser.length
+
+  /** Linhas do panorama: totais locais + “em aberto” vs encerrados (sem comunicados publicados). */
+  const panoramaOperacional = useMemo(
+    () => [
+      {
+        id: 'demandas',
+        label: 'Demandas',
+        hint: 'Cadastro de solicitações',
+        path: '/cadastro',
+        total: stats.demandas.total,
+        open: stats.demandas.pendentes,
+        done: stats.demandas.concluidas
+      },
+      {
+        id: 'atendimentos',
+        label: 'Atendimentos',
+        hint: 'Chamados e suporte',
+        path: '/atendimento',
+        total: stats.atendimentos.total,
+        open: stats.atendimentos.abertos,
+        done: stats.atendimentos.resolvidos
+      },
+      {
+        id: 'validacoes',
+        label: 'Validações',
+        hint: 'Aprovações e conferência',
+        path: '/validacao',
+        total: stats.validacoes.total,
+        open: stats.validacoes.pendentes,
+        done: stats.validacoes.aprovadas
+      },
+      {
+        id: 'reajustes',
+        label: 'Reajustes',
+        hint: 'Lançamentos e valores',
+        path: '/reajuste',
+        total: stats.reajustes.total,
+        open: stats.reajustes.pendentes,
+        done: stats.reajustes.aprovados
+      },
+      {
+        id: 'manutencoes',
+        label: 'Manutenções',
+        hint: 'Correções e ajustes',
+        path: '/manutencao',
+        total: stats.manutencoes.total,
+        open: stats.manutencoes.pendentes + stats.manutencoes.emAndamento,
+        done: stats.manutencoes.concluidas
+      },
+      {
+        id: 'analytics',
+        label: 'Analytics',
+        hint: 'Relatórios analíticos',
+        path: '/analytics',
+        total: stats.analytics.total,
+        open: stats.analytics.pendentes + stats.analytics.emAndamento,
+        done: stats.analytics.concluidos
+      }
+    ],
+    [stats]
+  )
+
+  const handleExportPendencias = useCallback(() => {
+    if (!pendingByUser.length) return
+    const header = ['Tipo', 'Número do Ticket', 'ID', 'Título', 'Status', 'Criado em']
+    const lines = pendingByUser.map((r) => [
+      r.tipo,
+      r.ticket || '',
+      r.id,
+      (r.titulo || '').replace(/"/g, '""'),
+      r.status || '',
+      r.criadoEm || ''
+    ])
+    const csv = [header, ...lines]
+      .map((cols) => cols.map((c) => `"${c}"`).join(';'))
+      .join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `pendencias-${(user?.name || 'usuario').replace(/\s+/g, '-').toLowerCase()}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }, [pendingByUser, user?.name])
+
+  /** Atalhos só aparecem se o perfil tiver permissão (view/create) no módulo. */
+  const quickActions = useMemo(() => {
+    if (!user?.id) return []
+    const perms = getUserPermissions(user.permissions, user.role)
+    return QUICK_ACTION_DEFS.filter((a) => {
+      if (a.id === 'admin') {
+        return (
+          checkPermission(perms, 'usuarios', 'view') ||
+          checkPermission(perms, 'configuracoes', 'view')
+        )
+      }
+      return checkPermission(perms, a.module, a.action)
+    })
+  }, [user])
 
   // 🚀 MELHORIA FASE 2A: Funções memoizadas - 30-50% menos processamento
   const getStatusIcon = useCallback((status: string) => {
     switch (status) {
       case 'success':
-        return <CheckCircle className="w-4 h-4 text-green-500" />
+        return <CheckCircle className="w-4 h-4 text-[#00A649]" />
       case 'warning':
-        return <Clock className="w-4 h-4 text-orange-500" />
+        return <Clock className="w-4 h-4 text-[#E5B800]" />
       case 'info':
-        return <FileText className="w-4 h-4 text-blue-500" />
+        return <FileText className="w-4 h-4 text-[#004F75]" />
       default:
-        return <Star className="w-4 h-4 text-gray-500" />
+        return <Star className="w-4 h-4 text-apoio-400" />
     }
   }, [])
 
   const getStatusColor = useCallback((status: string) => {
     switch (status) {
       case 'success':
-        return 'bg-green-100 text-green-800'
+        return 'bg-success-light text-success-dark'
       case 'warning':
-        return 'bg-orange-100 text-orange-800'
+        return 'bg-warning-light text-[#1a1a1a]'
       case 'info':
-        return 'bg-blue-100 text-blue-800'
+        return 'bg-info-light text-info-dark'
       default:
-        return 'bg-gray-100 text-gray-800'
+        return 'bg-apoio-100 text-apoio-500'
     }
   }, [])
 
-  // 🚀 MELHORIA FASE 2A: Componentes memoizados - 40-60% menos re-renders
-  const ActivityCard = memo(function ActivityCard({ activity, getStatusIcon, getStatusColor }: { activity: any, getStatusIcon: (status: string) => JSX.Element, getStatusColor: (status: string) => string }) {
+  const ActivityCard = memo(function ActivityCard({
+    activity,
+    getStatusIcon,
+    getStatusColor,
+    onOpen
+  }: {
+    activity: { id: string; title: string; time: string; type: string; status: string; linkPath?: string }
+    getStatusIcon: (status: string) => JSX.Element
+    getStatusColor: (status: string) => string
+    onOpen: (path: string) => void
+  }) {
     return (
-      <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+      <div className="flex items-center gap-3 p-3 bg-apoio-50 rounded-lg hover:bg-apoio-100 transition-colors">
         {getStatusIcon(activity.status)}
-        <div className="flex-1">
-          <p className="font-medium text-gray-800">{activity.title}</p>
-          <p className="text-sm text-gray-600">{activity.time}</p>
+        <div className="flex-1 min-w-0">
+          <p className="font-medium text-[#050032] truncate">{activity.title}</p>
+          <p className="text-sm text-apoio-400">{activity.time}</p>
         </div>
-        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(activity.status)}`}>
+        <span className={`px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 ${getStatusColor(activity.status)}`}>
           {activity.type}
         </span>
+        {activity.linkPath && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onOpen(activity.linkPath!) }}
+            className="flex-shrink-0 px-3 py-1.5 text-sm font-medium text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+          >
+            Abrir
+          </button>
+        )}
       </div>
-    )
-  })
-
-  const QuickActionCard = memo(function QuickActionCard({ action, navigate }: { action: any, navigate: (path: string) => void }) {
-    return (
-      <button
-        onClick={() => navigate(action.path)}
-        className={`${action.bgColor} ${action.borderColor} ${action.hoverColor} border-2 p-6 rounded-2xl transition-all duration-300 hover:shadow-lg hover:scale-105 group`}
-      >
-        <div className="text-center">
-          <div className={`${action.iconColor} mb-3 group-hover:scale-110 transition-transform duration-300`}>
-            <action.icon className="w-8 h-8 mx-auto" />
-          </div>
-          <h3 className="font-semibold text-gray-800 mb-2 group-hover:text-gray-900 transition-colors">
-            {action.title}
-          </h3>
-          <p className="text-sm text-gray-600 group-hover:text-gray-700 transition-colors">
-            {action.description}
-          </p>
-        </div>
-      </button>
     )
   })
 
   // Mostrar loading enquanto os dados estão sendo carregados
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-apoio-50 via-primary-50 to-primary-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Carregando dados...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+          <p className="text-apoio-500">Carregando dados...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+    <div className="min-h-screen bg-gradient-to-br from-apoio-50 via-primary-50 to-primary-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
-        {/* Seção de Boas-vindas */}
-        <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 text-white p-8 rounded-3xl mb-8 shadow-xl">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
-            <div className="mb-6 lg:mb-0">
-              <h1 className="text-4xl lg:text-5xl font-bold mb-3">
+        {/* Hero: saudação + data/hora apenas */}
+        <div className="bg-gradient-to-r from-[#002561] via-[#009FDF] to-[#050032] text-white p-6 sm:p-8 rounded-3xl mb-6 shadow-xl">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold font-geometria mb-2">
                 Olá, {user?.name || 'Usuário'}! 👋
               </h1>
-              <p className="text-xl text-blue-100 mb-4">
-                Bem-vindo ao seu painel de controle. Aqui está o resumo do seu dia de trabalho.
+              <p className="text-lg sm:text-xl text-white/90 font-light font-geometria">
+                {new Date().toLocaleDateString('pt-BR', {
+                  weekday: 'long',
+                  day: 'numeric',
+                  month: 'long',
+                  year: 'numeric'
+                })}
+                {' · '}
+                {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
               </p>
-              <div className="flex flex-wrap gap-3">
-                <span className="bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full text-sm font-medium">
-                  {user?.role || 'Usuário'} • Sistema
-                </span>
-                <span className="bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full text-sm font-medium">
-                  {new Date().toLocaleDateString('pt-BR', { 
-                    weekday: 'long', 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
-                  })}
-                </span>
-                <span className="bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full text-sm font-medium">
-                  {new Date().toLocaleTimeString('pt-BR', { 
-                    hour: '2-digit', 
-                    minute: '2-digit' 
-                  })}
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-            <div className="text-center" title="Total geral de todas as atividades do sistema (sem filtros de período)">
-              <div className="text-3xl font-bold">
-                {stats.demandas.total + stats.atendimentos.total + stats.validacoes.total + 
-                 stats.reajustes.total + stats.manutencoes.total + stats.analytics.total +
-                 stats.mailling.total + stats.comunicados.total + stats.projetos.total}
-              </div>
-              <div className="text-blue-100 text-sm">Total de Atividades</div>
-              <div className="text-blue-200 text-xs mt-1">(Geral - Histórico Completo)</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold">
-                {(() => {
-                  const totalConcluidas = stats.demandas.concluidas + stats.atendimentos.resolvidos + 
-                                        stats.validacoes.aprovadas + stats.reajustes.aprovados + 
-                                        stats.manutencoes.concluidas + stats.analytics.concluidos +
-                                        stats.mailling.ativos + stats.comunicados.enviados + stats.projetos.concluidos
-                  const totalAtividades = stats.demandas.total + stats.atendimentos.total + 
-                                        stats.validacoes.total + stats.reajustes.total + 
-                                        stats.manutencoes.total + stats.analytics.total +
-                                        stats.mailling.total + stats.comunicados.total + stats.projetos.total
-                  return totalAtividades > 0 ? Math.round((totalConcluidas / totalAtividades) * 100) : 0
-                })()}%
-              </div>
-              <div className="text-blue-100 text-sm">Taxa de Conclusão</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold">
-                {stats.demandas.pendentes + stats.atendimentos.abertos + stats.validacoes.pendentes + 
-                 stats.reajustes.pendentes + stats.manutencoes.pendentes + stats.analytics.pendentes}
-              </div>
-              <div className="text-blue-100 text-sm">Pendências</div>
-            </div>
+              <span className="inline-block mt-2 bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full text-sm font-medium">
+                {user?.role || 'Usuário'}
+              </span>
             </div>
           </div>
         </div>
 
-        {/* Ações Rápidas */}
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
-            <Star className="w-6 h-6 text-yellow-500" />
-            Ações Rápidas
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-            {quickActions.map((action, index) => (
-              <QuickActionCard key={index} action={action} navigate={navigate} />
+        {/* Seletor de período (Hoje / Esta semana) */}
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-sm font-medium text-[#050032] font-geometria">Resumo:</span>
+          <button
+            type="button"
+            onClick={() => setPeriodHome('hoje')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors font-geometria ${periodHome === 'hoje' ? 'bg-primary-600 text-white' : 'bg-white border border-apoio-200 text-apoio-600 hover:border-primary-300'}`}
+          >
+            Hoje
+          </button>
+          <button
+            type="button"
+            onClick={() => setPeriodHome('semana')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors font-geometria ${periodHome === 'semana' ? 'bg-primary-600 text-white' : 'bg-white border border-apoio-200 text-apoio-600 hover:border-primary-300'}`}
+          >
+            Esta semana
+          </button>
+          <span className="text-xs text-apoio-500 max-w-xl">
+            Ajusta a <strong className="text-apoio-600">sua produção</strong> (chamados concluídos no período) e o rodapé. Suas pendências e a lista ao lado refletem sempre sua fila em aberto.
+          </span>
+        </div>
+
+        {/* KPIs principais: Total, Taxa, Pendências, Seu dia */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <button
+            type="button"
+            onClick={() => navigate('/dashboard')}
+            className="text-left bg-white rounded-2xl p-5 shadow-sm border border-apoio-100 hover:shadow-md hover:border-primary-200 transition-all"
+          >
+            <div className="text-2xl sm:text-3xl font-bold text-primary-600 font-geometria">{formatIntegerPtBR(totalAtividades)}</div>
+            <div className="text-sm font-medium text-[#050032] font-geometria">Total de Atividades</div>
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/dashboard')}
+            className="text-left bg-white rounded-2xl p-5 shadow-sm border border-apoio-100 hover:shadow-md hover:border-success-dark transition-all"
+          >
+            <div className="text-2xl sm:text-3xl font-bold text-[#00A649] font-geometria">{formatIntegerPtBR(taxaConclusao)}%</div>
+            <div className="text-sm font-medium text-[#050032] font-geometria">Taxa de Conclusão</div>
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/cadastro')}
+            className="text-left bg-white rounded-2xl p-5 shadow-sm border border-apoio-100 hover:shadow-md hover:border-warning-dark transition-all"
+          >
+            <div className="text-2xl sm:text-3xl font-bold text-[#1a1a1a] font-geometria">{formatIntegerPtBR(pendenciasDoUsuario)}</div>
+            <div className="text-sm font-medium text-[#050032] font-geometria">Suas pendências</div>
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/dashboard')}
+            className="text-left bg-white rounded-2xl p-5 shadow-sm border border-apoio-100 hover:shadow-md hover:border-info transition-all"
+          >
+            <div className="text-2xl sm:text-3xl font-bold text-[#004F75] font-geometria">{formatIntegerPtBR(producaoUsuarioNoPeriodo)}</div>
+            <div className="text-sm font-medium text-[#050032] font-geometria">
+              {periodHome === 'hoje' ? 'Sua produção (hoje)' : 'Sua produção (semana)'}
+            </div>
+          </button>
+        </div>
+
+        {/* Caixa de entrada - resumo e acesso */}
+        <div
+          onClick={() => navigate('/notificacoes')}
+          className="mb-8 bg-white rounded-2xl p-6 shadow-sm border border-apoio-100 cursor-pointer transition-all duration-300 hover:shadow-md hover:border-primary-200 group"
+        >
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-primary-50 border border-primary-200 flex items-center justify-center group-hover:bg-primary-100 transition-colors">
+                <Inbox className="w-6 h-6 text-primary-600" />
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold text-[#050032] font-geometria mb-1">
+                  Caixa de entrada
+                </h2>
+                <p className="text-sm text-apoio-500 font-geometria">
+                  {inboxSummary.unread > 0
+                    ? `${formatIntegerPtBR(inboxSummary.unread)} não lida${inboxSummary.unread > 1 ? 's' : ''}`
+                    : inboxSummary.total > 0
+                      ? 'Todas lidas'
+                      : 'Nenhuma notificação'}
+                  {inboxSummary.total > 0 && ` • ${formatIntegerPtBR(inboxSummary.total)} no total`}
+                </p>
+              </div>
+            </div>
+            {inboxSummary.preview.length > 0 && (
+              <div className="flex-1 min-w-0 sm:max-w-md space-y-2">
+                {inboxSummary.preview.map((n) => (
+                  <div key={n.id} className="flex items-center gap-2 text-left">
+                    <span className="flex-1 truncate text-sm text-[#050032] font-geometria">
+                      {n.titulo || '(Sem assunto)'}
+                    </span>
+                    <span className="text-xs text-apoio-500 font-geometria flex-shrink-0">
+                      {formatTimeAgo(n.dataCriacao)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="flex items-center gap-2 text-primary-600 font-medium font-geometria group-hover:text-primary-700">
+              Ver todas
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </div>
+        </div>
+
+        {/* Atalhos (dinâmicos por permissão, visual sóbrio) */}
+        <div className="mb-8 rounded-2xl border border-apoio-100 bg-white/90 p-5 sm:p-6 shadow-sm">
+          <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold tracking-tight text-[#050032] font-geometria flex items-center gap-2">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#050032]/[0.06] text-[#004F75]">
+                  <Zap className="h-4 w-4" strokeWidth={2} aria-hidden />
+                </span>
+                Atalhos
+              </h2>
+              <p className="mt-1 text-sm text-apoio-500">
+                Acesso direto ao que você pode usar — sem ruído, sem atalhos bloqueados.
+              </p>
+            </div>
+            {quickActions.length > 0 && (
+              <span className="text-xs font-medium text-apoio-400 tabular-nums">
+                {quickActions.length} {quickActions.length === 1 ? 'opção' : 'opções'}
+              </span>
+            )}
+          </div>
+          {quickActions.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-apoio-200 bg-apoio-50/50 px-4 py-6 text-center text-sm text-apoio-500">
+              Nenhum atalho disponível para o seu perfil de acesso.
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {quickActions.map((action) => {
+                const Icon = action.icon
+                return (
+                  <button
+                    key={action.id}
+                    type="button"
+                    onClick={() => navigate(action.path)}
+                    className="group flex items-center gap-3 rounded-xl border border-apoio-100 bg-white px-4 py-3.5 text-left transition-all duration-200 hover:border-[#004F75]/30 hover:bg-[#004F75]/[0.03] hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[#004F75]/25"
+                  >
+                    <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-[#050032]/[0.06] text-[#004F75] transition-colors group-hover:bg-[#004F75]/10">
+                      <Icon className="h-5 w-5" strokeWidth={1.75} aria-hidden />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-semibold leading-tight text-[#050032] font-geometria">{action.title}</span>
+                      <span className="mt-0.5 block text-xs text-apoio-500">{action.subtitle}</span>
+                    </span>
+                    <ArrowRight
+                      className="h-4 w-4 flex-shrink-0 text-apoio-300 transition-transform group-hover:translate-x-0.5 group-hover:text-[#004F75]"
+                      aria-hidden
+                    />
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Panorama operacional: fluxo único, leitura em lista + barra de ritmo */}
+        <section className="mb-8 rounded-2xl border border-apoio-100 bg-white shadow-sm overflow-hidden">
+          <div className="border-b border-apoio-100 bg-gradient-to-r from-[#050032]/[0.03] to-transparent px-5 py-4 sm:px-6">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold tracking-tight text-[#050032] font-geometria flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5 text-[#004F75]" strokeWidth={1.75} aria-hidden />
+                  Panorama operacional
+                </h2>
+                <p className="text-sm text-apoio-500 mt-0.5 max-w-2xl">
+                  Cada linha mostra o volume carregado no app: total no módulo, o que ainda está em aberto e o que já foi
+                  encerrado. Toque para ir direto à lista.
+                </p>
+              </div>
+            </div>
+          </div>
+          <ul className="divide-y divide-apoio-100">
+            {panoramaOperacional.map((row) => {
+              const pct =
+                row.total > 0 ? Math.min(100, Math.round((row.done / row.total) * 100)) : 0
+              return (
+                <li key={row.id}>
+                  <button
+                    type="button"
+                    onClick={() => navigate(row.path)}
+                    className="group flex w-full flex-col gap-3 px-4 py-4 text-left transition-colors hover:bg-[#004F75]/[0.04] sm:flex-row sm:items-center sm:gap-4 sm:px-6"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <span className="font-semibold text-[#050032] font-geometria">{row.label}</span>
+                      <span className="mt-0.5 block text-xs text-apoio-500">{row.hint}</span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-4 sm:gap-6">
+                      <div className="tabular-nums">
+                        <span className="block text-[10px] font-medium uppercase tracking-wide text-apoio-400">Total</span>
+                        <span className="text-base font-semibold text-[#050032] font-geometria">
+                          {formatIntegerPtBR(row.total)}
+                        </span>
+                      </div>
+                      <div className="tabular-nums">
+                        <span className="block text-[10px] font-medium uppercase tracking-wide text-apoio-400">Em aberto</span>
+                        <span className="text-base font-semibold text-[#004F75] font-geometria">
+                          {formatIntegerPtBR(row.open)}
+                        </span>
+                      </div>
+                      <div className="tabular-nums">
+                        <span className="block text-[10px] font-medium uppercase tracking-wide text-apoio-400">Encerrados</span>
+                        <span className="text-base font-semibold text-apoio-600 font-geometria">
+                          {formatIntegerPtBR(row.done)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 sm:w-40 sm:flex-shrink-0">
+                      <div
+                        className="h-2 flex-1 overflow-hidden rounded-full bg-apoio-100 sm:max-w-[7rem]"
+                        title={`${pct}% encerrados sobre o total`}
+                      >
+                        <div
+                          className="h-full rounded-full bg-[#004F75] transition-all duration-500 ease-out"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      <ChevronRight
+                        className="h-5 w-5 flex-shrink-0 text-apoio-300 transition-transform group-hover:translate-x-0.5 group-hover:text-[#004F75]"
+                        aria-hidden
+                      />
+                    </div>
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        </section>
+
+        {/* Sua fila: largura total, abaixo do panorama */}
+        <section className="mb-8 rounded-2xl border border-apoio-100 bg-white p-5 shadow-sm sm:p-6">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-[#050032] font-geometria flex items-center gap-2">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#009FDF]/10 text-[#009FDF]">
+                  <Bell className="h-4 w-4" strokeWidth={2} aria-hidden />
+                </span>
+                Prioridades na sua fila
+              </h3>
+              <p className="mt-1 text-sm text-apoio-500 max-w-2xl">
+                Itens com você como analista ou responsável, ainda não concluídos nem cancelados.{' '}
+                <span className="font-semibold text-[#004F75]">{formatIntegerPtBR(pendingByUser.length)}</span> em
+                aberto.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleExportPendencias}
+              disabled={!pendingByUser.length}
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-apoio-200 bg-white px-4 py-2.5 text-sm font-medium text-[#050032] font-geometria transition-colors hover:border-[#004F75]/40 hover:bg-[#004F75]/[0.04] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <FileText className="h-4 w-4 text-apoio-500" />
+              Exportar CSV
+            </button>
+          </div>
+          <div className="space-y-2">
+            {atividadesPendentesUsuario.length === 0 && (
+              <p className="rounded-xl border border-dashed border-apoio-200 bg-apoio-50/40 px-4 py-8 text-center text-sm text-apoio-500">
+                Nada pendente com você no momento — ótimo ritmo.
+              </p>
+            )}
+            {atividadesPendentesUsuario.map((activity) => (
+              <ActivityCard
+                key={activity.id}
+                activity={activity}
+                getStatusIcon={getStatusIcon}
+                getStatusColor={getStatusColor}
+                onOpen={navigate}
+              />
             ))}
           </div>
-        </div>
+        </section>
 
-        {/* Atividades Recentes */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          
-          {/* Atividades do Sistema */}
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-            <h3 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <Bell className="w-5 h-5 text-blue-600" />
-              Atividades Recentes
-            </h3>
-            <div className="space-y-4">
-              {recentActivities.map((activity) => (
-                <ActivityCard key={activity.id} activity={activity} getStatusIcon={getStatusIcon} getStatusColor={getStatusColor} />
-              ))}
-            </div>
-          </div>
-
-          {/* Resumo Completo do Sistema */}
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-            <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-green-600" />
-              Resumo Completo do Sistema
-            </h3>
-            
-            {/* Métricas Principais */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-              <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl border border-blue-200" title="Total geral de todas as atividades do sistema (sem filtros de período)">
-                <div className="text-3xl font-bold text-blue-600 mb-2">
-                  {stats.demandas.total + stats.atendimentos.total + stats.validacoes.total + 
-                   stats.reajustes.total + stats.manutencoes.total + stats.analytics.total +
-                   stats.mailling.total + stats.comunicados.total + stats.projetos.total}
-                </div>
-                <div className="text-sm font-medium text-blue-800">Total de Atividades</div>
-                <div className="text-xs text-blue-600 mt-1">Geral - Histórico Completo</div>
-              </div>
-              
-              <div className="text-center p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-xl border border-green-200">
-                <div className="text-3xl font-bold text-green-600 mb-2">
-                  {(() => {
-                    const totalConcluidas = stats.demandas.concluidas + stats.atendimentos.resolvidos + 
-                                          stats.validacoes.aprovadas + stats.reajustes.aprovados + 
-                                          stats.manutencoes.concluidas + stats.analytics.concluidos +
-                                          stats.mailling.ativos + stats.comunicados.enviados + stats.projetos.concluidos
-                    const totalAtividades = stats.demandas.total + stats.atendimentos.total + 
-                                          stats.validacoes.total + stats.reajustes.total + 
-                                          stats.manutencoes.total + stats.analytics.total +
-                                          stats.mailling.total + stats.comunicados.total + stats.projetos.total
-                    return totalAtividades > 0 ? Math.round((totalConcluidas / totalAtividades) * 100) : 0
-                  })()}%
-                </div>
-                <div className="text-sm font-medium text-green-800">Taxa de Conclusão</div>
-                <div className="text-xs text-green-600 mt-1">Eficiência geral</div>
-              </div>
-              
-              <div className="text-center p-4 bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl border border-orange-200">
-                <div className="text-3xl font-bold text-orange-600 mb-2">
-                  {stats.demandas.pendentes + stats.atendimentos.abertos + stats.validacoes.pendentes + 
-                   stats.reajustes.pendentes + stats.manutencoes.pendentes + stats.analytics.pendentes}
-                </div>
-                <div className="text-sm font-medium text-orange-800">Pendências</div>
-                <div className="text-xs text-orange-600 mt-1">Requerem atenção</div>
-              </div>
-            </div>
-
-            {/* Breakdown por Categoria */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-              <div className="text-center p-3 bg-blue-50 rounded-lg border border-blue-200 hover:bg-blue-100 transition-colors">
-                <div className="text-xl font-bold text-blue-600">{stats.demandas.total}</div>
-                <div className="text-xs font-medium text-blue-800">Demandas</div>
-                <div className="text-xs text-blue-600">{stats.demandas.concluidas} concluídas</div>
-              </div>
-              
-              <div className="text-center p-3 bg-teal-50 rounded-lg border border-teal-200 hover:bg-teal-100 transition-colors">
-                <div className="text-xl font-bold text-teal-600">{stats.atendimentos.total}</div>
-                <div className="text-xs font-medium text-teal-800">Atendimentos</div>
-                <div className="text-xs text-teal-600">{stats.atendimentos.resolvidos} resolvidos</div>
-              </div>
-              
-              <div className="text-center p-3 bg-green-50 rounded-lg border border-green-200 hover:bg-green-100 transition-colors">
-                <div className="text-xl font-bold text-green-600">{stats.validacoes.total}</div>
-                <div className="text-xs font-medium text-green-800">Validações</div>
-                <div className="text-xs text-green-600">{stats.validacoes.aprovadas} aprovadas</div>
-              </div>
-              
-              <div className="text-center p-3 bg-purple-50 rounded-lg border border-purple-200 hover:bg-purple-100 transition-colors">
-                <div className="text-xl font-bold text-purple-600">{stats.reajustes.total}</div>
-                <div className="text-xs font-medium text-purple-800">Reajustes</div>
-                <div className="text-xs text-purple-600">{stats.reajustes.aprovados} aprovados</div>
-              </div>
-              
-              <div className="text-center p-3 bg-amber-50 rounded-lg border border-amber-200 hover:bg-amber-100 transition-colors">
-                <div className="text-xl font-bold text-amber-600">{stats.manutencoes.total}</div>
-                <div className="text-xs font-medium text-amber-800">Manutenções</div>
-                <div className="text-xs text-amber-600">{stats.manutencoes.concluidas} concluídas</div>
-              </div>
-              
-              <div className="text-center p-3 bg-indigo-50 rounded-lg border border-indigo-200 hover:bg-indigo-100 transition-colors">
-                <div className="text-xl font-bold text-indigo-600">{stats.analytics.total}</div>
-                <div className="text-xs font-medium text-indigo-800">Analytics</div>
-                <div className="text-xs text-indigo-600">{stats.analytics.concluidos} concluídos</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Mensagem de Boas-vindas */}
-        <div className="mt-8 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-2xl p-6 text-center">
-          <h3 className="text-lg font-semibold text-emerald-800 mb-2">
-            🎉 Comece seu dia com produtividade!
-          </h3>
-          <p className="text-emerald-700">
-            Use as ações rápidas acima para navegar rapidamente pelas funcionalidades do sistema.
-          </p>
+        {/* Rodapé dinâmico */}
+        <div className="mt-8 rounded-2xl p-6 text-center border font-geometria border-apoio-200 bg-white/80">
+          {pendenciasDoUsuario > 0 ? (
+            <>
+              <p className="text-[#050032] font-medium">
+                Você tem <span className="text-primary-600 font-semibold">{formatIntegerPtBR(pendenciasDoUsuario)}</span>{' '}
+                pendência{pendenciasDoUsuario > 1 ? 's' : ''} em aberto na sua fila
+                {periodHome === 'semana' && (
+                  <span className="text-apoio-600"> • Produção na semana: {formatIntegerPtBR(producaoUsuarioNoPeriodo)} concluído(s)</span>
+                )}
+                .
+              </p>
+              <p className="text-sm text-apoio-500 mt-1">Use os atalhos acima ou o menu lateral para abrir os módulos.</p>
+            </>
+          ) : (
+            <>
+              <p className="text-success-dark font-medium">Nenhuma pendência em aberto na sua fila.</p>
+              <p className="text-sm text-apoio-500 mt-1">
+                {periodHome === 'hoje'
+                  ? `Produção hoje: ${formatIntegerPtBR(producaoUsuarioNoPeriodo)} concluído(s). Use o Dashboard para o resumo completo.`
+                  : `Produção na semana: ${formatIntegerPtBR(producaoUsuarioNoPeriodo)} concluído(s). Use o Dashboard para o resumo completo.`}
+              </p>
+            </>
+          )}
         </div>
 
       </div>

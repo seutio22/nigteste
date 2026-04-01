@@ -34,7 +34,7 @@ import {
   Switch
 } from '@mui/material'
 import { 
-  Add, 
+  AddCircleOutline as AddCircleOutlineIcon,
   Search, 
   FilterList,
   ViewList,
@@ -71,8 +71,10 @@ import {
   Download,
   Delete
 } from '@mui/icons-material'
+import { PrimaryActionButton } from '../../components/PrimaryActionButton'
 import { useComunicadoStore } from '../../store/comunicadoStore'
 import { useAuthStore } from '../../store/authStore'
+import { formatIntegerPtBR } from '../../utils/formatNumber'
 
 export default function ComunicadosListPage() {
   const navigate = useNavigate()
@@ -338,7 +340,7 @@ export default function ComunicadosListPage() {
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
                 <Box sx={{ textAlign: 'center' }}>
                   <Typography variant="h6" color="primary" fontWeight="bold">
-                    {comunicado.visualizacoes?.length || 0}
+                    {formatIntegerPtBR(comunicado.visualizacoes?.length || 0)}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
                     Visualizações
@@ -379,7 +381,7 @@ export default function ComunicadosListPage() {
                         ))}
                         {tags.length > 3 && (
                           <Chip
-                            label={`+${tags.length - 3}`}
+                            label={`+${formatIntegerPtBR(tags.length - 3)}`}
                             size="small"
                             variant="outlined"
                             sx={{ fontSize: '0.7rem' }}
@@ -449,7 +451,7 @@ export default function ComunicadosListPage() {
                         size="small"
                       />
                       <Typography variant="caption" color="text.secondary">
-                        {comunicado.visualizacoes?.length || 0} visualizações
+                        {formatIntegerPtBR(comunicado.visualizacoes?.length || 0)} visualizações
                       </Typography>
                     </Box>
                   </Box>
@@ -506,7 +508,7 @@ export default function ComunicadosListPage() {
                   size="small"
                 />
                 <Chip
-                  label={statusComunicados.length}
+                  label={formatIntegerPtBR(statusComunicados.length)}
                   color="default"
                   size="small"
                   variant="outlined"
@@ -614,7 +616,7 @@ export default function ComunicadosListPage() {
                 
                 {/* Contador de comunicados */}
                 <Chip
-                  label={`${sortedComunicados.length} comunicado${sortedComunicados.length !== 1 ? 's' : ''}`}
+                  label={`${formatIntegerPtBR(sortedComunicados.length)} comunicado${sortedComunicados.length !== 1 ? 's' : ''}`}
                   size="small"
                   variant="outlined"
                   className="border-slate-300 text-slate-600 bg-slate-50"
@@ -624,14 +626,14 @@ export default function ComunicadosListPage() {
                 {/* Estatísticas */}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                   <Chip
-                    label={`${sortedComunicados.filter(c => c.publicado).length} Publicados`}
+                    label={`${formatIntegerPtBR(sortedComunicados.filter(c => c.publicado).length)} Publicados`}
                     size="small"
                     variant="outlined"
                     color="success"
                     sx={{ borderRadius: '12px' }}
                   />
                   <Chip
-                    label={`${sortedComunicados.filter(c => !c.publicado).length} Rascunhos`}
+                    label={`${formatIntegerPtBR(sortedComunicados.filter(c => !c.publicado).length)} Rascunhos`}
                     size="small"
                     variant="outlined"
                     color="default"
@@ -664,29 +666,13 @@ export default function ComunicadosListPage() {
               >
                 Exportar
               </Button>
-              <Button
-                variant="contained"
-                startIcon={<Add />}
+              <PrimaryActionButton
+                startIcon={<AddCircleOutlineIcon />}
                 onClick={() => navigate('/comunicados/novo')}
-                size="medium"
-                className="bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-800 hover:to-slate-900 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 font-semibold"
-                sx={{
-                  borderRadius: '14px',
-                  padding: '10px 20px',
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  fontSize: '0.9rem',
-                  height: '44px',
-                  minWidth: '160px',
-                  boxShadow: '0 4px 14px 0 rgba(15, 23, 42, 0.25)',
-                  '&:hover': {
-                    boxShadow: '0 8px 25px 0 rgba(15, 23, 42, 0.35)',
-                    transform: 'translateY(-2px)'
-                  }
-                }}
+                sx={{ minWidth: '160px' }}
               >
                 Novo Comunicado
-              </Button>
+              </PrimaryActionButton>
             </div>
           </div>
         </div>
@@ -697,7 +683,7 @@ export default function ComunicadosListPage() {
         {/* Filtros */}
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center gap-4 mb-4">
-            <FilterAlt className="text-gray-500" />
+            <FilterAlt className="text-apoio-400" />
             <h3 className="text-lg font-medium text-gray-900">Filtros e Visualizações</h3>
           </div>
           
@@ -765,15 +751,12 @@ export default function ComunicadosListPage() {
                 : 'Crie seu primeiro comunicado para começar'
               }
             </Typography>
-            <Button
-              variant="contained"
-              startIcon={<Add />}
+            <PrimaryActionButton
+              startIcon={<AddCircleOutlineIcon />}
               onClick={() => navigate('/comunicados/novo')}
-              className="bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-800 hover:to-slate-900"
-              sx={{ borderRadius: '14px' }}
             >
               Criar Comunicado
-            </Button>
+            </PrimaryActionButton>
           </div>
         ) : (
           <>

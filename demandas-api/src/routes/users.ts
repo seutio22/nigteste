@@ -2,9 +2,12 @@ import { FastifyInstance } from 'fastify'
 import { PrismaClient } from '@prisma/client'
 import { z } from 'zod'
 import bcrypt from 'bcryptjs'
+import { createRequirePermission, createRequirePermissionOrSelf } from '../middleware/requirePermission'
 
 export async function userRoutes(app: FastifyInstance, options: { prisma: PrismaClient }) {
   const { prisma } = options
+  const requirePermission = createRequirePermission(prisma)
+  const requirePermissionOrSelf = createRequirePermissionOrSelf(prisma)
 
   // Schema de validação para usuários
   const userCreateSchema = z.object({
@@ -130,16 +133,8 @@ export async function userRoutes(app: FastifyInstance, options: { prisma: Prisma
     await req.jwtVerify()
   }
 
-  // Middleware para verificar se o usuário é admin
-  const ensureAdmin = async (req: any) => {
-    await req.jwtVerify()
-    if (req.user.role !== 'admin') {
-      throw new Error('Acesso negado: apenas administradores podem gerenciar usuários')
-    }
-  }
-
-  // GET /users - Listar todos os usuários (apenas admin)
-  app.get('/users', { preHandler: ensureAdmin }, async () => {
+  // GET /users - Listar usuários (exige permissão usuarios.view)
+  app.get('/users', { preHandler: [verifyJWT, requirePermission('usuarios', 'view')] }, async () => {
     try {
       const users = await prisma.user.findMany({
         select: {
@@ -165,18 +160,11 @@ export async function userRoutes(app: FastifyInstance, options: { prisma: Prisma
     }
   })
 
-  // GET /users/:id - Obter usuário específico (qualquer usuário autenticado pode buscar seus próprios dados)
-  app.get('/users/:id', { preHandler: verifyJWT }, async (req: any) => {
+  // GET /users/:id - Obter usuário (próprio perfil sempre; outros exige usuarios.view)
+  app.get('/users/:id', { preHandler: [verifyJWT, requirePermissionOrSelf('usuarios', 'view')] }, async (req: any) => {
     try {
       const { id } = req.params
-      const requestingUserId = req.user?.id
-      const requestingUserRole = req.user?.role
-      
-      // Permitir que admin busque qualquer usuário OU que o usuário busque seus próprios dados
-      if (requestingUserRole !== 'admin' && requestingUserId !== id) {
-        return { error: 'Você só pode buscar seus próprios dados' }
-      }
-      
+      // Acesso já validado por requirePermissionOrSelf (próprio perfil ou usuarios.view)
       const user = await prisma.user.findUnique({
         where: { id },
         select: {
@@ -207,8 +195,8 @@ export async function userRoutes(app: FastifyInstance, options: { prisma: Prisma
     }
   })
 
-  // POST /users - Criar novo usuário (apenas admin)
-  app.post('/users', { preHandler: ensureAdmin }, async (req: any, res: any) => {
+  // POST /users - Criar novo usuário (exige permissão usuarios.create)
+  app.post('/users', { preHandler: [verifyJWT, requirePermission('usuarios', 'create')] }, async (req: any, res: any) => {
     try {
       const userData = userCreateSchema.parse(req.body)
       
@@ -262,8 +250,8 @@ export async function userRoutes(app: FastifyInstance, options: { prisma: Prisma
     }
   })
 
-  // PUT /users/:id - Atualizar usuário (apenas admin)
-  app.put('/users/:id', { preHandler: ensureAdmin }, async (req: any, res: any) => {
+  // PUT /users/:id - Atualizar usuário (exige permissão usuarios.edit)
+  app.put('/users/:id', { preHandler: [verifyJWT, requirePermission('usuarios', 'edit')] }, async (req: any, res: any) => {
     try {
       const { id } = req.params
       const updateData = userUpdateSchema.parse(req.body)
@@ -334,8 +322,8 @@ export async function userRoutes(app: FastifyInstance, options: { prisma: Prisma
     }
   })
 
-  // DELETE /users/:id - Deletar usuário (apenas admin)
-  app.delete('/users/:id', { preHandler: ensureAdmin }, async (req: any) => {
+  // DELETE /users/:id - Deletar usuário (exige permissão usuarios.delete)
+  app.delete('/users/:id', { preHandler: [verifyJWT, requirePermission('usuarios', 'delete')] }, async (req: any) => {
     try {
       const { id } = req.params
       
@@ -440,7 +428,7 @@ export async function userRoutes(app: FastifyInstance, options: { prisma: Prisma
   })
 
   // PATCH /users/:id/toggle-active - Ativar/Desativar usuário (apenas admin)
-  app.patch('/users/:id/toggle-active', { preHandler: ensureAdmin }, async (req: any) => {
+  app.patch('/users/:id/toggle-active', { preHandler: [verifyJWT, requirePermission('usuarios', 'edit')] }, async (req: any) => {
     try {
       const { id } = req.params
       

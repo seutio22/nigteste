@@ -13,7 +13,7 @@ interface DemandState {
   remove: (id: DemandId) => Promise<void>
   clear: () => void
   log: (e: Omit<TimelineEvent, 'id' | 'timestamp'>) => void
-  syncFromApi: () => Promise<void>
+  syncFromApi: (force?: boolean) => Promise<void>
   syncTimeline: (demandaId: string) => Promise<void>
 }
 
@@ -322,14 +322,14 @@ export const useDemandStore = create<DemandState>()(
           console.error('❌ Erro ao salvar evento de timeline no banco:', error)
         }
       },
-      async syncFromApi() {
+      async syncFromApi(force?: boolean) {
         const state = get()
         if (state.isLoading) {
           console.log('⏸️ DemandStore: Já está carregando, ignorando chamada duplicada')
           return
         }
         const now = Date.now()
-        if (now - state.lastSync < 2 * 60 * 1000) {
+        if (!force && now - state.lastSync < 2 * 60 * 1000) {
           return
         }
         
@@ -474,6 +474,9 @@ export const useDemandStore = create<DemandState>()(
             user: event.userName || event.userId || 'Usuário desconhecido'
           }))
           
+          // Normalizar valor para comparação (evitar duplicata quando API retorna null e local tem '')
+          const norm = (v: unknown): string => (v === null || v === undefined || v === '') ? '' : String(v)
+
           // Atualizar timeline mesclando eventos do banco com os locais (sem duplicar)
           set((s) => {
             // Manter eventos de outras demandas
@@ -482,28 +485,23 @@ export const useDemandStore = create<DemandState>()(
             // Eventos locais desta demanda
             const localEvents = s.timeline.filter(e => e.demandaId === demandaId)
             
-            // Mesclar: priorizar eventos do banco, mas manter eventos locais que ainda não foram sincronizados
+            // Priorizar eventos do banco; incluir local só se não existir no banco
             const mergedEvents = [...mappedEvents]
             
-            // Adicionar eventos locais que não existem no banco (baseado em timestamp, campo e valores)
-            // NÃO comparar user pois pode ser nome ou ID
             localEvents.forEach(localEvent => {
               const existsInBank = mappedEvents.some(bankEvent => {
-                // Comparar apenas timestamp próximo (dentro de 5 segundos) e campo/valores
                 const timeDiff = Math.abs(new Date(bankEvent.timestamp).getTime() - new Date(localEvent.timestamp).getTime())
-                return timeDiff < 5000 && // 5 segundos de tolerância
+                return timeDiff < 15000 &&
+                       bankEvent.type === localEvent.type &&
                        bankEvent.field === localEvent.field &&
-                       bankEvent.from === localEvent.from &&
-                       bankEvent.to === localEvent.to
+                       norm(bankEvent.from) === norm(localEvent.from) &&
+                       norm(bankEvent.to) === norm(localEvent.to)
               })
               
               if (!existsInBank) {
-                console.log('⚠️ Evento local não encontrado no banco, mantendo:', localEvent)
                 mergedEvents.push(localEvent)
               }
             })
-            
-            console.log('📊 Total de eventos após merge:', mergedEvents.length)
             
             return { timeline: [...mergedEvents, ...otherEvents] }
           })

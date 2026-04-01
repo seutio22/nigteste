@@ -1,14 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Settings, X, User, Palette, Bell, Moon, Sun, Globe, LogOut, Check, Eye, EyeOff, RefreshCw } from 'lucide-react'
+import { Settings, X, User, Palette, Bell, Moon, Sun, Globe, LogOut, Check, Eye, EyeOff, RefreshCw, Save } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
 import { useNotificationStore } from '../store/notificationStore'
 import { useKanbanStore } from '../store/kanbanStore'
 import { api } from '../lib/api.local'
+import { applyThemeMode, getStoredTheme, THEME_CHANGE_EVENT, type ThemeMode } from '../lib/themeMode'
 
 export function SettingsDropdown() {
   const [isOpen, setIsOpen] = useState(false)
-  const [theme, setTheme] = useState<'light' | 'dark'>('light')
+  const [theme, setTheme] = useState<ThemeMode>(() =>
+    typeof window !== 'undefined' ? getStoredTheme() : 'light'
+  )
   const [language, setLanguage] = useState<'pt-BR' | 'en'>('pt-BR')
   const [notificationsEnabled, setNotificationsEnabled] = useState(true)
   const [autoSave, setAutoSave] = useState(true)
@@ -58,21 +61,28 @@ export function SettingsDropdown() {
   
   // Carregar configurações do localStorage
   useEffect(() => {
-    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark'
     const savedLanguage = localStorage.getItem('language') as 'pt-BR' | 'en'
     const savedNotifications = localStorage.getItem('notifications-enabled')
     const savedAutoSave = localStorage.getItem('auto-save')
-    
-    if (savedTheme) setTheme(savedTheme)
+
+    setTheme(getStoredTheme())
     if (savedLanguage) setLanguage(savedLanguage)
     if (savedNotifications !== null) setNotificationsEnabled(savedNotifications === 'true')
     if (savedAutoSave !== null) setAutoSave(savedAutoSave === 'true')
   }, [])
-  
-  const handleThemeChange = (newTheme: 'light' | 'dark') => {
+
+  useEffect(() => {
+    const sync = (e: Event) => {
+      const d = (e as CustomEvent<ThemeMode>).detail
+      if (d === 'light' || d === 'dark') setTheme(d)
+    }
+    window.addEventListener(THEME_CHANGE_EVENT, sync)
+    return () => window.removeEventListener(THEME_CHANGE_EVENT, sync)
+  }, [])
+
+  const handleThemeChange = (newTheme: ThemeMode) => {
     setTheme(newTheme)
-    localStorage.setItem('theme', newTheme)
-    document.documentElement.classList.toggle('dark', newTheme === 'dark')
+    applyThemeMode(newTheme)
   }
   
   const handleLanguageChange = (newLanguage: 'pt-BR' | 'en') => {
@@ -271,67 +281,67 @@ export function SettingsDropdown() {
       case 'general':
         return (
           <div className="space-y-6">
-            {/* Notificações */}
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-100">
+            {/* Notificações — info / primary */}
+            <div className="bg-info-light/80 p-4 rounded-xl border border-info/20">
               <div className="flex items-center gap-3 mb-3">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <Bell className="w-5 h-5 text-blue-600" />
+                <div className="p-2 bg-white/80 rounded-lg border border-info/15 shadow-sm">
+                  <Bell className="w-5 h-5 text-info" />
                 </div>
                 <div>
-                  <h4 className="font-semibold text-blue-900">Notificações</h4>
-                  <p className="text-sm text-blue-700">Gerencie suas notificações</p>
+                  <h4 className="font-semibold text-secondary-500">Notificações</h4>
+                  <p className="text-sm text-apoio-400">Gerencie suas notificações</p>
                 </div>
               </div>
-              <label className="flex items-center gap-3 p-3 bg-white rounded-lg border border-blue-200 cursor-pointer hover:bg-blue-50 transition-colors">
+              <label className="flex items-center gap-3 p-3 bg-white rounded-lg border border-apoio-100 cursor-pointer hover:bg-primary-50/60 transition-colors">
                 <input
                   type="checkbox"
                   checked={notificationsEnabled}
                   onChange={(e) => handleNotificationsToggle(e.target.checked)}
-                  className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
+                  className="w-5 h-5 rounded border-apoio-200 text-primary-900 focus:ring-primary-500 focus:ring-offset-0"
                 />
-                <span className="text-sm font-medium text-blue-900">Ativar notificações</span>
-                {notificationsEnabled ? <Check className="w-4 h-4 text-blue-600" /> : <EyeOff className="w-4 h-4 text-blue-400" />}
+                <span className="text-sm font-medium text-secondary-500">Ativar notificações</span>
+                {notificationsEnabled ? <Check className="w-4 h-4 text-success" /> : <EyeOff className="w-4 h-4 text-apoio-300" />}
               </label>
             </div>
 
-            {/* Auto-save */}
-            <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 rounded-xl border border-green-100">
-                             <div className="flex items-center gap-3 mb-3">
-                 <div className="p-2 bg-green-100 rounded-lg">
-                   <Bell className="w-5 h-5 text-green-600" />
-                 </div>
+            {/* Auto-save — success */}
+            <div className="bg-success-light p-4 rounded-xl border border-success/25">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-2 bg-white/90 rounded-lg border border-success/20 shadow-sm">
+                  <Save className="w-5 h-5 text-success" />
+                </div>
                 <div>
-                  <h4 className="font-semibold text-green-900">Auto-save</h4>
-                  <p className="text-sm text-green-700">Salvamento automático de dados</p>
+                  <h4 className="font-semibold text-secondary-500">Auto-save</h4>
+                  <p className="text-sm text-apoio-400">Salvamento automático de dados</p>
                 </div>
               </div>
-              <label className="flex items-center gap-3 p-3 bg-white rounded-lg border border-green-200 cursor-pointer hover:bg-green-50 transition-colors">
+              <label className="flex items-center gap-3 p-3 bg-white rounded-lg border border-apoio-100 cursor-pointer hover:bg-success-light/50 transition-colors">
                 <input
                   type="checkbox"
                   checked={autoSave}
                   onChange={(e) => handleAutoSaveToggle(e.target.checked)}
-                  className="w-5 h-5 text-green-600 rounded focus:ring-green-500"
+                  className="w-5 h-5 rounded border-apoio-200 text-success focus:ring-success focus:ring-offset-0"
                 />
-                <span className="text-sm font-medium text-green-900">Salvar automaticamente</span>
-                {autoSave ? <Check className="w-4 h-4 text-green-600" /> : <X className="w-4 h-4 text-green-400" />}
+                <span className="text-sm font-medium text-secondary-500">Salvar automaticamente</span>
+                {autoSave ? <Check className="w-4 h-4 text-success" /> : <X className="w-4 h-4 text-apoio-300" />}
               </label>
             </div>
 
-            {/* Idioma */}
-            <div className="bg-gradient-to-r from-purple-50 to-violet-50 p-4 rounded-xl border border-purple-100">
+            {/* Idioma — apoio / secondary */}
+            <div className="bg-apoio-50 p-4 rounded-xl border border-apoio-100">
               <div className="flex items-center gap-3 mb-3">
-                <div className="p-2 bg-purple-100 rounded-lg">
-                  <Globe className="w-5 h-5 text-purple-600" />
+                <div className="p-2 bg-white rounded-lg border border-apoio-100 shadow-sm">
+                  <Globe className="w-5 h-5 text-primary-900" />
                 </div>
                 <div>
-                  <h4 className="font-semibold text-purple-900">Idioma</h4>
-                  <p className="text-sm text-purple-700">Selecione seu idioma preferido</p>
+                  <h4 className="font-semibold text-secondary-500">Idioma</h4>
+                  <p className="text-sm text-apoio-400">Selecione seu idioma preferido</p>
                 </div>
               </div>
               <select
                 value={language}
                 onChange={(e) => handleLanguageChange(e.target.value as 'pt-BR' | 'en')}
-                className="w-full px-4 py-3 bg-white border border-purple-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 bg-white border border-apoio-100 rounded-lg text-sm text-secondary-500 focus:ring-2 focus:ring-primary-500/40 focus:border-primary-300 transition-all"
               >
                 <option value="pt-BR">🇧🇷 Português (Brasil)</option>
                 <option value="en">🇺🇸 English</option>
@@ -343,35 +353,37 @@ export function SettingsDropdown() {
       case 'appearance':
         return (
           <div className="space-y-6">
-            {/* Tema */}
-            <div className="bg-gradient-to-r from-amber-50 to-orange-50 p-4 rounded-xl border border-amber-100">
+            {/* Tema — warning (amarelo NIG) */}
+            <div className="bg-warning-light p-4 rounded-xl border border-warning/35">
               <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-amber-100 rounded-lg">
-                  <Palette className="w-5 h-5 text-amber-600" />
+                <div className="p-2 bg-white/90 rounded-lg border border-warning/25 shadow-sm">
+                  <Palette className="w-5 h-5 text-warning-dark" />
                 </div>
                 <div>
-                  <h4 className="font-semibold text-amber-900">Tema da Interface</h4>
-                  <p className="text-sm text-amber-700">Escolha entre tema claro ou escuro</p>
+                  <h4 className="font-semibold text-secondary-500">Tema da Interface</h4>
+                  <p className="text-sm text-apoio-400">Escolha entre tema claro ou escuro</p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <button
+                  type="button"
                   onClick={() => handleThemeChange('light')}
                   className={`flex items-center justify-center gap-2 p-4 rounded-xl text-sm font-medium transition-all ${
                     theme === 'light' 
-                      ? 'bg-amber-100 text-amber-800 border-2 border-amber-300 shadow-lg scale-105' 
-                      : 'bg-white text-amber-700 border border-amber-200 hover:bg-amber-50 hover:border-amber-300'
+                      ? 'bg-white text-secondary-500 border-2 border-warning shadow-md scale-[1.02] ring-1 ring-warning/30' 
+                      : 'bg-white/80 text-apoio-400 border border-apoio-100 hover:bg-warning-light/80 hover:border-warning/40'
                   }`}
                 >
-                  <Sun className="w-5 h-5" />
+                  <Sun className="w-5 h-5 text-warning-dark" />
                   Claro
                 </button>
                 <button
+                  type="button"
                   onClick={() => handleThemeChange('dark')}
                   className={`flex items-center justify-center gap-2 p-4 rounded-xl text-sm font-medium transition-all ${
                     theme === 'dark' 
-                      ? 'bg-amber-100 text-amber-800 border-2 border-amber-300 shadow-lg scale-105' 
-                      : 'bg-white text-amber-700 border border-amber-200 hover:bg-amber-50 hover:border-amber-300'
+                      ? 'bg-secondary-700 text-white border-2 border-primary-500 shadow-md scale-[1.02] ring-1 ring-primary-400/40' 
+                      : 'bg-white/80 text-apoio-400 border border-apoio-100 hover:bg-secondary-500/5 hover:border-secondary-300'
                   }`}
                 >
                   <Moon className="w-5 h-5" />
@@ -381,15 +393,19 @@ export function SettingsDropdown() {
             </div>
 
             {/* Preview do tema */}
-            <div className="bg-gradient-to-r from-slate-50 to-gray-50 p-4 rounded-xl border border-slate-100">
-              <h4 className="font-semibold text-slate-900 mb-3">Preview do Tema</h4>
-              <div className={`p-4 rounded-lg ${theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'} border border-slate-200`}>
+            <div className="bg-apoio-50 p-4 rounded-xl border border-apoio-100">
+              <h4 className="font-semibold text-secondary-500 mb-3">Preview do Tema</h4>
+              <div className={`p-4 rounded-lg border transition-colors ${
+                theme === 'dark' 
+                  ? 'bg-secondary-800 text-white border-secondary-600' 
+                  : 'bg-white text-secondary-500 border-apoio-100'
+              }`}>
                 <div className="flex items-center gap-3 mb-3">
-                  <div className={`w-3 h-3 rounded-full ${theme === 'dark' ? 'bg-slate-600' : 'bg-slate-300'}`}></div>
-                  <div className={`w-3 h-3 rounded-full ${theme === 'dark' ? 'bg-slate-600' : 'bg-slate-300'}`}></div>
-                  <div className={`w-3 h-3 rounded-full ${theme === 'dark' ? 'bg-slate-600' : 'bg-slate-300'}`}></div>
+                  <div className={`w-3 h-3 rounded-full ${theme === 'dark' ? 'bg-primary-500' : 'bg-primary-200'}`} />
+                  <div className={`w-3 h-3 rounded-full ${theme === 'dark' ? 'bg-apoio-300' : 'bg-apoio-200'}`} />
+                  <div className={`w-3 h-3 rounded-full ${theme === 'dark' ? 'bg-success' : 'bg-success/40'}`} />
                 </div>
-                <p className="text-sm">Este é um exemplo de como ficará a interface com o tema selecionado.</p>
+                <p className="text-sm text-inherit opacity-90">Este é um exemplo de como ficará a interface com o tema selecionado.</p>
               </div>
             </div>
           </div>
@@ -399,9 +415,9 @@ export function SettingsDropdown() {
         return (
           <div className="space-y-6">
             {/* Perfil do usuário */}
-            <div className="bg-gradient-to-r from-violet-50 to-purple-50 p-6 rounded-xl border border-violet-100 text-center">
+            <div className="bg-gradient-to-br from-primary-50 to-apoio-50 p-6 rounded-xl border border-primary-100/80 text-center">
               <div className="relative inline-block">
-                <div className="w-20 h-20 bg-gradient-to-br from-violet-400 to-purple-600 rounded-full mx-auto mb-4 flex items-center justify-center overflow-hidden">
+                <div className="w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center overflow-hidden bg-gradient-primary ring-4 ring-white shadow-glow-primary">
                   {user?.photo ? (
                     <img 
                       src={user.photo} 
@@ -413,11 +429,12 @@ export function SettingsDropdown() {
                   )}
                 </div>
                 <button
+                  type="button"
                   onClick={() => document.getElementById('photo-upload')?.click()}
-                  className="absolute -bottom-1 -right-1 w-8 h-8 bg-white border-2 border-violet-300 rounded-full flex items-center justify-center hover:bg-violet-50 transition-colors shadow-lg"
+                  className="absolute -bottom-1 -right-1 w-8 h-8 bg-white border-2 border-primary-200 rounded-full flex items-center justify-center hover:bg-primary-50 transition-colors shadow-md text-primary-900"
                   title="Alterar foto"
                 >
-                  <Settings className="w-4 h-4 text-violet-600" />
+                  <Settings className="w-4 h-4" />
                 </button>
                 <input
                   id="photo-upload"
@@ -427,33 +444,34 @@ export function SettingsDropdown() {
                   onChange={handlePhotoUpload}
                 />
               </div>
-              <h3 className="text-xl font-bold text-violet-900 mb-1">{user?.name || 'Usuário'}</h3>
-              <p className="text-violet-700 mb-2">{user?.email || 'user@example.com'}</p>
-              <p className="text-xs text-violet-700 mb-2">
+              <h3 className="text-xl font-bold text-secondary-500 mb-1">{user?.name || 'Usuário'}</h3>
+              <p className="text-apoio-400 mb-2 text-sm">{user?.email || 'user@example.com'}</p>
+              <p className="text-xs text-apoio-400 mb-2">
                 Última troca de senha:{' '}
-                <span className="font-medium">
+                <span className="font-medium text-secondary-500">
                   {formattedPasswordUpdatedAt || 'Não informado'}
                 </span>
               </p>
-              <span className="inline-block px-3 py-1 bg-violet-100 text-violet-800 text-xs font-medium rounded-full capitalize">
+              <span className="inline-block px-3 py-1 bg-primary-900/90 text-white text-xs font-medium rounded-full capitalize">
                 {user?.role || 'user'}
               </span>
             </div>
 
             {/* Alterar Senha */}
-            <div className="bg-gradient-to-r from-blue-50 to-cyan-50 p-4 rounded-xl border border-blue-100">
+            <div className="bg-info-light/70 p-4 rounded-xl border border-info/20">
               <div className="flex items-center gap-3 mb-3">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <Eye className="w-5 h-5 text-blue-600" />
+                <div className="p-2 bg-white/90 rounded-lg border border-info/15 shadow-sm">
+                  <Eye className="w-5 h-5 text-info" />
                 </div>
                 <div>
-                  <h4 className="font-semibold text-blue-900">Alterar Senha</h4>
-                  <p className="text-sm text-blue-700">Atualize sua senha de acesso</p>
+                  <h4 className="font-semibold text-secondary-500">Alterar Senha</h4>
+                  <p className="text-sm text-apoio-400">Atualize sua senha de acesso</p>
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setShowChangePassword(true)}
-                className="w-full px-4 py-3 bg-blue-100 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-200 transition-colors flex items-center justify-center gap-2"
+                className="w-full px-4 py-3 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 bg-primary-900 text-white hover:bg-primary-950 shadow-sm"
               >
                 <Eye className="w-4 h-4" />
                 Alterar Senha
@@ -461,19 +479,20 @@ export function SettingsDropdown() {
             </div>
 
             {/* Trocar Usuário */}
-            <div className="bg-gradient-to-r from-slate-50 to-gray-50 p-4 rounded-xl border border-slate-100">
+            <div className="bg-apoio-50 p-4 rounded-xl border border-apoio-100">
               <div className="flex items-center gap-3 mb-3">
-                <div className="p-2 bg-slate-100 rounded-lg">
-                  <RefreshCw className="w-5 h-5 text-slate-600" />
+                <div className="p-2 bg-white rounded-lg border border-apoio-100 shadow-sm">
+                  <RefreshCw className="w-5 h-5 text-apoio-400" />
                 </div>
                 <div>
-                  <h4 className="font-semibold text-slate-900">Trocar Usuário</h4>
-                  <p className="text-sm text-slate-700">Mude para outro usuário da sua conta</p>
+                  <h4 className="font-semibold text-secondary-500">Trocar Usuário</h4>
+                  <p className="text-sm text-apoio-400">Entrar com outra conta</p>
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setShowChangeUser(true)}
-                className="w-full px-4 py-3 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-200 transition-colors flex items-center justify-center gap-2"
+                className="w-full px-4 py-3 bg-white border border-apoio-100 text-secondary-500 rounded-lg text-sm font-medium hover:bg-primary-50 hover:border-primary-200 transition-colors flex items-center justify-center gap-2"
               >
                 <RefreshCw className="w-4 h-4" />
                 Trocar Usuário
@@ -481,19 +500,20 @@ export function SettingsDropdown() {
             </div>
 
             {/* Logout */}
-            <div className="bg-gradient-to-r from-slate-50 to-gray-50 p-4 rounded-xl border border-slate-100">
+            <div className="bg-error-light/60 p-4 rounded-xl border border-error/25">
               <div className="flex items-center gap-3 mb-3">
-                <div className="p-2 bg-slate-100 rounded-lg">
-                  <LogOut className="w-5 h-5 text-slate-600" />
+                <div className="p-2 bg-white/90 rounded-lg border border-error/20 shadow-sm">
+                  <LogOut className="w-5 h-5 text-error" />
                 </div>
                 <div>
-                  <h4 className="font-semibold text-slate-900">Sair da Conta</h4>
-                  <p className="text-sm text-slate-700">Encerra sua sessão atual</p>
+                  <h4 className="font-semibold text-secondary-500">Sair da Conta</h4>
+                  <p className="text-sm text-apoio-400">Encerra sua sessão atual</p>
                 </div>
               </div>
               <button
+                type="button"
                 onClick={handleLogout}
-                className="w-full px-4 py-3 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-200 transition-colors flex items-center justify-center gap-2"
+                className="w-full px-4 py-3 bg-error text-white rounded-lg text-sm font-medium hover:bg-error-dark transition-colors flex items-center justify-center gap-2 shadow-sm"
               >
                 <LogOut className="w-4 h-4" />
                 Sair
@@ -514,9 +534,11 @@ export function SettingsDropdown() {
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-3 p-2.5 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 rounded-xl transition-all duration-200 border border-transparent hover:border-blue-200"
+        className="flex items-center gap-3 p-2.5 rounded-xl transition-all duration-200 border border-transparent hover:border-primary-200/80 hover:bg-gradient-to-r hover:from-primary-50 hover:to-apoio-50"
+        aria-expanded={isOpen}
+        aria-haspopup="dialog"
       >
-        <div className="w-8 h-8 bg-gradient-to-br from-violet-400 to-purple-600 rounded-full flex items-center justify-center overflow-hidden">
+        <div className="w-8 h-8 rounded-full flex items-center justify-center overflow-hidden bg-gradient-primary ring-2 ring-white shadow-sm">
           {user?.photo ? (
             <img 
               src={user.photo} 
@@ -528,10 +550,10 @@ export function SettingsDropdown() {
           )}
         </div>
         <div className="hidden md:block text-left">
-          <p className="text-sm font-medium text-slate-900">{user?.name || 'Usuário'}</p>
-          <p className="text-xs text-slate-500">{user?.email || 'user@example.com'}</p>
+          <p className="text-sm font-medium text-secondary-500">{user?.name || 'Usuário'}</p>
+          <p className="text-xs text-apoio-400">{user?.email || 'user@example.com'}</p>
         </div>
-        <Settings className="w-4 h-4 text-slate-400" />
+        <Settings className="w-4 h-4 text-apoio-400" />
       </motion.button>
       
       {/* Dropdown de configurações */}
@@ -542,17 +564,18 @@ export function SettingsDropdown() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -20, scale: 0.95 }}
             transition={{ duration: 0.3, ease: "easeOut" }}
-            className="absolute right-0 top-14 w-96 bg-white border border-slate-200 rounded-2xl shadow-2xl z-50 max-h-[600px] overflow-hidden backdrop-blur-sm"
+            className="absolute right-0 top-14 w-96 bg-white dark:bg-[#151b26] border border-apoio-100 dark:border-neutral-700/80 rounded-2xl shadow-glass z-50 max-h-[600px] overflow-hidden backdrop-blur-sm transition-colors"
           >
-            {/* Header do dropdown */}
-            <div className="bg-gradient-to-r from-slate-50 to-gray-50 p-6 border-b border-slate-200">
+            {/* Header do dropdown — paleta NIG (primary / secondary / apoio) */}
+            <div className="bg-gradient-to-br from-primary-50 via-white to-apoio-50 dark:from-secondary-900 dark:via-[#151b26] dark:to-[#0d1114] p-6 border-b border-apoio-100 dark:border-neutral-700/80">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold text-slate-900">Configurações</h2>
+                <h2 className="text-xl font-bold text-secondary-500 dark:text-neutral-100">Configurações</h2>
               <button
+                type="button"
                 onClick={() => setIsOpen(false)}
-                  className="p-2 hover:bg-slate-200 rounded-lg transition-colors"
+                  className="p-2 rounded-lg transition-colors text-apoio-400 hover:text-secondary-500 hover:bg-primary-50"
               >
-                  <X className="w-5 h-5 text-slate-500" />
+                  <X className="w-5 h-5" />
               </button>
             </div>
             
@@ -560,15 +583,16 @@ export function SettingsDropdown() {
                 <div className="flex gap-2">
                 {sections.map((section) => (
                   <button
+                    type="button"
                     key={section.id}
                     onClick={() => setActiveSection(section.id as any)}
                     className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                       activeSection === section.id
-                        ? 'bg-white text-slate-900 shadow-sm border border-slate-200'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                        ? 'bg-white dark:bg-secondary-800 text-secondary-500 dark:text-neutral-100 shadow-sm border border-primary-200/80 dark:border-primary-600/50 ring-1 ring-primary-100 dark:ring-primary-900/50'
+                        : 'text-apoio-400 dark:text-apoio-300 hover:text-secondary-500 hover:bg-white/80 dark:hover:bg-white/5'
                     }`}
                   >
-                    <section.icon className="w-4 h-4" />
+                    <section.icon className="w-4 h-4 shrink-0" />
                     {section.label}
                   </button>
                 ))}
@@ -597,23 +621,24 @@ export function SettingsDropdown() {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6"
+              className="bg-white dark:bg-[#1a1f2e] rounded-2xl shadow-glass border border-apoio-100 dark:border-neutral-700/80 w-full max-w-md p-6"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-bold text-slate-900">Alterar Senha</h3>
+                <h3 className="text-xl font-bold text-secondary-500 dark:text-neutral-100">Alterar Senha</h3>
                 <button
+                  type="button"
                   onClick={resetPasswordForm}
-                  className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                  className="p-2 hover:bg-primary-50 rounded-lg transition-colors text-apoio-400 hover:text-secondary-500"
                 >
-                  <X className="w-5 h-5 text-slate-500" />
+                  <X className="w-5 h-5" />
                 </button>
               </div>
 
               <div className="space-y-4">
                 {/* Senha Atual */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                  <label className="block text-sm font-medium text-secondary-500 mb-2">
                     Senha Atual
                   </label>
                   <div className="relative">
@@ -621,13 +646,13 @@ export function SettingsDropdown() {
                       type={showCurrentPassword ? 'text' : 'password'}
                       value={currentPassword}
                       onChange={(e) => setCurrentPassword(e.target.value)}
-                      className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-3 border border-apoio-100 rounded-lg text-secondary-500 placeholder:text-apoio-300 focus:ring-2 focus:ring-primary-500/35 focus:border-primary-300"
                       placeholder="Digite sua senha atual"
                     />
                     <button
                       type="button"
                       onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-apoio-400 hover:text-secondary-500"
                     >
                       {showCurrentPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                     </button>
@@ -636,7 +661,7 @@ export function SettingsDropdown() {
 
                 {/* Nova Senha */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                  <label className="block text-sm font-medium text-secondary-500 mb-2">
                     Nova Senha
                   </label>
                   <div className="relative">
@@ -644,13 +669,13 @@ export function SettingsDropdown() {
                       type={showNewPassword ? 'text' : 'password'}
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-3 border border-apoio-100 rounded-lg text-secondary-500 placeholder:text-apoio-300 focus:ring-2 focus:ring-primary-500/35 focus:border-primary-300"
                       placeholder="Digite a nova senha"
                     />
                     <button
                       type="button"
                       onClick={() => setShowNewPassword(!showNewPassword)}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-apoio-400 hover:text-secondary-500"
                     >
                       {showNewPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                     </button>
@@ -659,7 +684,7 @@ export function SettingsDropdown() {
 
                 {/* Confirmar Nova Senha */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                  <label className="block text-sm font-medium text-secondary-500 mb-2">
                     Confirmar Nova Senha
                   </label>
                   <div className="relative">
@@ -667,13 +692,13 @@ export function SettingsDropdown() {
                       type={showConfirmPassword ? 'text' : 'password'}
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-3 border border-apoio-100 rounded-lg text-secondary-500 placeholder:text-apoio-300 focus:ring-2 focus:ring-primary-500/35 focus:border-primary-300"
                       placeholder="Confirme a nova senha"
                     />
                     <button
                       type="button"
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-apoio-400 hover:text-secondary-500"
                     >
                       {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                     </button>
@@ -682,28 +707,30 @@ export function SettingsDropdown() {
 
                 {/* Mensagens de Erro/Sucesso */}
                 {passwordError && (
-                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                    <p className="text-sm text-red-700">{passwordError}</p>
+                  <div className="p-3 bg-error-light border border-error/30 rounded-lg">
+                    <p className="text-sm text-error-dark">{passwordError}</p>
                   </div>
                 )}
 
                 {passwordSuccess && (
-                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                    <p className="text-sm text-green-700">{passwordSuccess}</p>
+                  <div className="p-3 bg-success-light border border-success/30 rounded-lg">
+                    <p className="text-sm text-success-dark">{passwordSuccess}</p>
                   </div>
                 )}
 
                 {/* Botões */}
                 <div className="flex gap-3 pt-4">
                   <button
+                    type="button"
                     onClick={resetPasswordForm}
-                    className="flex-1 px-4 py-3 border border-slate-300 text-slate-700 rounded-lg font-medium hover:bg-slate-50 transition-colors"
+                    className="flex-1 px-4 py-3 border border-apoio-100 text-secondary-500 rounded-lg font-medium hover:bg-apoio-50 transition-colors"
                   >
                     Cancelar
                   </button>
                   <button
+                    type="button"
                     onClick={handleChangePassword}
-                    className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                    className="flex-1 px-4 py-3 bg-primary-900 text-white rounded-lg font-medium hover:bg-primary-950 transition-colors shadow-sm"
                   >
                     Alterar Senha
                   </button>
@@ -728,37 +755,38 @@ export function SettingsDropdown() {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6"
+              className="bg-white dark:bg-[#1a1f2e] rounded-2xl shadow-glass border border-apoio-100 dark:border-neutral-700/80 w-full max-w-md p-6"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-bold text-slate-900">Trocar Usuário</h3>
+                <h3 className="text-xl font-bold text-secondary-500 dark:text-neutral-100">Trocar Usuário</h3>
                 <button
+                  type="button"
                   onClick={resetChangeUserForm}
-                  className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                  className="p-2 hover:bg-primary-50 rounded-lg transition-colors text-apoio-400 hover:text-secondary-500"
                 >
-                  <X className="w-5 h-5 text-slate-500" />
+                  <X className="w-5 h-5" />
                 </button>
               </div>
 
               <div className="space-y-4">
                 {/* Email */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                  <label className="block text-sm font-medium text-secondary-500 mb-2">
                     Email do Usuário
                   </label>
                   <input
                     type="email"
                     value={changeUserEmail}
                     onChange={(e) => setChangeUserEmail(e.target.value)}
-                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-3 border border-apoio-100 rounded-lg text-secondary-500 placeholder:text-apoio-300 focus:ring-2 focus:ring-primary-500/35 focus:border-primary-300"
                     placeholder="Digite o email do usuário"
                   />
                 </div>
 
                 {/* Senha */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                  <label className="block text-sm font-medium text-secondary-500 mb-2">
                     Senha
                   </label>
                   <div className="relative">
@@ -766,13 +794,13 @@ export function SettingsDropdown() {
                       type={showChangeUserPassword ? 'text' : 'password'}
                       value={changeUserPassword}
                       onChange={(e) => setChangeUserPassword(e.target.value)}
-                      className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-3 border border-apoio-100 rounded-lg text-secondary-500 placeholder:text-apoio-300 focus:ring-2 focus:ring-primary-500/35 focus:border-primary-300"
                       placeholder="Digite a senha do usuário"
                     />
                     <button
                       type="button"
                       onClick={() => setShowChangeUserPassword(!showChangeUserPassword)}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-apoio-400 hover:text-secondary-500"
                     >
                       {showChangeUserPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                     </button>
@@ -781,24 +809,26 @@ export function SettingsDropdown() {
 
                 {/* Mensagem de Erro */}
                 {changeUserError && (
-                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                    <p className="text-sm text-red-700">{changeUserError}</p>
+                  <div className="p-3 bg-error-light border border-error/30 rounded-lg">
+                    <p className="text-sm text-error-dark">{changeUserError}</p>
                   </div>
                 )}
 
                 {/* Botões */}
                 <div className="flex gap-3 pt-4">
                   <button
+                    type="button"
                     onClick={resetChangeUserForm}
-                    className="flex-1 px-4 py-3 border border-slate-300 text-slate-700 rounded-lg font-medium hover:bg-slate-50 transition-colors"
+                    className="flex-1 px-4 py-3 border border-apoio-100 text-secondary-500 rounded-lg font-medium hover:bg-apoio-50 transition-colors"
                     disabled={changeUserLoading}
                   >
                     Cancelar
                   </button>
                   <button
+                    type="button"
                     onClick={handleChangeUser}
                     disabled={changeUserLoading}
-                    className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    className="flex-1 px-4 py-3 bg-primary-900 text-white rounded-lg font-medium hover:bg-primary-950 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-sm"
                   >
                     {changeUserLoading ? (
                       <>

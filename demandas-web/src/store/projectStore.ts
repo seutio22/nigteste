@@ -69,7 +69,7 @@ interface ProjectState {
   getTimelineByProject: (projectId: string) => ProjectTimeline | undefined
   
   // Sincronização com API
-  syncFromApi: () => Promise<void>
+  syncFromApi: (force?: boolean) => Promise<void>
   clearError: () => void
 }
 
@@ -414,10 +414,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
   
   // Sincronização com API
-  syncFromApi: async () => {
+  syncFromApi: async (force?: boolean) => {
     const state = get()
     const now = Date.now()
-    if (now - state.lastSync < 2 * 60 * 1000) return
+    if (!force && now - state.lastSync < 2 * 60 * 1000) return
     set({ loading: true, error: null })
     try {
       // Importar API dinamicamente baseado no ambiente

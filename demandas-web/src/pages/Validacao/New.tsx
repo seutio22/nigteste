@@ -10,6 +10,7 @@ import { useAuthStore } from '../../store/authStore'
 import { createPerfLogger } from '../../utils/perf'
 import { AsyncClienteAutocomplete, type ClienteOption } from '../../components/AsyncClienteAutocomplete'
 import { AsyncContratoAutocomplete } from '../../components/AsyncContratoAutocomplete'
+import { PrimaryActionButton } from '../../components/PrimaryActionButton'
 
 const schema = z.object({
   analista: z.string().min(1, 'Obrigatório'),
@@ -339,7 +340,7 @@ export default function ValidationNewPage() {
                 <MenuItem value="">
                   <em>Selecione o status</em>
                 </MenuItem>
-                {['Aberta','Em andamento','Transf. Analista','Aguardando validação','Com erros','Em reajuste','Concluída','Cancelada'].map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                {['Em andamento','Transf. Analista','Aguardando validação','Com erros','Em reajuste','Concluído Parcialmente','Concluída','Cancelada'].map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
               </TextField>
             )} />
           </Grid>
@@ -656,9 +657,9 @@ export default function ValidationNewPage() {
           </Grid>
         </Grid>
         <Box mt={2} display="flex" gap={2}>
-          <Button type="submit" variant="contained" disabled={!isValid}>
+          <PrimaryActionButton type="button" disabled={!isValid} onClick={handleSubmit(onSubmit)}>
             Salvar
-          </Button>
+          </PrimaryActionButton>
           <Button variant="outlined" onClick={() => navigate('/validacao')}>Cancelar</Button>
         </Box>
       </Box>

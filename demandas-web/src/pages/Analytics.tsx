@@ -21,11 +21,13 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import FileCopyIcon from '@mui/icons-material/FileCopy'
 import TableChartIcon from '@mui/icons-material/TableChart'
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf'
-import AddIcon from '@mui/icons-material/Add'
+import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline'
 import AssessmentIcon from '@mui/icons-material/Assessment'
 import PersonIcon from '@mui/icons-material/Person'
 import GroupIcon from '@mui/icons-material/Group'
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
+import { PrimaryActionButton } from '../components/PrimaryActionButton'
+import { formatIntegerPtBR } from '../utils/formatNumber'
 
 const isDev = import.meta.env.DEV
 const logDev = (...args: unknown[]) => {
@@ -591,34 +593,17 @@ export default function AnalyticsPage() {
                     }
                   }}
                 >
-                  Excluir ({selectedIds.length})
+                  Excluir ({formatIntegerPtBR(selectedIds.length)})
                 </Button>
               )}
 
               {canImport && (
-                <Button 
-                  variant="contained" 
+                <PrimaryActionButton
                   startIcon={<AutoFixHighIcon />}
                   onClick={() => setSmartImporterOpen(true)}
-                  size="medium"
-                  className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white transition-all duration-300 font-medium"
-                  sx={{
-                    borderRadius: '14px',
-                    padding: '10px 20px',
-                    textTransform: 'none',
-                    fontWeight: 500,
-                    fontSize: '0.9rem',
-                    height: '44px',
-                    background: 'linear-gradient(135deg, #050032 0%, #002561 100%)',
-                    '&:hover': {
-                      background: 'linear-gradient(135deg, #050032 0%, #009FDF 100%)',
-                      transform: 'translateY(-2px)',
-                      boxShadow: '0 8px 20px 0 rgba(5, 0, 50, 0.3)'
-                    }
-                  }}
                 >
                   Importador Inteligente
-                </Button>
+                </PrimaryActionButton>
               )}
 
               {canExport && (
@@ -648,29 +633,13 @@ export default function AnalyticsPage() {
               )}
               
               {canCreate && (
-                <Button 
-                  variant="contained" 
-                  startIcon={<AddIcon />} 
+                <PrimaryActionButton
+                  startIcon={<AddCircleOutlineIcon />}
                   onClick={() => navigate('/analytics/novo')}
-                  size="medium"
-                  className="bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-800 hover:to-slate-900 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 font-semibold"
-                  sx={{
-                    borderRadius: '14px',
-                    padding: '10px 20px',
-                    textTransform: 'none',
-                    fontWeight: 600,
-                    fontSize: '0.9rem',
-                    height: '44px',
-                    minWidth: '140px',
-                    boxShadow: '0 4px 14px 0 rgba(15, 23, 42, 0.25)',
-                    '&:hover': {
-                      boxShadow: '0 8px 25px 0 rgba(15, 23, 42, 0.35)',
-                      transform: 'translateY(-2px)'
-                    }
-                  }}
+                  sx={{ minWidth: '140px' }}
                 >
                   Novo Relatório
-                </Button>
+                </PrimaryActionButton>
               )}
             </Stack>
           </div>
@@ -713,7 +682,9 @@ export default function AnalyticsPage() {
           paginationModel={paginationModel}
           onPaginationModelChange={(m) => { setPaginationModel(m); persist({ paginationModel: m }) }}
           sx={{
-            '& .MuiDataGrid-row:nth-of-type(odd)': { backgroundColor: (t) => t.palette.action.hover },
+            '& .MuiDataGrid-row:nth-of-type(even)': { backgroundColor: '#eef0f2' },
+            '& .MuiDataGrid-row:nth-of-type(odd)': { backgroundColor: '#ffffff' },
+            '& .MuiDataGrid-row:hover': { backgroundColor: 'rgba(0, 159, 223, 0.06) !important' },
             '& .MuiDataGrid-toolbarContainer': {
               padding: '8px',
               backgroundColor: 'background.paper',
@@ -760,7 +731,7 @@ export default function AnalyticsPage() {
         <DialogTitle>Confirmar Exclusão em Massa</DialogTitle>
         <DialogContent>
           <Typography>
-            Tem certeza que deseja excluir <strong>{selectedIds.length}</strong> relatório(s) selecionado(s)?
+            Tem certeza que deseja excluir <strong>{formatIntegerPtBR(selectedIds.length)}</strong> relatório(s) selecionado(s)?
           </Typography>
           <Typography variant="body2" color="error" sx={{ mt: 2 }}>
             ⚠️ Esta ação não pode ser desfeita!

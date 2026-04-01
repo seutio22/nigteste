@@ -4,6 +4,7 @@ import { Copy, Mail, Users, CheckCircle, X, Settings, Send, Edit3, Eye, Code } f
 import { useMasterDataStore } from '../store/masterDataStore'
 import { useMaillingStore } from '../store/maillingStore'
 import { RichTextEditor } from './RichTextEditor'
+import { PrimaryActionButton } from './PrimaryActionButton'
 
 interface EmailComunicacaoModalProps {
   open: boolean
@@ -127,7 +128,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
           <td style="padding: 14px 12px; border-bottom: 1px solid #DCDFE3; font-weight: 600; color: #009FDF; font-size: 13px;">${linha.contrato}</td>
           <td style="padding: 14px 12px; border-bottom: 1px solid #DCDFE3; color: #050032; font-size: 13px;">${linha.operadora}</td>
           <td style="padding: 14px 12px; border-bottom: 1px solid #DCDFE3; background: #e6fffa; color: #115e59; font-weight: 500; font-size: 13px;">${linha.produto}</td>
-          <td style="padding: 14px 12px; border-bottom: 1px solid #DCDFE3; background: #fef3c7; color: #92400e; font-weight: 500; font-size: 13px;">${linha.atualizacao}</td>
+          <td style="padding: 14px 12px; border-bottom: 1px solid #DCDFE3; background: #FBF4D4; color: #92400e; font-weight: 500; font-size: 13px;">${linha.atualizacao}</td>
           <td style="padding: 14px 12px; border-bottom: 1px solid #DCDFE3; background: #ede9fe; color: #5b21b6; font-weight: 500; font-size: 13px;">${linha.subtipo}</td>
           <td style="padding: 14px 12px; border-bottom: 1px solid #DCDFE3; background: #e6f7ed; color: #065f46; font-weight: 500; font-size: 13px;">${linha.tipo}</td>
         </tr>`
@@ -190,7 +191,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
 
         <div style="margin-bottom: 12px;">
           <p style="margin: 0 0 12px 0; font-size: 15px; font-weight: 600; color: #0f172a;">Descrição</p>
-          <div style="background: #f8fafc; border: 1px solid #DCDFE3; border-radius: 10px; padding: 18px; font-size: 13px; line-height: 1.6; color: #A3B5BC;">${info.descricaoHtml || '-'}</div>
+          <div style="background: #f8fafc; border: 1px solid #DCDFE3; border-radius: 10px; padding: 18px; font-size: 13px; line-height: 1.6; color: #6b7a80;">${info.descricaoHtml || '-'}</div>
         </div>
 
         <p style="margin: 16px 0;">&nbsp;</p>
@@ -202,15 +203,15 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
         <p style="margin: 16px 0;">&nbsp;</p>
 
         <div style="margin-bottom: 12px;">
-          <p style="margin: 0 0 8px 0; font-size: 13px; color: #475569;">Atenciosamente,</p>
+          <p style="margin: 0 0 8px 0; font-size: 13px; color: #6b7a80;">Atenciosamente,</p>
           <p style="margin: 0 0 6px 0; font-size: 15px; font-weight: 600; color: #111827;">NIG - Núcleo de Informações Gerenciais</p>
-          <p style="margin: 0; font-size: 11px; color: #64748b;">Mensagem gerada automaticamente pelo sistema NIG.</p>
+          <p style="margin: 0; font-size: 11px; color: #6b7a80;">Mensagem gerada automaticamente pelo sistema NIG.</p>
         </div>
 
         <p style="margin: 14px 0;">&nbsp;</p>
 
         <div style="padding-top: 12px; border-top: 1px dashed #cbd5f5;">
-          <p style="margin: 0; font-size: 11px; color: #94a3b8;">Ticket: ${info.ticket} • Gerado em ${info.timestamp}</p>
+          <p style="margin: 0; font-size: 11px; color: #6b7a80;">Ticket: ${info.ticket} • Gerado em ${info.timestamp}</p>
         </div>
       </div>
     </div>
@@ -406,7 +407,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
         </div>
         
         <!-- Footer -->
-        <div style="background: #f7fafc; padding: 20px; text-align: center; color: #A3B5BC; font-size: 12px;">
+        <div style="background: #f7fafc; padding: 20px; text-align: center; color: #6b7a80; font-size: 12px;">
             <p style="margin: 0;">Esta é uma mensagem automática do sistema NIG. Por favor, não responda a este e-mail.</p>
         </div>
     </div>
@@ -717,7 +718,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
             background: #f7fafc;
             padding: 20px;
             text-align: center;
-            color: #A3B5BC;
+            color: #6b7a80;
             font-size: 12px;
         }
         .badge {
@@ -1046,7 +1047,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                 textTransform: 'none',
                 fontWeight: 500,
                 borderColor: '#d1d5db',
-                color: '#A3B5BC',
+                color: '#6b7a80',
                 '&:hover': {
                   borderColor: '#9ca3af',
                   background: '#f9fafb'
@@ -1058,7 +1059,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
           </Box>
           
           <FormControl fullWidth>
-            <InputLabel sx={{ color: '#6b7280' }}>
+            <InputLabel sx={{ color: '#6b7a80' }}>
               {carregandoMailling ? 'Carregando e-mails...' : 'E-mails do Mailling'}
             </InputLabel>
             <Select
@@ -1163,11 +1164,11 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                   textTransform: 'none',
                   fontWeight: 500,
                   px: 3,
-                  borderColor: '#FCDA4F',
-                  color: '#FCDA4F',
+                  borderColor: '#E5B800',
+                  color: '#E5B800',
                   '&:hover': {
-                    borderColor: '#e5c547',
-                    background: '#fef3c7'
+                    borderColor: '#C9A227',
+                    background: '#FBF4D4'
                   }
                 }}
               >
@@ -1204,7 +1205,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
               <Box className="flex items-center gap-2">
                 <Box 
                   sx={{ 
-                    background: 'linear-gradient(135deg, #FCDA4F 0%, #e5c547 100%)',
+                    background: 'linear-gradient(135deg, #E5B800 0%, #C9A227 100%)',
                     borderRadius: '8px',
                     p: 1,
                     display: 'flex',
@@ -1229,8 +1230,8 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                     textTransform: 'none',
                     fontWeight: 500,
                     px: 2,
-                    borderColor: '#6b7280',
-                    color: '#6b7280',
+                    borderColor: '#6b7a80',
+                    color: '#6b7a80',
                     '&:hover': {
                       borderColor: '#4b5563',
                       background: '#f9fafb'
@@ -1274,7 +1275,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
           
           {editandoDescricao && (
             <Box sx={{ mb: 3 }}>
-              <Typography variant="body2" sx={{ mb: 1, color: '#6b7280' }}>
+              <Typography variant="body2" sx={{ mb: 1, color: '#6b7a80' }}>
                 Editar descrição da alteração:
               </Typography>
               <TextField
@@ -1325,24 +1326,13 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                     <Typography variant="h6" sx={{ color: '#1e293b', fontWeight: 600 }}>
                       ✏️ Editor de Blocos - Edite cada seção do e-mail
                     </Typography>
-                    <Button
-                      variant="contained"
+                    <PrimaryActionButton
                       onClick={handleSalvarAlteracoes}
                       startIcon={<span>💾</span>}
-                      sx={{
-                        borderRadius: '6px',
-                        textTransform: 'none',
-                        fontWeight: 500,
-                        px: 2,
-                        py: 1,
-                        background: 'linear-gradient(135deg, #002561 0%, #009FDF 100%)',
-                        '&:hover': {
-                          background: 'linear-gradient(135deg, #002561 0%, #009FDF 100%)'
-                        }
-                      }}
+                      sx={{ borderRadius: '6px', px: 2, py: 1 }}
                     >
                       Salvar Alterações
-                    </Button>
+                    </PrimaryActionButton>
                   </Box>
                   
 
@@ -1371,7 +1361,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                     {linhasTabela.map((linha, index) => (
                       <Box key={linha.id} sx={{ mb: 2, p: 2, backgroundColor: 'white', borderRadius: '6px', border: '1px solid #DCDFE3' }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                          <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 500 }}>
+                          <Typography variant="caption" sx={{ color: '#6b7a80', fontWeight: 500 }}>
                             Linha {index + 1}
                           </Typography>
                           {linhasTabela.length > 1 && (
@@ -1394,7 +1384,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                         <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
                           {/* Contrato */}
                           <Box>
-                            <Typography variant="subtitle2" sx={{ mb: 1, color: '#A3B5BC', fontWeight: 600 }}>
+                            <Typography variant="subtitle2" sx={{ mb: 1, color: '#6b7a80', fontWeight: 600 }}>
                               📄 Contrato
                             </Typography>
                             <TextField
@@ -1416,7 +1406,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
 
                           {/* Operadora */}
                           <Box>
-                            <Typography variant="subtitle2" sx={{ mb: 1, color: '#A3B5BC', fontWeight: 600 }}>
+                            <Typography variant="subtitle2" sx={{ mb: 1, color: '#6b7a80', fontWeight: 600 }}>
                               🏢 Operadora
                             </Typography>
                             <TextField
@@ -1438,7 +1428,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
 
                           {/* Produto */}
                           <Box>
-                            <Typography variant="subtitle2" sx={{ mb: 1, color: '#A3B5BC', fontWeight: 600 }}>
+                            <Typography variant="subtitle2" sx={{ mb: 1, color: '#6b7a80', fontWeight: 600 }}>
                               📦 Produto
                             </Typography>
                             <TextField
@@ -1460,7 +1450,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
 
                           {/* Atualização */}
                           <Box>
-                            <Typography variant="subtitle2" sx={{ mb: 1, color: '#A3B5BC', fontWeight: 600 }}>
+                            <Typography variant="subtitle2" sx={{ mb: 1, color: '#6b7a80', fontWeight: 600 }}>
                               🔄 Atualização
                             </Typography>
                             <TextField
@@ -1482,7 +1472,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
 
                           {/* Subtipo */}
                           <Box>
-                            <Typography variant="subtitle2" sx={{ mb: 1, color: '#A3B5BC', fontWeight: 600 }}>
+                            <Typography variant="subtitle2" sx={{ mb: 1, color: '#6b7a80', fontWeight: 600 }}>
                               🏷️ Subtipo
                             </Typography>
                             <TextField
@@ -1504,7 +1494,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
 
                           {/* Tipo */}
                           <Box>
-                            <Typography variant="subtitle2" sx={{ mb: 1, color: '#A3B5BC', fontWeight: 600 }}>
+                            <Typography variant="subtitle2" sx={{ mb: 1, color: '#6b7a80', fontWeight: 600 }}>
                               ⚙️ Tipo
                             </Typography>
                             <TextField
@@ -1530,7 +1520,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
 
                   {/* Bloco Descrição */}
                   <Box sx={{ mb: 3 }}>
-                    <Typography variant="subtitle2" sx={{ mb: 1, color: '#A3B5BC', fontWeight: 600 }}>
+                    <Typography variant="subtitle2" sx={{ mb: 1, color: '#6b7a80', fontWeight: 600 }}>
                       📝 Descrição da Alteração
                     </Typography>
                     <TextField
@@ -1586,7 +1576,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
             px: 3,
             py: 1.5,
             borderColor: '#d1d5db',
-            color: '#A3B5BC',
+            color: '#6b7a80',
             '&:hover': {
               borderColor: '#9ca3af',
               background: '#f9fafb'

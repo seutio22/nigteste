@@ -51,7 +51,7 @@ export const ENTITY_CONFIGS: EntityConfigs = {
   },
   tipos: {
     endpoint: '/tiposDemanda',
-    fields: ['nome'],
+    fields: ['nome', 'ativo'],
     requiredFields: ['nome'],
     displayName: 'Tipo de Demanda'
   },

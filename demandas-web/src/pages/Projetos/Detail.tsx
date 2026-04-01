@@ -90,6 +90,7 @@ import { api } from '../../lib/api.local'
 import { useProjectStore } from '../../store/projectStore'
 import { useAuthStore } from '../../store/authStore'
 import { useMasterDataStore } from '../../store/masterDataStore'
+import { formatIntegerPtBR } from '../../utils/formatNumber'
 // Removido dados mockados - usar apenas dados reais do banco
 /* const mockProject = {
   id: 'proj-001',
@@ -4093,7 +4094,7 @@ export default function ProjectDetailPage() {
                     </Box>
                   </Box>
                   <Chip
-                    label={`${categoryTasks.length} item${categoryTasks.length === 1 ? '' : 's'}`}
+                    label={`${formatIntegerPtBR(categoryTasks.length)} item${categoryTasks.length === 1 ? '' : 's'}`}
                     color={config.palette}
                     variant="outlined"
                   />
@@ -4610,7 +4611,7 @@ export default function ProjectDetailPage() {
                           </Box>
                         </Box>
                       </Box>
-                      <Chip label={`${items.length} atividade${items.length === 1 ? '' : 's'}`} color="primary" variant="outlined" />
+                      <Chip label={`${formatIntegerPtBR(items.length)} atividade${items.length === 1 ? '' : 's'}`} color="primary" variant="outlined" />
                     </Box>
                     <List dense>
                       {items
@@ -5720,6 +5721,8 @@ export default function ProjectDetailPage() {
             open={exportModalOpen}
             onClose={() => setExportModalOpen(false)}
             project={project}
+            teamInternal={teamMembers}
+            teamExternal={externalMembers}
           />
         </Box>
     )

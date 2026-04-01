@@ -18,6 +18,7 @@ import {
   Menu,
   MenuItem,
   Chip,
+  Tooltip,
   Alert,
   Snackbar
 } from '@mui/material'
@@ -26,7 +27,16 @@ import {
   MoreVert as MoreVertIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  Warning as WarningIcon
+  Warning as WarningIcon,
+  PersonOutline as PersonOutlineIcon,
+  Event as EventIcon,
+  RocketLaunch as RocketLaunchIcon,
+  AccessTime as AccessTimeIcon,
+  CheckCircleOutline as CheckCircleOutlineIcon,
+  ErrorOutline as ErrorOutlineIcon,
+  ChevronLeft as ChevronLeftIcon,
+  ChevronRight as ChevronRightIcon,
+  DragIndicator as DragIndicatorIcon
 } from '@mui/icons-material'
 import { useKanbanStore, KanbanTicket, KANBAN_COLUMNS } from '../store/kanbanStore'
 import { useAuthStore } from '../store/authStore'
@@ -55,6 +65,7 @@ export const KanbanBoard: React.FC = () => {
   const [overdueNotifications, setOverdueNotifications] = useState<string[]>([])
   const [showOverdueAlert, setShowOverdueAlert] = useState(false)
   const [overdueMessage, setOverdueMessage] = useState('')
+  const overdueAlertDismissedRef = useRef(false)
 
   // Refs para as tarefas
   const ticketRefs = useRef<{ [key: string]: HTMLDivElement | null }>({})
@@ -317,10 +328,12 @@ export const KanbanBoard: React.FC = () => {
         }
       })
       
-      // Mostrar alerta se houver tarefas vencidas
+      // Mostrar alerta só se houver tarefas vencidas e o usuário não tiver fechado o alerta
       if (overdueTasks.length > 0) {
         setOverdueMessage(`${overdueTasks.length} tarefa(s) vencida(s): ${overdueTasks.join(', ')}`)
-        setShowOverdueAlert(true)
+        if (!overdueAlertDismissedRef.current) setShowOverdueAlert(true)
+      } else {
+        overdueAlertDismissedRef.current = false
       }
     }
     
@@ -442,14 +455,20 @@ export const KanbanBoard: React.FC = () => {
 
     if (editingTicket) {
       console.log('🔍 KanbanBoard: Editando ticket existente')
+      const toIsoDateOrNull = (dateInput: string | undefined) => {
+        const v = (dateInput ?? '').trim()
+        if (!v) return null
+        return `${v}T00:00:00.000Z`
+      }
       // Atualizar ticket existente
       updateTicket(editingTicket.id, {
         title: newTicket.title,
         description: newTicket.description,
         priority: newTicket.priority,
         assignee: newTicket.assignee || undefined,
-        startDate: newTicket.startDate ? newTicket.startDate + 'T00:00:00.000Z' : undefined, // Converter para ISO com UTC
-        dueDate: newTicket.dueDate ? newTicket.dueDate + 'T00:00:00.000Z' : undefined, // Converter para ISO com UTC
+        // Se o usuário limpar a data, precisamos enviar null (undefined não atualiza o campo no backend).
+        startDate: toIsoDateOrNull(newTicket.startDate),
+        dueDate: toIsoDateOrNull(newTicket.dueDate),
         tags: newTicket.tags || '' // Backend espera string, não array
       })
     } else {
@@ -507,179 +526,8 @@ export const KanbanBoard: React.FC = () => {
     }
   }
 
-  const handleClearAllTickets = () => {
-    if (window.confirm('Tem certeza que deseja excluir TODAS as tarefas? Esta ação não pode ser desfeita.')) {
-      deleteAllTickets()
-    }
-  }
-
-  const allTickets = userTickets
-
-  // Obter estatísticas baseadas nos dados filtrados
-  const filteredTickets = getFilteredColumnsWithTickets(user?.role, user?.id).flatMap(col => col.tickets)
-  const totalTickets = filteredTickets.length
-  const backlogCount = filteredTickets.filter(t => t.status === 'backlog').length
-  const todoCount = filteredTickets.filter(t => t.status === 'todo').length
-  const inProgressCount = filteredTickets.filter(t => t.status === 'in-progress').length
-  const doneCount = filteredTickets.filter(t => t.status === 'done').length
-
   return (
-    <Box sx={{ p: 1 }}>
-              {/* Header - Ultra compacto para mais espaço de tarefas */}
-        <Paper sx={{ p: 0.25, mb: 0.25 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.25 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <Typography variant="body1" sx={{ fontWeight: 'bold', fontSize: '1rem' }}>
-              Kanban de Tarefas
-            </Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-              Sistema de gerenciamento de tarefas - Dados persistidos automaticamente
-            </Typography>
-          </Box>
-          
-          {allTickets.length > 0 && (
-            <Button
-              variant="outlined"
-              color="error"
-              size="small"
-              onClick={handleClearAllTickets}
-              startIcon={<WarningIcon />}
-            >
-              Limpar Todas
-            </Button>
-          )}
-        </Box>
-        
-        {/* Estatísticas - Uma única linha horizontal */}
-        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'space-between' }}>
-          <Card sx={{ 
-            bgcolor: 'primary.main', 
-            color: 'white',
-            minHeight: 40,
-            flex: 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderRadius: 1,
-            '&:hover': { 
-              transform: 'translateY(-1px)',
-              boxShadow: 2,
-              transition: 'all 0.2s ease'
-            }
-          }}>
-                          <CardContent sx={{ textAlign: 'center', p: 0.5 }}>
-                <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 0.25, fontSize: '1.4rem' }}>
-                  {totalTickets}
-                </Typography>
-                <Typography variant="body2" sx={{ fontWeight: 'medium', fontSize: '0.8rem' }}>
-                  Total
-                </Typography>
-              </CardContent>
-          </Card>
-          
-          <Card sx={{ 
-            bgcolor: 'warning.main', 
-            color: 'white',
-            minHeight: 40,
-            flex: 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderRadius: 1,
-            '&:hover': { 
-              transform: 'translateY(-1px)',
-              boxShadow: 2,
-              transition: 'all 0.2s ease'
-            }
-          }}>
-                          <CardContent sx={{ textAlign: 'center', p: 0.5 }}>
-                <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 0.25, fontSize: '1.4rem' }}>
-                  {backlogCount}
-                </Typography>
-                <Typography variant="body2" sx={{ fontWeight: 'medium', fontSize: '0.8rem' }}>
-                  Backlog
-                </Typography>
-              </CardContent>
-          </Card>
-          
-          <Card sx={{ 
-            bgcolor: 'info.main', 
-            color: 'white',
-            minHeight: 40,
-            flex: 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderRadius: 1,
-            '&:hover': { 
-              transform: 'translateY(-1px)',
-              boxShadow: 2,
-              transition: 'all 0.2s ease'
-            }
-          }}>
-                          <CardContent sx={{ textAlign: 'center', p: 0.5 }}>
-                <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 0.25, fontSize: '1.4rem' }}>
-                  {todoCount}
-                </Typography>
-                <Typography variant="body2" sx={{ fontWeight: 'medium', fontSize: '0.8rem' }}>
-                  A Fazer
-                </Typography>
-              </CardContent>
-          </Card>
-          
-          <Card sx={{ 
-            bgcolor: 'info.main', 
-            color: 'white',
-            minHeight: 40,
-            flex: 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderRadius: 1,
-            '&:hover': { 
-              transform: 'translateY(-1px)',
-              boxShadow: 2,
-              transition: 'all 0.2s ease'
-            }
-          }}>
-                          <CardContent sx={{ textAlign: 'center', p: 0.5 }}>
-                <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 0.25, fontSize: '1.4rem' }}>
-                  {inProgressCount}
-                </Typography>
-                <Typography variant="body2" sx={{ fontWeight: 'medium', fontSize: '0.8rem' }}>
-                  Em Andamento
-                </Typography>
-              </CardContent>
-          </Card>
-          
-          <Card sx={{ 
-            bgcolor: 'success.main', 
-            color: 'white',
-            minHeight: 40,
-            flex: 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderRadius: 1,
-            '&:hover': { 
-              transform: 'translateY(-1px)',
-              boxShadow: 2,
-              transition: 'all 0.2s ease'
-            }
-          }}>
-            <CardContent sx={{ textAlign: 'center', p: 0.5 }}>
-              <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 0.25, fontSize: '1.1rem' }}>
-                {doneCount}
-              </Typography>
-              <Typography variant="caption" sx={{ fontWeight: 'medium', fontSize: '0.65rem' }}>
-                Concluídas
-              </Typography>
-            </CardContent>
-          </Card>
-        </Box>
-      </Paper>
-
-      {/* Kanban Board - Mais espaço para tarefas */}
+    <Box sx={{ p: 0 }}>
       <Grid container spacing={1.5} sx={{ mt: 0.25 }}>
         {columns.map((column) => (
           <Grid item key={column.id} xs={12} sm={6} md={3}>
@@ -736,20 +584,58 @@ export const KanbanBoard: React.FC = () => {
                 </Button>
               </Box>
               
-              {/* Lista de tickets - Área com scroll para ocupar todo o espaço */}
-              <Box sx={{ overflowY: 'auto', maxHeight: 'calc(100vh - 300px)' }}>
+              {/* Lista de tickets - Área com scroll + arrastar/soltar */}
+              <Box
+                sx={{ overflowY: 'auto', maxHeight: 'calc(100vh - 300px)' }}
+                onDragOver={(e) => {
+                  e.preventDefault()
+                  e.dataTransfer.dropEffect = 'move'
+                }}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  const ticketId = e.dataTransfer.getData('text/plain')
+                  if (ticketId) handleMoveTicket(ticketId, column.id)
+                }}
+              >
                 {column.tickets.length > 0 ? (
                   column.tickets.map((ticket) => (
                     <Card 
                       key={ticket.id} 
                       ref={(el) => ticketRefs.current[ticket.id] = el}
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData('text/plain', ticket.id)
+                        e.dataTransfer.effectAllowed = 'move'
+                      }}
                       sx={{ 
-                        mb: 1, 
-                        position: 'relative', // Para posicionar o indicador
+                        mb: 1.25,
+                        position: 'relative',
+                        borderRadius: 2,
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        boxShadow: '0 1px 2px rgba(16,24,40,0.06)',
+                        overflow: 'hidden',
+                        // Accent bar (prioridade)
+                        '&::before': {
+                          content: '""',
+                          position: 'absolute',
+                          left: 0,
+                          top: 0,
+                          bottom: 0,
+                          width: 4,
+                          backgroundColor:
+                            ticket.priority === 'high'
+                              ? '#DA3832'
+                              : ticket.priority === 'medium'
+                                ? '#FF9800'
+                                : '#009FDF',
+                          opacity: 0.9
+                        },
+                        transition: 'transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease',
                         '&:hover': { 
-                          boxShadow: 2,
-                          transform: 'translateX(2px)',
-                          transition: 'all 0.2s ease'
+                          boxShadow: '0 8px 20px rgba(16,24,40,0.12)',
+                          transform: 'translateY(-2px)',
+                          borderColor: 'rgba(0,159,223,0.35)'
                         },
                         // Destaque especial para tarefa vinda de notificação
                         ...(highlightedTicket === ticket.id && {
@@ -789,9 +675,23 @@ export const KanbanBoard: React.FC = () => {
                           </Typography>
                         </Box>
                       )}
-                      <CardContent sx={{ p: 1.5 }}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
-                          <Typography variant="body1" sx={{ fontWeight: 'bold', color: 'text.primary', fontSize: '0.9rem', flex: 1 }}>
+                      <CardContent sx={{ p: 1.75, pl: 2.25 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.75, gap: 1 }}>
+                          <Typography
+                            variant="body1"
+                            sx={{
+                              fontWeight: 700,
+                              color: 'text.primary',
+                              fontSize: '0.95rem',
+                              flex: 1,
+                              lineHeight: 1.25,
+                              display: '-webkit-box',
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: 'vertical',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis'
+                            }}
+                          >
                             {ticket.title}
                           </Typography>
                           
@@ -844,52 +744,75 @@ export const KanbanBoard: React.FC = () => {
                           </Box>
                         )}
 
-                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, gap: 0.5 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, gap: 0.75, flexWrap: 'wrap' }}>
                           <Chip 
                             label={ticket.priority === 'high' ? 'Alta' : 
                                    ticket.priority === 'medium' ? 'Média' : 'Baixa'}
                             size="small"
                             sx={{ 
-                              backgroundColor: ticket.priority === 'high' ? '#f44336' : 
-                                             ticket.priority === 'medium' ? '#ff9800' : '#4caf50',
-                              color: 'white',
-                              fontSize: '0.65rem',
-                              height: '20px'
+                              height: 22,
+                              fontSize: '0.7rem',
+                              fontWeight: 700,
+                              borderRadius: 999,
+                              color:
+                                ticket.priority === 'high'
+                                  ? '#8A1C17'
+                                  : ticket.priority === 'medium'
+                                    ? '#7A4A00'
+                                    : '#0B4A66',
+                              backgroundColor:
+                                ticket.priority === 'high'
+                                  ? 'rgba(218,56,50,0.12)'
+                                  : ticket.priority === 'medium'
+                                    ? 'rgba(255,152,0,0.16)'
+                                    : 'rgba(0,159,223,0.14)',
+                              border: '1px solid',
+                              borderColor:
+                                ticket.priority === 'high'
+                                  ? 'rgba(218,56,50,0.25)'
+                                  : ticket.priority === 'medium'
+                                    ? 'rgba(255,152,0,0.28)'
+                                    : 'rgba(0,159,223,0.28)',
                             }}
                           />
                           
+                          {/* Chips compactos de datas (início/vencimento) */}
+                          {ticket.startDate && <StartDateChip startDate={ticket.startDate} />}
+                          {ticket.dueDate && <DueDateChip dueDate={ticket.dueDate} />}
+
                           {/* Botões de movimento rápido */}
-                          <QuickMoveButtons 
-                            ticket={ticket}
-                            currentStatus={column.id}
-                            onMove={handleMoveTicket}
-                          />
+                          <QuickMoveButtons ticket={ticket} currentStatus={column.id} onMove={handleMoveTicket} />
                         </Box>
 
-                        {ticket.assignee && (
-                          <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, fontWeight: 'medium', fontSize: '0.7rem' }}>
-                            👤 {getUserNameById(ticket.assignee)}
-                          </Typography>
-                        )}
-                        
-                        {/* Data de Criação */}
-                        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, fontWeight: 'medium', fontSize: '0.7rem' }}>
-                          📅 Criado em: {new Date(ticket.createdAt).toLocaleDateString('pt-BR')}
-                        </Typography>
-                        
-                        {/* Data de Início */}
-                        {ticket.startDate && (
-                          <Box sx={{ mt: 0.5 }}>
-                            <StartDateDisplay startDate={ticket.startDate} />
-                          </Box>
-                        )}
-                        
-                        {/* Data Final de Entrega */}
-                        {ticket.dueDate && (
-                          <Box sx={{ mt: 0.5 }}>
-                            <DueDateDisplay dueDate={ticket.dueDate} />
-                          </Box>
-                        )}
+                        {/* Assignee + criado em (compacto, sem emojis) */}
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mt: 0.25 }}>
+                          {ticket.assignee && (
+                            <Chip
+                              size="small"
+                              variant="outlined"
+                              icon={<PersonOutlineIcon sx={{ fontSize: 16 }} />}
+                              label={getUserNameById(ticket.assignee)}
+                              sx={{
+                                height: 22,
+                                fontSize: '0.72rem',
+                                borderRadius: 999,
+                                '& .MuiChip-icon': { ml: 0.5, mr: 0.25 }
+                              }}
+                            />
+                          )}
+                          <Chip
+                            size="small"
+                            variant="outlined"
+                            icon={<EventIcon sx={{ fontSize: 16 }} />}
+                            label={`Criado em ${new Date(ticket.createdAt).toLocaleDateString('pt-BR')}`}
+                            sx={{
+                              height: 22,
+                              fontSize: '0.72rem',
+                              borderRadius: 999,
+                              '& .MuiChip-icon': { ml: 0.5, mr: 0.25 }
+                            }}
+                          />
+                        </Box>
                       </CardContent>
                     </Card>
                   ))
@@ -1122,18 +1045,18 @@ export const KanbanBoard: React.FC = () => {
       <Snackbar
         open={showOverdueAlert}
         autoHideDuration={10000}
-        onClose={() => setShowOverdueAlert(false)}
+        onClose={() => { overdueAlertDismissedRef.current = true; setShowOverdueAlert(false) }}
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
         <Alert
-          onClose={() => setShowOverdueAlert(false)}
+          onClose={() => { overdueAlertDismissedRef.current = true; setShowOverdueAlert(false) }}
           severity="error"
           sx={{ width: '100%' }}
           action={
             <Button 
               color="inherit" 
               size="small"
-              onClick={() => setShowOverdueAlert(false)}
+              onClick={() => { overdueAlertDismissedRef.current = true; setShowOverdueAlert(false) }}
             >
               Fechar
             </Button>
@@ -1176,9 +1099,14 @@ const TicketActions: React.FC<{
 
   return (
     <>
-      <IconButton size="small" onClick={handleClick}>
-        <MoreVertIcon fontSize="small" />
-      </IconButton>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+        <Tooltip title="Arraste para mover">
+          <DragIndicatorIcon sx={{ fontSize: 18, color: 'text.secondary', cursor: 'grab' }} />
+        </Tooltip>
+        <IconButton size="small" onClick={handleClick}>
+          <MoreVertIcon fontSize="small" />
+        </IconButton>
+      </Box>
       <Menu
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
@@ -1189,16 +1117,16 @@ const TicketActions: React.FC<{
           Editar
         </MenuItem>
         <MenuItem onClick={() => handleMove('backlog')} disabled={currentStatus === 'backlog'}>
-          📋 Mover para Backlog
+          Mover para Backlog
         </MenuItem>
         <MenuItem onClick={() => handleMove('todo')} disabled={currentStatus === 'done'}>
-          📝 Mover para A Fazer
+          Mover para A Fazer
         </MenuItem>
         <MenuItem onClick={() => handleMove('in-progress')} disabled={currentStatus === 'in-progress'}>
-          🔄 Mover para Em Andamento
+          Mover para Em Andamento
         </MenuItem>
         <MenuItem onClick={() => handleMove('done')} disabled={currentStatus === 'done'}>
-          ✅ Mover para Concluído
+          Mover para Concluído
         </MenuItem>
         <MenuItem onClick={onDelete} sx={{ color: 'error.main' }}>
           <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
@@ -1236,56 +1164,67 @@ const QuickMoveButtons: React.FC<{
   const nextStatus = getNextStatus()
   const prevStatus = getPrevStatus()
 
+  const statusLabel: Record<string, string> = {
+    backlog: 'Backlog',
+    todo: 'A Fazer',
+    'in-progress': 'Em Andamento',
+    done: 'Concluído'
+  }
+
   return (
-    <Box sx={{ display: 'flex', gap: 0.5 }}>
+    <Box sx={{ display: 'flex', gap: 0.25 }}>
       {prevStatus && (
-        <Button
-          size="small"
-          variant="outlined"
-          onClick={() => onMove(ticket.id, prevStatus)}
-          sx={{ 
-            minWidth: 'auto', 
-            px: 1, 
-            py: 0.25, 
-            fontSize: '0.6rem',
-            height: '20px'
-          }}
-        >
-          ⬅️
-        </Button>
+        <Tooltip title={`Mover para ${statusLabel[prevStatus] ?? prevStatus}`}>
+          <IconButton
+            size="small"
+            onClick={() => onMove(ticket.id, prevStatus)}
+            sx={{
+              width: 26,
+              height: 26,
+              border: '1px solid',
+              borderColor: 'divider'
+            }}
+          >
+            <ChevronLeftIcon sx={{ fontSize: 18 }} />
+          </IconButton>
+        </Tooltip>
       )}
       {nextStatus && (
-        <Button
-          size="small"
-          variant="outlined"
-          onClick={() => onMove(ticket.id, nextStatus)}
-          sx={{ 
-            minWidth: 'auto', 
-            px: 1, 
-            py: 0.25, 
-            fontSize: '0.6rem',
-            height: '20px'
-          }}
-        >
-          ➡️
-        </Button>
+        <Tooltip title={`Mover para ${statusLabel[nextStatus] ?? nextStatus}`}>
+          <IconButton
+            size="small"
+            onClick={() => onMove(ticket.id, nextStatus)}
+            sx={{
+              width: 26,
+              height: 26,
+              border: '1px solid',
+              borderColor: 'divider'
+            }}
+          >
+            <ChevronRightIcon sx={{ fontSize: 18 }} />
+          </IconButton>
+        </Tooltip>
       )}
     </Box>
   )
 }
 
 // Componente para exibir data de início com indicadores visuais
-const StartDateDisplay: React.FC<{ startDate: string }> = ({ startDate }) => {
+const parseIsoToDateOnly = (value: string) => {
+  let dateString = value
+  if (dateString.includes('T') && dateString.includes('Z')) dateString = dateString.split('T')[0]
+  return dateString
+}
+
+// Chips compactos para datas (sem emojis)
+const StartDateChip: React.FC<{ startDate: string }> = ({ startDate }) => {
   // Usar data atual em UTC para evitar problemas de fuso horário
   const today = new Date()
   const todayUTC = new Date(today.getFullYear(), today.getMonth(), today.getDate())
   
   // Criar data de início em UTC para comparação precisa
   // Aplicar mesma lógica de parsing para evitar problemas de timezone
-  let dateString = startDate
-  if (dateString.includes('T') && dateString.includes('Z')) {
-    dateString = dateString.split('T')[0]
-  }
+  const dateString = parseIsoToDateOnly(startDate)
   const startDateObj = new Date(dateString + 'T00:00:00')
   const startDateUTC = new Date(startDateObj.getFullYear(), startDateObj.getMonth(), startDateObj.getDate())
   
@@ -1293,83 +1232,65 @@ const StartDateDisplay: React.FC<{ startDate: string }> = ({ startDate }) => {
   const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24))
   
   let status: 'not-started' | 'start-today' | 'start-soon' | 'started' = 'not-started'
-  let color = 'text.secondary'
-  let icon = '📅'
+  let color: string = 'text.secondary'
   let label = ''
+  let iconEl: React.ReactElement = <EventIcon sx={{ fontSize: 16 }} />
   
   if (diffDays < 0) {
     status = 'started'
     color = 'success.main'
-    icon = '✅'
+    iconEl = <CheckCircleOutlineIcon sx={{ fontSize: 16 }} />
     label = `Iniciada há ${Math.abs(diffDays)} dia${Math.abs(diffDays) !== 1 ? 's' : ''}`
   } else if (diffDays === 0) {
     status = 'start-today'
     color = 'info.main'
-    icon = '🚀'
+    iconEl = <RocketLaunchIcon sx={{ fontSize: 16 }} />
     label = 'Inicia hoje!'
   } else if (diffDays <= 3) {
     status = 'start-soon'
     color = 'info.main'
-    icon = '⏰'
+    iconEl = <AccessTimeIcon sx={{ fontSize: 16 }} />
     label = `Inicia em ${diffDays} dia${diffDays !== 1 ? 's' : ''}`
   } else {
     status = 'not-started'
     color = 'text.secondary'
-    icon = '📅'
+    iconEl = <EventIcon sx={{ fontSize: 16 }} />
     label = `Inicia em ${diffDays} dia${diffDays !== 1 ? 's' : ''}`
   }
-  
+
+  const bg =
+    status === 'start-today' || status === 'start-soon' ? 'rgba(0,159,223,0.10)' : 'transparent'
+  const bc =
+    status === 'start-today' || status === 'start-soon' ? 'rgba(0,159,223,0.28)' : 'rgba(220,223,227,0.9)'
+
   return (
-    <Box sx={{ 
-      display: 'flex', 
-      alignItems: 'center', 
-      gap: 0.5,
-      p: 0.5,
-      borderRadius: 1,
-      backgroundColor: status === 'start-today' ? 'info.light' : 
-                     status === 'start-soon' ? 'info.light' : 'transparent',
-      border: `1px solid ${status === 'start-today' ? 'info.main' : 
-                          status === 'start-soon' ? 'info.main' : 'transparent'}`
-    }}>
-      <Typography variant="caption" sx={{ fontSize: '0.8rem' }}>
-        {icon}
-      </Typography>
-      <Typography 
-        variant="caption" 
-        sx={{ 
-          fontWeight: 'medium', 
-          fontSize: '0.7rem',
-          color: color
-        }}
-      >
-        {label}
-      </Typography>
-      <Typography 
-        variant="caption" 
-        sx={{ 
-          fontSize: '0.65rem',
-          color: 'text.secondary',
-          ml: 'auto'
-        }}
-      >
-        {startDateObj.toLocaleDateString('pt-BR')}
-      </Typography>
-    </Box>
+    <Chip
+      size="small"
+      icon={iconEl}
+      label={`${label} • ${startDateObj.toLocaleDateString('pt-BR')}`}
+      sx={{
+        height: 22,
+        fontSize: '0.72rem',
+        fontWeight: 600,
+        borderRadius: 999,
+        color,
+        backgroundColor: bg,
+        border: '1px solid',
+        borderColor: bc,
+        '& .MuiChip-icon': { ml: 0.5, mr: 0.25 }
+      }}
+    />
   )
 }
 
-// Componente para exibir data de entrega com indicadores visuais
-const DueDateDisplay: React.FC<{ dueDate: string }> = ({ dueDate }) => {
+const DueDateChip: React.FC<{ dueDate: string }> = ({ dueDate }) => {
   // Usar data atual em UTC para evitar problemas de fuso horário
   const today = new Date()
   const todayUTC = new Date(today.getFullYear(), today.getMonth(), today.getDate())
   
   // Criar data de vencimento em UTC para comparação precisa
   // Aplicar mesma lógica de parsing para evitar problemas de timezone
-  let dateString = dueDate
-  if (dateString.includes('T') && dateString.includes('Z')) {
-    dateString = dateString.split('T')[0]
-  }
+  const dateString = parseIsoToDateOnly(dueDate)
   const dueDateObj = new Date(dateString + 'T00:00:00')
   const dueDateUTC = new Date(dueDateObj.getFullYear(), dueDateObj.getMonth(), dueDateObj.getDate())
   
@@ -1377,69 +1298,61 @@ const DueDateDisplay: React.FC<{ dueDate: string }> = ({ dueDate }) => {
   const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24))
   
   let status: 'overdue' | 'due-today' | 'due-soon' | 'due-later' = 'due-later'
-  let color = 'text.secondary'
-  let icon = '📅'
+  let color: string = 'text.secondary'
   let label = ''
+  let iconEl: React.ReactElement = <EventIcon sx={{ fontSize: 16 }} />
   
   if (diffDays < 0) {
     status = 'overdue'
     color = 'error.main'
-    icon = '⚠️'
+    iconEl = <ErrorOutlineIcon sx={{ fontSize: 16 }} />
     label = `Vencida há ${Math.abs(diffDays)} dia${Math.abs(diffDays) !== 1 ? 's' : ''}`
   } else if (diffDays === 0) {
     status = 'due-today'
     color = 'warning.main'
-    icon = '🚨'
+    iconEl = <WarningIcon sx={{ fontSize: 16 }} />
     label = 'Vence hoje!'
   } else if (diffDays <= 3) {
     status = 'due-soon'
     color = 'warning.main'
-    icon = '⏰'
+    iconEl = <AccessTimeIcon sx={{ fontSize: 16 }} />
     label = `Vence em ${diffDays} dia${diffDays !== 1 ? 's' : ''}`
   } else {
     status = 'due-later'
     color = 'text.secondary'
-    icon = '📅'
+    iconEl = <EventIcon sx={{ fontSize: 16 }} />
     label = `Vence em ${diffDays} dia${diffDays !== 1 ? 's' : ''}`
   }
-  
+
+  const bg =
+    status === 'overdue'
+      ? 'rgba(218,56,50,0.12)'
+      : status === 'due-today' || status === 'due-soon'
+        ? 'rgba(255,152,0,0.16)'
+        : 'transparent'
+  const bc =
+    status === 'overdue'
+      ? 'rgba(218,56,50,0.28)'
+      : status === 'due-today' || status === 'due-soon'
+        ? 'rgba(255,152,0,0.28)'
+        : 'rgba(220,223,227,0.9)'
+
   return (
-    <Box sx={{ 
-      display: 'flex', 
-      alignItems: 'center', 
-      gap: 0.5,
-      p: 0.5,
-      borderRadius: 1,
-      backgroundColor: status === 'overdue' ? 'error.light' : 
-                     status === 'due-today' ? 'warning.light' : 
-                     status === 'due-soon' ? 'warning.light' : 'transparent',
-      border: `1px solid ${status === 'overdue' ? 'error.main' : 
-                          status === 'due-today' ? 'warning.main' : 
-                          status === 'due-soon' ? 'warning.main' : 'transparent'}`
-    }}>
-      <Typography variant="caption" sx={{ fontSize: '0.8rem' }}>
-        {icon}
-      </Typography>
-      <Typography 
-        variant="caption" 
-        sx={{ 
-          fontWeight: 'medium', 
-          fontSize: '0.7rem',
-          color: color
-        }}
-      >
-        {label}
-      </Typography>
-      <Typography 
-        variant="caption" 
-        sx={{ 
-          fontSize: '0.65rem',
-          color: 'text.secondary',
-          ml: 'auto'
-        }}
-      >
-        {dueDateObj.toLocaleDateString('pt-BR')}
-      </Typography>
-    </Box>
+    <Chip
+      size="small"
+      icon={iconEl}
+      label={`${label} • ${dueDateObj.toLocaleDateString('pt-BR')}`}
+      sx={{
+        height: 22,
+        fontSize: '0.72rem',
+        fontWeight: 600,
+        borderRadius: 999,
+        color,
+        backgroundColor: bg,
+        border: '1px solid',
+        borderColor: bc,
+        '& .MuiChip-icon': { ml: 0.5, mr: 0.25 }
+      }}
+    />
   )
 }

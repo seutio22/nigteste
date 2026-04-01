@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { 
   Box,
@@ -30,8 +30,6 @@ import {
   ListItemSecondaryAction,
   Skeleton,
   CircularProgress,
-  FormControlLabel,
-  Switch,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -46,7 +44,7 @@ import {
   FormHelperText
 } from '@mui/material'
 import { 
-  Add, 
+  AddCircleOutline as AddCircleOutlineIcon,
   Search, 
   Refresh,
   FilterList,
@@ -94,12 +92,16 @@ import {
   Code,
   Palette,
   Analytics,
-  Speed
+  Speed,
+  Archive,
+  InfoOutlined
 } from '@mui/icons-material'
 import { useProjectStore } from '../../store/projectStore'
 import { useAuthStore } from '../../store/authStore'
 import { getApi } from '../../lib/apiConfig'
 import { PermissionGate } from '../../components/PermissionGate'
+import { PrimaryActionButton } from '../../components/PrimaryActionButton'
+import { formatIntegerPtBR } from '../../utils/formatNumber'
 
 export default function ProjectListPageSimple() {
   const navigate = useNavigate()
@@ -118,7 +120,8 @@ export default function ProjectListPageSimple() {
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [priorityFilter, setPriorityFilter] = useState<string>('all')
   const [filterMenuAnchor, setFilterMenuAnchor] = useState<null | HTMLElement>(null)
-  const [sortMenuAnchor, setSortMenuAnchor] = useState<null | HTMLElement>(null)
+  /** mine = seus projetos | all = todos visíveis | archived = pausados + cancelados */
+  const [projectScope, setProjectScope] = useState<'mine' | 'all' | 'archived'>('mine')
   
   // Estados para funcionalidade de incluir vários projetos
   const [bulkAddOpen, setBulkAddOpen] = useState(false)
@@ -136,10 +139,16 @@ export default function ProjectListPageSimple() {
   }>>([])
   const [bulkAddLoading, setBulkAddLoading] = useState(false)
 
-  // Carregar dados quando a página carrega
+  // Carregar dados quando a página carrega (padrão: filtro «Meus projetos»)
   useEffect(() => {
-    syncFromApi()
+    syncFromApi(true)
   }, [syncFromApi])
+
+  // Ao escolher «Todos os projetos» ou «Arquivados», atualizar da API
+  useEffect(() => {
+    if (projectScope !== 'all' && projectScope !== 'archived') return
+    syncFromApi(true)
+  }, [projectScope, syncFromApi])
 
   // Função para remover projeto com tratamento de erro
   const handleRemoveProject = async (id: string) => {
@@ -153,41 +162,91 @@ export default function ProjectListPageSimple() {
     }
   }
   
-  // Aplicar filtros e ordenação
-  const filteredProjects = projects.filter(project => {
-    // Segurança extra no frontend: ocultar projetos privados de outros usuários
-    if (project.isPrivate && project.ownerId && user?.role !== 'admin' && project.ownerId !== user?.id) {
-      return false
-    }
-    // Filtro de busca
-    if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase()
-      const name = (project.name || '').toLowerCase()
-      const description = (project.description || '').toLowerCase()
-      const manager = (project.manager || '').toLowerCase()
-      if (!name.includes(searchLower) && !description.includes(searchLower) && !manager.includes(searchLower)) {
+  /**
+   * Meus projetos = dono, gerente ou membro (tabela ProjectMember na API → isMember / canEdit).
+   * Admin: não usa canEdit sozinho (seria true em todos); demais perfis: canEdit implica um dos papéis.
+   */
+  const isProjectMine = useCallback((project: (typeof projects)[0]) => {
+    const uid = user?.id
+    if (!uid) return false
+    if (project.isOwner === true || project.isManager === true || project.isMember === true) return true
+    const n = (v: unknown) => (v != null ? String(v).trim() : '')
+    if (n(project.ownerId) === n(uid)) return true
+    if (n(project.managerId) === n(uid)) return true
+    if (n(project.manager) === n(uid)) return true
+    const team = project.team
+    if (Array.isArray(team) && team.some((id) => n(id) === n(uid))) return true
+    if (user?.role !== 'admin' && project.canEdit === true) return true
+    return false
+  }, [user?.id, user?.role])
+
+  const filteredProjects = useMemo(() => {
+    return projects.filter((project) => {
+      if (projectScope === 'mine' && !isProjectMine(project)) {
         return false
       }
+      if (projectScope === 'archived') {
+        const s = project.status
+        if (s !== 'paused' && s !== 'cancelled') return false
+      }
+      if ((projectScope === 'mine' || projectScope === 'all') && project.status !== 'active') {
+        return false
+      }
+      if (project.isPrivate && project.ownerId && user?.role !== 'admin' && project.ownerId !== user?.id) {
+        return false
+      }
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase()
+        const name = (project.name || '').toLowerCase()
+        const description = (project.description || '').toLowerCase()
+        const manager = (project.manager || '').toLowerCase()
+        if (!name.includes(searchLower) && !description.includes(searchLower) && !manager.includes(searchLower)) {
+          return false
+        }
+      }
+      if (statusFilter !== 'all' && project.status !== statusFilter) {
+        return false
+      }
+      if (priorityFilter !== 'all' && project.priority !== priorityFilter) {
+        return false
+      }
+      return true
+    })
+  }, [
+    projects,
+    projectScope,
+    searchTerm,
+    statusFilter,
+    priorityFilter,
+    user?.id,
+    user?.role,
+    isProjectMine
+  ])
+
+  const sortedProjects = useMemo(() => {
+    return [...filteredProjects].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )
+  }, [filteredProjects])
+
+  const statusSummary = useMemo(() => {
+    let active = 0
+    let completed = 0
+    let paused = 0
+    let cancelled = 0
+    for (const p of sortedProjects) {
+      const s = p.status
+      if (s === 'active') active++
+      else if (s === 'completed') completed++
+      else if (s === 'paused') paused++
+      else if (s === 'cancelled') cancelled++
     }
+    return { active, completed, paused, cancelled }
+  }, [sortedProjects])
 
-    // Filtro de status
-    if (statusFilter !== 'all' && project.status !== statusFilter) {
-      return false
-    }
-
-    // Filtro de prioridade
-    if (priorityFilter !== 'all' && project.priority !== priorityFilter) {
-      return false
-    }
-
-    return true
-  })
-
-  // Ordenar projetos
-  const sortedProjects = [...filteredProjects].sort((a, b) => {
-    // Por padrão, ordenar por data de criação (mais recentes primeiro)
-    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  })
+  /** Só bloqueia a página inteira quando não há cache local; com dados, mostra barra de atualização. */
+  const showFullPageLoading = loading && projects.length === 0
+  const showRefreshBar = loading && projects.length > 0
 
   // Funções auxiliares para exibição
   const getPriorityColor = (priority: string) => {
@@ -351,13 +410,19 @@ export default function ProjectListPageSimple() {
     }
   }
 
-  // Mostrar loading se estiver carregando
-  if (loading) {
+  // Primeira carga sem cache: tela leve; com cache, a lista continua visível e só há barra de atualização
+  if (showFullPageLoading) {
     return (
-      <Box sx={{ p: 3 }}>
-        <Typography variant="h4">
-          Carregando projetos...
-        </Typography>
+      <Box sx={{ p: 3, maxWidth: 960, mx: 'auto' }}>
+        <Skeleton variant="text" width={220} height={40} sx={{ mb: 2 }} />
+        <LinearProgress sx={{ mb: 3, borderRadius: 1 }} />
+        <Grid container spacing={2}>
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <Grid item xs={12} sm={6} lg={4} key={i}>
+              <Skeleton variant="rounded" height={200} sx={{ borderRadius: 2 }} />
+            </Grid>
+          ))}
+        </Grid>
       </Box>
     )
   }
@@ -373,14 +438,13 @@ export default function ProjectListPageSimple() {
           Nenhum projeto encontrado
         </Typography>
         <PermissionGate module="projetos" action="create">
-          <Button
-            variant="contained"
-            startIcon={<Add />}
+          <PrimaryActionButton
+            startIcon={<AddCircleOutlineIcon />}
             onClick={() => navigate('/projetos/novo')}
             sx={{ mt: 2 }}
           >
             Criar Projeto
-          </Button>
+          </PrimaryActionButton>
         </PermissionGate>
       </Box>
     )
@@ -399,7 +463,7 @@ export default function ProjectListPageSimple() {
         <Button
           variant="contained"
           startIcon={<Refresh />}
-          onClick={syncFromApi}
+          onClick={() => syncFromApi(true)}
           sx={{ mt: 2 }}
         >
           Tentar Novamente
@@ -410,79 +474,25 @@ export default function ProjectListPageSimple() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-      {/* Header Principal com Design Padrão */}
+      {showRefreshBar ? (
+        <LinearProgress
+          sx={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: (t) => t.zIndex.drawer + 2
+          }}
+        />
+      ) : null}
+      {/* Cabeçalho: título, escopo, resumo, busca, filtros e visualização numa única faixa */}
       <div className="bg-white/80 backdrop-blur-sm border-b border-white/20 shadow-sm sticky top-0 z-10">
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <Typography variant="h5" className="font-bold text-slate-800">
-        Projetos
-      </Typography>
-              
-              {/* Filtro Automático */}
-              <div className="flex items-center gap-3 mt-2">
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={true}
-                      disabled
-                      sx={{
-                        '& .MuiSwitch-switchBase.Mui-checked': {
-                          color: '#050032',
-                          '&:hover': {
-                            backgroundColor: 'rgba(5, 0, 50, 0.08)',
-                          },
-                        },
-                        '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                          backgroundColor: '#050032',
-                        },
-                      }}
-                    />
-                  }
-                  label={
-                    <div className="flex items-center gap-2">
-                      <Group className="w-4 h-4 text-slate-600" />
-                      <span className="text-sm text-slate-600">Todos os Projetos</span>
-                    </div>
-                  }
-                />
-                
-                {/* Contador de projetos */}
-                <Chip
-                  label={`${sortedProjects.length} projeto${sortedProjects.length !== 1 ? 's' : ''}`}
-                  size="small"
-                  variant="outlined"
-                  className="border-slate-300 text-slate-600 bg-slate-50"
-                  sx={{ borderRadius: '12px' }}
-                />
-                
-                {/* Estatísticas */}
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Chip
-                    label={`${sortedProjects.filter(p => p.status === 'active').length} Ativos`}
-                    size="small"
-                    variant="outlined"
-                    color="success"
-                    sx={{ borderRadius: '12px' }}
-                  />
-                  <Chip
-                    label={`${sortedProjects.filter(p => p.status === 'completed').length} Concluídos`}
-                    size="small"
-                    variant="outlined"
-                    color="info"
-                    sx={{ borderRadius: '12px' }}
-                  />
-                  <Chip
-                    label={`${sortedProjects.filter(p => p.status === 'paused').length} Pausados`}
-                    size="small"
-                    variant="outlined"
-                    color="warning"
-                    sx={{ borderRadius: '12px' }}
-                  />
-                </Box>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
+        <div className="px-4 py-3 sm:px-6">
+          <div className="flex flex-wrap items-center justify-between gap-2 gap-y-3">
+            <Typography variant="h5" className="font-bold text-slate-800">
+              Projetos
+            </Typography>
+            <div className="flex items-center gap-2 flex-wrap justify-end">
               <Button
                 variant="outlined"
                 startIcon={<Download />}
@@ -532,96 +542,160 @@ export default function ProjectListPageSimple() {
               </Button>
             </PermissionGate>
               <PermissionGate module="projetos" action="create">
-              <Button
-                variant="contained"
-                startIcon={<Add />}
+              <PrimaryActionButton
+                startIcon={<AddCircleOutlineIcon />}
                 onClick={() => navigate('/projetos/novo')}
-                size="medium"
-                className="bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-800 hover:to-slate-900 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 font-semibold"
-                sx={{
-                  borderRadius: '14px',
-                  padding: '10px 20px',
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  fontSize: '0.9rem',
-                  height: '44px',
-                  minWidth: '160px',
-                  boxShadow: '0 4px 14px 0 rgba(15, 23, 42, 0.25)',
-                  '&:hover': {
-                    boxShadow: '0 8px 25px 0 rgba(15, 23, 42, 0.35)',
-                    transform: 'translateY(-2px)'
-                  }
-                }}
+                sx={{ minWidth: '160px' }}
               >
                 Novo Projeto
-              </Button>
+              </PrimaryActionButton>
             </PermissionGate>
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* Conteúdo Principal */}
-      <div className="p-6 space-y-6">
-        {/* Filtros */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center gap-4 mb-4">
-            <FilterAlt className="text-gray-500" />
-            <h3 className="text-lg font-medium text-gray-900">Filtros e Visualizações</h3>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Box
+            sx={{
+              mt: 1.5,
+              pt: 1.5,
+              borderTop: '1px solid',
+              borderColor: 'rgba(15, 23, 42, 0.08)',
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              gap: 1,
+              columnGap: 1.25,
+              rowGap: 1,
+            }}
+          >
+            <ToggleButtonGroup
+              value={projectScope}
+              exclusive
+              size="small"
+              color="primary"
+              onChange={(_, v) => v && setProjectScope(v)}
+              sx={{
+                '& .MuiToggleButton-root': {
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  px: { xs: 1, sm: 1.5 },
+                  py: 0.5,
+                  borderColor: 'rgba(15, 23, 42, 0.12)',
+                  fontSize: { xs: '0.75rem', sm: '0.8125rem' },
+                },
+              }}
+            >
+              <ToggleButton value="mine">
+                <Group className="w-4 h-4 mr-1 opacity-80 max-sm:hidden" />
+                <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>Meus projetos</Box>
+                <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>Meus</Box>
+              </ToggleButton>
+              <ToggleButton value="all">
+                <Public className="w-4 h-4 mr-1 opacity-80 max-sm:hidden" />
+                <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>Todos os projetos</Box>
+                <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>Todos</Box>
+              </ToggleButton>
+              <ToggleButton value="archived">
+                <Archive className="w-4 h-4 mr-1 opacity-80 max-sm:hidden" />
+                Arquivados
+              </ToggleButton>
+            </ToggleButtonGroup>
+
+            <Tooltip title="Meus projetos e Todos os projetos mostram apenas projetos ativos. Arquivados reúne pausados e cancelados.">
+              <IconButton size="small" aria-label="Sobre os escopos de lista" sx={{ color: 'text.secondary', p: 0.5 }}>
+                <InfoOutlined fontSize="small" />
+              </IconButton>
+            </Tooltip>
+
+            <Chip
+              label={`${formatIntegerPtBR(sortedProjects.length)} projeto${sortedProjects.length !== 1 ? 's' : ''}`}
+              size="small"
+              variant="outlined"
+              className="border-slate-300 text-slate-600 bg-slate-50"
+              sx={{ borderRadius: '12px', height: 26, '& .MuiChip-label': { px: 1, fontSize: '0.75rem' } }}
+            />
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.5 }}>
+              <Chip
+                label={`${formatIntegerPtBR(statusSummary.active)} Ativos`}
+                size="small"
+                variant="outlined"
+                color="success"
+                sx={{ borderRadius: '10px', height: 22, '& .MuiChip-label': { px: 0.75, fontSize: '0.7rem' } }}
+              />
+              <Chip
+                label={`${formatIntegerPtBR(statusSummary.completed)} Concluídos`}
+                size="small"
+                variant="outlined"
+                color="info"
+                sx={{ borderRadius: '10px', height: 22, '& .MuiChip-label': { px: 0.75, fontSize: '0.7rem' } }}
+              />
+              <Chip
+                label={`${formatIntegerPtBR(statusSummary.paused)} Pausados`}
+                size="small"
+                variant="outlined"
+                color="warning"
+                sx={{ borderRadius: '10px', height: 22, '& .MuiChip-label': { px: 0.75, fontSize: '0.7rem' } }}
+              />
+              <Chip
+                label={`${formatIntegerPtBR(statusSummary.cancelled)} Cancelados`}
+                size="small"
+                variant="outlined"
+                color="error"
+                sx={{ borderRadius: '10px', height: 22, '& .MuiChip-label': { px: 0.75, fontSize: '0.7rem' } }}
+              />
+            </Box>
+
             <TextField
               placeholder="Buscar projetos..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               size="small"
-              sx={{ minWidth: 250 }}
+              sx={{
+                flex: '1 1 160px',
+                minWidth: 140,
+                maxWidth: { xs: '100%', sm: 320 },
+              }}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <Search />
+                    <Search fontSize="small" />
                   </InputAdornment>
                 ),
               }}
             />
 
-            {/* Filtros */}
             <Button
               variant="outlined"
-              startIcon={<FilterAlt />}
+              startIcon={<FilterAlt fontSize="small" />}
               onClick={(e) => setFilterMenuAnchor(e.currentTarget)}
               size="small"
+              sx={{ textTransform: 'none', flexShrink: 0, borderRadius: '10px' }}
             >
               Filtros
             </Button>
 
-            {/* Visualizações */}
             <ToggleButtonGroup
               value={viewMode}
               exclusive
-              onChange={(e, newView) => newView && setViewMode(newView)}
+              onChange={(_, newView) => newView && setViewMode(newView)}
               size="small"
+              sx={{ flexShrink: 0, '& .MuiToggleButton-root': { px: 1 } }}
             >
-              <ToggleButton value="list">
-                <Tooltip title="Lista">
-                  <ViewList />
-                </Tooltip>
+              <ToggleButton value="list" aria-label="Lista" title="Lista">
+                <ViewList fontSize="small" />
               </ToggleButton>
-              <ToggleButton value="grid">
-                <Tooltip title="Grid">
-                  <ViewModule />
-                </Tooltip>
+              <ToggleButton value="grid" aria-label="Grade" title="Grade">
+                <ViewModule fontSize="small" />
               </ToggleButton>
-              <ToggleButton value="kanban">
-                <Tooltip title="Kanban">
-                  <ViewKanban />
-                </Tooltip>
+              <ToggleButton value="kanban" aria-label="Kanban" title="Kanban">
+                <ViewKanban fontSize="small" />
               </ToggleButton>
             </ToggleButtonGroup>
-          </div>
+          </Box>
         </div>
+      </div>
 
+      {/* Conteúdo Principal */}
+      <div className="p-4 sm:p-6">
         {/* Conteúdo */}
         {sortedProjects.length === 0 ? (
           <div className="bg-white rounded-lg shadow p-8 text-center">
@@ -631,19 +705,17 @@ export default function ProjectListPageSimple() {
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
               {searchTerm || statusFilter !== 'all' || priorityFilter !== 'all'
                 ? 'Tente ajustar os filtros de busca'
-                : 'Crie seu primeiro projeto para começar'
-              }
+                : projectScope === 'archived'
+                  ? 'Não há projetos pausados ou cancelados no momento.'
+                  : 'Crie seu primeiro projeto para começar'}
       </Typography>
             <PermissionGate module="projetos" action="create">
-            <Button
-              variant="contained"
-              startIcon={<Add />}
+            <PrimaryActionButton
+              startIcon={<AddCircleOutlineIcon />}
               onClick={() => navigate('/projetos/novo')}
-              className="bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-800 hover:to-slate-900"
-              sx={{ borderRadius: '14px' }}
             >
               Criar Projeto
-            </Button>
+            </PrimaryActionButton>
           </PermissionGate>
           </div>
         ) : (
@@ -1146,7 +1218,7 @@ export default function ProjectListPageSimple() {
                   
                   <Button
                     variant="outlined"
-                    startIcon={<Add />}
+                    startIcon={<AddCircleOutlineIcon />}
                     onClick={addBulkProject}
                     sx={{ alignSelf: 'flex-start' }}
                   >

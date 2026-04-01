@@ -151,6 +151,8 @@ model TipoDemanda {
   id           String        @id @default(uuid())
   nome         String
   descricao    String?
+  /// Quando false, o tipo não aparece no formulário de nova demanda (cadastro)
+  ativo        Boolean       @default(true)
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   atendimentos Atendimento[]
@@ -946,6 +948,8 @@ model UserActivity {
   metadata  String? // Dados adicionais em JSON
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId, action, createdAt])
 }
 
 model UserSession {
@@ -979,6 +983,10 @@ model UserMonitoring {
   logoutCount          Int      @default(0)
   pageViewCount        Int      @default(0)
   apiCallCount         Int      @default(0)
+  /** Soma do tempo (segundos) registrado via action page_time neste dia */
+  pageDwellSeconds     Int      @default(0)
+  /** Quantidade de encerramentos de permanência (eventos page_time) neste dia */
+  pageDwellSessions    Int      @default(0)
   averageSessionTime   Int      @default(0) // em minutos
   lastAccess           DateTime @default(now())
   isOnline             Boolean  @default(false)
@@ -987,6 +995,7 @@ model UserMonitoring {
   user                 User     @relation(fields: [userId], references: [id])
 
   @@unique([userId, date])
+  @@index([userId, date])
 }
 
 // Tabela para histórico de exclusões (Soft Delete)

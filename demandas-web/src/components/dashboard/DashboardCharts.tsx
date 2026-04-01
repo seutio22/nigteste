@@ -8,9 +8,6 @@ import {
 } from '@mui/material'
 import {
   ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
   BarChart,
   Bar,
   LineChart,
@@ -19,255 +16,178 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip as RechartsTooltip,
-  Legend
+  Legend,
+  LabelList,
+  ReferenceLine
 } from 'recharts'
-import { useDashboardIndicators } from '../../hooks/useDashboardIndicators'
+import { QuantitativeAnalysisPanel } from './QuantitativeAnalysisPanel'
 import type { PeriodType } from '../../types/dashboardIndicators'
+import { formatIntegerPtBR } from '../../utils/formatNumber'
+import { parseDateForFilter } from '../../utils/dashboardFilters'
+
+const tooltipInt = (value: number | string | undefined) =>
+  formatIntegerPtBR(typeof value === 'number' ? value : Number(value))
 
 interface DashboardChartsProps {
   period: PeriodType
+  chartPeriodComparison: Array<{ page: string; current: number; previous: number }>
+  chartDailyEvolution: Array<{ dateKey: string; label: string; total: number }>
   areaId?: string
   analistaId?: string
   fromDate?: string
   toDate?: string
+  userScopePending?: boolean
 }
 
-const COLORS = ['#002561', '#009FDF', '#00A649', '#FCDA4F', '#DA3832', '#050032', '#004F75', '#A3B5BC']
-
-export const DashboardCharts: React.FC<DashboardChartsProps> = ({ 
+export const DashboardCharts: React.FC<DashboardChartsProps> = ({
   period,
+  chartPeriodComparison,
+  chartDailyEvolution,
   areaId,
   analistaId,
   fromDate,
-  toDate
+  toDate,
+  userScopePending
 }) => {
   const theme = useTheme()
-  const { indicators, pageMetrics, generalStats } = useDashboardIndicators(period, {
-    areaId,
-    analistaId,
-    fromDate,
-    toDate
-  })
 
-  // Dados para gráfico de pizza - Status por categoria
-  const categoryData = useMemo(() => {
-    const categories = {
-      primary: { name: 'Principais', value: 0, color: theme.palette.primary.main },
-      secondary: { name: 'Secundárias', value: 0, color: theme.palette.success.main },
-      tertiary: { name: 'Administrativas', value: 0, color: theme.palette.grey[500] }
+  const comparisonLegend = useMemo(() => {
+    if (period === 'daily') {
+      return { current: 'Dia selecionado', previous: 'Dia anterior' }
     }
+    if (period === 'monthly') {
+      return { current: 'Mês atual', previous: 'Mês anterior' }
+    }
+    return { current: 'Trimestre atual', previous: 'Trimestre anterior' }
+  }, [period])
 
-    indicators.forEach(indicator => {
-      categories[indicator.category].value += indicator.value
+  /** Só seg–sex; média aritmética dos totais nesses dias (inclui dias com 0). */
+  const { businessDaysEvolution, businessDaysAverage, yAxisMax } = useMemo(() => {
+    const rows = chartDailyEvolution.filter((row) => {
+      const d = parseDateForFilter(row.dateKey)
+      if (!d || isNaN(d.getTime())) return false
+      const dow = d.getDay()
+      return dow >= 1 && dow <= 5
     })
+    const sum = rows.reduce((s, r) => s + r.total, 0)
+    const avg = rows.length > 0 ? sum / rows.length : 0
+    const maxVal = rows.length > 0 ? Math.max(...rows.map((r) => r.total), avg) : avg
+    const yMax = Math.max(1, Math.ceil(maxVal * 1.08))
+    return { businessDaysEvolution: rows, businessDaysAverage: avg, yAxisMax: yMax }
+  }, [chartDailyEvolution])
 
-    return Object.values(categories).filter(cat => cat.value > 0)
-  }, [indicators, theme.palette])
-
-  // Dados para gráfico de barras - Top 10 páginas por atividade
-  const topPagesData = useMemo(() => {
-    return indicators
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 10)
-      .map(indicator => ({
-        name: indicator.title,
-        value: indicator.value,
-        color: indicator.color
-      }))
-  }, [indicators])
-
-  // Dados para gráfico de linha - Evolução por período
-  const evolutionData = useMemo(() => {
-    const evolution = indicators.map(indicator => {
-      const metrics = pageMetrics[indicator.page]
-      if (!metrics) return null
-
-      return {
-        page: indicator.title,
-        daily: metrics.daily.total,
-        monthly: metrics.monthly.total,
-        quarterly: metrics.quarterly.total
-      }
-    }).filter(Boolean)
-
-    return evolution
-  }, [indicators, pageMetrics])
-
-  // Dados para gráfico de barras - Comparação de períodos
-  const periodComparisonData = useMemo(() => {
-    const comparison = indicators.map(indicator => {
-      const metrics = pageMetrics[indicator.page]
-      if (!metrics) return null
-
-      return {
-        page: indicator.title,
-        [period]: metrics[period].total,
-        previous: period === 'daily' ? metrics.monthly.total : 
-                 period === 'monthly' ? metrics.quarterly.total : 
-                 metrics.quarterly.total
-      }
-    }).filter(Boolean)
-
-    return comparison
-  }, [indicators, pageMetrics, period])
-
-  // Dados para gráfico de pizza - Taxa de conclusão
-  const completionData = useMemo(() => {
-    const total = generalStats.total
-    const completed = generalStats.completed
-    const pending = total - completed
-
-    return [
-      { name: 'Concluídas', value: completed, color: theme.palette.success.main },
-      { name: 'Pendentes', value: pending, color: theme.palette.warning.main }
-    ].filter(item => item.value > 0)
-  }, [generalStats, theme.palette])
+  const averageLabel = businessDaysAverage.toLocaleString('pt-BR', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 1
+  })
 
   return (
     <Box>
-      {/* Gráficos de Status */}
+      <QuantitativeAnalysisPanel
+        period={period}
+        areaId={areaId}
+        analistaId={analistaId}
+        fromDate={fromDate}
+        toDate={toDate}
+        userScopePending={userScopePending}
+      />
+
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        {/* Gráfico de Pizza - Atividades por Categoria */}
-        <Grid item xs={12} lg={6}>
+        <Grid item xs={12}>
           <Paper sx={{ p: 3, borderRadius: 2, height: 400 }}>
-            <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>
-              Atividades por Categoria - {period === 'daily' ? 'Hoje' : period === 'monthly' ? 'Este Mês' : 'Este Trimestre'}
-            </Typography>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={categoryData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {categoryData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <RechartsTooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </Paper>
-        </Grid>
-
-        {/* Gráfico de Pizza - Taxa de Conclusão */}
-        <Grid item xs={12} lg={6}>
-          <Paper sx={{ p: 3, borderRadius: 2, height: 400 }}>
-            <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>
-              Taxa de Conclusão - {period === 'daily' ? 'Hoje' : period === 'monthly' ? 'Este Mês' : 'Este Trimestre'}
-            </Typography>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={completionData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {completionData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <RechartsTooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </Paper>
-        </Grid>
-      </Grid>
-
-      {/* Gráficos de Atividades */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        {/* Gráfico de Barras - Top 10 Páginas */}
-        <Grid item xs={12} lg={6}>
-          <Paper sx={{ p: 3, borderRadius: 2, height: 400 }}>
-            <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>
-              Top 10 Páginas - {period === 'daily' ? 'Hoje' : period === 'monthly' ? 'Este Mês' : 'Este Trimestre'}
-            </Typography>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={topPagesData} layout="horizontal">
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis type="number" />
-                <YAxis dataKey="name" type="category" width={100} />
-                <RechartsTooltip />
-                <Bar dataKey="value" fill={theme.palette.primary.main} />
-              </BarChart>
-            </ResponsiveContainer>
-          </Paper>
-        </Grid>
-
-        {/* Gráfico de Barras - Comparação de Períodos */}
-        <Grid item xs={12} lg={6}>
-          <Paper sx={{ p: 3, borderRadius: 2, height: 400 }}>
-            <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>
+            <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
               Comparação de Períodos
             </Typography>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={periodComparisonData}>
+            <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 2 }}>
+              {period === 'monthly' &&
+                'Cada barra compara o mês do filtro com o mês calendário anterior.'}
+              {period === 'daily' && 'Compara o dia do filtro com o dia anterior.'}
+              {period === 'quarterly' &&
+                'Compara o trimestre do filtro com o trimestre calendário anterior.'}
+            </Typography>
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={chartPeriodComparison} margin={{ top: 28, right: 8, left: 8, bottom: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="page" angle={-45} textAnchor="end" height={100} />
-                <YAxis />
-                <RechartsTooltip />
+                <YAxis tickFormatter={(v) => formatIntegerPtBR(v)} />
+                <RechartsTooltip formatter={(value) => [tooltipInt(value as number), 'Itens criados']} />
                 <Legend />
-                <Bar 
-                  dataKey={period} 
-                  fill={theme.palette.primary.main} 
-                  name={period === 'daily' ? 'Hoje' : period === 'monthly' ? 'Este Mês' : 'Este Trimestre'}
-                />
-                <Bar 
-                  dataKey="previous" 
-                  fill={theme.palette.grey[400]} 
-                  name="Período Anterior"
-                />
+                <Bar dataKey="current" fill={theme.palette.primary.main} name={comparisonLegend.current}>
+                  <LabelList
+                    dataKey="current"
+                    position="top"
+                    formatter={(v: number | string) =>
+                      formatIntegerPtBR(typeof v === 'number' ? v : Number(v ?? 0))
+                    }
+                    style={{ fill: theme.palette.primary.dark, fontSize: 11, fontWeight: 600 }}
+                  />
+                </Bar>
+                <Bar dataKey="previous" fill={theme.palette.grey[400]} name={comparisonLegend.previous}>
+                  <LabelList
+                    dataKey="previous"
+                    position="top"
+                    formatter={(v: number | string) =>
+                      formatIntegerPtBR(typeof v === 'number' ? v : Number(v ?? 0))
+                    }
+                    style={{ fill: theme.palette.text.secondary, fontSize: 11, fontWeight: 600 }}
+                  />
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </Paper>
         </Grid>
       </Grid>
 
-      {/* Gráfico de Linha - Evolução Temporal */}
       <Paper sx={{ p: 3, borderRadius: 2, mb: 4 }}>
-        <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>
-          Evolução Temporal das Atividades
+        <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
+          Evolução diária no período (dias úteis)
         </Typography>
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={evolutionData}>
+        <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+          Apenas segunda a sexta: total de itens criados por dia (soma de todas as páginas), no intervalo do filtro.
+        </Typography>
+        <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 2 }}>
+          <Box component="span" sx={{ fontWeight: 600, color: theme.palette.warning.dark }}>
+            Média em dias úteis: {averageLabel}
+          </Box>{' '}
+          (média aritmética dos totais diários, incluindo dias sem lançamentos).
+        </Typography>
+        <ResponsiveContainer width="100%" height={320}>
+          <LineChart data={businessDaysEvolution} margin={{ top: 8, right: 12, left: 8, bottom: 8 }}>
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="page" angle={-45} textAnchor="end" height={100} />
-            <YAxis />
-            <RechartsTooltip />
+            <XAxis dataKey="label" interval="preserveStartEnd" minTickGap={8} />
+            <YAxis
+              domain={[0, yAxisMax]}
+              tickFormatter={(v) => formatIntegerPtBR(v)}
+              allowDecimals={false}
+            />
+            <RechartsTooltip
+              formatter={(value) => [tooltipInt(value as number), 'Total do dia']}
+              labelFormatter={(_, payload) => {
+                const p = payload?.[0]?.payload as { dateKey?: string } | undefined
+                return p?.dateKey ? `Data: ${p.dateKey}` : ''
+              }}
+            />
             <Legend />
-            <Line 
-              type="monotone" 
-              dataKey="daily" 
-              stroke={theme.palette.primary.main} 
+            <ReferenceLine
+              y={businessDaysAverage}
+              stroke={theme.palette.warning.main}
+              strokeDasharray="6 4"
               strokeWidth={2}
-              name="Diário"
-              dot={{ fill: theme.palette.primary.main, strokeWidth: 2, r: 4 }}
+              label={{
+                value: `Média ${averageLabel}`,
+                position: 'insideTopRight',
+                fill: theme.palette.warning.dark,
+                fontSize: 12,
+                fontWeight: 600
+              }}
             />
-            <Line 
-              type="monotone" 
-              dataKey="monthly" 
-              stroke={theme.palette.success.main} 
+            <Line
+              type="monotone"
+              dataKey="total"
+              stroke={theme.palette.primary.main}
               strokeWidth={2}
-              name="Mensal"
-              dot={{ fill: theme.palette.success.main, strokeWidth: 2, r: 4 }}
-            />
-            <Line 
-              type="monotone" 
-              dataKey="quarterly" 
-              stroke={theme.palette.warning.main} 
-              strokeWidth={2}
-              name="Trimestral"
-              dot={{ fill: theme.palette.warning.main, strokeWidth: 2, r: 4 }}
+              name="Itens criados (dias úteis)"
+              dot={{ fill: theme.palette.primary.main, strokeWidth: 2, r: 3 }}
             />
           </LineChart>
         </ResponsiveContainer>

@@ -86,7 +86,7 @@ export function ComentariosSection({ comunicadoId, comentarios }: ComentariosSec
 
   const getRoleColor = (role?: string) => {
     switch (role) {
-      case 'admin': return '#FCDA4F'
+      case 'admin': return '#E5B800'
       case 'manager': return '#8b5cf6'
       case 'user': return '#00A649'
       default: return '#6b7280'
@@ -125,7 +125,7 @@ export function ComentariosSection({ comunicadoId, comentarios }: ComentariosSec
           <Typography variant="h5" className="font-bold text-slate-800">
             Comentários
           </Typography>
-          <Typography variant="body2" className="text-slate-500">
+          <Typography variant="body2" className="text-apoio-400">
             {comentarios.length} comentário{comentarios.length !== 1 ? 's' : ''}
           </Typography>
         </Box>
@@ -186,7 +186,7 @@ export function ComentariosSection({ comunicadoId, comentarios }: ComentariosSec
                   },
                   '&:disabled': {
                     background: '#e2e8f0',
-                    color: '#94a3b8'
+                    color: '#6b7a80'
                   }
                 }}
               >
@@ -206,15 +206,15 @@ export function ComentariosSection({ comunicadoId, comentarios }: ComentariosSec
                 className="w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center"
                 sx={{
                   background: 'linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%)',
-                  border: '2px dashed #cbd5e1'
+                  border: '2px dashed #DCDFE3'
                 }}
               >
-                <Message className="text-slate-400" sx={{ fontSize: 32 }} />
+                <Message className="text-apoio-400" sx={{ fontSize: 32 }} />
               </Box>
-              <Typography variant="h6" className="text-slate-500 mb-2">
+              <Typography variant="h6" className="text-apoio-400 mb-2">
                 Nenhum comentário ainda
               </Typography>
-              <Typography variant="body2" className="text-slate-400">
+              <Typography variant="body2" className="text-apoio-400">
                 Seja o primeiro a comentar neste comunicado!
               </Typography>
             </Box>
@@ -277,7 +277,7 @@ export function ComentariosSection({ comunicadoId, comentarios }: ComentariosSec
                           />
                         )}
                       </Box>
-                      <Typography variant="caption" className="text-slate-500">
+                      <Typography variant="caption" className="text-apoio-400">
                         {getTimeAgo(comentario.dataCriacao)}
                       </Typography>
                     </Box>

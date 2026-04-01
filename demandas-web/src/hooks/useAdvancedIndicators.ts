@@ -6,7 +6,16 @@ import { useReajusteStore } from '../store/reajusteStore'
 import { useManutencaoStore } from '../store/manutencaoStore'
 import { useReportStore } from '../store/reportStore'
 import { useMasterDataStore } from '../store/masterDataStore'
-import { calculateBusinessDays, getItemDateForPage, getItemEndDate, getItemStartDate, matchesByIdOrName, parseDateForFilter, resolveIdFromValue, resolveNameFromValue } from '../utils/dashboardFilters'
+import {
+  calculateBusinessDays,
+  getExecutionEndDate,
+  getExecutionStartDate,
+  getItemDateForPage,
+  matchesByIdOrName,
+  parseDateForFilter,
+  resolveIdFromValue,
+  resolveNameFromValue
+} from '../utils/dashboardFilters'
 import { isItemConcluido } from '../types/dashboardIndicators'
 
 export interface AdvancedIndicator {
@@ -51,6 +60,7 @@ export const useAdvancedIndicators = (
     analistaId?: string
     fromDate?: string
     toDate?: string
+    userScopePending?: boolean
   }
 ) => {
   // Stores
@@ -62,13 +72,12 @@ export const useAdvancedIndicators = (
   const reportStore = useReportStore()
   const masterDataStore = useMasterDataStore()
 
-  // Função para calcular tempo de execução em dias
-  const calcularTempoExecucao = (dataInicio?: string, dataFinalizacao?: string): number => {
-    if (!dataInicio) return 0
+  // Tempo entre data de início e data final do chamado, em dias úteis (sem fim de semana). Exige ambas as datas.
+  const calcularTempoExecucao = (dataInicio?: string, dataFinal?: string): number => {
+    if (!dataInicio || !dataFinal) return 0
     const inicio = new Date(dataInicio)
-    if (isNaN(inicio.getTime())) return 0
-    const fim = dataFinalizacao ? new Date(dataFinalizacao) : new Date()
-    if (isNaN(fim.getTime())) return 0
+    const fim = new Date(dataFinal)
+    if (isNaN(inicio.getTime()) || isNaN(fim.getTime())) return 0
     if (fim < inicio) return 0
     return calculateBusinessDays(inicio, fim)
   }
@@ -76,7 +85,8 @@ export const useAdvancedIndicators = (
   // Função para aplicar filtros
   const applyFilters = (items: any[], page: string) => {
     if (!filters) return items
-    
+    if (filters.userScopePending) return []
+
     const getAnalistaValue = (item: any) => {
       if (page === 'reajustes') return item.responsavelAnalista
       if (page === 'manutencoes') return item.analistaId || item.analista
@@ -169,8 +179,8 @@ export const useAdvancedIndicators = (
 
     return pages.map(page => {
       const tempos = page.items.map(item => {
-        const inicio = getItemStartDate(page.name, item)
-        const fim = getItemEndDate(page.name, item)
+        const inicio = getExecutionStartDate(page.name, item)
+        const fim = getExecutionEndDate(page.name, item)
         return calcularTempoExecucao(inicio, fim)
       }).filter(tempo => tempo > 0)
 
@@ -260,8 +270,8 @@ export const useAdvancedIndicators = (
         analista.itensPorPagina[page.name as keyof typeof analista.itensPorPagina]++
 
         // Calcular tempo de execução
-        const dataInicio = getItemStartDate(page.name, item)
-        const dataFim = getItemEndDate(page.name, item)
+        const dataInicio = getExecutionStartDate(page.name, item)
+        const dataFim = getExecutionEndDate(page.name, item)
         const tempo = calcularTempoExecucao(dataInicio, dataFim)
         
         if (tempo > 0) {
@@ -321,7 +331,7 @@ export const useAdvancedIndicators = (
         value: analistaMaisProdutivo.totalItens,
         unit: 'itens',
         description: `${analistaMaisProdutivo.analistaNome} - ${analistaMaisProdutivo.totalItens} itens`,
-        color: '#FCDA4F',
+        color: '#E5B800',
         icon: 'Person'
       })
     }

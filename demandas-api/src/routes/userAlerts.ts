@@ -230,7 +230,19 @@ export async function userAlertsRoutes(app: FastifyInstance, options: { prisma: 
         orderBy: { createdAt: 'desc' }
       })
 
-      return reply.send({ alertas })
+      const enriched = alertas.map((a) => {
+        let targetIds: string[] = []
+        try {
+          targetIds = JSON.parse(a.targetUserIds || '[]') as string[]
+        } catch {}
+        const destinatariosLabel =
+          !targetIds || targetIds.length === 0
+            ? 'Todos os usuários'
+            : `${targetIds.length} destinatário(s)`
+        return { ...a, destinatariosLabel }
+      })
+
+      return reply.send({ alertas: enriched })
     } catch (e) {
       console.error('Erro GET /user-alerts/managed:', e)
       return reply.status(500).send({ error: 'Erro interno' })

@@ -1,6 +1,7 @@
 import type { Config } from 'tailwindcss'
 
 export default {
+  darkMode: 'class',
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
@@ -54,16 +55,16 @@ export default {
           400: '#6b7a80',
           500: '#556268',
         },
-        // Cores semânticas: info #004F75, success #00A649, warning #FCDA4F, error #DA3832
+        // Cores semânticas: info #004F75, success #00A649, warning #E5B800 (amarelo forte), error #DA3832
         success: {
           DEFAULT: '#00A649',
           light: '#e6f7ed',
           dark: '#008c3a',
         },
         warning: {
-          DEFAULT: '#FCDA4F',
-          light: '#fef9e6',
-          dark: '#e5c547',
+          DEFAULT: '#E5B800',
+          light: '#FBF4D4',
+          dark: '#C9A227',
         },
         error: {
           DEFAULT: '#DA3832',

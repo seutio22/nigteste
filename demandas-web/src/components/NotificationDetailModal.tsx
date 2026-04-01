@@ -14,7 +14,7 @@ import {
   Select,
   MenuItem
 } from '@mui/material'
-import { Bell, MessageSquare, FileText, Settings, Info, ArrowRight, Clock } from 'lucide-react'
+import { Bell, MessageSquare, FileText, Settings, Info, ArrowRight, Clock, Kanban } from 'lucide-react'
 
 interface NotificationDetailModalProps {
   open: boolean
@@ -23,6 +23,8 @@ interface NotificationDetailModalProps {
   onNavigate?: () => void
   onSnooze?: (id: string, minutes: number) => void
   canSnooze?: boolean
+  /** Se definido, exibe ação para criar ticket no Kanban a partir desta notificação (ex.: alerta). */
+  onCreateKanbanTicket?: () => Promise<void>
   formatTimeAgo: (date: string) => string
   getPriorityColor: (prioridade: string) => string
 }
@@ -53,10 +55,12 @@ export function NotificationDetailModal({
   onNavigate,
   onSnooze,
   canSnooze,
+  onCreateKanbanTicket,
   formatTimeAgo,
   getPriorityColor
 }: NotificationDetailModalProps) {
   const [snoozeValue, setSnoozeValue] = React.useState<number>(30)
+  const [creatingKanban, setCreatingKanban] = React.useState(false)
   if (!notification) return null
 
   const d = notification.dados || {}
@@ -161,6 +165,24 @@ export function NotificationDetailModal({
           </Box>
         )}
         <Button onClick={onClose}>Fechar</Button>
+        {onCreateKanbanTicket && (
+          <Button
+            variant="outlined"
+            color="primary"
+            disabled={creatingKanban}
+            onClick={async () => {
+              setCreatingKanban(true)
+              try {
+                await onCreateKanbanTicket()
+              } finally {
+                setCreatingKanban(false)
+              }
+            }}
+            startIcon={<Kanban className="w-4 h-4" />}
+          >
+            {creatingKanban ? 'Criando…' : 'Criar ticket no Kanban'}
+          </Button>
+        )}
         {hasLink && onNavigate && (
           <Button variant="contained" onClick={onNavigate} endIcon={<ArrowRight className="w-4 h-4" />}>
             Ir para detalhes

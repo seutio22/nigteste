@@ -48,6 +48,7 @@ import { SavedFiltersModal } from '../../components/SavedFiltersModal'
 import { smartImporterConfigs } from '../../config/smartImporterConfigs'
 import type { ImportResult } from '../../types/smartImporter'
 import { usePermissions } from '../../hooks/usePermissions'
+import { formatIntegerPtBR } from '../../utils/formatNumber'
 
 export default function MaillingListPage() {
   const maillingStore = useMaillingStore()
@@ -283,7 +284,7 @@ export default function MaillingListPage() {
       
       setSnackbar({ 
         open: true, 
-        message: `${result.valid.length} contato(s) importado(s) com sucesso!`, 
+        message: `${formatIntegerPtBR(result.valid.length)} contato(s) importado(s) com sucesso!`, 
         severity: 'success' 
       })
       
@@ -371,7 +372,7 @@ export default function MaillingListPage() {
           <Grid item xs={12} sm={6} md={4}>
             <Paper sx={{ p: 2, textAlign: 'center' }}>
               <Typography variant="h5" color="primary" sx={{ fontWeight: 600 }}>
-                {maillingStore.contacts.length}
+                {formatIntegerPtBR(maillingStore.contacts.length)}
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
                 Total de Contatos
@@ -381,7 +382,7 @@ export default function MaillingListPage() {
           <Grid item xs={12} sm={6} md={4}>
             <Paper sx={{ p: 2, textAlign: 'center' }}>
               <Typography variant="h5" color="success.main" sx={{ fontWeight: 600 }}>
-                {filteredContacts.length}
+                {formatIntegerPtBR(filteredContacts.length)}
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
                 Contatos Filtrados
@@ -391,7 +392,7 @@ export default function MaillingListPage() {
           <Grid item xs={12} sm={6} md={4}>
             <Paper sx={{ p: 2, textAlign: 'center' }}>
               <Typography variant="h5" color="info.main" sx={{ fontWeight: 600 }}>
-                {Object.values(filters).filter(v => v).length}
+                {formatIntegerPtBR(Object.values(filters).filter(v => v).length)}
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
                 Filtros Ativos
@@ -455,7 +456,7 @@ export default function MaillingListPage() {
                 size="small"
                 color="secondary"
               >
-                E-mails ({filteredContacts.length})
+                E-mails ({formatIntegerPtBR(filteredContacts.length)})
               </Button>
             </Grid>
             <Grid item xs={12} sm={6} md={2.4}>
@@ -473,7 +474,7 @@ export default function MaillingListPage() {
                   }
                 }}
               >
-                Filtros ({maillingStore.savedFilters.length})
+                Filtros ({formatIntegerPtBR(maillingStore.savedFilters.length)})
               </Button>
             </Grid>
           </Grid>
@@ -920,7 +921,7 @@ export default function MaillingListPage() {
                       {contact.changeLog && contact.changeLog.length > 0 && (
                         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.25 }}>
                           <Chip
-                            label={contact.changeLog.length}
+                            label={formatIntegerPtBR(contact.changeLog.length)}
                             size="small"
                             color="info"
                             variant="outlined"
@@ -929,7 +930,7 @@ export default function MaillingListPage() {
                               height: '18px',
                               minWidth: '18px'
                             }}
-                            title={`${contact.changeLog.length} alteração(ões) registrada(s)`}
+                            title={`${formatIntegerPtBR(contact.changeLog.length)} alteração(ões) registrada(s)`}
                           />
                           <Typography variant="caption" sx={{ fontSize: '0.6rem', textAlign: 'center', color: 'text.secondary' }}>
                             {contact.changeLog[contact.changeLog.length - 1]?.changedBy?.split(' (')[0] || 'Usuário'}
@@ -954,7 +955,7 @@ export default function MaillingListPage() {
           {filteredContacts.length > 0 && (
             <Box sx={{ p: 1, borderTop: '1px solid', borderColor: 'divider', backgroundColor: 'grey.50' }}>
               <Typography variant="caption" color="text.secondary">
-                Total: {filteredContacts.length} contato(s) | 
+                Total: {formatIntegerPtBR(filteredContacts.length)} contato(s) | 
                 Capacidade: 80+ contatos visíveis
               </Typography>
             </Box>
@@ -991,7 +992,7 @@ export default function MaillingListPage() {
           <DialogTitle>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <EmailIcon color="secondary" />
-              E-mails Filtrados ({filteredContacts.length})
+              E-mails Filtrados ({formatIntegerPtBR(filteredContacts.length)})
             </Box>
           </DialogTitle>
           <DialogContent>
@@ -1020,7 +1021,7 @@ export default function MaillingListPage() {
             </Box>
             <Box sx={{ display: 'flex', gap: 1, justifyContent: 'space-between', alignItems: 'center' }}>
               <Typography variant="caption" color="text.secondary">
-                Total: {filteredContacts.length} e-mail(s) | 
+                Total: {formatIntegerPtBR(filteredContacts.length)} e-mail(s) | 
                 Clique no campo acima para selecionar todos
               </Typography>
               <Button

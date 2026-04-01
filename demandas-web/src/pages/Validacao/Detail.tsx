@@ -9,6 +9,8 @@ import { Timeline } from '../../components/Timeline'
 import { fmt, calcTempo } from '../../lib/utils'
 import { ValidationEntry } from '../../types/validation'
 import { Autocomplete, Box, TextField, Typography } from '@mui/material'
+import { Save as SaveIcon } from '@mui/icons-material'
+import { PrimaryActionButton } from '../../components/PrimaryActionButton'
 import { createPerfLogger } from '../../utils/perf'
 
 export default function ValidationDetailPage() {
@@ -330,21 +332,21 @@ export default function ValidationDetailPage() {
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Ticket</p>
+                  <p className="text-sm text-apoio-400">Ticket</p>
                   <p className="font-medium">{validation.ticket || '-'}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Solicitante</p>
+                  <p className="text-sm text-apoio-400">Solicitante</p>
                   <p className="font-medium">{label(validation.solicitante, md.solicitantes)}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Cliente</p>
+                  <p className="text-sm text-apoio-400">Cliente</p>
                   <p className="font-medium">{typeof validation.cliente === 'object' ? 
                     (validation.cliente?.grupoEconomico ? 
                       `${validation.cliente.nome} (${validation.cliente.grupoEconomico})` : 
@@ -355,35 +357,35 @@ export default function ValidationDetailPage() {
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Operadora</p>
+                  <p className="text-sm text-apoio-400">Operadora</p>
                   <p className="font-medium">{typeof validation.operadora === 'object' ? validation.operadora?.nome : label(validation.operadora, md.operadoras)}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Contrato</p>
+                  <p className="text-sm text-apoio-400">Contrato</p>
                   <p className="font-medium">{typeof validation.contrato === 'object' ? validation.contrato?.numero : label(validation.contrato, md.contratos)}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-teal-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Produto</p>
+                  <p className="text-sm text-apoio-400">Produto</p>
                   <p className="font-medium">{typeof validation.produto === 'object' ? validation.produto?.nome : label(validation.produto, md.produtos)}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-red-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Total</p>
+                  <p className="text-sm text-apoio-400">Total</p>
                   <p className="font-medium">R$ {validation.total?.toLocaleString('pt-BR') || '0'}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-indigo-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Período</p>
+                  <p className="text-sm text-apoio-400">Período</p>
                   <p className="font-medium">{calcTempo(validation.dataInicio, validation.dataFinal)}</p>
                 </div>
               </div>
@@ -414,28 +416,28 @@ export default function ValidationDetailPage() {
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Informações Adicionais</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <p className="text-sm text-gray-500">Data de Início</p>
+                <p className="text-sm text-apoio-400">Data de Início</p>
                 <p className="font-medium">{validation.dataInicio || '-'}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Data Final</p>
+                <p className="text-sm text-apoio-400">Data Final</p>
                 <p className="font-medium">{validation.dataFinal || '-'}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Analista Responsável</p>
+                <p className="text-sm text-apoio-400">Analista Responsável</p>
                 <p className="font-medium">{typeof validation.analista === 'object' ? validation.analista?.nome : label(validation.analista, md.analistas)}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Área</p>
+                <p className="text-sm text-apoio-400">Área</p>
                 <p className="font-medium">{label(validation.area, md.areas)}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Observações</p>
+                <p className="text-sm text-apoio-400">Observações</p>
                 <p className="font-medium">{validation.observacoes || '-'}</p>
               </div>
               {/* Novos campos para estruturas EDGE, MOVE e formalização */}
               <div>
-                <p className="text-sm text-gray-500">Estrutura EDGE</p>
+                <p className="text-sm text-apoio-400">Estrutura EDGE</p>
                 <p className="font-medium">
                   {Array.isArray(validation.estruturaEdge) 
                     ? validation.estruturaEdge.length > 0 
@@ -445,7 +447,7 @@ export default function ValidationDetailPage() {
                 </p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Estrutura MOVE</p>
+                <p className="text-sm text-apoio-400">Estrutura MOVE</p>
                 <p className="font-medium">
                   {Array.isArray(validation.estruturaMove) 
                     ? validation.estruturaMove.length > 0 
@@ -455,15 +457,15 @@ export default function ValidationDetailPage() {
                 </p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Formalização</p>
+                <p className="text-sm text-apoio-400">Formalização</p>
                 <p className="font-medium">{validation.formalizacao || '-'}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Itens Pendentes</p>
+                <p className="text-sm text-apoio-400">Itens Pendentes</p>
                 <p className="font-medium">{validation.itensPendentes || '-'}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Itens Concluídos</p>
+                <p className="text-sm text-apoio-400">Itens Concluídos</p>
                 <p className="font-medium">{validation.itensConcluidos || '-'}</p>
               </div>
             </div>
@@ -479,14 +481,14 @@ export default function ValidationDetailPage() {
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Status Atual</p>
+                  <p className="text-sm text-apoio-400">Status Atual</p>
                   <p className="font-medium">{validation.status}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-500">Última Atualização</p>
+                  <p className="text-sm text-apoio-400">Última Atualização</p>
                   <p className="font-medium">{fmt(validation.updatedAt)}</p>
                 </div>
               </div>
@@ -870,7 +872,46 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
       
     } catch (error: any) {
       console.error('❌ Erro ao salvar validação:', error)
-      alert(`Erro ao salvar: ${error.message || 'Erro desconhecido'}`)
+      const reason =
+        (typeof error?.message === 'string' && error.message.trim())
+          ? error.message.trim()
+          : 'Erro desconhecido'
+
+      const fieldLabel: Record<string, string> = {
+        status: 'Status',
+        ticket: 'Ticket',
+        solicitante: 'Solicitante',
+        tipo: 'Tipo',
+        descricao: 'Descrição',
+        observacoes: 'Observações',
+        cliente: 'Cliente',
+        contrato: 'Contrato',
+        operadora: 'Operadora',
+        produto: 'Produto',
+        analista: 'Analista',
+        dataInicio: 'Data de início',
+        dataFinal: 'Data final',
+        vigencia: 'Vigência',
+        qtdRetornos: 'Qtd. retornos',
+        qualidade: 'Qualidade',
+        formalizacao: 'Formalização',
+        itensPendentes: 'Itens pendentes',
+        itensConcluidos: 'Itens concluídos',
+        total: 'Total',
+        estruturaEdge: 'Estrutura EDGE',
+        estruturaMove: 'Estrutura MOVE'
+      }
+
+      const changedLabels = (Array.isArray(changedKeys) ? changedKeys : [])
+        .map((k) => fieldLabel[k] || k)
+        .filter(Boolean)
+
+      const fieldsPart =
+        changedLabels.length > 0
+          ? ` Campos não salvos: ${changedLabels.join(', ')}.`
+          : ''
+
+      alert(`Falha ao salvar — nenhuma alteração foi aplicada.${fieldsPart} Motivo: ${reason}`)
     }
   }
 
@@ -887,7 +928,7 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
             className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
             placeholder="Definido na criação"
           />
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-apoio-400 mt-1">
             ⚠️ O analista responsável é definido na criação e não pode ser alterado
           </p>
         </div>
@@ -898,7 +939,7 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
             onChange={(e) => setDraft({ ...draft, status: e.target.value })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
-            {['Aberta', 'Em andamento', 'Transf. Analista', 'Aguardando validação', 'Com erros', 'Em reajuste', 'Concluída', 'Cancelada'].map(s => (
+            {['Em andamento', 'Transf. Analista', 'Aguardando validação', 'Com erros', 'Em reajuste', 'Concluído Parcialmente', 'Concluída', 'Cancelada'].map(s => (
               <option key={s} value={s}>{s}</option>
             ))}
           </select>
@@ -1083,7 +1124,7 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
               )
             }}
           />
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-apoio-400 mt-1">
             {clienteIdNormalized
               ? (contratosFiltrados.length > 0 
                   ? `${contratosFiltrados.length} contrato(s) disponível(is)`
@@ -1103,7 +1144,7 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
             <option value="">Selecione um produto</option>
             {produtosFiltrados.map(produto => <option key={produto.id} value={produto.id}>{produto.nome}</option>)}
           </select>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-apoio-400 mt-1">
             {produtosFiltrados.length} produtos disponíveis
           </p>
         </div>
@@ -1259,7 +1300,7 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
             min="0"
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
-          <p className="text-xs text-gray-500 mt-1">Quantidade de itens pendentes</p>
+          <p className="text-xs text-apoio-400 mt-1">Quantidade de itens pendentes</p>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Itens Concluídos</label>
@@ -1271,7 +1312,7 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
             min="0"
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
-          <p className="text-xs text-gray-500 mt-1">Quantidade de itens concluídos</p>
+          <p className="text-xs text-apoio-400 mt-1">Quantidade de itens concluídos</p>
         </div>
       </div>
 
@@ -1288,7 +1329,7 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
           className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
           style={{ backgroundColor: '#f5f5f5', cursor: 'not-allowed', fontSize: '1.1rem', fontWeight: 'bold' }}
         />
-        <p className="text-xs text-gray-500 mt-1">
+        <p className="text-xs text-apoio-400 mt-1">
           Calculado automaticamente: EDGE ({draft.estruturaEdge?.length || 0} seleções) + MOVE ({draft.estruturaMove?.length || 0} seleções) = {totalCalculado}
         </p>
       </div>
@@ -1321,14 +1362,13 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
 
       {/* Botão de salvar */}
       <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-        <button
+        <PrimaryActionButton
           disabled={changedKeys.length === 0}
           onClick={() => setConfirmOpen(true)}
-          className="px-4 py-2 bg-blue-500 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-600 transition-colors"
+          startIcon={<SaveIcon />}
         >
-          <Save className="w-4 h-4 mr-2 inline" />
           Salvar alterações
-        </button>
+        </PrimaryActionButton>
         {changedKeys.length > 0 && (
           <span className="text-sm text-gray-600">
             {changedKeys.length} alteração(ões) pendente(s)

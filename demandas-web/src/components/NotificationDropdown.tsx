@@ -18,7 +18,8 @@ import {
   Trash2,
   Eye,
   Plus,
-  List
+  List,
+  Inbox
 } from 'lucide-react'
 import { useNotificationStore } from '../store/notificationStore'
 import { useAuthStore } from '../store/authStore'
@@ -27,7 +28,8 @@ import { getApi } from '../lib/apiConfig'
 import { CreateAlertModal } from './CreateAlertModal'
 import { ManagedAlertsModal } from './ManagedAlertsModal'
 import { NotificationDetailModal } from './NotificationDetailModal'
-import { addDismissedAlert } from '../utils/dismissedAlerts'
+import { addDismissedAlert, getDismissedAlertIds } from '../utils/dismissedAlerts'
+import { createKanbanTicketFromNotification } from '../utils/notificationToKanban'
 
 export function NotificationDropdown() {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
@@ -41,17 +43,34 @@ export function NotificationDropdown() {
   
   const { 
     notifications, 
-    unreadCount, 
     markAsRead, 
     markAllAsRead, 
     remove, 
     clearRead,
-    snoozeNotification
+    snoozeNotification,
+    dismissedKeys
   } = useNotificationStore()
 
   const [now, setNow] = useState(() => new Date())
-  const visibleNotifications = notifications.filter(n => !n.snoozedUntil || new Date(n.snoozedUntil) <= now)
-  const effectiveUnreadCount = visibleNotifications.filter(n => !n.lida).length
+  const contentKey = (n: { titulo?: string; mensagem?: string; dataCriacao?: string }) =>
+    `content:${(n.titulo ?? '').trim().slice(0, 200)}|${(n.mensagem ?? '').trim().slice(0, 500)}|${(n.dataCriacao ?? '').trim().slice(0, 19)}`
+  const dismissedIdsSet = React.useMemo(() => new Set(getDismissedAlertIds().map((id) => String(id).trim()).filter(Boolean)), [notifications])
+  const visibleNotifications = notifications
+    .filter(n => !n.snoozedUntil || new Date(n.snoozedUntil) <= now)
+    .filter(n => {
+      const alertaId = n.dados?.alertaId != null ? String(n.dados.alertaId).trim() : ''
+      if (alertaId && dismissedIdsSet.has(alertaId)) return false
+      const key = n.dados?.alertaId ?? n.dados?.dedupeKey
+      if (key && dismissedKeys?.includes(key)) return false
+      if (dismissedKeys?.includes(contentKey(n))) return false
+      return true
+    })
+  /** Só não lidas no painel do header (lidas ficam na caixa de entrada) */
+  const unreadNotifications = React.useMemo(
+    () => visibleNotifications.filter((n) => !n.lida),
+    [visibleNotifications]
+  )
+  const effectiveUnreadCount = unreadNotifications.length
 
   useEffect(() => {
     const hasSnoozed = notifications.some(n => n.snoozedUntil && new Date(n.snoozedUntil) > new Date())
@@ -64,6 +83,8 @@ export function NotificationDropdown() {
   
   const handleClick = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget)
+    // Busca alertas do servidor ao abrir o menu (complementa o polling do useUserAlerts)
+    window.dispatchEvent(new CustomEvent('refresh-user-alerts'))
   }
   
   const handleClose = () => {
@@ -94,9 +115,8 @@ export function NotificationDropdown() {
           await getApi().delete(`/user-alerts/${alertaId}`)
           window.dispatchEvent(new CustomEvent('refresh-user-alerts'))
         } catch {}
-      } else {
-        addDismissedAlert(alertaId)
       }
+      addDismissedAlert(alertaId)
     }
     remove(notification.id)
     if (detailNotification?.id === notification.id) setDetailNotification(null)
@@ -167,8 +187,8 @@ export function NotificationDropdown() {
     return `${Math.floor(diffInMinutes / 1440)}d atrás`
   }
 
-  const displayedNotifications = showAll ? visibleNotifications : visibleNotifications.slice(0, 5)
-  const hasMoreNotifications = visibleNotifications.length > 5
+  const displayedNotifications = showAll ? unreadNotifications : unreadNotifications.slice(0, 5)
+  const hasMoreNotifications = unreadNotifications.length > 5
 
   return (
     <>
@@ -182,7 +202,7 @@ export function NotificationDropdown() {
         aria-expanded={open ? 'true' : undefined}
       >
         <Badge badgeContent={effectiveUnreadCount} color="error" max={99}>
-          <Bell className="w-5 h-5 text-gray-600" />
+          <Bell className="w-5 h-5 text-gray-600 dark:text-apoio-300" />
         </Badge>
       </IconButton>
 
@@ -257,9 +277,7 @@ export function NotificationDropdown() {
               <MenuItem
                 key={notification.id}
                 onClick={() => handleNotificationClick(notification)}
-                className={`p-4 hover:bg-apoio-50 transition-colors ${
-                  !notification.lida ? 'bg-primary-50' : ''
-                }`}
+                className="p-4 hover:bg-apoio-50 transition-colors bg-primary-50"
               >
                 <div className="flex items-start gap-3 w-full">
                   {/* Ícone */}
@@ -272,9 +290,7 @@ export function NotificationDropdown() {
                     <div className="flex items-center gap-2 mb-1">
                       <Typography 
                         variant="subtitle2" 
-                        className={`font-medium ${
-                          !notification.lida ? 'text-primary-900' : 'text-primary-900'
-                        }`}
+                        className="font-medium text-primary-900"
                       >
                         {notification.titulo}
                       </Typography>
@@ -346,23 +362,22 @@ export function NotificationDropdown() {
                   
                   {/* Ações */}
                   <div className="flex items-center gap-1">
-                    {!notification.lida && (
-                      <IconButton
-                        size="small"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          markAsRead(notification.id)
-                        }}
-                        className="text-primary-500 hover:text-primary-700"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </IconButton>
-                    )}
+                    <IconButton
+                      size="small"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        markAsRead(notification.id)
+                      }}
+                      className="text-primary-500 hover:text-primary-700"
+                      title="Marcar como lida"
+                    >
+                      <Eye className="w-4 h-4" />
+                    </IconButton>
                     
                     <IconButton
                       size="small"
                       onClick={(e) => handleRemoveNotification(e, notification)}
-                      className="text-gray-400 hover:text-red-500"
+                      className="text-apoio-400 hover:text-red-500"
                     >
                       <Trash2 className="w-4 h-4" />
                     </IconButton>
@@ -380,20 +395,53 @@ export function NotificationDropdown() {
                   onClick={() => setShowAll(!showAll)}
                   size="small"
                 >
-                  {showAll ? 'Mostrar menos' : `Ver mais ${visibleNotifications.length - 5} notificação${visibleNotifications.length - 5 > 1 ? 'ões' : 'ão'}`}
+                  {showAll ? 'Mostrar menos' : `Ver mais ${unreadNotifications.length - 5} notificação${unreadNotifications.length - 5 > 1 ? 'ões' : 'ão'}`}
                 </Button>
               </div>
             )}
+            {/* Link para caixa de entrada (estilo e-mail) */}
+            <Box className="px-3 py-2 border-t border-apoio-100">
+              <Button
+                fullWidth
+                variant="outlined"
+                size="small"
+                startIcon={<Inbox className="w-4 h-4" />}
+                onClick={() => {
+                  navigate('/notificacoes')
+                  handleClose()
+                }}
+                className="text-primary-600 border-primary-200 hover:bg-primary-50"
+              >
+                Ver caixa de entrada
+              </Button>
+            </Box>
           </div>
         ) : (
-          <Box className="p-8 text-center">
+          <Box className="p-6 text-center">
             <Bell className="w-12 h-12 text-apoio-300 mx-auto mb-3" />
             <Typography variant="body1" color="textSecondary">
-              Nenhuma notificação
+              {visibleNotifications.length > 0
+                ? 'Nenhuma notificação nova'
+                : 'Nenhuma notificação'}
             </Typography>
             <Typography variant="body2" color="textSecondary" className="mt-1">
-              Você está em dia com tudo!
+              {visibleNotifications.length > 0
+                ? 'As lidas ficam na caixa de entrada. Você está em dia aqui.'
+                : 'Você está em dia com tudo!'}
             </Typography>
+            <Button
+              fullWidth
+              variant="outlined"
+              size="small"
+              startIcon={<Inbox className="w-4 h-4" />}
+              onClick={() => {
+                navigate('/notificacoes')
+                handleClose()
+              }}
+              className="mt-3 text-primary-600 border-primary-200 hover:bg-primary-50"
+            >
+              Abrir caixa de entrada
+            </Button>
           </Box>
         )}
       </Menu>
@@ -417,6 +465,24 @@ export function NotificationDropdown() {
           setDetailNotification(null)
         }}
         canSnooze={!!(detailNotification?.dados?.kanbanTicketId || detailNotification?.dados?.projectId)}
+        onCreateKanbanTicket={
+          detailNotification &&
+          user?.id &&
+          ['alerta', 'sistema'].includes(String(detailNotification.tipo))
+            ? async () => {
+                try {
+                  const ticket = await createKanbanTicketFromNotification(detailNotification, user.id)
+                  setDetailNotification(null)
+                  setAnchorEl(null)
+                  navigate('/kanban', {
+                    state: { highlightTicket: ticket.id, scrollToTicket: true }
+                  })
+                } catch {
+                  window.alert('Não foi possível criar o ticket no Kanban. Tente novamente.')
+                }
+              }
+            : undefined
+        }
         formatTimeAgo={formatTimeAgo}
         getPriorityColor={getPriorityColor}
       />

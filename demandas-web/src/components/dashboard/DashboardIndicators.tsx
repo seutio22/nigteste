@@ -9,43 +9,52 @@ import {
   useTheme,
   alpha,
   Tooltip,
-  IconButton
+  IconButton,
+  Divider,
+  Stack
 } from '@mui/material'
 import {
   TrendingUp as TrendingUpIcon,
   TrendingDown as TrendingDownIcon,
   TrendingFlat as TrendingFlatIcon,
-  Info as InfoIcon
+  Info as InfoIcon,
+  AssignmentTurnedIn as AssignmentTurnedInIcon,
+  Cancel as CancelIcon,
+  HourglassEmpty as HourglassEmptyIcon,
+  Checklist as ChecklistIcon
 } from '@mui/icons-material'
-import { useDashboardIndicators } from '../../hooks/useDashboardIndicators'
-import type { PeriodType } from '../../types/dashboardIndicators'
+import type { DashboardIndicator, PeriodType } from '../../types/dashboardIndicators'
+import { formatIntegerPtBR } from '../../utils/formatNumber'
 
 interface DashboardIndicatorsProps {
   period: PeriodType
+  indicators: DashboardIndicator[]
+  indicatorsByCategory: {
+    primary: DashboardIndicator[]
+    secondary: DashboardIndicator[]
+    tertiary: DashboardIndicator[]
+  }
+  generalStats: {
+    total: number
+    completed: number
+    canceled: number
+    inProgress: number
+    completionRate: number
+    period: PeriodType
+  }
   showCategories?: boolean
   maxItems?: number
-  areaId?: string
-  analistaId?: string
-  fromDate?: string
-  toDate?: string
 }
 
 export const DashboardIndicators: React.FC<DashboardIndicatorsProps> = ({
   period,
+  indicators,
+  indicatorsByCategory,
+  generalStats,
   showCategories = true,
-  maxItems,
-  areaId,
-  analistaId,
-  fromDate,
-  toDate
+  maxItems
 }) => {
   const theme = useTheme()
-  const { indicators, indicatorsByCategory, generalStats } = useDashboardIndicators(period, {
-    areaId,
-    analistaId,
-    fromDate,
-    toDate
-  })
 
   const getChangeIcon = (changeType: string) => {
     switch (changeType) {
@@ -104,7 +113,7 @@ export const DashboardIndicators: React.FC<DashboardIndicatorsProps> = ({
             arrow
           >
             <Typography variant="h4" sx={{ fontWeight: 700, color: theme.palette.text.primary, cursor: 'help' }}>
-              {indicator.value}
+              {formatIntegerPtBR(indicator.value)}
             </Typography>
           </Tooltip>
           {indicator.change !== undefined && (
@@ -117,7 +126,7 @@ export const DashboardIndicators: React.FC<DashboardIndicatorsProps> = ({
                   fontWeight: 600
                 }}
               >
-                {indicator.change > 0 ? '+' : ''}{indicator.change}%
+                {indicator.change > 0 ? '+' : ''}{formatIntegerPtBR(indicator.change)}%
               </Typography>
             </Box>
           )}
@@ -131,7 +140,9 @@ export const DashboardIndicators: React.FC<DashboardIndicatorsProps> = ({
 
         {indicator.previousValue !== undefined && (
           <Typography variant="caption" color="text.secondary">
-            Período anterior: {indicator.previousValue}
+            {indicator.comparisonPeriodLabel
+              ? `Base (${indicator.comparisonPeriodLabel}): ${formatIntegerPtBR(indicator.previousValue)}`
+              : `Período anterior: ${formatIntegerPtBR(indicator.previousValue)}`}
           </Typography>
         )}
       </CardContent>
@@ -160,7 +171,7 @@ export const DashboardIndicators: React.FC<DashboardIndicatorsProps> = ({
             {categoryTitle}
           </Typography>
           <Chip
-            label={items.length}
+            label={formatIntegerPtBR(items.length)}
             size="small"
             sx={{ 
               backgroundColor: alpha(categoryColor, 0.1),
@@ -196,38 +207,83 @@ export const DashboardIndicators: React.FC<DashboardIndicatorsProps> = ({
             </Tooltip>
           </Box>
           
-          <Grid container spacing={3}>
-            <Grid item xs={12} sm={4}>
-              <Box sx={{ textAlign: 'center' }}>
-                <Typography variant="h3" sx={{ fontWeight: 700, color: theme.palette.primary.main, mb: 1 }}>
-                  {generalStats.total}
+          <Stack
+            direction="row"
+            divider={<Divider orientation="vertical" flexItem sx={{ opacity: 0.7 }} />}
+            sx={{
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 2,
+              px: 1,
+              py: 0.5,
+              flexWrap: { xs: 'wrap', lg: 'nowrap' }
+            }}
+          >
+            <Box sx={{ minWidth: 150, flex: '1 1 160px' }}>
+              <Stack direction="row" spacing={1} sx={{ alignItems: 'center', justifyContent: 'center' }}>
+                <ChecklistIcon sx={{ color: theme.palette.primary.main }} />
+                <Typography variant="h5" sx={{ fontWeight: 800, color: theme.palette.primary.main }}>
+                  {formatIntegerPtBR(generalStats.total)}
                 </Typography>
-                <Typography variant="body1" color="text.secondary">
-                  Total de Atividades
+              </Stack>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center' }}>
+                Total
+              </Typography>
+            </Box>
+
+            <Box sx={{ minWidth: 150, flex: '1 1 160px' }}>
+              <Stack direction="row" spacing={1} sx={{ alignItems: 'center', justifyContent: 'center' }}>
+                <AssignmentTurnedInIcon sx={{ color: theme.palette.success.main }} />
+                <Typography variant="h5" sx={{ fontWeight: 800, color: theme.palette.success.main }}>
+                  {formatIntegerPtBR(generalStats.completed)}
+                </Typography>
+              </Stack>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center' }}>
+                Concluídas (produção)
+              </Typography>
+            </Box>
+
+            <Box sx={{ minWidth: 170, flex: '1 1 180px' }}>
+              <Stack direction="row" spacing={1} sx={{ alignItems: 'center', justifyContent: 'center' }}>
+                <CancelIcon sx={{ color: theme.palette.error.main }} />
+                <Typography variant="h5" sx={{ fontWeight: 800, color: theme.palette.error.main }}>
+                  {formatIntegerPtBR(generalStats.canceled)}
+                </Typography>
+              </Stack>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center' }}>
+                Canceladas / Transf.
+              </Typography>
+            </Box>
+
+            <Box sx={{ minWidth: 150, flex: '1 1 160px' }}>
+              <Stack direction="row" spacing={1} sx={{ alignItems: 'center', justifyContent: 'center' }}>
+                <HourglassEmptyIcon sx={{ color: theme.palette.info.main }} />
+                <Typography variant="h5" sx={{ fontWeight: 800, color: theme.palette.info.main }}>
+                  {formatIntegerPtBR(generalStats.inProgress)}
+                </Typography>
+              </Stack>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center' }}>
+                Em andamento
+              </Typography>
+            </Box>
+
+            <Tooltip
+              title="Taxa de produção: Concluídas ÷ (Total − Canceladas/Transf.)."
+              arrow
+            >
+              <Box sx={{ minWidth: 180, flex: '1 1 200px', cursor: 'help' }}>
+                <Stack direction="row" spacing={1} sx={{ alignItems: 'center', justifyContent: 'center' }}>
+                  <InfoIcon sx={{ color: theme.palette.warning.main }} />
+                  <Typography variant="h5" sx={{ fontWeight: 800, color: theme.palette.warning.main }}>
+                    {formatIntegerPtBR(generalStats.completionRate)}%
+                  </Typography>
+                </Stack>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center' }}>
+                  Taxa (produção)
                 </Typography>
               </Box>
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <Box sx={{ textAlign: 'center' }}>
-                <Typography variant="h3" sx={{ fontWeight: 700, color: theme.palette.success.main, mb: 1 }}>
-                  {generalStats.completed}
-                </Typography>
-                <Typography variant="body1" color="text.secondary">
-                  Concluídas
-                </Typography>
-              </Box>
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <Box sx={{ textAlign: 'center' }}>
-                <Typography variant="h3" sx={{ fontWeight: 700, color: theme.palette.warning.main, mb: 1 }}>
-                  {generalStats.completionRate}%
-                </Typography>
-                <Typography variant="body1" color="text.secondary">
-                  Taxa de Conclusão
-                </Typography>
-              </Box>
-            </Grid>
-          </Grid>
+            </Tooltip>
+          </Stack>
         </CardContent>
       </Card>
 

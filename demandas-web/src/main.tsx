@@ -1,11 +1,10 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
-import { ThemeProvider } from '@mui/material/styles'
 import App from './App'
 import { ErrorBoundary } from './components/ErrorBoundary'
-import theme from './theme'
 import './index.css'
+import { ThemeModeProvider } from './components/ThemeModeProvider'
 
 // Error handler mais seletivo - só suprimir erros de recursos estáticos claramente de cache antigo
 window.addEventListener('error', (event) => {
@@ -54,11 +53,11 @@ window.addEventListener('unhandledrejection', (event) => {
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <ErrorBoundary>
-    <ThemeProvider theme={theme}>
+    <ThemeModeProvider>
       <BrowserRouter>
         <App />
       </BrowserRouter>
-    </ThemeProvider>
+    </ThemeModeProvider>
   </ErrorBoundary>
 )
 

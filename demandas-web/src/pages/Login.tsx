@@ -20,6 +20,7 @@ import {
 import { useNavigate } from 'react-router-dom'
 import { api } from '../lib/api.local'
 import { useAuthStore } from '../store/authStore'
+import { notifyMonitoringLogin } from '../lib/monitoringClient'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -81,6 +82,9 @@ export default function LoginPage() {
       console.error('❌ Erro ao buscar permissões:', permError)
       console.warn('⚠️  Continuando com permissões do login')
     }
+
+    const { token: tok, user: u } = useAuthStore.getState()
+    if (tok && u?.id) notifyMonitoringLogin(tok, u.id)
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -169,7 +173,7 @@ export default function LoginPage() {
     <Box
       sx={{
         minHeight: '100vh',
-        backgroundImage: 'url(/capa-nig2-login.png)',
+        backgroundImage: 'url(/capa_NIG.png)',
         backgroundSize: 'auto 100%', // altura 100%, largura proporcional – sem estourar
         backgroundPosition: 'left center', // imagem colada à esquerda
         backgroundRepeat: 'no-repeat',
@@ -236,7 +240,8 @@ export default function LoginPage() {
                   variant="body1"
                   sx={{
                     color: '#A3B5BC',
-                    fontSize: '1.1rem'
+                    fontSize: '1.1rem',
+                    fontWeight: 300
                   }}
                 >
                   Faça login para acessar sua conta

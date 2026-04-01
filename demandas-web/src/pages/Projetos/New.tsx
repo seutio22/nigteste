@@ -18,6 +18,7 @@ import {
   Switch
 } from '@mui/material'
 import { ArrowBack, Save, Cancel } from '@mui/icons-material'
+import { PrimaryActionButton } from '../../components/PrimaryActionButton'
 import { useProjectStore } from '../../store/projectStore'
 import { useAuthStore } from '../../store/authStore'
 
@@ -314,15 +315,14 @@ export default function ProjectNewPage() {
 
           {/* Botões de Ação */}
           <Stack direction="row" spacing={2} sx={{ mt: 4 }}>
-            <Button
+            <PrimaryActionButton
               type="submit"
-              variant="contained"
               startIcon={<Save />}
               disabled={loading}
               size="large"
             >
               {loading ? 'Criando...' : 'Criar Projeto'}
-            </Button>
+            </PrimaryActionButton>
             
             <Button
               variant="outlined"

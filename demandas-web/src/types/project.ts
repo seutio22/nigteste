@@ -11,6 +11,13 @@ export interface Project {
   client?: string
   manager: string // ID do gerente
   ownerId?: string
+  managerId?: string
+  /** Preenchidos pelo GET /projetos para o usuário atual */
+  isOwner?: boolean
+  isManager?: boolean
+  isMember?: boolean
+  /** GET /projetos: true se admin, dono, gerente ou membro (ProjectMember). */
+  canEdit?: boolean
   isPrivate?: boolean
   team: string[] // IDs dos membros da equipe
   tags: string[]

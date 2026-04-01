@@ -33,6 +33,7 @@ import {
   StarBorder,
   Delete
 } from '@mui/icons-material'
+import { PrimaryActionButton } from '../../components/PrimaryActionButton'
 import { useComunicadoStore } from '../../store/comunicadoStore'
 import { useAuthStore } from '../../store/authStore'
 import { ComentariosSection } from '../../components/ComentariosSection'
@@ -437,16 +438,13 @@ export default function ComunicadoDetailPage() {
                     >
                       Cancelar
                     </Button>
-                    <Button 
-                      variant="contained" 
+                    <PrimaryActionButton 
                       size="small"
                       onClick={handleSaveEdit} 
                       disabled={isSaving}
-                      className="bg-blue-600 hover:bg-blue-700"
-                      sx={{ borderRadius: '8px' }}
                     >
                       {isSaving ? 'Salvando...' : 'Salvar'}
-                    </Button>
+                    </PrimaryActionButton>
                   </div>
                 )}
               </div>

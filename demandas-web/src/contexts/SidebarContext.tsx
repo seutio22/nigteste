@@ -11,25 +11,18 @@ interface SidebarContextType {
 const SidebarContext = createContext<SidebarContextType | undefined>(undefined)
 
 export function SidebarProvider({ children }: { children: ReactNode }) {
+  /** Barra lateral: expandida por padrão (largura com labels). «Recolhido» no produto refere-se aos grupos NIG/Administrativo. */
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
 
-  // Detectar se é mobile/tablet
   useEffect(() => {
     const checkMobile = () => {
-      const mobile = window.innerWidth < 1024 // lg breakpoint do Tailwind
-      setIsMobile(mobile)
-      
-      // Em mobile, iniciar com menu fechado
-      if (mobile && !isCollapsed) {
-        setIsCollapsed(true)
-      }
+      setIsMobile(window.innerWidth < 1024)
     }
-    
     checkMobile()
     window.addEventListener('resize', checkMobile)
     return () => window.removeEventListener('resize', checkMobile)
-  }, [isCollapsed])
+  }, [])
 
   const toggleSidebar = () => setIsCollapsed(!isCollapsed)
   const collapseSidebar = () => setIsCollapsed(true)
