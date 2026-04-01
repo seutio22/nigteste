@@ -1,9 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "rootDirectory": "demandas-web",
   "framework": "vite",
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist",
+  "installCommand": "npm install --prefix demandas-web",
+  "buildCommand": "npm run build --prefix demandas-web",
+  "outputDirectory": "demandas-web/dist",
   "rewrites": [
     {
       "source": "/(.*)",
