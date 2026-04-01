@@ -29,8 +29,17 @@ const MIGRATIONS_IN_ORDER = [
 const sqlAtivo =
   'ALTER TABLE "TipoDemanda" ADD COLUMN IF NOT EXISTS "ativo" BOOLEAN NOT NULL DEFAULT true;';
 
-if (!process.env.DATABASE_URL) {
-  console.error("Defina DATABASE_URL (connection string do PostgreSQL no Railway).");
+const publicUrl =
+  process.env.DATABASE_PUBLIC_URL?.trim() ||
+  process.env.database_public_url?.trim();
+if (!process.env.DATABASE_URL?.trim() && publicUrl) {
+  process.env.DATABASE_URL = publicUrl;
+}
+
+if (!process.env.DATABASE_URL?.trim()) {
+  console.error(
+    "Defina DATABASE_URL ou DATABASE_PUBLIC_URL (connection string do PostgreSQL no Railway)."
+  );
   process.exit(1);
 }
 

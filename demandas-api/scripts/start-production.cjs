@@ -1,3 +1,10 @@
+const pub =
+  process.env.DATABASE_PUBLIC_URL?.trim() ||
+  process.env.database_public_url?.trim()
+if (!process.env.DATABASE_URL?.trim() && pub) {
+  process.env.DATABASE_URL = pub
+}
+
 /**
  * Inicia a API após tentar prisma migrate deploy.
  * Se o banco nunca teve baseline (P3005), o deploy de migrate falha em loop no Railway;

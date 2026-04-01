@@ -1,5 +1,13 @@
 import { PrismaClient, Prisma } from '@prisma/client'
 
+// Railway: variável interna às vezes vazia no serviço da API; URL pública vem em DATABASE_PUBLIC_URL
+const publicDbUrl =
+  process.env.DATABASE_PUBLIC_URL?.trim() ||
+  process.env.database_public_url?.trim()
+if (!process.env.DATABASE_URL?.trim() && publicDbUrl) {
+  process.env.DATABASE_URL = publicDbUrl
+}
+
 // Singleton do PrismaClient com pool de conexões otimizado
 // Evita "Connection reset by peer" ao usar uma única instância compartilhada
 const globalForPrisma = globalThis as unknown as {
