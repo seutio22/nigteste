@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react'
-import { Paper, Typography, Box, Button, Alert } from '@mui/material'
+import { Paper, Typography, Box } from '@mui/material'
 import * as XLSX from 'xlsx'
 import { useMasterDataStore } from '../store/masterDataStore'
 import { useDadosStore } from '../store/dadosStore'
@@ -25,8 +25,6 @@ export default function DadosPage() {
   const dadosStore = useDadosStore()
   const { snack, setSnack, saveEntity, deleteEntity } = useDadosCRUD()
   const { bulkDelete, isDeleting } = useBulkDelete()
-  const [reloadTiposLoading, setReloadTiposLoading] = useState(false)
-  
   const [activeTab, setActiveTab] = useState<TabKey>('clientes')
   const [form, setForm] = useState<FormData>({})
   const [openForm, setOpenForm] = useState(false)
@@ -1339,64 +1337,6 @@ export default function DadosPage() {
         activeTab={activeTab}
         onTabChange={setActiveTab}
       />
-
-      {activeTab === 'tipos' && (
-        <Alert severity="info" sx={{ mb: 2 }} variant="outlined">
-          <Typography variant="subtitle2" component="div" sx={{ fontWeight: 600, mb: 0.5 }}>
-            Por que um tipo pode voltar na lista depois de excluir?
-          </Typography>
-          <Typography variant="body2" component="div" sx={{ '& ul': { m: 0, pl: 2.5 } }}>
-            <ul>
-              <li>
-                <strong>Exclusão bloqueada no servidor:</strong> se existirem demandas, atendimentos, validações ou
-                manutenções usando esse tipo, a API <strong>não apaga</strong> o registro. Você verá um aviso de{' '}
-                <strong>registros dependentes</strong> — nesse caso o item continua no banco e{' '}
-                <strong>reaparece</strong> ao sincronizar ou recarregar a página.
-              </li>
-              <li>
-                <strong>Lista alinhada ao banco:</strong> a tabela reflete o que está no servidor. O tipo só some
-                definitivamente quando a exclusão é <strong>concluída com sucesso</strong> (sem dependências).
-              </li>
-              <li>
-                <strong>O que fazer:</strong> localize cadastros que usam esse tipo, altere o tipo vinculado ou
-                conclua/exclua esses registros; depois tente excluir o tipo novamente.
-              </li>
-            </ul>
-          </Typography>
-          <Box sx={{ mt: 2, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
-            <Typography variant="body2" color="text.secondary">
-              A lista sumiu? Pode ser cache de exclusões locais. Recarregue do servidor:
-            </Typography>
-            <Button
-              size="small"
-              variant="outlined"
-              disabled={reloadTiposLoading || store.isSyncing}
-              onClick={async () => {
-                setReloadTiposLoading(true)
-                try {
-                  store.clearExclusionsForEntity('tiposDemanda')
-                  await store.syncFromApi?.({ force: true, entities: ['tiposDemanda'] })
-                  setSnack({
-                    open: true,
-                    message: 'Tipos de demanda recarregados do servidor.',
-                    severity: 'success'
-                  })
-                } catch {
-                  setSnack({
-                    open: true,
-                    message: 'Não foi possível recarregar os tipos. Tente de novo ou atualize a página.',
-                    severity: 'error'
-                  })
-                } finally {
-                  setReloadTiposLoading(false)
-                }
-              }}
-            >
-              {reloadTiposLoading ? 'Recarregando…' : 'Recarregar tipos do servidor'}
-            </Button>
-          </Box>
-        </Alert>
-      )}
 
       <DadosGrid
         activeTab={activeTab}
