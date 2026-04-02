@@ -1,0 +1,90 @@
+// Banco PostgreSQL exclusivo do portal do colaborador (separado do Nexus / demandas-api)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Colaborador ou gestor do lado solicitante (não confundir com User do Nexus)
+enum PortalUserRole {
+  COLLABORATOR
+  REQUESTER_MANAGER
+  /// Acesso ao painel de configuração do portal (áreas, formulários, etc.)
+  PORTAL_ADMIN
+}
+
+model PortalUser {
+  id           String           @id @default(uuid())
+  email        String           @unique
+  passwordHash String
+  name         String
+  role         PortalUserRole   @default(COLLABORATOR)
+  active       Boolean          @default(true)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  cases        PortalCase[]
+}
+
+/// Abas / agrupamentos no portal (configuráveis)
+model PortalArea {
+  id        String               @id @default(uuid())
+  slug      String               @unique
+  name      String
+  sortOrder Int                  @default(0)
+  active    Boolean              @default(true)
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+  types     PortalRequestType[]
+  cases     PortalCase[]
+}
+
+/// Tipo de requisição por área (cada um terá formulário + SLA no futuro)
+model PortalRequestType {
+  id         String      @id @default(uuid())
+  areaId     String
+  area       PortalArea  @relation(fields: [areaId], references: [id], onDelete: Cascade)
+  slug       String
+  name       String
+  active     Boolean     @default(true)
+  /// Definição do formulário dinâmico (JSON) — evolução autogerencial
+  formSchema Json?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  cases      PortalCase[]
+
+  @@unique([areaId, slug])
+}
+
+enum PortalCaseStatus {
+  DRAFT
+  SUBMITTED
+  IN_TRIAGE
+  IN_ANALYSIS
+  AWAITING_REQUESTER
+  AWAITING_THIRD_PARTY
+  COMPLETED
+  CANCELLED
+}
+
+model PortalCase {
+  id             String             @id @default(uuid())
+  protocol       String             @unique
+  status         PortalCaseStatus   @default(DRAFT)
+  portalUserId   String
+  user           PortalUser         @relation(fields: [portalUserId], references: [id], onDelete: Cascade)
+  areaId         String?
+  area           PortalArea?        @relation(fields: [areaId], references: [id])
+  requestTypeId  String?
+  requestType    PortalRequestType? @relation(fields: [requestTypeId], references: [id])
+  title          String?
+  /// Payload das respostas do formulário (versão congelada no envio)
+  answers        Json?
+  /// Referência ao registro criado/atualizado no Nexus (quando integrar)
+  nexusRef       String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+}

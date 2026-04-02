@@ -1,0 +1,12 @@
+# Monorepo: sem isso o CLI envia a raiz do Git e o build usa nigteste/railway.json (demandas-api).
+# Deploy: railway up . --path-as-root --detach
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "npx prisma migrate deploy && node dist/index.js"
+restartPolicyType = "ON_FAILURE"
+
+[env]
+NODE_ENV = "production"
