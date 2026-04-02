@@ -972,6 +972,7 @@ const ActionCell = memo(function ActionCell({ id, status }: { id: string, status
   const navigate = useNavigate()
   const store = useManutencaoStore()
   const md = useMasterDataStore()
+  const user = useAuthStore((s) => s.user)
   const {
     analistasById,
     areasById,
@@ -999,7 +1000,7 @@ const ActionCell = memo(function ActionCell({ id, status }: { id: string, status
       const from = d.status
       const next = { ...d, status: newStatus, updatedAt: new Date().toISOString() }
       await store.upsert(next)
-      store.log?.({ demandaId: id, type: 'status_change', field: 'status', from, to: newStatus })
+      store.log?.({ manutencaoId: id, type: 'status_change', field: 'status', from, to: newStatus })
       setOpenStatus(false)
     } catch (error) {
       console.error('Erro ao alterar status:', error)
@@ -1123,6 +1124,19 @@ const ActionCell = memo(function ActionCell({ id, status }: { id: string, status
         tipoServicoId: d.tipoServicoId || undefined,
       }
       
+      // Analista do novo chamado = quem duplicou (mesma regra da tela Nova manutenção), não o analista do original
+      if (user?.name && md.analistas.length > 0) {
+        const analistaCorrespondente = md.analistas.find(
+          (a) =>
+            a.nome.toLowerCase() === user.name!.toLowerCase() ||
+            a.nome.toLowerCase().includes(user.name!.toLowerCase()) ||
+            user.name!.toLowerCase().includes(a.nome.toLowerCase())
+        )
+        if (analistaCorrespondente) {
+          duplicateData.analistaId = analistaCorrespondente.id
+        }
+      }
+
       // Remover apenas campos undefined/null (manter strings vazias para campos de texto)
       Object.keys(duplicateData).forEach(key => {
         if (duplicateData[key] === undefined || duplicateData[key] === null) {

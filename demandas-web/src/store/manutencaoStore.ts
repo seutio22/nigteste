@@ -118,20 +118,32 @@ export const useManutencaoStore = create<ManutencaoState>()(
             return { items: newItems }
           })
           
-          // log create
           const { useAuthStore } = await import('./authStore')
           const user = useAuthStore.getState().user
-          set((s) => ({ 
+          const displayName = user?.name || user?.email || 'Usuário desconhecido'
+
+          try {
+            await api.createTimelineEvent({
+              entityId: manutencao.id,
+              entityType: 'manutencao',
+              eventType: 'create',
+              userId: user?.id
+            })
+          } catch (tlErr) {
+            console.warn('⚠️ ManutencaoStore.add: evento create na timeline (servidor):', tlErr)
+          }
+
+          set((s) => ({
             timeline: [
-              { 
-                id: crypto.randomUUID(), 
-                manutencaoId: manutencao.id, 
-                type: 'create', 
+              {
+                id: crypto.randomUUID(),
+                manutencaoId: manutencao.id,
+                type: 'create',
                 timestamp: now,
-                user: user?.name || 'Usuário desconhecido'
-              }, 
-              ...s.timeline 
-            ] 
+                user: displayName
+              },
+              ...s.timeline
+            ]
           }))
           
           console.log('🔍 ManutencaoStore.add: Manutenção adicionada ao store local')
@@ -160,6 +172,32 @@ export const useManutencaoStore = create<ManutencaoState>()(
               const newItems = [manutencao, ...s.items]
               return { items: newItems }
             })
+
+            const { useAuthStore: useAuthStoreRetry } = await import('./authStore')
+            const userRetry = useAuthStoreRetry.getState().user
+            try {
+              await apiRetry.createTimelineEvent({
+                entityId: manutencao.id,
+                entityType: 'manutencao',
+                eventType: 'create',
+                userId: userRetry?.id
+              })
+            } catch (tlErr) {
+              console.warn('⚠️ ManutencaoStore.add (retry): timeline create:', tlErr)
+            }
+            const displayRetry = userRetry?.name || userRetry?.email || 'Usuário desconhecido'
+            set((s) => ({
+              timeline: [
+                {
+                  id: crypto.randomUUID(),
+                  manutencaoId: manutencao.id,
+                  type: 'create',
+                  timestamp: now,
+                  user: displayRetry
+                },
+                ...s.timeline
+              ]
+            }))
             
             console.log('🔍 ManutencaoStore.add: Manutenção criada com sucesso (payload simplificado)')
             return manutencao
