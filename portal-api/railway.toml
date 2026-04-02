@@ -1,8 +1,9 @@
 # Portal do colaborador: projeto Railway amusing-flexibility (Postgres + portal-colaborador-api).
 # Não usar perpetual-imagination para este serviço — lá fica demandas/Nexus.
 #
-# Monorepo: sem isso o CLI envia a raiz do Git e o build usa nigteste/railway.json (demandas-api).
-# Deploy: railway up . --path-as-root --detach
+# Monorepo: `railway up` na RAIZ do repo usa o link da pasta PAI (muitas vezes perpetual-imagination).
+# Use: .\deploy-railway.ps1 [--detach]   → força amusing-flexibility por RAILWAY_*_ID.
+# Ou: cd portal-api && railway up . --path-as-root (com esta pasta linkada ao serviço certo).
 #
 # GitHub + Root Directory "portal-api": o repo seutio22/nigteste tem branch PADRÃO = gh-pages (sem portal-api).
 # O código da API está em main. No Railway: Settings → Source → Branch = main (ou no GitHub mude o default branch para main).
