@@ -328,18 +328,36 @@ export const useValidationStore = create<ValidationState>()(
             await get().updateValidationInDatabase(entry)
           } catch (err: any) {
             const is404 = err?.message?.includes('404') || err?.statusCode === 404
+            const isDupId =
+              String(err?.message || '').includes('P2002') ||
+              String(err?.message || '').includes('Unique constraint')
             if (is404) {
               console.warn('⚠️ Registro não encontrado no banco (404) - criando via POST com o ID do cliente')
-              const created = await get().saveValidationToDatabase(entry)
-              if (created?.id) {
-                set((s) => ({
-                  items: s.items.map((x) =>
-                    x.id === entry.id ? { ...entry, id: created.id, updatedAt: new Date().toISOString() } : x
-                  )
-                }))
-                console.log('✅ Validação criada no banco após 404 no PUT')
-                return
+              try {
+                const created = await get().saveValidationToDatabase(entry)
+                if (created?.id) {
+                  set((s) => ({
+                    items: s.items.map((x) =>
+                      x.id === entry.id ? { ...entry, id: created.id, updatedAt: new Date().toISOString() } : x
+                    )
+                  }))
+                  console.log('✅ Validação criada no banco após 404 no PUT')
+                  return
+                }
+              } catch (postErr: any) {
+                const dup =
+                  String(postErr?.message || '').includes('P2002') ||
+                  String(postErr?.message || '').includes('Unique constraint')
+                if (dup) {
+                  console.warn('⚠️ POST falhou com id duplicado — registro existe; tentando PUT novamente')
+                  await get().updateValidationInDatabase(entry)
+                  return
+                }
+                throw postErr
               }
+            } else if (isDupId) {
+              await get().updateValidationInDatabase(entry)
+              return
             }
             throw err
           }

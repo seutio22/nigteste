@@ -1640,6 +1640,153 @@ function normalizeReportStatus(value: string | null | undefined): string {
   return 'Pendente'
 }
 
+/**
+ * Atualiza uma Validacao com FKs seguras (igual ao POST: só conecta se o registro existir).
+ * Evita P2025 por "connect" a cliente/contrato inexistente — antes o handler devolvia 404 genérico
+ * e o front tentava POST com o mesmo id → P2002.
+ */
+async function executeValidacaoUpdate(id: string, body: any) {
+  const cleanedData = { ...body }
+
+  Object.keys(cleanedData).forEach((key) => {
+    const value = cleanedData[key]
+    if (value === null || value === undefined || value === '') {
+      delete cleanedData[key]
+    }
+  })
+
+  if (cleanedData.estruturaEdge !== undefined) {
+    if (Array.isArray(cleanedData.estruturaEdge)) {
+      cleanedData.estruturaEdge = cleanedData.estruturaEdge.length > 0 ? JSON.stringify(cleanedData.estruturaEdge) : null
+    } else if (cleanedData.estruturaEdge === '' || cleanedData.estruturaEdge === '[]') {
+      cleanedData.estruturaEdge = null
+    }
+  }
+  if (cleanedData.estruturaMove !== undefined) {
+    if (Array.isArray(cleanedData.estruturaMove)) {
+      cleanedData.estruturaMove = cleanedData.estruturaMove.length > 0 ? JSON.stringify(cleanedData.estruturaMove) : null
+    } else if (cleanedData.estruturaMove === '' || cleanedData.estruturaMove === '[]') {
+      cleanedData.estruturaMove = null
+    }
+  }
+
+  if (cleanedData.dataInicio) cleanedData.dataInicio = new Date(cleanedData.dataInicio)
+  if (cleanedData.dataFim) cleanedData.dataFim = new Date(cleanedData.dataFim)
+
+  const validFields = [
+    'id', 'demandaId', 'analistaId', 'userId', 'status', 'dataInicio', 'dataFim',
+    'observacoes', 'clienteId', 'contratoId', 'operadoraId', 'produtoId',
+    'ticket', 'solicitante', 'tipo', 'descricao', 'qualidade', 'qtdRetornos', 'vigencia',
+    'estruturaEdge', 'estruturaMove', 'formalizacao',
+    'itensPendentes', 'itensConcluidos', 'total', 'createdAt', 'updatedAt'
+  ]
+
+  const filteredData = Object.keys(cleanedData)
+    .filter((key) => validFields.includes(key))
+    .reduce((obj: any, key) => {
+      obj[key] = cleanedData[key]
+      return obj
+    }, {})
+
+  const toId = (v: any): string | null => {
+    if (v == null) return null
+    if (typeof v === 'string') return v.trim() || null
+    if (typeof v === 'object' && v?.id) return String(v.id).trim() || null
+    return null
+  }
+
+  const updateData: any = { ...filteredData }
+  delete updateData.id
+
+  const safeConnect = async (
+    fieldName: 'cliente' | 'contrato' | 'operadora' | 'produto',
+    fkId: string | null,
+    model: 'cliente' | 'contrato' | 'operadora' | 'produto'
+  ) => {
+    if (!fkId) return
+    const row = await (prisma as any)[model].findUnique({ where: { id: fkId } })
+    if (row) {
+      updateData[fieldName] = { connect: { id: fkId } }
+    } else {
+      console.warn(`⚠️ PUT/validacoes: ${model} "${fkId}" não existe — desvinculando`)
+      updateData[fieldName] = { disconnect: true }
+    }
+  }
+
+  const clienteId = toId(filteredData.clienteId)
+  delete updateData.clienteId
+  if (clienteId) await safeConnect('cliente', clienteId, 'cliente')
+
+  const contratoId = toId(filteredData.contratoId)
+  delete updateData.contratoId
+  if (contratoId) await safeConnect('contrato', contratoId, 'contrato')
+
+  const operadoraId = toId(filteredData.operadoraId)
+  delete updateData.operadoraId
+  if (operadoraId) await safeConnect('operadora', operadoraId, 'operadora')
+
+  const produtoId = toId(filteredData.produtoId)
+  delete updateData.produtoId
+  if (produtoId) await safeConnect('produto', produtoId, 'produto')
+
+  const analistaId = toId(filteredData.analistaId)
+  delete updateData.analistaId
+  if (analistaId) {
+    const an = await prisma.analista.findUnique({ where: { id: analistaId } })
+    if (an) {
+      updateData.analista = { connect: { id: analistaId } }
+    } else {
+      const primeiro = await prisma.analista.findFirst()
+      if (primeiro) {
+        console.warn(`⚠️ PUT/validacoes: analista ${analistaId} inexistente — usando fallback ${primeiro.id}`)
+        updateData.analista = { connect: { id: primeiro.id } }
+      }
+    }
+  }
+
+  const demandaId = toId(filteredData.demandaId)
+  delete updateData.demandaId
+  if (demandaId) {
+    const dm = await prisma.demanda.findUnique({ where: { id: demandaId } })
+    if (dm) updateData.demanda = { connect: { id: demandaId } }
+    else {
+      console.warn(`⚠️ PUT/validacoes: demanda ${demandaId} não existe — desvinculando`)
+      updateData.demanda = { disconnect: true }
+    }
+  }
+
+  const userId = toId(filteredData.userId)
+  delete updateData.userId
+  if (userId) {
+    const u = await prisma.user.findUnique({ where: { id: userId } })
+    if (u) updateData.user = { connect: { id: userId } }
+    else updateData.user = { disconnect: true }
+  }
+
+  const existing = await prisma.validacao.findUnique({ where: { id } })
+  if (!existing) {
+    const err: any = new Error(`Validação ${id} não encontrada`)
+    err.code = 'P2025'
+    throw err
+  }
+
+  return prisma.validacao.update({
+    where: { id },
+    data: updateData,
+    include: {
+      cliente: true,
+      contrato: true,
+      operadora: true,
+      produto: true,
+      analista: {
+        select: { id: true, nome: true, createdAt: true, updatedAt: true }
+      },
+      demanda: true,
+      user: true
+    }
+  })
+}
+
 // CRUD genérico simples para entidades mestres
 function crud(entity: keyof PrismaClient) {
   const anyPrisma = prisma as any;
@@ -4633,6 +4780,16 @@ for (const [path, repo] of Object.entries(resources)) {
           delete createData.produtoId
         }
 
+        if (filteredData.id) {
+          const existingRow = await prisma.validacao.findUnique({ where: { id: filteredData.id } })
+          if (existingRow) {
+            console.log(`🔄 POST /validacoes: id ${filteredData.id} já existe no banco — atualizando (evita P2002 após PUT mal interpretado)`)
+            const updated = await executeValidacaoUpdate(filteredData.id, req.body)
+            res.code(200)
+            return updated
+          }
+        }
+
         const created = await prisma.validacao.create({
           data: createData
         })
@@ -4775,142 +4932,8 @@ for (const [path, repo] of Object.entries(resources)) {
       
       // Tratamento especial para validações
       if (path === 'validacoes') {
-        console.log(`🔧 PUT /validacoes/${req.params.id}: Aplicando tratamento especial para validações`)
-        
-        const cleanedData = { ...req.body }
-        
-        // Limpar campos vazios
-        Object.keys(cleanedData).forEach(key => {
-          const value = cleanedData[key]
-          if (value === null || value === undefined || value === '') {
-            console.log(`🔧 PUT /validacoes: Removendo campo vazio: ${key} = ${value}`)
-            delete cleanedData[key]
-          } else {
-            console.log(`🔧 PUT /validacoes: Mantendo campo: ${key} = ${value} (tipo: ${typeof value})`)
-          }
-        })
-        
-        console.log(`🔧 PUT /validacoes: Dados limpos:`, JSON.stringify(cleanedData, null, 2))
-        
-        // Converter arrays para JSON strings se necessário
-        if (cleanedData.estruturaEdge !== undefined) {
-          if (Array.isArray(cleanedData.estruturaEdge)) {
-            cleanedData.estruturaEdge = cleanedData.estruturaEdge.length > 0 ? JSON.stringify(cleanedData.estruturaEdge) : null
-          } else if (cleanedData.estruturaEdge === '' || cleanedData.estruturaEdge === '[]') {
-            cleanedData.estruturaEdge = null
-          }
-        }
-        if (cleanedData.estruturaMove !== undefined) {
-          if (Array.isArray(cleanedData.estruturaMove)) {
-            cleanedData.estruturaMove = cleanedData.estruturaMove.length > 0 ? JSON.stringify(cleanedData.estruturaMove) : null
-          } else if (cleanedData.estruturaMove === '' || cleanedData.estruturaMove === '[]') {
-            cleanedData.estruturaMove = null
-          }
-        }
-        
-        // Converter datas se fornecidas
-        if (cleanedData.dataInicio) {
-          cleanedData.dataInicio = new Date(cleanedData.dataInicio)
-        }
-        if (cleanedData.dataFim) {
-          cleanedData.dataFim = new Date(cleanedData.dataFim)
-        }
-        
-        // Filtrar apenas campos que existem no modelo Validacao
-        const validFields = [
-          'id', 'demandaId', 'analistaId', 'userId', 'status', 'dataInicio', 'dataFim', 
-          'observacoes', 'clienteId', 'contratoId', 'operadoraId', 'produtoId',
-          'ticket', 'solicitante', 'tipo', 'descricao', 'qualidade', 'qtdRetornos', 'vigencia',
-          'estruturaEdge', 'estruturaMove', 'formalizacao', 
-          'itensPendentes', 'itensConcluidos', 'total', 'createdAt', 'updatedAt'
-        ]
-        
-        const filteredData = Object.keys(cleanedData)
-          .filter(key => validFields.includes(key))
-          .reduce((obj: any, key) => {
-            obj[key] = cleanedData[key]
-            return obj
-          }, {})
-        
-        console.log(`🔧 PUT /validacoes: Dados filtrados:`, JSON.stringify(filteredData, null, 2))
-        
-        // Extrair ID quando vier como objeto { id, nome } (frontend envia assim)
-        const toId = (v: any): string | null => {
-          if (v == null) return null
-          if (typeof v === 'string') return v.trim() || null
-          if (typeof v === 'object' && v?.id) return String(v.id).trim() || null
-          return null
-        }
-        
-        // Criar dados de atualização com relacionamentos corretos
-        const updateData: any = { ...filteredData }
-        
-        // Adicionar relacionamentos se os IDs existirem (extrair string quando for objeto)
-        const clienteId = toId(filteredData.clienteId)
-        if (clienteId) {
-          updateData.cliente = { connect: { id: clienteId } }
-        }
-        delete updateData.clienteId
-        
-        const contratoId = toId(filteredData.contratoId)
-        if (contratoId) {
-          updateData.contrato = { connect: { id: contratoId } }
-        }
-        delete updateData.contratoId
-        
-        const operadoraId = toId(filteredData.operadoraId)
-        if (operadoraId) {
-          updateData.operadora = { connect: { id: operadoraId } }
-        }
-        delete updateData.operadoraId
-        
-        const produtoId = toId(filteredData.produtoId)
-        if (produtoId) {
-          updateData.produto = { connect: { id: produtoId } }
-        }
-        delete updateData.produtoId
-        
-        const analistaId = toId(filteredData.analistaId)
-        if (analistaId) {
-          updateData.analista = { connect: { id: analistaId } }
-        }
-        delete updateData.analistaId
-        
-        const demandaId = toId(filteredData.demandaId)
-        if (demandaId) {
-          updateData.demanda = { connect: { id: demandaId } }
-        }
-        delete updateData.demandaId
-        
-        const userId = toId(filteredData.userId)
-        if (userId) {
-          updateData.user = { connect: { id: userId } }
-        }
-        delete updateData.userId
-        
-        console.log(`🔧 PUT /validacoes: Dados finais para atualização:`, JSON.stringify(updateData, null, 2))
-        
-        updated = await prisma.validacao.update({
-          where: { id: req.params.id },
-          data: updateData,
-          include: {
-            cliente: true,
-            contrato: true,
-            operadora: true,
-            produto: true,
-            analista: {
-              select: {
-                id: true,
-                nome: true,
-                createdAt: true,
-                updatedAt: true
-              }
-            },
-            demanda: true,
-            user: true
-          }
-        })
-        
+        console.log(`🔧 PUT /validacoes/${req.params.id}: executeValidacaoUpdate (FKs seguras)`)
+        updated = await executeValidacaoUpdate(req.params.id, req.body)
         console.log(`✅ PUT /validacoes: Validação atualizada com sucesso:`, updated.id)
         res.code(200)
         return updated
