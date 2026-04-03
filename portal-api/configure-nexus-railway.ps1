@@ -3,7 +3,8 @@
 #
 # Pré-requisitos: npx @railway/cli login (ou RAILWAY_TOKEN)
 #
-# Uso (na pasta portal-api):
+# Uso: a partir da raiz do clone, entre em nigteste\portal-api (monorepo com pasta nigteste dentro).
+#   cd nigteste\portal-api
 #   .\configure-nexus-railway.ps1 -BaseUrl "https://sua-api-demandas.up.railway.app" -Token "eyJ..."
 #
 # -SkipDeploys: grava variáveis sem disparar redeploy
