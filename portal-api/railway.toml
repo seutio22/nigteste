@@ -16,9 +16,7 @@
 builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
+# Health check precisa de 200 em GET / (rota em src/index.ts). Só o path, sem URL completa.
 [deploy]
-startCommand = "npx prisma migrate deploy && node dist/index.js"
+healthcheckPath = "/"
 restartPolicyType = "ON_FAILURE"
-
-[env]
-NODE_ENV = "production"
