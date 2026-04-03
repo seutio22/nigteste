@@ -1,0 +1,24 @@
+# Portal do colaborador: projeto Railway amusing-flexibility (Postgres + portal-colaborador-api).
+# Não usar perpetual-imagination para este serviço — lá fica demandas/Nexus.
+#
+# Monorepo: `railway up` na RAIZ do repo usa o link da pasta PAI (muitas vezes perpetual-imagination).
+# Use: .\deploy-railway.ps1 [--detach]   → força amusing-flexibility por RAILWAY_*_ID.
+# Ou: cd portal-api && railway up . --path-as-root (com esta pasta linkada ao serviço certo).
+#
+# ERRO "Could not find root directory: portal-api":
+# O GitHub do repo tem branch PADRÃO = gh-pages; nesse branch NÃO existe portal-api (só em main).
+# Corrija UMA opção:
+#   A) Railway → serviço portal-colaborador-api → Settings → Source → Branch de deploy = main (Root Directory = portal-api)
+#   B) GitHub → repo Settings → Default branch = main (cuidado se gh-pages for site estático)
+#   C) Desligar Git no serviço e usar só: .\deploy-railway.ps1  OU  GitHub Action (secret RAILWAY_TOKEN_PORTAL)
+#   D) Workflow sync-portal-api-to-gh-pages.yml copia portal-api do main para gh-pages (branch padrão do repo).
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "npx prisma migrate deploy && node dist/index.js"
+restartPolicyType = "ON_FAILURE"
+
+[env]
+NODE_ENV = "production"
