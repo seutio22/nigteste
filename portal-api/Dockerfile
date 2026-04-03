@@ -11,7 +11,11 @@ WORKDIR /app
 ENV DATABASE_URL="postgresql://build:build@127.0.0.1:5432/build"
 
 COPY package.json ./
+COPY prisma.config.ts ./
 COPY prisma ./prisma
+
+# Railway/Node às vezes definem produção no build e omitem devDependencies (typescript, etc.).
+ENV NPM_CONFIG_PRODUCTION=false
 
 RUN npm install
 
