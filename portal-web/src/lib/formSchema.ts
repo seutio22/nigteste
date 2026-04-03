@@ -1,5 +1,5 @@
-/** Formulário dinâmico por tipo (admin edita JSON em /admin). */
-export type FormFieldType = 'text' | 'textarea' | 'number' | 'select'
+/** Formulário dinâmico por tipo — construído no admin (sem JSON manual). */
+export type FormFieldType = 'text' | 'textarea' | 'number' | 'select' | 'date' | 'checkbox'
 
 export type FormFieldDef = {
   key: string
@@ -8,11 +8,15 @@ export type FormFieldDef = {
   required?: boolean
   options?: string[]
   placeholder?: string
+  /** Chave do catálogo Nexus (mapeamento para integração / banco) */
+  nexusFieldKey?: string | null
 }
 
 export type FormSchemaDoc = {
   fields: FormFieldDef[]
 }
+
+const FORM_TYPES: FormFieldType[] = ['text', 'textarea', 'number', 'select', 'date', 'checkbox']
 
 export function parseFormSchema(raw: unknown): FormFieldDef[] {
   if (!raw || typeof raw !== 'object') return []
@@ -23,6 +27,17 @@ export function parseFormSchema(raw: unknown): FormFieldDef[] {
       f &&
       typeof f.key === 'string' &&
       typeof f.label === 'string' &&
-      ['text', 'textarea', 'number', 'select'].includes(f.type)
+      FORM_TYPES.includes(f.type as FormFieldType)
   )
+}
+
+/** Gera chave estável a partir do rótulo (minúsculas, underscore). */
+export function slugifyFieldKey(label: string): string {
+  const s = label
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_|_$/g, '')
+  return s || 'campo'
 }

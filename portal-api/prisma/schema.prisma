@@ -50,6 +50,31 @@ model PortalArea {
   cases     PortalCase[]
 }
 
+/// Catálogo de campos alinhados ao Nexus / integração (mapeamento nos formulários do portal)
+enum NexusFieldValueType {
+  TEXT
+  TEXTAREA
+  NUMBER
+  DATE
+  SELECT
+  BOOLEAN
+}
+
+model PortalNexusField {
+  id          String              @id @default(uuid())
+  /// Chave técnica única (ex.: titulo, id_cliente) — usada no mapeamento do formulário
+  key         String              @unique
+  label       String
+  description String?
+  valueType   NexusFieldValueType @default(TEXT)
+  /// Para valueType SELECT: lista de valores permitidos no Nexus
+  enumOptions Json?
+  sortOrder   Int                 @default(0)
+  active      Boolean             @default(true)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+}
+
 /// Tipo de requisição por área (cada um terá formulário + SLA no futuro)
 model PortalRequestType {
   id         String      @id @default(uuid())

@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import bcrypt from 'bcryptjs'
-import { Prisma, PortalUserRole } from '@prisma/client'
+import { NexusFieldValueType, Prisma, PortalUserRole } from '@prisma/client'
 import { prisma } from '../lib/prisma.js'
 import { assertRole, requirePortalUser } from '../lib/authz.js'
 
@@ -277,6 +277,104 @@ export async function registerAdminRoutes(app: FastifyInstance) {
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
         return reply.code(409).send({ error: 'Slug já existe nesta área' })
+      }
+      throw e
+    }
+  })
+
+  const nexusValueTypeSchema = z.nativeEnum(NexusFieldValueType)
+
+  app.get('/admin/nexus-fields', async (req, reply) => {
+    if (!(await requireAdmin(req, reply))) return
+    const list = await prisma.portalNexusField.findMany({
+      orderBy: [{ sortOrder: 'asc' }, { label: 'asc' }],
+    })
+    return reply.send({ fields: list })
+  })
+
+  app.post('/admin/nexus-fields', async (req, reply) => {
+    if (!(await requireAdmin(req, reply))) return
+    const bodySchema = z.object({
+      key: z.string().min(1).max(80).regex(/^[a-z0-9_]+$/),
+      label: z.string().min(1).max(160),
+      description: z.string().max(500).nullable().optional(),
+      valueType: nexusValueTypeSchema,
+      enumOptions: z.array(z.string()).optional(),
+      sortOrder: z.number().int().optional(),
+      active: z.boolean().optional(),
+    })
+    let body: z.infer<typeof bodySchema>
+    try {
+      body = bodySchema.parse(req.body)
+    } catch {
+      return reply.code(400).send({ error: 'Dados inválidos (key: apenas minúsculas, números e _)' })
+    }
+    const enumOpts: Prisma.InputJsonValue | typeof Prisma.JsonNull =
+      body.valueType === NexusFieldValueType.SELECT && body.enumOptions?.length
+        ? (JSON.parse(JSON.stringify(body.enumOptions)) as Prisma.InputJsonValue)
+        : Prisma.JsonNull
+    try {
+      const row = await prisma.portalNexusField.create({
+        data: {
+          key: body.key,
+          label: body.label,
+          description: body.description ?? null,
+          valueType: body.valueType,
+          enumOptions: enumOpts,
+          sortOrder: body.sortOrder ?? 0,
+          active: body.active ?? true,
+        },
+      })
+      return reply.code(201).send({ field: row })
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        return reply.code(409).send({ error: 'Chave já existe' })
+      }
+      throw e
+    }
+  })
+
+  app.patch('/admin/nexus-fields/:id', async (req, reply) => {
+    if (!(await requireAdmin(req, reply))) return
+    const params = z.object({ id: z.string().uuid() }).safeParse(req.params)
+    if (!params.success) return reply.code(400).send({ error: 'ID inválido' })
+    const bodySchema = z.object({
+      key: z.string().min(1).max(80).regex(/^[a-z0-9_]+$/).optional(),
+      label: z.string().min(1).max(160).optional(),
+      description: z.string().max(500).nullable().optional(),
+      valueType: nexusValueTypeSchema.optional(),
+      enumOptions: z.array(z.string()).nullable().optional(),
+      sortOrder: z.number().int().optional(),
+      active: z.boolean().optional(),
+    })
+    let body: z.infer<typeof bodySchema>
+    try {
+      body = bodySchema.parse(req.body)
+    } catch {
+      return reply.code(400).send({ error: 'Dados inválidos' })
+    }
+    const data: Prisma.PortalNexusFieldUpdateInput = {}
+    if (body.key !== undefined) data.key = body.key
+    if (body.label !== undefined) data.label = body.label
+    if (body.description !== undefined) data.description = body.description
+    if (body.valueType !== undefined) data.valueType = body.valueType
+    if (body.enumOptions !== undefined) {
+      data.enumOptions =
+        body.enumOptions === null || body.enumOptions.length === 0
+          ? Prisma.JsonNull
+          : (JSON.parse(JSON.stringify(body.enumOptions)) as Prisma.InputJsonValue)
+    }
+    if (body.sortOrder !== undefined) data.sortOrder = body.sortOrder
+    if (body.active !== undefined) data.active = body.active
+    try {
+      const row = await prisma.portalNexusField.update({
+        where: { id: params.data.id },
+        data,
+      })
+      return reply.send({ field: row })
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        return reply.code(409).send({ error: 'Chave já existe' })
       }
       throw e
     }

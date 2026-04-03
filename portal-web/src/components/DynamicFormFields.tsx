@@ -1,4 +1,14 @@
-import { Box, FormControl, InputLabel, MenuItem, Select, TextField, Typography } from '@mui/material'
+import {
+  Box,
+  Checkbox,
+  FormControl,
+  FormControlLabel,
+  InputLabel,
+  MenuItem,
+  Select,
+  TextField,
+  Typography,
+} from '@mui/material'
 import type { FormFieldDef } from '../lib/formSchema'
 
 type Props = {
@@ -44,6 +54,36 @@ export default function DynamicFormFields({ fields, values, onChange, disabled }
               onChange={(e) => onChange(f.key, e.target.value)}
               required={f.required}
               disabled={disabled}
+            />
+          )
+        }
+        if (f.type === 'date') {
+          return (
+            <TextField
+              key={f.key}
+              fullWidth
+              type="date"
+              label={f.label + (f.required ? ' *' : '')}
+              value={v}
+              onChange={(e) => onChange(f.key, e.target.value)}
+              required={f.required}
+              disabled={disabled}
+              InputLabelProps={{ shrink: true }}
+            />
+          )
+        }
+        if (f.type === 'checkbox') {
+          return (
+            <FormControlLabel
+              key={f.key}
+              control={
+                <Checkbox
+                  checked={v === 'true'}
+                  onChange={(_, checked) => onChange(f.key, checked ? 'true' : 'false')}
+                  disabled={disabled}
+                />
+              }
+              label={f.label + (f.required ? ' *' : '')}
             />
           )
         }
