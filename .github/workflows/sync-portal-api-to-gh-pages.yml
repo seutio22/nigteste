@@ -1,0 +1,43 @@
+# Mantém a pasta portal-api também no branch gh-pages (branch padrão do repo no GitHub).
+# Assim o deploy do Railway com Root Directory "portal-api" deixa de falhar quando o
+# serviço usa o branch padrão do repositório em vez de "main".
+name: Sync portal-api → gh-pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "portal-api/**"
+      - ".github/workflows/sync-portal-api-to-gh-pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Copiar portal-api de main para gh-pages e push
+        run: |
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+
+          git fetch origin gh-pages
+          git checkout gh-pages
+
+          git checkout origin/main -- portal-api
+          git add portal-api
+
+          if git diff --staged --quiet; then
+            echo "Nada a commitar (portal-api já igual ao main)."
+            exit 0
+          fi
+
+          git commit -m "chore: sync portal-api from main (Railway root directory)"
+          git push origin gh-pages

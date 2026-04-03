@@ -11,6 +11,7 @@
 #   A) Railway → serviço portal-colaborador-api → Settings → Source → Branch de deploy = main (Root Directory = portal-api)
 #   B) GitHub → repo Settings → Default branch = main (cuidado se gh-pages for site estático)
 #   C) Desligar Git no serviço e usar só: .\deploy-railway.ps1  OU  GitHub Action (secret RAILWAY_TOKEN_PORTAL)
+#   D) Workflow sync-portal-api-to-gh-pages.yml copia portal-api do main para gh-pages (branch padrão do repo).
 [build]
 builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
