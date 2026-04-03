@@ -1,0 +1,21 @@
+/** Entidades alinhadas à página Dados do Nexus (mesmos GET que masterDataStore). */
+export const NEXUS_ENTITY_LIST: { key: string; label: string }[] = [
+  { key: 'clientes', label: 'Clientes' },
+  { key: 'contratos', label: 'Contratos' },
+  { key: 'operadoras', label: 'Operadoras' },
+  { key: 'produtos', label: 'Produtos' },
+  { key: 'sistemas', label: 'Sistemas' },
+  { key: 'grupos', label: 'Grupos' },
+  { key: 'analistas', label: 'Analistas' },
+  { key: 'areas', label: 'Áreas' },
+  { key: 'tiposCadastro', label: 'Tipos de cadastro' },
+  { key: 'tiposServico', label: 'Tipos de serviço' },
+  { key: 'tiposDemanda', label: 'Tipos de demanda' },
+  { key: 'solicitantes', label: 'Solicitantes' },
+  { key: 'relatorios', label: 'Relatórios' },
+  { key: 'modelos', label: 'Modelos' },
+  { key: 'padrao', label: 'Padrões' },
+  { key: 'areasMailling', label: 'Áreas (mailling)' },
+  { key: 'cargosMailling', label: 'Cargos (mailling)' },
+  { key: 'filiaisMailling', label: 'Filiais (mailling)' },
+]

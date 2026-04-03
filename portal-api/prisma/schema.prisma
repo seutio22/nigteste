@@ -60,6 +60,17 @@ enum NexusFieldValueType {
   BOOLEAN
 }
 
+/// Snapshot dos dados mestres vindos da API Nexus (página Dados) — atualizado por sync
+model PortalNexusEntitySnapshot {
+  /// Mesma chave usada no Nexus web (ex.: clientes, tiposDemanda)
+  entityKey String   @id
+  rows      Json     @default("[]")
+  rowCount  Int      @default(0)
+  syncedAt  DateTime?
+  lastError String?
+  updatedAt DateTime @updatedAt
+}
+
 model PortalNexusField {
   id          String              @id @default(uuid())
   /// Chave técnica única (ex.: titulo, id_cliente) — usada no mapeamento do formulário

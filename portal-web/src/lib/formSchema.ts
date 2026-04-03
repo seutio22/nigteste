@@ -1,6 +1,13 @@
 /** Formulário dinâmico por tipo — construído no admin (sem JSON manual). */
 export type FormFieldType = 'text' | 'textarea' | 'number' | 'select' | 'date' | 'checkbox'
 
+/** Opções do select vindas do snapshot Nexus (página Dados), não texto manual */
+export type NexusOptionsSource = {
+  entity: string
+  valueField: string
+  labelField: string
+}
+
 export type FormFieldDef = {
   key: string
   label: string
@@ -8,8 +15,10 @@ export type FormFieldDef = {
   required?: boolean
   options?: string[]
   placeholder?: string
-  /** Chave do catálogo Nexus (mapeamento para integração / banco) */
+  /** Chave do catálogo manual (mapeamento conceitual) */
   nexusFieldKey?: string | null
+  /** Lista do select alimentada pelos dados sincronizados do Nexus */
+  nexusOptions?: NexusOptionsSource | null
 }
 
 export type FormSchemaDoc = {
