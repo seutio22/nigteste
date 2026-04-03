@@ -89,8 +89,17 @@ export default function NexusSyncCard({ onSynced }: { onSynced?: () => void }) {
         </Typography>
       )}
       {configured === false && (
-        <Alert severity="warning" sx={{ mb: 2 }}>
-          <code>NEXUS_API_BASE_URL</code> não está definida no servidor — a sincronização não pode buscar dados.
+        <Alert severity="info" sx={{ mb: 2 }}>
+          <Typography variant="body2" component="span" display="block" fontWeight={600} gutterBottom>
+            Integração Nexus ainda não configurada na API
+          </Typography>
+          <Typography variant="body2" component="span" color="text.secondary">
+            No Railway, no serviço da <strong>API do portal</strong>, crie ou edite as variáveis:{' '}
+            <code>NEXUS_API_BASE_URL</code> — URL pública da API demandas/Nexus (ex.:{' '}
+            <code>https://sua-api.up.railway.app</code>, <strong>sem</strong> barra no final — e{' '}
+            <code>NEXUS_API_TOKEN</code> — um JWT de usuário Nexus com leitura dos cadastros. Salve e faça{' '}
+            <strong>Redeploy</strong>. Depois use &quot;Sincronizar agora&quot; ou aguarde o sync automático.
+          </Typography>
         </Alert>
       )}
       {msg && (
@@ -99,7 +108,7 @@ export default function NexusSyncCard({ onSynced }: { onSynced?: () => void }) {
         </Alert>
       )}
       <Box sx={{ mb: 2 }}>
-        <Button variant="contained" onClick={() => void runSync()} disabled={running || configured === false}>
+        <Button variant="contained" onClick={() => void runSync()} disabled={running}>
           {running ? 'Sincronizando…' : 'Sincronizar agora'}
         </Button>
         <Button sx={{ ml: 1 }} onClick={() => void load()} disabled={loading}>
@@ -124,7 +133,9 @@ export default function NexusSyncCard({ onSynced }: { onSynced?: () => void }) {
             <TableRow>
               <TableCell colSpan={4}>
                 <Typography color="text.secondary" variant="body2">
-                  Nenhuma sincronização ainda. Defina as variáveis de ambiente e clique em &quot;Sincronizar agora&quot;.
+                  {configured === false
+                    ? 'Após configurar NEXUS_API_BASE_URL e o token no Railway, a tabela será preenchida na primeira sincronização.'
+                    : 'Nenhum snapshot ainda. Clique em «Sincronizar agora».'}
                 </Typography>
               </TableCell>
             </TableRow>

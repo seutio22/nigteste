@@ -57,7 +57,8 @@ export async function registerNexusSyncRoutes(app: FastifyInstance) {
     if (!(await requireAdmin(req, reply))) return
     if (!getNexusBaseUrl()) {
       return reply.code(400).send({
-        error: 'Configure NEXUS_API_BASE_URL (ou NEXUS_API_URL) no servidor da API do portal.',
+        error:
+          'Defina NEXUS_API_BASE_URL (URL da API Nexus, sem / no final) e NEXUS_API_TOKEN no Railway do serviço da API do portal; salve e faça redeploy.',
       })
     }
 
@@ -74,7 +75,8 @@ export async function registerNexusSyncRoutes(app: FastifyInstance) {
         return reply.code(409).send({ error: 'Sincronização já em andamento. Tente em instantes.' })
       }
       return reply.code(400).send({
-        error: 'Configure NEXUS_API_BASE_URL (ou NEXUS_API_URL) no servidor da API do portal.',
+        error:
+          'Defina NEXUS_API_BASE_URL (URL da API Nexus, sem / no final) e NEXUS_API_TOKEN no Railway do serviço da API do portal; salve e faça redeploy.',
       })
     }
     if (!('ok' in out) || !out.ok) {
