@@ -85,7 +85,13 @@ export default function NewCasePage() {
 
   function validateDynamic(): string | null {
     for (const f of dynamicFields) {
-      if (f.required && !(dynValues[f.key] || '').trim()) {
+      if (!f.required) continue
+      const v = dynValues[f.key] ?? ''
+      if (f.type === 'checkbox') {
+        if (v !== 'true') return `Marque o campo: ${f.label}`
+        continue
+      }
+      if (!(v || '').trim()) {
         return `Preencha o campo: ${f.label}`
       }
     }

@@ -75,8 +75,9 @@ export default function HelpPage() {
                 </li>
                 <li>
                   <strong>Administrador</strong>: em{' '}
-                  <RouterLink to="/admin/centro">Painel administrativo</RouterLink> cria usuários, áreas, tipos de
-                  demanda e o JSON do formulário de cada tipo.
+                  <RouterLink to="/admin/centro">Painel administrativo</RouterLink> cria usuários; o{' '}
+                  <RouterLink to="/admin/centro?tab=nexus">catálogo Nexus</RouterLink> (campos do banco); e em áreas o{' '}
+                  <strong>formulário visual</strong> por tipo (tipos de campo e mapeamento — sem programação).
                 </li>
               </ul>
             </Typography>

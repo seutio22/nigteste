@@ -7,7 +7,7 @@
  *   PORTAL_ADMIN_PASSWORD
  *   PORTAL_ADMIN_NAME
  */
-import { PrismaClient, PortalUserRole } from '@prisma/client'
+import { NexusFieldValueType, PrismaClient, PortalUserRole } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 
 const prisma = new PrismaClient()
@@ -42,6 +42,30 @@ async function main() {
     update: { name: 'Solicitações gerais', active: true },
   })
 
+  await prisma.portalNexusField.upsert({
+    where: { key: 'titulo_demanda' },
+    create: {
+      key: 'titulo_demanda',
+      label: 'Título da demanda (Nexus)',
+      description: 'Campo de referência para integração',
+      valueType: NexusFieldValueType.TEXT,
+      sortOrder: 0,
+      active: true,
+    },
+    update: { label: 'Título da demanda (Nexus)', active: true },
+  })
+  await prisma.portalNexusField.upsert({
+    where: { key: 'descricao_demanda' },
+    create: {
+      key: 'descricao_demanda',
+      label: 'Descrição / detalhes (Nexus)',
+      valueType: NexusFieldValueType.TEXTAREA,
+      sortOrder: 1,
+      active: true,
+    },
+    update: { label: 'Descrição / detalhes (Nexus)', active: true },
+  })
+
   const exemploFormulario = {
     fields: [
       {
@@ -50,8 +74,15 @@ async function main() {
         type: 'text',
         required: true,
         placeholder: 'Resumo do pedido',
+        nexusFieldKey: 'titulo_demanda',
       },
-      { key: 'detalhes', label: 'Detalhes', type: 'textarea', required: false },
+      {
+        key: 'detalhes',
+        label: 'Detalhes',
+        type: 'textarea',
+        required: false,
+        nexusFieldKey: 'descricao_demanda',
+      },
     ],
   }
 
