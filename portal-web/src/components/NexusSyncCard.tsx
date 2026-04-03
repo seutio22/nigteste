@@ -75,10 +75,13 @@ export default function NexusSyncCard({ onSynced }: { onSynced?: () => void }) {
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         A API do portal busca os mesmos dados mestres que a tela <strong>Dados</strong> do Nexus (clientes, áreas, tipos,
-        etc.) e guarda uma cópia para listas nos formulários. Configure no Railway:{' '}
-        <code>NEXUS_API_BASE_URL</code>, <code>NEXUS_API_TOKEN</code> e opcionalmente{' '}
-        <code>NEXUS_SYNC_INTERVAL_MINUTES</code> (padrão <strong>15</strong> — bom equilíbrio; use 30 se quiser menos
-        chamadas, mínimo 5). <code>NEXUS_SYNC_ON_STARTUP=true</code> dispara uma sync 15 s após subir o serviço.
+        etc.) e guarda uma cópia para listas nos formulários. É preciso apontar para a <strong>API demandas</strong>{' '}
+        (URL pública + JWT): no Railway do serviço <strong>portal-colaborador-api</strong>, use o painel{' '}
+        <strong>Variables</strong>, ou o <strong>Railway CLI</strong> (<code>npx @railway/cli login</code> e{' '}
+        <code>railway variable set …</code>), ou o script no repositório{' '}
+        <code>portal-api/configure-nexus-railway.ps1</code>. Opcional:{' '}
+        <code>NEXUS_SYNC_INTERVAL_MINUTES</code> (padrão <strong>15</strong>),{' '}
+        <code>NEXUS_SYNC_ON_STARTUP=true</code>.
       </Typography>
       {autoHint && (
         <Typography variant="body2" color="primary.main" sx={{ mb: 1 }}>
@@ -94,11 +97,11 @@ export default function NexusSyncCard({ onSynced }: { onSynced?: () => void }) {
             Integração Nexus ainda não configurada na API
           </Typography>
           <Typography variant="body2" component="span" color="text.secondary">
-            No Railway, no serviço da <strong>API do portal</strong>, crie ou edite as variáveis:{' '}
-            <code>NEXUS_API_BASE_URL</code> — URL pública da API demandas/Nexus (ex.:{' '}
-            <code>https://sua-api.up.railway.app</code>, <strong>sem</strong> barra no final — e{' '}
-            <code>NEXUS_API_TOKEN</code> — um JWT de usuário Nexus com leitura dos cadastros. Salve e faça{' '}
-            <strong>Redeploy</strong>. Depois use &quot;Sincronizar agora&quot; ou aguarde o sync automático.
+            No serviço <strong>portal-colaborador-api</strong> no Railway ainda não há <code>NEXUS_API_BASE_URL</code> (URL
+            da API demandas, <strong>sem</strong> / no fim) nem <code>NEXUS_API_TOKEN</code> (JWT com leitura dos
+            cadastros). Defina no painel <strong>Variables</strong>, ou com o CLI após <code>npx @railway/cli login</code> e
+            link ao projeto, ou execute <code>portal-api/configure-nexus-railway.ps1 -BaseUrl "…" -Token "…"</code> no
+            repositório. O Railway costuma redeployar ao salvar; depois use &quot;Sincronizar agora&quot;.
           </Typography>
         </Alert>
       )}
@@ -134,7 +137,7 @@ export default function NexusSyncCard({ onSynced }: { onSynced?: () => void }) {
               <TableCell colSpan={4}>
                 <Typography color="text.secondary" variant="body2">
                   {configured === false
-                    ? 'Após configurar NEXUS_API_BASE_URL e o token no Railway, a tabela será preenchida na primeira sincronização.'
+                    ? 'Após definir URL + token (Railway ou CLI) e o serviço subir, a tabela preenche na primeira sync.'
                     : 'Nenhum snapshot ainda. Clique em «Sincronizar agora».'}
                 </Typography>
               </TableCell>

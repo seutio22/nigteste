@@ -14,4 +14,5 @@ $env:RAILWAY_ENVIRONMENT_ID = "d866c183-f35b-4294-aa56-51bf91b57bd3"
 $env:RAILWAY_SERVICE_ID = "bb0654bb-1aaa-44ae-a139-f5213b85bd97"
 
 Write-Host "Railway: amusing-flexibility / production / portal-colaborador-api" -ForegroundColor Cyan
+Write-Host "Nexus sync: após login no CLI, use .\configure-nexus-railway.ps1 para NEXUS_API_BASE_URL + NEXUS_API_TOKEN" -ForegroundColor DarkGray
 npx --yes @railway/cli@latest up . --path-as-root @args  # ex.: .\deploy-railway.ps1 --detach

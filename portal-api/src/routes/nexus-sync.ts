@@ -58,7 +58,7 @@ export async function registerNexusSyncRoutes(app: FastifyInstance) {
     if (!getNexusBaseUrl()) {
       return reply.code(400).send({
         error:
-          'Defina NEXUS_API_BASE_URL (URL da API Nexus, sem / no final) e NEXUS_API_TOKEN no Railway do serviço da API do portal; salve e faça redeploy.',
+          'Defina NEXUS_API_BASE_URL e NEXUS_API_TOKEN no serviço portal-colaborador-api (Railway: Variables ou CLI railway variable set; repo: portal-api/configure-nexus-railway.ps1).',
       })
     }
 
@@ -76,7 +76,7 @@ export async function registerNexusSyncRoutes(app: FastifyInstance) {
       }
       return reply.code(400).send({
         error:
-          'Defina NEXUS_API_BASE_URL (URL da API Nexus, sem / no final) e NEXUS_API_TOKEN no Railway do serviço da API do portal; salve e faça redeploy.',
+          'Defina NEXUS_API_BASE_URL e NEXUS_API_TOKEN no serviço portal-colaborador-api (Railway: Variables ou CLI railway variable set; repo: portal-api/configure-nexus-railway.ps1).',
       })
     }
     if (!('ok' in out) || !out.ok) {
