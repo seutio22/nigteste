@@ -26,10 +26,21 @@ Opcionais (já têm padrão no código):
    npx @railway/cli login
    ```
 
-2. Na pasta **`portal-api`** do repositório:
+2. Entre na pasta **`nigteste\portal-api`** (no Windows o clone costuma ser `...\nigteste\nigteste\portal-api` — **não** `...\nigteste\portal-api` na raiz errada):
+
+   ```powershell
+   cd nigteste\portal-api
+   ```
+
+   Se já estiver dentro de `...\nigteste\nigteste`:
 
    ```powershell
    cd portal-api
+   ```
+
+   Depois rode:
+
+   ```powershell
    .\configure-nexus-railway.ps1 `
      -BaseUrl "COLE_AQUI_A_URL_DA_API_DEMANDAS_SEM_BARRA_FINAL" `
      -Token "COLE_AQUI_O_JWT_COMPLETO"
