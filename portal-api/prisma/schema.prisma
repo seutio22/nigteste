@@ -12,21 +12,29 @@ datasource db {
 /// Colaborador ou gestor do lado solicitante (não confundir com User do Nexus)
 enum PortalUserRole {
   COLLABORATOR
+  /// Vê solicitações dos colaboradores vinculados (direct reports)
   REQUESTER_MANAGER
-  /// Acesso ao painel de configuração do portal (áreas, formulários, etc.)
+  /// Atende fila operacional (triagem, atribuição)
+  PORTAL_OPERATOR
+  /// Acesso ao painel de configuração do portal (áreas, formulários, usuários)
   PORTAL_ADMIN
 }
 
 model PortalUser {
-  id           String           @id @default(uuid())
-  email        String           @unique
-  passwordHash String
-  name         String
-  role         PortalUserRole   @default(COLLABORATOR)
-  active       Boolean          @default(true)
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
-  cases        PortalCase[]
+  id              String           @id @default(uuid())
+  email           String           @unique
+  passwordHash    String
+  name            String
+  role            PortalUserRole   @default(COLLABORATOR)
+  active          Boolean          @default(true)
+  /// Gestor responsável por este colaborador (hierarquia solicitante)
+  parentManagerId String?
+  parentManager   PortalUser?      @relation("UserReports", fields: [parentManagerId], references: [id])
+  directReports   PortalUser[]     @relation("UserReports")
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  cases           PortalCase[]     @relation("CaseRequester")
+  assignedCases   PortalCase[]     @relation("CaseAssignee")
 }
 
 /// Abas / agrupamentos no portal (configuráveis)
@@ -70,21 +78,33 @@ enum PortalCaseStatus {
   CANCELLED
 }
 
+enum PortalCasePriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
 model PortalCase {
-  id             String             @id @default(uuid())
-  protocol       String             @unique
-  status         PortalCaseStatus   @default(DRAFT)
-  portalUserId   String
-  user           PortalUser         @relation(fields: [portalUserId], references: [id], onDelete: Cascade)
-  areaId         String?
-  area           PortalArea?        @relation(fields: [areaId], references: [id])
-  requestTypeId  String?
-  requestType    PortalRequestType? @relation(fields: [requestTypeId], references: [id])
-  title          String?
+  id               String             @id @default(uuid())
+  protocol         String             @unique
+  status           PortalCaseStatus   @default(DRAFT)
+  priority         PortalCasePriority @default(MEDIUM)
+  /// Subfila / classificação operacional (ex. N1, Jurídico)
+  queueLabel       String?
+  portalUserId     String
+  user             PortalUser         @relation("CaseRequester", fields: [portalUserId], references: [id], onDelete: Cascade)
+  assignedToUserId String?
+  assignee         PortalUser?        @relation("CaseAssignee", fields: [assignedToUserId], references: [id])
+  areaId           String?
+  area             PortalArea?        @relation(fields: [areaId], references: [id])
+  requestTypeId    String?
+  requestType      PortalRequestType? @relation(fields: [requestTypeId], references: [id])
+  title            String?
   /// Payload das respostas do formulário (versão congelada no envio)
-  answers        Json?
+  answers          Json?
   /// Referência ao registro criado/atualizado no Nexus (quando integrar)
-  nexusRef       String?
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
+  nexusRef         String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
 }

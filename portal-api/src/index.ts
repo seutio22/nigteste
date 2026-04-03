@@ -5,6 +5,9 @@ import { prisma } from './lib/prisma.js'
 import { registerAuthRoutes } from './routes/auth.js'
 import { registerCaseRoutes } from './routes/cases.js'
 import { registerAreaRoutes } from './routes/areas.js'
+import { registerAdminRoutes } from './routes/admin.js'
+import { registerManagerRoutes } from './routes/manager.js'
+import { registerOperationsRoutes } from './routes/operations.js'
 
 const PORT = Number(process.env.PORT) || 4001
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-only-change-in-production'
@@ -54,6 +57,9 @@ app.get('/health', async () => ({ status: 'ok', service: 'portal-colaborador-api
 await registerAuthRoutes(app)
 await registerCaseRoutes(app)
 await registerAreaRoutes(app)
+await registerAdminRoutes(app)
+await registerManagerRoutes(app)
+await registerOperationsRoutes(app)
 
 const start = async () => {
   try {

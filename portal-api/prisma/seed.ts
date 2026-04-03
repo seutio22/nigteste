@@ -42,6 +42,19 @@ async function main() {
     update: { name: 'Solicitações gerais', active: true },
   })
 
+  const exemploFormulario = {
+    fields: [
+      {
+        key: 'assunto',
+        label: 'Assunto',
+        type: 'text',
+        required: true,
+        placeholder: 'Resumo do pedido',
+      },
+      { key: 'detalhes', label: 'Detalhes', type: 'textarea', required: false },
+    ],
+  }
+
   await prisma.portalRequestType.upsert({
     where: { areaId_slug: { areaId: a1.id, slug: 'duvida' } },
     create: {
@@ -49,8 +62,9 @@ async function main() {
       slug: 'duvida',
       name: 'Dúvida / orientação',
       active: true,
+      formSchema: exemploFormulario,
     },
-    update: { name: 'Dúvida / orientação', active: true },
+    update: { name: 'Dúvida / orientação', active: true, formSchema: exemploFormulario },
   })
 
   console.log('Seed portal: área e tipo de exemplo criados.')
