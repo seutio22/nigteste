@@ -1,0 +1,31 @@
+# Deploy da API do portal (amusing-flexibility) a partir do branch main.
+# Evita o erro "Could not find root directory: portal-api" quando o serviço no Railway
+# está ligado ao Git mas o branch padrão do repo é gh-pages (sem pasta portal-api).
+name: Portal colaborador — API Railway
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "portal-api/**"
+      - ".github/workflows/portal-api-railway.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ secrets.RAILWAY_TOKEN_PORTAL != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar Railway CLI
+        run: npm i -g @railway/cli
+
+      - name: Deploy (amusing-flexibility / portal-colaborador-api)
+        working-directory: portal-api
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PORTAL }}
+          RAILWAY_PROJECT_ID: af05d835-bea3-4b3a-a2b0-dcecec4e1121
+          RAILWAY_ENVIRONMENT_ID: d866c183-f35b-4294-aa56-51bf91b57bd3
+          RAILWAY_SERVICE_ID: bb0654bb-1aaa-44ae-a139-f5213b85bd97
+        run: railway up . --path-as-root --ci

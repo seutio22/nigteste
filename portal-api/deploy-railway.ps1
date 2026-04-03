@@ -1,6 +1,10 @@
 # Deploy da API do portal SEMPRE no Railway "amusing-flexibility".
 # Se rodar `railway up` na raiz do repo (pasta pai), o CLI usa o link de lá — costuma ser
 # "perpetual-imagination" (demandas). Este script fixa projeto/ambiente/serviço por ID.
+#
+# Erro "Could not find root directory: portal-api" no build por Git: branch gh-pages não tem essa pasta.
+# No Railway, defina Source → Branch = main, ou use o workflow .github/workflows/portal-api-railway.yml
+# (secret RAILWAY_TOKEN_PORTAL = token do projeto amusing-flexibility).
 $ErrorActionPreference = "Stop"
 $here = $PSScriptRoot
 Set-Location $here
