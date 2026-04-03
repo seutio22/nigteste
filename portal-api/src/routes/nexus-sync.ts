@@ -1,15 +1,10 @@
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
-import { Prisma } from '@prisma/client'
 import { PortalUserRole } from '@prisma/client'
 import { prisma } from '../lib/prisma.js'
 import { requirePortalUser } from '../lib/authz.js'
-import {
-  NEXUS_ENTITY_PATHS,
-  fetchNexusEntityList,
-  getNexusBaseUrl,
-  getNexusToken,
-} from '../lib/nexus.js'
+import { NEXUS_ENTITY_PATHS, getNexusBaseUrl } from '../lib/nexus.js'
+import { getNexusSyncIntervalMinutes, runNexusSnapshotSync } from '../lib/nexus-sync-runner.js'
 
 async function requireAdmin(req: import('fastify').FastifyRequest, reply: import('fastify').FastifyReply) {
   const u = await requirePortalUser(req, reply)
@@ -41,8 +36,14 @@ export async function registerNexusSyncRoutes(app: FastifyInstance) {
       orderBy: { entityKey: 'asc' },
     })
     const configured = !!getNexusBaseUrl()
+    const autoSyncIntervalMinutes = getNexusSyncIntervalMinutes()
     return reply.send({
       nexusConfigured: configured,
+      autoSyncIntervalMinutes,
+      autoSyncHint:
+        autoSyncIntervalMinutes > 0
+          ? `Sincronização automática a cada ${autoSyncIntervalMinutes} min no servidor.`
+          : 'Automático desligado (defina NEXUS_SYNC_INTERVAL_MINUTES, ex.: 15).',
       entities: rows.map((r) => ({
         entityKey: r.entityKey,
         rowCount: r.rowCount,
@@ -54,9 +55,7 @@ export async function registerNexusSyncRoutes(app: FastifyInstance) {
 
   app.post('/admin/nexus-sync/run', async (req, reply) => {
     if (!(await requireAdmin(req, reply))) return
-    const base = getNexusBaseUrl()
-    const token = getNexusToken()
-    if (!base) {
+    if (!getNexusBaseUrl()) {
       return reply.code(400).send({
         error: 'Configure NEXUS_API_BASE_URL (ou NEXUS_API_URL) no servidor da API do portal.',
       })
@@ -69,56 +68,19 @@ export async function registerNexusSyncRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: 'Body inválido' })
     }
 
-    const keys = only?.length
-      ? only.filter((k) => k in NEXUS_ENTITY_PATHS)
-      : Object.keys(NEXUS_ENTITY_PATHS)
-
-    const results: { entityKey: string; ok: boolean; rowCount?: number; error?: string }[] = []
-
-    for (const entityKey of keys) {
-      const path = NEXUS_ENTITY_PATHS[entityKey]
-      if (!path) continue
-      try {
-        const list = await fetchNexusEntityList(base, path, token)
-        const json = JSON.parse(JSON.stringify(list)) as Prisma.InputJsonValue
-        await prisma.portalNexusEntitySnapshot.upsert({
-          where: { entityKey },
-          create: {
-            entityKey,
-            rows: json,
-            rowCount: list.length,
-            syncedAt: new Date(),
-            lastError: null,
-          },
-          update: {
-            rows: json,
-            rowCount: list.length,
-            syncedAt: new Date(),
-            lastError: null,
-          },
-        })
-        results.push({ entityKey, ok: true, rowCount: list.length })
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e)
-        await prisma.portalNexusEntitySnapshot.upsert({
-          where: { entityKey },
-          create: {
-            entityKey,
-            rows: [],
-            rowCount: 0,
-            syncedAt: new Date(),
-            lastError: msg,
-          },
-          update: {
-            lastError: msg,
-            syncedAt: new Date(),
-          },
-        })
-        results.push({ entityKey, ok: false, error: msg })
+    const out = await runNexusSnapshotSync({ entities: only })
+    if ('skipped' in out && out.skipped) {
+      if (out.reason === 'already_running') {
+        return reply.code(409).send({ error: 'Sincronização já em andamento. Tente em instantes.' })
       }
+      return reply.code(400).send({
+        error: 'Configure NEXUS_API_BASE_URL (ou NEXUS_API_URL) no servidor da API do portal.',
+      })
     }
-
-    return reply.send({ ok: true, results })
+    if (!('ok' in out) || !out.ok) {
+      return reply.code(500).send({ error: 'Falha na sincronização' })
+    }
+    return reply.send({ ok: true, results: out.results })
   })
 
   /** Lista valores para campos select alimentados pelo snapshot Nexus (colaborador autenticado). */

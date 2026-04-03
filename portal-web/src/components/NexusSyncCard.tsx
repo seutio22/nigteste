@@ -22,15 +22,24 @@ type Row = {
 
 export default function NexusSyncCard({ onSynced }: { onSynced?: () => void }) {
   const [configured, setConfigured] = useState<boolean | null>(null)
+  const [autoMin, setAutoMin] = useState<number | null>(null)
+  const [autoHint, setAutoHint] = useState<string | null>(null)
   const [rows, setRows] = useState<Row[]>([])
   const [loading, setLoading] = useState(true)
   const [running, setRunning] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
 
   async function load() {
-    const r = await api<{ nexusConfigured: boolean; entities: Row[] }>('/admin/nexus-sync/status')
+    const r = await api<{
+      nexusConfigured: boolean
+      autoSyncIntervalMinutes?: number
+      autoSyncHint?: string
+      entities: Row[]
+    }>('/admin/nexus-sync/status')
     if (r.ok && r.data) {
       setConfigured(r.data.nexusConfigured)
+      setAutoMin(r.data.autoSyncIntervalMinutes ?? null)
+      setAutoHint(r.data.autoSyncHint ?? null)
       setRows(r.data.entities)
     }
     setLoading(false)
@@ -66,11 +75,19 @@ export default function NexusSyncCard({ onSynced }: { onSynced?: () => void }) {
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         A API do portal busca os mesmos dados mestres que a tela <strong>Dados</strong> do Nexus (clientes, áreas, tipos,
-        etc.) e guarda uma cópia para listas nos formulários. Configure no Railway da API do portal as variáveis{' '}
-        <code>NEXUS_API_BASE_URL</code> (URL pública da API demandas, ex. Railway do Nexus) e{' '}
-        <code>NEXUS_API_TOKEN</code> (JWT de um usuário autorizado a ler esses GETs). Depois use &quot;Sincronizar
-        agora&quot; ou agende um redeploy; para atualizar sempre que o Nexus mudar, sincronize de novo.
+        etc.) e guarda uma cópia para listas nos formulários. Configure no Railway:{' '}
+        <code>NEXUS_API_BASE_URL</code>, <code>NEXUS_API_TOKEN</code> e opcionalmente{' '}
+        <code>NEXUS_SYNC_INTERVAL_MINUTES</code> (padrão <strong>15</strong> — bom equilíbrio; use 30 se quiser menos
+        chamadas, mínimo 5). <code>NEXUS_SYNC_ON_STARTUP=true</code> dispara uma sync 15 s após subir o serviço.
       </Typography>
+      {autoHint && (
+        <Typography variant="body2" color="primary.main" sx={{ mb: 1 }}>
+          {autoHint}
+          {autoMin != null && autoMin > 0 && (
+            <span> (intervalo atual: {autoMin} min)</span>
+          )}
+        </Typography>
+      )}
       {configured === false && (
         <Alert severity="warning" sx={{ mb: 2 }}>
           <code>NEXUS_API_BASE_URL</code> não está definida no servidor — a sincronização não pode buscar dados.
