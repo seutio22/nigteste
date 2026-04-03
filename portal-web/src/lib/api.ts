@@ -4,7 +4,7 @@ const base = import.meta.env.DEV ? envApi || '/api' : envApi
 
 if (import.meta.env.PROD && !envApi) {
   console.error(
-    '[portal-web] Defina VITE_API_URL na Vercel (URL pública da API, ex. https://….up.railway.app). Sem isso as chamadas vão para /api neste domínio e retornam 404.'
+    '[portal-web] Defina VITE_API_URL na Vercel (Settings → Environment Variables). URL pública da API Railway, sem / no final, ex. https://….up.railway.app. Sem isso o browser envia POST para este domínio (405/404).'
   )
 }
 
@@ -21,6 +21,15 @@ export async function api<T>(
   path: string,
   init?: RequestInit
 ): Promise<{ ok: boolean; status: number; data: T | null; error?: string }> {
+  if (import.meta.env.PROD && !envApi) {
+    return {
+      ok: false,
+      status: 0,
+      data: null,
+      error:
+        'API não configurada: em Vercel → Environment Variables adicione VITE_API_URL com a URL da API (Railway), ex. https://portal-colaborador-api-production.up.railway.app — depois faça Redeploy.',
+    }
+  }
   const url = `${base}${path.startsWith('/') ? path : `/${path}`}`
   const token = getToken()
   const headers: HeadersInit = {

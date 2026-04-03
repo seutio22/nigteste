@@ -1,0 +1,45 @@
+# Deploy do portal do colaborador (portal-web) na Vercel.
+# Secrets no GitHub (Settings → Secrets → Actions):
+#   VERCEL_TOKEN — token da Vercel
+#   VERCEL_ORG_ID — team id (ex. team_xxx), pode ser o mesmo de ORG_ID do Nexus
+#   VERCEL_PROJECT_ID_PORTAL_WEB — id do projeto "portal-web" no painel Vercel (prj_xxx)
+name: Portal colaborador — web Vercel
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "portal-web/**"
+      - ".github/workflows/portal-web-vercel.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ secrets.VERCEL_TOKEN != '' && secrets.VERCEL_PROJECT_ID_PORTAL_WEB != '' && secrets.VERCEL_ORG_ID != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: portal-web/package-lock.json
+
+      - name: Instalar dependências
+        working-directory: portal-web
+        run: npm ci
+
+      - name: Build
+        working-directory: portal-web
+        run: npm run build
+
+      - name: Deploy Vercel (produção)
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID_PORTAL_WEB }}
+          working-directory: ./portal-web
+          vercel-args: "--prod"

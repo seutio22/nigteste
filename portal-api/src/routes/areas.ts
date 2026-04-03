@@ -14,7 +14,7 @@ export async function registerAreaRoutes(app: FastifyInstance) {
         types: {
           where: { active: true },
           orderBy: { name: 'asc' },
-          select: { id: true, slug: true, name: true },
+          select: { id: true, slug: true, name: true, formSchema: true },
         },
       },
     })
