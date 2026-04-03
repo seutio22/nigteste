@@ -24,6 +24,7 @@ import {
 import { api } from '../lib/api'
 import type { NexusFieldRow } from '../lib/nexusCatalog'
 import { parseEnumOptions } from '../lib/nexusCatalog'
+import NexusSyncCard from './NexusSyncCard'
 
 const VALUE_TYPES = [
   'TEXT',
@@ -126,10 +127,11 @@ export default function NexusFieldsPanel({ onChanged }: NexusFieldsPanelProps) {
 
   return (
     <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+      <NexusSyncCard onSynced={() => void load()} />
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Cadastre aqui os <strong>campos de referência</strong> alinhados ao Nexus (e ao banco de demandas). Eles aparecem
-        no construtor de formulários como &quot;Mapeamento Nexus&quot;, para ligar cada pergunta do portal ao dado que
-        será integrado — sem escrever JSON.
+        Abaixo: <strong>campos de referência</strong> (rótulos e chaves para integração). As <strong>listas</strong> que
+        vêm das tabelas da página Dados do Nexus são atualizadas pela sincronização acima e escolhidas no formulário em
+        &quot;Origem da lista&quot; → Nexus.
       </Typography>
       {err && !open && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setErr(null)}>

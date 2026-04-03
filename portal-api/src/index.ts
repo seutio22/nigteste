@@ -8,6 +8,7 @@ import { registerAreaRoutes } from './routes/areas.js'
 import { registerAdminRoutes } from './routes/admin.js'
 import { registerManagerRoutes } from './routes/manager.js'
 import { registerOperationsRoutes } from './routes/operations.js'
+import { registerNexusSyncRoutes } from './routes/nexus-sync.js'
 
 const PORT = Number(process.env.PORT) || 4001
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-only-change-in-production'
@@ -60,6 +61,7 @@ await registerAreaRoutes(app)
 await registerAdminRoutes(app)
 await registerManagerRoutes(app)
 await registerOperationsRoutes(app)
+await registerNexusSyncRoutes(app)
 
 const start = async () => {
   try {

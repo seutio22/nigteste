@@ -21,6 +21,7 @@ import type { FormFieldDef, FormFieldType } from '../lib/formSchema'
 import { slugifyFieldKey } from '../lib/formSchema'
 import type { NexusFieldRow } from '../lib/nexusCatalog'
 import { parseEnumOptions } from '../lib/nexusCatalog'
+import { NEXUS_ENTITY_LIST } from '../lib/nexusEntities'
 
 const TIPOS: { value: FormFieldType; label: string }[] = [
   { value: 'text', label: 'Texto curto' },
@@ -97,6 +98,7 @@ export default function FormBuilder({ fields, onChange, nexusCatalog }: Props) {
     updateAt(i, {
       nexusFieldKey: row.key,
       type: formType,
+      nexusOptions: null,
       options: opts && opts.length ? opts : formType === 'select' ? [] : undefined,
     })
   }
@@ -166,7 +168,8 @@ export default function FormBuilder({ fields, onChange, nexusCatalog }: Props) {
                   const t = e.target.value as FormFieldType
                   updateAt(i, {
                     type: t,
-                    options: t === 'select' ? f.options ?? [] : undefined,
+                    options: t === 'select' && !f.nexusOptions ? f.options ?? [] : undefined,
+                    nexusOptions: t === 'select' ? f.nexusOptions ?? null : null,
                   })
                 }}
               >
@@ -195,22 +198,104 @@ export default function FormBuilder({ fields, onChange, nexusCatalog }: Props) {
               </Select>
             </FormControl>
             {f.type === 'select' && (
-              <TextField
-                label="Opções (uma por linha)"
-                value={(f.options ?? []).join('\n')}
-                onChange={(e) =>
-                  updateAt(i, {
-                    options: e.target.value
-                      .split('\n')
-                      .map((s) => s.trim())
-                      .filter(Boolean),
-                  })
-                }
-                multiline
-                minRows={3}
-                fullWidth
-                size="small"
-              />
+              <>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Origem da lista</InputLabel>
+                  <Select
+                    label="Origem da lista"
+                    value={f.nexusOptions ? 'nexus' : 'manual'}
+                    onChange={(e) => {
+                      const mode = e.target.value as string
+                      if (mode === 'nexus') {
+                        updateAt(i, {
+                          nexusOptions: {
+                            entity: 'clientes',
+                            valueField: 'id',
+                            labelField: 'nome',
+                          },
+                          options: undefined,
+                        })
+                      } else {
+                        updateAt(i, { nexusOptions: null, options: [] })
+                      }
+                    }}
+                  >
+                    <MenuItem value="manual">Texto fixo (uma opção por linha)</MenuItem>
+                    <MenuItem value="nexus">Tabela do Nexus (após sincronizar na aba Banco de dados Nexus)</MenuItem>
+                  </Select>
+                </FormControl>
+                {f.nexusOptions ? (
+                  <>
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Entidade Nexus</InputLabel>
+                      <Select
+                        label="Entidade Nexus"
+                        value={f.nexusOptions.entity}
+                        onChange={(e) =>
+                          updateAt(i, {
+                            nexusOptions: {
+                              ...f.nexusOptions!,
+                              entity: e.target.value as string,
+                            },
+                          })
+                        }
+                      >
+                        {NEXUS_ENTITY_LIST.map((ent) => (
+                          <MenuItem key={ent.key} value={ent.key}>
+                            {ent.label}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                    <TextField
+                      label="Campo valor (ex.: id)"
+                      value={f.nexusOptions.valueField}
+                      onChange={(e) =>
+                        updateAt(i, {
+                          nexusOptions: {
+                            ...f.nexusOptions!,
+                            valueField: e.target.value.replace(/[^a-zA-Z0-9_.]/g, '') || 'id',
+                          },
+                        })
+                      }
+                      size="small"
+                      fullWidth
+                      helperText="Nome do campo no JSON retornado pelo Nexus"
+                    />
+                    <TextField
+                      label="Campo rótulo (ex.: nome)"
+                      value={f.nexusOptions.labelField}
+                      onChange={(e) =>
+                        updateAt(i, {
+                          nexusOptions: {
+                            ...f.nexusOptions!,
+                            labelField: e.target.value.replace(/[^a-zA-Z0-9_.]/g, '') || 'nome',
+                          },
+                        })
+                      }
+                      size="small"
+                      fullWidth
+                    />
+                  </>
+                ) : (
+                  <TextField
+                    label="Opções (uma por linha)"
+                    value={(f.options ?? []).join('\n')}
+                    onChange={(e) =>
+                      updateAt(i, {
+                        options: e.target.value
+                          .split('\n')
+                          .map((s) => s.trim())
+                          .filter(Boolean),
+                      })
+                    }
+                    multiline
+                    minRows={3}
+                    fullWidth
+                    size="small"
+                  />
+                )}
+              </>
             )}
             {(f.type === 'text' || f.type === 'textarea') && (
               <TextField
