@@ -80,6 +80,27 @@ function formatAnswersFallback(answers: unknown): string {
   return String(answers)
 }
 
+/** Formata um valor de resposta dinâmica (lista, «Outro», texto). */
+function formatAnswerEntryValue(val: unknown): string {
+  if (val == null) return '—'
+  if (Array.isArray(val)) return val.length ? val.join(', ') : '—'
+  if (typeof val === 'object' && val !== null && 'id' in val && 'other' in val) {
+    const o = val as { id: unknown; other: unknown }
+    const parts: string[] = []
+    if (o.id != null && String(o.id).trim()) parts.push(`Ref.: ${String(o.id)}`)
+    if (o.other != null && String(o.other).trim()) parts.push(`Outro: ${String(o.other)}`)
+    return parts.join(' · ') || '—'
+  }
+  if (typeof val === 'object') {
+    try {
+      return JSON.stringify(val, null, 2)
+    } catch {
+      return String(val)
+    }
+  }
+  return String(val)
+}
+
 function AttachmentDownloadLink({ objectKey, fileName }: { objectKey: string; fileName: string }) {
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -159,11 +180,7 @@ function AnswersBlock({ answers }: { answers: unknown }) {
             <AttachmentDownloadLink objectKey={val.key} fileName={val.fileName} />
           ) : (
             <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-              {val === null || val === undefined
-                ? '—'
-                : typeof val === 'object'
-                  ? JSON.stringify(val, null, 2)
-                  : String(val)}
+              {formatAnswerEntryValue(val)}
             </Typography>
           )}
         </Box>
