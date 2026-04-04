@@ -18,4 +18,5 @@ export const NEXUS_ENTITY_LIST: { key: string; label: string }[] = [
   { key: 'areasMailling', label: 'Áreas (mailling)' },
   { key: 'cargosMailling', label: 'Cargos (mailling)' },
   { key: 'filiaisMailling', label: 'Filiais (mailling)' },
+  { key: 'dados', label: 'Configurações (dados)' },
 ]

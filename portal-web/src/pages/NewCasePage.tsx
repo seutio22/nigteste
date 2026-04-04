@@ -1,21 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link as RouterLink, useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Alert,
   Box,
   Button,
   Container,
-  FormControl,
-  InputLabel,
-  MenuItem,
   Paper,
-  Select,
   TextField,
   Typography,
 } from '@mui/material'
 import { api } from '../lib/api'
-import { parseFormSchema } from '../lib/formSchema'
+import { parseFormMeta, parseFormSchema } from '../lib/formSchema'
 import DynamicFormFields from '../components/DynamicFormFields'
+import NewRequestCatalog from '../components/NewRequestCatalog'
 
 type TypeRow = {
   id: string
@@ -33,9 +30,10 @@ type AreaRow = {
 
 export default function NewCasePage() {
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const preArea = searchParams.get('areaId') || ''
   const preType = searchParams.get('typeId') || ''
+  const catalogOnly = !preArea || !preType
 
   const [areas, setAreas] = useState<AreaRow[]>([])
   const [areaId, setAreaId] = useState(preArea)
@@ -47,20 +45,20 @@ export default function NewCasePage() {
   const [err, setErr] = useState<string | null>(null)
 
   useEffect(() => {
+    if (catalogOnly) return
     void (async () => {
       const a = await api<{ areas: AreaRow[] }>('/areas')
       if (a.ok && a.data?.areas) {
         setAreas(a.data.areas)
         if (preArea && a.data.areas.some((x) => x.id === preArea)) {
           setAreaId(preArea)
-        } else if (a.data.areas.length === 1) {
-          setAreaId(a.data.areas[0].id)
         }
       }
     })()
-  }, [preArea])
+  }, [preArea, preType, catalogOnly])
 
   useEffect(() => {
+    if (catalogOnly) return
     if (!areaId) {
       setTypeId('')
       return
@@ -69,11 +67,13 @@ export default function NewCasePage() {
     if (!ar?.types.some((t) => t.id === typeId)) {
       setTypeId(preType && ar?.types.some((t) => t.id === preType) ? preType : '')
     }
-  }, [areaId, areas, preType, typeId])
+  }, [areaId, areas, preType, typeId, catalogOnly])
 
   const types = useMemo(() => areas.find((a) => a.id === areaId)?.types ?? [], [areas, areaId])
   const selectedType = useMemo(() => types.find((t) => t.id === typeId), [types, typeId])
+  const selectedArea = useMemo(() => areas.find((a) => a.id === areaId), [areas, areaId])
   const dynamicFields = useMemo(() => parseFormSchema(selectedType?.formSchema), [selectedType])
+  const formMeta = useMemo(() => parseFormMeta(selectedType?.formSchema), [selectedType])
 
   useEffect(() => {
     setDynValues({})
@@ -101,7 +101,7 @@ export default function NewCasePage() {
   async function submit(willSubmit: boolean) {
     setErr(null)
     if (!areaId || !typeId) {
-      setErr('Selecione área e tipo de solicitação.')
+      setErr('Selecione área e tipo no passo anterior.')
       return
     }
     const dErr = validateDynamic()
@@ -109,13 +109,15 @@ export default function NewCasePage() {
       setErr(dErr)
       return
     }
-    if (dynamicFields.length === 0 && willSubmit && !description.trim()) {
+    const needDescription =
+      formMeta.showDescription && dynamicFields.length === 0 && willSubmit && !description.trim()
+    if (needDescription) {
       setErr('Preencha a descrição do pedido ou configure campos no tipo.')
       return
     }
 
     const answers: Record<string, unknown> = { ...dynValues }
-    if (description.trim()) answers.observacoes = description.trim()
+    if (formMeta.showDescription && description.trim()) answers.observacoes = description.trim()
 
     setBusy(true)
     const res = await api<{ case: { id: string } }>('/cases', {
@@ -123,7 +125,7 @@ export default function NewCasePage() {
       body: JSON.stringify({
         areaId,
         requestTypeId: typeId,
-        title: title.trim() || undefined,
+        title: formMeta.showTitle && title.trim() ? title.trim() : undefined,
         answers: Object.keys(answers).length ? answers : undefined,
         submit: willSubmit,
       }),
@@ -136,84 +138,93 @@ export default function NewCasePage() {
     navigate(`/solicitacoes/${res.data.case.id}`)
   }
 
+  if (catalogOnly) {
+    return (
+      <NewRequestCatalog
+        onPick={(a, t) => {
+          setSearchParams({ areaId: a, typeId: t })
+        }}
+      />
+    )
+  }
+
+  const invalidCatalogSelection =
+    areas.length > 0 &&
+    (!selectedArea || !selectedType || selectedArea.id !== preArea || selectedType.id !== preType)
+
   return (
     <Container maxWidth="sm" sx={{ py: 3 }}>
       <Typography variant="h5" fontWeight={700} gutterBottom>
         Nova solicitação
       </Typography>
       <Typography color="text.secondary" sx={{ mb: 3 }}>
-        O formulário muda conforme o <strong>tipo</strong> (definido pelo administrador por demanda/área).
+        Preencha os campos do tipo <strong>{selectedType?.name ?? '—'}</strong>. O administrador define quais blocos
+        aparecem (título, descrição, campos).
       </Typography>
 
       {areas.length === 0 ? (
         <Alert severity="info">
           Nenhuma área disponível. Peça ao administrador para configurar áreas no portal ou rode o seed da API.
         </Alert>
+      ) : invalidCatalogSelection ? (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          Área ou tipo não encontrados.{' '}
+          <Button size="small" onClick={() => setSearchParams({})}>
+            Voltar à escolha
+          </Button>
+        </Alert>
       ) : (
         <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
+          {selectedArea && selectedType && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="subtitle2" color="text.secondary">
+                Área
+              </Typography>
+              <Typography fontWeight={600}>{selectedArea.name}</Typography>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 1.5 }}>
+                Tipo
+              </Typography>
+              <Typography fontWeight={600}>{selectedType.name}</Typography>
+            </Box>
+          )}
+
           {err && (
             <Alert severity="error" sx={{ mb: 2 }}>
               {err}
             </Alert>
           )}
 
-          <FormControl fullWidth sx={{ mb: 2 }}>
-            <InputLabel id="area-label">Área</InputLabel>
-            <Select
-              labelId="area-label"
-              label="Área"
-              value={areaId}
-              onChange={(e) => setAreaId(e.target.value)}
-            >
-              {areas.map((a) => (
-                <MenuItem key={a.id} value={a.id}>
-                  {a.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-
-          <FormControl fullWidth sx={{ mb: 2 }} disabled={!areaId}>
-            <InputLabel id="tipo-label">Tipo (demanda)</InputLabel>
-            <Select
-              labelId="tipo-label"
-              label="Tipo (demanda)"
-              value={typeId}
-              onChange={(e) => setTypeId(e.target.value)}
-            >
-              {types.map((t) => (
-                <MenuItem key={t.id} value={t.id}>
-                  {t.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-
-          <TextField
-            fullWidth
-            label="Título (opcional)"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            sx={{ mb: 2 }}
-            inputProps={{ maxLength: 200 }}
-          />
+          {formMeta.showTitle && (
+            <TextField
+              fullWidth
+              label="Título"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              sx={{ mb: 2 }}
+              inputProps={{ maxLength: 200 }}
+              helperText="Ativado pelo administrador para este tipo."
+            />
+          )}
 
           <DynamicFormFields fields={dynamicFields} values={dynValues} onChange={setDyn} disabled={busy} />
 
-          <TextField
-            fullWidth
-            multiline
-            minRows={3}
-            label={dynamicFields.length ? 'Observações adicionais (opcional)' : 'Descrição do pedido'}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder={
-              dynamicFields.length
-                ? 'Detalhes extra além dos campos acima'
-                : 'Descreva o que precisa com o máximo de detalhes possível.'
-            }
-            sx={{ mb: 3, mt: dynamicFields.length ? 2 : 0 }}
-          />
+          {formMeta.showDescription && (
+            <TextField
+              fullWidth
+              multiline
+              minRows={3}
+              label={dynamicFields.length ? 'Observações adicionais (opcional)' : 'Descrição / assunto do pedido'}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder={
+                dynamicFields.length
+                  ? 'Detalhes extra além dos campos acima'
+                  : 'Descreva o que precisa com o máximo de detalhes possível.'
+              }
+              sx={{ mb: 3, mt: dynamicFields.length ? 2 : 0 }}
+              helperText={dynamicFields.length ? undefined : 'Ativado pelo administrador para este tipo.'}
+            />
+          )}
 
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
             <Button variant="outlined" disabled={busy} onClick={() => void submit(false)}>
@@ -222,8 +233,8 @@ export default function NewCasePage() {
             <Button variant="contained" disabled={busy} onClick={() => void submit(true)}>
               Enviar solicitação
             </Button>
-            <Button component={RouterLink} to="/" disabled={busy}>
-              Cancelar
+            <Button disabled={busy} onClick={() => setSearchParams({})}>
+              Voltar à escolha de tipo
             </Button>
           </Box>
         </Paper>

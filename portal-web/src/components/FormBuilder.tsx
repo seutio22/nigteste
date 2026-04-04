@@ -1,6 +1,7 @@
 import {
   Box,
   Button,
+  Chip,
   FormControl,
   FormControlLabel,
   IconButton,
@@ -11,6 +12,7 @@ import {
   Stack,
   Switch,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
@@ -22,6 +24,7 @@ import { slugifyFieldKey } from '../lib/formSchema'
 import type { NexusFieldRow } from '../lib/nexusCatalog'
 import { parseEnumOptions } from '../lib/nexusCatalog'
 import { NEXUS_ENTITY_LIST } from '../lib/nexusEntities'
+import NexusListSourcePicker from './NexusListSourcePicker'
 
 const TIPOS: { value: FormFieldType; label: string }[] = [
   { value: 'text', label: 'Texto curto' },
@@ -62,9 +65,11 @@ type Props = {
   fields: FormFieldDef[]
   onChange: (fields: FormFieldDef[]) => void
   nexusCatalog: NexusFieldRow[]
+  /** Painel com chips para inserir campos já mapeados ao catálogo Nexus (recomendado no admin). */
+  showNexusQuickPick?: boolean
 }
 
-export default function FormBuilder({ fields, onChange, nexusCatalog }: Props) {
+export default function FormBuilder({ fields, onChange, nexusCatalog, showNexusQuickPick }: Props) {
   const activeNexus = nexusCatalog.filter((x) => x.active)
 
   function updateAt(i: number, patch: Partial<FormFieldDef>) {
@@ -103,12 +108,72 @@ export default function FormBuilder({ fields, onChange, nexusCatalog }: Props) {
     })
   }
 
+  function uniqueKey(base: string): string {
+    let k = base.replace(/[^a-z0-9_]/gi, '_').toLowerCase() || `campo_${Date.now()}`
+    const keys = new Set(fields.map((f) => f.key))
+    if (!keys.has(k)) return k
+    let n = 2
+    while (keys.has(`${k}_${n}`)) n += 1
+    return `${k}_${n}`
+  }
+
+  function appendFieldFromNexus(row: NexusFieldRow) {
+    const formType = nexusValueTypeToFormType(row.valueType)
+    const opts = formType === 'select' ? parseEnumOptions(row.enumOptions) : undefined
+    const key = uniqueKey(row.key)
+    onChange([
+      ...fields,
+      {
+        key,
+        label: row.label,
+        type: formType,
+        required: false,
+        nexusFieldKey: row.key,
+        nexusOptions: null,
+        options: opts && opts.length ? opts : formType === 'select' ? [] : undefined,
+      },
+    ])
+  }
+
   return (
     <Stack spacing={2}>
-      <Typography variant="body2" color="text.secondary">
-        Monte os campos que o colaborador preencherá. Opcionalmente ligue cada um a um campo do catálogo Nexus
-        (integração com o banco / demandas).
+      <Typography variant="subtitle1" fontWeight={700}>
+        Campos dinâmicos do formulário
       </Typography>
+      <Typography variant="body2" color="text.secondary">
+        Adicione campos à medida. Para integrar com o Nexus, use os atalhos abaixo ou o mapeamento em cada campo (lista
+        &quot;Mapeamento Nexus&quot;). Em selects, pode usar dados sincronizados (aba Banco de dados Nexus).
+      </Typography>
+      {showNexusQuickPick && (
+        <Paper variant="outlined" sx={{ p: 2, borderLeft: 4, borderColor: 'primary.main', bgcolor: 'grey.50' }}>
+          <Typography variant="subtitle2" fontWeight={700} color="primary.main" gutterBottom>
+            Inserir campo a partir do catálogo Nexus
+          </Typography>
+          <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1.5 }}>
+            Cada clique adiciona um novo campo já ligado ao identificador Nexus (envio para o banco / demandas). Configure
+            o catálogo na aba &quot;Banco de dados Nexus&quot; se a lista estiver vazia.
+          </Typography>
+          {activeNexus.length === 0 ? (
+            <Typography variant="body2" color="warning.main">
+              Nenhum campo Nexus ativo. Abra a aba &quot;Banco de dados Nexus&quot; e crie ou ative campos.
+            </Typography>
+          ) : (
+            <Stack direction="row" flexWrap="wrap" gap={1} useFlexGap>
+              {activeNexus.map((n) => (
+                <Tooltip key={n.id} title={n.description || `${n.key} · ${n.valueType}`} arrow>
+                  <Chip
+                    label={`${n.label}`}
+                    onClick={() => appendFieldFromNexus(n)}
+                    color="primary"
+                    variant="outlined"
+                    sx={{ fontWeight: 600 }}
+                  />
+                </Tooltip>
+              ))}
+            </Stack>
+          )}
+        </Paper>
+      )}
       {fields.map((f, i) => (
         <Paper key={`${f.key}-${i}`} variant="outlined" sx={{ p: 2 }}>
           <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
@@ -227,15 +292,16 @@ export default function FormBuilder({ fields, onChange, nexusCatalog }: Props) {
                 {f.nexusOptions ? (
                   <>
                     <FormControl fullWidth size="small">
-                      <InputLabel>Entidade Nexus</InputLabel>
+                      <InputLabel>Tabela / entidade Nexus</InputLabel>
                       <Select
-                        label="Entidade Nexus"
+                        label="Tabela / entidade Nexus"
                         value={f.nexusOptions.entity}
                         onChange={(e) =>
                           updateAt(i, {
                             nexusOptions: {
-                              ...f.nexusOptions!,
                               entity: e.target.value as string,
+                              valueField: 'id',
+                              labelField: 'nome',
                             },
                           })
                         }
@@ -247,35 +313,22 @@ export default function FormBuilder({ fields, onChange, nexusCatalog }: Props) {
                         ))}
                       </Select>
                     </FormControl>
-                    <TextField
-                      label="Campo valor (ex.: id)"
-                      value={f.nexusOptions.valueField}
-                      onChange={(e) =>
-                        updateAt(i, {
-                          nexusOptions: {
-                            ...f.nexusOptions!,
-                            valueField: e.target.value.replace(/[^a-zA-Z0-9_.]/g, '') || 'id',
-                          },
-                        })
-                      }
-                      size="small"
-                      fullWidth
-                      helperText="Nome do campo no JSON retornado pelo Nexus"
-                    />
-                    <TextField
-                      label="Campo rótulo (ex.: nome)"
-                      value={f.nexusOptions.labelField}
-                      onChange={(e) =>
-                        updateAt(i, {
-                          nexusOptions: {
-                            ...f.nexusOptions!,
-                            labelField: e.target.value.replace(/[^a-zA-Z0-9_.]/g, '') || 'nome',
-                          },
-                        })
-                      }
-                      size="small"
-                      fullWidth
-                    />
+                    <Paper variant="outlined" sx={{ p: 2, bgcolor: 'grey.50' }}>
+                      <Typography variant="subtitle2" fontWeight={700} gutterBottom>
+                        Colunas dos dados já sincronizados
+                      </Typography>
+                      <NexusListSourcePicker
+                        key={f.nexusOptions.entity}
+                        entity={f.nexusOptions.entity}
+                        valueField={f.nexusOptions.valueField}
+                        labelField={f.nexusOptions.labelField}
+                        onPatch={(patch) =>
+                          updateAt(i, {
+                            nexusOptions: { ...f.nexusOptions!, ...patch },
+                          })
+                        }
+                      />
+                    </Paper>
                   </>
                 ) : (
                   <TextField

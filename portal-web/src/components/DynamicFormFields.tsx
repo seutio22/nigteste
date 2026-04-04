@@ -1,15 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
+  Autocomplete,
   Box,
   Checkbox,
-  FormControl,
   FormControlLabel,
-  InputLabel,
-  MenuItem,
-  Select,
   TextField,
   Typography,
 } from '@mui/material'
+import { createFilterOptions } from '@mui/material/Autocomplete'
 import type { FormFieldDef } from '../lib/formSchema'
 import { api } from '../lib/api'
 
@@ -19,6 +17,12 @@ type Props = {
   onChange: (key: string, value: string) => void
   disabled?: boolean
 }
+
+const filterNexusOptions = createFilterOptions<{ value: string; label: string }>({
+  stringify: (o) => `${o.label} ${o.value}`,
+})
+
+const filterStringOptions = createFilterOptions<string>()
 
 function NexusSelectControl({
   field,
@@ -59,6 +63,14 @@ function NexusSelectControl({
     }
   }, [n?.entity, n?.valueField, n?.labelField])
 
+  const selectedNexus = useMemo(() => {
+    if (opts === null || err) return null
+    const found = opts.find((o) => o.value === value)
+    if (found) return found
+    if (value) return { value, label: `${value} (valor guardado)` }
+    return null
+  }, [opts, value, err])
+
   if (opts === null) {
     return (
       <TextField
@@ -81,25 +93,27 @@ function NexusSelectControl({
       />
     )
   }
+
   return (
-    <FormControl fullWidth required={field.required} disabled={disabled}>
-      <InputLabel id={`dyn-${field.key}`}>{field.label}</InputLabel>
-      <Select
-        labelId={`dyn-${field.key}`}
-        label={field.label}
-        value={value}
-        onChange={(e) => onChange(field.key, e.target.value as string)}
-      >
-        <MenuItem value="">
-          <em>Selecione</em>
-        </MenuItem>
-        {opts.map((opt) => (
-          <MenuItem key={`${opt.value}-${opt.label}`} value={opt.value}>
-            {opt.label}
-          </MenuItem>
-        ))}
-      </Select>
-    </FormControl>
+    <Autocomplete
+      disabled={disabled}
+      options={opts}
+      loading={false}
+      filterOptions={filterNexusOptions}
+      getOptionLabel={(o) => o.label}
+      isOptionEqualToValue={(a, b) => a.value === b.value}
+      value={selectedNexus}
+      onChange={(_, newVal) => onChange(field.key, newVal?.value ?? '')}
+      renderInput={(params) => (
+        <TextField
+          {...params}
+          label={field.label + (field.required ? ' *' : '')}
+          required={field.required}
+          placeholder="Escreva para filtrar ou escolha na lista"
+          helperText="Digite para procurar; os dados vêm do Nexus sincronizado."
+        />
+      )}
+    />
   )
 }
 
@@ -184,25 +198,25 @@ export default function DynamicFormFields({ fields, values, onChange, disabled }
           )
         }
         if (f.type === 'select' && f.options?.length) {
+          const selectedManual = v && f.options.includes(v) ? v : null
           return (
-            <FormControl key={f.key} fullWidth required={f.required} disabled={disabled}>
-              <InputLabel id={`dyn-${f.key}`}>{f.label}</InputLabel>
-              <Select
-                labelId={`dyn-${f.key}`}
-                label={f.label}
-                value={v}
-                onChange={(e) => onChange(f.key, e.target.value as string)}
-              >
-                <MenuItem value="">
-                  <em>Selecione</em>
-                </MenuItem>
-                {f.options.map((opt) => (
-                  <MenuItem key={opt} value={opt}>
-                    {opt}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <Autocomplete
+              key={f.key}
+              disabled={disabled}
+              options={f.options}
+              filterOptions={filterStringOptions}
+              value={selectedManual}
+              onChange={(_, newVal) => onChange(f.key, newVal ?? '')}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label={f.label + (f.required ? ' *' : '')}
+                  required={f.required}
+                  placeholder="Escreva para filtrar ou escolha na lista"
+                  helperText="Digite para procurar nas opções definidas no tipo de demanda."
+                />
+              )}
+            />
           )
         }
         if (f.type === 'select') {

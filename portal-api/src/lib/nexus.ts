@@ -21,6 +21,8 @@ export const NEXUS_ENTITY_PATHS: Record<string, string> = {
   areasMailling: '/areas-mailling',
   cargosMailling: '/cargos-mailling',
   filiaisMailling: '/filiais-mailling',
+  /** Aba Configurações na página Dados (GET /dados — modelo `dados` na API). */
+  dados: '/dados',
 }
 
 export function getNexusBaseUrl(): string | null {

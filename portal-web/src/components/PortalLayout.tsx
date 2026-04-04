@@ -20,7 +20,6 @@ import MenuIcon from '@mui/icons-material/Menu'
 import DashboardIcon from '@mui/icons-material/Dashboard'
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline'
 import ListAltIcon from '@mui/icons-material/ListAlt'
-import CategoryIcon from '@mui/icons-material/Category'
 import PersonIcon from '@mui/icons-material/Person'
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings'
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline'
@@ -57,7 +56,6 @@ export default function PortalLayout() {
     { to: '/', label: 'Início', icon: <DashboardIcon fontSize="small" /> },
     { to: '/solicitacoes/nova', label: 'Nova solicitação', icon: <AddCircleOutlineIcon fontSize="small" /> },
     { to: '/solicitacoes', label: 'Minhas solicitações', icon: <ListAltIcon fontSize="small" /> },
-    { to: '/areas', label: 'Áreas e tipos', icon: <CategoryIcon fontSize="small" /> },
     {
       to: '/gestao/solicitacoes',
       label: 'Gestão — equipe',
@@ -120,7 +118,7 @@ export default function PortalLayout() {
         position="fixed"
         elevation={0}
         sx={{
-          zIndex: (z) => z.drawer + 1,
+          zIndex: (theme) => theme.zIndex.drawer + 1,
           bgcolor: 'primary.main',
           width: { md: `calc(100% - ${DRAWER_WIDTH}px)` },
           ml: { md: `${DRAWER_WIDTH}px` },

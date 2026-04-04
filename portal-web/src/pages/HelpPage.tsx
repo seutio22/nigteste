@@ -27,10 +27,10 @@ export default function HelpPage() {
           </AccordionSummary>
           <AccordionDetails>
             <Typography variant="body2" color="text.secondary">
-              Vá em <strong>Nova solicitação</strong>, escolha a <strong>área</strong> e o <strong>tipo</strong>. Os campos
-              do formulário dependem do tipo configurado pela organização (texto, opções, etc.). Pode{' '}
-              <strong>salvar rascunho</strong> ou <strong>enviar</strong>. Em <RouterLink to="/areas">Áreas e tipos</RouterLink>{' '}
-              use <strong>Iniciar</strong> num tipo para pré-preencher área e tipo.
+              Em <RouterLink to="/solicitacoes/nova">Nova solicitação</RouterLink> escolha área e tipo no catálogo e clique em{' '}
+              <strong>Continuar</strong>. O formulário só abre com área e tipo definidos. Os campos dependem do que o
+              administrador configurou (incluindo título e descrição, se ativos). Pode <strong>salvar rascunho</strong> ou{' '}
+              <strong>enviar</strong>.
             </Typography>
           </AccordionDetails>
         </Accordion>

@@ -10,7 +10,6 @@ import RegisterPage from './pages/RegisterPage'
 import CasesListPage from './pages/CasesListPage'
 import CaseDetailPage from './pages/CaseDetailPage'
 import NewCasePage from './pages/NewCasePage'
-import AreasCatalogPage from './pages/AreasCatalogPage'
 import AccountPage from './pages/AccountPage'
 import AdminPage from './pages/AdminPage'
 import AdminHubPage from './pages/AdminHubPage'
@@ -43,7 +42,7 @@ function AppRoutes() {
         <Route path="solicitacoes" element={<CasesListPage />} />
         <Route path="solicitacoes/nova" element={<NewCasePage />} />
         <Route path="solicitacoes/:id" element={<CaseDetailPage />} />
-        <Route path="areas" element={<AreasCatalogPage />} />
+        <Route path="areas" element={<Navigate to="/solicitacoes/nova" replace />} />
         <Route path="conta" element={<AccountPage />} />
         <Route path="ajuda" element={<HelpPage />} />
         <Route path="admin" element={<AdminPage />} />
