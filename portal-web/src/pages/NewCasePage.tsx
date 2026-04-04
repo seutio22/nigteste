@@ -10,7 +10,7 @@ import {
   Typography,
 } from '@mui/material'
 import { api } from '../lib/api'
-import { parseFormMeta, parseFormSchema } from '../lib/formSchema'
+import { isFieldAnswerEmpty, parseFormMeta, parseFormSchema, toAnswerPayload } from '../lib/formSchema'
 import { parseAttachmentRefString } from '../lib/uploadAttachment'
 import DynamicFormFields from '../components/DynamicFormFields'
 import NewRequestCatalog from '../components/NewRequestCatalog'
@@ -97,7 +97,7 @@ export default function NewCasePage() {
         if (v !== 'true') return `Marque o campo: ${f.label}`
         continue
       }
-      if (!(v || '').trim()) {
+      if (isFieldAnswerEmpty(f, v)) {
         return `Preencha o campo: ${f.label}`
       }
     }
@@ -130,7 +130,7 @@ export default function NewCasePage() {
         if (att) answers[f.key] = att
         continue
       }
-      answers[f.key] = raw
+      answers[f.key] = toAnswerPayload(f, raw)
     }
     if (formMeta.showDescription && description.trim()) answers.observacoes = description.trim()
 

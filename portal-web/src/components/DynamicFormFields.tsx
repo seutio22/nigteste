@@ -11,7 +11,15 @@ import {
 } from '@mui/material'
 import AttachFileIcon from '@mui/icons-material/AttachFile'
 import { createFilterOptions } from '@mui/material/Autocomplete'
-import type { FormFieldDef } from '../lib/formSchema'
+import type { FormFieldDef, NexusOptionsSource } from '../lib/formSchema'
+import {
+  PORTAL_SELECT_OTHER_VALUE,
+  parseMultiIds,
+  parseSelectWithOther,
+  primaryIdForDependentFilter,
+  serializeMultiIds,
+  serializeSelectWithOther,
+} from '../lib/formSchema'
 import { api } from '../lib/api'
 import { parseAttachmentRefString, uploadAttachment } from '../lib/uploadAttachment'
 
@@ -20,7 +28,6 @@ type Props = {
   values: Record<string, string>
   onChange: (key: string, value: string) => void
   disabled?: boolean
-  /** Erros de upload R2 (ex.: API sem R2 configurado) */
   onFileUploadError?: (msg: string) => void
   onFileUploadSuccess?: () => void
 }
@@ -31,7 +38,6 @@ const filterNexusOptions = createFilterOptions<{ value: string; label: string }>
 
 const filterStringOptions = createFilterOptions<string>()
 
-/** Limpa campos dependentes (lista Nexus filtrada por outro campo) quando o pai muda. */
 function collectDescendantKeys(fields: FormFieldDef[], rootKey: string): string[] {
   const out: string[] = []
   const queue = [rootKey]
@@ -51,31 +57,23 @@ function collectDescendantKeys(fields: FormFieldDef[], rootKey: string): string[
 
 const NEXUS_FETCH_MS = 30_000
 
-function NexusSelectControl({
-  field,
-  value,
-  values,
-  allFields,
-  onChange,
-  disabled,
-}: {
-  field: FormFieldDef
-  value: string
+type Opt = { value: string; label: string }
+
+function useNexusOptions(
+  n: NexusOptionsSource | null | undefined,
+  allFields: FormFieldDef[],
   values: Record<string, string>
-  allFields: FormFieldDef[]
-  onChange: (key: string, value: string) => void
-  disabled?: boolean
-}) {
-  const n = field.nexusOptions
-  const [opts, setOpts] = useState<{ value: string; label: string }[] | null>(null)
+) {
+  const parentKey = n?.filterByParentKey
+  const filterCol = n?.filterByField?.trim()
+  const parentFieldDef = parentKey ? allFields.find((x) => x.key === parentKey) : undefined
+  const parentVal = parentKey ? primaryIdForDependentFilter(values[parentKey] ?? '', parentFieldDef) : ''
+  const parentLabel = parentKey ? allFields.find((x) => x.key === parentKey)?.label ?? parentKey : ''
+
+  const [opts, setOpts] = useState<Opt[] | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [blocked, setBlocked] = useState(false)
   const [misconfigured, setMisconfigured] = useState(false)
-
-  const parentKey = n?.filterByParentKey
-  const filterCol = n?.filterByField?.trim()
-  const parentVal = parentKey ? (values[parentKey] ?? '').trim() : ''
-  const parentLabel = parentKey ? allFields.find((x) => x.key === parentKey)?.label ?? parentKey : ''
 
   useEffect(() => {
     setMisconfigured(false)
@@ -112,10 +110,7 @@ function NexusSelectControl({
           params.set('filterField', filterCol)
           params.set('filterValue', parentVal)
         }
-        const r = await api<{ options: { value: string; label: string }[]; needsParent?: boolean }>(
-          `/nexus/options?${params.toString()}`,
-          { signal: ac.signal }
-        )
+        const r = await api<{ options: Opt[] }>(`/nexus/options?${params.toString()}`, { signal: ac.signal })
         if (cancelled) return
         if (!r.ok) {
           setErr(r.error || 'Erro ao carregar dados do Nexus')
@@ -145,6 +140,27 @@ function NexusSelectControl({
     }
   }, [n?.entity, n?.valueField, n?.labelField, n?.filterByField, parentKey, filterCol, parentVal])
 
+  return { opts, err, blocked, misconfigured, parentLabel }
+}
+
+function NexusSelectControl({
+  field,
+  value,
+  values,
+  allFields,
+  onChange,
+  disabled,
+}: {
+  field: FormFieldDef
+  value: string
+  values: Record<string, string>
+  allFields: FormFieldDef[]
+  onChange: (key: string, value: string) => void
+  disabled?: boolean
+}) {
+  const n = field.nexusOptions
+  const { opts, err, blocked, misconfigured, parentLabel } = useNexusOptions(n, allFields, values)
+
   const selectedNexus = useMemo(() => {
     if (opts === null || err) return null
     const found = opts.find((o) => o.value === value)
@@ -161,7 +177,7 @@ function NexusSelectControl({
         label={field.label + (field.required ? ' *' : '')}
         value="Configuração incompleta"
         error
-        helperText={`Defina a coluna de filtro no tipo de solicitação (admin), ou remova o campo pai em «Lista dependente». Campo pai: ${parentKey || '—'}.`}
+        helperText={`Defina a coluna de filtro no tipo de solicitação (admin), ou remova o campo pai em «Lista dependente». Campo pai: ${n?.filterByParentKey || '—'}.`}
       />
     )
   }
@@ -232,6 +248,342 @@ function NexusSelectControl({
         />
       )}
     />
+  )
+}
+
+function NexusMultiSelectControl({
+  field,
+  value,
+  values,
+  allFields,
+  onChange,
+  disabled,
+}: {
+  field: FormFieldDef
+  value: string
+  values: Record<string, string>
+  allFields: FormFieldDef[]
+  onChange: (key: string, value: string) => void
+  disabled?: boolean
+}) {
+  const n = field.nexusOptions
+  const { opts, err, blocked, misconfigured, parentLabel } = useNexusOptions(n, allFields, values)
+
+  const ids = useMemo(() => parseMultiIds(value), [value])
+
+  const selectedOpts = useMemo(() => {
+    if (!opts || err) return []
+    return ids.map((id) => opts.find((o) => o.value === id) ?? { value: id, label: `${id} (guardado)` })
+  }, [opts, ids, err])
+
+  if (misconfigured) {
+    return (
+      <TextField
+        fullWidth
+        disabled
+        label={field.label + (field.required ? ' *' : '')}
+        value="Configuração incompleta"
+        error
+        helperText={`Defina a coluna de filtro no tipo de solicitação (admin). Campo pai: ${n?.filterByParentKey || '—'}.`}
+      />
+    )
+  }
+
+  if (blocked) {
+    return (
+      <TextField
+        fullWidth
+        disabled
+        label={field.label + (field.required ? ' *' : '')}
+        value=""
+        placeholder={`Selecione «${parentLabel}» antes`}
+        helperText={`Este campo depende de «${parentLabel}». Escolha o valor acima para carregar a lista filtrada do Nexus.`}
+      />
+    )
+  }
+
+  if (opts === null) {
+    return (
+      <TextField
+        fullWidth
+        disabled
+        label={field.label + (field.required ? ' *' : '')}
+        value=""
+        placeholder="A carregar…"
+        InputProps={{
+          endAdornment: <CircularProgress color="inherit" size={22} sx={{ mr: 0.5 }} />,
+        }}
+        helperText="A carregar dados do Nexus (várias escolhas)…"
+      />
+    )
+  }
+
+  if (err) {
+    return (
+      <TextField fullWidth disabled label={field.label} value={err} error helperText={err} />
+    )
+  }
+
+  return (
+    <Autocomplete
+      multiple
+      disabled={disabled}
+      options={opts}
+      filterOptions={filterNexusOptions}
+      getOptionLabel={(o) => o.label}
+      isOptionEqualToValue={(a, b) => a.value === b.value}
+      value={selectedOpts}
+      onChange={(_, newVal) => onChange(field.key, serializeMultiIds(newVal.map((o) => o.value)))}
+      renderInput={(params) => (
+        <TextField
+          {...params}
+          label={field.label + (field.required ? ' *' : '')}
+          required={field.required}
+          placeholder="Escolha um ou mais itens"
+          helperText="Várias escolhas; dados do Nexus sincronizado."
+        />
+      )}
+    />
+  )
+}
+
+function NexusSelectWithOtherControl({
+  field,
+  value,
+  values,
+  allFields,
+  onChange,
+  disabled,
+}: {
+  field: FormFieldDef
+  value: string
+  values: Record<string, string>
+  allFields: FormFieldDef[]
+  onChange: (key: string, value: string) => void
+  disabled?: boolean
+}) {
+  const n = field.nexusOptions
+  const { opts, err, blocked, misconfigured, parentLabel } = useNexusOptions(n, allFields, values)
+
+  const otherLabel = field.otherLabel?.trim() || 'Outro (cadastro manual)'
+  const otherOption: Opt = { value: PORTAL_SELECT_OTHER_VALUE, label: otherLabel }
+
+  const parsed = useMemo(() => parseSelectWithOther(value), [value])
+
+  const allOpts = useMemo(() => {
+    if (!opts || err) return []
+    return [...opts, otherOption]
+  }, [opts, err, otherLabel])
+
+  const selected = useMemo(() => {
+    if (!opts || err) return null
+    if (parsed.id) {
+      const hit = opts.find((o) => o.value === parsed.id)
+      if (hit) return hit
+      return { value: parsed.id, label: `${parsed.id} (valor guardado)` }
+    }
+    if (parsed.other !== null) return otherOption
+    return null
+  }, [opts, err, parsed, otherOption])
+
+  const showOtherText = parsed.id === null && parsed.other !== null
+  const otherText = showOtherText ? parsed.other ?? '' : ''
+
+  if (misconfigured) {
+    return (
+      <TextField
+        fullWidth
+        disabled
+        label={field.label + (field.required ? ' *' : '')}
+        value="Configuração incompleta"
+        error
+        helperText={`Campo pai: ${n?.filterByParentKey || '—'}.`}
+      />
+    )
+  }
+
+  if (blocked) {
+    return (
+      <TextField
+        fullWidth
+        disabled
+        label={field.label + (field.required ? ' *' : '')}
+        value=""
+        placeholder={`Selecione «${parentLabel}» antes`}
+        helperText={`Depende de «${parentLabel}».`}
+      />
+    )
+  }
+
+  if (opts === null) {
+    return (
+      <TextField
+        fullWidth
+        disabled
+        label={field.label + (field.required ? ' *' : '')}
+        value=""
+        InputProps={{ endAdornment: <CircularProgress color="inherit" size={22} sx={{ mr: 0.5 }} /> }}
+        helperText="A carregar dados do Nexus…"
+      />
+    )
+  }
+
+  if (err) {
+    return <TextField fullWidth disabled label={field.label} value={err} error />
+  }
+
+  return (
+    <Box>
+      <Autocomplete
+        disabled={disabled}
+        options={allOpts}
+        filterOptions={filterNexusOptions}
+        getOptionLabel={(o) => o.label}
+        isOptionEqualToValue={(a, b) => a.value === b.value}
+        value={selected}
+        onChange={(_, newVal) => {
+          if (!newVal) {
+            onChange(field.key, '')
+            return
+          }
+          if (newVal.value === PORTAL_SELECT_OTHER_VALUE) {
+            onChange(field.key, serializeSelectWithOther({ id: null, other: '' }))
+            return
+          }
+          onChange(field.key, serializeSelectWithOther({ id: newVal.value, other: null }))
+        }}
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            label={field.label + (field.required ? ' *' : '')}
+            required={field.required}
+            placeholder="Lista ou outro"
+            helperText="Pode escolher um registo do Nexus ou «Outro» para informar um valor novo."
+          />
+        )}
+      />
+      {showOtherText && (
+        <TextField
+          fullWidth
+          sx={{ mt: 1.5 }}
+          label="Descrever (cadastro manual)"
+          value={otherText}
+          disabled={disabled}
+          required={field.required}
+          placeholder={field.otherPlaceholder || 'Nome ou identificação do novo registo'}
+          onChange={(e) =>
+            onChange(field.key, serializeSelectWithOther({ id: null, other: e.target.value }))
+          }
+          helperText="Este texto é guardado na solicitação; o cadastro no Nexus pode ser feito depois pela equipa."
+        />
+      )}
+    </Box>
+  )
+}
+
+function ManualMultiSelectControl({
+  field,
+  value,
+  onChange,
+  disabled,
+}: {
+  field: FormFieldDef
+  value: string
+  onChange: (key: string, value: string) => void
+  disabled?: boolean
+}) {
+  const opts = field.options ?? []
+  const ids = useMemo(() => parseMultiIds(value), [value])
+  const selected = useMemo(() => ids.filter((id) => opts.includes(id)), [ids, opts])
+
+  return (
+    <Autocomplete
+      multiple
+      disabled={disabled}
+      options={opts}
+      filterOptions={filterStringOptions}
+      value={selected}
+      onChange={(_, newVal) => onChange(field.key, serializeMultiIds(newVal))}
+      renderInput={(params) => (
+        <TextField
+          {...params}
+          label={field.label + (field.required ? ' *' : '')}
+          required={field.required}
+          helperText="Várias escolhas a partir da lista fixa definida no tipo."
+        />
+      )}
+    />
+  )
+}
+
+function ManualSelectWithOtherControl({
+  field,
+  value,
+  onChange,
+  disabled,
+}: {
+  field: FormFieldDef
+  value: string
+  onChange: (key: string, value: string) => void
+  disabled?: boolean
+}) {
+  const opts = field.options ?? []
+  const otherLabel = field.otherLabel?.trim() || 'Outro (especificar)'
+  const otherOption = otherLabel
+  const allOpts = [...opts, otherOption]
+
+  const parsed = useMemo(() => parseSelectWithOther(value), [value])
+
+  const selected = useMemo(() => {
+    if (parsed.id && opts.includes(parsed.id)) return parsed.id
+    if (parsed.other !== null) return otherOption
+    return null
+  }, [parsed, opts, otherOption])
+
+  const showOtherText = parsed.id === null && parsed.other !== null
+  const otherText = showOtherText ? parsed.other ?? '' : ''
+
+  return (
+    <Box>
+      <Autocomplete
+        disabled={disabled}
+        options={allOpts}
+        filterOptions={filterStringOptions}
+        value={selected}
+        onChange={(_, newVal) => {
+          if (newVal == null) {
+            onChange(field.key, '')
+            return
+          }
+          if (newVal === otherOption) {
+            onChange(field.key, serializeSelectWithOther({ id: null, other: '' }))
+            return
+          }
+          onChange(field.key, serializeSelectWithOther({ id: newVal, other: null }))
+        }}
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            label={field.label + (field.required ? ' *' : '')}
+            required={field.required}
+            helperText="Lista fixa ou «Outro» para texto livre."
+          />
+        )}
+      />
+      {showOtherText && (
+        <TextField
+          fullWidth
+          sx={{ mt: 1.5 }}
+          label="Especificar"
+          value={otherText}
+          disabled={disabled}
+          placeholder={field.otherPlaceholder || ''}
+          onChange={(e) =>
+            onChange(field.key, serializeSelectWithOther({ id: null, other: e.target.value }))
+          }
+        />
+      )}
+    </Box>
   )
 }
 
@@ -377,6 +729,32 @@ export default function DynamicFormFields({
           )
         }
         if (f.type === 'select' && f.nexusOptions) {
+          if (f.multiple) {
+            return (
+              <NexusMultiSelectControl
+                key={f.key}
+                field={f}
+                value={v}
+                values={values}
+                allFields={fields}
+                onChange={handleFieldChange}
+                disabled={disabled}
+              />
+            )
+          }
+          if (f.allowOther) {
+            return (
+              <NexusSelectWithOtherControl
+                key={f.key}
+                field={f}
+                value={v}
+                values={values}
+                allFields={fields}
+                onChange={handleFieldChange}
+                disabled={disabled}
+              />
+            )
+          }
           return (
             <NexusSelectControl
               key={f.key}
@@ -390,6 +768,28 @@ export default function DynamicFormFields({
           )
         }
         if (f.type === 'select' && f.options?.length) {
+          if (f.multiple) {
+            return (
+              <ManualMultiSelectControl
+                key={f.key}
+                field={f}
+                value={v}
+                onChange={handleFieldChange}
+                disabled={disabled}
+              />
+            )
+          }
+          if (f.allowOther) {
+            return (
+              <ManualSelectWithOtherControl
+                key={f.key}
+                field={f}
+                value={v}
+                onChange={handleFieldChange}
+                disabled={disabled}
+              />
+            )
+          }
           const selectedManual = v && f.options.includes(v) ? v : null
           return (
             <Autocomplete

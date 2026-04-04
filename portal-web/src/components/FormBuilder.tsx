@@ -444,6 +444,67 @@ export default function FormBuilder({ fields, onChange, nexusCatalog, showNexusQ
                 size="small"
               />
             )}
+            {f.type === 'select' && (
+              <Alert severity="info" variant="outlined" sx={{ py: 1 }}>
+                <Typography variant="subtitle2" fontWeight={700} gutterBottom>
+                  Lista: várias escolhas ou «Outro»
+                </Typography>
+                <Stack spacing={1}>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={!!f.multiple}
+                        onChange={(_, c) =>
+                          updateAt(i, {
+                            multiple: c,
+                            ...(c
+                              ? { allowOther: false, otherLabel: undefined, otherPlaceholder: undefined }
+                              : {}),
+                          })
+                        }
+                      />
+                    }
+                    label="Permitir várias escolhas"
+                  />
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={!!f.allowOther}
+                        disabled={!!f.multiple}
+                        onChange={(_, c) =>
+                          updateAt(i, {
+                            allowOther: c,
+                            ...(c
+                              ? { multiple: false }
+                              : { otherLabel: undefined, otherPlaceholder: undefined }),
+                          })
+                        }
+                      />
+                    }
+                    label="Permitir «Outro» / cadastro manual (texto livre)"
+                  />
+                  {f.allowOther && !f.multiple && (
+                    <>
+                      <TextField
+                        label="Texto da opção «Outro»"
+                        value={f.otherLabel ?? ''}
+                        onChange={(e) => updateAt(i, { otherLabel: e.target.value.trim() || undefined })}
+                        fullWidth
+                        size="small"
+                        helperText="Aparece na lista junto aos dados Nexus ou opções fixas."
+                      />
+                      <TextField
+                        label="Placeholder do texto (opcional)"
+                        value={f.otherPlaceholder ?? ''}
+                        onChange={(e) => updateAt(i, { otherPlaceholder: e.target.value || undefined })}
+                        fullWidth
+                        size="small"
+                      />
+                    </>
+                  )}
+                </Stack>
+              </Alert>
+            )}
             <FormControlLabel
               control={
                 <Switch
