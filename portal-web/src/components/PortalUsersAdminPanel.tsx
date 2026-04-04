@@ -40,6 +40,7 @@ import EditIcon from '@mui/icons-material/Edit'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import SearchIcon from '@mui/icons-material/Search'
 import PersonAddIcon from '@mui/icons-material/PersonAdd'
+import MonitorHeartIcon from '@mui/icons-material/MonitorHeart'
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import {
@@ -59,7 +60,28 @@ type UserRow = {
   active: boolean
   parentManagerId: string | null
   createdAt: string
+  lastLogin?: string | null
+  lastSeenAt?: string | null
+  passwordUpdatedAt?: string
   parentManager: { id: string; name: string; email: string } | null
+}
+
+function formatMonitorDate(iso: string | null | undefined) {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+/** Considera “online” quem teve atividade nos últimos 5 minutos (último /auth/me ou login). */
+function isOnlineRecently(lastSeenAt: string | null | undefined) {
+  if (!lastSeenAt) return false
+  const ms = Date.now() - new Date(lastSeenAt).getTime()
+  return ms >= 0 && ms < 5 * 60 * 1000
 }
 
 function roleIcon(role: string) {
@@ -247,9 +269,12 @@ export default function PortalUsersAdminPanel() {
           borderColor: 'divider',
         }}
       >
-        <Typography variant="subtitle1" fontWeight={700} sx={{ flexGrow: 1, minWidth: 200 }}>
-          Usuários do portal
-        </Typography>
+        <Stack direction="row" alignItems="center" spacing={1} sx={{ flexGrow: 1, minWidth: 200 }}>
+          <MonitorHeartIcon color="action" fontSize="small" aria-hidden />
+          <Typography variant="subtitle1" fontWeight={700}>
+            Usuários do portal
+          </Typography>
+        </Stack>
         <TextField
           size="small"
           placeholder="Buscar nome, e-mail ou papel…"
@@ -293,6 +318,10 @@ export default function PortalUsersAdminPanel() {
         <Typography variant="body2" color="text.secondary">
           {loading ? 'Carregando…' : `${filtered.length} de ${users.length} usuário(s) — filtros aplicados sobre a lista.`}
         </Typography>
+        <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+          Monitoramento: último login ao entrar no portal; última atividade ao carregar a sessão (ex.: abrir o app). Chip
+          &quot;Online&quot; = atividade nos últimos 5 minutos.
+        </Typography>
       </Box>
 
       {loading ? (
@@ -309,6 +338,9 @@ export default function PortalUsersAdminPanel() {
                 <TableCell>Papel</TableCell>
                 <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>Gestor</TableCell>
                 <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>Criado em</TableCell>
+                <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>Último login</TableCell>
+                <TableCell sx={{ display: { xs: 'none', lg: 'table-cell' } }}>Última atividade</TableCell>
+                <TableCell sx={{ display: { xs: 'none', xl: 'table-cell' } }}>Senha alterada</TableCell>
                 <TableCell align="center">Ativo</TableCell>
                 <TableCell align="right" width={100}>
                   Ações
@@ -318,7 +350,7 @@ export default function PortalUsersAdminPanel() {
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7}>
+                  <TableCell colSpan={10}>
                     <Typography color="text.secondary" align="center" sx={{ py: 4 }}>
                       Nenhum usuário corresponde aos filtros.
                     </Typography>
@@ -375,6 +407,24 @@ export default function PortalUsersAdminPanel() {
                           hour: '2-digit',
                           minute: '2-digit',
                         })}
+                      </Typography>
+                    </TableCell>
+                    <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
+                      <Typography variant="body2">{formatMonitorDate(u.lastLogin)}</Typography>
+                    </TableCell>
+                    <TableCell sx={{ display: { xs: 'none', lg: 'table-cell' } }}>
+                      <Stack direction="row" alignItems="center" spacing={0.5} flexWrap="wrap" gap={0.5}>
+                        <Typography variant="body2">{formatMonitorDate(u.lastSeenAt)}</Typography>
+                        {isOnlineRecently(u.lastSeenAt) && (
+                          <Chip size="small" label="Online" color="success" variant="outlined" sx={{ height: 22 }} />
+                        )}
+                      </Stack>
+                    </TableCell>
+                    <TableCell sx={{ display: { xs: 'none', xl: 'table-cell' } }}>
+                      <Typography variant="body2">
+                        {u.passwordUpdatedAt
+                          ? new Date(u.passwordUpdatedAt).toLocaleDateString('pt-BR')
+                          : '—'}
                       </Typography>
                     </TableCell>
                     <TableCell align="center">
@@ -475,6 +525,40 @@ export default function PortalUsersAdminPanel() {
                 autoComplete="off"
                 helperText="Pode alterar o e-mail de qualquer usuário, inclusive administradores."
               />
+              <Box
+                sx={{
+                  p: 1.5,
+                  borderRadius: 1,
+                  bgcolor: 'grey.50',
+                  border: 1,
+                  borderColor: 'divider',
+                }}
+              >
+                <Typography variant="caption" color="text.secondary" fontWeight={600} display="block" gutterBottom>
+                  Monitoramento
+                </Typography>
+                <Typography variant="caption" color="text.secondary" display="block">
+                  Último login: {formatMonitorDate(editRow.lastLogin)}
+                </Typography>
+                <Stack direction="row" alignItems="center" spacing={0.5} flexWrap="wrap" sx={{ mt: 0.25 }}>
+                  <Typography variant="caption" color="text.secondary" component="span">
+                    Última atividade: {formatMonitorDate(editRow.lastSeenAt)}
+                  </Typography>
+                  {isOnlineRecently(editRow.lastSeenAt) && (
+                    <Chip size="small" label="Online" color="success" variant="outlined" sx={{ height: 20 }} />
+                  )}
+                </Stack>
+                <Typography variant="caption" color="text.secondary" display="block">
+                  Senha alterada:{' '}
+                  {editRow.passwordUpdatedAt
+                    ? new Date(editRow.passwordUpdatedAt).toLocaleString('pt-BR', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric',
+                      })
+                    : '—'}
+                </Typography>
+              </Box>
               <TextField label="Nome completo" value={eName} onChange={(e) => setEName(e.target.value)} fullWidth />
               <FormControl fullWidth>
                 <InputLabel>Papel</InputLabel>

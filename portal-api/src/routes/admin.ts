@@ -29,6 +29,9 @@ export async function registerAdminRoutes(app: FastifyInstance) {
         active: true,
         parentManagerId: true,
         createdAt: true,
+        lastLogin: true,
+        lastSeenAt: true,
+        passwordUpdatedAt: true,
         parentManager: { select: { id: true, name: true, email: true } },
       },
     })
@@ -119,7 +122,10 @@ export async function registerAdminRoutes(app: FastifyInstance) {
       data.parentManager =
         body.parentManagerId === null ? { disconnect: true } : { connect: { id: body.parentManagerId } }
     }
-    if (body.password !== undefined) data.passwordHash = await bcrypt.hash(body.password, 12)
+    if (body.password !== undefined) {
+      data.passwordHash = await bcrypt.hash(body.password, 12)
+      data.passwordUpdatedAt = new Date()
+    }
     try {
       const updated = await prisma.portalUser.update({
         where: { id: params.data.id },
