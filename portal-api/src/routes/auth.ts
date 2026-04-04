@@ -76,6 +76,12 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       return reply.code(401).send({ error: 'Credenciais inválidas' })
     }
 
+    const now = new Date()
+    await prisma.portalUser.update({
+      where: { id: user.id },
+      data: { lastLogin: now, lastSeenAt: now },
+    })
+
     const token = app.jwt.sign(
       { sub: user.id, email: user.email, role: user.role },
       { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
@@ -102,6 +108,12 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       select: { id: true, email: true, name: true, role: true, active: true, createdAt: true },
     })
     if (!user || !user.active) return reply.code(401).send({ error: 'Usuário inválido' })
+
+    await prisma.portalUser.update({
+      where: { id },
+      data: { lastSeenAt: new Date() },
+    })
+
     return reply.send({ user })
   })
 }

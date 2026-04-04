@@ -33,6 +33,12 @@ model PortalUser {
   directReports   PortalUser[]     @relation("UserReports")
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
+  /// Último login bem-sucedido (POST /auth/login)
+  lastLogin       DateTime?
+  /// Última atividade conhecida (ex.: GET /auth/me ao abrir o portal)
+  lastSeenAt      DateTime?
+  /// Atualizado ao criar conta, trocar senha no admin ou registo
+  passwordUpdatedAt DateTime       @default(now())
   cases           PortalCase[]     @relation("CaseRequester")
   assignedCases   PortalCase[]     @relation("CaseAssignee")
 }
