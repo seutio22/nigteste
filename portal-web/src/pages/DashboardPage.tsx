@@ -16,7 +16,6 @@ import {
 } from '@mui/material'
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline'
 import ListAltIcon from '@mui/icons-material/ListAlt'
-import CategoryIcon from '@mui/icons-material/Category'
 import GroupsIcon from '@mui/icons-material/Groups'
 import PrecisionManufacturingIcon from '@mui/icons-material/PrecisionManufacturing'
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings'
@@ -54,24 +53,24 @@ export default function DashboardPage() {
         Olá, {user?.name}
       </Typography>
       <Typography color="text.secondary" sx={{ mb: 3 }}>
-        Acompanhe suas solicitações e abra novos pedidos por área e tipo.
+        Acompanhe suas solicitações e abra novos pedidos escolhendo o tipo no catálogo.
       </Typography>
 
       <Grid container spacing={2} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={4}>
+        <Grid item xs={12} sm={6}>
           <Card variant="outlined" sx={{ height: '100%' }}>
             <CardActionArea component={RouterLink} to="/solicitacoes/nova" sx={{ height: '100%', alignItems: 'stretch' }}>
               <CardContent>
                 <AddCircleOutlineIcon color="primary" sx={{ fontSize: 40, mb: 1 }} />
                 <Typography fontWeight={600}>Nova solicitação</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Escolha área, tipo e descreva seu pedido
+                  Catálogo por área e tipo, depois o formulário
                 </Typography>
               </CardContent>
             </CardActionArea>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={4}>
+        <Grid item xs={12} sm={6}>
           <Card variant="outlined" sx={{ height: '100%' }}>
             <CardActionArea component={RouterLink} to="/solicitacoes" sx={{ height: '100%' }}>
               <CardContent>
@@ -79,19 +78,6 @@ export default function DashboardPage() {
                 <Typography fontWeight={600}>Minhas solicitações</Typography>
                 <Typography variant="body2" color="text.secondary">
                   {loading ? '…' : `${cases.length} total · ${openCount} em andamento`}
-                </Typography>
-              </CardContent>
-            </CardActionArea>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={4}>
-          <Card variant="outlined" sx={{ height: '100%' }}>
-            <CardActionArea component={RouterLink} to="/areas" sx={{ height: '100%' }}>
-              <CardContent>
-                <CategoryIcon color="primary" sx={{ fontSize: 40, mb: 1 }} />
-                <Typography fontWeight={600}>Áreas e tipos</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Veja categorias disponíveis no portal
                 </Typography>
               </CardContent>
             </CardActionArea>

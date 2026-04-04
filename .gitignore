@@ -76,3 +76,6 @@ prisma/dev.db-journal
 *.tmp
 *.temp
 .vercel
+
+# Staging mínimo para railway up (evita "prefix not found" no monorepo)
+.railway-staging-portal-api/

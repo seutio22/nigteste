@@ -43,10 +43,12 @@ import { getDismissedAlertIds } from '../utils/dismissedAlerts'
 import { formatIntegerPtBR } from '../utils/formatNumber'
 import { getUserPermissions, checkPermission } from '../utils/defaultPermissions'
 import type { SystemPermissions, ModulePermission } from '../types/permissions'
+import type { Project } from '../types/project'
+import type { MaillingContact } from '../types/mailling'
 
 const normalizeTextHome = (value?: string) => (value || '').trim().toLowerCase()
 
-/** Catálogo de atalhos; a Home filtra pelo que o usuário pode fazer (view/create). */
+/** Catálogo de atalhos; exige `view` no módulo e a ação específica (ex.: `create` para "Nova …"). */
 const QUICK_ACTION_DEFS: Array<{
   id: string
   title: string
@@ -66,7 +68,7 @@ const QUICK_ACTION_DEFS: Array<{
   { id: 'analytics', title: 'Analytics', subtitle: 'Relatórios analíticos', path: '/analytics', icon: BarChart3, module: 'analytics', action: 'view' },
   { id: 'mailling', title: 'Mailling', subtitle: 'Contatos e disparos', path: '/mailling', icon: Mail, module: 'mailling', action: 'view' },
   { id: 'projetos', title: 'Projetos', subtitle: 'Gestão de projetos', path: '/projetos', icon: FolderOpen, module: 'projetos', action: 'view' },
-  /** Mesma rota; visível se tiver usuários OU configurações (evita duplicar botão). */
+  /** Só com permissão de ver usuários — a rota é /admin/usuarios (não confundir com configurações). */
   { id: 'admin', title: 'Administração', subtitle: 'Usuários e permissões', path: '/admin/usuarios', icon: Settings, module: 'usuarios', action: 'view' }
 ]
 
@@ -85,6 +87,12 @@ export default function HomePage() {
   const projectStore = useProjectStore()
   const { notifications, dismissedKeys } = useNotificationStore()
   const [isLoading, setIsLoading] = useState(true)
+
+  const userPerms = useMemo(
+    () => getUserPermissions(user?.permissions, user?.role || ''),
+    [user?.permissions, user?.role]
+  )
+  const isAdminUser = (user?.role || '').toLowerCase() === 'admin'
 
   /** Vínculo ao usuário: ids + nome do analista (igual ao uso nas listas de cadastro). */
   const isOwnedByUser = useCallback((item: any, userId?: string | null, userName?: string | null) => {
@@ -182,6 +190,35 @@ export default function HomePage() {
       return false
     },
     [user?.id, user?.name, isOwnedByUser, linkedAnalistaId, masterDataStore.analistas, getAnalistaValueForProducao]
+  )
+
+  /** Itens que entram nos totais da Home para não-admin (dono / analista vinculado ao login). */
+  const itemVinculadoAoResumo = useCallback(
+    (page: string, item: any) => {
+      if (isOwnedByUser(item, user?.id, user?.name)) return true
+      if (linkedAnalistaId && masterDataStore.analistas?.length) {
+        return matchesByIdOrName(
+          getAnalistaValueForProducao(page, item),
+          linkedAnalistaId,
+          masterDataStore.analistas
+        )
+      }
+      return false
+    },
+    [user?.id, user?.name, isOwnedByUser, linkedAnalistaId, masterDataStore.analistas, getAnalistaValueForProducao]
+  )
+
+  const projetoVinculadoAoUsuario = useCallback(
+    (p: Project) => {
+      if (!user?.id) return false
+      const uid = user.id
+      if (p.ownerId === uid || p.managerId === uid) return true
+      if (p.isOwner || p.isManager || p.isMember) return true
+      if (Array.isArray(p.team) && p.team.includes(uid)) return true
+      if (p.manager === uid) return true
+      return false
+    },
+    [user?.id]
   )
 
   // Caixa de entrada: notificações visíveis (respeitando dispensados) para resumo na Home
@@ -455,10 +492,12 @@ export default function HomePage() {
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [refreshHomeDataForce])
 
-  // Estatísticas divididas em múltiplos useMemo para melhor performance - OTIMIZADO
+  // Estatísticas: admin vê o volume global; demais usuários só o que está vinculado a eles (dono / analista).
   const statsDemandas = useMemo(() => {
     if (isLoading) return { total: 0, pendentes: 0, emAndamento: 0, concluidas: 0 }
-    const demandasArray = (demandStore?.items && Array.isArray(demandStore.items)) ? demandStore.items : []
+    if (!checkPermission(userPerms, 'cadastro', 'view')) return { total: 0, pendentes: 0, emAndamento: 0, concluidas: 0 }
+    const raw = (demandStore?.items && Array.isArray(demandStore.items)) ? demandStore.items : []
+    const demandasArray = isAdminUser ? raw : raw.filter((d) => itemVinculadoAoResumo('demandas', d))
     const concluidas = demandasArray.filter(d => isItemConcluido('demandas', d)).length
     const pendentes = demandasArray.filter(d => isItemPendente('demandas', d)).length
     return {
@@ -467,11 +506,13 @@ export default function HomePage() {
       emAndamento: demandasArray.filter(d => ['Em andamento', 'Em Andamento'].includes(String(d.status || ''))).length,
       concluidas
     }
-  }, [isLoading, demandStore?.items])
+  }, [isLoading, demandStore?.items, isAdminUser, itemVinculadoAoResumo, userPerms])
 
   const statsAtendimentos = useMemo(() => {
     if (isLoading) return { total: 0, abertos: 0, resolvidos: 0 }
-    const atendimentosArray = (atendimentoStore?.items && Array.isArray(atendimentoStore.items)) ? atendimentoStore.items : []
+    if (!checkPermission(userPerms, 'atendimento', 'view')) return { total: 0, abertos: 0, resolvidos: 0 }
+    const raw = (atendimentoStore?.items && Array.isArray(atendimentoStore.items)) ? atendimentoStore.items : []
+    const atendimentosArray = isAdminUser ? raw : raw.filter((a) => itemVinculadoAoResumo('atendimentos', a))
     const resolvidos = atendimentosArray.filter(a => isItemConcluido('atendimentos', a)).length
     const abertos = atendimentosArray.filter(a => isItemPendente('atendimentos', a)).length
     return {
@@ -479,11 +520,13 @@ export default function HomePage() {
       abertos,
       resolvidos
     }
-  }, [isLoading, atendimentoStore?.items])
+  }, [isLoading, atendimentoStore?.items, isAdminUser, itemVinculadoAoResumo, userPerms])
 
   const statsValidacoes = useMemo(() => {
     if (isLoading) return { total: 0, pendentes: 0, aprovadas: 0 }
-    const validacoesArray = (validationStore?.items && Array.isArray(validationStore.items)) ? validationStore.items : []
+    if (!checkPermission(userPerms, 'validacao', 'view')) return { total: 0, pendentes: 0, aprovadas: 0 }
+    const raw = (validationStore?.items && Array.isArray(validationStore.items)) ? validationStore.items : []
+    const validacoesArray = isAdminUser ? raw : raw.filter((v) => itemVinculadoAoResumo('validacoes', v))
     const aprovadas = validacoesArray.filter(v => isItemConcluido('validacoes', v)).length
     const pendentes = validacoesArray.filter(v => isItemPendente('validacoes', v)).length
     return {
@@ -491,11 +534,13 @@ export default function HomePage() {
       pendentes,
       aprovadas
     }
-  }, [isLoading, validationStore?.items])
+  }, [isLoading, validationStore?.items, isAdminUser, itemVinculadoAoResumo, userPerms])
 
   const statsReajustes = useMemo(() => {
     if (isLoading) return { total: 0, pendentes: 0, aprovados: 0 }
-    const reajustesArray = (reajusteStore?.items && Array.isArray(reajusteStore.items)) ? reajusteStore.items : []
+    if (!checkPermission(userPerms, 'reajuste', 'view')) return { total: 0, pendentes: 0, aprovados: 0 }
+    const raw = (reajusteStore?.items && Array.isArray(reajusteStore.items)) ? reajusteStore.items : []
+    const reajustesArray = isAdminUser ? raw : raw.filter((r) => itemVinculadoAoResumo('reajustes', r))
     const aprovados = reajustesArray.filter(r => isItemConcluido('reajustes', r)).length
     const pendentes = reajustesArray.filter(r => isItemPendente('reajustes', r)).length
     return {
@@ -503,11 +548,13 @@ export default function HomePage() {
       pendentes,
       aprovados
     }
-  }, [isLoading, reajusteStore?.items])
+  }, [isLoading, reajusteStore?.items, isAdminUser, itemVinculadoAoResumo, userPerms])
 
   const statsManutencoes = useMemo(() => {
     if (isLoading) return { total: 0, pendentes: 0, emAndamento: 0, concluidas: 0 }
-    const manutencoesArray = (manutencaoStore?.items && Array.isArray(manutencaoStore.items)) ? manutencaoStore.items : []
+    if (!checkPermission(userPerms, 'manutencao', 'view')) return { total: 0, pendentes: 0, emAndamento: 0, concluidas: 0 }
+    const raw = (manutencaoStore?.items && Array.isArray(manutencaoStore.items)) ? manutencaoStore.items : []
+    const manutencoesArray = isAdminUser ? raw : raw.filter((m) => itemVinculadoAoResumo('manutencoes', m))
     const concluidas = manutencoesArray.filter(m => isItemConcluido('manutencoes', m)).length
     const pendentes = manutencoesArray.filter(m => isItemPendente('manutencoes', m)).length
     return {
@@ -516,11 +563,13 @@ export default function HomePage() {
       emAndamento: manutencoesArray.filter(m => ['Em andamento', 'Em Andamento'].includes(String(m.status || ''))).length,
       concluidas
     }
-  }, [isLoading, manutencaoStore?.items])
+  }, [isLoading, manutencaoStore?.items, isAdminUser, itemVinculadoAoResumo, userPerms])
 
   const statsAnalytics = useMemo(() => {
     if (isLoading) return { total: 0, pendentes: 0, emAndamento: 0, concluidos: 0 }
-    const relatoriosArray = (reportStore?.items && Array.isArray(reportStore.items)) ? reportStore.items : []
+    if (!checkPermission(userPerms, 'analytics', 'view')) return { total: 0, pendentes: 0, emAndamento: 0, concluidos: 0 }
+    const raw = (reportStore?.items && Array.isArray(reportStore.items)) ? reportStore.items : []
+    const relatoriosArray = isAdminUser ? raw : raw.filter((r) => itemVinculadoAoResumo('analytics', r))
     const concluidos = relatoriosArray.filter(r => isItemConcluido('analytics', r)).length
     const pendentes = relatoriosArray.filter(r => isItemPendente('analytics', r)).length
     return {
@@ -529,28 +578,36 @@ export default function HomePage() {
       emAndamento: relatoriosArray.filter(r => ['Em andamento', 'em_andamento', 'EM ANDAMENTO'].includes(String(r.status || ''))).length,
       concluidos
     }
-  }, [isLoading, reportStore?.items])
+  }, [isLoading, reportStore?.items, isAdminUser, itemVinculadoAoResumo, userPerms])
 
   const statsMailling = useMemo(() => {
     if (isLoading) return { total: 0, ativos: 0 }
+    if (!checkPermission(userPerms, 'mailling', 'view')) return { total: 0, ativos: 0 }
     const contactsArray = (maillingStore?.contacts && Array.isArray(maillingStore.contacts)) ? maillingStore.contacts : []
+    // Contatos não têm vínculo por usuário no modelo local — não-admin não acumula volume global aqui.
+    const base = isAdminUser ? contactsArray : []
     return {
-      total: contactsArray.length,
-      ativos: contactsArray.filter(m => m.status === 'Ativo' || !m.status).length
+      total: base.length,
+      ativos: base.filter((m) => {
+        const st = (m as MaillingContact & { status?: string }).status
+        return st === 'Ativo' || st == null || st === ''
+      }).length
     }
-  }, [isLoading, maillingStore?.contacts])
+  }, [isLoading, maillingStore?.contacts, isAdminUser, userPerms])
 
   const statsProjetos = useMemo(() => {
     if (isLoading) return { total: 0, concluidos: 0 }
-    const projetosArray = (projectStore?.projects && Array.isArray(projectStore.projects)) ? projectStore.projects : []
+    if (!checkPermission(userPerms, 'projetos', 'view')) return { total: 0, concluidos: 0 }
+    const raw = (projectStore?.projects && Array.isArray(projectStore.projects)) ? projectStore.projects : []
+    const projetosArray = isAdminUser ? raw : raw.filter((p) => projetoVinculadoAoUsuario(p))
     return {
       total: projetosArray.length,
       concluidos: projetosArray.filter(p => {
-        const status = p.status || p.timeline?.status || 'Em Andamento'
+        const status = p.status || (p as any).timeline?.status || 'Em Andamento'
         return status === 'Concluído' || status === 'concluido' || status === 'Finalizado'
       }).length
     }
-  }, [isLoading, projectStore?.projects])
+  }, [isLoading, projectStore?.projects, isAdminUser, projetoVinculadoAoUsuario, userPerms])
 
   // Combinar todas as estatísticas
   const stats = useMemo(() => ({
@@ -578,14 +635,24 @@ export default function HomePage() {
   /** Pendências em aberto vinculadas ao usuário (mesma base do CSV e da lista) */
   const pendenciasDoUsuario = pendingByUser.length
 
-  /** Linhas do panorama: totais locais + “em aberto” vs encerrados (sem comunicados publicados). */
-  const panoramaOperacional = useMemo(
-    () => [
+  /** Linhas do panorama: só módulos com permissão de visualização; totais já respeitam escopo (admin = tudo). */
+  const panoramaOperacional = useMemo(() => {
+    const rows: Array<{
+      id: string
+      label: string
+      hint: string
+      path: string
+      perm: keyof SystemPermissions
+      total: number
+      open: number
+      done: number
+    }> = [
       {
         id: 'demandas',
         label: 'Demandas',
         hint: 'Cadastro de solicitações',
         path: '/cadastro',
+        perm: 'cadastro',
         total: stats.demandas.total,
         open: stats.demandas.pendentes,
         done: stats.demandas.concluidas
@@ -595,6 +662,7 @@ export default function HomePage() {
         label: 'Atendimentos',
         hint: 'Chamados e suporte',
         path: '/atendimento',
+        perm: 'atendimento',
         total: stats.atendimentos.total,
         open: stats.atendimentos.abertos,
         done: stats.atendimentos.resolvidos
@@ -604,6 +672,7 @@ export default function HomePage() {
         label: 'Validações',
         hint: 'Aprovações e conferência',
         path: '/validacao',
+        perm: 'validacao',
         total: stats.validacoes.total,
         open: stats.validacoes.pendentes,
         done: stats.validacoes.aprovadas
@@ -613,6 +682,7 @@ export default function HomePage() {
         label: 'Reajustes',
         hint: 'Lançamentos e valores',
         path: '/reajuste',
+        perm: 'reajuste',
         total: stats.reajustes.total,
         open: stats.reajustes.pendentes,
         done: stats.reajustes.aprovados
@@ -622,6 +692,7 @@ export default function HomePage() {
         label: 'Manutenções',
         hint: 'Correções e ajustes',
         path: '/manutencao',
+        perm: 'manutencao',
         total: stats.manutencoes.total,
         open: stats.manutencoes.pendentes + stats.manutencoes.emAndamento,
         done: stats.manutencoes.concluidas
@@ -631,13 +702,14 @@ export default function HomePage() {
         label: 'Analytics',
         hint: 'Relatórios analíticos',
         path: '/analytics',
+        perm: 'analytics',
         total: stats.analytics.total,
         open: stats.analytics.pendentes + stats.analytics.emAndamento,
         done: stats.analytics.concluidos
       }
-    ],
-    [stats]
-  )
+    ]
+    return rows.filter((r) => checkPermission(userPerms, r.perm, 'view')).map(({ perm: _p, ...rest }) => rest)
+  }, [stats, userPerms])
 
   const handleExportPendencias = useCallback(() => {
     if (!pendingByUser.length) return
@@ -662,18 +734,17 @@ export default function HomePage() {
     URL.revokeObjectURL(url)
   }, [pendingByUser, user?.name])
 
-  /** Atalhos só aparecem se o perfil tiver permissão (view/create) no módulo. */
+  /** Atalhos: exige `view` no módulo; ações “Nova …” exigem também `create`. */
   const quickActions = useMemo(() => {
     if (!user?.id) return []
     const perms = getUserPermissions(user.permissions, user.role)
     return QUICK_ACTION_DEFS.filter((a) => {
       if (a.id === 'admin') {
-        return (
-          checkPermission(perms, 'usuarios', 'view') ||
-          checkPermission(perms, 'configuracoes', 'view')
-        )
+        return checkPermission(perms, 'usuarios', 'view')
       }
-      return checkPermission(perms, a.module, a.action)
+      if (!checkPermission(perms, a.module, 'view')) return false
+      if (a.action !== 'view' && !checkPermission(perms, a.module, a.action)) return false
+      return true
     })
   }, [user])
 
@@ -808,7 +879,12 @@ export default function HomePage() {
             className="text-left bg-white rounded-2xl p-5 shadow-sm border border-apoio-100 hover:shadow-md hover:border-primary-200 transition-all"
           >
             <div className="text-2xl sm:text-3xl font-bold text-primary-600 font-geometria">{formatIntegerPtBR(totalAtividades)}</div>
-            <div className="text-sm font-medium text-[#050032] font-geometria">Total de Atividades</div>
+            <div className="text-sm font-medium text-[#050032] font-geometria">
+              {isAdminUser ? 'Total de Atividades' : 'Suas atividades'}
+            </div>
+            {!isAdminUser && (
+              <div className="text-xs text-apoio-500 mt-1 font-geometria">Vinculadas a você nos módulos permitidos</div>
+            )}
           </button>
           <button
             type="button"
@@ -946,8 +1022,9 @@ export default function HomePage() {
                   Panorama operacional
                 </h2>
                 <p className="text-sm text-apoio-500 mt-0.5 max-w-2xl">
-                  Cada linha mostra o volume carregado no app: total no módulo, o que ainda está em aberto e o que já foi
-                  encerrado. Toque para ir direto à lista.
+                  {isAdminUser
+                    ? 'Cada linha mostra o volume global do módulo: total, em aberto e encerrado. Toque para abrir a lista.'
+                    : 'Apenas módulos que você pode ver, com volume vinculado a você (dono ou analista vinculado ao seu login). Toque para abrir a lista.'}
                 </p>
               </div>
             </div>

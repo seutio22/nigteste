@@ -1087,13 +1087,25 @@ const ActionCell = memo(function ActionCell({ id, status }: { id: string, status
       // Gerar novo ticket único
       const newTicket = await generateUniqueTicket(d.ticket)
       
-      // Limpar campos que não devem ser duplicados e garantir que apenas IDs sejam enviados
-      const { 
-        id: _omit, 
-        createdAt: _c, 
-        updatedAt: _u, 
+      // Mesmo padrão de Demandas/List: copiar o restante da linha após tirar metadados e rótulos.
+      // IMPORTANTE: não enviar objetos aninhados (ex.: analistaObj) — o Prisma falha no POST e o store
+      // cai no retry com payload mínimo, deixando descrição, totais e FKs zerados.
+      const looksLikeUuid = (s: string) =>
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s)
+      const fk = (idVal: string | undefined | null, alt: unknown): string | undefined => {
+        if (idVal != null && String(idVal).trim() !== '') return String(idVal).trim()
+        if (typeof alt === 'string' && alt.length > 20 && looksLikeUuid(alt)) return alt
+        return undefined
+      }
+
+      const {
+        id: _omit,
+        createdAt: _c,
+        updatedAt: _u,
         ticket: _ticket,
-        // Remover campos de texto que podem causar erro (manter apenas IDs)
+        analistaObj: _analistaObj,
+        // Campo legado/UI; não existe no modelo Prisma Manutencao — evita erro no POST e retry "mínimo"
+        periodicidade: _periodicidade,
         analista: _analista,
         area: _area,
         cliente: _cliente,
@@ -1103,25 +1115,22 @@ const ActionCell = memo(function ActionCell({ id, status }: { id: string, status
         sistema: _sistema,
         tipo: _tipo,
         tipoServico: _tipoServico,
-        ...rest 
+        ...rest
       } = d
-      
-      // Preparar dados para duplicação, garantindo que campos opcionais sejam tratados
-      const duplicateData: any = {
+
+      const duplicateData: Record<string, unknown> = {
         ...rest,
-        ticket: newTicket || undefined, // Usar novo ticket com sufixo ou undefined
+        ticket: newTicket || undefined,
         status: 'Aberta',
-        updatedAt: new Date().toISOString(),
-        // Garantir que apenas IDs sejam enviados (não strings de nomes)
-        analistaId: d.analistaId || undefined,
-        areaId: d.areaId || undefined,
-        clienteId: d.clienteId || undefined,
-        contratoId: d.contratoId || undefined,
-        operadoraId: d.operadoraId || undefined,
-        produtoId: d.produtoId || undefined,
-        sistemaId: d.sistemaId || undefined,
-        tipoId: d.tipoId || undefined,
-        tipoServicoId: d.tipoServicoId || undefined,
+        clienteId: fk(d.clienteId, d.cliente),
+        contratoId: fk(d.contratoId, d.contrato),
+        operadoraId: fk(d.operadoraId, d.operadora),
+        produtoId: fk(d.produtoId, d.produto),
+        sistemaId: fk(d.sistemaId, d.sistema),
+        areaId: fk(d.areaId, d.area),
+        tipoId: fk(d.tipoId, d.tipo),
+        tipoServicoId: fk(d.tipoServicoId, d.tipoServico),
+        analistaId: fk(d.analistaId, d.analista),
       }
       
       // Analista do novo chamado = quem duplicou (mesma regra da tela Nova manutenção), não o analista do original

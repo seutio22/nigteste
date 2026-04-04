@@ -1,9 +1,11 @@
 # Portal do colaborador: projeto Railway amusing-flexibility (Postgres + portal-colaborador-api).
-# Não usar perpetual-imagination para este serviço — lá fica demandas/Nexus.
 #
-# Monorepo: `railway up` na RAIZ do repo usa o link da pasta PAI (muitas vezes perpetual-imagination).
-# Use: .\deploy-railway.ps1 [--detach]   → força amusing-flexibility por RAILWAY_*_ID.
-# Ou: cd portal-api && railway up . --path-as-root (com esta pasta linkada ao serviço certo).
+# ERRO "Could not find root directory: portal-api" ou "/portal-api" (Git no Railway):
+#   • Root Directory = portal-api  (SEM barra no início; "/portal-api" está errado).
+#   • OU Root Directory vazio + Dockerfile custom: Dockerfile.portal-colaborador-api (na raiz do repo).
+#   • Branch: main (ou outra que tenha a pasta portal-api).
+#
+# Deploy CLI: .\portal-api\deploy-railway.ps1  →  railway up ./portal-api --path-as-root
 #
 # ERRO "Could not find root directory: portal-api":
 # O GitHub do repo tem branch PADRÃO = gh-pages; nesse branch NÃO existe portal-api (só em main).

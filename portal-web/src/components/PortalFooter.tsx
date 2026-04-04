@@ -18,8 +18,8 @@ export default function PortalFooter() {
         <Link component={RouterLink} to="/ajuda" color="inherit" sx={{ mr: 2 }}>
           Ajuda
         </Link>
-        <Link component={RouterLink} to="/areas" color="inherit" sx={{ mr: 2 }}>
-          Áreas e tipos
+        <Link component={RouterLink} to="/solicitacoes/nova" color="inherit" sx={{ mr: 2 }}>
+          Nova solicitação
         </Link>
         <span>Portal do colaborador</span>
       </Typography>

@@ -48,10 +48,14 @@ export async function api<T>(
     }
   }
   const errObj = data as { error?: string } | null
+  const fallback404 =
+    res.status === 404 && !errObj?.error
+      ? 'Não encontrado (404). Verifique se VITE_API_URL na Vercel aponta para a API Railway e redeploy da API após atualizações.'
+      : res.statusText
   return {
     ok: res.ok,
     status: res.status,
     data,
-    error: !res.ok ? errObj?.error || res.statusText : undefined,
+    error: !res.ok ? errObj?.error || fallback404 : undefined,
   }
 }

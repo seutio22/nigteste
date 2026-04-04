@@ -29,14 +29,18 @@ $service = $env:RAILWAY_SERVICE_ID
 Write-Host "Railway: portal-colaborador-api — NEXUS_API_BASE_URL + NEXUS_API_TOKEN" -ForegroundColor Cyan
 Write-Host "  URL: $u" -ForegroundColor Gray
 
+# npm exec + "railway" explícito: no Windows, `& npx --yes '@railway/cli@latest' ...` dentro do .ps1
+# às vezes falha com "could not determine executable to run" (manual no terminal funciona).
+$railwayPkg = '@railway/cli@latest'
+# KEY=VALUE (não stdin via pipe): no Windows, `$Token | npm exec ...` não repassa stdin ao `railway`.
 if ($SkipDeploys) {
-  & npx --yes @railway/cli@latest variable set "NEXUS_API_BASE_URL=$u" -s $service --skip-deploys
+  npm exec --yes "--package=$railwayPkg" -- railway variable set "NEXUS_API_BASE_URL=$u" -s $service --skip-deploys
   if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-  $Token | & npx --yes @railway/cli@latest variable set NEXUS_API_TOKEN --stdin -s $service --skip-deploys
+  npm exec --yes "--package=$railwayPkg" -- railway variable set "NEXUS_API_TOKEN=$Token" -s $service --skip-deploys
 } else {
-  & npx --yes @railway/cli@latest variable set "NEXUS_API_BASE_URL=$u" -s $service
+  npm exec --yes "--package=$railwayPkg" -- railway variable set "NEXUS_API_BASE_URL=$u" -s $service
   if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-  $Token | & npx --yes @railway/cli@latest variable set NEXUS_API_TOKEN --stdin -s $service
+  npm exec --yes "--package=$railwayPkg" -- railway variable set "NEXUS_API_TOKEN=$Token" -s $service
 }
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 

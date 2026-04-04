@@ -137,7 +137,21 @@ export async function registerAdminRoutes(app: FastifyInstance) {
     const areas = await prisma.portalArea.findMany({
       orderBy: { sortOrder: 'asc' },
       include: {
-        types: { orderBy: { name: 'asc' } },
+        types: {
+          orderBy: { name: 'asc' },
+          include: {
+            slaProfile: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                slaTriagemMinutos: true,
+                slaAtuacaoMinutos: true,
+                minutosAdicionalAposRetornoDemanda: true,
+              },
+            },
+          },
+        },
       },
     })
     return reply.send({ areas })
@@ -175,6 +189,89 @@ export async function registerAdminRoutes(app: FastifyInstance) {
     }
   })
 
+  async function deletePortalAreaById(
+    req: import('fastify').FastifyRequest,
+    reply: import('fastify').FastifyReply
+  ) {
+    if (!(await requireAdmin(req, reply))) return
+    const params = z.object({ id: z.string().uuid() }).safeParse(req.params)
+    if (!params.success) return reply.code(400).send({ error: 'ID inválido' })
+    // Solicitações existentes: FKs no Postgres usam ON DELETE SET NULL em areaId/requestTypeId;
+    // tipos da área somem em cascade. Não bloquear exclusão só porque há casos (ex.: "Solicitações gerais").
+    try {
+      await prisma.portalArea.delete({ where: { id: params.data.id } })
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2025') {
+        return reply.code(404).send({ error: 'Área não encontrada' })
+      }
+      throw e
+    }
+    return reply.code(204).send()
+  }
+
+  app.delete('/admin/areas/:id', deletePortalAreaById)
+  // POST: proxies que falham em DELETE; deve vir antes de /:areaId/types (segmento fixo diferente).
+  app.post('/admin/areas/:id/delete', deletePortalAreaById)
+
+  app.post('/admin/areas/:areaId/types', async (req, reply) => {
+    if (!(await requireAdmin(req, reply))) return
+    const params = z.object({ areaId: z.string().uuid() }).safeParse(req.params)
+    if (!params.success) return reply.code(400).send({ error: 'Área inválida' })
+    const bodySchema = z.object({
+      slug: z.string().min(1).max(80).regex(/^[a-z0-9-]+$/),
+      name: z.string().min(1).max(120),
+      active: z.boolean().optional(),
+      formSchema: z.unknown().optional(),
+      slaProfileId: z.string().uuid().nullable().optional(),
+    })
+    let body: z.infer<typeof bodySchema>
+    try {
+      body = bodySchema.parse(req.body)
+    } catch {
+      return reply.code(400).send({ error: 'Dados inválidos' })
+    }
+    const area = await prisma.portalArea.findUnique({ where: { id: params.data.areaId } })
+    if (!area) return reply.code(404).send({ error: 'Área não encontrada' })
+    if (body.slaProfileId) {
+      const sp = await prisma.portalSlaProfile.findFirst({
+        where: { id: body.slaProfileId, active: true },
+      })
+      if (!sp) return reply.code(400).send({ error: 'Perfil SLA inválido ou inativo' })
+    }
+    const formSchema =
+      body.formSchema === undefined ? undefined : (JSON.parse(JSON.stringify(body.formSchema)) as Prisma.InputJsonValue)
+    try {
+      const t = await prisma.portalRequestType.create({
+        data: {
+          areaId: params.data.areaId,
+          slug: body.slug,
+          name: body.name,
+          active: body.active ?? true,
+          formSchema,
+          slaProfileId: body.slaProfileId ?? null,
+        },
+        include: {
+          slaProfile: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              slaTriagemMinutos: true,
+              slaAtuacaoMinutos: true,
+              minutosAdicionalAposRetornoDemanda: true,
+            },
+          },
+        },
+      })
+      return reply.code(201).send({ type: t })
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        return reply.code(409).send({ error: 'Slug já existe nesta área' })
+      }
+      throw e
+    }
+  })
+
   app.patch('/admin/areas/:id', async (req, reply) => {
     if (!(await requireAdmin(req, reply))) return
     const params = z.object({ id: z.string().uuid() }).safeParse(req.params)
@@ -205,45 +302,6 @@ export async function registerAdminRoutes(app: FastifyInstance) {
     }
   })
 
-  app.post('/admin/areas/:areaId/types', async (req, reply) => {
-    if (!(await requireAdmin(req, reply))) return
-    const params = z.object({ areaId: z.string().uuid() }).safeParse(req.params)
-    if (!params.success) return reply.code(400).send({ error: 'Área inválida' })
-    const bodySchema = z.object({
-      slug: z.string().min(1).max(80).regex(/^[a-z0-9-]+$/),
-      name: z.string().min(1).max(120),
-      active: z.boolean().optional(),
-      formSchema: z.unknown().optional(),
-    })
-    let body: z.infer<typeof bodySchema>
-    try {
-      body = bodySchema.parse(req.body)
-    } catch {
-      return reply.code(400).send({ error: 'Dados inválidos' })
-    }
-    const area = await prisma.portalArea.findUnique({ where: { id: params.data.areaId } })
-    if (!area) return reply.code(404).send({ error: 'Área não encontrada' })
-    const formSchema =
-      body.formSchema === undefined ? undefined : (JSON.parse(JSON.stringify(body.formSchema)) as Prisma.InputJsonValue)
-    try {
-      const t = await prisma.portalRequestType.create({
-        data: {
-          areaId: params.data.areaId,
-          slug: body.slug,
-          name: body.name,
-          active: body.active ?? true,
-          formSchema,
-        },
-      })
-      return reply.code(201).send({ type: t })
-    } catch (e) {
-      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
-        return reply.code(409).send({ error: 'Slug já existe nesta área' })
-      }
-      throw e
-    }
-  })
-
   app.patch('/admin/types/:id', async (req, reply) => {
     if (!(await requireAdmin(req, reply))) return
     const params = z.object({ id: z.string().uuid() }).safeParse(req.params)
@@ -253,12 +311,19 @@ export async function registerAdminRoutes(app: FastifyInstance) {
       name: z.string().min(1).max(120).optional(),
       active: z.boolean().optional(),
       formSchema: z.unknown().nullable().optional(),
+      slaProfileId: z.string().uuid().nullable().optional(),
     })
     let body: z.infer<typeof bodySchema>
     try {
       body = bodySchema.parse(req.body)
     } catch {
       return reply.code(400).send({ error: 'Dados inválidos' })
+    }
+    if (body.slaProfileId) {
+      const sp = await prisma.portalSlaProfile.findFirst({
+        where: { id: body.slaProfileId, active: true },
+      })
+      if (!sp) return reply.code(400).send({ error: 'Perfil SLA inválido ou inativo' })
     }
     const data: Prisma.PortalRequestTypeUpdateInput = {}
     if (body.slug !== undefined) data.slug = body.slug
@@ -268,10 +333,26 @@ export async function registerAdminRoutes(app: FastifyInstance) {
       data.formSchema =
         body.formSchema === null ? Prisma.JsonNull : (JSON.parse(JSON.stringify(body.formSchema)) as Prisma.InputJsonValue)
     }
+    if (body.slaProfileId !== undefined) {
+      data.slaProfile =
+        body.slaProfileId === null ? { disconnect: true } : { connect: { id: body.slaProfileId } }
+    }
     try {
       const t = await prisma.portalRequestType.update({
         where: { id: params.data.id },
         data,
+        include: {
+          slaProfile: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              slaTriagemMinutos: true,
+              slaAtuacaoMinutos: true,
+              minutosAdicionalAposRetornoDemanda: true,
+            },
+          },
+        },
       })
       return reply.send({ type: t })
     } catch (e) {
@@ -280,6 +361,20 @@ export async function registerAdminRoutes(app: FastifyInstance) {
       }
       throw e
     }
+  })
+
+  app.delete('/admin/types/:id', async (req, reply) => {
+    if (!(await requireAdmin(req, reply))) return
+    const params = z.object({ id: z.string().uuid() }).safeParse(req.params)
+    if (!params.success) return reply.code(400).send({ error: 'ID inválido' })
+    const linked = await prisma.portalCase.count({ where: { requestTypeId: params.data.id } })
+    if (linked > 0) {
+      return reply.code(409).send({
+        error: 'Existem solicitações vinculadas a este tipo. Não é possível excluir.',
+      })
+    }
+    await prisma.portalRequestType.delete({ where: { id: params.data.id } })
+    return reply.code(204).send()
   })
 
   const nexusValueTypeSchema = z.nativeEnum(NexusFieldValueType)
@@ -378,5 +473,138 @@ export async function registerAdminRoutes(app: FastifyInstance) {
       }
       throw e
     }
+  })
+
+  app.delete('/admin/nexus-fields/:id', async (req, reply) => {
+    if (!(await requireAdmin(req, reply))) return
+    const params = z.object({ id: z.string().uuid() }).safeParse(req.params)
+    if (!params.success) return reply.code(400).send({ error: 'ID inválido' })
+    try {
+      await prisma.portalNexusField.delete({ where: { id: params.data.id } })
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2025') {
+        return reply.code(404).send({ error: 'Campo não encontrado' })
+      }
+      throw e
+    }
+    return reply.code(204).send()
+  })
+
+  const slaSlugSchema = z.string().min(1).max(80).regex(/^[a-z0-9-]+$/)
+
+  function slaTotalMinutes(p: {
+    slaTriagemMinutos: number
+    slaAtuacaoMinutos: number
+    minutosAdicionalAposRetornoDemanda: number
+  }) {
+    return p.slaTriagemMinutos + p.slaAtuacaoMinutos + p.minutosAdicionalAposRetornoDemanda
+  }
+
+  app.get('/admin/sla-profiles', async (req, reply) => {
+    if (!(await requireAdmin(req, reply))) return
+    const list = await prisma.portalSlaProfile.findMany({
+      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+    })
+    return reply.send({
+      profiles: list.map((p) => ({
+        ...p,
+        slaTotalMinutos: slaTotalMinutes(p),
+      })),
+    })
+  })
+
+  app.post('/admin/sla-profiles', async (req, reply) => {
+    if (!(await requireAdmin(req, reply))) return
+    const bodySchema = z.object({
+      slug: slaSlugSchema,
+      name: z.string().min(1).max(160),
+      description: z.string().max(500).nullable().optional(),
+      sortOrder: z.number().int().optional(),
+      active: z.boolean().optional(),
+      slaTriagemMinutos: z.number().int().min(0).max(1_000_000),
+      slaAtuacaoMinutos: z.number().int().min(0).max(1_000_000),
+      minutosAdicionalAposRetornoDemanda: z.number().int().min(0).max(1_000_000).optional(),
+      pausarQuandoAguardandoDemanda: z.boolean().optional(),
+    })
+    let body: z.infer<typeof bodySchema>
+    try {
+      body = bodySchema.parse(req.body)
+    } catch {
+      return reply.code(400).send({ error: 'Dados inválidos' })
+    }
+    try {
+      const row = await prisma.portalSlaProfile.create({
+        data: {
+          slug: body.slug,
+          name: body.name,
+          description: body.description ?? null,
+          sortOrder: body.sortOrder ?? 0,
+          active: body.active ?? true,
+          slaTriagemMinutos: body.slaTriagemMinutos,
+          slaAtuacaoMinutos: body.slaAtuacaoMinutos,
+          minutosAdicionalAposRetornoDemanda: body.minutosAdicionalAposRetornoDemanda ?? 0,
+          pausarQuandoAguardandoDemanda: body.pausarQuandoAguardandoDemanda ?? true,
+        },
+      })
+      return reply.code(201).send({ profile: { ...row, slaTotalMinutos: slaTotalMinutes(row) } })
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        return reply.code(409).send({ error: 'Slug já existe' })
+      }
+      throw e
+    }
+  })
+
+  app.patch('/admin/sla-profiles/:id', async (req, reply) => {
+    if (!(await requireAdmin(req, reply))) return
+    const params = z.object({ id: z.string().uuid() }).safeParse(req.params)
+    if (!params.success) return reply.code(400).send({ error: 'ID inválido' })
+    const bodySchema = z.object({
+      slug: slaSlugSchema.optional(),
+      name: z.string().min(1).max(160).optional(),
+      description: z.string().max(500).nullable().optional(),
+      sortOrder: z.number().int().optional(),
+      active: z.boolean().optional(),
+      slaTriagemMinutos: z.number().int().min(0).max(1_000_000).optional(),
+      slaAtuacaoMinutos: z.number().int().min(0).max(1_000_000).optional(),
+      minutosAdicionalAposRetornoDemanda: z.number().int().min(0).max(1_000_000).optional(),
+      pausarQuandoAguardandoDemanda: z.boolean().optional(),
+    })
+    let body: z.infer<typeof bodySchema>
+    try {
+      body = bodySchema.parse(req.body)
+    } catch {
+      return reply.code(400).send({ error: 'Dados inválidos' })
+    }
+    try {
+      const row = await prisma.portalSlaProfile.update({
+        where: { id: params.data.id },
+        data: body,
+      })
+      return reply.send({ profile: { ...row, slaTotalMinutos: slaTotalMinutes(row) } })
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        return reply.code(409).send({ error: 'Slug já existe' })
+      }
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2025') {
+        return reply.code(404).send({ error: 'Perfil não encontrado' })
+      }
+      throw e
+    }
+  })
+
+  app.delete('/admin/sla-profiles/:id', async (req, reply) => {
+    if (!(await requireAdmin(req, reply))) return
+    const params = z.object({ id: z.string().uuid() }).safeParse(req.params)
+    if (!params.success) return reply.code(400).send({ error: 'ID inválido' })
+    try {
+      await prisma.portalSlaProfile.delete({ where: { id: params.data.id } })
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2025') {
+        return reply.code(404).send({ error: 'Perfil não encontrado' })
+      }
+      throw e
+    }
+    return reply.code(204).send()
   })
 }

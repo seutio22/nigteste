@@ -125,6 +125,23 @@ export default function NexusFieldsPanel({ onChanged }: NexusFieldsPanelProps) {
     onChanged?.()
   }
 
+  async function removeField(row: { id: string; key: string; label: string }) {
+    if (
+      !window.confirm(
+        `Excluir o campo de referência "${row.label}" (${row.key})? Formulários que ainda mapeiam esta chave deixam de ter correspondência no catálogo até você ajustar o tipo de demanda.`
+      )
+    )
+      return
+    setErr(null)
+    const r = await api(`/admin/nexus-fields/${row.id}`, { method: 'DELETE' })
+    if (!r.ok) {
+      setErr(r.error || 'Não foi possível excluir')
+      return
+    }
+    void load()
+    onChanged?.()
+  }
+
   return (
     <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
       <NexusSyncCard onSynced={() => void load()} />
@@ -150,7 +167,7 @@ export default function NexusFieldsPanel({ onChanged }: NexusFieldsPanelProps) {
             <TableCell>Rótulo</TableCell>
             <TableCell>Tipo (Nexus)</TableCell>
             <TableCell>Ativo</TableCell>
-            <TableCell />
+            <TableCell align="right">Ações</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -175,9 +192,12 @@ export default function NexusFieldsPanel({ onChanged }: NexusFieldsPanelProps) {
                 <TableCell>{row.label}</TableCell>
                 <TableCell>{row.valueType}</TableCell>
                 <TableCell>{row.active ? 'Sim' : 'Não'}</TableCell>
-                <TableCell>
+                <TableCell align="right">
                   <Button size="small" onClick={() => openEdit(row)}>
                     Editar
+                  </Button>
+                  <Button size="small" color="error" sx={{ ml: 1 }} onClick={() => void removeField(row)}>
+                    Excluir
                   </Button>
                 </TableCell>
               </TableRow>

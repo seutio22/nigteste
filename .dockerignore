@@ -1,0 +1,3 @@
+# Contexto Docker a partir da raiz do repo (ex.: Dockerfile.portal-colaborador-api)
+.git
+**/node_modules

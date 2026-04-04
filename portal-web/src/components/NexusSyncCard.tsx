@@ -12,6 +12,7 @@ import {
   Typography,
 } from '@mui/material'
 import { api } from '../lib/api'
+import NexusSnapshotPreviewDialog from './NexusSnapshotPreviewDialog'
 
 type Row = {
   entityKey: string
@@ -28,6 +29,7 @@ export default function NexusSyncCard({ onSynced }: { onSynced?: () => void }) {
   const [loading, setLoading] = useState(true)
   const [running, setRunning] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
+  const [previewEntity, setPreviewEntity] = useState<string | null>(null)
 
   async function load() {
     const r = await api<{
@@ -125,16 +127,17 @@ export default function NexusSyncCard({ onSynced }: { onSynced?: () => void }) {
             <TableCell>Registros</TableCell>
             <TableCell>Última sync</TableCell>
             <TableCell>Erro</TableCell>
+            <TableCell align="right">Detalhe</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
           {loading ? (
             <TableRow>
-              <TableCell colSpan={4}>Carregando…</TableCell>
+              <TableCell colSpan={5}>Carregando…</TableCell>
             </TableRow>
           ) : rows.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={4}>
+              <TableCell colSpan={5}>
                 <Typography color="text.secondary" variant="body2">
                   {configured === false
                     ? 'Após definir URL + token (Railway ou CLI) e o serviço subir, a tabela preenche na primeira sync.'
@@ -160,11 +163,21 @@ export default function NexusSyncCard({ onSynced }: { onSynced?: () => void }) {
                     '—'
                   )}
                 </TableCell>
+                <TableCell align="right">
+                  <Button size="small" variant="outlined" onClick={() => setPreviewEntity(r.entityKey)}>
+                    Ver registros
+                  </Button>
+                </TableCell>
               </TableRow>
             ))
           )}
         </TableBody>
       </Table>
+      <NexusSnapshotPreviewDialog
+        open={!!previewEntity}
+        entityKey={previewEntity}
+        onClose={() => setPreviewEntity(null)}
+      />
     </Paper>
   )
 }
