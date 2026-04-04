@@ -1,4 +1,4 @@
-# Node 22: fast-jwt / find-my-way exigem >=20. npm install (sem npm ci) evita lockfile quebrado.
+# Node 22: fast-jwt / find-my-way exigem >=20.
 FROM node:22-alpine
 
 RUN apk add --no-cache openssl libc6-compat
@@ -10,14 +10,14 @@ WORKDIR /app
 # Railway sobrescreve DATABASE_URL com a variável do serviço.
 ENV DATABASE_URL="postgresql://build:build@127.0.0.1:5432/build"
 
-COPY package.json ./
+COPY package.json package-lock.json ./
 COPY prisma.config.ts ./
 COPY prisma ./prisma
 
 # Railway/Node às vezes definem produção no build e omitem devDependencies (typescript, etc.).
 ENV NPM_CONFIG_PRODUCTION=false
 
-RUN npm install
+RUN npm ci
 
 COPY tsconfig.json ./
 COPY src ./src
