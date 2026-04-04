@@ -9,7 +9,7 @@ WORKDIR /app
 
 ENV DATABASE_URL="postgresql://build:build@127.0.0.1:5432/build"
 
-COPY portal-api/package.json ./
+COPY portal-api/package.json portal-api/package-lock.json ./
 COPY portal-api/prisma.config.ts ./
 COPY portal-api/prisma ./prisma
 

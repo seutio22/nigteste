@@ -1,0 +1,4 @@
+# Se o Railway usar Nixpacks em vez do Dockerfile, o default é `npm ci`, que falha se o lock
+# estiver desfasado do package.json. `npm install` reconcilia versões.
+[phases.install]
+cmds = ["npm install"]
