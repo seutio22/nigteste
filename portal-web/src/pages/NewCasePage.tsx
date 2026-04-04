@@ -11,6 +11,7 @@ import {
 } from '@mui/material'
 import { api } from '../lib/api'
 import { parseFormMeta, parseFormSchema } from '../lib/formSchema'
+import { parseAttachmentRefString } from '../lib/uploadAttachment'
 import DynamicFormFields from '../components/DynamicFormFields'
 import NewRequestCatalog from '../components/NewRequestCatalog'
 
@@ -86,6 +87,11 @@ export default function NewCasePage() {
   function validateDynamic(): string | null {
     for (const f of dynamicFields) {
       if (!f.required) continue
+      if (f.type === 'file') {
+        const att = parseAttachmentRefString(dynValues[f.key] ?? '')
+        if (!att?.key) return `Anexe o arquivo: ${f.label}`
+        continue
+      }
       const v = dynValues[f.key] ?? ''
       if (f.type === 'checkbox') {
         if (v !== 'true') return `Marque o campo: ${f.label}`
@@ -116,7 +122,16 @@ export default function NewCasePage() {
       return
     }
 
-    const answers: Record<string, unknown> = { ...dynValues }
+    const answers: Record<string, unknown> = {}
+    for (const f of dynamicFields) {
+      const raw = dynValues[f.key] ?? ''
+      if (f.type === 'file') {
+        const att = parseAttachmentRefString(raw)
+        if (att) answers[f.key] = att
+        continue
+      }
+      answers[f.key] = raw
+    }
     if (formMeta.showDescription && description.trim()) answers.observacoes = description.trim()
 
     setBusy(true)
@@ -206,7 +221,14 @@ export default function NewCasePage() {
             />
           )}
 
-          <DynamicFormFields fields={dynamicFields} values={dynValues} onChange={setDyn} disabled={busy} />
+          <DynamicFormFields
+            fields={dynamicFields}
+            values={dynValues}
+            onChange={setDyn}
+            disabled={busy}
+            onFileUploadError={setErr}
+            onFileUploadSuccess={() => setErr(null)}
+          />
 
           {formMeta.showDescription && (
             <TextField

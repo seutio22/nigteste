@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import jwt from '@fastify/jwt'
@@ -9,6 +10,7 @@ import { registerAdminRoutes } from './routes/admin.js'
 import { registerManagerRoutes } from './routes/manager.js'
 import { registerOperationsRoutes } from './routes/operations.js'
 import { registerNexusSyncRoutes } from './routes/nexus-sync.js'
+import { registerUploadRoutes } from './routes/uploads.js'
 import { getNexusBaseUrl } from './lib/nexus.js'
 import { getNexusSyncIntervalMinutes, runNexusSnapshotSync, type NexusSyncResultRow } from './lib/nexus-sync-runner.js'
 
@@ -64,6 +66,7 @@ await registerAdminRoutes(app)
 await registerManagerRoutes(app)
 await registerOperationsRoutes(app)
 await registerNexusSyncRoutes(app)
+await registerUploadRoutes(app)
 
 function scheduleNexusPeriodicSync() {
   const mins = getNexusSyncIntervalMinutes()

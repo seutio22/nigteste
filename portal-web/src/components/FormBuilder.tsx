@@ -1,4 +1,5 @@
 import {
+  Alert,
   Box,
   Button,
   Chip,
@@ -33,6 +34,7 @@ const TIPOS: { value: FormFieldType; label: string }[] = [
   { value: 'date', label: 'Data' },
   { value: 'select', label: 'Lista (opções)' },
   { value: 'checkbox', label: 'Sim/Não (caixa)' },
+  { value: 'file', label: 'Anexo de arquivo (upload)' },
 ]
 
 function nexusValueTypeToFormType(vt: string): FormFieldType {
@@ -57,6 +59,15 @@ function emptyField(): FormFieldDef {
     key: `campo_${Date.now()}`,
     label: 'Novo campo',
     type: 'text',
+    required: false,
+  }
+}
+
+function emptyAttachmentField(): FormFieldDef {
+  return {
+    key: `anexo_${Date.now()}`,
+    label: 'Anexo',
+    type: 'file',
     required: false,
   }
 }
@@ -141,8 +152,9 @@ export default function FormBuilder({ fields, onChange, nexusCatalog, showNexusQ
         Campos dinâmicos do formulário
       </Typography>
       <Typography variant="body2" color="text.secondary">
-        Adicione campos à medida. Para integrar com o Nexus, use os atalhos abaixo ou o mapeamento em cada campo (lista
-        &quot;Mapeamento Nexus&quot;). Em selects, pode usar dados sincronizados (aba Banco de dados Nexus).
+        Adicione campos à medida. Use <strong>Anexo de arquivo</strong> para o solicitante enviar PDF ou imagens (armazenamento
+        na API / Cloudflare R2). Para integrar com o Nexus, use os atalhos abaixo ou o mapeamento em cada campo. Em selects,
+        pode usar dados sincronizados (aba Banco de dados Nexus).
       </Typography>
       {showNexusQuickPick && (
         <Paper variant="outlined" sx={{ p: 2, borderLeft: 4, borderColor: 'primary.main', bgcolor: 'grey.50' }}>
@@ -231,11 +243,19 @@ export default function FormBuilder({ fields, onChange, nexusCatalog, showNexusQ
                 value={f.type}
                 onChange={(e) => {
                   const t = e.target.value as FormFieldType
-                  updateAt(i, {
-                    type: t,
-                    options: t === 'select' && !f.nexusOptions ? f.options ?? [] : undefined,
-                    nexusOptions: t === 'select' ? f.nexusOptions ?? null : null,
-                  })
+                  const patch: Partial<FormFieldDef> = { type: t }
+                  if (t === 'select') {
+                    patch.nexusOptions = f.nexusOptions ?? null
+                    patch.options = !f.nexusOptions ? f.options ?? [] : undefined
+                  } else {
+                    patch.nexusOptions = null
+                    patch.options = undefined
+                  }
+                  if (t === 'file') {
+                    patch.nexusFieldKey = null
+                    patch.placeholder = undefined
+                  }
+                  updateAt(i, patch)
                 }}
               >
                 {TIPOS.map((t) => (
@@ -245,23 +265,31 @@ export default function FormBuilder({ fields, onChange, nexusCatalog, showNexusQ
                 ))}
               </Select>
             </FormControl>
-            <FormControl fullWidth size="small">
-              <InputLabel>Mapeamento Nexus (opcional)</InputLabel>
-              <Select
-                label="Mapeamento Nexus (opcional)"
-                value={f.nexusFieldKey ?? ''}
-                onChange={(e) => applyNexusMapping(i, e.target.value as string)}
-              >
-                <MenuItem value="">
-                  <em>— Nenhum —</em>
-                </MenuItem>
-                {activeNexus.map((n) => (
-                  <MenuItem key={n.id} value={n.key}>
-                    {n.label} ({n.key})
+            {f.type === 'file' && (
+              <Alert severity="info" variant="outlined" sx={{ py: 0.5 }}>
+                O arquivo é enviado pelo navegador para o armazenamento configurado na API (R2). O formulário guarda só a
+                referência do ficheiro.
+              </Alert>
+            )}
+            {f.type !== 'file' && (
+              <FormControl fullWidth size="small">
+                <InputLabel>Mapeamento Nexus (opcional)</InputLabel>
+                <Select
+                  label="Mapeamento Nexus (opcional)"
+                  value={f.nexusFieldKey ?? ''}
+                  onChange={(e) => applyNexusMapping(i, e.target.value as string)}
+                >
+                  <MenuItem value="">
+                    <em>— Nenhum —</em>
                   </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+                  {activeNexus.map((n) => (
+                    <MenuItem key={n.id} value={n.key}>
+                      {n.label} ({n.key})
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
             {f.type === 'select' && (
               <>
                 <FormControl fullWidth size="small">
@@ -371,13 +399,18 @@ export default function FormBuilder({ fields, onChange, nexusCatalog, showNexusQ
           </Stack>
         </Paper>
       ))}
-      <Button variant="outlined" onClick={() => onChange([...fields, emptyField()])} sx={{ alignSelf: 'flex-start' }}>
-        Adicionar campo
-      </Button>
+      <Stack direction="row" flexWrap="wrap" gap={1} useFlexGap sx={{ alignSelf: 'flex-start' }}>
+        <Button variant="outlined" onClick={() => onChange([...fields, emptyField()])}>
+          Adicionar campo
+        </Button>
+        <Button variant="outlined" color="secondary" onClick={() => onChange([...fields, emptyAttachmentField()])}>
+          Adicionar anexo de arquivo
+        </Button>
+      </Stack>
       {fields.length === 0 && (
         <Typography color="text.secondary" variant="body2">
-          Nenhum campo ainda. Use &quot;Adicionar campo&quot; ou escolha um mapeamento Nexus após criar o catálogo na
-          aba &quot;Banco de dados Nexus&quot;.
+          Nenhum campo ainda. Use &quot;Adicionar campo&quot; ou &quot;Adicionar anexo de arquivo&quot;, ou escolha um
+          mapeamento Nexus após criar o catálogo na aba &quot;Banco de dados Nexus&quot;.
         </Typography>
       )}
     </Stack>

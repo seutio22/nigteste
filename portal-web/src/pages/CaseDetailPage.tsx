@@ -22,6 +22,7 @@ import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
 import PauseCircleOutlineIcon from '@mui/icons-material/PauseCircleOutline'
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked'
 import { api } from '../lib/api'
+import { getDownloadUrlForKey, isAttachmentRef } from '../lib/uploadAttachment'
 import { CASE_STATUS_LABEL } from '../constants/caseStatus'
 import { PRIORITY_LABEL } from '../constants/priority'
 
@@ -67,7 +68,7 @@ type CaseDetail = {
   sla?: SlaPayload
 }
 
-function formatAnswers(answers: unknown): string {
+function formatAnswersFallback(answers: unknown): string {
   if (answers == null || answers === '') return '—'
   if (typeof answers === 'object') {
     try {
@@ -77,6 +78,98 @@ function formatAnswers(answers: unknown): string {
     }
   }
   return String(answers)
+}
+
+function AttachmentDownloadLink({ objectKey, fileName }: { objectKey: string; fileName: string }) {
+  const [loading, setLoading] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  return (
+    <Box>
+      <Button
+        size="small"
+        variant="outlined"
+        disabled={loading}
+        onClick={async () => {
+          setErr(null)
+          setLoading(true)
+          const r = await getDownloadUrlForKey(objectKey)
+          setLoading(false)
+          if (!r.ok) {
+            setErr(r.error)
+            return
+          }
+          window.open(r.url, '_blank', 'noopener,noreferrer')
+        }}
+      >
+        {loading ? 'A abrir…' : `Baixar: ${fileName}`}
+      </Button>
+      {err && (
+        <Typography variant="caption" color="error" display="block" sx={{ mt: 0.5 }}>
+          {err}
+        </Typography>
+      )}
+    </Box>
+  )
+}
+
+function AnswersBlock({ answers }: { answers: unknown }) {
+  if (answers == null || answers === '') {
+    return (
+      <Typography variant="body2" color="text.secondary">
+        —
+      </Typography>
+    )
+  }
+  if (typeof answers !== 'object' || Array.isArray(answers)) {
+    return (
+      <Box
+        component="pre"
+        sx={{
+          mt: 0,
+          p: 2,
+          bgcolor: 'action.hover',
+          borderRadius: 1,
+          fontSize: '0.85rem',
+          overflow: 'auto',
+          maxHeight: 320,
+          m: 0,
+        }}
+      >
+        {formatAnswersFallback(answers)}
+      </Box>
+    )
+  }
+  const obj = answers as Record<string, unknown>
+  const entries = Object.entries(obj)
+  if (entries.length === 0) {
+    return (
+      <Typography variant="body2" color="text.secondary">
+        —
+      </Typography>
+    )
+  }
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      {entries.map(([key, val]) => (
+        <Box key={key}>
+          <Typography variant="caption" color="text.secondary" display="block">
+            {key}
+          </Typography>
+          {isAttachmentRef(val) ? (
+            <AttachmentDownloadLink objectKey={val.key} fileName={val.fileName} />
+          ) : (
+            <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+              {val === null || val === undefined
+                ? '—'
+                : typeof val === 'object'
+                  ? JSON.stringify(val, null, 2)
+                  : String(val)}
+            </Typography>
+          )}
+        </Box>
+      ))}
+    </Box>
+  )
 }
 
 function estadoIcon(estado: SlaEtapa['estado']) {
@@ -241,19 +334,8 @@ export default function CaseDetailPage() {
           <Typography variant="subtitle2" color="text.secondary">
             Dados enviados
           </Typography>
-          <Box
-            component="pre"
-            sx={{
-              mt: 1,
-              p: 2,
-              bgcolor: 'action.hover',
-              borderRadius: 1,
-              fontSize: '0.85rem',
-              overflow: 'auto',
-              maxHeight: 320,
-            }}
-          >
-            {formatAnswers(c.answers)}
+          <Box sx={{ mt: 1 }}>
+            <AnswersBlock answers={c.answers} />
           </Box>
 
           <Divider sx={{ my: 2 }} />
