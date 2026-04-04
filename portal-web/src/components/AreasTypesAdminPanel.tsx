@@ -44,7 +44,16 @@ type TypeRow = {
   formSchema: unknown
   slaProfile: Pick<
     SlaProfileRow,
-    'id' | 'name' | 'slug' | 'slaTriagemMinutos' | 'slaAtuacaoMinutos' | 'minutosAdicionalAposRetornoDemanda'
+    | 'id'
+    | 'name'
+    | 'slug'
+    | 'prazoEmDiasUteis'
+    | 'triagemDiasUteis'
+    | 'atuacaoDiasUteis'
+    | 'adicionalDiasUteisAposRetorno'
+    | 'slaTriagemMinutos'
+    | 'slaAtuacaoMinutos'
+    | 'minutosAdicionalAposRetornoDemanda'
   > | null
 }
 type AreaFull = { id: string; slug: string; name: string; active: boolean; sortOrder: number; types: TypeRow[] }
@@ -253,8 +262,11 @@ export default function AreasTypesAdminPanel() {
 
   const nexusActiveCount = nexusCatalog.filter((x) => x.active).length
 
-  function slaTotalMin(p: Pick<SlaProfileRow, 'slaTriagemMinutos' | 'slaAtuacaoMinutos' | 'minutosAdicionalAposRetornoDemanda'>) {
-    return p.slaTriagemMinutos + p.slaAtuacaoMinutos + p.minutosAdicionalAposRetornoDemanda
+  function slaTotalLabel(p: Pick<SlaProfileRow, 'prazoEmDiasUteis' | 'triagemDiasUteis' | 'atuacaoDiasUteis' | 'adicionalDiasUteisAposRetorno' | 'slaTriagemMinutos' | 'slaAtuacaoMinutos' | 'minutosAdicionalAposRetornoDemanda'>) {
+    if (p.prazoEmDiasUteis) {
+      return `${p.triagemDiasUteis + p.atuacaoDiasUteis + p.adicionalDiasUteisAposRetorno} du`
+    }
+    return `${p.slaTriagemMinutos + p.slaAtuacaoMinutos + p.minutosAdicionalAposRetornoDemanda} min`
   }
 
   return (
@@ -375,7 +387,7 @@ export default function AreasTypesAdminPanel() {
                                   {t.slaProfile.name}
                                 </Typography>
                                 <Typography variant="caption" color="text.secondary">
-                                  Total ref.: {slaTotalMin(t.slaProfile)} min
+                                  Total ref.: {slaTotalLabel(t.slaProfile)}
                                 </Typography>
                               </Stack>
                             ) : (
@@ -499,7 +511,7 @@ export default function AreasTypesAdminPanel() {
                   .filter((p) => p.active)
                   .map((p) => (
                     <MenuItem key={p.id} value={p.id}>
-                      {p.name} (total ref. {slaTotalMin(p)} min)
+                      {p.name} (total ref. {slaTotalLabel(p)})
                     </MenuItem>
                   ))}
               </Select>
@@ -550,7 +562,7 @@ export default function AreasTypesAdminPanel() {
                 </MenuItem>
                 {slaProfiles.map((p) => (
                   <MenuItem key={p.id} value={p.id} disabled={!p.active && p.id !== eSlaProfileId}>
-                    {p.name} (total ref. {slaTotalMin(p)} min){!p.active ? ' — inativo' : ''}
+                    {p.name} (total ref. {slaTotalLabel(p)}){!p.active ? ' — inativo' : ''}
                   </MenuItem>
                 ))}
               </Select>
