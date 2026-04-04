@@ -1,21 +1,28 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Autocomplete,
   Box,
+  Button,
   Checkbox,
+  CircularProgress,
   FormControlLabel,
   TextField,
   Typography,
 } from '@mui/material'
+import AttachFileIcon from '@mui/icons-material/AttachFile'
 import { createFilterOptions } from '@mui/material/Autocomplete'
 import type { FormFieldDef } from '../lib/formSchema'
 import { api } from '../lib/api'
+import { parseAttachmentRefString, uploadAttachment } from '../lib/uploadAttachment'
 
 type Props = {
   fields: FormFieldDef[]
   values: Record<string, string>
   onChange: (key: string, value: string) => void
   disabled?: boolean
+  /** Erros de upload R2 (ex.: API sem R2 configurado) */
+  onFileUploadError?: (msg: string) => void
+  onFileUploadSuccess?: () => void
 }
 
 const filterNexusOptions = createFilterOptions<{ value: string; label: string }>({
@@ -117,7 +124,17 @@ function NexusSelectControl({
   )
 }
 
-export default function DynamicFormFields({ fields, values, onChange, disabled }: Props) {
+export default function DynamicFormFields({
+  fields,
+  values,
+  onChange,
+  disabled,
+  onFileUploadError,
+  onFileUploadSuccess,
+}: Props) {
+  const [uploadingKey, setUploadingKey] = useState<string | null>(null)
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
+
   if (fields.length === 0) return null
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -126,6 +143,58 @@ export default function DynamicFormFields({ fields, values, onChange, disabled }
       </Typography>
       {fields.map((f) => {
         const v = values[f.key] ?? ''
+        if (f.type === 'file') {
+          const attachment = parseAttachmentRefString(v)
+          const busy = uploadingKey === f.key
+          return (
+            <Box key={f.key}>
+              <Typography variant="body2" sx={{ mb: 0.5 }}>
+                {f.label}
+                {f.required ? ' *' : ''}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+                O arquivo é enviado para o Cloudflare R2 (não fica na base de dados).
+              </Typography>
+              <input
+                type="file"
+                hidden
+                ref={(el) => {
+                  fileInputRefs.current[f.key] = el
+                }}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0]
+                  e.target.value = ''
+                  if (!file) return
+                  setUploadingKey(f.key)
+                  const result = await uploadAttachment(file)
+                  setUploadingKey(null)
+                  if (!result.ok) {
+                    onFileUploadError?.(result.error)
+                    return
+                  }
+                  onChange(f.key, JSON.stringify(result.ref))
+                  onFileUploadSuccess?.()
+                }}
+              />
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={busy ? <CircularProgress size={16} /> : <AttachFileIcon />}
+                  disabled={disabled || busy}
+                  onClick={() => fileInputRefs.current[f.key]?.click()}
+                >
+                  {attachment ? 'Substituir arquivo' : 'Escolher arquivo'}
+                </Button>
+                {attachment && (
+                  <Typography variant="body2" color="text.secondary">
+                    {attachment.fileName}
+                  </Typography>
+                )}
+              </Box>
+            </Box>
+          )
+        }
         if (f.type === 'textarea') {
           return (
             <TextField

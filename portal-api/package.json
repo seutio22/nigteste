@@ -10,6 +10,11 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
+    "cf:login": "wrangler login",
+    "cf:whoami": "wrangler whoami",
+    "cf:r2:list": "wrangler r2 bucket list",
+    "cf:r2:create": "wrangler r2 bucket create",
+    "cf:r2:setup": "powershell -ExecutionPolicy Bypass -File ./configure-r2-cloudflare.ps1",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate deploy",
@@ -17,6 +22,8 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1024.0",
+    "@aws-sdk/s3-request-presigner": "^3.1024.0",
     "@fastify/cors": "^11.1.0",
     "@fastify/jwt": "^10.0.0",
     "@prisma/client": "6.19.3",
@@ -30,6 +37,7 @@
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22.13.0",
     "tsx": "^4.19.3",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "wrangler": "^4.54.0"
   }
 }

@@ -1,5 +1,12 @@
 /** Formulário dinâmico por tipo — construído no admin (sem JSON manual). */
-export type FormFieldType = 'text' | 'textarea' | 'number' | 'select' | 'date' | 'checkbox'
+export type FormFieldType =
+  | 'text'
+  | 'textarea'
+  | 'number'
+  | 'select'
+  | 'date'
+  | 'checkbox'
+  | 'file'
 
 /** Opções do select vindas do snapshot Nexus (página Dados), não texto manual */
 export type NexusOptionsSource = {
@@ -41,7 +48,7 @@ export function parseFormMeta(raw: unknown): { showTitle: boolean; showDescripti
   }
 }
 
-const FORM_TYPES: FormFieldType[] = ['text', 'textarea', 'number', 'select', 'date', 'checkbox']
+const FORM_TYPES: FormFieldType[] = ['text', 'textarea', 'number', 'select', 'date', 'checkbox', 'file']
 
 export function parseFormSchema(raw: unknown): FormFieldDef[] {
   if (!raw || typeof raw !== 'object') return []
