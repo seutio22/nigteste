@@ -13,6 +13,16 @@ export type NexusOptionsSource = {
   entity: string
   valueField: string
   labelField: string
+  /**
+   * Coluna no JSON do snapshot da entidade (ex.: id_cliente) que deve coincidir com o valor
+   * guardado no campo do formulário indicado em `filterByParentKey`.
+   */
+  filterByField?: string
+  /**
+   * Chave interna de outro campo deste formulário (ex.: cliente) — a lista só carrega depois
+   * que o utilizador escolher o pai (escalável a várias áreas / tipos).
+   */
+  filterByParentKey?: string
 }
 
 export type FormFieldDef = {

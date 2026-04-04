@@ -328,8 +328,10 @@ export default function FormBuilder({ fields, onChange, nexusCatalog, showNexusQ
                           updateAt(i, {
                             nexusOptions: {
                               entity: e.target.value as string,
-                              valueField: 'id',
-                              labelField: 'nome',
+                              valueField: f.nexusOptions?.valueField ?? 'id',
+                              labelField: f.nexusOptions?.labelField ?? 'nome',
+                              filterByField: f.nexusOptions?.filterByField,
+                              filterByParentKey: f.nexusOptions?.filterByParentKey,
                             },
                           })
                         }
@@ -356,6 +358,61 @@ export default function FormBuilder({ fields, onChange, nexusCatalog, showNexusQ
                           })
                         }
                       />
+                      <Alert severity="info" variant="outlined" sx={{ mt: 2 }}>
+                        <Typography variant="subtitle2" fontWeight={700} gutterBottom>
+                          Lista dependente (opcional)
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                          Para mostrar só linhas relacionadas (ex.: contratos do cliente escolhido), indique o campo do
+                          formulário que vem primeiro e a coluna no snapshot desta entidade que guarda o mesmo ID (ex.{' '}
+                          <code>id_cliente</code>). Ordem dos campos no formulário: o pai deve aparecer antes do filho.
+                        </Typography>
+                        <FormControl fullWidth size="small" sx={{ mb: 1 }}>
+                          <InputLabel>Filtrar pelo valor de outro campo</InputLabel>
+                          <Select
+                            label="Filtrar pelo valor de outro campo"
+                            value={f.nexusOptions.filterByParentKey ?? ''}
+                            onChange={(e) => {
+                              const pk = (e.target.value as string) || undefined
+                              updateAt(i, {
+                                nexusOptions: {
+                                  ...f.nexusOptions!,
+                                  filterByParentKey: pk,
+                                  filterByField: pk ? f.nexusOptions!.filterByField : undefined,
+                                },
+                              })
+                            }}
+                          >
+                            <MenuItem value="">
+                              <em>Nenhum — lista completa (sem filtro)</em>
+                            </MenuItem>
+                            {fields
+                              .filter((_, j) => j !== i)
+                              .map((opt) => (
+                                <MenuItem key={opt.key} value={opt.key}>
+                                  {opt.label} ({opt.key})
+                                </MenuItem>
+                              ))}
+                          </Select>
+                        </FormControl>
+                        {!!f.nexusOptions.filterByParentKey && (
+                          <TextField
+                            label="Coluna no snapshot para filtrar (ex. id_cliente)"
+                            value={f.nexusOptions.filterByField ?? ''}
+                            onChange={(e) =>
+                              updateAt(i, {
+                                nexusOptions: {
+                                  ...f.nexusOptions!,
+                                  filterByField: e.target.value.trim() || undefined,
+                                },
+                              })
+                            }
+                            fullWidth
+                            size="small"
+                            helperText="Tem de existir em cada linha sincronizada desta entidade; o valor é comparado ao ID escolhido no campo pai."
+                          />
+                        )}
+                      </Alert>
                     </Paper>
                   </>
                 ) : (
