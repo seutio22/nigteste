@@ -210,6 +210,9 @@ export async function registerNexusSyncRoutes(app: FastifyInstance) {
         entity: z.string().min(1).max(64),
         value: z.string().min(1).max(80).default('id'),
         label: z.string().min(1).max(80).default('nome'),
+        /** Filtra linhas onde esta coluna (path) coincide com filterValue */
+        filterField: z.string().min(1).max(80).optional(),
+        filterValue: z.string().max(500).optional(),
       })
       .safeParse(req.query)
 
@@ -233,8 +236,26 @@ export async function registerNexusSyncRoutes(app: FastifyInstance) {
       return reply.send({ options: [] })
     }
 
+    const filterField = q.data.filterField?.trim()
+    const filterValueRaw = q.data.filterValue?.trim()
+    if (filterField && !filterValueRaw) {
+      return reply.send({
+        options: [],
+        needsParent: true,
+        syncedAt: snap.syncedAt,
+      })
+    }
+
+    const matchFilter = (row: unknown): boolean => {
+      if (!filterField || !filterValueRaw) return true
+      const fv = getNested(row, filterField)
+      if (fv === undefined || fv === null) return false
+      return String(fv).trim() === filterValueRaw
+    }
+
     const options: { value: string; label: string }[] = []
     for (const row of rows) {
+      if (!matchFilter(row)) continue
       const v = getNested(row, q.data.value)
       const l = getNested(row, q.data.label)
       if (v === undefined || v === null) continue
