@@ -75,8 +75,13 @@ function roleIcon(role: string) {
   }
 }
 
+const emailLooksValid = (s: string) => {
+  const t = s.trim().toLowerCase()
+  return t.length >= 3 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t)
+}
+
 export default function PortalUsersAdminPanel() {
-  const { user: me } = useAuth()
+  const { user: me, refreshMe } = useAuth()
   const [users, setUsers] = useState<UserRow[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -98,6 +103,7 @@ export default function PortalUsersAdminPanel() {
 
   const [editOpen, setEditOpen] = useState(false)
   const [editRow, setEditRow] = useState<UserRow | null>(null)
+  const [eEmail, setEEmail] = useState('')
   const [eName, setEName] = useState('')
   const [eRole, setERole] = useState('')
   const [eActive, setEActive] = useState(true)
@@ -162,6 +168,7 @@ export default function PortalUsersAdminPanel() {
 
   function openEdit(u: UserRow) {
     setEditRow(u)
+    setEEmail(u.email)
     setEName(u.name)
     setERole(u.role)
     setEActive(u.active)
@@ -172,8 +179,14 @@ export default function PortalUsersAdminPanel() {
 
   async function saveEdit() {
     if (!editRow) return
+    const nextEmail = eEmail.trim().toLowerCase()
+    if (!emailLooksValid(nextEmail)) {
+      setSnack({ open: true, message: 'Informe um e-mail válido.', severity: 'error' })
+      return
+    }
     setEBusy(true)
     const body: Record<string, unknown> = {
+      email: nextEmail,
       name: eName,
       role: eRole,
       active: eActive,
@@ -191,8 +204,10 @@ export default function PortalUsersAdminPanel() {
       return
     }
     setEditOpen(false)
+    const editedId = editRow.id
     setEditRow(null)
     setSnack({ open: true, message: 'Usuário atualizado.', severity: 'success' })
+    if (me?.id === editedId) void refreshMe()
     void loadUsers()
   }
 
@@ -451,7 +466,15 @@ export default function PortalUsersAdminPanel() {
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
           {editRow && (
             <>
-              <TextField label="E-mail" value={editRow.email} fullWidth disabled helperText="O e-mail não pode ser alterado aqui." />
+              <TextField
+                label="E-mail"
+                type="email"
+                value={eEmail}
+                onChange={(e) => setEEmail(e.target.value)}
+                fullWidth
+                autoComplete="off"
+                helperText="Pode alterar o e-mail de qualquer usuário, inclusive administradores."
+              />
               <TextField label="Nome completo" value={eName} onChange={(e) => setEName(e.target.value)} fullWidth />
               <FormControl fullWidth>
                 <InputLabel>Papel</InputLabel>
@@ -500,7 +523,9 @@ export default function PortalUsersAdminPanel() {
           <Button
             variant="contained"
             onClick={() => void saveEdit()}
-            disabled={eBusy || !eName.trim() || (ePass.length > 0 && ePass.length < 8)}
+            disabled={
+              eBusy || !eName.trim() || !emailLooksValid(eEmail) || (ePass.length > 0 && ePass.length < 8)
+            }
           >
             {eBusy ? 'Salvando…' : 'Guardar'}
           </Button>
