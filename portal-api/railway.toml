@@ -1,24 +1,11 @@
-# Portal do colaborador: projeto Railway amusing-flexibility (Postgres + portal-colaborador-api).
+# portal-colaborador-api — Railway com Root Directory = portal-api (este diretório).
+# Build: Dockerfile na mesma pasta. Branch: main.
 #
-# ERRO "Could not find root directory: portal-api" ou "/portal-api" (Git no Railway):
-#   • Root Directory = portal-api  (SEM barra no início; "/portal-api" está errado).
-#   • OU Root Directory vazio + Dockerfile custom: Dockerfile.portal-colaborador-api (na raiz do repo).
-#   • Branch: main (ou outra que tenha a pasta portal-api).
-#
-# Deploy CLI: .\portal-api\deploy-railway.ps1  →  railway up ./portal-api --path-as-root
-#
-# ERRO "Could not find root directory: portal-api":
-# O GitHub do repo tem branch PADRÃO = gh-pages; nesse branch NÃO existe portal-api (só em main).
-# Corrija UMA opção:
-#   A) Railway → serviço portal-colaborador-api → Settings → Source → Branch de deploy = main (Root Directory = portal-api)
-#   B) GitHub → repo Settings → Default branch = main (cuidado se gh-pages for site estático)
-#   C) Desligar Git no serviço e usar só: .\deploy-railway.ps1  OU  GitHub Action (secret RAILWAY_TOKEN_PORTAL)
-#   D) Workflow sync-portal-api-to-gh-pages.yml copia portal-api do main para gh-pages (branch padrão do repo).
+# Se o serviço usar raiz do repo vazio, usa-se Dockerfile.portal-colaborador-api na raiz (ver railway.toml do repo).
 [build]
 builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
-# Health check precisa de 200 em GET / (rota em src/index.ts). Só o path, sem URL completa.
 [deploy]
-healthcheckPath = "/"
+healthcheckPath = "/health"
 restartPolicyType = "ON_FAILURE"

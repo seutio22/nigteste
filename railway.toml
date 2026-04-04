@@ -1,0 +1,14 @@
+# portal-colaborador-api — quando Root Directory no Railway está VAZIO (raiz do repo).
+# Evita Railpack/npm ci na raiz do monorepo. Contexto Docker = raiz do repositório Git.
+#
+# Alternativa recomendada no painel: Root Directory = portal-api (sem / inicial).
+# Nesse caso o Railway usa portal-api/railway.toml + portal-api/Dockerfile e ignora este ficheiro.
+#
+# Branch de deploy: main (Settings → Source).
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile.portal-colaborador-api"
+
+[deploy]
+healthcheckPath = "/health"
+restartPolicyType = "ON_FAILURE"
