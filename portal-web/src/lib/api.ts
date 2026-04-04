@@ -1,5 +1,14 @@
-// Dev: proxy Vite /api → API local. Produção: obrigatório VITE_API_URL = URL da API (Railway), sem sufixo /api.
-const envApi = (import.meta.env.VITE_API_URL as string | undefined)?.trim().replace(/\/$/, '') ?? ''
+// Dev: proxy Vite /api → API local. Produção: VITE_API_URL = URL pública da API (Railway).
+// Muitos 404 vêm de VITE_API_URL com /api no fim — a API não usa prefixo; só o Vite em dev reescreve /api.
+function normalizeApiBase(raw: string | undefined): string {
+  let u = (raw ?? '').trim().replace(/\/+$/, '')
+  if (u.endsWith('/api')) {
+    u = u.slice(0, -4).replace(/\/+$/, '')
+  }
+  return u
+}
+
+const envApi = normalizeApiBase(import.meta.env.VITE_API_URL as string | undefined)
 const base = import.meta.env.DEV ? envApi || '/api' : envApi
 
 if (import.meta.env.PROD && !envApi) {
@@ -47,15 +56,16 @@ export async function api<T>(
       data = null
     }
   }
-  const errObj = data as { error?: string } | null
+  const errObj = data as { error?: string; message?: string } | null
+  const serverMsg = errObj?.error || errObj?.message
   const fallback404 =
-    res.status === 404 && !errObj?.error
-      ? 'Não encontrado (404). Verifique se VITE_API_URL na Vercel aponta para a API Railway e redeploy da API após atualizações.'
+    res.status === 404 && !serverMsg
+      ? 'Não encontrado (404). Confirme VITE_API_URL na Vercel (URL da API Railway **sem** /api no final, ex. https://….up.railway.app). Se a API ainda não tiver as rotas /admin/sla-profiles, faça redeploy da API.'
       : res.statusText
   return {
     ok: res.ok,
     status: res.status,
     data,
-    error: !res.ok ? errObj?.error || fallback404 : undefined,
+    error: !res.ok ? serverMsg || fallback404 : undefined,
   }
 }
