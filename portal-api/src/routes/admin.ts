@@ -91,6 +91,7 @@ export async function registerAdminRoutes(app: FastifyInstance) {
     const params = z.object({ id: z.string().uuid() }).safeParse(req.params)
     if (!params.success) return reply.code(400).send({ error: 'ID inválido' })
     const bodySchema = z.object({
+      email: emailSchema.optional(),
       name: z.string().min(2).max(120).optional(),
       role: roleSchema.optional(),
       active: z.boolean().optional(),
@@ -110,6 +111,7 @@ export async function registerAdminRoutes(app: FastifyInstance) {
       if (!mgr) return reply.code(400).send({ error: 'Gestor inválido' })
     }
     const data: Prisma.PortalUserUpdateInput = {}
+    if (body.email !== undefined) data.email = body.email.toLowerCase()
     if (body.name !== undefined) data.name = body.name
     if (body.role !== undefined) data.role = body.role
     if (body.active !== undefined) data.active = body.active
@@ -118,19 +120,26 @@ export async function registerAdminRoutes(app: FastifyInstance) {
         body.parentManagerId === null ? { disconnect: true } : { connect: { id: body.parentManagerId } }
     }
     if (body.password !== undefined) data.passwordHash = await bcrypt.hash(body.password, 12)
-    const updated = await prisma.portalUser.update({
-      where: { id: params.data.id },
-      data,
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        active: true,
-        parentManagerId: true,
-      },
-    })
-    return reply.send({ user: updated })
+    try {
+      const updated = await prisma.portalUser.update({
+        where: { id: params.data.id },
+        data,
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          active: true,
+          parentManagerId: true,
+        },
+      })
+      return reply.send({ user: updated })
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        return reply.code(409).send({ error: 'E-mail já cadastrado' })
+      }
+      throw e
+    }
   })
 
   app.get('/admin/areas', async (req, reply) => {
