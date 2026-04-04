@@ -95,7 +95,15 @@ model PortalSlaProfile {
   description String?
   sortOrder Int    @default(0)
   active    Boolean @default(true)
-  /// Prazo da fase de triagem (minutos)
+  /// Se true, os prazos abaixo em dias úteis (seg–sex); se false, usa os campos em minutos (calendário)
+  prazoEmDiasUteis Boolean @default(true)
+  /// Prazo da fase de triagem em dias úteis (quando prazoEmDiasUteis)
+  triagemDiasUteis Int @default(1)
+  /// Prazo da fase de atuação em dias úteis
+  atuacaoDiasUteis Int @default(5)
+  /// Dias úteis adicionais após o demandante responder (retorno de pausa)
+  adicionalDiasUteisAposRetorno Int @default(0)
+  /// Prazo da fase de triagem (minutos) — legado / modo calendário
   slaTriagemMinutos Int
   /// Prazo da fase de atuação / análise (minutos)
   slaAtuacaoMinutos Int
@@ -165,6 +173,14 @@ model PortalCase {
   answers          Json?
   /// Referência ao registro criado/atualizado no Nexus (quando integrar)
   nexusRef         String?
+  /// Momento em que a solicitação foi enviada (início do SLA)
+  slaSubmittedAt   DateTime?
+  /// Prazo limite da fase de triagem
+  slaTriagemDueAt  DateTime?
+  /// Prazo limite da fase de atuação (após triagem)
+  slaAtuacaoDueAt  DateTime?
+  /// Início da pausa enquanto aguarda o demandante
+  slaPausedAt      DateTime?
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
 }

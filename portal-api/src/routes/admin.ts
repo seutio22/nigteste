@@ -1,9 +1,10 @@
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import bcrypt from 'bcryptjs'
-import { NexusFieldValueType, Prisma, PortalUserRole } from '@prisma/client'
+import { NexusFieldValueType, PortalSlaProfile, Prisma, PortalUserRole } from '@prisma/client'
 import { prisma } from '../lib/prisma.js'
 import { assertRole, requirePortalUser } from '../lib/authz.js'
+import { slaTotalReference } from '../lib/sla.js'
 
 const emailSchema = z.string().email().max(254)
 const roleSchema = z.nativeEnum(PortalUserRole)
@@ -145,6 +146,10 @@ export async function registerAdminRoutes(app: FastifyInstance) {
                 id: true,
                 name: true,
                 slug: true,
+                prazoEmDiasUteis: true,
+                triagemDiasUteis: true,
+                atuacaoDiasUteis: true,
+                adicionalDiasUteisAposRetorno: true,
                 slaTriagemMinutos: true,
                 slaAtuacaoMinutos: true,
                 minutosAdicionalAposRetornoDemanda: true,
@@ -256,6 +261,10 @@ export async function registerAdminRoutes(app: FastifyInstance) {
               id: true,
               name: true,
               slug: true,
+              prazoEmDiasUteis: true,
+              triagemDiasUteis: true,
+              atuacaoDiasUteis: true,
+              adicionalDiasUteisAposRetorno: true,
               slaTriagemMinutos: true,
               slaAtuacaoMinutos: true,
               minutosAdicionalAposRetornoDemanda: true,
@@ -347,6 +356,10 @@ export async function registerAdminRoutes(app: FastifyInstance) {
               id: true,
               name: true,
               slug: true,
+              prazoEmDiasUteis: true,
+              triagemDiasUteis: true,
+              atuacaoDiasUteis: true,
+              adicionalDiasUteisAposRetorno: true,
               slaTriagemMinutos: true,
               slaAtuacaoMinutos: true,
               minutosAdicionalAposRetornoDemanda: true,
@@ -500,16 +513,22 @@ export async function registerAdminRoutes(app: FastifyInstance) {
     return p.slaTriagemMinutos + p.slaAtuacaoMinutos + p.minutosAdicionalAposRetornoDemanda
   }
 
+  function enrichSlaProfile(p: PortalSlaProfile) {
+    const ref = slaTotalReference(p)
+    return {
+      ...p,
+      slaTotalReferencia: ref,
+      slaTotalMinutos: slaTotalMinutes(p),
+    }
+  }
+
   app.get('/admin/sla-profiles', async (req, reply) => {
     if (!(await requireAdmin(req, reply))) return
     const list = await prisma.portalSlaProfile.findMany({
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     })
     return reply.send({
-      profiles: list.map((p) => ({
-        ...p,
-        slaTotalMinutos: slaTotalMinutes(p),
-      })),
+      profiles: list.map((p) => enrichSlaProfile(p)),
     })
   })
 
@@ -521,6 +540,10 @@ export async function registerAdminRoutes(app: FastifyInstance) {
       description: z.string().max(500).nullable().optional(),
       sortOrder: z.number().int().optional(),
       active: z.boolean().optional(),
+      prazoEmDiasUteis: z.boolean().optional(),
+      triagemDiasUteis: z.number().int().min(0).max(3650).optional(),
+      atuacaoDiasUteis: z.number().int().min(0).max(3650).optional(),
+      adicionalDiasUteisAposRetorno: z.number().int().min(0).max(3650).optional(),
       slaTriagemMinutos: z.number().int().min(0).max(1_000_000),
       slaAtuacaoMinutos: z.number().int().min(0).max(1_000_000),
       minutosAdicionalAposRetornoDemanda: z.number().int().min(0).max(1_000_000).optional(),
@@ -540,13 +563,17 @@ export async function registerAdminRoutes(app: FastifyInstance) {
           description: body.description ?? null,
           sortOrder: body.sortOrder ?? 0,
           active: body.active ?? true,
+          prazoEmDiasUteis: body.prazoEmDiasUteis ?? true,
+          triagemDiasUteis: body.triagemDiasUteis ?? 1,
+          atuacaoDiasUteis: body.atuacaoDiasUteis ?? 5,
+          adicionalDiasUteisAposRetorno: body.adicionalDiasUteisAposRetorno ?? 0,
           slaTriagemMinutos: body.slaTriagemMinutos,
           slaAtuacaoMinutos: body.slaAtuacaoMinutos,
           minutosAdicionalAposRetornoDemanda: body.minutosAdicionalAposRetornoDemanda ?? 0,
           pausarQuandoAguardandoDemanda: body.pausarQuandoAguardandoDemanda ?? true,
         },
       })
-      return reply.code(201).send({ profile: { ...row, slaTotalMinutos: slaTotalMinutes(row) } })
+      return reply.code(201).send({ profile: enrichSlaProfile(row) })
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
         return reply.code(409).send({ error: 'Slug já existe' })
@@ -565,6 +592,10 @@ export async function registerAdminRoutes(app: FastifyInstance) {
       description: z.string().max(500).nullable().optional(),
       sortOrder: z.number().int().optional(),
       active: z.boolean().optional(),
+      prazoEmDiasUteis: z.boolean().optional(),
+      triagemDiasUteis: z.number().int().min(0).max(3650).optional(),
+      atuacaoDiasUteis: z.number().int().min(0).max(3650).optional(),
+      adicionalDiasUteisAposRetorno: z.number().int().min(0).max(3650).optional(),
       slaTriagemMinutos: z.number().int().min(0).max(1_000_000).optional(),
       slaAtuacaoMinutos: z.number().int().min(0).max(1_000_000).optional(),
       minutosAdicionalAposRetornoDemanda: z.number().int().min(0).max(1_000_000).optional(),
@@ -581,7 +612,7 @@ export async function registerAdminRoutes(app: FastifyInstance) {
         where: { id: params.data.id },
         data: body,
       })
-      return reply.send({ profile: { ...row, slaTotalMinutos: slaTotalMinutes(row) } })
+      return reply.send({ profile: enrichSlaProfile(row) })
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
         return reply.code(409).send({ error: 'Slug já existe' })

@@ -29,7 +29,7 @@ type CaseRow = {
   title: string | null
   updatedAt: string
   area: { name: string; slug: string } | null
-  requestType: { name: string; slug: string } | null
+  requestType: { name: string; slug: string; slaProfile: { name: string } | null } | null
   assignee: { name: string; email: string } | null
 }
 
@@ -87,17 +87,18 @@ export default function CasesListPage() {
               <TableCell>Fila</TableCell>
               <TableCell>Responsável</TableCell>
               <TableCell>Atualizado</TableCell>
+              <TableCell>SLA</TableCell>
               <TableCell>Status</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={8}>Carregando…</TableCell>
+                <TableCell colSpan={9}>Carregando…</TableCell>
               </TableRow>
             ) : filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8}>
+                <TableCell colSpan={9}>
                   <Typography color="text.secondary">Nenhuma solicitação neste filtro.</Typography>
                 </TableCell>
               </TableRow>
@@ -118,6 +119,21 @@ export default function CasesListPage() {
                   <TableCell>{c.queueLabel?.trim() || '—'}</TableCell>
                   <TableCell>{c.assignee?.name || '—'}</TableCell>
                   <TableCell>{new Date(c.updatedAt).toLocaleString('pt-BR')}</TableCell>
+                  <TableCell>
+                    {c.requestType?.slaProfile ? (
+                      <Chip
+                        size="small"
+                        color="info"
+                        variant="outlined"
+                        label={c.requestType.slaProfile.name}
+                        title="Prazos no detalhe da solicitação"
+                      />
+                    ) : (
+                      <Typography variant="caption" color="text.secondary">
+                        —
+                      </Typography>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <Chip size="small" label={CASE_STATUS_LABEL[c.status] || c.status} />
                   </TableCell>

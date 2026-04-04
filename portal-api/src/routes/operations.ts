@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { PortalCasePriority, PortalCaseStatus, PortalUserRole, Prisma } from '@prisma/client'
 import { prisma } from '../lib/prisma.js'
 import { assertRole, requirePortalUser } from '../lib/authz.js'
+import { atuacaoDueFrom, resumeAtuacaoDue } from '../lib/sla.js'
 
 const opRoles = [PortalUserRole.PORTAL_OPERATOR, PortalUserRole.PORTAL_ADMIN]
 
@@ -87,6 +88,15 @@ export async function registerOperationsRoutes(app: FastifyInstance) {
       if (!assignee) return reply.code(400).send({ error: 'Responsável deve ser operador ou admin' })
     }
 
+    const existing = await prisma.portalCase.findUnique({
+      where: { id: params.data.id },
+      include: { requestType: { include: { slaProfile: true } } },
+    })
+    if (!existing) return reply.code(404).send({ error: 'Caso não encontrado' })
+
+    const now = new Date()
+    const p = existing.requestType?.slaProfile
+
     const data: Prisma.PortalCaseUpdateInput = {}
     if (body.assignedToUserId !== undefined) {
       data.assignee =
@@ -94,7 +104,32 @@ export async function registerOperationsRoutes(app: FastifyInstance) {
     }
     if (body.priority !== undefined) data.priority = body.priority
     if (body.queueLabel !== undefined) data.queueLabel = body.queueLabel
-    if (body.status !== undefined) data.status = body.status
+
+    if (body.status !== undefined) {
+      data.status = body.status
+      if (p && body.status !== existing.status) {
+        if (body.status === PortalCaseStatus.AWAITING_REQUESTER && p.pausarQuandoAguardandoDemanda) {
+          data.slaPausedAt = now
+        }
+        if (body.status === PortalCaseStatus.IN_ANALYSIS) {
+          if (existing.status === PortalCaseStatus.AWAITING_REQUESTER && p.pausarQuandoAguardandoDemanda) {
+            data.slaPausedAt = null
+            data.slaAtuacaoDueAt = resumeAtuacaoDue(now, p)
+          } else if (
+            existing.status === PortalCaseStatus.SUBMITTED ||
+            existing.status === PortalCaseStatus.IN_TRIAGE
+          ) {
+            data.slaAtuacaoDueAt = atuacaoDueFrom(now, p)
+          }
+        }
+      }
+      if (
+        body.status !== PortalCaseStatus.AWAITING_REQUESTER &&
+        existing.slaPausedAt
+      ) {
+        data.slaPausedAt = null
+      }
+    }
 
     try {
       const c = await prisma.portalCase.update({

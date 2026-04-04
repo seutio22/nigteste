@@ -4,6 +4,7 @@ import { Prisma, PortalCaseStatus, PortalUserRole } from '@prisma/client'
 import { prisma } from '../lib/prisma.js'
 import { requirePortalUser } from '../lib/authz.js'
 import { generateProtocol } from '../lib/protocol.js'
+import { buildSlaEtapas, triagemDueFrom } from '../lib/sla.js'
 
 async function canViewCase(
   userId: string,
@@ -39,8 +40,27 @@ export async function registerCaseRoutes(app: FastifyInstance) {
         title: true,
         createdAt: true,
         updatedAt: true,
+        slaTriagemDueAt: true,
+        slaAtuacaoDueAt: true,
+        slaPausedAt: true,
         area: { select: { id: true, name: true, slug: true } },
-        requestType: { select: { id: true, name: true, slug: true, formSchema: true } },
+        requestType: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            formSchema: true,
+            slaProfile: {
+              select: {
+                id: true,
+                name: true,
+                prazoEmDiasUteis: true,
+                triagemDiasUteis: true,
+                atuacaoDiasUteis: true,
+              },
+            },
+          },
+        },
         assignee: { select: { id: true, name: true, email: true } },
       },
     })
@@ -81,16 +101,41 @@ export async function registerCaseRoutes(app: FastifyInstance) {
         answers: answersJson,
         status,
       },
+    })
+
+    if (status === PortalCaseStatus.SUBMITTED && body.requestTypeId) {
+      const rt = await prisma.portalRequestType.findUnique({
+        where: { id: body.requestTypeId },
+        include: { slaProfile: true },
+      })
+      if (rt?.slaProfile) {
+        const now = new Date()
+        await prisma.portalCase.update({
+          where: { id: created.id },
+          data: {
+            slaSubmittedAt: now,
+            slaTriagemDueAt: triagemDueFrom(now, rt.slaProfile),
+          },
+        })
+      }
+    }
+
+    const out = await prisma.portalCase.findUniqueOrThrow({
+      where: { id: created.id },
       select: {
         id: true,
         protocol: true,
         status: true,
         title: true,
         createdAt: true,
+        slaSubmittedAt: true,
+        slaTriagemDueAt: true,
+        slaAtuacaoDueAt: true,
+        slaPausedAt: true,
       },
     })
 
-    return reply.code(201).send({ case: created })
+    return reply.code(201).send({ case: out })
   })
 
   app.get('/cases/:id', async (req, reply) => {
@@ -104,7 +149,15 @@ export async function registerCaseRoutes(app: FastifyInstance) {
       where: { id: params.data.id },
       include: {
         area: { select: { id: true, name: true, slug: true } },
-        requestType: { select: { id: true, name: true, slug: true, formSchema: true } },
+        requestType: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            formSchema: true,
+            slaProfile: true,
+          },
+        },
         user: { select: { id: true, name: true, email: true } },
         assignee: { select: { id: true, name: true, email: true } },
       },
@@ -114,6 +167,14 @@ export async function registerCaseRoutes(app: FastifyInstance) {
     const allowed = await canViewCase(u.id, u.role, c.portalUserId)
     if (!allowed) return reply.code(403).send({ error: 'Sem permissão' })
 
-    return reply.send({ case: c })
+    const profile = c.requestType?.slaProfile ?? null
+    const sla = buildSlaEtapas(c, profile)
+
+    return reply.send({
+      case: {
+        ...c,
+        sla,
+      },
+    })
   })
 }
