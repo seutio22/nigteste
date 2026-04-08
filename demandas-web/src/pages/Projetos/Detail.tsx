@@ -91,6 +91,7 @@ import { useProjectStore } from '../../store/projectStore'
 import { useAuthStore } from '../../store/authStore'
 import { useMasterDataStore } from '../../store/masterDataStore'
 import { formatIntegerPtBR } from '../../utils/formatNumber'
+import { getUserDepartmentDisplay } from '../../utils/userDepartmentDisplay'
 // Removido dados mockados - usar apenas dados reais do banco
 /* const mockProject = {
   id: 'proj-001',
@@ -4358,8 +4359,21 @@ export default function ProjectDetailPage() {
                         </Avatar>
                       </ListItemIcon>
                       <ListItemText
-                        primary={getUserName(member.user?.name) || 'Nome não informado'}
-                        secondary={`${member.role} • ${getUserName(member.user?.email) || 'Email não informado'}`}
+                        primary={
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                            <Typography variant="body1" fontWeight={600}>
+                              {getUserName(member.user?.name) || 'Nome não informado'}
+                            </Typography>
+                            <Chip label={member.role} size="small" color="primary" />
+                            <Chip
+                              label={getUserDepartmentDisplay(member.user, areasById)}
+                              size="small"
+                              variant="outlined"
+                              color="secondary"
+                            />
+                          </Box>
+                        }
+                        secondary={getUserName(member.user?.email) || 'Email não informado'}
                       />
                       <Chip
                         label={member.isActive ? "Ativo" : "Inativo"}
@@ -4428,7 +4442,7 @@ export default function ProjectDetailPage() {
   )
   const [departmentFilter, setDepartmentFilter] = React.useState<string>('')
   const [editDepartmentFor, setEditDepartmentFor] = React.useState<string | null>(null)
-  const { areas, syncFromApi: syncMasterData } = useMasterDataStore()
+  const { areas, areasById, syncFromApi: syncMasterData } = useMasterDataStore()
 
   React.useEffect(() => {
     if (activeTab === 6 && areas.length === 0 && syncMasterData) {

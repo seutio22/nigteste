@@ -57,7 +57,9 @@ export default async function projectTeamRoutes(fastify: FastifyInstance, option
               id: true,
               name: true,
               email: true,
-              role: true
+              role: true,
+              departmentId: true,
+              department: { select: { id: true, nome: true } }
             }
           }
         }
@@ -122,7 +124,9 @@ export default async function projectTeamRoutes(fastify: FastifyInstance, option
               id: true,
               name: true,
               email: true,
-              role: true
+              role: true,
+              departmentId: true,
+              department: { select: { id: true, nome: true } }
             }
           }
         },
@@ -167,7 +171,9 @@ export default async function projectTeamRoutes(fastify: FastifyInstance, option
               id: true,
               name: true,
               email: true,
-              role: true
+              role: true,
+              departmentId: true,
+              department: { select: { id: true, nome: true } }
             }
           }
         }
@@ -261,7 +267,9 @@ export default async function projectTeamRoutes(fastify: FastifyInstance, option
           id: true,
           name: true,
           email: true,
-          role: true
+          role: true,
+          departmentId: true,
+          department: { select: { id: true, nome: true } }
         },
         orderBy: { name: 'asc' }
       })

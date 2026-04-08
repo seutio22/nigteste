@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react'
+import { useMasterDataStore } from '../store/masterDataStore'
+import { getUserDepartmentDisplay } from '../utils/userDepartmentDisplay'
 import {
   Box,
   Paper,
@@ -56,6 +58,8 @@ interface ProjectMember {
     name: string
     email: string
     role: string
+    departmentId?: string | null
+    department?: { id: string; nome: string } | null
   }
 }
 
@@ -77,6 +81,7 @@ interface ProjectTeamManagerProps {
 }
 
 export default function ProjectTeamManager({ projectId, readOnly = false }: ProjectTeamManagerProps) {
+  const areasById = useMasterDataStore((s) => s.areasById)
   const [activeTab, setActiveTab] = useState(0)
   const [members, setMembers] = useState<ProjectMember[]>([])
   const [externalMembers, setExternalMembers] = useState<ProjectExternalMember[]>([])
@@ -241,10 +246,10 @@ export default function ProjectTeamManager({ projectId, readOnly = false }: Proj
                       {member.user.name}
                     </Typography>
                     <Chip label={member.role} size="small" color="primary" />
-                    <Chip 
-                      label={member.user.role} 
-                      size="small" 
-                      variant="outlined" 
+                    <Chip
+                      label={getUserDepartmentDisplay(member.user, areasById)}
+                      size="small"
+                      variant="outlined"
                       color="secondary"
                     />
                   </Box>
@@ -412,7 +417,7 @@ export default function ProjectTeamManager({ projectId, readOnly = false }: Proj
                           {user.name}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          {user.email} • {user.role}
+                          {user.email} • {getUserDepartmentDisplay(user, areasById)}
                         </Typography>
                       </Box>
                     </MenuItem>
