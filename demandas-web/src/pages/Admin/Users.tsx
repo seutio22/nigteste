@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   Typography,
   Box,
@@ -51,6 +51,7 @@ import DeletionHistoryTab from '../../components/DeletionHistoryTab'
 import { SystemPermissions } from '../../types/permissions'
 import { getInitialPermissions } from '../../utils/defaultPermissions'
 import { formatIntegerPtBR } from '../../utils/formatNumber'
+import { getUserDepartmentDisplay, getUserRoleCaption } from '../../utils/userDepartmentDisplay'
 
 interface User {
   id: string
@@ -63,6 +64,8 @@ interface User {
   passwordUpdatedAt?: string | null
   /** Último login bem-sucedido (API) */
   lastLogin?: string | null
+  departmentId?: string | null
+  department?: { id: string; nome: string } | null
 }
 
 export default function UsersPage() {
@@ -81,10 +84,35 @@ export default function UsersPage() {
     email: '',
     password: '',
     role: 'analista',
-    active: true
+    active: true,
+    departmentId: '' as string
   })
+  const [areas, setAreas] = useState<{ id: string; nome: string }[]>([])
+
+  /** Mapa das áreas carregadas nesta página — o chip não usa masterDataStore (pode estar vazio). */
+  const areasById = useMemo(() => {
+    const m: Record<string, { id: string; nome: string }> = {}
+    for (const a of areas) m[a.id] = a
+    return m
+  }, [areas])
 
   const { token } = useAuthStore()
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const { api } = await import('../../lib/api.local')
+        const list = await api.getAreas()
+        if (!cancelled && Array.isArray(list)) setAreas(list)
+      } catch {
+        /* ignore */
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   // Carregar usuários da API
   const loadUsers = useCallback(async () => {
@@ -139,7 +167,8 @@ export default function UsersPage() {
         email: user.email,
         password: '',
         role: user.role,
-        active: user.active
+        active: user.active,
+        departmentId: user.departmentId || ''
       })
     } else {
       setEditingUser(null)
@@ -148,7 +177,8 @@ export default function UsersPage() {
         email: '',
         password: '',
         role: 'analista',
-        active: true
+        active: true,
+        departmentId: ''
       })
     }
     setOpenDialog(true)
@@ -163,7 +193,8 @@ export default function UsersPage() {
       email: '',
       password: '',
       role: 'analista',
-      active: true
+      active: true,
+      departmentId: ''
     })
   }, [])
 
@@ -175,10 +206,15 @@ export default function UsersPage() {
         return
       }
 
-      const userData: any = { ...form }
-      if (editingUser && !form.password) {
-        delete userData.password
+      const departmentId = form.departmentId?.trim() ? form.departmentId.trim() : null
+      const userData: Record<string, unknown> = {
+        name: form.name,
+        email: form.email,
+        role: form.role,
+        active: form.active,
+        departmentId
       }
+      if (form.password) userData.password = form.password
 
       // 🎯 CRIAR PERMISSÕES INICIAIS baseadas no role (apenas para novos usuários)
       if (!editingUser) {
@@ -339,17 +375,6 @@ export default function UsersPage() {
     }
   }
 
-  // Obter label do role
-  const getRoleLabel = (role: string) => {
-    switch (role) {
-      case 'admin': return 'Administrador'
-      case 'gerente': return 'Gerente'
-      case 'analista': return 'Analista'
-      case 'solicitante': return 'Solicitante'
-      default: return role
-    }
-  }
-
   // Controlar mudança de abas
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue)
@@ -444,11 +469,14 @@ export default function UsersPage() {
                   </Typography>
                   
                   <Chip
-                    label={getRoleLabel(user.role)}
+                    label={getUserDepartmentDisplay(user, areasById)}
                     color={getRoleColor(user.role) as any}
                     size="small"
-                    sx={{ mb: 2 }}
+                    sx={{ mb: 0.5 }}
                   />
+                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 2 }}>
+                    Perfil de acesso: {getUserRoleCaption(user)}
+                  </Typography>
                   
                   <Typography variant="caption" color="text.secondary" display="block">
                     Criado em: {new Date(user.createdAt).toLocaleDateString('pt-BR')}
@@ -556,6 +584,24 @@ export default function UsersPage() {
                 <MenuItem value="gerente">Gerente</MenuItem>
                 <MenuItem value="analista">Analista</MenuItem>
                 <MenuItem value="solicitante">Solicitante</MenuItem>
+              </Select>
+            </FormControl>
+
+            <FormControl fullWidth>
+              <InputLabel>Departamento (área)</InputLabel>
+              <Select
+                value={form.departmentId}
+                label="Departamento (área)"
+                onChange={(e) => setForm((prev) => ({ ...prev, departmentId: e.target.value }))}
+              >
+                <MenuItem value="">
+                  <em>Nenhum — usar só o perfil acima</em>
+                </MenuItem>
+                {areas.map((a) => (
+                  <MenuItem key={a.id} value={a.id}>
+                    {a.nome}
+                  </MenuItem>
+                ))}
               </Select>
             </FormControl>
             

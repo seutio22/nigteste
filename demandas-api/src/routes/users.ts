@@ -10,6 +10,11 @@ export async function userRoutes(app: FastifyInstance, options: { prisma: Prisma
   const requirePermissionOrSelf = createRequirePermissionOrSelf(prisma)
 
   // Schema de validação para usuários
+  const optionalDeptId = z.preprocess(
+    (val) => (val === '' || val === undefined ? null : val),
+    z.union([z.string().min(1, 'ID de área inválido'), z.null()]).optional()
+  )
+
   const userCreateSchema = z.object({
     name: z.string().min(1, 'Nome é obrigatório'),
     email: z.string().email('E-mail inválido'),
@@ -17,6 +22,8 @@ export async function userRoutes(app: FastifyInstance, options: { prisma: Prisma
     role: z.enum(['admin', 'gerente', 'analista', 'solicitante', 'viewer']).default('analista'),
     active: z.boolean().default(true),
     viewOwnDataOnly: z.boolean().default(false),
+    /** Área/departamento (tabela Area em Dados) */
+    departmentId: optionalDeptId,
     permissions: z.string().optional() // JSON string com permissões
   })
 
@@ -27,6 +34,7 @@ export async function userRoutes(app: FastifyInstance, options: { prisma: Prisma
     role: z.enum(['admin', 'gerente', 'analista', 'solicitante', 'viewer']).optional(),
     active: z.boolean().optional(),
     viewOwnDataOnly: z.boolean().optional(),
+    departmentId: optionalDeptId,
     permissions: z.string().optional()
   })
 
@@ -145,6 +153,8 @@ export async function userRoutes(app: FastifyInstance, options: { prisma: Prisma
           active: true,
           viewOwnDataOnly: true,
           permissions: true,
+          departmentId: true,
+          department: { select: { id: true, nome: true } },
           lastLogin: true,
           passwordUpdatedAt: true,
           createdAt: true,
@@ -175,6 +185,8 @@ export async function userRoutes(app: FastifyInstance, options: { prisma: Prisma
           active: true,
           viewOwnDataOnly: true,
           permissions: true,
+          departmentId: true,
+          department: { select: { id: true, nome: true } },
           lastLogin: true,
           passwordUpdatedAt: true,
           createdAt: true,
@@ -225,6 +237,8 @@ export async function userRoutes(app: FastifyInstance, options: { prisma: Prisma
           role: userData.role,
           active: userData.active,
           viewOwnDataOnly: userData.viewOwnDataOnly,
+          departmentId:
+            userData.departmentId === undefined ? undefined : userData.departmentId,
           permissions: permissions
         },
         select: {
@@ -235,6 +249,8 @@ export async function userRoutes(app: FastifyInstance, options: { prisma: Prisma
           active: true,
           viewOwnDataOnly: true,
           permissions: true,
+          departmentId: true,
+          department: { select: { id: true, nome: true } },
           createdAt: true
         }
       })
@@ -277,26 +293,27 @@ export async function userRoutes(app: FastifyInstance, options: { prisma: Prisma
         }
       }
       
-      // Hash da senha se fornecida
-      let hashedPassword = undefined
-      if (updateData.password) {
-        hashedPassword = await bcrypt.hash(updateData.password, 10)
+      // Hash da senha se fornecida (não repassar texto puro no spread para o Prisma)
+      const { password: plainPassword, ...fieldsWithoutPassword } = updateData
+      let hashedPassword: string | undefined
+      if (plainPassword) {
+        hashedPassword = await bcrypt.hash(plainPassword, 10)
       }
-      
+
       // Se o role foi alterado e não foram fornecidas permissões específicas, atualizar permissões
       let permissionsToUpdate = updateData.permissions
       if (updateData.role && updateData.role !== existingUser.role && !updateData.permissions) {
         permissionsToUpdate = JSON.stringify(getDefaultPermissions(updateData.role))
         console.log(`🔄 Atualizando permissões do usuário ${existingUser.name} para role ${updateData.role}`)
       }
-      
+
       // Atualizar usuário
       const updated = await prisma.user.update({
         where: { id },
         data: {
-          ...updateData,
-          password: hashedPassword,
-          passwordUpdatedAt: updateData.password ? new Date() : undefined,
+          ...fieldsWithoutPassword,
+          ...(hashedPassword !== undefined && { password: hashedPassword }),
+          passwordUpdatedAt: plainPassword ? new Date() : undefined,
           permissions: permissionsToUpdate,
           updatedAt: new Date()
         },
@@ -308,6 +325,8 @@ export async function userRoutes(app: FastifyInstance, options: { prisma: Prisma
           active: true,
           viewOwnDataOnly: true,
           permissions: true,
+          departmentId: true,
+          department: { select: { id: true, nome: true } },
           updatedAt: true
         }
       })

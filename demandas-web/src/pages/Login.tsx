@@ -67,11 +67,17 @@ export default function LoginPage() {
           }
         }
         
-        // 4. Atualizar o authStore com as permissões do banco
+        // 4. Atualizar o authStore com permissões e vínculo de departamento (GET /users/:id é a fonte de verdade)
           useAuthStore.getState().setAuth(data.token, {
             ...data.user,
             permissions: permissions,
-            passwordUpdatedAt: userData.passwordUpdatedAt
+            passwordUpdatedAt: userData.passwordUpdatedAt ?? data.user.passwordUpdatedAt,
+            departmentId:
+              userData.departmentId !== undefined && userData.departmentId !== null
+                ? userData.departmentId
+                : data.user.departmentId,
+            department:
+              userData.department !== undefined ? userData.department : data.user.department
           })
         
         console.log('✅ AuthStore atualizado com permissões do banco de dados')

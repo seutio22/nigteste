@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState, memo, useCallback, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
+import { useMasterDataStore } from '../store/masterDataStore'
 import { useDemandStore } from '../store/demandStore'
 import { useAtendimentoStore } from '../store/atendimentoStore'
 import { useValidationStore } from '../store/validationStore'
@@ -45,6 +46,7 @@ import { getUserPermissions, checkPermission } from '../utils/defaultPermissions
 import type { SystemPermissions, ModulePermission } from '../types/permissions'
 import type { Project } from '../types/project'
 import type { MaillingContact } from '../types/mailling'
+import { getUserDepartmentDisplay } from '../utils/userDepartmentDisplay'
 
 const normalizeTextHome = (value?: string) => (value || '').trim().toLowerCase()
 
@@ -76,6 +78,7 @@ export default function HomePage() {
   const navigate = useNavigate()
   const location = useLocation()
   const { user } = useAuthStore()
+  const areasById = useMasterDataStore((s) => s.areasById)
   const demandStore = useDemandStore()
   const atendimentoStore = useAtendimentoStore()
   const validationStore = useValidationStore()
@@ -843,7 +846,7 @@ export default function HomePage() {
                 {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
               </p>
               <span className="inline-block mt-2 bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full text-sm font-medium">
-                {user?.role || 'Usuário'}
+                {getUserDepartmentDisplay(user ?? undefined, areasById)}
               </span>
             </div>
           </div>

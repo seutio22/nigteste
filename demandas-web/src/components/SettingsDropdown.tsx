@@ -2,10 +2,12 @@ import React, { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Settings, X, User, Palette, Bell, Moon, Sun, Globe, LogOut, Check, Eye, EyeOff, RefreshCw, Save } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
+import { useMasterDataStore } from '../store/masterDataStore'
 import { useNotificationStore } from '../store/notificationStore'
 import { useKanbanStore } from '../store/kanbanStore'
 import { api } from '../lib/api.local'
 import { applyThemeMode, getStoredTheme, THEME_CHANGE_EVENT, type ThemeMode } from '../lib/themeMode'
+import { getUserDepartmentDisplay } from '../utils/userDepartmentDisplay'
 
 export function SettingsDropdown() {
   const [isOpen, setIsOpen] = useState(false)
@@ -38,6 +40,7 @@ export function SettingsDropdown() {
   
   const dropdownRef = useRef<HTMLDivElement>(null)
   const { user, logout: clearAuth, setAuth, updateUserPhoto } = useAuthStore()
+  const areasById = useMasterDataStore((s) => s.areasById)
   const { clear: clearNotifications } = useNotificationStore()
   
   const formattedPasswordUpdatedAt = React.useMemo(() => {
@@ -452,8 +455,8 @@ export function SettingsDropdown() {
                   {formattedPasswordUpdatedAt || 'Não informado'}
                 </span>
               </p>
-              <span className="inline-block px-3 py-1 bg-primary-900/90 text-white text-xs font-medium rounded-full capitalize">
-                {user?.role || 'user'}
+              <span className="inline-block px-3 py-1 bg-primary-900/90 text-white text-xs font-medium rounded-full">
+                {getUserDepartmentDisplay(user ?? undefined, areasById)}
               </span>
             </div>
 

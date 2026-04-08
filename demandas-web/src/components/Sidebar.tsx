@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSidebar } from '../contexts/SidebarContext'
 import { useAuthStore } from '../store/authStore'
+import { useMasterDataStore } from '../store/masterDataStore'
 import { getUserPermissions, checkPermission } from '../utils/defaultPermissions'
+import { getUserDepartmentDisplay } from '../utils/userDepartmentDisplay'
 import {
   Home,
   FileText,
@@ -105,6 +107,7 @@ function filterByPermission(items: MenuLink[], user: { permissions?: string | nu
 export function Sidebar() {
   const { isCollapsed, toggleSidebar, isMobile } = useSidebar()
   const { user } = useAuthStore()
+  const areasById = useMasterDataStore((s) => s.areasById)
   const { pathname } = useLocation()
   /** NIG e Administrativo começam fechados; o usuário clica no título para expandir o submenu */
   const [nigOpen, setNigOpen] = useState(false)
@@ -355,7 +358,7 @@ export function Sidebar() {
                 </div>
                 <div>
                   <p className="text-sm font-medium">{user?.name || 'Usuário'}</p>
-                  <p className="text-xs text-white/60">{user?.role || 'Usuário'}</p>
+                  <p className="text-xs text-white/60">{getUserDepartmentDisplay(user ?? undefined, areasById)}</p>
                 </div>
               </div>
             </motion.div>

@@ -16,6 +16,9 @@ interface User {
   passwordUpdatedAt?: string
   /** Quando true, listagens e dashboard devem restringir ao analista vinculado ao usuário. */
   viewOwnDataOnly?: boolean
+  /** Área/departamento (Dados → Áreas). */
+  departmentId?: string | null
+  department?: { id: string; nome: string } | null
 }
 
 interface AuthState {
@@ -147,7 +150,7 @@ export const useAuthStore = create<AuthState>()(
     }),
     { 
       name: 'auth-store',
-      version: 9, // Incrementado para aplicar nova lógica de expiração
+      version: 10, // Inclui departmentId/department no user persistido
       partialize: (state) => ({ 
         token: state.token, 
         user: state.user,
