@@ -126,6 +126,7 @@ export default function UsersPage() {
         return
       }
 
+      setLoading(true)
       const response = await fetch(`https://nigteste-production.up.railway.app/users`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -149,14 +150,14 @@ export default function UsersPage() {
     }
   }, [token])
 
-  // Carregar usuários ao montar componente
+  // Recarregar quando o token existir (persist do Zustand pode hidratar depois do 1.º render)
   useEffect(() => {
-    console.log('🔍 useEffect: Componente montado, carregando usuários...')
-    // Só carregar se não tiver usuários carregados
-    if (users.length === 0) {
-      loadUsers()
+    if (!token) {
+      setLoading(false)
+      return
     }
-  }, []) // Remover loadUsers das dependências para evitar loops
+    loadUsers()
+  }, [token, loadUsers])
 
   // Abrir dialog para criar/editar usuário
   const handleOpenDialog = useCallback((user?: User) => {
