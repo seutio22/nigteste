@@ -26,12 +26,14 @@ export interface Demand {
   sistemaId?: string // id do Sistema
   dataInicio?: string // ISO date
   dataFinal?: string // ISO date
-  periodicidade?: string
+  qtdUsuarios?: string
   qtdRetornos?: number
   qualidade?: string
   qtdClientesVinculados?: number  // QTD CLIENTES VINCULADOS - EDGE
   usuariosEmpresa?: number        // USUÁRIOS EMPRESA - MOVE
   observacoes?: string
+  /** Opcional — enviado na criação quando a API exige vínculo com o usuário */
+  userId?: string
   createdAt: string
   updatedAt: string
 }

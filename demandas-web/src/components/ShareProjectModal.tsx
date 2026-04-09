@@ -304,7 +304,6 @@ const ShareProjectModal: React.FC<ShareProjectModalProps> = ({
             onClick={handleCreateShare}
             disabled={creating || !newShare.name}
             fullWidth
-            label={creating ? 'Criando...' : 'Criar link de compartilhamento'}
           >
             {creating ? 'Criando...' : 'Criar link de compartilhamento'}
           </PrimaryActionButton>

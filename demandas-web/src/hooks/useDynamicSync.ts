@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useMasterDataStore } from '../store/masterDataStore'
+import type { MasterDataState } from '../store/masterDataStore'
 import { useAuthStore } from '../store/authStore'
 
 // Configuração de sincronização por rota
@@ -94,7 +95,7 @@ export function useDynamicSync() {
     
     // Executar sincronização
     isSyncingRef.current = true
-    syncFromApi({ entities: config.entities }).then(() => {
+    syncFromApi({ entities: config.entities as (keyof MasterDataState)[] }).then(() => {
       syncCache.set(currentPath, { timestamp: now, entities: config.entities })
     }).finally(() => {
       isSyncingRef.current = false

@@ -97,7 +97,7 @@ export function NotificationDropdown() {
     const alertaId = notification.dados?.alertaId
     if (alertaId) {
       try {
-        await getApi().post(`/user-alerts/${alertaId}/view`)
+        await getApi().post(`/user-alerts/${alertaId}/view`, {})
       } catch {}
     }
     

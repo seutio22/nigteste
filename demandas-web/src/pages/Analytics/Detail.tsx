@@ -150,10 +150,10 @@ export default function AnalyticsDetailPage() {
                   <p className="text-sm text-apoio-400">Contrato</p>
                   <p className="font-medium">
                     {report.contrato ? 
-                      (md.contratos.find(c => c.id === report.contrato)?.nome || 
-                       md.contratos.find(c => c.id === report.contrato)?.codigo || 
-                       md.contratos.find(c => c.id === report.contrato)?.numero || 
-                       report.contrato) : 
+                      (() => {
+                        const ct = md.contratos.find(c => c.id === report.contrato)
+                        return ct?.codigo || ct?.numero || report.contrato
+                      })() : 
                       '-'}
                   </p>
                 </div>
@@ -407,7 +407,7 @@ function EditInline({ report }: { report: any }) {
             return md.clientes.find(c => c.id === id)?.nome || id
           case 'contrato':
             const contrato = md.contratos.find(c => c.id === id)
-            return contrato?.codigo || contrato?.numero || contrato?.nome || id
+            return contrato?.codigo || contrato?.numero || id
           case 'area':
             return md.areas.find(a => a.id === id)?.nome || id
           case 'solicitante':
@@ -595,9 +595,8 @@ function EditInline({ report }: { report: any }) {
               // Se draft.contrato é nome/código, converter para ID para o select
               if (draft.contrato && !draft.contrato.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
                 const contratoEncontrado = md.contratos.find(c => 
-                  (c as any).codigo === draft.contrato || 
-                  (c as any).numero === draft.contrato ||
-                  c.nome === draft.contrato
+                  c.codigo === draft.contrato || 
+                  c.numero === draft.contrato
                 )
                 return contratoEncontrado?.id || ''
               }
@@ -615,7 +614,7 @@ function EditInline({ report }: { report: any }) {
             {contratosDoCliente.length > 0 ? (
               contratosDoCliente.map(ct => (
                 <option key={ct.id} value={ct.id}>
-                  {(ct as any).codigo || (ct as any).numero || ct.nome}
+                  {ct.codigo || ct.numero}
                 </option>
               ))
             ) : (

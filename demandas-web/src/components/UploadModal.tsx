@@ -32,7 +32,15 @@ interface UploadModalProps {
   open: boolean
   onClose: () => void
   title: string
-  entityType: 'dados' | 'demandas' | 'padrao' | 'validacao' | 'reajuste' | 'mailling' | 'analytics'
+  entityType:
+    | 'dados'
+    | 'demandas'
+    | 'padrao'
+    | 'validacao'
+    | 'reajuste'
+    | 'mailling'
+    | 'analytics'
+    | 'manutencoes'
   onUpload: (file: File) => Promise<void>
 }
 
@@ -63,7 +71,7 @@ const templates: Record<string, TemplateInfo> = {
       'Operadora',
       'Produto',
       'Sistema',
-      'Análise quantitativa',
+      'Qtd de usuários',
       'Qtde de retornos',
       'Qualidade (0-3 com descrições)',
       'QTD CLIENTES VINCULADOS - EDGE',

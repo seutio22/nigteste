@@ -42,6 +42,7 @@ import { useKanbanStore, KanbanTicket, KANBAN_COLUMNS } from '../store/kanbanSto
 import { useAuthStore } from '../store/authStore'
 import { useNotificationStore } from '../store/notificationStore'
 import { canViewAllData } from '../lib/utils'
+import { tagsFromFormCsv } from '../utils/tagHelpers'
 
 export const KanbanBoard: React.FC = () => {
   const location = useLocation()
@@ -57,7 +58,7 @@ export const KanbanBoard: React.FC = () => {
     title: '',
     description: '',
     priority: 'medium' as 'low' | 'medium' | 'high',
-    // assignee será definido pelo backend automaticamente
+    assignee: '',
     startDate: '',
     dueDate: '',
     tags: ''
@@ -469,7 +470,7 @@ export const KanbanBoard: React.FC = () => {
         // Se o usuário limpar a data, precisamos enviar null (undefined não atualiza o campo no backend).
         startDate: toIsoDateOrNull(newTicket.startDate),
         dueDate: toIsoDateOrNull(newTicket.dueDate),
-        tags: newTicket.tags || '' // Backend espera string, não array
+        tags: tagsFromFormCsv(newTicket.tags)
       })
     } else {
       console.log('🔍 KanbanBoard: Criando novo ticket')
@@ -482,7 +483,7 @@ export const KanbanBoard: React.FC = () => {
         assignee: user?.id || 'unassigned', // SEMPRE usar o ID do usuário logado
         startDate: newTicket.startDate ? newTicket.startDate + 'T00:00:00.000Z' : undefined, // Converter para ISO com UTC
         dueDate: newTicket.dueDate ? newTicket.dueDate + 'T00:00:00.000Z' : undefined, // Converter para ISO com UTC
-        tags: newTicket.tags || '' // Backend espera string, não array
+        tags: tagsFromFormCsv(newTicket.tags)
       }
       
       console.log('🔍 KanbanBoard: Dados do ticket:', ticketData)

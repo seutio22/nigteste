@@ -34,6 +34,6 @@ export async function createKanbanTicketFromNotification(
     status: 'todo',
     priority: mapNotificationPriorityToKanban(notification.prioridade),
     assignee: userId || 'unassigned',
-    tags: 'origem:caixa-entrada'
-  } as Omit<KanbanTicket, 'id' | 'createdAt' | 'updatedAt'>)
+    tags: ['origem:caixa-entrada']
+  })
 }

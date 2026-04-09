@@ -161,6 +161,33 @@ export const getExecutionEndDate = (page: string, item: any): string | undefined
   }
 }
 
+/**
+ * Data usada em métricas de “concluído no período” (Dashboard resumo, Home produção).
+ * Usa o instante mais recente entre fim operacional (dataFinal, etc.) e última gravação do registro.
+ * Assim não subconta quando dataFinal guarda prazo antigo e o status virou Concluída com updatedAt de hoje.
+ * Se não houver nem fim nem updatedAt, cai em createdAt (útil a fechos no mesmo dia sem datas de encerramento).
+ */
+export const getDataReferenciaConclusao = (page: string, item: any): string | undefined => {
+  const end = getExecutionEndDate(page, item)
+  const updated = item?.updatedAt || item?.updated_at
+  const created = item?.createdAt || item?.created_at
+
+  if (end && updated) {
+    try {
+      const te = new Date(end).getTime()
+      const tu = new Date(updated).getTime()
+      if (!Number.isNaN(te) && !Number.isNaN(tu)) {
+        return tu >= te ? updated : end
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  if (end) return end
+  if (updated) return updated
+  return created
+}
+
 export const calculateBusinessDays = (startDate: Date, endDate: Date): number => {
   let count = 0
   const current = new Date(startDate)

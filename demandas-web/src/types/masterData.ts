@@ -24,7 +24,8 @@ export interface Contrato {
 }
 
 export type Operadora = SimpleEntity
-export type Produto = SimpleEntity
+/** Produto pode filtrar por operadora na UI */
+export type Produto = SimpleEntity & { operadoraId?: string }
 export type Sistema = SimpleEntity
 export type Grupo = SimpleEntity
 export type Analista = SimpleEntity & { email?: string }

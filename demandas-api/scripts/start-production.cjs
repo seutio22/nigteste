@@ -35,6 +35,18 @@ if (migrate.status !== 0) {
   }
 }
 
+// Garante client alinhado ao schema (evita P2022 após rename de coluna se o build cacheou client antigo)
+const gen = spawnSync(
+  process.platform === "win32" ? "npx.cmd" : "npx",
+  ["prisma", "generate"],
+  { cwd: root, encoding: "utf-8", env: process.env }
+);
+const genOut = `${gen.stdout || ""}${gen.stderr || ""}`;
+if (gen.status !== 0) {
+  console.error(genOut);
+  process.exit(gen.status || 1);
+}
+
 const node = spawn("node", ["dist/server.js"], {
   cwd: root,
   stdio: "inherit",

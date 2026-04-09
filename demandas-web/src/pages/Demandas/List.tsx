@@ -26,6 +26,7 @@ import GroupIcon from '@mui/icons-material/Group'
 import { usePermissions } from '../../hooks/usePermissions'
 import { PrimaryActionButton } from '../../components/PrimaryActionButton'
 import { formatIntegerPtBR } from '../../utils/formatNumber'
+import { formatGridDatePtBR, gridCellToDate } from '../../utils/gridDate'
 
 const columns: GridColDef[] = [
   { field: 'acoes', headerName: 'Ações', width: 80, sortable: false, filterable: false, renderCell: (p) => (
@@ -53,17 +54,13 @@ const columns: GridColDef[] = [
       const date = new Date(dateValue)
       return isNaN(date.getTime()) ? null : date
     },
-    valueFormatter: (value) => {
-      if (!value) return '-'
-      const date = value instanceof Date ? value : new Date(value)
-      return isNaN(date.getTime()) ? '-' : date.toLocaleString('pt-BR')
-    },
+    valueFormatter: (value) => formatGridDatePtBR(value),
     sortComparator: (v1, v2) => {
       if (!v1 && !v2) return 0
       if (!v1) return 1
       if (!v2) return -1
-      const date1 = v1 instanceof Date ? v1 : new Date(v1)
-      const date2 = v2 instanceof Date ? v2 : new Date(v2)
+      const date1 = gridCellToDate(v1)
+      const date2 = gridCellToDate(v2)
       if (isNaN(date1.getTime()) && isNaN(date2.getTime())) return 0
       if (isNaN(date1.getTime())) return 1
       if (isNaN(date2.getTime())) return -1
@@ -81,17 +78,13 @@ const columns: GridColDef[] = [
       const date = new Date(dateValue)
       return isNaN(date.getTime()) ? null : date
     },
-    valueFormatter: (value) => {
-      if (!value) return '-'
-      const date = value instanceof Date ? value : new Date(value)
-      return isNaN(date.getTime()) ? '-' : date.toLocaleString('pt-BR')
-    },
+    valueFormatter: (value) => formatGridDatePtBR(value),
     sortComparator: (v1, v2) => {
       if (!v1 && !v2) return 0
       if (!v1) return 1
       if (!v2) return -1
-      const date1 = v1 instanceof Date ? v1 : new Date(v1)
-      const date2 = v2 instanceof Date ? v2 : new Date(v2)
+      const date1 = gridCellToDate(v1)
+      const date2 = gridCellToDate(v2)
       if (isNaN(date1.getTime()) && isNaN(date2.getTime())) return 0
       if (isNaN(date1.getTime())) return 1
       if (isNaN(date2.getTime())) return -1
@@ -434,7 +427,7 @@ export default function DemandListPage() {
             operadoraId: findIdByName(data.operadora || data.operadoraId, md.operadoras) || '',
             produtoId: findIdByName(data.produto || data.produtoId, md.produtos) || '',
             sistemaId: findIdByName(data.sistema || data.sistemaId, md.sistemas) || '',
-            periodicidade: data.analiseQuantitativa ? String(data.analiseQuantitativa) : (data.periodicidade || null),
+            qtdUsuarios: data.analiseQuantitativa ? String(data.analiseQuantitativa) : (data.qtdUsuarios || data.periodicidade || null),
             qtdRetornos: data.qtdRetornos || data.quantidadeRetornos || 0,
             qualidade: data.qualidade ? String(data.qualidade) : null,
             qtdClientesVinculados: data.qtdClientesVinculados || data.clientesVinculados || 0,
@@ -603,7 +596,10 @@ export default function DemandListPage() {
     solicitante: d.solicitante ?? '',
     dataInicio: formatDateTimeBR(d.dataInicio),
     dataFinal: formatDateTimeBR(d.dataFinal),
-    periodicidade: d.periodicidade != null && d.periodicidade !== '' ? String(d.periodicidade) : '',
+    qtdUsuarios: (() => {
+      const v = d.qtdUsuarios ?? (d as { periodicidade?: string }).periodicidade
+      return v != null && String(v).trim() !== '' ? String(v) : ''
+    })(),
     qtdRetornos: d.qtdRetornos != null ? d.qtdRetornos : '',
     qualidade: formatQualidadeExport(d.qualidade),
     qtdClientesVinculados: d.qtdClientesVinculados != null ? d.qtdClientesVinculados : '',
@@ -948,7 +944,7 @@ export default function DemandListPage() {
           { key: 'tipo', label: 'Tipo de Demanda' },
           { key: 'dataInicio', label: 'Data início' },
           { key: 'dataFinal', label: 'Data fim' },
-          { key: 'periodicidade', label: 'Análise quantitativa' },
+          { key: 'qtdUsuarios', label: 'Qtd de usuários' },
           { key: 'qtdRetornos', label: 'Qtd. retornos' },
           { key: 'qualidade', label: 'Qualidade' },
           { key: 'qtdClientesVinculados', label: 'Qtd. clientes vinculados' },

@@ -114,5 +114,23 @@ export const ENTITY_CONFIGS: EntityConfigs = {
     fields: ['nome', 'descricao', 'ativo'],
     requiredFields: ['nome'],
     displayName: 'Filial de Mailling'
+  },
+  categorias: {
+    endpoint: '/categorias',
+    fields: ['nome'],
+    requiredFields: ['nome'],
+    displayName: 'Categoria'
+  },
+  periodicidades: {
+    endpoint: '/periodicidades',
+    fields: ['nome'],
+    requiredFields: ['nome'],
+    displayName: 'Periodicidade'
+  },
+  status: {
+    endpoint: '/status',
+    fields: ['nome'],
+    requiredFields: ['nome'],
+    displayName: 'Status'
   }
 }

@@ -170,7 +170,10 @@ const ExportDataModal: React.FC<ExportDataModalProps> = ({
   // Garantir formato correto quando só um formato é permitido (ex: apenas Excel)
   React.useEffect(() => {
     if (open && allowedFormats.length === 1) {
-      setExportOptions(prev => ({ ...prev, format: allowedFormats[0] }));
+      setExportOptions((prev) => ({
+        ...prev,
+        format: allowedFormats[0] as ExportOptions['format'],
+      }));
     }
   }, [open, allowedFormats]);
 

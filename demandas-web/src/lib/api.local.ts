@@ -77,7 +77,7 @@ export async function apiRequest<T = any>(
         } catch (jsonError) {
           // Se não conseguir fazer parse do JSON, retornar uma resposta vazia
           console.log('Resposta DELETE sem JSON, retornando sucesso')
-          return { success: true }
+          return { success: true } as T
         }
       } else {
         const errorText = await response.text()
@@ -111,7 +111,7 @@ export async function apiRequest<T = any>(
     } else {
       // Se não for JSON, retornar o texto da resposta
       const text = await response.text()
-      return text
+      return text as T
     }
   } catch (error) {
     console.error(`Erro na API ${endpoint}:`, error)

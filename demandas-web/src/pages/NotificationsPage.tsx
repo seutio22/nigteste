@@ -148,7 +148,7 @@ export default function NotificationsPage() {
     const alertaId = notification.dados?.alertaId
     if (alertaId) {
       try {
-        await getApi().post(`/user-alerts/${alertaId}/view`)
+        await getApi().post(`/user-alerts/${alertaId}/view`, {})
       } catch {}
     }
     setDetailNotification(notification)

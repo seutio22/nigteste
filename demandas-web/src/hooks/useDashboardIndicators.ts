@@ -10,10 +10,15 @@ import { useComunicadoStore } from '../store/comunicadoStore'
 import { useProjectStore } from '../store/projectStore'
 import { useMasterDataStore } from '../store/masterDataStore'
 import type { DashboardIndicator, PageMetrics, PeriodType } from '../types/dashboardIndicators'
-import { PAGE_CONFIGS, isItemCancelado, isItemConcluidoProducao } from '../types/dashboardIndicators'
+import {
+  PAGE_CONFIGS,
+  isItemCancelado,
+  isItemConcluidoProducao,
+  isItemPendente
+} from '../types/dashboardIndicators'
 import {
   getItemDateForPage,
-  getExecutionEndDate,
+  getDataReferenciaConclusao,
   matchesByIdOrName,
   parseDateForFilter,
   resolveIndicatorDateRange,
@@ -22,13 +27,6 @@ import {
   isSameCalendarDay,
   enumerateDaysYmd
 } from '../utils/dashboardFilters'
-
-/** Mesma regra da Home: data de encerramento operacional ou última atualização. */
-function getDataProducaoForMetrics(page: string, item: any): string | undefined {
-  const end = getExecutionEndDate(page, item)
-  if (end) return end
-  return item?.updatedAt || item?.updated_at
-}
 
 /**
  * Mesma origem de data usada em `calculatePageMetrics` para contar itens no período (data de criação).
@@ -41,6 +39,11 @@ function getDashboardItemCreatedDate(page: string, item: any): string | undefine
   }
   if (page === 'atendimentos') {
     if (item.createdAt && item.createdAt !== null && item.createdAt !== '') return item.createdAt
+    return undefined
+  }
+  if (page === 'projetos') {
+    if (item.createdAt && item.createdAt !== null && item.createdAt !== '') return item.createdAt
+    if (item.startDate && item.startDate !== null && item.startDate !== '') return item.startDate
     return undefined
   }
   if (item.createdAt && item.createdAt !== null && item.createdAt !== '') return item.createdAt
@@ -137,146 +140,18 @@ const calculatePageMetrics = (items: any[], page: string, period: PeriodType, ha
       periodItems = items
     } else if (p === 'daily') {
       // SEMPRE filtrar por HOJE quando período é daily e não há filtros manuais
-      periodItems = items.filter(item => {
-        let itemDate: string | undefined | null = null
-        
-        if (page === 'analytics') {
-          if (item.dataCriacao && item.dataCriacao !== null && item.dataCriacao !== '') {
-            itemDate = item.dataCriacao
-          } else if (item.createdAt && item.createdAt !== null && item.createdAt !== '') {
-            itemDate = item.createdAt
-          }
-        } else if (page === 'atendimentos') {
-          if (item.createdAt && item.createdAt !== null && item.createdAt !== '') {
-            itemDate = item.createdAt
-          }
-        } else {
-          if (item.createdAt && item.createdAt !== null && item.createdAt !== '') {
-            itemDate = item.createdAt
-          }
-        }
-        
+      periodItems = items.filter((item) => {
+        const itemDate = getDashboardItemCreatedDate(page, item)
         if (!itemDate) return false
         return isInPeriod(itemDate, p)
       })
     } else {
-      // Filtrar por período baseado na data de criação do chamado
-      periodItems = items.filter(item => {
-        // Analytics usa dataCriacao (que vem de createdAt do backend), outros usam createdAt
-        let itemDate: string | undefined | null = null
-        
-        if (page === 'analytics') {
-          // Analytics: dataCriacao é mapeado de createdAt no store
-          // Verificar se dataCriacao existe e é válido, senão usar createdAt
-          if (item.dataCriacao && item.dataCriacao !== null && item.dataCriacao !== '') {
-            itemDate = item.dataCriacao
-          } else if (item.createdAt && item.createdAt !== null && item.createdAt !== '') {
-            itemDate = item.createdAt
-          }
-        } else if (page === 'atendimentos') {
-          // Atendimentos: usar createdAt (data de criação do chamado)
-          if (item.createdAt && item.createdAt !== null && item.createdAt !== '') {
-            itemDate = item.createdAt
-          }
-        } else {
-          // Outras páginas: usar createdAt
-          if (item.createdAt && item.createdAt !== null && item.createdAt !== '') {
-            itemDate = item.createdAt
-          }
-        }
-        
-        // Se não há data válida, não incluir no período
-        if (!itemDate) {
-          return false
-        }
-        
-        // Debug para analytics e atendimentos - logar todos os itens quando daily
-        if ((page === 'analytics' || page === 'atendimentos') && p === 'daily') {
-          const hoje = new Date()
-          const hojeNormalized = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())
-          const itemDateObj = new Date(itemDate)
-          const itemDateNormalized = new Date(itemDateObj.getFullYear(), itemDateObj.getMonth(), itemDateObj.getDate())
-          const isHoje = itemDateNormalized.getTime() === hojeNormalized.getTime()
-          const isInPeriodResult = isInPeriod(itemDate, p)
-          
-          // Debug removido para produção
-          // console.log(`🔍 DEBUG ${page} filtro período [${items.indexOf(item) + 1}/${items.length}]:`, {
-          //   id: item.id,
-          //   titulo: item.titulo || item.ticket,
-          //   createdAt: item.createdAt,
-          //   dataCriacao: item.dataCriacao,
-          //   itemDateUsado: itemDate,
-          //   isInPeriod: isInPeriodResult,
-          //   isHojeCalculado: isHoje,
-          //   hojeNormalized: hojeNormalized.toISOString(),
-          //   itemDateNormalized: itemDateNormalized.toISOString(),
-          //   itemDateObjISO: itemDateObj.toISOString()
-          // })
-        } else if (page === 'manutencoes' && p === 'daily') {
-          const hoje = new Date()
-          const hojeNormalized = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())
-          const itemDateObj = new Date(itemDate)
-          const itemDateNormalized = new Date(itemDateObj.getFullYear(), itemDateObj.getMonth(), itemDateObj.getDate())
-          const isHoje = itemDateNormalized.getTime() === hojeNormalized.getTime()
-          const isInPeriodResult = isInPeriod(itemDate, p)
-          
-          // Debug removido para produção
-          // if (isHoje) {
-          //   console.log(`🔍 DEBUG ${page} filtro período:`, {
-          //     id: item.id,
-          //     ticket: item.ticket || item.titulo,
-          //     createdAt: item.createdAt,
-          //     itemDateUsado: itemDate,
-          //     isInPeriod: isInPeriodResult,
-          //     isHojeCalculado: isHoje,
-          //     hojeNormalized: hojeNormalized.toISOString(),
-          //     itemDateNormalized: itemDateNormalized.toISOString()
-          //   })
-          // }
-        }
-        
+      // Filtrar por período baseado na data de referência por página (criação / início do projeto etc.)
+      periodItems = items.filter((item) => {
+        const itemDate = getDashboardItemCreatedDate(page, item)
+        if (!itemDate) return false
         return isInPeriod(itemDate, p)
       })
-      
-      // Debug resumo - sempre logar para analytics, manutenções e atendimentos
-      if ((page === 'analytics' || page === 'manutencoes' || page === 'atendimentos') && p === 'daily') {
-        const hoje = new Date()
-        hoje.setHours(0, 0, 0, 0)
-        const hojeNormalized = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())
-        const totalHoje = items.filter(item => {
-          let itemDate: string | undefined | null = null
-          if (page === 'analytics') {
-            if (item.dataCriacao && item.dataCriacao !== null && item.dataCriacao !== '') {
-              itemDate = item.dataCriacao
-            } else if (item.createdAt && item.createdAt !== null && item.createdAt !== '') {
-              itemDate = item.createdAt
-            }
-          } else if (page === 'atendimentos') {
-            if (item.createdAt && item.createdAt !== null && item.createdAt !== '') {
-              itemDate = item.createdAt
-            }
-          } else {
-            if (item.createdAt && item.createdAt !== null && item.createdAt !== '') {
-              itemDate = item.createdAt
-            }
-          }
-          if (!itemDate) return false
-          const itemDateObj = new Date(itemDate)
-          const itemDateNormalized = new Date(itemDateObj.getFullYear(), itemDateObj.getMonth(), itemDateObj.getDate())
-          return itemDateNormalized.getTime() === hojeNormalized.getTime()
-        }).length
-        
-        // Debug removido para produção
-        // console.log(`🔍 DEBUG ${page} resumo daily:`, {
-        //   totalNoStore: items.length,
-        //   totalFiltradas: periodItems.length,
-        //   totalHojeCalculado: totalHoje,
-        //   periodo: p,
-        //   hasDateFilters: hasDateFilters,
-        //   hojeISO: hojeNormalized.toISOString(),
-        //   hojeLocal: hojeNormalized.toLocaleDateString('pt-BR')
-        // })
-      }
     }
     
     const total = periodItems.length
@@ -286,24 +161,8 @@ const calculatePageMetrics = (items: any[], page: string, period: PeriodType, ha
       ? periodItems.length // Com filtros manuais, todos foram criados no período filtrado
       : (p === 'daily')
       ? periodItems.length // Já filtrado por HOJE
-      : periodItems.filter(item => {
-          // Analytics usa dataCriacao (verificar se é válido), outros usam createdAt
-          let itemDate: string | undefined | null = null
-          if (page === 'analytics') {
-            if (item.dataCriacao && item.dataCriacao !== null && item.dataCriacao !== '') {
-              itemDate = item.dataCriacao
-            } else if (item.createdAt && item.createdAt !== null && item.createdAt !== '') {
-              itemDate = item.createdAt
-            }
-          } else if (page === 'atendimentos') {
-            if (item.createdAt && item.createdAt !== null && item.createdAt !== '') {
-              itemDate = item.createdAt
-            }
-          } else {
-            if (item.createdAt && item.createdAt !== null && item.createdAt !== '') {
-              itemDate = item.createdAt
-            }
-          }
+      : periodItems.filter((item) => {
+          const itemDate = getDashboardItemCreatedDate(page, item)
           if (!itemDate) return false
           return isInPeriod(itemDate, p)
         }).length
@@ -319,7 +178,10 @@ const calculatePageMetrics = (items: any[], page: string, period: PeriodType, ha
     
     const canceled = periodItems.filter(item => isItemCancelado(page, item)).length
     const completed = periodItems.filter(item => isItemConcluidoProducao(page, item)).length
-    const inProgress = Math.max(0, total - completed - canceled)
+    const inProgress =
+      page === 'reajustes'
+        ? periodItems.filter(item => isItemPendente('reajustes', item)).length
+        : Math.max(0, total - completed - canceled)
 
     return { total, created, updated, completed, canceled, inProgress }
   }
@@ -437,11 +299,24 @@ export const useDashboardIndicators = (
         }
       }
       
-      // Filtro por analista
+      // Filtro por analista (projetos: dono, gerente, equipe — não usam analistaId de demanda)
       if (filters.analistaId) {
-        const itemAnalista = getAnalistaValue(item)
-        if (!matchesByIdOrName(itemAnalista, filters.analistaId, masterDataStore.analistas)) {
-          return false
+        if (page === 'projetos') {
+          const aid = filters.analistaId
+          const hitDirect = item.ownerId === aid || item.managerId === aid
+          const team = item.team
+          const inTeam = Array.isArray(team) && team.includes(aid)
+          const hitManager = matchesByIdOrName(item.manager, aid, masterDataStore.analistas)
+          const hitManagerId = matchesByIdOrName(item.managerId, aid, masterDataStore.analistas)
+          const hitOwner = matchesByIdOrName(item.ownerId, aid, masterDataStore.analistas)
+          if (!hitDirect && !inTeam && !hitManager && !hitManagerId && !hitOwner) {
+            return false
+          }
+        } else {
+          const itemAnalista = getAnalistaValue(item)
+          if (!matchesByIdOrName(itemAnalista, filters.analistaId, masterDataStore.analistas)) {
+            return false
+          }
         }
       }
       
@@ -596,8 +471,9 @@ export const useDashboardIndicators = (
   ])
 
   /**
-   * Concluídos (produção) alinhados à Home: data de conclusão no intervalo do indicador,
-   * não “concluídos entre os itens criados no período”.
+   * Concluídos (produção): data de referência de conclusão no intervalo (`getDataReferenciaConclusao`).
+   * Em "Hoje" sem filtro de datas manual, conta também concluídos cujo chamado foi **criado** hoje
+   * (alinha ao Total do dia e cobre casos em que dataFinal fica antiga mas o status fecha no mesmo dia).
    */
   const pageMetricsWithProducao = useMemo(() => {
     const range = resolveIndicatorDateRange(period, filters?.fromDate, filters?.toDate)
@@ -610,8 +486,14 @@ export const useDashboardIndicators = (
       const itemsSans = storeMapSansDate[page as keyof typeof storeMapSansDate] || []
       const completedInRange = itemsSans.filter((item) => {
         if (!isItemConcluidoProducao(page, item)) return false
-        const d = getDataProducaoForMetrics(page, item)
-        return d ? isItemDateInRange(d, range.from, range.to) : false
+        const d = getDataReferenciaConclusao(page, item)
+        const refOk = d ? isItemDateInRange(d, range.from, range.to) : false
+        if (refOk) return true
+        if (period === 'daily' && !hasDateFilters) {
+          const created = getDashboardItemCreatedDate(page, item)
+          return !!(created && isItemDateInRange(created, range.from, range.to))
+        }
+        return false
       }).length
 
       out[page] = {
@@ -624,7 +506,7 @@ export const useDashboardIndicators = (
     })
 
     return out
-  }, [pageMetrics, storeMapSansDate, period, filters?.fromDate, filters?.toDate])
+  }, [pageMetrics, storeMapSansDate, period, filters?.fromDate, filters?.toDate, hasDateFilters])
 
   // Gerar indicadores para o período selecionado
   const indicators = useMemo(() => {

@@ -9,6 +9,7 @@ import { userRoutes } from './routes/users'
 import { userAlertsRoutes } from './routes/userAlerts'
 import comunicadosRoutes from './routes/comunicados'
 import projectTeamRoutes from './routes/projectTeam'
+import projectWorkAuditRoutes from './routes/projectWorkAudit'
 import shareRoutes from './routes/share'
 import { masterDataRoutes } from './routes/masterData'
 import { kanbanRoutes } from './routes/kanban'
@@ -2367,6 +2368,10 @@ function crud(entity: keyof PrismaClient) {
       // Tratamento específico para demandas - converter IDs para relacionamentos connect
       if (entity === 'demanda') {
         const demandaData = { ...data as any };
+        if (demandaData.periodicidade != null && demandaData.qtdUsuarios === undefined) {
+          demandaData.qtdUsuarios = demandaData.periodicidade
+          delete demandaData.periodicidade
+        }
         
         // Converter IDs para relacionamentos connect
         const relationshipFields = [
@@ -2566,6 +2571,10 @@ function crud(entity: keyof PrismaClient) {
       // Tratamento específico para demandas - converter IDs para relacionamentos connect
       if (entity === 'demanda') {
         const demandaData = { ...data as any };
+        if (demandaData.periodicidade != null && demandaData.qtdUsuarios === undefined) {
+          demandaData.qtdUsuarios = demandaData.periodicidade
+          delete demandaData.periodicidade
+        }
         
         // Remover campos que não devem ser atualizados diretamente
         delete demandaData.id;
@@ -3000,7 +3009,7 @@ const resources = {
             status: true,
             solicitante: true,
             observacoes: true,
-            periodicidade: true,
+            qtdUsuarios: true,
             qtdRetornos: true,
             qualidade: true,
             qtdClientesVinculados: true,
@@ -3050,7 +3059,7 @@ const resources = {
           status: true,
           solicitante: true,
           observacoes: true,
-          periodicidade: true,
+          qtdUsuarios: true,
           qtdRetornos: true,
           qualidade: true,
           qtdClientesVinculados: true,
@@ -3122,7 +3131,7 @@ const resources = {
           dataInicio: true,
           dataFinal: true,
           solicitante: true,
-          periodicidade: true,
+          qtdUsuarios: true,
           qtdRetornos: true,
           qualidade: true,
           qtdClientesVinculados: true,
@@ -4386,6 +4395,11 @@ for (const [path, repo] of Object.entries(resources)) {
           }
         })
         
+        if (cleanedData.periodicidade != null && cleanedData.qtdUsuarios === undefined) {
+          cleanedData.qtdUsuarios = cleanedData.periodicidade
+          delete cleanedData.periodicidade
+        }
+        
         console.log(`🔧 POST /demandas: Dados limpos:`, JSON.stringify(cleanedData, null, 2))
         
         // Verificar especificamente clienteId e contratoId
@@ -5443,7 +5457,7 @@ app.delete('/demandas/limpar-atv-demandas', async () => {
         sistemaId: null,
         dataInicio: null,
         dataFinal: null,
-        periodicidade: null,
+        qtdUsuarios: null,
         qtdRetornos: null,
         qualidade: null,
         observacoes: null
@@ -5487,6 +5501,9 @@ app.register(comunicadosRoutes, { prisma, prefix: '/comunicados' })
 
 // Rotas de equipe de projetos
 app.register(projectTeamRoutes, { prisma })
+
+// Auditoria de etapas / tarefas / subtarefas (aba LOG admin)
+app.register(projectWorkAuditRoutes, { prisma })
 
 // Rotas de compartilhamento (DEVEM vir ANTES das rotas genéricas)
 app.register(shareRoutes, { prisma })

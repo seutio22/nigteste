@@ -504,9 +504,15 @@ export const useMaillingStore = create<MaillingState>()(
             masterDataStore.cargosMailling?.find(c => c.id === contact.cargo)?.nome || contact.cargo : 
             ''
           
-          const filialNome = contact.filial ? 
-            masterDataStore.filiaisMailling?.find(f => f.id === contact.filial)?.nome || contact.filial : 
-            ''
+          const filialNome =
+            contact.filiais?.length
+              ? contact.filiais
+                  .map(
+                    (fid) =>
+                      masterDataStore.filiaisMailling?.find((f) => f.id === fid)?.nome || fid
+                  )
+                  .join(', ')
+              : ''
           
           return {
             'Nome': contact.nome || '',

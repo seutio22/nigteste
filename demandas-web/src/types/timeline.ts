@@ -1,6 +1,6 @@
 export type TimelineEventId = string
 
-export type TimelineEventType = 'create' | 'field_change' | 'status_change' | 'comment'
+export type TimelineEventType = 'create' | 'field_change' | 'status_change' | 'comment' | 'delete'
 
 export interface TimelineEvent {
   id: TimelineEventId

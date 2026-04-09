@@ -216,8 +216,8 @@ export const StatusDetails: React.FC<StatusDetailsProps> = ({
   const atendimentosFiltrados = useMemo(() => {
     if (userScopePending) return []
     return atendimentoStore.items.filter(a =>
-      matchesByIdOrName(a.areaId || a.area, areaId, masterDataStore.areas) &&
-      matchesByIdOrName(a.analistaId || a.analista, analistaIdForFilter, masterDataStore.analistas) &&
+      matchesByIdOrName((a as { areaId?: string }).areaId || a.area, areaId, masterDataStore.areas) &&
+      matchesByIdOrName((a as { analistaId?: string }).analistaId || a.analista, analistaIdForFilter, masterDataStore.analistas) &&
       inRange(getItemDateForPage('atendimentos', a))
     )
   }, [userScopePending, atendimentoStore.items, areaId, analistaIdForFilter, fromDate, toDate, masterDataStore.areas, masterDataStore.analistas])

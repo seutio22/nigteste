@@ -17,7 +17,7 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 export default function AtendimentoDetailPage() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
-  const { items, syncFromApi, syncTimeline, isLoading } = useAtendimentoStore()
+  const { items, syncFromApi, syncTimeline, isLoading, add } = useAtendimentoStore()
   const md = useMasterDataStore()
   const { user } = useAuthStore()
   const perfRef = useRef(createPerfLogger('Atendimento/Editar'))
@@ -174,7 +174,7 @@ export default function AtendimentoDetailPage() {
     if (!atendimento) return
     const { id: _omit, createdAt: _c, updatedAt: _u, ticket: _t, ...rest } = atendimento
     try {
-      const duplicated = await atendimentoStore.add({ ...rest, status: 'Aberto', ticket: '' })
+      const duplicated = await add({ ...rest, status: 'Aberto', ticket: '' })
       navigate(`/atendimento/${duplicated.id}`)
     } catch (error) {
       console.error('Erro ao duplicar atendimento:', error)
@@ -326,7 +326,7 @@ export default function AtendimentoDetailPage() {
                 <Edit3 className="w-5 h-5 text-blue-600" />
                 Editar Atendimento
               </h2>
-              <EditInline atendimento={atendimento} user={user} />
+              <EditInline atendimento={atendimento} user={user} resolvedSolicitanteById={resolvedSolicitanteById} />
             </div>
           ) : (
             <div className="bg-white p-6 rounded-lg border shadow-sm">
@@ -382,7 +382,15 @@ export default function AtendimentoDetailPage() {
 }
 
 // Componente de Edição Inline - EXATAMENTE como na página de demandas
-function EditInline({ atendimento, user }: { atendimento: any; user: any }) {
+function EditInline({
+  atendimento,
+  user,
+  resolvedSolicitanteById
+}: {
+  atendimento: any
+  user: any
+  resolvedSolicitanteById: Record<string, string | 'deleted'>
+}) {
   const md = useMasterDataStore()
   const atendimentoStore = useAtendimentoStore()
   // Inicializar draft com valores corretos - converter strings vazias para undefined

@@ -74,7 +74,7 @@ interface ValidationState {
   log: (entry: { validationId: string; type: string; field: string; from: unknown; to: unknown; user?: string; userName?: string }) => void
   syncFromApi: (opts?: { force?: boolean }) => Promise<void>
   syncTimeline: (validationId: string) => Promise<void>
-  saveValidationToDatabase: (validation: ValidationEntry) => Promise<void>
+  saveValidationToDatabase: (validation: ValidationEntry) => Promise<ValidationEntry | undefined>
   updateValidationInDatabase: (validation: ValidationEntry) => Promise<unknown>
 }
 
@@ -146,7 +146,10 @@ export const useValidationStore = create<ValidationState>()(
           const requestBody = {
             id: validation.id,
             demandaId: validation.demanda,
-            analistaId: typeof validation.analista === 'object' ? validation.analista?.id : validation.analista,
+            analistaId:
+              validation.analista != null && typeof validation.analista === 'object'
+                ? (validation.analista as { id?: string }).id
+                : validation.analista,
             status: validation.status,
             dataInicio: cleanDateField(validation.dataInicio),
             dataFim: cleanDateField(validation.dataFinal),
@@ -180,6 +183,7 @@ export const useValidationStore = create<ValidationState>()(
         } catch (error) {
           console.error('❌ Erro ao criar validação:', error)
           set({ error: `Erro ao criar validação: ${error}` })
+          return undefined
         }
       },
 
@@ -216,7 +220,10 @@ export const useValidationStore = create<ValidationState>()(
           }
 
           const requestBody = {
-            analistaId: typeof validation.analista === 'object' ? validation.analista?.id : validation.analista,
+            analistaId:
+              validation.analista != null && typeof validation.analista === 'object'
+                ? (validation.analista as { id?: string }).id
+                : validation.analista,
             status: validation.status,
             dataInicio: cleanDateField(validation.dataInicio),
             dataFim: cleanDateField(validation.dataFinal),

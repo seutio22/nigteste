@@ -51,7 +51,7 @@ export default function ProjectNewPage() {
   }>({})
   const [loading, setLoading] = useState(false)
 
-  const handleInputChange = (field: string, value: string | number) => {
+  const handleInputChange = (field: string, value: string | number | boolean) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -119,8 +119,8 @@ export default function ProjectNewPage() {
         manager: formData.manager || user?.name || 'Não definido',
         budget: formData.budget ? parseFloat(formData.budget) : undefined,
         progress: formData.progress,
-        team: '[]', // Campo obrigatório no schema
-        tags: '[]', // Campo obrigatório no schema
+        team: [],
+        tags: [],
         color: '#1976d2', // Cor padrão
         isPrivate: formData.isPrivate
       }

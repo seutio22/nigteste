@@ -37,17 +37,17 @@ import * as XLSX from 'xlsx';
 import html2canvas from 'html2canvas';
 import ProjectGantt from './ProjectGantt';
 
-// Paleta institucional (NIG/Nexus)
-const PDF_COLORS = {
-  primary: [0, 37, 97] as const, // #002561
-  secondary: [5, 0, 50] as const, // #050032
-  cyan: [0, 159, 223] as const, // #009FDF
-  apoio100: [220, 223, 227] as const, // #DCDFE3
-  apoio300: [163, 181, 188] as const, // #A3B5BC
-  textDark: [5, 0, 50] as const,
-  textMuted: [107, 122, 128] as const, // #6b7a80
-  white: [255, 255, 255] as const,
-} as const;
+// Paleta institucional (NIG/Nexus) — tuplas mutáveis para compatibilidade com jsPDF Color
+const PDF_COLORS: Record<string, [number, number, number]> = {
+  primary: [0, 37, 97], // #002561
+  secondary: [5, 0, 50], // #050032
+  cyan: [0, 159, 223], // #009FDF
+  apoio100: [220, 223, 227], // #DCDFE3
+  apoio300: [163, 181, 188], // #A3B5BC
+  textDark: [5, 0, 50],
+  textMuted: [107, 122, 128], // #6b7a80
+  white: [255, 255, 255],
+};
 
 const PDF_FOOTER_LINE = 'NIG - Núcleo de Inteligência e Governança - Diretoria Técnica Benefícios';
 

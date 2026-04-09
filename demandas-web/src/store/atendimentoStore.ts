@@ -26,6 +26,8 @@ export interface AtendimentoEntry {
   qualidade?: string
   observacoes?: string
   status?: string
+  /** Campo enviado à API em atualizações (mapeamento) */
+  prioridade?: string
   createdAt: string
   updatedAt: string
 }
@@ -35,7 +37,7 @@ interface AtendimentoState {
   timeline: TimelineEvent[]
   isLoading: boolean
   lastSync: number
-  add: (atendimento: Omit<AtendimentoEntry, 'id' | 'createdAt' | 'updatedAt'>, user?: { name?: string; id?: string }) => AtendimentoEntry
+  add: (atendimento: Omit<AtendimentoEntry, 'id' | 'createdAt' | 'updatedAt'>, user?: { name?: string; id?: string }) => Promise<AtendimentoEntry>
   update: (id: string, atendimento: Partial<AtendimentoEntry>, user?: { name?: string; id?: string }) => Promise<void>
   remove: (id: string) => void
   clear: () => void
@@ -208,7 +210,7 @@ export const useAtendimentoStore = create<AtendimentoState>()(
             type: 'create',
             atendimentoId: atendimento.id,
             comment: `Atendimento ${ticket} criado`,
-            userName: user?.name || 'Usuário do Sistema'
+            user: user?.name || 'Usuário do Sistema'
           })
           
           return atendimento
@@ -294,7 +296,7 @@ export const useAtendimentoStore = create<AtendimentoState>()(
                   field: field,
                   from: oldValue,
                   to: newValue,
-                  userName: user?.name || 'Usuário do Sistema'
+                  user: user?.name || 'Usuário do Sistema'
                 })
               }
             })
@@ -326,7 +328,7 @@ export const useAtendimentoStore = create<AtendimentoState>()(
               type: 'delete',
               atendimentoId: id,
               comment: `Atendimento ${atendimentoToDelete.ticket || id} excluído`,
-              userName: 'Usuário do Sistema'
+              user: 'Usuário do Sistema'
             })
           }
         } catch (error: any) {
@@ -344,11 +346,11 @@ export const useAtendimentoStore = create<AtendimentoState>()(
       log: async (e) => {
         const eventId = crypto.randomUUID()
         const timestamp = new Date().toISOString()
-        const event = { 
-          id: eventId, 
-          timestamp, 
-          userName: 'Usuário do Sistema',
-          ...e 
+        const event: TimelineEvent = {
+          ...e,
+          id: eventId,
+          timestamp,
+          user: e.user || 'Usuário do Sistema'
         }
         
         // Adicionar ao store local imediatamente

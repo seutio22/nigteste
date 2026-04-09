@@ -2471,7 +2471,10 @@ const ShareProject: React.FC = () => {
               Gráfico de Gantt interativo com a sequência temporal das atividades.
             </Typography>
             <ProjectGantt
-              phases={phases}
+              phases={phases.map((p: any) => ({
+                ...p,
+                progress: typeof p.progress === 'number' ? p.progress : 0
+              }))}
               projectStartDate={project.startDate}
               projectEndDate={project.endDate}
             />

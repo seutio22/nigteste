@@ -34,7 +34,7 @@ export class SmartValidationEngine {
         const error: ValidationError = {
           field: rule.field,
           message: validation.message || rule.message,
-          type: rule.type,
+          type: rule.type as ValidationError['type'],
           severity: 'error',
           suggestion: validation.suggestion
         }

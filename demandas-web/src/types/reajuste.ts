@@ -4,6 +4,8 @@ export interface ReajusteEntry {
   ano: string
   dataInicio?: string
   dataFim?: string
+  /** Alias (UI / export) — mesmo significado que `dataFim` quando a API envia outro nome */
+  dataFinal?: string
   status: string
   operadora: string
   qualidade?: string
@@ -20,6 +22,8 @@ export interface ReajusteEntry {
   dataAtualizacao?: string
   itensPendentes?: number
   itensConcluidos?: number
+  /** Total exibido na lista (pode espelhar `valorTotal` ou soma de itens) */
+  total?: number
   valorTotal?: number
   descricao?: string
   tipoReajuste?: string

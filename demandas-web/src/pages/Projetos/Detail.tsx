@@ -84,7 +84,9 @@ import {
   Business,
   Share,
   Download as DownloadIcon,
-  Notifications
+  Notifications,
+  History as HistoryIcon,
+  Refresh as RefreshIcon
 } from '@mui/icons-material'
 import { api } from '../../lib/api.local'
 import { useProjectStore } from '../../store/projectStore'
@@ -895,6 +897,9 @@ export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { remove: removeProject, upsert: upsertProject, syncFromApi } = useProjectStore()
   const user = useAuthStore(s => s.user)
+  const isAdminUser = (user?.role || '').toLowerCase() === 'admin'
+  /** Índice da aba LOG (somente admin); demais abas permanecem 0–6. */
+  const LOG_TAB_INDEX = 7
   const [project, setProject] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -904,6 +909,10 @@ export default function ProjectDetailPage() {
   const [shareModalOpen, setShareModalOpen] = useState(false)
   const [exportModalOpen, setExportModalOpen] = useState(false)
   const [activeTab, setActiveTab] = useState(0)
+  const [workAuditLogs, setWorkAuditLogs] = useState<any[]>([])
+  const [workAuditLoading, setWorkAuditLoading] = useState(false)
+  const [workAuditError, setWorkAuditError] = useState<string | null>(null)
+  const [workAuditRefresh, setWorkAuditRefresh] = useState(0)
   const [showTimeline, setShowTimeline] = useState(true)
   const [editingTask, setEditingTask] = useState<any>(null)
   const [editingSubtask, setEditingSubtask] = useState<any>(null)
@@ -998,6 +1007,15 @@ export default function ProjectDetailPage() {
   // Buscar membros da equipe quando o componente montar
   useEffect(() => {
     fetchTeamMembers()
+  }, [id])
+
+  // Garantir áreas no store para resolver departamento (Stakeholders / chips) sem passar antes por Dados
+  useEffect(() => {
+    if (!id || id === '1') return
+    const st = useMasterDataStore.getState()
+    if (st.areas.length === 0 && st.syncFromApi) {
+      void st.syncFromApi({ entities: ['areas'], force: true })
+    }
   }, [id])
 
   // Dados para novos itens
@@ -4013,8 +4031,18 @@ export default function ProjectDetailPage() {
     ]
 
     const summaryCardConfig: Record<'delayed' | 'inProgress' | 'finalized', { title: string; subtitle: string; palette: 'error' | 'warning' | 'success'; icon: typeof Warning }> = {
-      delayed: categoryConfig.delayed,
-      inProgress: categoryConfig.inProgress,
+      delayed: {
+        title: categoryConfig.delayed.title,
+        subtitle: categoryConfig.delayed.subtitle,
+        palette: 'error',
+        icon: categoryConfig.delayed.icon
+      },
+      inProgress: {
+        title: categoryConfig.inProgress.title,
+        subtitle: categoryConfig.inProgress.subtitle,
+        palette: 'warning',
+        icon: categoryConfig.inProgress.icon
+      },
       finalized: {
         title: 'Finalizadas',
         subtitle: 'Entregues no prazo, com atraso e cancelados',
@@ -4488,6 +4516,38 @@ export default function ProjectDetailPage() {
   }, [navState?.activeTab, navState?.scrollToTaskId, navState?.scrollToSubtaskId, project?.id, project?.timeline?.phases, navigate, location.pathname])
 
   React.useEffect(() => {
+    if (!isAdminUser && activeTab === LOG_TAB_INDEX) {
+      setActiveTab(0)
+    }
+  }, [isAdminUser, activeTab])
+
+  React.useEffect(() => {
+    if (!isAdminUser || activeTab !== LOG_TAB_INDEX || !project?.id) return
+    let cancelled = false
+    ;(async () => {
+      setWorkAuditLoading(true)
+      setWorkAuditError(null)
+      try {
+        const res = (await api.get(`/projetos/${project.id}/work-audit-logs?limit=200`)) as { logs?: any[] }
+        if (!cancelled) {
+          setWorkAuditLogs(Array.isArray(res?.logs) ? res.logs : [])
+        }
+      } catch (e: unknown) {
+        if (!cancelled) {
+          const msg = e instanceof Error ? e.message : 'Erro ao carregar o log'
+          setWorkAuditError(msg)
+          setWorkAuditLogs([])
+        }
+      } finally {
+        if (!cancelled) setWorkAuditLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [isAdminUser, activeTab, project?.id, workAuditRefresh])
+
+  React.useEffect(() => {
     const rd = (project?.timeline as any)?.responsibleDepartments || (project as any)?.responsibleDepartments
     if (rd && typeof rd === 'object') setResponsibleDepartments(rd)
   }, [project])
@@ -4581,7 +4641,8 @@ export default function ProjectDetailPage() {
           </Alert>
         ) : (
           <Stack spacing={2}>
-            {groupedEntries.map(([responsibleName, items]) => {
+            {groupedEntries.map(([responsibleName, itemsUnknown]) => {
+              const items = itemsUnknown as { id?: string; name?: string; phaseName?: string; plannedEndDate?: string; dueDate?: string; type?: string; status?: string }[]
               const dept = responsibleDepartments[responsibleName] || ''
               return (
                 <Card key={responsibleName} sx={{ overflow: 'visible' }}>
@@ -4719,6 +4780,109 @@ export default function ProjectDetailPage() {
       </Box>
     )
   }
+
+  const labelEntityTypeLog = (t: string) =>
+    ({ phase: 'Fase', task: 'Tarefa', subtask: 'Subtarefa', milestone: 'Marco' } as Record<string, string>)[t] || t
+  const labelActionLog = (a: string) =>
+    ({ create: 'Criação', update: 'Edição', delete: 'Exclusão' } as Record<string, string>)[a] || a
+
+  const renderWorkLogView = () => (
+    <Paper sx={{ p: 3 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2, mb: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <HistoryIcon color="primary" />
+          <Box>
+            <Typography variant="h6" fontWeight="bold">
+              Log de trabalho (auditoria)
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Registro de criação, edição e exclusão de fases, tarefas e subtarefas. Visível apenas para administradores.
+            </Typography>
+          </Box>
+        </Box>
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={<RefreshIcon />}
+          onClick={() => setWorkAuditRefresh((n) => n + 1)}
+          disabled={workAuditLoading}
+        >
+          Atualizar
+        </Button>
+      </Box>
+
+      {workAuditLoading && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+          <CircularProgress size={36} />
+        </Box>
+      )}
+
+      {!workAuditLoading && workAuditError && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {workAuditError}
+        </Alert>
+      )}
+
+      {!workAuditLoading && !workAuditError && workAuditLogs.length === 0 && (
+        <Alert severity="info">Nenhum evento registrado ainda. Os itens aparecem quando o envio do log estiver integrado às alterações do cronograma.</Alert>
+      )}
+
+      {!workAuditLoading && workAuditLogs.length > 0 && (
+        <TableContainer sx={{ maxHeight: 560 }}>
+          <Table size="small" stickyHeader>
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 'bold' }}>Data / hora</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>Ação</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>Tipo</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>Item</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>ID</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>Usuário</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>Detalhes</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {workAuditLogs.map((row: any) => (
+                <TableRow key={row.id} hover>
+                  <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                    {row.createdAt ? new Date(row.createdAt).toLocaleString('pt-BR') : '—'}
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      size="small"
+                      label={labelActionLog(String(row.action || ''))}
+                      color={
+                        row.action === 'delete' ? 'error' : row.action === 'create' ? 'success' : 'info'
+                      }
+                      variant="outlined"
+                    />
+                  </TableCell>
+                  <TableCell>{labelEntityTypeLog(String(row.entityType || ''))}</TableCell>
+                  <TableCell>{row.targetLabel || '—'}</TableCell>
+                  <TableCell sx={{ fontFamily: 'monospace', fontSize: 12, maxWidth: 120, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {row.entityId || '—'}
+                  </TableCell>
+                  <TableCell>
+                    {row.actor?.name || row.actor?.email || row.actorUserId || '—'}
+                  </TableCell>
+                  <TableCell sx={{ maxWidth: 280 }}>
+                    {row.metadata && typeof row.metadata === 'object' ? (
+                      <Typography variant="caption" component="pre" sx={{ m: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                        {JSON.stringify(row.metadata, null, 0).slice(0, 400)}
+                        {JSON.stringify(row.metadata).length > 400 ? '…' : ''}
+                      </Typography>
+                    ) : (
+                      '—'
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+    </Paper>
+  )
 
   // Função para registrar log de atividade
   // projectParam: projeto opcional para usar quando chamado de dentro de callbacks de setState
@@ -4985,7 +5149,10 @@ export default function ProjectDetailPage() {
           <Tab label="Gantt" />
           <Tab label="Stakeholders" />
           <Tab label="Equipe" />
-          <Tab label="Atividades" />
+              <Tab label="Atividades" />
+              {isAdminUser && (
+                <Tab label="LOG" icon={<HistoryIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
+              )}
             </Tabs>
           </Paper>
 
@@ -5305,6 +5472,7 @@ export default function ProjectDetailPage() {
           {activeTab === 4 && renderStakeholdersView()}
           {activeTab === 5 && <ProjectTeamManager projectId={project.id} readOnly={readOnly} />}
           {activeTab === 6 && renderActivitiesView()}
+          {isAdminUser && activeTab === LOG_TAB_INDEX && renderWorkLogView()}
 
           {/* Dialog de Confirmação de Exclusão */}
           <Dialog 

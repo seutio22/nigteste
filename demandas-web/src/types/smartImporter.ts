@@ -1,7 +1,16 @@
 export interface ValidationError {
   field: string
   message: string
-  type: 'required' | 'format' | 'reference' | 'duplicate' | 'custom'
+  type:
+    | 'required'
+    | 'format'
+    | 'reference'
+    | 'duplicate'
+    | 'custom'
+    | 'email'
+    | 'date'
+    | 'number'
+    | 'status'
   severity: 'error' | 'warning' | 'info'
   suggestion?: string
   suggestedValue?: any
@@ -49,6 +58,8 @@ export interface ValidationRule {
   message: string
   validator?: (value: any, item: any) => boolean
   suggestion?: (value: any, item: any) => string
+  /** Ex.: `{ min: 0 }` para validação numérica */
+  options?: { min?: number; max?: number }
 }
 
 export interface ReferenceField {
@@ -57,6 +68,8 @@ export interface ReferenceField {
   referenceStore: string
   displayField: string
   valueField: string
+  /** Vários IDs separados (ex.: filiais vinculadas) */
+  isMultiple?: boolean
 }
 
 export interface CorrectionSuggestion {

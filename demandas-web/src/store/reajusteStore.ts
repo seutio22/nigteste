@@ -4,6 +4,7 @@ import { useTimelineStore } from './timelineStore'
 import { useAuthStore } from './authStore'
 import { useMasterDataStore } from './masterDataStore'
 import { api } from '../lib/api'
+import type { TimelineEventType } from '../types/timeline'
 
 interface ReajusteState {
   items: ReajusteEntry[]
@@ -11,7 +12,7 @@ interface ReajusteState {
   add: (e: Omit<ReajusteEntry, 'id' | 'createdAt'>) => Promise<ReajusteEntry>
   remove: (id: string | string[]) => Promise<void>
   upsert: (entry: ReajusteEntry) => Promise<void>
-  log: (entry: { reajusteId: string; type: string; field: string; from: unknown; to: unknown }) => void
+  log: (entry: { reajusteId: string; type: string; field: string; from: unknown; to: unknown; user?: string }) => void
   syncFromApi: (force?: boolean) => Promise<void>
 }
 
@@ -222,7 +223,12 @@ export const useReajusteStore = create<ReajusteState>()(
       
       log: (entry) => {
         const timelineStore = useTimelineStore.getState()
-        timelineStore.addEvent(entry)
+        timelineStore.addEvent({
+          ...entry,
+          type: entry.type as TimelineEventType,
+          from: entry.from == null ? undefined : String(entry.from),
+          to: entry.to == null ? undefined : String(entry.to)
+        })
       },
       
       syncFromApi: async (force?: boolean) => {

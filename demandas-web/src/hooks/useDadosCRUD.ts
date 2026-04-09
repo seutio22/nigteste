@@ -76,6 +76,7 @@ export const useDadosCRUD = () => {
             console.log('🔍 CLIENTE CREATE: Cliente existente com mesmo grupo:', existingClient)
             if (existingClient) {
               setSnack({
+                open: true,
                 message: `Grupo econômico "${form.grupoEconomico}" já existe para o cliente "${existingClient.nome}". Por favor, escolha um grupo econômico único.`,
                 severity: 'error'
               })
@@ -128,6 +129,9 @@ export const useDadosCRUD = () => {
         case 'sistemas':
         case 'grupos':
         case 'areas':
+        case 'categorias':
+        case 'periodicidades':
+        case 'status':
           // Payload para a API (sem id, pois o Prisma gera automaticamente)
           const apiPayload: any = { 
             nome: form.nome
@@ -413,6 +417,9 @@ export const useDadosCRUD = () => {
         case 'grupos':
         case 'analistas':
         case 'areas':
+        case 'categorias':
+        case 'periodicidades':
+        case 'status':
         case 'areasMailling':
         case 'cargosMailling':
         case 'filiaisMailling':
@@ -572,7 +579,10 @@ export const useDadosCRUD = () => {
         'relatorios': 'relatorios',
         'modelos': 'modelos',
         'padrao': 'padrao',
-        'configuracoes': 'configuracoes'
+        'configuracoes': 'configuracoes',
+        'categorias': 'categorias',
+        'periodicidades': 'periodicidades',
+        'status': 'status'
       }
       
       const entityName = entityNameMap[activeTab]
@@ -621,6 +631,15 @@ export const useDadosCRUD = () => {
             const filteredAreas = store.areas.filter(a => a.id !== itemId)
             logDadosDev(`🔍 removeFromStore: Áreas filtradas: ${filteredAreas.length} (era ${store.areas.length})`)
             store.upsertMany({ areas: filteredAreas })
+            break
+          case 'categorias':
+            store.upsertMany({ categorias: store.categorias.filter((c: { id: string }) => c.id !== itemId) })
+            break
+          case 'periodicidades':
+            store.upsertMany({ periodicidades: store.periodicidades.filter((p: { id: string }) => p.id !== itemId) })
+            break
+          case 'status':
+            store.upsertMany({ status: store.status.filter((s: { id: string }) => s.id !== itemId) })
             break
           case 'areasMailling':
             store.upsertMany({ areasMailling: store.areasMailling.filter(a => a.id !== itemId) })

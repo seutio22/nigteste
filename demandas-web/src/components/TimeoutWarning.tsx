@@ -52,12 +52,14 @@ export function TimeoutWarning({ open, onExtend, onLogout, timeRemaining }: Time
   const progress = (countdown / timeRemaining) * 100
 
   return (
-    <Dialog 
-      open={open} 
-      maxWidth="sm" 
+    <Dialog
+      open={open}
+      maxWidth="sm"
       fullWidth
       disableEscapeKeyDown
-      disableBackdropClick
+      onClose={(_, reason) => {
+        if (reason === 'backdropClick') return
+      }}
     >
       <DialogTitle>
         <Box display="flex" alignItems="center" gap={1}>

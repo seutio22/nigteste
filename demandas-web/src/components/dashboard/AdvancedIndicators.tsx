@@ -18,7 +18,7 @@ import {
   TrendingUp as TrendingUpIcon,
   Assessment as AssessmentIcon
 } from '@mui/icons-material'
-import type { AdvancedIndicator, TempoExecucaoMetrics, AnalistaMetrics } from '../hooks/useAdvancedIndicators'
+import type { AdvancedIndicator, TempoExecucaoMetrics, AnalistaMetrics } from '../../hooks/useAdvancedIndicators'
 import { formatDecimalPtBR, formatIntegerPtBR, formatNumberPtBR } from '../../utils/formatNumber'
 
 interface AdvancedIndicatorsProps {
@@ -217,7 +217,7 @@ export const AdvancedIndicators: React.FC<AdvancedIndicatorsProps> = ({
                       Distribuição por página:
                     </Typography>
                     {Object.entries(analista.itensPorPagina)
-                      .sort(([, a], [, b]) => b - a) // Ordenar por quantidade (maior primeiro)
+                      .sort(([, a], [, b]) => Number(b) - Number(a)) // Ordenar por quantidade (maior primeiro)
                       .map(([pagina, quantidade]) => {
                         const nomePagina = paginaNomeMap[pagina] || pagina
                         return (

@@ -98,7 +98,7 @@ function pathMatchesAdministrativo(pathname: string) {
   return false
 }
 
-function filterByPermission(items: MenuLink[], user: { permissions?: string | null; role: string } | null) {
+function filterByPermission(items: MenuLink[], user: { permissions?: unknown; role: string } | null) {
   if (!user) return []
   const userPermissions = getUserPermissions(user.permissions, user.role)
   return items.filter((item) => checkPermission(userPermissions, item.module as any, 'view'))

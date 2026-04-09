@@ -31,11 +31,17 @@ export interface Notification {
     diasRestantes?: number
     targetType?: string
     alertaId?: string
-    autor?: string
     autorId?: string
     dedupeKey?: string
   }
 }
+
+/** Entrada de add(): id e dataCriacao gerados no store; lida opcional. */
+export type NotificationAddInput = Omit<Notification, 'id' | 'dataCriacao' | 'lida'> &
+  Partial<Pick<Notification, 'lida'>> & {
+    dedupeKey?: string
+    dataCriacao?: string
+  }
 
 const MAX_DISMISSED_KEYS = 500
 
@@ -65,7 +71,7 @@ interface NotificationState {
   unreadCount: number
   /** Chaves (alertaId ou dedupeKey) que o usuário excluiu – não readicionar */
   dismissedKeys: string[]
-  add: (notification: Omit<Notification, 'id' | 'dataCriacao'> & { lida?: boolean; dedupeKey?: string }) => void
+  add: (notification: NotificationAddInput) => void
   markAsRead: (id: string) => void
   markAllAsRead: () => void
   remove: (id: string) => void

@@ -434,7 +434,7 @@ export const smartImporterConfigs: { [key: string]: SmartImporterConfig } = {
       {
         field: 'analiseQuantitativa',
         type: 'number',
-        message: 'Análise quantitativa deve ser um número positivo',
+        message: 'Qtd de usuários deve ser um número positivo',
         options: { min: 0 }
       },
       {

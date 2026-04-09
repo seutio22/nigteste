@@ -188,17 +188,60 @@ export const PAGE_CONFIGS: IndicatorConfig[] = [
   }
 ]
 
-// Status que indicam conclusão por página
+// Status que indicam conclusão por página (também usados com comparação normalizada — sem acento / caixa)
 export const COMPLETION_STATUS: Record<string, string[]> = {
-  demandas: ['Concluída', 'Finalizada', 'Resolvida'],
-  atendimentos: ['Resolvido', 'Finalizado', 'Concluído'],
-  validacoes: ['Aprovada', 'Validada', 'Concluída'],
-  reajustes: ['Aprovado', 'Finalizado', 'Concluído'],
-  manutencoes: ['Concluída', 'Finalizada', 'Resolvida'],
+  demandas: [
+    'Concluída',
+    'Concluído',
+    'concluido',
+    'Concluido',
+    'Concluído parcialmente',
+    'Concluido parcialmente',
+    'concluido parcialmente',
+    'Finalizada',
+    'Resolvida'
+  ],
+  atendimentos: [
+    'Resolvido',
+    'Finalizado',
+    'Concluído',
+    'concluido',
+    'Concluído parcialmente',
+    'Concluido parcialmente'
+  ],
+  validacoes: ['Aprovada', 'Validada', 'Concluída', 'Concluído', 'concluido'],
+  reajustes: [
+    'Aprovado',
+    'Aprovada',
+    'aprovado',
+    'Finalizado',
+    'Concluído',
+    'concluido',
+    'Concluído parcialmente',
+    'Concluido parcialmente'
+  ],
+  manutencoes: [
+    'Concluída',
+    'Concluído',
+    'concluido',
+    'Concluído parcialmente',
+    'Concluido parcialmente',
+    'Finalizada',
+    'Resolvida'
+  ],
   analytics: ['Concluída', 'Concluído', 'concluido', 'CONCLUIDO', 'Finalizado', 'Gerado'],
   mailling: ['Ativo', 'Enviado', 'Processado'],
   comunicados: ['Enviado', 'Lido', 'Processado'],
-  projetos: ['Concluído', 'Finalizado', 'Entregue']
+  projetos: [
+    'Concluído',
+    'concluido',
+    'Finalizado',
+    'Entregue',
+    /** API / UI de Projetos (inglês) */
+    'completed',
+    'done',
+    'closed'
+  ]
 }
 
 // Status que indicam pendência (não concluído) por página
@@ -207,18 +250,126 @@ export const PENDING_STATUS: Record<string, string[]> = {
   atendimentos: ['Aberto', 'Em Andamento', 'Em andamento'],
   validacoes: ['Pendente', 'Em validação', 'Em andamento', 'Aguardando validação'],
   manutencoes: ['Pendente', 'Aberta', 'Em andamento', 'Em Andamento', 'Aguardando validação', 'Com erros'],
-  analytics: ['Pendente', 'pendente', 'PENDENTE', 'Em andamento', 'em_andamento', 'EM ANDAMENTO']
+  analytics: ['Pendente', 'pendente', 'PENDENTE', 'Em andamento', 'em_andamento', 'EM ANDAMENTO'],
+  reajustes: [
+    'Pendente',
+    'pendente',
+    'Em andamento',
+    'Em Andamento',
+    'Aberto',
+    'Em análise',
+    'Em analise',
+    'Aguardando aprovação',
+    'Aguardando aprovacao',
+    'Aguardando análise',
+    'Aguardando analise',
+    'Em revisão',
+    'Em revisao',
+    'Rascunho'
+  ]
 }
 
-/** Verifica se item está concluído (por página). Reajustes usam aprovado. */
+/** Normaliza status para comparação (minúsculas, sem acentos). */
+export function normalizeStatusParaPendencia(raw: string | undefined | null): string {
+  if (raw == null) return ''
+  return String(raw)
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+}
+
+/**
+ * Heurística para métricas: mesma ideia da Home (fechado com produção), sem depender de grafia exata.
+ * Só páginas primárias; secundárias ficam na lista COMPLETION_STATUS.
+ */
+function statusIndicaConcluidoHeuristica(page: string, t: string): boolean {
+  if (!t) return false
+  if (
+    t.includes('nao concluid') ||
+    t.includes('nao aprovad') ||
+    t.includes('reprovad') ||
+    t.includes('rejeitad')
+  ) {
+    return false
+  }
+
+  switch (page) {
+    case 'demandas':
+    case 'atendimentos':
+    case 'manutencoes':
+      if (t.includes('concluid')) return true
+      if (t.includes('resolvid')) return true
+      if (t.includes('finaliz')) return true
+      return false
+    case 'validacoes':
+      if (t.includes('concluid')) return true
+      if (t === 'aprovada' || t === 'aprovado' || t === 'validada' || t === 'validado') return true
+      if (t.includes('finaliz') || t.includes('resolvid')) return true
+      return false
+    case 'analytics':
+      if (t.includes('concluid')) return true
+      if (t.includes('finaliz')) return true
+      if (t.includes('gerad')) return true
+      return false
+    case 'reajustes':
+      if (t.includes('aprovad') && !t.includes('nao aprovad') && !t.includes('reprovad') && !t.includes('rejeitad'))
+        return true
+      if (t.includes('finaliz')) return true
+      if (t.includes('concluid')) return true
+      return false
+    case 'projetos':
+      if (t === 'completed' || t === 'done' || t === 'closed') return true
+      if (t.includes('concluid')) return true
+      if (t.includes('finaliz')) return true
+      if (t.includes('entreg')) return true
+      return false
+    default:
+      return false
+  }
+}
+
+/**
+ * Heurística de “em andamento” para reajustes (espelha a ideia da conclusão por texto + lista).
+ */
+function statusIndicaEmAndamentoHeuristicaReajuste(t: string): boolean {
+  if (!t) return false
+  if (t.includes('pendent')) return true
+  if (t.includes('aguardando')) return true
+  if (t.includes('andamento')) return true
+  if (t.includes('abert')) return true
+  if (t.includes('analise')) return true
+  if (t.includes('elaboracao')) return true
+  if (t.includes('rascunho')) return true
+  if (t.includes('revisao')) return true
+  return false
+}
+
+/** Verifica se item está concluído (por página). Reajustes: aprovado e/ou status (lista + heurística, como as demais páginas). */
 export function isItemConcluido(page: string, item: any): boolean {
+  if (page === 'projetos') {
+    const raw = String(item?.status ?? '').trim().toLowerCase()
+    if (raw === 'completed' || raw === 'done' || raw === 'closed') return true
+    const t = normalizeStatusParaPendencia(String(item.status ?? ''))
+    if (!t) return false
+    const list = COMPLETION_STATUS.projetos || []
+    if (list.some((st) => normalizeStatusParaPendencia(st) === t)) return true
+    return statusIndicaConcluidoHeuristica('projetos', t)
+  }
   if (page === 'reajustes') {
-    return item.aprovado === true || (COMPLETION_STATUS.reajustes || []).includes(String(item.status || ''))
+    if (item.aprovado === true) return true
+    const t = normalizeStatusParaPendencia(String(item.status ?? ''))
+    if (!t) return false
+    const list = COMPLETION_STATUS.reajustes || []
+    if (list.some((st) => normalizeStatusParaPendencia(st) === t)) return true
+    return statusIndicaConcluidoHeuristica('reajustes', t)
   }
   const statuses = COMPLETION_STATUS[page]
   if (!statuses) return false
-  const s = String(item.status || '').trim()
-  return statuses.some(st => st.toLowerCase() === s.toLowerCase())
+  const t = normalizeStatusParaPendencia(String(item.status ?? ''))
+  if (!t) return false
+  if (statuses.some((st) => normalizeStatusParaPendencia(st) === t)) return true
+  return statusIndicaConcluidoHeuristica(page, t)
 }
 
 /** Status de cancelamento (encerramento sem conclusão de produção). */
@@ -226,6 +377,8 @@ export function isItemCancelado(page: string, item: any): boolean {
   const s = String(item?.status ?? '').trim()
   if (!s) return false
   const t = normalizeStatusParaPendencia(s)
+  /** Projetos: API usa `cancelled` (inglês). */
+  if (t === 'cancelled' || t === 'canceled') return true
   if (t.includes('cancelad')) return true
   // Transferido de analista: status de encerramento sem produção (equivalente a cancelado para o Dashboard).
   if (t.includes('transf') && t.includes('analista')) return true
@@ -243,23 +396,29 @@ export function isItemConcluidoProducao(page: string, item: any): boolean {
   return isItemConcluido(page, item)
 }
 
-/** Verifica se item está pendente (por página). Reajustes: !aprovado. */
+/**
+ * Verifica se item está pendente (por página).
+ * Reajustes: mesmo padrão das outras páginas — lista normalizada + heurística; exclui concluído e cancelado.
+ */
 export function isItemPendente(page: string, item: any): boolean {
-  if (page === 'reajustes') return item.aprovado !== true
+  if (page === 'projetos') {
+    return !isItemConcluido(page, item) && !isItemCancelado(page, item)
+  }
+  if (page === 'reajustes') {
+    if (isItemConcluido(page, item)) return false
+    if (isItemCancelado(page, item)) return false
+    if (item.aprovado === true) return false
+    const t = normalizeStatusParaPendencia(String(item.status ?? ''))
+    const list = PENDING_STATUS.reajustes || []
+    if (list.some((st) => normalizeStatusParaPendencia(st) === t)) return true
+    if (statusIndicaEmAndamentoHeuristicaReajuste(t)) return true
+    // Não bateu em concluído/cancelado explícitos: ainda em aberto operacional
+    return true
+  }
   const statuses = PENDING_STATUS[page]
   if (!statuses) return !isItemConcluido(page, item)
-  const s = String(item.status || '').trim()
-  return statuses.some(st => st.toLowerCase() === s.toLowerCase())
-}
-
-/** Normaliza status para comparação (minúsculas, sem acentos). */
-export function normalizeStatusParaPendencia(raw: string | undefined | null): string {
-  if (raw == null) return ''
-  return String(raw)
-    .trim()
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
+  const t = normalizeStatusParaPendencia(String(item.status ?? ''))
+  return statuses.some((st) => normalizeStatusParaPendencia(st) === t)
 }
 
 /**

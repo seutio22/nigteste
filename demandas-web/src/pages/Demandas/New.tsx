@@ -454,7 +454,7 @@ export default function DemandNewPage() {
        sistemaId: validateId(sanitizedData.sistema, md.sistemas, 'Sistema'),
         dataInicio: data.dataInicio ? new Date(data.dataInicio).toISOString() : null,
         dataFinal: data.dataFinal ? new Date(data.dataFinal).toISOString() : null,
-        periodicidade: analiseQuantitativaValor !== '' && analiseQuantitativaValor !== null ? String(analiseQuantitativaValor) : null,
+        qtdUsuarios: analiseQuantitativaValor !== '' && analiseQuantitativaValor !== null ? String(analiseQuantitativaValor) : null,
         qtdRetornos: data.qtdRetornos !== undefined && data.qtdRetornos !== null ? Number(data.qtdRetornos) : null,
         qualidade: qualidadeValor !== '' ? qualidadeValor : null,
         qtdClientesVinculados: qtdClientesVinculadosValor !== '' && qtdClientesVinculadosValor !== null ? Number(qtdClientesVinculadosValor) : null,
@@ -609,7 +609,7 @@ export default function DemandNewPage() {
         sistemaId: sanitizedData.sistema,
         dataInicio: data.dataInicio ? new Date(data.dataInicio).toISOString() : null,
         dataFinal: data.dataFinal ? new Date(data.dataFinal).toISOString() : null,
-        periodicidade: analiseQuantitativaValor !== '' && analiseQuantitativaValor !== null ? String(analiseQuantitativaValor) : null,
+        qtdUsuarios: analiseQuantitativaValor !== '' && analiseQuantitativaValor !== null ? String(analiseQuantitativaValor) : null,
         qtdRetornos: data.qtdRetornos !== undefined && data.qtdRetornos !== null ? Number(data.qtdRetornos) : null,
         qualidade: qualidadeValor !== '' ? qualidadeValor : null,
         qtdClientesVinculados: qtdClientesVinculadosValor !== '' && qtdClientesVinculadosValor !== null ? Number(qtdClientesVinculadosValor) : null,
@@ -859,10 +859,10 @@ export default function DemandNewPage() {
             )} />
           </Grid>
 
-          {/* Terceiro Tópico: Análise e Métricas */}
+          {/* Terceiro Tópico: Métricas */}
           <Grid item xs={12}>
             <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', borderBottom: '2px solid', borderColor: 'primary.main', pb: 1, mt: 2 }}>
-              3. Análise e Métricas
+              3. Métricas
             </Typography>
           </Grid>
           
@@ -871,12 +871,12 @@ export default function DemandNewPage() {
               <TextField 
                 {...field} 
                 type="number" 
-                label="Análise quantitativa" 
+                label="Qtd de usuários" 
                 fullWidth 
                 placeholder="Digite um número"
                 inputProps={{ min: 0, step: 'any' }}
                 error={!!errors.analiseQuantitativa} 
-                helperText={errors.analiseQuantitativa?.message || 'Campo numérico livre para análise quantitativa'}
+                helperText={errors.analiseQuantitativa?.message || 'Quantidade de usuários (campo numérico)'}
               />
             )} />
           </Grid>

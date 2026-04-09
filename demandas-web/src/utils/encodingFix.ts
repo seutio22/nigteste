@@ -58,7 +58,7 @@ export function fixObjectEncoding<T extends Record<string, any>>(obj: T): T {
   
   for (const key in fixed) {
     if (typeof fixed[key] === 'string') {
-      fixed[key] = fixEncoding(fixed[key])
+      ;(fixed as Record<string, unknown>)[key] = fixEncoding(fixed[key] as string)
     } else if (Array.isArray(fixed[key])) {
       fixed[key] = fixed[key].map((item: any) => 
         typeof item === 'string' ? fixEncoding(item) : 

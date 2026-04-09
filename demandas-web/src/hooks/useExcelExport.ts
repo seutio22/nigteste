@@ -40,7 +40,7 @@ export const useExcelExport = () => {
     const workbook = XLSX.utils.book_new()
     
     // 1. Resumo Executivo
-    const summaryData = [
+    const summaryData: (string | number)[][] = [
       ['RESUMO EXECUTIVO - DASHBOARD'],
       [''],
       ['Período:', period === 'daily' ? 'Diário' : period === 'monthly' ? 'Mensal' : 'Trimestral'],
@@ -120,7 +120,7 @@ export const useExcelExport = () => {
     XLSX.utils.book_append_sheet(workbook, summarySheet, 'Resumo Executivo')
     
     // 2. Dados Detalhados por Período
-    const detailedData = [
+    const detailedData: (string | number)[][] = [
       ['DADOS DETALHADOS POR PERÍODO'],
       [''],
       ['Página', 'Período', 'Total', 'Criados', 'Atualizados', 'Concluídos', 'Cancelados', 'Em andamento', 'Taxa produção %']
@@ -203,7 +203,7 @@ export const useExcelExport = () => {
     XLSX.utils.book_append_sheet(workbook, detailedSheet, 'Dados Detalhados')
     
     // 3. Dados para Gráficos
-    const chartData = [
+    const chartData: (string | number)[][] = [
       ['DADOS PARA GRÁFICOS'],
       [''],
       ['Página', 'Total', 'Concluídos', 'Cancelados', 'Em andamento', 'Taxa produção (%)']
@@ -231,7 +231,7 @@ export const useExcelExport = () => {
     XLSX.utils.book_append_sheet(workbook, chartSheet, 'Dados para Gráficos')
     
     // 4. Comparação de Períodos
-    const comparisonData = [
+    const comparisonData: (string | number)[][] = [
       ['COMPARAÇÃO DE PERÍODOS'],
       [''],
       ['Página', 'Diário', 'Mensal', 'Trimestral', 'Variação Diário-Mensal (%)', 'Variação Mensal-Trimestral (%)']

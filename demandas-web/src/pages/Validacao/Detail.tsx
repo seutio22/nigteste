@@ -16,7 +16,7 @@ import { createPerfLogger } from '../../utils/perf'
 export default function ValidationDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { items, logs, syncFromApi, syncTimeline, isLoading } = useValidationStore()
+  const { items, logs, syncFromApi, syncTimeline, loading } = useValidationStore()
   const md = useMasterDataStore()
   const { user } = useAuthStore()
   const perfRef = useRef(createPerfLogger('Validacao/Editar'))
@@ -157,7 +157,7 @@ export default function ValidationDetailPage() {
     const loadData = async () => {
       console.log('🔍 ValidationDetailPage: Carregando dados para ID:', id)
       console.log('🔍 ValidationDetailPage: Items no store:', items.length)
-      console.log('🔍 ValidationDetailPage: Loading:', isLoading)
+      console.log('🔍 ValidationDetailPage: Loading:', loading)
 
       // Carregar validações se necessário (apenas uma vez)
       if (!syncedOnceRef.current && (items.length === 0 || !validation)) {
@@ -256,6 +256,8 @@ export default function ValidationDetailPage() {
   const label = (id?: string, arr?: { id: string, nome: string }[]) => 
     arr?.find(a => a.id === id)?.nome || '-'
 
+  const contratosParaLabel = md.contratos.map((c) => ({ id: c.id, nome: c.codigo || c.numero }))
+
   // Função específica para exibir cliente com grupo econômico
   const labelCliente = (id?: string) => {
     if (!id) return '-'
@@ -347,32 +349,50 @@ export default function ValidationDetailPage() {
                 <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
                 <div>
                   <p className="text-sm text-apoio-400">Cliente</p>
-                  <p className="font-medium">{typeof validation.cliente === 'object' ? 
-                    (validation.cliente?.grupoEconomico ? 
-                      `${validation.cliente.nome} (${validation.cliente.grupoEconomico})` : 
-                      validation.cliente?.nome) : 
-                    labelCliente(validation.cliente)}</p>
+                  <p className="font-medium">{(() => {
+                    const vc = validation.cliente
+                    if (vc != null && typeof vc === 'object') {
+                      const o = vc as { nome?: string; grupoEconomico?: string }
+                      return o.grupoEconomico ? `${o.nome ?? ''} (${o.grupoEconomico})` : (o.nome ?? '-')
+                    }
+                    return labelCliente(typeof vc === 'string' ? vc : undefined)
+                  })()}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
                 <div>
                   <p className="text-sm text-apoio-400">Operadora</p>
-                  <p className="font-medium">{typeof validation.operadora === 'object' ? validation.operadora?.nome : label(validation.operadora, md.operadoras)}</p>
+                  <p className="font-medium">{(() => {
+                    const vo = validation.operadora
+                    if (vo != null && typeof vo === 'object') return (vo as { nome?: string }).nome ?? '-'
+                    return label(typeof vo === 'string' ? vo : undefined, md.operadoras)
+                  })()}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
                 <div>
                   <p className="text-sm text-apoio-400">Contrato</p>
-                  <p className="font-medium">{typeof validation.contrato === 'object' ? validation.contrato?.numero : label(validation.contrato, md.contratos)}</p>
+                  <p className="font-medium">{(() => {
+                    const vct = validation.contrato
+                    if (vct != null && typeof vct === 'object') {
+                      const o = vct as { numero?: string; codigo?: string }
+                      return o.numero || o.codigo || '-'
+                    }
+                    return label(typeof vct === 'string' ? vct : undefined, contratosParaLabel)
+                  })()}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-teal-500 rounded-full"></div>
                 <div>
                   <p className="text-sm text-apoio-400">Produto</p>
-                  <p className="font-medium">{typeof validation.produto === 'object' ? validation.produto?.nome : label(validation.produto, md.produtos)}</p>
+                  <p className="font-medium">{(() => {
+                    const vp = validation.produto
+                    if (vp != null && typeof vp === 'object') return (vp as { nome?: string }).nome ?? '-'
+                    return label(typeof vp === 'string' ? vp : undefined, md.produtos)
+                  })()}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
@@ -425,7 +445,11 @@ export default function ValidationDetailPage() {
               </div>
               <div>
                 <p className="text-sm text-apoio-400">Analista Responsável</p>
-                <p className="font-medium">{typeof validation.analista === 'object' ? validation.analista?.nome : label(validation.analista, md.analistas)}</p>
+                <p className="font-medium">{(() => {
+                  const va = validation.analista
+                  if (va != null && typeof va === 'object') return (va as { nome?: string }).nome ?? '-'
+                  return label(typeof va === 'string' ? va : undefined, md.analistas)
+                })()}</p>
               </div>
               <div>
                 <p className="text-sm text-apoio-400">Área</p>
@@ -535,8 +559,8 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
 
   // Buscar o grupo econômico do cliente selecionado
   // Normalizar cliente para garantir que seja sempre um ID (string)
-  const clienteIdNormalized = typeof draft.cliente === 'object' && draft.cliente !== null
-    ? draft.cliente.id
+  const clienteIdNormalized = draft.cliente != null && typeof draft.cliente === 'object'
+    ? (draft.cliente as { id: string }).id
     : draft.cliente
     
   const clienteSelecionadoData = clienteIdNormalized 
@@ -561,9 +585,14 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
   // Nome do analista responsável (sempre o da validação, nunca o usuário que está acessando)
   const analistaResponsavelNome = (() => {
     const a = draft.analista ?? validation.analista
-    if (typeof a === 'object' && a !== null && 'nome' in a) return (a as { nome?: string }).nome || '-'
-    const id = typeof a === 'string' ? a : ''
-    return md.analistas.find(x => x.id === id)?.nome || id || '-'
+    if (a == null) return '-'
+    if (typeof a === 'string') {
+      return md.analistas.find(x => x.id === a)?.nome || a || '-'
+    }
+    if (typeof a === 'object' && a !== null) {
+      return (a as { nome?: string }).nome || '-'
+    }
+    return '-'
   })()
 
   useEffect(() => {
@@ -572,23 +601,23 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
     const normalizedDraft = {
       ...validation,
       tipo: validation.tipo || '',
-      contrato: typeof validation.contrato === 'object' && validation.contrato !== null
-        ? validation.contrato.id
+      contrato: validation.contrato != null && typeof validation.contrato === 'object'
+        ? (validation.contrato as { id: string }).id
         : validation.contrato || '',
-      cliente: typeof validation.cliente === 'object' && validation.cliente !== null
-        ? validation.cliente.id
+      cliente: validation.cliente != null && typeof validation.cliente === 'object'
+        ? (validation.cliente as { id: string }).id
         : validation.cliente || '',
-      operadora: typeof validation.operadora === 'object' && validation.operadora !== null
-        ? validation.operadora.id
+      operadora: validation.operadora != null && typeof validation.operadora === 'object'
+        ? (validation.operadora as { id: string }).id
         : validation.operadora || '',
-      produto: typeof validation.produto === 'object' && validation.produto !== null
-        ? validation.produto.id
+      produto: validation.produto != null && typeof validation.produto === 'object'
+        ? (validation.produto as { id: string }).id
         : validation.produto || '',
-      analista: typeof validation.analista === 'object' && validation.analista !== null
-        ? validation.analista.id
+      analista: validation.analista != null && typeof validation.analista === 'object'
+        ? (validation.analista as { id: string }).id
         : validation.analista || '',
-      solicitante: typeof validation.solicitante === 'object' && validation.solicitante !== null
-        ? validation.solicitante.id
+      solicitante: validation.solicitante != null && typeof validation.solicitante === 'object'
+        ? (validation.solicitante as { id: string }).id
         : validation.solicitante || '',
       estruturaEdge: normalizeArrayField(validation.estruturaEdge),
       estruturaMove: normalizeArrayField(validation.estruturaMove)
@@ -983,8 +1012,8 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Solicitante</label>
           <select
-            value={typeof draft.solicitante === 'object' && draft.solicitante !== null 
-              ? draft.solicitante.id 
+            value={draft.solicitante != null && typeof draft.solicitante === 'object' 
+              ? (draft.solicitante as { id: string }).id 
               : (draft.solicitante || '')}
             onChange={(e) => setDraft({ ...draft, solicitante: e.target.value || undefined })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -1062,8 +1091,8 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Operadora</label>
           <select
-            value={typeof draft.operadora === 'object' && draft.operadora !== null 
-              ? draft.operadora.id 
+            value={draft.operadora != null && typeof draft.operadora === 'object' 
+              ? (draft.operadora as { id: string }).id 
               : (draft.operadora || '')}
             onChange={(e) => setDraft({ 
               ...draft, 
@@ -1086,7 +1115,7 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
             options={contratosFiltrados}
             getOptionLabel={(option: any) => option?.codigo || option?.numero || ''}
             isOptionEqualToValue={(option: any, value: any) => option.id === value?.id}
-            value={contratosFiltrados.find((c: any) => c.id === (typeof draft.contrato === 'object' ? draft.contrato?.id : draft.contrato)) || null}
+            value={contratosFiltrados.find((c: any) => c.id === (draft.contrato != null && typeof draft.contrato === 'object' ? (draft.contrato as { id: string }).id : draft.contrato)) || null}
             onChange={(_, newValue: any | null) => setDraft({ ...draft, contrato: newValue?.id || undefined })}
             renderInput={(params) => (
               <TextField
@@ -1135,8 +1164,8 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Produto</label>
           <select
-            value={typeof draft.produto === 'object' && draft.produto !== null 
-              ? draft.produto.id 
+            value={draft.produto != null && typeof draft.produto === 'object' 
+              ? (draft.produto as { id: string }).id 
               : (draft.produto || '')}
             onChange={(e) => setDraft({ ...draft, produto: e.target.value || undefined })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -1169,8 +1198,8 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
           <label className="block text-sm font-medium text-gray-700 mb-2">Qtd de retornos</label>
           <input
             type="number"
-            value={draft.qtdRetornos}
-            onChange={(e) => setDraft({ ...draft, qtdRetornos: e.target.value || undefined })}
+            value={draft.qtdRetornos ?? ''}
+            onChange={(e) => setDraft({ ...draft, qtdRetornos: e.target.value === '' ? undefined : Number(e.target.value) })}
             placeholder="0"
             min="0"
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -1294,8 +1323,8 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
           <label className="block text-sm font-medium text-gray-700 mb-2">Itens Pendentes</label>
           <input
             type="number"
-            value={draft.itensPendentes}
-            onChange={(e) => setDraft({ ...draft, itensPendentes: e.target.value || undefined })}
+            value={draft.itensPendentes ?? ''}
+            onChange={(e) => setDraft({ ...draft, itensPendentes: e.target.value === '' ? undefined : Number(e.target.value) })}
             placeholder="0"
             min="0"
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -1306,8 +1335,8 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
           <label className="block text-sm font-medium text-gray-700 mb-2">Itens Concluídos</label>
           <input
             type="number"
-            value={draft.itensConcluidos}
-            onChange={(e) => setDraft({ ...draft, itensConcluidos: e.target.value || undefined })}
+            value={draft.itensConcluidos ?? ''}
+            onChange={(e) => setDraft({ ...draft, itensConcluidos: e.target.value === '' ? undefined : Number(e.target.value) })}
             placeholder="0"
             min="0"
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"

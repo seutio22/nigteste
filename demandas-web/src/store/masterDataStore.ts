@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import type { PersistStorage } from 'zustand/middleware'
 import type { Area, Analista, Cliente, Contrato, Operadora, Produto, Sistema, Grupo, TipoDemanda, TipoServico, TipoCadastro, Solicitante, Relatorio, Modelo } from '../types/masterData'
 
 const isDev = import.meta.env.DEV
@@ -499,7 +500,7 @@ export const useMasterDataStore = create<MasterDataState>()(
           localExclusionsByNome: state.localExclusionsByNome
         };
       },
-      // Tratamento de erro para quota excedida
+      // Tratamento de erro para quota excedida (API em string do localStorage; tipagem do persist usa StorageValue)
       storage: {
         getItem: (name) => {
           try {
@@ -510,9 +511,10 @@ export const useMasterDataStore = create<MasterDataState>()(
           }
         },
         setItem: (name, value) => {
+          const str = typeof value === 'string' ? value : JSON.stringify(value);
           try {
             // Verificar tamanho antes de salvar
-            const size = new Blob([value]).size;
+            const size = new Blob([str]).size;
             const maxSize = 4 * 1024 * 1024; // 4MB (deixar margem de segurança)
             
             if (size > maxSize) {
@@ -522,12 +524,12 @@ export const useMasterDataStore = create<MasterDataState>()(
                 // Remover apenas este store para liberar espaço
                 localStorage.removeItem(name);
                 // Tentar salvar novamente
-                if (new Blob([value]).size <= maxSize) {
-                  localStorage.setItem(name, value);
+                if (new Blob([str]).size <= maxSize) {
+                  localStorage.setItem(name, str);
                 } else {
                   console.error('❌ Dados ainda muito grandes após limpeza. Não será persistido.');
                   // Salvar apenas dados essenciais
-                  const essential = JSON.parse(value);
+                  const essential = JSON.parse(str);
                   const minimal = {
                     lastSync: essential.lastSync,
                     lastSyncMs: essential.lastSyncMs || 0,
@@ -541,7 +543,7 @@ export const useMasterDataStore = create<MasterDataState>()(
                 console.error('❌ Erro ao salvar no localStorage após limpeza:', retryError);
               }
             } else {
-              localStorage.setItem(name, value);
+              localStorage.setItem(name, str);
             }
           } catch (error) {
             if (error instanceof DOMException && error.name === 'QuotaExceededError') {
@@ -549,7 +551,7 @@ export const useMasterDataStore = create<MasterDataState>()(
               try {
                 // Limpar este store e tentar salvar apenas dados essenciais
                 localStorage.removeItem(name);
-                const data = JSON.parse(value);
+                const data = JSON.parse(str);
                 const minimal = {
                   lastSync: data.lastSync,
                   lastSyncMs: data.lastSyncMs || 0,
@@ -574,7 +576,7 @@ export const useMasterDataStore = create<MasterDataState>()(
             console.warn('⚠️ Erro ao remover do localStorage:', error);
           }
         }
-      },
+      } as unknown as PersistStorage<MasterDataState>,
       onRehydrateStorage: () => (state) => {
         if (state) {
           Object.assign(state, buildIndexes(state as MasterDataState))

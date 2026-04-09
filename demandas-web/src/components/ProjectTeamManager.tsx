@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { useMasterDataStore } from '../store/masterDataStore'
 import { getUserDepartmentDisplay } from '../utils/userDepartmentDisplay'
+import type { Area } from '../types/masterData'
 import {
   Box,
   Paper,
@@ -80,8 +81,39 @@ interface ProjectTeamManagerProps {
   readOnly?: boolean
 }
 
+function areasListToById(list: Area[]): Record<string, Area> {
+  const m: Record<string, Area> = {}
+  for (const a of list) {
+    if (a?.id) m[a.id] = a
+  }
+  return m
+}
+
 export default function ProjectTeamManager({ projectId, readOnly = false }: ProjectTeamManagerProps) {
-  const areasById = useMasterDataStore((s) => s.areasById)
+  const storeAreasById = useMasterDataStore((s) => s.areasById)
+  /** Lista /areas da API: o masterDataStore pode ainda não ter áreas ao abrir só Projetos. */
+  const [areasByIdFromApi, setAreasByIdFromApi] = useState<Record<string, Area>>({})
+  const areasById = useMemo(
+    () => ({ ...storeAreasById, ...areasByIdFromApi }) as Record<string, Area | undefined>,
+    [storeAreasById, areasByIdFromApi]
+  )
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const list = await api.getAreas()
+        if (cancelled || !Array.isArray(list)) return
+        setAreasByIdFromApi(areasListToById(list as Area[]))
+      } catch {
+        /* ignore */
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const [activeTab, setActiveTab] = useState(0)
   const [members, setMembers] = useState<ProjectMember[]>([])
   const [externalMembers, setExternalMembers] = useState<ProjectExternalMember[]>([])

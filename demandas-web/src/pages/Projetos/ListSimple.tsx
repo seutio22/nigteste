@@ -392,8 +392,8 @@ export default function ProjectListPageSimple() {
             manager: project.manager,
             budget: project.budget ? parseFloat(project.budget) : undefined,
             progress: project.progress,
-            team: '[]',
-            tags: '[]',
+            team: [],
+            tags: [],
             color: '#1976d2'
           })
         }

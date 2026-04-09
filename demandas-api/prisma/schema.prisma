@@ -187,7 +187,7 @@ model Demanda {
   sistemaId             String?
   dataInicio            DateTime?
   dataFinal             DateTime?
-  periodicidade         String?
+  qtdUsuarios           String?
   qtdRetornos           Int?
   qualidade             String?
   observacoes           String?
@@ -643,6 +643,26 @@ model Project {
   tasks           ProjectTask[]
   timelines       ProjectTimeline[]
   alerts          ProjectAlert[]
+  workAuditLogs   ProjectWorkAuditLog[]
+}
+
+/// Histórico de alterações em etapas (fases), tarefas e subtarefas — base para indicadores e auditoria.
+model ProjectWorkAuditLog {
+  id          String   @id @default(uuid())
+  projectId   String
+  entityType  String
+  entityId    String?
+  action      String
+  actorUserId String?
+  targetLabel String?
+  metadata    String?
+  createdAt   DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  actor   User?   @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, createdAt])
+  @@index([projectId, entityType, action])
 }
 
 model ProjectMember {
@@ -901,6 +921,7 @@ model User {
   validacoes           Validacao[]
   validacoesManutencao ValidacaoManutencao[]
   timelineEvents       TimelineEvent[]
+  projectWorkAuditLogs ProjectWorkAuditLog[]
   userActivities       UserActivity[]
   userSessions         UserSession[]
   userMonitoring       UserMonitoring[]

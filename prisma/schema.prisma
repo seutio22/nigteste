@@ -175,7 +175,7 @@ model Demanda {
   sistemaId             String?
   dataInicio            DateTime?
   dataFinal             DateTime?
-  periodicidade         String?
+  qtdUsuarios           String?
   qtdRetornos           Int?
   qualidade             String?
   observacoes           String?
@@ -618,6 +618,32 @@ model Project {
   shareTokens     ProjectShareToken[]
   tasks           ProjectTask[]
   timelines       ProjectTimeline[]
+  workAuditLogs   ProjectWorkAuditLog[]
+}
+
+/// Histórico de alterações em etapas (fases), tarefas e subtarefas — base para indicadores e auditoria.
+model ProjectWorkAuditLog {
+  id          String   @id @default(uuid())
+  projectId   String
+  /// phase | task | subtask | milestone (extensível)
+  entityType  String
+  /// id estável do item no JSON da timeline, quando existir
+  entityId    String?
+  /// create | update | delete
+  action      String
+  /// Usuário logado (header x-user-id / body)
+  actorUserId String?
+  /// Título ou nome amigável no momento do evento (útil após exclusão)
+  targetLabel String?
+  /// JSON: diff resumido, estado anterior em delete, ids de fase pai, etc.
+  metadata    String?
+  createdAt   DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  actor   User?   @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, createdAt])
+  @@index([projectId, entityType, action])
 }
 
 model ProjectMember {
@@ -825,6 +851,7 @@ model User {
   demandas             Demanda[]
   manutencoes          Manutencao[]
   managedProjects      Project[]             @relation("ProjectManager")
+  ownedProjects        Project[]             @relation("ProjectOwner")
   projectMembers       ProjectMember[]       @relation("ProjectMember")
   reajustes            Reajuste[]
   reajustesManutencao  ReajusteManutencao[]
@@ -833,6 +860,7 @@ model User {
   validacoes           Validacao[]
   validacoesManutencao ValidacaoManutencao[]
   timelineEvents       TimelineEvent[]
+  projectWorkAuditLogs ProjectWorkAuditLog[]
 }
 
 model KanbanTicket {

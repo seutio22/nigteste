@@ -491,7 +491,16 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
                 item.produto = value
               } else if (cleanHeader === 'sistema') {
                 item.sistema = value
-              } else if (cleanHeader === 'analisequantitativa' || cleanHeader === 'análisequantitativa' || cleanHeader === 'analisequant') {
+              } else if (
+                cleanHeader === 'analisequantitativa' ||
+                cleanHeader === 'análisequantitativa' ||
+                cleanHeader === 'analisequant' ||
+                cleanHeader === 'qtdusuarios' ||
+                cleanHeader === 'qtddeusuarios' ||
+                cleanHeader === 'qtddeusuários' ||
+                cleanHeader === 'qtdeusuarios' ||
+                cleanHeader === 'qtdeusuários'
+              ) {
                 item.analiseQuantitativa = value
               } else if (cleanHeader === 'qtdretornos' || cleanHeader === 'quantidaderetornos') {
                 item.qtdRetornos = value

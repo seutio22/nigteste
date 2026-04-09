@@ -62,7 +62,11 @@ export default function MaillingListPage() {
   const [smartImporterOpen, setSmartImporterOpen] = useState(false)
   const [emailsPopupOpen, setEmailsPopupOpen] = useState(false)
   const [savedFiltersModalOpen, setSavedFiltersModalOpen] = useState(false)
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as const })
+  const [snackbar, setSnackbar] = useState<{
+    open: boolean
+    message: string
+    severity: 'success' | 'error'
+  }>({ open: false, message: '', severity: 'success' })
   
   // Filtros
   const [filters, setFilters] = useState<MaillingFilter>({})
@@ -211,7 +215,7 @@ export default function MaillingListPage() {
       }
       
       // Função auxiliar para preservar valores booleanos do Excel
-      const getBooleanValue = (value: any, defaultValue: string = 'nao'): string => {
+      const getBooleanValue = (value: unknown, defaultValue: 'sim' | 'nao' = 'nao'): 'sim' | 'nao' => {
         if (value === null || value === undefined || value === '') {
           return defaultValue
         }
@@ -229,8 +233,7 @@ export default function MaillingListPage() {
           return 'nao'
         }
         
-        // Se não reconhecer, usar o valor original ou padrão
-        return stringValue || defaultValue
+        return defaultValue
       }
       
       // Processar itens válidos

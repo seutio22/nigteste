@@ -7,6 +7,7 @@ import { authRoutes } from './routes/auth'
 import { userRoutes } from './routes/users'
 import comunicadosRoutes from './routes/comunicados'
 import projectTeamRoutes from './routes/projectTeam'
+import projectWorkAuditRoutes from './routes/projectWorkAudit'
 import shareRoutes from './routes/share'
 import { masterDataRoutes } from './routes/masterData'
 import { PrismaClient } from '@prisma/client'
@@ -2313,7 +2314,7 @@ app.delete('/demandas/limpar-atv-demandas', async () => {
         sistemaId: null,
         dataInicio: null,
         dataFinal: null,
-        periodicidade: null,
+        qtdUsuarios: null,
         qtdRetornos: null,
         qualidade: null,
         observacoes: null
@@ -2356,6 +2357,9 @@ app.register(comunicadosRoutes, { prefix: '/comunicados' })
 
 // Rotas de equipe de projetos
 app.register(projectTeamRoutes, { prisma })
+
+// Auditoria de etapas / tarefas / subtarefas (indicadores)
+app.register(projectWorkAuditRoutes, { prisma })
 
 // Rotas de compartilhamento (DEVEM vir ANTES das rotas genéricas)
 app.register(shareRoutes, { prisma })

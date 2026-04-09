@@ -51,7 +51,7 @@ export const QuantitativeAnalysisPanel: React.FC<QuantitativeAnalysisPanelProps>
   return (
     <Paper sx={{ p: 3, borderRadius: 2, mb: 4 }}>
       <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
-        Análise quantitativa por aba
+        Métricas por aba
       </Typography>
       <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 3 }}>
         Soma dos campos numéricos de cada módulo, respeitando área, analista e datas do filtro (

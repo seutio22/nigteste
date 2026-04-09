@@ -28,6 +28,7 @@ import GroupIcon from '@mui/icons-material/Group'
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
 import { PrimaryActionButton } from '../components/PrimaryActionButton'
 import { formatIntegerPtBR } from '../utils/formatNumber'
+import { formatGridDatePtBR, gridCellToDate } from '../utils/gridDate'
 
 const isDev = import.meta.env.DEV
 const logDev = (...args: unknown[]) => {
@@ -67,17 +68,13 @@ const columns: GridColDef[] = [
       const date = new Date(dateValue)
       return isNaN(date.getTime()) ? null : date
     },
-    valueFormatter: (value) => {
-      if (!value) return '-'
-      const date = value instanceof Date ? value : new Date(value)
-      return isNaN(date.getTime()) ? '-' : date.toLocaleString('pt-BR')
-    },
+    valueFormatter: (value) => formatGridDatePtBR(value),
     sortComparator: (v1, v2) => {
       if (!v1 && !v2) return 0
       if (!v1) return 1
       if (!v2) return -1
-      const date1 = v1 instanceof Date ? v1 : new Date(v1)
-      const date2 = v2 instanceof Date ? v2 : new Date(v2)
+      const date1 = gridCellToDate(v1)
+      const date2 = gridCellToDate(v2)
       if (isNaN(date1.getTime()) && isNaN(date2.getTime())) return 0
       if (isNaN(date1.getTime())) return 1
       if (isNaN(date2.getTime())) return -1
@@ -242,7 +239,9 @@ export default function AnalyticsPage() {
         }
       }
       
-      reportStore.remove(idsToDelete)
+      useReportStore.setState((state) => ({
+        items: state.items.filter((r) => !idsToDelete.includes(r.id))
+      }))
       setSelectedIds([])
       setBulkDeleteDialogOpen(false)
       

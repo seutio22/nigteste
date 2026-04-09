@@ -368,8 +368,8 @@ export default function DemandDetailPage() {
                 </p>
               </div>
               <div>
-                <p className="text-sm text-apoio-400">Análise quantitativa</p>
-                <p className="font-medium">{d.periodicidade || '-'}</p>
+                <p className="text-sm text-apoio-400">Qtd de usuários</p>
+                <p className="font-medium">{d.qtdUsuarios || '-'}</p>
               </div>
               <div>
                 <p className="text-sm text-apoio-400">Quantidade de Retornos</p>
@@ -512,6 +512,11 @@ function EditInline({ d }: { d: Demand }) {
         (normalizedDraft as any)[field] = (normalizedDraft[field] as any).id || (normalizedDraft[field] as any).nome || ''
       }
     })
+
+    const legacy = d as Demand & { periodicidade?: string }
+    if (legacy.periodicidade != null && String(legacy.periodicidade).trim() !== '' && (normalizedDraft.qtdUsuarios == null || normalizedDraft.qtdUsuarios === '')) {
+      normalizedDraft.qtdUsuarios = legacy.periodicidade
+    }
     
     setDraft(normalizedDraft)
   }, [d])
@@ -521,7 +526,7 @@ function EditInline({ d }: { d: Demand }) {
   )
 
   const changedKeys = ((): string[] => {
-    const keys = ['status', 'ticket', 'clienteId', 'contratoId', 'operadoraId', 'produtoId', 'sistemaId', 'areaId', 'tipoId', 'tipoServicoId', 'analistaId', 'descricao', 'solicitante', 'dataInicio', 'dataFinal', 'periodicidade', 'qtdRetornos', 'qualidade', 'qtdClientesVinculados', 'usuariosEmpresa', 'observacoes'] as const
+    const keys = ['status', 'ticket', 'clienteId', 'contratoId', 'operadoraId', 'produtoId', 'sistemaId', 'areaId', 'tipoId', 'tipoServicoId', 'analistaId', 'descricao', 'solicitante', 'dataInicio', 'dataFinal', 'qtdUsuarios', 'qtdRetornos', 'qualidade', 'qtdClientesVinculados', 'usuariosEmpresa', 'observacoes'] as const
     
     console.log('🔍 DemandDetailPage: Verificando mudanças...')
     console.log('🔍 DemandDetailPage: Dados originais:', d)
@@ -592,7 +597,7 @@ function EditInline({ d }: { d: Demand }) {
         descricao: draft.descricao || null,
         observacoes: draft.observacoes || null,
         qualidade: draft.qualidade || null,
-        periodicidade: draft.periodicidade ?? null,
+        qtdUsuarios: draft.qtdUsuarios ?? null,
         qtdRetornos: draft.qtdRetornos !== undefined && draft.qtdRetornos !== null ? Number(draft.qtdRetornos) : null,
         qtdClientesVinculados: draft.qtdClientesVinculados !== undefined && draft.qtdClientesVinculados !== null ? Number(draft.qtdClientesVinculados) : null,
         usuariosEmpresa: draft.usuariosEmpresa !== undefined && draft.usuariosEmpresa !== null ? Number(draft.usuariosEmpresa) : null,
@@ -723,7 +728,7 @@ function EditInline({ d }: { d: Demand }) {
             'tipoId': 'tipo',
             'tipoServicoId': 'tipoServico',
             'analistaId': 'analista',
-            'periodicidade': 'Análise Quantitativa',
+            'qtdUsuarios': 'Qtd de usuários',
             'qtdRetornos': 'Quantidade de Retornos',
             'qtdClientesVinculados': 'QTD Clientes Vinculados',
             'usuariosEmpresa': 'Usuários Empresa'
@@ -1050,20 +1055,20 @@ function EditInline({ d }: { d: Demand }) {
         </div>
       </div>
 
-      {/* Oitava linha - Análise quantitativa e Quantidade de Retornos */}
+      {/* Oitava linha - Qtd de usuários e Quantidade de Retornos */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Análise quantitativa</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Qtd de usuários</label>
           <input
             type="number"
-            value={draft.periodicidade ?? ''}
-            onChange={(e) => setDraft({ ...draft, periodicidade: e.target.value || undefined })}
+            value={draft.qtdUsuarios ?? ''}
+            onChange={(e) => setDraft({ ...draft, qtdUsuarios: e.target.value || undefined })}
             placeholder="Digite um número"
             min="0"
             step="any"
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
-          <p className="text-xs text-apoio-400 mt-1">Campo numérico livre para análise quantitativa</p>
+          <p className="text-xs text-apoio-400 mt-1">Quantidade de usuários (campo numérico)</p>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Quantidade de Retornos</label>

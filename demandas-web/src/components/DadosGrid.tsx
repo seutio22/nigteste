@@ -133,6 +133,9 @@ export const DadosGrid: React.FC<DadosGridProps> = ({
           )
         },
       ],
+      categorias: [{ field: 'nome', headerName: 'Nome', flex: 1 }],
+      periodicidades: [{ field: 'nome', headerName: 'Nome', flex: 1 }],
+      status: [{ field: 'nome', headerName: 'Nome', flex: 1 }],
     }
 
     const baseCols = baseColumns[activeTab] || []

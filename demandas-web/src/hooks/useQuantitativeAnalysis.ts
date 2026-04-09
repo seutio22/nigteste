@@ -22,12 +22,11 @@ function safeSum(n: unknown): number {
 }
 
 /**
- * Análise quantitativa: formulário grava em `periodicidade`; import/listas antigas podem trazer `analiseQuantitativa`.
- * Usa `periodicidade` quando preenchida para não somar duas vezes.
+ * Qtd de usuários: API/store usam `qtdUsuarios`; dados antigos podem ter `periodicidade` ou `analiseQuantitativa` no import.
  */
 function sumAnaliseQuantitativaCadastro(items: any[]): number {
   return items.reduce((s, d) => {
-    const p = d?.periodicidade
+    const p = d?.qtdUsuarios ?? d?.periodicidade
     if (p != null && String(p).trim() !== '') {
       const n = Number(String(p).replace(',', '.'))
       return s + (Number.isFinite(n) ? n : 0)
@@ -124,7 +123,7 @@ export function useQuantitativeAnalysis(filters?: {
       id: 'cadastro',
       title: 'Cadastro',
       metrics: [
-        { label: 'Análise quantitativa', value: sumAnaliseQuantitativaCadastro(demandas) },
+        { label: 'Qtd de usuários', value: sumAnaliseQuantitativaCadastro(demandas) },
         {
           label: 'Qtd clientes vinculados — EDGE',
           value: demandas.reduce((s, d) => s + safeSum(d.qtdClientesVinculados), 0)
