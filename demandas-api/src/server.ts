@@ -19,6 +19,7 @@ import { convertToWordRoutes } from './routes/convertToWord'
 import { trackUserActivity, trackSessionStart, trackSessionEnd } from './middleware/activityTracker'
 import { PrismaClient } from '@prisma/client'
 import { prisma } from './lib/prisma'
+import { logCronogramaAudit } from './lib/projectWorkAuditLog'
 
 // Configurar tratamento de sinais para evitar SIGTERM
 process.on('SIGTERM', () => {
@@ -4094,6 +4095,11 @@ for (const [path, repo] of Object.entries(resources)) {
         }
 
         const body = req.body || {}
+        let timelineBeforeForAudit: string | null | undefined
+        if (body.timeline != null && typeof body.timeline === 'object') {
+          const tlRow = await prisma.project.findUnique({ where: { id }, select: { timeline: true } })
+          timelineBeforeForAudit = tlRow?.timeline ?? null
+        }
         const updateData: any = { ...body }
         // Normalizar flag isPrivate
         const isTurningPrivate = 'isPrivate' in updateData && !!updateData.isPrivate && !project.isPrivate
@@ -4180,6 +4186,15 @@ for (const [path, repo] of Object.entries(resources)) {
 
         const updated = await prisma.project.update({ where: { id }, data: updateData })
         console.log('✅ PUT /projetos:', id, 'isPrivate=', (updated as any)?.isPrivate, 'ownerId=', (updated as any)?.ownerId)
+
+        if (timelineBeforeForAudit !== undefined) {
+          await logCronogramaAudit(prisma, {
+            projectId: id,
+            actorUserId: userId,
+            timelineBefore: timelineBeforeForAudit,
+            bodyTimeline: body.timeline
+          })
+        }
         
         // Se o projeto virou privado, garantir que o usuário seja membro
         if (isTurningPrivate && userId) {

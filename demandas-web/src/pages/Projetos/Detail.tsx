@@ -4782,7 +4782,13 @@ export default function ProjectDetailPage() {
   }
 
   const labelEntityTypeLog = (t: string) =>
-    ({ phase: 'Fase', task: 'Tarefa', subtask: 'Subtarefa', milestone: 'Marco' } as Record<string, string>)[t] || t
+    ({
+      phase: 'Fase',
+      task: 'Tarefa',
+      subtask: 'Subtarefa',
+      milestone: 'Marco',
+      cronograma: 'Cronograma'
+    } as Record<string, string>)[t] || t
   const labelActionLog = (a: string) =>
     ({ create: 'Criação', update: 'Edição', delete: 'Exclusão' } as Record<string, string>)[a] || a
 
@@ -4796,7 +4802,7 @@ export default function ProjectDetailPage() {
               Log de trabalho (auditoria)
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Registro de criação, edição e exclusão de fases, tarefas e subtarefas. Visível apenas para administradores.
+              Registro ao salvar o cronograma (etapas, tarefas e subtarefas) e demais eventos de auditoria. Visível apenas para administradores.
             </Typography>
           </Box>
         </Box>
@@ -4824,7 +4830,9 @@ export default function ProjectDetailPage() {
       )}
 
       {!workAuditLoading && !workAuditError && workAuditLogs.length === 0 && (
-        <Alert severity="info">Nenhum evento registrado ainda. Os itens aparecem quando o envio do log estiver integrado às alterações do cronograma.</Alert>
+        <Alert severity="info">
+          Nenhum evento registrado ainda. Altere e salve o cronograma (etapas, tarefas ou subtarefas) e use &quot;Atualizar&quot; para ver os registros.
+        </Alert>
       )}
 
       {!workAuditLoading && workAuditLogs.length > 0 && (
@@ -4867,9 +4875,17 @@ export default function ProjectDetailPage() {
                   </TableCell>
                   <TableCell sx={{ maxWidth: 280 }}>
                     {row.metadata && typeof row.metadata === 'object' ? (
-                      <Typography variant="caption" component="pre" sx={{ m: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                        {JSON.stringify(row.metadata, null, 0).slice(0, 400)}
-                        {JSON.stringify(row.metadata).length > 400 ? '…' : ''}
+                      <Typography variant="caption" component="div" sx={{ m: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                        {(() => {
+                          const m = row.metadata as { antes?: { phaseCount: number; taskCount: number; subtaskCount: number }; depois?: { phaseCount: number; taskCount: number; subtaskCount: number } }
+                          if (m.antes && m.depois) {
+                            const fmt = (x: { phaseCount: number; taskCount: number; subtaskCount: number }) =>
+                              `${x.phaseCount} fase(s), ${x.taskCount} tarefa(s), ${x.subtaskCount} subtarefa(s)`
+                            return `Antes: ${fmt(m.antes)}\nDepois: ${fmt(m.depois)}`
+                          }
+                          const s = JSON.stringify(row.metadata)
+                          return (s.length > 400 ? `${s.slice(0, 400)}…` : s)
+                        })()}
                       </Typography>
                     ) : (
                       '—'
