@@ -3547,11 +3547,11 @@ export default function ProjectDetailPage() {
                         <TableCell>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <Typography variant="body2" fontWeight="bold">
-                              {task.progress}%
+                              {calculateTaskProgress(task)}%
                             </Typography>
                             <LinearProgress
                               variant="determinate"
-                              value={task.progress}
+                              value={calculateTaskProgress(task)}
                               sx={{ width: 60, height: 6, borderRadius: 3 }}
                             />
                           </Box>
@@ -3721,11 +3721,11 @@ export default function ProjectDetailPage() {
                             <TableCell>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                 <Typography variant="body2" fontWeight="bold" color="text.secondary">
-                                  {subtask.progress || 0}%
+                                  {calculateSubtaskProgress(subtask)}%
                                 </Typography>
                                 <LinearProgress
                                   variant="determinate"
-                                  value={subtask.progress || 0}
+                                  value={calculateSubtaskProgress(subtask)}
                                   sx={{ 
                                     width: 60, 
                                     height: 4, 
