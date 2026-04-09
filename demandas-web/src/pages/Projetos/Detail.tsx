@@ -1566,6 +1566,8 @@ export default function ProjectDetailPage() {
           console.error('❌ Erro ao salvar exclusão de subtarefa no banco:', error)
           alert('Erro ao salvar exclusão no banco de dados')
         })
+
+        setTimeout(() => updateAllTaskProgress(), 100)
         
         setDeleteLoading(false)
         alert('Subtarefa excluída com sucesso!')
@@ -1620,6 +1622,8 @@ export default function ProjectDetailPage() {
           console.error('❌ Erro ao salvar exclusão de tarefa no banco:', error)
           alert('Erro ao salvar exclusão no banco de dados')
         })
+
+        setTimeout(() => updateAllTaskProgress(), 100)
         
         alert(`Tarefa excluída com sucesso! ${subtaskCount} subtarefa(s) também foram removida(s).`)
         
@@ -2011,6 +2015,8 @@ export default function ProjectDetailPage() {
           console.error('❌ Erro ao salvar exclusão de fase no banco:', error)
           alert('Erro ao salvar exclusão no banco de dados')
         })
+
+        setTimeout(() => updateAllTaskProgress(), 100)
         
         alert(`Fase excluída com sucesso! ${taskCount} tarefa(s) e ${subtaskCount} subtarefa(s) também foram removida(s).`)
         
@@ -3049,19 +3055,39 @@ export default function ProjectDetailPage() {
     setProject(updatedProject)
   }
 
-  // Função para calcular progresso automático da subtarefa baseado no status
+  // Função para calcular progresso automático da subtarefa (ou tarefa sem filhos) baseado no status
   const calculateSubtaskProgress = (subtask: any) => {
-    switch (subtask.status) {
+    const raw = String(subtask?.status ?? 'pending').toLowerCase().trim()
+    const s = raw.replace(/\s+/g, '_')
+    switch (s) {
       case 'pending':
+      case 'todo':
+      case 'nao_iniciado':
+      case 'não_iniciado':
+      case 'not_started':
+      case 'aguardando':
         return 0
       case 'in_progress':
+      case 'em_andamento':
+      case 'in-progress':
+      case 'ongoing':
+      case 'andamento':
         return 50
       case 'completed':
+      case 'concluido':
+      case 'concluída':
+      case 'concluida':
+      case 'finalizado':
+      case 'finalizada':
+      case 'done':
         return 100
       case 'blocked':
+      case 'bloqueado':
         return 25
       case 'cancelado':
         return 0
+      case 'overdue':
+        return 50
       default:
         return 0
     }
@@ -3070,23 +3096,18 @@ export default function ProjectDetailPage() {
   // Função para calcular progresso automático da tarefa baseado nas subtarefas
   const calculateTaskProgress = (task: any) => {
     if (!task.subtasks || task.subtasks.length === 0) {
-      const completedStatuses = ['completed', 'concluída', 'concluido', 'concluida']
       if (String(task.status).toLowerCase() === 'cancelado') return 0
-      const isCompletedWithDate =
-        completedStatuses.includes(String(task.status).toLowerCase()) &&
-        !!task.actualEndDate
-      if (isCompletedWithDate) return 100
-      return task.progress || 0
+      // Sem subtarefas: progresso segue o status (evita "Em andamento" com 100% herdado de quando tinha subtarefas)
+      return calculateSubtaskProgress(task)
     }
-    
+
     // Calcular média do progresso das subtarefas baseado no status
     const totalProgress = task.subtasks.reduce((sum: number, subtask: any) => {
       const subtaskProgress = calculateSubtaskProgress(subtask)
       return sum + subtaskProgress
     }, 0)
-    
-    const averageProgress = Math.round(totalProgress / task.subtasks.length)
-    return averageProgress
+
+    return Math.round(totalProgress / task.subtasks.length)
   }
 
   // Função para calcular progresso automático da fase baseado nas tarefas
@@ -3158,9 +3179,34 @@ export default function ProjectDetailPage() {
           // Verificar se o progresso mudou
           const oldProgress = task.progress
           const newProgress = calculateTaskProgress(task)
-          
+          const oldTaskStatus = task.status
+
           // Atualizar progresso da tarefa baseado nas subtarefas
           task.progress = newProgress
+
+          // Alinhar status da tarefa ao progresso calculado quando há subtarefas (ex.: 100% → Concluída)
+          if (task.status !== 'cancelado' && task.subtasks && task.subtasks.length > 0) {
+            if (newProgress >= 100 && task.status !== 'completed') {
+              task.status = 'completed'
+            } else if (newProgress < 100 && task.status === 'completed') {
+              task.status = 'in_progress'
+            }
+          }
+
+          if (oldTaskStatus !== task.status && task.subtasks && task.subtasks.length > 0) {
+            createActivity(
+              'Mudança Automática de Status',
+              'Tarefa',
+              task.name,
+              {
+                statusAnterior: oldTaskStatus,
+                statusNovo: task.status,
+                motivo: 'Alinhamento ao progresso calculado pelas subtarefas',
+                progresso: newProgress,
+                fase: phase.name
+              }
+            )
+          }
           
           // Registrar log se o progresso mudou automaticamente
           if (oldProgress !== newProgress && task.subtasks && task.subtasks.length > 0) {
