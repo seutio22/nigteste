@@ -3179,34 +3179,10 @@ export default function ProjectDetailPage() {
           // Verificar se o progresso mudou
           const oldProgress = task.progress
           const newProgress = calculateTaskProgress(task)
-          const oldTaskStatus = task.status
 
-          // Atualizar progresso da tarefa baseado nas subtarefas
+          // Progresso da tarefa-pai = média das subtarefas (indicador); o status da tarefa-pai continua manual
+          // (subtarefas concluídas não devem marcar a tarefa principal como Concluída sozinhas)
           task.progress = newProgress
-
-          // Alinhar status da tarefa ao progresso calculado quando há subtarefas (ex.: 100% → Concluída)
-          if (task.status !== 'cancelado' && task.subtasks && task.subtasks.length > 0) {
-            if (newProgress >= 100 && task.status !== 'completed') {
-              task.status = 'completed'
-            } else if (newProgress < 100 && task.status === 'completed') {
-              task.status = 'in_progress'
-            }
-          }
-
-          if (oldTaskStatus !== task.status && task.subtasks && task.subtasks.length > 0) {
-            createActivity(
-              'Mudança Automática de Status',
-              'Tarefa',
-              task.name,
-              {
-                statusAnterior: oldTaskStatus,
-                statusNovo: task.status,
-                motivo: 'Alinhamento ao progresso calculado pelas subtarefas',
-                progresso: newProgress,
-                fase: phase.name
-              }
-            )
-          }
           
           // Registrar log se o progresso mudou automaticamente
           if (oldProgress !== newProgress && task.subtasks && task.subtasks.length > 0) {
