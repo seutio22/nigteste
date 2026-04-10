@@ -42,7 +42,7 @@ import { useKanbanStore, KanbanTicket, KANBAN_COLUMNS } from '../store/kanbanSto
 import { useAuthStore } from '../store/authStore'
 import { useNotificationStore } from '../store/notificationStore'
 import { canViewAllData } from '../lib/utils'
-import { tagsFromFormCsv } from '../utils/tagHelpers'
+import { tagsForApi, tagsFromFormCsv } from '../utils/tagHelpers'
 
 export const KanbanBoard: React.FC = () => {
   const location = useLocation()
@@ -67,6 +67,11 @@ export const KanbanBoard: React.FC = () => {
   const [showOverdueAlert, setShowOverdueAlert] = useState(false)
   const [overdueMessage, setOverdueMessage] = useState('')
   const overdueAlertDismissedRef = useRef(false)
+  const [saveFeedback, setSaveFeedback] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
+    open: false,
+    message: '',
+    severity: 'success',
+  })
 
   // Refs para as tarefas
   const ticketRefs = useRef<{ [key: string]: HTMLDivElement | null }>({})
@@ -439,11 +444,11 @@ export const KanbanBoard: React.FC = () => {
     setOpenDialog(true)
   }
 
-  const handleSaveTicket = () => {
+  const handleSaveTicket = async () => {
     console.log('🔍 KanbanBoard: handleSaveTicket iniciado')
     console.log('🔍 KanbanBoard: newTicket:', newTicket)
     console.log('🔍 KanbanBoard: selectedColumn:', selectedColumn)
-    
+
     if (!newTicket.title.trim()) {
       console.log('❌ KanbanBoard: Título vazio, retornando')
       return
@@ -454,47 +459,55 @@ export const KanbanBoard: React.FC = () => {
       return
     }
 
-    if (editingTicket) {
-      console.log('🔍 KanbanBoard: Editando ticket existente')
-      const toIsoDateOrNull = (dateInput: string | undefined) => {
-        const v = (dateInput ?? '').trim()
-        if (!v) return null
-        return `${v}T00:00:00.000Z`
+    const toIsoDateOrNull = (dateInput: string | undefined) => {
+      const v = (dateInput ?? '').trim()
+      if (!v) return null
+      return `${v}T00:00:00.000Z`
+    }
+
+    const tagsStr = tagsForApi(newTicket.tags)
+
+    try {
+      if (editingTicket) {
+        console.log('🔍 KanbanBoard: Editando ticket existente')
+        await updateTicket(editingTicket.id, {
+          title: newTicket.title,
+          description: newTicket.description,
+          priority: newTicket.priority,
+          assignee: newTicket.assignee || undefined,
+          startDate: toIsoDateOrNull(newTicket.startDate),
+          dueDate: toIsoDateOrNull(newTicket.dueDate),
+          tags: tagsStr,
+        })
+      } else {
+        console.log('🔍 KanbanBoard: Criando novo ticket')
+        const ticketData = {
+          title: newTicket.title,
+          description: newTicket.description,
+          status: selectedColumn as KanbanTicket['status'],
+          priority: newTicket.priority,
+          assignee: user?.id || 'unassigned',
+          startDate: newTicket.startDate ? newTicket.startDate + 'T00:00:00.000Z' : undefined,
+          dueDate: newTicket.dueDate ? newTicket.dueDate + 'T00:00:00.000Z' : undefined,
+          tags: tagsStr,
+        }
+        console.log('🔍 KanbanBoard: Dados do ticket:', ticketData)
+        await addTicket(ticketData)
       }
-      // Atualizar ticket existente
-      updateTicket(editingTicket.id, {
-        title: newTicket.title,
-        description: newTicket.description,
-        priority: newTicket.priority,
-        assignee: newTicket.assignee || undefined,
-        // Se o usuário limpar a data, precisamos enviar null (undefined não atualiza o campo no backend).
-        startDate: toIsoDateOrNull(newTicket.startDate),
-        dueDate: toIsoDateOrNull(newTicket.dueDate),
-        tags: tagsFromFormCsv(newTicket.tags)
+
+      setSaveFeedback({
+        open: true,
+        message: editingTicket ? 'Tarefa atualizada.' : 'Tarefa criada.',
+        severity: 'success',
       })
-    } else {
-      console.log('🔍 KanbanBoard: Criando novo ticket')
-      // Criar novo ticket - SEMPRE vincular ao usuário logado
-      const ticketData = {
-        title: newTicket.title,
-        description: newTicket.description,
-        status: selectedColumn as KanbanTicket['status'],
-        priority: newTicket.priority,
-        assignee: user?.id || 'unassigned', // SEMPRE usar o ID do usuário logado
-        startDate: newTicket.startDate ? newTicket.startDate + 'T00:00:00.000Z' : undefined, // Converter para ISO com UTC
-        dueDate: newTicket.dueDate ? newTicket.dueDate + 'T00:00:00.000Z' : undefined, // Converter para ISO com UTC
-        tags: tagsFromFormCsv(newTicket.tags)
-      }
-      
-      console.log('🔍 KanbanBoard: Dados do ticket:', ticketData)
-      
-      try {
-        console.log('🔍 KanbanBoard: Chamando addTicket...')
-        addTicket(ticketData)
-        console.log('✅ KanbanBoard: Ticket criado com sucesso')
-      } catch (error) {
-        console.error('❌ Erro ao criar ticket:', error)
-      }
+    } catch (error: unknown) {
+      const msg =
+        error && typeof error === 'object' && 'message' in error
+          ? String((error as { message: string }).message)
+          : 'Não foi possível guardar. Verifique a rede ou os dados.'
+      console.error('❌ KanbanBoard: Erro ao guardar ticket:', error)
+      setSaveFeedback({ open: true, message: msg, severity: 'error' })
+      return
     }
 
     setOpenDialog(false)
@@ -503,10 +516,10 @@ export const KanbanBoard: React.FC = () => {
       title: '',
       description: '',
       priority: 'medium' as 'low' | 'medium' | 'high',
-      assignee: user?.name || 'unassigned', // Usar NOME do usuário logado ou 'unassigned'
+      assignee: user?.name || 'unassigned',
       startDate: '',
       dueDate: '',
-      tags: ''
+      tags: '',
     })
   }
 
@@ -1042,6 +1055,22 @@ export const KanbanBoard: React.FC = () => {
         </Alert>
       </Snackbar>
       
+      <Snackbar
+        open={saveFeedback.open}
+        autoHideDuration={saveFeedback.severity === 'error' ? 8000 : 4000}
+        onClose={() => setSaveFeedback((s) => ({ ...s, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          severity={saveFeedback.severity}
+          variant="filled"
+          onClose={() => setSaveFeedback((s) => ({ ...s, open: false }))}
+          sx={{ width: '100%' }}
+        >
+          {saveFeedback.message}
+        </Alert>
+      </Snackbar>
+
       {/* Alerta para tarefas vencidas */}
       <Snackbar
         open={showOverdueAlert}

@@ -1,6 +1,23 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
+/** A API devolve `tags` como string; o front usa `string[]` no estado. */
+function normalizeTagsFromApi(tags: unknown): string[] {
+  if (tags == null) return []
+  if (Array.isArray(tags)) return tags.map((t) => String(t))
+  if (typeof tags === 'string') {
+    const s = tags.trim()
+    if (!s) return []
+    try {
+      const parsed = JSON.parse(s) as unknown
+      if (Array.isArray(parsed)) return parsed.map(String)
+    } catch {
+      return s.split(',').map((t) => t.trim()).filter(Boolean)
+    }
+  }
+  return []
+}
+
 export interface KanbanTicket {
   id: string
   title: string
@@ -102,13 +119,20 @@ export const useKanbanStore = create<KanbanState>()(
             const api = getApi()
             
             console.log('🔍 KanbanStore: Enviando para API POST /kanban/tickets')
-            const newTicket = await api.post('/kanban/tickets', ticketData)
+            const payload = {
+              ...ticketData,
+              tags: Array.isArray(ticketData.tags)
+                ? ticketData.tags.join(', ')
+                : typeof ticketData.tags === 'string'
+                  ? ticketData.tags
+                  : '',
+            }
+            const newTicket = await api.post('/kanban/tickets', payload)
             console.log('✅ KanbanStore: Ticket criado na API:', newTicket)
             
-            // Normalizar tags do ticket retornado
             const normalizedTicket = {
               ...newTicket,
-              tags: Array.isArray(newTicket.tags) ? newTicket.tags : []
+              tags: normalizeTagsFromApi(newTicket.tags),
             }
             
             // Adicionar ao estado local
@@ -134,21 +158,29 @@ export const useKanbanStore = create<KanbanState>()(
             const { getApi } = await import('../lib/apiConfig')
             const api = getApi()
             
-            const updatedTicket = await api.put(`/kanban/tickets/${id}`, updates)
+            const putBody = {
+              ...updates,
+              ...(updates.tags !== undefined
+                ? {
+                    tags: Array.isArray(updates.tags)
+                      ? updates.tags.join(', ')
+                      : typeof updates.tags === 'string'
+                        ? updates.tags
+                        : '',
+                  }
+                : {}),
+            }
+            const updatedTicket = await api.put(`/kanban/tickets/${id}`, putBody)
             console.log('✅ KanbanStore: Ticket atualizado na API:', id)
             
-            // Normalizar tags do ticket retornado
             const normalizedTicket = {
               ...updatedTicket,
-              tags: Array.isArray(updatedTicket.tags) ? updatedTicket.tags : []
+              tags: normalizeTagsFromApi(updatedTicket.tags),
             }
-            
-            // Atualizar estado local
+
             set((state) => ({
-              tickets: state.tickets.map(ticket =>
-                ticket.id === id ? normalizedTicket : ticket
-              ),
-              loading: false
+              tickets: state.tickets.map((ticket) => (ticket.id === id ? normalizedTicket : ticket)),
+              loading: false,
             }))
             
           } catch (error) {
@@ -169,18 +201,14 @@ export const useKanbanStore = create<KanbanState>()(
             const updatedTicket = await api.put(`/kanban/tickets/${ticketId}`, { status: newStatus })
             console.log('✅ KanbanStore: Ticket movido na API:', ticketId, '->', newStatus)
             
-            // Normalizar tags do ticket retornado
             const normalizedTicket = {
               ...updatedTicket,
-              tags: Array.isArray(updatedTicket.tags) ? updatedTicket.tags : []
+              tags: normalizeTagsFromApi(updatedTicket.tags),
             }
-            
-            // Atualizar estado local
+
             set((state) => ({
-              tickets: state.tickets.map(ticket =>
-                ticket.id === ticketId ? normalizedTicket : ticket
-              ),
-              loading: false
+              tickets: state.tickets.map((ticket) => (ticket.id === ticketId ? normalizedTicket : ticket)),
+              loading: false,
             }))
             
           } catch (error) {
@@ -303,23 +331,9 @@ export const useKanbanStore = create<KanbanState>()(
             const kanbanTickets = await api.get('/kanban/tickets')
             console.log('✅ KanbanStore: Tickets carregados da API:', kanbanTickets.length)
             
-            // Normalizar tickets para garantir que tags seja sempre um array
-            const normalizedTickets = kanbanTickets.map((ticket: any) => ({
+            const normalizedTickets = kanbanTickets.map((ticket: Record<string, unknown>) => ({
               ...ticket,
-              tags: (() => {
-                if (!ticket.tags) return []
-                if (Array.isArray(ticket.tags)) return ticket.tags
-                if (typeof ticket.tags === 'string') {
-                  try {
-                    const parsed = JSON.parse(ticket.tags)
-                    return Array.isArray(parsed) ? parsed : []
-                  } catch {
-                    // Se não for JSON válido, tratar como string separada por vírgula
-                    return ticket.tags.split(',').map((t: string) => t.trim()).filter((t: string) => t.length > 0)
-                  }
-                }
-                return []
-              })()
+              tags: normalizeTagsFromApi(ticket.tags),
             }))
             
             // Aplicar tickets normalizados ao store
