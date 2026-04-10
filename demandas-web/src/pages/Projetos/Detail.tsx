@@ -4814,6 +4814,129 @@ export default function ProjectDetailPage() {
   const labelActionLog = (a: string) =>
     ({ create: 'Criação', update: 'Edição', delete: 'Exclusão' } as Record<string, string>)[a] || a
 
+  const labelAcaoCronograma = (a: string) =>
+    ({ criada: 'Inclusão', removida: 'Exclusão', alterada: 'Alteração' } as Record<string, string>)[a] || a
+
+  const labelCampoCronograma = (campo: string) =>
+    ({
+      name: 'Nome',
+      title: 'Título',
+      status: 'Status',
+      progress: 'Progresso (%)',
+      priority: 'Prioridade',
+      description: 'Descrição',
+      responsible: 'Responsável',
+      startDate: 'Início',
+      endDate: 'Fim',
+      plannedEndDate: 'Previsão de término',
+      actualEndDate: 'Conclusão',
+      estimatedHours: 'Horas estimadas',
+      actualHours: 'Horas realizadas',
+      observations: 'Observações'
+    } as Record<string, string>)[campo] || campo
+
+  const renderWorkLogMetadataDetalhes = (row: any) => {
+    const m = row.metadata
+    if (!m || typeof m !== 'object') return <Typography variant="caption">—</Typography>
+
+    const antes = m.antes as { phaseCount: number; taskCount: number; subtaskCount: number } | undefined
+    const depois = m.depois as { phaseCount: number; taskCount: number; subtaskCount: number } | undefined
+    const fmtContagem = (x: { phaseCount: number; taskCount: number; subtaskCount: number }) =>
+      `${x.phaseCount} etapa(s), ${x.taskCount} tarefa(s), ${x.subtaskCount} subtarefa(s)`
+
+    const alteracoes = Array.isArray(m.alteracoes) ? m.alteracoes : []
+    const truncado = !!m.truncado
+
+    return (
+      <Box sx={{ maxWidth: 520 }}>
+        {antes && depois && (
+          <Typography variant="caption" display="block" color="text.secondary" sx={{ mb: 0.5 }}>
+            <strong>Resumo:</strong> antes {fmtContagem(antes)} → depois {fmtContagem(depois)}
+          </Typography>
+        )}
+        {truncado && (
+          <Chip size="small" color="warning" label="Lista truncada (muitas alterações)" sx={{ mb: 0.5, mr: 0.5 }} />
+        )}
+        {alteracoes.length === 0 ? (
+          antes && depois ? (
+            <Typography variant="caption" color="text.secondary">
+              Nenhum detalhe campo a campo (registro antigo ou alteração só de ordem/formato).
+            </Typography>
+          ) : (
+            <Typography variant="caption" component="div" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+              {JSON.stringify(m).length > 400 ? `${JSON.stringify(m).slice(0, 400)}…` : JSON.stringify(m)}
+            </Typography>
+          )
+        ) : (
+          <Accordion
+            disableGutters
+            elevation={0}
+            sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, bgcolor: 'action.hover' }}
+          >
+            <AccordionSummary expandIcon={<ExpandMore fontSize="small" />}>
+              <Typography variant="body2">
+                {alteracoes.length} alteração(ões) detalhada(s)
+              </Typography>
+            </AccordionSummary>
+            <AccordionDetails sx={{ pt: 0, maxHeight: 360, overflow: 'auto' }}>
+              <Stack spacing={1.25}>
+                {alteracoes.map((alt: any, idx: number) => (
+                  <Box
+                    key={idx}
+                    sx={{
+                      pl: 1,
+                      borderLeft: '3px solid',
+                      borderColor: alt.acao === 'removida' ? 'error.light' : alt.acao === 'criada' ? 'success.light' : 'info.light'
+                    }}
+                  >
+                    <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap" useFlexGap sx={{ mb: 0.5 }}>
+                      <Chip size="small" variant="outlined" label={labelEntityTypeLog(String(alt.tipo || ''))} />
+                      <Chip
+                        size="small"
+                        color={alt.acao === 'removida' ? 'error' : alt.acao === 'criada' ? 'success' : 'info'}
+                        label={labelAcaoCronograma(String(alt.acao || ''))}
+                      />
+                    </Stack>
+                    <Typography variant="caption" display="block" fontWeight={600}>
+                      {alt.caminho || alt.nome || '—'}
+                    </Typography>
+                    {alt.id && (
+                      <Typography variant="caption" color="text.secondary" display="block" sx={{ fontFamily: 'monospace' }}>
+                        id: {alt.id}
+                      </Typography>
+                    )}
+                    {Array.isArray(alt.campos) && alt.campos.length > 0 && (
+                      <Box component="ul" sx={{ m: 0, pl: 2, mt: 0.5 }}>
+                        {alt.campos.map((c: any, j: number) => (
+                          <Typography key={j} component="li" variant="caption" display="list-item" sx={{ mb: 0.25 }}>
+                            <strong>{labelCampoCronograma(String(c.campo))}:</strong>{' '}
+                            <Box component="span" sx={{ color: 'text.secondary' }}>{c.anterior ?? '—'}</Box>
+                            {' → '}
+                            <Box component="span" sx={{ color: 'text.primary', fontWeight: 500 }}>{c.novo ?? '—'}</Box>
+                          </Typography>
+                        ))}
+                      </Box>
+                    )}
+                    {alt.acao === 'criada' && (!alt.campos || alt.campos.length === 0) && (
+                      <Typography variant="caption" color="text.secondary">
+                        Item incluído no cronograma.
+                      </Typography>
+                    )}
+                    {alt.acao === 'removida' && (!alt.campos || alt.campos.length === 0) && (
+                      <Typography variant="caption" color="text.secondary">
+                        Item removido do cronograma.
+                      </Typography>
+                    )}
+                  </Box>
+                ))}
+              </Stack>
+            </AccordionDetails>
+          </Accordion>
+        )}
+      </Box>
+    )
+  }
+
   const renderWorkLogView = () => (
     <Paper sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2, mb: 2 }}>
@@ -4895,23 +5018,10 @@ export default function ProjectDetailPage() {
                   <TableCell>
                     {row.actor?.name || row.actor?.email || row.actorUserId || '—'}
                   </TableCell>
-                  <TableCell sx={{ maxWidth: 280 }}>
-                    {row.metadata && typeof row.metadata === 'object' ? (
-                      <Typography variant="caption" component="div" sx={{ m: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                        {(() => {
-                          const m = row.metadata as { antes?: { phaseCount: number; taskCount: number; subtaskCount: number }; depois?: { phaseCount: number; taskCount: number; subtaskCount: number } }
-                          if (m.antes && m.depois) {
-                            const fmt = (x: { phaseCount: number; taskCount: number; subtaskCount: number }) =>
-                              `${x.phaseCount} fase(s), ${x.taskCount} tarefa(s), ${x.subtaskCount} subtarefa(s)`
-                            return `Antes: ${fmt(m.antes)}\nDepois: ${fmt(m.depois)}`
-                          }
-                          const s = JSON.stringify(row.metadata)
-                          return (s.length > 400 ? `${s.slice(0, 400)}…` : s)
-                        })()}
-                      </Typography>
-                    ) : (
-                      '—'
-                    )}
+                  <TableCell sx={{ maxWidth: 560, verticalAlign: 'top' }}>
+                    {row.metadata && typeof row.metadata === 'object'
+                      ? renderWorkLogMetadataDetalhes(row)
+                      : '—'}
                   </TableCell>
                 </TableRow>
               ))}
