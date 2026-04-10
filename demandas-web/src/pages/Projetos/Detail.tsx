@@ -2380,7 +2380,7 @@ export default function ProjectDetailPage() {
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                label="Data de Entrega"
+                label="Data de Previsão"
                 type="date"
                 value={formatDateForInput(editingTask.plannedEndDate)}
                 onChange={(e) => setEditingTask({ ...editingTask, plannedEndDate: e.target.value })}
@@ -2590,7 +2590,7 @@ export default function ProjectDetailPage() {
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                label="Data de Entrega"
+                label="Data de Previsão"
                 type="date"
                 value={formatDateForInput(editingSubtask.dueDate)}
                 onChange={(e) => setEditingSubtask({ ...editingSubtask, dueDate: e.target.value })}
@@ -6241,7 +6241,7 @@ export default function ProjectDetailPage() {
                   <Grid item xs={12} md={6}>
                     <TextField
                       fullWidth
-                      label="Data de Entrega"
+                      label="Data de Previsão"
                       type="date"
                       value={formatDateForInput(newSubtaskData.dueDate)}
                       onChange={(e) => setNewSubtaskData({ ...newSubtaskData, dueDate: e.target.value })}
