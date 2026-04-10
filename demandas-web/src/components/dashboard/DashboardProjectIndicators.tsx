@@ -156,7 +156,7 @@ export function DashboardProjectIndicators({ refreshTick }: Props) {
             Projetos e cronograma
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, maxWidth: 720 }}>
-            Indicadores dos projetos a que tem acesso, com base no cronograma (etapas e tarefas) e nos registros de trabalho guardados na base — os mesmos eventos usados na página de projetos (aba de log).
+            Indicadores apenas dos projetos vinculados a si (dono, gestor, membro ou equipe), com base no cronograma (etapas e tarefas) e nos registros de trabalho na base — os mesmos eventos usados na página de projetos (aba de log).
           </Typography>
         </Box>
         <Button
@@ -193,7 +193,7 @@ export function DashboardProjectIndicators({ refreshTick }: Props) {
                 subtitle={`${stats.activeProjectCount} ativos · ${stats.completedProjectCount} concluídos · ${stats.pausedProjectCount} pausados`}
                 icon={<ProjectsIcon />}
                 color="primary"
-                tooltip="Total de projetos visíveis para si (mesma regra da lista de projetos)."
+                tooltip="Total de projetos em que está vinculado (não inclui apenas projetos públicos em que não participa)."
               />
             </Grid>
             <Grid item xs={12} sm={6} md={4}>
@@ -260,7 +260,7 @@ export function DashboardProjectIndicators({ refreshTick }: Props) {
               </Typography>
             </Box>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-              Eventos gravados ao criar ou alterar etapas, tarefas e subtarefas — agregados para todos os seus projetos.
+              Eventos gravados ao criar ou alterar etapas, tarefas e subtarefas — agregados só para os seus projetos vinculados.
             </Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
               <Chip size="small" label={`Total: ${stats.audit.totalEvents}`} />

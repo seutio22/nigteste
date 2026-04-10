@@ -90,34 +90,32 @@ export default async function projectStatsSummaryRoutes(
   fastify.get('/projetos/stats/summary', async (req: any, reply: any) => {
     try {
       let userId: string | null = null
-      let userRole: string | null = null
       try {
         await req.jwtVerify?.()
         const u = req.user
         userId = (u?.id ?? u?.sub) ?? null
-        userRole = u?.role ?? null
       } catch {
         const f = extractUserFromAuthHeader(req)
         userId = f.id
-        userRole = f.role
       }
       if (!userId) {
         const hdrId = (req?.headers?.['x-user-id'] || req?.headers?.['X-User-Id']) as string | undefined
         if (hdrId && typeof hdrId === 'string') userId = hdrId
       }
-      if (!userRole) {
-        const hdrRole = (req?.headers?.['x-user-role'] || req?.headers?.['X-User-Role']) as string | undefined
-        if (hdrRole && typeof hdrRole === 'string') userRole = hdrRole
+
+      /** Apenas projetos vinculados ao utilizador (não incluir públicos só visíveis). */
+      if (!userId) {
+        return reply.status(401).send({ error: 'Não autenticado' })
       }
 
-      const where: any =
-        userRole === 'admin'
-          ? {}
-          : userId
-            ? {
-                OR: [{ isPrivate: false }, { ownerId: userId }, { managerId: userId }, { members: { some: { userId } } }]
-              }
-            : { isPrivate: false }
+      const where: any = {
+        OR: [
+          { ownerId: userId },
+          { managerId: userId },
+          { members: { some: { userId, isActive: true } } },
+          { team: { contains: userId } }
+        ]
+      }
 
       const projects = await prisma.project.findMany({
         where,

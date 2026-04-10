@@ -9,6 +9,8 @@ import { useMaillingStore } from '../store/maillingStore'
 import { useComunicadoStore } from '../store/comunicadoStore'
 import { useProjectStore } from '../store/projectStore'
 import { useMasterDataStore } from '../store/masterDataStore'
+import { useAuthStore } from '../store/authStore'
+import { isProjectLinkedToUser } from '../utils/projectAccess'
 import type { DashboardIndicator, PageMetrics, PeriodType } from '../types/dashboardIndicators'
 import {
   PAGE_CONFIGS,
@@ -227,6 +229,7 @@ export const useDashboardIndicators = (
   const comunicadoStore = useComunicadoStore()
   const projectStore = useProjectStore()
   const masterDataStore = useMasterDataStore()
+  const user = useAuthStore((s) => s.user)
 
   // Função para filtrar por data - mesma lógica para todas as páginas
   const inRange = useMemo(() => {
@@ -291,6 +294,11 @@ export const useDashboardIndicators = (
     }
 
     return items.filter(item => {
+      // Projetos: só os vinculados ao utilizador (dono, gestor, membro, equipe)
+      if (page === 'projetos') {
+        if (!isProjectLinkedToUser(item, user?.id)) return false
+      }
+
       // Filtro por área (para demandas e atendimentos)
       if (filters.areaId && (page === 'demandas' || page === 'atendimentos')) {
         const itemArea = item.areaId || item.area
@@ -365,7 +373,8 @@ export const useDashboardIndicators = (
     filters?.fromDate,
     filters?.toDate,
     masterDataStore.areas,
-    masterDataStore.analistas
+    masterDataStore.analistas,
+    user?.id
   ])
 
   /** Mesmos dados com filtro de área/analista, sem recorte por data (para comparar períodos e evolução diária). */
@@ -396,7 +405,8 @@ export const useDashboardIndicators = (
     filters?.analistaId,
     filters?.userScopePending,
     masterDataStore.areas,
-    masterDataStore.analistas
+    masterDataStore.analistas,
+    user?.id
   ])
 
   const chartPeriodComparison = useMemo(() => {
