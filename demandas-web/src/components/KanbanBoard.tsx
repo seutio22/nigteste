@@ -40,10 +40,10 @@ import {
 } from '@mui/icons-material'
 import { useKanbanStore, KanbanTicket, KANBAN_COLUMNS } from '../store/kanbanStore'
 import { useAuthStore } from '../store/authStore'
-import { useNotificationStore } from '../store/notificationStore'
 import { canViewAllData } from '../lib/utils'
 import { tagsForApi, tagsFromFormCsv } from '../utils/tagHelpers'
 import { diffCalendarDays, parseLocalDateFromYmd, toDateOnlyString } from '../utils/kanbanDates'
+import { notifyKanbanPrazoRegistrado, runKanbanDeadlineChecks } from '../utils/kanbanDeadlineNotify'
 
 export const KanbanBoard: React.FC = () => {
   const location = useLocation()
@@ -111,191 +111,27 @@ export const KanbanBoard: React.FC = () => {
   // Obter tickets filtrados para o usuário logado - SEMPRE mostrar apenas os próprios tickets
   const userTickets = useKanbanStore(state => state.getFilteredTickets(user?.role, user?.id, true)) // true = viewOwnDataOnly
 
-  // Verificar tarefas vencidas e próximas do vencimento
+  // Verificar tarefas vencidas e próximas do vencimento (lógica central em kanbanDeadlineNotify)
   useEffect(() => {
-    console.log('🔍 KanbanBoard: useEffect de verificação de tarefas executado')
-    console.log('🔍 KanbanBoard: Tickets do usuário:', userTickets.length)
-    
     const checkOverdueTasks = () => {
-      const { notifications, add, remove } = useNotificationStore.getState()
-
-      const today = new Date()
-      const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate())
-
-      const overdueTasks: string[] = []
-      const dueTodayTasks: string[] = []
-      const dueTomorrowTasks: string[] = []
-      const dueSoonTasks: string[] = []
-
-      userTickets.forEach((ticket) => {
-        if (!ticket.dueDate || ticket.status === 'done') return
-
-        const due = parseLocalDateFromYmd(ticket.dueDate)
-        if (!due) {
-          console.warn('⚠️ KanbanBoard: Data de vencimento inválida:', ticket.dueDate)
-          return
-        }
-
-        const diffDays = diffCalendarDays(todayStart, due)
-
-        if (diffDays < 0) overdueTasks.push(ticket.title)
-        else if (diffDays === 0) dueTodayTasks.push(ticket.title)
-        else if (diffDays === 1) dueTomorrowTasks.push(ticket.title)
-        else if (diffDays <= 3) dueSoonTasks.push(ticket.title)
-      })
-      
-      console.log('🔍 KanbanBoard: Tarefas vencidas:', overdueTasks)
-      console.log('🔍 KanbanBoard: Tarefas que vencem hoje:', dueTodayTasks)
-      console.log('🔍 KanbanBoard: Tarefas que vencem amanhã:', dueTomorrowTasks)
-      console.log('🔍 KanbanBoard: Tarefas que vencem em breve:', dueSoonTasks)
-      
-      // Criar notificações para tarefas vencidas
-      overdueTasks.forEach(taskTitle => {
-        const task = userTickets.find(t => t.title === taskTitle)
-        if (!task) return
-        
-        console.log('🔍 KanbanBoard: Criando notificação para tarefa vencida:', task.title, 'ID:', task.id)
-        
-        const existingNotification = notifications.find(
-          n => n.dados?.kanbanTicketId === task.id && n.dados?.categoria === 'kanban-overdue'
+      const result = runKanbanDeadlineChecks(userTickets)
+      if (result.overdueTitles.length > 0) {
+        setOverdueMessage(
+          `${result.overdueTitles.length} tarefa(s) vencida(s): ${result.overdueTitles.join(', ')}`
         )
-        
-        if (!existingNotification) {
-          const notification = {
-            titulo: 'Tarefa Vencida',
-            mensagem: `A tarefa "${taskTitle}" está vencida!`,
-            tipo: 'sistema' as const,
-            prioridade: 'urgente' as const,
-            dados: {
-              categoria: 'kanban-overdue',
-              kanbanTicketId: task.id
-            }
-          }
-          
-          add({ ...notification, dedupeKey: `kanban-kanban-overdue-${task.id}` })
-        } else {
-          console.log('🔍 KanbanBoard: Notificação já existe para:', taskTitle)
-        }
-      })
-      
-      // Criar notificações para tarefas que vencem hoje
-      dueTodayTasks.forEach(taskTitle => {
-        const task = userTickets.find(t => t.title === taskTitle)
-        if (!task) return
-        
-        console.log('🔍 KanbanBoard: Criando notificação para tarefa que vence hoje:', task.title, 'ID:', task.id)
-        
-        const existingNotification = notifications.find(
-          n => n.dados?.kanbanTicketId === task.id && n.dados?.categoria === 'kanban-due-today'
-        )
-        
-        if (!existingNotification) {
-          const notification = {
-            titulo: 'Tarefa Vence Hoje',
-            mensagem: `A tarefa "${taskTitle}" vence hoje!`,
-            tipo: 'sistema' as const,
-            prioridade: 'alta' as const,
-            dados: {
-              categoria: 'kanban-due-today',
-              kanbanTicketId: task.id
-            }
-          }
-          
-          add({ ...notification, dedupeKey: `kanban-kanban-due-today-${task.id}` })
-        } else {
-          console.log('🔍 KanbanBoard: Notificação já existe para:', taskTitle)
-        }
-      })
-      
-      // Criar notificações para tarefas que vencem amanhã
-      dueTomorrowTasks.forEach(taskTitle => {
-        const task = userTickets.find(t => t.title === taskTitle)
-        if (!task) return
-        
-        console.log('🔍 KanbanBoard: Criando notificação para tarefa que vence amanhã:', task.title, 'ID:', task.id)
-        
-        const existingNotification = notifications.find(
-          n => n.dados?.kanbanTicketId === task.id && n.dados?.categoria === 'kanban-due-tomorrow'
-        )
-        
-        if (!existingNotification) {
-          const notification = {
-            titulo: 'Tarefa Vence Amanhã',
-            mensagem: `A tarefa "${taskTitle}" vence amanhã!`,
-            tipo: 'sistema' as const,
-            prioridade: 'alta' as const,
-            dados: {
-              categoria: 'kanban-due-tomorrow',
-              kanbanTicketId: task.id
-            }
-          }
-          
-          add({ ...notification, dedupeKey: `kanban-kanban-due-tomorrow-${task.id}` })
-        } else {
-          console.log('🔍 KanbanBoard: Notificação já existe para:', taskTitle)
-        }
-      })
-      
-      // Criar notificações para tarefas que vencem em breve
-      dueSoonTasks.forEach(taskTitle => {
-        const task = userTickets.find(t => t.title === taskTitle)
-        if (!task) return
-        
-        console.log('🔍 KanbanBoard: Criando notificação para tarefa que vence em breve:', task.title, 'ID:', task.id)
-        
-        const existingNotification = notifications.find(
-          n => n.dados?.kanbanTicketId === task.id && n.dados?.categoria === 'kanban-due-soon'
-        )
-        
-        if (!existingNotification) {
-          const notification = {
-            titulo: 'Tarefa Vence em Breve',
-            mensagem: `A tarefa "${taskTitle}" vence em breve!`,
-            tipo: 'sistema' as const,
-            prioridade: 'media' as const,
-            dados: {
-              categoria: 'kanban-due-soon',
-              kanbanTicketId: task.id
-            }
-          }
-          
-          add({ ...notification, dedupeKey: `kanban-kanban-due-soon-${task.id}` })
-        } else {
-          console.log('🔍 KanbanBoard: Notificação já existe para:', taskTitle)
-        }
-      })
-      
-      // Limpar notificações de tarefas concluídas
-      ;[...notifications].forEach((notification) => {
-        if (notification.dados?.categoria?.startsWith('kanban-')) {
-          const taskTitle = notification.mensagem.match(/"([^"]+)"/)?.[1]
-          if (taskTitle) {
-            const task = userTickets.find(t => t.title === taskTitle)
-            if (task && task.status === 'done') {
-              remove(notification.id)
-            }
-          }
-        }
-      })
-      
-      // Mostrar alerta só se houver tarefas vencidas e o usuário não tiver fechado o alerta
-      if (overdueTasks.length > 0) {
-        setOverdueMessage(`${overdueTasks.length} tarefa(s) vencida(s): ${overdueTasks.join(', ')}`)
         if (!overdueAlertDismissedRef.current) setShowOverdueAlert(true)
       } else {
         overdueAlertDismissedRef.current = false
       }
     }
-    
-    // Verificar imediatamente
+
     checkOverdueTasks()
-    
-    // Verificar a cada hora
+
     const interval = setInterval(() => {
       if (typeof document !== 'undefined' && document.hidden) return
       checkOverdueTasks()
     }, 60 * 60 * 1000)
-    
+
     return () => clearInterval(interval)
   }, [userTickets])
 
@@ -413,18 +249,23 @@ export const KanbanBoard: React.FC = () => {
 
     try {
       if (editingTicket) {
-        console.log('🔍 KanbanBoard: Editando ticket existente')
-        await updateTicket(editingTicket.id, {
+        const editedId = editingTicket.id
+        await updateTicket(editedId, {
           title: newTicket.title,
           description: newTicket.description,
           priority: newTicket.priority,
           assignee: newTicket.assignee || undefined,
           startDate: toIsoDateOrNull(newTicket.startDate),
           dueDate: toIsoDateOrNull(newTicket.dueDate),
-          tags: tagsStr,
+          tags: tagsFromFormCsv(newTicket.tags),
         })
+        if (newTicket.dueDate?.trim()) {
+          queueMicrotask(() => {
+            const t = useKanbanStore.getState().getTicketById(editedId)
+            if (t?.dueDate) notifyKanbanPrazoRegistrado(t)
+          })
+        }
       } else {
-        console.log('🔍 KanbanBoard: Criando novo ticket')
         const ticketData = {
           title: newTicket.title,
           description: newTicket.description,
@@ -433,10 +274,12 @@ export const KanbanBoard: React.FC = () => {
           assignee: user?.id || 'unassigned',
           startDate: newTicket.startDate ? newTicket.startDate + 'T00:00:00.000Z' : undefined,
           dueDate: newTicket.dueDate ? newTicket.dueDate + 'T00:00:00.000Z' : undefined,
-          tags: tagsStr,
+          tags: tagsFromFormCsv(newTicket.tags),
         }
-        console.log('🔍 KanbanBoard: Dados do ticket:', ticketData)
-        await addTicket(ticketData)
+        const created = await addTicket(ticketData)
+        if (created?.dueDate) {
+          notifyKanbanPrazoRegistrado(created)
+        }
       }
 
       setSaveFeedback({
@@ -453,6 +296,12 @@ export const KanbanBoard: React.FC = () => {
       setSaveFeedback({ open: true, message: msg, severity: 'error' })
       return
     }
+
+    // Recalcular notificações de prazo com o estado já atualizado no store
+    queueMicrotask(() => {
+      const list = useKanbanStore.getState().getFilteredTickets(user?.role, user?.id, true)
+      runKanbanDeadlineChecks(list)
+    })
 
     setOpenDialog(false)
     setEditingTicket(null)
