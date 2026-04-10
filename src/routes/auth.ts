@@ -7,6 +7,10 @@ const prisma = new PrismaClient()
 const PASSWORD_EXPIRATION_DAYS = 60
 const PASSWORD_EXPIRATION_MS = PASSWORD_EXPIRATION_DAYS * 24 * 60 * 60 * 1000
 
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase()
+}
+
 export async function authRoutes(app: FastifyInstance) {
   app.post('/auth/login', async (req: { body: unknown }, res: { code: (code: number) => { send: (data: any) => void } }) => {
     try {
@@ -16,10 +20,13 @@ export async function authRoutes(app: FastifyInstance) {
         password: z.string().min(1, 'Senha é obrigatória') 
       })
       const body = bodySchema.parse(req.body)
+      const emailNorm = normalizeEmail(body.email)
 
-      // Buscar usuário por email
-      const user = await prisma.user.findUnique({ 
-        where: { email: body.email },
+      // Buscar usuário por email (case-insensitive, alinhado à troca de senha)
+      const user = await prisma.user.findFirst({ 
+        where: {
+          email: { equals: emailNorm, mode: 'insensitive' },
+        },
         select: {
           id: true,
           name: true,
@@ -124,9 +131,12 @@ export async function authRoutes(app: FastifyInstance) {
         newPassword: z.string().min(6, 'Nova senha deve ter pelo menos 6 caracteres')
       })
       const body = bodySchema.parse(req.body)
+      const emailNorm = normalizeEmail(body.email)
 
-      const user = await prisma.user.findUnique({
-        where: { email: body.email },
+      const user = await prisma.user.findFirst({
+        where: {
+          email: { equals: emailNorm, mode: 'insensitive' },
+        },
         select: { id: true, password: true, active: true }
       })
 
@@ -156,7 +166,21 @@ export async function authRoutes(app: FastifyInstance) {
         }
       })
 
-      return { message: 'Senha alterada com sucesso' }
+      const after = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: { password: true }
+      })
+      const persistedOk =
+        !!after?.password && (await bcrypt.compare(body.newPassword, after.password))
+      if (!persistedOk) {
+        console.error('change-password: hash não verificado após update', { userId: user.id })
+        return res.code(500).send({
+          message: 'Não foi possível confirmar a alteração de senha. Tente novamente.',
+          code: 'PASSWORD_UPDATE_VERIFY_FAILED'
+        })
+      }
+
+      return res.code(200).send({ message: 'Senha alterada com sucesso' })
     } catch (error: any) {
       console.error('Erro ao alterar senha:', error)
       if (error instanceof z.ZodError) {

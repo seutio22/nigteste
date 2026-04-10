@@ -7,6 +7,11 @@ import { prisma as prismaSingleton } from '../lib/prisma'
 const PASSWORD_EXPIRATION_DAYS = 60
 const PASSWORD_EXPIRATION_MS = PASSWORD_EXPIRATION_DAYS * 24 * 60 * 60 * 1000
 
+/** E-mail único no login/troca de senha (evita falha de findUnique por maiúsculas/minúsculas). */
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase()
+}
+
 export async function authRoutes(app: FastifyInstance, options?: { prisma?: PrismaClient }) {
   // Usar prisma compartilhado (singleton) para evitar múltiplas conexões
   const prisma = options?.prisma || prismaSingleton
@@ -23,8 +28,9 @@ export async function authRoutes(app: FastifyInstance, options?: { prisma?: Pris
         password: z.string().min(1, 'Senha é obrigatória') 
       })
       const body = bodySchema.parse(req.body)
+      const emailNorm = normalizeEmail(body.email)
 
-      console.log('🔐 Tentando login para:', body.email)
+      console.log('🔐 Tentando login para:', emailNorm)
 
       // Tentar conectar ao banco primeiro
       let user = null
@@ -33,9 +39,11 @@ export async function authRoutes(app: FastifyInstance, options?: { prisma?: Pris
         await prisma.$connect()
         console.log('✅ Conexão com banco OK')
         
-        // Buscar usuário por email
-        user = await prisma.user.findUnique({ 
-          where: { email: body.email },
+        // Buscar usuário por email (case-insensitive alinhado à troca de senha)
+        user = await prisma.user.findFirst({ 
+          where: {
+            email: { equals: emailNorm, mode: 'insensitive' },
+          },
           select: {
             id: true,
             name: true,
@@ -156,9 +164,12 @@ export async function authRoutes(app: FastifyInstance, options?: { prisma?: Pris
         newPassword: z.string().min(6, 'Nova senha deve ter pelo menos 6 caracteres')
       })
       const body = bodySchema.parse(req.body)
+      const emailNorm = normalizeEmail(body.email)
 
-      const user = await prisma.user.findUnique({
-        where: { email: body.email },
+      const user = await prisma.user.findFirst({
+        where: {
+          email: { equals: emailNorm, mode: 'insensitive' },
+        },
         select: { id: true, password: true, active: true }
       })
 
@@ -188,7 +199,22 @@ export async function authRoutes(app: FastifyInstance, options?: { prisma?: Pris
         }
       })
 
-      return { message: 'Senha alterada com sucesso' }
+      // Confirma que o hash foi persistido (evita “sucesso” falso se o update falhar de forma inesperada)
+      const after = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: { password: true }
+      })
+      const persistedOk =
+        !!after?.password && (await bcrypt.compare(body.newPassword, after.password))
+      if (!persistedOk) {
+        console.error('change-password: hash não verificado após update', { userId: user.id })
+        return res.code(500).send({
+          message: 'Não foi possível confirmar a alteração de senha. Tente novamente.',
+          code: 'PASSWORD_UPDATE_VERIFY_FAILED'
+        })
+      }
+
+      return res.code(200).send({ message: 'Senha alterada com sucesso' })
     } catch (error: any) {
       console.error('Erro ao alterar senha:', error)
       if (error instanceof z.ZodError) {

@@ -139,7 +139,7 @@ export function SettingsDropdown() {
       }
 
       await api.changePassword({
-        email: user.email,
+        email: user.email.trim(),
         currentPassword,
         newPassword
       })

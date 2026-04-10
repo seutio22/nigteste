@@ -95,7 +95,8 @@ export default function LoginPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!email || !password) return
+    const emailNorm = email.trim()
+    if (!emailNorm || !password) return
     
     setIsLoading(true)
     setError('')
@@ -121,12 +122,12 @@ export default function LoginPage() {
         }
         
         await api.changePassword({
-          email,
+          email: emailNorm,
           currentPassword: password,
           newPassword
         })
         
-        const data = await api.login({ email, password: newPassword })
+        const data = await api.login({ email: emailNorm, password: newPassword })
         setPassword(newPassword)
         await finalizeLogin(data)
         setRequirePasswordChange(false)
@@ -137,7 +138,7 @@ export default function LoginPage() {
       }
 
       // 1. Fazer login
-      const data = await api.login({ email, password })
+      const data = await api.login({ email: emailNorm, password })
       await finalizeLogin(data)
       navigate('/')
     } catch (err: unknown) {
