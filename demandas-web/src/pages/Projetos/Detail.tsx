@@ -51,7 +51,8 @@ import {
   CircularProgress,
   FormControlLabel,
   Switch,
-  Autocomplete
+  Autocomplete,
+  AvatarGroup
 } from '@mui/material'
 import {
   ArrowBack,
@@ -130,6 +131,55 @@ function joinResponsibleFromAutocomplete(value: (TeamResponsibleOption | string)
   }
   return out.join(', ')
 }
+
+/** Nomes individuais para exibir na tabela (tarefa: responsible + assignee). */
+function extractResponsibleNames(responsible: unknown, assignee?: unknown): string[] {
+  if (typeof responsible === 'string' && responsible.trim()) {
+    return parseResponsibleSegments(responsible)
+  }
+  if (responsible && typeof responsible === 'object') {
+    const n = (responsible as { nome?: string; name?: string }).nome || (responsible as { name?: string }).name
+    if (n && String(n).trim()) return [String(n).trim()]
+  }
+  if (assignee != null && assignee !== '') {
+    if (typeof assignee === 'string' && assignee.trim()) {
+      return parseResponsibleSegments(assignee)
+    }
+    if (typeof assignee === 'object') {
+      const n = (assignee as { nome?: string; name?: string }).nome || (assignee as { name?: string }).name
+      if (n && String(n).trim()) return [String(n).trim()]
+    }
+  }
+  return []
+}
+
+function initialsFromName(name: string): string {
+  const p = name.trim().split(/\s+/).filter(Boolean)
+  if (p.length === 0) return '?'
+  if (p.length === 1) return p[0].slice(0, 2).toUpperCase()
+  return (p[0][0] + p[p.length - 1][0]).toUpperCase()
+}
+
+function shortPriorityLabel(p: string | undefined): string {
+  switch (String(p || 'medium').toLowerCase()) {
+    case 'low':
+      return 'Baixa'
+    case 'medium':
+      return 'Média'
+    case 'high':
+      return 'Alta'
+    case 'urgent':
+      return 'Urg.'
+    default:
+      return 'Média'
+  }
+}
+
+const compactChipSx = {
+  height: 22,
+  maxWidth: '100%',
+  '& .MuiChip-label': { px: 0.5, fontSize: '0.7rem', lineHeight: 1.2 }
+} as const
 
 // Removido dados mockados - usar apenas dados reais do banco
 /* const mockProject = {
@@ -3607,17 +3657,23 @@ export default function ProjectDetailPage() {
               <Table size="small">
                 <TableHead>
                   <TableRow sx={{ backgroundColor: '#f8f9fa' }}>
-                    <TableCell sx={{ fontWeight: 'bold', width: '60px' }}>Nº</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold' }}>Tarefa</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', width: '120px' }}>Responsável</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', width: '100px' }}>Início</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', width: '100px' }}>Previsão</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', width: '100px' }}>Conclusão</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', width: '120px' }}>Status</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', width: '100px' }}>Prioridade</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', width: '100px' }}>Progresso</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', width: '100px' }}>Horas</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', width: '150px' }}>Observações</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', width: '56px' }}>Nº</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', minWidth: 140 }}>Tarefa</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', width: 200, minWidth: 176, maxWidth: 228 }}>
+                      Responsável
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', width: 86 }}>Início</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', width: 86 }}>Previsão</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', width: 86 }}>Conclusão</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', width: 124 }}>Status</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', width: 72, maxWidth: 76, px: 0.75, fontSize: '0.72rem' }}>
+                      Prioridade
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', width: 108 }}>Progresso</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', width: 52, maxWidth: 58, px: 0.5, textAlign: 'center' }}>
+                      Horas
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', minWidth: 120, maxWidth: 220 }}>Observações</TableCell>
                     {!readOnly && <TableCell sx={{ fontWeight: 'bold', width: '140px' }}>Ações</TableCell>}
                   </TableRow>
                 </TableHead>
@@ -3643,15 +3699,8 @@ export default function ProjectDetailPage() {
                           </Box>
                         </TableCell>
                         
-                        <TableCell>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Avatar sx={{ width: 24, height: 24 }}>
-                              <Person />
-                            </Avatar>
-                            <Typography variant="body2">
-                              {getUserName(task.responsible)}
-                            </Typography>
-                          </Box>
+                        <TableCell sx={{ maxWidth: 228, verticalAlign: 'middle', py: 1 }}>
+                          {renderResponsibleTableCell(task.responsible, task.assignee)}
                         </TableCell>
                         
                         <TableCell>
@@ -3681,16 +3730,19 @@ export default function ProjectDetailPage() {
                           />
                         </TableCell>
                         
-                        <TableCell>
-                          <Chip
-                            label={task.priority || 'Média'}
-                            size="small"
-                            color={
-                              task.priority === 'high' || task.priority === 'urgent' ? 'error' :
-                              task.priority === 'medium' ? 'warning' : 'success'
-                            }
-                            variant="outlined"
-                          />
+                        <TableCell sx={{ width: 72, maxWidth: 72, px: 0.75, verticalAlign: 'middle' }}>
+                          <Tooltip title={shortPriorityLabel(task.priority)}>
+                            <Chip
+                              label={shortPriorityLabel(task.priority)}
+                              size="small"
+                              color={
+                                task.priority === 'high' || task.priority === 'urgent' ? 'error' :
+                                task.priority === 'medium' ? 'warning' : 'success'
+                              }
+                              variant="outlined"
+                              sx={compactChipSx}
+                            />
+                          </Tooltip>
                         </TableCell>
                         
                         <TableCell>
@@ -3706,15 +3758,12 @@ export default function ProjectDetailPage() {
                           </Box>
                         </TableCell>
                         
-                        <TableCell>
-                          <Box sx={{ textAlign: 'center' }}>
-                            <Typography variant="body2" fontWeight="bold">
-                              {task.actualHours}/{task.estimatedHours}h
+                        <TableCell sx={{ width: 56, maxWidth: 58, px: 0.5, textAlign: 'center', verticalAlign: 'middle' }}>
+                          <Tooltip title={`Real: ${task.actualHours ?? 0}h · Estimado: ${task.estimatedHours ?? 0}h`}>
+                            <Typography variant="caption" fontWeight="bold" component="span" sx={{ fontSize: '0.75rem' }}>
+                              {task.actualHours ?? 0}/{task.estimatedHours ?? 0}h
                             </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              Estimado: {task.estimatedHours}h
-                            </Typography>
-                          </Box>
+                          </Tooltip>
                         </TableCell>
                         
                         <TableCell>
@@ -3824,15 +3873,8 @@ export default function ProjectDetailPage() {
                               </Box>
                             </TableCell>
                             
-                            <TableCell>
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Avatar sx={{ width: 24, height: 24 }}>
-                                  <Person />
-                                </Avatar>
-                                <Typography variant="body2">
-                                  {getUserName(subtask.assignee)}
-                                </Typography>
-                              </Box>
+                            <TableCell sx={{ maxWidth: 228, verticalAlign: 'middle', py: 1 }}>
+                              {renderResponsibleTableCell(subtask.responsible, subtask.assignee)}
                             </TableCell>
                             
                             <TableCell>
@@ -3867,6 +3909,21 @@ export default function ProjectDetailPage() {
                               />
                             </TableCell>
                             
+                            <TableCell sx={{ width: 72, maxWidth: 72, px: 0.75, verticalAlign: 'middle' }}>
+                              <Tooltip title={shortPriorityLabel(subtask.priority)}>
+                                <Chip
+                                  label={shortPriorityLabel(subtask.priority)}
+                                  size="small"
+                                  color={
+                                    subtask.priority === 'high' || subtask.priority === 'urgent' ? 'error' :
+                                    subtask.priority === 'medium' ? 'warning' : 'success'
+                                  }
+                                  variant="outlined"
+                                  sx={compactChipSx}
+                                />
+                              </Tooltip>
+                            </TableCell>
+                            
                             <TableCell>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                 <Typography variant="body2" fontWeight="bold" color="text.secondary">
@@ -3888,15 +3945,12 @@ export default function ProjectDetailPage() {
                               </Box>
                             </TableCell>
                             
-                            <TableCell>
-                              <Box sx={{ textAlign: 'center' }}>
-                                <Typography variant="body2" fontWeight="bold">
+                            <TableCell sx={{ width: 56, maxWidth: 58, px: 0.5, textAlign: 'center', verticalAlign: 'middle' }}>
+                              <Tooltip title={`Real: ${subtask.actualHours || 0}h · Estimado: ${subtask.estimatedHours || 0}h`}>
+                                <Typography variant="caption" fontWeight="bold" component="span" sx={{ fontSize: '0.75rem' }}>
                                   {subtask.actualHours || 0}/{subtask.estimatedHours || 0}h
                                 </Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                  Estimado: {subtask.estimatedHours || 0}h
-                                </Typography>
-                              </Box>
+                              </Tooltip>
                             </TableCell>
                             
                             <TableCell>
@@ -3987,7 +4041,7 @@ export default function ProjectDetailPage() {
                               {generateTaskNumber(phaseIndex, taskIndex)}.1
                             </Typography>
                           </TableCell>
-                          <TableCell colSpan={10}>
+                          <TableCell colSpan={readOnly ? 10 : 11}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                               <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
                                 Nenhuma subtarefa criada ainda
@@ -5264,6 +5318,53 @@ export default function ProjectDetailPage() {
     
     // Se já for um nome, retornar como está
     return userId
+  }
+
+  /** Célula do cronograma: avatares + resumo; lista completa no tooltip. */
+  const renderResponsibleTableCell = (responsible: unknown, assignee?: unknown) => {
+    const segments = extractResponsibleNames(responsible, assignee)
+    const names = segments.map((s) => getUserName(s)).filter((n) => n && n !== 'Não atribuído')
+    if (names.length === 0) {
+      return (
+        <Typography variant="caption" color="text.secondary">
+          Não atribuído
+        </Typography>
+      )
+    }
+    const tooltip = names.join(' · ')
+    return (
+      <Tooltip title={tooltip} arrow placement="top">
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0, maxWidth: 220 }}>
+          <AvatarGroup
+            max={4}
+            sx={{
+              '& .MuiAvatar-root': {
+                width: 24,
+                height: 24,
+                fontSize: '0.65rem',
+                border: '2px solid',
+                borderColor: 'background.paper'
+              }
+            }}
+          >
+            {names.map((n, i) => (
+              <Avatar key={`${n}-${i}`} alt={n} sx={{ bgcolor: 'primary.main', color: 'primary.contrastText' }}>
+                {initialsFromName(n)}
+              </Avatar>
+            ))}
+          </AvatarGroup>
+          {names.length === 1 ? (
+            <Typography variant="caption" noWrap sx={{ flex: 1, minWidth: 0, fontWeight: 500 }}>
+              {names[0]}
+            </Typography>
+          ) : (
+            <Typography variant="caption" color="text.secondary" noWrap sx={{ flexShrink: 0 }}>
+              {names.length} pessoas
+            </Typography>
+          )}
+        </Box>
+      </Tooltip>
+    )
   }
 
   // Função para verificar se uma tarefa pode ser editada (sempre retorna true agora)
