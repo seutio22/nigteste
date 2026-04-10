@@ -43,7 +43,7 @@ import { useAuthStore } from '../store/authStore'
 import { canViewAllData } from '../lib/utils'
 import { tagsForApi, tagsFromFormCsv } from '../utils/tagHelpers'
 import { diffCalendarDays, parseLocalDateFromYmd, toDateOnlyString } from '../utils/kanbanDates'
-import { notifyKanbanPrazoRegistrado, runKanbanDeadlineChecks } from '../utils/kanbanDeadlineNotify'
+import { runKanbanDeadlineChecks } from '../utils/kanbanDeadlineNotify'
 
 export const KanbanBoard: React.FC = () => {
   const location = useLocation()
@@ -259,12 +259,6 @@ export const KanbanBoard: React.FC = () => {
           dueDate: toIsoDateOrNull(newTicket.dueDate),
           tags: tagsFromFormCsv(newTicket.tags),
         })
-        if (newTicket.dueDate?.trim()) {
-          queueMicrotask(() => {
-            const t = useKanbanStore.getState().getTicketById(editedId)
-            if (t?.dueDate) notifyKanbanPrazoRegistrado(t)
-          })
-        }
       } else {
         const ticketData = {
           title: newTicket.title,
@@ -276,10 +270,7 @@ export const KanbanBoard: React.FC = () => {
           dueDate: newTicket.dueDate ? newTicket.dueDate + 'T00:00:00.000Z' : undefined,
           tags: tagsFromFormCsv(newTicket.tags),
         }
-        const created = await addTicket(ticketData)
-        if (created?.dueDate) {
-          notifyKanbanPrazoRegistrado(created)
-        }
+        await addTicket(ticketData)
       }
 
       setSaveFeedback({

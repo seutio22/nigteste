@@ -19,6 +19,7 @@ import { convertToWordRoutes } from './routes/convertToWord'
 import { trackUserActivity, trackSessionStart, trackSessionEnd } from './middleware/activityTracker'
 import { PrismaClient } from '@prisma/client'
 import { prisma } from './lib/prisma'
+import { businessDaysFromTomorrowToDueInclusive } from './lib/kanbanBusinessDays'
 import { logCronogramaAudit } from './lib/projectWorkAuditLog'
 
 // Configurar tratamento de sinais para evitar SIGTERM
@@ -3589,7 +3590,7 @@ app.get('/notifications/project-deadlines', async (req: any, reply: any) => {
   }
 })
 
-// Notificações Kanban: tarefas vencidas, vence hoje, vence amanhã
+// Notificações Kanban: 3 dias úteis antes, 1 dia útil antes, vencido
 app.get('/notifications/kanban-deadlines', async (req: any, reply: any) => {
   try {
     let userId: string | null = null
@@ -3627,34 +3628,35 @@ app.get('/notifications/kanban-deadlines', async (req: any, reply: any) => {
     tickets.forEach((ticket) => {
       if (!ticket.dueDate) return
       const dueDate = new Date(ticket.dueDate)
-      dueDate.setHours(0, 0, 0, 0)
-      const diffDays = Math.round((dueDate.getTime() - today.getTime()) / (24 * 60 * 60 * 1000))
+      const dueCivil = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate())
+      const dateLabel = dueCivil.toLocaleDateString('pt-BR')
+      const bd = businessDaysFromTomorrowToDueInclusive(today, dueCivil)
 
-      if (diffDays < 0) {
+      if (bd < 0) {
         notifications.push({
-          titulo: 'Tarefa Vencida',
-          mensagem: `A tarefa "${ticket.title}" está vencida!`,
+          titulo: 'Tarefa vencida',
+          mensagem: `A tarefa "${ticket.title}" está vencida (prazo ${dateLabel}).`,
           tipo: 'sistema',
           prioridade: 'urgente',
           dados: { categoria: 'kanban-overdue', kanbanTicketId: ticket.id },
           link: '/kanban'
         })
-      } else if (diffDays === 0) {
+      } else if (bd === 3) {
         notifications.push({
-          titulo: 'Tarefa Vence Hoje',
-          mensagem: `A tarefa "${ticket.title}" vence hoje!`,
+          titulo: 'Prazo: 3 dias úteis',
+          mensagem: `A tarefa "${ticket.title}" vence em 3 dias úteis (${dateLabel}).`,
           tipo: 'sistema',
-          prioridade: 'alta',
-          dados: { categoria: 'kanban-due-today', kanbanTicketId: ticket.id },
+          prioridade: 'media',
+          dados: { categoria: 'kanban-3bd', kanbanTicketId: ticket.id },
           link: '/kanban'
         })
-      } else if (diffDays === 1) {
+      } else if (bd === 1) {
         notifications.push({
-          titulo: 'Tarefa Vence Amanhã',
-          mensagem: `A tarefa "${ticket.title}" vence amanhã!`,
+          titulo: 'Prazo: 1 dia útil',
+          mensagem: `A tarefa "${ticket.title}" vence em 1 dia útil (${dateLabel}).`,
           tipo: 'sistema',
           prioridade: 'alta',
-          dados: { categoria: 'kanban-due-tomorrow', kanbanTicketId: ticket.id },
+          dados: { categoria: 'kanban-1bd', kanbanTicketId: ticket.id },
           link: '/kanban'
         })
       }

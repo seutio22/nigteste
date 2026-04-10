@@ -29,3 +29,29 @@ export function diffCalendarDays(a: Date, b: Date): number {
   const db = new Date(b.getFullYear(), b.getMonth(), b.getDate())
   return Math.round((db.getTime() - da.getTime()) / (86400000))
 }
+
+function isWeekendDay(d: Date): boolean {
+  const day = d.getDay()
+  return day === 0 || day === 6
+}
+
+/**
+ * Dias úteis entre amanhã e a data de vencimento (inclusive), a partir de hoje.
+ * - Se vencimento &lt; hoje: -1 (vencido)
+ * - Se vencimento === hoje: 0 (não dispara avisos de “N dias antes”)
+ * - Caso contrário: quantidade de dias Mon–Fri no intervalo [amanhã, vencimento]
+ */
+export function businessDaysFromTomorrowToDueInclusive(today: Date, due: Date): number {
+  const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+  const d0 = new Date(due.getFullYear(), due.getMonth(), due.getDate())
+  if (d0.getTime() < t0.getTime()) return -1
+  if (d0.getTime() === t0.getTime()) return 0
+  let count = 0
+  const cur = new Date(t0)
+  cur.setDate(cur.getDate() + 1)
+  while (cur <= d0) {
+    if (!isWeekendDay(cur)) count++
+    cur.setDate(cur.getDate() + 1)
+  }
+  return count
+}
