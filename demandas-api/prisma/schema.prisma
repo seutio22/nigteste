@@ -769,20 +769,33 @@ model ProjectTimeline {
 }
 
 model ProjectShareToken {
-  id           String    @id @default(uuid())
+  id           String                  @id @default(uuid())
   projectId    String
-  token        String    @unique
+  token        String                  @unique
   name         String?
   description  String?
-  isActive     Boolean   @default(true)
-  allowedViews String    @default("overview,timeline,gantt,team,resources")
+  isActive     Boolean                 @default(true)
+  allowedViews String                  @default("overview,timeline,gantt,team,resources")
   expiresAt    DateTime?
-  viewCount    Int       @default(0)
+  viewCount    Int                     @default(0)
   lastViewAt   DateTime?
   createdBy    String
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  project      Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+  project      Project                 @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  accessLogs   ProjectShareAccessLog[]
+}
+
+/// Cada abertura do link público /share/:token (IP + data/hora para auditoria).
+model ProjectShareAccessLog {
+  id           String            @id @default(uuid())
+  shareTokenId String
+  ipAddress    String
+  userAgent    String?
+  accessedAt   DateTime          @default(now())
+  shareToken   ProjectShareToken @relation(fields: [shareTokenId], references: [id], onDelete: Cascade)
+
+  @@index([shareTokenId, accessedAt])
 }
 
 model ProjectAlert {

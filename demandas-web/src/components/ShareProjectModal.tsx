@@ -29,6 +29,12 @@ interface ShareProjectModalProps {
   projectName: string;
 }
 
+interface ShareAccessLog {
+  id: string;
+  ipAddress: string;
+  accessedAt: string;
+}
+
 interface ShareToken {
   id: string;
   name: string;
@@ -40,6 +46,7 @@ interface ShareToken {
   viewCount: number;
   lastViewAt?: string;
   createdAt: string;
+  accessLogs?: ShareAccessLog[];
 }
 
 const ShareProjectModal: React.FC<ShareProjectModalProps> = ({
@@ -403,7 +410,56 @@ const ShareProjectModal: React.FC<ShareProjectModalProps> = ({
                       sx={{ color: '#4b5563', fontFamily: 'Geometria, system-ui, sans-serif' }}
                     >
                       Visualizações: {token.viewCount}
+                      {token.lastViewAt && (
+                        <> · Última: {formatDate(token.lastViewAt)}</>
+                      )}
                     </Typography>
+                    {token.accessLogs && token.accessLogs.length > 0 ? (
+                      <Box sx={{ mt: 1.5 }}>
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            display: 'block',
+                            color: '#6b7a80',
+                            fontFamily: 'Geometria, system-ui, sans-serif',
+                            fontWeight: 600,
+                            mb: 0.75
+                          }}
+                        >
+                          Histórico de acessos (últimos {token.accessLogs.length})
+                        </Typography>
+                        <Box
+                          component="ul"
+                          sx={{
+                            m: 0,
+                            pl: 2,
+                            maxHeight: 220,
+                            overflowY: 'auto',
+                            fontFamily: 'Geometria, system-ui, sans-serif'
+                          }}
+                        >
+                          {token.accessLogs.map((log) => (
+                            <li key={log.id}>
+                              <Typography variant="body2" sx={{ color: '#374151', fontSize: '0.8125rem' }}>
+                                {formatDate(log.accessedAt)} — IP: {log.ipAddress || '—'}
+                              </Typography>
+                            </li>
+                          ))}
+                        </Box>
+                      </Box>
+                    ) : token.viewCount > 0 ? (
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          display: 'block',
+                          mt: 1,
+                          color: '#9ca3af',
+                          fontFamily: 'Geometria, system-ui, sans-serif'
+                        }}
+                      >
+                        Acessos anteriores não incluem IP/data (registrados antes desta versão).
+                      </Typography>
+                    ) : null}
                   </Box>
 
                   <Box display="flex" alignItems="center" gap={1}>

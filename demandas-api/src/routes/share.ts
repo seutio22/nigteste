@@ -1,6 +1,18 @@
-import { FastifyInstance } from 'fastify';
+import { FastifyInstance, FastifyRequest } from 'fastify';
 import { PrismaClient } from '@prisma/client';
 const crypto = require('crypto');
+
+function getClientIp(request: FastifyRequest): string {
+  const xf = request.headers['x-forwarded-for'];
+  if (typeof xf === 'string' && xf.length > 0) {
+    return xf.split(',')[0].trim();
+  }
+  const real = request.headers['x-real-ip'];
+  if (typeof real === 'string' && real.length > 0) {
+    return real.trim();
+  }
+  return request.ip || '';
+}
 
 export default async function shareRoutes(fastify: FastifyInstance, options: { prisma: PrismaClient }) {
   const { prisma } = options;
@@ -59,11 +71,17 @@ export default async function shareRoutes(fastify: FastifyInstance, options: { p
       const { projectId } = request.params as { projectId: string };
 
       const shareTokens = await prisma.projectShareToken.findMany({
-        where: { 
+        where: {
           projectId,
           isActive: true
         },
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: 'desc' },
+        include: {
+          accessLogs: {
+            orderBy: { accessedAt: 'desc' },
+            take: 50
+          }
+        }
       });
 
       return { shareTokens };
@@ -134,14 +152,26 @@ export default async function shareRoutes(fastify: FastifyInstance, options: { p
         return reply.status(410).send({ error: 'Link de compartilhamento expirado' });
       }
 
-      // Atualizar contadores
-      await prisma.projectShareToken.update({
-        where: { id: shareToken.id },
-        data: {
-          viewCount: { increment: 1 },
-          lastViewAt: new Date()
-        }
-      });
+      const ua = request.headers['user-agent'];
+      const userAgent =
+        typeof ua === 'string' ? ua.slice(0, 2000) : ua != null ? String(ua).slice(0, 2000) : null;
+
+      await prisma.$transaction([
+        prisma.projectShareToken.update({
+          where: { id: shareToken.id },
+          data: {
+            viewCount: { increment: 1 },
+            lastViewAt: new Date()
+          }
+        }),
+        prisma.projectShareAccessLog.create({
+          data: {
+            shareTokenId: shareToken.id,
+            ipAddress: getClientIp(request) || 'desconhecido',
+            userAgent
+          }
+        })
+      ]);
 
       // Processar timeline se for string
       let processedProject = { ...shareToken.project };
