@@ -13,7 +13,6 @@ import {
   TextField,
   useTheme,
   alpha,
-  Chip,
   Divider,
   IconButton,
   Tooltip,
@@ -35,7 +34,6 @@ import {
   CalendarToday as CalendarIcon,
   Refresh as RefreshIcon,
   FilterList as FilterIcon,
-  Info as InfoIcon
 } from '@mui/icons-material'
 import { ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend } from 'recharts'
 import { useAuthStore } from '../store/authStore'
@@ -57,11 +55,10 @@ import { useDashboardIndicators } from '../hooks/useDashboardIndicators'
 import { useAdvancedIndicators } from '../hooks/useAdvancedIndicators'
 import { AdvancedIndicators } from '../components/dashboard/AdvancedIndicators'
 import { StatusDetails } from '../components/dashboard/StatusDetails'
+import { DashboardProjectIndicators } from '../components/dashboard/DashboardProjectIndicators'
 import type { PeriodType } from '../types/dashboardIndicators'
 import { getItemDateForPage, parseDateForFilter } from '../utils/dashboardFilters'
 import type { DashboardPdfMeta } from '../utils/dashboardPdfExport'
-import { formatIntegerPtBR } from '../utils/formatNumber'
-
 const COLORS = ['#002561', '#009FDF', '#00A649', '#E5B800', '#DA3832', '#050032', '#004F75', '#A3B5BC']
 const normalizeText = (value?: string) => (value || '').trim().toLowerCase()
 
@@ -164,6 +161,8 @@ export default function DashboardPage() {
   const [dashboardSyncing, setDashboardSyncing] = useState(false)
   const prevDashboardSyncing = useRef(false)
   const [dashboardSyncFinishedOnce, setDashboardSyncFinishedOnce] = useState(false)
+  const [projectStatsRefreshTick, setProjectStatsRefreshTick] = useState(0)
+  const projectStatsBumpSkipRef = useRef(true)
 
   useEffect(() => {
     if (prevDashboardSyncing.current && !dashboardSyncing) {
@@ -559,6 +558,11 @@ export default function DashboardPage() {
     } finally {
       isRefreshingRef.current = false
       setDashboardSyncing(false)
+      if (!projectStatsBumpSkipRef.current) {
+        setProjectStatsRefreshTick((t) => t + 1)
+      } else {
+        projectStatsBumpSkipRef.current = false
+      }
     }
   }, [
     syncMasterData,
@@ -631,18 +635,6 @@ export default function DashboardPage() {
     document.addEventListener('visibilitychange', handleVisibility)
     return () => document.removeEventListener('visibilitychange', handleVisibility)
   }, [refreshData])
-
-  // Estatísticas principais
-  const totalDemandas = demandasFiltradas.length
-  const totalValidacoes = validacoesFiltradas.length
-  const validacoesEmAndamento = useMemo(() => {
-    return validacoesFiltradas.filter((v) => {
-      const status = String(v.status || '').toLowerCase()
-      return status.includes('em valida') || status.includes('em andamento')
-    }).length
-  }, [validacoesFiltradas])
-  const totalReajustes = reajustesFiltrados.length
-  const totalMailling = maillingFiltrados.length
 
   const demandasAggregates = useMemo(() => {
     const statusMap = new Map<string, number>()
@@ -979,63 +971,7 @@ export default function DashboardPage() {
         userScopePending={userScopePending}
       />
 
-      {/* Resumo Executivo */}
-      <Paper sx={{ p: 3, borderRadius: 2 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            Resumo Executivo
-          </Typography>
-          <Tooltip 
-            title={`Dados filtrados por período: ${indicatorPeriod === 'daily' ? 'Hoje' : indicatorPeriod === 'monthly' ? 'Este mês' : 'Este trimestre'}. A Home mostra o total geral sem filtros.`}
-            arrow
-          >
-            <Chip
-              label={indicatorPeriod === 'daily' ? 'Período: Hoje' : indicatorPeriod === 'monthly' ? 'Período: Este Mês' : 'Período: Este Trimestre'}
-              size="small"
-              color="primary"
-              icon={<InfoIcon />}
-              sx={{ cursor: 'help' }}
-            />
-          </Tooltip>
-        </Box>
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={4}>
-            <Tooltip 
-              title={`Total filtrado por período e filtros aplicados. Diferente da Home que mostra o total geral.`}
-              arrow
-            >
-              <Box sx={{ textAlign: 'center', p: 2, cursor: 'help' }}>
-                <Typography variant="h4" sx={{ fontWeight: 700, color: theme.palette.primary.main, mb: 1 }}>
-                  {formatIntegerPtBR(totalDemandas)}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Total de Demandas (Filtrado)
-                </Typography>
-              </Box>
-            </Tooltip>
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <Box sx={{ textAlign: 'center', p: 2 }}>
-              <Typography variant="h4" sx={{ fontWeight: 700, color: theme.palette.warning.main, mb: 1 }}>
-                {formatIntegerPtBR(validacoesEmAndamento)}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Validações em Andamento
-              </Typography>
-            </Box>
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <Box sx={{ textAlign: 'center', p: 2 }}>
-              <Typography variant="h4" sx={{ fontWeight: 700, color: theme.palette.success.main, mb: 1 }}>
-                {formatIntegerPtBR(totalMailling)}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Total de Contatos Mailling
-              </Typography>
-            </Box>
-          </Grid>
-        </Grid>
-      </Paper>
+      <DashboardProjectIndicators refreshTick={projectStatsRefreshTick} />
     </Box>
   )
 }

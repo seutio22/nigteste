@@ -10,6 +10,7 @@ import { userAlertsRoutes } from './routes/userAlerts'
 import comunicadosRoutes from './routes/comunicados'
 import projectTeamRoutes from './routes/projectTeam'
 import projectWorkAuditRoutes from './routes/projectWorkAudit'
+import projectStatsSummaryRoutes from './routes/projectStatsSummary'
 import shareRoutes from './routes/share'
 import { masterDataRoutes } from './routes/masterData'
 import { kanbanRoutes } from './routes/kanban'
@@ -5518,6 +5519,9 @@ app.register(comunicadosRoutes, { prisma, prefix: '/comunicados' })
 
 // Rotas de equipe de projetos
 app.register(projectTeamRoutes, { prisma })
+
+// Indicadores agregados de projetos (cronograma + logs) — dashboard
+app.register(projectStatsSummaryRoutes, { prisma })
 
 // Auditoria de etapas / tarefas / subtarefas (aba LOG admin)
 app.register(projectWorkAuditRoutes, { prisma })
