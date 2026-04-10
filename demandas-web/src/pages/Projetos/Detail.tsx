@@ -3101,13 +3101,13 @@ export default function ProjectDetailPage() {
       return calculateSubtaskProgress(task)
     }
 
-    // Calcular média do progresso das subtarefas baseado no status
-    const totalProgress = task.subtasks.reduce((sum: number, subtask: any) => {
-      const subtaskProgress = calculateSubtaskProgress(subtask)
-      return sum + subtaskProgress
+    // Média inclui a própria tarefa pai + cada subtarefa (ex.: 1 pai + 1 sub → divide por 2)
+    const parentProgress = calculateSubtaskProgress(task)
+    const subtasksSum = task.subtasks.reduce((sum: number, subtask: any) => {
+      return sum + calculateSubtaskProgress(subtask)
     }, 0)
-
-    return Math.round(totalProgress / task.subtasks.length)
+    const parts = 1 + task.subtasks.length
+    return Math.round((parentProgress + subtasksSum) / parts)
   }
 
   // Função para calcular progresso automático da fase baseado nas tarefas
