@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import ProjectTeamManager from '../../components/ProjectTeamManager'
 import ProjectAlerts from '../../components/ProjectAlerts'
@@ -50,7 +50,10 @@ import {
   InputAdornment,
   CircularProgress,
   FormControlLabel,
-  Switch
+  Switch,
+  ListSubheader,
+  OutlinedInput,
+  Checkbox
 } from '@mui/material'
 import {
   ArrowBack,
@@ -94,6 +97,59 @@ import { useAuthStore } from '../../store/authStore'
 import { useMasterDataStore } from '../../store/masterDataStore'
 import { formatIntegerPtBR } from '../../utils/formatNumber'
 import { getUserDepartmentDisplay } from '../../utils/userDepartmentDisplay'
+
+type TeamResponsibleOption = {
+  id: string
+  value: string
+  label: string
+  group: 'internal' | 'external'
+}
+
+/** Segmentos separados por vírgula (trim em cada parte). */
+function parseResponsibleSegments(text: string): string[] {
+  return text
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+}
+
+/** IDs das opções da equipe cujo `value` aparece como segmento exato no texto. */
+function teamPickerIdsFromText(text: string, options: TeamResponsibleOption[]): string[] {
+  const segs = new Set(parseResponsibleSegments(text))
+  return options.filter((o) => segs.has(o.value)).map((o) => o.id)
+}
+
+/**
+ * Reconstrói o texto do responsável a partir do multi-select + texto anterior.
+ * Mantém segmentos que não são da equipe; atualiza quais membros da equipe entram/saem.
+ */
+function mergeResponsibleFromPicker(
+  oldText: string,
+  newPickerIds: string[],
+  options: TeamResponsibleOption[]
+): string {
+  const selected = new Set(
+    newPickerIds.map((id) => options.find((o) => o.id === id)?.value).filter(Boolean) as string[]
+  )
+  const teamValues = new Set(options.map((o) => o.value))
+  const segs = parseResponsibleSegments(oldText)
+  const out: string[] = []
+  for (const seg of segs) {
+    if (!teamValues.has(seg)) {
+      out.push(seg)
+    } else if (selected.has(seg)) {
+      out.push(seg)
+    }
+  }
+  for (const id of newPickerIds) {
+    const v = options.find((o) => o.id === id)?.value
+    if (v && !segs.includes(v)) {
+      out.push(v)
+    }
+  }
+  return out.join(', ')
+}
+
 // Removido dados mockados - usar apenas dados reais do banco
 /* const mockProject = {
   id: 'proj-001',
@@ -931,6 +987,11 @@ export default function ProjectDetailPage() {
   const [teamMembers, setTeamMembers] = useState<any[]>([])
   const [externalMembers, setExternalMembers] = useState<any[]>([])
   const [loadingTeam, setLoadingTeam] = useState(false)
+  /** IDs selecionados no multi-select da equipe; o texto em responsável/assignee é o campo acima (ex.: "A, B"). */
+  const [newTaskTeamPicker, setNewTaskTeamPicker] = useState<string[]>([])
+  const [newSubtaskTeamPicker, setNewSubtaskTeamPicker] = useState<string[]>([])
+  const [editTaskTeamPicker, setEditTaskTeamPicker] = useState<string[]>([])
+  const [editSubtaskTeamPicker, setEditSubtaskTeamPicker] = useState<string[]>([])
   const [projectCanEdit, setProjectCanEdit] = useState<boolean | null>(null)
   const [expandedPhases, setExpandedPhases] = useState<Record<string, boolean>>({})
 
@@ -1049,6 +1110,134 @@ export default function ProjectDetailPage() {
     observations: ''
   })
 
+  const teamResponsibleOptions = useMemo((): TeamResponsibleOption[] => {
+    const opts: TeamResponsibleOption[] = []
+    teamMembers.forEach((m: any) => {
+      const u = m.user
+      const name = (u?.name || '').trim()
+      const email = (u?.email || '').trim()
+      const value = name || email
+      if (!value) return
+      const label = name && email ? `${name} (${email})` : value
+      opts.push({ id: `int-${m.id}`, value, label, group: 'internal' })
+    })
+    externalMembers.forEach((m: any) => {
+      const name = (m.name || '').trim()
+      if (!name) return
+      const extra = (m.email || m.company || '').trim()
+      const label = extra ? `${name} (${extra})` : name
+      opts.push({ id: `ext-${m.id}`, value: name, label, group: 'external' })
+    })
+    return opts
+  }, [teamMembers, externalMembers])
+
+  useEffect(() => {
+    if (!editingTask) {
+      setEditTaskTeamPicker([])
+      return
+    }
+    const r = String(editingTask.responsible ?? '')
+    setEditTaskTeamPicker(teamPickerIdsFromText(r, teamResponsibleOptions))
+  }, [editingTask?.id, teamResponsibleOptions])
+
+  useEffect(() => {
+    if (!editingSubtask) {
+      setEditSubtaskTeamPicker([])
+      return
+    }
+    const r = String(editingSubtask.assignee ?? '')
+    setEditSubtaskTeamPicker(teamPickerIdsFromText(r, teamResponsibleOptions))
+  }, [editingSubtask?.id, teamResponsibleOptions])
+
+  const renderTeamResponsibleFields = React.useCallback(
+    (
+      textValue: string,
+      onTextChange: (v: string) => void,
+      pickerValue: string[],
+      setPickerValue: React.Dispatch<React.SetStateAction<string[]>>,
+      idPrefix: string,
+      options?: { textFieldError?: boolean }
+    ) => (
+      <Grid item xs={12}>
+        <TextField
+          fullWidth
+          label="Responsável"
+          value={textValue}
+          error={!!options?.textFieldError}
+          onChange={(e) => {
+            const v = e.target.value
+            onTextChange(v)
+            setPickerValue(teamPickerIdsFromText(v, teamResponsibleOptions))
+          }}
+          helperText="Digite um ou mais nomes separados por vírgula e/ou marque vários membros da equipe (gravado neste campo, ex.: Nome A, Nome B)"
+        />
+        <FormControl
+          fullWidth
+          sx={{ mt: 1.5 }}
+          disabled={loadingTeam || teamResponsibleOptions.length === 0}
+        >
+          <InputLabel id={`${idPrefix}-team-pick`}>Selecionar da equipe do projeto</InputLabel>
+          <Select
+            labelId={`${idPrefix}-team-pick`}
+            id={`${idPrefix}-team-select`}
+            label="Selecionar da equipe do projeto"
+            multiple
+            value={pickerValue}
+            onChange={(e) => {
+              const raw = e.target.value
+              const newIds =
+                typeof raw === 'string'
+                  ? raw.split(',').filter(Boolean)
+                  : (raw as string[])
+              const merged = mergeResponsibleFromPicker(textValue, newIds, teamResponsibleOptions)
+              setPickerValue(newIds)
+              onTextChange(merged)
+            }}
+            input={<OutlinedInput label="Selecionar da equipe do projeto" />}
+            renderValue={(selected) => {
+              const ids = selected as string[]
+              if (ids.length === 0) {
+                return teamResponsibleOptions.length === 0
+                  ? 'Cadastre a equipe na aba Equipe'
+                  : '—'
+              }
+              return ids
+                .map((id) => teamResponsibleOptions.find((o) => o.id === id)?.label ?? id)
+                .join(', ')
+            }}
+            MenuProps={{
+              PaperProps: { style: { maxHeight: 360 } }
+            }}
+          >
+            {teamResponsibleOptions.some((o) => o.group === 'internal') ? (
+              <ListSubheader disableSticky>Membros internos</ListSubheader>
+            ) : null}
+            {teamResponsibleOptions
+              .filter((o) => o.group === 'internal')
+              .map((o) => (
+                <MenuItem key={o.id} value={o.id}>
+                  <Checkbox checked={pickerValue.indexOf(o.id) > -1} size="small" sx={{ mr: 0.5, py: 0 }} />
+                  <ListItemText primary={o.label} primaryTypographyProps={{ variant: 'body2' }} />
+                </MenuItem>
+              ))}
+            {teamResponsibleOptions.some((o) => o.group === 'external') ? (
+              <ListSubheader disableSticky>Membros externos</ListSubheader>
+            ) : null}
+            {teamResponsibleOptions
+              .filter((o) => o.group === 'external')
+              .map((o) => (
+                <MenuItem key={o.id} value={o.id}>
+                  <Checkbox checked={pickerValue.indexOf(o.id) > -1} size="small" sx={{ mr: 0.5, py: 0 }} />
+                  <ListItemText primary={o.label} primaryTypographyProps={{ variant: 'body2' }} />
+                </MenuItem>
+              ))}
+          </Select>
+        </FormControl>
+      </Grid>
+    ),
+    [teamResponsibleOptions, loadingTeam]
+  )
+
   // Funções para adicionar novos itens
   const handleAddPhase = React.useCallback(() => {
     // Abrir o diálogo
@@ -1066,6 +1255,7 @@ export default function ProjectDetailPage() {
   const handleAddTask = React.useCallback((phaseId: string) => {
     setSelectedPhase(phaseId)
     setShowAddTaskDialog(true)
+    setNewTaskTeamPicker([])
     setNewTaskData({
       name: '',
       description: '',
@@ -1082,7 +1272,7 @@ export default function ProjectDetailPage() {
     setSelectedPhase(phaseId)
     setSelectedTask(taskId)
     setShowAddSubtaskDialog(true)
-    
+    setNewSubtaskTeamPicker([])
     setNewSubtaskData({
       name: '',
       description: '',
@@ -1204,7 +1394,7 @@ export default function ProjectDetailPage() {
   }, [project, newPhaseData, setErrors, setShowAddPhaseDialog, setForceRender])
 
   const handleSaveTask = React.useCallback(async () => {
-    if (!newTaskData.name || !newTaskData.responsible) {
+    if (!newTaskData.name?.trim() || parseResponsibleSegments(newTaskData.responsible).length === 0) {
       setErrors({ task: 'Nome da tarefa e responsável são obrigatórios' })
       return
     }
@@ -1308,6 +1498,7 @@ export default function ProjectDetailPage() {
     setTimeout(() => updateAllTaskProgress(), 100)
 
     setShowAddTaskDialog(false)
+    setNewTaskTeamPicker([])
     setErrors({})
   }, [project, newTaskData, selectedPhase, setErrors, setShowAddTaskDialog, setForceRender])
 
@@ -1497,6 +1688,7 @@ export default function ProjectDetailPage() {
     setTimeout(() => updateAllTaskProgress(), 100)
 
     setShowAddSubtaskDialog(false)
+    setNewSubtaskTeamPicker([])
     setErrors({})
   }, [project, newSubtaskData, selectedPhase, selectedTask, setErrors, setShowAddSubtaskDialog, setForceRender])
 
@@ -1504,6 +1696,8 @@ export default function ProjectDetailPage() {
     setShowAddPhaseDialog(false)
     setShowAddTaskDialog(false)
     setShowAddSubtaskDialog(false)
+    setNewTaskTeamPicker([])
+    setNewSubtaskTeamPicker([])
     setErrors({})
   }
 
@@ -1863,6 +2057,7 @@ export default function ProjectDetailPage() {
       })
       setProject(updatedProject)
       setEditingTask(null)
+      setEditTaskTeamPicker([])
       
       // Salvar no banco de dados
       upsertProject(updatedProject).catch(error => {
@@ -1945,6 +2140,7 @@ export default function ProjectDetailPage() {
       })
       setProject(updatedProject)
       setEditingSubtask(null)
+      setEditSubtaskTeamPicker([])
       setSelectedTask(null)
       
       // Salvar no banco de dados
@@ -1963,6 +2159,8 @@ export default function ProjectDetailPage() {
     setEditingTask(null)
     setEditingSubtask(null)
     setEditingPhase(null)
+    setEditTaskTeamPicker([])
+    setEditSubtaskTeamPicker([])
   }
 
   // Função para editar fase
@@ -2104,14 +2302,13 @@ export default function ProjectDetailPage() {
                 rows={3}
               />
             </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Responsável"
-                value={editingTask.responsible}
-                onChange={(e) => setEditingTask({ ...editingTask, responsible: e.target.value })}
-              />
-            </Grid>
+            {renderTeamResponsibleFields(
+              editingTask.responsible || '',
+              (v) => setEditingTask((prev: any) => (prev ? { ...prev, responsible: v } : prev)),
+              editTaskTeamPicker,
+              setEditTaskTeamPicker,
+              'edit-task'
+            )}
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
                 <InputLabel>Status</InputLabel>
@@ -2346,14 +2543,13 @@ export default function ProjectDetailPage() {
               </FormControl>
             </Grid>
             
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Responsável"
-                value={editingSubtask.assignee || ''}
-                onChange={(e) => setEditingSubtask({ ...editingSubtask, assignee: e.target.value })}
-              />
-            </Grid>
+            {renderTeamResponsibleFields(
+              editingSubtask.assignee || '',
+              (v) => setEditingSubtask((prev: any) => (prev ? { ...prev, assignee: v } : prev)),
+              editSubtaskTeamPicker,
+              setEditSubtaskTeamPicker,
+              'edit-subtask'
+            )}
             
             <Grid item xs={12} md={6}>
               <TextField
@@ -5800,17 +5996,16 @@ export default function ProjectDetailPage() {
                       onChange={(e) => setNewTaskData({ ...newTaskData, description: e.target.value })}
                     />
                   </Grid>
-                  <Grid item xs={6}>
-                    <TextField
-                      fullWidth
-                      label="Responsável"
-                      value={newTaskData.responsible}
-                      onChange={(e) => setNewTaskData({ ...newTaskData, responsible: e.target.value })}
-                      error={!!errors.task}
-                    />
-                  </Grid>
-                  <Grid item xs={6}>
-                    <FormControl fullWidth>
+                  {renderTeamResponsibleFields(
+                    newTaskData.responsible,
+                    (v) => setNewTaskData({ ...newTaskData, responsible: v }),
+                    newTaskTeamPicker,
+                    setNewTaskTeamPicker,
+                    'new-task',
+                    { textFieldError: !!errors.task }
+                  )}
+                  <Grid item xs={12} md={6}>
+                    <FormControl fullWidth error={!!errors.task}>
                       <InputLabel>Prioridade</InputLabel>
                       <Select
                         value={newTaskData.priority}
@@ -5963,14 +6158,13 @@ export default function ProjectDetailPage() {
                     </FormControl>
                   </Grid>
                   
-                  <Grid item xs={12} md={6}>
-                    <TextField
-                      fullWidth
-                      label="Responsável"
-                      value={newSubtaskData.assignee || ''}
-                      onChange={(e) => setNewSubtaskData({ ...newSubtaskData, assignee: e.target.value })}
-                    />
-                  </Grid>
+                  {renderTeamResponsibleFields(
+                    newSubtaskData.assignee || '',
+                    (v) => setNewSubtaskData({ ...newSubtaskData, assignee: v }),
+                    newSubtaskTeamPicker,
+                    setNewSubtaskTeamPicker,
+                    'new-subtask'
+                  )}
                   
                   <Grid item xs={12} md={6}>
                     <TextField

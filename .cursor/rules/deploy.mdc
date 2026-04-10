@@ -8,11 +8,17 @@ alwaysApply: true
 
 Quando o usuário pedir para fazer deploy:
 
-1. **Railway (backend):** Executar deploy da RAIZ do repo (railway.json com rootDirectory: demandas-api):
-   - Carregar RAILWAY_TOKEN de demandas-api/.env.railway
-   - `cd` para a raiz do repo (pai de demandas-api)
-   - `npx @railway/cli up --service nigteste --ci`
+1. **Railway (backend `nigteste` — demandas-api):**
+   - Carregar `RAILWAY_TOKEN` de `demandas-api/.env.railway`
+   - **Igual ao job `deploy-railway` do GitHub Actions:** `cd demandas-api` e depois `npx @railway/cli up --service nigteste --ci`
+   - **Painel Railway (crítico):**
+     - **Settings → Build → Builder** = **Dockerfile** (o padrão virou **Railpack**; se ficar em Railpack, ignora o `railway.json` em alguns casos e quebra).
+     - **Dockerfile path** = `Dockerfile`
+     - **Root Directory:** com fonte = monorepo no Git, use `demandas-api`. **Não** use `prisma` nem `demandas-api/prisma` (o log “só `./prisma/`” é isso).
+     - Se o deploy for **só pela CLI** a partir da pasta `demandas-api` e o painel tiver Root Directory `demandas-api`, o contexto pode não bater; nesse caso testar Root Directory **vazio** ou alinhar com a [doc Railway](https://docs.railway.com/builds/build-configuration) para “subdiretório vs upload local”.
 
-2. **Não usar apenas git push** - o deploy deve ser feito diretamente no Railway quando solicitado.
+2. **Não usar apenas git push** — usar `railway up` como acima quando solicitado.
 
 3. O token está em `demandas-api/.env.railway` (arquivo não versionado).
+
+4. **Monorepo:** na raiz existe `railway.json` do **portal** (Dockerfile.portal-colaborador-api). O serviço `nigteste` deve usar o `railway.json` **dentro de `demandas-api/`**, por isso o Root Directory no painel e o path do CLI têm de apontar para essa pasta.
