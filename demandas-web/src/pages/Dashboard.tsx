@@ -936,6 +936,7 @@ export default function DashboardPage() {
             indicatorsByCategory={indicatorsByCategory}
             generalStats={generalStats}
             showCategories={true}
+            projectsPanel={<DashboardProjectIndicators refreshTick={projectStatsRefreshTick} />}
           />
         </Box>
 
@@ -971,7 +972,6 @@ export default function DashboardPage() {
         userScopePending={userScopePending}
       />
 
-      <DashboardProjectIndicators refreshTick={projectStatsRefreshTick} />
     </Box>
   )
 }

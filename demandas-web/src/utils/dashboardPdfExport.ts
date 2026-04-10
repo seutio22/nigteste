@@ -2,6 +2,7 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import html2canvas from 'html2canvas'
 import type { DashboardIndicator, PageMetrics, PeriodType } from '../types/dashboardIndicators'
+import type { ProjectStatsSummary } from '../components/dashboard/DashboardProjectIndicators'
 import type { TempoExecucaoMetrics } from '../hooks/useAdvancedIndicators'
 import {
   PDF_COLORS,
@@ -360,6 +361,14 @@ export async function exportDashboardToPdfAsync(input: DashboardPdfExportInput):
   } = input
   const sections = { ...defaultSections, ...input.sections }
 
+  let projectStats: ProjectStatsSummary | null = null
+  try {
+    const { api } = await import('../lib/api')
+    projectStats = await api.get<ProjectStatsSummary>('/projetos/stats/summary')
+  } catch {
+    projectStats = null
+  }
+
   let canvas: HTMLCanvasElement | null = null
   if (sections.screenCapture && typeof document !== 'undefined') {
     const el = document.getElementById(captureElementId)
@@ -441,7 +450,6 @@ export async function exportDashboardToPdfAsync(input: DashboardPdfExportInput):
       ['Taxa de conclusão (produção)', `${generalStats.completionRate.toFixed(1)}%`]
     ]
     const primary = indicators.filter((i) => i.category === 'primary')
-    const secondary = indicators.filter((i) => i.category === 'secondary')
     const tertiary = indicators.filter((i) => i.category === 'tertiary')
     const pushCategory = (cat: string, list: DashboardIndicator[]) => {
       list.forEach((indicator) => {
@@ -455,8 +463,31 @@ export async function exportDashboardToPdfAsync(input: DashboardPdfExportInput):
       })
     }
     pushCategory('Principais', primary)
-    pushCategory('Secundárias', secondary)
     pushCategory('Terciárias', tertiary)
+
+    if (projectStats) {
+      summaryBody.push(['—', '—'])
+      summaryBody.push([
+        'Projetos (cronograma) • Projetos acompanhados',
+        `${projectStats.projectCount} (ativos ${projectStats.activeProjectCount}, concluídos ${projectStats.completedProjectCount}, pausados ${projectStats.pausedProjectCount})`
+      ])
+      summaryBody.push([
+        'Projetos • Etapas / tarefas / subtarefas',
+        `Etapas ${projectStats.totalPhases} (${projectStats.phasesCompleted} concl., ${projectStats.phasesOverdue} atraso) • Tarefas ${projectStats.totalTasksInTimeline} • Subtarefas ${projectStats.totalSubtasksInTimeline}`
+      ])
+      summaryBody.push([
+        'Projetos • Prazos atendidos (tarefas + subtarefas)',
+        String(projectStats.tasksDeadlineMet + projectStats.subtasksDeadlineMet)
+      ])
+      summaryBody.push([
+        'Projetos • Projetos com fim em atraso',
+        String(projectStats.projectEndOverdue)
+      ])
+      summaryBody.push([
+        'Projetos • Logs de trabalho (total)',
+        `${projectStats.audit.totalEvents} (últimos 30 dias: ${projectStats.audit.last30Days})`
+      ])
+    }
 
     autoTable(doc, {
       startY: y,
@@ -613,7 +644,7 @@ export async function exportDashboardToPdfAsync(input: DashboardPdfExportInput):
     doc.setFontSize(12)
     doc.setFont('helvetica', 'bold')
     doc.setTextColor(...PDF_COLORS.secondary)
-    doc.text('VISÃO DO DASHBOARD (INDICADORES E GRÁFICOS)', margin, 18)
+    doc.text('VISÃO DO DASHBOARD (INDICADORES, PROJETOS E GRÁFICOS)', margin, 18)
     doc.setDrawColor(...PDF_COLORS.cyan)
     doc.line(margin, 20, margin + 120, 20)
     doc.setTextColor(...PDF_COLORS.textDark)

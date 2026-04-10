@@ -34,6 +34,8 @@ interface DashboardIndicatorsProps {
     secondary: DashboardIndicator[]
     tertiary: DashboardIndicator[]
   }
+  /** Painel de projetos (cronograma + logs) no lugar da antiga secção «Páginas Secundárias». */
+  projectsPanel?: React.ReactNode
   generalStats: {
     total: number
     completed: number
@@ -50,6 +52,7 @@ export const DashboardIndicators: React.FC<DashboardIndicatorsProps> = ({
   period,
   indicators,
   indicatorsByCategory,
+  projectsPanel,
   generalStats,
   showCategories = true,
   maxItems
@@ -291,7 +294,7 @@ export const DashboardIndicators: React.FC<DashboardIndicatorsProps> = ({
       {showCategories ? (
         <>
           {renderCategorySection('primary', indicatorsByCategory.primary)}
-          {renderCategorySection('secondary', indicatorsByCategory.secondary)}
+          {projectsPanel ? <Box sx={{ mb: 4 }}>{projectsPanel}</Box> : null}
           {renderCategorySection('tertiary', indicatorsByCategory.tertiary)}
         </>
       ) : (

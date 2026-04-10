@@ -149,7 +149,7 @@ export function DashboardProjectIndicators({ refreshTick }: Props) {
     : undefined
 
   return (
-    <Paper sx={{ p: 3, borderRadius: 2, mt: 3 }}>
+    <Paper sx={{ p: 3, borderRadius: 2 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2, mb: 3 }}>
         <Box>
           <Typography variant="h6" sx={{ fontWeight: 600 }}>

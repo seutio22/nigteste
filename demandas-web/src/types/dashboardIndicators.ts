@@ -146,39 +146,12 @@ export const PAGE_CONFIGS: IndicatorConfig[] = [
       completed: 'status'
     }
   },
-  // Páginas Secundárias (Secondary)
-  {
-    page: 'mailling',
-    title: 'Mailling',
-    icon: 'Email',
-    color: '#00A649',
-    category: 'secondary',
-    fields: {
-      total: 'status',
-      created: 'createdAt',
-      updated: 'updatedAt',
-      completed: 'status'
-    }
-  },
-  {
-    page: 'comunicados',
-    title: 'Comunicados',
-    icon: 'Notifications',
-    color: '#f97316',
-    category: 'secondary',
-    fields: {
-      total: 'status',
-      created: 'createdAt',
-      updated: 'updatedAt',
-      completed: 'status'
-    }
-  },
   {
     page: 'projetos',
     title: 'Projetos',
     icon: 'Folder',
     color: '#6366f1',
-    category: 'secondary',
+    category: 'primary',
     fields: {
       total: 'status',
       created: 'createdAt',
@@ -281,7 +254,7 @@ export function normalizeStatusParaPendencia(raw: string | undefined | null): st
 
 /**
  * Heurística para métricas: mesma ideia da Home (fechado com produção), sem depender de grafia exata.
- * Só páginas primárias; secundárias ficam na lista COMPLETION_STATUS.
+ * Heurística para páginas operacionais; listas explícitas em COMPLETION_STATUS quando aplicável.
  */
 function statusIndicaConcluidoHeuristica(page: string, t: string): boolean {
   if (!t) return false

@@ -578,7 +578,7 @@ export const useDashboardIndicators = (
   // Estatísticas gerais
   const generalStats = useMemo(() => {
     const total = indicators.reduce((sum, i) => sum + i.value, 0)
-    /** Mesmo escopo da Home “Sua produção”: só páginas primárias (sem mailling/comunicados/projetos). */
+    /** Concluídos agregados pelas entradas «primary» em PAGE_CONFIG (inclui Projetos). */
     const primaryPages = PAGE_CONFIGS.filter((c) => c.category === 'primary').map((c) => c.page)
     const completed = primaryPages.reduce((sum, p) => {
       const metrics = pageMetricsWithProducao[p]

@@ -59,7 +59,6 @@ export const useExcelExport = () => {
     
     // Adicionar dados dos indicadores por categoria
     const primaryIndicators = indicators.filter(i => i.category === 'primary')
-    const secondaryIndicators = indicators.filter(i => i.category === 'secondary')
     const tertiaryIndicators = indicators.filter(i => i.category === 'tertiary')
     
     // Principais
@@ -70,24 +69,6 @@ export const useExcelExport = () => {
       
       summaryData.push([
         'Principais',
-        indicator.title,
-        periodData.total,
-        periodData.created,
-        periodData.completed,
-        periodData.canceled,
-        periodData.inProgress,
-        `${completionRate.toFixed(1)}%`
-      ])
-    })
-    
-    // Secundárias
-    secondaryIndicators.forEach(indicator => {
-      const metrics = pageMetrics[indicator.page]
-      const periodData = metrics ? metrics[period] : emptyPeriodMetrics()
-      const completionRate = taxaProducao(periodData)
-      
-      summaryData.push([
-        'Secundárias',
         indicator.title,
         periodData.total,
         periodData.created,
