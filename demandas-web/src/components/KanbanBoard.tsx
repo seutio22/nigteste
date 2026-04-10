@@ -43,6 +43,7 @@ import { useAuthStore } from '../store/authStore'
 import { useNotificationStore } from '../store/notificationStore'
 import { canViewAllData } from '../lib/utils'
 import { tagsForApi, tagsFromFormCsv } from '../utils/tagHelpers'
+import { diffCalendarDays, parseLocalDateFromYmd, toDateOnlyString } from '../utils/kanbanDates'
 
 export const KanbanBoard: React.FC = () => {
   const location = useLocation()
@@ -88,14 +89,6 @@ export const KanbanBoard: React.FC = () => {
     getFilteredColumnsWithTickets
   } = useKanbanStore()
 
-  // Store de notificações
-  const notificationStore = useNotificationStore()
-  
-  console.log('🔍 KanbanBoard: Store de notificações carregado:', {
-    totalNotifications: notificationStore.notifications.length,
-    notifications: notificationStore.notifications
-  })
-
   // Função para obter nome do usuário pelo ID
   const getUserNameById = (userId: string): string => {
     // Se for o usuário logado, retornar o nome dele
@@ -124,72 +117,31 @@ export const KanbanBoard: React.FC = () => {
     console.log('🔍 KanbanBoard: Tickets do usuário:', userTickets.length)
     
     const checkOverdueTasks = () => {
-      // Usar data atual em UTC para evitar problemas de fuso horário
+      const { notifications, add, remove } = useNotificationStore.getState()
+
       const today = new Date()
-      const todayUTC = new Date(today.getFullYear(), today.getMonth(), today.getDate())
-      
+      const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+
       const overdueTasks: string[] = []
       const dueTodayTasks: string[] = []
       const dueTomorrowTasks: string[] = []
       const dueSoonTasks: string[] = []
-      
-      // Usar apenas os tickets do usuário logado
-      userTickets.forEach(ticket => {
-        if (ticket.dueDate && ticket.status !== 'done') {
-          // Criar data de vencimento em UTC para comparação precisa
-          // Se a data está em formato ISO com Z, extrair apenas a parte da data
-          let dateString = ticket.dueDate
-          if (dateString.includes('T') && dateString.includes('Z')) {
-            // Extrair apenas a parte da data (YYYY-MM-DD)
-            dateString = dateString.split('T')[0]
-          }
-          
-          // Criar data usando apenas a parte da data para evitar problemas de timezone
-          const dueDate = new Date(dateString + 'T00:00:00')
-          // Verificar se a data é válida
-          if (isNaN(dueDate.getTime())) {
-            console.warn('⚠️ KanbanBoard: Data de vencimento inválida:', ticket.dueDate)
-            return
-          }
-          const dueDateUTC = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate())
-          
-          // Calcular diferença em dias usando UTC
-          const diffTime = dueDateUTC.getTime() - todayUTC.getTime()
-          const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24))
-          
-          console.log('🔍 KanbanBoard: Verificando ticket:', ticket.title, 'Status:', ticket.status)
-          console.log('🔍 KanbanBoard: Start Date raw:', ticket.startDate, 'Due Date raw:', ticket.dueDate)
-          console.log('🔍 KanbanBoard: Due Date parsed:', dueDate, 'Due Date UTC:', dueDateUTC)
-          console.log('🔍 KanbanBoard: Today UTC:', todayUTC.toISOString().split('T')[0], 'Due UTC:', dueDateUTC.toISOString().split('T')[0], 'Diff Days:', diffDays)
-          
-          // Verificar se a tarefa já deve ter iniciado (se tem data de início)
-          const shouldStartAlert = ticket.startDate ? (() => {
-            // Aplicar mesma lógica de parsing para startDate
-            let startDateString = ticket.startDate
-            if (startDateString.includes('T') && startDateString.includes('Z')) {
-              startDateString = startDateString.split('T')[0]
-            }
-            const startDate = new Date(startDateString + 'T00:00:00')
-            const startDateUTC = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate())
-            const startDiffDays = Math.round((startDateUTC.getTime() - todayUTC.getTime()) / (1000 * 60 * 60 * 24))
-            return startDiffDays <= 0 // Já deveria ter iniciado
-          })() : true // Se não tem data de início, sempre pode ter alerta
-          
-          // Só criar alertas se a tarefa já deveria ter iniciado (ou não tem data de início)
-          if (shouldStartAlert) {
-            if (diffDays < 0) {
-              overdueTasks.push(ticket.title)
-            } else if (diffDays === 0) {
-              dueTodayTasks.push(ticket.title)
-            } else if (diffDays === 1) {
-              dueTomorrowTasks.push(ticket.title)
-            } else if (diffDays <= 3) {
-              dueSoonTasks.push(ticket.title)
-            }
-          } else {
-            console.log('🔍 KanbanBoard: Tarefa ainda não deve iniciar:', ticket.title, 'Start Date:', ticket.startDate)
-          }
+
+      userTickets.forEach((ticket) => {
+        if (!ticket.dueDate || ticket.status === 'done') return
+
+        const due = parseLocalDateFromYmd(ticket.dueDate)
+        if (!due) {
+          console.warn('⚠️ KanbanBoard: Data de vencimento inválida:', ticket.dueDate)
+          return
         }
+
+        const diffDays = diffCalendarDays(todayStart, due)
+
+        if (diffDays < 0) overdueTasks.push(ticket.title)
+        else if (diffDays === 0) dueTodayTasks.push(ticket.title)
+        else if (diffDays === 1) dueTomorrowTasks.push(ticket.title)
+        else if (diffDays <= 3) dueSoonTasks.push(ticket.title)
       })
       
       console.log('🔍 KanbanBoard: Tarefas vencidas:', overdueTasks)
@@ -204,7 +156,7 @@ export const KanbanBoard: React.FC = () => {
         
         console.log('🔍 KanbanBoard: Criando notificação para tarefa vencida:', task.title, 'ID:', task.id)
         
-        const existingNotification = notificationStore.notifications.find(
+        const existingNotification = notifications.find(
           n => n.dados?.kanbanTicketId === task.id && n.dados?.categoria === 'kanban-overdue'
         )
         
@@ -220,9 +172,7 @@ export const KanbanBoard: React.FC = () => {
             }
           }
           
-          console.log('🔍 KanbanBoard: Adicionando notificação:', notification)
-          notificationStore.add({ ...notification, dedupeKey: `kanban-kanban-overdue-${task.id}` })
-          console.log('🔍 KanbanBoard: Notificação adicionada. Total no store:', notificationStore.notifications.length)
+          add({ ...notification, dedupeKey: `kanban-kanban-overdue-${task.id}` })
         } else {
           console.log('🔍 KanbanBoard: Notificação já existe para:', taskTitle)
         }
@@ -235,7 +185,7 @@ export const KanbanBoard: React.FC = () => {
         
         console.log('🔍 KanbanBoard: Criando notificação para tarefa que vence hoje:', task.title, 'ID:', task.id)
         
-        const existingNotification = notificationStore.notifications.find(
+        const existingNotification = notifications.find(
           n => n.dados?.kanbanTicketId === task.id && n.dados?.categoria === 'kanban-due-today'
         )
         
@@ -251,9 +201,7 @@ export const KanbanBoard: React.FC = () => {
             }
           }
           
-          console.log('🔍 KanbanBoard: Adicionando notificação:', notification)
-          notificationStore.add({ ...notification, dedupeKey: `kanban-kanban-due-today-${task.id}` })
-          console.log('🔍 KanbanBoard: Notificação adicionada. Total no store:', notificationStore.notifications.length)
+          add({ ...notification, dedupeKey: `kanban-kanban-due-today-${task.id}` })
         } else {
           console.log('🔍 KanbanBoard: Notificação já existe para:', taskTitle)
         }
@@ -266,7 +214,7 @@ export const KanbanBoard: React.FC = () => {
         
         console.log('🔍 KanbanBoard: Criando notificação para tarefa que vence amanhã:', task.title, 'ID:', task.id)
         
-        const existingNotification = notificationStore.notifications.find(
+        const existingNotification = notifications.find(
           n => n.dados?.kanbanTicketId === task.id && n.dados?.categoria === 'kanban-due-tomorrow'
         )
         
@@ -282,9 +230,7 @@ export const KanbanBoard: React.FC = () => {
             }
           }
           
-          console.log('🔍 KanbanBoard: Adicionando notificação:', notification)
-          notificationStore.add({ ...notification, dedupeKey: `kanban-kanban-due-tomorrow-${task.id}` })
-          console.log('🔍 KanbanBoard: Notificação adicionada. Total no store:', notificationStore.notifications.length)
+          add({ ...notification, dedupeKey: `kanban-kanban-due-tomorrow-${task.id}` })
         } else {
           console.log('🔍 KanbanBoard: Notificação já existe para:', taskTitle)
         }
@@ -297,7 +243,7 @@ export const KanbanBoard: React.FC = () => {
         
         console.log('🔍 KanbanBoard: Criando notificação para tarefa que vence em breve:', task.title, 'ID:', task.id)
         
-        const existingNotification = notificationStore.notifications.find(
+        const existingNotification = notifications.find(
           n => n.dados?.kanbanTicketId === task.id && n.dados?.categoria === 'kanban-due-soon'
         )
         
@@ -313,22 +259,20 @@ export const KanbanBoard: React.FC = () => {
             }
           }
           
-          console.log('🔍 KanbanBoard: Adicionando notificação:', notification)
-          notificationStore.add({ ...notification, dedupeKey: `kanban-kanban-due-soon-${task.id}` })
-          console.log('🔍 KanbanBoard: Notificação adicionada. Total no store:', notificationStore.notifications.length)
+          add({ ...notification, dedupeKey: `kanban-kanban-due-soon-${task.id}` })
         } else {
           console.log('🔍 KanbanBoard: Notificação já existe para:', taskTitle)
         }
       })
       
       // Limpar notificações de tarefas concluídas
-      notificationStore.notifications.forEach(notification => {
+      ;[...notifications].forEach((notification) => {
         if (notification.dados?.categoria?.startsWith('kanban-')) {
           const taskTitle = notification.mensagem.match(/"([^"]+)"/)?.[1]
           if (taskTitle) {
             const task = userTickets.find(t => t.title === taskTitle)
             if (task && task.status === 'done') {
-              notificationStore.remove(notification.id)
+              remove(notification.id)
             }
           }
         }
@@ -353,7 +297,7 @@ export const KanbanBoard: React.FC = () => {
     }, 60 * 60 * 1000)
     
     return () => clearInterval(interval)
-  }, [userTickets, notificationStore])
+  }, [userTickets])
 
   // Processar navegação de notificação
   useEffect(() => {
@@ -1239,27 +1183,19 @@ const QuickMoveButtons: React.FC<{
   )
 }
 
-// Componente para exibir data de início com indicadores visuais
-const parseIsoToDateOnly = (value: string) => {
-  let dateString = value
-  if (dateString.includes('T') && dateString.includes('Z')) dateString = dateString.split('T')[0]
-  return dateString
-}
-
 // Chips compactos para datas (sem emojis)
 const StartDateChip: React.FC<{ startDate: string }> = ({ startDate }) => {
-  // Usar data atual em UTC para evitar problemas de fuso horário
   const today = new Date()
-  const todayUTC = new Date(today.getFullYear(), today.getMonth(), today.getDate())
-  
-  // Criar data de início em UTC para comparação precisa
-  // Aplicar mesma lógica de parsing para evitar problemas de timezone
-  const dateString = parseIsoToDateOnly(startDate)
-  const startDateObj = new Date(dateString + 'T00:00:00')
-  const startDateUTC = new Date(startDateObj.getFullYear(), startDateObj.getMonth(), startDateObj.getDate())
-  
-  const diffTime = startDateUTC.getTime() - todayUTC.getTime()
-  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24))
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+
+  const startDateObj = parseLocalDateFromYmd(startDate)
+  if (!startDateObj) {
+    return (
+      <Chip size="small" icon={<EventIcon sx={{ fontSize: 16 }} />} label={toDateOnlyString(startDate) || '—'} sx={{ height: 22, fontSize: '0.72rem' }} />
+    )
+  }
+
+  const diffDays = diffCalendarDays(todayStart, startDateObj)
   
   let status: 'not-started' | 'start-today' | 'start-soon' | 'started' = 'not-started'
   let color: string = 'text.secondary'
@@ -1314,18 +1250,17 @@ const StartDateChip: React.FC<{ startDate: string }> = ({ startDate }) => {
 }
 
 const DueDateChip: React.FC<{ dueDate: string }> = ({ dueDate }) => {
-  // Usar data atual em UTC para evitar problemas de fuso horário
   const today = new Date()
-  const todayUTC = new Date(today.getFullYear(), today.getMonth(), today.getDate())
-  
-  // Criar data de vencimento em UTC para comparação precisa
-  // Aplicar mesma lógica de parsing para evitar problemas de timezone
-  const dateString = parseIsoToDateOnly(dueDate)
-  const dueDateObj = new Date(dateString + 'T00:00:00')
-  const dueDateUTC = new Date(dueDateObj.getFullYear(), dueDateObj.getMonth(), dueDateObj.getDate())
-  
-  const diffTime = dueDateUTC.getTime() - todayUTC.getTime()
-  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24))
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+
+  const dueDateObj = parseLocalDateFromYmd(dueDate)
+  if (!dueDateObj) {
+    return (
+      <Chip size="small" icon={<EventIcon sx={{ fontSize: 16 }} />} label={toDateOnlyString(dueDate) || '—'} sx={{ height: 22, fontSize: '0.72rem' }} />
+    )
+  }
+
+  const diffDays = diffCalendarDays(todayStart, dueDateObj)
   
   let status: 'overdue' | 'due-today' | 'due-soon' | 'due-later' = 'due-later'
   let color: string = 'text.secondary'
