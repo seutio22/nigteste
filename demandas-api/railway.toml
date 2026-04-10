@@ -1,6 +1,6 @@
 [build]
-builder = "nixpacks"
-buildCommand = "npm install && npx prisma generate && npm run build"
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
 
 [deploy]
 startCommand = "node scripts/start-production.cjs"
@@ -8,4 +8,3 @@ restartPolicyType = "on_failure"
 
 [env]
 NODE_ENV = "production"
-
