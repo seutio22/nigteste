@@ -127,10 +127,10 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
         <tr style="background: ${rowBg};">
           <td style="padding: 14px 12px; border-bottom: 1px solid #DCDFE3; font-weight: 600; color: #009FDF; font-size: 13px;">${linha.contrato}</td>
           <td style="padding: 14px 12px; border-bottom: 1px solid #DCDFE3; color: #050032; font-size: 13px;">${linha.operadora}</td>
-          <td style="padding: 14px 12px; border-bottom: 1px solid #DCDFE3; background: #e0f2fe; color: #002561; font-weight: 600; font-size: 13px;">${linha.produto}</td>
-          <td style="padding: 14px 12px; border-bottom: 1px solid #DCDFE3; background: #FBF4D4; color: #C9A227; font-weight: 700; font-size: 13px;">${linha.atualizacao}</td>
-          <td style="padding: 14px 12px; border-bottom: 1px solid #DCDFE3; background: #eef2ff; color: #002561; font-weight: 600; font-size: 13px;">${linha.subtipo}</td>
-          <td style="padding: 14px 12px; border-bottom: 1px solid #DCDFE3; background: #e6f7ed; color: #00A649; font-weight: 700; font-size: 13px;">${linha.tipo}</td>
+          <td style="padding: 14px 12px; border-bottom: 1px solid #DCDFE3; background: #DCDFE3; color: #002561; font-weight: 600; font-size: 13px;">${linha.produto}</td>
+          <td style="padding: 14px 12px; border-bottom: 1px solid #DCDFE3; background: #C7C8CA; color: #EA983E; font-weight: 700; font-size: 13px;">${linha.atualizacao}</td>
+          <td style="padding: 14px 12px; border-bottom: 1px solid #DCDFE3; background: #DCDFE3; color: #68A79D; font-weight: 700; font-size: 13px;">${linha.subtipo}</td>
+          <td style="padding: 14px 12px; border-bottom: 1px solid #DCDFE3; background: #DCDFE3; color: #A4C854; font-weight: 700; font-size: 13px;">${linha.tipo}</td>
         </tr>`
     }).join('')
 
@@ -161,7 +161,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
           <p style="margin: 0 0 10px 0; font-size: 14px; font-weight: 500; color: #1e3a8a;">📋 ${info.informacao} <strong>${info.cliente}</strong></p>
           <div style="display: flex; flex-wrap: wrap; gap: 12px;">
             <span style="background: #e0f2fe; color: #009FDF; padding: 6px 12px; border-radius: 999px; font-size: 12px;">Operadora: <strong>${info.operadora}</strong></span>
-            <span style="background: #ede9fe; color: #5b21b6; padding: 6px 12px; border-radius: 999px; font-size: 12px;">Produto: <strong>${info.produto}</strong></span>
+            <span style="background: #DCDFE3; color: #002561; padding: 6px 12px; border-radius: 999px; font-size: 12px;">Produto: <strong>${info.produto}</strong></span>
             <span style="background: #dcfce7; color: #047857; padding: 6px 12px; border-radius: 999px; font-size: 12px;">Sistema: <strong>${info.sistema}</strong></span>
           </div>
         </div>
@@ -210,7 +210,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
 
         <p style="margin: 14px 0;">&nbsp;</p>
 
-        <div style="padding-top: 12px; border-top: 1px dashed #cbd5f5;">
+        <div style="padding-top: 12px; border-top: 1px dashed #DCDFE3;">
           <p style="margin: 0; font-size: 11px; color: #6b7a80;">Ticket: ${info.ticket} • Gerado em ${info.timestamp}</p>
         </div>
       </div>
@@ -371,10 +371,10 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                         <tr style="background: ${index % 2 === 0 ? '#f8f9fa' : '#ffffff'};">
                             <td style="padding: 15px 12px; border-bottom: 1px solid #DCDFE3; font-weight: 600; color: #2b6cb0; font-size: 15px;">${linha.contrato || contrato?.codigo || contrato?.numero || manutencao?.ticket || 'N/A'}</td>
                             <td style="padding: 15px 12px; border-bottom: 1px solid #DCDFE3; font-weight: 500; color: #050032;">${linha.operadora || operadora?.nome || 'N/A'}</td>
-                            <td style="padding: 15px 12px; border-bottom: 1px solid #DCDFE3; background: #e6fffa; color: #234e52; font-weight: 500;">${linha.produto || produto?.nome || 'N/A'}</td>
-                            <td style="padding: 15px 12px; border-bottom: 1px solid #DCDFE3; background: #fef5e7; color: #7c2d12; font-weight: 500;">${linha.atualizacao || tipoServico?.nome || 'N/A'}</td>
-                            <td style="padding: 15px 12px; border-bottom: 1px solid #DCDFE3; background: #f3e8ff; color: #581c87; font-weight: 500;">${linha.subtipo || tipo?.nome || 'N/A'}</td>
-                            <td style="padding: 15px 12px; border-bottom: 1px solid #DCDFE3; background: #e6f7ed; color: #064e3b; font-weight: 500;">${linha.tipo || sistema?.nome || 'N/A'}</td>
+                            <td style="padding: 15px 12px; border-bottom: 1px solid #DCDFE3; background: #DCDFE3; color: #002561; font-weight: 600;">${linha.produto || produto?.nome || 'N/A'}</td>
+                            <td style="padding: 15px 12px; border-bottom: 1px solid #DCDFE3; background: #C7C8CA; color: #EA983E; font-weight: 700;">${linha.atualizacao || tipoServico?.nome || 'N/A'}</td>
+                            <td style="padding: 15px 12px; border-bottom: 1px solid #DCDFE3; background: #DCDFE3; color: #68A79D; font-weight: 700;">${linha.subtipo || tipo?.nome || 'N/A'}</td>
+                            <td style="padding: 15px 12px; border-bottom: 1px solid #DCDFE3; background: #DCDFE3; color: #A4C854; font-weight: 700;">${linha.tipo || sistema?.nome || 'N/A'}</td>
                         </tr>
                         `).join('')}
                     </tbody>
@@ -655,24 +655,24 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
             color: #050032;
         }
         .product-cell {
-            background: linear-gradient(135deg, #e6fffa 0%, #b2f5ea 100%);
-            color: #234e52;
-            font-weight: 500;
+            background: #DCDFE3;
+            color: #002561;
+            font-weight: 600;
         }
         .update-cell {
-            background: linear-gradient(135deg, #fef5e7 0%, #fed7aa 100%);
-            color: #7c2d12;
-            font-weight: 500;
+            background: #C7C8CA;
+            color: #EA983E;
+            font-weight: 700;
         }
         .subtype-cell {
-            background: linear-gradient(135deg, #f3e8ff 0%, #d8b4fe 100%);
-            color: #581c87;
-            font-weight: 500;
+            background: #DCDFE3;
+            color: #68A79D;
+            font-weight: 700;
         }
         .type-cell {
-            background: linear-gradient(135deg, #e6f7ed 0%, #a7f3d0 100%);
-            color: #064e3b;
-            font-weight: 500;
+            background: #DCDFE3;
+            color: #A4C854;
+            font-weight: 700;
         }
         .description-section {
             background: #f8fafc;
