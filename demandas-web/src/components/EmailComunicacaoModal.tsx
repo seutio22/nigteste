@@ -128,9 +128,9 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
           <td style="padding: 14px 12px; border-bottom: 1px solid #DCDFE3; font-weight: 600; color: #009FDF; font-size: 13px;">${linha.contrato}</td>
           <td style="padding: 14px 12px; border-bottom: 1px solid #DCDFE3; color: #050032; font-size: 13px;">${linha.operadora}</td>
           <td style="padding: 14px 12px; border-bottom: 1px solid #DCDFE3; background: #DCDFE3; color: #002561; font-weight: 600; font-size: 13px;">${linha.produto}</td>
-          <td style="padding: 14px 12px; border-bottom: 1px solid #DCDFE3; background: #C7C8CA; color: #EA983E; font-weight: 700; font-size: 13px;">${linha.atualizacao}</td>
-          <td style="padding: 14px 12px; border-bottom: 1px solid #DCDFE3; background: #DCDFE3; color: #68A79D; font-weight: 700; font-size: 13px;">${linha.subtipo}</td>
-          <td style="padding: 14px 12px; border-bottom: 1px solid #DCDFE3; background: #DCDFE3; color: #A4C854; font-weight: 700; font-size: 13px;">${linha.tipo}</td>
+          <td style="padding: 14px 12px; border-bottom: 1px solid #DCDFE3; background: #DCDFE3; color: #002561; font-weight: 600; font-size: 13px;">${linha.atualizacao}</td>
+          <td style="padding: 14px 12px; border-bottom: 1px solid #DCDFE3; background: #DCDFE3; color: #002561; font-weight: 600; font-size: 13px;">${linha.subtipo}</td>
+          <td style="padding: 14px 12px; border-bottom: 1px solid #DCDFE3; background: #DCDFE3; color: #002561; font-weight: 600; font-size: 13px;">${linha.tipo}</td>
         </tr>`
     }).join('')
 
@@ -372,9 +372,9 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
                             <td style="padding: 15px 12px; border-bottom: 1px solid #DCDFE3; font-weight: 600; color: #2b6cb0; font-size: 15px;">${linha.contrato || contrato?.codigo || contrato?.numero || manutencao?.ticket || 'N/A'}</td>
                             <td style="padding: 15px 12px; border-bottom: 1px solid #DCDFE3; font-weight: 500; color: #050032;">${linha.operadora || operadora?.nome || 'N/A'}</td>
                             <td style="padding: 15px 12px; border-bottom: 1px solid #DCDFE3; background: #DCDFE3; color: #002561; font-weight: 600;">${linha.produto || produto?.nome || 'N/A'}</td>
-                            <td style="padding: 15px 12px; border-bottom: 1px solid #DCDFE3; background: #C7C8CA; color: #EA983E; font-weight: 700;">${linha.atualizacao || tipoServico?.nome || 'N/A'}</td>
-                            <td style="padding: 15px 12px; border-bottom: 1px solid #DCDFE3; background: #DCDFE3; color: #68A79D; font-weight: 700;">${linha.subtipo || tipo?.nome || 'N/A'}</td>
-                            <td style="padding: 15px 12px; border-bottom: 1px solid #DCDFE3; background: #DCDFE3; color: #A4C854; font-weight: 700;">${linha.tipo || sistema?.nome || 'N/A'}</td>
+                            <td style="padding: 15px 12px; border-bottom: 1px solid #DCDFE3; background: #DCDFE3; color: #002561; font-weight: 600;">${linha.atualizacao || tipoServico?.nome || 'N/A'}</td>
+                            <td style="padding: 15px 12px; border-bottom: 1px solid #DCDFE3; background: #DCDFE3; color: #002561; font-weight: 600;">${linha.subtipo || tipo?.nome || 'N/A'}</td>
+                            <td style="padding: 15px 12px; border-bottom: 1px solid #DCDFE3; background: #DCDFE3; color: #002561; font-weight: 600;">${linha.tipo || sistema?.nome || 'N/A'}</td>
                         </tr>
                         `).join('')}
                     </tbody>
@@ -660,19 +660,19 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
             font-weight: 600;
         }
         .update-cell {
-            background: #C7C8CA;
-            color: #EA983E;
-            font-weight: 700;
+            background: #DCDFE3;
+            color: #002561;
+            font-weight: 600;
         }
         .subtype-cell {
             background: #DCDFE3;
-            color: #68A79D;
-            font-weight: 700;
+            color: #002561;
+            font-weight: 600;
         }
         .type-cell {
             background: #DCDFE3;
-            color: #A4C854;
-            font-weight: 700;
+            color: #002561;
+            font-weight: 600;
         }
         .description-section {
             background: #f8fafc;
