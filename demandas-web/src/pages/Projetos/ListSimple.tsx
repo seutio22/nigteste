@@ -188,7 +188,8 @@ export default function ProjectListPageSimple() {
       }
       if (projectScope === 'archived') {
         const s = project.status
-        if (s !== 'paused' && s !== 'cancelled') return false
+        // Arquivados = concluídos + pausados + cancelados
+        if (s !== 'completed' && s !== 'paused' && s !== 'cancelled') return false
       }
       if ((projectScope === 'mine' || projectScope === 'all') && project.status !== 'active') {
         return false
