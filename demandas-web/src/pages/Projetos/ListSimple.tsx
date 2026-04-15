@@ -253,6 +253,38 @@ export default function ProjectListPageSimple() {
     return project?.ownerName || project?.owner?.name || project?.owner?.email || project?.ownerId || '—'
   }
 
+  const getInitials = (value: unknown) => {
+    const s = String(value || '').trim()
+    if (!s) return '—'
+    const parts = s.split(/\s+/).filter(Boolean)
+    const a = parts[0]?.[0] || ''
+    const b = parts.length > 1 ? (parts[parts.length - 1]?.[0] || '') : (parts[0]?.[1] || '')
+    return (a + b).toUpperCase()
+  }
+
+  const stringToColor = (value: unknown) => {
+    const s = String(value || 'x')
+    let hash = 0
+    for (let i = 0; i < s.length; i++) hash = s.charCodeAt(i) + ((hash << 5) - hash)
+    const hue = Math.abs(hash) % 360
+    return `hsl(${hue} 65% 45%)`
+  }
+
+  const getAccentColor = (project: any) => {
+    // Prioridade domina a cor; fallback p/ status; último fallback p/ cor do projeto
+    const p = String(project?.priority || '').toLowerCase()
+    if (p === 'urgent') return '#ef4444'
+    if (p === 'high') return '#f97316'
+    if (p === 'medium') return '#f59e0b'
+    if (p === 'low') return '#22c55e'
+    const st = String(project?.status || '').toLowerCase()
+    if (st === 'completed') return '#16a34a'
+    if (st === 'paused') return '#f59e0b'
+    if (st === 'cancelled') return '#64748b'
+    if (project?.color) return String(project.color)
+    return '#2563eb'
+  }
+
   const shouldShowReadMore = (text: string) => {
     const t = String(text || '').trim()
     return t.length > 180 || t.includes('\n')
@@ -778,15 +810,32 @@ export default function ProjectListPageSimple() {
               sx={{ 
                 height: '100%',
                 cursor: 'pointer',
-                        transition: 'all 0.2s ease-in-out',
+                position: 'relative',
+                borderRadius: 2,
+                border: '1px solid rgba(16,24,40,0.08)',
+                boxShadow: '0 1px 2px rgba(16,24,40,0.06)',
+                background: 'linear-gradient(180deg, rgba(248,250,252,0.7), rgba(255,255,255,1))',
+                transition: 'all 0.2s ease-in-out',
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: 6,
+                  borderTopLeftRadius: 8,
+                  borderBottomLeftRadius: 8,
+                  background: getAccentColor(project)
+                },
                 '&:hover': {
                           transform: 'translateY(-4px)',
-                          boxShadow: '0 8px 25px rgba(0,0,0,0.15)'
+                          boxShadow: '0 8px 20px rgba(16,24,40,0.12)',
+                  borderColor: 'rgba(16,24,40,0.14)'
                 }
               }}
               onClick={() => navigate(`/projetos/${project.id}`)}
             >
-                      <CardContent sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column', gap: 1.75 }}>
+                      <CardContent sx={{ p: 2.5, pl: 3.25, height: '100%', display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                         {/* Topo fixo: Título + Ações */}
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
                           <Typography
@@ -813,7 +862,11 @@ export default function ProjectListPageSimple() {
                                   handleRemoveProject(project.id)
                                 }
                               }}
-                              sx={{ color: 'error.main' }}
+                              sx={{
+                                color: 'error.main',
+                                borderRadius: 2,
+                                '&:hover': { backgroundColor: 'rgba(239,68,68,0.08)' }
+                              }}
                             >
                               <Delete />
                             </IconButton>
@@ -832,12 +885,16 @@ export default function ProjectListPageSimple() {
                             label={getStatusLabel(project.status)}
                             color={getStatusColor(project.status)}
                             size="small"
+                            variant="outlined"
+                            sx={{ borderRadius: 999, '& .MuiChip-icon': { ml: 0.5, mr: 0.25 } }}
                           />
                           <Chip
                             icon={getPriorityIcon(project.priority)}
                             label={getPriorityLabel(project.priority)}
                             color={getPriorityColor(project.priority)}
                             size="small"
+                            variant="outlined"
+                            sx={{ borderRadius: 999, '& .MuiChip-icon': { ml: 0.5, mr: 0.25 } }}
                           />
                         </Stack>
 
@@ -879,9 +936,20 @@ export default function ProjectListPageSimple() {
                           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mt: 1.25, gap: 1 }}>
                             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, minWidth: 0 }}>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
-                                <Avatar sx={{ width: 24, height: 24 }}>
-                                  <Person />
-                                </Avatar>
+                                <Tooltip title={project.manager || '—'} placement="top">
+                                  <Avatar
+                                    sx={{
+                                      width: 26,
+                                      height: 26,
+                                      fontSize: 12,
+                                      fontWeight: 700,
+                                      bgcolor: stringToColor(project.manager || project.id),
+                                      boxShadow: '0 4px 12px rgba(16,24,40,0.12)'
+                                    }}
+                                  >
+                                    {getInitials(project.manager)}
+                                  </Avatar>
+                                </Tooltip>
                                 <Typography variant="caption" color="text.secondary" noWrap sx={{ minWidth: 0 }}>
                                   {project.manager || '—'}
                                 </Typography>
