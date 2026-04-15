@@ -120,17 +120,17 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
     const margin = options?.bodyMargin ?? '0';
     const padding = options?.containerPadding ?? '24px';
 
-    const rowsHtml = info.linhas.map((linha, index) => {
+      const rowsHtml = info.linhas.map((linha, index) => {
       const isEven = index % 2 === 0
       const rowBg = isEven ? '#ffffff' : '#f8fafc'
       return `
         <tr style="background: ${rowBg};">
           <td style="padding: 14px 12px; border-bottom: 1px solid #DCDFE3; font-weight: 600; color: #009FDF; font-size: 13px;">${linha.contrato}</td>
           <td style="padding: 14px 12px; border-bottom: 1px solid #DCDFE3; color: #050032; font-size: 13px;">${linha.operadora}</td>
-          <td style="padding: 14px 12px; border-bottom: 1px solid #DCDFE3; background: #e6fffa; color: #115e59; font-weight: 500; font-size: 13px;">${linha.produto}</td>
-          <td style="padding: 14px 12px; border-bottom: 1px solid #DCDFE3; background: #FBF4D4; color: #92400e; font-weight: 500; font-size: 13px;">${linha.atualizacao}</td>
-          <td style="padding: 14px 12px; border-bottom: 1px solid #DCDFE3; background: #ede9fe; color: #5b21b6; font-weight: 500; font-size: 13px;">${linha.subtipo}</td>
-          <td style="padding: 14px 12px; border-bottom: 1px solid #DCDFE3; background: #e6f7ed; color: #065f46; font-weight: 500; font-size: 13px;">${linha.tipo}</td>
+          <td style="padding: 14px 12px; border-bottom: 1px solid #DCDFE3; background: #e0f2fe; color: #002561; font-weight: 600; font-size: 13px;">${linha.produto}</td>
+          <td style="padding: 14px 12px; border-bottom: 1px solid #DCDFE3; background: #FBF4D4; color: #C9A227; font-weight: 700; font-size: 13px;">${linha.atualizacao}</td>
+          <td style="padding: 14px 12px; border-bottom: 1px solid #DCDFE3; background: #eef2ff; color: #002561; font-weight: 600; font-size: 13px;">${linha.subtipo}</td>
+          <td style="padding: 14px 12px; border-bottom: 1px solid #DCDFE3; background: #e6f7ed; color: #00A649; font-weight: 700; font-size: 13px;">${linha.tipo}</td>
         </tr>`
     }).join('')
 
@@ -204,7 +204,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
 
         <div style="margin-bottom: 12px;">
           <p style="margin: 0 0 8px 0; font-size: 13px; color: #6b7a80;">Atenciosamente,</p>
-          <p style="margin: 0 0 6px 0; font-size: 15px; font-weight: 600; color: #111827;">NIG - Núcleo de Informações Gerenciais</p>
+          <p style="margin: 0 0 6px 0; font-size: 15px; font-weight: 600; color: #111827;">NIG - Núcleo de Inteligência e Governança</p>
           <p style="margin: 0; font-size: 11px; color: #6b7a80;">Mensagem gerada automaticamente pelo sistema NIG.</p>
         </div>
 
@@ -399,7 +399,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
             <!-- Signature -->
             <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #DCDFE3;">
                 <p style="margin: 5px 0; color: #002561;">Atenciosamente,</p>
-                <p style="margin: 5px 0; font-weight: 600; color: #050032; font-size: 16px;">NIG - Núcleo de Informações Gerenciais</p>
+                <p style="margin: 5px 0; font-weight: 600; color: #050032; font-size: 16px;">NIG - Núcleo de Inteligência e Governança</p>
                 <p style="margin: 5px 0; color: #002561;">
                     <span style="display: inline-block; background: #050032; color: white; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600;">Sistema Automatizado</span>
                 </p>
@@ -788,7 +788,7 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
             
             <div class="signature">
                 <p>Atenciosamente,</p>
-                <p class="company">NIG - Núcleo de Informações Gerenciais</p>
+                <p class="company">NIG - Núcleo de Inteligência e Governança</p>
                 <p><span class="badge">Sistema Automatizado</span></p>
             </div>
         </div>
