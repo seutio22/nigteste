@@ -271,18 +271,24 @@ export default function ProjectListPageSimple() {
   }
 
   const getAccentColor = (project: any) => {
-    // Prioridade domina a cor; fallback p/ status; último fallback p/ cor do projeto
-    const p = String(project?.priority || '').toLowerCase()
-    if (p === 'urgent') return '#ef4444'
-    if (p === 'high') return '#f97316'
-    if (p === 'medium') return '#f59e0b'
-    if (p === 'low') return '#22c55e'
+    // Padrão do sistema: cor por STATUS (prioridade fica nos chips).
     const st = String(project?.status || '').toLowerCase()
-    if (st === 'completed') return '#16a34a'
+    // active = verde, completed = azul, paused = amarelo, cancelled = cinza
+    if (st === 'active') return '#16a34a'
+    if (st === 'completed') return '#2563eb'
     if (st === 'paused') return '#f59e0b'
     if (st === 'cancelled') return '#64748b'
     if (project?.color) return String(project.color)
     return '#2563eb'
+  }
+
+  const alphaHex = (hex: string, alpha: number) => {
+    // alpha 0..1 -> #RRGGBBAA
+    const a = Math.max(0, Math.min(1, alpha))
+    const aa = Math.round(a * 255).toString(16).padStart(2, '0')
+    const h = String(hex || '').trim()
+    if (/^#[0-9a-fA-F]{6}$/.test(h)) return `${h}${aa}`
+    return `#000000${aa}`
   }
 
   const shouldShowReadMore = (text: string) => {
@@ -812,7 +818,7 @@ export default function ProjectListPageSimple() {
                 cursor: 'pointer',
                 position: 'relative',
                 borderRadius: 2,
-                border: '1px solid rgba(16,24,40,0.08)',
+                border: `1px solid ${alphaHex(getAccentColor(project), 0.22)}`,
                 boxShadow: '0 1px 2px rgba(16,24,40,0.06)',
                 background: 'linear-gradient(180deg, rgba(248,250,252,0.7), rgba(255,255,255,1))',
                 transition: 'all 0.2s ease-in-out',
@@ -830,7 +836,7 @@ export default function ProjectListPageSimple() {
                 '&:hover': {
                           transform: 'translateY(-4px)',
                           boxShadow: '0 8px 20px rgba(16,24,40,0.12)',
-                  borderColor: 'rgba(16,24,40,0.14)'
+                  borderColor: alphaHex(getAccentColor(project), 0.38)
                 }
               }}
               onClick={() => navigate(`/projetos/${project.id}`)}
