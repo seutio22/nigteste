@@ -6,14 +6,18 @@ import { api } from '../../lib/api.local'
 import { StatusBadge } from '../../components/StatusBadge'
 import { Timeline } from '../../components/Timeline'
 import { fmt } from '../../lib/utils'
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react'
 import { Save, Edit3, Clock, ArrowLeft, Mail as MailIcon } from 'lucide-react'
 import { Demand } from '../../types/demand'
 import { Autocomplete, TextField, Box, Typography } from '@mui/material'
 import { Save as SaveIcon } from '@mui/icons-material'
 import { PrimaryActionButton } from '../../components/PrimaryActionButton'
 import { createPerfLogger } from '../../utils/perf'
-import { EmailComunicacaoCadastroEdgeModal } from '../../components/EmailComunicacaoCadastroEdgeModal'
+
+const EmailComunicacaoCadastroEdgeModal = lazy(async () => {
+  const m = await import('../../components/EmailComunicacaoCadastroEdgeModal')
+  return { default: m.EmailComunicacaoCadastroEdgeModal }
+})
 
 // Função para converter código de qualidade em texto legível
 const getQualidadeLabel = (value?: string) => {
@@ -59,86 +63,28 @@ export default function DemandDetailPage() {
     }
   }, [md.clientes.length, md.contratos.length, md.analistas.length])
 
-  // Carregar dados quando a página for acessada (apenas uma vez)
+  // Carregar demandas + dados mestres + timeline ao abrir / trocar chamado (mesmo padrão que Manutenção)
   useEffect(() => {
-    
-    // Forçar carregamento de demandas se não existirem
-    if (items.length === 0) {
-      syncFromApi?.()
-    } else {
-      if (!d) {
-        syncFromApi?.()
+    const loadData = async () => {
+      if (items.length === 0 || !d) {
+        await syncFromApi?.(!(items.length > 0 && !!d))
+      }
+      if (md.analistas.length === 0 || md.tiposServico.length === 0 || md.tiposDemanda.length === 0) {
+        await md.syncFromApi?.()
+      }
+      if (id && syncTimeline && !timelineSyncedRef.current.has(id)) {
+        timelineSyncedRef.current.add(id)
+        syncTimeline(id)
       }
     }
-    
-    // Forçar carregamento de dados mestres se não existirem
-    if (md.analistas.length === 0 || md.tiposServico.length === 0 || md.tiposDemanda.length === 0) {
-      md.syncFromApi?.()
-    }
-  }, []) // Executar apenas uma vez quando o componente for montado
-
-  // Tentar recarregar se a demanda específica não for encontrada após o carregamento inicial
-  useEffect(() => {
-    if (items.length > 0 && !d && id) {
-      syncFromApi?.()
-    }
-  }, [items.length, d, id])
-
-  // Forçar sincronização dos dados mestres quando a demanda for encontrada
-  useEffect(() => {
-    if (d && (md.tiposServico.length === 0 || md.tiposDemanda.length === 0)) {
-      md.syncFromApi?.()
-    }
-  }, [d, md.tiposServico.length, md.tiposDemanda.length, md.clientes.length, md.contratos.length, md.syncFromApi])
+    void loadData()
+  }, [id])
 
   // Verificar se os dados mestres estão carregados
   useEffect(() => {
     const isLoaded = md.tiposServico.length > 0 && md.tiposDemanda.length > 0 && md.clientes.length > 0
     setMasterDataLoaded(isLoaded)
   }, [md.tiposServico.length, md.tiposDemanda.length, md.clientes.length, md.contratos.length])
-
-  // Sincronizar timeline apenas uma vez quando a página carrega
-  useEffect(() => {
-    if (id && syncTimeline && !timelineSyncedRef.current.has(id)) {
-      console.log('🔄 Sincronizando timeline da demanda (primeira vez):', id)
-      timelineSyncedRef.current.add(id)
-      syncTimeline(id)
-    }
-  }, [id]) // Apenas quando ID muda, não quando dados mudam
-
-  console.log('DetailPage render:', { 
-    id, 
-    totalItems: items.length, 
-    demandaEncontrada: !!d, 
-    demandaData: d,
-    masterDataLoaded: {
-      analistas: md.analistas.length,
-      clientes: md.clientes.length,
-      areas: md.areas.length,
-      tiposServico: md.tiposServico.length,
-      tiposDemanda: md.tiposDemanda.length,
-      contratos: md.contratos.length,
-      sistemas: md.sistemas.length
-    }
-  })
-  
-  // Debug específico para o resumo
-  if (d) {
-    console.log('🔍 Resumo Debug:', {
-      tipoServicoId: d.tipoServicoId,
-      tipoId: d.tipoId,
-      sistemaId: d.sistemaId,
-      areaId: d.areaId,
-      clienteId: d.clienteId,
-      contratoId: d.contratoId,
-      tiposServicoDisponiveis: md.tiposServico.map(ts => ({ id: ts.id, nome: ts.nome })),
-      tiposDemandaDisponiveis: md.tiposDemanda.map(td => ({ id: td.id, nome: td.nome })),
-      sistemasDisponiveis: md.sistemas.map(s => ({ id: s.id, nome: s.nome })),
-      areasDisponiveis: md.areas.map(a => ({ id: a.id, nome: a.nome })),
-      clientesDisponiveis: md.clientes.map(c => ({ id: c.id, nome: c.nome })),
-      contratosDisponiveis: md.contratos.map(c => ({ id: c.id, codigo: c.codigo, numero: c.numero }))
-    })
-  }
 
   const label = (id?: string | any, arr?: { id: string, nome: string }[]) => {
     // 🐛 CORREÇÃO: Se id for um objeto, extrair o id ou nome
@@ -163,15 +109,6 @@ export default function DemandDetailPage() {
     // Garantir que sempre retornamos uma string
     if (typeof result !== 'string') {
       return '-'
-    }
-    
-    // Debug para verificar se os dados estão disponíveis
-    if (result === '-' && actualId) {
-      console.log('🔍 DemandDetailPage: Dados não encontrados para ID:', {
-        id: actualId,
-        arrLength: arr?.length || 0,
-        arr: arr?.map(a => ({ id: a.id, nome: a.nome })) || []
-      })
     }
     
     return result
@@ -263,7 +200,7 @@ export default function DemandDetailPage() {
           <PrimaryActionButton
             onClick={() => setEmailModalOpen(true)}
             startIcon={<MailIcon />}
-            title="Comunicar (EDGE) por e-mail"
+            title="Comunicar por e-mail (Edge, Move Local ou MOVE)"
           >
             Comunicar
           </PrimaryActionButton>
@@ -436,11 +373,15 @@ export default function DemandDetailPage() {
         </div>
       </div>
 
-      <EmailComunicacaoCadastroEdgeModal
-        open={emailModalOpen}
-        onClose={() => setEmailModalOpen(false)}
-        demanda={d as any}
-      />
+      {emailModalOpen && (
+        <Suspense fallback={null}>
+          <EmailComunicacaoCadastroEdgeModal
+            open={emailModalOpen}
+            onClose={() => setEmailModalOpen(false)}
+            demanda={d as any}
+          />
+        </Suspense>
+      )}
     </div>
   )
 }
@@ -505,15 +446,10 @@ function EditInline({ d }: { d: Demand }) {
       return '-'
     }
     
-    console.log('🔍 EditInline label:', { id: actualId, arrLength: arr?.length, result })
     return result
   }
 
   useEffect(() => {
-    console.log('🔍 DemandDetailPage: Atualizando draft com dados:', d)
-    console.log('🔍 DemandDetailPage: dataInicio:', d.dataInicio, 'dataFinal:', d.dataFinal, 'tipo:', d.tipo)
-    console.log('🔍 DemandDetailPage: analistaId:', d.analistaId, 'analistas disponíveis:', md.analistas.length)
-    
     // 🐛 CORREÇÃO: Normalizar dados para garantir que IDs sejam strings, não objetos
     const normalizedDraft = { ...d }
     
@@ -542,33 +478,14 @@ function EditInline({ d }: { d: Demand }) {
     c.grupoEconomico === md.clientes.find(cl => cl.id === draft.clienteId)?.grupoEconomico
   )
 
-  const changedKeys = ((): string[] => {
+  const changedKeys = useMemo(() => {
     const keys = ['status', 'ticket', 'clienteId', 'contratoId', 'operadoraId', 'produtoId', 'sistemaId', 'areaId', 'tipoId', 'tipoServicoId', 'analistaId', 'descricao', 'solicitante', 'dataInicio', 'dataFinal', 'qtdUsuarios', 'qtdRetornos', 'qualidade', 'qtdClientesVinculados', 'usuariosEmpresa', 'observacoes'] as const
-    
-    console.log('🔍 DemandDetailPage: Verificando mudanças...')
-    console.log('🔍 DemandDetailPage: Dados originais:', d)
-    console.log('🔍 DemandDetailPage: Dados do draft:', draft)
-    
-    const changed = keys.filter((k) => {
+    return keys.filter((k) => {
       const dValue = (d as any)[k]
       const draftValue = (draft as any)[k]
-      
-      const isChanged = String(dValue ?? '') !== String(draftValue ?? '')
-      
-      if (isChanged) {
-        console.log(`🔍 DemandDetailPage: Campo ${k} mudou:`, {
-          original: dValue,
-          draft: draftValue,
-          originalString: String(dValue ?? ''),
-          draftString: String(draftValue ?? '')
-        })
-      }
-      
-      return isChanged
+      return String(dValue ?? '') !== String(draftValue ?? '')
     })
-    
-    return changed
-  })()
+  }, [d, draft])
 
 
   async function applySave() {

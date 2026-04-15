@@ -23,6 +23,8 @@ interface ExportButtonProps {
   chartPeriodComparison?: Array<{ page: string; current: number; previous: number }>
   chartDailyEvolution?: Array<{ label: string; total: number }>
   tempoExecucaoMetrics?: TempoExecucaoMetrics[]
+  /** Mesmo critério do painel “Projetos e cronograma” no dashboard. */
+  analistaId?: string
   disabled?: boolean
 }
 
@@ -35,6 +37,7 @@ export const ExportButton: React.FC<ExportButtonProps> = ({
   chartPeriodComparison,
   chartDailyEvolution,
   tempoExecucaoMetrics,
+  analistaId,
   disabled = false
 }) => {
   const [open, setOpen] = useState(false)
@@ -71,6 +74,7 @@ export const ExportButton: React.FC<ExportButtonProps> = ({
         chartPeriodComparison={chartPeriodComparison}
         chartDailyEvolution={chartDailyEvolution}
         tempoExecucaoMetrics={tempoExecucaoMetrics}
+        analistaId={analistaId}
         disabled={disabled}
       />
     </>

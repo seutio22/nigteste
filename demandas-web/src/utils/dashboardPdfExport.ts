@@ -344,6 +344,8 @@ export interface DashboardPdfExportInput {
   chartDailyEvolution?: Array<{ label: string; total: number }>
   tempoExecucaoMetrics?: TempoExecucaoMetrics[]
   captureElementId?: string
+  /** Alinha estatísticas de projetos com o filtro de analista (admin/gerente). */
+  analistaId?: string
 }
 
 export async function exportDashboardToPdfAsync(input: DashboardPdfExportInput): Promise<void> {
@@ -357,14 +359,26 @@ export async function exportDashboardToPdfAsync(input: DashboardPdfExportInput):
     chartPeriodComparison = [],
     chartDailyEvolution = [],
     tempoExecucaoMetrics = [],
-    captureElementId = 'dashboard-pdf-export-root'
+    captureElementId = 'dashboard-pdf-export-root',
+    analistaId: analistaIdForProjectStats
   } = input
   const sections = { ...defaultSections, ...input.sections }
 
   let projectStats: ProjectStatsSummary | null = null
   try {
     const { api } = await import('../lib/api')
-    projectStats = await api.get<ProjectStatsSummary>('/projetos/stats/summary')
+    const params = new URLSearchParams()
+    if (analistaIdForProjectStats && String(analistaIdForProjectStats).trim()) {
+      params.set('analistaId', String(analistaIdForProjectStats).trim())
+    }
+    const fd = meta?.fromDate && String(meta.fromDate).trim()
+    const td = meta?.toDate && String(meta.toDate).trim()
+    if (fd && td) {
+      params.set('fromDate', fd)
+      params.set('toDate', td)
+    }
+    const qs = params.toString() ? `?${params.toString()}` : ''
+    projectStats = await api.get<ProjectStatsSummary>(`/projetos/stats/summary${qs}`)
   } catch {
     projectStats = null
   }
@@ -466,15 +480,44 @@ export async function exportDashboardToPdfAsync(input: DashboardPdfExportInput):
     pushCategory('Terciárias', tertiary)
 
     if (projectStats) {
+      const p = projectStats.period
+      const cancelled = projectStats.cancelledProjectCount ?? 0
       summaryBody.push(['—', '—'])
       summaryBody.push([
         'Projetos (cronograma) • Projetos acompanhados',
-        `${projectStats.projectCount} (ativos ${projectStats.activeProjectCount}, concluídos ${projectStats.completedProjectCount}, pausados ${projectStats.pausedProjectCount})`
+        `${projectStats.projectCount} (ativos ${projectStats.activeProjectCount}, concluídos ${projectStats.completedProjectCount}, pausados ${projectStats.pausedProjectCount}, cancelados ${cancelled})`
       ])
-      summaryBody.push([
-        'Projetos • Etapas / tarefas / subtarefas',
-        `Etapas ${projectStats.totalPhases} (${projectStats.phasesCompleted} concl., ${projectStats.phasesOverdue} atraso) • Tarefas ${projectStats.totalTasksInTimeline} • Subtarefas ${projectStats.totalSubtasksInTimeline}`
-      ])
+      if (p) {
+        summaryBody.push([
+          'Projetos • Criadas no período (etapas / tarefas / subtarefas)',
+          `Etapas ${p.phasesCreated} (${p.phasesCompleted} concl. no perí.) • Tarefas ${p.tasksCreated} (${p.tasksCompleted} concl.) • Subtarefas ${p.subtasksCreated} (${p.subtasksCompleted} concl.)`
+        ])
+        const ra = projectStats.responsibleAsAnalyst
+        if (ra) {
+          summaryBody.push([
+            'Projetos • Como responsável (estado atual)',
+            `Tarefas ${ra.tasks.total} (${ra.tasks.completed} concl., ${ra.tasks.overdue} atraso) • Subtarefas ${ra.subtasks.total} (${ra.subtasks.completed} concl., ${ra.subtasks.overdue} atraso) • Nomes: ${ra.aliases.length ? ra.aliases.join(', ') : '—'}`
+          ])
+          if (
+            typeof p.responsibleTasksCreated === 'number' &&
+            typeof p.responsibleTasksCompleted === 'number'
+          ) {
+            summaryBody.push([
+              'Projetos • Como responsável — no período',
+              `Tarefas ${p.responsibleTasksCreated} criadas, ${p.responsibleTasksCompleted} concl. • Subtarefas ${p.responsibleSubtasksCreated ?? 0} criadas, ${p.responsibleSubtasksCompleted ?? 0} concl.`
+            ])
+          }
+        }
+        summaryBody.push([
+          'Projetos • Estado atual do cronograma',
+          `Etapas ${projectStats.totalPhases} • Tarefas ${projectStats.totalTasksInTimeline} • Subtarefas ${projectStats.totalSubtasksInTimeline}`
+        ])
+      } else {
+        summaryBody.push([
+          'Projetos • Etapas / tarefas / subtarefas (atual)',
+          `Etapas ${projectStats.totalPhases} (${projectStats.phasesCompleted} concl., ${projectStats.phasesOverdue} atraso) • Tarefas ${projectStats.totalTasksInTimeline} • Subtarefas ${projectStats.totalSubtasksInTimeline}`
+        ])
+      }
       summaryBody.push([
         'Projetos • Prazos atendidos (tarefas + subtarefas)',
         String(projectStats.tasksDeadlineMet + projectStats.subtasksDeadlineMet)
@@ -484,8 +527,8 @@ export async function exportDashboardToPdfAsync(input: DashboardPdfExportInput):
         String(projectStats.projectEndOverdue)
       ])
       summaryBody.push([
-        'Projetos • Logs de trabalho (total)',
-        `${projectStats.audit.totalEvents} (últimos 30 dias: ${projectStats.audit.last30Days})`
+        'Projetos • Logs de trabalho (cronograma)',
+        `${projectStats.audit.totalEvents} no período / filtro • últimos 30 dias: ${projectStats.audit.last30Days}`
       ])
     }
 

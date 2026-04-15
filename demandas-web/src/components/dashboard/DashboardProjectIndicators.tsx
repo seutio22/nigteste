@@ -29,6 +29,7 @@ export type ProjectStatsSummary = {
   activeProjectCount: number
   completedProjectCount: number
   pausedProjectCount: number
+  cancelledProjectCount?: number
   totalPhases: number
   phasesCompleted: number
   phasesOverdue: number
@@ -42,9 +43,30 @@ export type ProjectStatsSummary = {
   tasksDeadlineMet: number
   subtasksDeadlineMet: number
   projectEndOverdue: number
+  period?: null | {
+    fromDate: string
+    toDate: string
+    phasesCreated: number
+    tasksCreated: number
+    subtasksCreated: number
+    phasesCompleted: number
+    tasksCompleted: number
+    subtasksCompleted: number
+    responsibleTasksCreated?: number
+    responsibleTasksCompleted?: number
+    responsibleSubtasksCreated?: number
+    responsibleSubtasksCompleted?: number
+  }
+  /** Tarefas/subtarefas onde o analista corresponde ao campo responsável (nome do cadastro). */
+  responsibleAsAnalyst?: null | {
+    aliases: string[]
+    tasks: { total: number; completed: number; overdue: number }
+    subtasks: { total: number; completed: number; overdue: number }
+  }
   audit: {
     totalEvents: number
     last30Days: number
+    teamEventsInPeriod?: number
     byEntityType: Record<string, number>
     byAction: Record<string, number>
   }
@@ -53,6 +75,14 @@ export type ProjectStatsSummary = {
 type Props = {
   /** Incrementa após cada sincronização do dashboard para recarregar indicadores */
   refreshTick: number
+  /**
+   * Quando preenchido (admin/gerente), a API calcula indicadores como se fosse esse analista
+   * (projetos em que participa + auditoria dele). Ignorado para outros perfis.
+   */
+  analistaId?: string
+  /** Mesmo intervalo do dashboard (diário / mensal / trimestral ou datas manuais). */
+  fromDate?: string
+  toDate?: string
 }
 
 function StatCard(props: {
@@ -113,7 +143,7 @@ function StatCard(props: {
   return inner
 }
 
-export function DashboardProjectIndicators({ refreshTick }: Props) {
+export function DashboardProjectIndicators({ refreshTick, analistaId, fromDate, toDate }: Props) {
   const theme = useTheme()
   const navigate = useNavigate()
   const [stats, setStats] = useState<ProjectStatsSummary | null>(null)
@@ -124,7 +154,16 @@ export function DashboardProjectIndicators({ refreshTick }: Props) {
     setLoading(true)
     setError(null)
     try {
-      const data = await api.get<ProjectStatsSummary>('/projetos/stats/summary')
+      const params = new URLSearchParams()
+      if (analistaId && String(analistaId).trim()) {
+        params.set('analistaId', String(analistaId).trim())
+      }
+      if (fromDate && String(fromDate).trim() && toDate && String(toDate).trim()) {
+        params.set('fromDate', String(fromDate).trim())
+        params.set('toDate', String(toDate).trim())
+      }
+      const qs = params.toString() ? `?${params.toString()}` : ''
+      const data = await api.get<ProjectStatsSummary>(`/projetos/stats/summary${qs}`)
       setStats(data)
     } catch (e: unknown) {
       const msg = e && typeof e === 'object' && 'message' in e ? String((e as { message: string }).message) : 'Não foi possível carregar os indicadores.'
@@ -133,7 +172,7 @@ export function DashboardProjectIndicators({ refreshTick }: Props) {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [analistaId, fromDate, toDate])
 
   useEffect(() => {
     void load()
@@ -148,15 +187,16 @@ export function DashboardProjectIndicators({ refreshTick }: Props) {
     ? Object.entries(stats.audit.byAction).sort((a, b) => b[1] - a[1])[0]
     : undefined
 
+  const period = stats?.period ?? null
+  const cancelled = stats?.cancelledProjectCount ?? 0
+  const ra = stats?.responsibleAsAnalyst ?? null
+
   return (
     <Paper sx={{ p: 3, borderRadius: 2 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2, mb: 3 }}>
         <Box>
           <Typography variant="h6" sx={{ fontWeight: 600 }}>
             Projetos e cronograma
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, maxWidth: 720 }}>
-            Indicadores apenas dos projetos vinculados a si (dono, gestor, membro ou equipe), com base no cronograma (etapas e tarefas) e nos registros de trabalho na base — os mesmos eventos usados na página de projetos (aba de log).
           </Typography>
         </Box>
         <Button
@@ -190,54 +230,121 @@ export function DashboardProjectIndicators({ refreshTick }: Props) {
               <StatCard
                 title="Projetos acompanhados"
                 value={stats.projectCount}
-                subtitle={`${stats.activeProjectCount} ativos · ${stats.completedProjectCount} concluídos · ${stats.pausedProjectCount} pausados`}
+                subtitle={`${stats.activeProjectCount} ativos · ${stats.completedProjectCount} concluídos · ${stats.pausedProjectCount} pausados · ${cancelled} cancelados`}
                 icon={<ProjectsIcon />}
                 color="primary"
-                tooltip="Total de projetos em que está vinculado (não inclui apenas projetos públicos em que não participa)."
+                tooltip="Total de projetos em que está vinculado (dono, gestor, membro ou equipe). Inclui cancelados na última linha."
               />
             </Grid>
             <Grid item xs={12} sm={6} md={4}>
               <StatCard
-                title="Etapas criadas"
-                value={stats.totalPhases}
-                subtitle={`${stats.phasesCompleted} concluídas · ${stats.phasesOverdue} em atraso`}
+                title={period ? 'Etapas criadas no período' : 'Etapas no cronograma (atual)'}
+                value={period ? period.phasesCreated : stats.totalPhases}
+                subtitle={
+                  period
+                    ? `${period.phasesCompleted} concluídas no período · ${stats.phasesOverdue} em atraso (estado atual)`
+                    : `${stats.phasesCompleted} concluídas · ${stats.phasesOverdue} em atraso`
+                }
                 icon={<PhasesIcon />}
                 color="info"
+                tooltip={
+                  period
+                    ? 'Contagem por data de criação e de conclusão no intervalo selecionado. Atraso reflete o estado atual do cronograma.'
+                    : 'Etapas existentes no cronograma neste momento.'
+                }
               />
             </Grid>
             <Grid item xs={12} sm={6} md={4}>
               <StatCard
-                title="Tarefas no cronograma"
-                value={stats.totalTasksInTimeline}
-                subtitle={`${stats.tasksCompleted} concluídas · ${stats.tasksOverdue} em atraso`}
+                title={
+                  ra
+                    ? 'Tarefas em que é responsável'
+                    : period
+                      ? 'Tarefas criadas no período (cronograma)'
+                      : 'Tarefas no cronograma (atual)'
+                }
+                value={
+                  ra
+                    ? ra.tasks.total
+                    : period
+                      ? period.tasksCreated
+                      : stats.totalTasksInTimeline
+                }
+                subtitle={
+                  ra
+                    ? period &&
+                        typeof period.responsibleTasksCreated === 'number' &&
+                        typeof period.responsibleTasksCompleted === 'number'
+                      ? `${period.responsibleTasksCreated} criadas no perí · ${period.responsibleTasksCompleted} concluídas no perí · ${ra.tasks.overdue} em atraso (estado atual)`
+                      : `${ra.tasks.completed} concluídas · ${ra.tasks.overdue} em atraso (estado atual)`
+                    : period
+                      ? `${period.tasksCompleted} concluídas no período · ${stats.tasksOverdue} em atraso (estado atual)`
+                      : `${stats.tasksCompleted} concluídas · ${stats.tasksOverdue} em atraso`
+                }
                 icon={<TaskIcon />}
                 color="primary"
+                tooltip={
+                  ra
+                    ? `Conta tarefas onde o responsável corresponde ao analista (${ra.aliases.length ? ra.aliases.join(', ') : 'sem nome no cadastro'}). Subtarefa sem responsável herda o da tarefa.`
+                    : period
+                      ? 'Tarefas com data de criação no período; conclusões por data de término real no período. Itens sem data de criação não entram na contagem do período.'
+                      : 'Tarefas existentes no cronograma neste momento.'
+                }
               />
             </Grid>
             <Grid item xs={12} sm={6} md={4}>
               <StatCard
-                title="Subtarefas"
-                value={stats.totalSubtasksInTimeline}
-                subtitle={`${stats.subtasksCompleted} concluídas · ${stats.subtasksOverdue} em atraso`}
+                title={
+                  ra
+                    ? 'Subtarefas em que é responsável'
+                    : period
+                      ? 'Subtarefas criadas no período (cronograma)'
+                      : 'Subtarefas no cronograma (atual)'
+                }
+                value={
+                  ra
+                    ? ra.subtasks.total
+                    : period
+                      ? period.subtasksCreated
+                      : stats.totalSubtasksInTimeline
+                }
+                subtitle={
+                  ra
+                    ? period &&
+                        typeof period.responsibleSubtasksCreated === 'number' &&
+                        typeof period.responsibleSubtasksCompleted === 'number'
+                      ? `${period.responsibleSubtasksCreated} criadas no perí · ${period.responsibleSubtasksCompleted} concluídas no perí · ${ra.subtasks.overdue} em atraso (estado atual)`
+                      : `${ra.subtasks.completed} concluídas · ${ra.subtasks.overdue} em atraso (estado atual)`
+                    : period
+                      ? `${period.subtasksCompleted} concluídas no período · ${stats.subtasksOverdue} em atraso (estado atual)`
+                      : `${stats.subtasksCompleted} concluídas · ${stats.subtasksOverdue} em atraso`
+                }
                 icon={<SubIcon />}
                 color="info"
+                tooltip={
+                  ra
+                    ? `Conta subtarefas onde o responsável corresponde ao analista (${ra.aliases.length ? ra.aliases.join(', ') : 'sem nome no cadastro'}).`
+                    : period
+                      ? 'Subtarefas com data de criação no período; conclusões por data de término real no período.'
+                      : 'Subtarefas existentes no cronograma neste momento.'
+                }
               />
             </Grid>
             <Grid item xs={12} sm={6} md={4}>
               <StatCard
                 title="Prazos atendidos (tarefas)"
                 value={prazosAtendidos}
-                subtitle="Conclusões dentro ou sem data planeada"
+                subtitle={period ? 'Estado atual — não filtrado pelo período' : 'Conclusões dentro ou sem data planeada'}
                 icon={<CheckIcon />}
                 color="success"
-                tooltip="Tarefas e subtarefas concluídas com entrega até à data planeada (ou sem prazo definido)."
+                tooltip="Tarefas e subtarefas concluídas com entrega até à data planeada (ou sem prazo definido). Indicador de estado atual do cronograma."
               />
             </Grid>
             <Grid item xs={12} sm={6} md={4}>
               <StatCard
                 title="Projetos com fim em atraso"
                 value={stats.projectEndOverdue}
-                subtitle="Prazo final ultrapassado e projeto ainda aberto"
+                subtitle={period ? 'Estado atual — não filtrado pelo período' : 'Prazo final ultrapassado e projeto ainda aberto'}
                 icon={<WarningIcon />}
                 color="warning"
               />
@@ -260,10 +367,24 @@ export function DashboardProjectIndicators({ refreshTick }: Props) {
               </Typography>
             </Box>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-              Eventos gravados ao criar ou alterar etapas, tarefas e subtarefas — agregados só para os seus projetos vinculados.
+              Cada vez que o cronograma é gravado no servidor, regista-se um evento de auditoria (tipo «cronograma»), com o detalhe das alterações.
+              {period
+                ? ' Os totais abaixo respeitam o intervalo de datas do dashboard; «últimos 30 dias» é uma referência fixa (calendário).'
+                : ' Contagens sem filtro de datas no intervalo (histórico das suas ações nestes projetos).'}
             </Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
-              <Chip size="small" label={`Total: ${stats.audit.totalEvents}`} />
+              <Chip
+                size="small"
+                label={period ? `Suas ações (período): ${stats.audit.totalEvents}` : `Suas ações (total): ${stats.audit.totalEvents}`}
+              />
+              {period && typeof stats.audit.teamEventsInPeriod === 'number' ? (
+                <Chip
+                  size="small"
+                  color="info"
+                  variant="outlined"
+                  label={`Cronograma no projeto (todos): ${stats.audit.teamEventsInPeriod}`}
+                />
+              ) : null}
               <Chip size="small" color="secondary" variant="outlined" label={`Últimos 30 dias: ${stats.audit.last30Days}`} />
               {topEntity ? (
                 <Chip size="small" variant="outlined" label={`Tipo mais frequente: ${topEntity[0]} (${topEntity[1]})`} />

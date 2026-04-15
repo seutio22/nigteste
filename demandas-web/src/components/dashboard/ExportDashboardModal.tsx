@@ -51,6 +51,7 @@ export interface ExportDashboardModalProps {
   chartPeriodComparison?: Array<{ page: string; current: number; previous: number }>
   chartDailyEvolution?: Array<{ label: string; total: number }>
   tempoExecucaoMetrics?: TempoExecucaoMetrics[]
+  analistaId?: string
   disabled?: boolean
 }
 
@@ -74,6 +75,7 @@ export const ExportDashboardModal: React.FC<ExportDashboardModalProps> = ({
   chartPeriodComparison = [],
   chartDailyEvolution = [],
   tempoExecucaoMetrics = [],
+  analistaId,
   disabled = false
 }) => {
   const { exportToExcel } = useExcelExport()
@@ -102,7 +104,8 @@ export const ExportDashboardModal: React.FC<ExportDashboardModalProps> = ({
           orientation,
           chartPeriodComparison,
           chartDailyEvolution,
-          tempoExecucaoMetrics
+          tempoExecucaoMetrics,
+          analistaId
         })
       } else {
         await new Promise((r) => setTimeout(r, 200))

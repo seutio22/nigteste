@@ -12,7 +12,6 @@ import { useMaillingStore } from '../../store/maillingStore'
 import { useProjectStore } from '../../store/projectStore'
 import {
   isItemConcluido,
-  isItemAbertoParaPendenciasUsuario,
   isItemPendente,
   isItemConcluidoProducao
 } from '../../types/dashboardIndicators'
@@ -54,6 +53,103 @@ import type { MaillingContact } from '../../types/mailling'
 import { getUserDepartmentDisplay } from '../../utils/userDepartmentDisplay'
 
 const normalizeTextHome = (value?: string) => (value || '').trim().toLowerCase()
+
+export type PendingRowHome = {
+  tipo: string
+  id: string
+  ticket: string
+  titulo: string
+  status: string
+  criadoEm?: string
+}
+
+/** Lista de pendências em aberto — mesma regra do resumo (escopo + `isItemPendente`). */
+function buildPendingRowsList(
+  inScope: (page: string, item: any) => boolean,
+  stores: {
+    demandas: any[]
+    atendimentos: any[]
+    validacoes: any[]
+    manutencoes: any[]
+    reajustes: any[]
+    analytics: any[]
+  }
+): PendingRowHome[] {
+  const rows: PendingRowHome[] = []
+  stores.demandas.forEach((d: any) => {
+    if (inScope('demandas', d) && isItemPendente('demandas', d)) {
+      rows.push({
+        tipo: 'Cadastro',
+        id: d.id,
+        ticket: String(d.ticket || '').trim(),
+        titulo: d.descricao || '',
+        status: String(d.status || ''),
+        criadoEm: d.createdAt || d.dataInicio
+      })
+    }
+  })
+  stores.atendimentos.forEach((a: any) => {
+    if (inScope('atendimentos', a) && isItemPendente('atendimentos', a)) {
+      rows.push({
+        tipo: 'Atendimento',
+        id: a.id,
+        ticket: String(a.ticket || '').trim(),
+        titulo: a.titulo || '',
+        status: String(a.status || ''),
+        criadoEm: a.createdAt || a.dataAbertura
+      })
+    }
+  })
+  stores.validacoes.forEach((v: any) => {
+    if (inScope('validacoes', v) && isItemPendente('validacoes', v)) {
+      rows.push({
+        tipo: 'Validação',
+        id: v.id,
+        ticket: String(v.ticket || '').trim(),
+        titulo: v.observacoes || '',
+        status: String(v.status || ''),
+        criadoEm: v.createdAt
+      })
+    }
+  })
+  stores.manutencoes.forEach((m: any) => {
+    if (inScope('manutencoes', m) && isItemPendente('manutencoes', m)) {
+      rows.push({
+        tipo: 'Manutenção',
+        id: m.id,
+        ticket: String(m.ticket || '').trim(),
+        titulo: m.descricao || '',
+        status: String(m.status || ''),
+        criadoEm: m.createdAt || m.dataInicio
+      })
+    }
+  })
+  stores.reajustes.forEach((r: any) => {
+    if (inScope('reajustes', r) && isItemPendente('reajustes', r)) {
+      rows.push({
+        tipo: 'Reajuste',
+        id: r.id,
+        ticket: String(r.ticket || '').trim(),
+        titulo: r.motivo || '',
+        status: r.aprovado ? 'Aprovado' : String(r.status || ''),
+        criadoEm: r.createdAt || r.dataInicio
+      })
+    }
+  })
+  stores.analytics.forEach((rel: any) => {
+    if (inScope('analytics', rel) && isItemPendente('analytics', rel)) {
+      rows.push({
+        tipo: 'Analytics',
+        id: rel.id,
+        ticket: String(rel.ticket || rel.numeroTicket || '').trim(),
+        titulo: rel.titulo || '',
+        status: String(rel.status || ''),
+        criadoEm: rel.dataCriacao || rel.createdAt
+      })
+    }
+  })
+  return rows
+}
 
 /** Catálogo de atalhos; exige `view` no módulo e a ação específica (ex.: `create` para "Nova …"). */
 const QUICK_ACTION_DEFS: Array<{
@@ -227,6 +323,21 @@ export default function HomeNigPage() {
     [user?.id, user?.name, isOwnedByUser, linkedAnalistaId, masterDataStore.analistas, getAnalistaValueForProducao]
   )
 
+  /**
+   * Mesma regra do Dashboard para “ver como analista X” — exportação CSV por administrador.
+   */
+  const itemVinculadoComoAnalista = useCallback(
+    (page: string, item: any, analistaId: string) => {
+      if (!analistaId || !masterDataStore.analistas?.length) return false
+      const row = masterDataStore.analistas.find((x) => x.id === analistaId)
+      if (!row) return false
+      if (matchesByIdOrName(getAnalistaValueForProducao(page, item), analistaId, masterDataStore.analistas)) return true
+      if (isOwnedByUser(item, analistaId, row.nome)) return true
+      return false
+    },
+    [masterDataStore.analistas, getAnalistaValueForProducao, isOwnedByUser]
+  )
+
   const projetoVinculadoAoUsuario = useCallback(
     (p: Project) => {
       if (!user?.id) return false
@@ -272,6 +383,8 @@ export default function HomeNigPage() {
   }, [])
 
   const [periodHome, setPeriodHome] = useState<'hoje' | 'semana'>('hoje')
+  /** Só admin: analista escolhido para exportar CSV da fila (mesmo critério do analista na Home). */
+  const [exportAnalistaId, setExportAnalistaId] = useState('')
 
   /** Mesma regra do Dashboard: max(data fim operacional, updatedAt), com fallback em createdAt. */
   const getDataProducao = (page: string, item: any): string | undefined =>
@@ -321,86 +434,71 @@ export default function HomeNigPage() {
     user?.id
   ])
 
-  // Lista de pendências do usuário para exportação
+  /**
+   * Mesmo critério do panorama "Em aberto" por módulo: `itemVinculadoAoResumo` (dono/analista no item **ou**
+   * analista vinculado ao login pelo cadastro) + `isItemPendente` (alinhado às estatísticas da Home).
+   * Antes usava só `isOwnedByUser`, por isso Reajuste e outros ficavam com contagem maior no cartão e menor na fila.
+   */
   const pendingByUser = useMemo(() => {
     if (!user?.id || isLoading) return []
-    const rows: { tipo: string; id: string; ticket: string; titulo: string; status: string; criadoEm?: string }[] = []
 
-    demandStore.items.forEach((d: any) => {
-      if (isOwnedByUser(d, user.id, user.name) && isItemAbertoParaPendenciasUsuario('demandas', d)) {
-        rows.push({
-          tipo: 'Cadastro',
-          id: d.id,
-          ticket: String(d.ticket || '').trim(),
-          titulo: d.descricao || '',
-          status: String(d.status || ''),
-          criadoEm: d.createdAt || d.dataInicio
-        })
+    const inScope = (page: string, item: any) => {
+      if (isAdminUser) {
+        // Panorama admin é global; a fila continua só com itens claramente atribuídos ao utilizador (evita listar milhares).
+        return isOwnedByUser(item, user.id, user.name)
       }
-    })
-    atendimentoStore.items.forEach((a: any) => {
-      if (isOwnedByUser(a, user.id, user.name) && isItemAbertoParaPendenciasUsuario('atendimentos', a)) {
-        rows.push({
-          tipo: 'Atendimento',
-          id: a.id,
-          ticket: String(a.ticket || '').trim(),
-          titulo: a.titulo || '',
-          status: String(a.status || ''),
-          criadoEm: a.createdAt || a.dataAbertura
-        })
-      }
-    })
-    validationStore.items.forEach((v: any) => {
-      if (isOwnedByUser(v, user.id, user.name) && isItemAbertoParaPendenciasUsuario('validacoes', v)) {
-        rows.push({
-          tipo: 'Validação',
-          id: v.id,
-          ticket: String(v.ticket || '').trim(),
-          titulo: v.observacoes || '',
-          status: String(v.status || ''),
-          criadoEm: v.createdAt
-        })
-      }
-    })
-    manutencaoStore.items.forEach((m: any) => {
-      if (isOwnedByUser(m, user.id, user.name) && isItemAbertoParaPendenciasUsuario('manutencoes', m)) {
-        rows.push({
-          tipo: 'Manutenção',
-          id: m.id,
-          ticket: String(m.ticket || '').trim(),
-          titulo: m.descricao || '',
-          status: String(m.status || ''),
-          criadoEm: m.createdAt || m.dataInicio
-        })
-      }
-    })
-    reajusteStore.items.forEach((r: any) => {
-      if (isOwnedByUser(r, user.id, user.name) && isItemAbertoParaPendenciasUsuario('reajustes', r)) {
-        rows.push({
-          tipo: 'Reajuste',
-          id: r.id,
-          ticket: String(r.ticket || '').trim(),
-          titulo: r.motivo || '',
-          status: r.aprovado ? 'Aprovado' : String(r.status || ''),
-          criadoEm: r.createdAt || r.dataInicio
-        })
-      }
-    })
-    reportStore.items.forEach((rel: any) => {
-      if (isOwnedByUser(rel, user.id, user.name) && isItemAbertoParaPendenciasUsuario('analytics', rel)) {
-        rows.push({
-          tipo: 'Analytics',
-          id: rel.id,
-          ticket: String(rel.ticket || rel.numeroTicket || '').trim(),
-          titulo: rel.titulo || '',
-          status: String(rel.status || ''),
-          criadoEm: rel.dataCriacao || rel.createdAt
-        })
-      }
-    })
+      return itemVinculadoAoResumo(page, item)
+    }
 
-    return rows
-  }, [user?.id, user?.name, isLoading, demandStore.items, atendimentoStore.items, validationStore.items, manutencaoStore.items, reajusteStore.items, reportStore.items, isOwnedByUser])
+    return buildPendingRowsList(inScope, {
+      demandas: demandStore.items,
+      atendimentos: atendimentoStore.items,
+      validacoes: validationStore.items,
+      manutencoes: manutencaoStore.items,
+      reajustes: reajusteStore.items,
+      analytics: reportStore.items
+    })
+  }, [
+    user?.id,
+    user?.name,
+    isLoading,
+    isAdminUser,
+    demandStore.items,
+    atendimentoStore.items,
+    validationStore.items,
+    manutencaoStore.items,
+    reajusteStore.items,
+    reportStore.items,
+    isOwnedByUser,
+    itemVinculadoAoResumo
+  ])
+
+  /** Fila de pendências como seria vista pelo analista escolhido (exportação admin). */
+  const pendingRowsForAdminExport = useMemo(() => {
+    if (!isAdminUser || !exportAnalistaId || !user?.id || isLoading) return []
+    const aid = exportAnalistaId
+    const inScope = (page: string, item: any) => itemVinculadoComoAnalista(page, item, aid)
+    return buildPendingRowsList(inScope, {
+      demandas: demandStore.items,
+      atendimentos: atendimentoStore.items,
+      validacoes: validationStore.items,
+      manutencoes: manutencaoStore.items,
+      reajustes: reajusteStore.items,
+      analytics: reportStore.items
+    })
+  }, [
+    isAdminUser,
+    exportAnalistaId,
+    user?.id,
+    isLoading,
+    demandStore.items,
+    atendimentoStore.items,
+    validationStore.items,
+    manutencaoStore.items,
+    reajusteStore.items,
+    reportStore.items,
+    itemVinculadoComoAnalista
+  ])
 
   /** Lista alinhada ao card "Suas pendências": só itens em aberto do usuário, mais recentes primeiro */
   const atividadesPendentesUsuario = useMemo(() => {
@@ -750,10 +848,33 @@ export default function HomeNigPage() {
     return rows.filter((r) => checkPermission(userPerms, r.perm, 'view')).map(({ perm: _p, ...rest }) => rest)
   }, [stats, userPerms])
 
+  const canExportPendenciasCsv = useMemo(() => {
+    if (isLoading) return false
+    if (!isAdminUser) return pendingByUser.length > 0
+    if (exportAnalistaId) return pendingRowsForAdminExport.length > 0
+    return pendingByUser.length > 0
+  }, [
+    isLoading,
+    isAdminUser,
+    exportAnalistaId,
+    pendingByUser.length,
+    pendingRowsForAdminExport.length
+  ])
+
   const handleExportPendencias = useCallback(() => {
-    if (!pendingByUser.length) return
+    let rows = pendingByUser
+    let filenameBase = (user?.name || 'usuario').replace(/\s+/g, '-').toLowerCase()
+
+    if (isAdminUser && exportAnalistaId) {
+      rows = pendingRowsForAdminExport
+      const nome =
+        masterDataStore.analistas.find((a) => a.id === exportAnalistaId)?.nome?.trim() || 'analista'
+      filenameBase = nome.replace(/\s+/g, '-').toLowerCase()
+    }
+
+    if (!rows.length) return
     const header = ['Tipo', 'Número do Ticket', 'ID', 'Título', 'Status', 'Criado em']
-    const lines = pendingByUser.map((r) => [
+    const lines = rows.map((r) => [
       r.tipo,
       r.ticket || '',
       r.id,
@@ -768,10 +889,17 @@ export default function HomeNigPage() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `pendencias-${(user?.name || 'usuario').replace(/\s+/g, '-').toLowerCase()}.csv`
+    a.download = `pendencias-${filenameBase}.csv`
     a.click()
     URL.revokeObjectURL(url)
-  }, [pendingByUser, user?.name])
+  }, [
+    pendingByUser,
+    pendingRowsForAdminExport,
+    user?.name,
+    isAdminUser,
+    exportAnalistaId,
+    masterDataStore.analistas
+  ])
 
   /** Atalhos: exige `view` no módulo; ações “Nova …” exigem também `create`. */
   const quickActions = useMemo(() => {
@@ -1185,19 +1313,52 @@ export default function HomeNigPage() {
                     Itens com você como analista ou responsável, ainda não concluídos nem cancelados.{' '}
                     <span className="font-semibold text-[#004F75]">{formatIntegerPtBR(pendingByUser.length)}</span> em
                     aberto.
+                    {isAdminUser && (
+                      <span className="block mt-1 text-xs text-apoio-500">
+                        Administrador: use o seletor ao lado para exportar a mesma fila de pendências de um analista do
+                        cadastro.
+                      </span>
+                    )}
                   </>
                 )}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={handleExportPendencias}
-              disabled={isLoading || !pendingByUser.length}
-              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-apoio-200 bg-white px-4 py-2.5 text-sm font-medium text-[#050032] font-geometria transition-colors hover:border-[#004F75]/40 hover:bg-[#004F75]/[0.04] disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <FileText className="h-4 w-4 text-apoio-500" />
-              Exportar CSV
-            </button>
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:min-w-[220px] sm:items-end">
+              {isAdminUser && (
+                <div className="flex w-full flex-col gap-1 sm:items-end">
+                  <label htmlFor="home-export-analista" className="text-xs font-medium text-apoio-600 font-geometria">
+                    Relatório CSV (analista)
+                  </label>
+                  <select
+                    id="home-export-analista"
+                    value={exportAnalistaId}
+                    onChange={(e) => setExportAnalistaId(e.target.value)}
+                    className="w-full rounded-xl border border-apoio-200 bg-white px-3 py-2 text-sm text-[#050032] font-geometria sm:max-w-xs"
+                  >
+                    <option value="">Minha fila (vínculos diretos ao meu usuário)</option>
+                    {masterDataStore.analistas.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.nome}
+                      </option>
+                    ))}
+                  </select>
+                  {exportAnalistaId ? (
+                    <span className="text-xs text-apoio-500 max-w-xs text-right">
+                      {formatIntegerPtBR(pendingRowsForAdminExport.length)} pendência(s) para este analista
+                    </span>
+                  ) : null}
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={handleExportPendencias}
+                disabled={!canExportPendenciasCsv}
+                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-apoio-200 bg-white px-4 py-2.5 text-sm font-medium text-[#050032] font-geometria transition-colors hover:border-[#004F75]/40 hover:bg-[#004F75]/[0.04] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <FileText className="h-4 w-4 text-apoio-500" />
+                Exportar CSV
+              </button>
+            </div>
           </div>
           <div className="space-y-2">
             {isLoading ? (

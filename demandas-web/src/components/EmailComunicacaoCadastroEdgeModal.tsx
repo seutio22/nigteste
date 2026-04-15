@@ -18,18 +18,31 @@ import {
   Select,
   TextField,
   Typography,
-  ListItemText
+  ListItemText,
+  Alert,
+  Collapse
 } from '@mui/material'
-import { Copy, Mail, Users, X, CheckCircle } from 'lucide-react'
+import { ChevronDown, ChevronRight, Copy, Mail, Users, X, CheckCircle } from 'lucide-react'
 import { useMasterDataStore } from '../store/masterDataStore'
 import { useMaillingStore } from '../store/maillingStore'
 import type { Demand } from '../types/demand'
+import { buildEmlForOutlook } from '../utils/buildEmlForOutlook'
+import { copyRichHtmlToClipboard } from '../utils/copyRichHtmlClipboard'
 
 type Props = {
   open: boolean
   onClose: () => void
   demanda: Demand
 }
+
+/** Modelos de comunicado na página Cadastro — apenas Edge implementado. */
+export type ModeloComunicadoCadastro = 'edge' | 'moveLocal' | 'move'
+
+const MODELOS: { id: ModeloComunicadoCadastro; label: string; disponivel: boolean }[] = [
+  { id: 'edge', label: 'Edge', disponivel: true },
+  { id: 'moveLocal', label: 'Move Local', disponivel: false },
+  { id: 'move', label: 'MOVE', disponivel: false }
+]
 
 const NIG_SIGNATURE = 'NIG - Núcleo de Inteligência e Governança'
 
@@ -44,113 +57,141 @@ const escapeHtml = (value?: string | null) =>
 
 const sanitizeText = (value?: string | null) => escapeHtml(value).replace(/\s+/g, ' ').trim()
 
+function buildHtmlEdge(nomeDestinatario: string): string {
+  const nome =
+    nomeDestinatario.trim() !== '' ? escapeHtml(nomeDestinatario.trim()) : '<span style="color:#64748b;font-style:italic;">(Nome)</span>'
+
+  /* Tabelas + estilos inline: Outlook; Arial em cada bloco evita Times New Roman. Cores alinhadas à identidade Nexus (#050032, #002561, #009FDF). */
+  const ff = 'font-family:Arial,Helvetica,sans-serif'
+  return `<!DOCTYPE html>
+<html lang="pt-BR" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+<meta charset="UTF-8" />
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Boas-vindas ao Edge</title>
+<!--[if mso]>
+<noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript>
+<![endif]-->
+</head>
+<body style="margin:0;padding:0;${ff};color:#1e293b;background-color:#e8eef4;-webkit-text-size-adjust:100%;">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="${ff};background-color:#e8eef4;border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;">
+    <tr>
+      <td align="center" style="padding:28px 14px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="720" style="max-width:720px;width:100%;${ff};border-collapse:collapse;box-shadow:0 4px 24px rgba(5,0,50,0.08);">
+          <tr>
+            <td bgcolor="#002561" style="${ff};background-color:#002561;background-image:linear-gradient(135deg,#050032 0%,#002561 55%,#0078b8 100%);color:#ffffff;padding:26px 32px;border-radius:16px 16px 0 0;border:1px solid #001a4a;border-bottom:0;">
+              <p style="margin:0;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;line-height:1.5;color:#bae6fd;${ff};">Comunicado — Sistema Edge</p>
+              <p style="margin:12px 0 0 0;font-size:24px;font-weight:800;line-height:1.25;${ff};color:#ffffff;">Bem-vinda(o) ao Edge</p>
+            </td>
+          </tr>
+          <tr>
+            <td bgcolor="#ffffff" style="${ff};background-color:#ffffff;border:1px solid #cbd5e1;border-top:0;padding:0;border-radius:0 0 16px 16px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;${ff};">
+                <tr>
+                  <td style="padding:36px 36px 40px 36px;font-size:15px;line-height:1.75;color:#334155;${ff};">
+                    <p style="margin:0 0 20px 0;font-size:17px;color:#0f172a;${ff};"><strong style="color:#002561;">${nome}</strong>, seja bem-vinda(o) ao Edge! 🤗</p>
+                    <p style="margin:0 0 40px 0;${ff};color:#475569;">Isso mesmo, a criação do seu acesso no Edge foi concluída com sucesso, e seu perfil já se encontra parametrizado de acordo com a sua necessidade. Use sem moderação!</p>
+
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;${ff};margin:0 0 36px 0;background-color:#f1f5f9;border-left:4px solid #009FDF;">
+                      <tr>
+                        <td style="padding:24px 24px 26px 24px;${ff};">
+                          <p style="margin:0 0 16px 0;font-size:16px;font-weight:700;letter-spacing:0.02em;color:#009FDF;${ff};">Primeiro acesso</p>
+                          <p style="margin:0;${ff};color:#334155;">De acordo com nossos conhecimentos, você deve ter recebido um e-mail encaminhado pela ferramenta solicitando o cadastro da senha, correto? 👀 Este e-mail se expira em 5 minutos, e após este prazo é necessário acessar o link 👉 <a href="#" style="color:#009FDF;font-weight:bold;text-decoration:underline;">EDGE</a> 👈, e clicar em &quot;Esqueceu a senha?&quot;, informar o seu e-mail e clicar em &quot;Recuperar&quot;. Aguarde o recebimento de um novo e-mail que será enviado pela ferramenta e siga o passo-a-passo deste.</p>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;${ff};margin:0 0 36px 0;background-color:#f8fafc;border-left:1px solid #e2e8f0;border-right:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;border-top:none;border-radius:0 0 8px 8px;">
+                      <tr>
+                        <td style="padding:24px 24px 26px 24px;${ff};">
+                          <p style="margin:0 0 16px 0;font-size:16px;font-weight:700;letter-spacing:0.02em;color:#002561;${ff};">Time NIG</p>
+                          <p style="margin:0 0 18px 0;${ff};color:#334155;">Não sabe onde nos encontrar? 🧐 é fácil, fácil, toda a nossa equipe está disponível para atendimento através do Flow e Teams. Vem conhecer nosso time:</p>
+                          <p style="margin:0 0 10px 0;font-weight:600;color:#002561;${ff};">Karina Passeti / Paula Petrovic / Emyli Almeida / Raiane Silva / Cristina Monteiro / Camilla Silveira / Mike Martins</p>
+                          <p style="margin:0;font-size:13px;color:#64748b;${ff};">Responsáveis pela manutenção dos cadastros do Edge e suporte ao sistema.</p>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <p style="margin:0 0 8px 0;${ff};color:#334155;"><strong style="color:#002561;">Denison Silva</strong></p>
+                    <p style="margin:0 0 32px 0;font-size:14px;${ff};color:#64748b;">Gerência.</p>
+
+                    <p style="margin:0 0 14px 0;${ff};color:#334155;">Possui dúvidas, sugestões ou solicitações? Vem falar com a gente.</p>
+                    <p style="margin:0 0 40px 0;${ff};color:#334155;">Basta abrir um FLOW para nós, catálogo: <strong style="color:#009FDF;">NIG</strong>.</p>
+
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;margin-top:8px;border-top:1px solid #e2e8f0;${ff};">
+                      <tr>
+                        <td bgcolor="#f8fafc" style="padding:28px 0 12px 0;background-color:#f8fafc;">
+                          <p style="margin:0 0 10px 0;font-size:12px;color:#94a3b8;${ff};">Atenciosamente,</p>
+                          <p style="margin:0 0 12px 0;font-size:15px;font-weight:700;color:#050032;${ff};">${NIG_SIGNATURE}</p>
+                          <p style="margin:0;font-size:11px;color:#cbd5e1;${ff};">Mensagem gerada automaticamente.</p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
+}
+
+function buildHtmlPlaceholder(modelo: ModeloComunicadoCadastro): string {
+  const label = MODELOS.find((m) => m.id === modelo)?.label ?? modelo
+  return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8" /></head>
+<body style="font-family: Arial, sans-serif; padding: 24px; color: #475569;">
+  <p style="font-size: 16px;"><strong>${escapeHtml(label)}</strong></p>
+  <p>O modelo de comunicado <strong>${escapeHtml(label)}</strong> será disponibilizado em breve nesta tela.</p>
+</body></html>`
+}
+
 export function EmailComunicacaoCadastroEdgeModal({ open, onClose, demanda }: Props) {
   const md = useMasterDataStore()
   const maillingStore = useMaillingStore()
 
+  const [modeloComunicacao, setModeloComunicacao] = useState<ModeloComunicadoCadastro>('edge')
   const [carregandoMailling, setCarregandoMailling] = useState(false)
   const [destinatarios, setDestinatarios] = useState<string[]>([])
   const [emailsSelecionados, setEmailsSelecionados] = useState<string[]>([])
   const [copiadoEmail, setCopiadoEmail] = useState(false)
+  const [nomeDestinatario, setNomeDestinatario] = useState('')
+  /** Destinatários (mailling) pouco usados — secção recolhida por defeito */
+  const [destinatariosExpandido, setDestinatariosExpandido] = useState(false)
 
-  // Blocos editáveis (EDGE)
-  const [titulo, setTitulo] = useState('Seja bem vinda(o) ao Edge!')
-  const [subtitulo, setSubtitulo] = useState('Comunicado Automático - Sistema Edge')
-  const [saudacao, setSaudacao] = useState('Prezados,')
-  const [introducao, setIntroducao] = useState(
-    'Seja bem vinda(o) ao Edge! Abaixo seguem as informações iniciais do chamado e os próximos passos.'
-  )
-  const [orientacoes, setOrientacoes] = useState(
-    'Caso precise de apoio, responda a este comunicado internamente e acione a equipe responsável.'
-  )
+  const modeloAtivo = MODELOS.find((m) => m.id === modeloComunicacao)
+  const edgeDisponivel = modeloAtivo?.disponivel === true
 
-  const info = useMemo(() => {
-    const contrato = demanda?.contratoId ? md.contratos.find((c) => c.id === demanda.contratoId) : null
-    const operadora = md.operadoras.find((o) => o.id === (demanda as any)?.operadoraId)
-    const produto = md.produtos.find((p) => p.id === (demanda as any)?.produtoId)
-    const sistema = md.sistemas.find((s) => s.id === (demanda as any)?.sistemaId)
-    const tipoServico = md.tiposServico.find((t) => t.id === (demanda as any)?.tipoServicoId)
-    const tipoDemanda = md.tiposDemanda.find((t) => t.id === (demanda as any)?.tipoId)
+  const infoCard = useMemo(() => {
     return {
       ticket: sanitizeText((demanda as any)?.ticket || 'N/A'),
       cliente: sanitizeText(md.clientes.find((c) => c.id === (demanda as any)?.clienteId)?.nome || 'N/A'),
-      contrato: sanitizeText(contrato?.codigo || contrato?.numero || (demanda as any)?.ticket || 'N/A'),
-      operadora: sanitizeText(operadora?.nome || 'N/A'),
-      produto: sanitizeText(produto?.nome || 'N/A'),
-      servico: sanitizeText(tipoServico?.nome || 'N/A'),
-      tipo: sanitizeText(tipoDemanda?.nome || 'N/A'),
-      sistema: sanitizeText(sistema?.nome || 'N/A'),
-      descricao: escapeHtml(((demanda as any)?.descricao || '').toString()).replace(/\r?\n/g, '<br />'),
-      timestamp: sanitizeText(new Date().toLocaleString())
+      sistema: sanitizeText(md.sistemas.find((s) => s.id === (demanda as any)?.sistemaId)?.nome || 'N/A')
     }
-  }, [demanda, md.clientes, md.contratos, md.operadoras, md.produtos, md.sistemas, md.tiposServico, md.tiposDemanda])
+  }, [demanda, md.clientes, md.sistemas])
 
   const buildHtml = () => {
-    return `<!DOCTYPE html>
-<html lang="pt-BR">
-<head><meta charset="UTF-8" /><title>${sanitizeText(titulo)} - ${info.ticket}</title></head>
-<body style="font-family: Arial, sans-serif; color: #050032; margin:0; background:#f8fafc;">
-  <div style="max-width: 820px; margin: 0 auto; padding: 24px;">
-    <div style="background: linear-gradient(135deg, #050032 0%, #002561 60%, #009FDF 100%); color:#fff; padding: 26px 32px; border-radius: 14px 14px 0 0;">
-      <p style="margin:0 0 8px 0; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; opacity:0.85;">${sanitizeText(subtitulo)}</p>
-      <p style="margin:0; font-size: 26px; font-weight: 800;">${escapeHtml(titulo)}</p>
-    </div>
-    <div style="background:#fff; border:1px solid #DCDFE3; border-top:0; border-radius: 0 0 14px 14px; overflow:hidden;">
-      <div style="padding: 26px 28px;">
-        <p style="margin:0; font-size: 15px;"><strong>${sanitizeText(saudacao)}</strong></p>
-        <p style="margin: 14px 0 0 0; font-size: 13px; color:#A3B5BC;">Ticket: <strong style="color:#002561;">${info.ticket}</strong> • Gerado em ${info.timestamp}</p>
-        <p style="margin: 14px 0 0 0; font-size: 14px; color:#002561;">${escapeHtml(introducao)}</p>
-
-        <div style="margin: 18px 0; background:#f7fafc; border-left: 4px solid #009FDF; padding: 16px 18px; border-radius: 0 12px 12px 0;">
-          <p style="margin:0; font-size: 14px; color:#002561;">Cliente: <strong>${info.cliente}</strong></p>
-        </div>
-
-        <div style="margin: 8px 0 16px 0;">
-          <p style="margin: 0 0 10px 0; font-size: 15px; font-weight: 700; color:#050032;">Dados do chamado</p>
-          <table style="width: 100%; border-collapse: collapse; border-radius: 12px; overflow:hidden; border: 1px solid #DCDFE3;">
-            <thead>
-              <tr style="background:#050032; color:#fff;">
-                <th style="padding: 12px 10px; text-align:left; font-size: 12px; letter-spacing: .5px;">Contrato</th>
-                <th style="padding: 12px 10px; text-align:left; font-size: 12px; letter-spacing: .5px;">Operadora</th>
-                <th style="padding: 12px 10px; text-align:left; font-size: 12px; letter-spacing: .5px;">Produto</th>
-                <th style="padding: 12px 10px; text-align:left; font-size: 12px; letter-spacing: .5px;">Serviço</th>
-                <th style="padding: 12px 10px; text-align:left; font-size: 12px; letter-spacing: .5px;">Tipo</th>
-                <th style="padding: 12px 10px; text-align:left; font-size: 12px; letter-spacing: .5px;">Sistema</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr style="background:#ffffff;">
-                <td style="padding: 12px 10px; border-bottom: 1px solid #DCDFE3; font-weight: 700; color:#009FDF; font-size: 13px;">${info.contrato}</td>
-                <td style="padding: 12px 10px; border-bottom: 1px solid #DCDFE3; color:#050032; font-size: 13px;">${info.operadora}</td>
-                <td style="padding: 12px 10px; border-bottom: 1px solid #DCDFE3; background:#DCDFE3; color:#002561; font-weight: 600; font-size: 13px;">${info.produto}</td>
-                <td style="padding: 12px 10px; border-bottom: 1px solid #DCDFE3; background:#DCDFE3; color:#002561; font-weight: 600; font-size: 13px;">${info.servico}</td>
-                <td style="padding: 12px 10px; border-bottom: 1px solid #DCDFE3; background:#DCDFE3; color:#002561; font-weight: 600; font-size: 13px;">${info.tipo}</td>
-                <td style="padding: 12px 10px; border-bottom: 1px solid #DCDFE3; background:#DCDFE3; color:#002561; font-weight: 600; font-size: 13px;">${info.sistema}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div style="margin: 14px 0; background:#f8fafc; border:1px solid #DCDFE3; border-radius: 10px; padding: 16px;">
-          <p style="margin:0 0 10px 0; font-size: 14px; font-weight: 700; color:#050032;">Descrição</p>
-          <div style="font-size: 13px; line-height: 1.6; color:#002561;">${info.descricao || '-'}</div>
-        </div>
-
-        <div style="margin-top: 12px; background:#f8fafc; border:1px solid #DCDFE3; border-radius: 10px; padding: 16px;">
-          <p style="margin:0; font-size: 13px; line-height: 1.6; color:#002561;">${escapeHtml(orientacoes)}</p>
-        </div>
-
-        <div style="margin-top: 18px; padding-top: 14px; border-top: 1px dashed #DCDFE3;">
-          <p style="margin:0; font-size: 13px; color:#A3B5BC;">Atenciosamente,</p>
-          <p style="margin: 6px 0 0 0; font-size: 15px; font-weight: 700; color:#050032;">${NIG_SIGNATURE}</p>
-          <p style="margin: 6px 0 0 0; font-size: 11px; color:#A3B5BC;">Mensagem gerada automaticamente.</p>
-        </div>
-      </div>
-    </div>
-  </div>
-</body>
-</html>`
+    if (modeloComunicacao === 'edge') return buildHtmlEdge(nomeDestinatario)
+    return buildHtmlPlaceholder(modeloComunicacao)
   }
+
+  useEffect(() => {
+    if (!open) return
+    setModeloComunicacao('edge')
+    setCopiadoEmail(false)
+    const solId = demanda?.solicitante
+    const nomeSol =
+      (solId && md.solicitantesById?.[solId as string]?.nome) ||
+      md.solicitantes.find((s) => s.id === solId || s.nome === solId)?.nome ||
+      ''
+    setNomeDestinatario(nomeSol)
+    setDestinatariosExpandido(false)
+    setEmailsSelecionados([])
+  }, [open, demanda, md.solicitantes, md.solicitantesById])
 
   // carregar/filtrar mailling ao abrir
   useEffect(() => {
@@ -169,30 +210,39 @@ export function EmailComunicacaoCadastroEdgeModal({ open, onClose, demanda }: Pr
       .filter((e: any) => typeof e === 'string' && e.trim())
     const unique = [...new Set(emails)].slice(0, 50)
     setDestinatarios(unique)
-    setEmailsSelecionados(unique.slice(0, 5))
   }, [open, maillingStore.contacts])
 
   const handleCopyOutlook = async () => {
+    if (!edgeDisponivel) return
     try {
-      const htmlContent = buildHtml()
-      if (navigator.clipboard && 'write' in navigator.clipboard && typeof (window as any).ClipboardItem !== 'undefined') {
-        const tempDiv = document.createElement('div')
-        tempDiv.innerHTML = htmlContent
-        const plainText = tempDiv.innerText
-        const clipboardItem = new (window as any).ClipboardItem({
-          'text/html': new Blob([htmlContent], { type: 'text/html' }),
-          'text/plain': new Blob([plainText], { type: 'text/plain' })
-        })
-        await (navigator.clipboard as any).write([clipboardItem])
-      } else {
-        await navigator.clipboard.writeText(buildHtml())
-      }
+      await copyRichHtmlToClipboard(buildHtml())
       setCopiadoEmail(true)
       setTimeout(() => setCopiadoEmail(false), 2000)
     } catch (error) {
       console.error('Erro ao copiar e-mail:', error)
       alert('Erro ao copiar o e-mail. Tente novamente.')
     }
+  }
+
+  /** Ficheiro .eml: corpo só em HTML (igual à pré-visualização) para o Outlook não cair em texto plano. */
+  const handleDownloadEml = () => {
+    if (!edgeDisponivel) return
+    const ticket = String((demanda as any)?.ticket ?? 'comunicado').replace(/[^\w.\-]+/g, '_')
+    const html = buildHtml()
+    const subject = `Comunicado Edge — ${infoCard.ticket}`
+    const eml = buildEmlForOutlook({
+      html,
+      subject,
+      toAddresses: emailsSelecionados.length > 0 ? emailsSelecionados : undefined
+    })
+    const blob = new Blob([new TextEncoder().encode(eml)], { type: 'message/rfc822' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `comunicado-edge-${ticket}.eml`
+    a.rel = 'noopener'
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   return (
@@ -236,10 +286,10 @@ export function EmailComunicacaoCadastroEdgeModal({ open, onClose, demanda }: Pr
           </Box>
           <Box>
             <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.25 }}>
-              Comunicar (EDGE)
+              Comunicar
             </Typography>
             <Typography variant="body2" sx={{ opacity: 0.9 }}>
-              Template pronto e blocos editáveis
+              Escolha o modelo de comunicado e copie o e-mail para o Outlook
             </Typography>
           </Box>
         </Box>
@@ -260,114 +310,191 @@ export function EmailComunicacaoCadastroEdgeModal({ open, onClose, demanda }: Pr
         <Box sx={{ p: 3, background: 'linear-gradient(135deg, #f8fafc 0%, #DCDFE3 100%)' }}>
           <Card sx={{ borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
             <CardContent sx={{ p: 3 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#64748b', mb: 1.5 }}>
+                Modelo de comunicado
+              </Typography>
+              <FormControl fullWidth sx={{ mb: 2 }}>
+                <InputLabel id="modelo-comunicado-label">Selecione o modelo</InputLabel>
+                <Select
+                  labelId="modelo-comunicado-label"
+                  label="Selecione o modelo"
+                  value={modeloComunicacao}
+                  onChange={(e) => setModeloComunicacao(e.target.value as ModeloComunicadoCadastro)}
+                  sx={{ borderRadius: '12px' }}
+                >
+                  {MODELOS.map((m) => (
+                    <MenuItem key={m.id} value={m.id}>
+                      <ListItemText
+                        primary={m.label}
+                        secondary={m.disponivel ? 'Disponível' : 'Em breve nesta tela'}
+                      />
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              {!edgeDisponivel && (
+                <Alert severity="info" sx={{ borderRadius: '10px' }}>
+                  O modelo <strong>{modeloAtivo?.label}</strong> ainda não está disponível. Em breve poderá gerar e copiar o comunicado aqui.
+                </Alert>
+              )}
+              <Divider sx={{ my: 2 }} />
               <Typography variant="h6" sx={{ fontWeight: 700, color: '#1e293b', mb: 1 }}>
-                Ticket: {(demanda as any)?.ticket || 'N/A'}
+                Ticket: {infoCard.ticket}
               </Typography>
               <Typography variant="body2" sx={{ color: '#64748b' }}>
-                Cliente: {md.clientes.find((c) => c.id === (demanda as any)?.clienteId)?.nome || 'N/A'} • Sistema:{' '}
-                {md.sistemas.find((s) => s.id === (demanda as any)?.sistemaId)?.nome || 'N/A'}
+                Cliente: {infoCard.cliente} • Sistema: {infoCard.sistema}
               </Typography>
             </CardContent>
           </Card>
         </Box>
 
-        <Box sx={{ p: 3 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
-              <Box
-                sx={{
-                  background: 'linear-gradient(135deg, #00A649 0%, #008c3a 100%)',
-                  borderRadius: '8px',
-                  p: 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-              >
-                <Users className="w-5 h-5 text-white" />
-              </Box>
-              <Typography variant="h6" sx={{ fontWeight: 700, color: '#1e293b' }}>
-                Destinatários ({emailsSelecionados.length})
+        <Box
+          sx={{
+            px: 3,
+            py: 1.5,
+            borderTop: '1px solid',
+            borderColor: 'divider',
+            bgcolor: 'grey.50'
+          }}
+        >
+          <Button
+            type="button"
+            onClick={() => setDestinatariosExpandido((v) => !v)}
+            size="small"
+            variant="text"
+            sx={{
+              color: 'text.secondary',
+              textTransform: 'none',
+              fontWeight: 500,
+              fontSize: '0.8125rem',
+              minWidth: 0,
+              px: 0.5,
+              '&:hover': { bgcolor: 'action.hover' }
+            }}
+            startIcon={
+              destinatariosExpandido ? (
+                <ChevronDown className="w-4 h-4" strokeWidth={2} />
+              ) : (
+                <ChevronRight className="w-4 h-4" strokeWidth={2} />
+              )
+            }
+          >
+            {destinatariosExpandido ? 'Ocultar destinatários' : 'Mostrar destinatários'}
+            {!destinatariosExpandido && emailsSelecionados.length > 0 && (
+              <Typography component="span" variant="caption" sx={{ ml: 0.75, color: 'text.disabled' }}>
+                ({emailsSelecionados.length})
               </Typography>
-            </Box>
-          </Box>
+            )}
+          </Button>
+          {!destinatariosExpandido && (
+            <Typography variant="caption" sx={{ display: 'block', pl: 0.5, mt: 0.25, color: 'text.disabled', maxWidth: 520 }}>
+              Opcional — e-mails do mailling (pouco uso no momento)
+            </Typography>
+          )}
 
-          <FormControl fullWidth>
-            <InputLabel sx={{ color: '#6b7a80' }}>
-              {carregandoMailling ? 'Carregando e-mails...' : 'E-mails do Mailling'}
-            </InputLabel>
-            <Select
-              multiple
-              value={emailsSelecionados}
-              onChange={(e) => setEmailsSelecionados(e.target.value as string[])}
-              disabled={carregandoMailling}
-              input={
-                <OutlinedInput
-                  label={carregandoMailling ? 'Carregando e-mails...' : 'E-mails do Mailling'}
-                  sx={{
-                    borderRadius: '12px',
-                    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#d1d5db' },
-                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#9ca3af' },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#009FDF', borderWidth: '2px' }
-                  }}
-                />
-              }
-              renderValue={(selected) => (
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                  {selected.map((email) => (
-                    <Chip
-                      key={email}
-                      label={email}
-                      size="small"
+          <Collapse in={destinatariosExpandido}>
+            <Box sx={{ pt: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                <Users size={16} strokeWidth={2} color="#64748b" />
+                <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary' }}>
+                  Destinatários ({emailsSelecionados.length})
+                </Typography>
+              </Box>
+              <FormControl fullWidth size="small">
+                <InputLabel sx={{ color: '#6b7a80' }}>
+                  {carregandoMailling ? 'Carregando e-mails...' : 'E-mails do Mailling'}
+                </InputLabel>
+                <Select
+                  multiple
+                  value={emailsSelecionados}
+                  onChange={(e) => setEmailsSelecionados(e.target.value as string[])}
+                  disabled={carregandoMailling}
+                  input={
+                    <OutlinedInput
+                      label={carregandoMailling ? 'Carregando e-mails...' : 'E-mails do Mailling'}
                       sx={{
-                        background: 'linear-gradient(135deg, #002561 0%, #009FDF 100%)',
-                        color: 'white',
-                        fontWeight: 600
+                        borderRadius: '10px',
+                        '& .MuiOutlinedInput-notchedOutline': { borderColor: '#d1d5db' },
+                        '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#9ca3af' },
+                        '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#009FDF', borderWidth: '2px' }
                       }}
                     />
-                  ))}
-                </Box>
-              )}
-            >
-              {destinatarios.length === 0 && !carregandoMailling ? (
-                <MenuItem disabled>
-                  <ListItemText primary="Nenhum e-mail encontrado" secondary="Verifique o mailling" />
-                </MenuItem>
-              ) : (
-                destinatarios.map((email) => (
-                  <MenuItem key={email} value={email} sx={{ borderRadius: '8px', mx: 1, my: 0.5 }}>
-                    <Checkbox checked={emailsSelecionados.indexOf(email) > -1} sx={{ color: '#009FDF', '&.Mui-checked': { color: '#009FDF' } }} />
-                    <ListItemText primary={email} />
-                  </MenuItem>
-                ))
-              )}
-            </Select>
-          </FormControl>
+                  }
+                  renderValue={(selected) => (
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                      {selected.map((email) => (
+                        <Chip
+                          key={email}
+                          label={email}
+                          size="small"
+                          sx={{
+                            background: 'linear-gradient(135deg, #002561 0%, #009FDF 100%)',
+                            color: 'white',
+                            fontWeight: 600
+                          }}
+                        />
+                      ))}
+                    </Box>
+                  )}
+                >
+                  {destinatarios.length === 0 && !carregandoMailling ? (
+                    <MenuItem disabled>
+                      <ListItemText primary="Nenhum e-mail encontrado" secondary="Verifique o mailling" />
+                    </MenuItem>
+                  ) : (
+                    destinatarios.map((email) => (
+                      <MenuItem key={email} value={email} sx={{ borderRadius: '8px', mx: 1, my: 0.5 }}>
+                        <Checkbox checked={emailsSelecionados.indexOf(email) > -1} size="small" sx={{ color: '#009FDF', '&.Mui-checked': { color: '#009FDF' } }} />
+                        <ListItemText primary={email} />
+                      </MenuItem>
+                    ))
+                  )}
+                </Select>
+              </FormControl>
+            </Box>
+          </Collapse>
         </Box>
 
         <Box sx={{ p: 3, background: '#f8fafc' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1, flexWrap: 'wrap', gap: 2 }}>
             <Typography variant="h6" sx={{ fontWeight: 700, color: '#1e293b' }}>
-              Blocos (editável)
+              Pré-visualização do e-mail
             </Typography>
-            <Button
-              startIcon={copiadoEmail ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-              onClick={handleCopyOutlook}
-              variant="contained"
-              sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 700, px: 2.5 }}
-            >
-              {copiadoEmail ? 'Copiado!' : 'Copiar e-mail (Outlook)'}
-            </Button>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
+              <Button
+                startIcon={copiadoEmail ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                onClick={handleCopyOutlook}
+                variant="contained"
+                disabled={!edgeDisponivel}
+                sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 700, px: 2.5 }}
+              >
+                {copiadoEmail ? 'Copiado!' : 'Copiar e-mail (Outlook)'}
+              </Button>
+              <Button
+                type="button"
+                startIcon={<Mail className="w-4 h-4" />}
+                onClick={handleDownloadEml}
+                variant="outlined"
+                disabled={!edgeDisponivel}
+                color="primary"
+                sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 700, px: 2, borderWidth: 2 }}
+              >
+                Baixar .eml (Outlook)
+              </Button>
+            </Box>
           </Box>
 
-          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 2 }}>
-            <TextField value={titulo} onChange={(e) => setTitulo(e.target.value)} label="Título" fullWidth />
-            <TextField value={subtitulo} onChange={(e) => setSubtitulo(e.target.value)} label="Subtítulo" fullWidth />
-            <TextField value={saudacao} onChange={(e) => setSaudacao(e.target.value)} label="Saudação" fullWidth />
-            <TextField value={(demanda as any)?.ticket || ''} label="Ticket (referência)" fullWidth disabled />
-          </Box>
-          <TextField value={introducao} onChange={(e) => setIntroducao(e.target.value)} label="Introdução" fullWidth multiline rows={3} sx={{ mb: 2 }} />
-          <TextField value={orientacoes} onChange={(e) => setOrientacoes(e.target.value)} label="Orientações" fullWidth multiline rows={3} />
+          {edgeDisponivel && (
+            <TextField
+              value={nomeDestinatario}
+              onChange={(e) => setNomeDestinatario(e.target.value)}
+              label="Nome do destinatário"
+              placeholder="Ex.: nome que aparece em «(Nome), seja bem-vinda(o)…»"
+              fullWidth
+              sx={{ mb: 2 }}
+              helperText="Se ficar em branco, a pré-visualização mostra «(Nome)» como lembrete."
+            />
+          )}
 
           <Divider sx={{ my: 2 }} />
           <Paper sx={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid #DCDFE3' }}>
@@ -384,4 +511,3 @@ export function EmailComunicacaoCadastroEdgeModal({ open, onClose, demanda }: Pr
     </Dialog>
   )
 }
-

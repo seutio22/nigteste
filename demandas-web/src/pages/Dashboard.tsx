@@ -4,16 +4,12 @@ import {
   Paper,
   Typography,
   Grid,
-  Card,
-  CardContent,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
   TextField,
   useTheme,
-  alpha,
-  Divider,
   IconButton,
   Tooltip,
   Button,
@@ -22,20 +18,9 @@ import {
   CircularProgress
 } from '@mui/material'
 import {
-  TrendingUp as TrendingUpIcon,
-  Schedule as ScheduleIcon,
-  Warning as WarningIcon,
-  CheckCircle as CheckCircleIcon,
-  Error as ErrorIcon,
-  Business as BusinessIcon,
-  Person as PersonIcon,
-  Assignment as AssignmentIcon,
-  AttachMoney as MoneyIcon,
-  CalendarToday as CalendarIcon,
   Refresh as RefreshIcon,
   FilterList as FilterIcon,
 } from '@mui/icons-material'
-import { ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend } from 'recharts'
 import { useAuthStore } from '../store/authStore'
 import { useMasterDataStore } from '../store/masterDataStore'
 import { useDemandStore } from '../store/demandStore'
@@ -43,7 +28,6 @@ import { useAtendimentoStore } from '../store/atendimentoStore'
 import { useManutencaoStore } from '../store/manutencaoStore'
 import { useValidationStore } from '../store/validationStore'
 import { useReajusteStore } from '../store/reajusteStore'
-import { useMaillingStore } from '../store/maillingStore'
 import { useDashboardStore } from '../store/dashboardStore'
 import { useReportStore } from '../store/reportStore'
 import { useProjectStore } from '../store/projectStore'
@@ -57,9 +41,8 @@ import { AdvancedIndicators } from '../components/dashboard/AdvancedIndicators'
 import { StatusDetails } from '../components/dashboard/StatusDetails'
 import { DashboardProjectIndicators } from '../components/dashboard/DashboardProjectIndicators'
 import type { PeriodType } from '../types/dashboardIndicators'
-import { getItemDateForPage, parseDateForFilter } from '../utils/dashboardFilters'
 import type { DashboardPdfMeta } from '../utils/dashboardPdfExport'
-const COLORS = ['#002561', '#009FDF', '#00A649', '#E5B800', '#DA3832', '#050032', '#004F75', '#A3B5BC']
+
 const normalizeText = (value?: string) => (value || '').trim().toLowerCase()
 
 // Função utilitária para converter período em datas
@@ -107,14 +90,6 @@ export default function DashboardPage() {
   const theme = useTheme()
   const { user } = useAuthStore()
   const masterDataStore = useMasterDataStore()
-  const demandStore = useDemandStore()
-  const atendimentoStore = useAtendimentoStore()
-  const manutencaoStore = useManutencaoStore()
-  const validationStore = useValidationStore()
-  const reajusteStore = useReajusteStore()
-  const maillingStore = useMaillingStore()
-  const dashboardStore = useDashboardStore()
-  const reportStore = useReportStore()
 
   const syncMasterData = useMasterDataStore((s) => s.syncFromApi)
   const syncDemandas = useDemandStore((s) => s.syncFromApi)
@@ -199,6 +174,12 @@ export default function DashboardPage() {
 
   const effectiveAnalistaId = restrictAnalistaFilter ? (linkedAnalistaId || analistaId) : analistaId
 
+  /** Só admin/gerente podem pedir `/projetos/stats/summary?analistaId=`; vazio = visão global (admin) ou usuário logado. */
+  const projectStatsAnalistaId = useMemo(() => {
+    const canFilterByAnalista = isAdmin || user?.role === 'gerente'
+    return canFilterByAnalista && effectiveAnalistaId ? effectiveAnalistaId : undefined
+  }, [isAdmin, user?.role, effectiveAnalistaId])
+
   const dashboardExportMeta = useMemo((): DashboardPdfMeta => {
     const areaLabel = areaId
       ? masterDataStore.areas.find((a) => a.id === areaId)?.nome
@@ -278,125 +259,6 @@ export default function DashboardPage() {
 
   const { advancedIndicators, tempoExecucaoMetrics, analistaMetrics } = useAdvancedIndicators(advancedFilters)
 
-  const dateBounds = useMemo(() => {
-    if (!fromDate && !toDate) {
-      return { fromTime: undefined as number | undefined, toTime: undefined as number | undefined }
-    }
-    const parseBound = (dateStr?: string, endOfDay?: boolean) => {
-      if (!dateStr) return undefined
-      const d = parseDateForFilter(dateStr)
-      if (!d) return undefined
-      if (endOfDay) {
-        d.setHours(23, 59, 59, 999)
-      } else {
-        d.setHours(0, 0, 0, 0)
-      }
-      const ts = d.getTime()
-      return Number.isFinite(ts) ? ts : undefined
-    }
-    return {
-      fromTime: parseBound(fromDate, false),
-      toTime: parseBound(toDate, true)
-    }
-  }, [fromDate, toDate])
-
-  const hasAreaFilter = !!areaId
-  const hasAnalistaFilter = !!effectiveAnalistaId
-  const hasDateFilter = !!dateBounds.fromTime || !!dateBounds.toTime
-
-  const areaIndex = useMemo(() => {
-    const byId = new Map<string, { id: string; name: string }>()
-    const byName = new Map<string, string>()
-    masterDataStore.areas.forEach((area) => {
-      const id = area.id || ''
-      const name = area.nome || (area as any).name || ''
-      if (id) byId.set(id, { id, name })
-      if (name) byName.set(normalizeText(name), id)
-    })
-    return { byId, byName }
-  }, [masterDataStore.areas])
-
-  const analistaIndex = useMemo(() => {
-    const byId = new Map<string, { id: string; name: string }>()
-    const byName = new Map<string, string>()
-    masterDataStore.analistas.forEach((analista) => {
-      const id = analista.id || ''
-      const name = analista.nome || (analista as any).name || ''
-      if (id) byId.set(id, { id, name })
-      if (name) byName.set(normalizeText(name), id)
-    })
-    return { byId, byName }
-  }, [masterDataStore.analistas])
-
-  const resolveId = (value: unknown, index: { byId: Map<string, { id: string; name: string }>; byName: Map<string, string> }) => {
-    if (value === null || value === undefined) return undefined
-    if (typeof value === 'object') {
-      const obj = value as { id?: string; nome?: string; name?: string; value?: string }
-      if (obj.id) return obj.id
-      if (obj.value) return obj.value
-      const name = obj.nome || obj.name
-      if (name) return index.byName.get(normalizeText(name)) || name
-      return undefined
-    }
-    if (typeof value === 'string') {
-      return index.byName.get(normalizeText(value)) || value
-    }
-    return String(value)
-  }
-
-  const resolveName = (value: unknown) => {
-    if (value === null || value === undefined) return undefined
-    if (typeof value === 'object') {
-      const obj = value as { nome?: string; name?: string; titulo?: string }
-      return obj.nome || obj.name || obj.titulo
-    }
-    return String(value)
-  }
-
-  const areaMatches = useCallback((value: unknown) => {
-    if (!areaId) return true
-    if (value === null || value === undefined) return false
-    const itemId = resolveId(value, areaIndex)
-    if (itemId === areaId) return true
-    const filterName = areaIndex.byId.get(areaId)?.name
-    if (filterName) {
-      const itemName = resolveName(value)
-      if (itemName && normalizeText(itemName) === normalizeText(filterName)) return true
-    }
-    return false
-  }, [areaId, areaIndex])
-
-  const analistaMatches = useCallback((value: unknown) => {
-    if (!effectiveAnalistaId) return true
-    if (value === null || value === undefined) return false
-    const itemId = resolveId(value, analistaIndex)
-    if (itemId === effectiveAnalistaId) return true
-    const filterName = analistaIndex.byId.get(effectiveAnalistaId)?.name
-    if (filterName) {
-      const itemName = resolveName(value)
-      if (itemName && normalizeText(itemName) === normalizeText(filterName)) return true
-    }
-    return false
-  }, [effectiveAnalistaId, analistaIndex])
-
-  // Função para filtrar por data
-  const inRange = (iso?: string) => {
-    if (!iso) return true
-    if (!dateBounds.fromTime && !dateBounds.toTime) return true
-    
-    try {
-      const itemDate = parseDateForFilter(iso)
-      if (!itemDate || isNaN(itemDate.getTime())) return true
-      const itemTime = itemDate.getTime()
-      
-      if (dateBounds.fromTime && itemTime < dateBounds.fromTime) return false
-      if (dateBounds.toTime && itemTime > dateBounds.toTime) return false
-      return true
-    } catch {
-      return true
-    }
-  }
-
   // Função utilitária para formatar data
   const formatDateToString = useCallback((date: Date): string => {
     const y = date.getFullYear()
@@ -440,51 +302,6 @@ export default function DashboardPage() {
       setIsManualDateFilter(false)
     }
   }, [formatDateToString])
-
-  // Dados filtrados
-  const demandasFiltradas = useMemo(() => {
-      if (userScopePending) return []
-      if (!hasAreaFilter && !hasAnalistaFilter && !hasDateFilter) return demandStore.items
-      return demandStore.items.filter(d =>
-        areaMatches(d.areaId || d.area) &&
-        analistaMatches(d.analistaId || d.analista) &&
-        inRange(getItemDateForPage('demandas', d))
-      )
-    },
-    [userScopePending, demandStore.items, areaMatches, analistaMatches, inRange, hasAreaFilter, hasAnalistaFilter, hasDateFilter]
-  )
-
-  const validacoesFiltradas = useMemo(() => {
-      if (userScopePending) return []
-      if (!hasAnalistaFilter && !hasDateFilter) return validationStore.items
-      return validationStore.items.filter(v =>
-        analistaMatches((v as any).analistaId || v.analista) &&
-        inRange(getItemDateForPage('validacoes', v))
-      )
-    },
-    [userScopePending, validationStore.items, analistaMatches, inRange, hasAnalistaFilter, hasDateFilter]
-  )
-
-  const reajustesFiltrados = useMemo(() => {
-      if (userScopePending) return []
-      if (!hasAnalistaFilter && !hasDateFilter) return reajusteStore.items
-      return reajusteStore.items.filter(r =>
-        analistaMatches(r.responsavelAnalista) &&
-        inRange(getItemDateForPage('reajustes', r))
-      )
-    },
-    [userScopePending, reajusteStore.items, analistaMatches, inRange, hasAnalistaFilter, hasDateFilter]
-  )
-
-  const maillingFiltrados = useMemo(() => {
-      if (userScopePending) return []
-      if (!hasDateFilter) return maillingStore.contacts
-      return maillingStore.contacts.filter(m =>
-        inRange(getItemDateForPage('mailling', m))
-      )
-    },
-    [userScopePending, maillingStore.contacts, inRange, hasDateFilter]
-  )
 
   const refreshData = useCallback(async (force: boolean = false) => {
     try {
@@ -636,90 +453,6 @@ export default function DashboardPage() {
     return () => document.removeEventListener('visibilitychange', handleVisibility)
   }, [refreshData])
 
-  const demandasAggregates = useMemo(() => {
-    const statusMap = new Map<string, number>()
-    const areaMap = new Map<string, number>()
-    const monthMap = new Map<string, number>()
-    demandasFiltradas.forEach(d => {
-      statusMap.set(d.status, (statusMap.get(d.status) || 0) + 1)
-
-      const rawArea = d.areaId || d.area
-      let areaName = 'Sem área'
-      if (rawArea !== null && rawArea !== undefined) {
-        if (typeof rawArea === 'object') {
-          const obj = rawArea as { id?: string; value?: string; nome?: string; name?: string; titulo?: string }
-          const objId = obj.id || obj.value
-          const objName = obj.nome || obj.name || obj.titulo
-          if (objId) {
-            areaName = areaIndex.byId.get(objId)?.name || objName || objId
-          } else if (objName) {
-            const mappedId = areaIndex.byName.get(normalizeText(objName))
-            areaName = mappedId ? (areaIndex.byId.get(mappedId)?.name || objName) : objName
-          }
-        } else if (typeof rawArea === 'string') {
-          const mappedId = areaIndex.byName.get(normalizeText(rawArea))
-          areaName = mappedId
-            ? (areaIndex.byId.get(mappedId)?.name || rawArea)
-            : (areaIndex.byId.get(rawArea)?.name || rawArea)
-        } else {
-          areaName = String(rawArea)
-        }
-      }
-      areaMap.set(areaName, (areaMap.get(areaName) || 0) + 1)
-
-      const dt = d.dataInicio || d.createdAt
-      const key = dt ? new Date(dt).toISOString().slice(0, 7) : '—'
-      monthMap.set(key, (monthMap.get(key) || 0) + 1)
-    })
-
-    return {
-      demandasPorStatus: Array.from(statusMap.entries()).map(([name, value]) => ({ name, value })),
-      demandasPorArea: Array.from(areaMap.entries()).map(([name, value]) => ({ name, value })),
-      evolucaoMensal: Array.from(monthMap.entries())
-        .sort((a, b) => a[0].localeCompare(b[0]))
-        .map(([month, total]) => ({ month, total }))
-    }
-  }, [demandasFiltradas, areaIndex])
-
-  const otherAggregates = useMemo(() => {
-    const validacoesStatusMap = new Map<string, number>()
-    const reajustesStatusMap = new Map<string, number>()
-    const maillingStatusMap = new Map<string, number>()
-    let reajustesTotal = 0
-
-    validacoesFiltradas.forEach(v => {
-      const key = v.status || 'Pendente'
-      validacoesStatusMap.set(key, (validacoesStatusMap.get(key) || 0) + 1)
-    })
-
-    reajustesFiltrados.forEach(r => {
-      const key = r.status || 'Pendente'
-      reajustesStatusMap.set(key, (reajustesStatusMap.get(key) || 0) + 1)
-      reajustesTotal += r.valorTotal ?? 0
-    })
-
-    maillingFiltrados.forEach(() => {
-      const key = 'Ativo' // Status padrão para mailling
-      maillingStatusMap.set(key, (maillingStatusMap.get(key) || 0) + 1)
-    })
-
-    const reajustesMedia = reajustesFiltrados.length > 0 ? reajustesTotal / reajustesFiltrados.length : 0
-
-    return {
-      validacoesPorStatus: Array.from(validacoesStatusMap.entries()).map(([name, value]) => ({ name, value })),
-      reajustesPorStatus: Array.from(reajustesStatusMap.entries()).map(([name, value]) => ({ name, value })),
-      maillingPorStatus: Array.from(maillingStatusMap.entries()).map(([name, value]) => ({ name, value })),
-      valoresReajuste: { total: reajustesTotal, media: reajustesMedia }
-    }
-  }, [validacoesFiltradas, reajustesFiltrados, maillingFiltrados])
-
-  const { validacoesPorStatus, reajustesPorStatus, maillingPorStatus, valoresReajuste } = otherAggregates
-
-  const { demandasPorStatus, demandasPorArea, evolucaoMensal } = demandasAggregates
-
-  // valoresReajuste agora vem de otherAggregates
-
-
   const limparFiltros = useCallback(() => {
     setAreaId('')
     setAnalistaId(restrictAnalistaFilter ? linkedAnalistaId : '')
@@ -836,6 +569,7 @@ export default function DashboardPage() {
             chartPeriodComparison={chartPeriodComparison}
             chartDailyEvolution={chartDailyEvolution.map(({ label, total }) => ({ label, total }))}
             tempoExecucaoMetrics={tempoExecucaoMetrics}
+            analistaId={projectStatsAnalistaId}
             disabled={userScopePending}
           />
         </Box>
@@ -936,7 +670,14 @@ export default function DashboardPage() {
             indicatorsByCategory={indicatorsByCategory}
             generalStats={generalStats}
             showCategories={true}
-            projectsPanel={<DashboardProjectIndicators refreshTick={projectStatsRefreshTick} />}
+            projectsPanel={
+              <DashboardProjectIndicators
+                refreshTick={projectStatsRefreshTick}
+                analistaId={projectStatsAnalistaId}
+                fromDate={fromDate || undefined}
+                toDate={toDate || undefined}
+              />
+            }
           />
         </Box>
 
