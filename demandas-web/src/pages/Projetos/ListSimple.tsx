@@ -122,6 +122,7 @@ export default function ProjectListPageSimple() {
   const [filterMenuAnchor, setFilterMenuAnchor] = useState<null | HTMLElement>(null)
   /** mine = seus projetos | all = todos visíveis | archived = pausados + cancelados */
   const [projectScope, setProjectScope] = useState<'mine' | 'all' | 'archived'>('mine')
+  const [expandedDescriptions, setExpandedDescriptions] = useState<Record<string, boolean>>({})
   
   // Estados para funcionalidade de incluir vários projetos
   const [bulkAddOpen, setBulkAddOpen] = useState(false)
@@ -247,6 +248,55 @@ export default function ProjectListPageSimple() {
   /** Só bloqueia a página inteira quando não há cache local; com dados, mostra barra de atualização. */
   const showFullPageLoading = loading && projects.length === 0
   const showRefreshBar = loading && projects.length > 0
+
+  const getOwnerLabel = (project: any) => {
+    return project?.ownerName || project?.owner?.name || project?.owner?.email || project?.ownerId || '—'
+  }
+
+  const shouldShowReadMore = (text: string) => {
+    const t = String(text || '').trim()
+    return t.length > 180 || t.includes('\n')
+  }
+
+  const renderDescription = (project: any, variant: 'grid' | 'list') => {
+    const text = String(project?.description || 'Sem descrição')
+    const expanded = !!expandedDescriptions[project.id]
+    const canToggle = shouldShowReadMore(text)
+    const clampLines = variant === 'grid' ? 3 : 2
+    return (
+      <Box sx={{ mb: variant === 'grid' ? 2 : 1 }}>
+        <Typography
+          variant={variant === 'grid' ? 'body2' : 'body2'}
+          color="text.secondary"
+          sx={{
+            ...(expanded
+              ? {}
+              : {
+                  display: '-webkit-box',
+                  WebkitBoxOrient: 'vertical',
+                  WebkitLineClamp: clampLines,
+                  overflow: 'hidden'
+                })
+          }}
+        >
+          {text}
+        </Typography>
+        {canToggle && (
+          <Button
+            size="small"
+            variant="text"
+            sx={{ px: 0, minWidth: 0, textTransform: 'none' }}
+            onClick={(e) => {
+              e.stopPropagation()
+              setExpandedDescriptions((prev) => ({ ...prev, [project.id]: !expanded }))
+            }}
+          >
+            {expanded ? 'Ler menos' : 'Ler mais'}
+          </Button>
+        )}
+      </Box>
+    )
+  }
 
   // Funções auxiliares para exibição
   const getPriorityColor = (priority: string) => {
@@ -743,9 +793,7 @@ export default function ProjectListPageSimple() {
                             <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 1 }}>
                   {project.name || 'Projeto sem nome'}
                 </Typography>
-                            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  {project.description || 'Sem descrição'}
-                </Typography>
+                            {renderDescription(project, 'grid')}
                           </Box>
                           {(project as any).canEdit && (
                             <IconButton
@@ -817,18 +865,23 @@ export default function ProjectListPageSimple() {
                         </Box>
 
                         {/* Gerente e Data */}
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Avatar sx={{ width: 24, height: 24 }}>
-                              <Person />
-                            </Avatar>
-                            <Typography variant="caption" color="text.secondary">
-                              {project.manager}
-                </Typography>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2, gap: 1 }}>
+                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, minWidth: 0 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+                              <Avatar sx={{ width: 24, height: 24 }}>
+                                <Person />
+                              </Avatar>
+                              <Typography variant="caption" color="text.secondary" noWrap sx={{ minWidth: 0 }}>
+                                {project.manager || '—'}
+                              </Typography>
+                            </Box>
+                            <Typography variant="caption" color="text.secondary" sx={{ pl: 0.5 }}>
+                              Criado por: {getOwnerLabel(project)}
+                            </Typography>
                           </Box>
-                          <Typography variant="caption" color="text.secondary">
+                          <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
                             {formatTimeAgo(project.createdAt)}
-                </Typography>
+                          </Typography>
                         </Box>
               </CardContent>
             </Card>
@@ -862,9 +915,7 @@ export default function ProjectListPageSimple() {
                           }
                           secondary={
                             <Box>
-                              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                                {project.description || 'Sem descrição'}
-                              </Typography>
+                              {renderDescription(project, 'list')}
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                                 <Chip
                                   icon={getStatusIcon(project.status)}

@@ -3754,7 +3754,12 @@ for (const [path, repo] of Object.entries(resources)) {
 
         console.log('🔍 GET /projetos: where clause =', JSON.stringify(where, null, 2))
 
-        const projects = await prisma.project.findMany({ where })
+        const projects = await prisma.project.findMany({
+          where,
+          include: {
+            owner: { select: { id: true, name: true, email: true } }
+          }
+        })
 
         console.log('✅ GET /projetos: encontrados', projects.length, 'projetos')
 
@@ -3788,7 +3793,8 @@ for (const [path, repo] of Object.entries(resources)) {
           const isManager = !!userId && norm(project.managerId) === norm(userId)
           const isMember = !!userId && memberProjectIds.includes(project.id)
           const canEdit = isAdmin || isOwner || isManager || isMember
-          return { ...project, canEdit, isOwner, isManager, isMember }
+          const ownerName = project?.owner?.name || project?.owner?.email || null
+          return { ...project, ownerName, canEdit, isOwner, isManager, isMember }
         })
 
         return mapped
