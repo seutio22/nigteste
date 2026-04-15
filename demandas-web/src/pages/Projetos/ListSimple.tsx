@@ -786,15 +786,24 @@ export default function ProjectListPageSimple() {
               }}
               onClick={() => navigate(`/projetos/${project.id}`)}
             >
-                      <CardContent sx={{ p: 3 }}>
-                        {/* Header */}
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                          <Box sx={{ flex: 1 }}>
-                            <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 1 }}>
-                  {project.name || 'Projeto sem nome'}
-                </Typography>
-                            {renderDescription(project, 'grid')}
-                          </Box>
+                      <CardContent sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column', gap: 1.75 }}>
+                        {/* Topo fixo: Título + Ações */}
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
+                          <Typography
+                            variant="h6"
+                            sx={{
+                              fontWeight: 'bold',
+                              mb: 0.5,
+                              flex: 1,
+                              minWidth: 0,
+                              display: '-webkit-box',
+                              WebkitBoxOrient: 'vertical',
+                              WebkitLineClamp: 2,
+                              overflow: 'hidden'
+                            }}
+                          >
+                            {project.name || 'Projeto sem nome'}
+                          </Typography>
                           {(project as any).canEdit && (
                             <IconButton
                               size="small"
@@ -811,8 +820,13 @@ export default function ProjectListPageSimple() {
                           )}
                         </Box>
 
-                        {/* Status e Prioridade */}
-                        <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
+                        {/* Descrição (área flexível, mas com altura previsível via line-clamp) */}
+                        <Box sx={{ flexGrow: 1, minHeight: 0 }}>
+                          {renderDescription(project, 'grid')}
+                        </Box>
+
+                        {/* Status + Prioridade (sempre na mesma posição) */}
+                        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 0.75 }}>
                           <Chip
                             icon={getStatusIcon(project.status)}
                             label={getStatusLabel(project.status)}
@@ -828,8 +842,8 @@ export default function ProjectListPageSimple() {
                         </Stack>
 
                         {/* Progresso */}
-                        <Box sx={{ mb: 2 }}>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                        <Box>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.75 }}>
                             <Typography variant="caption" color="text.secondary">
                               Progresso
                             </Typography>
@@ -837,53 +851,51 @@ export default function ProjectListPageSimple() {
                               {project.progress || 0}%
                             </Typography>
                           </Box>
-                          <LinearProgress 
-                            variant="determinate" 
-                            value={project.progress || 0} 
-                            sx={{ height: 8, borderRadius: 4 }}
-                          />
+                          <LinearProgress variant="determinate" value={project.progress || 0} sx={{ height: 8, borderRadius: 4 }} />
                         </Box>
 
-                        {/* Estatísticas */}
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                          <Box sx={{ textAlign: 'center' }}>
-                            <Typography variant="h6" color="primary" fontWeight="bold">
-                              {project.budget ? `R$ ${project.budget.toLocaleString('pt-BR')}` : 'N/A'}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              Orçamento
-                            </Typography>
-                          </Box>
-                          <Box sx={{ textAlign: 'center' }}>
-                            <Typography variant="h6" color="secondary" fontWeight="bold">
-                              {formatDate(project.endDate)}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              Prazo
-                            </Typography>
-                          </Box>
-                        </Box>
-
-                        {/* Gerente e Data */}
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2, gap: 1 }}>
-                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, minWidth: 0 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
-                              <Avatar sx={{ width: 24, height: 24 }}>
-                                <Person />
-                              </Avatar>
-                              <Typography variant="caption" color="text.secondary" noWrap sx={{ minWidth: 0 }}>
-                                {project.manager || '—'}
+                        {/* Rodapé fixo */}
+                        <Box sx={{ pt: 0.5 }}>
+                          <Divider sx={{ mb: 1.25 }} />
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1.5 }}>
+                            <Box sx={{ minWidth: 0 }}>
+                              <Typography variant="caption" color="text.secondary">
+                                Orçamento
+                              </Typography>
+                              <Typography variant="subtitle2" color="primary" fontWeight="bold" noWrap>
+                                {project.budget ? `R$ ${project.budget.toLocaleString('pt-BR')}` : 'N/A'}
                               </Typography>
                             </Box>
-                            <Typography variant="caption" color="text.secondary" sx={{ pl: 0.5 }}>
-                              Criado por: {getOwnerLabel(project)}
+                            <Box sx={{ textAlign: 'right', minWidth: 0 }}>
+                              <Typography variant="caption" color="text.secondary">
+                                Prazo
+                              </Typography>
+                              <Typography variant="subtitle2" color="secondary" fontWeight="bold" noWrap>
+                                {formatDate(project.endDate)}
+                              </Typography>
+                            </Box>
+                          </Box>
+
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mt: 1.25, gap: 1 }}>
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, minWidth: 0 }}>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+                                <Avatar sx={{ width: 24, height: 24 }}>
+                                  <Person />
+                                </Avatar>
+                                <Typography variant="caption" color="text.secondary" noWrap sx={{ minWidth: 0 }}>
+                                  {project.manager || '—'}
+                                </Typography>
+                              </Box>
+                              <Typography variant="caption" color="text.secondary" noWrap sx={{ pl: 0.5, minWidth: 0 }}>
+                                Criado por: {getOwnerLabel(project)}
+                              </Typography>
+                            </Box>
+                            <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+                              {formatTimeAgo(project.createdAt)}
                             </Typography>
                           </Box>
-                          <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
-                            {formatTimeAgo(project.createdAt)}
-                          </Typography>
                         </Box>
-              </CardContent>
+                      </CardContent>
             </Card>
           </Grid>
         ))}
