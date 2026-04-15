@@ -7,12 +7,13 @@ import { StatusBadge } from '../../components/StatusBadge'
 import { Timeline } from '../../components/Timeline'
 import { fmt } from '../../lib/utils'
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { Save, Edit3, Clock, ArrowLeft } from 'lucide-react'
+import { Save, Edit3, Clock, ArrowLeft, Mail as MailIcon } from 'lucide-react'
 import { Demand } from '../../types/demand'
 import { Autocomplete, TextField, Box, Typography } from '@mui/material'
 import { Save as SaveIcon } from '@mui/icons-material'
 import { PrimaryActionButton } from '../../components/PrimaryActionButton'
 import { createPerfLogger } from '../../utils/perf'
+import { EmailComunicacaoCadastroEdgeModal } from '../../components/EmailComunicacaoCadastroEdgeModal'
 
 // Função para converter código de qualidade em texto legível
 const getQualidadeLabel = (value?: string) => {
@@ -40,6 +41,7 @@ export default function DemandDetailPage() {
   
   // Estado para controlar se os dados mestres estão carregados
   const [masterDataLoaded, setMasterDataLoaded] = useState(false)
+  const [emailModalOpen, setEmailModalOpen] = useState(false)
 
   useEffect(() => {
     perfRef.current.log('mount')
@@ -257,7 +259,16 @@ export default function DemandDetailPage() {
             Criada em {fmt(d.createdAt)}
           </p>
         </div>
-        <StatusBadge status={d.status ?? 'Em andamento'} />
+        <div className="flex items-center gap-3">
+          <PrimaryActionButton
+            onClick={() => setEmailModalOpen(true)}
+            startIcon={<MailIcon />}
+            title="Comunicar (EDGE) por e-mail"
+          >
+            Comunicar
+          </PrimaryActionButton>
+          <StatusBadge status={d.status ?? 'Em andamento'} />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -424,6 +435,12 @@ export default function DemandDetailPage() {
           </div>
         </div>
       </div>
+
+      <EmailComunicacaoCadastroEdgeModal
+        open={emailModalOpen}
+        onClose={() => setEmailModalOpen(false)}
+        demanda={d as any}
+      />
     </div>
   )
 }
