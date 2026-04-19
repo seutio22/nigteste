@@ -1,7 +1,13 @@
-/** Linha de contrato no snapshot Nexus `contratos` (ex.: demandas-api Contrato). */
+/**
+ * Linha de contrato no snapshot Nexus `contratos` (entidade sincronizada `contratos`).
+ * O número exibido como “Nº apólice” no portal usa `numero`; no Nexus costuma vir em `codigo`
+ * quando `numero`/`numeroApolice` vêm vazios — o parse replica isso em `numero`.
+ * O filtro principal no portal é pelo **grupo económico** do contrato.
+ */
 
 export type NexusContratoOpcao = {
   nexusContratoId: string
+  /** Valor usado como número da apólice (Nexus: numero* ou codigo). */
   numero: string
   codigo: string
   grupoEconomico: string
@@ -30,14 +36,23 @@ export function parseContratosSnapshot(rows: unknown[]): NexusContratoOpcao[] {
     if (!r || typeof r !== 'object' || Array.isArray(r)) continue
     const o = r as Record<string, unknown>
     const id = pickStr(o, ['id', 'idContrato', 'id_contrato'])
-    const numero = pickStr(o, ['numero', 'numeroApolice', 'numero_apolice', 'nApolice'])
+    const codigo = pickStr(o, ['codigo', 'codigoContrato', 'codigo_contrato'])
+    const numeroExplicit = pickStr(o, ['numero', 'numeroApolice', 'numero_apolice', 'nApolice', 'numeroContrato'])
+    /** No Nexus o identificador útil para apólice muitas vezes é só `codigo`. */
+    const numero = numeroExplicit || codigo
     if (!id || !numero) continue
     out.push({
       nexusContratoId: id,
       numero,
-      codigo: pickStr(o, ['codigo', 'codigoContrato']),
-      grupoEconomico: pickStr(o, ['grupoEconomico', 'grupo_economico']),
-      clienteId: pickStr(o, ['clienteId', 'cliente_id', 'idCliente']),
+      codigo,
+      grupoEconomico: pickStr(o, [
+        'grupoEconomico',
+        'grupo_economico',
+        'grupoEconomicoNome',
+        'nomeGrupoEconomico',
+        'grupoEconomicoDescricao',
+      ]),
+      clienteId: pickStr(o, ['clienteId', 'cliente_id', 'idCliente', 'cliente', 'id_cliente']),
       status: pickStr(o, ['status', 'ativo', 'situacao']) || '—',
     })
   }
@@ -51,9 +66,10 @@ export function filterContratosForEstipulante(
   const gEst = norm(est.grupoEconomicoNome)
   return contratos.filter((c) => {
     if (!norm(c.grupoEconomico) || norm(c.grupoEconomico) !== gEst) return false
-    if (est.nexusClienteId?.trim()) {
-      return norm(c.clienteId) === norm(est.nexusClienteId)
-    }
+    const estCli = est.nexusClienteId?.trim()
+    const cCli = c.clienteId?.trim()
+    /** Vínculo principal: grupo económico. Cliente só restringe se ambos os lados têm id. */
+    if (estCli && cCli) return norm(cCli) === norm(estCli)
     return true
   })
 }
