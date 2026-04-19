@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link as RouterLink } from 'react-router-dom'
 import {
   Alert,
   Box,
   Button,
-  Chip,
   Chip,
   Dialog,
   DialogActions,
@@ -151,6 +150,49 @@ function fmtDate(s: string | null) {
   const d = new Date(s)
   if (Number.isNaN(d.getTime())) return s
   return d.toLocaleDateString('pt-BR')
+}
+
+function normCnpjDigits(s: string) {
+  return (s || '').replace(/\D/g, '')
+}
+
+/** Linha da tabela: cadastro no portal ou empresa ainda só no Nexus (para o mesmo grupo). */
+type EstipulanteTabelaRow =
+  | { kind: 'portal'; e: Estipulante }
+  | { kind: 'nexus'; em: NexusEmpresaView }
+
+function mergeEstipulantesComNexus(portal: Estipulante[], nexus: NexusEmpresaView[]): EstipulanteTabelaRow[] {
+  const consumedPortal = new Set<string>()
+  const byClienteId = new Map<string, Estipulante>()
+  for (const e of portal) {
+    const id = e.nexusClienteId?.trim()
+    if (id) byClienteId.set(id, e)
+  }
+  const out: EstipulanteTabelaRow[] = []
+  for (const em of nexus) {
+    const byId = em.nexusClienteId?.trim() ? byClienteId.get(em.nexusClienteId.trim()) : undefined
+    const dEm = normCnpjDigits(em.cnpj)
+    const byCnpj =
+      !byId && dEm.length >= 8
+        ? portal.find((p) => !consumedPortal.has(p.id) && normCnpjDigits(p.cnpj) === dEm)
+        : undefined
+    const p = byId ?? byCnpj
+    if (p && !consumedPortal.has(p.id)) {
+      consumedPortal.add(p.id)
+      out.push({ kind: 'portal', e: p })
+    } else if (!p) {
+      out.push({ kind: 'nexus', em })
+    }
+  }
+  for (const e of portal) {
+    if (!consumedPortal.has(e.id)) out.push({ kind: 'portal', e })
+  }
+  out.sort((a, b) => {
+    const ra = a.kind === 'portal' ? a.e.razaoSocial : a.em.razaoSocial
+    const rb = b.kind === 'portal' ? b.e.razaoSocial : b.em.razaoSocial
+    return ra.localeCompare(rb, 'pt-BR', { sensitivity: 'base' })
+  })
+  return out
 }
 
 /** Nomes de grupo econômico vindos do snapshot Nexus `clientes` (vários CNPJs por grupo). */
@@ -595,7 +637,8 @@ function GruposSection({
 function EstipulantesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: string | null) => void }) {
   const { nomes, needsSync, syncMessage } = useNexusGruposEconomicosNomes()
   const [grupoNome, setGrupoNome] = useState('')
-  const [rows, setRows] = useState<Estipulante[]>([])
+  const [portalRows, setPortalRows] = useState<Estipulante[]>([])
+  const [nexusGrupoEmpresas, setNexusGrupoEmpresas] = useState<NexusEmpresaView[]>([])
   const [loading, setLoading] = useState(false)
   const [open, setOpen] = useState(false)
   const [edit, setEdit] = useState<Estipulante | null>(null)
@@ -604,46 +647,42 @@ function EstipulantesSection({ isAdmin, onError }: { isAdmin: boolean; onError: 
   const [nomeFantasia, setNomeFantasia] = useState('')
   const [observacoes, setObservacoes] = useState('')
   const [nexusClienteId, setNexusClienteId] = useState<string | null>(null)
-  const [nexusEmpresas, setNexusEmpresas] = useState<NexusEmpresaView[]>([])
   const [importClienteId, setImportClienteId] = useState('')
   const [saving, setSaving] = useState(false)
 
+  const displayRows = useMemo(
+    () => mergeEstipulantesComNexus(portalRows, nexusGrupoEmpresas),
+    [portalRows, nexusGrupoEmpresas],
+  )
+
   const load = useCallback(async () => {
     if (!grupoNome) {
-      setRows([])
+      setPortalRows([])
+      setNexusGrupoEmpresas([])
       return
     }
     setLoading(true)
     onError(null)
-    const r = await api<{ estipulantes: Estipulante[] }>(
-      `/seguros/estipulantes?grupoNome=${encodeURIComponent(grupoNome)}`,
-    )
+    const [rEst, rNex] = await Promise.all([
+      api<{ estipulantes: Estipulante[] }>(`/seguros/estipulantes?grupoNome=${encodeURIComponent(grupoNome)}`),
+      api<{ empresas?: NexusEmpresaView[] }>(
+        `/seguros/nexus/clientes-do-grupo?grupoNome=${encodeURIComponent(grupoNome)}`,
+      ),
+    ])
     setLoading(false)
-    if (!r.ok) {
-      onError(r.error || 'Erro ao carregar estipulantes.')
-      setRows([])
-      return
+    if (!rEst.ok) {
+      onError(rEst.error || 'Erro ao carregar estipulantes do portal.')
+      setPortalRows([])
+    } else {
+      setPortalRows(rEst.data?.estipulantes ?? [])
     }
-    setRows(r.data?.estipulantes ?? [])
+    if (rNex.ok) setNexusGrupoEmpresas(rNex.data?.empresas ?? [])
+    else setNexusGrupoEmpresas([])
   }, [grupoNome, onError])
 
   useEffect(() => {
     void load()
   }, [load])
-
-  useEffect(() => {
-    if (!open || edit || !grupoNome) {
-      setNexusEmpresas([])
-      return
-    }
-    void (async () => {
-      const r = await api<{ empresas?: NexusEmpresaView[] }>(
-        `/seguros/nexus/clientes-do-grupo?grupoNome=${encodeURIComponent(grupoNome)}`,
-      )
-      if (r.ok) setNexusEmpresas(r.data?.empresas ?? [])
-      else setNexusEmpresas([])
-    })()
-  }, [open, edit, grupoNome])
 
   function openCreate() {
     if (!grupoNome) return
@@ -654,6 +693,18 @@ function EstipulantesSection({ isAdmin, onError }: { isAdmin: boolean; onError: 
     setObservacoes('')
     setNexusClienteId(null)
     setImportClienteId('')
+    setOpen(true)
+  }
+
+  function openCadastrarDesdeNexus(em: NexusEmpresaView) {
+    if (!grupoNome) return
+    setEdit(null)
+    setRazaoSocial(em.razaoSocial)
+    setCnpj(em.cnpj === '—' ? '' : em.cnpj)
+    setNomeFantasia('')
+    setObservacoes('')
+    setNexusClienteId(em.nexusClienteId)
+    setImportClienteId(em.nexusClienteId)
     setOpen(true)
   }
 
@@ -674,7 +725,7 @@ function EstipulantesSection({ isAdmin, onError }: { isAdmin: boolean; onError: 
       setNexusClienteId(null)
       return
     }
-    const em = nexusEmpresas.find((x) => x.nexusClienteId === id)
+    const em = nexusGrupoEmpresas.find((x) => x.nexusClienteId === id)
     if (em) {
       setRazaoSocial(em.razaoSocial)
       setCnpj(em.cnpj === '—' ? '' : em.cnpj)
@@ -780,6 +831,7 @@ function EstipulantesSection({ isAdmin, onError }: { isAdmin: boolean; onError: 
             <TableHead>
               <TableRow>
                 <TableCell>Grupo</TableCell>
+                <TableCell>Situação</TableCell>
                 <TableCell>Razão social</TableCell>
                 <TableCell>CNPJ</TableCell>
                 <TableCell>Nome fantasia</TableCell>
@@ -789,26 +841,61 @@ function EstipulantesSection({ isAdmin, onError }: { isAdmin: boolean; onError: 
               </TableRow>
             </TableHead>
             <TableBody>
-              {rows.map((e) => (
-                <TableRow key={e.id} hover>
-                  <TableCell sx={{ maxWidth: 160 }}>{e.grupoEconomicoNome}</TableCell>
-                  <TableCell>{e.razaoSocial}</TableCell>
-                  <TableCell>{e.cnpj}</TableCell>
-                  <TableCell>{e.nomeFantasia ?? '—'}</TableCell>
-                  <TableCell sx={{ maxWidth: 120, fontFamily: 'monospace', fontSize: 12 }}>{e.nexusClienteId ?? '—'}</TableCell>
-                  <TableCell>{e._count?.apolices ?? '—'}</TableCell>
-                  {isAdmin ? (
-                    <TableCell align="right">
-                      <Button size="small" onClick={() => openRow(e)}>
-                        Editar
-                      </Button>
-                      <Button size="small" color="error" onClick={() => void del(e.id)}>
-                        Excluir
-                      </Button>
-                    </TableCell>
-                  ) : null}
+              {displayRows.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={isAdmin ? 8 : 7} sx={{ py: 2, color: 'text.secondary' }}>
+                    {grupoNome
+                      ? 'Nenhuma empresa encontrada no Nexus para este grupo. Verifique a sincronização de clientes em Banco de dados.'
+                      : 'Selecione um grupo econômico.'}
+                  </TableCell>
                 </TableRow>
-              ))}
+              ) : null}
+              {displayRows.map((row) =>
+                row.kind === 'portal' ? (
+                  <TableRow key={row.e.id} hover>
+                    <TableCell sx={{ maxWidth: 160 }}>{row.e.grupoEconomicoNome}</TableCell>
+                    <TableCell>
+                      <Chip size="small" label="Cadastrado" color="success" variant="outlined" />
+                    </TableCell>
+                    <TableCell>{row.e.razaoSocial}</TableCell>
+                    <TableCell>{row.e.cnpj}</TableCell>
+                    <TableCell>{row.e.nomeFantasia ?? '—'}</TableCell>
+                    <TableCell sx={{ maxWidth: 120, fontFamily: 'monospace', fontSize: 12 }}>
+                      {row.e.nexusClienteId ?? '—'}
+                    </TableCell>
+                    <TableCell>{row.e._count?.apolices ?? '—'}</TableCell>
+                    {isAdmin ? (
+                      <TableCell align="right">
+                        <Button size="small" onClick={() => openRow(row.e)}>
+                          Editar
+                        </Button>
+                        <Button size="small" color="error" onClick={() => void del(row.e.id)}>
+                          Excluir
+                        </Button>
+                      </TableCell>
+                    ) : null}
+                  </TableRow>
+                ) : (
+                  <TableRow key={`nexus-${row.em.nexusClienteId}`} hover sx={{ bgcolor: 'action.hover' }}>
+                    <TableCell sx={{ maxWidth: 160 }}>{row.em.grupoEconomicoNome}</TableCell>
+                    <TableCell>
+                      <Chip size="small" label="Só Nexus" color="info" variant="outlined" />
+                    </TableCell>
+                    <TableCell>{row.em.razaoSocial}</TableCell>
+                    <TableCell>{row.em.cnpj}</TableCell>
+                    <TableCell>—</TableCell>
+                    <TableCell sx={{ maxWidth: 120, fontFamily: 'monospace', fontSize: 12 }}>{row.em.nexusClienteId}</TableCell>
+                    <TableCell>—</TableCell>
+                    {isAdmin ? (
+                      <TableCell align="right">
+                        <Button size="small" variant="contained" onClick={() => openCadastrarDesdeNexus(row.em)}>
+                          Cadastrar
+                        </Button>
+                      </TableCell>
+                    ) : null}
+                  </TableRow>
+                ),
+              )}
             </TableBody>
           </Table>
         )}
@@ -829,7 +916,7 @@ function EstipulantesSection({ isAdmin, onError }: { isAdmin: boolean; onError: 
                 <MenuItem value="">
                   <em>Nenhum — preencher à mão</em>
                 </MenuItem>
-                {nexusEmpresas.map((em) => (
+                {nexusGrupoEmpresas.map((em) => (
                   <MenuItem key={em.nexusClienteId} value={em.nexusClienteId}>
                     {em.razaoSocial} — {em.cnpj}
                   </MenuItem>
