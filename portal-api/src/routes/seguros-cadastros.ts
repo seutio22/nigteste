@@ -103,6 +103,53 @@ function whereEstipulantesPorNomeGrupoNexus(nome: string): Prisma.PortalSeguroEs
   }
 }
 
+/** Inclui estipulantes ligados só por `grupoEconomicoId` (mesmo registo Portal), além do nome Nexus/local. */
+function whereEstipulantesAgrupadosParaApolices(
+  nomeGrupo: string,
+  grupoEconomicoId: string | null,
+): Prisma.PortalSeguroEstipulanteWhereInput {
+  const byNome = whereEstipulantesPorNomeGrupoNexus(nomeGrupo.trim())
+  if (!grupoEconomicoId) return byNome
+  return { OR: [byNome, { grupoEconomicoId }] }
+}
+
+function looseRazaoMesmaEmpresa(a: string, b: string): boolean {
+  const ca = normRazaoSeg(a)
+  const cb = normRazaoSeg(b)
+  if (ca.length < 6 || cb.length < 6) return false
+  if (ca === cb) return true
+  if (ca.localeCompare(cb, 'pt-BR', { sensitivity: 'base' }) === 0) return true
+  const stop = new Set(['ltda', 'sa', 'me', 'eireli', 'ep', 'de', 'da', 'do', 'em', 'a'])
+  const ta = [...new Set(ca.split(' ').filter((w) => w.length > 1 && !stop.has(w)))]
+  const tb = new Set(cb.split(' ').filter((w) => w.length > 1 && !stop.has(w)))
+  if (ta.length === 0 || tb.size === 0) return false
+  let hit = 0
+  for (const w of ta) {
+    if (tb.has(w)) hit++
+  }
+  return hit >= 2 && hit >= Math.ceil(Math.min(ta.length, tb.size) * 0.45)
+}
+
+/** Estipulantes no mesmo “universo” de grupo + heurística de mesma empresa (razão/CNPJ/Nexus). */
+function wideEstipulanteIdsNoGrupo(
+  est: { id: string; razaoSocial: string; cnpj: string; nexusClienteId: string | null },
+  groupEsts: Array<{ id: string; razaoSocial: string; cnpj: string; nexusClienteId: string | null }>,
+): string[] {
+  const nid = est.nexusClienteId?.trim() || ''
+  const dEst = normCnpjDigitsSeg(est.cnpj)
+  const rsEst = normRazaoSeg(est.razaoSocial)
+  const out = new Set<string>()
+  out.add(est.id)
+  for (const p of groupEsts) {
+    if (p.id === est.id) continue
+    if (nid && p.nexusClienteId?.trim() === nid) out.add(p.id)
+    else if (dEst.length >= 8 && normCnpjDigitsSeg(p.cnpj) === dEst) out.add(p.id)
+    else if (rsEst.length >= 6 && normRazaoSeg(p.razaoSocial) === rsEst) out.add(p.id)
+    else if (looseRazaoMesmaEmpresa(est.razaoSocial, p.razaoSocial)) out.add(p.id)
+  }
+  return [...out]
+}
+
 /**
  * IDs de estipulantes equivalentes no mesmo grupo (duplicados: Nexus vs cadastro manual,
  * ou dois UUIDs para a mesma empresa). Usado para listar apólices/contratos mesmo quando
@@ -133,7 +180,7 @@ async function estipulanteSiblingIds(estipulanteId: string, grupoNexusNome?: str
 
   const peers = nomeGrupo
     ? await prisma.portalSeguroEstipulante.findMany({
-        where: whereEstipulantesPorNomeGrupoNexus(nomeGrupo),
+        where: whereEstipulantesAgrupadosParaApolices(nomeGrupo, est.grupoEconomicoId),
         select: { id: true, nexusClienteId: true, cnpj: true, razaoSocial: true },
       })
     : [{ id: est.id, nexusClienteId: est.nexusClienteId, cnpj: est.cnpj, razaoSocial: est.razaoSocial }]
@@ -574,19 +621,67 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
       where.estipulante = whereEstipulantesPorNomeGrupoNexus(filter.grupoNome!.trim())
     }
 
-    const list = await prisma.portalSeguroApolice.findMany({
+    const includeAp = {
+      estipulante: {
+        include: {
+          grupo: { select: { id: true, nome: true } },
+        },
+      },
+      _count: { select: { itens: true } },
+    } as const
+
+    let list = await prisma.portalSeguroApolice.findMany({
       where,
       orderBy: { numeroApolice: 'asc' },
       take: 500,
-      include: {
-        estipulante: {
-          include: {
-            grupo: { select: { id: true, nome: true } },
-          },
-        },
-        _count: { select: { itens: true } },
-      },
+      include: includeAp,
     })
+
+    if (filter.estipulanteId && list.length === 0) {
+      const est = await prisma.portalSeguroEstipulante.findUnique({
+        where: { id: filter.estipulanteId },
+        select: {
+          id: true,
+          razaoSocial: true,
+          cnpj: true,
+          nexusClienteId: true,
+          grupoEconomicoNome: true,
+          grupoEconomicoId: true,
+          grupo: { select: { nome: true } },
+        },
+      })
+      const gName =
+        filter.grupoNome?.trim() ||
+        est?.grupoEconomicoNome?.trim() ||
+        est?.grupo?.nome?.trim() ||
+        ''
+      if (est && gName) {
+        const groupEsts = await prisma.portalSeguroEstipulante.findMany({
+          where: whereEstipulantesAgrupadosParaApolices(gName, est.grupoEconomicoId),
+          select: { id: true, razaoSocial: true, cnpj: true, nexusClienteId: true },
+        })
+        const wideIds = wideEstipulanteIdsNoGrupo(est, groupEsts)
+        if (wideIds.length) {
+          list = await prisma.portalSeguroApolice.findMany({
+            where: { estipulanteId: wideIds.length === 1 ? wideIds[0] : { in: wideIds } },
+            orderBy: { numeroApolice: 'asc' },
+            take: 500,
+            include: includeAp,
+          })
+        }
+        if (list.length === 0) {
+          list = await prisma.portalSeguroApolice.findMany({
+            where: {
+              estipulante: whereEstipulantesAgrupadosParaApolices(gName, est.grupoEconomicoId),
+            },
+            orderBy: { numeroApolice: 'asc' },
+            take: 500,
+            include: includeAp,
+          })
+        }
+      }
+    }
+
     return reply.send({ apolices: list })
   })
 
@@ -618,24 +713,76 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: 'Informe estipulanteId, grupoId ou grupoNome na query.' })
     }
 
-    const list = await prisma.portalSeguroApolice.findMany({
+    const selectLista = {
+      id: true,
+      numeroApolice: true,
+      produto: true,
+      estipulante: {
+        select: {
+          id: true,
+          razaoSocial: true,
+          grupoEconomicoNome: true,
+          grupo: { select: { id: true, nome: true } },
+        },
+      },
+    } as const
+
+    let list = await prisma.portalSeguroApolice.findMany({
       where,
       orderBy: [{ updatedAt: 'desc' }],
       take: 500,
-      select: {
-        id: true,
-        numeroApolice: true,
-        produto: true,
-        estipulante: {
-          select: {
-            id: true,
-            razaoSocial: true,
-            grupoEconomicoNome: true,
-            grupo: { select: { id: true, nome: true } },
-          },
-        },
-      },
+      select: selectLista,
     })
+
+    if (filter.estipulanteId && list.length === 0) {
+      const est = await prisma.portalSeguroEstipulante.findUnique({
+        where: { id: filter.estipulanteId },
+        select: {
+          id: true,
+          razaoSocial: true,
+          cnpj: true,
+          nexusClienteId: true,
+          grupoEconomicoNome: true,
+          grupoEconomicoId: true,
+          grupo: { select: { nome: true } },
+        },
+      })
+      const gName =
+        filter.grupoNome?.trim() ||
+        est?.grupoEconomicoNome?.trim() ||
+        est?.grupo?.nome?.trim() ||
+        ''
+      if (est && gName) {
+        const groupEsts = await prisma.portalSeguroEstipulante.findMany({
+          where: whereEstipulantesAgrupadosParaApolices(gName, est.grupoEconomicoId),
+          select: { id: true, razaoSocial: true, cnpj: true, nexusClienteId: true },
+        })
+        const wideIds = wideEstipulanteIdsNoGrupo(est, groupEsts)
+        if (wideIds.length) {
+          list = await prisma.portalSeguroApolice.findMany({
+            where: {
+              active: true,
+              estipulanteId: wideIds.length === 1 ? wideIds[0] : { in: wideIds },
+            },
+            orderBy: [{ updatedAt: 'desc' }],
+            take: 500,
+            select: selectLista,
+          })
+        }
+        if (list.length === 0) {
+          list = await prisma.portalSeguroApolice.findMany({
+            where: {
+              active: true,
+              estipulante: whereEstipulantesAgrupadosParaApolices(gName, est.grupoEconomicoId),
+            },
+            orderBy: [{ updatedAt: 'desc' }],
+            take: 500,
+            select: selectLista,
+          })
+        }
+      }
+    }
+
     return reply.send({ apolices: list })
   })
 
