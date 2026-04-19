@@ -1095,10 +1095,13 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
     }
     setLoadingAp(true)
     onError(null)
+    const gq = grupoNome.trim() ? `&grupoNome=${encodeURIComponent(grupoNome.trim())}` : ''
     const [rAp, rCt] = await Promise.all([
-      api<{ apolices: Apolice[] }>(`/seguros/apolices?estipulanteId=${encodeURIComponent(estipulanteId)}`),
+      api<{ apolices: Apolice[] }>(
+        `/seguros/apolices?estipulanteId=${encodeURIComponent(estipulanteId)}${gq}`,
+      ),
       api<{ ok?: boolean; needsSync?: boolean; contratos?: NexusContratoOpcao[] }>(
-        `/seguros/nexus/contratos-opcoes?estipulanteId=${encodeURIComponent(estipulanteId)}`,
+        `/seguros/nexus/contratos-opcoes?estipulanteId=${encodeURIComponent(estipulanteId)}${gq}`,
       ),
     ])
     setLoadingAp(false)
@@ -1116,7 +1119,7 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
       setContratosNexus([])
       setNeedsContratosSync(true)
     }
-  }, [estipulanteId, onError])
+  }, [estipulanteId, grupoNome, onError])
 
   useEffect(() => {
     void loadEst()
@@ -1642,8 +1645,9 @@ function ItensSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: str
     }
     setLoadingAp(true)
     onError(null)
+    const gq = grupoNome.trim() ? `&grupoNome=${encodeURIComponent(grupoNome.trim())}` : ''
     const r = await api<{ apolices: ApoliceLista[] }>(
-      `/seguros/apolices/lista?estipulanteId=${encodeURIComponent(estipulanteId)}`
+      `/seguros/apolices/lista?estipulanteId=${encodeURIComponent(estipulanteId)}${gq}`,
     )
     setLoadingAp(false)
     if (!r.ok) {
@@ -1652,7 +1656,7 @@ function ItensSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: str
       return
     }
     setApLista(r.data?.apolices ?? [])
-  }, [estipulanteId, onError])
+  }, [estipulanteId, grupoNome, onError])
 
   const loadItens = useCallback(async () => {
     if (!apoliceId) {

@@ -75,13 +75,14 @@ export default function SeguroContextSelector({ disabled, value, onChange }: Pro
     if (r.ok) setEstRows(r.data?.estipulantes ?? [])
   }, [])
 
-  const loadAp = useCallback(async (estipulanteId: string) => {
+  const loadAp = useCallback(async (estipulanteId: string, grupoNome: string) => {
     if (!estipulanteId) {
       setApRows([])
       return
     }
+    const gq = grupoNome.trim() ? `&grupoNome=${encodeURIComponent(grupoNome.trim())}` : ''
     const r = await api<{ apolices: ApoliceLista[] }>(
-      `/seguros/apolices/lista?estipulanteId=${encodeURIComponent(estipulanteId)}`
+      `/seguros/apolices/lista?estipulanteId=${encodeURIComponent(estipulanteId)}${gq}`,
     )
     if (r.ok) setApRows(r.data?.apolices ?? [])
   }, [])
@@ -91,8 +92,8 @@ export default function SeguroContextSelector({ disabled, value, onChange }: Pro
   }, [gNome, loadEst])
 
   useEffect(() => {
-    void loadAp(eId)
-  }, [eId, loadAp])
+    void loadAp(eId, gNome)
+  }, [eId, gNome, loadAp])
 
   function emit(nextG: string, nextE: string, nextA: string) {
     if (!nextG || !nextE || !nextA) {
