@@ -989,12 +989,15 @@ function EstipulantesSection({ isAdmin, onError }: { isAdmin: boolean; onError: 
 }
 
 const APOLICE_NUMERO_MANUAL = '__manual__'
+/** Valor sintético no Select: escolher cliente Nexus ainda sem estipulante no portal (admin cria via POST). */
+const ESTIPULANTE_SEL_NEXUS_PREFIX = '__nx__'
 
 function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: string | null) => void }) {
   const { nomes, needsSync, syncMessage } = useNexusGruposEconomicosNomes()
   const [grupoNome, setGrupoNome] = useState('')
   const [estipulanteId, setEstipulanteId] = useState('')
-  const [estRows, setEstRows] = useState<Estipulante[]>([])
+  const [portalEstRows, setPortalEstRows] = useState<Estipulante[]>([])
+  const [nexusGrupoEmpresas, setNexusGrupoEmpresas] = useState<NexusEmpresaView[]>([])
   const [portalApolices, setPortalApolices] = useState<Apolice[]>([])
   const [loadingEst, setLoadingEst] = useState(false)
   const [loadingAp, setLoadingAp] = useState(false)
@@ -1023,24 +1026,40 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
   const showPlano = produto === 'SAUDE' || produto === 'ODONTO'
   const showCoberturas = produto === 'VIDA_GRUPO'
 
+  const mergedEstRows = useMemo(
+    () => mergeEstipulantesComNexus(portalEstRows, nexusGrupoEmpresas),
+    [portalEstRows, nexusGrupoEmpresas],
+  )
+
   const loadEst = useCallback(async () => {
     if (!grupoNome) {
-      setEstRows([])
-      setEstipulanteId('')
+      setPortalEstRows([])
+      setNexusGrupoEmpresas([])
       return
     }
     setLoadingEst(true)
-    const r = await api<{ estipulantes: Estipulante[] }>(
-      `/seguros/estipulantes?grupoNome=${encodeURIComponent(grupoNome)}`,
-    )
+    const [rEst, rNex] = await Promise.all([
+      api<{ estipulantes: Estipulante[] }>(`/seguros/estipulantes?grupoNome=${encodeURIComponent(grupoNome)}`),
+      api<{ empresas?: NexusEmpresaView[] }>(
+        `/seguros/nexus/clientes-do-grupo?grupoNome=${encodeURIComponent(grupoNome)}`,
+      ),
+    ])
     setLoadingEst(false)
-    if (!r.ok) {
-      onError(r.error || 'Erro ao carregar estipulantes.')
-      setEstRows([])
-      return
+    if (!rEst.ok) {
+      onError(rEst.error || 'Erro ao carregar estipulantes do portal.')
+      setPortalEstRows([])
+    } else {
+      setPortalEstRows(rEst.data?.estipulantes ?? [])
     }
-    setEstRows(r.data?.estipulantes ?? [])
+    if (rNex.ok) setNexusGrupoEmpresas(rNex.data?.empresas ?? [])
+    else setNexusGrupoEmpresas([])
   }, [grupoNome, onError])
+
+  useEffect(() => {
+    if (!grupoNome || loadingEst) return
+    const apenasPortal = mergedEstRows.filter((r) => r.kind === 'portal')
+    if (apenasPortal.length === 1) setEstipulanteId(apenasPortal[0].e.id)
+  }, [grupoNome, loadingEst, mergedEstRows])
 
   const loadApoliceTabela = useCallback(async () => {
     if (!estipulanteId) {
@@ -1081,6 +1100,48 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
   useEffect(() => {
     void loadApoliceTabela()
   }, [loadApoliceTabela])
+
+  async function handleEstipulanteSelect(ev: SelectChangeEvent) {
+    const v = ev.target.value
+    onError(null)
+    if (!v) {
+      setEstipulanteId('')
+      return
+    }
+    if (v.startsWith(ESTIPULANTE_SEL_NEXUS_PREFIX)) {
+      if (!isAdmin) return
+      const nexusClienteId = v.slice(ESTIPULANTE_SEL_NEXUS_PREFIX.length)
+      const em = nexusGrupoEmpresas.find((x) => x.nexusClienteId === nexusClienteId)
+      if (!em) return
+      const cnpj = normCnpjDigits(em.cnpj)
+      if (cnpj.length < 8) {
+        onError(
+          'CNPJ do cliente Nexus é insuficiente para criar o estipulante aqui. Cadastre manualmente na aba Estipulantes.',
+        )
+        return
+      }
+      const r = await api<{ estipulante: Estipulante }>('/seguros/estipulantes', {
+        method: 'POST',
+        body: JSON.stringify({
+          grupoEconomicoNome: grupoNome,
+          nexusClienteId: em.nexusClienteId,
+          razaoSocial: em.razaoSocial,
+          cnpj,
+          nomeFantasia: null,
+          observacoes: null,
+        }),
+      })
+      if (!r.ok) {
+        onError(r.error || 'Não foi possível criar o estipulante.')
+        return
+      }
+      const id = r.data?.estipulante?.id
+      if (id) setEstipulanteId(id)
+      void loadEst()
+      return
+    }
+    setEstipulanteId(v)
+  }
 
   function onContratoSelect(v: string) {
     if (v === APOLICE_NUMERO_MANUAL) {
@@ -1210,6 +1271,12 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
             'Sincronize os clientes Nexus em Banco de dados para listar os nomes de grupo econômico nesta página.'}
         </Alert>
       ) : null}
+      {grupoNome && !loadingEst && portalEstRows.length === 0 && nexusGrupoEmpresas.length > 0 && !isAdmin ? (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Existem empresas Nexus neste grupo ainda sem estipulante no portal. Peça a um administrador para as cadastrar na
+          aba Estipulantes (ou escolha aqui se tiver permissão).
+        </Alert>
+      ) : null}
       <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 2, display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
         <FormControl fullWidth size="small">
           <InputLabel id="g-ap">Grupo econômico (Nexus)</InputLabel>
@@ -1238,16 +1305,26 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
             labelId="e-ap"
             label="Estipulante"
             value={estipulanteId}
-            onChange={(e: SelectChangeEvent) => setEstipulanteId(e.target.value)}
+            onChange={(e: SelectChangeEvent) => void handleEstipulanteSelect(e)}
           >
             <MenuItem value="">
               <em>Selecione…</em>
             </MenuItem>
-            {estRows.map((e) => (
-              <MenuItem key={e.id} value={e.id}>
-                {e.razaoSocial}
-              </MenuItem>
-            ))}
+            {mergedEstRows.map((row) =>
+              row.kind === 'portal' ? (
+                <MenuItem key={row.e.id} value={row.e.id}>
+                  {row.e.razaoSocial}
+                </MenuItem>
+              ) : (
+                <MenuItem
+                  key={`nx-est-${row.em.nexusClienteId}`}
+                  value={`${ESTIPULANTE_SEL_NEXUS_PREFIX}${row.em.nexusClienteId}`}
+                  disabled={!isAdmin}
+                >
+                  {row.em.razaoSocial} — {row.em.cnpj} (Nexus, pendente no portal)
+                </MenuItem>
+              ),
+            )}
           </Select>
         </FormControl>
       </Paper>
@@ -1448,7 +1525,8 @@ function ItensSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: str
   const [grupoNome, setGrupoNome] = useState('')
   const [estipulanteId, setEstipulanteId] = useState('')
   const [apoliceId, setApoliceId] = useState('')
-  const [estRows, setEstRows] = useState<Estipulante[]>([])
+  const [portalEstRows, setPortalEstRows] = useState<Estipulante[]>([])
+  const [nexusGrupoEmpresas, setNexusGrupoEmpresas] = useState<NexusEmpresaView[]>([])
   const [apLista, setApLista] = useState<ApoliceLista[]>([])
   const [itens, setItens] = useState<ApoliceItem[]>([])
   const [loadingEst, setLoadingEst] = useState(false)
@@ -1463,24 +1541,85 @@ function ItensSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: str
   const [sortOrder, setSortOrder] = useState('0')
   const [saving, setSaving] = useState(false)
 
+  const mergedEstRowsIt = useMemo(
+    () => mergeEstipulantesComNexus(portalEstRows, nexusGrupoEmpresas),
+    [portalEstRows, nexusGrupoEmpresas],
+  )
+
   const loadEst = useCallback(async () => {
     if (!grupoNome) {
-      setEstRows([])
-      setEstipulanteId('')
+      setPortalEstRows([])
+      setNexusGrupoEmpresas([])
       return
     }
     setLoadingEst(true)
-    const r = await api<{ estipulantes: Estipulante[] }>(
-      `/seguros/estipulantes?grupoNome=${encodeURIComponent(grupoNome)}`,
-    )
+    const [rEst, rNex] = await Promise.all([
+      api<{ estipulantes: Estipulante[] }>(`/seguros/estipulantes?grupoNome=${encodeURIComponent(grupoNome)}`),
+      api<{ empresas?: NexusEmpresaView[] }>(
+        `/seguros/nexus/clientes-do-grupo?grupoNome=${encodeURIComponent(grupoNome)}`,
+      ),
+    ])
     setLoadingEst(false)
-    if (!r.ok) {
-      onError(r.error || 'Erro ao carregar estipulantes.')
-      setEstRows([])
+    if (!rEst.ok) {
+      onError(rEst.error || 'Erro ao carregar estipulantes do portal.')
+      setPortalEstRows([])
+    } else {
+      setPortalEstRows(rEst.data?.estipulantes ?? [])
+    }
+    if (rNex.ok) setNexusGrupoEmpresas(rNex.data?.empresas ?? [])
+    else setNexusGrupoEmpresas([])
+  }, [grupoNome, onError])
+
+  useEffect(() => {
+    if (!grupoNome || loadingEst) return
+    const apenasPortal = mergedEstRowsIt.filter((r) => r.kind === 'portal')
+    if (apenasPortal.length === 1) setEstipulanteId(apenasPortal[0].e.id)
+  }, [grupoNome, loadingEst, mergedEstRowsIt])
+
+  async function handleEstipulanteSelectIt(ev: SelectChangeEvent) {
+    const v = ev.target.value
+    onError(null)
+    if (!v) {
+      setEstipulanteId('')
+      setApoliceId('')
       return
     }
-    setEstRows(r.data?.estipulantes ?? [])
-  }, [grupoNome, onError])
+    if (v.startsWith(ESTIPULANTE_SEL_NEXUS_PREFIX)) {
+      if (!isAdmin) return
+      const nexusClienteId = v.slice(ESTIPULANTE_SEL_NEXUS_PREFIX.length)
+      const em = nexusGrupoEmpresas.find((x) => x.nexusClienteId === nexusClienteId)
+      if (!em) return
+      const cnpj = normCnpjDigits(em.cnpj)
+      if (cnpj.length < 8) {
+        onError(
+          'CNPJ do cliente Nexus é insuficiente para criar o estipulante aqui. Cadastre manualmente na aba Estipulantes.',
+        )
+        return
+      }
+      const r = await api<{ estipulante: Estipulante }>('/seguros/estipulantes', {
+        method: 'POST',
+        body: JSON.stringify({
+          grupoEconomicoNome: grupoNome,
+          nexusClienteId: em.nexusClienteId,
+          razaoSocial: em.razaoSocial,
+          cnpj,
+          nomeFantasia: null,
+          observacoes: null,
+        }),
+      })
+      if (!r.ok) {
+        onError(r.error || 'Não foi possível criar o estipulante.')
+        return
+      }
+      const id = r.data?.estipulante?.id
+      if (id) setEstipulanteId(id)
+      setApoliceId('')
+      void loadEst()
+      return
+    }
+    setEstipulanteId(v)
+    setApoliceId('')
+  }
 
   const loadApLista = useCallback(async () => {
     if (!estipulanteId) {
@@ -1608,6 +1747,12 @@ function ItensSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: str
             'Sincronize os clientes Nexus em Banco de dados para listar os nomes de grupo econômico nesta página.'}
         </Alert>
       ) : null}
+      {grupoNome && !loadingEst && portalEstRows.length === 0 && nexusGrupoEmpresas.length > 0 && !isAdmin ? (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Existem empresas Nexus neste grupo ainda sem estipulante no portal. Um administrador deve cadastrá-las na aba
+          Estipulantes.
+        </Alert>
+      ) : null}
       <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 2, display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr 1fr' } }}>
         <FormControl fullWidth size="small">
           <InputLabel>Grupo econômico (Nexus)</InputLabel>
@@ -1635,19 +1780,26 @@ function ItensSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: str
           <Select
             label="Estipulante"
             value={estipulanteId}
-            onChange={(e: SelectChangeEvent) => {
-              setEstipulanteId(e.target.value)
-              setApoliceId('')
-            }}
+            onChange={(e: SelectChangeEvent) => void handleEstipulanteSelectIt(e)}
           >
             <MenuItem value="">
               <em>Selecione…</em>
             </MenuItem>
-            {estRows.map((e) => (
-              <MenuItem key={e.id} value={e.id}>
-                {e.razaoSocial}
-              </MenuItem>
-            ))}
+            {mergedEstRowsIt.map((row) =>
+              row.kind === 'portal' ? (
+                <MenuItem key={row.e.id} value={row.e.id}>
+                  {row.e.razaoSocial}
+                </MenuItem>
+              ) : (
+                <MenuItem
+                  key={`nx-it-${row.em.nexusClienteId}`}
+                  value={`${ESTIPULANTE_SEL_NEXUS_PREFIX}${row.em.nexusClienteId}`}
+                  disabled={!isAdmin}
+                >
+                  {row.em.razaoSocial} — {row.em.cnpj} (Nexus, pendente no portal)
+                </MenuItem>
+              ),
+            )}
           </Select>
         </FormControl>
         <FormControl fullWidth size="small" disabled={!estipulanteId || loadingAp}>
