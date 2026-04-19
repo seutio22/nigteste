@@ -76,8 +76,8 @@ export default function HelpPage() {
                 <li>
                   <strong>Administrador</strong>: em{' '}
                   <RouterLink to="/admin/centro">Painel administrativo</RouterLink> cria usuários; o{' '}
-                  <RouterLink to="/admin/centro?tab=nexus">Banco de dados Nexus</RouterLink> (sincronização com a API da
-                  página Dados + catálogo de campos); e em áreas o{' '}
+                  <RouterLink to="/admin/centro?tab=nexus">Banco de dados</RouterLink> (listas próprias tipo filiais,
+                  sincronização com a API da página Dados e catálogo de campos); e em áreas o{' '}
                   <strong>formulário visual</strong> por tipo (tipos de campo e mapeamento — sem programação).
                 </li>
               </ul>

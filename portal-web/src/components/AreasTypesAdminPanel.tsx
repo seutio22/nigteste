@@ -31,7 +31,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import CloseIcon from '@mui/icons-material/Close'
 import { api } from '../lib/api'
 import type { FormFieldDef } from '../lib/formSchema'
-import { parseFormMeta, parseFormSchema } from '../lib/formSchema'
+import { parseFormMeta, parseFormRules, parseFormSchema, parseFormSettings, type ConditionRule } from '../lib/formSchema'
 import type { NexusFieldRow } from '../lib/nexusCatalog'
 import FormBuilder from './FormBuilder'
 import type { SlaProfileRow } from './SlaAdminPanel'
@@ -100,6 +100,9 @@ export default function AreasTypesAdminPanel() {
   const [tSlug, setTSlug] = useState('')
   const [tName, setTName] = useState('')
   const [tFields, setTFields] = useState<FormFieldDef[]>([])
+  const [tRules, setTRules] = useState<ConditionRule[]>([])
+  const [tClearOnHide, setTClearOnHide] = useState(true)
+  const [tEnableInjectedBlocks, setTEnableInjectedBlocks] = useState(false)
   const [tShowTitle, setTShowTitle] = useState(false)
   const [tShowDesc, setTShowDesc] = useState(true)
   const [tSlaProfileId, setTSlaProfileId] = useState<string>('')
@@ -110,6 +113,9 @@ export default function AreasTypesAdminPanel() {
   const [eName, setEName] = useState('')
   const [eActive, setEActive] = useState(true)
   const [eFields, setEFields] = useState<FormFieldDef[]>([])
+  const [eRules, setERules] = useState<ConditionRule[]>([])
+  const [eClearOnHide, setEClearOnHide] = useState(true)
+  const [eEnableInjectedBlocks, setEEnableInjectedBlocks] = useState(false)
   const [eShowTitle, setEShowTitle] = useState(false)
   const [eShowDesc, setEShowDesc] = useState(true)
   const [eSlaProfileId, setESlaProfileId] = useState<string>('')
@@ -205,7 +211,14 @@ export default function AreasTypesAdminPanel() {
       setErr(`Chaves duplicadas nos campos: ${dups.join(', ')}`)
       return
     }
-    const formSchema = { fields: tFields, showTitle: tShowTitle, showDescription: tShowDesc }
+    const formSchema = {
+      fields: tFields,
+      rules: tRules,
+      clearOnHide: tClearOnHide,
+      enableInjectedBlocks: tEnableInjectedBlocks,
+      showTitle: tShowTitle,
+      showDescription: tShowDesc,
+    }
     const r = await api(`/admin/areas/${tAreaId}/types`, {
       method: 'POST',
       body: JSON.stringify({
@@ -224,6 +237,9 @@ export default function AreasTypesAdminPanel() {
     setTSlug('')
     setTName('')
     setTFields([])
+    setTRules([])
+    setTClearOnHide(true)
+    setTEnableInjectedBlocks(false)
     setTShowTitle(false)
     setTShowDesc(true)
     setTSlaProfileId('')
@@ -239,7 +255,14 @@ export default function AreasTypesAdminPanel() {
       setErr(`Chaves duplicadas nos campos: ${dups.join(', ')}`)
       return
     }
-    const formSchema = { fields: eFields, showTitle: eShowTitle, showDescription: eShowDesc }
+    const formSchema = {
+      fields: eFields,
+      rules: eRules,
+      clearOnHide: eClearOnHide,
+      enableInjectedBlocks: eEnableInjectedBlocks,
+      showTitle: eShowTitle,
+      showDescription: eShowDesc,
+    }
     const r = await api(`/admin/types/${eType.id}`, {
       method: 'PATCH',
       body: JSON.stringify({
@@ -285,14 +308,14 @@ export default function AreasTypesAdminPanel() {
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Organize por área; cada tipo tem o seu formulário. Use o painel lateral (largo) para montar campos e ligar ao
-              Nexus.
+              catálogo ou a dados sincronizados.
             </Typography>
           </Box>
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
             <Button variant="outlined" size="small" onClick={() => void loadNexusCatalog()}>
-              Atualizar catálogo Nexus
+              Atualizar catálogo de campos
             </Button>
-            <Chip size="small" label={`${nexusActiveCount} campos Nexus ativos`} variant="outlined" color="primary" />
+            <Chip size="small" label={`${nexusActiveCount} campos ativos no catálogo`} variant="outlined" color="primary" />
             <Button variant="contained" onClick={() => setAOpen(true)}>
               Nova área
             </Button>
@@ -407,9 +430,13 @@ export default function AreasTypesAdminPanel() {
                                 setEName(t.name)
                                 setEActive(t.active)
                                 setEFields(parseFormSchema(t.formSchema))
+                                setERules(parseFormRules(t.formSchema))
                                 const m = parseFormMeta(t.formSchema)
                                 setEShowTitle(m.showTitle)
                                 setEShowDesc(m.showDescription)
+                                const s = parseFormSettings(t.formSchema)
+                                setEClearOnHide(s.clearOnHide)
+                                setEEnableInjectedBlocks(s.enableInjectedBlocks)
                                 setESlaProfileId(t.slaProfile?.id ?? '')
                                 setEOpen(true)
                               }}
@@ -523,9 +550,24 @@ export default function AreasTypesAdminPanel() {
               <Stack direction="row" flexWrap="wrap" gap={2}>
                 <FormControlLabel control={<Switch checked={tShowTitle} onChange={(e) => setTShowTitle(e.target.checked)} />} label="Pedir título da solicitação" />
                 <FormControlLabel control={<Switch checked={tShowDesc} onChange={(e) => setTShowDesc(e.target.checked)} />} label="Pedir descrição / assunto (texto livre)" />
+                <FormControlLabel
+                  control={<Switch checked={tEnableInjectedBlocks} onChange={(e) => setTEnableInjectedBlocks(e.target.checked)} />}
+                  label="Ativar blocos/campos injetados (desenvolvimento)"
+                />
+                <FormControlLabel
+                  control={<Switch checked={tClearOnHide} onChange={(e) => setTClearOnHide(e.target.checked)} />}
+                  label="Limpar valores ao ocultar por regra"
+                />
               </Stack>
             </Paper>
-            <FormBuilder fields={tFields} onChange={setTFields} nexusCatalog={nexusCatalog} showNexusQuickPick />
+            <FormBuilder
+              fields={tFields}
+              onChange={setTFields}
+              nexusCatalog={nexusCatalog}
+              showNexusQuickPick
+              rules={tRules}
+              onRulesChange={setTRules}
+            />
             <Button variant="contained" size="large" onClick={() => void saveType()}>
               Criar tipo
             </Button>
@@ -575,9 +617,24 @@ export default function AreasTypesAdminPanel() {
               <Stack direction="row" flexWrap="wrap" gap={2}>
                 <FormControlLabel control={<Switch checked={eShowTitle} onChange={(e) => setEShowTitle(e.target.checked)} />} label="Pedir título da solicitação" />
                 <FormControlLabel control={<Switch checked={eShowDesc} onChange={(e) => setEShowDesc(e.target.checked)} />} label="Pedir descrição / assunto (texto livre)" />
+                <FormControlLabel
+                  control={<Switch checked={eEnableInjectedBlocks} onChange={(e) => setEEnableInjectedBlocks(e.target.checked)} />}
+                  label="Ativar blocos/campos injetados (desenvolvimento)"
+                />
+                <FormControlLabel
+                  control={<Switch checked={eClearOnHide} onChange={(e) => setEClearOnHide(e.target.checked)} />}
+                  label="Limpar valores ao ocultar por regra"
+                />
               </Stack>
             </Paper>
-            <FormBuilder fields={eFields} onChange={setEFields} nexusCatalog={nexusCatalog} showNexusQuickPick />
+            <FormBuilder
+              fields={eFields}
+              onChange={setEFields}
+              nexusCatalog={nexusCatalog}
+              showNexusQuickPick
+              rules={eRules}
+              onRulesChange={setERules}
+            />
             <Button variant="contained" size="large" onClick={() => void saveEditType()}>
               Salvar alterações
             </Button>

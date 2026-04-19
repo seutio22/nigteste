@@ -156,6 +156,22 @@ function normCnpjDigits(s: string) {
   return (s || '').replace(/\D/g, '')
 }
 
+/**
+ * CNPJ com pelo menos 8 dígitos para cadastrar estipulante a partir do Nexus.
+ * Quando o snapshot traz "—" ou sem documento, usa o id do cliente ou um valor derivado (14 dígitos)
+ * para não bloquear apólices e respeitar o unique (grupo + CNPJ) no portal.
+ */
+function cnpjParaCadastroEstipulanteNexus(em: Pick<NexusEmpresaView, 'nexusClienteId' | 'cnpj'>): string {
+  const d = normCnpjDigits(em.cnpj)
+  if (d.length >= 8) return d.length > 20 ? d.slice(0, 20) : d
+  const fromId = normCnpjDigits(em.nexusClienteId)
+  if (fromId.length >= 8) return fromId.length > 20 ? fromId.slice(0, 20) : fromId
+  let h = 0
+  for (let i = 0; i < em.nexusClienteId.length; i++) h = (h * 31 + em.nexusClienteId.charCodeAt(i)) >>> 0
+  const n = 10000000000000 + (h % 8999999999999)
+  return String(n).padStart(14, '0').slice(0, 14)
+}
+
 /** Linha da tabela: cadastro no portal ou empresa ainda só no Nexus (para o mesmo grupo). */
 type EstipulanteTabelaRow =
   | { kind: 'portal'; e: Estipulante }
@@ -747,7 +763,7 @@ function EstipulantesSection({ isAdmin, onError }: { isAdmin: boolean; onError: 
     if (!grupoNome) return
     setEdit(null)
     setRazaoSocial(em.razaoSocial)
-    setCnpj(em.cnpj === '—' ? '' : em.cnpj)
+    setCnpj(normCnpjDigits(em.cnpj).length >= 8 ? normCnpjDigits(em.cnpj) : cnpjParaCadastroEstipulanteNexus(em))
     setNomeFantasia('')
     setObservacoes('')
     setNexusClienteId(em.nexusClienteId)
@@ -775,7 +791,7 @@ function EstipulantesSection({ isAdmin, onError }: { isAdmin: boolean; onError: 
     const em = nexusGrupoEmpresas.find((x) => x.nexusClienteId === id)
     if (em) {
       setRazaoSocial(em.razaoSocial)
-      setCnpj(em.cnpj === '—' ? '' : em.cnpj)
+      setCnpj(normCnpjDigits(em.cnpj).length >= 8 ? normCnpjDigits(em.cnpj) : cnpjParaCadastroEstipulanteNexus(em))
       setNexusClienteId(em.nexusClienteId)
     }
   }
@@ -800,13 +816,22 @@ function EstipulantesSection({ isAdmin, onError }: { isAdmin: boolean; onError: 
         void load()
       }
     } else {
+      let cnpjBody = normCnpjDigits(cnpj).length >= 8 ? normCnpjDigits(cnpj).slice(0, 20) : ''
+      if (!cnpjBody && nexusClienteId?.trim()) {
+        cnpjBody = cnpjParaCadastroEstipulanteNexus({ nexusClienteId: nexusClienteId.trim(), cnpj })
+      }
+      if (!cnpjBody) {
+        setSaving(false)
+        onError('Informe um CNPJ válido ou escolha um cliente Nexus na lista.')
+        return
+      }
       const r = await api<{ estipulante: Estipulante }>('/seguros/estipulantes', {
         method: 'POST',
         body: JSON.stringify({
           grupoEconomicoNome: grupoNome,
           nexusClienteId: nexusClienteId?.trim() || null,
           razaoSocial,
-          cnpj,
+          cnpj: cnpjBody,
           nomeFantasia: nomeFantasia.trim() || null,
           observacoes: observacoes.trim() || null,
         }),
@@ -1113,20 +1138,14 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
       const nexusClienteId = v.slice(ESTIPULANTE_SEL_NEXUS_PREFIX.length)
       const em = nexusGrupoEmpresas.find((x) => x.nexusClienteId === nexusClienteId)
       if (!em) return
-      const cnpj = normCnpjDigits(em.cnpj)
-      if (cnpj.length < 8) {
-        onError(
-          'CNPJ do cliente Nexus é insuficiente para criar o estipulante aqui. Cadastre manualmente na aba Estipulantes.',
-        )
-        return
-      }
+      const cnpjBody = cnpjParaCadastroEstipulanteNexus(em)
       const r = await api<{ estipulante: Estipulante }>('/seguros/estipulantes', {
         method: 'POST',
         body: JSON.stringify({
           grupoEconomicoNome: grupoNome,
           nexusClienteId: em.nexusClienteId,
           razaoSocial: em.razaoSocial,
-          cnpj,
+          cnpj: cnpjBody,
           nomeFantasia: null,
           observacoes: null,
         }),
@@ -1589,20 +1608,14 @@ function ItensSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: str
       const nexusClienteId = v.slice(ESTIPULANTE_SEL_NEXUS_PREFIX.length)
       const em = nexusGrupoEmpresas.find((x) => x.nexusClienteId === nexusClienteId)
       if (!em) return
-      const cnpj = normCnpjDigits(em.cnpj)
-      if (cnpj.length < 8) {
-        onError(
-          'CNPJ do cliente Nexus é insuficiente para criar o estipulante aqui. Cadastre manualmente na aba Estipulantes.',
-        )
-        return
-      }
+      const cnpjBody = cnpjParaCadastroEstipulanteNexus(em)
       const r = await api<{ estipulante: Estipulante }>('/seguros/estipulantes', {
         method: 'POST',
         body: JSON.stringify({
           grupoEconomicoNome: grupoNome,
           nexusClienteId: em.nexusClienteId,
           razaoSocial: em.razaoSocial,
-          cnpj,
+          cnpj: cnpjBody,
           nomeFantasia: null,
           observacoes: null,
         }),

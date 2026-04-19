@@ -131,7 +131,7 @@ export default function NexusListSourcePicker({ entity, valueField, labelField, 
   if (fetchErr || !meta) {
     return (
       <Alert severity="warning">
-        {fetchErr || 'Sem dados.'} Sincronize na aba <strong>Banco de dados Nexus</strong> e confirme NEXUS_API_* no
+        {fetchErr || 'Sem dados.'} Sincronize na aba <strong>Banco de dados</strong> e confirme NEXUS_API_* no
         servidor.
       </Alert>
     )
@@ -148,7 +148,7 @@ export default function NexusListSourcePicker({ entity, valueField, labelField, 
   if (meta.rowCount === 0 || meta.columns.length === 0) {
     return (
       <Alert severity="info">
-        Snapshot sem linhas ou sem colunas detetadas. Execute a sincronização na aba Banco de dados Nexus para a entidade{' '}
+        Snapshot sem linhas ou sem colunas detetadas. Execute a sincronização na aba Banco de dados para a entidade{' '}
         <strong>{entity}</strong>.
       </Alert>
     )

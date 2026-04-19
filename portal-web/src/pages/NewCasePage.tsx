@@ -10,10 +10,22 @@ import {
   Typography,
 } from '@mui/material'
 import { api } from '../lib/api'
-import { isFieldAnswerEmpty, parseFormMeta, parseFormSchema, toAnswerPayload } from '../lib/formSchema'
+import {
+  applyConditionalRules,
+  parseFormRules,
+  parseFormSettings,
+  type ConditionRule,
+  isFieldAnswerEmpty,
+  parseFormMeta,
+  parseFormSchema,
+  parseRepeatGroupRows,
+  parseRepeatValues,
+  toAnswerPayload,
+} from '../lib/formSchema'
 import { parseAttachmentRefString } from '../lib/uploadAttachment'
 import DynamicFormFields from '../components/DynamicFormFields'
 import NewRequestCatalog from '../components/NewRequestCatalog'
+import { injectFormBlocks } from '../lib/formInjection'
 
 type TypeRow = {
   id: string
@@ -73,8 +85,16 @@ export default function NewCasePage() {
   const types = useMemo(() => areas.find((a) => a.id === areaId)?.types ?? [], [areas, areaId])
   const selectedType = useMemo(() => types.find((t) => t.id === typeId), [types, typeId])
   const selectedArea = useMemo(() => areas.find((a) => a.id === areaId), [areas, areaId])
-  const dynamicFields = useMemo(() => parseFormSchema(selectedType?.formSchema), [selectedType])
-  const formMeta = useMemo(() => parseFormMeta(selectedType?.formSchema), [selectedType])
+  const effectiveSchema = useMemo(() => {
+    const base = (selectedType?.formSchema && typeof selectedType.formSchema === 'object'
+      ? (selectedType.formSchema as Record<string, unknown>)
+      : {}) as any
+    return injectFormBlocks(selectedType?.slug, base)
+  }, [selectedType])
+  const dynamicFields = useMemo(() => parseFormSchema(effectiveSchema), [effectiveSchema])
+  const formMeta = useMemo(() => parseFormMeta(effectiveSchema), [effectiveSchema])
+  const formRules = useMemo<ConditionRule[]>(() => parseFormRules(effectiveSchema), [effectiveSchema])
+  const formSettings = useMemo(() => parseFormSettings(effectiveSchema), [effectiveSchema])
 
   useEffect(() => {
     setDynValues({})
@@ -85,8 +105,31 @@ export default function NewCasePage() {
   }
 
   function validateDynamic(): string | null {
+    const { requiredByKey, visibleByKey } = applyConditionalRules(dynamicFields, formRules, dynValues)
+    // 1) valida grupos repetíveis (group_only)
+    const groupKeys = Array.from(
+      new Set(dynamicFields.map((f) => (f.repeatGroupKey ?? '').trim()).filter(Boolean))
+    )
+    for (const gk of groupKeys) {
+      const cols = dynamicFields.filter((f) => (f.repeatGroupKey ?? '').trim() === gk)
+      if (cols.length === 0) continue
+      if (visibleByKey[gk] === false) continue
+      const raw = dynValues[gk] ?? ''
+      const rows = parseRepeatGroupRows(raw)
+      for (const col of cols) {
+        if (visibleByKey[col.key] === false) continue
+        if (!requiredByKey[col.key]) continue
+        const anyFilled = rows.some((r) => !isFieldAnswerEmpty(col, r[col.key] ?? ''))
+        if (!anyFilled) return `Preencha o campo: ${col.label}`
+      }
+    }
+
+    // 2) valida campos fora de grupos
     for (const f of dynamicFields) {
-      if (!f.required) continue
+      if (!requiredByKey[f.key]) continue
+      if (f.type === 'section' || f.type === 'subtitle') continue
+      if ((f.repeatGroupKey ?? '').trim()) continue
+      if (visibleByKey[f.key] === false) continue
       if (f.type === 'file') {
         const att = parseAttachmentRefString(dynValues[f.key] ?? '')
         if (!att?.key) return `Anexe o arquivo: ${f.label}`
@@ -95,6 +138,12 @@ export default function NewCasePage() {
       const v = dynValues[f.key] ?? ''
       if (f.type === 'checkbox') {
         if (v !== 'true') return `Marque o campo: ${f.label}`
+        continue
+      }
+      if (f.repeatable) {
+        const parts = parseRepeatValues(v)
+        const anyFilled = parts.some((p) => !isFieldAnswerEmpty(f, p))
+        if (!anyFilled) return `Preencha o campo: ${f.label}`
         continue
       }
       if (isFieldAnswerEmpty(f, v)) {
@@ -122,15 +171,47 @@ export default function NewCasePage() {
       return
     }
 
+    const { visibleByKey } = applyConditionalRules(dynamicFields, formRules, dynValues)
     const answers: Record<string, unknown> = {}
+    // 1) grupos (group_only)
+    const groupKeys = Array.from(
+      new Set(dynamicFields.map((f) => (f.repeatGroupKey ?? '').trim()).filter(Boolean))
+    )
+    for (const gk of groupKeys) {
+      const cols = dynamicFields.filter((f) => (f.repeatGroupKey ?? '').trim() === gk)
+      if (cols.length === 0) continue
+      if (visibleByKey[gk] === false) continue
+      const raw = dynValues[gk] ?? ''
+      const rows = parseRepeatGroupRows(raw)
+      answers[gk] = rows.map((r) => {
+        const obj: Record<string, unknown> = {}
+        for (const col of cols) {
+          if (visibleByKey[col.key] === false) continue
+          const payload = toAnswerPayload(col, r[col.key] ?? '')
+          if (payload !== undefined) obj[col.key] = payload
+        }
+        return obj
+      })
+    }
+
+    // 2) campos fora do grupo
     for (const f of dynamicFields) {
+      if (f.type === 'section' || f.type === 'subtitle') continue
+      if ((f.repeatGroupKey ?? '').trim()) continue
+      if (visibleByKey[f.key] === false) continue
       const raw = dynValues[f.key] ?? ''
       if (f.type === 'file') {
         const att = parseAttachmentRefString(raw)
         if (att) answers[f.key] = att
         continue
       }
-      answers[f.key] = toAnswerPayload(f, raw)
+      if (f.repeatable) {
+        const parts = parseRepeatValues(raw)
+        answers[f.key] = parts.map((p) => toAnswerPayload(f, p)).filter((x) => x !== undefined)
+        continue
+      }
+      const payload = toAnswerPayload(f, raw)
+      if (payload !== undefined) answers[f.key] = payload
     }
     if (formMeta.showDescription && description.trim()) answers.observacoes = description.trim()
 
@@ -168,7 +249,13 @@ export default function NewCasePage() {
     (!selectedArea || !selectedType || selectedArea.id !== preArea || selectedType.id !== preType)
 
   return (
-    <Container maxWidth="sm" sx={{ py: 3 }}>
+    <Container
+      maxWidth="lg"
+      sx={{
+        py: 3,
+        px: { xs: 2, md: 3 },
+      }}
+    >
       <Typography variant="h5" fontWeight={700} gutterBottom>
         Nova solicitação
       </Typography>
@@ -226,6 +313,8 @@ export default function NewCasePage() {
             values={dynValues}
             onChange={setDyn}
             disabled={busy}
+            rules={formRules}
+            clearOnHide={formSettings.clearOnHide}
             onFileUploadError={setErr}
             onFileUploadSuccess={() => setErr(null)}
           />
