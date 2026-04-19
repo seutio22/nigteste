@@ -1,0 +1,1555 @@
+import { useCallback, useEffect, useState } from 'react'
+import { Link as RouterLink } from 'react-router-dom'
+import {
+  Alert,
+  Box,
+  Button,
+  Chip,
+  Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Divider,
+  Drawer,
+  FormControl,
+  InputLabel,
+  List,
+  ListItemButton,
+  ListItemText,
+  MenuItem,
+  Paper,
+  Select,
+  type SelectChangeEvent,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  TextField,
+  Typography,
+  useMediaQuery,
+} from '@mui/material'
+import AccountTreeIcon from '@mui/icons-material/AccountTree'
+import BusinessIcon from '@mui/icons-material/Business'
+import DescriptionIcon from '@mui/icons-material/Description'
+import ListAltIcon from '@mui/icons-material/ListAlt'
+import HomeWorkIcon from '@mui/icons-material/HomeWork'
+import ArrowBackIcon from '@mui/icons-material/ArrowBack'
+import { api } from '../lib/api'
+import { useAuth } from '../context/AuthContext'
+
+const DRAWER = 280
+
+type Section = 'visao' | 'grupos' | 'estipulantes' | 'apolices' | 'itens'
+
+type ApoliceProduto = 'SAUDE' | 'ODONTO' | 'VIDA_GRUPO' | 'OUTROS'
+type ItemTipo = 'COBERTURA' | 'SERVICO' | 'CLAUSULA' | 'OUTRO'
+
+const PRODUTO_LABEL: Record<ApoliceProduto, string> = {
+  SAUDE: 'Saúde',
+  ODONTO: 'Odonto',
+  VIDA_GRUPO: 'Vida em grupo',
+  OUTROS: 'Outros',
+}
+
+const ITEM_TIPO_LABEL: Record<ItemTipo, string> = {
+  COBERTURA: 'Cobertura',
+  SERVICO: 'Serviço',
+  CLAUSULA: 'Cláusula',
+  OUTRO: 'Outro',
+}
+
+type Grupo = {
+  id: string
+  nome: string
+  cnpj: string | null
+  observacoes: string | null
+  active: boolean
+  _count?: { estipulantes: number }
+}
+
+/** Uma linha por empresa (cliente Nexus), com nome do grupo econômico repetido quando há várias empresas no mesmo grupo. */
+type NexusEmpresaView = {
+  nexusClienteId: string
+  grupoEconomicoNome: string
+  razaoSocial: string
+  cnpj: string
+  status: string
+}
+
+type Estipulante = {
+  id: string
+  grupoEconomicoId: string | null
+  grupoEconomicoNome: string
+  nexusClienteId: string | null
+  razaoSocial: string
+  cnpj: string
+  nomeFantasia: string | null
+  observacoes: string | null
+  active: boolean
+  grupo?: { id: string; nome: string } | null
+  _count?: { apolices: number }
+}
+
+type NexusContratoOpcao = {
+  nexusContratoId: string
+  numero: string
+  codigo: string
+  grupoEconomico: string
+  clienteId: string
+  status: string
+}
+
+type Apolice = {
+  id: string
+  estipulanteId: string
+  nexusContratoId: string | null
+  numeroApolice: string
+  produto: ApoliceProduto
+  fornecedor: string
+  subestipulante: string
+  plano: string | null
+  coberturas: string | null
+  vigenciaInicio: string | null
+  vigenciaFim: string | null
+  observacoes: string | null
+  active: boolean
+  estipulante?: {
+    id: string
+    razaoSocial: string
+    grupoEconomicoNome?: string
+    grupo?: { id: string; nome: string } | null
+  }
+  _count?: { itens: number }
+}
+
+type ApoliceLista = {
+  id: string
+  numeroApolice: string
+  produto: ApoliceProduto
+  estipulante: {
+    id: string
+    razaoSocial: string
+    grupoEconomicoNome: string
+    grupo?: { id: string; nome: string } | null
+  }
+}
+
+type ApoliceItem = {
+  id: string
+  apoliceId: string
+  tipo: ItemTipo
+  descricao: string
+  detalhes: string | null
+  sortOrder: number
+  active: boolean
+}
+
+function fmtDate(s: string | null) {
+  if (!s) return '—'
+  const d = new Date(s)
+  if (Number.isNaN(d.getTime())) return s
+  return d.toLocaleDateString('pt-BR')
+}
+
+/** Nomes de grupo econômico vindos do snapshot Nexus `clientes` (vários CNPJs por grupo). */
+function useNexusGruposEconomicosNomes() {
+  const [nomes, setNomes] = useState<string[]>([])
+  const [needsSync, setNeedsSync] = useState(false)
+  const [syncMessage, setSyncMessage] = useState<string | null>(null)
+  const load = useCallback(async () => {
+    const r = await api<{ ok?: boolean; needsSync?: boolean; nomes?: string[]; message?: string }>(
+      '/seguros/nexus/grupos-economicos-nomes',
+    )
+    if (!r.ok) {
+      setNomes([])
+      setNeedsSync(true)
+      setSyncMessage(r.error ?? null)
+      return
+    }
+    const d = r.data
+    setNomes(d?.nomes ?? [])
+    setNeedsSync(!!d?.needsSync || d?.ok === false)
+    setSyncMessage(d?.message ?? null)
+  }, [])
+  useEffect(() => {
+    void load()
+  }, [load])
+  return { nomes, needsSync, syncMessage, reloadNomes: load }
+}
+
+export default function ApolicePage() {
+  const isMd = useMediaQuery((t) => t.breakpoints.up('md'))
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'PORTAL_ADMIN'
+
+  const [section, setSection] = useState<Section>('visao')
+  const [mobileOpen, setMobileOpen] = useState(false)
+
+  const [err, setErr] = useState<string | null>(null)
+  const [grupos, setGrupos] = useState<Grupo[]>([])
+
+  const loadGrupos = useCallback(async () => {
+    const r = await api<{ grupos: Grupo[] }>('/seguros/grupos-economicos')
+    if (!r.ok) {
+      setErr(r.error || 'Erro ao carregar grupos econômicos.')
+      return
+    }
+    setGrupos(r.data?.grupos ?? [])
+  }, [])
+
+  useEffect(() => {
+    void loadGrupos()
+  }, [loadGrupos])
+
+  const drawer = (
+    <Box sx={{ py: 1 }}>
+      <Typography variant="subtitle2" sx={{ px: 2, py: 1, color: 'text.secondary' }}>
+        Cadastros de seguros
+      </Typography>
+      <List dense sx={{ pb: 0 }}>
+        <ListItemButton
+          component={RouterLink}
+          to="/"
+          onClick={() => setMobileOpen(false)}
+          sx={{ borderRadius: 1, mx: 0.5, mb: 0.5, bgcolor: 'action.hover' }}
+        >
+          <ArrowBackIcon sx={{ mr: 1, fontSize: 20 }} />
+          <ListItemText primary="Voltar ao menu principal" secondary="Início do portal" />
+        </ListItemButton>
+      </List>
+      <Divider sx={{ mx: 1, mb: 1 }} />
+      <List dense>
+        <ListItemButton selected={section === 'visao'} onClick={() => { setSection('visao'); setMobileOpen(false) }}>
+          <HomeWorkIcon sx={{ mr: 1, fontSize: 20, opacity: 0.8 }} />
+          <ListItemText primary="Visão geral" secondary="Hierarquia e uso" />
+        </ListItemButton>
+        <ListItemButton selected={section === 'grupos'} onClick={() => { setSection('grupos'); setMobileOpen(false) }}>
+          <AccountTreeIcon sx={{ mr: 1, fontSize: 20, opacity: 0.8 }} />
+          <ListItemText primary="Grupos econômicos" secondary="Clientes / grupos" />
+        </ListItemButton>
+        <ListItemButton
+          selected={section === 'estipulantes'}
+          onClick={() => { setSection('estipulantes'); setMobileOpen(false) }}
+        >
+          <BusinessIcon sx={{ mr: 1, fontSize: 20, opacity: 0.8 }} />
+          <ListItemText primary="Estipulantes" secondary="Por grupo econômico" />
+        </ListItemButton>
+        <ListItemButton selected={section === 'apolices'} onClick={() => { setSection('apolices'); setMobileOpen(false) }}>
+          <DescriptionIcon sx={{ mr: 1, fontSize: 20, opacity: 0.8 }} />
+          <ListItemText primary="Apólices" secondary="Por estipulante" />
+        </ListItemButton>
+        <ListItemButton selected={section === 'itens'} onClick={() => { setSection('itens'); setMobileOpen(false) }}>
+          <ListAltIcon sx={{ mr: 1, fontSize: 20, opacity: 0.8 }} />
+          <ListItemText primary="Itens da apólice" secondary="Coberturas e outros" />
+        </ListItemButton>
+      </List>
+    </Box>
+  )
+
+  return (
+    <Box sx={{ display: 'flex', minHeight: 'calc(100vh - 64px)' }}>
+      {isMd ? (
+        <Drawer variant="permanent" sx={{ width: DRAWER, flexShrink: 0, [`& .MuiDrawer-paper`]: { width: DRAWER, boxSizing: 'border-box' } }}>
+          {drawer}
+        </Drawer>
+      ) : (
+        <>
+          <Drawer anchor="left" open={mobileOpen} onClose={() => setMobileOpen(false)}>
+            <Box sx={{ width: DRAWER }}>{drawer}</Box>
+          </Drawer>
+        </>
+      )}
+
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          p: { xs: 2, md: 3 },
+          maxWidth: { md: `calc(100% - ${DRAWER}px)` },
+          width: '100%',
+        }}
+      >
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, mb: 2 }}>
+          <Button component={RouterLink} to="/" variant="outlined" size="small" startIcon={<ArrowBackIcon />}>
+            Voltar ao menu principal
+          </Button>
+          {!isMd ? (
+            <Button size="small" variant="contained" color="inherit" onClick={() => setMobileOpen(true)}>
+              Menu cadastros (secções)
+            </Button>
+          ) : null}
+        </Box>
+        <Typography variant="h5" fontWeight={800} gutterBottom>
+          Apólice — base cadastral
+        </Typography>
+        <Typography color="text.secondary" sx={{ mb: 2 }}>
+          Estrutura em camadas para uso nas <strong>solicitações</strong>: cadastre primeiro o <strong>grupo econômico</strong>, depois o{' '}
+          <strong>estipulante</strong>, em seguida a <strong>apólice</strong> e, por fim, os <strong>itens</strong> (coberturas, serviços, cláusulas).
+        </Typography>
+
+        {!isAdmin && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Apenas utilizadores com perfil <strong>administrador do portal</strong> podem incluir, editar ou excluir cadastros. Os demais podem
+            consultar esta base ao abrir solicitações.
+          </Alert>
+        )}
+
+        {err && (
+          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setErr(null)}>
+            {err}
+          </Alert>
+        )}
+
+        {section === 'visao' && <VisaoGeral gruposCount={grupos.length} />}
+        {section === 'grupos' && <GruposSection grupos={grupos} isAdmin={isAdmin} onRefresh={loadGrupos} onError={setErr} />}
+        {section === 'estipulantes' && <EstipulantesSection isAdmin={isAdmin} onError={setErr} />}
+        {section === 'apolices' && <ApolicesSection isAdmin={isAdmin} onError={setErr} />}
+        {section === 'itens' && <ItensSection isAdmin={isAdmin} onError={setErr} />}
+      </Box>
+    </Box>
+  )
+}
+
+function VisaoGeral({ gruposCount }: { gruposCount: number }) {
+  return (
+    <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
+      <Typography variant="subtitle1" fontWeight={700} gutterBottom>
+        Hierarquia recomendada
+      </Typography>
+      <Box component="ol" sx={{ pl: 2, m: 0, color: 'text.secondary', '& li': { mb: 1 } }}>
+        <li>
+          <strong>Grupo econômico</strong> — identifica o cliente / conglomerado.
+        </li>
+        <li>
+          <strong>Estipulante</strong> — pessoa jurídica contratante, vinculada a um grupo econômico.
+        </li>
+        <li>
+          <strong>Apólice</strong> — número, produto (Saúde, Odonto, Vida em grupo, Outros), seguradora (fornecedor), subestipulante; <strong>plano</strong>{' '}
+          obrigatório em Saúde/Odonto; <strong>coberturas</strong> obrigatórias em Vida em grupo.
+        </li>
+        <li>
+          <strong>Itens da apólice</strong> — detalhamento (coberturas, serviços, cláusulas) por apólice.
+        </li>
+      </Box>
+      <Divider sx={{ my: 2 }} />
+      <Typography variant="body2" color="text.secondary">
+        Grupos econômicos cadastrados: <strong>{gruposCount}</strong>
+      </Typography>
+    </Paper>
+  )
+}
+
+function GruposSection({
+  grupos,
+  isAdmin,
+  onRefresh,
+  onError,
+}: {
+  grupos: Grupo[]
+  isAdmin: boolean
+  onRefresh: () => void
+  onError: (s: string | null) => void
+}) {
+  const [nexusLoading, setNexusLoading] = useState(true)
+  const [nexusEmpresas, setNexusEmpresas] = useState<NexusEmpresaView[]>([])
+  const [nexusOk, setNexusOk] = useState(false)
+  const [nexusNeedsSync, setNexusNeedsSync] = useState(false)
+  const [nexusSyncedAt, setNexusSyncedAt] = useState<string | null>(null)
+  const [nexusMsg, setNexusMsg] = useState<string | null>(null)
+  const [nexusRowCount, setNexusRowCount] = useState<number | null>(null)
+
+  const loadNexus = useCallback(async () => {
+    setNexusLoading(true)
+    onError(null)
+    const r = await api<{
+      ok: boolean
+      needsSync?: boolean
+      message?: string
+      empresas: NexusEmpresaView[]
+      syncedAt?: string | null
+      rowCount?: number
+    }>('/seguros/nexus/grupos-economicos-view')
+    setNexusLoading(false)
+    if (!r.ok) {
+      onError(r.error || 'Erro ao carregar grupos econômicos (Nexus).')
+      setNexusEmpresas([])
+      setNexusOk(false)
+      setNexusNeedsSync(true)
+      return
+    }
+    const d = r.data
+    setNexusEmpresas(d?.empresas ?? [])
+    setNexusOk(d?.ok === true)
+    setNexusNeedsSync(d?.needsSync === true)
+    setNexusSyncedAt(d?.syncedAt ?? null)
+    setNexusMsg(d?.message ?? null)
+    setNexusRowCount(typeof d?.rowCount === 'number' ? d.rowCount : null)
+  }, [onError])
+
+  useEffect(() => {
+    void loadNexus()
+  }, [loadNexus])
+
+  const [open, setOpen] = useState(false)
+  const [edit, setEdit] = useState<Grupo | null>(null)
+  const [nome, setNome] = useState('')
+  const [cnpj, setCnpj] = useState('')
+  const [observacoes, setObservacoes] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  function openCreate() {
+    setEdit(null)
+    setNome('')
+    setCnpj('')
+    setObservacoes('')
+    setOpen(true)
+  }
+
+  function openRow(g: Grupo) {
+    setEdit(g)
+    setNome(g.nome)
+    setCnpj(g.cnpj ?? '')
+    setObservacoes(g.observacoes ?? '')
+    setOpen(true)
+  }
+
+  async function save() {
+    onError(null)
+    setSaving(true)
+    if (edit) {
+      const r = await api<{ grupo: Grupo }>(`/seguros/grupos-economicos/${edit.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ nome, cnpj: cnpj.trim() || null, observacoes: observacoes.trim() || null }),
+      })
+      setSaving(false)
+      if (!r.ok) onError(r.error || 'Erro ao guardar.')
+      else {
+        setOpen(false)
+        onRefresh()
+      }
+    } else {
+      const r = await api<{ grupo: Grupo }>('/seguros/grupos-economicos', {
+        method: 'POST',
+        body: JSON.stringify({ nome, cnpj: cnpj.trim() || null, observacoes: observacoes.trim() || null }),
+      })
+      setSaving(false)
+      if (!r.ok) onError(r.error || 'Erro ao guardar.')
+      else {
+        setOpen(false)
+        onRefresh()
+      }
+    }
+  }
+
+  async function del(id: string) {
+    if (!window.confirm('Remover este grupo? Estipulantes e apólices associados serão removidos.')) return
+    onError(null)
+    const r = await api(`/seguros/grupos-economicos/${id}`, { method: 'DELETE' })
+    if (!r.ok) onError(r.error || 'Erro ao remover.')
+    else onRefresh()
+  }
+
+  return (
+    <>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
+        <Typography variant="subtitle1" fontWeight={700}>
+          Grupos econômicos (Nexus)
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+          {nexusSyncedAt ? (
+            <Chip size="small" label={`Sincronizado: ${new Date(nexusSyncedAt).toLocaleString('pt-BR')}`} variant="outlined" />
+          ) : null}
+          {nexusRowCount !== null ? <Chip size="small" label={`${nexusRowCount} cliente(s) no snapshot`} variant="outlined" /> : null}
+          <Button size="small" variant="outlined" onClick={() => void loadNexus()} disabled={nexusLoading}>
+            Atualizar lista
+          </Button>
+        </Box>
+      </Box>
+
+      {nexusNeedsSync || !nexusOk ? (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          {nexusMsg ||
+            'Os clientes do Nexus ainda não foram sincronizados para o portal. Um administrador deve executar a sincronização em «Banco de dados» (Nexus).'}
+        </Alert>
+      ) : (
+        <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+          Dados obtidos do snapshot <strong>clientes</strong> da API Nexus. Várias linhas com o mesmo grupo indicam várias empresas naquele grupo económico.
+        </Typography>
+      )}
+
+      <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'auto', mb: 3 }}>
+        {nexusLoading ? (
+          <Typography sx={{ p: 2 }} color="text.secondary">
+            A carregar dados Nexus…
+          </Typography>
+        ) : (
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Grupo econômico</TableCell>
+                <TableCell>Razão social</TableCell>
+                <TableCell>CNPJ</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell width={120}>Id Nexus</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {nexusEmpresas.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5}>
+                    <Typography color="text.secondary" variant="body2">
+                      {nexusOk ? 'Nenhuma empresa encontrada no snapshot (ou campos vazios).' : '—'}
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                nexusEmpresas.map((row) => (
+                  <TableRow key={row.nexusClienteId} hover>
+                    <TableCell>{row.grupoEconomicoNome}</TableCell>
+                    <TableCell>{row.razaoSocial}</TableCell>
+                    <TableCell>{row.cnpj}</TableCell>
+                    <TableCell>{row.status}</TableCell>
+                    <TableCell>
+                      <Typography variant="caption" sx={{ wordBreak: 'break-all' }}>
+                        {row.nexusClienteId}
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        )}
+      </Paper>
+
+      <Divider sx={{ my: 2 }} />
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
+        <Box>
+          <Typography variant="subtitle1" fontWeight={700}>
+            Grupos locais do portal
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Usados para vínculos com <strong>estipulantes</strong> e <strong>apólices</strong> neste módulo (cadastro interno). O quadro acima reflete apenas o Nexus.
+          </Typography>
+        </Box>
+        {isAdmin ? (
+          <Button variant="contained" onClick={openCreate}>
+            Novo grupo local
+          </Button>
+        ) : null}
+      </Box>
+      <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'auto' }}>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>Nome (local)</TableCell>
+              <TableCell>CNPJ (local)</TableCell>
+              <TableCell>Estipulantes</TableCell>
+              <TableCell>Ativo</TableCell>
+              {isAdmin ? <TableCell align="right">Ações</TableCell> : null}
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {grupos.map((g) => (
+              <TableRow key={g.id} hover>
+                <TableCell>{g.nome}</TableCell>
+                <TableCell>{g.cnpj ?? '—'}</TableCell>
+                <TableCell>{g._count?.estipulantes ?? '—'}</TableCell>
+                <TableCell>{g.active ? 'Sim' : 'Não'}</TableCell>
+                {isAdmin ? (
+                  <TableCell align="right">
+                    <Button size="small" onClick={() => openRow(g)}>
+                      Editar
+                    </Button>
+                    <Button size="small" color="error" onClick={() => void del(g.id)}>
+                      Excluir
+                    </Button>
+                  </TableCell>
+                ) : null}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Paper>
+
+      <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>{edit ? 'Editar grupo econômico' : 'Novo grupo econômico'}</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+          <TextField required label="Nome do grupo" value={nome} onChange={(e) => setNome(e.target.value)} fullWidth />
+          <TextField label="CNPJ" value={cnpj} onChange={(e) => setCnpj(e.target.value)} fullWidth />
+          <TextField label="Observações" value={observacoes} onChange={(e) => setObservacoes(e.target.value)} fullWidth multiline minRows={2} />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpen(false)}>Cancelar</Button>
+          <Button variant="contained" disabled={saving || !nome.trim()} onClick={() => void save()}>
+            Guardar
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
+  )
+}
+
+function EstipulantesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: string | null) => void }) {
+  const { nomes, needsSync, syncMessage } = useNexusGruposEconomicosNomes()
+  const [grupoNome, setGrupoNome] = useState('')
+  const [rows, setRows] = useState<Estipulante[]>([])
+  const [loading, setLoading] = useState(false)
+  const [open, setOpen] = useState(false)
+  const [edit, setEdit] = useState<Estipulante | null>(null)
+  const [razaoSocial, setRazaoSocial] = useState('')
+  const [cnpj, setCnpj] = useState('')
+  const [nomeFantasia, setNomeFantasia] = useState('')
+  const [observacoes, setObservacoes] = useState('')
+  const [nexusClienteId, setNexusClienteId] = useState<string | null>(null)
+  const [nexusEmpresas, setNexusEmpresas] = useState<NexusEmpresaView[]>([])
+  const [importClienteId, setImportClienteId] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const load = useCallback(async () => {
+    if (!grupoNome) {
+      setRows([])
+      return
+    }
+    setLoading(true)
+    onError(null)
+    const r = await api<{ estipulantes: Estipulante[] }>(
+      `/seguros/estipulantes?grupoNome=${encodeURIComponent(grupoNome)}`,
+    )
+    setLoading(false)
+    if (!r.ok) {
+      onError(r.error || 'Erro ao carregar estipulantes.')
+      setRows([])
+      return
+    }
+    setRows(r.data?.estipulantes ?? [])
+  }, [grupoNome, onError])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  useEffect(() => {
+    if (!open || edit || !grupoNome) {
+      setNexusEmpresas([])
+      return
+    }
+    void (async () => {
+      const r = await api<{ empresas?: NexusEmpresaView[] }>(
+        `/seguros/nexus/clientes-do-grupo?grupoNome=${encodeURIComponent(grupoNome)}`,
+      )
+      if (r.ok) setNexusEmpresas(r.data?.empresas ?? [])
+      else setNexusEmpresas([])
+    })()
+  }, [open, edit, grupoNome])
+
+  function openCreate() {
+    if (!grupoNome) return
+    setEdit(null)
+    setRazaoSocial('')
+    setCnpj('')
+    setNomeFantasia('')
+    setObservacoes('')
+    setNexusClienteId(null)
+    setImportClienteId('')
+    setOpen(true)
+  }
+
+  function openRow(e: Estipulante) {
+    setEdit(e)
+    setRazaoSocial(e.razaoSocial)
+    setCnpj(e.cnpj)
+    setNomeFantasia(e.nomeFantasia ?? '')
+    setObservacoes(e.observacoes ?? '')
+    setNexusClienteId(e.nexusClienteId)
+    setImportClienteId('')
+    setOpen(true)
+  }
+
+  function onImportClienteChange(id: string) {
+    setImportClienteId(id)
+    if (!id) {
+      setNexusClienteId(null)
+      return
+    }
+    const em = nexusEmpresas.find((x) => x.nexusClienteId === id)
+    if (em) {
+      setRazaoSocial(em.razaoSocial)
+      setCnpj(em.cnpj === '—' ? '' : em.cnpj)
+      setNexusClienteId(em.nexusClienteId)
+    }
+  }
+
+  async function save() {
+    onError(null)
+    setSaving(true)
+    if (edit) {
+      const r = await api<{ estipulante: Estipulante }>(`/seguros/estipulantes/${edit.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          razaoSocial,
+          cnpj,
+          nomeFantasia: nomeFantasia.trim() || null,
+          observacoes: observacoes.trim() || null,
+        }),
+      })
+      setSaving(false)
+      if (!r.ok) onError(r.error || 'Erro ao guardar.')
+      else {
+        setOpen(false)
+        void load()
+      }
+    } else {
+      const r = await api<{ estipulante: Estipulante }>('/seguros/estipulantes', {
+        method: 'POST',
+        body: JSON.stringify({
+          grupoEconomicoNome: grupoNome,
+          nexusClienteId: nexusClienteId?.trim() || null,
+          razaoSocial,
+          cnpj,
+          nomeFantasia: nomeFantasia.trim() || null,
+          observacoes: observacoes.trim() || null,
+        }),
+      })
+      setSaving(false)
+      if (!r.ok) onError(r.error || 'Erro ao guardar.')
+      else {
+        setOpen(false)
+        void load()
+      }
+    }
+  }
+
+  async function del(id: string) {
+    if (!window.confirm('Remover este estipulante? Apólices associadas serão removidas.')) return
+    onError(null)
+    const r = await api(`/seguros/estipulantes/${id}`, { method: 'DELETE' })
+    if (!r.ok) onError(r.error || 'Erro ao remover.')
+    else void load()
+  }
+
+  return (
+    <>
+      <Typography variant="subtitle1" fontWeight={700} gutterBottom>
+        Estipulantes
+      </Typography>
+      {needsSync ? (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          {syncMessage ||
+            'Sincronize os clientes Nexus em Banco de dados para listar os nomes de grupo econômico e pré-preencher CNPJs.'}
+        </Alert>
+      ) : null}
+      <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 2 }}>
+        <FormControl fullWidth size="small">
+          <InputLabel id="g-est">Grupo econômico (Nexus)</InputLabel>
+          <Select
+            labelId="g-est"
+            label="Grupo econômico (Nexus)"
+            value={grupoNome}
+            onChange={(e: SelectChangeEvent) => setGrupoNome(e.target.value)}
+          >
+            <MenuItem value="">
+              <em>Selecione…</em>
+            </MenuItem>
+            {nomes.map((n) => (
+              <MenuItem key={n} value={n}>
+                {n}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      </Paper>
+
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+        {isAdmin ? (
+          <Button variant="contained" disabled={!grupoNome} onClick={openCreate}>
+            Novo estipulante
+          </Button>
+        ) : null}
+      </Box>
+
+      <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'auto' }}>
+        {loading ? (
+          <Typography sx={{ p: 2 }} color="text.secondary">
+            A carregar…
+          </Typography>
+        ) : (
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Grupo</TableCell>
+                <TableCell>Razão social</TableCell>
+                <TableCell>CNPJ</TableCell>
+                <TableCell>Nome fantasia</TableCell>
+                <TableCell>Cliente Nexus</TableCell>
+                <TableCell>Apólices</TableCell>
+                {isAdmin ? <TableCell align="right">Ações</TableCell> : null}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {rows.map((e) => (
+                <TableRow key={e.id} hover>
+                  <TableCell sx={{ maxWidth: 160 }}>{e.grupoEconomicoNome}</TableCell>
+                  <TableCell>{e.razaoSocial}</TableCell>
+                  <TableCell>{e.cnpj}</TableCell>
+                  <TableCell>{e.nomeFantasia ?? '—'}</TableCell>
+                  <TableCell sx={{ maxWidth: 120, fontFamily: 'monospace', fontSize: 12 }}>{e.nexusClienteId ?? '—'}</TableCell>
+                  <TableCell>{e._count?.apolices ?? '—'}</TableCell>
+                  {isAdmin ? (
+                    <TableCell align="right">
+                      <Button size="small" onClick={() => openRow(e)}>
+                        Editar
+                      </Button>
+                      <Button size="small" color="error" onClick={() => void del(e.id)}>
+                        Excluir
+                      </Button>
+                    </TableCell>
+                  ) : null}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </Paper>
+
+      <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>{edit ? 'Editar estipulante' : 'Novo estipulante'}</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+          {!edit && grupoNome ? (
+            <FormControl fullWidth size="small">
+              <InputLabel id="imp-cli">Pré-preencher a partir do Nexus (opcional)</InputLabel>
+              <Select
+                labelId="imp-cli"
+                label="Pré-preencher a partir do Nexus (opcional)"
+                value={importClienteId}
+                onChange={(e: SelectChangeEvent) => onImportClienteChange(e.target.value)}
+              >
+                <MenuItem value="">
+                  <em>Nenhum — preencher à mão</em>
+                </MenuItem>
+                {nexusEmpresas.map((em) => (
+                  <MenuItem key={em.nexusClienteId} value={em.nexusClienteId}>
+                    {em.razaoSocial} — {em.cnpj}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          ) : null}
+          {nexusClienteId ? <Chip size="small" label={`Cliente Nexus: ${nexusClienteId}`} variant="outlined" /> : null}
+          <TextField required label="Razão social" value={razaoSocial} onChange={(e) => setRazaoSocial(e.target.value)} fullWidth />
+          <TextField required label="CNPJ" value={cnpj} onChange={(e) => setCnpj(e.target.value)} fullWidth disabled={!!edit} />
+          <TextField label="Nome fantasia" value={nomeFantasia} onChange={(e) => setNomeFantasia(e.target.value)} fullWidth />
+          <TextField label="Observações" value={observacoes} onChange={(e) => setObservacoes(e.target.value)} fullWidth multiline minRows={2} />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpen(false)}>Cancelar</Button>
+          <Button variant="contained" disabled={saving || !razaoSocial.trim() || !cnpj.trim()} onClick={() => void save()}>
+            Guardar
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
+  )
+}
+
+const APOLICE_NUMERO_MANUAL = '__manual__'
+
+function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: string | null) => void }) {
+  const { nomes, needsSync, syncMessage } = useNexusGruposEconomicosNomes()
+  const [grupoNome, setGrupoNome] = useState('')
+  const [estipulanteId, setEstipulanteId] = useState('')
+  const [estRows, setEstRows] = useState<Estipulante[]>([])
+  const [apRows, setApRows] = useState<Apolice[]>([])
+  const [loadingEst, setLoadingEst] = useState(false)
+  const [loadingAp, setLoadingAp] = useState(false)
+  const [contratosNexus, setContratosNexus] = useState<NexusContratoOpcao[]>([])
+  const [needsContratosSync, setNeedsContratosSync] = useState(false)
+
+  const [open, setOpen] = useState(false)
+  const [edit, setEdit] = useState<Apolice | null>(null)
+  const [nexusContratoId, setNexusContratoId] = useState('')
+  const [numeroApolice, setNumeroApolice] = useState('')
+  const [produto, setProduto] = useState<ApoliceProduto>('OUTROS')
+  const [fornecedor, setFornecedor] = useState('')
+  const [subestipulante, setSubestipulante] = useState('')
+  const [plano, setPlano] = useState('')
+  const [coberturas, setCoberturas] = useState('')
+  const [vigIni, setVigIni] = useState('')
+  const [vigFim, setVigFim] = useState('')
+  const [obsAp, setObsAp] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const showPlano = produto === 'SAUDE' || produto === 'ODONTO'
+  const showCoberturas = produto === 'VIDA_GRUPO'
+
+  const loadEst = useCallback(async () => {
+    if (!grupoNome) {
+      setEstRows([])
+      setEstipulanteId('')
+      return
+    }
+    setLoadingEst(true)
+    const r = await api<{ estipulantes: Estipulante[] }>(
+      `/seguros/estipulantes?grupoNome=${encodeURIComponent(grupoNome)}`,
+    )
+    setLoadingEst(false)
+    if (!r.ok) {
+      onError(r.error || 'Erro ao carregar estipulantes.')
+      setEstRows([])
+      return
+    }
+    setEstRows(r.data?.estipulantes ?? [])
+  }, [grupoNome, onError])
+
+  const loadAp = useCallback(async () => {
+    if (!estipulanteId) {
+      setApRows([])
+      return
+    }
+    setLoadingAp(true)
+    onError(null)
+    const r = await api<{ apolices: Apolice[] }>(`/seguros/apolices?estipulanteId=${encodeURIComponent(estipulanteId)}`)
+    setLoadingAp(false)
+    if (!r.ok) {
+      onError(r.error || 'Erro ao carregar apólices.')
+      setApRows([])
+      return
+    }
+    setApRows(r.data?.apolices ?? [])
+  }, [estipulanteId, onError])
+
+  const loadContratos = useCallback(async () => {
+    if (!estipulanteId) {
+      setContratosNexus([])
+      setNeedsContratosSync(false)
+      return
+    }
+    const r = await api<{ ok?: boolean; needsSync?: boolean; contratos?: NexusContratoOpcao[] }>(
+      `/seguros/nexus/contratos-opcoes?estipulanteId=${encodeURIComponent(estipulanteId)}`,
+    )
+    if (!r.ok) {
+      setContratosNexus([])
+      setNeedsContratosSync(true)
+      return
+    }
+    const d = r.data
+    setNeedsContratosSync(!!d?.needsSync || d?.ok === false)
+    setContratosNexus(d?.contratos ?? [])
+  }, [estipulanteId])
+
+  useEffect(() => {
+    void loadEst()
+  }, [loadEst])
+
+  useEffect(() => {
+    void loadAp()
+  }, [loadAp])
+
+  useEffect(() => {
+    void loadContratos()
+  }, [loadContratos])
+
+  function onContratoSelect(v: string) {
+    if (v === APOLICE_NUMERO_MANUAL) {
+      setNexusContratoId('')
+      return
+    }
+    setNexusContratoId(v)
+    const c = contratosNexus.find((x) => x.nexusContratoId === v)
+    if (c) setNumeroApolice(c.numero)
+  }
+
+  function openCreate() {
+    if (!estipulanteId) return
+    setEdit(null)
+    setNexusContratoId('')
+    setNumeroApolice('')
+    setProduto('OUTROS')
+    setFornecedor('')
+    setSubestipulante('')
+    setPlano('')
+    setCoberturas('')
+    setVigIni('')
+    setVigFim('')
+    setObsAp('')
+    setOpen(true)
+  }
+
+  function openRow(a: Apolice) {
+    setEdit(a)
+    setNexusContratoId(a.nexusContratoId ?? '')
+    setNumeroApolice(a.numeroApolice)
+    setProduto(a.produto)
+    setFornecedor(a.fornecedor)
+    setSubestipulante(a.subestipulante)
+    setPlano(a.plano ?? '')
+    setCoberturas(a.coberturas ?? '')
+    setVigIni(a.vigenciaInicio ? String(a.vigenciaInicio).slice(0, 10) : '')
+    setVigFim(a.vigenciaFim ? String(a.vigenciaFim).slice(0, 10) : '')
+    setObsAp(a.observacoes ?? '')
+    setOpen(true)
+  }
+
+  async function save() {
+    onError(null)
+    setSaving(true)
+    const base = {
+      produto,
+      fornecedor,
+      subestipulante,
+      plano: showPlano ? plano.trim() : null,
+      coberturas: showCoberturas ? coberturas.trim() : null,
+      vigenciaInicio: vigIni.trim() || null,
+      vigenciaFim: vigFim.trim() || null,
+      observacoes: obsAp.trim() || null,
+    }
+    const nex = nexusContratoId.trim()
+    if (edit) {
+      const payload = {
+        ...base,
+        nexusContratoId: nex || null,
+        ...(nex ? {} : { numeroApolice: numeroApolice.trim() }),
+      }
+      const r = await api<{ apolice: Apolice }>(`/seguros/apolices/${edit.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      })
+      setSaving(false)
+      if (!r.ok) onError(r.error || 'Erro ao guardar.')
+      else {
+        setOpen(false)
+        void loadAp()
+      }
+    } else {
+      const payload = {
+        ...base,
+        nexusContratoId: nex || null,
+        numeroApolice: nex ? null : numeroApolice.trim(),
+      }
+      const r = await api<{ apolice: Apolice }>('/seguros/apolices', {
+        method: 'POST',
+        body: JSON.stringify({ estipulanteId, ...payload }),
+      })
+      setSaving(false)
+      if (!r.ok) onError(r.error || 'Erro ao guardar.')
+      else {
+        setOpen(false)
+        void loadAp()
+      }
+    }
+  }
+
+  async function del(id: string) {
+    if (!window.confirm('Remover esta apólice? Itens associados serão removidos.')) return
+    onError(null)
+    const r = await api(`/seguros/apolices/${id}`, { method: 'DELETE' })
+    if (!r.ok) onError(r.error || 'Erro ao remover.')
+    else void loadAp()
+  }
+
+  const numeroOk = nexusContratoId.trim().length > 0 || numeroApolice.trim().length > 0
+  const contratoSelectValue = nexusContratoId.trim() || APOLICE_NUMERO_MANUAL
+
+  return (
+    <>
+      <Typography variant="subtitle1" fontWeight={700} gutterBottom>
+        Apólices
+      </Typography>
+      {needsSync ? (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          {syncMessage ||
+            'Sincronize os clientes Nexus em Banco de dados para listar os nomes de grupo econômico nesta página.'}
+        </Alert>
+      ) : null}
+      <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 2, display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
+        <FormControl fullWidth size="small">
+          <InputLabel id="g-ap">Grupo econômico (Nexus)</InputLabel>
+          <Select
+            labelId="g-ap"
+            label="Grupo econômico (Nexus)"
+            value={grupoNome}
+            onChange={(e: SelectChangeEvent) => {
+              setGrupoNome(e.target.value)
+              setEstipulanteId('')
+            }}
+          >
+            <MenuItem value="">
+              <em>Selecione…</em>
+            </MenuItem>
+            {nomes.map((n) => (
+              <MenuItem key={n} value={n}>
+                {n}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <FormControl fullWidth size="small" disabled={!grupoNome || loadingEst}>
+          <InputLabel id="e-ap">Estipulante</InputLabel>
+          <Select
+            labelId="e-ap"
+            label="Estipulante"
+            value={estipulanteId}
+            onChange={(e: SelectChangeEvent) => setEstipulanteId(e.target.value)}
+          >
+            <MenuItem value="">
+              <em>Selecione…</em>
+            </MenuItem>
+            {estRows.map((e) => (
+              <MenuItem key={e.id} value={e.id}>
+                {e.razaoSocial}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      </Paper>
+
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+        {isAdmin ? (
+          <Button variant="contained" disabled={!estipulanteId} onClick={openCreate}>
+            Nova apólice
+          </Button>
+        ) : null}
+      </Box>
+
+      <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'auto' }}>
+        {loadingAp ? (
+          <Typography sx={{ p: 2 }} color="text.secondary">
+            A carregar…
+          </Typography>
+        ) : (
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Nº apólice</TableCell>
+                <TableCell>Contrato Nexus</TableCell>
+                <TableCell>Produto</TableCell>
+                <TableCell>Fornecedor</TableCell>
+                <TableCell>Subestipulante</TableCell>
+                <TableCell>Plano</TableCell>
+                <TableCell>Coberturas</TableCell>
+                <TableCell>Vigência</TableCell>
+                <TableCell>Itens</TableCell>
+                {isAdmin ? <TableCell align="right">Ações</TableCell> : null}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {apRows.map((a) => (
+                <TableRow key={a.id} hover>
+                  <TableCell>{a.numeroApolice}</TableCell>
+                  <TableCell sx={{ maxWidth: 120, fontFamily: 'monospace', fontSize: 12 }}>{a.nexusContratoId ?? '—'}</TableCell>
+                  <TableCell>{PRODUTO_LABEL[a.produto]}</TableCell>
+                  <TableCell>{a.fornecedor}</TableCell>
+                  <TableCell>{a.subestipulante}</TableCell>
+                  <TableCell sx={{ maxWidth: 160 }}>{a.plano ?? '—'}</TableCell>
+                  <TableCell sx={{ maxWidth: 200 }}>{a.coberturas ?? '—'}</TableCell>
+                  <TableCell>
+                    {fmtDate(a.vigenciaInicio)} — {fmtDate(a.vigenciaFim)}
+                  </TableCell>
+                  <TableCell>{a._count?.itens ?? '—'}</TableCell>
+                  {isAdmin ? (
+                    <TableCell align="right">
+                      <Button size="small" onClick={() => openRow(a)}>
+                        Editar
+                      </Button>
+                      <Button size="small" color="error" onClick={() => void del(a.id)}>
+                        Excluir
+                      </Button>
+                    </TableCell>
+                  ) : null}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </Paper>
+
+      <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="md">
+        <DialogTitle>{edit ? 'Editar apólice' : 'Nova apólice'}</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+          {needsContratosSync ? (
+            <Alert severity="info">
+              Contratos Nexus ainda não estão disponíveis (sincronize a entidade <strong>contratos</strong> em Banco de dados).
+              Pode continuar indicando o número da apólice manualmente.
+            </Alert>
+          ) : null}
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+            <FormControl fullWidth size="small">
+              <InputLabel id="ctr-nx">Número / contrato (Nexus)</InputLabel>
+              <Select
+                labelId="ctr-nx"
+                label="Número / contrato (Nexus)"
+                value={contratoSelectValue}
+                onChange={(e: SelectChangeEvent) => onContratoSelect(e.target.value)}
+              >
+                <MenuItem value={APOLICE_NUMERO_MANUAL}>
+                  <em>Digitar número manualmente</em>
+                </MenuItem>
+                {contratosNexus.map((c) => (
+                  <MenuItem key={c.nexusContratoId} value={c.nexusContratoId}>
+                    {c.numero}
+                    {c.codigo ? ` — ${c.codigo}` : ''}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <TextField
+              required={!nexusContratoId.trim()}
+              label="Número da apólice"
+              value={numeroApolice}
+              onChange={(e) => setNumeroApolice(e.target.value)}
+              fullWidth
+              disabled={!!nexusContratoId.trim()}
+              helperText={nexusContratoId.trim() ? 'Preenchido pelo contrato Nexus selecionado.' : 'Obrigatório se não escolher um contrato na lista.'}
+            />
+            <FormControl fullWidth required size="small">
+              <InputLabel>Produto</InputLabel>
+              <Select label="Produto" value={produto} onChange={(e) => setProduto(e.target.value as ApoliceProduto)}>
+                <MenuItem value="SAUDE">Saúde</MenuItem>
+                <MenuItem value="ODONTO">Odonto</MenuItem>
+                <MenuItem value="VIDA_GRUPO">Vida em grupo</MenuItem>
+                <MenuItem value="OUTROS">Outros</MenuItem>
+              </Select>
+            </FormControl>
+            <TextField required label="Fornecedor (seguradora)" value={fornecedor} onChange={(e) => setFornecedor(e.target.value)} fullWidth />
+            <TextField required label="Subestipulante" value={subestipulante} onChange={(e) => setSubestipulante(e.target.value)} fullWidth />
+            {showPlano ? (
+              <TextField required label="Plano" value={plano} onChange={(e) => setPlano(e.target.value)} fullWidth sx={{ gridColumn: { sm: 'span 2' } }} />
+            ) : null}
+            {showCoberturas ? (
+              <TextField
+                required
+                label="Coberturas"
+                value={coberturas}
+                onChange={(e) => setCoberturas(e.target.value)}
+                fullWidth
+                multiline
+                minRows={3}
+                sx={{ gridColumn: { sm: 'span 2' } }}
+              />
+            ) : null}
+            <TextField label="Vigência início" type="date" value={vigIni} onChange={(e) => setVigIni(e.target.value)} fullWidth InputLabelProps={{ shrink: true }} />
+            <TextField label="Vigência fim" type="date" value={vigFim} onChange={(e) => setVigFim(e.target.value)} fullWidth InputLabelProps={{ shrink: true }} />
+            <TextField
+              label="Observações"
+              value={obsAp}
+              onChange={(e) => setObsAp(e.target.value)}
+              fullWidth
+              multiline
+              minRows={2}
+              sx={{ gridColumn: { sm: 'span 2' } }}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpen(false)}>Cancelar</Button>
+          <Button
+            variant="contained"
+            disabled={saving || !numeroOk || !fornecedor.trim() || !subestipulante.trim()}
+            onClick={() => void save()}
+          >
+            Guardar
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
+  )
+}
+
+function ItensSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: string | null) => void }) {
+  const { nomes, needsSync, syncMessage } = useNexusGruposEconomicosNomes()
+  const [grupoNome, setGrupoNome] = useState('')
+  const [estipulanteId, setEstipulanteId] = useState('')
+  const [apoliceId, setApoliceId] = useState('')
+  const [estRows, setEstRows] = useState<Estipulante[]>([])
+  const [apLista, setApLista] = useState<ApoliceLista[]>([])
+  const [itens, setItens] = useState<ApoliceItem[]>([])
+  const [loadingEst, setLoadingEst] = useState(false)
+  const [loadingAp, setLoadingAp] = useState(false)
+  const [loadingIt, setLoadingIt] = useState(false)
+
+  const [open, setOpen] = useState(false)
+  const [edit, setEdit] = useState<ApoliceItem | null>(null)
+  const [tipo, setTipo] = useState<ItemTipo>('COBERTURA')
+  const [descricao, setDescricao] = useState('')
+  const [detalhes, setDetalhes] = useState('')
+  const [sortOrder, setSortOrder] = useState('0')
+  const [saving, setSaving] = useState(false)
+
+  const loadEst = useCallback(async () => {
+    if (!grupoNome) {
+      setEstRows([])
+      setEstipulanteId('')
+      return
+    }
+    setLoadingEst(true)
+    const r = await api<{ estipulantes: Estipulante[] }>(
+      `/seguros/estipulantes?grupoNome=${encodeURIComponent(grupoNome)}`,
+    )
+    setLoadingEst(false)
+    if (!r.ok) {
+      onError(r.error || 'Erro ao carregar estipulantes.')
+      setEstRows([])
+      return
+    }
+    setEstRows(r.data?.estipulantes ?? [])
+  }, [grupoNome, onError])
+
+  const loadApLista = useCallback(async () => {
+    if (!estipulanteId) {
+      setApLista([])
+      setApoliceId('')
+      return
+    }
+    setLoadingAp(true)
+    onError(null)
+    const r = await api<{ apolices: ApoliceLista[] }>(
+      `/seguros/apolices/lista?estipulanteId=${encodeURIComponent(estipulanteId)}`
+    )
+    setLoadingAp(false)
+    if (!r.ok) {
+      onError(r.error || 'Erro ao carregar apólices.')
+      setApLista([])
+      return
+    }
+    setApLista(r.data?.apolices ?? [])
+  }, [estipulanteId, onError])
+
+  const loadItens = useCallback(async () => {
+    if (!apoliceId) {
+      setItens([])
+      return
+    }
+    setLoadingIt(true)
+    onError(null)
+    const r = await api<{ itens: ApoliceItem[] }>(`/seguros/apolices/${encodeURIComponent(apoliceId)}/itens`)
+    setLoadingIt(false)
+    if (!r.ok) {
+      onError(r.error || 'Erro ao carregar itens.')
+      setItens([])
+      return
+    }
+    setItens(r.data?.itens ?? [])
+  }, [apoliceId, onError])
+
+  useEffect(() => {
+    void loadEst()
+  }, [loadEst])
+
+  useEffect(() => {
+    void loadApLista()
+  }, [loadApLista])
+
+  useEffect(() => {
+    void loadItens()
+  }, [loadItens])
+
+  function openCreate() {
+    if (!apoliceId) return
+    setEdit(null)
+    setTipo('COBERTURA')
+    setDescricao('')
+    setDetalhes('')
+    setSortOrder('0')
+    setOpen(true)
+  }
+
+  function openRow(it: ApoliceItem) {
+    setEdit(it)
+    setTipo(it.tipo)
+    setDescricao(it.descricao)
+    setDetalhes(it.detalhes ?? '')
+    setSortOrder(String(it.sortOrder))
+    setOpen(true)
+  }
+
+  async function save() {
+    onError(null)
+    setSaving(true)
+    const so = Number.parseInt(sortOrder, 10)
+    if (edit) {
+      const r = await api<{ item: ApoliceItem }>(`/seguros/apolice-itens/${edit.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          tipo,
+          descricao,
+          detalhes: detalhes.trim() || null,
+          sortOrder: Number.isFinite(so) ? so : 0,
+        }),
+      })
+      setSaving(false)
+      if (!r.ok) onError(r.error || 'Erro ao guardar.')
+      else {
+        setOpen(false)
+        void loadItens()
+      }
+    } else {
+      const r = await api<{ item: ApoliceItem }>(`/seguros/apolices/${encodeURIComponent(apoliceId)}/itens`, {
+        method: 'POST',
+        body: JSON.stringify({
+          tipo,
+          descricao,
+          detalhes: detalhes.trim() || null,
+          sortOrder: Number.isFinite(so) ? so : 0,
+        }),
+      })
+      setSaving(false)
+      if (!r.ok) onError(r.error || 'Erro ao guardar.')
+      else {
+        setOpen(false)
+        void loadItens()
+      }
+    }
+  }
+
+  async function del(id: string) {
+    if (!window.confirm('Remover este item?')) return
+    onError(null)
+    const r = await api(`/seguros/apolice-itens/${id}`, { method: 'DELETE' })
+    if (!r.ok) onError(r.error || 'Erro ao remover.')
+    else void loadItens()
+  }
+
+  return (
+    <>
+      <Typography variant="subtitle1" fontWeight={700} gutterBottom>
+        Itens da apólice
+      </Typography>
+      {needsSync ? (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          {syncMessage ||
+            'Sincronize os clientes Nexus em Banco de dados para listar os nomes de grupo econômico nesta página.'}
+        </Alert>
+      ) : null}
+      <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 2, display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr 1fr' } }}>
+        <FormControl fullWidth size="small">
+          <InputLabel>Grupo econômico (Nexus)</InputLabel>
+          <Select
+            label="Grupo econômico (Nexus)"
+            value={grupoNome}
+            onChange={(e: SelectChangeEvent) => {
+              setGrupoNome(e.target.value)
+              setEstipulanteId('')
+              setApoliceId('')
+            }}
+          >
+            <MenuItem value="">
+              <em>Selecione…</em>
+            </MenuItem>
+            {nomes.map((n) => (
+              <MenuItem key={n} value={n}>
+                {n}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <FormControl fullWidth size="small" disabled={!grupoNome || loadingEst}>
+          <InputLabel>Estipulante</InputLabel>
+          <Select
+            label="Estipulante"
+            value={estipulanteId}
+            onChange={(e: SelectChangeEvent) => {
+              setEstipulanteId(e.target.value)
+              setApoliceId('')
+            }}
+          >
+            <MenuItem value="">
+              <em>Selecione…</em>
+            </MenuItem>
+            {estRows.map((e) => (
+              <MenuItem key={e.id} value={e.id}>
+                {e.razaoSocial}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <FormControl fullWidth size="small" disabled={!estipulanteId || loadingAp}>
+          <InputLabel>Apólice</InputLabel>
+          <Select label="Apólice" value={apoliceId} onChange={(e: SelectChangeEvent) => setApoliceId(e.target.value)}>
+            <MenuItem value="">
+              <em>Selecione…</em>
+            </MenuItem>
+            {apLista.map((a) => (
+              <MenuItem key={a.id} value={a.id}>
+                {a.numeroApolice} — {PRODUTO_LABEL[a.produto]}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      </Paper>
+
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+        {isAdmin ? (
+          <Button variant="contained" disabled={!apoliceId} onClick={openCreate}>
+            Novo item
+          </Button>
+        ) : null}
+      </Box>
+
+      <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'auto' }}>
+        {loadingIt ? (
+          <Typography sx={{ p: 2 }} color="text.secondary">
+            A carregar…
+          </Typography>
+        ) : (
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell width={80}>Ordem</TableCell>
+                <TableCell>Tipo</TableCell>
+                <TableCell>Descrição</TableCell>
+                <TableCell>Detalhes</TableCell>
+                {isAdmin ? <TableCell align="right">Ações</TableCell> : null}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {itens.map((it) => (
+                <TableRow key={it.id} hover>
+                  <TableCell>{it.sortOrder}</TableCell>
+                  <TableCell>{ITEM_TIPO_LABEL[it.tipo]}</TableCell>
+                  <TableCell>{it.descricao}</TableCell>
+                  <TableCell sx={{ maxWidth: 360, whiteSpace: 'pre-wrap' }}>{it.detalhes ?? '—'}</TableCell>
+                  {isAdmin ? (
+                    <TableCell align="right">
+                      <Button size="small" onClick={() => openRow(it)}>
+                        Editar
+                      </Button>
+                      <Button size="small" color="error" onClick={() => void del(it.id)}>
+                        Excluir
+                      </Button>
+                    </TableCell>
+                  ) : null}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </Paper>
+
+      <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>{edit ? 'Editar item' : 'Novo item'}</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+          <FormControl fullWidth size="small" required>
+            <InputLabel>Tipo</InputLabel>
+            <Select label="Tipo" value={tipo} onChange={(e) => setTipo(e.target.value as ItemTipo)}>
+              <MenuItem value="COBERTURA">Cobertura</MenuItem>
+              <MenuItem value="SERVICO">Serviço</MenuItem>
+              <MenuItem value="CLAUSULA">Cláusula</MenuItem>
+              <MenuItem value="OUTRO">Outro</MenuItem>
+            </Select>
+          </FormControl>
+          <TextField required label="Descrição" value={descricao} onChange={(e) => setDescricao(e.target.value)} fullWidth />
+          <TextField label="Detalhes" value={detalhes} onChange={(e) => setDetalhes(e.target.value)} fullWidth multiline minRows={3} />
+          <TextField label="Ordem de exibição" value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} fullWidth type="number" />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpen(false)}>Cancelar</Button>
+          <Button variant="contained" disabled={saving || !descricao.trim()} onClick={() => void save()}>
+            Guardar
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
+  )
+}
