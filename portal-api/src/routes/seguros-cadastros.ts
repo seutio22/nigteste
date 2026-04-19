@@ -84,6 +84,43 @@ function normalizeApolicePayload(body: {
   return { plano, coberturas }
 }
 
+function normCnpjDigitsSeg(s: string) {
+  return (s || '').replace(/\D/g, '')
+}
+
+function normRazaoSeg(s: string) {
+  return s.trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
+/**
+ * IDs de estipulantes equivalentes no mesmo grupo (duplicados: Nexus vs cadastro manual,
+ * ou dois UUIDs para a mesma empresa). Usado para listar apólices/contratos mesmo quando
+ * o vínculo no banco ficou num registo diferente do selecionado na UI.
+ */
+async function estipulanteSiblingIds(estipulanteId: string): Promise<string[]> {
+  const est = await prisma.portalSeguroEstipulante.findUnique({
+    where: { id: estipulanteId },
+    select: { id: true, grupoEconomicoNome: true, nexusClienteId: true, cnpj: true, razaoSocial: true },
+  })
+  if (!est) return [estipulanteId]
+  const g = est.grupoEconomicoNome.trim()
+  const peers = await prisma.portalSeguroEstipulante.findMany({
+    where: { grupoEconomicoNome: { equals: g, mode: 'insensitive' } },
+    select: { id: true, nexusClienteId: true, cnpj: true, razaoSocial: true },
+  })
+  const nid = est.nexusClienteId?.trim() || ''
+  const dEst = normCnpjDigitsSeg(est.cnpj)
+  const rsEst = normRazaoSeg(est.razaoSocial)
+  const matched = peers.filter((p) => {
+    if (p.id === est.id) return true
+    if (nid && p.nexusClienteId?.trim() === nid) return true
+    if (dEst.length >= 8 && normCnpjDigitsSeg(p.cnpj) === dEst) return true
+    if (rsEst.length >= 6 && normRazaoSeg(p.razaoSocial) === rsEst) return true
+    return false
+  })
+  return [...new Set(matched.map((p) => p.id))]
+}
+
 export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
   /**
    * Visão leitura para a página Apólice — empresas (clientes Nexus) agrupadas por `grupoEconomico`.
@@ -207,12 +244,22 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
       })
     }
 
+    const siblingIds = await estipulanteSiblingIds(estipulanteId)
+    const ests = await prisma.portalSeguroEstipulante.findMany({ where: { id: { in: siblingIds } } })
     const all = parseContratosSnapshot(snap.rows)
-    const contratos = filterContratosForEstipulante(all, {
-      grupoEconomicoNome: est.grupoEconomicoNome,
-      nexusClienteId: est.nexusClienteId,
-      cnpj: est.cnpj,
-    }).sort((a, b) => a.numero.localeCompare(b.numero, 'pt-BR', { numeric: true }))
+    const byContratoId = new Map<string, (typeof all)[0]>()
+    for (const e of ests) {
+      for (const c of filterContratosForEstipulante(all, {
+        grupoEconomicoNome: e.grupoEconomicoNome,
+        nexusClienteId: e.nexusClienteId,
+        cnpj: e.cnpj,
+      })) {
+        byContratoId.set(c.nexusContratoId, c)
+      }
+    }
+    const contratos = [...byContratoId.values()].sort((a, b) =>
+      a.numero.localeCompare(b.numero, 'pt-BR', { numeric: true }),
+    )
 
     return reply.send({ ok: true, needsSync: false, contratos })
   })
@@ -489,8 +536,10 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
     }
 
     const where: Prisma.PortalSeguroApoliceWhereInput = {}
-    if (filter.estipulanteId) where.estipulanteId = filter.estipulanteId
-    else if (filter.grupoId) where.estipulante = { grupoEconomicoId: filter.grupoId }
+    if (filter.estipulanteId) {
+      const ids = await estipulanteSiblingIds(filter.estipulanteId)
+      where.estipulanteId = ids.length === 1 ? ids[0] : { in: ids }
+    } else if (filter.grupoId) where.estipulante = { grupoEconomicoId: filter.grupoId }
     else {
       where.estipulante = { grupoEconomicoNome: { equals: filter.grupoNome!.trim(), mode: 'insensitive' } }
     }
@@ -529,8 +578,10 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
     }
 
     const where: Prisma.PortalSeguroApoliceWhereInput = { active: true }
-    if (filter.estipulanteId) where.estipulanteId = filter.estipulanteId
-    else if (filter.grupoId) where.estipulante = { grupoEconomicoId: filter.grupoId }
+    if (filter.estipulanteId) {
+      const ids = await estipulanteSiblingIds(filter.estipulanteId)
+      where.estipulanteId = ids.length === 1 ? ids[0] : { in: ids }
+    } else if (filter.grupoId) where.estipulante = { grupoEconomicoId: filter.grupoId }
     else if (filter.grupoNome?.trim()) {
       where.estipulante = { grupoEconomicoNome: { equals: filter.grupoNome.trim(), mode: 'insensitive' } }
     } else {
