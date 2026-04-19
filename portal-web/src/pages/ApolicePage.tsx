@@ -1087,7 +1087,7 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
   }, [grupoNome, loadingEst, mergedEstRows])
 
   const loadApoliceTabela = useCallback(async () => {
-    if (!estipulanteId) {
+    if (!grupoNome.trim() && !estipulanteId) {
       setPortalApolices([])
       setContratosNexus([])
       setNeedsContratosSync(false)
@@ -1095,6 +1095,22 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
     }
     setLoadingAp(true)
     onError(null)
+    /** Só grupo: lista todas as apólices do grupo no portal (vários estipulantes). */
+    if (!estipulanteId && grupoNome.trim()) {
+      const rAp = await api<{ apolices: Apolice[] }>(
+        `/seguros/apolices?grupoNome=${encodeURIComponent(grupoNome.trim())}`,
+      )
+      setLoadingAp(false)
+      if (!rAp.ok) {
+        onError(rAp.error || 'Erro ao carregar apólices do grupo.')
+        setPortalApolices([])
+      } else {
+        setPortalApolices(rAp.data?.apolices ?? [])
+      }
+      setContratosNexus([])
+      setNeedsContratosSync(false)
+      return
+    }
     const gq = grupoNome.trim() ? `&grupoNome=${encodeURIComponent(grupoNome.trim())}` : ''
     const [rAp, rCt] = await Promise.all([
       api<{ apolices: Apolice[] }>(
@@ -1369,6 +1385,7 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
             <TableHead>
               <TableRow>
                 <TableCell>Situação</TableCell>
+                <TableCell>Estipulante</TableCell>
                 <TableCell>Nº apólice</TableCell>
                 <TableCell>Contrato Nexus</TableCell>
                 <TableCell>Produto</TableCell>
@@ -1382,12 +1399,25 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
               </TableRow>
             </TableHead>
             <TableBody>
-              {displayApRows.length === 0 && estipulanteId && !loadingAp ? (
+              {displayApRows.length === 0 && (estipulanteId || grupoNome.trim()) && !loadingAp ? (
                 <TableRow>
-                  <TableCell colSpan={isAdmin ? 11 : 10} sx={{ py: 2, color: 'text.secondary' }}>
-                    {needsContratosSync
-                      ? 'Não há contratos Nexus sincronizados para este estipulante. Sincronize a entidade contratos em Banco de dados ou cadastre a apólice manualmente.'
-                      : 'Nenhuma apólice no portal nem contrato Nexus para este estipulante.'}
+                  <TableCell colSpan={isAdmin ? 12 : 11} sx={{ py: 2, color: 'text.secondary' }}>
+                    {!estipulanteId && grupoNome.trim() ? (
+                      <>
+                        Nenhuma apólice no portal para o grupo económico «{grupoNome}». Confirme no administrativo (Railway)
+                        que as apólices estão em <strong>PortalSeguroApolice</strong> com estipulante cujo grupo coincide com
+                        este nome ou com o grupo local no Portal.
+                      </>
+                    ) : needsContratosSync ? (
+                      'Não há contratos Nexus sincronizados para este estipulante. Sincronize a entidade contratos em Banco de dados ou cadastre a apólice manualmente.'
+                    ) : (
+                      <>
+                        Nenhuma apólice no portal nem contrato Nexus para este estipulante. Se a apólice existir na base
+                        mas noutro vínculo, escolha só o <strong>grupo económico</strong> (sem estipulante) para listar
+                        todas as apólices do grupo. Em produção, confirme também <strong>VITE_API_URL</strong> na Vercel
+                        (API Railway atualizada).
+                      </>
+                    )}
                   </TableCell>
                 </TableRow>
               ) : null}
@@ -1396,6 +1426,9 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
                   <TableRow key={row.a.id} hover>
                     <TableCell>
                       <Chip size="small" label="Cadastrado" color="success" variant="outlined" />
+                    </TableCell>
+                    <TableCell sx={{ maxWidth: 200 }}>
+                      {row.a.estipulante?.razaoSocial ?? '—'}
                     </TableCell>
                     <TableCell>{row.a.numeroApolice}</TableCell>
                     <TableCell sx={{ maxWidth: 120, fontFamily: 'monospace', fontSize: 12 }}>
@@ -1426,6 +1459,7 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
                     <TableCell>
                       <Chip size="small" label="Só Nexus" color="info" variant="outlined" />
                     </TableCell>
+                    <TableCell>—</TableCell>
                     <TableCell>{row.c.numero}</TableCell>
                     <TableCell sx={{ maxWidth: 120, fontFamily: 'monospace', fontSize: 12 }}>{row.c.nexusContratoId}</TableCell>
                     <TableCell>—</TableCell>
