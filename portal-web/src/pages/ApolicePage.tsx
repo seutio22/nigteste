@@ -195,6 +195,53 @@ function mergeEstipulantesComNexus(portal: Estipulante[], nexus: NexusEmpresaVie
   return out
 }
 
+/** Linha da tabela de apólices: cadastro no portal ou contrato ainda só no Nexus (mesmo estipulante / grupo). */
+type ApoliceTabelaRow =
+  | { kind: 'portal'; a: Apolice }
+  | { kind: 'nexus'; c: NexusContratoOpcao }
+
+function normNumeroApolice(s: string) {
+  return (s || '').trim().toLowerCase()
+}
+
+function mergeApolicesComNexus(portal: Apolice[], contratos: NexusContratoOpcao[]): ApoliceTabelaRow[] {
+  const consumed = new Set<string>()
+  const byNexusContratoId = new Map<string, Apolice>()
+  for (const a of portal) {
+    const nid = a.nexusContratoId?.trim()
+    if (nid) byNexusContratoId.set(nid, a)
+  }
+  const out: ApoliceTabelaRow[] = []
+  for (const c of contratos) {
+    const byId = byNexusContratoId.get(c.nexusContratoId)
+    const byNum =
+      !byId
+        ? portal.find(
+            (p) =>
+              !consumed.has(p.id) &&
+              !p.nexusContratoId?.trim() &&
+              normNumeroApolice(p.numeroApolice) === normNumeroApolice(c.numero),
+          )
+        : undefined
+    const p = byId ?? byNum
+    if (p && !consumed.has(p.id)) {
+      consumed.add(p.id)
+      out.push({ kind: 'portal', a: p })
+    } else if (!p) {
+      out.push({ kind: 'nexus', c })
+    }
+  }
+  for (const a of portal) {
+    if (!consumed.has(a.id)) out.push({ kind: 'portal', a })
+  }
+  out.sort((x, y) => {
+    const nx = x.kind === 'portal' ? x.a.numeroApolice : x.c.numero
+    const ny = y.kind === 'portal' ? y.a.numeroApolice : y.c.numero
+    return nx.localeCompare(ny, 'pt-BR', { numeric: true, sensitivity: 'base' })
+  })
+  return out
+}
+
 /** Nomes de grupo econômico vindos do snapshot Nexus `clientes` (vários CNPJs por grupo). */
 function useNexusGruposEconomicosNomes() {
   const [nomes, setNomes] = useState<string[]>([])
@@ -948,11 +995,16 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
   const [grupoNome, setGrupoNome] = useState('')
   const [estipulanteId, setEstipulanteId] = useState('')
   const [estRows, setEstRows] = useState<Estipulante[]>([])
-  const [apRows, setApRows] = useState<Apolice[]>([])
+  const [portalApolices, setPortalApolices] = useState<Apolice[]>([])
   const [loadingEst, setLoadingEst] = useState(false)
   const [loadingAp, setLoadingAp] = useState(false)
   const [contratosNexus, setContratosNexus] = useState<NexusContratoOpcao[]>([])
   const [needsContratosSync, setNeedsContratosSync] = useState(false)
+
+  const displayApRows = useMemo(
+    () => mergeApolicesComNexus(portalApolices, contratosNexus),
+    [portalApolices, contratosNexus],
+  )
 
   const [open, setOpen] = useState(false)
   const [edit, setEdit] = useState<Apolice | null>(null)
@@ -990,53 +1042,45 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
     setEstRows(r.data?.estipulantes ?? [])
   }, [grupoNome, onError])
 
-  const loadAp = useCallback(async () => {
+  const loadApoliceTabela = useCallback(async () => {
     if (!estipulanteId) {
-      setApRows([])
-      return
-    }
-    setLoadingAp(true)
-    onError(null)
-    const r = await api<{ apolices: Apolice[] }>(`/seguros/apolices?estipulanteId=${encodeURIComponent(estipulanteId)}`)
-    setLoadingAp(false)
-    if (!r.ok) {
-      onError(r.error || 'Erro ao carregar apólices.')
-      setApRows([])
-      return
-    }
-    setApRows(r.data?.apolices ?? [])
-  }, [estipulanteId, onError])
-
-  const loadContratos = useCallback(async () => {
-    if (!estipulanteId) {
+      setPortalApolices([])
       setContratosNexus([])
       setNeedsContratosSync(false)
       return
     }
-    const r = await api<{ ok?: boolean; needsSync?: boolean; contratos?: NexusContratoOpcao[] }>(
-      `/seguros/nexus/contratos-opcoes?estipulanteId=${encodeURIComponent(estipulanteId)}`,
-    )
-    if (!r.ok) {
+    setLoadingAp(true)
+    onError(null)
+    const [rAp, rCt] = await Promise.all([
+      api<{ apolices: Apolice[] }>(`/seguros/apolices?estipulanteId=${encodeURIComponent(estipulanteId)}`),
+      api<{ ok?: boolean; needsSync?: boolean; contratos?: NexusContratoOpcao[] }>(
+        `/seguros/nexus/contratos-opcoes?estipulanteId=${encodeURIComponent(estipulanteId)}`,
+      ),
+    ])
+    setLoadingAp(false)
+    if (!rAp.ok) {
+      onError(rAp.error || 'Erro ao carregar apólices do portal.')
+      setPortalApolices([])
+    } else {
+      setPortalApolices(rAp.data?.apolices ?? [])
+    }
+    if (rCt.ok) {
+      const d = rCt.data
+      setNeedsContratosSync(!!d?.needsSync || d?.ok === false)
+      setContratosNexus(d?.contratos ?? [])
+    } else {
       setContratosNexus([])
       setNeedsContratosSync(true)
-      return
     }
-    const d = r.data
-    setNeedsContratosSync(!!d?.needsSync || d?.ok === false)
-    setContratosNexus(d?.contratos ?? [])
-  }, [estipulanteId])
+  }, [estipulanteId, onError])
 
   useEffect(() => {
     void loadEst()
   }, [loadEst])
 
   useEffect(() => {
-    void loadAp()
-  }, [loadAp])
-
-  useEffect(() => {
-    void loadContratos()
-  }, [loadContratos])
+    void loadApoliceTabela()
+  }, [loadApoliceTabela])
 
   function onContratoSelect(v: string) {
     if (v === APOLICE_NUMERO_MANUAL) {
@@ -1053,6 +1097,22 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
     setEdit(null)
     setNexusContratoId('')
     setNumeroApolice('')
+    setProduto('OUTROS')
+    setFornecedor('')
+    setSubestipulante('')
+    setPlano('')
+    setCoberturas('')
+    setVigIni('')
+    setVigFim('')
+    setObsAp('')
+    setOpen(true)
+  }
+
+  function openCadastrarDesdeContratoNexus(c: NexusContratoOpcao) {
+    if (!estipulanteId) return
+    setEdit(null)
+    setNexusContratoId(c.nexusContratoId)
+    setNumeroApolice(c.numero)
     setProduto('OUTROS')
     setFornecedor('')
     setSubestipulante('')
@@ -1107,7 +1167,7 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
       if (!r.ok) onError(r.error || 'Erro ao guardar.')
       else {
         setOpen(false)
-        void loadAp()
+        void loadApoliceTabela()
       }
     } else {
       const payload = {
@@ -1123,7 +1183,7 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
       if (!r.ok) onError(r.error || 'Erro ao guardar.')
       else {
         setOpen(false)
-        void loadAp()
+        void loadApoliceTabela()
       }
     }
   }
@@ -1133,7 +1193,7 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
     onError(null)
     const r = await api(`/seguros/apolices/${id}`, { method: 'DELETE' })
     if (!r.ok) onError(r.error || 'Erro ao remover.')
-    else void loadAp()
+    else void loadApoliceTabela()
   }
 
   const numeroOk = nexusContratoId.trim().length > 0 || numeroApolice.trim().length > 0
@@ -1209,6 +1269,7 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
           <Table size="small">
             <TableHead>
               <TableRow>
+                <TableCell>Situação</TableCell>
                 <TableCell>Nº apólice</TableCell>
                 <TableCell>Contrato Nexus</TableCell>
                 <TableCell>Produto</TableCell>
@@ -1222,31 +1283,69 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
               </TableRow>
             </TableHead>
             <TableBody>
-              {apRows.map((a) => (
-                <TableRow key={a.id} hover>
-                  <TableCell>{a.numeroApolice}</TableCell>
-                  <TableCell sx={{ maxWidth: 120, fontFamily: 'monospace', fontSize: 12 }}>{a.nexusContratoId ?? '—'}</TableCell>
-                  <TableCell>{PRODUTO_LABEL[a.produto]}</TableCell>
-                  <TableCell>{a.fornecedor}</TableCell>
-                  <TableCell>{a.subestipulante}</TableCell>
-                  <TableCell sx={{ maxWidth: 160 }}>{a.plano ?? '—'}</TableCell>
-                  <TableCell sx={{ maxWidth: 200 }}>{a.coberturas ?? '—'}</TableCell>
-                  <TableCell>
-                    {fmtDate(a.vigenciaInicio)} — {fmtDate(a.vigenciaFim)}
+              {displayApRows.length === 0 && estipulanteId && !loadingAp ? (
+                <TableRow>
+                  <TableCell colSpan={isAdmin ? 11 : 10} sx={{ py: 2, color: 'text.secondary' }}>
+                    {needsContratosSync
+                      ? 'Não há contratos Nexus sincronizados para este estipulante. Sincronize a entidade contratos em Banco de dados ou cadastre a apólice manualmente.'
+                      : 'Nenhuma apólice no portal nem contrato Nexus para este estipulante.'}
                   </TableCell>
-                  <TableCell>{a._count?.itens ?? '—'}</TableCell>
-                  {isAdmin ? (
-                    <TableCell align="right">
-                      <Button size="small" onClick={() => openRow(a)}>
-                        Editar
-                      </Button>
-                      <Button size="small" color="error" onClick={() => void del(a.id)}>
-                        Excluir
-                      </Button>
-                    </TableCell>
-                  ) : null}
                 </TableRow>
-              ))}
+              ) : null}
+              {displayApRows.map((row) =>
+                row.kind === 'portal' ? (
+                  <TableRow key={row.a.id} hover>
+                    <TableCell>
+                      <Chip size="small" label="Cadastrado" color="success" variant="outlined" />
+                    </TableCell>
+                    <TableCell>{row.a.numeroApolice}</TableCell>
+                    <TableCell sx={{ maxWidth: 120, fontFamily: 'monospace', fontSize: 12 }}>
+                      {row.a.nexusContratoId ?? '—'}
+                    </TableCell>
+                    <TableCell>{PRODUTO_LABEL[row.a.produto]}</TableCell>
+                    <TableCell>{row.a.fornecedor}</TableCell>
+                    <TableCell>{row.a.subestipulante}</TableCell>
+                    <TableCell sx={{ maxWidth: 160 }}>{row.a.plano ?? '—'}</TableCell>
+                    <TableCell sx={{ maxWidth: 200 }}>{row.a.coberturas ?? '—'}</TableCell>
+                    <TableCell>
+                      {fmtDate(row.a.vigenciaInicio)} — {fmtDate(row.a.vigenciaFim)}
+                    </TableCell>
+                    <TableCell>{row.a._count?.itens ?? '—'}</TableCell>
+                    {isAdmin ? (
+                      <TableCell align="right">
+                        <Button size="small" onClick={() => openRow(row.a)}>
+                          Editar
+                        </Button>
+                        <Button size="small" color="error" onClick={() => void del(row.a.id)}>
+                          Excluir
+                        </Button>
+                      </TableCell>
+                    ) : null}
+                  </TableRow>
+                ) : (
+                  <TableRow key={`nexus-ap-${row.c.nexusContratoId}`} hover sx={{ bgcolor: 'action.hover' }}>
+                    <TableCell>
+                      <Chip size="small" label="Só Nexus" color="info" variant="outlined" />
+                    </TableCell>
+                    <TableCell>{row.c.numero}</TableCell>
+                    <TableCell sx={{ maxWidth: 120, fontFamily: 'monospace', fontSize: 12 }}>{row.c.nexusContratoId}</TableCell>
+                    <TableCell>—</TableCell>
+                    <TableCell>—</TableCell>
+                    <TableCell>—</TableCell>
+                    <TableCell>—</TableCell>
+                    <TableCell>—</TableCell>
+                    <TableCell>—</TableCell>
+                    <TableCell>—</TableCell>
+                    {isAdmin ? (
+                      <TableCell align="right">
+                        <Button size="small" variant="contained" onClick={() => openCadastrarDesdeContratoNexus(row.c)}>
+                          Complementar / cadastrar
+                        </Button>
+                      </TableCell>
+                    ) : null}
+                  </TableRow>
+                ),
+              )}
             </TableBody>
           </Table>
         )}
