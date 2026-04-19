@@ -1,6 +1,10 @@
 # Deploy da API do portal (amusing-flexibility) a partir do branch main.
-# Evita o erro "Could not find root directory: portal-api" quando o serviço no Railway
-# está ligado ao Git mas o branch padrão do repo é gh-pages (sem pasta portal-api).
+#
+# IMPORTANTE: NÃO usar `railway up ./portal-api --path-as-root` com Root Directory = portal-api
+# no painel — o ZIP fica sem a pasta "portal-api" e o Railway devolve
+# "Could not find root directory: portal-api". Enviar a raiz do repo (`railway up`) para o
+# arquivo incluir portal-api/ e o Root Directory do serviço fazer sentido.
+#
 # Redeploy: alterações neste ficheiro disparam o workflow.
 name: Portal colaborador — API Railway
 
@@ -28,4 +32,4 @@ jobs:
           RAILWAY_PROJECT_ID: af05d835-bea3-4b3a-a2b0-dcecec4e1121
           RAILWAY_ENVIRONMENT_ID: d866c183-f35b-4294-aa56-51bf91b57bd3
           RAILWAY_SERVICE_ID: bb0654bb-1aaa-44ae-a139-f5213b85bd97
-        run: railway up ./portal-api --path-as-root --ci
+        run: railway up --ci

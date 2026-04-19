@@ -43,6 +43,100 @@ model PortalUser {
   assignedCases   PortalCase[]     @relation("CaseAssignee")
 }
 
+// --- Cadastros de seguros (base para abertura de solicitações) ---
+
+enum PortalApoliceProduto {
+  SAUDE
+  ODONTO
+  VIDA_GRUPO
+  OUTROS
+}
+
+/// Cliente / grupo econômico (nível 1)
+model PortalGrupoEconomico {
+  id            String                   @id @default(uuid())
+  nome          String
+  cnpj          String?
+  observacoes   String?
+  active        Boolean                  @default(true)
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+  estipulantes  PortalSeguroEstipulante[]
+
+  @@index([nome])
+}
+
+/// Estipulante vinculado a um grupo econômico (nível 2)
+model PortalSeguroEstipulante {
+  id                   String                @id @default(uuid())
+  /// Grupo local (opcional); o fluxo Nexus usa `grupoEconomicoNome`.
+  grupoEconomicoId     String?
+  grupo                PortalGrupoEconomico? @relation(fields: [grupoEconomicoId], references: [id], onDelete: SetNull)
+  /// Nome do grupo econômico alinhado ao Nexus (`Cliente.grupoEconomico`); permite vários CNPJs no mesmo grupo.
+  grupoEconomicoNome   String
+  nexusClienteId       String?
+  razaoSocial          String
+  cnpj                 String
+  nomeFantasia         String?
+  observacoes          String?
+  active               Boolean               @default(true)
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  apolices             PortalSeguroApolice[]
+
+  @@index([grupoEconomicoId])
+  @@index([grupoEconomicoNome])
+  @@unique([grupoEconomicoNome, cnpj])
+}
+
+/// Apólice vinculada ao estipulante (nível 3)
+model PortalSeguroApolice {
+  id              String                    @id @default(uuid())
+  estipulanteId   String
+  estipulante     PortalSeguroEstipulante   @relation(fields: [estipulanteId], references: [id], onDelete: Cascade)
+  /// Quando preenchido, corresponde ao `id` do registo no snapshot Nexus `contratos`.
+  nexusContratoId String?
+  numeroApolice   String
+  produto         PortalApoliceProduto
+  fornecedor      String
+  subestipulante  String
+  plano           String?
+  coberturas      String?
+  vigenciaInicio  DateTime?
+  vigenciaFim     DateTime?
+  observacoes     String?
+  active          Boolean                   @default(true)
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+  itens           PortalSeguroApoliceItem[]
+
+  @@index([estipulanteId])
+  @@unique([estipulanteId, numeroApolice])
+}
+
+enum PortalSeguroItemTipo {
+  COBERTURA
+  SERVICO
+  CLAUSULA
+  OUTRO
+}
+
+/// Itens ligados à apólice: coberturas, serviços, cláusulas etc. (nível 4)
+model PortalSeguroApoliceItem {
+  id          String              @id @default(uuid())
+  apoliceId   String
+  apolice     PortalSeguroApolice @relation(fields: [apoliceId], references: [id], onDelete: Cascade)
+  tipo        PortalSeguroItemTipo
+  descricao   String
+  detalhes    String?
+  sortOrder   Int                 @default(0)
+  active      Boolean             @default(true)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@index([apoliceId, sortOrder])
+}
+
 /// Abas / agrupamentos no portal (configuráveis)
 model PortalArea {
   id        String               @id @default(uuid())
@@ -90,6 +184,36 @@ model PortalNexusField {
   active      Boolean             @default(true)
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
+}
+
+/// Lista reutilizável no portal (ex.: filiais, categorias) — itens geridos pelo admin, sem código
+model PortalLookupList {
+  id          String             @id @default(uuid())
+  /// Chave única (ex.: filiais)
+  key         String             @unique
+  label       String
+  description String?
+  sortOrder   Int                @default(0)
+  active      Boolean            @default(true)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  items       PortalLookupItem[]
+}
+
+model PortalLookupItem {
+  id        String           @id @default(uuid())
+  listId    String
+  list      PortalLookupList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  label     String
+  /// Valor guardado nas respostas do formulário (estável, ex. slug)
+  value     String
+  sortOrder Int              @default(0)
+  active    Boolean          @default(true)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@index([listId, sortOrder])
+  @@unique([listId, value])
 }
 
 /// Perfil de SLA parametrizável (triagem, atuação, pausa com demandante, adicional pós-retorno)

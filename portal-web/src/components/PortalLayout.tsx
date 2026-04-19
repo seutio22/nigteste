@@ -11,6 +11,7 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  ListSubheader,
   Toolbar,
   Typography,
   useMediaQuery,
@@ -23,6 +24,7 @@ import ListAltIcon from '@mui/icons-material/ListAlt'
 import PersonIcon from '@mui/icons-material/Person'
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings'
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline'
+import PolicyIcon from '@mui/icons-material/Policy'
 import GroupsIcon from '@mui/icons-material/Groups'
 import PrecisionManufacturingIcon from '@mui/icons-material/PrecisionManufacturing'
 import { useAuth } from '../context/AuthContext'
@@ -45,6 +47,8 @@ type NavItem = {
   opsOnly?: boolean
 }
 
+type NavGroup = { id: string; title: string; items: NavItem[] }
+
 export default function PortalLayout() {
   const theme = useTheme()
   const isMd = useMediaQuery(theme.breakpoints.up('md'))
@@ -52,33 +56,62 @@ export default function PortalLayout() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
 
-  const items: NavItem[] = [
-    { to: '/', label: 'Início', icon: <DashboardIcon fontSize="small" /> },
-    { to: '/solicitacoes/nova', label: 'Nova solicitação', icon: <AddCircleOutlineIcon fontSize="small" /> },
-    { to: '/solicitacoes', label: 'Minhas solicitações', icon: <ListAltIcon fontSize="small" /> },
+  const groups: NavGroup[] = [
     {
-      to: '/gestao/solicitacoes',
-      label: 'Gestão — equipe',
-      icon: <GroupsIcon fontSize="small" />,
-      managerOnly: true,
+      id: 'solic',
+      title: 'Solicitações',
+      items: [
+        { to: '/', label: 'Início', icon: <DashboardIcon fontSize="small" /> },
+        { to: '/solicitacoes/nova', label: 'Nova solicitação', icon: <AddCircleOutlineIcon fontSize="small" /> },
+        { to: '/solicitacoes', label: 'Minhas solicitações', icon: <ListAltIcon fontSize="small" /> },
+      ],
     },
     {
-      to: '/operacao/fila',
-      label: 'Operação — fila',
-      icon: <PrecisionManufacturingIcon fontSize="small" />,
-      opsOnly: true,
+      id: 'cad',
+      title: 'Cadastros',
+      items: [{ to: '/apolice', label: 'Apólice (seguros)', icon: <PolicyIcon fontSize="small" /> }],
     },
-    { to: '/ajuda', label: 'Ajuda', icon: <HelpOutlineIcon fontSize="small" /> },
-    { to: '/conta', label: 'Minha conta', icon: <PersonIcon fontSize="small" /> },
-    { to: '/admin/centro', label: 'Painel administrativo', icon: <AdminPanelSettingsIcon fontSize="small" />, adminOnly: true },
+    {
+      id: 'gestao',
+      title: 'Gestão e operação',
+      items: [
+        {
+          to: '/gestao/solicitacoes',
+          label: 'Gestão — equipe',
+          icon: <GroupsIcon fontSize="small" />,
+          managerOnly: true,
+        },
+        {
+          to: '/operacao/fila',
+          label: 'Operação — fila',
+          icon: <PrecisionManufacturingIcon fontSize="small" />,
+          opsOnly: true,
+        },
+      ],
+    },
+    {
+      id: 'conta',
+      title: 'Conta',
+      items: [
+        { to: '/ajuda', label: 'Ajuda', icon: <HelpOutlineIcon fontSize="small" /> },
+        { to: '/conta', label: 'Minha conta', icon: <PersonIcon fontSize="small" /> },
+      ],
+    },
+    {
+      id: 'admin',
+      title: 'Administração',
+      items: [
+        { to: '/admin/centro', label: 'Painel administrativo', icon: <AdminPanelSettingsIcon fontSize="small" />, adminOnly: true },
+      ],
+    },
   ]
 
-  const visible = items.filter((i) => {
+  function itemVisible(i: NavItem): boolean {
     if (i.adminOnly && user?.role !== 'PORTAL_ADMIN') return false
     if (i.managerOnly && user?.role !== 'REQUESTER_MANAGER') return false
     if (i.opsOnly && user?.role !== 'PORTAL_OPERATOR' && user?.role !== 'PORTAL_ADMIN') return false
     return true
-  })
+  }
 
   const drawer = (
     <Box sx={{ py: 1 }}>
@@ -86,19 +119,40 @@ export default function PortalLayout() {
         Menu
       </Typography>
       <List dense>
-        {visible.map((item) => (
-          <ListItemButton
-            key={item.to}
-            component={NavLink}
-            to={item.to}
-            end={item.to === '/' || item.to === '/solicitacoes'}
-            onClick={() => setMobileOpen(false)}
-            sx={navLinkSx}
-          >
-            <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
-            <ListItemText primary={item.label} />
-          </ListItemButton>
-        ))}
+        {groups.map((g) => {
+          const vis = g.items.filter(itemVisible)
+          if (vis.length === 0) return null
+          return (
+            <Box key={g.id}>
+              <ListSubheader
+                disableSticky
+                sx={{
+                  bgcolor: 'background.paper',
+                  color: 'text.secondary',
+                  fontWeight: 700,
+                  fontSize: '0.7rem',
+                  lineHeight: 2,
+                  py: 0.5,
+                }}
+              >
+                {g.title}
+              </ListSubheader>
+              {vis.map((item) => (
+                <ListItemButton
+                  key={item.to}
+                  component={NavLink}
+                  to={item.to}
+                  end={item.to === '/' || item.to === '/solicitacoes'}
+                  onClick={() => setMobileOpen(false)}
+                  sx={navLinkSx}
+                >
+                  <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
+                  <ListItemText primary={item.label} />
+                </ListItemButton>
+              ))}
+            </Box>
+          )
+        })}
       </List>
       <Divider sx={{ my: 1 }} />
       <Box sx={{ px: 2, py: 1 }}>

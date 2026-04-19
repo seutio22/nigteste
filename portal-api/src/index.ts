@@ -10,7 +10,9 @@ import { registerAdminRoutes } from './routes/admin.js'
 import { registerManagerRoutes } from './routes/manager.js'
 import { registerOperationsRoutes } from './routes/operations.js'
 import { registerNexusSyncRoutes } from './routes/nexus-sync.js'
+import { registerLookupListRoutes } from './routes/lookup-lists.js'
 import { registerUploadRoutes } from './routes/uploads.js'
+import { registerSeguroCadastroRoutes } from './routes/seguros-cadastros.js'
 import { getNexusBaseUrl } from './lib/nexus.js'
 import { getNexusSyncIntervalMinutes, runNexusSnapshotSync, type NexusSyncResultRow } from './lib/nexus-sync-runner.js'
 
@@ -66,7 +68,9 @@ await registerAdminRoutes(app)
 await registerManagerRoutes(app)
 await registerOperationsRoutes(app)
 await registerNexusSyncRoutes(app)
+await registerLookupListRoutes(app)
 await registerUploadRoutes(app)
+await registerSeguroCadastroRoutes(app)
 
 function scheduleNexusPeriodicSync() {
   const mins = getNexusSyncIntervalMinutes()
