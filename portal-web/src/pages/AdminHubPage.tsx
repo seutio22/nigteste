@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Navigate, useSearchParams } from 'react-router-dom'
 import { Box, Container, Tab, Tabs, Typography } from '@mui/material'
 import { useAuth } from '../context/AuthContext'
-import NexusFieldsPanel from '../components/NexusFieldsPanel'
+import DatabaseHubPanel from '../components/DatabaseHubPanel'
 import AreasTypesAdminPanel from '../components/AreasTypesAdminPanel'
 import SlaAdminPanel from '../components/SlaAdminPanel'
 import PortalUsersAdminPanel from '../components/PortalUsersAdminPanel'
@@ -34,8 +34,8 @@ export default function AdminHubPage() {
         Administração do portal
       </Typography>
       <Typography color="text.secondary" sx={{ mb: 2 }}>
-        Usuários, <strong>catálogo Nexus</strong>, <strong>perfis de SLA</strong> (triagem, atuação, pausa e adicional) e{' '}
-        <strong>áreas e tipos</strong> com formulários amplos — sem editar JSON.
+        Usuários, <strong>catálogo de campos</strong> (integração e listas), <strong>perfis de SLA</strong> (triagem, atuação,
+        pausa e adicional) e <strong>áreas e tipos</strong> com formulários amplos — sem editar JSON.
       </Typography>
 
       <Tabs
@@ -47,14 +47,14 @@ export default function AdminHubPage() {
         sx={{ mb: 2 }}
       >
         <Tab label="Usuários" />
-        <Tab label="Banco de dados Nexus" />
+        <Tab label="Banco de dados" />
         <Tab label="Áreas e tipos (gestão)" />
         <Tab label="SLA" />
       </Tabs>
 
       {tab === 0 && <PortalUsersAdminPanel />}
 
-      {tab === 1 && <NexusFieldsPanel onChanged={() => {}} />}
+      {tab === 1 && <DatabaseHubPanel />}
 
       {tab === 2 && (
         <Box sx={{ maxWidth: 1400, mx: 'auto' }}>

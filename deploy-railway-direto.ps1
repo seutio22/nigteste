@@ -28,7 +28,8 @@ try {
 
     Write-Host "📦 Fazendo deploy do backend..." -ForegroundColor Cyan
 
-    Invoke-Railway deploy --service nigteste-backend
+    # `railway deploy` na CLI atual é para templates; o deploy do código usa `railway up` (como no GitHub Actions).
+    Invoke-Railway up --service nigteste --ci
 
     if ($LASTEXITCODE -eq 0) {
         Write-Host "✅ Deploy Railway concluído com sucesso!" -ForegroundColor Green

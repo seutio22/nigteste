@@ -7,6 +7,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Divider,
   FormControl,
   InputLabel,
   MenuItem,
@@ -22,8 +23,8 @@ import {
   Typography,
 } from '@mui/material'
 import { api } from '../lib/api'
-import type { NexusFieldRow } from '../lib/nexusCatalog'
-import { parseEnumOptions } from '../lib/nexusCatalog'
+import { slugifyFieldKey } from '../lib/formSchema'
+import { parseEnumOptions, parseSelectableOptionsInput, type NexusFieldRow } from '../lib/nexusCatalog'
 import NexusSyncCard from './NexusSyncCard'
 
 const VALUE_TYPES = [
@@ -35,12 +36,23 @@ const VALUE_TYPES = [
   'BOOLEAN',
 ] as const
 
+const VALUE_TYPE_LABELS: Record<(typeof VALUE_TYPES)[number], string> = {
+  TEXT: 'Texto curto',
+  TEXTAREA: 'Texto longo',
+  NUMBER: 'Número',
+  DATE: 'Data',
+  SELECT: 'Lista (opções fixas)',
+  BOOLEAN: 'Sim / Não',
+}
+
 type NexusFieldsPanelProps = {
   /** Chamado após criar/editar campo (para atualizar o catálogo no construtor de formulários). */
   onChanged?: () => void
+  /** Quando true, omitido o cartão de sincronização (ex.: dentro do hub Banco de dados). */
+  embedInHub?: boolean
 }
 
-export default function NexusFieldsPanel({ onChanged }: NexusFieldsPanelProps) {
+export default function NexusFieldsPanel({ onChanged, embedInHub }: NexusFieldsPanelProps) {
   const [fields, setFields] = useState<NexusFieldRow[]>([])
   const [err, setErr] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -48,6 +60,7 @@ export default function NexusFieldsPanel({ onChanged }: NexusFieldsPanelProps) {
   const [open, setOpen] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [key, setKey] = useState('')
+  const [keyTouched, setKeyTouched] = useState(false)
   const [label, setLabel] = useState('')
   const [description, setDescription] = useState('')
   const [valueType, setValueType] = useState<string>('TEXT')
@@ -69,6 +82,7 @@ export default function NexusFieldsPanel({ onChanged }: NexusFieldsPanelProps) {
   function openNew() {
     setErr(null)
     setEditId(null)
+    setKeyTouched(false)
     setKey('')
     setLabel('')
     setDescription('')
@@ -82,6 +96,7 @@ export default function NexusFieldsPanel({ onChanged }: NexusFieldsPanelProps) {
   function openEdit(row: NexusFieldRow) {
     setErr(null)
     setEditId(row.id)
+    setKeyTouched(true)
     setKey(row.key)
     setLabel(row.label)
     setDescription(row.description ?? '')
@@ -94,23 +109,30 @@ export default function NexusFieldsPanel({ onChanged }: NexusFieldsPanelProps) {
 
   async function save() {
     setErr(null)
+    const normalizedKey = slugifyFieldKey(key.trim() || label.trim())
+    if (!normalizedKey || !label.trim()) {
+      setErr('Preencha o rótulo e confirme a chave técnica.')
+      return
+    }
+
+    const enumOptionsParsed =
+      valueType === 'SELECT' ? parseSelectableOptionsInput(enumLines) : undefined
+    if (valueType === 'SELECT' && (!enumOptionsParsed || enumOptionsParsed.length === 0)) {
+      setErr('Para lista, informe ao menos uma opção (vírgulas ou uma por linha).')
+      return
+    }
+
     setBusy(true)
-    const enumOptions =
-      valueType === 'SELECT'
-        ? enumLines
-            .split('\n')
-            .map((s) => s.trim())
-            .filter(Boolean)
-        : undefined
     const body: Record<string, unknown> = {
-      key: key.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_'),
+      key: normalizedKey,
       label: label.trim(),
       description: description.trim() || null,
       valueType,
       sortOrder,
       active,
     }
-    if (valueType === 'SELECT' && enumOptions) body.enumOptions = enumOptions
+    if (valueType === 'SELECT' && enumOptionsParsed) body.enumOptions = enumOptionsParsed
+    else if (editId && valueType !== 'SELECT') body.enumOptions = null
 
     const r = editId
       ? await api(`/admin/nexus-fields/${editId}`, { method: 'PATCH', body: JSON.stringify(body) })
@@ -144,11 +166,19 @@ export default function NexusFieldsPanel({ onChanged }: NexusFieldsPanelProps) {
 
   return (
     <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
-      <NexusSyncCard onSynced={() => void load()} />
+      {!embedInHub && <NexusSyncCard onSynced={() => void load()} />}
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Abaixo: <strong>campos de referência</strong> (rótulos e chaves para integração). As <strong>listas</strong> que
-        vêm das tabelas da página Dados do Nexus são atualizadas pela sincronização acima e escolhidas no formulário em
-        &quot;Origem da lista&quot; → Nexus.
+        {embedInHub ? (
+          <>
+            <strong>Catálogo de campos</strong>: nomes e chaves para integração e mapeamento nos formulários. Para listas
+            simples criadas por você, use a aba <strong>Listas do portal</strong>.
+          </>
+        ) : (
+          <>
+            Aqui você define o <strong>catálogo de campos</strong> do portal: nomes e chaves usados nos formulários e na
+            integração. Use o hub <strong>Banco de dados</strong> no admin para sincronização e listas reutilizáveis.
+          </>
+        )}
       </Typography>
       {err && !open && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setErr(null)}>
@@ -157,7 +187,7 @@ export default function NexusFieldsPanel({ onChanged }: NexusFieldsPanelProps) {
       )}
       <Box sx={{ mb: 2 }}>
         <Button variant="contained" onClick={openNew}>
-          Novo campo Nexus
+          Novo campo
         </Button>
       </Box>
       <Table size="small">
@@ -165,7 +195,7 @@ export default function NexusFieldsPanel({ onChanged }: NexusFieldsPanelProps) {
           <TableRow sx={{ bgcolor: 'action.hover' }}>
             <TableCell>Chave</TableCell>
             <TableCell>Rótulo</TableCell>
-            <TableCell>Tipo (Nexus)</TableCell>
+            <TableCell>Tipo</TableCell>
             <TableCell>Ativo</TableCell>
             <TableCell align="right">Ações</TableCell>
           </TableRow>
@@ -178,7 +208,7 @@ export default function NexusFieldsPanel({ onChanged }: NexusFieldsPanelProps) {
           ) : fields.length === 0 ? (
             <TableRow>
               <TableCell colSpan={5}>
-                <Typography color="text.secondary">Nenhum campo. Crie os que espelham o Nexus.</Typography>
+                <Typography color="text.secondary">Nenhum campo no catálogo. Use &quot;Novo campo&quot; para começar.</Typography>
               </TableCell>
             </TableRow>
           ) : (
@@ -190,7 +220,7 @@ export default function NexusFieldsPanel({ onChanged }: NexusFieldsPanelProps) {
                   </Typography>
                 </TableCell>
                 <TableCell>{row.label}</TableCell>
-                <TableCell>{row.valueType}</TableCell>
+                <TableCell>{VALUE_TYPE_LABELS[row.valueType as (typeof VALUE_TYPES)[number]] ?? row.valueType}</TableCell>
                 <TableCell>{row.active ? 'Sim' : 'Não'}</TableCell>
                 <TableCell align="right">
                   <Button size="small" onClick={() => openEdit(row)}>
@@ -207,7 +237,7 @@ export default function NexusFieldsPanel({ onChanged }: NexusFieldsPanelProps) {
       </Table>
 
       <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>{editId ? 'Editar campo Nexus' : 'Novo campo Nexus'}</DialogTitle>
+        <DialogTitle>{editId ? 'Editar campo' : 'Novo campo'}</DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
           {err && (
             <Alert severity="error" onClose={() => setErr(null)}>
@@ -215,14 +245,68 @@ export default function NexusFieldsPanel({ onChanged }: NexusFieldsPanelProps) {
             </Alert>
           )}
           <TextField
-            label="Chave técnica (única)"
+            label="Rótulo"
+            value={label}
+            onChange={(e) => {
+              const v = e.target.value
+              setLabel(v)
+              if (!editId && !keyTouched) setKey(slugifyFieldKey(v))
+            }}
+            fullWidth
+            autoFocus
+            required
+          />
+          <TextField
+            label="Chave técnica"
             value={key}
-            onChange={(e) => setKey(e.target.value)}
+            onChange={(e) => {
+              setKeyTouched(true)
+              setKey(e.target.value)
+            }}
             fullWidth
             disabled={!!editId}
-            helperText="ex.: titulo_demanda, id_cliente — minúsculas e _"
+            required
+            helperText={
+              editId
+                ? 'A chave não pode ser alterada depois de criada.'
+                : 'Gerada a partir do rótulo — pode editar. Só letras minúsculas, números e _'
+            }
           />
-          <TextField label="Rótulo" value={label} onChange={(e) => setLabel(e.target.value)} fullWidth />
+          <FormControl fullWidth>
+            <InputLabel>Tipo de dado</InputLabel>
+            <Select
+              label="Tipo de dado"
+              value={valueType}
+              onChange={(e) => setValueType(e.target.value)}
+            >
+              {VALUE_TYPES.map((t) => (
+                <MenuItem key={t} value={t}>
+                  {VALUE_TYPE_LABELS[t]}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          {valueType === 'SELECT' && (
+            <>
+              <Divider flexItem sx={{ my: 0.5 }} />
+              <Typography variant="subtitle2" fontWeight={700}>
+                Opções da lista
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Digite as opções separadas por vírgula ou uma em cada linha.
+              </Typography>
+              <TextField
+                label="Opções"
+                value={enumLines}
+                onChange={(e) => setEnumLines(e.target.value)}
+                multiline
+                minRows={4}
+                fullWidth
+                placeholder="Ex.: Baixa, Média, Alta"
+                helperText={`${parseSelectableOptionsInput(enumLines).length} opção(ões)`}
+              />
+            </>
+          )}
           <TextField
             label="Descrição (opcional)"
             value={description}
@@ -231,28 +315,8 @@ export default function NexusFieldsPanel({ onChanged }: NexusFieldsPanelProps) {
             multiline
             minRows={2}
           />
-          <FormControl fullWidth>
-            <InputLabel>Tipo de dado (Nexus)</InputLabel>
-            <Select label="Tipo de dado (Nexus)" value={valueType} onChange={(e) => setValueType(e.target.value)}>
-              {VALUE_TYPES.map((t) => (
-                <MenuItem key={t} value={t}>
-                  {t}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          {valueType === 'SELECT' && (
-            <TextField
-              label="Opções (uma por linha)"
-              value={enumLines}
-              onChange={(e) => setEnumLines(e.target.value)}
-              multiline
-              minRows={4}
-              fullWidth
-            />
-          )}
           <TextField
-            label="Ordem"
+            label="Ordem na lista"
             type="number"
             value={sortOrder}
             onChange={(e) => setSortOrder(Number(e.target.value) || 0)}
@@ -260,12 +324,12 @@ export default function NexusFieldsPanel({ onChanged }: NexusFieldsPanelProps) {
           />
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Switch checked={active} onChange={(_, v) => setActive(v)} />
-            <Typography variant="body2">Ativo</Typography>
+            <Typography variant="body2">Campo ativo no catálogo</Typography>
           </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpen(false)}>Cancelar</Button>
-          <Button variant="contained" onClick={() => void save()} disabled={busy || !key.trim() || !label.trim()}>
+          <Button variant="contained" onClick={() => void save()} disabled={busy || !label.trim()}>
             Salvar
           </Button>
         </DialogActions>

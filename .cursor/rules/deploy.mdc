@@ -22,3 +22,8 @@ Quando o usuário pedir para fazer deploy:
 3. O token está em `demandas-api/.env.railway` (arquivo não versionado).
 
 4. **Monorepo:** na raiz existe `railway.json` do **portal** (Dockerfile.portal-colaborador-api). O serviço `nigteste` deve usar o `railway.json` **dentro de `demandas-api/`**, por isso o Root Directory no painel e o path do CLI têm de apontar para essa pasta.
+
+5. **portal-colaborador-api (amusing-flexibility) — `portal-api`:**
+   - Painel: **Root Directory** = `portal-api`, **Dockerfile** (ver `portal-api/railway.toml`), branch **`main`**.
+   - **Nunca** `railway up ./portal-api --path-as-root` com esse Root Directory; o upload fica sem a pasta `portal-api` e o erro é **"Could not find root directory: portal-api"**.
+   - **Correto:** na raiz do repositório Git (`nigteste/nigteste`), `Remove-Item Env:RAILWAY_TOKEN` se estiver inválido, depois `npx railway up --ci -p af05d835-bea3-4b3a-a2b0-dcecec4e1121 -e production -s portal-colaborador-api` (envia o monorepo inteiro; o Railway entra em `portal-api`).

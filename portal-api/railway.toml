@@ -1,7 +1,8 @@
-# portal-colaborador-api — Railway com Root Directory = portal-api (este diretório).
-# Build: Dockerfile na mesma pasta. Branch: main.
+# portal-colaborador-api — No painel Railway: Root Directory = portal-api, branch main.
+# CLI: na RAIZ do repo Git (pasta que contém portal-api/), rode: npx railway up --ci …
+# NÃO use ./portal-api --path-as-root com esse Root Directory — causa "Could not find root directory: portal-api".
 #
-# Se o serviço usar raiz do repo vazio, usa-se Dockerfile.portal-colaborador-api na raiz (ver railway.toml do repo).
+# Build: Dockerfile nesta pasta. Se o serviço usar raiz do repo vazio, ver Dockerfile.portal-colaborador-api na raiz do monorepo.
 [build]
 builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
