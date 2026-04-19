@@ -331,7 +331,12 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
     const where: Prisma.PortalSeguroEstipulanteWhereInput = {}
     if (filter.grupoId) where.grupoEconomicoId = filter.grupoId
     else {
-      where.grupoEconomicoNome = { equals: filter.grupoNome!.trim(), mode: 'insensitive' }
+      const nome = filter.grupoNome!.trim()
+      // Nome Nexus OU grupo local com o mesmo nome (legado / migração com texto diferente em `grupoEconomicoNome`).
+      where.OR = [
+        { grupoEconomicoNome: { equals: nome, mode: 'insensitive' } },
+        { grupo: { nome: { equals: nome, mode: 'insensitive' } } },
+      ]
     }
 
     const list = await prisma.portalSeguroEstipulante.findMany({
