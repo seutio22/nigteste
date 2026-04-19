@@ -4,7 +4,7 @@
 #   VERCEL_ORG_ID — team id (ex. team_xxx), pode ser o mesmo de ORG_ID do Nexus
 #   VERCEL_PROJECT_ID_PORTAL_WEB — id do projeto "portal-web" no painel Vercel (prj_xxx)
 # Redeploy: alterações neste ficheiro disparam o workflow.
-# bump: 2026-04-19c
+# bump: 2026-04-19d
 name: Portal colaborador — web Vercel
 
 on:
