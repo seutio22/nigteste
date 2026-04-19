@@ -92,22 +92,52 @@ function normRazaoSeg(s: string) {
   return s.trim().toLowerCase().replace(/\s+/g, ' ')
 }
 
+/** Mesmo critério que `GET /seguros/estipulantes?grupoNome=` (Nexus OU grupo local). */
+function whereEstipulantesPorNomeGrupoNexus(nome: string): Prisma.PortalSeguroEstipulanteWhereInput {
+  const n = nome.trim()
+  return {
+    OR: [
+      { grupoEconomicoNome: { equals: n, mode: 'insensitive' } },
+      { grupo: { nome: { equals: n, mode: 'insensitive' } } },
+    ],
+  }
+}
+
 /**
  * IDs de estipulantes equivalentes no mesmo grupo (duplicados: Nexus vs cadastro manual,
  * ou dois UUIDs para a mesma empresa). Usado para listar apólices/contratos mesmo quando
  * o vínculo no banco ficou num registo diferente do selecionado na UI.
+ *
+ * @param grupoNexusNome — nome do grupo no dropdown (Nexus), alinha com `GET /estipulantes?grupoNome=`.
  */
-async function estipulanteSiblingIds(estipulanteId: string): Promise<string[]> {
+async function estipulanteSiblingIds(estipulanteId: string, grupoNexusNome?: string | null): Promise<string[]> {
   const est = await prisma.portalSeguroEstipulante.findUnique({
     where: { id: estipulanteId },
-    select: { id: true, grupoEconomicoNome: true, nexusClienteId: true, cnpj: true, razaoSocial: true },
+    select: {
+      id: true,
+      grupoEconomicoNome: true,
+      grupoEconomicoId: true,
+      nexusClienteId: true,
+      cnpj: true,
+      razaoSocial: true,
+      grupo: { select: { nome: true } },
+    },
   })
   if (!est) return [estipulanteId]
-  const g = est.grupoEconomicoNome.trim()
-  const peers = await prisma.portalSeguroEstipulante.findMany({
-    where: { grupoEconomicoNome: { equals: g, mode: 'insensitive' } },
-    select: { id: true, nexusClienteId: true, cnpj: true, razaoSocial: true },
-  })
+
+  const nomeGrupo =
+    (grupoNexusNome && grupoNexusNome.trim()) ||
+    est.grupoEconomicoNome.trim() ||
+    est.grupo?.nome?.trim() ||
+    ''
+
+  const peers = nomeGrupo
+    ? await prisma.portalSeguroEstipulante.findMany({
+        where: whereEstipulantesPorNomeGrupoNexus(nomeGrupo),
+        select: { id: true, nexusClienteId: true, cnpj: true, razaoSocial: true },
+      })
+    : [{ id: est.id, nexusClienteId: est.nexusClienteId, cnpj: est.cnpj, razaoSocial: est.razaoSocial }]
+
   const nid = est.nexusClienteId?.trim() || ''
   const dEst = normCnpjDigitsSeg(est.cnpj)
   const rsEst = normRazaoSeg(est.razaoSocial)
@@ -118,7 +148,8 @@ async function estipulanteSiblingIds(estipulanteId: string): Promise<string[]> {
     if (rsEst.length >= 6 && normRazaoSeg(p.razaoSocial) === rsEst) return true
     return false
   })
-  return [...new Set(matched.map((p) => p.id))]
+  const ids = [...new Set(matched.map((p) => p.id))]
+  return ids.length ? ids : [est.id]
 }
 
 export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
@@ -220,13 +251,18 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
     const u = await requirePortalUser(req, reply)
     if (!u) return
 
-    const q = z.object({ estipulanteId: uuid })
-    let estipulanteId: string
+    const qCo = z.object({
+      estipulanteId: uuid,
+      grupoNome: z.string().min(1).max(500).optional(),
+    })
+    let qParsed: z.infer<typeof qCo>
     try {
-      estipulanteId = q.parse(req.query).estipulanteId
+      qParsed = qCo.parse(req.query)
     } catch {
       return reply.code(400).send({ error: 'Informe estipulanteId (UUID) na query.' })
     }
+    const estipulanteId = qParsed.estipulanteId
+    const grupoNomeContratos = qParsed.grupoNome?.trim() || null
 
     const est = await prisma.portalSeguroEstipulante.findUnique({ where: { id: estipulanteId } })
     if (!est) return reply.code(404).send({ error: 'Estipulante não encontrado.' })
@@ -244,13 +280,14 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
       })
     }
 
-    const siblingIds = await estipulanteSiblingIds(estipulanteId)
+    const siblingIds = await estipulanteSiblingIds(estipulanteId, grupoNomeContratos)
     const ests = await prisma.portalSeguroEstipulante.findMany({ where: { id: { in: siblingIds } } })
     const all = parseContratosSnapshot(snap.rows)
     const byContratoId = new Map<string, (typeof all)[0]>()
     for (const e of ests) {
+      const nomeGrupoContrato = grupoNomeContratos || e.grupoEconomicoNome
       for (const c of filterContratosForEstipulante(all, {
-        grupoEconomicoNome: e.grupoEconomicoNome,
+        grupoEconomicoNome: nomeGrupoContrato,
         nexusClienteId: e.nexusClienteId,
         cnpj: e.cnpj,
       })) {
@@ -377,14 +414,7 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
 
     const where: Prisma.PortalSeguroEstipulanteWhereInput = {}
     if (filter.grupoId) where.grupoEconomicoId = filter.grupoId
-    else {
-      const nome = filter.grupoNome!.trim()
-      // Nome Nexus OU grupo local com o mesmo nome (legado / migração com texto diferente em `grupoEconomicoNome`).
-      where.OR = [
-        { grupoEconomicoNome: { equals: nome, mode: 'insensitive' } },
-        { grupo: { nome: { equals: nome, mode: 'insensitive' } } },
-      ]
-    }
+    else Object.assign(where, whereEstipulantesPorNomeGrupoNexus(filter.grupoNome!.trim()))
 
     const list = await prisma.portalSeguroEstipulante.findMany({
       where,
@@ -537,11 +567,11 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
 
     const where: Prisma.PortalSeguroApoliceWhereInput = {}
     if (filter.estipulanteId) {
-      const ids = await estipulanteSiblingIds(filter.estipulanteId)
+      const ids = await estipulanteSiblingIds(filter.estipulanteId, filter.grupoNome?.trim() || null)
       where.estipulanteId = ids.length === 1 ? ids[0] : { in: ids }
     } else if (filter.grupoId) where.estipulante = { grupoEconomicoId: filter.grupoId }
     else {
-      where.estipulante = { grupoEconomicoNome: { equals: filter.grupoNome!.trim(), mode: 'insensitive' } }
+      where.estipulante = whereEstipulantesPorNomeGrupoNexus(filter.grupoNome!.trim())
     }
 
     const list = await prisma.portalSeguroApolice.findMany({
@@ -579,11 +609,11 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
 
     const where: Prisma.PortalSeguroApoliceWhereInput = { active: true }
     if (filter.estipulanteId) {
-      const ids = await estipulanteSiblingIds(filter.estipulanteId)
+      const ids = await estipulanteSiblingIds(filter.estipulanteId, filter.grupoNome?.trim() || null)
       where.estipulanteId = ids.length === 1 ? ids[0] : { in: ids }
     } else if (filter.grupoId) where.estipulante = { grupoEconomicoId: filter.grupoId }
     else if (filter.grupoNome?.trim()) {
-      where.estipulante = { grupoEconomicoNome: { equals: filter.grupoNome.trim(), mode: 'insensitive' } }
+      where.estipulante = whereEstipulantesPorNomeGrupoNexus(filter.grupoNome.trim())
     } else {
       return reply.code(400).send({ error: 'Informe estipulanteId, grupoId ou grupoNome na query.' })
     }
