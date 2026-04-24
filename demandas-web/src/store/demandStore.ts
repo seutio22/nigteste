@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { Demand, DemandId } from '../types/demand'
 import type { TimelineEvent } from '../types/timeline'
+import { useMasterDataStore } from './masterDataStore'
 
 interface DemandState {
   items: Demand[]
@@ -86,6 +87,7 @@ export const useDemandStore = create<DemandState>()(
           operadoraId: payload.operadoraId,
           produtoId: payload.produtoId,
           sistemaId: payload.sistemaId,
+          ...(payload.sistemasIds && payload.sistemasIds.length ? { sistemasIds: payload.sistemasIds } : {}),
           dataInicio: payload.dataInicio,
           dataFinal: payload.dataFinal,
           qtdUsuarios: payload.qtdUsuarios,
@@ -117,6 +119,7 @@ export const useDemandStore = create<DemandState>()(
             operadoraId: payload.operadoraId,
             produtoId: payload.produtoId,
             sistemaId: payload.sistemaId,
+            sistemasIds: payload.sistemasIds,
             areaId: payload.areaId,
             tipoId: payload.tipoId,
             tipoServicoId: payload.tipoServicoId,
@@ -384,6 +387,17 @@ export const useDemandStore = create<DemandState>()(
             const operadoraId = normalizeId(d.operadoraId || d.operadora)
             const produtoId = normalizeId(d.produtoId || d.produto)
             const sistemaId = normalizeId(d.sistemaId || d.sistema)
+            const parseSistemasIdsRow = (row: Record<string, unknown>): string[] => {
+              const raw = row.sistemasIds
+              if (Array.isArray(raw)) return raw.filter((x): x is string => typeof x === 'string')
+              return []
+            }
+            let sistemasIdsRow = parseSistemasIdsRow(d as Record<string, unknown>)
+            if (!sistemasIdsRow.length && sistemaId) sistemasIdsRow = [sistemaId]
+            const mdSistemas = useMasterDataStore.getState().sistemas
+            const sistemaNomeJoined = sistemasIdsRow.length
+              ? sistemasIdsRow.map((id) => mdSistemas.find((s) => s.id === id)?.nome || id).join(', ')
+              : ''
             const areaId = normalizeId(d.areaId || d.area)
             const tipoId = normalizeId(d.tipoId || d.tipo)
             const tipoServicoId = normalizeId(d.tipoServicoId || d.tipoServico)
@@ -395,7 +409,7 @@ export const useDemandStore = create<DemandState>()(
             const clienteName = normalizeName(d.cliente)
             const operadoraName = normalizeName(d.operadora)
             const produtoName = normalizeName(d.produto)
-            const sistemaName = normalizeName(d.sistema)
+            const sistemaName = sistemaNomeJoined || normalizeName(d.sistema)
             const tipoName = normalizeName(d.tipo)
             const tipoServicoName = normalizeName(d.tipoServico)
             
@@ -421,6 +435,7 @@ export const useDemandStore = create<DemandState>()(
               operadoraId,
               produtoId,
               sistemaId,
+              sistemasIds: sistemasIdsRow.length ? sistemasIdsRow : undefined,
               areaId,
               tipoId,
               tipoServicoId,

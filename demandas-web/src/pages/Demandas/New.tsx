@@ -1,6 +1,6 @@
 
 
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import React, { useEffect, useRef, useMemo } from 'react'
 import { Autocomplete, Box, Button, Container, Paper, Stack, TextField, Typography, MenuItem, FormControl, InputLabel, Select, Grid } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 import { useForm, Controller, useWatch } from 'react-hook-form'
@@ -11,8 +11,6 @@ import { useDemandStore } from '../../store/demandStore'
 import { useAuthStore } from '../../store/authStore'
 import { api } from '../../lib/api.local'
 import { createPerfLogger } from '../../utils/perf'
-import { AsyncClienteAutocomplete, type ClienteOption } from '../../components/AsyncClienteAutocomplete'
-import { AsyncContratoAutocomplete } from '../../components/AsyncContratoAutocomplete'
 import { PrimaryActionButton } from '../../components/PrimaryActionButton'
 
 const schema = z.object({
@@ -29,11 +27,8 @@ const schema = z.object({
   ticket: z.string().optional(),
   solicitante: z.string().optional(),
   area: z.string().optional(),
-  cliente: z.string().optional(),
-  contrato: z.string().optional(),
-  operadora: z.string().optional(),
-  produto: z.string().optional(),
-  sistema: z.string().optional(),
+  /** IDs dos sistemas (multi-seleção) */
+  sistemaIds: z.array(z.string()).default([]),
   analiseQuantitativa: z.coerce.number().min(0, 'Deve ser um número positivo').optional(),
   qtdRetornos: z.coerce.number().min(0).optional(),
   qualidade: z.string().optional(),
@@ -75,11 +70,7 @@ export default function DemandNewPage() {
       ticket: '',
       solicitante: '',
       area: '',
-      cliente: '',
-      contrato: '',
-      operadora: '',
-      produto: '',
-      sistema: '',
+      sistemaIds: [],
       analiseQuantitativa: 0,
       qtdRetornos: 0,
       qualidade: '',
@@ -92,8 +83,6 @@ export default function DemandNewPage() {
   const perfReadyRef = useRef(false)
   const md = useMasterDataStore()
   const demandStore = useDemandStore()
-  const selectedClienteId = useWatch({ control, name: 'cliente' })
-  const [selectedCliente, setSelectedCliente] = useState<ClienteOption | null>(null)
   const selectedTipoId = useWatch({ control, name: 'tipo' })
 
   const tiposDemandaAtivos = useMemo(
@@ -132,33 +121,6 @@ export default function DemandNewPage() {
     //   md.syncFromApi()
     // }
   }, [])
-
-  // Função para testar conectividade com todos os endpoints
-  const testAllEndpoints = async () => {
-    console.log('🔍 TESTE: Testando conectividade com todos os endpoints...')
-    const endpoints = ['areas', 'analistas', 'operadoras', 'produtos', 'sistemas', 'clientes', 'contratos', 'tiposServico', 'tiposDemanda']
-    
-    for (const endpoint of endpoints) {
-      try {
-        const baseUrl = 'https://nigteste-production.up.railway.app'
-        const response = await fetch(`${baseUrl}/${endpoint}`)
-        const data = await response.json()
-        console.log(`✅ TESTE: /${endpoint} - ${data.length} registros`)
-      } catch (error) {
-        console.error(`❌ TESTE: /${endpoint} - ERRO:`, error)
-      }
-    }
-  }
-
-  // Chamar teste automaticamente após 2 segundos
-  useEffect(() => {
-    const timer = setTimeout(testAllEndpoints, 2000)
-    return () => clearTimeout(timer)
-  }, [])
-
-
-
-
 
   // LÓGICA ATUALIZADA: Preencher com o analista correspondente ao usuário logado
   useEffect(() => {
@@ -326,70 +288,19 @@ export default function DemandNewPage() {
         (user?.name?.toLowerCase() || '').includes(analista.nome.toLowerCase())
       )
       
-      console.log('🔍 DemandNewPage: Dados BRUTOS do formulário recebidos:')
-      console.log('📋 TODOS OS CAMPOS:', JSON.stringify(data, null, 2))
-      
-      console.log('🔍 DemandNewPage: Dados do formulário organizados:', {
-        tipoServico: data.tipoServico,
-        tipo: data.tipo,
-        cliente: data.cliente,
-        contrato: data.contrato,
-        operadora: data.operadora,
-        produto: data.produto,
-        sistema: data.sistema,
-        area: data.area,
-        descricao: data.descricao,
-        status: data.status
-      })
-      
-      console.log('🔍 TIPOS DOS CAMPOS:')
-      console.log('  tipoServico:', typeof data.tipoServico, '→', data.tipoServico)
-      console.log('  tipo:', typeof data.tipo, '→', data.tipo)
-      console.log('  cliente:', typeof data.cliente, '→', data.cliente)
-      console.log('  contrato:', typeof data.contrato, '→', data.contrato)
-
-      // Log das listas disponíveis para validação
-      console.log('🔍 DemandNewPage: Listas disponíveis para validação:', {
-        analistas: md.analistas.length,
-        areas: md.areas.length,
-        tiposServico: md.tiposServico.length, // ← Usado para campo 'tipoServico' 
-        tiposDemanda: md.tiposDemanda.length, // ← Usado para campo 'tipo'
-        clientes: md.clientes.length,
-        contratos: md.contratos.length,
-        operadoras: md.operadoras.length,
-        produtos: md.produtos.length,
-        sistemas: md.sistemas.length
-      })
-      
-      console.log('🔍 DemandNewPage: Buscando analista correspondente')
-      console.log('🔍 DemandNewPage: Usuário logado:', { id: user?.id, name: user?.name, role: user?.role })
-      console.log('🔍 DemandNewPage: Analista encontrado:', analistaCorrespondente?.nome, 'ID:', analistaCorrespondente?.id)
-      
-      // Validar se o userId é válido
-      if (user?.id) {
-        console.log('✅ UserId válido:', user.id)
-      } else {
-        console.warn('⚠️ UserId não encontrado ou inválido')
-      }
-
-      // Função helper para converter string vazia em null e sanitizar dados
       const emptyToNull = (value: string | undefined) => {
         if (!value || typeof value !== 'string') return null
         const trimmed = value.trim()
         return trimmed !== '' ? trimmed : null
       }
-      
-      // Sanitização extra dos dados do formulário
+
+      const sistemaIds = [...new Set((data.sistemaIds || []).filter((id) => typeof id === 'string' && id.trim() !== ''))]
+
       const sanitizedData = {
         ...data,
         tipoServico: emptyToNull(data.tipoServico),
         tipo: emptyToNull(data.tipo),
-        cliente: emptyToNull(data.cliente),
-        contrato: emptyToNull(data.contrato),
         area: emptyToNull(data.area),
-        operadora: emptyToNull(data.operadora),
-        produto: emptyToNull(data.produto),
-        sistema: emptyToNull(data.sistema)
       }
 
       // Função para validar se um ID existe na respectiva lista
@@ -419,39 +330,34 @@ export default function DemandNewPage() {
         return id
       }
 
-      console.log('🔍 VALIDAÇÃO: Iniciando validação de todos os campos...')
-      
-      // LOGS ESPECÍFICOS PARA CLIENTE E CONTRATO
-      if (data.cliente || data.contrato) {
-        console.log('🔍 CLIENTE-CONTRATO DEBUG:')
-        console.log('  data.cliente (form):', data.cliente)
-        console.log('  data.contrato (form):', data.contrato)
-        console.log('  md.clientes disponíveis:', md.clientes.map(c => ({ id: c.id, nome: c.nome })))
-        console.log('  md.contratos disponíveis:', md.contratos.map(c => ({ id: c.id, codigo: (c as any).codigo, numero: (c as any).numero, clienteId: (c as any).clienteId })))
+      for (const sid of sistemaIds) {
+        validateId(sid, md.sistemas, 'Sistema')
       }
-      
+
       const solicitanteNome = md.solicitantes.find(s => s.id === data.solicitante)?.nome || emptyToNull(data.solicitante)
       const qualidadeValor = data.qualidade ?? ''
       const analiseQuantitativaValor = data.analiseQuantitativa ?? ''
       const qtdClientesVinculadosValor = data.qtdClientesVinculados ?? ''
       const usuariosEmpresaValor = data.usuariosEmpresa ?? ''
 
-             // Payload para o backend - com validação detalhada de IDs
-       const backendPayload = {
-         status: data.status,
-         ticket: finalTicket,
-                 analistaId: validateId(analistaCorrespondente?.id || null, md.analistas, 'Analista'),
-        userId: user?.id || null, // ID do usuário que está criando a demanda
-       solicitante: solicitanteNome,
-       areaId: validateId(sanitizedData.area, md.areas, 'Área'),
-       tipoId: validateId(sanitizedData.tipo, tiposDemandaAtivos, 'TipoDemanda'),
-       descricao: data.descricao || null,
-       tipoServicoId: validateId(sanitizedData.tipoServico, md.tiposServico, 'TipoServiço'),
-       clienteId: validateId(sanitizedData.cliente, md.clientes, 'Cliente'),
-       contratoId: validateId(sanitizedData.contrato, md.contratos, 'Contrato'),
-       operadoraId: validateId(sanitizedData.operadora, md.operadoras, 'Operadora'),
-       produtoId: validateId(sanitizedData.produto, md.produtos, 'Produto'),
-       sistemaId: validateId(sanitizedData.sistema, md.sistemas, 'Sistema'),
+      const sistemaIdPrimeiro = sistemaIds.length ? validateId(sistemaIds[0], md.sistemas, 'Sistema') : null
+
+      const backendPayload: Record<string, unknown> = {
+        status: data.status,
+        ticket: finalTicket,
+        analistaId: validateId(analistaCorrespondente?.id || null, md.analistas, 'Analista'),
+        userId: user?.id || null,
+        solicitante: solicitanteNome,
+        areaId: validateId(sanitizedData.area, md.areas, 'Área'),
+        tipoId: validateId(sanitizedData.tipo, tiposDemandaAtivos, 'TipoDemanda'),
+        descricao: data.descricao || null,
+        tipoServicoId: validateId(sanitizedData.tipoServico, md.tiposServico, 'TipoServiço'),
+        clienteId: null,
+        contratoId: null,
+        operadoraId: null,
+        produtoId: null,
+        sistemaId: sistemaIdPrimeiro,
+        ...(sistemaIds.length ? { sistemasIds: sistemaIds } : {}),
         dataInicio: data.dataInicio ? new Date(data.dataInicio).toISOString() : null,
         dataFinal: data.dataFinal ? new Date(data.dataFinal).toISOString() : null,
         qtdUsuarios: analiseQuantitativaValor !== '' && analiseQuantitativaValor !== null ? String(analiseQuantitativaValor) : null,
@@ -461,152 +367,50 @@ export default function DemandNewPage() {
         usuariosEmpresa: usuariosEmpresaValor !== '' && usuariosEmpresaValor !== null ? Number(usuariosEmpresaValor) : null,
         observacoes: emptyToNull(data.observacoes),
       }
-      
-      console.log('🔍 VALIDAÇÃO: Validação concluída. Verificando se algum campo foi rejeitado...')
-      
-      // VERIFICAÇÃO DIRETA NO BANCO DE DADOS
-      if (data.cliente || data.contrato) {
-        console.log('🔍 VERIFICAÇÃO BANCO: Testando se IDs existem no banco...')
-        
-        try {
-          // Testar Cliente
-          if (data.cliente) {
-            console.log(`🔍 VERIFICAÇÃO BANCO: Testando cliente ID: ${data.cliente}`)
-            const baseUrl = 'https://nigteste-production.up.railway.app'
-            const clienteResponse = await fetch(`${baseUrl}/clientes/${data.cliente}`)
-            if (clienteResponse.ok) {
-              const clienteData = await clienteResponse.json()
-              console.log('✅ VERIFICAÇÃO BANCO: Cliente encontrado no banco:', clienteData)
-            } else {
-              console.error('❌ VERIFICAÇÃO BANCO: Cliente NÃO encontrado no banco!', clienteResponse.status)
-              alert(`ERRO: Cliente selecionado não existe no banco de dados (Status: ${clienteResponse.status})`)
-              return
-            }
-          }
-          
-          // Testar Contrato
-          if (data.contrato) {
-            console.log(`🔍 VERIFICAÇÃO BANCO: Testando contrato ID: ${data.contrato}`)
-            const baseUrl = 'https://nigteste-production.up.railway.app'
-            const contratoResponse = await fetch(`${baseUrl}/contratos/${data.contrato}`)
-            if (contratoResponse.ok) {
-              const contratoData = await contratoResponse.json()
-              console.log('✅ VERIFICAÇÃO BANCO: Contrato encontrado no banco:', contratoData)
-            } else {
-              console.error('❌ VERIFICAÇÃO BANCO: Contrato NÃO encontrado no banco!', contratoResponse.status)
-              alert(`ERRO: Contrato selecionado não existe no banco de dados (Status: ${contratoResponse.status})`)
-              return
-            }
-          }
-        } catch (error) {
-          console.error('❌ VERIFICAÇÃO BANCO: Erro ao verificar IDs no banco:', error)
-          alert('ERRO: Não foi possível verificar os dados no banco. Verifique a conexão.')
-          return
-        }
-      }
 
-      // Validação específica Cliente-Contrato
-      if (data.cliente && data.contrato) {
-        const clienteSelecionado = md.clientes.find(c => c.id === data.cliente)
-        const contratoSelecionado = md.contratos.find(c => c.id === data.contrato)
-        
-        console.log('🔍 VALIDAÇÃO CLIENTE-CONTRATO:')
-        console.log('  Cliente selecionado:', clienteSelecionado)
-        console.log('  Contrato selecionado:', contratoSelecionado)
-        
-        if (contratoSelecionado && clienteSelecionado) {
-          // Verificar se o contrato pertence ao cliente (relação direta ou por grupo)
-          const contratoValido = (contratoSelecionado as any).clienteId === clienteSelecionado.id ||
-                                  (contratoSelecionado as any).grupoEconomico === clienteSelecionado.grupoEconomico
-          
-          if (!contratoValido) {
-            console.error('❌ VALIDAÇÃO: Contrato não pertence ao cliente selecionado!')
-            alert('ERRO: O contrato selecionado não pertence ao cliente escolhido. Verifique a seleção.')
-            return
-          } else {
-            console.log('✅ VALIDAÇÃO: Contrato válido para o cliente selecionado')
-          }
-        }
-      }
-
-      // Verificar se algum campo FK foi rejeitado (enviado como null quando deveria ter valor)
-      const rejectedFields = []
+      const rejectedFields: string[] = []
       if (data.analista && !backendPayload.analistaId) rejectedFields.push('Analista')
       if (sanitizedData.area && !backendPayload.areaId) rejectedFields.push('Área')
       if (sanitizedData.tipo && !backendPayload.tipoId) rejectedFields.push('TipoDemanda')
       if (sanitizedData.tipoServico && !backendPayload.tipoServicoId) rejectedFields.push('TipoCadastro')
-      if (sanitizedData.cliente && !backendPayload.clienteId) rejectedFields.push('Cliente')
-      if (sanitizedData.contrato && !backendPayload.contratoId) rejectedFields.push('Contrato')
-      if (sanitizedData.operadora && !backendPayload.operadoraId) rejectedFields.push('Operadora')
-      if (sanitizedData.produto && !backendPayload.produtoId) rejectedFields.push('Produto')
-      if (sanitizedData.sistema && !backendPayload.sistemaId) rejectedFields.push('Sistema')
-      
-      // Não validar userId por enquanto (comentado para evitar erro)
-      // if (user?.id && !backendPayload.userId) rejectedFields.push('Usuário')
-      
+      if (sistemaIds.length && !backendPayload.sistemaId) rejectedFields.push('Sistema')
+
       if (rejectedFields.length > 0) {
-        console.error('❌ CAMPOS REJEITADOS:', rejectedFields)
         alert(`ERRO: Os seguintes campos têm IDs inválidos: ${rejectedFields.join(', ')}. Verifique se os dados foram carregados corretamente.`)
         return
       }
 
-      console.log('🔍 DemandNewPage: Payload final para o backend:', JSON.stringify(backendPayload, null, 2))
-      
-      // LOG ESPECÍFICO PARA CLIENTE E CONTRATO NO PAYLOAD
-      if (backendPayload.clienteId || backendPayload.contratoId) {
-        console.log('🔍 PAYLOAD CLIENTE-CONTRATO:')
-        console.log('  clienteId no payload:', backendPayload.clienteId)
-        console.log('  contratoId no payload:', backendPayload.contratoId)
-        console.log('  Tipo de clienteId:', typeof backendPayload.clienteId)
-        console.log('  Tipo de contratoId:', typeof backendPayload.contratoId)
-      }
-
-      // DEBUG: Criar versão simplificada do payload para teste incremental
-      const debugPayload = {
-        status: backendPayload.status,
-        tipoId: backendPayload.tipoId,
-        tipoServicoId: backendPayload.tipoServicoId,
-        descricao: backendPayload.descricao
-      }
-      
-      console.log('🔍 DEBUG: Payload simplificado (apenas campos obrigatórios):', JSON.stringify(debugPayload, null, 2))
-      console.log('🔍 DEBUG: Se quiser testar apenas campos obrigatórios, descomente a linha de teste abaixo')
-      // Descomente a próxima linha para testar apenas com campos obrigatórios:
-      // const finalPayload = debugPayload
-
       const finalPayload = backendPayload
 
-      console.log('🎯 PAYLOAD FINAL ANTES DO ENVIO:')
-      console.log('📤 JSON que será enviado:', JSON.stringify(finalPayload, null, 2))
-      console.log('🔍 Verificação final de campos obrigatórios:')
-      console.log('  status:', finalPayload.status)
-      console.log('  tipoId:', finalPayload.tipoId)
-      console.log('  tipoServicoId:', finalPayload.tipoServicoId)
+      const sistemaNomes = sistemaIds
+        .map((id) => md.sistemas.find((s) => s.id === id)?.nome)
+        .filter(Boolean)
+        .join(', ')
 
-      // Preparar payload para o store (usar nomes corretos dos campos)
       const storePayload = {
         status: data.status,
-        ticket: finalTicket, // CORRIGIDO: Usar o ticket final calculado (do usuário ou gerado)
+        ticket: finalTicket,
         analista: analistaCorrespondente?.nome || null,
         analistaId: analistaCorrespondente?.id || null,
         solicitante: solicitanteNome,
-        area: md.areas.find(a => a.id === sanitizedData.area)?.nome || null,
+        area: md.areas.find((a) => a.id === sanitizedData.area)?.nome || null,
         areaId: sanitizedData.area,
-        tipo: md.tiposDemanda.find(t => t.id === sanitizedData.tipo)?.nome || null,
+        tipo: md.tiposDemanda.find((t) => t.id === sanitizedData.tipo)?.nome || null,
         tipoId: sanitizedData.tipo,
         descricao: data.descricao || null,
-        tipoServico: md.tiposServico.find(ts => ts.id === sanitizedData.tipoServico)?.nome || null,
+        tipoServico: md.tiposServico.find((ts) => ts.id === sanitizedData.tipoServico)?.nome || null,
         tipoServicoId: sanitizedData.tipoServico,
-        cliente: md.clientes.find(c => c.id === sanitizedData.cliente)?.nome || null,
-        clienteId: sanitizedData.cliente,
-        contrato: md.contratos.find(c => c.id === sanitizedData.contrato)?.codigo || md.contratos.find(c => c.id === sanitizedData.contrato)?.numero || null,
-        contratoId: sanitizedData.contrato,
-        operadora: md.operadoras.find(o => o.id === sanitizedData.operadora)?.nome || null,
-        operadoraId: sanitizedData.operadora,
-        produto: md.produtos.find(p => p.id === sanitizedData.produto)?.nome || null,
-        produtoId: sanitizedData.produto,
-        sistema: md.sistemas.find(s => s.id === sanitizedData.sistema)?.nome || null,
-        sistemaId: sanitizedData.sistema,
+        cliente: '',
+        clienteId: undefined,
+        contrato: '',
+        contratoId: undefined,
+        operadora: '',
+        operadoraId: undefined,
+        produto: '',
+        produtoId: undefined,
+        sistema: sistemaNomes || '',
+        sistemaId: sistemaIdPrimeiro || undefined,
+        sistemasIds: sistemaIds.length ? sistemaIds : undefined,
         dataInicio: data.dataInicio ? new Date(data.dataInicio).toISOString() : null,
         dataFinal: data.dataFinal ? new Date(data.dataFinal).toISOString() : null,
         qtdUsuarios: analiseQuantitativaValor !== '' && analiseQuantitativaValor !== null ? String(analiseQuantitativaValor) : null,
@@ -616,8 +420,6 @@ export default function DemandNewPage() {
         usuariosEmpresa: usuariosEmpresaValor !== '' && usuariosEmpresaValor !== null ? Number(usuariosEmpresaValor) : null,
         observacoes: emptyToNull(data.observacoes),
       }
-
-      console.log('🔍 DemandNewPage: Payload para o store:', JSON.stringify(storePayload, null, 2))
 
       // Usar o store para criar a demanda (que fará o mapeamento correto)
       const createdDemand = await store.add(storePayload)
@@ -770,93 +572,40 @@ export default function DemandNewPage() {
             )} />
           </Grid>
 
-          {/* Segundo Tópico: Informações do Cliente e Contrato */}
+          {/* Segundo tópico: sistemas (multi-seleção) */}
           <Grid item xs={12}>
             <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', borderBottom: '2px solid', borderColor: 'primary.main', pb: 1, mt: 2 }}>
-              2. Informações do Cliente e Contrato
+              2. Sistemas
             </Typography>
           </Grid>
-          
-          <Grid item xs={12} sm={6} md={4}>
-            <Controller name="cliente" control={control} render={({ field }) => (
-              <AsyncClienteAutocomplete
-                valueId={field.value}
-                onChangeId={(nextId) => {
-                  field.onChange(nextId)
-                  setValue('contrato', '')
-                }}
-                label="Cliente"
-                error={!!errors.cliente}
-                helperText={errors.cliente?.message || 'Digite para buscar um cliente'}
-                onSelectOption={setSelectedCliente}
-              />
-            )} />
-          </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <Controller name="contrato" control={control} render={({ field }) => (
-              <AsyncContratoAutocomplete
-                valueId={field.value}
-                onChangeId={field.onChange}
-                label="Contrato"
-                error={!!errors.contrato}
-                helperText={errors.contrato?.message}
-                disabled={!selectedClienteId}
-                clienteId={selectedClienteId}
-                grupoEconomico={selectedCliente?.grupoEconomico || null}
-              />
-            )} />
-          </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <Controller name="operadora" control={control} render={({ field }) => (
-              <Autocomplete
-                {...field}
-                options={md.operadoras}
-                getOptionLabel={(option) => option.nome || ''}
-                isOptionEqualToValue={(option, value) => option.id === value?.id}
-                value={md.operadoras.find(o => o.id === field.value) || null}
-                onChange={(_, newValue) => field.onChange(newValue?.id || '')}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Operadora"
-                    fullWidth
-                    error={!!errors.operadora}
-                    helperText={errors.operadora?.message || 'Digite para buscar uma operadora'}
-                    placeholder="Digite para buscar..."
-                  />
-                )}
-                renderOption={(props, option) => (
-                  <Box component="li" {...props} key={option.id}>
-                    <Typography variant="body1" fontWeight="medium">
-                      {option.nome}
-                    </Typography>
-                  </Box>
-                )}
-                noOptionsText="Nenhuma operadora encontrada"
-                loading={md.operadoras.length === 0}
-                loadingText="Carregando operadoras..."
-                filterOptions={(options, { inputValue }) => {
-                  const filtered = options.filter(option =>
-                    option.nome.toLowerCase().includes(inputValue.toLowerCase())
-                  )
-                  return filtered
-                }}
-              />
-            )} />
-          </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <Controller name="produto" control={control} render={({ field }) => (
-              <TextField {...field} select label="Produto" fullWidth error={!!errors.produto} helperText={errors.produto?.message}>
-                {md.produtos.map(p => <MenuItem key={p.id} value={p.id}>{p.nome}</MenuItem>)}
-              </TextField>
-            )} />
-          </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <Controller name="sistema" control={control} render={({ field }) => (
-              <TextField {...field} select label="Sistema principal" fullWidth error={!!errors.sistema} helperText={errors.sistema?.message}>
-                {md.sistemas.map(s => <MenuItem key={s.id} value={s.id}>{s.nome}</MenuItem>)}
-              </TextField>
-            )} />
+          <Grid item xs={12}>
+            <Controller
+              name="sistemaIds"
+              control={control}
+              render={({ field }) => (
+                <Autocomplete
+                  multiple
+                  options={md.sistemas}
+                  getOptionLabel={(o) => o.nome}
+                  isOptionEqualToValue={(a, b) => a.id === b.id}
+                  value={md.sistemas.filter((s) => (field.value || []).includes(s.id))}
+                  onChange={(_, v) => field.onChange(v.map((x) => x.id))}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Sistemas"
+                      placeholder="Selecione um ou mais"
+                      fullWidth
+                      error={!!errors.sistemaIds}
+                      helperText={
+                        (errors.sistemaIds as { message?: string } | undefined)?.message ||
+                        'Selecione um ou mais sistemas relacionados à demanda.'
+                      }
+                    />
+                  )}
+                />
+              )}
+            />
           </Grid>
 
           {/* Terceiro Tópico: Métricas */}

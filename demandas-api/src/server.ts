@@ -2375,6 +2375,31 @@ function crud(entity: keyof PrismaClient) {
           demandaData.qtdUsuarios = demandaData.periodicidade
           delete demandaData.periodicidade
         }
+
+        const normalizeDemandaSistemasIds = (raw: unknown): string[] | undefined => {
+          if (raw == null) return undefined
+          if (Array.isArray(raw)) {
+            const u = [...new Set(raw.filter((x): x is string => typeof x === 'string' && String(x).trim() !== ''))]
+            return u.length ? u : undefined
+          }
+          if (typeof raw === 'string') {
+            try {
+              const j = JSON.parse(raw)
+              if (Array.isArray(j)) return normalizeDemandaSistemasIds(j)
+            } catch {
+              /* ignore */
+            }
+          }
+          return undefined
+        }
+        let sis = normalizeDemandaSistemasIds(demandaData.sistemasIds)
+        if (!sis?.length && demandaData.sistemaId) sis = [String(demandaData.sistemaId)]
+        if (sis?.length) {
+          demandaData.sistemasIds = sis
+          if (!demandaData.sistemaId) demandaData.sistemaId = sis[0]
+        } else {
+          delete demandaData.sistemasIds
+        }
         
         // Converter IDs para relacionamentos connect
         const relationshipFields = [
@@ -2577,6 +2602,34 @@ function crud(entity: keyof PrismaClient) {
         if (demandaData.periodicidade != null && demandaData.qtdUsuarios === undefined) {
           demandaData.qtdUsuarios = demandaData.periodicidade
           delete demandaData.periodicidade
+        }
+
+        const normalizeDemandaSistemasIdsUpd = (raw: unknown): string[] | null | undefined => {
+          if (raw === null) return null
+          if (raw === undefined) return undefined
+          if (Array.isArray(raw)) {
+            const u = [...new Set(raw.filter((x): x is string => typeof x === 'string' && String(x).trim() !== ''))]
+            return u.length ? u : null
+          }
+          if (typeof raw === 'string') {
+            try {
+              const j = JSON.parse(raw)
+              if (Array.isArray(j)) return normalizeDemandaSistemasIdsUpd(j)
+            } catch {
+              /* ignore */
+            }
+          }
+          return undefined
+        }
+        if (Object.prototype.hasOwnProperty.call(demandaData, 'sistemasIds')) {
+          const sis = normalizeDemandaSistemasIdsUpd(demandaData.sistemasIds)
+          if (sis === null || (Array.isArray(sis) && sis.length === 0)) {
+            demandaData.sistemasIds = null
+            demandaData.sistemaId = null
+          } else if (Array.isArray(sis) && sis.length) {
+            demandaData.sistemasIds = sis
+            demandaData.sistemaId = sis[0]
+          }
         }
         
         // Remover campos que não devem ser atualizados diretamente

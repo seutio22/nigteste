@@ -24,6 +24,8 @@ export interface Demand {
   tipoServicoId?: string // id do TipoServico
   sistema?: string // nome do Sistema
   sistemaId?: string // id do Sistema
+  /** IDs dos sistemas (multi-seleção), quando gravado na API */
+  sistemasIds?: string[]
   dataInicio?: string // ISO date
   dataFinal?: string // ISO date
   qtdUsuarios?: string

@@ -185,6 +185,8 @@ model Demanda {
   produtoId             String?
   tipoServicoId         String?
   sistemaId             String?
+  /// Lista de IDs de sistemas (multi-seleção); `sistemaId` espelha o primeiro para compatibilidade
+  sistemasIds           Json?
   dataInicio            DateTime?
   dataFinal             DateTime?
   qtdUsuarios           String?

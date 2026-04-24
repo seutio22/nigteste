@@ -30,6 +30,19 @@ const getQualidadeLabel = (value?: string) => {
   return value ? (qualidadeMap[value] || value) : '-'
 }
 
+function sistemasResumo(d: Demand, md: { sistemas: { id: string; nome: string }[] }) {
+  const raw = d.sistemasIds
+  let ids: string[] = []
+  if (Array.isArray(raw)) ids = raw.filter((x): x is string => typeof x === 'string')
+  const sid =
+    typeof d.sistemaId === 'object' && d.sistemaId != null
+      ? (d.sistemaId as { id?: string }).id
+      : d.sistemaId
+  if (!ids.length && sid) ids = [String(sid)]
+  if (!ids.length) return d.sistema || '-'
+  return ids.map((id) => md.sistemas.find((s) => s.id === id)?.nome || id).join(', ')
+}
+
 export default function DemandDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -232,8 +245,8 @@ export default function DemandDetailPage() {
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-red-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-apoio-400">Sistema</p>
-                  <p className="font-medium">{label(d.sistemaId, md.sistemas)}</p>
+                  <p className="text-sm text-apoio-400">Sistemas</p>
+                  <p className="font-medium">{sistemasResumo(d, md)}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
@@ -470,7 +483,17 @@ function EditInline({ d }: { d: Demand }) {
     if (legacy.periodicidade != null && String(legacy.periodicidade).trim() !== '' && (normalizedDraft.qtdUsuarios == null || normalizedDraft.qtdUsuarios === '')) {
       normalizedDraft.qtdUsuarios = legacy.periodicidade
     }
-    
+
+    const rawSis = d.sistemasIds
+    let sistemasIds: string[] = []
+    if (Array.isArray(rawSis)) sistemasIds = rawSis.filter((x): x is string => typeof x === 'string')
+    const sidNorm =
+      typeof normalizedDraft.sistemaId === 'string' || typeof normalizedDraft.sistemaId === 'number'
+        ? String(normalizedDraft.sistemaId)
+        : (normalizedDraft.sistemaId as { id?: string } | undefined)?.id
+    if (!sistemasIds.length && sidNorm) sistemasIds = [sidNorm]
+    ;(normalizedDraft as Demand).sistemasIds = sistemasIds
+
     setDraft(normalizedDraft)
   }, [d])
 
@@ -479,8 +502,11 @@ function EditInline({ d }: { d: Demand }) {
   )
 
   const changedKeys = useMemo(() => {
-    const keys = ['status', 'ticket', 'clienteId', 'contratoId', 'operadoraId', 'produtoId', 'sistemaId', 'areaId', 'tipoId', 'tipoServicoId', 'analistaId', 'descricao', 'solicitante', 'dataInicio', 'dataFinal', 'qtdUsuarios', 'qtdRetornos', 'qualidade', 'qtdClientesVinculados', 'usuariosEmpresa', 'observacoes'] as const
+    const keys = ['status', 'ticket', 'clienteId', 'contratoId', 'operadoraId', 'produtoId', 'sistemaId', 'sistemasIds', 'areaId', 'tipoId', 'tipoServicoId', 'analistaId', 'descricao', 'solicitante', 'dataInicio', 'dataFinal', 'qtdUsuarios', 'qtdRetornos', 'qualidade', 'qtdClientesVinculados', 'usuariosEmpresa', 'observacoes'] as const
     return keys.filter((k) => {
+      if (k === 'sistemasIds') {
+        return JSON.stringify((d as Demand).sistemasIds ?? []) !== JSON.stringify((draft as Demand).sistemasIds ?? [])
+      }
       const dValue = (d as any)[k]
       const draftValue = (draft as any)[k]
       return String(dValue ?? '') !== String(draftValue ?? '')
@@ -542,7 +568,18 @@ function EditInline({ d }: { d: Demand }) {
         ...(draft.contratoId && { contratoId: typeof draft.contratoId === 'object' ? (draft.contratoId as any)?.id : draft.contratoId }),
         ...(draft.operadoraId && { operadoraId: typeof draft.operadoraId === 'object' ? (draft.operadoraId as any)?.id : draft.operadoraId }),
         ...(draft.produtoId && { produtoId: typeof draft.produtoId === 'object' ? (draft.produtoId as any)?.id : draft.produtoId }),
-        ...(draft.sistemaId && { sistemaId: typeof draft.sistemaId === 'object' ? (draft.sistemaId as any)?.id : draft.sistemaId }),
+        ...(() => {
+          const arr = Array.isArray(draft.sistemasIds) ? draft.sistemasIds.filter(Boolean) : []
+          const legacySid =
+            typeof draft.sistemaId === 'object' && draft.sistemaId
+              ? (draft.sistemaId as { id?: string }).id
+              : draft.sistemaId
+          const sistemaIdFinal = (arr[0] || legacySid || null) as string | null
+          return {
+            sistemaId: sistemaIdFinal,
+            sistemasIds: arr.length ? arr : null,
+          }
+        })(),
         ...(draft.areaId && { areaId: typeof draft.areaId === 'object' ? (draft.areaId as any)?.id : draft.areaId }),
         ...(draft.tipoId && { tipoId: typeof draft.tipoId === 'object' ? (draft.tipoId as any)?.id : draft.tipoId }),
         ...(draft.tipoServicoId && { tipoServicoId: typeof draft.tipoServicoId === 'object' ? (draft.tipoServicoId as any)?.id : draft.tipoServicoId }),
@@ -594,6 +631,21 @@ function EditInline({ d }: { d: Demand }) {
       
       // Log das mudanças
       changedKeys.forEach((k) => {
+        if (k === 'sistemasIds') {
+          const idsToNames = (ids: unknown) =>
+            Array.isArray(ids)
+              ? (ids as string[]).map((id) => md.sistemas.find((s) => s.id === id)?.nome || id).join(', ')
+              : ''
+          store.log({
+            demandaId: d.id,
+            type: 'field_change' as const,
+            field: 'sistemas',
+            from: idsToNames((d as Demand).sistemasIds),
+            to: idsToNames((draft as Demand).sistemasIds),
+            user: currentUser?.name,
+          })
+          return
+        }
         // Função para converter ID em nome para logs
         const convertIdToName = (id: string | undefined, fieldType: string) => {
           if (!id) return 'N/A'
@@ -872,18 +924,28 @@ function EditInline({ d }: { d: Demand }) {
         </div>
       </div>
 
-      {/* Terceira linha - Sistema e Área */}
+      {/* Terceira linha - Sistemas (multi) e Área */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Sistema</label>
-          <select
-            value={typeof draft.sistemaId === 'object' ? ((draft.sistemaId as any)?.id || '') : (draft.sistemaId || '')}
-            onChange={(e) => setDraft({ ...draft, sistemaId: e.target.value || undefined })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="">Selecione...</option>
-            {md.sistemas.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
-          </select>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Sistemas</label>
+          <Autocomplete
+            multiple
+            options={md.sistemas}
+            getOptionLabel={(o) => o.nome}
+            isOptionEqualToValue={(a, b) => a.id === b.id}
+            value={md.sistemas.filter((s) => (draft.sistemasIds || []).includes(s.id))}
+            onChange={(_, v) => {
+              const ids = v.map((x) => x.id)
+              setDraft({
+                ...draft,
+                sistemasIds: ids,
+                sistemaId: ids[0] || undefined,
+              })
+            }}
+            renderInput={(params) => (
+              <TextField {...params} placeholder="Selecione um ou mais" className="w-full" />
+            )}
+          />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Área</label>
