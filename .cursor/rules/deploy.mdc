@@ -9,19 +9,20 @@ alwaysApply: true
 Quando o usuário pedir para fazer deploy:
 
 1. **Railway (backend `nigteste` — demandas-api):**
-   - Carregar `RAILWAY_TOKEN` de `demandas-api/.env.railway`
-   - **Igual ao job `deploy-railway` do GitHub Actions:** `cd demandas-api` e depois `npx @railway/cli up --service nigteste --ci`
+   - Carregar `RAILWAY_TOKEN` de `demandas-api/.env.railway` se existir.
+   - **Igual ao job `deploy-railway` do GitHub Actions:** na **raiz do repo**, `railway up --ci --path-as-root . --service nigteste` (evita `prefix not found` no Windows e mantém o contexto Docker correto com Root Directory `demandas-api`). No Windows: `.\deploy-railway-direto.ps1`.
    - **Painel Railway (crítico):**
-     - **Settings → Build → Builder** = **Dockerfile** (o padrão virou **Railpack**; se ficar em Railpack, ignora o `railway.json` em alguns casos e quebra).
+     - **Settings → Build → Builder** = **Dockerfile** (evitar Railpack a substituir o plano).
      - **Dockerfile path** = `Dockerfile`
-     - **Root Directory:** com fonte = monorepo no Git, use `demandas-api`. **Não** use `prisma` nem `demandas-api/prisma` (o log “só `./prisma/`” é isso).
-     - Se o deploy for **só pela CLI** a partir da pasta `demandas-api` e o painel tiver Root Directory `demandas-api`, o contexto pode não bater; nesse caso testar Root Directory **vazio** ou alinhar com a [doc Railway](https://docs.railway.com/builds/build-configuration) para “subdiretório vs upload local”.
+     - **Root Directory:** `demandas-api` (sem `/` inicial). **Não** use `prisma` nem `demandas-api/prisma`.
+     - **Config as code:** caminho absoluto `/demandas-api/railway.toml` (o ficheiro na raiz do repo **não** segue o Root Directory).
+     - Variável opcional se o Dockerfile for ignorado: `RAILWAY_DOCKERFILE_PATH=Dockerfile`.
 
 2. **Não usar apenas git push** — usar `railway up` como acima quando solicitado.
 
 3. O token está em `demandas-api/.env.railway` (arquivo não versionado).
 
-4. **Monorepo:** na raiz existe `railway.json` do **portal** (Dockerfile.portal-colaborador-api). O serviço `nigteste` deve usar o `railway.json` **dentro de `demandas-api/`**, por isso o Root Directory no painel e o path do CLI têm de apontar para essa pasta.
+4. **Monorepo:** config do portal a partir da raiz do Git está em `railway.stack-portal-from-repo-root.toml` (não deixar `railway.json`/`railway.toml` na raiz a apontar para a API por engano). Serviço `nigteste`: `demandas-api/railway.toml` + deploy com `--path-as-root` como acima.
 
 5. **portal-colaborador-api (amusing-flexibility) — `portal-api`:**
    - Painel: **Root Directory** = `portal-api`, **Dockerfile** (ver `portal-api/railway.toml`), branch **`main`**.

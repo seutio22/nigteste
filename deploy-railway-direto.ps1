@@ -11,7 +11,8 @@ function Invoke-Railway {
 
 Write-Host "🚀 Deploy Direto Railway..." -ForegroundColor Green
 
-$enteredBackend = $false
+$originalCwd = (Get-Location).Path
+$enteredRepoRoot = $false
 try {
     Invoke-Railway whoami 2>$null | Out-Null
     if ($LASTEXITCODE -ne 0) {
@@ -23,9 +24,6 @@ try {
 
     Write-Host "✅ Logado no Railway como: $railwayStatus" -ForegroundColor Green
 
-    Set-Location "demandas-api"
-    $enteredBackend = $true
-
     Write-Host "📦 Fazendo deploy do backend..." -ForegroundColor Cyan
 
     # Projeto/serviço da API demandas (evita falhar quando esta pasta está `railway link` a outro serviço, ex.: portal-colaborador-api).
@@ -33,8 +31,18 @@ try {
     $railwayEnv = if ($env:RAILWAY_ENVIRONMENT) { $env:RAILWAY_ENVIRONMENT } else { 'production' }
     $railwayService = if ($env:RAILWAY_SERVICE_NAME) { $env:RAILWAY_SERVICE_NAME } else { 'nigteste' }
 
+    # Monorepo + Windows: `railway up .` sem --path-as-root dá "prefix not found". `railway up ./demandas-api --path-as-root`
+    # faz o Docker usar contexto na raiz do repo e quebra o COPY do Dockerfile (package.json não encontrado).
+    # O que funciona: enviar o repositório completo com `--path-as-root .` a partir desta raiz (alinhado com Root Directory = demandas-api no painel).
+    $repoRoot = $PSScriptRoot
+    if (-not (Test-Path (Join-Path $repoRoot "demandas-api\package.json"))) {
+        $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+    }
+    Set-Location $repoRoot
+    $enteredRepoRoot = $true
+
     # `railway deploy` na CLI atual é para templates; o deploy do código usa `railway up` (como no GitHub Actions).
-    Invoke-Railway up --ci -p $railwayProject -e $railwayEnv -s $railwayService
+    Invoke-Railway up --ci --path-as-root . -p $railwayProject -e $railwayEnv -s $railwayService
 
     if ($LASTEXITCODE -eq 0) {
         Write-Host "✅ Deploy Railway concluído com sucesso!" -ForegroundColor Green
@@ -48,7 +56,7 @@ try {
     Write-Host "❌ Erro no deploy Railway: $($_.Exception.Message)" -ForegroundColor Red
     exit 1
 } finally {
-    if ($enteredBackend) { Set-Location ".." }
+    if ($enteredRepoRoot) { Set-Location -LiteralPath $originalCwd }
 }
 
 Write-Host "`n🎉 Deploy Railway finalizado!" -ForegroundColor Magenta

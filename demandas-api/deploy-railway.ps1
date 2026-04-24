@@ -1,5 +1,4 @@
-# Deploy direto no Railway
-# IMPORTANTE: Deploy da RAIZ do repo para o railway.json com rootDirectory: demandas-api ser encontrado
+# Deploy direto no Railway (monorepo: usar --path-as-root a partir da raiz do repo).
 $envFile = Join-Path $PSScriptRoot ".env.railway"
 if (Test-Path $envFile) {
     Get-Content $envFile | ForEach-Object {
@@ -8,7 +7,6 @@ if (Test-Path $envFile) {
         }
     }
 }
-# Ir para a raiz do repo (pai de demandas-api)
 $repoRoot = Split-Path $PSScriptRoot -Parent
 Set-Location $repoRoot
-npx @railway/cli up --service nigteste --ci
+npx @railway/cli up --ci --path-as-root . --service nigteste
