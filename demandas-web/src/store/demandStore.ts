@@ -378,15 +378,23 @@ export const useDemandStore = create<DemandState>()(
             }
             return String(value)
           }
+
+          /** ID explícito na coluna OU relação Prisma incluída (objeto com id). Nunca usar string de nome como ID. */
+          const idFromColumnOrJoin = (columnId: unknown, relation: unknown): string | undefined => {
+            const fromCol = normalizeId(columnId)
+            if (fromCol) return fromCol
+            if (relation && typeof relation === 'object') return normalizeId(relation)
+            return undefined
+          }
           
           // 🚀 OTIMIZAÇÃO: Mapeamento otimizado - reduzir chamadas de função
           const demandasMapeadas: Demand[] = demandas.map((d: any) => {
             // Processar IDs uma vez e reutilizar
-            const clienteId = normalizeId(d.clienteId || d.cliente)
-            const contratoId = normalizeId(d.contratoId || d.contrato)
-            const operadoraId = normalizeId(d.operadoraId || d.operadora)
-            const produtoId = normalizeId(d.produtoId || d.produto)
-            const sistemaId = normalizeId(d.sistemaId || d.sistema)
+            const clienteId = idFromColumnOrJoin(d.clienteId, d.cliente)
+            const contratoId = idFromColumnOrJoin(d.contratoId, d.contrato)
+            const operadoraId = idFromColumnOrJoin(d.operadoraId, d.operadora)
+            const produtoId = idFromColumnOrJoin(d.produtoId, d.produto)
+            const sistemaId = idFromColumnOrJoin(d.sistemaId, d.sistema)
             const parseSistemasIdsRow = (row: Record<string, unknown>): string[] => {
               const raw = row.sistemasIds
               if (Array.isArray(raw)) return raw.filter((x): x is string => typeof x === 'string')
@@ -398,10 +406,10 @@ export const useDemandStore = create<DemandState>()(
             const sistemaNomeJoined = sistemasIdsRow.length
               ? sistemasIdsRow.map((id) => mdSistemas.find((s) => s.id === id)?.nome || id).join(', ')
               : ''
-            const areaId = normalizeId(d.areaId || d.area)
-            const tipoId = normalizeId(d.tipoId || d.tipo)
-            const tipoServicoId = normalizeId(d.tipoServicoId || d.tipoServico)
-            const analistaId = normalizeId(d.analistaId || d.analista)
+            const areaId = idFromColumnOrJoin(d.areaId, d.area)
+            const tipoId = idFromColumnOrJoin(d.tipoId, d.tipo)
+            const tipoServicoId = idFromColumnOrJoin(d.tipoServicoId, d.tipoServico)
+            const analistaId = idFromColumnOrJoin(d.analistaId, d.analista)
             
             // Processar nomes apenas se necessário (evitar chamadas duplicadas)
             const analistaName = normalizeName(d.analista)

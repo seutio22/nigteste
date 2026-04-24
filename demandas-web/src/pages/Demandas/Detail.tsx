@@ -43,6 +43,22 @@ function sistemasResumo(d: Demand, md: { sistemas: { id: string; nome: string }[
   return ids.map((id) => md.sistemas.find((s) => s.id === id)?.nome || id).join(', ')
 }
 
+/** Cadastro antigo: ainda tinha Cliente / Contrato / Operadora / Produto no módulo 2. Novos só sistemas (IDs nulos). */
+function isLegacyCadastro(demand: Demand): boolean {
+  const nonempty = (v: unknown) => {
+    if (v == null) return false
+    if (typeof v === 'object') return !!(v as { id?: string }).id
+    const s = String(v).trim()
+    return s.length > 0
+  }
+  return (
+    nonempty(demand.clienteId) ||
+    nonempty(demand.contratoId) ||
+    nonempty(demand.operadoraId) ||
+    nonempty(demand.produtoId)
+  )
+}
+
 export default function DemandDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -52,7 +68,8 @@ export default function DemandDetailPage() {
   const perfRef = useRef(createPerfLogger('Cadastro/Editar'))
   const perfReadyRef = useRef(false)
   const d = items.find((x) => x.id === id)
-  
+  const legacyCadastro = useMemo(() => (d ? isLegacyCadastro(d) : false), [d])
+
   // Controle para sincronizar timeline apenas uma vez
   const timelineSyncedRef = useRef<Set<string>>(new Set())
   
@@ -93,11 +110,34 @@ export default function DemandDetailPage() {
     void loadData()
   }, [id])
 
-  // Verificar se os dados mestres estão carregados
+  // Dados mestres: cadastro novo não precisa de clientes/contratos/etc. no módulo 2
   useEffect(() => {
-    const isLoaded = md.tiposServico.length > 0 && md.tiposDemanda.length > 0 && md.clientes.length > 0
-    setMasterDataLoaded(isLoaded)
-  }, [md.tiposServico.length, md.tiposDemanda.length, md.clientes.length, md.contratos.length])
+    const legacy = d ? isLegacyCadastro(d) : false
+    const base =
+      md.tiposServico.length > 0 &&
+      md.tiposDemanda.length > 0 &&
+      md.sistemas.length > 0 &&
+      md.areas.length > 0 &&
+      md.analistas.length > 0
+    const legacyExtra =
+      md.clientes.length > 0 &&
+      md.contratos.length > 0 &&
+      md.operadoras.length > 0 &&
+      md.produtos.length > 0
+    setMasterDataLoaded(base && (!legacy || legacyExtra))
+  }, [
+    d,
+    legacyCadastro,
+    md.tiposServico.length,
+    md.tiposDemanda.length,
+    md.sistemas.length,
+    md.areas.length,
+    md.analistas.length,
+    md.clientes.length,
+    md.contratos.length,
+    md.operadoras.length,
+    md.produtos.length,
+  ])
 
   const label = (id?: string | any, arr?: { id: string, nome: string }[]) => {
     // 🐛 CORREÇÃO: Se id for um objeto, extrair o id ou nome
@@ -256,20 +296,24 @@ export default function DemandDetailPage() {
                   <p className="font-medium">{label(d.areaId, md.areas)}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
-                <div>
-                  <p className="text-sm text-apoio-400">Cliente</p>
-                  <p className="font-medium">{labelCliente(d.clienteId)}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
-                <div>
-                  <p className="text-sm text-apoio-400">Contrato</p>
-                  <p className="font-medium">{labelContrato(d.contratoId)}</p>
-                </div>
-              </div>
+              {legacyCadastro && (
+                <>
+                  <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                    <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
+                    <div>
+                      <p className="text-sm text-apoio-400">Cliente</p>
+                      <p className="font-medium">{labelCliente(d.clienteId)}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                    <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+                    <div>
+                      <p className="text-sm text-apoio-400">Contrato</p>
+                      <p className="font-medium">{labelContrato(d.contratoId)}</p>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -289,7 +333,7 @@ export default function DemandDetailPage() {
               <Edit3 className="w-5 h-5 text-blue-600" />
               Editar Cadastro
             </h2>
-            <EditInline d={d} />
+            <EditInline d={d} legacyCadastro={legacyCadastro} />
           </div>
 
           {/* Informações Adicionais */}
@@ -400,7 +444,7 @@ export default function DemandDetailPage() {
 }
 
 // Componente de Edição Inline
-function EditInline({ d }: { d: Demand }) {
+function EditInline({ d, legacyCadastro }: { d: Demand; legacyCadastro: boolean }) {
   const md = useMasterDataStore()
   const store = useDemandStore()
   const [draft, setDraft] = useState(d)
@@ -803,7 +847,16 @@ function EditInline({ d }: { d: Demand }) {
         </select>
       </div>
 
-      {/* Primeira linha - Cliente e Contrato */}
+      {!legacyCadastro && (
+        <p className="text-sm text-gray-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+          Este cadastro segue o fluxo atual: apenas <strong>Sistemas</strong> no vínculo operacional. Cliente, Contrato,
+          Operadora e Produto aparecem só em registos antigos que já tinham esses dados.
+        </p>
+      )}
+
+      {/* Cliente / Contrato / Operadora / Produto — só cadastros legados */}
+      {legacyCadastro && (
+      <>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Cliente</label>
@@ -876,7 +929,6 @@ function EditInline({ d }: { d: Demand }) {
         </div>
       </div>
 
-      {/* Segunda linha - Operadora e Produto */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Operadora</label>
@@ -923,8 +975,10 @@ function EditInline({ d }: { d: Demand }) {
           </select>
         </div>
       </div>
+      </>
+      )}
 
-      {/* Terceira linha - Sistemas (multi) e Área */}
+      {/* Sistemas (multi) e Área */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Sistemas</label>
