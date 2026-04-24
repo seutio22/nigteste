@@ -8,4 +8,4 @@ cmds = ["npm ci", "npx prisma generate"]
 cmds = ["npm run build"]
 
 [start]
-cmd = "node dist/server.js"
+cmd = "node scripts/start-production.cjs"

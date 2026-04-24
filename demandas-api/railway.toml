@@ -1,3 +1,19 @@
+# =============================================================================
+# ATENÇÃO (Railpack / "Error creating build plan with Railpack")
+#
+# 1) Settings → Source → Root Directory = demandas-api (não vazio na raiz do monorepo).
+#
+# 2) O ficheiro de config do Railway NÃO segue o Root Directory (docs "Monorepo").
+#    Em Settings → Config as code (ou equivalente), defina o caminho ABSOLUTO no repo:
+#      /demandas-api/railway.toml
+#    Caso contrário o painel pode continuar a ler outro railway.toml (ex. na raiz).
+#
+# 3) Se o builder continuar a ignorar o Dockerfile: variável de serviço
+#      RAILWAY_DOCKERFILE_PATH=Dockerfile
+#
+# 4) Se o Root Directory for só "prisma", o Railpack só vê prisma/ e falha.
+# =============================================================================
+
 [build]
 builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"

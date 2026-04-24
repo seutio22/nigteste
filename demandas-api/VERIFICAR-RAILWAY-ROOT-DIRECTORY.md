@@ -26,6 +26,8 @@ O Railway pode não estar detectando o deploy porque o **Root Directory** não e
    - Clique em **"Save"** ou **"Update"**
    - O Railway fará um redeploy automaticamente
 
+5. **Config as code (monorepo):** o ficheiro indicado no painel **não** segue automaticamente o Root Directory. Para a API, defina o caminho absoluto no repositório: **`/demandas-api/railway.toml`**. Assim evita-se aplicar por engano um `railway.toml` de outro serviço (ex. portal na raiz).
+
 ## 🔍 Verificações Adicionais
 
 ### 1. Verificar se o Railway está conectado ao repositório correto:
