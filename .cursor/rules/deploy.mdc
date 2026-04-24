@@ -6,17 +6,19 @@ alwaysApply: true
 
 # Deploy
 
+**GitHub Actions:** um único workflow `.github/workflows/deploy.yml` (push em `main` + `workflow_dispatch`). O ficheiro `vercel-deploy.yml` fica só para **deploy manual** do `demandas-web` (evita duplicar deploy Vercel no mesmo push).
+
 Quando o usuário pedir para fazer deploy:
 
 1. **Railway (backend `nigteste` — demandas-api):**
    - Carregar `RAILWAY_TOKEN` de `demandas-api/.env.railway` se existir.
-   - **Igual ao job `deploy-railway` do GitHub Actions:** na **raiz do repo**, `railway up --ci --path-as-root . --service nigteste` (evita `prefix not found` no Windows e mantém o contexto Docker correto com Root Directory `demandas-api`). No Windows: `.\deploy-railway-direto.ps1`.
+   - **Igual ao job `deploy-backend` do GitHub Actions:** na **raiz do repo**, `railway up --ci --path-as-root . --service nigteste` (evita `prefix not found` no Windows e mantém o contexto Docker correto com Root Directory `demandas-api`). No Windows: `.\deploy-railway-direto.ps1`.
    - **Painel Railway (crítico):**
      - **Settings → Build → Builder** = **Dockerfile** (evitar Railpack a substituir o plano).
      - **Dockerfile path** = `Dockerfile`
      - **Root Directory:** `demandas-api` (sem `/` inicial). **Não** use `prisma` nem `demandas-api/prisma`.
      - **Config as code:** caminho absoluto `/demandas-api/railway.toml` (o ficheiro na raiz do repo **não** segue o Root Directory).
-     - Variável opcional se o Dockerfile for ignorado: `RAILWAY_DOCKERFILE_PATH=Dockerfile`.
+     - Evitar `RAILWAY_DOCKERFILE_PATH=Dockerfile` com Root `demandas-api`: o contexto do Docker pode ficar na raiz do monorepo e falhar o `COPY package.json`.
 
 2. **Não usar apenas git push** — usar `railway up` como acima quando solicitado.
 
