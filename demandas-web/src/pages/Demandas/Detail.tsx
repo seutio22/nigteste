@@ -43,6 +43,22 @@ function sistemasResumo(d: Demand, md: { sistemas: { id: string; nome: string }[
   return ids.map((id) => md.sistemas.find((s) => s.id === id)?.nome || id).join(', ')
 }
 
+/** Chamado gravado com métricas por sistema (novo padrão): coluna JSON com pelo menos uma chave de sistema. */
+function usesNewCadastroMetricsModel(d: Demand): boolean {
+  const sm = (d as any).sistemasMetrics as Record<string, unknown> | null | undefined
+  if (!sm || typeof sm !== 'object' || Array.isArray(sm)) return false
+  return Object.keys(sm).length > 0
+}
+
+/** Dados nos campos globais antigos (fora de sistemasMetrics). */
+function hasLegacyGlobalMetricsData(d: Demand): boolean {
+  const qu = d.qtdUsuarios
+  if (qu != null && String(qu).trim() !== '') return true
+  if (d.qtdClientesVinculados != null && !Number.isNaN(Number(d.qtdClientesVinculados))) return true
+  if (d.usuariosEmpresa != null && !Number.isNaN(Number(d.usuariosEmpresa))) return true
+  return false
+}
+
 /** Cadastro antigo: ainda tinha Cliente / Contrato / Operadora / Produto no módulo 2. Novos só sistemas (IDs nulos). */
 function isLegacyCadastro(demand: Demand): boolean {
   const nonempty = (v: unknown) => {
@@ -231,6 +247,9 @@ export default function DemandDetailPage() {
     )
   }
 
+  const newMetricsView = usesNewCadastroMetricsModel(d)
+  const showLegacyMetricsView = !newMetricsView && (hasLegacyGlobalMetricsData(d) || legacyCadastro)
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -333,7 +352,7 @@ export default function DemandDetailPage() {
               <Edit3 className="w-5 h-5 text-blue-600" />
               Editar Cadastro
             </h2>
-            <EditInline d={d} legacyCadastro={legacyCadastro} />
+            <EditInline d={d} legacyCadastro={legacyCadastro} newMetricsModel={newMetricsView} />
           </div>
 
           {/* Informações Adicionais */}
@@ -372,28 +391,21 @@ export default function DemandDetailPage() {
                     : (d.analista || label(d.analistaId, md.analistas) || '-')}
                 </p>
               </div>
-              {(() => {
-                const sm = (d as any).sistemasMetrics as
-                  | Record<string, { qtdUsuarios?: number; qtdClientesVinculados?: number }>
-                  | null
-                  | undefined
-                const entries =
-                  sm && typeof sm === 'object'
-                    ? Object.entries(sm).filter(
-                        ([, v]) =>
-                          v &&
-                          (v.qtdUsuarios != null ||
-                            v.qtdClientesVinculados != null ||
-                            (typeof v === 'object' && Object.keys(v as object).length > 0))
-                      )
-                    : []
-                if (entries.length > 0) {
+              {newMetricsView &&
+                (() => {
+                  const sm = (d as any).sistemasMetrics as
+                    | Record<string, { qtdUsuarios?: number; qtdClientesVinculados?: number }>
+                    | null
+                    | undefined
+                  if (!sm || typeof sm !== 'object') return null
+                  const entries = Object.entries(sm).filter(([sid]) => typeof sid === 'string' && sid.trim() !== '')
+                  if (!entries.length) return null
                   return (
                     <div className="md:col-span-2">
                       <p className="text-sm text-apoio-400 mb-2">Métricas por sistema</p>
                       <div className="space-y-2">
                         {entries.map(([sid, raw]) => {
-                          const m = raw as { qtdUsuarios?: number; qtdClientesVinculados?: number }
+                          const m = (raw || {}) as { qtdUsuarios?: number; qtdClientesVinculados?: number }
                           return (
                             <div
                               key={sid}
@@ -410,17 +422,31 @@ export default function DemandDetailPage() {
                       </div>
                     </div>
                   )
-                }
-                if (d.qtdUsuarios != null && String(d.qtdUsuarios).trim() !== '') {
-                  return (
-                    <div>
-                      <p className="text-sm text-apoio-400">Qtd de usuários (cadastro antigo)</p>
-                      <p className="font-medium">{d.qtdUsuarios}</p>
-                    </div>
-                  )
-                }
-                return null
-              })()}
+                })()}
+              {showLegacyMetricsView && (
+                <>
+                  <div>
+                    <p className="text-sm text-apoio-400">Qtd de usuários</p>
+                    <p className="font-medium">
+                      {d.qtdUsuarios != null && String(d.qtdUsuarios).trim() !== '' ? d.qtdUsuarios : '-'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-apoio-400">QTD Clientes Vinculados - EDGE</p>
+                    <p className="font-medium">
+                      {d.qtdClientesVinculados != null && !Number.isNaN(Number(d.qtdClientesVinculados))
+                        ? d.qtdClientesVinculados
+                        : '-'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-apoio-400">Usuários Empresa - MOVE</p>
+                    <p className="font-medium">
+                      {d.usuariosEmpresa != null && !Number.isNaN(Number(d.usuariosEmpresa)) ? d.usuariosEmpresa : '-'}
+                    </p>
+                  </div>
+                </>
+              )}
               <div>
                 <p className="text-sm text-apoio-400">Quantidade de Retornos</p>
                 <p className="font-medium">{d.qtdRetornos || 0}</p>
@@ -428,14 +454,6 @@ export default function DemandDetailPage() {
               <div>
                 <p className="text-sm text-apoio-400">Qualidade</p>
                 <p className="font-medium text-xs leading-tight">{getQualidadeLabel(d.qualidade)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-apoio-400">QTD Clientes Vinculados - EDGE</p>
-                <p className="font-medium">{d.qtdClientesVinculados || 0}</p>
-              </div>
-              <div>
-                <p className="text-sm text-apoio-400">Usuários Empresa - MOVE</p>
-                <p className="font-medium">{d.usuariosEmpresa || 0}</p>
               </div>
               <div>
                 <p className="text-sm text-apoio-400">Observações</p>
@@ -489,7 +507,16 @@ export default function DemandDetailPage() {
 }
 
 // Componente de Edição Inline
-function EditInline({ d, legacyCadastro }: { d: Demand; legacyCadastro: boolean }) {
+function EditInline({
+  d,
+  legacyCadastro,
+  newMetricsModel,
+}: {
+  d: Demand
+  legacyCadastro: boolean
+  /** True quando a demanda já tem `sistemasMetrics` na BD (novo padrão). */
+  newMetricsModel: boolean
+}) {
   const md = useMasterDataStore()
   const store = useDemandStore()
   const [draft, setDraft] = useState(d)
@@ -499,13 +526,7 @@ function EditInline({ d, legacyCadastro }: { d: Demand; legacyCadastro: boolean 
     return md.sistemas.filter((s) => ids.has(s.id))
   }, [md.sistemas, (draft as Demand).sistemasIds])
 
-  const hasEDGE = useMemo(() => {
-    return sistemasSelecionados.some((s) => (s.nome || '').toLowerCase().includes('edge'))
-  }, [sistemasSelecionados])
-
-  const hasMOVE = useMemo(() => {
-    return sistemasSelecionados.some((s) => (s.nome || '').toLowerCase().includes('move'))
-  }, [sistemasSelecionados])
+  const showLegacyEdit = !newMetricsModel && (hasLegacyGlobalMetricsData(d) || legacyCadastro)
 
   const resolveSolicitanteName = (value?: string | null) => {
     if (!value) return undefined
@@ -1172,8 +1193,22 @@ function EditInline({ d, legacyCadastro }: { d: Demand; legacyCadastro: boolean 
         </div>
       </div>
 
-      {/* Oitava linha — retornos (qtd de usuários só por sistema, abaixo) */}
+      {/* Oitava linha — retornos; métricas legadas globais só em chamados antigos */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {showLegacyEdit && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Qtd de usuários</label>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={draft.qtdUsuarios ?? ''}
+              onChange={(e) => setDraft({ ...draft, qtdUsuarios: e.target.value || undefined })}
+              placeholder="Digite um número"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <p className="text-xs text-gray-500 mt-1">Campo do cadastro antigo; novos chamados usam métricas por sistema.</p>
+          </div>
+        )}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Quantidade de Retornos</label>
           <input
@@ -1185,6 +1220,39 @@ function EditInline({ d, legacyCadastro }: { d: Demand; legacyCadastro: boolean 
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
+        {showLegacyEdit && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">QTD Clientes Vinculados — EDGE</label>
+            <input
+              type="number"
+              min="0"
+              value={draft.qtdClientesVinculados ?? ''}
+              onChange={(e) =>
+                setDraft({
+                  ...draft,
+                  qtdClientesVinculados: e.target.value ? Number(e.target.value) : undefined,
+                })
+              }
+              placeholder="0"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+        )}
+        {showLegacyEdit && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Usuários Empresa — MOVE</label>
+            <input
+              type="number"
+              min="0"
+              value={draft.usuariosEmpresa ?? ''}
+              onChange={(e) =>
+                setDraft({ ...draft, usuariosEmpresa: e.target.value ? Number(e.target.value) : undefined })
+              }
+              placeholder="0"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+        )}
       </div>
 
       {/* Nona linha - Qualidade */}
@@ -1203,7 +1271,8 @@ function EditInline({ d, legacyCadastro }: { d: Demand; legacyCadastro: boolean 
         </select>
       </div>
 
-      {/* Métricas por sistema (novo fluxo) — sem perder campos legados */}
+      {/* Métricas por sistema — apenas chamados já gravados com o novo modelo */}
+      {newMetricsModel && (
       <div className="space-y-3">
         {sistemasSelecionados.map((s) => {
           const metrics = ((draft as any).sistemasMetrics || {}) as Record<string, any>
@@ -1253,12 +1322,8 @@ function EditInline({ d, legacyCadastro }: { d: Demand; legacyCadastro: boolean 
             Selecione um ou mais sistemas para preencher as métricas.
           </div>
         )}
-        {(draft as any).sistemasMetrics == null && (d as any).qtdClientesVinculados != null && (
-          <div className="text-xs text-gray-500">
-            Este chamado tem métricas legadas (EDGE/MOVE). O histórico continua preservado; o novo preenchimento fica em “Métricas por sistema”.
-          </div>
-        )}
       </div>
+      )}
 
       {/* Descrição */}
       <div>
