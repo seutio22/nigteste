@@ -88,6 +88,12 @@ export const useDemandStore = create<DemandState>()(
           produtoId: payload.produtoId,
           sistemaId: payload.sistemaId,
           ...(payload.sistemasIds && payload.sistemasIds.length ? { sistemasIds: payload.sistemasIds } : {}),
+          ...(payload.sistemasMetrics &&
+          typeof payload.sistemasMetrics === 'object' &&
+          !Array.isArray(payload.sistemasMetrics) &&
+          Object.keys(payload.sistemasMetrics).length
+            ? { sistemasMetrics: payload.sistemasMetrics }
+            : {}),
           dataInicio: payload.dataInicio,
           dataFinal: payload.dataFinal,
           qtdUsuarios: payload.qtdUsuarios,
@@ -120,6 +126,9 @@ export const useDemandStore = create<DemandState>()(
             produtoId: payload.produtoId,
             sistemaId: payload.sistemaId,
             sistemasIds: payload.sistemasIds,
+            sistemasMetrics:
+              (createdDemanda as { sistemasMetrics?: Demand['sistemasMetrics'] }).sistemasMetrics ??
+              payload.sistemasMetrics,
             areaId: payload.areaId,
             tipoId: payload.tipoId,
             tipoServicoId: payload.tipoServicoId,
