@@ -2,10 +2,16 @@
 $ErrorActionPreference = "Stop"
 
 function Invoke-Railway {
+    param(
+        [Parameter(ValueFromRemainingArguments = $true)]
+        [string[]] $CliArgs
+    )
     if (Get-Command railway -ErrorAction SilentlyContinue) {
-        & railway @args
+        & railway @CliArgs
     } else {
-        & npx --yes @railway/cli @args
+        # No Windows o `npx @railway/cli` pode falhar com "could not determine executable to run"
+        # dependendo de como os argumentos são splatados. Usamos parâmetro explícito.
+        & npx --yes "@railway/cli@latest" @CliArgs
     }
 }
 
