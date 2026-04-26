@@ -487,43 +487,69 @@ export default function DemandNewPage() {
 
   const denseField = { size: 'small' as const, margin: 'dense' as const, fullWidth: true }
 
+  const SectionTitle = ({ children }: { children: React.ReactNode }) => (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, mb: 2 }}>
+      <Box sx={{ width: 4, height: 22, borderRadius: 999, bgcolor: 'primary.main', boxShadow: '0 0 0 3px rgba(0,159,223,0.12)' }} />
+      <Typography variant="subtitle2" sx={{ fontWeight: 700, letterSpacing: '-0.02em', color: 'text.primary' }}>
+        {children}
+      </Typography>
+    </Box>
+  )
+
+  const cardSx = {
+    mb: 2,
+    borderRadius: 3,
+    border: '1px solid',
+    borderColor: 'rgba(15, 23, 42, 0.07)',
+    bgcolor: '#fff',
+    boxShadow: '0 2px 16px -6px rgba(15, 23, 42, 0.1)',
+    overflow: 'hidden',
+  } as const
+
   return (
-    <Container maxWidth="md" sx={{ py: { xs: 1.5, sm: 2 }, px: { xs: 1, sm: 2 } }}>
+    <Container maxWidth="md" sx={{ py: { xs: 2, sm: 3 }, px: { xs: 1, sm: 2 }, bgcolor: 'grey.50' }}>
       <Paper
         elevation={0}
         sx={{
-          border: 1,
-          borderColor: 'divider',
-          borderRadius: 2,
+          borderRadius: 3,
           overflow: 'hidden',
+          border: '1px solid',
+          borderColor: 'rgba(15, 23, 42, 0.06)',
+          boxShadow: '0 12px 40px -16px rgba(15, 23, 42, 0.18)',
         }}
       >
         <Box
           sx={{
-            px: 2,
-            py: 1.5,
-            borderBottom: 1,
-            borderColor: 'divider',
-            bgcolor: (t) => (t.palette.mode === 'dark' ? 'action.selected' : 'grey.50'),
+            px: { xs: 2, sm: 2.5 },
+            py: 2.25,
+            background: 'linear-gradient(125deg, #009FDF 0%, #0077b3 55%, #005a87 100%)',
+            color: 'common.white',
           }}
         >
-          <Stack direction="row" alignItems="baseline" justifyContent="space-between" flexWrap="wrap" gap={1}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 800, letterSpacing: '-0.02em' }}>
-              Novo cadastro
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              Obrigatórios: tipo de serviço e tipo de demanda
-            </Typography>
+          <Stack direction="row" alignItems="flex-start" justifyContent="space-between" flexWrap="wrap" gap={1.5}>
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: '-0.03em', color: 'inherit', lineHeight: 1.2 }}>
+                Novo cadastro
+              </Typography>
+              <Typography variant="body2" sx={{ mt: 0.75, opacity: 0.92, fontWeight: 400, maxWidth: 420 }}>
+                Preencha os dados da demanda. Campos obrigatórios: tipo de serviço e tipo de demanda.
+              </Typography>
+            </Box>
           </Stack>
         </Box>
 
-        <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ p: { xs: 1.5, sm: 2 } }}>
-          <Card variant="outlined" sx={{ mb: 1.5 }}>
-            <CardContent sx={{ py: 1.25, px: 1.5, '&:last-child': { pb: 1.25 } }}>
-              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, letterSpacing: '0.08em', display: 'block', mb: 1 }}>
-                Identificação
-              </Typography>
-              <Grid container spacing={1.25}>
+        <Box
+          component="form"
+          onSubmit={handleSubmit(onSubmit)}
+          sx={{
+            p: { xs: 2, sm: 2.5 },
+            bgcolor: (t) => (t.palette.mode === 'dark' ? 'background.default' : '#f4f7fb'),
+          }}
+        >
+          <Card elevation={0} sx={cardSx}>
+            <CardContent sx={{ py: 2.25, px: { xs: 2, sm: 2.25 }, '&:last-child': { pb: 2.25 } }}>
+              <SectionTitle>Identificação</SectionTitle>
+              <Grid container spacing={1.5}>
           <Grid item xs={12} sm={6} md={4}>
             <Controller name="analista" control={control} render={({ field }) => (
               <TextField 
@@ -646,22 +672,18 @@ export default function DemandNewPage() {
             </CardContent>
           </Card>
 
-          <Card variant="outlined" sx={{ mb: 1.5 }}>
-            <CardContent sx={{ py: 1.25, px: 1.5, '&:last-child': { pb: 1.25 } }}>
-              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, letterSpacing: '0.08em', display: 'block', mb: 1 }}>
-                Descrição
-              </Typography>
+          <Card elevation={0} sx={cardSx}>
+            <CardContent sx={{ py: 2.25, px: { xs: 2, sm: 2.25 }, '&:last-child': { pb: 2.25 } }}>
+              <SectionTitle>Descrição</SectionTitle>
               <Controller name="descricao" control={control} render={({ field }) => (
                 <TextField {...field} label="Resumo da demanda" {...denseField} multiline minRows={2} maxRows={8} error={!!errors.descricao} helperText={errors.descricao?.message} />
               )} />
             </CardContent>
           </Card>
 
-          <Card variant="outlined" sx={{ mb: 1.5 }}>
-            <CardContent sx={{ py: 1.25, px: 1.5, '&:last-child': { pb: 1.25 } }}>
-              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, letterSpacing: '0.08em', display: 'block', mb: 1 }}>
-                Sistemas
-              </Typography>
+          <Card elevation={0} sx={cardSx}>
+            <CardContent sx={{ py: 2.25, px: { xs: 2, sm: 2.25 }, '&:last-child': { pb: 2.25 } }}>
+              <SectionTitle>Sistemas</SectionTitle>
               <Controller
                 name="sistemaIds"
                 control={control}
@@ -689,11 +711,9 @@ export default function DemandNewPage() {
             </CardContent>
           </Card>
 
-          <Card variant="outlined" sx={{ mb: 1.5 }}>
-            <CardContent sx={{ py: 1.25, px: 1.5, '&:last-child': { pb: 1.25 } }}>
-              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, letterSpacing: '0.08em', display: 'block', mb: 1 }}>
-                Métricas
-              </Typography>
+          <Card elevation={0} sx={cardSx}>
+            <CardContent sx={{ py: 2.25, px: { xs: 2, sm: 2.25 }, '&:last-child': { pb: 2.25 } }}>
+              <SectionTitle>Métricas</SectionTitle>
               <Grid container spacing={1.25}>
                 <Grid item xs={6} sm={4}>
                   <Controller name="qtdRetornos" control={control} render={({ field }) => (
@@ -716,15 +736,14 @@ export default function DemandNewPage() {
                   <Grid item xs={12} key={s.id}>
                     <Box
                       sx={{
-                        borderLeft: 3,
-                        borderColor: 'primary.main',
-                        pl: 1.25,
-                        py: 0.75,
-                        borderRadius: 1,
-                        bgcolor: 'action.hover',
+                        p: 2,
+                        borderRadius: 2,
+                        border: '1px solid',
+                        borderColor: 'rgba(0, 159, 223, 0.18)',
+                        background: 'linear-gradient(135deg, rgba(0,159,223,0.06) 0%, rgba(255,255,255,0.95) 48%, #fff 100%)',
                       }}
                     >
-                      <Typography variant="caption" fontWeight={800} color="primary" sx={{ display: 'block', mb: 0.75 }}>
+                      <Typography variant="caption" sx={{ display: 'block', mb: 1.25, fontWeight: 800, letterSpacing: '0.04em', color: 'primary.dark', textTransform: 'uppercase', fontSize: '0.7rem' }}>
                         {s.nome}
                       </Typography>
                       <Grid container spacing={1}>
@@ -768,20 +787,22 @@ export default function DemandNewPage() {
             </CardContent>
           </Card>
 
-          <Card variant="outlined">
-            <CardContent sx={{ py: 1.25, px: 1.5, '&:last-child': { pb: 1.25 } }}>
-              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, letterSpacing: '0.08em', display: 'block', mb: 1 }}>
-                Observações
-              </Typography>
+          <Card elevation={0} sx={{ ...cardSx, mb: 0 }}>
+            <CardContent sx={{ py: 2.25, px: { xs: 2, sm: 2.25 }, '&:last-child': { pb: 2.25 } }}>
+              <SectionTitle>Observações</SectionTitle>
               <Controller name="observacoes" control={control} render={({ field }) => (
                 <TextField {...field} label="Notas adicionais" {...denseField} multiline minRows={2} maxRows={6} error={!!errors.observacoes} helperText={errors.observacoes?.message} />
               )} />
             </CardContent>
           </Card>
 
-        <Stack direction="row" spacing={1.5} sx={{ mt: 2 }} flexWrap="wrap">
-          <PrimaryActionButton type="button" disabled={!isValid} onClick={handleSubmit(onSubmit)}>Salvar</PrimaryActionButton>
-          <Button size="small" variant="outlined" onClick={() => navigate(-1)}>Cancelar</Button>
+        <Stack direction="row" spacing={1.5} sx={{ mt: 2.5, pt: 1 }} flexWrap="wrap" justifyContent="flex-end">
+          <Button size="medium" variant="text" color="inherit" onClick={() => navigate(-1)} sx={{ color: 'text.secondary' }}>
+            Cancelar
+          </Button>
+          <PrimaryActionButton type="button" disabled={!isValid} onClick={handleSubmit(onSubmit)}>
+            Salvar cadastro
+          </PrimaryActionButton>
         </Stack>
       </Box>
       </Paper>

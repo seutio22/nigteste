@@ -529,10 +529,10 @@ function EditInline({
   const showLegacyEdit = !newMetricsModel && (hasLegacyGlobalMetricsData(d) || legacyCadastro)
 
   const inputCls =
-    'w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-900 shadow-sm transition focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/25'
+    'w-full rounded-xl border border-slate-200/90 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-[#009FDF] focus:ring-2 focus:ring-[#009FDF]/20'
   const inputReadonlyCls =
-    'w-full rounded-md border border-slate-200 bg-slate-100 px-2.5 py-1.5 text-sm text-slate-600 cursor-not-allowed'
-  const labelCls = 'block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1'
+    'w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600'
+  const labelCls = 'mb-1.5 block text-sm font-medium text-slate-600'
 
   const resolveSolicitanteName = (value?: string | null) => {
     if (!value) return undefined
@@ -926,9 +926,13 @@ function EditInline({
   const solicitanteSelectValue = resolveSolicitanteId(draft.solicitante)
 
   return (
-    <div className="mx-auto max-w-5xl space-y-3">
+    <div className="mx-auto max-w-5xl space-y-4 pb-2">
       {/* Status */}
-      <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-sm">
+      <div className="rounded-2xl border border-slate-200/50 bg-white p-5 shadow-[0_8px_30px_-12px_rgba(15,23,42,0.12)] ring-1 ring-slate-900/[0.02] sm:p-6">
+        <div className="mb-4 flex items-center gap-2.5 border-b border-slate-100 pb-3">
+          <span className="h-7 w-1 shrink-0 rounded-full bg-[#009FDF] shadow-[0_0_0_3px_rgba(0,159,223,0.14)]" aria-hidden />
+          <h3 className="text-[0.95rem] font-semibold tracking-tight text-slate-800">Estado</h3>
+        </div>
         <label className={labelCls}>Status *</label>
         <select
           value={draft.status}
@@ -942,8 +946,8 @@ function EditInline({
       </div>
 
       {!legacyCadastro && (
-        <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-          Este cadastro segue o fluxo atual: apenas <strong>Sistemas</strong> no vínculo operacional. Cliente, Contrato,
+        <p className="rounded-xl border border-sky-100 bg-gradient-to-r from-sky-50/80 to-white px-4 py-3 text-sm leading-relaxed text-slate-600">
+          Este cadastro segue o fluxo atual: apenas <strong className="font-semibold text-slate-800">Sistemas</strong> no vínculo operacional. Cliente, Contrato,
           Operadora e Produto aparecem só em registos antigos que já tinham esses dados.
         </p>
       )}
@@ -951,8 +955,11 @@ function EditInline({
       {/* Cliente / Contrato / Operadora / Produto — só cadastros legados */}
       {legacyCadastro && (
       <>
-      <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-sm">
-      <p className="mb-3 text-[11px] font-bold uppercase tracking-wide text-slate-500">Vínculo legado</p>
+      <div className="rounded-2xl border border-slate-200/50 bg-white p-5 shadow-[0_8px_30px_-12px_rgba(15,23,42,0.12)] ring-1 ring-slate-900/[0.02] sm:p-6">
+      <div className="mb-4 flex items-center gap-2.5 border-b border-slate-100 pb-3">
+        <span className="h-7 w-1 shrink-0 rounded-full bg-[#009FDF] shadow-[0_0_0_3px_rgba(0,159,223,0.14)]" aria-hidden />
+        <h3 className="text-[0.95rem] font-semibold tracking-tight text-slate-800">Cliente e contrato</h3>
+      </div>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <div>
           <label className={labelCls}>Cliente</label>
@@ -1076,8 +1083,11 @@ function EditInline({
       )}
 
       {/* Sistemas (multi) e Área */}
-      <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-sm">
-      <p className="mb-3 text-[11px] font-bold uppercase tracking-wide text-slate-500">Operação</p>
+      <div className="rounded-2xl border border-slate-200/50 bg-white p-5 shadow-[0_8px_30px_-12px_rgba(15,23,42,0.12)] ring-1 ring-slate-900/[0.02] sm:p-6">
+      <div className="mb-4 flex items-center gap-2.5 border-b border-slate-100 pb-3">
+        <span className="h-7 w-1 shrink-0 rounded-full bg-[#009FDF] shadow-[0_0_0_3px_rgba(0,159,223,0.14)]" aria-hidden />
+        <h3 className="text-[0.95rem] font-semibold tracking-tight text-slate-800">Operação</h3>
+      </div>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <div>
           <label className={labelCls}>Sistemas</label>
@@ -1114,8 +1124,11 @@ function EditInline({
       </div>
       </div>
 
-      <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-sm">
-      <p className="mb-3 text-[11px] font-bold uppercase tracking-wide text-slate-500">Registo & classificação</p>
+      <div className="rounded-2xl border border-slate-200/50 bg-white p-5 shadow-[0_8px_30px_-12px_rgba(15,23,42,0.12)] ring-1 ring-slate-900/[0.02] sm:p-6">
+      <div className="mb-4 flex items-center gap-2.5 border-b border-slate-100 pb-3">
+        <span className="h-7 w-1 shrink-0 rounded-full bg-[#009FDF] shadow-[0_0_0_3px_rgba(0,159,223,0.14)]" aria-hidden />
+        <h3 className="text-[0.95rem] font-semibold tracking-tight text-slate-800">Registo e classificação</h3>
+      </div>
       <div className="space-y-3">
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <div>
@@ -1209,8 +1222,11 @@ function EditInline({
       </div>
       </div>
 
-      <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-sm">
-      <p className="mb-3 text-[11px] font-bold uppercase tracking-wide text-slate-500">Métricas</p>
+      <div className="rounded-2xl border border-slate-200/50 bg-white p-5 shadow-[0_8px_30px_-12px_rgba(15,23,42,0.12)] ring-1 ring-slate-900/[0.02] sm:p-6">
+      <div className="mb-4 flex items-center gap-2.5 border-b border-slate-100 pb-3">
+        <span className="h-7 w-1 shrink-0 rounded-full bg-[#009FDF] shadow-[0_0_0_3px_rgba(0,159,223,0.14)]" aria-hidden />
+        <h3 className="text-[0.95rem] font-semibold tracking-tight text-slate-800">Métricas</h3>
+      </div>
       <div className="space-y-3">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {showLegacyEdit && (
@@ -1296,9 +1312,12 @@ function EditInline({
           const metrics = ((draft as any).sistemasMetrics || {}) as Record<string, any>
           const m = metrics[s.id] || {}
           return (
-            <div key={s.id} className="rounded-lg border border-slate-200 bg-slate-50/80 p-2.5">
-              <div className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-600">{s.nome}</div>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div
+              key={s.id}
+              className="rounded-xl border border-sky-200/40 bg-gradient-to-br from-sky-50/50 via-white to-white p-3.5 shadow-sm"
+            >
+              <div className="mb-2.5 text-xs font-semibold uppercase tracking-wide text-sky-900/80">{s.nome}</div>
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                 <div>
                   <label className={labelCls}>Qtd de usuários</label>
                   <input
@@ -1345,8 +1364,11 @@ function EditInline({
       </div>
       </div>
 
-      <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-sm">
-        <p className="mb-3 text-[11px] font-bold uppercase tracking-wide text-slate-500">Texto</p>
+      <div className="rounded-2xl border border-slate-200/50 bg-white p-5 shadow-[0_8px_30px_-12px_rgba(15,23,42,0.12)] ring-1 ring-slate-900/[0.02] sm:p-6">
+        <div className="mb-4 flex items-center gap-2.5 border-b border-slate-100 pb-3">
+          <span className="h-7 w-1 shrink-0 rounded-full bg-[#009FDF] shadow-[0_0_0_3px_rgba(0,159,223,0.14)]" aria-hidden />
+          <h3 className="text-[0.95rem] font-semibold tracking-tight text-slate-800">Descrição e notas</h3>
+        </div>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <div>
             <label className={labelCls}>Descrição</label>
@@ -1372,7 +1394,7 @@ function EditInline({
       </div>
 
       {/* Botão de salvar */}
-      <div className="flex items-center justify-between border-t border-slate-200 pt-3">
+      <div className="flex items-center justify-between border-t border-slate-200/80 pt-4">
         <div className="flex gap-2">
           <PrimaryActionButton
             disabled={changedKeys.length === 0}
