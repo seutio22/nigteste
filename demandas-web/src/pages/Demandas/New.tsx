@@ -84,6 +84,20 @@ export default function DemandNewPage() {
   const md = useMasterDataStore()
   const demandStore = useDemandStore()
   const selectedTipoId = useWatch({ control, name: 'tipo' })
+  const selectedSistemaIds = useWatch({ control, name: 'sistemaIds' })
+
+  const sistemasSelecionados = useMemo(() => {
+    const ids = new Set((selectedSistemaIds || []).filter(Boolean))
+    return md.sistemas.filter((s) => ids.has(s.id))
+  }, [md.sistemas, selectedSistemaIds])
+
+  const hasEDGE = useMemo(() => {
+    return sistemasSelecionados.some((s) => (s.nome || '').toLowerCase().includes('edge'))
+  }, [sistemasSelecionados])
+
+  const hasMOVE = useMemo(() => {
+    return sistemasSelecionados.some((s) => (s.nome || '').toLowerCase().includes('move'))
+  }, [sistemasSelecionados])
 
   const tiposDemandaAtivos = useMemo(
     () => md.tiposDemanda.filter((t) => t.ativo !== false),
@@ -337,8 +351,8 @@ export default function DemandNewPage() {
       const solicitanteNome = md.solicitantes.find(s => s.id === data.solicitante)?.nome || emptyToNull(data.solicitante)
       const qualidadeValor = data.qualidade ?? ''
       const analiseQuantitativaValor = data.analiseQuantitativa ?? ''
-      const qtdClientesVinculadosValor = data.qtdClientesVinculados ?? ''
-      const usuariosEmpresaValor = data.usuariosEmpresa ?? ''
+      const qtdClientesVinculadosValor = hasEDGE ? (data.qtdClientesVinculados ?? '') : ''
+      const usuariosEmpresaValor = hasMOVE ? (data.usuariosEmpresa ?? '') : ''
 
       const sistemaIdPrimeiro = sistemaIds.length ? validateId(sistemaIds[0], md.sistemas, 'Sistema') : null
 
@@ -363,6 +377,7 @@ export default function DemandNewPage() {
         qtdUsuarios: analiseQuantitativaValor !== '' && analiseQuantitativaValor !== null ? String(analiseQuantitativaValor) : null,
         qtdRetornos: data.qtdRetornos !== undefined && data.qtdRetornos !== null ? Number(data.qtdRetornos) : null,
         qualidade: qualidadeValor !== '' ? qualidadeValor : null,
+        // EDGE/MOVE: só enviar quando o(s) sistema(s) correspondente(s) estiver(em) selecionado(s)
         qtdClientesVinculados: qtdClientesVinculadosValor !== '' && qtdClientesVinculadosValor !== null ? Number(qtdClientesVinculadosValor) : null,
         usuariosEmpresa: usuariosEmpresaValor !== '' && usuariosEmpresaValor !== null ? Number(usuariosEmpresaValor) : null,
         observacoes: emptyToNull(data.observacoes),
@@ -625,7 +640,7 @@ export default function DemandNewPage() {
                 placeholder="Digite um número"
                 inputProps={{ min: 0, step: 'any' }}
                 error={!!errors.analiseQuantitativa} 
-                helperText={errors.analiseQuantitativa?.message || 'Quantidade de usuários (campo numérico)'}
+                helperText={errors.analiseQuantitativa?.message || 'Informe a quantidade de usuários.'}
               />
             )} />
           </Grid>
@@ -646,34 +661,38 @@ export default function DemandNewPage() {
               </TextField>
             )} />
           </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <Controller name="qtdClientesVinculados" control={control} render={({ field }) => (
-              <TextField 
-                {...field} 
-                type="number" 
-                label="QTD Clientes Vinculados - EDGE" 
-                fullWidth 
-                placeholder="Digite um número"
-                inputProps={{ min: 0, step: 1 }}
-                error={!!errors.qtdClientesVinculados} 
-                helperText={errors.qtdClientesVinculados?.message || 'Quantidade de clientes vinculados ao EDGE'}
-              />
-            )} />
-          </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <Controller name="usuariosEmpresa" control={control} render={({ field }) => (
-              <TextField 
-                {...field} 
-                type="number" 
-                label="Usuários Empresa - MOVE" 
-                fullWidth 
-                placeholder="Digite um número"
-                inputProps={{ min: 0, step: 1 }}
-                error={!!errors.usuariosEmpresa} 
-                helperText={errors.usuariosEmpresa?.message || 'Quantidade de usuários da empresa no MOVE'}
-              />
-            )} />
-          </Grid>
+          {hasEDGE && (
+            <Grid item xs={12} sm={6} md={4}>
+              <Controller name="qtdClientesVinculados" control={control} render={({ field }) => (
+                <TextField 
+                  {...field} 
+                  type="number" 
+                  label="Qtd de clientes vinculados (EDGE)" 
+                  fullWidth 
+                  placeholder="Digite um número"
+                  inputProps={{ min: 0, step: 1 }}
+                  error={!!errors.qtdClientesVinculados} 
+                  helperText={errors.qtdClientesVinculados?.message || 'Preencha este campo quando EDGE estiver selecionado.'}
+                />
+              )} />
+            </Grid>
+          )}
+          {hasMOVE && (
+            <Grid item xs={12} sm={6} md={4}>
+              <Controller name="usuariosEmpresa" control={control} render={({ field }) => (
+                <TextField 
+                  {...field} 
+                  type="number" 
+                  label="Qtd de usuários da empresa (MOVE)" 
+                  fullWidth 
+                  placeholder="Digite um número"
+                  inputProps={{ min: 0, step: 1 }}
+                  error={!!errors.usuariosEmpresa} 
+                  helperText={errors.usuariosEmpresa?.message || 'Preencha este campo quando MOVE estiver selecionado.'}
+                />
+              )} />
+            </Grid>
+          )}
           <Grid item xs={12}>
             <Controller name="observacoes" control={control} render={({ field }) => (
               <TextField {...field} label="Observações" fullWidth multiline minRows={2} error={!!errors.observacoes} helperText={errors.observacoes?.message} />

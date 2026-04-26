@@ -449,6 +449,18 @@ function EditInline({ d, legacyCadastro }: { d: Demand; legacyCadastro: boolean 
   const store = useDemandStore()
   const [draft, setDraft] = useState(d)
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const sistemasSelecionados = useMemo(() => {
+    const ids = new Set(((draft as Demand).sistemasIds || []).filter(Boolean))
+    return md.sistemas.filter((s) => ids.has(s.id))
+  }, [md.sistemas, (draft as Demand).sistemasIds])
+
+  const hasEDGE = useMemo(() => {
+    return sistemasSelecionados.some((s) => (s.nome || '').toLowerCase().includes('edge'))
+  }, [sistemasSelecionados])
+
+  const hasMOVE = useMemo(() => {
+    return sistemasSelecionados.some((s) => (s.nome || '').toLowerCase().includes('move'))
+  }, [sistemasSelecionados])
 
   const resolveSolicitanteName = (value?: string | null) => {
     if (!value) return undefined
@@ -1149,34 +1161,53 @@ function EditInline({ d, legacyCadastro }: { d: Demand; legacyCadastro: boolean 
         </select>
       </div>
 
-      {/* Décima linha - Novos campos numéricos */}
+      {/* Métricas específicas por sistema (sem perder histórico) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">QTD Clientes Vinculados - EDGE</label>
-          <input
-            type="number"
-            value={draft.qtdClientesVinculados ?? ''}
-            onChange={(e) => setDraft({ ...draft, qtdClientesVinculados: e.target.value ? Number(e.target.value) : undefined })}
-            placeholder="Digite um número"
-            min="0"
-            step="1"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-          <p className="text-xs text-apoio-400 mt-1">Quantidade de clientes vinculados ao EDGE</p>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Usuários Empresa - MOVE</label>
-          <input
-            type="number"
-            value={draft.usuariosEmpresa ?? ''}
-            onChange={(e) => setDraft({ ...draft, usuariosEmpresa: e.target.value ? Number(e.target.value) : undefined })}
-            placeholder="Digite um número"
-            min="0"
-            step="1"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-          <p className="text-xs text-apoio-400 mt-1">Quantidade de usuários da empresa no MOVE</p>
-        </div>
+        {hasEDGE && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Qtd de clientes vinculados (EDGE)</label>
+            <input
+              type="number"
+              value={draft.qtdClientesVinculados ?? ''}
+              onChange={(e) =>
+                setDraft({
+                  ...draft,
+                  qtdClientesVinculados: e.target.value ? Number(e.target.value) : undefined,
+                })
+              }
+              placeholder="Digite um número"
+              min="0"
+              step="1"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <p className="text-xs text-apoio-400 mt-1">Preencha este campo quando EDGE estiver selecionado.</p>
+          </div>
+        )}
+        {hasMOVE && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Qtd de usuários da empresa (MOVE)</label>
+            <input
+              type="number"
+              value={draft.usuariosEmpresa ?? ''}
+              onChange={(e) =>
+                setDraft({
+                  ...draft,
+                  usuariosEmpresa: e.target.value ? Number(e.target.value) : undefined,
+                })
+              }
+              placeholder="Digite um número"
+              min="0"
+              step="1"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <p className="text-xs text-apoio-400 mt-1">Preencha este campo quando MOVE estiver selecionado.</p>
+          </div>
+        )}
+        {!hasEDGE && !hasMOVE && (
+          <div className="md:col-span-2 text-sm text-gray-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+            Selecione <strong>EDGE</strong> e/ou <strong>MOVE</strong> em Sistemas para preencher as métricas específicas.
+          </div>
+        )}
       </div>
 
       {/* Descrição */}
