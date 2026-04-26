@@ -372,10 +372,55 @@ export default function DemandDetailPage() {
                     : (d.analista || label(d.analistaId, md.analistas) || '-')}
                 </p>
               </div>
-              <div>
-                <p className="text-sm text-apoio-400">Qtd de usuários</p>
-                <p className="font-medium">{d.qtdUsuarios || '-'}</p>
-              </div>
+              {(() => {
+                const sm = (d as any).sistemasMetrics as
+                  | Record<string, { qtdUsuarios?: number; qtdClientesVinculados?: number }>
+                  | null
+                  | undefined
+                const entries =
+                  sm && typeof sm === 'object'
+                    ? Object.entries(sm).filter(
+                        ([, v]) =>
+                          v &&
+                          (v.qtdUsuarios != null ||
+                            v.qtdClientesVinculados != null ||
+                            (typeof v === 'object' && Object.keys(v as object).length > 0))
+                      )
+                    : []
+                if (entries.length > 0) {
+                  return (
+                    <div className="md:col-span-2">
+                      <p className="text-sm text-apoio-400 mb-2">Métricas por sistema</p>
+                      <div className="space-y-2">
+                        {entries.map(([sid, raw]) => {
+                          const m = raw as { qtdUsuarios?: number; qtdClientesVinculados?: number }
+                          return (
+                            <div
+                              key={sid}
+                              className="flex flex-wrap gap-x-4 gap-y-1 text-sm border border-gray-100 rounded p-2 bg-gray-50/50"
+                            >
+                              <span className="font-medium text-gray-900">
+                                {md.sistemas.find((s) => s.id === sid)?.nome || sid}
+                              </span>
+                              <span>Qtd de usuários: {m.qtdUsuarios ?? '-'}</span>
+                              <span>Qtd de clientes vinculados: {m.qtdClientesVinculados ?? '-'}</span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                }
+                if (d.qtdUsuarios != null && String(d.qtdUsuarios).trim() !== '') {
+                  return (
+                    <div>
+                      <p className="text-sm text-apoio-400">Qtd de usuários (cadastro antigo)</p>
+                      <p className="font-medium">{d.qtdUsuarios}</p>
+                    </div>
+                  )
+                }
+                return null
+              })()}
               <div>
                 <p className="text-sm text-apoio-400">Quantidade de Retornos</p>
                 <p className="font-medium">{d.qtdRetornos || 0}</p>
@@ -1127,21 +1172,8 @@ function EditInline({ d, legacyCadastro }: { d: Demand; legacyCadastro: boolean 
         </div>
       </div>
 
-      {/* Oitava linha - Qtd de usuários e Quantidade de Retornos */}
+      {/* Oitava linha — retornos (qtd de usuários só por sistema, abaixo) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Qtd de usuários</label>
-          <input
-            type="number"
-            value={draft.qtdUsuarios ?? ''}
-            onChange={(e) => setDraft({ ...draft, qtdUsuarios: e.target.value || undefined })}
-            placeholder="Digite um número"
-            min="0"
-            step="any"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-          <p className="text-xs text-apoio-400 mt-1">Quantidade de usuários (campo numérico)</p>
-        </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Quantidade de Retornos</label>
           <input

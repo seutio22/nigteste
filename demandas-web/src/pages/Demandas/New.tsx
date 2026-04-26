@@ -34,7 +34,6 @@ const schema = z.object({
   area: z.string().optional(),
   /** IDs dos sistemas (multi-seleção) */
   sistemaIds: z.array(z.string()).default([]),
-  analiseQuantitativa: z.coerce.number().min(0, 'Deve ser um número positivo').optional(),
   qtdRetornos: z.coerce.number().min(0).optional(),
   qualidade: z.string().optional(),
   /** Novo: métricas por sistema (key = sistemaId) */
@@ -79,7 +78,6 @@ export default function DemandNewPage() {
       solicitante: '',
       area: '',
       sistemaIds: [],
-      analiseQuantitativa: 0,
       qtdRetornos: 0,
       qualidade: '',
       sistemasMetrics: {},
@@ -100,15 +98,6 @@ export default function DemandNewPage() {
     const ids = new Set((selectedSistemaIds || []).filter(Boolean))
     return md.sistemas.filter((s) => ids.has(s.id))
   }, [md.sistemas, selectedSistemaIds])
-
-  // EDGE/MOVE (legado): ainda existem campos antigos; não pedir no fluxo novo.
-  const hasEDGE = useMemo(() => {
-    return sistemasSelecionados.some((s) => (s.nome || '').toLowerCase().includes('edge'))
-  }, [sistemasSelecionados])
-
-  const hasMOVE = useMemo(() => {
-    return sistemasSelecionados.some((s) => (s.nome || '').toLowerCase().includes('move'))
-  }, [sistemasSelecionados])
 
   // Garantir que existe um objeto de métricas para cada sistema selecionado
   useEffect(() => {
@@ -382,8 +371,7 @@ export default function DemandNewPage() {
 
       const solicitanteNome = md.solicitantes.find(s => s.id === data.solicitante)?.nome || emptyToNull(data.solicitante)
       const qualidadeValor = data.qualidade ?? ''
-      const analiseQuantitativaValor = data.analiseQuantitativa ?? ''
-      // Campos legados continuam existindo na base; no fluxo novo não preenchemos aqui.
+      // Campos legados na base; no fluxo novo só usamos sistemasMetrics por sistema.
       const qtdClientesVinculadosValor = ''
       const usuariosEmpresaValor = ''
 
@@ -411,10 +399,9 @@ export default function DemandNewPage() {
         ...(Object.keys(sistemasMetrics).length ? { sistemasMetrics } : {}),
         dataInicio: data.dataInicio ? new Date(data.dataInicio).toISOString() : null,
         dataFinal: data.dataFinal ? new Date(data.dataFinal).toISOString() : null,
-        qtdUsuarios: analiseQuantitativaValor !== '' && analiseQuantitativaValor !== null ? String(analiseQuantitativaValor) : null,
+        qtdUsuarios: null,
         qtdRetornos: data.qtdRetornos !== undefined && data.qtdRetornos !== null ? Number(data.qtdRetornos) : null,
         qualidade: qualidadeValor !== '' ? qualidadeValor : null,
-        // EDGE/MOVE: só enviar quando o(s) sistema(s) correspondente(s) estiver(em) selecionado(s)
         qtdClientesVinculados: qtdClientesVinculadosValor !== '' && qtdClientesVinculadosValor !== null ? Number(qtdClientesVinculadosValor) : null,
         usuariosEmpresa: usuariosEmpresaValor !== '' && usuariosEmpresaValor !== null ? Number(usuariosEmpresaValor) : null,
         observacoes: emptyToNull(data.observacoes),
@@ -466,7 +453,7 @@ export default function DemandNewPage() {
         sistemasMetrics: Object.keys(sistemasMetrics).length ? sistemasMetrics : undefined,
         dataInicio: data.dataInicio ? new Date(data.dataInicio).toISOString() : null,
         dataFinal: data.dataFinal ? new Date(data.dataFinal).toISOString() : null,
-        qtdUsuarios: analiseQuantitativaValor !== '' && analiseQuantitativaValor !== null ? String(analiseQuantitativaValor) : null,
+        qtdUsuarios: null,
         qtdRetornos: data.qtdRetornos !== undefined && data.qtdRetornos !== null ? Number(data.qtdRetornos) : null,
         qualidade: qualidadeValor !== '' ? qualidadeValor : null,
         qtdClientesVinculados: qtdClientesVinculadosValor !== '' && qtdClientesVinculadosValor !== null ? Number(qtdClientesVinculadosValor) : null,
@@ -668,20 +655,6 @@ export default function DemandNewPage() {
             </Typography>
           </Grid>
           
-          <Grid item xs={12} sm={6} md={4}>
-            <Controller name="analiseQuantitativa" control={control} render={({ field }) => (
-              <TextField 
-                {...field} 
-                type="number" 
-                label="Qtd de usuários" 
-                fullWidth 
-                placeholder="Digite um número"
-                inputProps={{ min: 0, step: 'any' }}
-                error={!!errors.analiseQuantitativa} 
-                helperText={errors.analiseQuantitativa?.message || 'Informe a quantidade de usuários.'}
-              />
-            )} />
-          </Grid>
           <Grid item xs={12} sm={6} md={4}>
             <Controller name="qtdRetornos" control={control} render={({ field }) => (
               <TextField {...field} type="number" label="Qtde de retornos" fullWidth error={!!errors.qtdRetornos} helperText={errors.qtdRetornos?.message} />
