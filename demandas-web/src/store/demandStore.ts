@@ -444,6 +444,7 @@ export const useDemandStore = create<DemandState>()(
               produtoId,
               sistemaId,
               sistemasIds: sistemasIdsRow.length ? sistemasIdsRow : undefined,
+              sistemasMetrics: (d as any).sistemasMetrics ?? undefined,
               areaId,
               tipoId,
               tipoServicoId,

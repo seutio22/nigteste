@@ -13,6 +13,11 @@ import { api } from '../../lib/api.local'
 import { createPerfLogger } from '../../utils/perf'
 import { PrimaryActionButton } from '../../components/PrimaryActionButton'
 
+const metricSchema = z.object({
+  qtdUsuarios: z.coerce.number().min(0, 'Deve ser um número positivo').optional(),
+  qtdClientesVinculados: z.coerce.number().min(0, 'Deve ser um número positivo').optional(),
+})
+
 const schema = z.object({
   // Campos obrigatórios
   status: z.string().min(1, 'Obrigatório'),
@@ -32,6 +37,9 @@ const schema = z.object({
   analiseQuantitativa: z.coerce.number().min(0, 'Deve ser um número positivo').optional(),
   qtdRetornos: z.coerce.number().min(0).optional(),
   qualidade: z.string().optional(),
+  /** Novo: métricas por sistema (key = sistemaId) */
+  sistemasMetrics: z.record(metricSchema).default({}),
+  /** Legado (EDGE/MOVE). Mantido para não perder histórico. */
   qtdClientesVinculados: z.coerce.number().min(0, 'Deve ser um número positivo').optional(),
   usuariosEmpresa: z.coerce.number().min(0, 'Deve ser um número positivo').optional(),
   observacoes: z.string().optional(),
@@ -74,6 +82,7 @@ export default function DemandNewPage() {
       analiseQuantitativa: 0,
       qtdRetornos: 0,
       qualidade: '',
+      sistemasMetrics: {},
       qtdClientesVinculados: 0,
       usuariosEmpresa: 0,
       observacoes: '',
@@ -85,12 +94,14 @@ export default function DemandNewPage() {
   const demandStore = useDemandStore()
   const selectedTipoId = useWatch({ control, name: 'tipo' })
   const selectedSistemaIds = useWatch({ control, name: 'sistemaIds' })
+  const currentMetrics = useWatch({ control, name: 'sistemasMetrics' })
 
   const sistemasSelecionados = useMemo(() => {
     const ids = new Set((selectedSistemaIds || []).filter(Boolean))
     return md.sistemas.filter((s) => ids.has(s.id))
   }, [md.sistemas, selectedSistemaIds])
 
+  // EDGE/MOVE (legado): ainda existem campos antigos; não pedir no fluxo novo.
   const hasEDGE = useMemo(() => {
     return sistemasSelecionados.some((s) => (s.nome || '').toLowerCase().includes('edge'))
   }, [sistemasSelecionados])
@@ -98,6 +109,27 @@ export default function DemandNewPage() {
   const hasMOVE = useMemo(() => {
     return sistemasSelecionados.some((s) => (s.nome || '').toLowerCase().includes('move'))
   }, [sistemasSelecionados])
+
+  // Garantir que existe um objeto de métricas para cada sistema selecionado
+  useEffect(() => {
+    const ids = (selectedSistemaIds || []).filter(Boolean)
+    const base = { ...(currentMetrics || {}) }
+    let changed = false
+    for (const sid of ids) {
+      if (!base[sid]) {
+        base[sid] = {}
+        changed = true
+      }
+    }
+    // também remover métricas de sistemas desmarcados para evitar lixo
+    for (const sid of Object.keys(base)) {
+      if (!ids.includes(sid)) {
+        delete base[sid]
+        changed = true
+      }
+    }
+    if (changed) setValue('sistemasMetrics', base, { shouldDirty: true, shouldValidate: false })
+  }, [selectedSistemaIds, currentMetrics, setValue])
 
   const tiposDemandaAtivos = useMemo(
     () => md.tiposDemanda.filter((t) => t.ativo !== false),
@@ -351,8 +383,12 @@ export default function DemandNewPage() {
       const solicitanteNome = md.solicitantes.find(s => s.id === data.solicitante)?.nome || emptyToNull(data.solicitante)
       const qualidadeValor = data.qualidade ?? ''
       const analiseQuantitativaValor = data.analiseQuantitativa ?? ''
-      const qtdClientesVinculadosValor = hasEDGE ? (data.qtdClientesVinculados ?? '') : ''
-      const usuariosEmpresaValor = hasMOVE ? (data.usuariosEmpresa ?? '') : ''
+      // Campos legados continuam existindo na base; no fluxo novo não preenchemos aqui.
+      const qtdClientesVinculadosValor = ''
+      const usuariosEmpresaValor = ''
+
+      // Novo: métricas por sistema
+      const sistemasMetrics = data.sistemasMetrics || {}
 
       const sistemaIdPrimeiro = sistemaIds.length ? validateId(sistemaIds[0], md.sistemas, 'Sistema') : null
 
@@ -372,6 +408,7 @@ export default function DemandNewPage() {
         produtoId: null,
         sistemaId: sistemaIdPrimeiro,
         ...(sistemaIds.length ? { sistemasIds: sistemaIds } : {}),
+        ...(Object.keys(sistemasMetrics).length ? { sistemasMetrics } : {}),
         dataInicio: data.dataInicio ? new Date(data.dataInicio).toISOString() : null,
         dataFinal: data.dataFinal ? new Date(data.dataFinal).toISOString() : null,
         qtdUsuarios: analiseQuantitativaValor !== '' && analiseQuantitativaValor !== null ? String(analiseQuantitativaValor) : null,
@@ -426,6 +463,7 @@ export default function DemandNewPage() {
         sistema: sistemaNomes || '',
         sistemaId: sistemaIdPrimeiro || undefined,
         sistemasIds: sistemaIds.length ? sistemaIds : undefined,
+        sistemasMetrics: Object.keys(sistemasMetrics).length ? sistemasMetrics : undefined,
         dataInicio: data.dataInicio ? new Date(data.dataInicio).toISOString() : null,
         dataFinal: data.dataFinal ? new Date(data.dataFinal).toISOString() : null,
         qtdUsuarios: analiseQuantitativaValor !== '' && analiseQuantitativaValor !== null ? String(analiseQuantitativaValor) : null,
@@ -661,38 +699,50 @@ export default function DemandNewPage() {
               </TextField>
             )} />
           </Grid>
-          {hasEDGE && (
-            <Grid item xs={12} sm={6} md={4}>
-              <Controller name="qtdClientesVinculados" control={control} render={({ field }) => (
-                <TextField 
-                  {...field} 
-                  type="number" 
-                  label="Qtd de clientes vinculados (EDGE)" 
-                  fullWidth 
-                  placeholder="Digite um número"
-                  inputProps={{ min: 0, step: 1 }}
-                  error={!!errors.qtdClientesVinculados} 
-                  helperText={errors.qtdClientesVinculados?.message || 'Preencha este campo quando EDGE estiver selecionado.'}
+          {/* Novo fluxo: para cada sistema selecionado, pedir 2 métricas */}
+          {sistemasSelecionados.map((s) => (
+            <React.Fragment key={s.id}>
+              <Grid item xs={12}>
+                <Typography variant="subtitle1" sx={{ mt: 1, fontWeight: 700 }}>
+                  Métricas — {s.nome}
+                </Typography>
+              </Grid>
+              <Grid item xs={12} sm={6} md={4}>
+                <Controller
+                  name={`sistemasMetrics.${s.id}.qtdUsuarios` as any}
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      type="number"
+                      label="Qtd de usuários"
+                      fullWidth
+                      placeholder="Digite um número"
+                      inputProps={{ min: 0, step: 1 }}
+                      helperText="Quantidade de usuários para este sistema."
+                    />
+                  )}
                 />
-              )} />
-            </Grid>
-          )}
-          {hasMOVE && (
-            <Grid item xs={12} sm={6} md={4}>
-              <Controller name="usuariosEmpresa" control={control} render={({ field }) => (
-                <TextField 
-                  {...field} 
-                  type="number" 
-                  label="Qtd de usuários da empresa (MOVE)" 
-                  fullWidth 
-                  placeholder="Digite um número"
-                  inputProps={{ min: 0, step: 1 }}
-                  error={!!errors.usuariosEmpresa} 
-                  helperText={errors.usuariosEmpresa?.message || 'Preencha este campo quando MOVE estiver selecionado.'}
+              </Grid>
+              <Grid item xs={12} sm={6} md={4}>
+                <Controller
+                  name={`sistemasMetrics.${s.id}.qtdClientesVinculados` as any}
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      type="number"
+                      label="Qtd de clientes vinculados"
+                      fullWidth
+                      placeholder="Digite um número"
+                      inputProps={{ min: 0, step: 1 }}
+                      helperText="Quantidade de clientes vinculados para este sistema."
+                    />
+                  )}
                 />
-              )} />
-            </Grid>
-          )}
+              </Grid>
+            </React.Fragment>
+          ))}
           <Grid item xs={12}>
             <Controller name="observacoes" control={control} render={({ field }) => (
               <TextField {...field} label="Observações" fullWidth multiline minRows={2} error={!!errors.observacoes} helperText={errors.observacoes?.message} />

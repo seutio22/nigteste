@@ -2376,6 +2376,32 @@ function crud(entity: keyof PrismaClient) {
           delete demandaData.periodicidade
         }
 
+        // Normalizar sistemasMetrics (objeto JSON) — métricas por sistema (novo fluxo)
+        if (Object.prototype.hasOwnProperty.call(demandaData, 'sistemasMetrics')) {
+          const raw = demandaData.sistemasMetrics
+          let parsed: any = raw
+          if (typeof raw === 'string') {
+            try { parsed = JSON.parse(raw) } catch { /* ignore */ }
+          }
+          if (parsed == null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+            delete demandaData.sistemasMetrics
+          } else {
+            const clean: Record<string, any> = {}
+            for (const [sid, v] of Object.entries(parsed)) {
+              if (!sid || typeof sid !== 'string') continue
+              if (!v || typeof v !== 'object' || Array.isArray(v)) continue
+              const qU = (v as any).qtdUsuarios
+              const qC = (v as any).qtdClientesVinculados
+              const out: any = {}
+              if (qU !== undefined && qU !== null && qU !== '') out.qtdUsuarios = Number(qU)
+              if (qC !== undefined && qC !== null && qC !== '') out.qtdClientesVinculados = Number(qC)
+              if (Object.keys(out).length) clean[sid] = out
+            }
+            if (Object.keys(clean).length) demandaData.sistemasMetrics = clean
+            else delete demandaData.sistemasMetrics
+          }
+        }
+
         const normalizeDemandaSistemasIds = (raw: unknown): string[] | undefined => {
           if (raw == null) return undefined
           if (Array.isArray(raw)) {
@@ -2602,6 +2628,35 @@ function crud(entity: keyof PrismaClient) {
         if (demandaData.periodicidade != null && demandaData.qtdUsuarios === undefined) {
           demandaData.qtdUsuarios = demandaData.periodicidade
           delete demandaData.periodicidade
+        }
+
+        // Normalizar sistemasMetrics (objeto JSON) — métricas por sistema (novo fluxo)
+        if (Object.prototype.hasOwnProperty.call(demandaData, 'sistemasMetrics')) {
+          const raw = demandaData.sistemasMetrics
+          if (raw === null) {
+            // permite limpar
+          } else {
+            let parsed: any = raw
+            if (typeof raw === 'string') {
+              try { parsed = JSON.parse(raw) } catch { /* ignore */ }
+            }
+            if (parsed == null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+              delete demandaData.sistemasMetrics
+            } else {
+              const clean: Record<string, any> = {}
+              for (const [sid, v] of Object.entries(parsed)) {
+                if (!sid || typeof sid !== 'string') continue
+                if (!v || typeof v !== 'object' || Array.isArray(v)) continue
+                const qU = (v as any).qtdUsuarios
+                const qC = (v as any).qtdClientesVinculados
+                const out: any = {}
+                if (qU !== undefined && qU !== null && qU !== '') out.qtdUsuarios = Number(qU)
+                if (qC !== undefined && qC !== null && qC !== '') out.qtdClientesVinculados = Number(qC)
+                if (Object.keys(out).length) clean[sid] = out
+              }
+              demandaData.sistemasMetrics = Object.keys(clean).length ? clean : null
+            }
+          }
         }
 
         const normalizeDemandaSistemasIdsUpd = (raw: unknown): string[] | null | undefined => {

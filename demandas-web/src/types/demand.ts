@@ -26,6 +26,8 @@ export interface Demand {
   sistemaId?: string // id do Sistema
   /** IDs dos sistemas (multi-seleção), quando gravado na API */
   sistemasIds?: string[]
+  /** Métricas por sistema (key = sistemaId): { qtdUsuarios?: number, qtdClientesVinculados?: number } */
+  sistemasMetrics?: Record<string, { qtdUsuarios?: number; qtdClientesVinculados?: number }>
   dataInicio?: string // ISO date
   dataFinal?: string // ISO date
   qtdUsuarios?: string

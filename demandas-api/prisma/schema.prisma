@@ -187,6 +187,9 @@ model Demanda {
   sistemaId             String?
   /// Lista de IDs de sistemas (multi-seleção); `sistemaId` espelha o primeiro para compatibilidade
   sistemasIds           Json?
+  /// Métricas por sistema (key = sistemaId): { qtdUsuarios?: number, qtdClientesVinculados?: number }
+  /// Não substitui os campos legados (qtdUsuarios/qtdClientesVinculados/usuariosEmpresa); serve para o novo fluxo multi-sistema.
+  sistemasMetrics       Json?
   dataInicio            DateTime?
   dataFinal             DateTime?
   qtdUsuarios           String?
