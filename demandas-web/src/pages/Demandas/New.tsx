@@ -1,7 +1,20 @@
 
 
 import React, { useEffect, useRef, useMemo } from 'react'
-import { Autocomplete, Box, Button, Container, Paper, Stack, TextField, Typography, MenuItem, FormControl, InputLabel, Select, Grid } from '@mui/material'
+import {
+  Autocomplete,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Container,
+  Paper,
+  Stack,
+  TextField,
+  Typography,
+  MenuItem,
+  Grid,
+} from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 import { useForm, Controller, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -472,37 +485,60 @@ export default function DemandNewPage() {
     }
   }
 
+  const denseField = { size: 'small' as const, margin: 'dense' as const, fullWidth: true }
+
   return (
-    <Paper sx={{ p: 3 }}>
-      <Typography variant="h5" gutterBottom>Novo Cadastro</Typography>
-      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-        Campos marcados com * são obrigatórios: Status, Tipo de serviço e Tipo de demanda.
-      </Typography>
-      
-      <Box component="form" onSubmit={handleSubmit(onSubmit)}>
-        <Grid container spacing={2}>
-          {/* Primeiro Tópico: Informações Básicas da Demanda */}
-          <Grid item xs={12}>
-            <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', borderBottom: '2px solid', borderColor: 'primary.main', pb: 1 }}>
-              1. Informações Básicas da Demanda
+    <Container maxWidth="md" sx={{ py: { xs: 1.5, sm: 2 }, px: { xs: 1, sm: 2 } }}>
+      <Paper
+        elevation={0}
+        sx={{
+          border: 1,
+          borderColor: 'divider',
+          borderRadius: 2,
+          overflow: 'hidden',
+        }}
+      >
+        <Box
+          sx={{
+            px: 2,
+            py: 1.5,
+            borderBottom: 1,
+            borderColor: 'divider',
+            bgcolor: (t) => (t.palette.mode === 'dark' ? 'action.selected' : 'grey.50'),
+          }}
+        >
+          <Stack direction="row" alignItems="baseline" justifyContent="space-between" flexWrap="wrap" gap={1}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 800, letterSpacing: '-0.02em' }}>
+              Novo cadastro
             </Typography>
-          </Grid>
-          
+            <Typography variant="caption" color="text.secondary">
+              Obrigatórios: tipo de serviço e tipo de demanda
+            </Typography>
+          </Stack>
+        </Box>
+
+        <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ p: { xs: 1.5, sm: 2 } }}>
+          <Card variant="outlined" sx={{ mb: 1.5 }}>
+            <CardContent sx={{ py: 1.25, px: 1.5, '&:last-child': { pb: 1.25 } }}>
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, letterSpacing: '0.08em', display: 'block', mb: 1 }}>
+                Identificação
+              </Typography>
+              <Grid container spacing={1.25}>
           <Grid item xs={12} sm={6} md={4}>
             <Controller name="analista" control={control} render={({ field }) => (
               <TextField 
                 {...field} 
                 select 
                 label="Analista responsável" 
-                fullWidth 
+                {...denseField}
                 error={!!errors.analista} 
-                helperText={errors.analista?.message || `Analista vinculado ao usuário: ${user?.name || 'Carregando...'}`}
+                helperText={errors.analista?.message || `Vinculado: ${user?.name || '…'}`}
                 InputProps={{
                   readOnly: true
                 }}
                 sx={{
                   '& .MuiInputBase-input': {
-                    backgroundColor: '#f5f5f5',
+                    backgroundColor: 'action.hover',
                     cursor: 'not-allowed'
                   }
                 }}
@@ -521,7 +557,7 @@ export default function DemandNewPage() {
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
             <Controller name="tipoServico" control={control} render={({ field }) => (
-              <TextField {...field} select label="Tipo de serviço" fullWidth required error={!!errors.tipoServico} helperText={errors.tipoServico?.message}>
+              <TextField {...field} select label="Tipo de serviço" {...denseField} required error={!!errors.tipoServico} helperText={errors.tipoServico?.message}>
                 <MenuItem value="">Selecione...</MenuItem>
                 {md.tiposServico.map(ts => <MenuItem key={ts.id} value={ts.id}>{ts.nome}</MenuItem>)}
               </TextField>
@@ -529,7 +565,7 @@ export default function DemandNewPage() {
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
             <Controller name="tipo" control={control} render={({ field }) => (
-              <TextField {...field} select label="Tipo de demanda" fullWidth required error={!!errors.tipo} helperText={errors.tipo?.message}>
+              <TextField {...field} select label="Tipo de demanda" {...denseField} required error={!!errors.tipo} helperText={errors.tipo?.message}>
                 <MenuItem value="">Selecione...</MenuItem>
                 {tiposDemandaAtivos.map(td => <MenuItem key={td.id} value={td.id}>{td.nome}</MenuItem>)}
               </TextField>
@@ -537,24 +573,24 @@ export default function DemandNewPage() {
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
             <Controller name="status" control={control} render={({ field }) => (
-              <TextField {...field} select required label="Status" fullWidth error={!!errors.status} helperText={errors.status?.message}>
+              <TextField {...field} select required label="Status" {...denseField} error={!!errors.status} helperText={errors.status?.message}>
                 {listas.status.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
               </TextField>
             )} />
           </Grid>
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid item xs={12} sm={6} md={3}>
             <Controller name="dataInicio" control={control} render={({ field }) => (
-              <TextField {...field} type="date" label="Data de início" fullWidth InputLabelProps={{ shrink: true }} error={!!errors.dataInicio} helperText={errors.dataInicio?.message} />
+              <TextField {...field} type="date" label="Data de início" {...denseField} InputLabelProps={{ shrink: true }} error={!!errors.dataInicio} helperText={errors.dataInicio?.message} />
             )} />
           </Grid>
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid item xs={12} sm={6} md={3}>
             <Controller name="dataFinal" control={control} render={({ field }) => (
-              <TextField {...field} type="date" label="Data de finalização" fullWidth InputLabelProps={{ shrink: true }} error={!!errors.dataFinal} helperText={errors.dataFinal?.message} />
+              <TextField {...field} type="date" label="Data final" {...denseField} InputLabelProps={{ shrink: true }} error={!!errors.dataFinal} helperText={errors.dataFinal?.message} />
             )} />
           </Grid>
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid item xs={12} sm={6} md={3}>
             <Controller name="ticket" control={control} render={({ field }) => (
-              <TextField {...field} label="Nº Ticket" fullWidth error={!!errors.ticket} helperText={errors.ticket?.message} />
+              <TextField {...field} label="Nº Ticket" {...denseField} error={!!errors.ticket} helperText={errors.ticket?.message} />
             )} />
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
@@ -573,15 +609,15 @@ export default function DemandNewPage() {
                     <TextField
                       {...params}
                       label="Solicitante"
-                      fullWidth
+                      {...denseField}
                       error={!!errors.solicitante}
-                      helperText={errors.solicitante?.message || 'Digite para buscar um solicitante'}
-                      placeholder="Digite para buscar..."
+                      helperText={errors.solicitante?.message || 'Buscar'}
+                      placeholder="Buscar…"
                     />
                   )}
                   renderOption={(props, option) => (
                     <Box component="li" {...props} key={option.id}>
-                      <Typography variant="body1" fontWeight="medium">
+                      <Typography variant="body2" fontWeight={600}>
                         {option.nome}
                       </Typography>
                     </Box>
@@ -601,133 +637,155 @@ export default function DemandNewPage() {
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
             <Controller name="area" control={control} render={({ field }) => (
-              <TextField {...field} select label="Área solicitante" fullWidth error={!!errors.area} helperText={errors.area?.message}>
+              <TextField {...field} select label="Área solicitante" {...denseField} error={!!errors.area} helperText={errors.area?.message}>
                 {md.areas.map(ar => <MenuItem key={ar.id} value={ar.id}>{ar.nome}</MenuItem>)}
               </TextField>
             )} />
           </Grid>
-          <Grid item xs={12}>
-            <Controller name="descricao" control={control} render={({ field }) => (
-              <TextField {...field} label="Descrição da demanda" fullWidth multiline minRows={3} error={!!errors.descricao} helperText={errors.descricao?.message} />
-            )} />
-          </Grid>
+              </Grid>
+            </CardContent>
+          </Card>
 
-          {/* Segundo tópico: sistemas (multi-seleção) */}
-          <Grid item xs={12}>
-            <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', borderBottom: '2px solid', borderColor: 'primary.main', pb: 1, mt: 2 }}>
-              2. Sistemas
-            </Typography>
-          </Grid>
-          <Grid item xs={12}>
-            <Controller
-              name="sistemaIds"
-              control={control}
-              render={({ field }) => (
-                <Autocomplete
-                  multiple
-                  options={md.sistemas}
-                  getOptionLabel={(o) => o.nome}
-                  isOptionEqualToValue={(a, b) => a.id === b.id}
-                  value={md.sistemas.filter((s) => (field.value || []).includes(s.id))}
-                  onChange={(_, v) => field.onChange(v.map((x) => x.id))}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label="Sistemas"
-                      placeholder="Selecione um ou mais"
-                      fullWidth
-                      error={!!errors.sistemaIds}
-                      helperText={
-                        (errors.sistemaIds as { message?: string } | undefined)?.message ||
-                        'Selecione um ou mais sistemas relacionados à demanda.'
-                      }
-                    />
-                  )}
-                />
-              )}
-            />
-          </Grid>
+          <Card variant="outlined" sx={{ mb: 1.5 }}>
+            <CardContent sx={{ py: 1.25, px: 1.5, '&:last-child': { pb: 1.25 } }}>
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, letterSpacing: '0.08em', display: 'block', mb: 1 }}>
+                Descrição
+              </Typography>
+              <Controller name="descricao" control={control} render={({ field }) => (
+                <TextField {...field} label="Resumo da demanda" {...denseField} multiline minRows={2} maxRows={8} error={!!errors.descricao} helperText={errors.descricao?.message} />
+              )} />
+            </CardContent>
+          </Card>
 
-          {/* Terceiro Tópico: Métricas */}
-          <Grid item xs={12}>
-            <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', borderBottom: '2px solid', borderColor: 'primary.main', pb: 1, mt: 2 }}>
-              3. Métricas
-            </Typography>
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={4}>
-            <Controller name="qtdRetornos" control={control} render={({ field }) => (
-              <TextField {...field} type="number" label="Qtde de retornos" fullWidth error={!!errors.qtdRetornos} helperText={errors.qtdRetornos?.message} />
-            )} />
-          </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <Controller name="qualidade" control={control} render={({ field }) => (
-              <TextField {...field} select label="Qualidade" fullWidth error={!!errors.qualidade} helperText={errors.qualidade?.message}>
-                <MenuItem value="">Selecione...</MenuItem>
-                {listas.qualidade.map((q) => (
-                  <MenuItem key={q.value} value={q.value} sx={{ whiteSpace: 'normal', lineHeight: 1.2 }}>
-                    {q.label}
-                  </MenuItem>
+          <Card variant="outlined" sx={{ mb: 1.5 }}>
+            <CardContent sx={{ py: 1.25, px: 1.5, '&:last-child': { pb: 1.25 } }}>
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, letterSpacing: '0.08em', display: 'block', mb: 1 }}>
+                Sistemas
+              </Typography>
+              <Controller
+                name="sistemaIds"
+                control={control}
+                render={({ field }) => (
+                  <Autocomplete
+                    multiple
+                    options={md.sistemas}
+                    getOptionLabel={(o) => o.nome}
+                    isOptionEqualToValue={(a, b) => a.id === b.id}
+                    value={md.sistemas.filter((s) => (field.value || []).includes(s.id))}
+                    onChange={(_, v) => field.onChange(v.map((x) => x.id))}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Relacionados à demanda"
+                        placeholder="Um ou mais"
+                        {...denseField}
+                        error={!!errors.sistemaIds}
+                        helperText={(errors.sistemaIds as { message?: string } | undefined)?.message}
+                      />
+                    )}
+                  />
+                )}
+              />
+            </CardContent>
+          </Card>
+
+          <Card variant="outlined" sx={{ mb: 1.5 }}>
+            <CardContent sx={{ py: 1.25, px: 1.5, '&:last-child': { pb: 1.25 } }}>
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, letterSpacing: '0.08em', display: 'block', mb: 1 }}>
+                Métricas
+              </Typography>
+              <Grid container spacing={1.25}>
+                <Grid item xs={6} sm={4}>
+                  <Controller name="qtdRetornos" control={control} render={({ field }) => (
+                    <TextField {...field} type="number" label="Retornos" {...denseField} error={!!errors.qtdRetornos} helperText={errors.qtdRetornos?.message} />
+                  )} />
+                </Grid>
+                <Grid item xs={12} sm={8}>
+                  <Controller name="qualidade" control={control} render={({ field }) => (
+                    <TextField {...field} select label="Qualidade" {...denseField} error={!!errors.qualidade} helperText={errors.qualidade?.message}>
+                      <MenuItem value="">Selecione…</MenuItem>
+                      {listas.qualidade.map((q) => (
+                        <MenuItem key={q.value} value={q.value} sx={{ whiteSpace: 'normal', lineHeight: 1.25, py: 0.75 }}>
+                          {q.label}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  )} />
+                </Grid>
+                {sistemasSelecionados.map((s) => (
+                  <Grid item xs={12} key={s.id}>
+                    <Box
+                      sx={{
+                        borderLeft: 3,
+                        borderColor: 'primary.main',
+                        pl: 1.25,
+                        py: 0.75,
+                        borderRadius: 1,
+                        bgcolor: 'action.hover',
+                      }}
+                    >
+                      <Typography variant="caption" fontWeight={800} color="primary" sx={{ display: 'block', mb: 0.75 }}>
+                        {s.nome}
+                      </Typography>
+                      <Grid container spacing={1}>
+                        <Grid item xs={12} sm={6}>
+                          <Controller
+                            name={`sistemasMetrics.${s.id}.qtdUsuarios` as any}
+                            control={control}
+                            render={({ field }) => (
+                              <TextField
+                                {...field}
+                                type="number"
+                                label="Usuários"
+                                {...denseField}
+                                placeholder="0"
+                                inputProps={{ min: 0, step: 1 }}
+                              />
+                            )}
+                          />
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <Controller
+                            name={`sistemasMetrics.${s.id}.qtdClientesVinculados` as any}
+                            control={control}
+                            render={({ field }) => (
+                              <TextField
+                                {...field}
+                                type="number"
+                                label="Clientes vinculados"
+                                {...denseField}
+                                placeholder="0"
+                                inputProps={{ min: 0, step: 1 }}
+                              />
+                            )}
+                          />
+                        </Grid>
+                      </Grid>
+                    </Box>
+                  </Grid>
                 ))}
-              </TextField>
-            )} />
-          </Grid>
-          {/* Novo fluxo: para cada sistema selecionado, pedir 2 métricas */}
-          {sistemasSelecionados.map((s) => (
-            <React.Fragment key={s.id}>
-              <Grid item xs={12}>
-                <Typography variant="subtitle1" sx={{ mt: 1, fontWeight: 700 }}>
-                  Métricas — {s.nome}
-                </Typography>
               </Grid>
-              <Grid item xs={12} sm={6} md={4}>
-                <Controller
-                  name={`sistemasMetrics.${s.id}.qtdUsuarios` as any}
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      type="number"
-                      label="Qtd de usuários"
-                      fullWidth
-                      placeholder="Digite um número"
-                      inputProps={{ min: 0, step: 1 }}
-                      helperText="Quantidade de usuários para este sistema."
-                    />
-                  )}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6} md={4}>
-                <Controller
-                  name={`sistemasMetrics.${s.id}.qtdClientesVinculados` as any}
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      type="number"
-                      label="Qtd de clientes vinculados"
-                      fullWidth
-                      placeholder="Digite um número"
-                      inputProps={{ min: 0, step: 1 }}
-                      helperText="Quantidade de clientes vinculados para este sistema."
-                    />
-                  )}
-                />
-              </Grid>
-            </React.Fragment>
-          ))}
-          <Grid item xs={12}>
-            <Controller name="observacoes" control={control} render={({ field }) => (
-              <TextField {...field} label="Observações" fullWidth multiline minRows={2} error={!!errors.observacoes} helperText={errors.observacoes?.message} />
-            )} />
-          </Grid>
-        </Grid>
-        <Box mt={2} display="flex" gap={2}>
+            </CardContent>
+          </Card>
+
+          <Card variant="outlined">
+            <CardContent sx={{ py: 1.25, px: 1.5, '&:last-child': { pb: 1.25 } }}>
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, letterSpacing: '0.08em', display: 'block', mb: 1 }}>
+                Observações
+              </Typography>
+              <Controller name="observacoes" control={control} render={({ field }) => (
+                <TextField {...field} label="Notas adicionais" {...denseField} multiline minRows={2} maxRows={6} error={!!errors.observacoes} helperText={errors.observacoes?.message} />
+              )} />
+            </CardContent>
+          </Card>
+
+        <Stack direction="row" spacing={1.5} sx={{ mt: 2 }} flexWrap="wrap">
           <PrimaryActionButton type="button" disabled={!isValid} onClick={handleSubmit(onSubmit)}>Salvar</PrimaryActionButton>
-          <Button variant="outlined" onClick={() => navigate(-1)}>Cancelar</Button>
-        </Box>
+          <Button size="small" variant="outlined" onClick={() => navigate(-1)}>Cancelar</Button>
+        </Stack>
       </Box>
-    </Paper>
+      </Paper>
+    </Container>
   )
 }
 

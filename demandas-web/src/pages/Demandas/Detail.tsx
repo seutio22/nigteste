@@ -528,6 +528,12 @@ function EditInline({
 
   const showLegacyEdit = !newMetricsModel && (hasLegacyGlobalMetricsData(d) || legacyCadastro)
 
+  const inputCls =
+    'w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-900 shadow-sm transition focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/25'
+  const inputReadonlyCls =
+    'w-full rounded-md border border-slate-200 bg-slate-100 px-2.5 py-1.5 text-sm text-slate-600 cursor-not-allowed'
+  const labelCls = 'block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1'
+
   const resolveSolicitanteName = (value?: string | null) => {
     if (!value) return undefined
     return md.solicitantesById?.[value]?.nome
@@ -920,14 +926,14 @@ function EditInline({
   const solicitanteSelectValue = resolveSolicitanteId(draft.solicitante)
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-5xl space-y-3">
       {/* Status */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Status *</label>
+      <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-sm">
+        <label className={labelCls}>Status *</label>
         <select
           value={draft.status}
           onChange={(e) => setDraft({ ...draft, status: e.target.value })}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className={inputCls}
         >
           {['Em andamento', 'Transf. Analista', 'Aguardando aprovação', 'Com erros', 'Em reajuste', 'Concluído Parcialmente', 'Concluída', 'Cancelada'].map(s => (
             <option key={s} value={s}>{s}</option>
@@ -936,7 +942,7 @@ function EditInline({
       </div>
 
       {!legacyCadastro && (
-        <p className="text-sm text-gray-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+        <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
           Este cadastro segue o fluxo atual: apenas <strong>Sistemas</strong> no vínculo operacional. Cliente, Contrato,
           Operadora e Produto aparecem só em registos antigos que já tinham esses dados.
         </p>
@@ -945,9 +951,11 @@ function EditInline({
       {/* Cliente / Contrato / Operadora / Produto — só cadastros legados */}
       {legacyCadastro && (
       <>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-sm">
+      <p className="mb-3 text-[11px] font-bold uppercase tracking-wide text-slate-500">Vínculo legado</p>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Cliente</label>
+          <label className={labelCls}>Cliente</label>
           <Autocomplete
             options={md.clientes}
             getOptionLabel={(option) => option.nome || ''}
@@ -1005,11 +1013,11 @@ function EditInline({
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Contrato</label>
+          <label className={labelCls}>Contrato</label>
           <select
             value={typeof draft.contratoId === 'object' ? ((draft.contratoId as any)?.id || '') : (draft.contratoId || '')}
             onChange={(e) => setDraft({ ...draft, contratoId: e.target.value || undefined })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className={inputCls}
           >
             <option value="">Selecione...</option>
             {contratosDoGrupo.map(ct => <option key={ct.id} value={ct.id}>{ct.codigo}</option>)}
@@ -1017,9 +1025,9 @@ function EditInline({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Operadora</label>
+          <label className={labelCls}>Operadora</label>
           <Autocomplete
             options={md.operadoras}
             getOptionLabel={(option) => option.nome || ''}
@@ -1052,24 +1060,27 @@ function EditInline({
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Produto</label>
+          <label className={labelCls}>Produto</label>
           <select
             value={typeof draft.produtoId === 'object' ? ((draft.produtoId as any)?.id || '') : (draft.produtoId || '')}
             onChange={(e) => setDraft({ ...draft, produtoId: e.target.value || undefined })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className={inputCls}
           >
             <option value="">Selecione...</option>
             {md.produtos.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
           </select>
         </div>
       </div>
+      </div>
       </>
       )}
 
       {/* Sistemas (multi) e Área */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-sm">
+      <p className="mb-3 text-[11px] font-bold uppercase tracking-wide text-slate-500">Operação</p>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Sistemas</label>
+          <label className={labelCls}>Sistemas</label>
           <Autocomplete
             multiple
             options={md.sistemas}
@@ -1085,41 +1096,44 @@ function EditInline({
               })
             }}
             renderInput={(params) => (
-              <TextField {...params} placeholder="Selecione um ou mais" className="w-full" />
+              <TextField {...params} size="small" placeholder="Um ou mais sistemas" className="w-full" />
             )}
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Área</label>
+          <label className={labelCls}>Área</label>
           <select
             value={typeof draft.areaId === 'object' ? ((draft.areaId as any)?.id || '') : (draft.areaId || '')}
             onChange={(e) => setDraft({ ...draft, areaId: e.target.value || undefined })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className={inputCls}
           >
             <option value="">Selecione...</option>
             {md.areas.map(a => <option key={a.id} value={a.id}>{a.nome}</option>)}
           </select>
         </div>
       </div>
+      </div>
 
-      {/* Quarta linha - Ticket e Solicitante */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-sm">
+      <p className="mb-3 text-[11px] font-bold uppercase tracking-wide text-slate-500">Registo & classificação</p>
+      <div className="space-y-3">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Nº Ticket</label>
+          <label className={labelCls}>Nº Ticket</label>
           <input
             type="text"
             value={draft.ticket || ''}
             onChange={(e) => setDraft({ ...draft, ticket: e.target.value || undefined })}
             placeholder="Número do ticket"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className={inputCls}
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Solicitante</label>
+          <label className={labelCls}>Solicitante</label>
           <select
             value={solicitanteSelectValue}
             onChange={(e) => setDraft({ ...draft, solicitante: e.target.value || undefined })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className={inputCls}
           >
             <option value="">Selecione...</option>
             {md.solicitantes.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
@@ -1129,12 +1143,12 @@ function EditInline({
 
       {/* Quinta linha - Analista */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Analista Responsável</label>
+        <label className={labelCls}>Analista Responsável</label>
         <input
           type="text"
           value={label(typeof draft.analistaId === 'object' ? (draft.analistaId as any)?.id : draft.analistaId, md.analistas)}
           readOnly
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
+          className={inputReadonlyCls}
           placeholder="Definido na criação"
         />
         <p className="text-xs text-apoio-400 mt-1">
@@ -1143,24 +1157,24 @@ function EditInline({
       </div>
 
       {/* Sexta linha - Tipo de Serviço e Tipo de Demanda */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Serviço</label>
+          <label className={labelCls}>Tipo de Serviço</label>
           <select
             value={typeof draft.tipoServicoId === 'object' ? ((draft.tipoServicoId as any)?.id || '') : (draft.tipoServicoId || '')}
             onChange={(e) => setDraft({ ...draft, tipoServicoId: e.target.value || undefined })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className={inputCls}
           >
             <option value="">Selecione...</option>
             {md.tiposServico.map(tc => <option key={tc.id} value={tc.id}>{tc.nome}</option>)}
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Demanda</label>
+          <label className={labelCls}>Tipo de Demanda</label>
           <select
             value={typeof draft.tipoId === 'object' ? ((draft.tipoId as any)?.id || '') : (draft.tipoId || '')}
             onChange={(e) => setDraft({ ...draft, tipoId: e.target.value || undefined })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className={inputCls}
           >
             <option value="">Selecione...</option>
             {tiposDemandaParaEdicao.map(ts => <option key={ts.id} value={ts.id}>{ts.nome}</option>)}
@@ -1172,57 +1186,61 @@ function EditInline({
       </div>
 
       {/* Sétima linha - Datas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Data de Início</label>
+          <label className={labelCls}>Data de Início</label>
           <input
             type="date"
             value={draft.dataInicio ? draft.dataInicio.split('T')[0] : ''}
             onChange={(e) => setDraft({ ...draft, dataInicio: e.target.value || undefined })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className={inputCls}
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Data Final</label>
+          <label className={labelCls}>Data Final</label>
           <input
             type="date"
             value={draft.dataFinal ? draft.dataFinal.split('T')[0] : ''}
             onChange={(e) => setDraft({ ...draft, dataFinal: e.target.value || undefined })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className={inputCls}
           />
         </div>
       </div>
+      </div>
+      </div>
 
-      {/* Oitava linha — retornos; métricas legadas globais só em chamados antigos */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-sm">
+      <p className="mb-3 text-[11px] font-bold uppercase tracking-wide text-slate-500">Métricas</p>
+      <div className="space-y-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {showLegacyEdit && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Qtd de usuários</label>
+            <label className={labelCls}>Qtd de usuários</label>
             <input
               type="text"
               inputMode="numeric"
               value={draft.qtdUsuarios ?? ''}
               onChange={(e) => setDraft({ ...draft, qtdUsuarios: e.target.value || undefined })}
               placeholder="Digite um número"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className={inputCls}
             />
             <p className="text-xs text-gray-500 mt-1">Campo do cadastro antigo; novos chamados usam métricas por sistema.</p>
           </div>
         )}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Quantidade de Retornos</label>
+          <label className={labelCls}>Quantidade de Retornos</label>
           <input
             type="number"
             min="0"
             value={draft.qtdRetornos ?? ''}
             onChange={(e) => setDraft({ ...draft, qtdRetornos: e.target.value ? parseInt(e.target.value) : undefined })}
             placeholder="0"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className={inputCls}
           />
         </div>
         {showLegacyEdit && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">QTD Clientes Vinculados — EDGE</label>
+            <label className={labelCls}>QTD Clientes Vinculados — EDGE</label>
             <input
               type="number"
               min="0"
@@ -1234,13 +1252,13 @@ function EditInline({
                 })
               }
               placeholder="0"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className={inputCls}
             />
           </div>
         )}
         {showLegacyEdit && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Usuários Empresa — MOVE</label>
+            <label className={labelCls}>Usuários Empresa — MOVE</label>
             <input
               type="number"
               min="0"
@@ -1249,7 +1267,7 @@ function EditInline({
                 setDraft({ ...draft, usuariosEmpresa: e.target.value ? Number(e.target.value) : undefined })
               }
               placeholder="0"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className={inputCls}
             />
           </div>
         )}
@@ -1257,11 +1275,11 @@ function EditInline({
 
       {/* Nona linha - Qualidade */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Qualidade</label>
+        <label className={labelCls}>Qualidade</label>
         <select
           value={draft.qualidade || ''}
           onChange={(e) => setDraft({ ...draft, qualidade: e.target.value || undefined })}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className={inputCls}
         >
           <option value="">Selecione...</option>
           <option value="0">0 - RUIM - MAIS DE 3 RETORNOS; ITENS INCOMPLETOS, SEM RETORNO</option>
@@ -1278,11 +1296,11 @@ function EditInline({
           const metrics = ((draft as any).sistemasMetrics || {}) as Record<string, any>
           const m = metrics[s.id] || {}
           return (
-            <div key={s.id} className="p-3 border border-gray-200 rounded-lg bg-gray-50">
-              <div className="font-semibold text-gray-900 mb-3">{s.nome}</div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div key={s.id} className="rounded-lg border border-slate-200 bg-slate-50/80 p-2.5">
+              <div className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-600">{s.nome}</div>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Qtd de usuários</label>
+                  <label className={labelCls}>Qtd de usuários</label>
                   <input
                     type="number"
                     value={m.qtdUsuarios ?? ''}
@@ -1294,11 +1312,11 @@ function EditInline({
                     placeholder="Digite um número"
                     min="0"
                     step="1"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={inputCls}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Qtd de clientes vinculados</label>
+                  <label className={labelCls}>Qtd de clientes vinculados</label>
                   <input
                     type="number"
                     value={m.qtdClientesVinculados ?? ''}
@@ -1310,7 +1328,7 @@ function EditInline({
                     placeholder="Digite um número"
                     min="0"
                     step="1"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={inputCls}
                   />
                 </div>
               </div>
@@ -1318,39 +1336,43 @@ function EditInline({
           )
         })}
         {sistemasSelecionados.length === 0 && (
-          <div className="text-sm text-gray-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
             Selecione um ou mais sistemas para preencher as métricas.
           </div>
         )}
       </div>
       )}
-
-      {/* Descrição */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Descrição</label>
-        <textarea
-          value={draft.descricao ?? ''}
-          onChange={(e) => setDraft({ ...draft, descricao: e.target.value || undefined })}
-          rows={6}
-          placeholder="Descreva detalhadamente a demanda..."
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-vertical"
-        />
+      </div>
       </div>
 
-      {/* Observações */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Observações</label>
-        <textarea
-          value={draft.observacoes ?? ''}
-          onChange={(e) => setDraft({ ...draft, observacoes: e.target.value || undefined })}
-          rows={4}
-          placeholder="Observações adicionais..."
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-vertical"
-        />
+      <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-sm">
+        <p className="mb-3 text-[11px] font-bold uppercase tracking-wide text-slate-500">Texto</p>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <div>
+            <label className={labelCls}>Descrição</label>
+            <textarea
+              value={draft.descricao ?? ''}
+              onChange={(e) => setDraft({ ...draft, descricao: e.target.value || undefined })}
+              rows={4}
+              placeholder="Resumo da demanda…"
+              className={`${inputCls} min-h-[88px] resize-y`}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Observações</label>
+            <textarea
+              value={draft.observacoes ?? ''}
+              onChange={(e) => setDraft({ ...draft, observacoes: e.target.value || undefined })}
+              rows={3}
+              placeholder="Notas adicionais…"
+              className={`${inputCls} min-h-[72px] resize-y`}
+            />
+          </div>
+        </div>
       </div>
 
       {/* Botão de salvar */}
-      <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+      <div className="flex items-center justify-between border-t border-slate-200 pt-3">
         <div className="flex gap-2">
           <PrimaryActionButton
             disabled={changedKeys.length === 0}
