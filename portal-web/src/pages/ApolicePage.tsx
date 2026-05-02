@@ -497,30 +497,55 @@ function VisaoGeral({ onError }: { onError: (s: string | null) => void }) {
   const [searchTerm, setSearchTerm] = useState('')
   const [detailAp, setDetailAp] = useState<CadastroVisaoGeralApolice | null>(null)
   const [detailItensLoading, setDetailItensLoading] = useState(false)
+  /** `true` só após JSON válido com `apolices` array (evita mensagem “base vazia” quando a API falhou). */
+  const [visaoLoadOk, setVisaoLoadOk] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
+    setVisaoLoadOk(false)
     onError(null)
-    const r = await api<{
-      gruposEconomicosCount: number
-      estipulantesCount: number
-      apolicesTotalCount: number
-      apolices: CadastroVisaoGeralApolice[]
-    }>('/seguros/cadastro-visao-geral')
-    setLoading(false)
-    if (!r.ok || !r.data) {
-      onError(r.error || 'Erro ao carregar visão geral do cadastro.')
-      setApolices([])
-      setGruposEconomicosCount(null)
-      setEstipulantesCount(null)
-      setApolicesTotalCount(null)
-      return
+    try {
+      const r = await api<{
+        gruposEconomicosCount: number
+        estipulantesCount: number
+        apolicesTotalCount: number
+        apolices: CadastroVisaoGeralApolice[]
+      }>('/seguros/cadastro-visao-geral')
+      if (!r.ok) {
+        onError(r.error || 'Erro ao carregar visão geral do cadastro.')
+        setApolices([])
+        setGruposEconomicosCount(null)
+        setEstipulantesCount(null)
+        setApolicesTotalCount(null)
+        return
+      }
+      if (!r.data || typeof r.data !== 'object') {
+        onError('Resposta vazia ou inválida da API.')
+        setApolices([])
+        setGruposEconomicosCount(null)
+        setEstipulantesCount(null)
+        setApolicesTotalCount(null)
+        return
+      }
+      const d = r.data
+      if (!Array.isArray(d.apolices)) {
+        onError(
+          'A API devolveu um formato anómalo (sem lista de apólices). Confirme o deploy da API portal-colaborador no Railway e a variável VITE_API_URL no Vercel (URL da API, não do site).',
+        )
+        setApolices([])
+        setGruposEconomicosCount(null)
+        setEstipulantesCount(null)
+        setApolicesTotalCount(null)
+        return
+      }
+      setVisaoLoadOk(true)
+      setGruposEconomicosCount(d.gruposEconomicosCount ?? 0)
+      setEstipulantesCount(d.estipulantesCount ?? 0)
+      setApolicesTotalCount(d.apolicesTotalCount ?? 0)
+      setApolices(d.apolices)
+    } finally {
+      setLoading(false)
     }
-    const d = r.data
-    setGruposEconomicosCount(d.gruposEconomicosCount ?? 0)
-    setEstipulantesCount(d.estipulantesCount ?? 0)
-    setApolicesTotalCount(d.apolicesTotalCount ?? 0)
-    setApolices(Array.isArray(d.apolices) ? d.apolices : [])
   }, [onError])
 
   useEffect(() => {
@@ -611,9 +636,13 @@ function VisaoGeral({ onError }: { onError: (s: string | null) => void }) {
         ) : filterAp.length === 0 ? (
           <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
             <Typography color="text.secondary">
-              {apolices.length === 0
-                ? 'Não há apólices na base ou a API não devolveu dados. Confirme o deploy da API e a variável VITE_API_URL no frontend.'
-                : 'Nenhuma linha corresponde à pesquisa.'}
+              {!visaoLoadOk
+                ? 'Não foi possível carregar a lista. Veja o alerta de erro acima (URL da API, deploy ou sessão).'
+                : apolices.length > 0
+                  ? 'Nenhuma linha corresponde à pesquisa — limpe o filtro ou altere o texto.'
+                  : (apolicesTotalCount ?? 0) > 0
+                    ? 'O total na base indica apólices, mas a lista veio vazia. Recarregue a página; se persistir, verifique o deploy da API.'
+                    : 'Ainda não há apólices nesta base. No menu, cadastre grupo económico → estipulante → apólice (perfil administrador).'}
             </Typography>
           </Paper>
         ) : (

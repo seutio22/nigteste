@@ -46,26 +46,50 @@ export async function api<T>(
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...((init?.headers as Record<string, string>) || {}),
   }
-  const res = await fetch(url, { ...init, headers })
+  let res: Response
+  try {
+    res = await fetch(url, { ...init, headers })
+  } catch {
+    return {
+      ok: false,
+      status: 0,
+      data: null,
+      error:
+        'Não foi possível contactar a API. Verifique a rede, CORS e se VITE_API_URL na Vercel aponta para o domínio Railway da API (ex. https://….up.railway.app), não para o URL do site no Vercel.',
+    }
+  }
+
   let data: T | null = null
   const text = await res.text()
+  let jsonParseFailed = false
   if (text) {
     try {
       data = JSON.parse(text) as T
     } catch {
+      jsonParseFailed = true
       data = null
     }
   }
+
+  // Ex.: VITE_API_URL a apontar para o front (Vercel devolve index.html em 200) → HTML não é JSON.
+  const parseErrorMsg = jsonParseFailed
+    ? 'A URL da API devolveu uma página em vez de JSON. Na Vercel, em VITE_API_URL use só o domínio público da API no Railway (sem /api no fim). Depois faça Redeploy do portal-web.'
+    : undefined
+
   const errObj = data as { error?: string; message?: string } | null
   const serverMsg = errObj?.error || errObj?.message
   const fallback404 =
     res.status === 404 && !serverMsg
       ? 'Não encontrado (404). Confirme VITE_API_URL na Vercel (URL da API Railway **sem** /api no final, ex. https://….up.railway.app). Se a API ainda não tiver as rotas /admin/sla-profiles, faça redeploy da API.'
       : res.statusText
+
+  const httpOk = res.ok && !jsonParseFailed
+  const errorMsg = !httpOk ? parseErrorMsg || serverMsg || (res.status === 404 ? fallback404 : res.statusText || 'Erro ao contactar a API.') : undefined
+
   return {
-    ok: res.ok,
+    ok: httpOk,
     status: res.status,
     data,
-    error: !res.ok ? serverMsg || fallback404 : undefined,
+    error: errorMsg,
   }
 }
