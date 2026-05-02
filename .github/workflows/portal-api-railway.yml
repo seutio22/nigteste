@@ -6,7 +6,7 @@
 # arquivo incluir portal-api/ e o Root Directory do serviço fazer sentido.
 #
 # Redeploy: alterações neste ficheiro disparam o workflow.
-# bump: 2026-04-19e
+# bump: 2026-04-19f
 name: Portal colaborador — API Railway
 
 on:
