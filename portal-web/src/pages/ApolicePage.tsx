@@ -503,19 +503,50 @@ function labelGrupoEconomico(e: {
   return n || g || '—'
 }
 
-/**
- * Chave do grupo económico (igual à API de listagem de apólices por grupo):
- * prioriza `grupoEconomicoId` / relação `grupo`; senão nome Nexus normalizado.
- */
-function grupoCadastroKey(e: {
-  grupoEconomicoNome: string
-  grupoEconomicoId?: string | null
-  grupo: { id: string; nome: string } | null
-}): string {
+function normGrupoNomeSeg(s: string): string {
+  return (s || '').trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
+class UnionFindVisao {
+  private parent: number[]
+  constructor(n: number) {
+    this.parent = Array.from({ length: n }, (_, i) => i)
+  }
+  find(i: number): number {
+    if (this.parent[i] !== i) this.parent[i] = this.find(this.parent[i])
+    return this.parent[i]
+  }
+  union(a: number, b: number): void {
+    const ra = this.find(a)
+    const rb = this.find(b)
+    if (ra !== rb) this.parent[rb] = ra
+  }
+}
+
+/** Liga linhas que partilham FK local, nome Nexus, nome do grupo portal ou CNPJ (duplicados). Mesma ideia que na API `cadastro-visao-geral`. */
+function acumularLabelsGrupoVisao(
+  idToLabels: Map<string, Set<string>>,
+  e: {
+    id: string
+    grupoEconomicoNome: string
+    grupoEconomicoId?: string | null
+    grupo: { id: string; nome: string } | null
+    cnpj: string
+  },
+): void {
+  let set = idToLabels.get(e.id)
+  if (!set) {
+    set = new Set()
+    idToLabels.set(e.id, set)
+  }
   const geid = (e.grupoEconomicoId ?? e.grupo?.id ?? '').trim()
-  if (geid) return `local:${geid}`
-  const n = (e.grupoEconomicoNome || '').trim().toLowerCase()
-  return `nexus:${n}`
+  if (geid) set.add(`local:${geid}`)
+  const nx1 = normGrupoNomeSeg(e.grupoEconomicoNome)
+  if (nx1) set.add(`nx:${nx1}`)
+  const nx2 = normGrupoNomeSeg(e.grupo?.nome ?? '')
+  if (nx2) set.add(`nx:${nx2}`)
+  const d = normCnpjDigits(e.cnpj)
+  if (d.length >= 12) set.add(`cnpj:${d}`)
 }
 
 type VisaoGrupoBloco = {
@@ -526,6 +557,38 @@ type VisaoGrupoBloco = {
 }
 
 function agruparVisaoPorGrupo(ests: CadastroVisaoEstipulanteRow[], aps: CadastroVisaoGeralApolice[]): VisaoGrupoBloco[] {
+  const idToLabels = new Map<string, Set<string>>()
+  for (const e of ests) acumularLabelsGrupoVisao(idToLabels, e)
+  for (const a of aps) acumularLabelsGrupoVisao(idToLabels, a.estipulante)
+
+  const ids = [...idToLabels.keys()]
+  const idToIdx = new Map(ids.map((id, i) => [id, i]))
+  const uf = new UnionFindVisao(ids.length)
+  const labelBuckets = new Map<string, number[]>()
+
+  for (const [id, labels] of idToLabels) {
+    const idx = idToIdx.get(id)!
+    for (const lab of labels) {
+      let arr = labelBuckets.get(lab)
+      if (!arr) {
+        arr = []
+        labelBuckets.set(lab, arr)
+      }
+      arr.push(idx)
+    }
+  }
+  for (const indices of labelBuckets.values()) {
+    if (indices.length < 2) continue
+    const head = indices[0]
+    for (let k = 1; k < indices.length; k++) uf.union(head, indices[k])
+  }
+
+  const keyParaId = (id: string) => {
+    const idx = idToIdx.get(id)
+    if (idx === undefined) return `solo:${id}`
+    return `comp:${uf.find(idx)}`
+  }
+
   const map = new Map<string, VisaoGrupoBloco>()
   function bucket(key: string, titulo: string): VisaoGrupoBloco {
     let b = map.get(key)
@@ -536,11 +599,11 @@ function agruparVisaoPorGrupo(ests: CadastroVisaoEstipulanteRow[], aps: Cadastro
     return b
   }
   for (const e of ests) {
-    const key = grupoCadastroKey(e)
+    const key = keyParaId(e.id)
     bucket(key, labelGrupoEconomico(e)).estipulantes.push(e)
   }
   for (const a of aps) {
-    const key = grupoCadastroKey(a.estipulante)
+    const key = keyParaId(a.estipulante.id)
     bucket(key, labelGrupoEconomico(a.estipulante)).apolices.push(a)
   }
   return [...map.values()].sort((x, y) => x.titulo.localeCompare(y.titulo, 'pt-BR', { sensitivity: 'base' }))
