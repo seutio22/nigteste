@@ -131,6 +131,46 @@ function looseRazaoMesmaEmpresa(a: string, b: string): boolean {
 }
 
 /** Estipulantes no mesmo “universo” de grupo + heurística de mesma empresa (razão/CNPJ/Nexus). */
+/** Mesmo grupo económico: FK local igual OU mesmo nome Nexus (insensitive). */
+function isSameGrupoUniverse(
+  a: { grupoEconomicoNome: string; grupoEconomicoId: string | null },
+  b: { grupoEconomicoNome: string; grupoEconomicoId: string | null },
+): boolean {
+  const ga = a.grupoEconomicoId?.trim()
+  const gb = b.grupoEconomicoId?.trim()
+  if (ga && gb && ga === gb) return true
+  const na = (a.grupoEconomicoNome || '').trim().toLowerCase()
+  const nb = (b.grupoEconomicoNome || '').trim().toLowerCase()
+  return na.length > 0 && na === nb
+}
+
+type EstLinhaContagem = {
+  id: string
+  razaoSocial: string
+  cnpj: string
+  nexusClienteId: string | null
+  grupoEconomicoNome: string
+  grupoEconomicoId: string | null
+}
+
+/** Soma apólices ligadas a este estipulante ou a registos «irmãos» (mesmo grupo + mesma empresa). */
+function mergeApoliceCountsPorEstipulante(
+  estipulantes: EstLinhaContagem[],
+  countPorEstipulanteId: Map<string, number>,
+): Map<string, number> {
+  const out = new Map<string, number>()
+  for (const est of estipulantes) {
+    const peers = estipulantes.filter((p) => isSameGrupoUniverse(est, p))
+    const wide = wideEstipulanteIdsNoGrupo(est, peers)
+    let sum = 0
+    for (const id of wide) {
+      sum += countPorEstipulanteId.get(id) ?? 0
+    }
+    out.set(est.id, sum)
+  }
+  return out
+}
+
 function wideEstipulanteIdsNoGrupo(
   est: { id: string; razaoSocial: string; cnpj: string; nexusClienteId: string | null },
   groupEsts: Array<{ id: string; razaoSocial: string; cnpj: string; nexusClienteId: string | null }>,
@@ -643,6 +683,7 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
                 id: true,
                 razaoSocial: true,
                 grupoEconomicoNome: true,
+                grupoEconomicoId: true,
                 cnpj: true,
                 nexusClienteId: true,
                 nomeFantasia: true,
@@ -659,7 +700,7 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
        * Só na 1.ª página: lista completa de estipulantes para agrupar por grupo económico (chave = grupo local OU nome Nexus).
        * Sem filtro `active` — consulta deve espelhar todas as linhas da tabela.
        */
-      const estipulantes =
+      const estipulantesRaw =
         q.offset === 0
           ? await prisma.portalSeguroEstipulante.findMany({
               take: 50000,
@@ -670,14 +711,44 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
                 razaoSocial: true,
                 cnpj: true,
                 grupoEconomicoNome: true,
+                grupoEconomicoId: true,
                 nexusClienteId: true,
                 nomeFantasia: true,
                 observacoes: true,
                 grupo: { select: { id: true, nome: true } },
-                _count: { select: { apolices: true } },
               },
             })
           : undefined
+
+      let estipulantes:
+        | Array<
+            NonNullable<typeof estipulantesRaw>[number] & {
+              _count: { apolices: number }
+            }
+          >
+        | undefined
+      if (estipulantesRaw != null) {
+        const countRows = await prisma.portalSeguroApolice.groupBy({
+          by: ['estipulanteId'],
+          _count: { _all: true },
+        })
+        const countMap = new Map(countRows.map((r) => [r.estipulanteId, r._count._all]))
+        const linhas: EstLinhaContagem[] = estipulantesRaw.map((e) => ({
+          id: e.id,
+          razaoSocial: e.razaoSocial,
+          cnpj: e.cnpj,
+          nexusClienteId: e.nexusClienteId,
+          grupoEconomicoNome: e.grupoEconomicoNome,
+          grupoEconomicoId: e.grupoEconomicoId,
+        }))
+        const mergedCounts = mergeApoliceCountsPorEstipulante(linhas, countMap)
+        estipulantes = estipulantesRaw.map((e) => ({
+          ...e,
+          _count: { apolices: mergedCounts.get(e.id) ?? 0 },
+        }))
+      } else {
+        estipulantes = undefined
+      }
 
       return reply.send({
         gruposEconomicosCount,

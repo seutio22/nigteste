@@ -466,6 +466,7 @@ type CadastroVisaoGeralApolice = {
     id: string
     razaoSocial: string
     grupoEconomicoNome: string
+    grupoEconomicoId: string | null
     cnpj: string
     nexusClienteId: string | null
     nomeFantasia: string | null
@@ -483,6 +484,8 @@ type CadastroVisaoEstipulanteRow = {
   razaoSocial: string
   cnpj: string
   grupoEconomicoNome: string
+  /** FK opcional para grupo económico local (Portal). Alinha com apólices ligadas por grupo. */
+  grupoEconomicoId: string | null
   nexusClienteId: string | null
   nomeFantasia: string | null
   observacoes: string | null
@@ -500,13 +503,17 @@ function labelGrupoEconomico(e: {
   return n || g || '—'
 }
 
-/** Chave estável do grupo: grupo local (UUID) ou nome Nexus normalizado. */
+/**
+ * Chave do grupo económico (igual à API de listagem de apólices por grupo):
+ * prioriza `grupoEconomicoId` / relação `grupo`; senão nome Nexus normalizado.
+ */
 function grupoCadastroKey(e: {
   grupoEconomicoNome: string
+  grupoEconomicoId?: string | null
   grupo: { id: string; nome: string } | null
 }): string {
-  const gid = e.grupo?.id?.trim()
-  if (gid) return `local:${gid}`
+  const geid = (e.grupoEconomicoId ?? e.grupo?.id ?? '').trim()
+  if (geid) return `local:${geid}`
   const n = (e.grupoEconomicoNome || '').trim().toLowerCase()
   return `nexus:${n}`
 }
