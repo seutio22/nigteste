@@ -3,7 +3,7 @@
 #   VERCEL_TOKEN — token da Vercel
 #   VERCEL_ORG_ID — team id (ex. team_xxx), pode ser o mesmo de ORG_ID do Nexus
 #   VERCEL_PROJECT_ID_PORTAL_WEB — id do projeto "portal-web" no painel Vercel (prj_xxx)
-# Monorepo: não há vercel.json na raiz (evita build demandas-web/Nexus no projeto errado).
+# Monorepo: vercel.json na raiz serve o Nexus quando o projeto Vercel usa a raiz do repo; o Portal usa só portal-web.
 #
 # ROOT DIRECTORY NO PAINEL VERCEL (dois cenários — não misturar):
 #
@@ -17,7 +17,7 @@
 #
 # Nexus: outro projeto Vercel; Git no mono com raiz vazia usa vercel.json na raiz OU Root = demandas-web.
 #
-# bump: 2026-05-02d (vercel.json portal completo; doc Root Directory vazio p/ Actions)
+# bump: 2026-04-19-urgent — re-disparo deploy
 
 on:
   push:
