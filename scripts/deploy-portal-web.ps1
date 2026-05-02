@@ -8,7 +8,9 @@
 #   2) Se ainda bloquear: feche o Cursor por completo e apague portal-web\node_modules no Explorador,
 #      ou abra PowerShell FORA do Cursor e volte a correr este script.
 #
-# Root Directory na Vercel: Settings → General → Root Directory (evitar duplicar portal-web).
+# Vercel: se no painel o projeto tiver «Root Directory» = portal-web, o deploy NÃO pode ser
+# feito com cwd já em portal-web (fica portal-web\portal-web). O script chama vercel a partir
+# da raiz do monorepo com --cwd portal-web. Alternativa: deixar Root Directory vazio no painel.
 #
 # Uso:
 #   .\scripts\deploy-portal-web.ps1
@@ -110,7 +112,7 @@ Falhou de novo. Passos manuais:
   2. Fechar outros terminais / Cursor a correr vite
   3. Apagar pasta: $pw\node_modules
   4. npm ci
-  5. npx vite build && npx vercel deploy --prod --yes
+  5. cd repo raiz; npx vercel deploy .\portal-web --prod --yes
 
 "@ -ForegroundColor Yellow
   exit $LASTEXITCODE
@@ -120,6 +122,13 @@ Write-Host "Build (npx vite)…" -ForegroundColor Cyan
 npx vite build
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-Write-Host "Deploy produção Vercel…" -ForegroundColor Cyan
-npx vercel deploy --prod --yes
+Write-Host "Deploy produção Vercel (raiz do repo → deploy .\portal-web)…" -ForegroundColor Cyan
+Push-Location $root
+try {
+  # Painel com Root Directory = portal-web: correr a partir da raiz do monorepo e passar a pasta,
+  # senão com cwd em portal-web duplica para portal-web\portal-web.
+  npx vercel deploy ".\portal-web" --prod --yes
+} finally {
+  Pop-Location
+}
 exit $LASTEXITCODE
