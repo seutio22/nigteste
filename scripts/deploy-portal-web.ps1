@@ -13,7 +13,8 @@
 #   Settings → General → Root Directory = portal-web
 # Sem isto, a Vercel usa a raiz do repo e pode publicar outra app (ex.: Nexus).
 # Com deploy só por CLI desta pasta (cwd = portal-web), o Root Directory pode ficar vazio.
-# Há vercel.json dentro de portal-web; na raiz do monorepo não há vercel.json (evita colidir com Nexus).
+# Há vercel.json na raiz do monorepo para o Nexus (deploy Git com Root Directory vazio).
+# O projeto «portal» na Vercel NÃO pode usar a raiz vazia — deve ser Root Directory = portal-web.
 #
 # Uso:
 #   .\scripts\deploy-portal-web.ps1
