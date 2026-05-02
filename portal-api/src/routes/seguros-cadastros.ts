@@ -165,12 +165,11 @@ type EstLinhaContagem = {
 }
 
 /**
- * Soma apólices por estipulante no mesmo «universo» de grupo económico.
+ * **Total de apólices do grupo económico** atribuído a cada linha de estipulante desse grupo.
  *
- * Uma única chave canónica falha quando os dados misturam: só FK local, só texto Nexus, ou nome no
- * `PortalGrupoEconomico` que coincide com o Nexus noutra linha. Usamos Union-Find em etiquetas:
- * `local:{uuid}`, `nx:{nome normalizado}` (Nexus e nome do grupo portal), e opcionalmente `cnpj:{dígitos}`
- * para duplicados de cadastro (mesma empresa, dois UUIDs).
+ * O modelo físico da BD liga apólice → estipulante; conceptualmente o agrupamento é por **grupo
+ * económico**. Union-Find nas etiquetas (`local:*`, `nx:*`, `cnpj:*`) une linhas que representam o
+ * mesmo grupo apesar de dados inconsistentes (FK vs Nexus vs nome local).
  */
 function mergeApoliceCountsPorEstipulante(
   estipulantes: EstLinhaContagem[],
@@ -799,7 +798,38 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
           grupoPortalId: e.grupo?.id ?? null,
           grupoNomePortal: e.grupo?.nome ?? null,
         }))
-        const mergedCounts = mergeApoliceCountsPorEstipulante(linhas, countMap)
+        /** Titulares que só aparecem na lista de apólices — precisam entrar no Union-Find para ligar ao mesmo grupo económico. */
+        const idsRaw = new Set(linhas.map((l) => l.id))
+        const extraIds = [...countMap.keys()].filter((id) => !idsRaw.has(id)).slice(0, 5000)
+        let linhasParaUf: EstLinhaContagem[] = linhas
+        if (extraIds.length > 0) {
+          const extraRows = await prisma.portalSeguroEstipulante.findMany({
+            where: { id: { in: extraIds } },
+            select: {
+              id: true,
+              razaoSocial: true,
+              cnpj: true,
+              nexusClienteId: true,
+              grupoEconomicoNome: true,
+              grupoEconomicoId: true,
+              grupo: { select: { id: true, nome: true } },
+            },
+          })
+          linhasParaUf = [
+            ...linhas,
+            ...extraRows.map((e) => ({
+              id: e.id,
+              razaoSocial: e.razaoSocial,
+              cnpj: e.cnpj,
+              nexusClienteId: e.nexusClienteId,
+              grupoEconomicoNome: e.grupoEconomicoNome,
+              grupoEconomicoId: e.grupoEconomicoId,
+              grupoPortalId: e.grupo?.id ?? null,
+              grupoNomePortal: e.grupo?.nome ?? null,
+            })),
+          ]
+        }
+        const mergedCounts = mergeApoliceCountsPorEstipulante(linhasParaUf, countMap)
         estipulantes = estipulantesRaw.map((e) => ({
           ...e,
           _count: { apolices: mergedCounts.get(e.id) ?? 0 },
