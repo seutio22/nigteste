@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useLayoutEffect } from 'react'
 import { Link as RouterLink, useNavigate } from 'react-router-dom'
 import {
   Alert,
@@ -20,6 +20,10 @@ export default function LoginPage() {
   const [err, setErr] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
+  useLayoutEffect(() => {
+    document.title = 'Portal do colaborador — Entrar'
+  }, [])
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
     setErr(null)
@@ -33,11 +37,11 @@ export default function LoginPage() {
   return (
     <Container maxWidth="sm" sx={{ py: 6 }}>
       <Paper elevation={0} sx={{ p: 4, borderRadius: 3, boxShadow: '0 8px 32px rgba(5,0,50,0.08)' }}>
-        <Typography variant="h5" gutterBottom>
-          Entrar
+        <Typography variant="h5" gutterBottom fontWeight={700}>
+          Portal do colaborador
         </Typography>
-        <Typography color="text.secondary" sx={{ mb: 3 }}>
-          Portal do colaborador — acesso separado do sistema interno (Nexus).
+        <Typography variant="subtitle1" color="text.secondary" sx={{ mb: 3 }}>
+          Entrar na sua conta (e-mail e palavra-passe do <strong>portal</strong> — não use credenciais de outros sistemas).
         </Typography>
         {err && (
           <Alert severity="error" sx={{ mb: 2 }}>
