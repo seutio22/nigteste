@@ -1,30 +1,15 @@
-# Deploy do portal do colaborador (portal-web) na Vercel.
-# Secrets no GitHub (Settings → Secrets → Actions):
-#   VERCEL_TOKEN — token da Vercel
-#   VERCEL_ORG_ID — team id (ex. team_xxx), pode ser o mesmo de ORG_ID do Nexus
-#   VERCEL_PROJECT_ID_PORTAL_WEB — id do projeto "portal-web" no painel Vercel (prj_xxx)
-# Monorepo: vercel.json na raiz serve o Nexus quando o projeto Vercel usa a raiz do repo; o Portal usa só portal-web.
+# DESATIVADO para push: o deploy do portal do colaborador é feito só por CLI local.
+# Fluxo normal (PowerShell, na raiz do repo):
+#   .\scripts\deploy-portal-web.ps1
+#   .\scripts\deploy-portal-web.ps1 -KillNode -Clean
 #
-# ROOT DIRECTORY NO PAINEL VERCEL (dois cenários — não misturar):
+# Este ficheiro mantém apenas workflow_dispatch para emergência (requer secrets no GitHub).
 #
-# A) Este workflow (GitHub Actions + amondnet/vercel-action, working-directory: ./portal-web):
-#    o upload já é só o conteúdo de portal-web → «Root Directory» do projeto Portal = VAZIO.
-#    Se puser «portal-web» aqui, a build procura portal-web/ dentro do zip → falha/404.
+# Secrets (se usar manualmente): VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID_PORTAL_WEB
 #
-# B) Integração Git da Vercel no monorepo inteiro (sem este workflow):
-#    o projeto Portal DEVE ter «Root Directory» = portal-web (senão a Vercel usa vercel.json da RAIZ,
-#    que é o build do demandas-web/Nexus e “troca” os sites).
-#
-# Nexus: outro projeto Vercel; Git no mono com raiz vazia usa vercel.json na raiz OU Root = demandas-web.
-#
-# bump: 2026-04-19-urgent — re-disparo deploy
+# Painel Vercel: com deploy pela pasta portal-web (CLI ou zip só desta app), Root Directory = vazio.
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "portal-web/**"
-      - ".github/workflows/portal-web-vercel.yml"
   workflow_dispatch:
 
 jobs:
@@ -49,7 +34,6 @@ jobs:
         working-directory: portal-web
         run: npm run build
 
-      # Root Directory no painel: vazio (o zip já é só portal-web).
       - name: Deploy Vercel (produção)
         uses: amondnet/vercel-action@v25
         with:
