@@ -1,5 +1,6 @@
 # Mantém portal-api e portal-web no branch gh-pages (quando esse é o branch padrão do repo).
-# Railway (root portal-api) e Vercel (root portal-web) deixam de falhar com "Root Directory does not exist".
+# Não confundir com GitHub Pages: o workflow «Deploy GitHub Pages» (demandas-web / Nexus) não
+# dispara automaticamente ao dar push neste branch — só se correr manualmente no GitHub.
 name: Sync portal (api + web) → gh-pages
 
 on:
