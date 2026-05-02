@@ -815,8 +815,9 @@ function VisaoGeral({
     <>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         <Alert severity="info" sx={{ borderRadius: 2 }}>
-          <strong>Consulta por grupo económico.</strong> O sistema agrupa por <strong>chave de grupo</strong>: registo local no Portal (se existir) ou, em alternativa, o <strong>nome do grupo Nexus</strong> do
-          estipulante. Dentro de cada grupo vê-se <strong>estipulantes</strong> e <strong>apólices</strong>. A lista de estipulantes inclui <strong>todos</strong> os registos (ativos e inativos). Clique numa
+          <strong>A visão é organizada pelo grupo económico.</strong> A chave é o registo <strong>PortalGrupoEconomico</strong> (cadastro local) ou, quando não houver FK, o{' '}
+          <strong>nome do grupo Nexus</strong> no estipulante. Na base de dados, cada apólice está ligada a um <strong>estipulante</strong> desse grupo; os números na coluna «Apólices no grupo» são o{' '}
+          <strong>total de apólices daquele grupo económico</strong> (todas as linhas do mesmo grupo mostram o mesmo total). A lista de estipulantes inclui todos os registos (ativos e inativos). Clique numa
           apólice para ver os itens.
         </Alert>
 
@@ -839,7 +840,7 @@ function VisaoGeral({
           <Typography variant="body2" color="text.secondary">
             Na base: <strong>{loading ? '…' : (gruposEconomicosCount ?? '—')}</strong> grupos (cadastro local){' · '}
             <strong>{loading ? '…' : (estipulantesCount ?? '—')}</strong> estipulantes ·{' '}
-            <strong>{loading ? '…' : (apolicesTotalCount ?? '—')}</strong> apólices (total)
+            <strong>{loading ? '…' : (apolicesTotalCount ?? '—')}</strong> apólices na base do portal (total)
             {' · '}
             <strong>{loading ? '…' : filterAp.length}</strong> apólice(s) no filtro ·{' '}
             <strong>{loading ? '…' : filterEst.length}</strong> estipulante(s) no filtro ·{' '}
@@ -899,8 +900,9 @@ function VisaoGeral({
             {semApolicesComEstipulantes ? (
               <>
                 <Alert severity="warning" sx={{ borderRadius: 2 }}>
-                  <strong>Ainda não há apólices na base.</strong> Os estipulantes aparecem agrupados por <strong>grupo económico</strong> abaixo. Para criar linhas de apólice, vá ao menu{' '}
-                  <strong>Apólices</strong>.
+                  <strong>Não há apólices registadas nesta base do portal</strong> (contagem total = 0). O separador mostra os grupos e estipulantes a partir do cadastro; contratos que existam só no Nexus{' '}
+                  <strong>não aparecem aqui</strong> até serem sincronizados ou até criar a apólice no menu <strong>Apólices</strong>. Confirme também que o site aponta para a API correta (variável{' '}
+                  <code>VITE_API_URL</code>).
                 </Alert>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                   <Button variant="contained" size="small" onClick={onIrParaApolices}>
@@ -1005,7 +1007,7 @@ function VisaoGeral({
                               <TableCell>Situação</TableCell>
                               <TableCell>Razão social</TableCell>
                               <TableCell>CNPJ</TableCell>
-                              <TableCell align="center">Apólices</TableCell>
+                              <TableCell align="center">Apólices no grupo</TableCell>
                             </TableRow>
                           </TableHead>
                           <TableBody>
