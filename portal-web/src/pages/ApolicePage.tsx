@@ -609,6 +609,33 @@ function agruparVisaoPorGrupo(ests: CadastroVisaoEstipulanteRow[], aps: Cadastro
   return [...map.values()].sort((x, y) => x.titulo.localeCompare(y.titulo, 'pt-BR', { sensitivity: 'base' }))
 }
 
+/** Linhas para tabela única: cada apólice = 1 linha; estipulantes sem apólice no portal = 1 linha com «—». */
+type VisaoLinhaUnificada =
+  | { kind: 'apolice'; a: CadastroVisaoGeralApolice }
+  | { kind: 'soEstipulante'; e: CadastroVisaoEstipulanteRow }
+
+function linhasUnificadasGrupo(g: VisaoGrupoBloco): VisaoLinhaUnificada[] {
+  const comAp = new Set(g.apolices.map((x) => x.estipulante.id))
+  const semPol: VisaoLinhaUnificada[] = g.estipulantes
+    .filter((e) => !comAp.has(e.id))
+    .map((e) => ({ kind: 'soEstipulante', e }))
+  const comPol: VisaoLinhaUnificada[] = g.apolices.map((a) => ({ kind: 'apolice', a }))
+  const merged = [...semPol, ...comPol]
+  merged.sort((u, v) => {
+    const ra = u.kind === 'apolice' ? u.a.estipulante.razaoSocial : u.e.razaoSocial
+    const rb = v.kind === 'apolice' ? v.a.estipulante.razaoSocial : v.e.razaoSocial
+    const c = ra.localeCompare(rb, 'pt-BR', { sensitivity: 'base' })
+    if (c !== 0) return c
+    if (u.kind === 'apolice' && v.kind === 'apolice') {
+      return u.a.numeroApolice.localeCompare(v.a.numeroApolice, 'pt-BR')
+    }
+    if (u.kind === 'apolice') return -1
+    if (v.kind === 'apolice') return 1
+    return u.e.id.localeCompare(v.e.id)
+  })
+  return merged
+}
+
 function visaoMatchesQuery(q: string, parts: Array<string | null | undefined>): boolean {
   const t = q.trim().toLowerCase()
   if (!t) return true
@@ -818,10 +845,9 @@ function VisaoGeral({
     <>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         <Alert severity="info" sx={{ borderRadius: 2 }}>
-          <strong>A visão é organizada pelo grupo económico.</strong> A chave é o registo <strong>PortalGrupoEconomico</strong> (cadastro local) ou, quando não houver FK, o{' '}
-          <strong>nome do grupo Nexus</strong> no estipulante. Na base de dados, cada apólice está ligada a um <strong>estipulante</strong> desse grupo; os números na coluna «Apólices no grupo» são o{' '}
-          <strong>total de apólices daquele grupo económico</strong> (todas as linhas do mesmo grupo mostram o mesmo total). A lista de estipulantes inclui todos os registos (ativos e inativos). Clique numa
-          apólice para ver os itens.
+          <strong>Visão por grupo económico.</strong> Na tabela abaixo,{' '}
+          <strong>cada linha liga grupo + estipulante + apólice</strong> (quando não há apólice na base do portal para aquele estipulante, o nº e dados do seguro aparecem como «—»). Os números no cabeçalho do accordeão são totais
+          naquele grupo. Na base PostgreSQL, as apólices vivem em <strong>PortalSeguroApolice</strong>, ligadas ao estipulante; contratos só no Nexus não aparecem até serem cadastrados aqui (menu Apólices).
         </Alert>
 
         <TextField
@@ -903,9 +929,9 @@ function VisaoGeral({
             {semApolicesComEstipulantes ? (
               <>
                 <Alert severity="info" sx={{ borderRadius: 2 }}>
-                  <strong>Nenhuma apólice na base PostgreSQL desta API</strong> (total = 0). Os grupos e estipulantes vêm só do cadastro; para aparecerem números aqui é preciso registos em{' '}
-                  <strong>PortalSeguroApolice</strong> (menu <strong>Apólices</strong> ou fluxo de sincronização). Contratos apenas no Nexus não entram nesta vista. Se já criou apólices e continua 0, confira{' '}
-                  <code>VITE_API_URL</code> na Vercel (mesmo domínio público da API no Railway) e faça redeploy do front.
+                  <strong>Total de apólices nesta API = 0</strong> (tabela <strong>PortalSeguroApolice</strong> vazia). Grupos e estipulantes podem existir no cadastro, mas sem linhas de apólice o portal não tem o que
+                  vincular: é preciso criar apólices no menu <strong>Apólices</strong> (ou integração que as grave nesta mesma base). Contratos apenas no Nexus não entram automaticamente. Se criou apólices e o total
+                  continua 0, confira se o browser fala com <strong>a API certa</strong> (<code>VITE_API_URL</code> no build do front = URL pública da API no Railway) e faça redeploy do front após alterar.
                 </Alert>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                   <Button variant="contained" size="small" onClick={onIrParaApolices}>
@@ -939,119 +965,131 @@ function VisaoGeral({
                   </Box>
                 </AccordionSummary>
                 <AccordionDetails sx={{ px: 0, pt: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  {g.apolices.length > 0 ? (
+                  {g.estipulantes.length > 0 || g.apolices.length > 0 ? (
                     <Box>
                       <Typography variant="subtitle2" sx={{ px: 2, pb: 1 }}>
-                        Apólices
+                        Grupo · estipulante · apólice (uma linha)
                       </Typography>
-                      <TableContainer sx={{ maxHeight: 280 }}>
+                      <TableContainer sx={{ maxHeight: 420 }}>
                         <Table size="small" stickyHeader>
                           <TableHead>
                             <TableRow>
+                              <TableCell>Grupo económico</TableCell>
                               <TableCell>Situação</TableCell>
-                              <TableCell>Estipulante (CNPJ)</TableCell>
+                              <TableCell>Estipulante</TableCell>
+                              <TableCell>CNPJ</TableCell>
                               <TableCell>Nº apólice</TableCell>
                               <TableCell>Produto</TableCell>
                               <TableCell>Fornecedor</TableCell>
                               <TableCell>Vigência</TableCell>
+                              <TableCell align="center">Apólices no grupo</TableCell>
                               <TableCell align="center">Itens</TableCell>
                             </TableRow>
                           </TableHead>
                           <TableBody>
-                            {g.apolices.map((a) => (
-                              <TableRow
-                                key={a.id}
-                                hover
-                                onClick={() => openDetail(a)}
-                                sx={{
-                                  cursor: 'pointer',
-                                  opacity: a.active ? 1 : 0.78,
-                                  bgcolor: a.active ? 'inherit' : 'action.hover',
-                                  '&:hover': { bgcolor: 'action.selected' },
-                                }}
-                              >
-                                <TableCell sx={{ verticalAlign: 'middle' }}>
-                                  <Chip
-                                    size="small"
-                                    label={a.active ? 'Ativa' : 'Inativa'}
-                                    color={a.active ? 'success' : 'default'}
-                                    variant="outlined"
-                                  />
-                                </TableCell>
-                                <TableCell sx={{ maxWidth: 260, verticalAlign: 'top' }}>
-                                  <Typography variant="body2" fontWeight={600}>
-                                    {a.estipulante.razaoSocial}
-                                  </Typography>
-                                  <Typography variant="caption" color="text.secondary" display="block">
-                                    {a.estipulante.cnpj}
-                                  </Typography>
-                                </TableCell>
-                                <TableCell sx={{ verticalAlign: 'top', fontWeight: 600 }}>{a.numeroApolice}</TableCell>
-                                <TableCell sx={{ verticalAlign: 'top' }}>{PRODUTO_LABEL[a.produto]}</TableCell>
-                                <TableCell sx={{ maxWidth: 140, verticalAlign: 'top' }}>{a.fornecedor}</TableCell>
-                                <TableCell sx={{ whiteSpace: 'nowrap', verticalAlign: 'top' }}>
-                                  {fmtDate(a.vigenciaInicio)} — {fmtDate(a.vigenciaFim)}
-                                </TableCell>
-                                <TableCell align="center" sx={{ verticalAlign: 'top' }}>
-                                  <Chip size="small" label={`${visaoItensCount(a)}`} variant="outlined" />
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </TableContainer>
-                    </Box>
-                  ) : null}
-
-                  {g.estipulantes.length > 0 ? (
-                    <Box>
-                      <Typography variant="subtitle2" sx={{ px: 2, pb: 1 }}>
-                        Estipulantes neste grupo
-                      </Typography>
-                      <TableContainer sx={{ maxHeight: 280 }}>
-                        <Table size="small" stickyHeader>
-                          <TableHead>
-                            <TableRow>
-                              <TableCell>Situação</TableCell>
-                              <TableCell>Razão social</TableCell>
-                              <TableCell>CNPJ</TableCell>
-                              <TableCell align="center">Apólices no grupo</TableCell>
-                            </TableRow>
-                          </TableHead>
-                          <TableBody>
-                            {g.estipulantes.map((e) => (
-                              <TableRow key={e.id} hover>
-                                <TableCell>
-                                  <Chip
-                                    size="small"
-                                    label={e.active ? 'Ativo' : 'Inativo'}
-                                    color={e.active ? 'success' : 'default'}
-                                    variant="outlined"
-                                  />
-                                </TableCell>
-                                <TableCell sx={{ maxWidth: 280 }}>
-                                  <Typography variant="body2" fontWeight={600}>
-                                    {e.razaoSocial}
-                                  </Typography>
-                                  {e.nomeFantasia ? (
-                                    <Typography variant="caption" color="text.secondary" display="block">
-                                      {e.nomeFantasia}
+                            {linhasUnificadasGrupo(g).map((row) => {
+                              if (row.kind === 'apolice') {
+                                const estRow = g.estipulantes.find((x) => x.id === row.a.estipulante.id)
+                                const cntGrupo = estRow?._count.apolices ?? 0
+                                return (
+                                <TableRow
+                                  key={`ap-${row.a.id}`}
+                                  hover
+                                  onClick={() => openDetail(row.a)}
+                                  sx={{
+                                    cursor: 'pointer',
+                                    opacity: row.a.active ? 1 : 0.78,
+                                    bgcolor: row.a.active ? 'inherit' : 'action.hover',
+                                    '&:hover': { bgcolor: 'action.selected' },
+                                  }}
+                                >
+                                  <TableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>
+                                    <Typography variant="body2">{g.titulo}</Typography>
+                                  </TableCell>
+                                  <TableCell sx={{ verticalAlign: 'middle' }}>
+                                    <Chip
+                                      size="small"
+                                      label={row.a.active ? 'Apólice ativa' : 'Apólice inativa'}
+                                      color={row.a.active ? 'success' : 'default'}
+                                      variant="outlined"
+                                    />
+                                  </TableCell>
+                                  <TableCell sx={{ maxWidth: 220, verticalAlign: 'top' }}>
+                                    <Typography variant="body2" fontWeight={600}>
+                                      {row.a.estipulante.razaoSocial}
                                     </Typography>
-                                  ) : null}
-                                </TableCell>
-                                <TableCell>{e.cnpj}</TableCell>
-                                <TableCell align="center">
-                                  <Chip
-                                    size="small"
-                                    label={e._count.apolices}
-                                    variant="outlined"
-                                    color={
-                                      existeAlgumaApoliceNaBase && e._count.apolices === 0 ? 'warning' : 'default'
-                                    }
-                                  />
-                                </TableCell>
-                              </TableRow>
-                            ))}
+                                  </TableCell>
+                                  <TableCell sx={{ verticalAlign: 'top' }}>{row.a.estipulante.cnpj}</TableCell>
+                                  <TableCell sx={{ verticalAlign: 'top', fontWeight: 600 }}>{row.a.numeroApolice}</TableCell>
+                                  <TableCell sx={{ verticalAlign: 'top' }}>{PRODUTO_LABEL[row.a.produto]}</TableCell>
+                                  <TableCell sx={{ maxWidth: 120, verticalAlign: 'top' }}>{row.a.fornecedor}</TableCell>
+                                  <TableCell sx={{ whiteSpace: 'nowrap', verticalAlign: 'top' }}>
+                                    {fmtDate(row.a.vigenciaInicio)} — {fmtDate(row.a.vigenciaFim)}
+                                  </TableCell>
+                                  <TableCell align="center" sx={{ verticalAlign: 'top' }}>
+                                    <Chip
+                                      size="small"
+                                      label={cntGrupo}
+                                      variant="outlined"
+                                      color={
+                                        existeAlgumaApoliceNaBase && cntGrupo === 0 ? 'warning' : 'default'
+                                      }
+                                    />
+                                  </TableCell>
+                                  <TableCell align="center" sx={{ verticalAlign: 'top' }}>
+                                    <Chip size="small" label={`${visaoItensCount(row.a)}`} variant="outlined" />
+                                  </TableCell>
+                                </TableRow>
+                              )
+                              }
+                              return (
+                                <TableRow
+                                  key={`est-${row.e.id}`}
+                                  hover
+                                  sx={{ bgcolor: 'action.hover', opacity: 0.95 }}
+                                >
+                                  <TableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>
+                                    <Typography variant="body2">{g.titulo}</Typography>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Chip
+                                      size="small"
+                                      label={row.e.active ? 'Estipulante ativo' : 'Estipulante inativo'}
+                                      color={row.e.active ? 'success' : 'default'}
+                                      variant="outlined"
+                                    />
+                                  </TableCell>
+                                  <TableCell sx={{ maxWidth: 220, verticalAlign: 'top' }}>
+                                    <Typography variant="body2" fontWeight={600}>
+                                      {row.e.razaoSocial}
+                                    </Typography>
+                                    {row.e.nomeFantasia ? (
+                                      <Typography variant="caption" color="text.secondary" display="block">
+                                        {row.e.nomeFantasia}
+                                      </Typography>
+                                    ) : null}
+                                  </TableCell>
+                                  <TableCell sx={{ verticalAlign: 'top' }}>{row.e.cnpj}</TableCell>
+                                  <TableCell sx={{ verticalAlign: 'top', color: 'text.secondary' }}>—</TableCell>
+                                  <TableCell sx={{ verticalAlign: 'top', color: 'text.secondary' }}>—</TableCell>
+                                  <TableCell sx={{ verticalAlign: 'top', color: 'text.secondary' }}>—</TableCell>
+                                  <TableCell sx={{ verticalAlign: 'top', color: 'text.secondary' }}>—</TableCell>
+                                  <TableCell align="center" sx={{ verticalAlign: 'top' }}>
+                                    <Chip
+                                      size="small"
+                                      label={row.e._count.apolices}
+                                      variant="outlined"
+                                      color={
+                                        existeAlgumaApoliceNaBase && row.e._count.apolices === 0 ? 'warning' : 'default'
+                                      }
+                                    />
+                                  </TableCell>
+                                  <TableCell align="center" sx={{ verticalAlign: 'top', color: 'text.secondary' }}>
+                                    —
+                                  </TableCell>
+                                </TableRow>
+                              )
+                            })}
                           </TableBody>
                         </Table>
                       </TableContainer>
