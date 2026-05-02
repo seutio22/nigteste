@@ -188,7 +188,7 @@ jobs:
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
           working-directory: ${{ env.FRONTEND_DIR }}
-          vercel-args: "--prod"
+          vercel-args: "--prod --yes --force"
 
   notify:
     name: Resumo

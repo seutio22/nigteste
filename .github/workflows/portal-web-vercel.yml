@@ -5,10 +5,17 @@
 #   VERCEL_PROJECT_ID_PORTAL_WEB — id do projeto "portal-web" no painel Vercel (prj_xxx)
 # Monorepo: não há vercel.json na raiz (evita build demandas-web/Nexus no projeto errado).
 #
-# ROOT DIRECTORY NO PAINEL VERCEL (crítico):
-# • Este workflow envia o ZIP já com raiz = pasta portal-web → no projeto Vercel deixe
-#   «Root Directory» VAZIO. Se puser «portal-web», a build procura portal-web/ dentro do zip → falha/404.
-# • Deploy do Nexus usa outro projeto Vercel com Root Directory = demandas-web.
+# ROOT DIRECTORY NO PAINEL VERCEL (dois cenários — não misturar):
+#
+# A) Este workflow (GitHub Actions + amondnet/vercel-action, working-directory: ./portal-web):
+#    o upload já é só o conteúdo de portal-web → «Root Directory» do projeto Portal = VAZIO.
+#    Se puser «portal-web» aqui, a build procura portal-web/ dentro do zip → falha/404.
+#
+# B) Integração Git da Vercel no monorepo inteiro (sem este workflow):
+#    o projeto Portal DEVE ter «Root Directory» = portal-web (senão a Vercel usa vercel.json da RAIZ,
+#    que é o build do demandas-web/Nexus e “troca” os sites).
+#
+# Nexus: outro projeto Vercel; Git no mono com raiz vazia usa vercel.json na raiz OU Root = demandas-web.
 #
 # bump: 2026-05-02d (vercel.json portal completo; doc Root Directory vazio p/ Actions)
 
