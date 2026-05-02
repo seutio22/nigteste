@@ -656,12 +656,16 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
           vigenciaInicio: true,
           vigenciaFim: true,
           nexusContratoId: true,
+          observacoes: true,
           estipulante: {
             select: {
               id: true,
               razaoSocial: true,
               grupoEconomicoNome: true,
               cnpj: true,
+              nexusClienteId: true,
+              nomeFantasia: true,
+              observacoes: true,
               grupo: { select: { id: true, nome: true } },
             },
           },
