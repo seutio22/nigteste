@@ -64,6 +64,12 @@ enum PortalApoliceTipoCustoPlano {
   FAIXA_ETARIA
 }
 
+/// Estado cadastral da empresa subestipulante ligada à apólice (guarda-chuva).
+enum PortalSubestipulanteStatus {
+  ATIVO
+  CANCELADO
+}
+
 /// Cliente / grupo econômico (nível 1)
 model PortalGrupoEconomico {
   id            String                   @id @default(uuid())
@@ -115,7 +121,8 @@ model PortalSeguroApolice {
   numeroApolice   String
   produto         PortalApoliceProduto
   fornecedor      String
-  subestipulante  String
+  /// Resumo legado (ex.: primeira razão social); detalhe em `subestipulantes`.
+  subestipulante  String?
   plano           String?
   coberturas      String?
   vigenciaInicio  DateTime?
@@ -130,6 +137,7 @@ model PortalSeguroApolice {
   modeloDadosSeguro PortalApoliceModeloDadosSeguro?
   itens           PortalSeguroApoliceItem[]
   planoLinhas     PortalSeguroApolicePlanoLinha[]
+  subestipulantes PortalSeguroApoliceSubestipulante[]
 
   @@index([estipulanteId])
   @@index([nexusContratoId])
@@ -148,6 +156,22 @@ model PortalSeguroApolicePlanoLinha {
   valoresPorFaixa Json?
   createdAt       DateTime                     @default(now())
   updatedAt       DateTime                     @updatedAt
+
+  @@index([apoliceId, sortOrder])
+}
+
+/// Empresas subestipulantes vinculadas à apólice (mesmo guarda-chuva / contrato).
+model PortalSeguroApoliceSubestipulante {
+  id           String                   @id @default(uuid())
+  apoliceId    String
+  apolice      PortalSeguroApolice       @relation(fields: [apoliceId], references: [id], onDelete: Cascade)
+  sortOrder    Int                      @default(0)
+  razaoSocial  String
+  cnpj         String
+  codigoSub    String
+  status       PortalSubestipulanteStatus @default(ATIVO)
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
 
   @@index([apoliceId, sortOrder])
 }

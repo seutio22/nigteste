@@ -25,6 +25,7 @@ import {
   Paper,
   Select,
   type SelectChangeEvent,
+  Stack,
   Table,
   TableContainer,
   TableBody,
@@ -36,8 +37,10 @@ import {
   useMediaQuery,
   useTheme,
 } from '@mui/material'
+import AddIcon from '@mui/icons-material/Add'
 import AccountTreeIcon from '@mui/icons-material/AccountTree'
 import BusinessIcon from '@mui/icons-material/Business'
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import DescriptionIcon from '@mui/icons-material/Description'
 import ListAltIcon from '@mui/icons-material/ListAlt'
 import HomeWorkIcon from '@mui/icons-material/HomeWork'
@@ -112,6 +115,13 @@ type NexusContratoOpcao = {
   status: string
 }
 
+type ApoliceSubestipulanteList = {
+  razaoSocial: string
+  cnpj: string
+  codigoSub: string
+  status: 'ATIVO' | 'CANCELADO'
+}
+
 type Apolice = {
   id: string
   estipulanteId: string
@@ -119,7 +129,8 @@ type Apolice = {
   numeroApolice: string
   produto: ApoliceProduto
   fornecedor: string
-  subestipulante: string
+  subestipulante: string | null
+  subestipulantes?: ApoliceSubestipulanteList[]
   plano: string | null
   coberturas: string | null
   vigenciaInicio: string | null
@@ -133,7 +144,22 @@ type Apolice = {
     grupoEconomicoNome?: string
     grupo?: { id: string; nome: string } | null
   }
-  _count?: { itens: number; planoLinhas?: number }
+  _count?: { itens: number; planoLinhas?: number; subestipulantes?: number }
+}
+
+function resumoSubestipulantesEmLista(a: Apolice): string {
+  const total = a._count?.subestipulantes ?? 0
+  const prev = a.subestipulantes ?? []
+  if (prev.length > 0 && total > 0) {
+    const first = prev[0].razaoSocial.trim() || '—'
+    const hidden = total - prev.length
+    if (hidden > 0) return `${first} (+${hidden})`
+    if (total > 1) return `${first} (+${total - 1})`
+    return first
+  }
+  const leg = (a.subestipulante ?? '').trim()
+  if (leg) return leg
+  return '—'
 }
 
 type ApoliceLista = {
@@ -465,7 +491,7 @@ type CadastroVisaoGeralApolice = {
   numeroApolice: string
   produto: ApoliceProduto
   fornecedor: string
-  subestipulante: string
+  subestipulante: string | null
   plano: string | null
   coberturas: string | null
   vigenciaInicio: string | null
@@ -1044,7 +1070,7 @@ function VisaoGeral({
         a.numeroApolice,
         PRODUTO_LABEL[a.produto],
         a.fornecedor,
-        a.subestipulante,
+        a.subestipulante ?? '',
         a.plano,
         a.coberturas,
         a.nexusContratoId,
@@ -1488,7 +1514,7 @@ function VisaoGeral({
               <br />
               Fornecedor: {detailAp.fornecedor}
               <br />
-              Subestipulante: {detailAp.subestipulante}
+              Subestipulante: {detailAp.subestipulante?.trim() ? detailAp.subestipulante : '—'}
               <br />
               Plano: {detailAp.plano ?? '—'}
               <br />
@@ -2146,6 +2172,17 @@ const APOLICE_NUMERO_MANUAL = '__manual__'
 /** Valor sintético no Select: escolher cliente Nexus ainda sem estipulante no portal (admin cria via POST). */
 const ESTIPULANTE_SEL_NEXUS_PREFIX = '__nx__'
 
+type NovaApoliceSubRow = {
+  razaoSocial: string
+  cnpj: string
+  codigoSub: string
+  status: 'ATIVO' | 'CANCELADO'
+}
+
+function novaApoliceSubRowVazia(): NovaApoliceSubRow {
+  return { razaoSocial: '', cnpj: '', codigoSub: '', status: 'ATIVO' }
+}
+
 function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: string | null) => void }) {
   const navigate = useNavigate()
   const { nomes, needsSync, syncMessage } = useNexusGruposEconomicosNomes()
@@ -2169,7 +2206,7 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
   const [numeroApolice, setNumeroApolice] = useState('')
   const [produto, setProduto] = useState<ApoliceProduto>('OUTROS')
   const [fornecedor, setFornecedor] = useState('')
-  const [subestipulante, setSubestipulante] = useState('')
+  const [subRows, setSubRows] = useState<NovaApoliceSubRow[]>([novaApoliceSubRowVazia()])
   const [plano, setPlano] = useState('')
   const [coberturas, setCoberturas] = useState('')
   const [vigIni, setVigIni] = useState('')
@@ -2326,7 +2363,7 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
     setNumeroApolice('')
     setProduto('OUTROS')
     setFornecedor('')
-    setSubestipulante('')
+    setSubRows([novaApoliceSubRowVazia()])
     setPlano('')
     setCoberturas('')
     setVigIni('')
@@ -2341,7 +2378,7 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
     setNumeroApolice(c.numero)
     setProduto('OUTROS')
     setFornecedor('')
-    setSubestipulante('')
+    setSubRows([novaApoliceSubRowVazia()])
     setPlano('')
     setCoberturas('')
     setVigIni('')
@@ -2353,10 +2390,19 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
   async function saveNew() {
     onError(null)
     setSaving(true)
+    const subPayload = subRows
+      .map((r) => ({
+        razaoSocial: r.razaoSocial.trim(),
+        cnpj: r.cnpj.trim(),
+        codigoSub: r.codigoSub.trim(),
+        status: r.status,
+      }))
+      .filter((r) => r.razaoSocial.length > 0)
+
     const base = {
       produto,
       fornecedor,
-      subestipulante,
+      ...(subPayload.length > 0 ? { subestipulantes: subPayload } : {}),
       plano: showPlano ? plano.trim() : null,
       coberturas: showCoberturas ? coberturas.trim() : null,
       vigenciaInicio: vigIni.trim() || null,
@@ -2484,7 +2530,7 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
                 <TableCell>Contrato Nexus</TableCell>
                 <TableCell>Produto</TableCell>
                 <TableCell>Fornecedor</TableCell>
-                <TableCell>Subestipulante</TableCell>
+                <TableCell>Subestipulantes</TableCell>
                 <TableCell>Plano</TableCell>
                 <TableCell>Coberturas</TableCell>
                 <TableCell>Vigência</TableCell>
@@ -2530,7 +2576,7 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
                     </TableCell>
                     <TableCell>{PRODUTO_LABEL[row.a.produto]}</TableCell>
                     <TableCell>{row.a.fornecedor}</TableCell>
-                    <TableCell>{row.a.subestipulante}</TableCell>
+                    <TableCell sx={{ maxWidth: 220 }}>{resumoSubestipulantesEmLista(row.a)}</TableCell>
                     <TableCell sx={{ maxWidth: 160 }}>{row.a.plano ?? '—'}</TableCell>
                     <TableCell sx={{ maxWidth: 200 }}>{row.a.coberturas ?? '—'}</TableCell>
                     <TableCell>
@@ -2626,7 +2672,76 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
               </Select>
             </FormControl>
             <TextField required label="Fornecedor (seguradora)" value={fornecedor} onChange={(e) => setFornecedor(e.target.value)} fullWidth />
-            <TextField required label="Subestipulante" value={subestipulante} onChange={(e) => setSubestipulante(e.target.value)} fullWidth />
+            <Typography variant="subtitle2" sx={{ gridColumn: { sm: 'span 2' }, mt: 0.5 }}>
+              Empresas subestipulantes (opcional)
+            </Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ gridColumn: { sm: 'span 2' }, display: 'block', mt: -0.5 }}>
+              Razão social obrigatória por linha guardada. CNPJ, código SUB e status Ativo/Cancelado são opcionais.
+            </Typography>
+            <Stack spacing={1.5} sx={{ gridColumn: { sm: 'span 2' } }}>
+              {subRows.map((sr, idx) => (
+                <Paper key={idx} variant="outlined" sx={{ p: 1.5 }}>
+                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                    <TextField
+                      label="Razão social"
+                      value={sr.razaoSocial}
+                      onChange={(e) =>
+                        setSubRows((prev) => prev.map((r, j) => (j === idx ? { ...r, razaoSocial: e.target.value } : r)))
+                      }
+                      size="small"
+                      sx={{ flex: '2 1 200px', minWidth: 180 }}
+                    />
+                    <TextField
+                      label="CNPJ"
+                      value={sr.cnpj}
+                      onChange={(e) =>
+                        setSubRows((prev) => prev.map((r, j) => (j === idx ? { ...r, cnpj: e.target.value } : r)))
+                      }
+                      size="small"
+                      sx={{ flex: '1 1 140px', minWidth: 120 }}
+                    />
+                    <TextField
+                      label="Código SUB"
+                      value={sr.codigoSub}
+                      onChange={(e) =>
+                        setSubRows((prev) => prev.map((r, j) => (j === idx ? { ...r, codigoSub: e.target.value } : r)))
+                      }
+                      size="small"
+                      sx={{ flex: '1 1 120px', minWidth: 100 }}
+                    />
+                    <FormControl size="small" sx={{ flex: '0 1 140px', minWidth: 120 }}>
+                      <InputLabel>Status</InputLabel>
+                      <Select
+                        label="Status"
+                        value={sr.status}
+                        onChange={(e) =>
+                          setSubRows((prev) =>
+                            prev.map((r, j) =>
+                              j === idx ? { ...r, status: e.target.value as NovaApoliceSubRow['status'] } : r,
+                            ),
+                          )
+                        }
+                      >
+                        <MenuItem value="ATIVO">Ativo</MenuItem>
+                        <MenuItem value="CANCELADO">Cancelado</MenuItem>
+                      </Select>
+                    </FormControl>
+                    {subRows.length > 1 ? (
+                      <IconButton aria-label="Remover linha" onClick={() => setSubRows((prev) => prev.filter((_, j) => j !== idx))}>
+                        <DeleteOutlineIcon />
+                      </IconButton>
+                    ) : null}
+                  </Box>
+                </Paper>
+              ))}
+              <Button
+                size="small"
+                startIcon={<AddIcon />}
+                onClick={() => setSubRows((prev) => [...prev, novaApoliceSubRowVazia()])}
+              >
+                Adicionar subestipulante
+              </Button>
+            </Stack>
             {showPlano ? (
               <TextField
                 label="Plano (texto livre)"
@@ -2666,7 +2781,7 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
           <Button onClick={() => setOpen(false)}>Cancelar</Button>
           <Button
             variant="contained"
-            disabled={saving || !numeroOk || !fornecedor.trim() || !subestipulante.trim()}
+            disabled={saving || !numeroOk || !fornecedor.trim()}
             onClick={() => void saveNew()}
           >
             Guardar

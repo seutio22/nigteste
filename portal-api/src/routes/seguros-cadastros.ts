@@ -5,6 +5,7 @@ import {
   PortalApoliceProduto,
   PortalApoliceTipoCustoPlano,
   PortalSeguroItemTipo,
+  PortalSubestipulanteStatus,
   PortalUserRole,
   Prisma,
 } from '@prisma/client'
@@ -23,6 +24,14 @@ const uuid = z.string().uuid()
 const produtoSchema = z.nativeEnum(PortalApoliceProduto)
 const itemTipoSchema = z.nativeEnum(PortalSeguroItemTipo)
 
+const subestipulanteStatusSchema = z.nativeEnum(PortalSubestipulanteStatus)
+const subestipulanteRowInputSchema = z.object({
+  razaoSocial: z.string().min(1).max(500),
+  cnpj: z.string().max(20),
+  codigoSub: z.string().max(120),
+  status: subestipulanteStatusSchema,
+})
+
 const createApoliceSchema = z
   .object({
     estipulanteId: uuid,
@@ -30,7 +39,8 @@ const createApoliceSchema = z
     nexusContratoId: z.string().max(120).optional().nullable(),
     produto: produtoSchema,
     fornecedor: z.string().min(1).max(500),
-    subestipulante: z.string().min(1).max(500),
+    subestipulante: z.string().max(500).optional().nullable(),
+    subestipulantes: z.array(subestipulanteRowInputSchema).max(200).optional(),
     plano: z.string().max(2000).optional().nullable(),
     coberturas: z.string().max(8000).optional().nullable(),
     vigenciaInicio: z.string().max(40).optional().nullable(),
@@ -59,11 +69,13 @@ const createApoliceSchema = z
   })
 
 const patchApoliceSchema = z.object({
+  estipulanteId: uuid.optional(),
   numeroApolice: z.string().min(1).max(120).optional(),
   nexusContratoId: z.string().max(120).optional().nullable(),
   produto: produtoSchema.optional(),
   fornecedor: z.string().min(1).max(500).optional(),
-  subestipulante: z.string().min(1).max(500).optional(),
+  subestipulante: z.string().max(500).optional().nullable(),
+  subestipulantes: z.array(subestipulanteRowInputSchema).max(200).optional(),
   plano: z.string().max(2000).optional().nullable(),
   coberturas: z.string().max(8000).optional().nullable(),
   vigenciaInicio: z.string().max(40).optional().nullable(),
@@ -822,7 +834,7 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
           grupo: { select: { id: true, nome: true } },
         },
       },
-      _count: { select: { itens: true, planoLinhas: true } },
+      _count: { select: { itens: true, planoLinhas: true, subestipulantes: true } },
     } as const
 
     const estSelectVisao = {
@@ -1039,8 +1051,13 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
           grupo: { select: { id: true, nome: true } },
         },
       },
-      _count: { select: { itens: true, planoLinhas: true } },
-    } as const
+      subestipulantes: {
+        orderBy: [{ sortOrder: 'asc' }],
+        take: 12,
+        select: { razaoSocial: true, cnpj: true, codigoSub: true, status: true },
+      },
+      _count: { select: { itens: true, planoLinhas: true, subestipulantes: true } },
+    } satisfies Prisma.PortalSeguroApoliceInclude
 
     let list = await prisma.portalSeguroApolice.findMany({
       where,
@@ -1247,6 +1264,22 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
 
     const { plano, coberturas } = normalizeApolicePayload(body)
 
+    const subRows =
+      body.subestipulantes && body.subestipulantes.length > 0
+        ? body.subestipulantes
+        : (body.subestipulante ?? '').trim()
+          ? [
+              {
+                razaoSocial: (body.subestipulante ?? '').trim(),
+                cnpj: '',
+                codigoSub: '',
+                status: PortalSubestipulanteStatus.ATIVO,
+              },
+            ]
+          : []
+    const summarySub =
+      subRows.length > 0 ? subRows[0].razaoSocial.trim() : null
+
     try {
       const row = await prisma.portalSeguroApolice.create({
         data: {
@@ -1255,12 +1288,25 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
           numeroApolice,
           produto: body.produto,
           fornecedor: body.fornecedor.trim(),
-          subestipulante: body.subestipulante.trim(),
+          subestipulante: summarySub,
           plano,
           coberturas,
           vigenciaInicio: body.vigenciaInicio ? new Date(body.vigenciaInicio) : null,
           vigenciaFim: body.vigenciaFim ? new Date(body.vigenciaFim) : null,
           observacoes: body.observacoes?.trim() || null,
+          ...(subRows.length > 0
+            ? {
+                subestipulantes: {
+                  create: subRows.map((r, i) => ({
+                    sortOrder: i,
+                    razaoSocial: r.razaoSocial.trim(),
+                    cnpj: r.cnpj.trim(),
+                    codigoSub: r.codigoSub.trim(),
+                    status: r.status,
+                  })),
+                },
+              }
+            : {}),
         },
       })
       return reply.code(201).send({ apolice: row })
@@ -1286,6 +1332,7 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
           },
         },
         planoLinhas: { orderBy: [{ sortOrder: 'asc' }, { codigoPlano: 'asc' }] },
+        subestipulantes: { orderBy: [{ sortOrder: 'asc' }] },
       },
     })
     if (!ap) return reply.code(404).send({ error: 'Apólice não encontrada' })
@@ -1297,6 +1344,15 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
       tipoCusto: r.tipoCusto,
       custoMedio: r.custoMedio != null ? Number(r.custoMedio) : null,
       valoresPorFaixa: (r.valoresPorFaixa as Record<string, number | null> | null) ?? null,
+    }))
+
+    const subestipulantes = ap.subestipulantes.map((s) => ({
+      id: s.id,
+      sortOrder: s.sortOrder,
+      razaoSocial: s.razaoSocial,
+      cnpj: s.cnpj,
+      codigoSub: s.codigoSub,
+      status: s.status,
     }))
 
     const e = ap.estipulante
@@ -1323,6 +1379,7 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
           grupo: e.grupo ? { id: e.grupo.id, nome: e.grupo.nome } : null,
         },
         planoLinhas,
+        subestipulantes,
       },
     })
   })
@@ -1374,8 +1431,40 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
       }
     }
 
+    let targetEstipulanteId = current.estipulanteId
+    let targetEstGrupoNome = current.estipulante.grupoEconomicoNome
+    let targetEstNexusClienteId = current.estipulante.nexusClienteId
+    let targetEstCnpj = current.estipulante.cnpj
+
+    if (body.estipulanteId !== undefined && body.estipulanteId !== current.estipulanteId) {
+      const ne = await prisma.portalSeguroEstipulante.findUnique({ where: { id: body.estipulanteId } })
+      if (!ne) return reply.code(400).send({ error: 'Estipulante não encontrado.' })
+      targetEstipulanteId = ne.id
+      targetEstGrupoNome = ne.grupoEconomicoNome
+      targetEstNexusClienteId = ne.nexusClienteId
+      targetEstCnpj = ne.cnpj
+    }
+
+    const nextNumero = body.numeroApolice !== undefined ? body.numeroApolice.trim() : current.numeroApolice
+    const clash = await prisma.portalSeguroApolice.findFirst({
+      where: {
+        estipulanteId: targetEstipulanteId,
+        numeroApolice: nextNumero,
+        NOT: { id },
+      },
+      select: { id: true },
+    })
+    if (clash) {
+      return reply
+        .code(400)
+        .send({ error: 'Já existe apólice com este número para o estipulante selecionado.' })
+    }
+
     const data: Prisma.PortalSeguroApoliceUpdateInput = {}
-    let numeroDefinidoPorContratoNexus = false
+    if (body.estipulanteId !== undefined) {
+      data.estipulante = { connect: { id: body.estipulanteId } }
+    }
+
     if (body.nexusContratoId !== undefined) {
       const raw = body.nexusContratoId
       if (raw === null || (typeof raw === 'string' && !raw.trim())) {
@@ -1393,29 +1482,28 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
         const all = parseContratosSnapshot(snap.rows)
         const c = findContratoById(all, nid)
         if (!c) return reply.code(400).send({ error: 'Contrato Nexus não encontrado.' })
-        const est = current.estipulante
         const ok = filterContratosForEstipulante(
           [c],
           {
-            grupoEconomicoNome: est.grupoEconomicoNome,
-            nexusClienteId: est.nexusClienteId,
-            cnpj: est.cnpj,
+            grupoEconomicoNome: targetEstGrupoNome,
+            nexusClienteId: targetEstNexusClienteId,
+            cnpj: targetEstCnpj,
           },
         ).length
         if (!ok) {
           return reply.code(400).send({ error: 'Contrato não pertence ao estipulante / grupo econômico selecionado.' })
         }
         data.nexusContratoId = nid
-        data.numeroApolice = c.numero.trim()
-        numeroDefinidoPorContratoNexus = true
       }
     }
-    if (body.numeroApolice !== undefined && !numeroDefinidoPorContratoNexus) {
+    if (body.numeroApolice !== undefined) {
       data.numeroApolice = body.numeroApolice.trim()
     }
     if (body.produto !== undefined) data.produto = body.produto
     if (body.fornecedor !== undefined) data.fornecedor = body.fornecedor.trim()
-    if (body.subestipulante !== undefined) data.subestipulante = body.subestipulante.trim()
+    if (body.subestipulante !== undefined && body.subestipulantes === undefined) {
+      data.subestipulante = body.subestipulante?.trim() ? body.subestipulante.trim() : null
+    }
     data.plano = plano
     data.coberturas = coberturas
     if (body.vigenciaInicio !== undefined) data.vigenciaInicio = body.vigenciaInicio ? new Date(body.vigenciaInicio) : null
@@ -1424,7 +1512,28 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
     if (body.active !== undefined) data.active = body.active
 
     try {
-      const row = await prisma.portalSeguroApolice.update({ where: { id }, data })
+      const row = await prisma.$transaction(async (tx) => {
+        if (body.subestipulantes !== undefined) {
+          await tx.portalSeguroApoliceSubestipulante.deleteMany({ where: { apoliceId: id } })
+          if (body.subestipulantes.length > 0) {
+            await tx.portalSeguroApoliceSubestipulante.createMany({
+              data: body.subestipulantes.map((r, i) => ({
+                apoliceId: id,
+                sortOrder: i,
+                razaoSocial: r.razaoSocial.trim(),
+                cnpj: r.cnpj.trim(),
+                codigoSub: r.codigoSub.trim(),
+                status: r.status,
+              })),
+            })
+            data.subestipulante = body.subestipulantes[0].razaoSocial.trim()
+          } else {
+            data.subestipulante = null
+          }
+        }
+
+        return tx.portalSeguroApolice.update({ where: { id }, data })
+      })
       return reply.send({ apolice: row })
     } catch {
       return reply.code(400).send({ error: 'Não foi possível atualizar (número duplicado?).' })

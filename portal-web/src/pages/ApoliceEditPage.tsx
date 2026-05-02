@@ -43,12 +43,15 @@ const FAIXAS = [
 
 type ApoliceProduto = 'SAUDE' | 'ODONTO' | 'VIDA_GRUPO' | 'OUTROS'
 type ModeloDados = 'PLANO' | 'COBERTURA'
+type SubStatus = 'ATIVO' | 'CANCELADO'
 
 type NexusContratoOpcao = {
   nexusContratoId: string
   numero: string
   codigo: string
 }
+
+type EstRow = { id: string; razaoSocial: string }
 
 type LinhaApi = {
   id: string
@@ -59,6 +62,15 @@ type LinhaApi = {
   valoresPorFaixa: Record<string, number | null> | null
 }
 
+type SubApi = {
+  id: string
+  sortOrder: number
+  razaoSocial: string
+  cnpj: string
+  codigoSub: string
+  status: SubStatus
+}
+
 type ApoliceDetalhe = {
   id: string
   estipulanteId: string
@@ -66,7 +78,7 @@ type ApoliceDetalhe = {
   numeroApolice: string
   produto: ApoliceProduto
   fornecedor: string
-  subestipulante: string
+  subestipulante: string | null
   plano: string | null
   coberturas: string | null
   vigenciaInicio: string | null
@@ -75,12 +87,13 @@ type ApoliceDetalhe = {
   active: boolean
   modeloDadosSeguro: ModeloDados | null
   estipulante: {
-    id: string
-    razaoSocial: string
-    grupoEconomicoNome: string
-    grupo: { id: string; nome: string } | null
+      id: string
+      razaoSocial: string
+      grupoEconomicoNome: string
+      grupo: { id: string; nome: string } | null
   }
   planoLinhas: LinhaApi[]
+  subestipulantes: SubApi[]
 }
 
 type LinhaForm = {
@@ -90,10 +103,21 @@ type LinhaForm = {
   faixas: Record<(typeof FAIXAS)[number], string>
 }
 
+type SubRowForm = {
+  razaoSocial: string
+  cnpj: string
+  codigoSub: string
+  status: SubStatus
+}
+
 function linhaFormVazia(): LinhaForm {
   const faixas = {} as LinhaForm['faixas']
   for (const f of FAIXAS) faixas[f] = ''
   return { codigoPlano: '', tipoCusto: 'CUSTO_MEDIO', custoMedioStr: '', faixas }
+}
+
+function subRowVazia(): SubRowForm {
+  return { razaoSocial: '', cnpj: '', codigoSub: '', status: 'ATIVO' }
 }
 
 function linhaDeApi(l: LinhaApi): LinhaForm {
@@ -108,6 +132,16 @@ function linhaDeApi(l: LinhaApi): LinhaForm {
     custoMedioStr: l.custoMedio != null ? String(l.custoMedio) : '',
     faixas,
   }
+}
+
+function subsDeApi(rows: SubApi[]): SubRowForm[] {
+  if (rows.length === 0) return [subRowVazia()]
+  return rows.map((s) => ({
+    razaoSocial: s.razaoSocial,
+    cnpj: s.cnpj,
+    codigoSub: s.codigoSub,
+    status: s.status,
+  }))
 }
 
 function parseNumeroPt(s: string): number | null {
@@ -125,10 +159,23 @@ const PRODUTO_LABEL: Record<string, string> = {
   OUTROS: 'Outros',
 }
 
+function useNexusGruposNomes() {
+  const [nomes, setNomes] = useState<string[]>([])
+  useEffect(() => {
+    void (async () => {
+      const r = await api<{ nomes?: string[] }>('/seguros/nexus/grupos-economicos-nomes')
+      if (r.ok) setNomes(r.data?.nomes ?? [])
+      else setNomes([])
+    })()
+  }, [])
+  return nomes
+}
+
 export default function ApoliceEditPage() {
   const { apoliceId } = useParams<{ apoliceId: string }>()
   const { user } = useAuth()
   const isAdmin = user?.role === 'PORTAL_ADMIN'
+  const gruposNexusNomes = useNexusGruposNomes()
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -138,11 +185,15 @@ export default function ApoliceEditPage() {
   const [contratosNexus, setContratosNexus] = useState<NexusContratoOpcao[]>([])
   const [needsContratosSync, setNeedsContratosSync] = useState(false)
 
+  const [grupoNomeForEdit, setGrupoNomeForEdit] = useState('')
+  const [estipulanteIdEdit, setEstipulanteIdEdit] = useState('')
+  const [estOptions, setEstOptions] = useState<EstRow[]>([])
+
   const [nexusContratoId, setNexusContratoId] = useState('')
   const [numeroApolice, setNumeroApolice] = useState('')
   const [produto, setProduto] = useState<ApoliceProduto>('OUTROS')
   const [fornecedor, setFornecedor] = useState('')
-  const [subestipulante, setSubestipulante] = useState('')
+  const [subRows, setSubRows] = useState<SubRowForm[]>([subRowVazia()])
   const [plano, setPlano] = useState('')
   const [coberturas, setCoberturas] = useState('')
   const [vigIni, setVigIni] = useState('')
@@ -168,6 +219,36 @@ export default function ApoliceEditPage() {
     if (c) setNumeroApolice(c.numero)
   }
 
+  const loadEstipulantesGrupo = useCallback(async (grupoNome: string) => {
+    const g = grupoNome.trim()
+    if (!g) {
+      setEstOptions([])
+      return
+    }
+    const r = await api<{ estipulantes: EstRow[] }>(`/seguros/estipulantes?grupoNome=${encodeURIComponent(g)}`)
+    if (r.ok) setEstOptions(r.data?.estipulantes ?? [])
+    else setEstOptions([])
+  }, [])
+
+  const loadContratos = useCallback(async (estId: string, grupoNome: string) => {
+    if (!estId) {
+      setContratosNexus([])
+      return
+    }
+    const gq = grupoNome.trim() ? `&grupoNome=${encodeURIComponent(grupoNome.trim())}` : ''
+    const rCt = await api<{ ok?: boolean; needsSync?: boolean; contratos?: NexusContratoOpcao[] }>(
+      `/seguros/nexus/contratos-opcoes?estipulanteId=${encodeURIComponent(estId)}${gq}`,
+    )
+    if (rCt.ok) {
+      const d = rCt.data
+      setNeedsContratosSync(!!d?.needsSync || d?.ok === false)
+      setContratosNexus(d?.contratos ?? [])
+    } else {
+      setContratosNexus([])
+      setNeedsContratosSync(true)
+    }
+  }, [])
+
   const load = useCallback(async () => {
     if (!apoliceId) {
       setErr('Apólice inválida.')
@@ -186,31 +267,23 @@ export default function ApoliceEditPage() {
     const ap = r.data!.apolice
     setCab(ap)
 
-    const gq = ap.estipulante.grupoEconomicoNome
-      ? `&grupoNome=${encodeURIComponent(ap.estipulante.grupoEconomicoNome)}`
-      : ''
-    const rCt = await api<{ ok?: boolean; needsSync?: boolean; contratos?: NexusContratoOpcao[] }>(
-      `/seguros/nexus/contratos-opcoes?estipulanteId=${encodeURIComponent(ap.estipulanteId)}${gq}`,
-    )
-    if (rCt.ok) {
-      const d = rCt.data
-      setNeedsContratosSync(!!d?.needsSync || d?.ok === false)
-      setContratosNexus(d?.contratos ?? [])
-    } else {
-      setContratosNexus([])
-      setNeedsContratosSync(true)
-    }
+    const gNome = ap.estipulante.grupoEconomicoNome || ''
+    setGrupoNomeForEdit(gNome)
+    setEstipulanteIdEdit(ap.estipulanteId)
+    await loadEstipulantesGrupo(gNome)
+    await loadContratos(ap.estipulanteId, gNome)
 
     setNexusContratoId(ap.nexusContratoId ?? '')
     setNumeroApolice(ap.numeroApolice)
     setProduto(ap.produto)
     setFornecedor(ap.fornecedor)
-    setSubestipulante(ap.subestipulante)
     setPlano(ap.plano ?? '')
     setCoberturas(ap.coberturas ?? '')
     setVigIni(ap.vigenciaInicio ? String(ap.vigenciaInicio).slice(0, 10) : '')
     setVigFim(ap.vigenciaFim ? String(ap.vigenciaFim).slice(0, 10) : '')
     setObsAp(ap.observacoes ?? '')
+
+    setSubRows(subsDeApi(ap.subestipulantes ?? []))
 
     const mod = ap.modeloDadosSeguro ?? 'PLANO'
     setModelo(mod)
@@ -221,7 +294,7 @@ export default function ApoliceEditPage() {
     }
 
     setLoading(false)
-  }, [apoliceId])
+  }, [apoliceId, loadContratos, loadEstipulantesGrupo])
 
   useEffect(() => {
     void load()
@@ -231,12 +304,36 @@ export default function ApoliceEditPage() {
     if (modelo === 'PLANO' && linhas.length === 0) setLinhas([linhaFormVazia()])
   }, [modelo, linhas.length])
 
+  useEffect(() => {
+    if (loading || !estipulanteIdEdit) return
+    void loadContratos(estipulanteIdEdit, grupoNomeForEdit)
+  }, [estipulanteIdEdit, grupoNomeForEdit, loading, loadContratos])
+
+  function buildSubPayload(): { ok: true; rows: SubRowForm[] } | { ok: false; msg: string } {
+    const meaningful = subRows.filter(
+      (r) => r.razaoSocial.trim() || r.cnpj.trim() || r.codigoSub.trim(),
+    )
+    for (let i = 0; i < meaningful.length; i++) {
+      const r = meaningful[i]
+      if (!r.razaoSocial.trim()) {
+        return { ok: false, msg: `Subestipulante ${i + 1}: indique a razão social.` }
+      }
+    }
+    return { ok: true, rows: meaningful }
+  }
+
   async function salvar() {
     if (!apoliceId || !isAdmin) return
     setErr(null)
 
-    if (!fornecedor.trim() || !subestipulante.trim() || !numeroOk) {
-      setErr('Preencha fornecedor, subestipulante e número da apólice (ou contrato Nexus).')
+    if (!fornecedor.trim() || !numeroOk || !estipulanteIdEdit) {
+      setErr('Preencha fornecedor, estipulante, número da apólice (ou contrato Nexus).')
+      return
+    }
+
+    const subPack = buildSubPayload()
+    if (!subPack.ok) {
+      setErr(subPack.msg)
       return
     }
 
@@ -300,16 +397,22 @@ export default function ApoliceEditPage() {
 
     const nex = nexusContratoId.trim()
     const patchBody = {
+      estipulanteId: estipulanteIdEdit,
       produto,
       fornecedor,
-      subestipulante,
+      subestipulantes: subPack.rows.map((r) => ({
+        razaoSocial: r.razaoSocial.trim(),
+        cnpj: r.cnpj.trim(),
+        codigoSub: r.codigoSub.trim(),
+        status: r.status,
+      })),
       plano: showPlano ? plano.trim() || null : null,
       coberturas: showCoberturas ? coberturas.trim() || null : null,
       vigenciaInicio: vigIni.trim() || null,
       vigenciaFim: vigFim.trim() || null,
       observacoes: obsAp.trim() || null,
       nexusContratoId: nex || null,
-      ...(nex ? {} : { numeroApolice: numeroApolice.trim() }),
+      numeroApolice: numeroApolice.trim(),
     }
 
     setSaving(true)
@@ -382,11 +485,52 @@ export default function ApoliceEditPage() {
             <Stack spacing={2}>
               {needsContratosSync ? (
                 <Alert severity="info">
-                  Contratos Nexus podem estar indisponíveis. Pode editar o número manualmente ou sincronizar contratos em Banco
+                  Contratos Nexus podem estar indisponíveis. Pode editar o número livremente ou sincronizar contratos em Banco
                   de dados.
                 </Alert>
               ) : null}
               <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+                <FormControl fullWidth size="small" disabled={!isAdmin}>
+                  <InputLabel id="grupo-ap-edit">Grupo económico (Nexus)</InputLabel>
+                  <Select
+                    labelId="grupo-ap-edit"
+                    label="Grupo económico (Nexus)"
+                    value={grupoNomeForEdit}
+                    onChange={(e: SelectChangeEvent) => {
+                      const v = e.target.value
+                      setGrupoNomeForEdit(v)
+                      setEstipulanteIdEdit('')
+                      void loadEstipulantesGrupo(v)
+                    }}
+                  >
+                    <MenuItem value="">
+                      <em>Selecione…</em>
+                    </MenuItem>
+                    {gruposNexusNomes.map((n) => (
+                      <MenuItem key={n} value={n}>
+                        {n}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <FormControl fullWidth size="small" disabled={!isAdmin || !grupoNomeForEdit}>
+                  <InputLabel id="est-ap-edit">Estipulante</InputLabel>
+                  <Select
+                    labelId="est-ap-edit"
+                    label="Estipulante"
+                    value={estipulanteIdEdit}
+                    onChange={(e: SelectChangeEvent) => setEstipulanteIdEdit(e.target.value)}
+                  >
+                    <MenuItem value="">
+                      <em>Selecione…</em>
+                    </MenuItem>
+                    {estOptions.map((e) => (
+                      <MenuItem key={e.id} value={e.id}>
+                        {e.razaoSocial}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
                 <FormControl fullWidth size="small" disabled={!isAdmin}>
                   <InputLabel id="ctr-nx-edit">Número / contrato (Nexus)</InputLabel>
                   <Select
@@ -407,16 +551,14 @@ export default function ApoliceEditPage() {
                   </Select>
                 </FormControl>
                 <TextField
-                  required={!nexusContratoId.trim()}
+                  required
                   label="Número da apólice"
                   value={numeroApolice}
                   onChange={(e) => setNumeroApolice(e.target.value)}
                   fullWidth
-                  disabled={!isAdmin || !!nexusContratoId.trim()}
+                  disabled={!isAdmin}
                   size="small"
-                  helperText={
-                    nexusContratoId.trim() ? 'Definido pelo contrato Nexus.' : 'Obrigatório se não escolher contrato na lista.'
-                  }
+                  helperText="Editável mesmo com contrato Nexus vinculado; o valor enviado ao servidor é o deste campo."
                 />
                 <FormControl fullWidth required size="small" disabled={!isAdmin}>
                   <InputLabel>Produto</InputLabel>
@@ -435,16 +577,6 @@ export default function ApoliceEditPage() {
                   disabled={!isAdmin}
                   fullWidth
                   size="small"
-                />
-                <TextField
-                  required
-                  label="Subestipulante"
-                  value={subestipulante}
-                  onChange={(e) => setSubestipulante(e.target.value)}
-                  disabled={!isAdmin}
-                  fullWidth
-                  size="small"
-                  sx={{ gridColumn: { sm: 'span 2' } }}
                 />
                 {showPlano ? (
                   <TextField
@@ -504,6 +636,84 @@ export default function ApoliceEditPage() {
                   sx={{ gridColumn: { sm: 'span 2' } }}
                 />
               </Box>
+            </Stack>
+          </Paper>
+
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+            Empresas subestipulantes (guarda-chuva)
+          </Typography>
+          <Paper sx={{ p: 2, mb: 2 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Vinculadas à apólice. Remova linhas vazias ou adicione mais empresas com o botão abaixo.
+            </Typography>
+            <Stack spacing={2}>
+              {subRows.map((sr, idx) => (
+                <Paper key={idx} variant="outlined" sx={{ p: 1.5 }}>
+                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                    <TextField
+                      label="Razão social"
+                      value={sr.razaoSocial}
+                      onChange={(e) =>
+                        setSubRows((prev) =>
+                          prev.map((r, j) => (j === idx ? { ...r, razaoSocial: e.target.value } : r)),
+                        )
+                      }
+                      size="small"
+                      sx={{ flex: '2 1 200px', minWidth: 180 }}
+                      disabled={!isAdmin}
+                    />
+                    <TextField
+                      label="CNPJ"
+                      value={sr.cnpj}
+                      onChange={(e) =>
+                        setSubRows((prev) => prev.map((r, j) => (j === idx ? { ...r, cnpj: e.target.value } : r)))
+                      }
+                      size="small"
+                      sx={{ flex: '1 1 140px', minWidth: 120 }}
+                      disabled={!isAdmin}
+                    />
+                    <TextField
+                      label="Código SUB"
+                      value={sr.codigoSub}
+                      onChange={(e) =>
+                        setSubRows((prev) =>
+                          prev.map((r, j) => (j === idx ? { ...r, codigoSub: e.target.value } : r)),
+                        )
+                      }
+                      size="small"
+                      sx={{ flex: '1 1 120px', minWidth: 100 }}
+                      disabled={!isAdmin}
+                    />
+                    <FormControl size="small" sx={{ flex: '0 1 140px', minWidth: 120 }} disabled={!isAdmin}>
+                      <InputLabel>Status</InputLabel>
+                      <Select
+                        label="Status"
+                        value={sr.status}
+                        onChange={(e) =>
+                          setSubRows((prev) =>
+                            prev.map((r, j) =>
+                              j === idx ? { ...r, status: e.target.value as SubStatus } : r,
+                            ),
+                          )
+                        }
+                      >
+                        <MenuItem value="ATIVO">Ativo</MenuItem>
+                        <MenuItem value="CANCELADO">Cancelado</MenuItem>
+                      </Select>
+                    </FormControl>
+                    {isAdmin && subRows.length > 1 ? (
+                      <IconButton aria-label="Remover" onClick={() => setSubRows((prev) => prev.filter((_, j) => j !== idx))}>
+                        <DeleteOutlineIcon />
+                      </IconButton>
+                    ) : null}
+                  </Box>
+                </Paper>
+              ))}
+              {isAdmin ? (
+                <Button startIcon={<AddIcon />} variant="outlined" onClick={() => setSubRows((p) => [...p, subRowVazia()])}>
+                  Adicionar subestipulante
+                </Button>
+              ) : null}
             </Stack>
           </Paper>
 

@@ -2,7 +2,7 @@
  * Backup / restauração da base cadastral de seguros (grupos, estipulantes, apólices, itens).
  * JSON versionado + validação com erros bloqueantes e avisos de inconsistência.
  */
-import { PortalApoliceProduto, PortalSeguroItemTipo, type Prisma } from '@prisma/client'
+import { PortalApoliceProduto, PortalSeguroItemTipo, PortalSubestipulanteStatus, type Prisma } from '@prisma/client'
 import { z } from 'zod'
 import { prisma } from './prisma.js'
 
@@ -55,6 +55,8 @@ const estipulanteRowSchema = z.object({
   updatedAt: dateish.optional(),
 })
 
+const subStatusSchema = z.nativeEnum(PortalSubestipulanteStatus)
+
 const apoliceRowSchema = z.object({
   id: uuid,
   estipulanteId: uuid,
@@ -62,7 +64,7 @@ const apoliceRowSchema = z.object({
   numeroApolice: z.string().max(120),
   produto: produtoSchema,
   fornecedor: z.string().max(500),
-  subestipulante: z.string().max(500),
+  subestipulante: z.string().max(500).nullable().optional(),
   plano: z.string().max(2000).nullable().optional(),
   coberturas: z.string().max(8000).nullable().optional(),
   vigenciaInicio: dateish,
@@ -70,6 +72,18 @@ const apoliceRowSchema = z.object({
   observacoes: z.string().max(8000).nullable().optional(),
   active: z.boolean().optional().default(true),
   importadoNexusEm: dateish.optional(),
+  createdAt: dateish.optional(),
+  updatedAt: dateish.optional(),
+})
+
+const apoliceSubestipulanteRowSchema = z.object({
+  id: uuid,
+  apoliceId: uuid,
+  sortOrder: z.number().int().min(0).max(99999).optional().default(0),
+  razaoSocial: z.string().min(1).max(500),
+  cnpj: z.string().max(20),
+  codigoSub: z.string().max(120),
+  status: subStatusSchema,
   createdAt: dateish.optional(),
   updatedAt: dateish.optional(),
 })
@@ -92,6 +106,7 @@ export const segurosBaseSnapshotBodySchema = z.object({
   grupos: z.array(grupoRowSchema),
   estipulantes: z.array(estipulanteRowSchema),
   apolices: z.array(apoliceRowSchema),
+  apoliceSubestipulantes: z.array(apoliceSubestipulanteRowSchema).optional().default([]),
   itens: z.array(itemRowSchema),
 })
 
@@ -111,14 +126,18 @@ export type SegurosBaseImportStats = {
   grupos: { create: number; update: number }
   estipulantes: { create: number; update: number }
   apolices: { create: number; update: number }
+  apoliceSubestipulantes: { create: number; update: number }
   itens: { create: number; update: number }
 }
 
 export async function buildSegurosBaseSnapshot(): Promise<SegurosBaseSnapshotParsed> {
-  const [grupos, estipulantes, apolices, itens] = await Promise.all([
+  const [grupos, estipulantes, apolices, apoliceSubestipulantes, itens] = await Promise.all([
     prisma.portalGrupoEconomico.findMany({ orderBy: { nome: 'asc' } }),
     prisma.portalSeguroEstipulante.findMany({ orderBy: [{ grupoEconomicoNome: 'asc' }, { razaoSocial: 'asc' }] }),
     prisma.portalSeguroApolice.findMany({ orderBy: [{ estipulanteId: 'asc' }, { numeroApolice: 'asc' }] }),
+    prisma.portalSeguroApoliceSubestipulante.findMany({
+      orderBy: [{ apoliceId: 'asc' }, { sortOrder: 'asc' }],
+    }),
     prisma.portalSeguroApoliceItem.findMany({ orderBy: [{ apoliceId: 'asc' }, { sortOrder: 'asc' }] }),
   ])
 
@@ -166,6 +185,17 @@ export async function buildSegurosBaseSnapshot(): Promise<SegurosBaseSnapshotPar
       importadoNexusEm: a.importadoNexusEm,
       createdAt: a.createdAt,
       updatedAt: a.updatedAt,
+    })),
+    apoliceSubestipulantes: apoliceSubestipulantes.map((s) => ({
+      id: s.id,
+      apoliceId: s.apoliceId,
+      sortOrder: s.sortOrder,
+      razaoSocial: s.razaoSocial,
+      cnpj: s.cnpj,
+      codigoSub: s.codigoSub,
+      status: s.status,
+      createdAt: s.createdAt,
+      updatedAt: s.updatedAt,
     })),
     itens: itens.map((i) => ({
       id: i.id,
@@ -350,6 +380,31 @@ export async function analyzeSegurosBaseSnapshot(data: SegurosBaseSnapshotParsed
     }
   }
 
+  const seenSub = new Map<string, string>()
+  for (let i = 0; i < data.apoliceSubestipulantes.length; i++) {
+    const s = data.apoliceSubestipulantes[i]
+    if (seenSub.has(s.id)) {
+      push(
+        issues,
+        'error',
+        'duplicate_id',
+        `ID de subestipulante repetido no ficheiro: ${s.id}`,
+        `apoliceSubestipulantes[${i}]`,
+      )
+    }
+    seenSub.set(s.id, s.id)
+    if (!apIds.has(s.apoliceId)) {
+      push(
+        issues,
+        'error',
+        'fk_apolice_sub',
+        'Subestipulante referencia apoliceId inexistente no snapshot.',
+        `apoliceSubestipulantes[${i}].apoliceId`,
+        [s.id, s.apoliceId],
+      )
+    }
+  }
+
   for (let i = 0; i < data.itens.length; i++) {
     const it = data.itens[i]
     if (!apIds.has(it.apoliceId)) {
@@ -421,6 +476,7 @@ export async function analyzeSegurosBaseSnapshot(data: SegurosBaseSnapshotParsed
     grupos: { create: 0, update: 0 },
     estipulantes: { create: 0, update: 0 },
     apolices: { create: 0, update: 0 },
+    apoliceSubestipulantes: { create: 0, update: 0 },
     itens: { create: 0, update: 0 },
   }
 
@@ -441,6 +497,13 @@ export async function analyzeSegurosBaseSnapshot(data: SegurosBaseSnapshotParsed
     else statsIfApplied.apolices.create++
   }
 
+  const existingSub = await prisma.portalSeguroApoliceSubestipulante.findMany({ select: { id: true } })
+  const existingSubSet = new Set(existingSub.map((x) => x.id))
+  for (const s of data.apoliceSubestipulantes) {
+    if (existingSubSet.has(s.id)) statsIfApplied.apoliceSubestipulantes.update++
+    else statsIfApplied.apoliceSubestipulantes.create++
+  }
+
   const existingIt = await prisma.portalSeguroApoliceItem.findMany({ select: { id: true } })
   const existingItSet = new Set(existingIt.map((x) => x.id))
   for (const it of data.itens) {
@@ -456,6 +519,7 @@ function emptyStats(): SegurosBaseImportStats {
     grupos: { create: 0, update: 0 },
     estipulantes: { create: 0, update: 0 },
     apolices: { create: 0, update: 0 },
+    apoliceSubestipulantes: { create: 0, update: 0 },
     itens: { create: 0, update: 0 },
   }
 }
@@ -548,7 +612,8 @@ export async function applySegurosBaseSnapshot(data: SegurosBaseSnapshotParsed):
 
       for (const a of data.apolices) {
         const ex = await tx.portalSeguroApolice.findUnique({ where: { id: a.id } })
-        const sub = (a.subestipulante ?? '').trim() || '—'
+        const subRaw = (a.subestipulante ?? '').trim()
+        const sub = subRaw && subRaw !== '—' ? subRaw : null
         const dataRow: Prisma.PortalSeguroApoliceUncheckedCreateInput = {
           id: a.id,
           estipulanteId: a.estipulanteId,
@@ -594,6 +659,42 @@ export async function applySegurosBaseSnapshot(data: SegurosBaseSnapshotParsed):
             },
           })
           stats.apolices.create++
+        }
+      }
+
+      for (const s of data.apoliceSubestipulantes) {
+        const ex = await tx.portalSeguroApoliceSubestipulante.findUnique({ where: { id: s.id } })
+        const row: Prisma.PortalSeguroApoliceSubestipulanteUncheckedCreateInput = {
+          id: s.id,
+          apoliceId: s.apoliceId,
+          sortOrder: s.sortOrder ?? 0,
+          razaoSocial: s.razaoSocial.trim(),
+          cnpj: s.cnpj.trim(),
+          codigoSub: s.codigoSub.trim(),
+          status: s.status,
+        }
+        if (ex) {
+          await tx.portalSeguroApoliceSubestipulante.update({
+            where: { id: s.id },
+            data: {
+              apoliceId: row.apoliceId,
+              sortOrder: row.sortOrder,
+              razaoSocial: row.razaoSocial,
+              cnpj: row.cnpj,
+              codigoSub: row.codigoSub,
+              status: row.status,
+            },
+          })
+          stats.apoliceSubestipulantes.update++
+        } else {
+          await tx.portalSeguroApoliceSubestipulante.create({
+            data: {
+              ...row,
+              createdAt: s.createdAt ?? undefined,
+              updatedAt: s.updatedAt ?? undefined,
+            },
+          })
+          stats.apoliceSubestipulantes.create++
         }
       }
 
