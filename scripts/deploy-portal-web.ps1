@@ -31,7 +31,27 @@ if ($KillNode) {
     Write-Host "  PID $($_.Id)" -ForegroundColor DarkGray
     Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
   }
+  Get-Process -Name esbuild -ErrorAction SilentlyContinue | ForEach-Object {
+    Write-Host "  esbuild PID $($_.Id)" -ForegroundColor DarkGray
+    Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
+  }
   Start-Sleep -Seconds 2
+}
+
+function Clear-FolderWithRobocopyMirror {
+  param([Parameter(Mandatory)][string]$TargetDir)
+  $empty = Join-Path $env:TEMP ("nm_empty_" + [guid]::NewGuid().ToString("n").Substring(0, 12))
+  New-Item -ItemType Directory -Path $empty -Force | Out-Null
+  try {
+    # Espelha pasta vazia sobre o destino — truque Windows para ficheiros «presos»
+    $null = & robocopy $empty $TargetDir /MIR /R:2 /W:1 /NFL /NDL /NJH /NJS /NP 2>&1
+    $code = $LASTEXITCODE
+    if ($code -ge 8) {
+      throw "robocopy falhou com código $code"
+    }
+  } finally {
+    Remove-Item -LiteralPath $empty -Recurse -Force -ErrorAction SilentlyContinue
+  }
 }
 
 function Remove-NodeModulesSafe {
@@ -40,16 +60,26 @@ function Remove-NodeModulesSafe {
   Write-Host "A remover node_modules… (pode demorar)" -ForegroundColor Yellow
   try {
     Remove-Item -LiteralPath $nm -Recurse -Force -ErrorAction Stop
+    return
   } catch {
-    Write-Host "Não foi possível apagar node_modules (ficheiro ainda bloqueado)." -ForegroundColor Red
+    Write-Host "Remove-Item falhou; a tentar robocopy /MIR (esvaziar pasta bloqueada)…" -ForegroundColor Yellow
+  }
+  try {
+    Clear-FolderWithRobocopyMirror -TargetDir $nm
+    Start-Sleep -Milliseconds 500
+    Remove-Item -LiteralPath $nm -Recurse -Force -ErrorAction Stop
+    Write-Host "node_modules removido (após robocopy)." -ForegroundColor Green
+  } catch {
+    Write-Host "Ainda bloqueado após robocopy." -ForegroundColor Red
     Write-Host $_.Exception.Message
     Write-Host @"
 
-Tente:
-  .\scripts\deploy-portal-web.ps1 -KillNode -Clean
+  • Feche o Cursor por completo e volte a correr (PowerShell à parte):
+      cd $root
+      .\scripts\deploy-portal-web.ps1 -KillNode -Clean
 
-Ou feche o Cursor inteiro, apague manualmente a pasta:
-  $pw\node_modules
+  • Ou reinicie o PC e apague a pasta no Explorador:
+      $nm
 
 "@ -ForegroundColor Yellow
     exit 1
