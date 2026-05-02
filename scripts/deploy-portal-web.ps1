@@ -8,8 +8,9 @@
 #   2) Se ainda bloquear: feche o Cursor por completo e apague portal-web\node_modules no Explorador,
 #      ou abra PowerShell FORA do Cursor e volte a correr este script.
 #
-# Vercel — erro portal-web\portal-web: no projeto (Settings → General) apague «Root Directory»
-# se estiver definido como portal-web; esse campo soma-se ao cwd do CLI e duplica o caminho.
+# Vercel — havia vercel.json na RAIZ do monorepo a fazer build de demandas-web (título «Nexus»). Esse ficheiro foi removido.
+# Projeto portal na Vercel: defina Root Directory = portal-web (ou use só deploy a partir da pasta portal-web).
+# Se ao fazer deploy local aparecer portal-web\portal-web duplicado, veja doc Vercel monorepo ou use só GitHub Actions.
 #
 # Uso:
 #   .\scripts\deploy-portal-web.ps1
