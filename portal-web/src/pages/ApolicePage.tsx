@@ -805,6 +805,9 @@ function VisaoGeral({
   const semApolicesComEstipulantes =
     visaoLoadOk && (apolicesTotalCount ?? 0) === 0 && estipulantesVisao.length > 0
 
+  /** Se a base tem pelo menos uma apólice, um grupo com 0 pode indicar desalinhamento de chave; se o total global é 0, os zeros são esperados (sem cor de alerta nas linhas). */
+  const existeAlgumaApoliceNaBase = (apolicesTotalCount ?? 0) > 0
+
   const gruposVisao = useMemo(
     () => agruparVisaoPorGrupo(filterEst, filterAp),
     [filterEst, filterAp],
@@ -899,10 +902,10 @@ function VisaoGeral({
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
             {semApolicesComEstipulantes ? (
               <>
-                <Alert severity="warning" sx={{ borderRadius: 2 }}>
-                  <strong>Não há apólices registadas nesta base do portal</strong> (contagem total = 0). O separador mostra os grupos e estipulantes a partir do cadastro; contratos que existam só no Nexus{' '}
-                  <strong>não aparecem aqui</strong> até serem sincronizados ou até criar a apólice no menu <strong>Apólices</strong>. Confirme também que o site aponta para a API correta (variável{' '}
-                  <code>VITE_API_URL</code>).
+                <Alert severity="info" sx={{ borderRadius: 2 }}>
+                  <strong>Nenhuma apólice na base PostgreSQL desta API</strong> (total = 0). Os grupos e estipulantes vêm só do cadastro; para aparecerem números aqui é preciso registos em{' '}
+                  <strong>PortalSeguroApolice</strong> (menu <strong>Apólices</strong> ou fluxo de sincronização). Contratos apenas no Nexus não entram nesta vista. Se já criou apólices e continua 0, confira{' '}
+                  <code>VITE_API_URL</code> na Vercel (mesmo domínio público da API no Railway) e faça redeploy do front.
                 </Alert>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                   <Button variant="contained" size="small" onClick={onIrParaApolices}>
@@ -926,7 +929,12 @@ function VisaoGeral({
                 <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', py: 0.5 }}>
                     <Typography fontWeight={800}>{g.titulo}</Typography>
-                    <Chip size="small" label={`${g.apolices.length} apólice(s)`} />
+                    <Chip
+                      size="small"
+                      label={`${g.apolices.length} apólice(s)`}
+                      variant={g.apolices.length === 0 ? 'outlined' : 'filled'}
+                      color={g.apolices.length === 0 ? 'default' : 'primary'}
+                    />
                     <Chip size="small" label={`${g.estipulantes.length} estipulante(s)`} variant="outlined" />
                   </Box>
                 </AccordionSummary>
@@ -1037,7 +1045,9 @@ function VisaoGeral({
                                     size="small"
                                     label={e._count.apolices}
                                     variant="outlined"
-                                    color={e._count.apolices === 0 ? 'warning' : 'default'}
+                                    color={
+                                      existeAlgumaApoliceNaBase && e._count.apolices === 0 ? 'warning' : 'default'
+                                    }
                                   />
                                 </TableCell>
                               </TableRow>
