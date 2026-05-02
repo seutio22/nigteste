@@ -130,20 +130,6 @@ function looseRazaoMesmaEmpresa(a: string, b: string): boolean {
   return hit >= 2 && hit >= Math.ceil(Math.min(ta.length, tb.size) * 0.45)
 }
 
-/** Estipulantes no mesmo “universo” de grupo + heurística de mesma empresa (razão/CNPJ/Nexus). */
-/** Mesmo grupo económico: FK local igual OU mesmo nome Nexus (insensitive). */
-function isSameGrupoUniverse(
-  a: { grupoEconomicoNome: string; grupoEconomicoId: string | null },
-  b: { grupoEconomicoNome: string; grupoEconomicoId: string | null },
-): boolean {
-  const ga = a.grupoEconomicoId?.trim()
-  const gb = b.grupoEconomicoId?.trim()
-  if (ga && gb && ga === gb) return true
-  const na = (a.grupoEconomicoNome || '').trim().toLowerCase()
-  const nb = (b.grupoEconomicoNome || '').trim().toLowerCase()
-  return na.length > 0 && na === nb
-}
-
 type EstLinhaContagem = {
   id: string
   razaoSocial: string
@@ -151,20 +137,37 @@ type EstLinhaContagem = {
   nexusClienteId: string | null
   grupoEconomicoNome: string
   grupoEconomicoId: string | null
+  /** `PortalGrupoEconomico.id` via relação `grupo` (espelha `grupoCadastroKey` no portal-web). */
+  grupoPortalId: string | null
 }
 
-/** Soma apólices ligadas a este estipulante ou a registos «irmãos» (mesmo grupo + mesma empresa). */
+/**
+ * Chave do grupo na visão geral — **mesma regra** que `grupoCadastroKey` em `ApolicePage.tsx`:
+ * `grupoEconomicoId` ou `grupo.id`, senão nome Nexus em minúsculas.
+ */
+function canonicalGrupoKeyParaContagem(e: EstLinhaContagem): string {
+  const geid = (e.grupoEconomicoId ?? e.grupoPortalId ?? '').trim()
+  if (geid) return `local:${geid}`
+  const n = (e.grupoEconomicoNome || '').trim().toLowerCase()
+  return `nexus:${n}`
+}
+
+/** Mesmo grupo económico para totais: todos os estipulantes que partilham a mesma chave canónica. */
+function isMesmoGrupoEconomicoContagem(a: EstLinhaContagem, b: EstLinhaContagem): boolean {
+  return canonicalGrupoKeyParaContagem(a) === canonicalGrupoKeyParaContagem(b)
+}
+
+/** Soma todas as apólices ligadas a qualquer estipulante do mesmo grupo económico (não só «mesma empresa»). */
 function mergeApoliceCountsPorEstipulante(
   estipulantes: EstLinhaContagem[],
   countPorEstipulanteId: Map<string, number>,
 ): Map<string, number> {
   const out = new Map<string, number>()
   for (const est of estipulantes) {
-    const peers = estipulantes.filter((p) => isSameGrupoUniverse(est, p))
-    const wide = wideEstipulanteIdsNoGrupo(est, peers)
+    const peers = estipulantes.filter((p) => isMesmoGrupoEconomicoContagem(est, p))
     let sum = 0
-    for (const id of wide) {
-      sum += countPorEstipulanteId.get(id) ?? 0
+    for (const p of peers) {
+      sum += countPorEstipulanteId.get(p.id) ?? 0
     }
     out.set(est.id, sum)
   }
@@ -740,6 +743,7 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
           nexusClienteId: e.nexusClienteId,
           grupoEconomicoNome: e.grupoEconomicoNome,
           grupoEconomicoId: e.grupoEconomicoId,
+          grupoPortalId: e.grupo?.id ?? null,
         }))
         const mergedCounts = mergeApoliceCountsPorEstipulante(linhas, countMap)
         estipulantes = estipulantesRaw.map((e) => ({
