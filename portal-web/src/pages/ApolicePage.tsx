@@ -454,6 +454,8 @@ type CadastroVisaoGeralApolice = {
   vigenciaFim: string | null
   nexusContratoId: string | null
   observacoes: string | null
+  /** ISO (para ordenar no cliente após carregar todas as páginas). */
+  updatedAt?: string
   estipulante: {
     id: string
     razaoSocial: string
@@ -484,6 +486,17 @@ function visaoMatchesQuery(q: string, parts: Array<string | null | undefined>): 
   return parts.some((p) => p != null && String(p).toLowerCase().includes(t))
 }
 
+/** Ordenação de apresentação após juntar páginas (ativas primeiro, depois por atualização). */
+function sortVisaoApolices(rows: CadastroVisaoGeralApolice[]): CadastroVisaoGeralApolice[] {
+  return [...rows].sort((a, b) => {
+    if (a.active !== b.active) return a.active ? -1 : 1
+    const ta = new Date(a.updatedAt ?? 0).getTime()
+    const tb = new Date(b.updatedAt ?? 0).getTime()
+    if (tb !== ta) return tb - ta
+    return a.id.localeCompare(b.id)
+  })
+}
+
 function visaoItensCount(a: CadastroVisaoGeralApolice): number {
   return a._count?.itens ?? a.itens?.length ?? 0
 }
@@ -499,52 +512,84 @@ function VisaoGeral({ onError }: { onError: (s: string | null) => void }) {
   const [detailItensLoading, setDetailItensLoading] = useState(false)
   /** `true` só após JSON válido com `apolices` array (evita mensagem “base vazia” quando a API falhou). */
   const [visaoLoadOk, setVisaoLoadOk] = useState(false)
+  const [loadHint, setLoadHint] = useState<string | null>(null)
+
+  const VISAO_PAGE = 8000
 
   const load = useCallback(async () => {
     setLoading(true)
     setVisaoLoadOk(false)
+    setLoadHint(null)
     onError(null)
     try {
-      const r = await api<{
-        gruposEconomicosCount: number
-        estipulantesCount: number
-        apolicesTotalCount: number
-        apolices: CadastroVisaoGeralApolice[]
-      }>('/seguros/cadastro-visao-geral')
-      if (!r.ok) {
-        onError(r.error || 'Erro ao carregar visão geral do cadastro.')
-        setApolices([])
-        setGruposEconomicosCount(null)
-        setEstipulantesCount(null)
-        setApolicesTotalCount(null)
-        return
+      let offset = 0
+      const merged: CadastroVisaoGeralApolice[] = []
+      let gruposEconomicosCount = 0
+      let estipulantesCount = 0
+      let apolicesTotalCount = 0
+
+      while (true) {
+        if (offset > 0) {
+          setLoadHint(`A carregar todas as apólices… ${merged.length} recebidas até agora`)
+        }
+        const r = await api<{
+          gruposEconomicosCount: number
+          estipulantesCount: number
+          apolicesTotalCount: number
+          apolices: CadastroVisaoGeralApolice[]
+          visaoMeta?: { limit: number; offset: number; returned: number }
+        }>(`/seguros/cadastro-visao-geral?limit=${VISAO_PAGE}&offset=${offset}`)
+
+        if (!r.ok) {
+          onError(r.error || 'Erro ao carregar visão geral do cadastro.')
+          setApolices([])
+          setGruposEconomicosCount(null)
+          setEstipulantesCount(null)
+          setApolicesTotalCount(null)
+          return
+        }
+        if (!r.data || typeof r.data !== 'object') {
+          onError('Resposta vazia ou inválida da API.')
+          setApolices([])
+          setGruposEconomicosCount(null)
+          setEstipulantesCount(null)
+          setApolicesTotalCount(null)
+          return
+        }
+        const d = r.data
+        if (!Array.isArray(d.apolices)) {
+          onError(
+            'A API devolveu um formato anómalo (sem lista de apólices). Confirme o deploy da API portal-colaborador no Railway e a variável VITE_API_URL no Vercel (URL da API, não do site).',
+          )
+          setApolices([])
+          setGruposEconomicosCount(null)
+          setEstipulantesCount(null)
+          setApolicesTotalCount(null)
+          return
+        }
+        gruposEconomicosCount = d.gruposEconomicosCount ?? 0
+        estipulantesCount = d.estipulantesCount ?? 0
+        apolicesTotalCount = d.apolicesTotalCount ?? 0
+        merged.push(...d.apolices)
+
+        const chunk = d.apolices.length
+        if (chunk < VISAO_PAGE || merged.length >= apolicesTotalCount) break
+        offset += VISAO_PAGE
+        if (offset > 2_000_000) {
+          onError('Limite interno de paginação atingido.')
+          break
+        }
       }
-      if (!r.data || typeof r.data !== 'object') {
-        onError('Resposta vazia ou inválida da API.')
-        setApolices([])
-        setGruposEconomicosCount(null)
-        setEstipulantesCount(null)
-        setApolicesTotalCount(null)
-        return
-      }
-      const d = r.data
-      if (!Array.isArray(d.apolices)) {
-        onError(
-          'A API devolveu um formato anómalo (sem lista de apólices). Confirme o deploy da API portal-colaborador no Railway e a variável VITE_API_URL no Vercel (URL da API, não do site).',
-        )
-        setApolices([])
-        setGruposEconomicosCount(null)
-        setEstipulantesCount(null)
-        setApolicesTotalCount(null)
-        return
-      }
+
+      setLoadHint(null)
       setVisaoLoadOk(true)
-      setGruposEconomicosCount(d.gruposEconomicosCount ?? 0)
-      setEstipulantesCount(d.estipulantesCount ?? 0)
-      setApolicesTotalCount(d.apolicesTotalCount ?? 0)
-      setApolices(d.apolices)
+      setGruposEconomicosCount(gruposEconomicosCount)
+      setEstipulantesCount(estipulantesCount)
+      setApolicesTotalCount(apolicesTotalCount)
+      setApolices(sortVisaoApolices(merged))
     } finally {
       setLoading(false)
+      setLoadHint(null)
     }
   }, [onError])
 
@@ -625,14 +670,21 @@ function VisaoGeral({ onError }: { onError: (s: string | null) => void }) {
             <strong>{loading ? '…' : (apolicesTotalCount ?? '—')}</strong> apólices (total)
             {' · '}
             <strong>{loading ? '…' : filterAp.length}</strong> linha(s) com o filtro atual
-            {apolicesTotalCount != null && apolices.length < apolicesTotalCount ? (
-              <span> (mostram-se até 2000 apólices por vista)</span>
+            {visaoLoadOk && apolicesTotalCount != null && apolices.length === apolicesTotalCount && apolicesTotalCount > 0 ? (
+              <span> · lista completa na memória ({apolices.length} apólices)</span>
             ) : null}
           </Typography>
         </Paper>
 
         {loading ? (
-          <Typography color="text.secondary">A carregar cadastro…</Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+            <Typography color="text.secondary">A carregar cadastro…</Typography>
+            {loadHint ? (
+              <Typography variant="body2" color="text.secondary">
+                {loadHint}
+              </Typography>
+            ) : null}
+          </Box>
         ) : filterAp.length === 0 ? (
           <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
             <Typography color="text.secondary">

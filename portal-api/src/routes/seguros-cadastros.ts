@@ -592,13 +592,27 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
     }
   })
 
+  const cadastroVisaoGeralQuery = z.object({
+    /** Página: máx. 50k por pedido (evita timeouts); o frontend pode pedir várias páginas. */
+    limit: z.coerce.number().int().min(1).max(50000).optional().default(12000),
+    offset: z.coerce.number().int().min(0).max(10_000_000).optional().default(0),
+  })
+
   /**
    * Visão geral: contagens + lista plana de apólices (uma linha = grupo + estipulante + apólice).
    * Não envia `itens` aqui (payload pode estourar o JSON no browser); use GET /seguros/apolices/:id/itens ao abrir o detalhe.
+   * Query: `limit` (1–50000, default 12000), `offset` — ordenação estável por `id` para paginação sem falhas.
    */
   app.get('/seguros/cadastro-visao-geral', async (req, reply) => {
     const u = await requirePortalUser(req, reply)
     if (!u) return
+
+    let q: z.infer<typeof cadastroVisaoGeralQuery>
+    try {
+      q = cadastroVisaoGeralQuery.parse(req.query)
+    } catch {
+      return reply.code(400).send({ error: 'Query inválida: use limit (1–50000) e offset (≥ 0).' })
+    }
 
     try {
       const [gruposEconomicosCount, estipulantesCount, apolicesTotalCount, apolices] = await Promise.all([
@@ -606,8 +620,9 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
         prisma.portalSeguroEstipulante.count({ where: { active: true } }),
         prisma.portalSeguroApolice.count(),
         prisma.portalSeguroApolice.findMany({
-          take: 2000,
-          orderBy: [{ active: 'desc' }, { updatedAt: 'desc' }],
+          take: q.limit,
+          skip: q.offset,
+          orderBy: { id: 'asc' },
           select: {
             id: true,
             active: true,
@@ -621,6 +636,7 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
             vigenciaFim: true,
             nexusContratoId: true,
             observacoes: true,
+            updatedAt: true,
             estipulante: {
               select: {
                 id: true,
@@ -643,6 +659,11 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
         estipulantesCount,
         apolicesTotalCount,
         apolices,
+        visaoMeta: {
+          limit: q.limit,
+          offset: q.offset,
+          returned: apolices.length,
+        },
       })
     } catch (e) {
       req.log.error(e)
