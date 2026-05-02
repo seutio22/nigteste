@@ -13,6 +13,7 @@ import { Autocomplete, TextField, Box, Typography } from '@mui/material'
 import { Save as SaveIcon } from '@mui/icons-material'
 import { PrimaryActionButton } from '../../components/PrimaryActionButton'
 import { createPerfLogger } from '../../utils/perf'
+import { qualidadeFromQtdRetornos } from '../../utils/qualidadeRetornos'
 
 const EmailComunicacaoCadastroEdgeModal = lazy(async () => {
   const m = await import('../../components/EmailComunicacaoCadastroEdgeModal')
@@ -521,6 +522,11 @@ function EditInline({
       rawMetrics && typeof rawMetrics === 'object' && !Array.isArray(rawMetrics) ? rawMetrics : undefined
     ;(normalizedDraft as any).sistemasMetrics = parsedMetrics
 
+    const qualidadeAuto = qualidadeFromQtdRetornos(normalizedDraft.qtdRetornos)
+    if (qualidadeAuto !== undefined) {
+      ;(normalizedDraft as Demand).qualidade = qualidadeAuto as any
+    }
+
     setDraft(normalizedDraft)
   }, [d])
 
@@ -586,7 +592,11 @@ function EditInline({
         solicitante: resolveSolicitanteName(draft.solicitante) || null,
         descricao: draft.descricao || null,
         observacoes: draft.observacoes || null,
-        qualidade: draft.qualidade || null,
+        qualidade:
+          (() => {
+            const auto = qualidadeFromQtdRetornos(draft.qtdRetornos)
+            return auto !== undefined ? auto : draft.qualidade || null
+          })(),
         sistemasMetrics: (draft as any).sistemasMetrics ?? null,
         qtdUsuarios: draft.qtdUsuarios ?? null,
         qtdRetornos: draft.qtdRetornos !== undefined && draft.qtdRetornos !== null ? Number(draft.qtdRetornos) : null,
@@ -1160,7 +1170,16 @@ function EditInline({
             type="number"
             min="0"
             value={draft.qtdRetornos ?? ''}
-            onChange={(e) => setDraft({ ...draft, qtdRetornos: e.target.value ? parseInt(e.target.value) : undefined })}
+            onChange={(e) => {
+              const raw = e.target.value
+              const qtdRetornos = raw === '' ? undefined : parseInt(raw, 10)
+              const q = qualidadeFromQtdRetornos(qtdRetornos)
+              setDraft({
+                ...draft,
+                qtdRetornos,
+                ...(q !== undefined ? { qualidade: q } : {}),
+              })
+            }}
             placeholder="0"
             className={inputCls}
           />
@@ -1200,20 +1219,22 @@ function EditInline({
         )}
       </div>
 
-      {/* Nona linha - Qualidade */}
+      {/* Qualidade — só leitura; derivada dos retornos */}
       <div>
         <label className={labelCls}>Qualidade</label>
-        <select
-          value={draft.qualidade || ''}
-          onChange={(e) => setDraft({ ...draft, qualidade: e.target.value || undefined })}
-          className={inputCls}
+        <div
+          className={`${inputCls} cursor-default bg-slate-50 text-slate-800`}
+          tabIndex={-1}
+          aria-readonly
         >
-          <option value="">Selecione...</option>
-          <option value="0">0 - RUIM - MAIS DE 3 RETORNOS; ITENS INCOMPLETOS, SEM RETORNO</option>
-          <option value="1">1 - MEDIANO - NO MÁX 2 RETORNOS</option>
-          <option value="2">2 - BOM - NO MÁX 1 RETORNO; TODOS OS ITENS COMPLETOS</option>
-          <option value="3">3 - EXCELENTE - SEM NENHUMA CONSIDERAÇÃO</option>
-        </select>
+          {(() => {
+            const code = qualidadeFromQtdRetornos(draft.qtdRetornos)
+            const label =
+              code !== undefined ? getQualidadeLabel(code) : getQualidadeLabel(draft.qualidade)
+            return label === '-' ? '—' : label
+          })()}
+        </div>
+        <p className="mt-1 text-xs text-slate-500">Calculada automaticamente a partir da quantidade de retornos.</p>
       </div>
 
       {/* Métricas por sistema — mesmo padrão do "Novo chamado" */}

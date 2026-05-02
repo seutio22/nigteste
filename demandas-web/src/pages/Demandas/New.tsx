@@ -25,6 +25,7 @@ import { useAuthStore } from '../../store/authStore'
 import { api } from '../../lib/api.local'
 import { createPerfLogger } from '../../utils/perf'
 import { PrimaryActionButton } from '../../components/PrimaryActionButton'
+import { qualidadeFromQtdRetornos } from '../../utils/qualidadeRetornos'
 
 const metricSchema = z.object({
   qtdUsuarios: z.coerce.number().min(0, 'Deve ser um número positivo').optional(),
@@ -106,11 +107,25 @@ export default function DemandNewPage() {
   const selectedTipoId = useWatch({ control, name: 'tipo' })
   const selectedSistemaIds = useWatch({ control, name: 'sistemaIds' })
   const currentMetrics = useWatch({ control, name: 'sistemasMetrics' })
+  const watchedQtdRetornos = useWatch({ control, name: 'qtdRetornos' })
+
+  useEffect(() => {
+    const q = qualidadeFromQtdRetornos(watchedQtdRetornos)
+    if (q !== undefined) {
+      setValue('qualidade', q, { shouldValidate: true, shouldDirty: true })
+    }
+  }, [watchedQtdRetornos, setValue])
 
   const sistemasSelecionados = useMemo(() => {
     const ids = new Set((selectedSistemaIds || []).filter(Boolean))
     return md.sistemas.filter((s) => ids.has(s.id))
   }, [md.sistemas, selectedSistemaIds])
+
+  const qualidadeSomenteLeituraLabel = useMemo(() => {
+    const code = qualidadeFromQtdRetornos(watchedQtdRetornos)
+    if (code === undefined) return '—'
+    return listas.qualidade.find((q) => q.value === code)?.label ?? `Código ${code}`
+  }, [watchedQtdRetornos])
 
   // Garantir que existe um objeto de métricas para cada sistema selecionado
   useEffect(() => {
@@ -382,7 +397,8 @@ export default function DemandNewPage() {
       }
 
       const solicitanteNome = md.solicitantes.find(s => s.id === data.solicitante)?.nome || emptyToNull(data.solicitante)
-      const qualidadeValor = data.qualidade ?? ''
+      const qualidadeAuto = qualidadeFromQtdRetornos(data.qtdRetornos)
+      const qualidadeValor = qualidadeAuto !== undefined ? qualidadeAuto : ''
       // Campos legados na base; no fluxo novo só usamos sistemasMetrics por sistema.
       const qtdClientesVinculadosValor = ''
       const usuariosEmpresaValor = ''
@@ -747,20 +763,28 @@ export default function DemandNewPage() {
               <Grid container spacing={2}>
                 <Grid item xs={6} sm={4}>
                   <Controller name="qtdRetornos" control={control} render={({ field }) => (
-                    <TextField {...field} type="number" label="Retornos" {...formField} error={!!errors.qtdRetornos} helperText={errors.qtdRetornos?.message} />
+                    <TextField
+                      {...field}
+                      type="number"
+                      label="Quantidade de retornos"
+                      {...formField}
+                      inputProps={{ min: 0, step: 1 }}
+                      error={!!errors.qtdRetornos}
+                      helperText={
+                        errors.qtdRetornos?.message ??
+                        'Define automaticamente a qualidade ao lado.'
+                      }
+                    />
                   )} />
                 </Grid>
                 <Grid item xs={12} sm={8}>
-                  <Controller name="qualidade" control={control} render={({ field }) => (
-                    <TextField {...field} select label="Qualidade" {...formField} error={!!errors.qualidade} helperText={errors.qualidade?.message}>
-                      <MenuItem value="">Selecione…</MenuItem>
-                      {listas.qualidade.map((q) => (
-                        <MenuItem key={q.value} value={q.value} sx={{ whiteSpace: 'normal', lineHeight: 1.25, py: 0.75 }}>
-                          {q.label}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                  )} />
+                  <TextField
+                    label="Qualidade"
+                    value={qualidadeSomenteLeituraLabel}
+                    {...formField}
+                    InputProps={{ readOnly: true }}
+                    helperText="Calculada automaticamente a partir da quantidade de retornos."
+                  />
                 </Grid>
                 {sistemasSelecionados.map((s) => (
                   <Grid item xs={12} key={s.id}>
