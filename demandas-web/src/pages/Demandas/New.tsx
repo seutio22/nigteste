@@ -160,14 +160,13 @@ export default function DemandNewPage() {
     }
   }, [md.analistas.length, tiposDemandaAtivos.length, md.tiposServico.length])
 
-  // Sincronização desabilitada temporariamente para evitar travamento
   useEffect(() => {
-    console.log('🔧 DemandNewPage: Sincronização automática desabilitada temporariamente')
-    // TODO: Reabilitar após otimização completa
-    // if (md.syncFromApi) {
-    //   console.log('🔍 DemandNewPage: Sincronizando dados mestres...')
-    //   md.syncFromApi()
-    // }
+    const sync = useMasterDataStore.getState().syncFromApi
+    if (!sync) return
+    /** Só listas usadas neste formulário (evita sync completo pesado). */
+    void sync({
+      entities: ['solicitantes', 'areas', 'analistas', 'tiposServico', 'tiposDemanda', 'sistemas'],
+    })
   }, [])
 
   // LÓGICA ATUALIZADA: Preencher com o analista correspondente ao usuário logado
@@ -485,19 +484,36 @@ export default function DemandNewPage() {
     }
   }
 
-  const denseField = { size: 'small' as const, margin: 'dense' as const, fullWidth: true }
+  /** Campos do formulário: altura confortável; espaçamento vem do Grid (margin none). */
+  const formField = { size: 'medium' as const, margin: 'none' as const, fullWidth: true }
+
+  /** Campos longos: área ampla para colar contexto e notas. */
+  const longTextFieldSx = {
+    '& .MuiInputBase-root': { alignItems: 'flex-start', py: 1.25, minHeight: 48 },
+    '& textarea': {
+      overflow: 'auto',
+      lineHeight: 1.55,
+      fontSize: '0.9375rem',
+    },
+  } as const
 
   const SectionTitle = ({ children }: { children: React.ReactNode }) => (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, mb: 2 }}>
-      <Box sx={{ width: 4, height: 22, borderRadius: 999, bgcolor: 'primary.main', boxShadow: '0 0 0 3px rgba(0,159,223,0.12)' }} />
-      <Typography variant="subtitle2" sx={{ fontWeight: 700, letterSpacing: '-0.02em', color: 'text.primary' }}>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, mb: 2.5 }}>
+      <Box sx={{ width: 4, height: 24, borderRadius: 999, bgcolor: 'primary.main', boxShadow: '0 0 0 3px rgba(0,159,223,0.12)' }} />
+      <Typography variant="subtitle1" sx={{ fontWeight: 700, letterSpacing: '-0.02em', color: 'text.primary', fontSize: '1rem' }}>
         {children}
       </Typography>
     </Box>
   )
 
+  const SubsectionLabel = ({ children }: { children: React.ReactNode }) => (
+    <Typography variant="body2" sx={{ display: 'block', mb: 1.25, fontWeight: 600, color: 'text.secondary', letterSpacing: '0.01em', fontSize: '0.8125rem' }}>
+      {children}
+    </Typography>
+  )
+
   const cardSx = {
-    mb: 2,
+    mb: 2.5,
     borderRadius: 3,
     border: '1px solid',
     borderColor: 'rgba(15, 23, 42, 0.07)',
@@ -507,15 +523,25 @@ export default function DemandNewPage() {
   } as const
 
   return (
-    <Container maxWidth="md" sx={{ py: { xs: 2, sm: 3 }, px: { xs: 1, sm: 2 }, bgcolor: 'grey.50' }}>
+    <Container
+      maxWidth={false}
+      disableGutters
+      sx={{
+        py: 0,
+        px: { xs: 0, sm: 0 },
+        bgcolor: 'transparent',
+        width: '100%',
+      }}
+    >
       <Paper
         elevation={0}
         sx={{
-          borderRadius: 3,
+          borderRadius: { xs: 0, sm: 3 },
           overflow: 'hidden',
           border: '1px solid',
           borderColor: 'rgba(15, 23, 42, 0.06)',
           boxShadow: '0 12px 40px -16px rgba(15, 23, 42, 0.18)',
+          width: '100%',
         }}
       >
         <Box
@@ -531,8 +557,8 @@ export default function DemandNewPage() {
               <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: '-0.03em', color: 'inherit', lineHeight: 1.2 }}>
                 Novo cadastro
               </Typography>
-              <Typography variant="body2" sx={{ mt: 0.75, opacity: 0.92, fontWeight: 400, maxWidth: 420 }}>
-                Preencha os dados da demanda. Campos obrigatórios: tipo de serviço e tipo de demanda.
+              <Typography variant="body2" sx={{ mt: 0.75, opacity: 0.92, fontWeight: 400, maxWidth: 480 }}>
+                Ordem sugerida: identificação → sistemas → métricas → descrição e observações. Obrigatórios: tipo de serviço e tipo de demanda.
               </Typography>
             </Box>
           </Stack>
@@ -542,21 +568,21 @@ export default function DemandNewPage() {
           component="form"
           onSubmit={handleSubmit(onSubmit)}
           sx={{
-            p: { xs: 2, sm: 2.5 },
+            p: { xs: 2.25, sm: 3 },
             bgcolor: (t) => (t.palette.mode === 'dark' ? 'background.default' : '#f4f7fb'),
           }}
         >
           <Card elevation={0} sx={cardSx}>
-            <CardContent sx={{ py: 2.25, px: { xs: 2, sm: 2.25 }, '&:last-child': { pb: 2.25 } }}>
+            <CardContent sx={{ py: 3, px: { xs: 2.25, sm: 3 }, '&:last-child': { pb: 3 } }}>
               <SectionTitle>Identificação</SectionTitle>
-              <Grid container spacing={1.5}>
+              <Grid container spacing={2.25}>
           <Grid item xs={12} sm={6} md={4}>
             <Controller name="analista" control={control} render={({ field }) => (
               <TextField 
                 {...field} 
                 select 
                 label="Analista responsável" 
-                {...denseField}
+                {...formField}
                 error={!!errors.analista} 
                 helperText={errors.analista?.message || `Vinculado: ${user?.name || '…'}`}
                 InputProps={{
@@ -583,7 +609,7 @@ export default function DemandNewPage() {
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
             <Controller name="tipoServico" control={control} render={({ field }) => (
-              <TextField {...field} select label="Tipo de serviço" {...denseField} required error={!!errors.tipoServico} helperText={errors.tipoServico?.message}>
+              <TextField {...field} select label="Tipo de serviço" {...formField} required error={!!errors.tipoServico} helperText={errors.tipoServico?.message}>
                 <MenuItem value="">Selecione...</MenuItem>
                 {md.tiposServico.map(ts => <MenuItem key={ts.id} value={ts.id}>{ts.nome}</MenuItem>)}
               </TextField>
@@ -591,7 +617,7 @@ export default function DemandNewPage() {
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
             <Controller name="tipo" control={control} render={({ field }) => (
-              <TextField {...field} select label="Tipo de demanda" {...denseField} required error={!!errors.tipo} helperText={errors.tipo?.message}>
+              <TextField {...field} select label="Tipo de demanda" {...formField} required error={!!errors.tipo} helperText={errors.tipo?.message}>
                 <MenuItem value="">Selecione...</MenuItem>
                 {tiposDemandaAtivos.map(td => <MenuItem key={td.id} value={td.id}>{td.nome}</MenuItem>)}
               </TextField>
@@ -599,71 +625,84 @@ export default function DemandNewPage() {
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
             <Controller name="status" control={control} render={({ field }) => (
-              <TextField {...field} select required label="Status" {...denseField} error={!!errors.status} helperText={errors.status?.message}>
+              <TextField {...field} select required label="Status" {...formField} error={!!errors.status} helperText={errors.status?.message}>
                 {listas.status.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
               </TextField>
             )} />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
             <Controller name="dataInicio" control={control} render={({ field }) => (
-              <TextField {...field} type="date" label="Data de início" {...denseField} InputLabelProps={{ shrink: true }} error={!!errors.dataInicio} helperText={errors.dataInicio?.message} />
+              <TextField {...field} type="date" label="Data de início" {...formField} InputLabelProps={{ shrink: true }} error={!!errors.dataInicio} helperText={errors.dataInicio?.message} />
             )} />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
             <Controller name="dataFinal" control={control} render={({ field }) => (
-              <TextField {...field} type="date" label="Data final" {...denseField} InputLabelProps={{ shrink: true }} error={!!errors.dataFinal} helperText={errors.dataFinal?.message} />
+              <TextField {...field} type="date" label="Data final" {...formField} InputLabelProps={{ shrink: true }} error={!!errors.dataFinal} helperText={errors.dataFinal?.message} />
             )} />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
             <Controller name="ticket" control={control} render={({ field }) => (
-              <TextField {...field} label="Nº Ticket" {...denseField} error={!!errors.ticket} helperText={errors.ticket?.message} />
+              <TextField {...field} label="Nº Ticket" {...formField} error={!!errors.ticket} helperText={errors.ticket?.message} />
             )} />
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
             <Controller
               name="solicitante"
               control={control}
-              render={({ field }) => (
-                <Autocomplete
-                  {...field}
-                  options={md.solicitantes}
-                  getOptionLabel={(option) => option?.nome || ''}
-                  isOptionEqualToValue={(option, value) => option.id === value?.id}
-                  value={md.solicitantes.find((s) => s.id === field.value) || null}
-                  onChange={(_, newValue) => field.onChange(newValue?.id || '')}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label="Solicitante"
-                      {...denseField}
-                      error={!!errors.solicitante}
-                      helperText={errors.solicitante?.message || 'Buscar'}
-                      placeholder="Buscar…"
-                    />
-                  )}
-                  renderOption={(props, option) => (
-                    <Box component="li" {...props} key={option.id}>
-                      <Typography variant="body2" fontWeight={600}>
-                        {option.nome}
-                      </Typography>
-                    </Box>
-                  )}
-                  noOptionsText="Nenhum solicitante encontrado"
-                  loading={md.solicitantes.length === 0}
-                  loadingText="Carregando solicitantes..."
-                  filterOptions={(options, { inputValue }) => {
-                    const term = inputValue.toLowerCase()
-                    return options.filter((option) =>
-                      option.nome.toLowerCase().includes(term)
-                    )
-                  }}
-                />
-              )}
+              render={({ field }) => {
+                const solicitanteHelper =
+                  errors.solicitante?.message ||
+                  (md.isSyncing
+                    ? 'Carregando lista…'
+                    : md.solicitantes.length === 0
+                      ? 'Nenhum solicitante na base. Cadastre em Dados → Solicitantes ou aguarde a sincronização.'
+                      : 'Digite para filtrar pelo nome')
+                return (
+                  <Autocomplete
+                    id="demanda-nova-solicitante"
+                    options={md.solicitantes}
+                    getOptionLabel={(option) => option?.nome || ''}
+                    isOptionEqualToValue={(option, value) => String(option?.id) === String(value?.id)}
+                    value={md.solicitantes.find((s) => String(s.id) === String(field.value ?? '')) || null}
+                    onChange={(_, newValue) => field.onChange(newValue?.id ?? '')}
+                    onBlur={field.onBlur}
+                    ref={field.ref}
+                    loading={md.isSyncing}
+                    loadingText="Carregando solicitantes…"
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        name={field.name}
+                        label="Solicitante"
+                        {...formField}
+                        error={!!errors.solicitante}
+                        helperText={solicitanteHelper}
+                        placeholder="Buscar pelo nome…"
+                      />
+                    )}
+                    renderOption={(props, option) => (
+                      <Box component="li" {...props} key={option.id}>
+                        <Typography variant="body2" fontWeight={600} sx={{ lineHeight: 1.45 }}>
+                          {option.nome}
+                        </Typography>
+                      </Box>
+                    )}
+                    noOptionsText={
+                      md.isSyncing ? 'Carregando…' : 'Nenhum resultado — verifique o texto ou cadastre o solicitante em Dados'
+                    }
+                    filterOptions={(options, { inputValue }) => {
+                      const term = inputValue.toLowerCase().trim()
+                      if (!term) return options
+                      return options.filter((option) => option.nome.toLowerCase().includes(term))
+                    }}
+                  />
+                )
+              }}
             />
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
             <Controller name="area" control={control} render={({ field }) => (
-              <TextField {...field} select label="Área solicitante" {...denseField} error={!!errors.area} helperText={errors.area?.message}>
+              <TextField {...field} select label="Área solicitante" {...formField} error={!!errors.area} helperText={errors.area?.message}>
                 {md.areas.map(ar => <MenuItem key={ar.id} value={ar.id}>{ar.nome}</MenuItem>)}
               </TextField>
             )} />
@@ -673,16 +712,7 @@ export default function DemandNewPage() {
           </Card>
 
           <Card elevation={0} sx={cardSx}>
-            <CardContent sx={{ py: 2.25, px: { xs: 2, sm: 2.25 }, '&:last-child': { pb: 2.25 } }}>
-              <SectionTitle>Descrição</SectionTitle>
-              <Controller name="descricao" control={control} render={({ field }) => (
-                <TextField {...field} label="Resumo da demanda" {...denseField} multiline minRows={2} maxRows={8} error={!!errors.descricao} helperText={errors.descricao?.message} />
-              )} />
-            </CardContent>
-          </Card>
-
-          <Card elevation={0} sx={cardSx}>
-            <CardContent sx={{ py: 2.25, px: { xs: 2, sm: 2.25 }, '&:last-child': { pb: 2.25 } }}>
+            <CardContent sx={{ py: 3, px: { xs: 2.25, sm: 3 }, '&:last-child': { pb: 3 } }}>
               <SectionTitle>Sistemas</SectionTitle>
               <Controller
                 name="sistemaIds"
@@ -700,7 +730,7 @@ export default function DemandNewPage() {
                         {...params}
                         label="Relacionados à demanda"
                         placeholder="Um ou mais"
-                        {...denseField}
+                        {...formField}
                         error={!!errors.sistemaIds}
                         helperText={(errors.sistemaIds as { message?: string } | undefined)?.message}
                       />
@@ -712,17 +742,17 @@ export default function DemandNewPage() {
           </Card>
 
           <Card elevation={0} sx={cardSx}>
-            <CardContent sx={{ py: 2.25, px: { xs: 2, sm: 2.25 }, '&:last-child': { pb: 2.25 } }}>
+            <CardContent sx={{ py: 3, px: { xs: 2.25, sm: 3 }, '&:last-child': { pb: 3 } }}>
               <SectionTitle>Métricas</SectionTitle>
-              <Grid container spacing={1.25}>
+              <Grid container spacing={2}>
                 <Grid item xs={6} sm={4}>
                   <Controller name="qtdRetornos" control={control} render={({ field }) => (
-                    <TextField {...field} type="number" label="Retornos" {...denseField} error={!!errors.qtdRetornos} helperText={errors.qtdRetornos?.message} />
+                    <TextField {...field} type="number" label="Retornos" {...formField} error={!!errors.qtdRetornos} helperText={errors.qtdRetornos?.message} />
                   )} />
                 </Grid>
                 <Grid item xs={12} sm={8}>
                   <Controller name="qualidade" control={control} render={({ field }) => (
-                    <TextField {...field} select label="Qualidade" {...denseField} error={!!errors.qualidade} helperText={errors.qualidade?.message}>
+                    <TextField {...field} select label="Qualidade" {...formField} error={!!errors.qualidade} helperText={errors.qualidade?.message}>
                       <MenuItem value="">Selecione…</MenuItem>
                       {listas.qualidade.map((q) => (
                         <MenuItem key={q.value} value={q.value} sx={{ whiteSpace: 'normal', lineHeight: 1.25, py: 0.75 }}>
@@ -756,7 +786,7 @@ export default function DemandNewPage() {
                                 {...field}
                                 type="number"
                                 label="Usuários"
-                                {...denseField}
+                                {...formField}
                                 placeholder="0"
                                 inputProps={{ min: 0, step: 1 }}
                               />
@@ -772,7 +802,7 @@ export default function DemandNewPage() {
                                 {...field}
                                 type="number"
                                 label="Clientes vinculados"
-                                {...denseField}
+                                {...formField}
                                 placeholder="0"
                                 inputProps={{ min: 0, step: 1 }}
                               />
@@ -788,11 +818,59 @@ export default function DemandNewPage() {
           </Card>
 
           <Card elevation={0} sx={{ ...cardSx, mb: 0 }}>
-            <CardContent sx={{ py: 2.25, px: { xs: 2, sm: 2.25 }, '&:last-child': { pb: 2.25 } }}>
-              <SectionTitle>Observações</SectionTitle>
-              <Controller name="observacoes" control={control} render={({ field }) => (
-                <TextField {...field} label="Notas adicionais" {...denseField} multiline minRows={2} maxRows={6} error={!!errors.observacoes} helperText={errors.observacoes?.message} />
-              )} />
+            <CardContent sx={{ py: 3, px: { xs: 2.25, sm: 3 }, '&:last-child': { pb: 3 } }}>
+              <SectionTitle>Descrição e observações</SectionTitle>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5, maxWidth: 720 }}>
+                Por último, descreva o pedido e acrescente notas. Os campos expandem com o texto; depois é só salvar.
+              </Typography>
+              <Stack spacing={3}>
+                <Box>
+                  <SubsectionLabel>Descrição da demanda</SubsectionLabel>
+                  <Controller
+                    name="descricao"
+                    control={control}
+                    render={({ field }) => (
+                      <TextField
+                        {...field}
+                        label="O que precisa ser feito, escopo e contexto"
+                        fullWidth
+                        size="medium"
+                        margin="normal"
+                        multiline
+                        minRows={12}
+                        maxRows={32}
+                        error={!!errors.descricao}
+                        helperText={errors.descricao?.message || 'Campo amplo para incluir requisitos, links internos ou trechos de e-mail.'}
+                        sx={{ mt: 0, ...longTextFieldSx }}
+                        InputLabelProps={{ shrink: true }}
+                      />
+                    )}
+                  />
+                </Box>
+                <Box sx={{ borderTop: '1px solid', borderColor: 'divider', pt: 2.5 }}>
+                  <SubsectionLabel>Observações</SubsectionLabel>
+                  <Controller
+                    name="observacoes"
+                    control={control}
+                    render={({ field }) => (
+                      <TextField
+                        {...field}
+                        label="Notas adicionais, restrições ou histórico relevante"
+                        fullWidth
+                        size="medium"
+                        margin="normal"
+                        multiline
+                        minRows={8}
+                        maxRows={28}
+                        error={!!errors.observacoes}
+                        helperText={errors.observacoes?.message || 'Opcional — SLA, contatos, exceções ou complementos ao cadastro.'}
+                        sx={{ mt: 0, ...longTextFieldSx }}
+                        InputLabelProps={{ shrink: true }}
+                      />
+                    )}
+                  />
+                </Box>
+              </Stack>
             </CardContent>
           </Card>
 

@@ -9,9 +9,11 @@
 #      ou abra PowerShell FORA do Cursor e volte a correr este script.
 #
 # Vercel — deploy por CLI a partir desta pasta (não precisa de GitHub).
-# Painel «portal-web»: Root Directory vazio quando o deploy parte da pasta portal-web (CLI ou zip só desta app).
-# Se no painel existir «portal-web», o caminho soma-se ao cwd e pode duplicar (portal-web\portal-web).
-# Há vercel.json na raiz do monorepo para o Nexus; este projeto no painel deve ser o app portal, não o mesmo cwd que usa a raiz.
+# Painel Vercel (obrigatório se a integração Git aponta ao monorepo inteiro):
+#   Settings → General → Root Directory = portal-web
+# Sem isto, a Vercel usa a raiz do repo e pode publicar outra app (ex.: Nexus).
+# Com deploy só por CLI desta pasta (cwd = portal-web), o Root Directory pode ficar vazio.
+# Há vercel.json dentro de portal-web; na raiz do monorepo não há vercel.json (evita colidir com Nexus).
 #
 # Uso:
 #   .\scripts\deploy-portal-web.ps1

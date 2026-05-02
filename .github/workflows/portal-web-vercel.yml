@@ -7,7 +7,9 @@
 #
 # Secrets (se usar manualmente): VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID_PORTAL_WEB
 #
-# Painel Vercel: com deploy pela pasta portal-web (CLI ou zip só desta app), Root Directory = vazio.
+# Painel Vercel (duas situações):
+# • Integração Git no monorepo inteiro → Root Directory = portal-web (OBRIGATÓRIO; senão publica a app errada).
+# • Deploy CLI ou workflow abaixo com working-directory portal-web → Root Directory vazio.
 
 on:
   workflow_dispatch:

@@ -1,5 +1,7 @@
-# Deploy manual do frontend (demandas-web). O deploy em push na branch main está em `deploy.yml`
+# Deploy manual do frontend (demandas-web / Nexus). O deploy em push na branch main está em `deploy.yml`
 # para evitar dois workflows a publicar no Vercel no mesmo push.
+#
+# Monorepo: não há vercel.json na raiz. Projeto Vercel «Nexus» com Git no repo inteiro → Root Directory = demandas-web.
 name: 🚀 Deploy Vercel (Frontend)
 
 on:
