@@ -424,10 +424,12 @@ type CadastroVisaoGeralItem = {
   descricao: string
   detalhes: string | null
   sortOrder: number
+  active: boolean
 }
 
 type CadastroVisaoGeralApolice = {
   id: string
+  active: boolean
   numeroApolice: string
   produto: ApoliceProduto
   fornecedor: string
@@ -447,7 +449,30 @@ type CadastroVisaoGeralApolice = {
   itens: CadastroVisaoGeralItem[]
 }
 
-function labelGrupoEconomico(e: CadastroVisaoGeralApolice['estipulante']): string {
+type CadastroVisaoGrupo = {
+  id: string
+  nome: string
+  cnpj: string | null
+  observacoes: string | null
+  active: boolean
+  _count: { estipulantes: number }
+}
+
+type CadastroVisaoEstipulante = {
+  id: string
+  razaoSocial: string
+  cnpj: string
+  grupoEconomicoNome: string
+  nexusClienteId: string | null
+  nomeFantasia: string | null
+  grupo: { id: string; nome: string } | null
+  _count: { apolices: number }
+}
+
+function labelGrupoEconomico(e: {
+  grupoEconomicoNome: string
+  grupo: { id: string; nome: string } | null
+}): string {
   const n = e.grupo?.nome?.trim()
   const g = e.grupoEconomicoNome?.trim()
   if (n && g && n.localeCompare(g, 'pt-BR', { sensitivity: 'base' }) !== 0) return `${g} (${n})`
@@ -457,23 +482,41 @@ function labelGrupoEconomico(e: CadastroVisaoGeralApolice['estipulante']): strin
 function VisaoGeral({ onError }: { onError: (s: string | null) => void }) {
   const [loading, setLoading] = useState(true)
   const [gruposEconomicosCount, setGruposEconomicosCount] = useState<number | null>(null)
+  const [estipulantesCount, setEstipulantesCount] = useState<number | null>(null)
+  const [apolicesTotalCount, setApolicesTotalCount] = useState<number | null>(null)
+  const [grupos, setGrupos] = useState<CadastroVisaoGrupo[]>([])
+  const [estipulantes, setEstipulantes] = useState<CadastroVisaoEstipulante[]>([])
   const [apolices, setApolices] = useState<CadastroVisaoGeralApolice[]>([])
 
   const load = useCallback(async () => {
     setLoading(true)
     onError(null)
-    const r = await api<{ gruposEconomicosCount: number; apolices: CadastroVisaoGeralApolice[] }>(
-      '/seguros/cadastro-visao-geral',
-    )
+    const r = await api<{
+      gruposEconomicosCount: number
+      estipulantesCount: number
+      apolicesTotalCount: number
+      grupos: CadastroVisaoGrupo[]
+      estipulantes: CadastroVisaoEstipulante[]
+      apolices: CadastroVisaoGeralApolice[]
+    }>('/seguros/cadastro-visao-geral')
     setLoading(false)
     if (!r.ok) {
       onError(r.error || 'Erro ao carregar visão geral do cadastro.')
+      setGrupos([])
+      setEstipulantes([])
       setApolices([])
       setGruposEconomicosCount(null)
+      setEstipulantesCount(null)
+      setApolicesTotalCount(null)
       return
     }
-    setGruposEconomicosCount(r.data?.gruposEconomicosCount ?? 0)
-    setApolices(r.data?.apolices ?? [])
+    const d = r.data
+    setGruposEconomicosCount(d?.gruposEconomicosCount ?? 0)
+    setEstipulantesCount(d?.estipulantesCount ?? 0)
+    setApolicesTotalCount(d?.apolicesTotalCount ?? 0)
+    setGrupos(d?.grupos ?? [])
+    setEstipulantes(d?.estipulantes ?? [])
+    setApolices(d?.apolices ?? [])
   }, [onError])
 
   useEffect(() => {
@@ -503,20 +546,114 @@ function VisaoGeral({ onError }: { onError: (s: string | null) => void }) {
         </Box>
         <Divider sx={{ my: 2 }} />
         <Typography variant="body2" color="text.secondary">
-          Grupos económicos (cadastro local):{' '}
-          <strong>{gruposEconomicosCount === null ? '—' : gruposEconomicosCount}</strong>
-          {' · '}
-          Apólices ativas listadas: <strong>{loading ? '…' : apolices.length}</strong>
+          Resumo na base: grupos locais <strong>{loading ? '…' : (gruposEconomicosCount ?? '—')}</strong>
+          {' · '}estipulantes <strong>{loading ? '…' : (estipulantesCount ?? '—')}</strong>
+          {' · '}apólices (todas) <strong>{loading ? '…' : (apolicesTotalCount ?? '—')}</strong>
+          {' · '}linhas de apólice nesta vista <strong>{loading ? '…' : apolices.length}</strong>
+          {apolicesTotalCount != null && apolices.length < apolicesTotalCount ? (
+            <span>
+              {' '}
+              (mostram-se até 2000 apólices; há mais no total—use as secções à esquerda para detalhe.)
+            </span>
+          ) : null}
         </Typography>
       </Paper>
 
       <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden' }}>
         <Box sx={{ px: 2, py: 1.5, bgcolor: 'action.hover' }}>
           <Typography variant="subtitle1" fontWeight={700}>
-            Cadastro consolidado (grupo → estipulante → apólice → itens)
+            Grupos económicos (cadastro local)
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            Todas as apólices ativas no portal, com itens cadastrados por apólice (até 500 apólices / 200 itens cada).
+            Mesmo conteúdo da secção «Grupos económicos» (até 500 linhas).
+          </Typography>
+        </Box>
+        {loading ? (
+          <Typography sx={{ p: 2 }} color="text.secondary">
+            A carregar…
+          </Typography>
+        ) : grupos.length === 0 ? (
+          <Typography sx={{ p: 2 }} color="text.secondary">
+            Nenhum grupo local ativo.
+          </Typography>
+        ) : (
+          <TableContainer sx={{ maxHeight: { xs: 'none', md: 320 } }}>
+            <Table size="small" stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Nome</TableCell>
+                  <TableCell>CNPJ</TableCell>
+                  <TableCell align="right">Estipulantes</TableCell>
+                  <TableCell>Observações</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {grupos.map((g) => (
+                  <TableRow key={g.id} hover>
+                    <TableCell>{g.nome}</TableCell>
+                    <TableCell>{g.cnpj ?? '—'}</TableCell>
+                    <TableCell align="right">{g._count.estipulantes}</TableCell>
+                    <TableCell sx={{ maxWidth: 280 }}>{g.observacoes ?? '—'}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+      </Paper>
+
+      <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden' }}>
+        <Box sx={{ px: 2, py: 1.5, bgcolor: 'action.hover' }}>
+          <Typography variant="subtitle1" fontWeight={700}>
+            Estipulantes
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Todos os estipulantes ativos (até 1000 linhas), alinhado à secção «Estipulantes».
+          </Typography>
+        </Box>
+        {loading ? (
+          <Typography sx={{ p: 2 }} color="text.secondary">
+            A carregar…
+          </Typography>
+        ) : estipulantes.length === 0 ? (
+          <Typography sx={{ p: 2 }} color="text.secondary">
+            Nenhum estipulante ativo.
+          </Typography>
+        ) : (
+          <TableContainer sx={{ maxHeight: { xs: 'none', md: 360 } }}>
+            <Table size="small" stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Grupo económico</TableCell>
+                  <TableCell>Razão social</TableCell>
+                  <TableCell>CNPJ</TableCell>
+                  <TableCell>Cliente Nexus</TableCell>
+                  <TableCell align="right">Apólices</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {estipulantes.map((e) => (
+                  <TableRow key={e.id} hover>
+                    <TableCell sx={{ maxWidth: 160 }}>{labelGrupoEconomico(e)}</TableCell>
+                    <TableCell sx={{ maxWidth: 220 }}>{e.razaoSocial}</TableCell>
+                    <TableCell>{e.cnpj}</TableCell>
+                    <TableCell sx={{ fontFamily: 'monospace', fontSize: 12 }}>{e.nexusClienteId ?? '—'}</TableCell>
+                    <TableCell align="right">{e._count.apolices}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+      </Paper>
+
+      <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden' }}>
+        <Box sx={{ px: 2, py: 1.5, bgcolor: 'action.hover' }}>
+          <Typography variant="subtitle1" fontWeight={700}>
+            Apólices e itens (consolidado)
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Todas as apólices (ativas e inativas), com até 500 itens por apólice. Limite de 2000 apólices nesta vista.
           </Typography>
         </Box>
         {loading ? (
@@ -525,13 +662,14 @@ function VisaoGeral({ onError }: { onError: (s: string | null) => void }) {
           </Typography>
         ) : apolices.length === 0 ? (
           <Typography sx={{ p: 2 }} color="text.secondary">
-            Ainda não há apólices ativas no portal. Utilize as secções à esquerda para cadastrar grupo, estipulante, apólice e itens.
+            Ainda não há apólices no portal.
           </Typography>
         ) : (
           <TableContainer sx={{ maxHeight: { xs: 'none', md: '70vh' } }}>
             <Table size="small" stickyHeader>
               <TableHead>
                 <TableRow>
+                  <TableCell>Situação</TableCell>
                   <TableCell>Grupo económico</TableCell>
                   <TableCell>Estipulante</TableCell>
                   <TableCell>Nº apólice</TableCell>
@@ -543,7 +681,19 @@ function VisaoGeral({ onError }: { onError: (s: string | null) => void }) {
               </TableHead>
               <TableBody>
                 {apolices.map((a) => (
-                  <TableRow key={a.id} hover>
+                  <TableRow
+                    key={a.id}
+                    hover
+                    sx={{ opacity: a.active ? 1 : 0.72, bgcolor: a.active ? 'inherit' : 'action.hover' }}
+                  >
+                    <TableCell sx={{ verticalAlign: 'top' }}>
+                      <Chip
+                        size="small"
+                        label={a.active ? 'Ativa' : 'Inativa'}
+                        color={a.active ? 'success' : 'default'}
+                        variant="outlined"
+                      />
+                    </TableCell>
                     <TableCell sx={{ maxWidth: 160, verticalAlign: 'top' }}>
                       {labelGrupoEconomico(a.estipulante)}
                     </TableCell>
@@ -563,9 +713,15 @@ function VisaoGeral({ onError }: { onError: (s: string | null) => void }) {
                         <Box component="ul" sx={{ m: 0, pl: 2, maxWidth: 420 }}>
                           {a.itens.map((it) => (
                             <li key={it.id}>
-                              <Typography variant="caption" component="span" display="block">
+                              <Typography
+                                variant="caption"
+                                component="span"
+                                display="block"
+                                sx={{ opacity: it.active ? 1 : 0.65 }}
+                              >
                                 <strong>{ITEM_TIPO_LABEL[it.tipo]}</strong>: {it.descricao}
                                 {it.detalhes ? ` — ${it.detalhes}` : ''}
+                                {!it.active ? ' (item inativo)' : ''}
                               </Typography>
                             </li>
                           ))}

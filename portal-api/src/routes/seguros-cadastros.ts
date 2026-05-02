@@ -592,56 +592,103 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
     }
   })
 
-  /** Visão geral do cadastro: todas as apólices ativas com estipulante, grupo económico e itens. */
+  /** Visão geral: grupos locais, estipulantes, todas as apólices (ativas e inativas) com itens. Limites altos para espelhar as outras secções. */
   app.get('/seguros/cadastro-visao-geral', async (req, reply) => {
     const u = await requirePortalUser(req, reply)
     if (!u) return
 
-    const gruposEconomicosCount = await prisma.portalGrupoEconomico.count({ where: { active: true } })
-    const apolices = await prisma.portalSeguroApolice.findMany({
-      where: { active: true },
-      take: 500,
-      orderBy: [
-        { estipulante: { grupoEconomicoNome: 'asc' } },
-        { estipulante: { razaoSocial: 'asc' } },
-        { numeroApolice: 'asc' },
-      ],
-      select: {
-        id: true,
-        numeroApolice: true,
-        produto: true,
-        fornecedor: true,
-        subestipulante: true,
-        plano: true,
-        coberturas: true,
-        vigenciaInicio: true,
-        vigenciaFim: true,
-        nexusContratoId: true,
-        estipulante: {
-          select: {
-            id: true,
-            razaoSocial: true,
-            grupoEconomicoNome: true,
-            cnpj: true,
-            grupo: { select: { id: true, nome: true } },
+    const [
+      gruposEconomicosCount,
+      estipulantesCount,
+      apolicesTotalCount,
+      grupos,
+      estipulantes,
+      apolices,
+    ] = await Promise.all([
+      prisma.portalGrupoEconomico.count({ where: { active: true } }),
+      prisma.portalSeguroEstipulante.count({ where: { active: true } }),
+      prisma.portalSeguroApolice.count(),
+      prisma.portalGrupoEconomico.findMany({
+        where: { active: true },
+        take: 500,
+        orderBy: { nome: 'asc' },
+        select: {
+          id: true,
+          nome: true,
+          cnpj: true,
+          observacoes: true,
+          active: true,
+          _count: { select: { estipulantes: true } },
+        },
+      }),
+      prisma.portalSeguroEstipulante.findMany({
+        where: { active: true },
+        take: 1000,
+        orderBy: [{ grupoEconomicoNome: 'asc' }, { razaoSocial: 'asc' }],
+        select: {
+          id: true,
+          razaoSocial: true,
+          cnpj: true,
+          grupoEconomicoNome: true,
+          nexusClienteId: true,
+          nomeFantasia: true,
+          grupo: { select: { id: true, nome: true } },
+          _count: { select: { apolices: true } },
+        },
+      }),
+      prisma.portalSeguroApolice.findMany({
+        take: 2000,
+        orderBy: [
+          { active: 'desc' },
+          { estipulante: { grupoEconomicoNome: 'asc' } },
+          { estipulante: { razaoSocial: 'asc' } },
+          { numeroApolice: 'asc' },
+        ],
+        select: {
+          id: true,
+          active: true,
+          numeroApolice: true,
+          produto: true,
+          fornecedor: true,
+          subestipulante: true,
+          plano: true,
+          coberturas: true,
+          vigenciaInicio: true,
+          vigenciaFim: true,
+          nexusContratoId: true,
+          estipulante: {
+            select: {
+              id: true,
+              razaoSocial: true,
+              grupoEconomicoNome: true,
+              cnpj: true,
+              grupo: { select: { id: true, nome: true } },
+            },
+          },
+          itens: {
+            orderBy: { sortOrder: 'asc' },
+            take: 500,
+            select: {
+              id: true,
+              tipo: true,
+              descricao: true,
+              detalhes: true,
+              sortOrder: true,
+              active: true,
+            },
           },
         },
-        itens: {
-          where: { active: true },
-          orderBy: { sortOrder: 'asc' },
-          take: 200,
-          select: {
-            id: true,
-            tipo: true,
-            descricao: true,
-            detalhes: true,
-            sortOrder: true,
-          },
-        },
-      },
-    })
+      }),
+    ])
 
-    return reply.send({ gruposEconomicosCount, apolices })
+    return reply.send({
+      gruposEconomicosCount,
+      estipulantesCount,
+      apolicesTotalCount,
+      grupos,
+      estipulantes,
+      apolices,
+    })
   })
 
   // --- Apólices ---
