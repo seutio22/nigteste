@@ -592,107 +592,62 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
     }
   })
 
-  /** Visão geral: grupos locais, estipulantes, todas as apólices (ativas e inativas) com itens. Limites altos para espelhar as outras secções. */
+  /**
+   * Visão geral: contagens + lista plana de apólices (uma linha = grupo + estipulante + apólice).
+   * Não envia `itens` aqui (payload pode estourar o JSON no browser); use GET /seguros/apolices/:id/itens ao abrir o detalhe.
+   */
   app.get('/seguros/cadastro-visao-geral', async (req, reply) => {
     const u = await requirePortalUser(req, reply)
     if (!u) return
 
-    const [
-      gruposEconomicosCount,
-      estipulantesCount,
-      apolicesTotalCount,
-      grupos,
-      estipulantes,
-      apolices,
-    ] = await Promise.all([
-      prisma.portalGrupoEconomico.count({ where: { active: true } }),
-      prisma.portalSeguroEstipulante.count({ where: { active: true } }),
-      prisma.portalSeguroApolice.count(),
-      prisma.portalGrupoEconomico.findMany({
-        where: { active: true },
-        take: 500,
-        orderBy: { nome: 'asc' },
-        select: {
-          id: true,
-          nome: true,
-          cnpj: true,
-          observacoes: true,
-          active: true,
-          _count: { select: { estipulantes: true } },
-        },
-      }),
-      prisma.portalSeguroEstipulante.findMany({
-        where: { active: true },
-        take: 1000,
-        orderBy: [{ grupoEconomicoNome: 'asc' }, { razaoSocial: 'asc' }],
-        select: {
-          id: true,
-          razaoSocial: true,
-          cnpj: true,
-          grupoEconomicoNome: true,
-          nexusClienteId: true,
-          nomeFantasia: true,
-          grupo: { select: { id: true, nome: true } },
-          _count: { select: { apolices: true } },
-        },
-      }),
-      prisma.portalSeguroApolice.findMany({
-        take: 2000,
-        orderBy: [
-          { active: 'desc' },
-          { estipulante: { grupoEconomicoNome: 'asc' } },
-          { estipulante: { razaoSocial: 'asc' } },
-          { numeroApolice: 'asc' },
-        ],
-        select: {
-          id: true,
-          active: true,
-          numeroApolice: true,
-          produto: true,
-          fornecedor: true,
-          subestipulante: true,
-          plano: true,
-          coberturas: true,
-          vigenciaInicio: true,
-          vigenciaFim: true,
-          nexusContratoId: true,
-          observacoes: true,
-          estipulante: {
-            select: {
-              id: true,
-              razaoSocial: true,
-              grupoEconomicoNome: true,
-              cnpj: true,
-              nexusClienteId: true,
-              nomeFantasia: true,
-              observacoes: true,
-              grupo: { select: { id: true, nome: true } },
+    try {
+      const [gruposEconomicosCount, estipulantesCount, apolicesTotalCount, apolices] = await Promise.all([
+        prisma.portalGrupoEconomico.count({ where: { active: true } }),
+        prisma.portalSeguroEstipulante.count({ where: { active: true } }),
+        prisma.portalSeguroApolice.count(),
+        prisma.portalSeguroApolice.findMany({
+          take: 2000,
+          orderBy: [{ active: 'desc' }, { updatedAt: 'desc' }],
+          select: {
+            id: true,
+            active: true,
+            numeroApolice: true,
+            produto: true,
+            fornecedor: true,
+            subestipulante: true,
+            plano: true,
+            coberturas: true,
+            vigenciaInicio: true,
+            vigenciaFim: true,
+            nexusContratoId: true,
+            observacoes: true,
+            estipulante: {
+              select: {
+                id: true,
+                razaoSocial: true,
+                grupoEconomicoNome: true,
+                cnpj: true,
+                nexusClienteId: true,
+                nomeFantasia: true,
+                observacoes: true,
+                grupo: { select: { id: true, nome: true } },
+              },
             },
+            _count: { select: { itens: true } },
           },
-          itens: {
-            orderBy: { sortOrder: 'asc' },
-            take: 500,
-            select: {
-              id: true,
-              tipo: true,
-              descricao: true,
-              detalhes: true,
-              sortOrder: true,
-              active: true,
-            },
-          },
-        },
-      }),
-    ])
+        }),
+      ])
 
-    return reply.send({
-      gruposEconomicosCount,
-      estipulantesCount,
-      apolicesTotalCount,
-      grupos,
-      estipulantes,
-      apolices,
-    })
+      return reply.send({
+        gruposEconomicosCount,
+        estipulantesCount,
+        apolicesTotalCount,
+        apolices,
+      })
+    } catch (e) {
+      req.log.error(e)
+      return reply.code(500).send({ error: 'Erro ao carregar visão geral do cadastro.' })
+    }
   })
 
   // --- Apólices ---

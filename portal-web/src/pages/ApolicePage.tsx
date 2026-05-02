@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link as RouterLink } from 'react-router-dom'
 import {
-  Accordion,
-  AccordionDetails,
-  AccordionSummary,
   Alert,
   Box,
   Button,
@@ -41,7 +38,6 @@ import DescriptionIcon from '@mui/icons-material/Description'
 import ListAltIcon from '@mui/icons-material/ListAlt'
 import HomeWorkIcon from '@mui/icons-material/HomeWork'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import SearchIcon from '@mui/icons-material/Search'
 import CloseIcon from '@mui/icons-material/Close'
 import { api } from '../lib/api'
@@ -444,6 +440,7 @@ type CadastroVisaoGeralItem = {
   active: boolean
 }
 
+/** Lista da visão geral: uma linha por apólice (grupo + estipulante embutidos). Itens carregam ao abrir o detalhe. */
 type CadastroVisaoGeralApolice = {
   id: string
   active: boolean
@@ -467,27 +464,8 @@ type CadastroVisaoGeralApolice = {
     observacoes: string | null
     grupo: { id: string; nome: string } | null
   }
-  itens: CadastroVisaoGeralItem[]
-}
-
-type CadastroVisaoGrupo = {
-  id: string
-  nome: string
-  cnpj: string | null
-  observacoes: string | null
-  active: boolean
-  _count: { estipulantes: number }
-}
-
-type CadastroVisaoEstipulante = {
-  id: string
-  razaoSocial: string
-  cnpj: string
-  grupoEconomicoNome: string
-  nexusClienteId: string | null
-  nomeFantasia: string | null
-  grupo: { id: string; nome: string } | null
-  _count: { apolices: number }
+  _count?: { itens: number }
+  itens?: CadastroVisaoGeralItem[]
 }
 
 function labelGrupoEconomico(e: {
@@ -506,16 +484,19 @@ function visaoMatchesQuery(q: string, parts: Array<string | null | undefined>): 
   return parts.some((p) => p != null && String(p).toLowerCase().includes(t))
 }
 
+function visaoItensCount(a: CadastroVisaoGeralApolice): number {
+  return a._count?.itens ?? a.itens?.length ?? 0
+}
+
 function VisaoGeral({ onError }: { onError: (s: string | null) => void }) {
   const [loading, setLoading] = useState(true)
   const [gruposEconomicosCount, setGruposEconomicosCount] = useState<number | null>(null)
   const [estipulantesCount, setEstipulantesCount] = useState<number | null>(null)
   const [apolicesTotalCount, setApolicesTotalCount] = useState<number | null>(null)
-  const [grupos, setGrupos] = useState<CadastroVisaoGrupo[]>([])
-  const [estipulantes, setEstipulantes] = useState<CadastroVisaoEstipulante[]>([])
   const [apolices, setApolices] = useState<CadastroVisaoGeralApolice[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [detailAp, setDetailAp] = useState<CadastroVisaoGeralApolice | null>(null)
+  const [detailItensLoading, setDetailItensLoading] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -524,15 +505,11 @@ function VisaoGeral({ onError }: { onError: (s: string | null) => void }) {
       gruposEconomicosCount: number
       estipulantesCount: number
       apolicesTotalCount: number
-      grupos: CadastroVisaoGrupo[]
-      estipulantes: CadastroVisaoEstipulante[]
       apolices: CadastroVisaoGeralApolice[]
     }>('/seguros/cadastro-visao-geral')
     setLoading(false)
-    if (!r.ok) {
+    if (!r.ok || !r.data) {
       onError(r.error || 'Erro ao carregar visão geral do cadastro.')
-      setGrupos([])
-      setEstipulantes([])
       setApolices([])
       setGruposEconomicosCount(null)
       setEstipulantesCount(null)
@@ -540,42 +517,40 @@ function VisaoGeral({ onError }: { onError: (s: string | null) => void }) {
       return
     }
     const d = r.data
-    setGruposEconomicosCount(d?.gruposEconomicosCount ?? 0)
-    setEstipulantesCount(d?.estipulantesCount ?? 0)
-    setApolicesTotalCount(d?.apolicesTotalCount ?? 0)
-    setGrupos(d?.grupos ?? [])
-    setEstipulantes(d?.estipulantes ?? [])
-    setApolices(d?.apolices ?? [])
+    setGruposEconomicosCount(d.gruposEconomicosCount ?? 0)
+    setEstipulantesCount(d.estipulantesCount ?? 0)
+    setApolicesTotalCount(d.apolicesTotalCount ?? 0)
+    setApolices(Array.isArray(d.apolices) ? d.apolices : [])
   }, [onError])
 
   useEffect(() => {
     void load()
   }, [load])
 
-  const filterGrupos = useMemo(() => {
-    if (!searchTerm.trim()) return grupos
-    return grupos.filter((g) => visaoMatchesQuery(searchTerm, [g.nome, g.cnpj, g.observacoes]))
-  }, [grupos, searchTerm])
-
-  const filterEst = useMemo(() => {
-    if (!searchTerm.trim()) return estipulantes
-    return estipulantes.filter((e) =>
-      visaoMatchesQuery(searchTerm, [
-        e.razaoSocial,
-        e.cnpj,
-        e.grupoEconomicoNome,
-        e.nexusClienteId,
-        e.nomeFantasia,
-        labelGrupoEconomico(e),
-      ]),
-    )
-  }, [estipulantes, searchTerm])
+  const openDetail = useCallback(
+    (a: CadastroVisaoGeralApolice) => {
+      setDetailAp({ ...a, itens: [] })
+      setDetailItensLoading(true)
+      onError(null)
+      void (async () => {
+        const r = await api<{ itens: CadastroVisaoGeralItem[] }>(`/seguros/apolices/${a.id}/itens`)
+        setDetailItensLoading(false)
+        if (!r.ok) {
+          onError(r.error || 'Erro ao carregar itens da apólice.')
+          setDetailAp((prev) => (prev && prev.id === a.id ? { ...prev, itens: [] } : prev))
+          return
+        }
+        const list = r.data?.itens ?? []
+        setDetailAp((prev) => (prev && prev.id === a.id ? { ...prev, itens: list } : prev))
+      })()
+    },
+    [onError],
+  )
 
   const filterAp = useMemo(() => {
     if (!searchTerm.trim()) return apolices
-    return apolices.filter((a) => {
-      const itensBlob = a.itens.map((i) => `${ITEM_TIPO_LABEL[i.tipo]} ${i.descricao} ${i.detalhes || ''}`).join(' ')
-      return visaoMatchesQuery(searchTerm, [
+    return apolices.filter((a) =>
+      visaoMatchesQuery(searchTerm, [
         a.numeroApolice,
         PRODUTO_LABEL[a.produto],
         a.fornecedor,
@@ -591,23 +566,22 @@ function VisaoGeral({ onError }: { onError: (s: string | null) => void }) {
         a.estipulante.observacoes,
         a.estipulante.nexusClienteId,
         labelGrupoEconomico(a.estipulante),
-        itensBlob,
-      ])
-    })
+      ]),
+    )
   }, [apolices, searchTerm])
 
   return (
     <>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         <Alert severity="info" sx={{ borderRadius: 2 }}>
-          <strong>Consulta.</strong> Pesquise e clique numa linha de apólice para ver grupo económico, estipulante, dados da apólice e todos os itens.
-          Para <strong>incluir ou alterar</strong> dados, use no menu as secções Grupos económicos, Estipulantes, Apólices ou Itens da apólice.
+          <strong>Consulta unificada.</strong> Cada linha junta <strong>grupo económico</strong>, <strong>estipulante</strong> e <strong>apólice</strong>. Clique para ver o detalhe e carregar os{' '}
+          <strong>itens</strong>. Para <strong>incluir ou alterar</strong>, use no menu Grupos económicos, Estipulantes, Apólices ou Itens da apólice.
         </Alert>
 
         <TextField
           fullWidth
           size="small"
-          placeholder="Pesquisar por grupo, estipulante, nº apólice, produto, fornecedor, texto dos itens…"
+          placeholder="Pesquisar por grupo, estipulante, CNPJ, nº apólice, produto, fornecedor…"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           InputProps={{
@@ -621,169 +595,108 @@ function VisaoGeral({ onError }: { onError: (s: string | null) => void }) {
 
         <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
           <Typography variant="body2" color="text.secondary">
-            Resumo na base: grupos <strong>{loading ? '…' : (gruposEconomicosCount ?? '—')}</strong>
-            {' · '}estipulantes <strong>{loading ? '…' : (estipulantesCount ?? '—')}</strong>
-            {' · '}apólices (total) <strong>{loading ? '…' : (apolicesTotalCount ?? '—')}</strong>
-            {' · '}com o filtro: grupos <strong>{loading ? '…' : filterGrupos.length}</strong> / estipulantes{' '}
-            <strong>{loading ? '…' : filterEst.length}</strong> / apólices <strong>{loading ? '…' : filterAp.length}</strong>
+            Na base: <strong>{loading ? '…' : (gruposEconomicosCount ?? '—')}</strong> grupos ·{' '}
+            <strong>{loading ? '…' : (estipulantesCount ?? '—')}</strong> estipulantes ·{' '}
+            <strong>{loading ? '…' : (apolicesTotalCount ?? '—')}</strong> apólices (total)
+            {' · '}
+            <strong>{loading ? '…' : filterAp.length}</strong> linha(s) com o filtro atual
             {apolicesTotalCount != null && apolices.length < apolicesTotalCount ? (
-              <span> (carregadas até 2000 apólices nesta vista)</span>
+              <span> (mostram-se até 2000 apólices por vista)</span>
             ) : null}
           </Typography>
         </Paper>
 
         {loading ? (
           <Typography color="text.secondary">A carregar cadastro…</Typography>
+        ) : filterAp.length === 0 ? (
+          <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
+            <Typography color="text.secondary">
+              {apolices.length === 0
+                ? 'Não há apólices na base ou a API não devolveu dados. Confirme o deploy da API e a variável VITE_API_URL no frontend.'
+                : 'Nenhuma linha corresponde à pesquisa.'}
+            </Typography>
+          </Paper>
         ) : (
-          <>
-            <Accordion defaultExpanded disableGutters elevation={0} sx={{ border: 1, borderColor: 'divider', borderRadius: 2, '&:before': { display: 'none' } }}>
-              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Typography fontWeight={700}>
-                  Apólices ({filterAp.length}) — clique numa linha para ver o detalhe completo
-                </Typography>
-              </AccordionSummary>
-              <AccordionDetails sx={{ px: 0, pt: 0 }}>
-                {filterAp.length === 0 ? (
-                  <Typography sx={{ px: 2, pb: 2 }} color="text.secondary">
-                    Nenhuma apólice corresponde à pesquisa.
-                  </Typography>
-                ) : (
-                  <TableContainer sx={{ maxHeight: { xs: 'none', md: '55vh' } }}>
-                    <Table size="small" stickyHeader>
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>Situação</TableCell>
-                          <TableCell>Grupo económico</TableCell>
-                          <TableCell>Estipulante</TableCell>
-                          <TableCell>Nº apólice</TableCell>
-                          <TableCell>Produto</TableCell>
-                          <TableCell>Fornecedor</TableCell>
-                          <TableCell>Vigência</TableCell>
-                          <TableCell align="center">Itens</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {filterAp.map((a) => (
-                          <TableRow
-                            key={a.id}
-                            hover
-                            onClick={() => setDetailAp(a)}
-                            sx={{
-                              cursor: 'pointer',
-                              opacity: a.active ? 1 : 0.78,
-                              bgcolor: a.active ? 'inherit' : 'action.hover',
-                              '&:hover': { bgcolor: 'action.selected' },
-                            }}
-                          >
-                            <TableCell sx={{ verticalAlign: 'middle' }}>
-                              <Chip
-                                size="small"
-                                label={a.active ? 'Ativa' : 'Inativa'}
-                                color={a.active ? 'success' : 'default'}
-                                variant="outlined"
-                              />
-                            </TableCell>
-                            <TableCell sx={{ maxWidth: 140 }}>{labelGrupoEconomico(a.estipulante)}</TableCell>
-                            <TableCell sx={{ maxWidth: 180 }}>{a.estipulante.razaoSocial}</TableCell>
-                            <TableCell>{a.numeroApolice}</TableCell>
-                            <TableCell>{PRODUTO_LABEL[a.produto]}</TableCell>
-                            <TableCell sx={{ maxWidth: 120 }}>{a.fornecedor}</TableCell>
-                            <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                              {fmtDate(a.vigenciaInicio)} — {fmtDate(a.vigenciaFim)}
-                            </TableCell>
-                            <TableCell align="center">
-                              <Chip size="small" label={`${a.itens.length}`} variant="outlined" />
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                )}
-              </AccordionDetails>
-            </Accordion>
-
-            <Accordion disableGutters elevation={0} sx={{ border: 1, borderColor: 'divider', borderRadius: 2, '&:before': { display: 'none' } }}>
-              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Typography fontWeight={700}>Estipulantes ({filterEst.length})</Typography>
-              </AccordionSummary>
-              <AccordionDetails sx={{ px: 0, pt: 0 }}>
-                {filterEst.length === 0 ? (
-                  <Typography sx={{ px: 2, pb: 2 }} color="text.secondary">
-                    Nenhum estipulante corresponde à pesquisa.
-                  </Typography>
-                ) : (
-                  <TableContainer sx={{ maxHeight: 280 }}>
-                    <Table size="small" stickyHeader>
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>Grupo económico</TableCell>
-                          <TableCell>Razão social</TableCell>
-                          <TableCell>CNPJ</TableCell>
-                          <TableCell>Cliente Nexus</TableCell>
-                          <TableCell align="right">Apólices</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {filterEst.map((e) => (
-                          <TableRow key={e.id} hover>
-                            <TableCell sx={{ maxWidth: 160 }}>{labelGrupoEconomico(e)}</TableCell>
-                            <TableCell sx={{ maxWidth: 220 }}>{e.razaoSocial}</TableCell>
-                            <TableCell>{e.cnpj}</TableCell>
-                            <TableCell sx={{ fontFamily: 'monospace', fontSize: 12 }}>{e.nexusClienteId ?? '—'}</TableCell>
-                            <TableCell align="right">{e._count.apolices}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                )}
-              </AccordionDetails>
-            </Accordion>
-
-            <Accordion disableGutters elevation={0} sx={{ border: 1, borderColor: 'divider', borderRadius: 2, '&:before': { display: 'none' } }}>
-              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Typography fontWeight={700}>Grupos económicos — cadastro local ({filterGrupos.length})</Typography>
-              </AccordionSummary>
-              <AccordionDetails sx={{ px: 0, pt: 0 }}>
-                {filterGrupos.length === 0 ? (
-                  <Typography sx={{ px: 2, pb: 2 }} color="text.secondary">
-                    Nenhum grupo corresponde à pesquisa.
-                  </Typography>
-                ) : (
-                  <TableContainer sx={{ maxHeight: 280 }}>
-                    <Table size="small" stickyHeader>
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>Nome</TableCell>
-                          <TableCell>CNPJ</TableCell>
-                          <TableCell align="right">Estipulantes</TableCell>
-                          <TableCell>Observações</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {filterGrupos.map((g) => (
-                          <TableRow key={g.id} hover>
-                            <TableCell>{g.nome}</TableCell>
-                            <TableCell>{g.cnpj ?? '—'}</TableCell>
-                            <TableCell align="right">{g._count.estipulantes}</TableCell>
-                            <TableCell sx={{ maxWidth: 260 }}>{g.observacoes ?? '—'}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                )}
-              </AccordionDetails>
-            </Accordion>
-          </>
+          <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden' }}>
+            <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider', bgcolor: 'action.hover' }}>
+              <Typography fontWeight={700}>Cadastro unificado — uma linha por apólice ({filterAp.length})</Typography>
+              <Typography variant="caption" color="text.secondary">
+                Grupo económico + estipulante + dados da apólice na mesma linha; clique para ver itens.
+              </Typography>
+            </Box>
+            <TableContainer sx={{ maxHeight: { xs: 'none', md: '60vh' } }}>
+              <Table size="small" stickyHeader>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Situação</TableCell>
+                    <TableCell sx={{ minWidth: 140 }}>Grupo económico</TableCell>
+                    <TableCell sx={{ minWidth: 200 }}>Estipulante (CNPJ)</TableCell>
+                    <TableCell>Nº apólice</TableCell>
+                    <TableCell>Produto</TableCell>
+                    <TableCell>Fornecedor</TableCell>
+                    <TableCell>Vigência</TableCell>
+                    <TableCell align="center">Itens</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {filterAp.map((a) => (
+                    <TableRow
+                      key={a.id}
+                      hover
+                      onClick={() => openDetail(a)}
+                      sx={{
+                        cursor: 'pointer',
+                        opacity: a.active ? 1 : 0.78,
+                        bgcolor: a.active ? 'inherit' : 'action.hover',
+                        '&:hover': { bgcolor: 'action.selected' },
+                      }}
+                    >
+                      <TableCell sx={{ verticalAlign: 'middle' }}>
+                        <Chip
+                          size="small"
+                          label={a.active ? 'Ativa' : 'Inativa'}
+                          color={a.active ? 'success' : 'default'}
+                          variant="outlined"
+                        />
+                      </TableCell>
+                      <TableCell sx={{ maxWidth: 220, verticalAlign: 'top' }}>
+                        <Typography variant="body2" sx={{ lineHeight: 1.35 }}>
+                          {labelGrupoEconomico(a.estipulante)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ maxWidth: 260, verticalAlign: 'top' }}>
+                        <Typography variant="body2" fontWeight={600} sx={{ lineHeight: 1.35 }}>
+                          {a.estipulante.razaoSocial}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          {a.estipulante.cnpj}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ verticalAlign: 'top', fontWeight: 600 }}>{a.numeroApolice}</TableCell>
+                      <TableCell sx={{ verticalAlign: 'top' }}>{PRODUTO_LABEL[a.produto]}</TableCell>
+                      <TableCell sx={{ maxWidth: 140, verticalAlign: 'top' }}>{a.fornecedor}</TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap', verticalAlign: 'top' }}>
+                        {fmtDate(a.vigenciaInicio)} — {fmtDate(a.vigenciaFim)}
+                      </TableCell>
+                      <TableCell align="center" sx={{ verticalAlign: 'top' }}>
+                        <Chip size="small" label={`${visaoItensCount(a)}`} variant="outlined" />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Paper>
         )}
       </Box>
 
       <Drawer
         anchor="right"
         open={detailAp != null}
-        onClose={() => setDetailAp(null)}
+        onClose={() => {
+          setDetailAp(null)
+          setDetailItensLoading(false)
+        }}
         PaperProps={{ sx: { width: { xs: '100%', sm: 520, md: 580 }, maxWidth: '100%' } }}
       >
         {detailAp ? (
@@ -801,7 +714,14 @@ function VisaoGeral({ onError }: { onError: (s: string | null) => void }) {
                   variant="outlined"
                 />
               </Box>
-              <IconButton aria-label="Fechar" onClick={() => setDetailAp(null)} size="small">
+              <IconButton
+                aria-label="Fechar"
+                onClick={() => {
+                  setDetailAp(null)
+                  setDetailItensLoading(false)
+                }}
+                size="small"
+              >
                 <CloseIcon />
               </IconButton>
             </Box>
@@ -864,9 +784,13 @@ function VisaoGeral({ onError }: { onError: (s: string | null) => void }) {
             <Divider sx={{ my: 1.5 }} />
 
             <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-              Itens ({detailAp.itens.length})
+              Itens ({detailItensLoading ? '…' : (detailAp.itens?.length ?? visaoItensCount(detailAp))})
             </Typography>
-            {detailAp.itens.length === 0 ? (
+            {detailItensLoading ? (
+              <Typography variant="body2" color="text.secondary">
+                A carregar itens…
+              </Typography>
+            ) : (detailAp.itens?.length ?? 0) === 0 ? (
               <Typography variant="body2" color="text.secondary">
                 Sem itens cadastrados.
               </Typography>
@@ -881,7 +805,7 @@ function VisaoGeral({ onError }: { onError: (s: string | null) => void }) {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {detailAp.itens.map((it) => (
+                  {(detailAp.itens ?? []).map((it) => (
                     <TableRow key={it.id}>
                       <TableCell>{ITEM_TIPO_LABEL[it.tipo]}</TableCell>
                       <TableCell>{it.descricao}</TableCell>
@@ -894,7 +818,14 @@ function VisaoGeral({ onError }: { onError: (s: string | null) => void }) {
             )}
 
             <Box sx={{ mt: 3 }}>
-              <Button variant="outlined" fullWidth onClick={() => setDetailAp(null)}>
+              <Button
+                variant="outlined"
+                fullWidth
+                onClick={() => {
+                  setDetailAp(null)
+                  setDetailItensLoading(false)
+                }}
+              >
                 Fechar
               </Button>
             </Box>
