@@ -44,7 +44,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import SearchIcon from '@mui/icons-material/Search'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import CloseIcon from '@mui/icons-material/Close'
-import { api } from '../lib/api'
+import { api, getPortalApiBaseDisplay } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 
 const DRAWER = 280
@@ -678,8 +678,24 @@ function VisaoGeral({
   /** `true` só após JSON válido com `apolices` array (evita mensagem “base vazia” quando a API falhou). */
   const [visaoLoadOk, setVisaoLoadOk] = useState(false)
   const [loadHint, setLoadHint] = useState<string | null>(null)
+  const [healthBusy, setHealthBusy] = useState(false)
+  const [healthHint, setHealthHint] = useState<string | null>(null)
 
   const VISAO_PAGE = 8000
+
+  const testApiHealth = useCallback(async () => {
+    setHealthBusy(true)
+    setHealthHint(null)
+    const r = await api<{ status?: string; service?: string }>('/health')
+    setHealthBusy(false)
+    if (r.ok && r.data?.service) {
+      setHealthHint(`Ligação OK — ${r.data.service} (${r.data.status ?? 'ok'})`)
+    } else if (r.ok) {
+      setHealthHint('Ligação OK — /health respondeu.')
+    } else {
+      setHealthHint(r.error || `Falhou (HTTP ${r.status})`)
+    }
+  }, [])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -881,6 +897,12 @@ function VisaoGeral({
           <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
             «Grupos (cadastro local)» é só a tabela PortalGrupoEconomico; o agrupamento na vista usa sempre o vínculo do estipulante (UUID do grupo local ou nome Nexus).
           </Typography>
+          <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.75 }}>
+            API em uso neste browser:{' '}
+            <Box component="span" sx={{ fontFamily: 'monospace', wordBreak: 'break-all' }}>
+              {getPortalApiBaseDisplay()}
+            </Box>
+          </Typography>
         </Paper>
 
         {loading ? (
@@ -929,9 +951,30 @@ function VisaoGeral({
             {semApolicesComEstipulantes ? (
               <>
                 <Alert severity="info" sx={{ borderRadius: 2 }}>
-                  <strong>Total de apólices nesta API = 0</strong> (tabela <strong>PortalSeguroApolice</strong> vazia). Grupos e estipulantes podem existir no cadastro, mas sem linhas de apólice o portal não tem o que
-                  vincular: é preciso criar apólices no menu <strong>Apólices</strong> (ou integração que as grave nesta mesma base). Contratos apenas no Nexus não entram automaticamente. Se criou apólices e o total
-                  continua 0, confira se o browser fala com <strong>a API certa</strong> (<code>VITE_API_URL</code> no build do front = URL pública da API no Railway) e faça redeploy do front após alterar.
+                  <strong>Total de apólices nesta API = 0</strong> (tabela <strong>PortalSeguroApolice</strong> vazia nesta base PostgreSQL). Grupos e estipulantes podem existir no cadastro, mas sem linhas de apólice o
+                  portal não tem o que vincular: crie apólices no menu <strong>Apólices</strong> (ou fluxo que grave na <strong>mesma</strong> API). Contratos só no Nexus não aparecem aqui. Se o teste abaixo der certo e o
+                  total continuar 0, esta API realmente não tem apólices — não é só o URL errado.
+                  <Box sx={{ mt: 1.5, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <Typography variant="body2" component="div">
+                      <strong>URL da API neste browser:</strong>{' '}
+                      <Box component="code" sx={{ display: 'block', wordBreak: 'break-all', mt: 0.5, fontSize: '0.85rem' }}>
+                        {getPortalApiBaseDisplay()}
+                      </Box>
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
+                      <Button variant="outlined" size="small" disabled={healthBusy} onClick={() => void testApiHealth()}>
+                        {healthBusy ? 'A testar…' : 'Testar GET /health'}
+                      </Button>
+                      {healthHint ? (
+                        <Typography variant="body2" color={healthHint.startsWith('Ligação OK') ? 'success.main' : 'error.main'}>
+                          {healthHint}
+                        </Typography>
+                      ) : null}
+                    </Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Em produção, <code>VITE_API_URL</code> define essa URL no <strong>build</strong> (Vercel → variáveis → redeploy do portal). Não pode ser o domínio do site nem a API do Nexus.
+                    </Typography>
+                  </Box>
                 </Alert>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                   <Button variant="contained" size="small" onClick={onIrParaApolices}>
