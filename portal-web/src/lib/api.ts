@@ -17,6 +17,14 @@ if (import.meta.env.PROD && !envApi) {
   )
 }
 
+/** Base da API efetiva (após normalização), para diagnóstico na UI. */
+export function getPortalApiBaseDisplay(): string {
+  if (import.meta.env.PROD) {
+    return envApi || '(VITE_API_URL não definida no build)'
+  }
+  return envApi ? `${envApi}` : '/api (proxy Vite em desenvolvimento)'
+}
+
 function getToken(): string | null {
   return localStorage.getItem('portal_token')
 }
