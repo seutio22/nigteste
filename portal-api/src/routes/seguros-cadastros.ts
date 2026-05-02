@@ -617,7 +617,8 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
     try {
       const [gruposEconomicosCount, estipulantesCount, apolicesTotalCount, apolices] = await Promise.all([
         prisma.portalGrupoEconomico.count({ where: { active: true } }),
-        prisma.portalSeguroEstipulante.count({ where: { active: true } }),
+        /** Total de linhas de estipulante (ativos e inativos) — a visão geral não deve omitir inativos na consulta. */
+        prisma.portalSeguroEstipulante.count(),
         prisma.portalSeguroApolice.count(),
         prisma.portalSeguroApolice.findMany({
           take: q.limit,
@@ -654,15 +655,18 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
         }),
       ])
 
-      /** Só na 1.ª página: permite mostrar estipulantes quando ainda não há apólices (linha unificada depende da apólice). */
+      /**
+       * Só na 1.ª página: lista completa de estipulantes para agrupar por grupo económico (chave = grupo local OU nome Nexus).
+       * Sem filtro `active` — consulta deve espelhar todas as linhas da tabela.
+       */
       const estipulantes =
         q.offset === 0
           ? await prisma.portalSeguroEstipulante.findMany({
-              where: { active: true },
-              take: 5000,
+              take: 50000,
               orderBy: [{ grupoEconomicoNome: 'asc' }, { razaoSocial: 'asc' }],
               select: {
                 id: true,
+                active: true,
                 razaoSocial: true,
                 cnpj: true,
                 grupoEconomicoNome: true,
