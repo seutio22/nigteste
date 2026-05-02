@@ -421,7 +421,9 @@ export default function ApolicePage() {
           </Alert>
         )}
 
-        {section === 'visao' && <VisaoGeral onError={setErr} />}
+        {section === 'visao' && (
+          <VisaoGeral onError={setErr} onIrParaApolices={() => setSection('apolices')} onIrParaEstipulantes={() => setSection('estipulantes')} />
+        )}
         {section === 'grupos' && <GruposSection grupos={grupos} isAdmin={isAdmin} onRefresh={loadGrupos} onError={setErr} />}
         {section === 'estipulantes' && <EstipulantesSection isAdmin={isAdmin} onError={setErr} />}
         {section === 'apolices' && <ApolicesSection isAdmin={isAdmin} onError={setErr} />}
@@ -470,6 +472,19 @@ type CadastroVisaoGeralApolice = {
   itens?: CadastroVisaoGeralItem[]
 }
 
+/** Lista auxiliar na visão geral quando ainda não há apólices (vem em `/cadastro-visao-geral`, só na 1.ª página). */
+type CadastroVisaoEstipulanteRow = {
+  id: string
+  razaoSocial: string
+  cnpj: string
+  grupoEconomicoNome: string
+  nexusClienteId: string | null
+  nomeFantasia: string | null
+  observacoes: string | null
+  grupo: { id: string; nome: string } | null
+  _count: { apolices: number }
+}
+
 function labelGrupoEconomico(e: {
   grupoEconomicoNome: string
   grupo: { id: string; nome: string } | null
@@ -501,12 +516,21 @@ function visaoItensCount(a: CadastroVisaoGeralApolice): number {
   return a._count?.itens ?? a.itens?.length ?? 0
 }
 
-function VisaoGeral({ onError }: { onError: (s: string | null) => void }) {
+function VisaoGeral({
+  onError,
+  onIrParaApolices,
+  onIrParaEstipulantes,
+}: {
+  onError: (s: string | null) => void
+  onIrParaApolices: () => void
+  onIrParaEstipulantes: () => void
+}) {
   const [loading, setLoading] = useState(true)
   const [gruposEconomicosCount, setGruposEconomicosCount] = useState<number | null>(null)
   const [estipulantesCount, setEstipulantesCount] = useState<number | null>(null)
   const [apolicesTotalCount, setApolicesTotalCount] = useState<number | null>(null)
   const [apolices, setApolices] = useState<CadastroVisaoGeralApolice[]>([])
+  const [estipulantesVisao, setEstipulantesVisao] = useState<CadastroVisaoEstipulanteRow[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [detailAp, setDetailAp] = useState<CadastroVisaoGeralApolice | null>(null)
   const [detailItensLoading, setDetailItensLoading] = useState(false)
@@ -524,6 +548,7 @@ function VisaoGeral({ onError }: { onError: (s: string | null) => void }) {
     try {
       let offset = 0
       const merged: CadastroVisaoGeralApolice[] = []
+      let estipulantesDaApi: CadastroVisaoEstipulanteRow[] = []
       let gruposEconomicosCount = 0
       let estipulantesCount = 0
       let apolicesTotalCount = 0
@@ -537,12 +562,14 @@ function VisaoGeral({ onError }: { onError: (s: string | null) => void }) {
           estipulantesCount: number
           apolicesTotalCount: number
           apolices: CadastroVisaoGeralApolice[]
+          estipulantes?: CadastroVisaoEstipulanteRow[]
           visaoMeta?: { limit: number; offset: number; returned: number }
         }>(`/seguros/cadastro-visao-geral?limit=${VISAO_PAGE}&offset=${offset}`)
 
         if (!r.ok) {
           onError(r.error || 'Erro ao carregar visão geral do cadastro.')
           setApolices([])
+          setEstipulantesVisao([])
           setGruposEconomicosCount(null)
           setEstipulantesCount(null)
           setApolicesTotalCount(null)
@@ -551,6 +578,7 @@ function VisaoGeral({ onError }: { onError: (s: string | null) => void }) {
         if (!r.data || typeof r.data !== 'object') {
           onError('Resposta vazia ou inválida da API.')
           setApolices([])
+          setEstipulantesVisao([])
           setGruposEconomicosCount(null)
           setEstipulantesCount(null)
           setApolicesTotalCount(null)
@@ -562,6 +590,7 @@ function VisaoGeral({ onError }: { onError: (s: string | null) => void }) {
             'A API devolveu um formato anómalo (sem lista de apólices). Confirme o deploy da API portal-colaborador no Railway e a variável VITE_API_URL no Vercel (URL da API, não do site).',
           )
           setApolices([])
+          setEstipulantesVisao([])
           setGruposEconomicosCount(null)
           setEstipulantesCount(null)
           setApolicesTotalCount(null)
@@ -570,6 +599,9 @@ function VisaoGeral({ onError }: { onError: (s: string | null) => void }) {
         gruposEconomicosCount = d.gruposEconomicosCount ?? 0
         estipulantesCount = d.estipulantesCount ?? 0
         apolicesTotalCount = d.apolicesTotalCount ?? 0
+        if (offset === 0 && Array.isArray(d.estipulantes)) {
+          estipulantesDaApi = d.estipulantes
+        }
         merged.push(...d.apolices)
 
         const chunk = d.apolices.length
@@ -586,6 +618,7 @@ function VisaoGeral({ onError }: { onError: (s: string | null) => void }) {
       setGruposEconomicosCount(gruposEconomicosCount)
       setEstipulantesCount(estipulantesCount)
       setApolicesTotalCount(apolicesTotalCount)
+      setEstipulantesVisao(estipulantesDaApi)
       setApolices(sortVisaoApolices(merged))
     } finally {
       setLoading(false)
@@ -640,12 +673,30 @@ function VisaoGeral({ onError }: { onError: (s: string | null) => void }) {
     )
   }, [apolices, searchTerm])
 
+  const filterEst = useMemo(() => {
+    if (!searchTerm.trim()) return estipulantesVisao
+    return estipulantesVisao.filter((e) =>
+      visaoMatchesQuery(searchTerm, [
+        e.razaoSocial,
+        e.cnpj,
+        e.grupoEconomicoNome,
+        e.nexusClienteId,
+        e.nomeFantasia,
+        e.observacoes,
+        labelGrupoEconomico(e),
+      ]),
+    )
+  }, [estipulantesVisao, searchTerm])
+
+  const semApolicesComEstipulantes =
+    visaoLoadOk && (apolicesTotalCount ?? 0) === 0 && estipulantesVisao.length > 0
+
   return (
     <>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         <Alert severity="info" sx={{ borderRadius: 2 }}>
-          <strong>Consulta unificada.</strong> Cada linha junta <strong>grupo económico</strong>, <strong>estipulante</strong> e <strong>apólice</strong>. Clique para ver o detalhe e carregar os{' '}
-          <strong>itens</strong>. Para <strong>incluir ou alterar</strong>, use no menu Grupos económicos, Estipulantes, Apólices ou Itens da apólice.
+          <strong>Consulta unificada.</strong> Cada linha da tabela principal é uma <strong>apólice</strong> (com grupo e estipulante). Sem apólices cadastradas, a tabela fica vazia mesmo havendo
+          estipulantes — nesse caso mostramos os estipulantes abaixo. Clique numa apólice para ver os <strong>itens</strong>. Para <strong>incluir ou alterar</strong>, use o menu lateral.
         </Alert>
 
         <TextField
@@ -665,14 +716,17 @@ function VisaoGeral({ onError }: { onError: (s: string | null) => void }) {
 
         <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
           <Typography variant="body2" color="text.secondary">
-            Na base: <strong>{loading ? '…' : (gruposEconomicosCount ?? '—')}</strong> grupos ·{' '}
+            Na base: <strong>{loading ? '…' : (gruposEconomicosCount ?? '—')}</strong> grupos (cadastro local){' · '}
             <strong>{loading ? '…' : (estipulantesCount ?? '—')}</strong> estipulantes ·{' '}
             <strong>{loading ? '…' : (apolicesTotalCount ?? '—')}</strong> apólices (total)
             {' · '}
-            <strong>{loading ? '…' : filterAp.length}</strong> linha(s) com o filtro atual
+            <strong>{loading ? '…' : filterAp.length}</strong> linha(s) de apólice com o filtro
             {visaoLoadOk && apolicesTotalCount != null && apolices.length === apolicesTotalCount && apolicesTotalCount > 0 ? (
               <span> · lista completa na memória ({apolices.length} apólices)</span>
             ) : null}
+          </Typography>
+          <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+            «Grupos» conta apenas registos no Portal; estipulantes podem estar ligados só ao nome do grupo Nexus (por isso pode mostrar 0 grupos e vários estipulantes).
           </Typography>
         </Paper>
 
@@ -686,17 +740,98 @@ function VisaoGeral({ onError }: { onError: (s: string | null) => void }) {
             ) : null}
           </Box>
         ) : filterAp.length === 0 ? (
-          <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
-            <Typography color="text.secondary">
-              {!visaoLoadOk
-                ? 'Não foi possível carregar a lista. Veja o alerta de erro acima (URL da API, deploy ou sessão).'
-                : apolices.length > 0
-                  ? 'Nenhuma linha corresponde à pesquisa — limpe o filtro ou altere o texto.'
-                  : (apolicesTotalCount ?? 0) > 0
-                    ? 'O total na base indica apólices, mas a lista veio vazia. Recarregue a página; se persistir, verifique o deploy da API.'
-                    : 'Ainda não há apólices nesta base. No menu, cadastre grupo económico → estipulante → apólice (perfil administrador).'}
-            </Typography>
-          </Paper>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {!visaoLoadOk ? (
+              <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
+                <Typography color="text.secondary">
+                  Não foi possível carregar a lista. Veja o alerta de erro acima (URL da API, deploy ou sessão).
+                </Typography>
+              </Paper>
+            ) : apolices.length > 0 ? (
+              <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
+                <Typography color="text.secondary">
+                  Nenhuma apólice corresponde à pesquisa — limpe o filtro ou altere o texto.
+                </Typography>
+              </Paper>
+            ) : (apolicesTotalCount ?? 0) > 0 ? (
+              <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
+                <Typography color="text.secondary">
+                  O total na base indica apólices, mas a lista veio vazia. Recarregue a página; se persistir, verifique o deploy da API.
+                </Typography>
+              </Paper>
+            ) : semApolicesComEstipulantes ? (
+              <>
+                <Alert severity="warning" sx={{ borderRadius: 2 }}>
+                  <strong>Ainda não há apólices.</strong> A tabela unificada só aparece quando existe pelo menos uma apólice ligada ao estipulante. Tem{' '}
+                  <strong>{estipulantesVisao.length}</strong> estipulante(s) — cadastre apólices em <strong>Apólices</strong> (menu) ou abra essa secção abaixo.
+                </Alert>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                  <Button variant="contained" size="small" onClick={onIrParaApolices}>
+                    Ir para Apólices
+                  </Button>
+                  <Button variant="outlined" size="small" onClick={onIrParaEstipulantes}>
+                    Ir para Estipulantes
+                  </Button>
+                </Box>
+                {filterEst.length === 0 ? (
+                  <Typography color="text.secondary" sx={{ px: 1 }}>
+                    Nenhum estipulante corresponde à pesquisa «{searchTerm.trim()}».
+                  </Typography>
+                ) : (
+                  <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden' }}>
+                    <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider', bgcolor: 'action.hover' }}>
+                      <Typography fontWeight={700}>
+                        Estipulantes no cadastro ({filterEst.length}
+                        {searchTerm.trim() ? ` com filtro` : ''})
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Grupo económico (nome Nexus ou local) + empresa; coluna «Apólices» indica quantas já existem (0 = falta criar a apólice).
+                      </Typography>
+                    </Box>
+                    <TableContainer sx={{ maxHeight: { xs: 'none', md: 360 } }}>
+                      <Table size="small" stickyHeader>
+                        <TableHead>
+                          <TableRow>
+                            <TableCell>Grupo económico</TableCell>
+                            <TableCell>Estipulante</TableCell>
+                            <TableCell>CNPJ</TableCell>
+                            <TableCell align="center">Apólices</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {filterEst.map((e) => (
+                            <TableRow key={e.id} hover>
+                              <TableCell sx={{ maxWidth: 200 }}>{labelGrupoEconomico(e)}</TableCell>
+                              <TableCell sx={{ maxWidth: 260 }}>
+                                <Typography variant="body2" fontWeight={600}>
+                                  {e.razaoSocial}
+                                </Typography>
+                                {e.nomeFantasia ? (
+                                  <Typography variant="caption" color="text.secondary" display="block">
+                                    {e.nomeFantasia}
+                                  </Typography>
+                                ) : null}
+                              </TableCell>
+                              <TableCell>{e.cnpj}</TableCell>
+                              <TableCell align="center">
+                                <Chip size="small" label={e._count.apolices} variant="outlined" color={e._count.apolices === 0 ? 'warning' : 'default'} />
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </Paper>
+                )}
+              </>
+            ) : (
+              <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
+                <Typography color="text.secondary">
+                  Ainda não há estipulantes nem apólices nesta base. No menu, cadastre grupo económico → estipulante → apólice (perfil administrador).
+                </Typography>
+              </Paper>
+            )}
+          </Box>
         ) : (
           <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden' }}>
             <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider', bgcolor: 'action.hover' }}>

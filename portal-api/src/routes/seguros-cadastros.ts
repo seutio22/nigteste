@@ -654,11 +654,33 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
         }),
       ])
 
+      /** Só na 1.ª página: permite mostrar estipulantes quando ainda não há apólices (linha unificada depende da apólice). */
+      const estipulantes =
+        q.offset === 0
+          ? await prisma.portalSeguroEstipulante.findMany({
+              where: { active: true },
+              take: 5000,
+              orderBy: [{ grupoEconomicoNome: 'asc' }, { razaoSocial: 'asc' }],
+              select: {
+                id: true,
+                razaoSocial: true,
+                cnpj: true,
+                grupoEconomicoNome: true,
+                nexusClienteId: true,
+                nomeFantasia: true,
+                observacoes: true,
+                grupo: { select: { id: true, nome: true } },
+                _count: { select: { apolices: true } },
+              },
+            })
+          : undefined
+
       return reply.send({
         gruposEconomicosCount,
         estipulantesCount,
         apolicesTotalCount,
         apolices,
+        ...(estipulantes != null ? { estipulantes } : {}),
         visaoMeta: {
           limit: q.limit,
           offset: q.offset,
