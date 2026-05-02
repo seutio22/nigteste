@@ -1,22 +1,38 @@
 # Deploy do portal-web na Vercel (produção).
 #
-# Erro EBUSY em esbuild.exe: feche o «npm run dev», pré-visualizações e outros terminais Node;
-# no Cursor pare o servidor Vite. Depois: .\scripts\deploy-portal-web.ps1 -Clean
+# Erro EBUSY em esbuild.exe = outro processo está a usar esbuild (Node).
 #
-# Root Directory na Vercel: ver comentários no histórico do repo ou em scripts/deploy-portal-web.ps1 (commit anterior).
+# Ordem recomendada:
+#   1) .\scripts\deploy-portal-web.ps1 -KillNode -Clean
+#      (-KillNode termina TODOS os processos node.exe — fecha dev servers; pode afetar extensões que usem Node.)
+#   2) Se ainda bloquear: feche o Cursor por completo e apague portal-web\node_modules no Explorador,
+#      ou abra PowerShell FORA do Cursor e volte a correr este script.
+#
+# Root Directory na Vercel: Settings → General → Root Directory (evitar duplicar portal-web).
 #
 # Uso:
-#   .\scripts\deploy-portal-web.ps1           # instala e faz deploy
-#   .\scripts\deploy-portal-web.ps1 -Clean    # apaga node_modules primeiro (resolve EBUSY após fechar Node)
+#   .\scripts\deploy-portal-web.ps1
+#   .\scripts\deploy-portal-web.ps1 -Clean
+#   .\scripts\deploy-portal-web.ps1 -KillNode -Clean
 
 param(
-  [switch]$Clean
+  [switch]$Clean,
+  [switch]$KillNode
 )
 
 $ErrorActionPreference = "Stop"
 $root = Resolve-Path (Join-Path $PSScriptRoot "..")
 $pw = Join-Path $root "portal-web"
 Set-Location $pw
+
+if ($KillNode) {
+  Write-Host "A terminar processos Node (node.exe)…" -ForegroundColor Yellow
+  Get-Process -Name node -ErrorAction SilentlyContinue | ForEach-Object {
+    Write-Host "  PID $($_.Id)" -ForegroundColor DarkGray
+    Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
+  }
+  Start-Sleep -Seconds 2
+}
 
 function Remove-NodeModulesSafe {
   $nm = Join-Path $pw "node_modules"
@@ -25,8 +41,17 @@ function Remove-NodeModulesSafe {
   try {
     Remove-Item -LiteralPath $nm -Recurse -Force -ErrorAction Stop
   } catch {
-    Write-Host "Não foi possível apagar node_modules ainda bloqueado. Feche processos Node (Task Manager → Node.js) e volte a correr com -Clean." -ForegroundColor Red
+    Write-Host "Não foi possível apagar node_modules (ficheiro ainda bloqueado)." -ForegroundColor Red
     Write-Host $_.Exception.Message
+    Write-Host @"
+
+Tente:
+  .\scripts\deploy-portal-web.ps1 -KillNode -Clean
+
+Ou feche o Cursor inteiro, apague manualmente a pasta:
+  $pw\node_modules
+
+"@ -ForegroundColor Yellow
     exit 1
   }
 }
