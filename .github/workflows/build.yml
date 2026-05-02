@@ -3,6 +3,9 @@ name: 🏗️ Build e Preparação para Deploy
 on:
   push:
     branches: [ main, master ]
+    paths-ignore:
+      - "portal-web/**"
+      - "portal-api/**"
   workflow_dispatch:
 
 jobs:

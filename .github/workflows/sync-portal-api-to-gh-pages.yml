@@ -1,15 +1,11 @@
-# Mantém portal-api e portal-web no branch gh-pages (quando esse é o branch padrão do repo).
-# Não confundir com GitHub Pages: o workflow «Deploy GitHub Pages» (demandas-web / Nexus) não
-# dispara automaticamente ao dar push neste branch — só se correr manualmente no GitHub.
+# Copia portal-api e portal-web de main → branch gh-pages (manual apenas).
+#
+# Antes: push em main com alterações em portal-web disparava sync e um push em gh-pages —
+# confundia com deploy do Nexus / GitHub Pages quando o trabalho era só no portal (Vercel CLI).
+# Use «Run workflow» quando precisar do branch gh-pages (ex.: Railway ligado a gh-pages).
 name: Sync portal (api + web) → gh-pages
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "portal-api/**"
-      - "portal-web/**"
-      - ".github/workflows/sync-portal-api-to-gh-pages.yml"
   workflow_dispatch:
 
 permissions:
@@ -40,5 +36,5 @@ jobs:
             exit 0
           fi
 
-          git commit -m "chore: sync portal-api e portal-web from main (Railway/Vercel root)"
+          git commit -m "chore: sync portal-api e portal-web from main (manual)"
           git push origin gh-pages

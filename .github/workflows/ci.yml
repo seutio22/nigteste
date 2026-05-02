@@ -2,9 +2,12 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
+    paths-ignore:
+      - "portal-web/**"
+      - "portal-api/**"
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   backend:
