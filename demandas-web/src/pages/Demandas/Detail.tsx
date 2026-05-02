@@ -354,113 +354,6 @@ export default function DemandDetailPage() {
             </h2>
             <EditInline d={d} legacyCadastro={legacyCadastro} newMetricsModel={newMetricsView} />
           </div>
-
-          {/* Informações Adicionais */}
-          <div className="bg-white p-6 rounded-lg border shadow-sm">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Informações Adicionais</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-apoio-400">Tipo de Serviço</p>
-                <p className="font-medium">{label(d.tipoServicoId, md.tiposServico)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-apoio-400">Analista</p>
-                <p className="font-medium">{label(d.analistaId, md.analistas)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-apoio-400">Solicitante</p>
-                <p className="font-medium">{md.solicitantesById?.[d.solicitante as string]?.nome || md.solicitantes.find(s => s.id === d.solicitante)?.nome || d.solicitante || '-'}</p>
-              </div>
-              <div>
-                <p className="text-sm text-apoio-400">Tipo de Demanda</p>
-                <p className="font-medium">{label(d.tipoId, md.tiposDemanda)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-apoio-400">Data de Início</p>
-                <p className="font-medium">{fmt(d.dataInicio)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-apoio-400">Data Final</p>
-                <p className="font-medium">{fmt(d.dataFinal)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-apoio-400">Criado por</p>
-                <p className="font-medium">
-                  {typeof d.analista === 'object' && d.analista !== null
-                    ? (d.analista as any)?.nome || (d.analista as any)?.name || label(d.analistaId, md.analistas)
-                    : (d.analista || label(d.analistaId, md.analistas) || '-')}
-                </p>
-              </div>
-              {newMetricsView &&
-                (() => {
-                  const sm = (d as any).sistemasMetrics as
-                    | Record<string, { qtdUsuarios?: number; qtdClientesVinculados?: number }>
-                    | null
-                    | undefined
-                  if (!sm || typeof sm !== 'object') return null
-                  const entries = Object.entries(sm).filter(([sid]) => typeof sid === 'string' && sid.trim() !== '')
-                  if (!entries.length) return null
-                  return (
-                    <div className="md:col-span-2">
-                      <p className="text-sm text-apoio-400 mb-2">Métricas por sistema</p>
-                      <div className="space-y-2">
-                        {entries.map(([sid, raw]) => {
-                          const m = (raw || {}) as { qtdUsuarios?: number; qtdClientesVinculados?: number }
-                          return (
-                            <div
-                              key={sid}
-                              className="flex flex-wrap gap-x-4 gap-y-1 text-sm border border-gray-100 rounded p-2 bg-gray-50/50"
-                            >
-                              <span className="font-medium text-gray-900">
-                                {md.sistemas.find((s) => s.id === sid)?.nome || sid}
-                              </span>
-                              <span>Qtd de usuários: {m.qtdUsuarios ?? '-'}</span>
-                              <span>Qtd de clientes vinculados: {m.qtdClientesVinculados ?? '-'}</span>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  )
-                })()}
-              {showLegacyMetricsView && (
-                <>
-                  <div>
-                    <p className="text-sm text-apoio-400">Qtd de usuários</p>
-                    <p className="font-medium">
-                      {d.qtdUsuarios != null && String(d.qtdUsuarios).trim() !== '' ? d.qtdUsuarios : '-'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-apoio-400">QTD Clientes Vinculados - EDGE</p>
-                    <p className="font-medium">
-                      {d.qtdClientesVinculados != null && !Number.isNaN(Number(d.qtdClientesVinculados))
-                        ? d.qtdClientesVinculados
-                        : '-'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-apoio-400">Usuários Empresa - MOVE</p>
-                    <p className="font-medium">
-                      {d.usuariosEmpresa != null && !Number.isNaN(Number(d.usuariosEmpresa)) ? d.usuariosEmpresa : '-'}
-                    </p>
-                  </div>
-                </>
-              )}
-              <div>
-                <p className="text-sm text-apoio-400">Quantidade de Retornos</p>
-                <p className="font-medium">{d.qtdRetornos || 0}</p>
-              </div>
-              <div>
-                <p className="text-sm text-apoio-400">Qualidade</p>
-                <p className="font-medium text-xs leading-tight">{getQualidadeLabel(d.qualidade)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-apoio-400">Observações</p>
-                <p className="font-medium">{d.observacoes || '-'}</p>
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Coluna Lateral - Indicadores e Timeline */}
@@ -1099,10 +992,28 @@ function EditInline({
             value={md.sistemas.filter((s) => (draft.sistemasIds || []).includes(s.id))}
             onChange={(_, v) => {
               const ids = v.map((x) => x.id)
+              // Garantir que `sistemasMetrics` tenha uma chave por sistema selecionado,
+              // mesmo quando o utilizador não preenche os valores (permite editar depois).
+              const currentMetrics = (((draft as any).sistemasMetrics || {}) as Record<string, any>) ?? {}
+              const nextMetrics: Record<string, any> = { ...currentMetrics }
+              let metricsChanged = false
+              for (const sid of ids) {
+                if (!nextMetrics[sid] || typeof nextMetrics[sid] !== 'object') {
+                  nextMetrics[sid] = {}
+                  metricsChanged = true
+                }
+              }
+              for (const sid of Object.keys(nextMetrics)) {
+                if (!ids.includes(sid)) {
+                  delete nextMetrics[sid]
+                  metricsChanged = true
+                }
+              }
               setDraft({
                 ...draft,
                 sistemasIds: ids,
                 sistemaId: ids[0] || undefined,
+                ...(metricsChanged ? { sistemasMetrics: nextMetrics } : null),
               })
             }}
             renderInput={(params) => (
@@ -1305,8 +1216,7 @@ function EditInline({
         </select>
       </div>
 
-      {/* Métricas por sistema — apenas chamados já gravados com o novo modelo */}
-      {newMetricsModel && (
+      {/* Métricas por sistema — mesmo padrão do "Novo chamado" */}
       <div className="space-y-3">
         {sistemasSelecionados.map((s) => {
           const metrics = ((draft as any).sistemasMetrics || {}) as Record<string, any>
@@ -1360,7 +1270,6 @@ function EditInline({
           </div>
         )}
       </div>
-      )}
       </div>
       </div>
 
@@ -1369,25 +1278,25 @@ function EditInline({
           <span className="h-7 w-1 shrink-0 rounded-full bg-[#009FDF] shadow-[0_0_0_3px_rgba(0,159,223,0.14)]" aria-hidden />
           <h3 className="text-[0.95rem] font-semibold tracking-tight text-slate-800">Descrição e notas</h3>
         </div>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <div className="space-y-4">
           <div>
             <label className={labelCls}>Descrição</label>
             <textarea
               value={draft.descricao ?? ''}
               onChange={(e) => setDraft({ ...draft, descricao: e.target.value || undefined })}
-              rows={4}
-              placeholder="Resumo da demanda…"
-              className={`${inputCls} min-h-[88px] resize-y`}
+              rows={10}
+              placeholder="Descreva o pedido com escopo, contexto e detalhes…"
+              className={`${inputCls} min-h-[220px] resize-y leading-relaxed`}
             />
           </div>
-          <div>
+          <div className="border-t border-slate-100 pt-4">
             <label className={labelCls}>Observações</label>
             <textarea
               value={draft.observacoes ?? ''}
               onChange={(e) => setDraft({ ...draft, observacoes: e.target.value || undefined })}
-              rows={3}
-              placeholder="Notas adicionais…"
-              className={`${inputCls} min-h-[72px] resize-y`}
+              rows={6}
+              placeholder="Notas adicionais, restrições, contatos, histórico…"
+              className={`${inputCls} min-h-[140px] resize-y leading-relaxed`}
             />
           </div>
         </div>

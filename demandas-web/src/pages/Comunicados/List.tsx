@@ -183,6 +183,52 @@ export default function ComunicadosListPage() {
     return publicado ? 'Publicado' : 'Rascunho'
   }
 
+  const stripHtml = (html: string) => String(html || '').replace(/<[^>]*>/g, '').trim()
+
+  const alphaHex = (hex: string, alpha: number) => {
+    const h = String(hex || '').replace('#', '').trim()
+    if (h.length !== 6) return hex
+    const a = Math.max(0, Math.min(1, alpha))
+    const aa = Math.round(a * 255).toString(16).padStart(2, '0')
+    return `#${h}${aa}`
+  }
+
+  const stringToColor = (str: string) => {
+    let hash = 0
+    for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash)
+    let color = '#'
+    for (let i = 0; i < 3; i++) {
+      const value = (hash >> (i * 8)) & 0xff
+      color += `00${value.toString(16)}`.slice(-2)
+    }
+    return color
+  }
+
+  const getInitials = (value: unknown) => {
+    const s = String(value || '').trim()
+    if (!s) return '—'
+    const parts = s.split(/\s+/).filter(Boolean)
+    const initials = parts.slice(0, 2).map((p) => p[0]?.toUpperCase()).join('')
+    return initials || s.slice(0, 2).toUpperCase()
+  }
+
+  const getAccentColor = (c: { prioridade?: string; categoria?: string; publicado?: boolean }) => {
+    if (c.publicado === false) return '#64748b' // slate
+    switch (c.prioridade) {
+      case 'Alta': return '#dc2626' // red
+      case 'Média': return '#f59e0b' // amber
+      case 'Baixa': return '#16a34a' // green
+      default: break
+    }
+    switch (c.categoria) {
+      case 'Urgente': return '#dc2626'
+      case 'Evento': return '#7c3aed' // violet
+      case 'Manutenção': return '#0ea5e9' // sky
+      case 'Informativo': return '#2563eb' // blue
+      default: return '#009FDF'
+    }
+  }
+
   const getCategoryIcon = (categoria: string) => {
     switch (categoria) {
       case 'Urgente': return <Warning />
@@ -278,29 +324,53 @@ export default function ComunicadosListPage() {
     <Grid container spacing={3}>
       {sortedComunicados.map((comunicado) => (
         <Grid item xs={12} sm={6} lg={4} key={comunicado.id}>
-          <Card 
-            sx={{ 
+          <Card
+            sx={{
               height: '100%',
               cursor: 'pointer',
+              position: 'relative',
+              borderRadius: 2,
+              border: `1px solid ${alphaHex(getAccentColor(comunicado), 0.22)}`,
+              boxShadow: '0 1px 2px rgba(16,24,40,0.06)',
+              background: 'linear-gradient(180deg, rgba(248,250,252,0.7), rgba(255,255,255,1))',
               transition: 'all 0.2s ease-in-out',
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: 6,
+                borderTopLeftRadius: 8,
+                borderBottomLeftRadius: 8,
+                background: getAccentColor(comunicado),
+              },
               '&:hover': {
                 transform: 'translateY(-4px)',
-                boxShadow: '0 8px 25px rgba(0,0,0,0.15)'
-              }
+                boxShadow: '0 8px 20px rgba(16,24,40,0.12)',
+                borderColor: alphaHex(getAccentColor(comunicado), 0.38),
+              },
             }}
             onClick={() => navigate(`/comunicados/${comunicado.id}`)}
           >
-            <CardContent sx={{ p: 3 }}>
-              {/* Header */}
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 1 }}>
-                    {comunicado.titulo}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    {comunicado.conteudo.replace(/<[^>]*>/g, '')}
-                  </Typography>
-                </Box>
+            <CardContent sx={{ p: 2.5, pl: 3.25, height: '100%', display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              {/* Topo fixo: Título + ação */}
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
+                <Typography
+                  variant="h6"
+                  sx={{
+                    fontWeight: 'bold',
+                    mb: 0.25,
+                    flex: 1,
+                    minWidth: 0,
+                    display: '-webkit-box',
+                    WebkitBoxOrient: 'vertical',
+                    WebkitLineClamp: 2,
+                    overflow: 'hidden',
+                  }}
+                >
+                  {comunicado.titulo}
+                </Typography>
                 <IconButton
                   size="small"
                   onClick={(e) => {
@@ -309,93 +379,122 @@ export default function ComunicadosListPage() {
                       handleRemoveComunicado(comunicado.id)
                     }
                   }}
-                  sx={{ color: 'error.main' }}
+                  sx={{
+                    color: 'error.main',
+                    borderRadius: 2,
+                    '&:hover': { backgroundColor: 'rgba(239,68,68,0.08)' },
+                  }}
                 >
-                  <Delete />
+                  <Delete fontSize="small" />
                 </IconButton>
               </Box>
 
-              {/* Categoria e Prioridade */}
-              <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
+              {/* Conteúdo (clamp) */}
+              <Box sx={{ flexGrow: 1, minHeight: 0 }}>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{
+                    display: '-webkit-box',
+                    WebkitBoxOrient: 'vertical',
+                    WebkitLineClamp: 3,
+                    overflow: 'hidden',
+                    lineHeight: 1.45,
+                  }}
+                >
+                  {stripHtml(comunicado.conteudo)}
+                </Typography>
+              </Box>
+
+              {/* Chips (mesma linha/altura) */}
+              <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 0.75 }}>
                 <Chip
-                  icon={getCategoryIcon(comunicado.categoria)}
-                  label={getCategoryLabel(comunicado.categoria)}
-                  color="primary"
+                  icon={getStatusLabel(comunicado.publicado) === 'Publicado' ? <CheckCircle /> : <Schedule />}
+                  label={getStatusLabel(comunicado.publicado)}
+                  color={getStatusColor(comunicado.publicado)}
                   size="small"
+                  variant="outlined"
+                  sx={{ borderRadius: 999, '& .MuiChip-icon': { ml: 0.5, mr: 0.25 } }}
                 />
                 <Chip
                   icon={getPriorityIcon(comunicado.prioridade)}
                   label={getPriorityLabel(comunicado.prioridade)}
                   color={getPriorityColor(comunicado.prioridade)}
                   size="small"
+                  variant="outlined"
+                  sx={{ borderRadius: 999, '& .MuiChip-icon': { ml: 0.5, mr: 0.25 } }}
                 />
                 <Chip
-                  label={getStatusLabel(comunicado.publicado)}
-                  color={getStatusColor(comunicado.publicado)}
+                  icon={getCategoryIcon(comunicado.categoria)}
+                  label={getCategoryLabel(comunicado.categoria)}
+                  color="primary"
                   size="small"
+                  variant="outlined"
+                  sx={{ borderRadius: 999, '& .MuiChip-icon': { ml: 0.5, mr: 0.25 } }}
                 />
               </Stack>
 
-              {/* Estatísticas */}
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                <Box sx={{ textAlign: 'center' }}>
-                  <Typography variant="h6" color="primary" fontWeight="bold">
-                    {formatIntegerPtBR(comunicado.visualizacoes?.length || 0)}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Visualizações
+              {/* Rodapé */}
+              <Box sx={{ pt: 0.5 }}>
+                <Divider sx={{ mb: 1.25 }} />
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, minWidth: 0 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+                      <Tooltip title={comunicado.autor || '—'} placement="top">
+                        <Avatar
+                          sx={{
+                            width: 26,
+                            height: 26,
+                            fontSize: 12,
+                            fontWeight: 700,
+                            bgcolor: stringToColor(comunicado.autor || comunicado.id),
+                            boxShadow: '0 4px 12px rgba(16,24,40,0.12)',
+                          }}
+                        >
+                          {getInitials(comunicado.autor)}
+                        </Avatar>
+                      </Tooltip>
+                      <Typography variant="caption" color="text.secondary" noWrap sx={{ minWidth: 0 }}>
+                        {comunicado.autor || '—'}
+                      </Typography>
+                    </Box>
+                    <Typography variant="caption" color="text.secondary" noWrap sx={{ pl: 0.5, minWidth: 0 }}>
+                      {formatIntegerPtBR(comunicado.visualizacoes?.length || 0)} visualizaç{(comunicado.visualizacoes?.length || 0) === 1 ? 'ão' : 'ões'}
+                    </Typography>
+                  </Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+                    {formatTimeAgo(comunicado.createdAt)}
                   </Typography>
                 </Box>
-              </Box>
 
-              {/* Autor e Data */}
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Avatar sx={{ width: 24, height: 24 }}>
-                    <Person />
-                  </Avatar>
-                  <Typography variant="caption" color="text.secondary">
-                    {comunicado.autor}
-                  </Typography>
-                </Box>
-                <Typography variant="caption" color="text.secondary">
-                  {formatTimeAgo(comunicado.createdAt)}
-                </Typography>
-              </Box>
-
-              {/* Tags */}
-              {(() => {
-                try {
-                  const tags = typeof comunicado.tags === 'string' ? JSON.parse(comunicado.tags || '[]') : comunicado.tags || [];
-                  if (tags && Array.isArray(tags) && tags.length > 0) {
-                    return (
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                        {tags.slice(0, 3).map((tag, index) => (
-                          <Chip
-                            key={index}
-                            label={tag}
-                            size="small"
-                            variant="outlined"
-                            sx={{ fontSize: '0.7rem' }}
-                          />
-                        ))}
-                        {tags.length > 3 && (
-                          <Chip
-                            label={`+${formatIntegerPtBR(tags.length - 3)}`}
-                            size="small"
-                            variant="outlined"
-                            sx={{ fontSize: '0.7rem' }}
-                          />
-                        )}
-                      </Box>
-                    );
+                {/* Tags (compacto) */}
+                {(() => {
+                  try {
+                    const tags = typeof comunicado.tags === 'string' ? JSON.parse(comunicado.tags || '[]') : comunicado.tags || []
+                    if (tags && Array.isArray(tags) && tags.length > 0) {
+                      return (
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 1 }}>
+                          {tags.slice(0, 3).map((tag, index) => (
+                            <Chip key={index} label={tag} size="small" variant="outlined" sx={{ fontSize: '0.7rem', borderRadius: 999 }} />
+                          ))}
+                          {tags.length > 3 && (
+                            <Chip
+                              label={`+${formatIntegerPtBR(tags.length - 3)}`}
+                              size="small"
+                              variant="outlined"
+                              sx={{ fontSize: '0.7rem', borderRadius: 999 }}
+                            />
+                          )}
+                        </Box>
+                      )
+                    }
+                    return null
+                  } catch (error) {
+                    console.warn('Erro ao processar tags do comunicado:', error)
+                    return null
                   }
-                  return null;
-                } catch (error) {
-                  console.warn('Erro ao processar tags do comunicado:', error);
-                  return null;
-                }
-              })()}
+                })()}
+              </Box>
             </CardContent>
           </Card>
         </Grid>

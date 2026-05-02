@@ -37,10 +37,6 @@ const columns: GridColDef[] = [
   { field: 'status', headerName: 'Status', width: 150, renderCell: (p) => <StatusBadge status={String(p.value ?? '')} /> },
   { field: 'analista', headerName: 'Analista', width: 160 },
   { field: 'area', headerName: 'Área', width: 160 },
-  { field: 'cliente', headerName: 'Cliente', width: 200 },
-  { field: 'contrato', headerName: 'Contrato', width: 140 },
-  { field: 'operadora', headerName: 'Operadora', width: 160 },
-  { field: 'produto', headerName: 'Produto', width: 160 },
   { field: 'tipoServico', headerName: 'Tipo de serviço', width: 180 },
   { field: 'tipo', headerName: 'Tipo de Demanda', width: 180 },
   { 
@@ -122,10 +118,6 @@ export default function DemandListPage() {
   const {
     analistasById,
     areasById,
-    clientesById,
-    contratosById,
-    operadorasById,
-    produtosById,
     tiposServicoById,
     tiposDemandaById,
     sistemasById
@@ -518,50 +510,6 @@ export default function DemandListPage() {
       
       return d.area || ''
     })(),
-    cliente: (() => {
-      if (d.cliente && typeof d.cliente === 'string' && d.cliente.length > 20) {
-        return clientesById[d.cliente]?.nome ?? d.cliente
-      }
-      
-      if (d.clienteId) {
-        return clientesById[d.clienteId]?.nome ?? d.clienteId
-      }
-      
-      return d.cliente || ''
-    })(),
-    contrato: (() => {
-      if (d.contrato && typeof d.contrato === 'string' && d.contrato.length > 20) {
-        return contratosById[d.contrato]?.codigo ?? contratosById[d.contrato]?.numero ?? d.contrato
-      }
-      
-      if (d.contratoId) {
-        return contratosById[d.contratoId]?.codigo ?? contratosById[d.contratoId]?.numero ?? d.contratoId
-      }
-      
-      return d.contrato || ''
-    })(),
-    operadora: (() => {
-      if (d.operadora && typeof d.operadora === 'string' && d.operadora.length > 20) {
-        return operadorasById[d.operadora]?.nome ?? d.operadora
-      }
-      
-      if (d.operadoraId) {
-        return operadorasById[d.operadoraId]?.nome ?? d.operadoraId
-      }
-      
-      return d.operadora || ''
-    })(),
-    produto: (() => {
-      if (d.produto && typeof d.produto === 'string' && d.produto.length > 20) {
-        return produtosById[d.produto]?.nome ?? d.produto
-      }
-      
-      if (d.produtoId) {
-        return produtosById[d.produtoId]?.nome ?? d.produtoId
-      }
-      
-      return d.produto || ''
-    })(),
     tipoServico: (() => {
       if (d.tipoServico && typeof d.tipoServico === 'string' && d.tipoServico.length > 20) {
         return tiposServicoById[d.tipoServico]?.nome ?? d.tipoServico
@@ -611,10 +559,6 @@ export default function DemandListPage() {
     finalFilteredItems,
     analistasById,
     areasById,
-    clientesById,
-    contratosById,
-    operadorasById,
-    produtosById,
     tiposServicoById,
     tiposDemandaById,
     sistemasById
@@ -935,10 +879,6 @@ export default function DemandListPage() {
           { key: 'descricao', label: 'Descrição' },
           { key: 'analista', label: 'Analista' },
           { key: 'area', label: 'Área' },
-          { key: 'cliente', label: 'Cliente' },
-          { key: 'contrato', label: 'Contrato' },
-          { key: 'operadora', label: 'Operadora' },
-          { key: 'produto', label: 'Produto' },
           { key: 'sistema', label: 'Sistema' },
           { key: 'tipoServico', label: 'Tipo de Serviço' },
           { key: 'tipo', label: 'Tipo de Demanda' },
