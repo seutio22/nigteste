@@ -92,6 +92,27 @@ function normRazaoSeg(s: string) {
   return s.trim().toLowerCase().replace(/\s+/g, ' ')
 }
 
+/** Alinha nomes de grupo (Nexus vs cadastro local) para unir linhas que representam o mesmo grupo económico. */
+function normGrupoNomeSeg(s: string): string {
+  return (s || '').trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
+class UnionFind {
+  private parent: number[]
+  constructor(n: number) {
+    this.parent = Array.from({ length: n }, (_, i) => i)
+  }
+  find(i: number): number {
+    if (this.parent[i] !== i) this.parent[i] = this.find(this.parent[i])
+    return this.parent[i]
+  }
+  union(a: number, b: number): void {
+    const ra = this.find(a)
+    const rb = this.find(b)
+    if (ra !== rb) this.parent[rb] = ra
+  }
+}
+
 /** Mesmo critério que `GET /seguros/estipulantes?grupoNome=` (Nexus OU grupo local). */
 function whereEstipulantesPorNomeGrupoNexus(nome: string): Prisma.PortalSeguroEstipulanteWhereInput {
   const n = nome.trim()
@@ -137,39 +158,71 @@ type EstLinhaContagem = {
   nexusClienteId: string | null
   grupoEconomicoNome: string
   grupoEconomicoId: string | null
-  /** `PortalGrupoEconomico.id` via relação `grupo` (espelha `grupoCadastroKey` no portal-web). */
+  /** `PortalGrupoEconomico.id` via relação `grupo`. */
   grupoPortalId: string | null
+  /** `PortalGrupoEconomico.nome` — faz ponte com `grupoEconomicoNome` quando só um dos lados tem FK. */
+  grupoNomePortal: string | null
 }
 
 /**
- * Chave do grupo na visão geral — **mesma regra** que `grupoCadastroKey` em `ApolicePage.tsx`:
- * `grupoEconomicoId` ou `grupo.id`, senão nome Nexus em minúsculas.
+ * Soma apólices por estipulante no mesmo «universo» de grupo económico.
+ *
+ * Uma única chave canónica falha quando os dados misturam: só FK local, só texto Nexus, ou nome no
+ * `PortalGrupoEconomico` que coincide com o Nexus noutra linha. Usamos Union-Find em etiquetas:
+ * `local:{uuid}`, `nx:{nome normalizado}` (Nexus e nome do grupo portal), e opcionalmente `cnpj:{dígitos}`
+ * para duplicados de cadastro (mesma empresa, dois UUIDs).
  */
-function canonicalGrupoKeyParaContagem(e: EstLinhaContagem): string {
-  const geid = (e.grupoEconomicoId ?? e.grupoPortalId ?? '').trim()
-  if (geid) return `local:${geid}`
-  const n = (e.grupoEconomicoNome || '').trim().toLowerCase()
-  return `nexus:${n}`
-}
-
-/** Mesmo grupo económico para totais: todos os estipulantes que partilham a mesma chave canónica. */
-function isMesmoGrupoEconomicoContagem(a: EstLinhaContagem, b: EstLinhaContagem): boolean {
-  return canonicalGrupoKeyParaContagem(a) === canonicalGrupoKeyParaContagem(b)
-}
-
-/** Soma todas as apólices ligadas a qualquer estipulante do mesmo grupo económico (não só «mesma empresa»). */
 function mergeApoliceCountsPorEstipulante(
   estipulantes: EstLinhaContagem[],
   countPorEstipulanteId: Map<string, number>,
 ): Map<string, number> {
-  const out = new Map<string, number>()
-  for (const est of estipulantes) {
-    const peers = estipulantes.filter((p) => isMesmoGrupoEconomicoContagem(est, p))
-    let sum = 0
-    for (const p of peers) {
-      sum += countPorEstipulanteId.get(p.id) ?? 0
+  const n = estipulantes.length
+  if (n === 0) return new Map()
+
+  const uf = new UnionFind(n)
+  const labelBuckets = new Map<string, number[]>()
+
+  const touchLabel = (label: string, idx: number) => {
+    if (!label) return
+    let arr = labelBuckets.get(label)
+    if (!arr) {
+      arr = []
+      labelBuckets.set(label, arr)
     }
-    out.set(est.id, sum)
+    arr.push(idx)
+  }
+
+  for (let i = 0; i < n; i++) {
+    const e = estipulantes[i]
+    const geid = (e.grupoEconomicoId ?? e.grupoPortalId ?? '').trim()
+    if (geid) touchLabel(`local:${geid}`, i)
+
+    const nxNome = normGrupoNomeSeg(e.grupoEconomicoNome)
+    if (nxNome) touchLabel(`nx:${nxNome}`, i)
+
+    const nxPortal = normGrupoNomeSeg(e.grupoNomePortal ?? '')
+    if (nxPortal) touchLabel(`nx:${nxPortal}`, i)
+
+    const d = normCnpjDigitsSeg(e.cnpj)
+    if (d.length >= 12) touchLabel(`cnpj:${d}`, i)
+  }
+
+  for (const indices of labelBuckets.values()) {
+    if (indices.length < 2) continue
+    const head = indices[0]
+    for (let k = 1; k < indices.length; k++) uf.union(head, indices[k])
+  }
+
+  const rootSum = new Map<number, number>()
+  for (let i = 0; i < n; i++) {
+    const r = uf.find(i)
+    const add = countPorEstipulanteId.get(estipulantes[i].id) ?? 0
+    rootSum.set(r, (rootSum.get(r) ?? 0) + add)
+  }
+
+  const out = new Map<string, number>()
+  for (let i = 0; i < n; i++) {
+    out.set(estipulantes[i].id, rootSum.get(uf.find(i)) ?? 0)
   }
   return out
 }
@@ -744,6 +797,7 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
           grupoEconomicoNome: e.grupoEconomicoNome,
           grupoEconomicoId: e.grupoEconomicoId,
           grupoPortalId: e.grupo?.id ?? null,
+          grupoNomePortal: e.grupo?.nome ?? null,
         }))
         const mergedCounts = mergeApoliceCountsPorEstipulante(linhas, countMap)
         estipulantes = estipulantesRaw.map((e) => ({
