@@ -8,9 +8,10 @@
 #   2) Se ainda bloquear: feche o Cursor por completo e apague portal-web\node_modules no Explorador,
 #      ou abra PowerShell FORA do Cursor e volte a correr este script.
 #
-# Vercel — havia vercel.json na RAIZ do monorepo a fazer build de demandas-web (título «Nexus»). Esse ficheiro foi removido.
-# Projeto portal na Vercel: defina Root Directory = portal-web (ou use só deploy a partir da pasta portal-web).
-# Se ao fazer deploy local aparecer portal-web\portal-web duplicado, veja doc Vercel monorepo ou use só GitHub Actions.
+# Vercel — na raiz do monorepo não há vercel.json (evita publicar o Nexus no domínio do portal).
+# No painel do projeto «portal-web»: «Root Directory» VAZIO se o deploy for da pasta portal-web neste
+# repo (CLI aqui ou GitHub Actions). Só use «portal-web» se a Vercel integrar Git no monorepo inteiro sem este workflow.
+# Se aparecer portal-web\portal-web duplicado no CLI, confirme cwd; ou use só o workflow na Actions.
 #
 # Uso:
 #   .\scripts\deploy-portal-web.ps1

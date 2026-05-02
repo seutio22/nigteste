@@ -3,9 +3,14 @@
 #   VERCEL_TOKEN — token da Vercel
 #   VERCEL_ORG_ID — team id (ex. team_xxx), pode ser o mesmo de ORG_ID do Nexus
 #   VERCEL_PROJECT_ID_PORTAL_WEB — id do projeto "portal-web" no painel Vercel (prj_xxx)
-# Monorepo: não há vercel.json na raiz — evita publicar demandas-web (Nexus) no domínio do portal.
-# Projeto «portal-web» na Vercel: Root Directory = portal-web (recomendado) ou vazio + deploy só via este workflow/CLI em portal-web.
-# bump: 2026-05-02c (raiz sem vercel.json; login portal distinto do Nexus)
+# Monorepo: não há vercel.json na raiz (evita build demandas-web/Nexus no projeto errado).
+#
+# ROOT DIRECTORY NO PAINEL VERCEL (crítico):
+# • Este workflow envia o ZIP já com raiz = pasta portal-web → no projeto Vercel deixe
+#   «Root Directory» VAZIO. Se puser «portal-web», a build procura portal-web/ dentro do zip → falha/404.
+# • Deploy do Nexus usa outro projeto Vercel com Root Directory = demandas-web.
+#
+# bump: 2026-05-02d (vercel.json portal completo; doc Root Directory vazio p/ Actions)
 
 on:
   push:
@@ -37,7 +42,7 @@ jobs:
         working-directory: portal-web
         run: npm run build
 
-      # Com Root Directory vazio no projeto Vercel, enviar só o conteúdo de portal-web (evita portal-web\portal-web).
+      # Root Directory no painel: vazio (o zip já é só portal-web).
       - name: Deploy Vercel (produção)
         uses: amondnet/vercel-action@v25
         with:
@@ -45,4 +50,4 @@ jobs:
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID_PORTAL_WEB }}
           working-directory: ./portal-web
-          vercel-args: "--prod --yes"
+          vercel-args: "--prod --yes --force"
