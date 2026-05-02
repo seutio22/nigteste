@@ -1269,6 +1269,64 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
     }
   })
 
+  /** Detalhe completo para edição unificada (dados gerais + linhas de plano). */
+  app.get('/seguros/apolices/:id', async (req, reply) => {
+    const u = await requirePortalUser(req, reply)
+    if (!u) return
+
+    const id = (req.params as { id?: string }).id
+    if (!id || !uuid.safeParse(id).success) return reply.code(400).send({ error: 'ID inválido' })
+
+    const ap = await prisma.portalSeguroApolice.findUnique({
+      where: { id },
+      include: {
+        estipulante: {
+          include: {
+            grupo: { select: { id: true, nome: true } },
+          },
+        },
+        planoLinhas: { orderBy: [{ sortOrder: 'asc' }, { codigoPlano: 'asc' }] },
+      },
+    })
+    if (!ap) return reply.code(404).send({ error: 'Apólice não encontrada' })
+
+    const planoLinhas = ap.planoLinhas.map((r) => ({
+      id: r.id,
+      sortOrder: r.sortOrder,
+      codigoPlano: r.codigoPlano,
+      tipoCusto: r.tipoCusto,
+      custoMedio: r.custoMedio != null ? Number(r.custoMedio) : null,
+      valoresPorFaixa: (r.valoresPorFaixa as Record<string, number | null> | null) ?? null,
+    }))
+
+    const e = ap.estipulante
+    return reply.send({
+      apolice: {
+        id: ap.id,
+        estipulanteId: ap.estipulanteId,
+        nexusContratoId: ap.nexusContratoId,
+        numeroApolice: ap.numeroApolice,
+        produto: ap.produto,
+        fornecedor: ap.fornecedor,
+        subestipulante: ap.subestipulante,
+        plano: ap.plano,
+        coberturas: ap.coberturas,
+        vigenciaInicio: ap.vigenciaInicio,
+        vigenciaFim: ap.vigenciaFim,
+        observacoes: ap.observacoes,
+        active: ap.active,
+        modeloDadosSeguro: ap.modeloDadosSeguro,
+        estipulante: {
+          id: e.id,
+          razaoSocial: e.razaoSocial,
+          grupoEconomicoNome: e.grupoEconomicoNome,
+          grupo: e.grupo ? { id: e.grupo.id, nome: e.grupo.nome } : null,
+        },
+        planoLinhas,
+      },
+    })
+  })
+
   app.patch('/seguros/apolices/:id', async (req, reply) => {
     const u = await requirePortalUser(req, reply)
     if (!u) return
@@ -1306,7 +1364,7 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
         if (nLinhas === 0) {
           return reply
             .code(400)
-            .send({ error: 'Informe o plano (texto) ou cadastre linhas de plano em «Dados do seguro».' })
+            .send({ error: 'Informe o plano (texto) ou configure planos estruturados na edição da apólice.' })
         }
       }
     }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link as RouterLink } from 'react-router-dom'
+import { Link as RouterLink, useNavigate } from 'react-router-dom'
 import {
   Accordion,
   AccordionDetails,
@@ -2147,6 +2147,7 @@ const APOLICE_NUMERO_MANUAL = '__manual__'
 const ESTIPULANTE_SEL_NEXUS_PREFIX = '__nx__'
 
 function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: string | null) => void }) {
+  const navigate = useNavigate()
   const { nomes, needsSync, syncMessage } = useNexusGruposEconomicosNomes()
   const [grupoNome, setGrupoNome] = useState('')
   const [estipulanteId, setEstipulanteId] = useState('')
@@ -2164,7 +2165,6 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
   )
 
   const [open, setOpen] = useState(false)
-  const [edit, setEdit] = useState<Apolice | null>(null)
   const [nexusContratoId, setNexusContratoId] = useState('')
   const [numeroApolice, setNumeroApolice] = useState('')
   const [produto, setProduto] = useState<ApoliceProduto>('OUTROS')
@@ -2322,7 +2322,6 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
 
   function openCreate() {
     if (!estipulanteId) return
-    setEdit(null)
     setNexusContratoId('')
     setNumeroApolice('')
     setProduto('OUTROS')
@@ -2338,7 +2337,6 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
 
   function openCadastrarDesdeContratoNexus(c: NexusContratoOpcao) {
     if (!estipulanteId) return
-    setEdit(null)
     setNexusContratoId(c.nexusContratoId)
     setNumeroApolice(c.numero)
     setProduto('OUTROS')
@@ -2352,22 +2350,7 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
     setOpen(true)
   }
 
-  function openRow(a: Apolice) {
-    setEdit(a)
-    setNexusContratoId(a.nexusContratoId ?? '')
-    setNumeroApolice(a.numeroApolice)
-    setProduto(a.produto)
-    setFornecedor(a.fornecedor)
-    setSubestipulante(a.subestipulante)
-    setPlano(a.plano ?? '')
-    setCoberturas(a.coberturas ?? '')
-    setVigIni(a.vigenciaInicio ? String(a.vigenciaInicio).slice(0, 10) : '')
-    setVigFim(a.vigenciaFim ? String(a.vigenciaFim).slice(0, 10) : '')
-    setObsAp(a.observacoes ?? '')
-    setOpen(true)
-  }
-
-  async function save() {
+  async function saveNew() {
     onError(null)
     setSaving(true)
     const base = {
@@ -2381,38 +2364,20 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
       observacoes: obsAp.trim() || null,
     }
     const nex = nexusContratoId.trim()
-    if (edit) {
-      const payload = {
-        ...base,
-        nexusContratoId: nex || null,
-        ...(nex ? {} : { numeroApolice: numeroApolice.trim() }),
-      }
-      const r = await api<{ apolice: Apolice }>(`/seguros/apolices/${edit.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify(payload),
-      })
-      setSaving(false)
-      if (!r.ok) onError(r.error || 'Erro ao guardar.')
-      else {
-        setOpen(false)
-        void loadApoliceTabela()
-      }
-    } else {
-      const payload = {
-        ...base,
-        nexusContratoId: nex || null,
-        numeroApolice: nex ? null : numeroApolice.trim(),
-      }
-      const r = await api<{ apolice: Apolice }>('/seguros/apolices', {
-        method: 'POST',
-        body: JSON.stringify({ estipulanteId, ...payload }),
-      })
-      setSaving(false)
-      if (!r.ok) onError(r.error || 'Erro ao guardar.')
-      else {
-        setOpen(false)
-        void loadApoliceTabela()
-      }
+    const payload = {
+      ...base,
+      nexusContratoId: nex || null,
+      numeroApolice: nex ? null : numeroApolice.trim(),
+    }
+    const r = await api<{ apolice: Apolice }>('/seguros/apolices', {
+      method: 'POST',
+      body: JSON.stringify({ estipulanteId, ...payload }),
+    })
+    setSaving(false)
+    if (!r.ok) onError(r.error || 'Erro ao guardar.')
+    else {
+      setOpen(false)
+      void loadApoliceTabela()
     }
   }
 
@@ -2574,11 +2539,8 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
                     <TableCell>{row.a._count?.itens ?? '—'}</TableCell>
                     {isAdmin ? (
                       <TableCell align="right">
-                        <Button size="small" onClick={() => openRow(row.a)}>
+                        <Button size="small" onClick={() => navigate(`/apolice/editar/${row.a.id}`)}>
                           Editar
-                        </Button>
-                        <Button size="small" component={RouterLink} to={`/apolice/dados/${row.a.id}`}>
-                          Dados do seguro
                         </Button>
                         <Button size="small" color="error" onClick={() => void del(row.a.id)}>
                           Excluir
@@ -2617,7 +2579,7 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
       </Paper>
 
       <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="md">
-        <DialogTitle>{edit ? 'Editar apólice' : 'Nova apólice'}</DialogTitle>
+        <DialogTitle>Nova apólice</DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
           {needsContratosSync ? (
             <Alert severity="info">
@@ -2705,7 +2667,7 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
           <Button
             variant="contained"
             disabled={saving || !numeroOk || !fornecedor.trim() || !subestipulante.trim()}
-            onClick={() => void save()}
+            onClick={() => void saveNew()}
           >
             Guardar
           </Button>

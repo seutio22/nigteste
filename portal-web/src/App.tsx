@@ -18,7 +18,8 @@ import OperationsQueuePage from './pages/OperationsQueuePage'
 import NotFoundPage from './pages/NotFoundPage'
 import HelpPage from './pages/HelpPage'
 import ApolicePage from './pages/ApolicePage'
-import ApoliceDadosSeguroPage from './pages/ApoliceDadosSeguroPage'
+import ApoliceEditPage from './pages/ApoliceEditPage'
+import ApoliceDadosRedirect from './pages/ApoliceDadosRedirect'
 
 function PrivateLayout() {
   const { user, loading } = useAuth()
@@ -48,7 +49,8 @@ function AppRoutes() {
         <Route path="conta" element={<AccountPage />} />
         <Route path="ajuda" element={<HelpPage />} />
         <Route path="apolice" element={<ApolicePage />} />
-        <Route path="apolice/dados/:apoliceId" element={<ApoliceDadosSeguroPage />} />
+        <Route path="apolice/editar/:apoliceId" element={<ApoliceEditPage />} />
+        <Route path="apolice/dados/:apoliceId" element={<ApoliceDadosRedirect />} />
         <Route path="admin" element={<AdminPage />} />
         <Route path="admin/centro" element={<AdminHubPage />} />
         <Route path="gestao/solicitacoes" element={<ManagerCasesPage />} />
