@@ -8,9 +8,7 @@
 # Secrets (se usar manualmente): VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID_PORTAL_WEB
 #
 # Painel Vercel (duas situações):
-# Há vercel.json na raiz (build demandas-web) para o projeto Nexus com Root vazio.
-# • Integração Git no monorepo inteiro → Root Directory = portal-web (obrigatório para o portal).
-# • Deploy CLI ou workflow abaixo com working-directory portal-web → Root Directory vazio.
+# Painel Vercel: Root Directory = portal-web (Git). CLI local: .\scripts\deploy-portal-web.ps1 (copia .vercel para a raiz e faz deploy de lá).
 
 on:
   workflow_dispatch:

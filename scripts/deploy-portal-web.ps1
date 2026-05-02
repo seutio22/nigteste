@@ -8,13 +8,12 @@
 #   2) Se ainda bloquear: feche o Cursor por completo e apague portal-web\node_modules no Explorador,
 #      ou abra PowerShell FORA do Cursor e volte a correr este script.
 #
-# Vercel — deploy por CLI a partir desta pasta (não precisa de GitHub).
-# Painel Vercel (obrigatório se a integração Git aponta ao monorepo inteiro):
-#   Settings → General → Root Directory = portal-web
-# Sem isto, a Vercel usa a raiz do repo e pode publicar outra app (ex.: Nexus).
-# Com deploy só por CLI desta pasta (cwd = portal-web), o Root Directory pode ficar vazio.
-# Há vercel.json na raiz do monorepo para o Nexus (deploy Git com Root Directory vazio).
-# O projeto «portal» na Vercel NÃO pode usar a raiz vazia — deve ser Root Directory = portal-web.
+# Vercel — no painel: Root Directory = portal-web (integração Git no monorepo).
+# O CLI não pode correr só dentro de portal-web com essa definição (duplica portal-web\portal-web).
+# Solução: copiar portal-web/.vercel/project.json para .vercel na raiz do repo e executar
+# «npx vercel deploy --prod --yes» a partir da raiz (após npm ci + vite build em portal-web).
+# Faça «npx vercel link» uma vez dentro de portal-web se ainda não existir .vercel.
+# Há vercel.json na raiz para o projeto Nexus (outro projectId) com Root vazio ou demandas-web.
 #
 # Uso:
 #   .\scripts\deploy-portal-web.ps1
@@ -115,8 +114,8 @@ Falhou de novo. Passos manuais:
   1. Task Manager → terminar todos os «Node.js JavaScript Runtime»
   2. Fechar outros terminais / Cursor a correr vite
   3. Apagar pasta: $pw\node_modules
-  4. npm ci
-  5. cd portal-web; npx vercel deploy --prod --yes
+  4. cd portal-web; npm ci; npx vite build
+  5. Copiar portal-web\.vercel\project.json → .vercel\ na raiz; na raiz: npx vercel deploy --prod --yes
 
 "@ -ForegroundColor Yellow
   exit $LASTEXITCODE
@@ -126,15 +125,28 @@ Write-Host "Build (npx vite)…" -ForegroundColor Cyan
 npx vite build
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+$vercelLink = Join-Path $pw ".vercel\project.json"
+if (-not (Test-Path $vercelLink)) {
+  Write-Host @"
+
+Ligue o projeto uma vez:
+  cd $pw
+  npx vercel link
+
+"@ -ForegroundColor Yellow
+  exit 1
+}
+$vercelRootDir = Join-Path $root ".vercel"
+if (-not (Test-Path $vercelRootDir)) {
+  New-Item -ItemType Directory -Path $vercelRootDir -Force | Out-Null
+}
+Copy-Item -Path $vercelLink -Destination (Join-Path $vercelRootDir "project.json") -Force
+
 Write-Host @"
 
-Deploy Vercel (cwd = portal-web)…
-Se aparecer erro «portal-web\portal-web» não existe:
-  Painel → projeto portal-web → Settings → General → Root Directory → APAGUE o valor (deixe vazio).
-  Esse campo «portal-web» soma-se ao caminho do CLI e duplica a pasta.
-  Com Root Directory vazio, deploys por Git no monorepo exigem Build/Install em portal-web (ver doc Vercel monorepo).
+Deploy Vercel a partir da raiz do repo (com .vercel copiado de portal-web; evita portal-web\portal-web)…
 
 "@ -ForegroundColor DarkYellow
-# Já estamos em $pw (portal-web) desde o início do script.
+Set-Location $root
 npx vercel deploy --prod --yes
 exit $LASTEXITCODE
