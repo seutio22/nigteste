@@ -21,6 +21,7 @@ import {
   Select,
   type SelectChangeEvent,
   Table,
+  TableContainer,
   TableBody,
   TableCell,
   TableHead,
@@ -407,7 +408,7 @@ export default function ApolicePage() {
           </Alert>
         )}
 
-        {section === 'visao' && <VisaoGeral gruposCount={grupos.length} />}
+        {section === 'visao' && <VisaoGeral onError={setErr} />}
         {section === 'grupos' && <GruposSection grupos={grupos} isAdmin={isAdmin} onRefresh={loadGrupos} onError={setErr} />}
         {section === 'estipulantes' && <EstipulantesSection isAdmin={isAdmin} onError={setErr} />}
         {section === 'apolices' && <ApolicesSection isAdmin={isAdmin} onError={setErr} />}
@@ -417,32 +418,168 @@ export default function ApolicePage() {
   )
 }
 
-function VisaoGeral({ gruposCount }: { gruposCount: number }) {
+type CadastroVisaoGeralItem = {
+  id: string
+  tipo: ItemTipo
+  descricao: string
+  detalhes: string | null
+  sortOrder: number
+}
+
+type CadastroVisaoGeralApolice = {
+  id: string
+  numeroApolice: string
+  produto: ApoliceProduto
+  fornecedor: string
+  subestipulante: string
+  plano: string | null
+  coberturas: string | null
+  vigenciaInicio: string | null
+  vigenciaFim: string | null
+  nexusContratoId: string | null
+  estipulante: {
+    id: string
+    razaoSocial: string
+    grupoEconomicoNome: string
+    cnpj: string
+    grupo: { id: string; nome: string } | null
+  }
+  itens: CadastroVisaoGeralItem[]
+}
+
+function labelGrupoEconomico(e: CadastroVisaoGeralApolice['estipulante']): string {
+  const n = e.grupo?.nome?.trim()
+  const g = e.grupoEconomicoNome?.trim()
+  if (n && g && n.localeCompare(g, 'pt-BR', { sensitivity: 'base' }) !== 0) return `${g} (${n})`
+  return n || g || '—'
+}
+
+function VisaoGeral({ onError }: { onError: (s: string | null) => void }) {
+  const [loading, setLoading] = useState(true)
+  const [gruposEconomicosCount, setGruposEconomicosCount] = useState<number | null>(null)
+  const [apolices, setApolices] = useState<CadastroVisaoGeralApolice[]>([])
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    onError(null)
+    const r = await api<{ gruposEconomicosCount: number; apolices: CadastroVisaoGeralApolice[] }>(
+      '/seguros/cadastro-visao-geral',
+    )
+    setLoading(false)
+    if (!r.ok) {
+      onError(r.error || 'Erro ao carregar visão geral do cadastro.')
+      setApolices([])
+      setGruposEconomicosCount(null)
+      return
+    }
+    setGruposEconomicosCount(r.data?.gruposEconomicosCount ?? 0)
+    setApolices(r.data?.apolices ?? [])
+  }, [onError])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
   return (
-    <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
-      <Typography variant="subtitle1" fontWeight={700} gutterBottom>
-        Hierarquia recomendada
-      </Typography>
-      <Box component="ol" sx={{ pl: 2, m: 0, color: 'text.secondary', '& li': { mb: 1 } }}>
-        <li>
-          <strong>Grupo econômico</strong> — identifica o cliente / conglomerado.
-        </li>
-        <li>
-          <strong>Estipulante</strong> — pessoa jurídica contratante, vinculada a um grupo econômico.
-        </li>
-        <li>
-          <strong>Apólice</strong> — número, produto (Saúde, Odonto, Vida em grupo, Outros), seguradora (fornecedor), subestipulante; <strong>plano</strong>{' '}
-          obrigatório em Saúde/Odonto; <strong>coberturas</strong> obrigatórias em Vida em grupo.
-        </li>
-        <li>
-          <strong>Itens da apólice</strong> — detalhamento (coberturas, serviços, cláusulas) por apólice.
-        </li>
-      </Box>
-      <Divider sx={{ my: 2 }} />
-      <Typography variant="body2" color="text.secondary">
-        Grupos econômicos cadastrados: <strong>{gruposCount}</strong>
-      </Typography>
-    </Paper>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
+        <Typography variant="subtitle1" fontWeight={700} gutterBottom>
+          Hierarquia recomendada
+        </Typography>
+        <Box component="ol" sx={{ pl: 2, m: 0, color: 'text.secondary', '& li': { mb: 1 } }}>
+          <li>
+            <strong>Grupo econômico</strong> — identifica o cliente / conglomerado.
+          </li>
+          <li>
+            <strong>Estipulante</strong> — pessoa jurídica contratante, vinculada a um grupo econômico.
+          </li>
+          <li>
+            <strong>Apólice</strong> — número, produto (Saúde, Odonto, Vida em grupo, Outros), seguradora (fornecedor), subestipulante; <strong>plano</strong>{' '}
+            obrigatório em Saúde/Odonto; <strong>coberturas</strong> obrigatórias em Vida em grupo.
+          </li>
+          <li>
+            <strong>Itens da apólice</strong> — detalhamento (coberturas, serviços, cláusulas) por apólice.
+          </li>
+        </Box>
+        <Divider sx={{ my: 2 }} />
+        <Typography variant="body2" color="text.secondary">
+          Grupos económicos (cadastro local):{' '}
+          <strong>{gruposEconomicosCount === null ? '—' : gruposEconomicosCount}</strong>
+          {' · '}
+          Apólices ativas listadas: <strong>{loading ? '…' : apolices.length}</strong>
+        </Typography>
+      </Paper>
+
+      <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden' }}>
+        <Box sx={{ px: 2, py: 1.5, bgcolor: 'action.hover' }}>
+          <Typography variant="subtitle1" fontWeight={700}>
+            Cadastro consolidado (grupo → estipulante → apólice → itens)
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Todas as apólices ativas no portal, com itens cadastrados por apólice (até 500 apólices / 200 itens cada).
+          </Typography>
+        </Box>
+        {loading ? (
+          <Typography sx={{ p: 2 }} color="text.secondary">
+            A carregar…
+          </Typography>
+        ) : apolices.length === 0 ? (
+          <Typography sx={{ p: 2 }} color="text.secondary">
+            Ainda não há apólices ativas no portal. Utilize as secções à esquerda para cadastrar grupo, estipulante, apólice e itens.
+          </Typography>
+        ) : (
+          <TableContainer sx={{ maxHeight: { xs: 'none', md: '70vh' } }}>
+            <Table size="small" stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Grupo económico</TableCell>
+                  <TableCell>Estipulante</TableCell>
+                  <TableCell>Nº apólice</TableCell>
+                  <TableCell>Produto</TableCell>
+                  <TableCell>Fornecedor</TableCell>
+                  <TableCell>Vigência</TableCell>
+                  <TableCell sx={{ minWidth: 220 }}>Itens da apólice</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {apolices.map((a) => (
+                  <TableRow key={a.id} hover>
+                    <TableCell sx={{ maxWidth: 160, verticalAlign: 'top' }}>
+                      {labelGrupoEconomico(a.estipulante)}
+                    </TableCell>
+                    <TableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>{a.estipulante.razaoSocial}</TableCell>
+                    <TableCell sx={{ verticalAlign: 'top' }}>{a.numeroApolice}</TableCell>
+                    <TableCell sx={{ verticalAlign: 'top' }}>{PRODUTO_LABEL[a.produto]}</TableCell>
+                    <TableCell sx={{ maxWidth: 140, verticalAlign: 'top' }}>{a.fornecedor}</TableCell>
+                    <TableCell sx={{ whiteSpace: 'nowrap', verticalAlign: 'top' }}>
+                      {fmtDate(a.vigenciaInicio)} — {fmtDate(a.vigenciaFim)}
+                    </TableCell>
+                    <TableCell sx={{ verticalAlign: 'top' }}>
+                      {a.itens.length === 0 ? (
+                        <Typography variant="caption" color="text.secondary">
+                          —
+                        </Typography>
+                      ) : (
+                        <Box component="ul" sx={{ m: 0, pl: 2, maxWidth: 420 }}>
+                          {a.itens.map((it) => (
+                            <li key={it.id}>
+                              <Typography variant="caption" component="span" display="block">
+                                <strong>{ITEM_TIPO_LABEL[it.tipo]}</strong>: {it.descricao}
+                                {it.detalhes ? ` — ${it.detalhes}` : ''}
+                              </Typography>
+                            </li>
+                          ))}
+                        </Box>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+      </Paper>
+    </Box>
   )
 }
 

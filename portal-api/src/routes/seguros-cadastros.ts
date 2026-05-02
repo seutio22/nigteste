@@ -592,6 +592,58 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
     }
   })
 
+  /** Visão geral do cadastro: todas as apólices ativas com estipulante, grupo económico e itens. */
+  app.get('/seguros/cadastro-visao-geral', async (req, reply) => {
+    const u = await requirePortalUser(req, reply)
+    if (!u) return
+
+    const gruposEconomicosCount = await prisma.portalGrupoEconomico.count({ where: { active: true } })
+    const apolices = await prisma.portalSeguroApolice.findMany({
+      where: { active: true },
+      take: 500,
+      orderBy: [
+        { estipulante: { grupoEconomicoNome: 'asc' } },
+        { estipulante: { razaoSocial: 'asc' } },
+        { numeroApolice: 'asc' },
+      ],
+      select: {
+        id: true,
+        numeroApolice: true,
+        produto: true,
+        fornecedor: true,
+        subestipulante: true,
+        plano: true,
+        coberturas: true,
+        vigenciaInicio: true,
+        vigenciaFim: true,
+        nexusContratoId: true,
+        estipulante: {
+          select: {
+            id: true,
+            razaoSocial: true,
+            grupoEconomicoNome: true,
+            cnpj: true,
+            grupo: { select: { id: true, nome: true } },
+          },
+        },
+        itens: {
+          where: { active: true },
+          orderBy: { sortOrder: 'asc' },
+          take: 200,
+          select: {
+            id: true,
+            tipo: true,
+            descricao: true,
+            detalhes: true,
+            sortOrder: true,
+          },
+        },
+      },
+    })
+
+    return reply.send({ gruposEconomicosCount, apolices })
+  })
+
   // --- Apólices ---
   app.get('/seguros/apolices', async (req, reply) => {
     const u = await requirePortalUser(req, reply)
