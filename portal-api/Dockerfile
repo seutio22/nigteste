@@ -14,12 +14,9 @@ COPY package.json package-lock.json ./
 COPY prisma.config.ts ./
 COPY prisma ./prisma
 
-# Railway/Node às vezes definem produção no build e omitem devDependencies (typescript, etc.).
-ENV NPM_CONFIG_PRODUCTION=false
-
-# npm install (não npm ci): se o lock no Git atrasar face ao package.json, o ci falha; o install reconcilia.
-# Mantenha package-lock.json atualizado com `npm install` na pasta portal-api e commit.
-RUN npm install
+# Railway/Node pode definir NODE_ENV=production no build e omitir devDependencies (tsc, etc.).
+# Usar --include=dev evita o aviso antigo «npm warn config production» (NPM_CONFIG_PRODUCTION).
+RUN npm install --include=dev
 
 COPY tsconfig.json ./
 COPY src ./src

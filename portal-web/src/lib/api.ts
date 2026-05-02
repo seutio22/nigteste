@@ -34,6 +34,121 @@ export function setToken(token: string | null) {
   else localStorage.removeItem('portal_token')
 }
 
+/** Base normalizada para pedidos ao servidor. */
+function buildApiUrl(path: string): string {
+  return `${base}${path.startsWith('/') ? path : `/${path}`}`
+}
+
+export async function apiBlob(
+  path: string,
+  init?: RequestInit,
+): Promise<{ ok: boolean; status: number; blob: Blob | null; error?: string; filenameHint?: string }> {
+  if (import.meta.env.PROD && !envApi) {
+    return {
+      ok: false,
+      status: 0,
+      blob: null,
+      error:
+        'API não configurada: em Vercel → Environment Variables adicione VITE_API_URL com a URL da API (Railway).',
+    }
+  }
+  const url = buildApiUrl(path)
+  const token = getToken()
+  try {
+    const res = await fetch(url, {
+      ...init,
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...((init?.headers as Record<string, string>) || {}),
+      },
+    })
+    const cd = res.headers.get('Content-Disposition')
+    let filenameHint: string | undefined
+    if (cd) {
+      const m = /filename\*?=(?:UTF-8'')?["']?([^"';]+)/i.exec(cd) || /filename="([^"]+)"/i.exec(cd)
+      if (m) filenameHint = decodeURIComponent(m[1].replace(/["']/g, ''))
+    }
+    if (!res.ok) {
+      const text = await res.text()
+      let err = res.statusText
+      try {
+        const j = JSON.parse(text) as { error?: string }
+        if (j.error) err = j.error
+      } catch {
+        if (text.length && text.length < 800) err = text
+      }
+      return { ok: false, status: res.status, blob: null, error: err }
+    }
+    const blob = await res.blob()
+    return { ok: true, status: res.status, blob, filenameHint }
+  } catch {
+    return {
+      ok: false,
+      status: 0,
+      blob: null,
+      error:
+        'Não foi possível contactar a API. Verifique VITE_API_URL, rede e CORS.',
+    }
+  }
+}
+
+/** POST multipart (não definir Content-Type manualmente — o browser define o boundary). */
+export async function apiFormData<T>(
+  path: string,
+  formData: FormData,
+): Promise<{ ok: boolean; status: number; data: T | null; error?: string }> {
+  if (import.meta.env.PROD && !envApi) {
+    return {
+      ok: false,
+      status: 0,
+      data: null,
+      error:
+        'API não configurada: em Vercel → Environment Variables adicione VITE_API_URL com a URL da API (Railway).',
+    }
+  }
+  const url = buildApiUrl(path)
+  const token = getToken()
+  let res: Response
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      body: formData,
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+  } catch {
+    return {
+      ok: false,
+      status: 0,
+      data: null,
+      error: 'Não foi possível contactar a API.',
+    }
+  }
+  const text = await res.text()
+  let data: T | null = null
+  let jsonParseFailed = false
+  if (text) {
+    try {
+      data = JSON.parse(text) as T
+    } catch {
+      jsonParseFailed = true
+      data = null
+    }
+  }
+  const parseErrorMsg = jsonParseFailed
+    ? 'A API devolveu uma resposta que não é JSON.'
+    : undefined
+  const errObj = data as { error?: string; message?: string } | null
+  const serverMsg = errObj?.error || errObj?.message
+  const httpOk = res.ok && !jsonParseFailed
+  const errorMsg = !httpOk ? parseErrorMsg || serverMsg || res.statusText : undefined
+  return {
+    ok: httpOk,
+    status: res.status,
+    data,
+    error: errorMsg,
+  }
+}
+
 export async function api<T>(
   path: string,
   init?: RequestInit
@@ -47,7 +162,7 @@ export async function api<T>(
         'API não configurada: em Vercel → Environment Variables adicione VITE_API_URL com a URL da API (Railway), ex. https://portal-colaborador-api-production.up.railway.app — depois faça Redeploy.',
     }
   }
-  const url = `${base}${path.startsWith('/') ? path : `/${path}`}`
+  const url = buildApiUrl(path)
   const token = getToken()
   const headers: HeadersInit = {
     ...(init?.body ? { 'Content-Type': 'application/json' } : {}),

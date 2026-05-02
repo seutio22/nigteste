@@ -19,6 +19,7 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate deploy",
     "db:migrate:dev": "prisma migrate dev",
+    "db:fix-contrato-est": "tsx scripts/fix-contrato-estipulantes-run.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {
@@ -26,9 +27,11 @@
     "@aws-sdk/s3-request-presigner": "^3.1024.0",
     "@fastify/cors": "^11.1.0",
     "@fastify/jwt": "^10.0.0",
+    "@fastify/multipart": "^10.0.0",
     "@prisma/client": "6.19.3",
     "bcryptjs": "^3.0.2",
     "dotenv": "^16.6.1",
+    "exceljs": "^4.4.0",
     "fastify": "^5.4.0",
     "prisma": "6.19.3",
     "zod": "^4.0.16"

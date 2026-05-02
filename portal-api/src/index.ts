@@ -13,7 +13,9 @@ import { registerNexusSyncRoutes } from './routes/nexus-sync.js'
 import { registerLookupListRoutes } from './routes/lookup-lists.js'
 import { registerUploadRoutes } from './routes/uploads.js'
 import { registerSeguroCadastroRoutes } from './routes/seguros-cadastros.js'
+import { registerSegurosBaseSnapshotRoutes } from './routes/seguros-base-snapshot.js'
 import { getNexusBaseUrl } from './lib/nexus.js'
+import { importNexusSegurosParaPortal } from './lib/nexus-seguros-import.js'
 import { getNexusSyncIntervalMinutes, runNexusSnapshotSync, type NexusSyncResultRow } from './lib/nexus-sync-runner.js'
 
 const PORT = Number(process.env.PORT) || 4001
@@ -59,6 +61,14 @@ await app.register(jwt, {
   secret: JWT_SECRET,
 })
 
+import multipart from '@fastify/multipart'
+await app.register(multipart, {
+  limits: {
+    fileSize: 52 * 1024 * 1024,
+    files: 1,
+  },
+})
+
 app.get('/health', async () => ({ status: 'ok', service: 'portal-colaborador-api' }))
 
 await registerAuthRoutes(app)
@@ -71,6 +81,7 @@ await registerNexusSyncRoutes(app)
 await registerLookupListRoutes(app)
 await registerUploadRoutes(app)
 await registerSeguroCadastroRoutes(app)
+await registerSegurosBaseSnapshotRoutes(app)
 
 function scheduleNexusPeriodicSync() {
   const mins = getNexusSyncIntervalMinutes()
@@ -108,12 +119,41 @@ function scheduleNexusPeriodicSync() {
   }
 }
 
+/**
+ * Se `PortalSeguroApolice` está vazia mas já há snapshot `contratos` na BD, importa uma vez
+ * (~20s após subir) sem esperar sync Nexus — evita ficar só em «Só Nexus» no front.
+ * Desligar: NEXUS_IMPORT_SEGUROS_ON_STARTUP=0
+ */
+function scheduleSegurosImportOnStartup() {
+  const raw = (process.env.NEXUS_IMPORT_SEGUROS_ON_STARTUP ?? '1').trim().toLowerCase()
+  if (raw === '0' || raw === 'false' || raw === 'no' || raw === 'off') return
+  setTimeout(() => {
+    void (async () => {
+      try {
+        const n = await prisma.portalSeguroApolice.count()
+        if (n > 0) {
+          console.log('[nexus-import] startup: base já tem apólices; import automático não necessário.')
+          return
+        }
+        const imp = await importNexusSegurosParaPortal({ dryRun: false })
+        console.log(
+          `[nexus-import] startup: criadas ${imp.apolicesCriadas} apólice(s), ${imp.estipulantesCriados} estipulante(s); já ligadas ${imp.apolicesJaExistentes}; sem grupo ${imp.ignoradosSemGrupo}; erros ${imp.errors.length}`,
+        )
+        if (imp.errors.length) console.warn('[nexus-import] startup erros:', imp.errors.slice(0, 8))
+      } catch (e) {
+        console.error('[nexus-import] startup falhou:', e)
+      }
+    })()
+  }, 20_000)
+}
+
 const start = async () => {
   try {
     await prisma.$connect()
     await app.listen({ port: PORT, host: '0.0.0.0' })
     console.log(`Portal API em http://0.0.0.0:${PORT}`)
     console.log(`CORS permitidas (${allowedOrigins.size}): ${[...allowedOrigins].join(', ')}`)
+    scheduleSegurosImportOnStartup()
     scheduleNexusPeriodicSync()
   } catch (err) {
     app.log.error(err)

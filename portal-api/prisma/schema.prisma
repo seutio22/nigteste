@@ -52,6 +52,18 @@ enum PortalApoliceProduto {
   OUTROS
 }
 
+/// Modelo de cadastro alargado na página «Dados do seguro» (plano estruturado vs coberturas).
+enum PortalApoliceModeloDadosSeguro {
+  PLANO
+  COBERTURA
+}
+
+/// Por linha de plano: custo único (médio) ou tabela por faixa etária.
+enum PortalApoliceTipoCustoPlano {
+  CUSTO_MEDIO
+  FAIXA_ETARIA
+}
+
 /// Cliente / grupo econômico (nível 1)
 model PortalGrupoEconomico {
   id            String                   @id @default(uuid())
@@ -77,11 +89,15 @@ model PortalSeguroEstipulante {
   nexusClienteId       String?
   razaoSocial          String
   cnpj                 String
+  /** Classificação Nacional de Atividades Económicas (opcional). */
+  cnae                 String?
   nomeFantasia         String?
   observacoes          String?
   active               Boolean               @default(true)
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
+  /** Quando preenchido, indica criação pela importação Nexus→portal. */
+  importadoNexusEm     DateTime?
   apolices             PortalSeguroApolice[]
 
   @@index([grupoEconomicoId])
@@ -108,10 +124,32 @@ model PortalSeguroApolice {
   active          Boolean                   @default(true)
   createdAt       DateTime                  @default(now())
   updatedAt       DateTime                  @updatedAt
+  /** Quando preenchido, indica criação pela importação Nexus→portal (não sobrescrito em re-importações). */
+  importadoNexusEm DateTime?
+  /// Plano estruturado (várias linhas) vs coberturas — ver página «Dados do seguro» no portal.
+  modeloDadosSeguro PortalApoliceModeloDadosSeguro?
   itens           PortalSeguroApoliceItem[]
+  planoLinhas     PortalSeguroApolicePlanoLinha[]
 
   @@index([estipulanteId])
+  @@index([nexusContratoId])
   @@unique([estipulanteId, numeroApolice])
+}
+
+/// Um registo de plano dentro da apólice (pode haver vários). Custos: médio ou por faixa etária (JSON com chaves fixas).
+model PortalSeguroApolicePlanoLinha {
+  id              String                       @id @default(uuid())
+  apoliceId       String
+  apolice         PortalSeguroApolice          @relation(fields: [apoliceId], references: [id], onDelete: Cascade)
+  sortOrder       Int                          @default(0)
+  codigoPlano     String
+  tipoCusto       PortalApoliceTipoCustoPlano
+  custoMedio      Decimal?                     @db.Decimal(14, 4)
+  valoresPorFaixa Json?
+  createdAt       DateTime                     @default(now())
+  updatedAt       DateTime                     @updatedAt
+
+  @@index([apoliceId, sortOrder])
 }
 
 enum PortalSeguroItemTipo {

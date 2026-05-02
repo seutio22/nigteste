@@ -1,8 +1,19 @@
 import { Prisma } from '@prisma/client'
 import { prisma } from './prisma.js'
+import { importNexusSegurosParaPortal } from './nexus-seguros-import.js'
 import { NEXUS_ENTITY_PATHS, fetchNexusEntityList, getNexusBaseUrl, getNexusToken } from './nexus.js'
 
 export type NexusSyncResultRow = { entityKey: string; ok: boolean; rowCount?: number; error?: string }
+
+/**
+ * Após sync dos snapshots, gravar contratos Nexus novos em PortalSeguro* (insert-only).
+ * Default: ligado. Defina `NEXUS_IMPORT_SEGUROS_AFTER_SYNC=0` para desligar.
+ */
+export function getImportSegurosAfterSync(): boolean {
+  const raw = (process.env.NEXUS_IMPORT_SEGUROS_AFTER_SYNC ?? '1').trim().toLowerCase()
+  if (raw === '0' || raw === 'false' || raw === 'no' || raw === 'off') return false
+  return true
+}
 
 let syncInProgress = false
 
@@ -73,6 +84,25 @@ export async function runNexusSnapshotSync(options?: {
         results.push({ entityKey, ok: false, error: msg })
       }
     }
+
+    if (getImportSegurosAfterSync()) {
+      const contratosOk = results.some((r) => r.entityKey === 'contratos' && r.ok)
+      if (contratosOk) {
+        try {
+          const imp = await importNexusSegurosParaPortal({ dryRun: false })
+          results.push({
+            entityKey: '_import_seguros_portal',
+            ok: imp.errors.length === 0,
+            rowCount: imp.apolicesCriadas + imp.estipulantesCriados,
+            error: imp.errors.length > 0 ? imp.errors.slice(0, 5).join(' | ').slice(0, 500) + (imp.errors.length > 5 ? '…' : '') : undefined,
+          })
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e)
+          results.push({ entityKey: '_import_seguros_portal', ok: false, error: msg })
+        }
+      }
+    }
+
     return { ok: true, results }
   } finally {
     syncInProgress = false

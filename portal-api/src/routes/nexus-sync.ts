@@ -5,6 +5,8 @@ import { prisma } from '../lib/prisma.js'
 import { requirePortalUser } from '../lib/authz.js'
 import { NEXUS_ENTITY_PATHS, getNexusBaseUrl } from '../lib/nexus.js'
 import { getNexusSyncIntervalMinutes, runNexusSnapshotSync } from '../lib/nexus-sync-runner.js'
+import { importNexusSegurosParaPortal } from '../lib/nexus-seguros-import.js'
+import { fixContratoPlaceholderEstipulantes } from '../lib/seguros-fix-contrato-estipulantes.js'
 
 async function requireAdmin(req: import('fastify').FastifyRequest, reply: import('fastify').FastifyReply) {
   const u = await requirePortalUser(req, reply)
@@ -101,6 +103,42 @@ export async function registerNexusSyncRoutes(app: FastifyInstance) {
       return reply.code(500).send({ error: 'Falha na sincronização' })
     }
     return reply.send({ ok: true, results: out.results })
+  })
+
+  /**
+   * Importa contratos/clientes Nexus (snapshots já gravados) para `PortalSeguroEstipulante` + `PortalSeguroApolice`.
+   * Só cria linhas novas; não sobrescreve cadastro já existente no portal.
+   *
+   * POST /admin/nexus-sync/import-seguros  body: `{ "dryRun": true }` opcional
+   */
+  app.post('/admin/nexus-sync/import-seguros', async (req, reply) => {
+    if (!(await requireAdmin(req, reply))) return
+    let dryRun = false
+    try {
+      dryRun = z.object({ dryRun: z.boolean().optional() }).parse(req.body ?? {}).dryRun === true
+    } catch {
+      return reply.code(400).send({ error: 'Body inválido' })
+    }
+    const result = await importNexusSegurosParaPortal({ dryRun })
+    return reply.send({ ok: true, result })
+  })
+
+  /**
+   * Corrige estipulantes legados «Contrato (…)»: realinha apólices para o único estipulante
+   * real do mesmo grupo e apaga os placeholders. Só actua quando há exactamente um destino.
+   *
+   * POST /admin/nexus-sync/fix-contrato-estipulantes  body: `{ "dryRun": true }` opcional
+   */
+  app.post('/admin/nexus-sync/fix-contrato-estipulantes', async (req, reply) => {
+    if (!(await requireAdmin(req, reply))) return
+    let dryRun = false
+    try {
+      dryRun = z.object({ dryRun: z.boolean().optional() }).parse(req.body ?? {}).dryRun === true
+    } catch {
+      return reply.code(400).send({ error: 'Body inválido' })
+    }
+    const result = await fixContratoPlaceholderEstipulantes({ dryRun })
+    return reply.send({ ok: true, result })
   })
 
   /**

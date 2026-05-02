@@ -34,6 +34,7 @@ import {
   TextField,
   Typography,
   useMediaQuery,
+  useTheme,
 } from '@mui/material'
 import AccountTreeIcon from '@mui/icons-material/AccountTree'
 import BusinessIcon from '@mui/icons-material/Business'
@@ -46,6 +47,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import CloseIcon from '@mui/icons-material/Close'
 import { api, getPortalApiBaseDisplay } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
+import SegurosBaseImportExportPanel from '../components/SegurosBaseImportExportPanel'
 
 const DRAWER = 280
 
@@ -93,6 +95,7 @@ type Estipulante = {
   nexusClienteId: string | null
   razaoSocial: string
   cnpj: string
+  cnae: string | null
   nomeFantasia: string | null
   observacoes: string | null
   active: boolean
@@ -123,13 +126,14 @@ type Apolice = {
   vigenciaFim: string | null
   observacoes: string | null
   active: boolean
+  modeloDadosSeguro?: 'PLANO' | 'COBERTURA' | null
   estipulante?: {
     id: string
     razaoSocial: string
     grupoEconomicoNome?: string
     grupo?: { id: string; nome: string } | null
   }
-  _count?: { itens: number }
+  _count?: { itens: number; planoLinhas?: number }
 }
 
 type ApoliceLista = {
@@ -294,7 +298,8 @@ function useNexusGruposEconomicosNomes() {
 }
 
 export default function ApolicePage() {
-  const isMd = useMediaQuery((t) => t.breakpoints.up('md'))
+  const theme = useTheme()
+  const isMd = useMediaQuery(theme.breakpoints.up('md'))
   const { user } = useAuth()
   const isAdmin = user?.role === 'PORTAL_ADMIN'
 
@@ -426,7 +431,14 @@ export default function ApolicePage() {
         )}
 
         {section === 'visao' && (
-          <VisaoGeral onError={setErr} onIrParaApolices={() => setSection('apolices')} onIrParaEstipulantes={() => setSection('estipulantes')} />
+          <>
+            {isAdmin ? (
+              <Box sx={{ mb: 2 }}>
+                <SegurosBaseImportExportPanel />
+              </Box>
+            ) : null}
+            <VisaoGeral onError={setErr} onIrParaApolices={() => setSection('apolices')} onIrParaEstipulantes={() => setSection('estipulantes')} />
+          </>
         )}
         {section === 'grupos' && <GruposSection grupos={grupos} isAdmin={isAdmin} onRefresh={loadGrupos} onError={setErr} />}
         {section === 'estipulantes' && <EstipulantesSection isAdmin={isAdmin} onError={setErr} />}
@@ -446,7 +458,7 @@ type CadastroVisaoGeralItem = {
   active: boolean
 }
 
-/** Lista da visão geral: uma linha por apólice (grupo + estipulante embutidos). Itens carregam ao abrir o detalhe. */
+/** Lista da visão geral: dados por apólice; titular aparece no cabeçalho do bloco, não como colunas na tabela. Itens carregam ao abrir o detalhe. */
 type CadastroVisaoGeralApolice = {
   id: string
   active: boolean
@@ -468,6 +480,7 @@ type CadastroVisaoGeralApolice = {
     grupoEconomicoNome: string
     grupoEconomicoId: string | null
     cnpj: string
+    cnae: string | null
     nexusClienteId: string | null
     nomeFantasia: string | null
     observacoes: string | null
@@ -475,6 +488,8 @@ type CadastroVisaoGeralApolice = {
   }
   _count?: { itens: number }
   itens?: CadastroVisaoGeralItem[]
+  /** Linha sintética a partir do snapshot Nexus (sem registo em PortalSeguroApolice). */
+  somenteNexus?: boolean
 }
 
 /** Lista auxiliar na visão geral quando ainda não há apólices (vem em `/cadastro-visao-geral`, só na 1.ª página). */
@@ -483,6 +498,7 @@ type CadastroVisaoEstipulanteRow = {
   active: boolean
   razaoSocial: string
   cnpj: string
+  cnae: string | null
   grupoEconomicoNome: string
   /** FK opcional para grupo económico local (Portal). Alinha com apólices ligadas por grupo. */
   grupoEconomicoId: string | null
@@ -491,6 +507,85 @@ type CadastroVisaoEstipulanteRow = {
   observacoes: string | null
   grupo: { id: string; nome: string } | null
   _count: { apolices: number }
+  /** Só snapshot Nexus (sem linha em PortalSeguroEstipulante). */
+  somenteNexus?: boolean
+}
+
+/**
+ * Estipulante que não é empresa real (import legado, placeholder ou linha sintética na vista).
+ * Usado para contagem no accordeão e para não listar linha «só estipulante» inútil.
+ */
+function estipulanteEVicioContagemVisao(e: CadastroVisaoEstipulanteRow): boolean {
+  const rs = (e.razaoSocial || '').trim()
+  if (/^\s*Contrato\s*\(/i.test(rs)) return true
+  if (e.id.startsWith('__nexus_orf_est__')) return true
+  if (e.somenteNexus === true && /^Cliente Nexus\s*\(/i.test(rs)) return true
+  if (e.somenteNexus === true && /^Estipulante —/i.test(rs)) return true
+  return false
+}
+
+function contarEstipulantesReaisGrupo(g: VisaoGrupoBloco): number {
+  return g.estipulantes.filter((e) => !estipulanteEVicioContagemVisao(e)).length
+}
+
+/** Um titular e as apólices deste grupo que lhe pertencem (cabeçalho + tabela sem colunas estipulante/CNPJ). */
+type BlocoEstipulanteVisao = {
+  chaveEst: string
+  cabecalho: {
+    razaoSocial: string
+    cnpj: string
+    cnae: string | null
+    nomeFantasia: string | null
+    active: boolean
+  }
+  apolices: CadastroVisaoGeralApolice[]
+}
+
+function blocosPorEstipulanteVisaoGrupo(g: VisaoGrupoBloco): BlocoEstipulanteVisao[] {
+  const byEst = new Map<string, CadastroVisaoGeralApolice[]>()
+  for (const a of g.apolices) {
+    const id = a.estipulante.id
+    let arr = byEst.get(id)
+    if (!arr) {
+      arr = []
+      byEst.set(id, arr)
+    }
+    arr.push(a)
+  }
+
+  const candidatos = new Set<string>([...byEst.keys()])
+  for (const e of g.estipulantes) {
+    if (!estipulanteEVicioContagemVisao(e)) candidatos.add(e.id)
+  }
+
+  const ordenado = [...candidatos].sort((idA, idB) => {
+    const ea = g.estipulantes.find((x) => x.id === idA)
+    const eb = g.estipulantes.find((x) => x.id === idB)
+    const ra = ea?.razaoSocial ?? byEst.get(idA)?.[0]?.estipulante.razaoSocial ?? ''
+    const rb = eb?.razaoSocial ?? byEst.get(idB)?.[0]?.estipulante.razaoSocial ?? ''
+    return ra.localeCompare(rb, 'pt-BR', { sensitivity: 'base' })
+  })
+
+  const blocos: BlocoEstipulanteVisao[] = []
+  for (const estId of ordenado) {
+    const eRow = g.estipulantes.find((x) => x.id === estId)
+    const apsRaw = byEst.get(estId) ?? []
+    if (!eRow && apsRaw.length === 0) continue
+    const src = eRow ?? apsRaw[0]!.estipulante
+    const aps = sortVisaoApolices(apsRaw)
+    blocos.push({
+      chaveEst: estId,
+      cabecalho: {
+        razaoSocial: src.razaoSocial,
+        cnpj: src.cnpj,
+        cnae: eRow?.cnae ?? aps[0]?.estipulante.cnae ?? null,
+        nomeFantasia: eRow?.nomeFantasia ?? aps[0]?.estipulante.nomeFantasia ?? null,
+        active: eRow?.active ?? true,
+      },
+      apolices: aps,
+    })
+  }
+  return blocos
 }
 
 function labelGrupoEconomico(e: {
@@ -609,33 +704,6 @@ function agruparVisaoPorGrupo(ests: CadastroVisaoEstipulanteRow[], aps: Cadastro
   return [...map.values()].sort((x, y) => x.titulo.localeCompare(y.titulo, 'pt-BR', { sensitivity: 'base' }))
 }
 
-/** Linhas para tabela única: cada apólice = 1 linha; estipulantes sem apólice no portal = 1 linha com «—». */
-type VisaoLinhaUnificada =
-  | { kind: 'apolice'; a: CadastroVisaoGeralApolice }
-  | { kind: 'soEstipulante'; e: CadastroVisaoEstipulanteRow }
-
-function linhasUnificadasGrupo(g: VisaoGrupoBloco): VisaoLinhaUnificada[] {
-  const comAp = new Set(g.apolices.map((x) => x.estipulante.id))
-  const semPol: VisaoLinhaUnificada[] = g.estipulantes
-    .filter((e) => !comAp.has(e.id))
-    .map((e) => ({ kind: 'soEstipulante', e }))
-  const comPol: VisaoLinhaUnificada[] = g.apolices.map((a) => ({ kind: 'apolice', a }))
-  const merged = [...semPol, ...comPol]
-  merged.sort((u, v) => {
-    const ra = u.kind === 'apolice' ? u.a.estipulante.razaoSocial : u.e.razaoSocial
-    const rb = v.kind === 'apolice' ? v.a.estipulante.razaoSocial : v.e.razaoSocial
-    const c = ra.localeCompare(rb, 'pt-BR', { sensitivity: 'base' })
-    if (c !== 0) return c
-    if (u.kind === 'apolice' && v.kind === 'apolice') {
-      return u.a.numeroApolice.localeCompare(v.a.numeroApolice, 'pt-BR')
-    }
-    if (u.kind === 'apolice') return -1
-    if (v.kind === 'apolice') return 1
-    return u.e.id.localeCompare(v.e.id)
-  })
-  return merged
-}
-
 function visaoMatchesQuery(q: string, parts: Array<string | null | undefined>): boolean {
   const t = q.trim().toLowerCase()
   if (!t) return true
@@ -657,6 +725,140 @@ function visaoItensCount(a: CadastroVisaoGeralApolice): number {
   return a._count?.itens ?? a.itens?.length ?? 0
 }
 
+/** Compara nomes de grupo Nexus vs portal (tolera «1 TELECOM» vs «1TELECOM»). */
+function normGrupoChaveContratoVisao(s: string): string {
+  return (s || '').trim().toLowerCase().replace(/\s+/g, '')
+}
+
+/** Alinha com `filterContratosForEstipulante` na API (grupo + opcional cliente Nexus); aceita também o nome do grupo local. */
+function contratoLigaEstVisao(c: NexusContratoOpcao, e: CadastroVisaoEstipulanteRow): boolean {
+  const cg = normGrupoChaveContratoVisao(c.grupoEconomico)
+  if (!cg) return false
+  const gEst = normGrupoChaveContratoVisao(e.grupoEconomicoNome)
+  const gPortal = normGrupoChaveContratoVisao(e.grupo?.nome ?? '')
+  if (cg !== gEst && cg !== gPortal) return false
+  const estCli = e.nexusClienteId?.trim()
+  const cCli = c.clienteId?.trim()
+  if (estCli && cCli) return estCli.toLowerCase() === cCli.toLowerCase()
+  return true
+}
+
+/**
+ * Antes gerava linhas «só Nexus» por contrato quando já havia estipulante no portal.
+ * Regra actual: **sem apólice vinculada na base** → não mostrar linha de apólice sintética;
+ * o utilizador vê só o estipulante com campos da apólice vazios («—»), até cadastrar/importar.
+ */
+function syntheticNexusApolicesParaVisao(
+  _ests: CadastroVisaoEstipulanteRow[],
+  _portal: CadastroVisaoGeralApolice[],
+  _contratos: NexusContratoOpcao[],
+): CadastroVisaoGeralApolice[] {
+  return []
+}
+
+function contratoJaAbsorvidoVisao(
+  c: NexusContratoOpcao,
+  ests: CadastroVisaoEstipulanteRow[],
+  portal: CadastroVisaoGeralApolice[],
+  synComEst: CadastroVisaoGeralApolice[],
+): boolean {
+  if (portal.some((a) => (a.nexusContratoId?.trim() ?? '') === c.nexusContratoId)) return true
+  if (synComEst.some((a) => a.nexusContratoId === c.nexusContratoId)) return true
+  const estMatches = ests.filter((e) => contratoLigaEstVisao(c, e))
+  if (estMatches.length === 0) return false
+  return portal.some((a) => {
+    if (a.nexusContratoId?.trim()) return false
+    if (normNumeroApolice(a.numeroApolice) !== normNumeroApolice(c.numero)) return false
+    return estMatches.some((e) => e.id === a.estipulante.id)
+  })
+}
+
+/**
+ * Contratos Nexus cujo grupo/cliente não tem estipulante no portal — criam estipulante + apólice sintéticos
+ * para o grupo económico aparecer na visão geral (soma com estipulantes vindos da API).
+ */
+function syntheticNexusOrfaosVisao(
+  ests: CadastroVisaoEstipulanteRow[],
+  portal: CadastroVisaoGeralApolice[],
+  contratos: NexusContratoOpcao[],
+  synComEst: CadastroVisaoGeralApolice[],
+): { estExtras: CadastroVisaoEstipulanteRow[]; aps: CadastroVisaoGeralApolice[] } {
+  const estByKey = new Map<string, CadastroVisaoEstipulanteRow>()
+  const aps: CadastroVisaoGeralApolice[] = []
+
+  for (const c of contratos) {
+    if (contratoJaAbsorvidoVisao(c, ests, portal, synComEst)) continue
+
+    const estMatches = ests.filter((e) => contratoLigaEstVisao(c, e))
+    /** Já existe estipulante no portal: não criar linha de apólice Nexus (fica vazio até haver apólice na base). */
+    if (estMatches.length > 0) continue
+
+    const gRaw = (c.grupoEconomico || '').trim() || '— (grupo não informado no snapshot)'
+    const gk =
+      normGrupoChaveContratoVisao(c.grupoEconomico) ||
+      `__sem_grupo__${c.nexusContratoId.replace(/[^a-z0-9-]/gi, '_')}`
+
+    const cliRaw = (c.clienteId || '').trim()
+    const clientKey = cliRaw ? cliRaw.toLowerCase() : `sem_cli_grupo_${gk}`
+
+    const ek = `${gk}|${clientKey}`
+
+    let est = estByKey.get(ek)
+    if (!est) {
+      const safeEk = ek.replace(/[^a-z0-9|_-]/gi, '_').slice(0, 96)
+      est = {
+        id: `__nexus_orf_est__${safeEk}`,
+        active: true,
+        razaoSocial: cliRaw
+          ? `Cliente Nexus (${cliRaw})`
+          : `Estipulante — ${gRaw} (sem cliente no snapshot; completar no portal)`,
+        cnpj: '—',
+        cnae: null,
+        grupoEconomicoNome: gRaw || '—',
+        grupoEconomicoId: null,
+        nexusClienteId: cliRaw || null,
+        nomeFantasia: null,
+        observacoes: 'Sem estipulante cadastrado no portal para este grupo/cliente; apenas snapshot Nexus.',
+        grupo: null,
+        _count: { apolices: 0 },
+        somenteNexus: true,
+      }
+      estByKey.set(ek, est)
+    }
+
+    aps.push({
+      id: `__nexus_contrato__${c.nexusContratoId}`,
+      active: true,
+      numeroApolice: c.numero,
+      produto: 'OUTROS',
+      fornecedor: '—',
+      subestipulante: '—',
+      plano: null,
+      coberturas: null,
+      vigenciaInicio: null,
+      vigenciaFim: null,
+      nexusContratoId: c.nexusContratoId,
+      observacoes: `Contrato Nexus (sem estipulante no portal). Estado no snapshot: ${c.status}.`,
+      estipulante: {
+        id: est.id,
+        razaoSocial: est.razaoSocial,
+        grupoEconomicoNome: est.grupoEconomicoNome,
+        grupoEconomicoId: est.grupoEconomicoId,
+        cnpj: est.cnpj,
+        cnae: est.cnae,
+        nexusClienteId: est.nexusClienteId,
+        nomeFantasia: est.nomeFantasia,
+        observacoes: est.observacoes,
+        grupo: est.grupo,
+      },
+      _count: { itens: 0 },
+      somenteNexus: true,
+    })
+  }
+
+  return { estExtras: [...estByKey.values()], aps }
+}
+
 function VisaoGeral({
   onError,
   onIrParaApolices,
@@ -672,16 +874,22 @@ function VisaoGeral({
   const [apolicesTotalCount, setApolicesTotalCount] = useState<number | null>(null)
   const [apolices, setApolices] = useState<CadastroVisaoGeralApolice[]>([])
   const [estipulantesVisao, setEstipulantesVisao] = useState<CadastroVisaoEstipulanteRow[]>([])
+  /** Snapshot `contratos` Nexus para alinhar a visão geral com o separador Apólices (linhas «só Nexus»). */
+  const [contratosNexusVisao, setContratosNexusVisao] = useState<NexusContratoOpcao[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [detailAp, setDetailAp] = useState<CadastroVisaoGeralApolice | null>(null)
   const [detailItensLoading, setDetailItensLoading] = useState(false)
   /** `true` só após JSON válido com `apolices` array (evita mensagem “base vazia” quando a API falhou). */
   const [visaoLoadOk, setVisaoLoadOk] = useState(false)
   const [loadHint, setLoadHint] = useState<string | null>(null)
+  const [visaoApolicesTruncated, setVisaoApolicesTruncated] = useState(false)
+  /** Espelha `visaoMeta.carga` da API (hierarquia = estipulantes primeiro, depois apólices). */
+  const [visaoMetaCarga, setVisaoMetaCarga] = useState<'hierarquia' | 'apolices_recent'>('hierarquia')
   const [healthBusy, setHealthBusy] = useState(false)
   const [healthHint, setHealthHint] = useState<string | null>(null)
 
-  const VISAO_PAGE = 8000
+  const VISAO_GERAL_LIMIT = 20000
+  const NEXUS_CONTRATOS_VISAO_LIMIT = 5000
 
   const testApiHealth = useCallback(async () => {
     setHealthBusy(true)
@@ -701,82 +909,89 @@ function VisaoGeral({
     setLoading(true)
     setVisaoLoadOk(false)
     setLoadHint(null)
+    setVisaoApolicesTruncated(false)
+    setContratosNexusVisao([])
     onError(null)
     try {
-      let offset = 0
-      const merged: CadastroVisaoGeralApolice[] = []
-      let estipulantesDaApi: CadastroVisaoEstipulanteRow[] = []
-      let gruposEconomicosCount = 0
-      let estipulantesCount = 0
-      let apolicesTotalCount = 0
+      const r = await api<{
+        gruposEconomicosCount: number
+        estipulantesCount: number
+        apolicesTotalCount: number
+        apolices: CadastroVisaoGeralApolice[]
+        estipulantes?: CadastroVisaoEstipulanteRow[]
+        visaoMeta?: {
+          carga?: string
+          limit: number
+          offset: number
+          returned: number
+          returnedEstipulantes?: number
+          sort?: string
+          apolicesTruncated?: boolean
+        }
+      }>(
+        `/seguros/cadastro-visao-geral?carga=hierarquia&limit=${VISAO_GERAL_LIMIT}&offset=0&sort=recent`,
+      )
 
-      while (true) {
-        if (offset > 0) {
-          setLoadHint(`A carregar todas as apólices… ${merged.length} recebidas até agora`)
-        }
-        const r = await api<{
-          gruposEconomicosCount: number
-          estipulantesCount: number
-          apolicesTotalCount: number
-          apolices: CadastroVisaoGeralApolice[]
-          estipulantes?: CadastroVisaoEstipulanteRow[]
-          visaoMeta?: { limit: number; offset: number; returned: number }
-        }>(`/seguros/cadastro-visao-geral?limit=${VISAO_PAGE}&offset=${offset}`)
-
-        if (!r.ok) {
-          onError(r.error || 'Erro ao carregar visão geral do cadastro.')
-          setApolices([])
-          setEstipulantesVisao([])
-          setGruposEconomicosCount(null)
-          setEstipulantesCount(null)
-          setApolicesTotalCount(null)
-          return
-        }
-        if (!r.data || typeof r.data !== 'object') {
-          onError('Resposta vazia ou inválida da API.')
-          setApolices([])
-          setEstipulantesVisao([])
-          setGruposEconomicosCount(null)
-          setEstipulantesCount(null)
-          setApolicesTotalCount(null)
-          return
-        }
-        const d = r.data
-        if (!Array.isArray(d.apolices)) {
-          onError(
-            'A API devolveu um formato anómalo (sem lista de apólices). Confirme o deploy da API portal-colaborador no Railway e a variável VITE_API_URL no Vercel (URL da API, não do site).',
-          )
-          setApolices([])
-          setEstipulantesVisao([])
-          setGruposEconomicosCount(null)
-          setEstipulantesCount(null)
-          setApolicesTotalCount(null)
-          return
-        }
-        gruposEconomicosCount = d.gruposEconomicosCount ?? 0
-        estipulantesCount = d.estipulantesCount ?? 0
-        apolicesTotalCount = d.apolicesTotalCount ?? 0
-        if (offset === 0 && Array.isArray(d.estipulantes)) {
-          estipulantesDaApi = d.estipulantes
-        }
-        merged.push(...d.apolices)
-
-        const chunk = d.apolices.length
-        if (chunk < VISAO_PAGE || merged.length >= apolicesTotalCount) break
-        offset += VISAO_PAGE
-        if (offset > 2_000_000) {
-          onError('Limite interno de paginação atingido.')
-          break
-        }
+      if (!r.ok) {
+        onError(r.error || 'Erro ao carregar visão geral do cadastro.')
+        setApolices([])
+        setEstipulantesVisao([])
+        setContratosNexusVisao([])
+        setGruposEconomicosCount(null)
+        setEstipulantesCount(null)
+        setApolicesTotalCount(null)
+        return
       }
+      if (!r.data || typeof r.data !== 'object') {
+        onError('Resposta vazia ou inválida da API.')
+        setApolices([])
+        setEstipulantesVisao([])
+        setContratosNexusVisao([])
+        setGruposEconomicosCount(null)
+        setEstipulantesCount(null)
+        setApolicesTotalCount(null)
+        return
+      }
+      const d = r.data
+      if (!Array.isArray(d.apolices)) {
+        onError(
+          'A API devolveu um formato anómalo (sem lista de apólices). Confirme o deploy da API portal-colaborador no Railway e a variável VITE_API_URL no Vercel (URL da API, não do site).',
+        )
+        setApolices([])
+        setEstipulantesVisao([])
+        setContratosNexusVisao([])
+        setGruposEconomicosCount(null)
+        setEstipulantesCount(null)
+        setApolicesTotalCount(null)
+        return
+      }
+
+      const gruposEconomicosCount = d.gruposEconomicosCount ?? 0
+      const estipulantesCount = d.estipulantesCount ?? 0
+      const apolicesTotalCount = d.apolicesTotalCount ?? 0
+      const estipulantesDaApi = Array.isArray(d.estipulantes) ? d.estipulantes : []
 
       setLoadHint(null)
       setVisaoLoadOk(true)
+      setVisaoMetaCarga(d.visaoMeta?.carga === 'apolices_recent' ? 'apolices_recent' : 'hierarquia')
       setGruposEconomicosCount(gruposEconomicosCount)
       setEstipulantesCount(estipulantesCount)
       setApolicesTotalCount(apolicesTotalCount)
+      setVisaoApolicesTruncated(d.visaoMeta?.apolicesTruncated === true)
       setEstipulantesVisao(estipulantesDaApi)
-      setApolices(sortVisaoApolices(merged))
+      setApolices(sortVisaoApolices(d.apolices))
+
+      const rCt = await api<{
+        ok?: boolean
+        needsSync?: boolean
+        contratos?: NexusContratoOpcao[]
+        contratosMeta?: { limit: number; returned: number }
+      }>(`/seguros/nexus/contratos-opcoes?limit=${NEXUS_CONTRATOS_VISAO_LIMIT}`)
+      if (rCt.ok && Array.isArray(rCt.data?.contratos)) {
+        setContratosNexusVisao(rCt.data!.contratos!)
+      } else {
+        setContratosNexusVisao([])
+      }
     } finally {
       setLoading(false)
       setLoadHint(null)
@@ -787,9 +1002,24 @@ function VisaoGeral({
     void load()
   }, [load])
 
+  const { apolicesVisaoComNexus, estipulantesVisaoComNexus, somenteNexusNaVisaoCount } = useMemo(() => {
+    const syn = syntheticNexusApolicesParaVisao(estipulantesVisao, apolices, contratosNexusVisao)
+    const orf = syntheticNexusOrfaosVisao(estipulantesVisao, apolices, contratosNexusVisao, syn)
+    const todasSyn = [...syn, ...orf.aps]
+    return {
+      apolicesVisaoComNexus: sortVisaoApolices([...apolices, ...todasSyn]),
+      estipulantesVisaoComNexus: [...estipulantesVisao, ...orf.estExtras],
+      somenteNexusNaVisaoCount: todasSyn.length,
+    }
+  }, [apolices, contratosNexusVisao, estipulantesVisao])
+
   const openDetail = useCallback(
     (a: CadastroVisaoGeralApolice) => {
       setDetailAp({ ...a, itens: [] })
+      if (a.somenteNexus || a.id.startsWith('__nexus_contrato__')) {
+        setDetailItensLoading(false)
+        return
+      }
       setDetailItensLoading(true)
       onError(null)
       void (async () => {
@@ -808,8 +1038,8 @@ function VisaoGeral({
   )
 
   const filterAp = useMemo(() => {
-    if (!searchTerm.trim()) return apolices
-    return apolices.filter((a) =>
+    if (!searchTerm.trim()) return apolicesVisaoComNexus
+    return apolicesVisaoComNexus.filter((a) =>
       visaoMatchesQuery(searchTerm, [
         a.numeroApolice,
         PRODUTO_LABEL[a.produto],
@@ -821,35 +1051,44 @@ function VisaoGeral({
         a.observacoes,
         a.estipulante.razaoSocial,
         a.estipulante.cnpj,
+        a.estipulante.cnae,
         a.estipulante.grupoEconomicoNome,
         a.estipulante.nomeFantasia,
         a.estipulante.observacoes,
         a.estipulante.nexusClienteId,
         labelGrupoEconomico(a.estipulante),
+        a.somenteNexus ? 'só nexus snapshot contrato' : null,
       ]),
     )
-  }, [apolices, searchTerm])
+  }, [apolicesVisaoComNexus, searchTerm])
 
   const filterEst = useMemo(() => {
-    if (!searchTerm.trim()) return estipulantesVisao
-    return estipulantesVisao.filter((e) =>
+    if (!searchTerm.trim()) return estipulantesVisaoComNexus
+    return estipulantesVisaoComNexus.filter((e) =>
       visaoMatchesQuery(searchTerm, [
         e.razaoSocial,
         e.cnpj,
+        e.cnae,
         e.grupoEconomicoNome,
         e.nexusClienteId,
         e.nomeFantasia,
         e.observacoes,
         labelGrupoEconomico(e),
+        e.somenteNexus ? 'só nexus snapshot estipulante sintético' : null,
       ]),
     )
-  }, [estipulantesVisao, searchTerm])
+  }, [estipulantesVisaoComNexus, searchTerm])
+
+  const filterEstReaisCount = useMemo(
+    () => filterEst.filter((e) => !estipulanteEVicioContagemVisao(e)).length,
+    [filterEst],
+  )
 
   const semApolicesComEstipulantes =
-    visaoLoadOk && (apolicesTotalCount ?? 0) === 0 && estipulantesVisao.length > 0
-
-  /** Se a base tem pelo menos uma apólice, um grupo com 0 pode indicar desalinhamento de chave; se o total global é 0, os zeros são esperados (sem cor de alerta nas linhas). */
-  const existeAlgumaApoliceNaBase = (apolicesTotalCount ?? 0) > 0
+    visaoLoadOk &&
+    (apolicesTotalCount ?? 0) === 0 &&
+    somenteNexusNaVisaoCount === 0 &&
+    estipulantesVisaoComNexus.length > 0
 
   const gruposVisao = useMemo(
     () => agruparVisaoPorGrupo(filterEst, filterAp),
@@ -861,10 +1100,33 @@ function VisaoGeral({
     <>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         <Alert severity="info" sx={{ borderRadius: 2 }}>
-          <strong>Visão por grupo económico.</strong> Na tabela abaixo,{' '}
-          <strong>cada linha liga grupo + estipulante + apólice</strong> (quando não há apólice na base do portal para aquele estipulante, o nº e dados do seguro aparecem como «—»). Os números no cabeçalho do accordeão são totais
-          naquele grupo. Na base PostgreSQL, as apólices vivem em <strong>PortalSeguroApolice</strong>, ligadas ao estipulante; contratos só no Nexus não aparecem até serem cadastrados aqui (menu Apólices).
+          <strong>Visão por grupo económico.</strong> Dentro de cada accordeão, por <strong>hierarquia</strong>{' '}
+          (grupo → titular / estipulante → apólices listadas em tabela). A <strong>razão social e o CNPJ</strong> aparecem no
+          cabeçalho de cada titular; na tabela, <strong>cada linha é uma apólice</strong> (sem repetir titular em colunas). Os
+          números no sumário do accordeão são totais naquele grupo. As apólices gravadas na PostgreSQL vivem em{' '}
+          <strong>PortalSeguroApolice</strong>; contratos apenas no snapshot Nexus aparecem aqui como linha{' '}
+          <strong>«Só Nexus»</strong> até serem complementados no menu <strong>Apólices</strong>.
         </Alert>
+
+        {visaoLoadOk && visaoApolicesTruncated ? (
+          visaoMetaCarga === 'hierarquia' ? (
+            <Alert severity="warning" sx={{ borderRadius: 2 }}>
+              <strong>Desempenho: lista parcial por estipulante.</strong> A API carrega até{' '}
+              <strong>{VISAO_GERAL_LIMIT}</strong> estipulantes por pedido (ordenados por grupo económico e razão social) e{' '}
+              <strong>todas as apólices</strong> ligadas a esses titulares. Há mais estipulantes na base do que cabe neste
+              lote — aumente <code>limit</code> em <code>GET /seguros/cadastro-visao-geral?carga=hierarquia</code> ou
+              implemente «carregar mais» no portal.
+            </Alert>
+          ) : (
+            <Alert severity="warning" sx={{ borderRadius: 2 }}>
+              <strong>Modo legado: lista parcial por apólice.</strong> Foram carregadas as apólices{' '}
+              <strong>mais recentemente alteradas</strong> (até <strong>{VISAO_GERAL_LIMIT}</strong> linhas por pedido). O
+              total na base é <strong>{apolicesTotalCount ?? '—'}</strong> — linhas mais antigas não aparecem nesta vista
+              até aumentar <code>limit</code> em <code>GET /seguros/cadastro-visao-geral</code> ou adicionar «carregar mais»
+              no portal.
+            </Alert>
+          )
+        ) : null}
 
         <TextField
           fullWidth
@@ -886,12 +1148,18 @@ function VisaoGeral({
             Na base: <strong>{loading ? '…' : (gruposEconomicosCount ?? '—')}</strong> grupos (cadastro local){' · '}
             <strong>{loading ? '…' : (estipulantesCount ?? '—')}</strong> estipulantes ·{' '}
             <strong>{loading ? '…' : (apolicesTotalCount ?? '—')}</strong> apólices na base do portal (total)
+            {visaoLoadOk && somenteNexusNaVisaoCount > 0 ? (
+              <>
+                {' · '}
+                <strong>{somenteNexusNaVisaoCount}</strong> contrato(s) só Nexus na vista (snapshot)
+              </>
+            ) : null}
             {' · '}
             <strong>{loading ? '…' : filterAp.length}</strong> apólice(s) no filtro ·{' '}
-            <strong>{loading ? '…' : filterEst.length}</strong> estipulante(s) no filtro ·{' '}
+            <strong>{loading ? '…' : filterEstReaisCount}</strong> estipulante(s) no filtro ·{' '}
             <strong>{loading ? '…' : gruposVisao.length}</strong> grupo(s) distinto(s) na vista
             {visaoLoadOk && apolicesTotalCount != null && apolices.length === apolicesTotalCount && apolicesTotalCount > 0 ? (
-              <span> · apólices carregadas: {apolices.length}</span>
+              <span> · apólices na API (PostgreSQL): {apolices.length}</span>
             ) : null}
           </Typography>
           <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
@@ -934,7 +1202,7 @@ function VisaoGeral({
                   O total na base indica apólices, mas a lista veio vazia. Recarregue a página; se persistir, verifique o deploy da API.
                 </Typography>
               </Paper>
-            ) : (estipulantesVisao.length ?? 0) === 0 && (apolicesTotalCount ?? 0) === 0 ? (
+            ) : (estipulantesVisaoComNexus.length ?? 0) === 0 && (apolicesTotalCount ?? 0) === 0 && contratosNexusVisao.length === 0 ? (
               <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
                 <Typography color="text.secondary">
                   Ainda não há estipulantes nem apólices nesta base. No menu, cadastre grupo económico → estipulante → apólice (perfil administrador).
@@ -952,7 +1220,8 @@ function VisaoGeral({
               <>
                 <Alert severity="info" sx={{ borderRadius: 2 }}>
                   <strong>Total de apólices nesta API = 0</strong> (tabela <strong>PortalSeguroApolice</strong> vazia nesta base PostgreSQL). Grupos e estipulantes podem existir no cadastro, mas sem linhas de apólice o
-                  portal não tem o que vincular: crie apólices no menu <strong>Apólices</strong> (ou fluxo que grave na <strong>mesma</strong> API). Contratos só no Nexus não aparecem aqui. Se o teste abaixo der certo e o
+                  portal não tem o que vincular: crie apólices no menu <strong>Apólices</strong> (ou fluxo que grave na <strong>mesma</strong> API). Contratos só no Nexus aparecem na visão geral como linhas <strong>«Só Nexus»</strong> até
+                  serem complementados. Se o teste abaixo der certo e o
                   total continuar 0, esta API realmente não tem apólices — não é só o URL errado.
                   <Box sx={{ mt: 1.5, display: 'flex', flexDirection: 'column', gap: 1 }}>
                     <Typography variant="body2" component="div">
@@ -987,6 +1256,14 @@ function VisaoGeral({
               </>
             ) : null}
 
+            {(apolicesTotalCount ?? 0) === 0 && somenteNexusNaVisaoCount > 0 ? (
+              <Alert severity="info" sx={{ borderRadius: 2 }}>
+                A tabela <strong>PortalSeguroApolice</strong> está vazia nesta API, mas o snapshot Nexus devolveu{' '}
+                <strong>{somenteNexusNaVisaoCount}</strong> contrato(s) ligados aos estipulantes abaixo. Essas linhas aparecem como <strong>«Só Nexus»</strong> (igual no menu Apólices); use <strong>Complementar / cadastrar</strong> para
+                gravar no portal.
+              </Alert>
+            ) : null}
+
             {gruposVisao.map((g) => (
               <Accordion
                 key={g.key}
@@ -1004,138 +1281,120 @@ function VisaoGeral({
                       variant={g.apolices.length === 0 ? 'outlined' : 'filled'}
                       color={g.apolices.length === 0 ? 'default' : 'primary'}
                     />
-                    <Chip size="small" label={`${g.estipulantes.length} estipulante(s)`} variant="outlined" />
+                    <Chip size="small" label={`${contarEstipulantesReaisGrupo(g)} estipulante(s)`} variant="outlined" />
                   </Box>
                 </AccordionSummary>
                 <AccordionDetails sx={{ px: 0, pt: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
                   {g.estipulantes.length > 0 || g.apolices.length > 0 ? (
                     <Box>
                       <Typography variant="subtitle2" sx={{ px: 2, pb: 1 }}>
-                        Grupo · estipulante · apólice (uma linha)
+                        Por titular: razão social, CNPJ e CNAE acima das apólices que lhe pertencem neste grupo.
                       </Typography>
-                      <TableContainer sx={{ maxHeight: 420 }}>
-                        <Table size="small" stickyHeader>
-                          <TableHead>
-                            <TableRow>
-                              <TableCell>Grupo económico</TableCell>
-                              <TableCell>Situação</TableCell>
-                              <TableCell>Estipulante</TableCell>
-                              <TableCell>CNPJ</TableCell>
-                              <TableCell>Nº apólice</TableCell>
-                              <TableCell>Produto</TableCell>
-                              <TableCell>Fornecedor</TableCell>
-                              <TableCell>Vigência</TableCell>
-                              <TableCell align="center">Apólices no grupo</TableCell>
-                              <TableCell align="center">Itens</TableCell>
-                            </TableRow>
-                          </TableHead>
-                          <TableBody>
-                            {linhasUnificadasGrupo(g).map((row) => {
-                              if (row.kind === 'apolice') {
-                                const estRow = g.estipulantes.find((x) => x.id === row.a.estipulante.id)
-                                const cntGrupo = estRow?._count.apolices ?? 0
-                                return (
-                                <TableRow
-                                  key={`ap-${row.a.id}`}
-                                  hover
-                                  onClick={() => openDetail(row.a)}
-                                  sx={{
-                                    cursor: 'pointer',
-                                    opacity: row.a.active ? 1 : 0.78,
-                                    bgcolor: row.a.active ? 'inherit' : 'action.hover',
-                                    '&:hover': { bgcolor: 'action.selected' },
-                                  }}
-                                >
-                                  <TableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>
-                                    <Typography variant="body2">{g.titulo}</Typography>
-                                  </TableCell>
-                                  <TableCell sx={{ verticalAlign: 'middle' }}>
-                                    <Chip
-                                      size="small"
-                                      label={row.a.active ? 'Apólice ativa' : 'Apólice inativa'}
-                                      color={row.a.active ? 'success' : 'default'}
-                                      variant="outlined"
-                                    />
-                                  </TableCell>
-                                  <TableCell sx={{ maxWidth: 220, verticalAlign: 'top' }}>
-                                    <Typography variant="body2" fontWeight={600}>
-                                      {row.a.estipulante.razaoSocial}
-                                    </Typography>
-                                  </TableCell>
-                                  <TableCell sx={{ verticalAlign: 'top' }}>{row.a.estipulante.cnpj}</TableCell>
-                                  <TableCell sx={{ verticalAlign: 'top', fontWeight: 600 }}>{row.a.numeroApolice}</TableCell>
-                                  <TableCell sx={{ verticalAlign: 'top' }}>{PRODUTO_LABEL[row.a.produto]}</TableCell>
-                                  <TableCell sx={{ maxWidth: 120, verticalAlign: 'top' }}>{row.a.fornecedor}</TableCell>
-                                  <TableCell sx={{ whiteSpace: 'nowrap', verticalAlign: 'top' }}>
-                                    {fmtDate(row.a.vigenciaInicio)} — {fmtDate(row.a.vigenciaFim)}
-                                  </TableCell>
-                                  <TableCell align="center" sx={{ verticalAlign: 'top' }}>
-                                    <Chip
-                                      size="small"
-                                      label={cntGrupo}
-                                      variant="outlined"
-                                      color={
-                                        existeAlgumaApoliceNaBase && cntGrupo === 0 ? 'warning' : 'default'
-                                      }
-                                    />
-                                  </TableCell>
-                                  <TableCell align="center" sx={{ verticalAlign: 'top' }}>
-                                    <Chip size="small" label={`${visaoItensCount(row.a)}`} variant="outlined" />
-                                  </TableCell>
-                                </TableRow>
-                              )
-                              }
-                              return (
-                                <TableRow
-                                  key={`est-${row.e.id}`}
-                                  hover
-                                  sx={{ bgcolor: 'action.hover', opacity: 0.95 }}
-                                >
-                                  <TableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>
-                                    <Typography variant="body2">{g.titulo}</Typography>
-                                  </TableCell>
-                                  <TableCell>
-                                    <Chip
-                                      size="small"
-                                      label={row.e.active ? 'Estipulante ativo' : 'Estipulante inativo'}
-                                      color={row.e.active ? 'success' : 'default'}
-                                      variant="outlined"
-                                    />
-                                  </TableCell>
-                                  <TableCell sx={{ maxWidth: 220, verticalAlign: 'top' }}>
-                                    <Typography variant="body2" fontWeight={600}>
-                                      {row.e.razaoSocial}
-                                    </Typography>
-                                    {row.e.nomeFantasia ? (
-                                      <Typography variant="caption" color="text.secondary" display="block">
-                                        {row.e.nomeFantasia}
-                                      </Typography>
-                                    ) : null}
-                                  </TableCell>
-                                  <TableCell sx={{ verticalAlign: 'top' }}>{row.e.cnpj}</TableCell>
-                                  <TableCell sx={{ verticalAlign: 'top', color: 'text.secondary' }}>—</TableCell>
-                                  <TableCell sx={{ verticalAlign: 'top', color: 'text.secondary' }}>—</TableCell>
-                                  <TableCell sx={{ verticalAlign: 'top', color: 'text.secondary' }}>—</TableCell>
-                                  <TableCell sx={{ verticalAlign: 'top', color: 'text.secondary' }}>—</TableCell>
-                                  <TableCell align="center" sx={{ verticalAlign: 'top' }}>
-                                    <Chip
-                                      size="small"
-                                      label={row.e._count.apolices}
-                                      variant="outlined"
-                                      color={
-                                        existeAlgumaApoliceNaBase && row.e._count.apolices === 0 ? 'warning' : 'default'
-                                      }
-                                    />
-                                  </TableCell>
-                                  <TableCell align="center" sx={{ verticalAlign: 'top', color: 'text.secondary' }}>
-                                    —
-                                  </TableCell>
-                                </TableRow>
-                              )
-                            })}
-                          </TableBody>
-                        </Table>
-                      </TableContainer>
+                      {blocosPorEstipulanteVisaoGrupo(g).map((bloco) => (
+                        <Box key={bloco.chaveEst} sx={{ mb: 2 }}>
+                          <Paper
+                            variant="outlined"
+                            sx={{
+                              mx: 2,
+                              mb: 1,
+                              px: 2,
+                              py: 1.5,
+                              borderRadius: 1,
+                              bgcolor: 'action.hover',
+                              borderColor: 'divider',
+                            }}
+                          >
+                            <Typography variant="subtitle2" fontWeight={700} gutterBottom>
+                              {bloco.cabecalho.razaoSocial}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                              CNPJ: {bloco.cabecalho.cnpj}
+                              {bloco.cabecalho.cnae ? ` · CNAE: ${bloco.cabecalho.cnae}` : ''}
+                              {bloco.cabecalho.nomeFantasia
+                                ? ` · Nome fantasia: ${bloco.cabecalho.nomeFantasia}`
+                                : ''}
+                            </Typography>
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, alignItems: 'center', mt: 0.5 }}>
+                              <Chip
+                                size="small"
+                                label={bloco.cabecalho.active ? 'Estipulante ativo' : 'Estipulante inativo'}
+                                color={bloco.cabecalho.active ? 'success' : 'default'}
+                                variant="outlined"
+                              />
+                              <Chip
+                                size="small"
+                                label={`${bloco.apolices.length} apólice(s) neste titular`}
+                                variant={bloco.apolices.length === 0 ? 'outlined' : 'filled'}
+                                color={bloco.apolices.length === 0 ? 'default' : 'primary'}
+                              />
+                            </Box>
+                          </Paper>
+                          {bloco.apolices.length === 0 ? (
+                            <Typography variant="body2" color="text.secondary" sx={{ px: 2, py: 0.5 }}>
+                              Sem apólices nesta vista para este titular.
+                            </Typography>
+                          ) : (
+                            <TableContainer sx={{ maxHeight: 360 }}>
+                              <Table size="small" stickyHeader>
+                                <TableHead>
+                                  <TableRow>
+                                    <TableCell>Grupo económico</TableCell>
+                                    <TableCell>Situação</TableCell>
+                                    <TableCell>Nº apólice</TableCell>
+                                    <TableCell>Produto</TableCell>
+                                    <TableCell>Fornecedor</TableCell>
+                                    <TableCell>Vigência</TableCell>
+                                    <TableCell align="center">Itens</TableCell>
+                                  </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                  {bloco.apolices.map((a) => {
+                                    const nx = a.somenteNexus || a.id.startsWith('__nexus_contrato__')
+                                    return (
+                                      <TableRow
+                                        key={`ap-${a.id}`}
+                                        hover
+                                        onClick={() => openDetail(a)}
+                                        sx={{
+                                          cursor: 'pointer',
+                                          opacity: a.active ? 1 : 0.78,
+                                          bgcolor: a.active ? 'inherit' : 'action.hover',
+                                          '&:hover': { bgcolor: 'action.selected' },
+                                        }}
+                                      >
+                                        <TableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>
+                                          <Typography variant="body2">{g.titulo}</Typography>
+                                        </TableCell>
+                                        <TableCell sx={{ verticalAlign: 'middle' }}>
+                                          {nx ? (
+                                            <Chip size="small" label="Só Nexus" color="info" variant="outlined" />
+                                          ) : (
+                                            <Chip
+                                              size="small"
+                                              label={a.active ? 'Apólice ativa' : 'Apólice inativa'}
+                                              color={a.active ? 'success' : 'default'}
+                                              variant="outlined"
+                                            />
+                                          )}
+                                        </TableCell>
+                                        <TableCell sx={{ verticalAlign: 'top', fontWeight: 600 }}>{a.numeroApolice}</TableCell>
+                                        <TableCell sx={{ verticalAlign: 'top' }}>{PRODUTO_LABEL[a.produto]}</TableCell>
+                                        <TableCell sx={{ maxWidth: 120, verticalAlign: 'top' }}>{a.fornecedor}</TableCell>
+                                        <TableCell sx={{ whiteSpace: 'nowrap', verticalAlign: 'top' }}>
+                                          {fmtDate(a.vigenciaInicio)} — {fmtDate(a.vigenciaFim)}
+                                        </TableCell>
+                                        <TableCell align="center" sx={{ verticalAlign: 'top' }}>
+                                          <Chip size="small" label={`${visaoItensCount(a)}`} variant="outlined" />
+                                        </TableCell>
+                                      </TableRow>
+                                    )
+                                  })}
+                                </TableBody>
+                              </Table>
+                            </TableContainer>
+                          )}
+                        </Box>
+                      ))}
                     </Box>
                   ) : null}
                 </AccordionDetails>
@@ -1161,13 +1420,17 @@ function VisaoGeral({
                 <Typography variant="h6" fontWeight={800}>
                   Apólice {detailAp.numeroApolice}
                 </Typography>
-                <Chip
-                  size="small"
-                  sx={{ mt: 0.5 }}
-                  label={detailAp.active ? 'Ativa' : 'Inativa'}
-                  color={detailAp.active ? 'success' : 'default'}
-                  variant="outlined"
-                />
+                {detailAp.somenteNexus || detailAp.id.startsWith('__nexus_contrato__') ? (
+                  <Chip size="small" sx={{ mt: 0.5, display: 'block', width: 'fit-content' }} label="Só Nexus (snapshot)" color="info" variant="outlined" />
+                ) : (
+                  <Chip
+                    size="small"
+                    sx={{ mt: 0.5 }}
+                    label={detailAp.active ? 'Ativa' : 'Inativa'}
+                    color={detailAp.active ? 'success' : 'default'}
+                    variant="outlined"
+                  />
+                )}
               </Box>
               <IconButton
                 aria-label="Fechar"
@@ -1205,6 +1468,8 @@ function VisaoGeral({
               <strong>{detailAp.estipulante.razaoSocial}</strong>
               <br />
               CNPJ: {detailAp.estipulante.cnpj}
+              <br />
+              CNAE: {detailAp.estipulante.cnae ?? '—'}
               <br />
               Cliente Nexus: {detailAp.estipulante.nexusClienteId ?? '—'}
               <br />
@@ -1247,7 +1512,9 @@ function VisaoGeral({
               </Typography>
             ) : (detailAp.itens?.length ?? 0) === 0 ? (
               <Typography variant="body2" color="text.secondary">
-                Sem itens cadastrados.
+                {detailAp.somenteNexus || detailAp.id.startsWith('__nexus_contrato__')
+                  ? 'Sem itens no portal: esta linha existe só no snapshot Nexus. Abra o menu Apólices e use Complementar / cadastrar para criar a apólice na base.'
+                  : 'Sem itens cadastrados.'}
               </Typography>
             ) : (
               <Table size="small">
@@ -1553,6 +1820,7 @@ function EstipulantesSection({ isAdmin, onError }: { isAdmin: boolean; onError: 
   const [razaoSocial, setRazaoSocial] = useState('')
   const [cnpj, setCnpj] = useState('')
   const [nomeFantasia, setNomeFantasia] = useState('')
+  const [cnae, setCnae] = useState('')
   const [observacoes, setObservacoes] = useState('')
   const [nexusClienteId, setNexusClienteId] = useState<string | null>(null)
   const [importClienteId, setImportClienteId] = useState('')
@@ -1598,6 +1866,7 @@ function EstipulantesSection({ isAdmin, onError }: { isAdmin: boolean; onError: 
     setRazaoSocial('')
     setCnpj('')
     setNomeFantasia('')
+    setCnae('')
     setObservacoes('')
     setNexusClienteId(null)
     setImportClienteId('')
@@ -1610,6 +1879,7 @@ function EstipulantesSection({ isAdmin, onError }: { isAdmin: boolean; onError: 
     setRazaoSocial(em.razaoSocial)
     setCnpj(normCnpjDigits(em.cnpj).length >= 8 ? normCnpjDigits(em.cnpj) : cnpjParaCadastroEstipulanteNexus(em))
     setNomeFantasia('')
+    setCnae('')
     setObservacoes('')
     setNexusClienteId(em.nexusClienteId)
     setImportClienteId(em.nexusClienteId)
@@ -1621,6 +1891,7 @@ function EstipulantesSection({ isAdmin, onError }: { isAdmin: boolean; onError: 
     setRazaoSocial(e.razaoSocial)
     setCnpj(e.cnpj)
     setNomeFantasia(e.nomeFantasia ?? '')
+    setCnae(e.cnae ?? '')
     setObservacoes(e.observacoes ?? '')
     setNexusClienteId(e.nexusClienteId)
     setImportClienteId('')
@@ -1650,6 +1921,7 @@ function EstipulantesSection({ isAdmin, onError }: { isAdmin: boolean; onError: 
         body: JSON.stringify({
           razaoSocial,
           cnpj,
+          cnae: cnae.trim() || null,
           nomeFantasia: nomeFantasia.trim() || null,
           observacoes: observacoes.trim() || null,
         }),
@@ -1677,6 +1949,7 @@ function EstipulantesSection({ isAdmin, onError }: { isAdmin: boolean; onError: 
           nexusClienteId: nexusClienteId?.trim() || null,
           razaoSocial,
           cnpj: cnpjBody,
+          cnae: cnae.trim() || null,
           nomeFantasia: nomeFantasia.trim() || null,
           observacoes: observacoes.trim() || null,
         }),
@@ -1751,6 +2024,7 @@ function EstipulantesSection({ isAdmin, onError }: { isAdmin: boolean; onError: 
                 <TableCell>Situação</TableCell>
                 <TableCell>Razão social</TableCell>
                 <TableCell>CNPJ</TableCell>
+                <TableCell>CNAE</TableCell>
                 <TableCell>Nome fantasia</TableCell>
                 <TableCell>Cliente Nexus</TableCell>
                 <TableCell>Apólices</TableCell>
@@ -1760,7 +2034,7 @@ function EstipulantesSection({ isAdmin, onError }: { isAdmin: boolean; onError: 
             <TableBody>
               {displayRows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={isAdmin ? 8 : 7} sx={{ py: 2, color: 'text.secondary' }}>
+                  <TableCell colSpan={isAdmin ? 9 : 8} sx={{ py: 2, color: 'text.secondary' }}>
                     {grupoNome
                       ? 'Nenhuma empresa encontrada no Nexus para este grupo. Verifique a sincronização de clientes em Banco de dados.'
                       : 'Selecione um grupo econômico.'}
@@ -1776,6 +2050,7 @@ function EstipulantesSection({ isAdmin, onError }: { isAdmin: boolean; onError: 
                     </TableCell>
                     <TableCell>{row.e.razaoSocial}</TableCell>
                     <TableCell>{row.e.cnpj}</TableCell>
+                    <TableCell sx={{ fontFamily: 'monospace', fontSize: 12 }}>{row.e.cnae ?? '—'}</TableCell>
                     <TableCell>{row.e.nomeFantasia ?? '—'}</TableCell>
                     <TableCell sx={{ maxWidth: 120, fontFamily: 'monospace', fontSize: 12 }}>
                       {row.e.nexusClienteId ?? '—'}
@@ -1800,6 +2075,7 @@ function EstipulantesSection({ isAdmin, onError }: { isAdmin: boolean; onError: 
                     </TableCell>
                     <TableCell>{row.em.razaoSocial}</TableCell>
                     <TableCell>{row.em.cnpj}</TableCell>
+                    <TableCell>—</TableCell>
                     <TableCell>—</TableCell>
                     <TableCell sx={{ maxWidth: 120, fontFamily: 'monospace', fontSize: 12 }}>{row.em.nexusClienteId}</TableCell>
                     <TableCell>—</TableCell>
@@ -1844,6 +2120,14 @@ function EstipulantesSection({ isAdmin, onError }: { isAdmin: boolean; onError: 
           {nexusClienteId ? <Chip size="small" label={`Cliente Nexus: ${nexusClienteId}`} variant="outlined" /> : null}
           <TextField required label="Razão social" value={razaoSocial} onChange={(e) => setRazaoSocial(e.target.value)} fullWidth />
           <TextField required label="CNPJ" value={cnpj} onChange={(e) => setCnpj(e.target.value)} fullWidth disabled={!!edit} />
+          <TextField
+            label="CNAE"
+            value={cnae}
+            onChange={(e) => setCnae(e.target.value)}
+            fullWidth
+            placeholder="ex.: 6201-5/00"
+            helperText="Classificação Nacional de Atividades Económicas (opcional)."
+          />
           <TextField label="Nome fantasia" value={nomeFantasia} onChange={(e) => setNomeFantasia(e.target.value)} fullWidth />
           <TextField label="Observações" value={observacoes} onChange={(e) => setObservacoes(e.target.value)} fullWidth multiline minRows={2} />
         </DialogContent>
@@ -2293,6 +2577,9 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
                         <Button size="small" onClick={() => openRow(row.a)}>
                           Editar
                         </Button>
+                        <Button size="small" component={RouterLink} to={`/apolice/dados/${row.a.id}`}>
+                          Dados do seguro
+                        </Button>
                         <Button size="small" color="error" onClick={() => void del(row.a.id)}>
                           Excluir
                         </Button>
@@ -2379,7 +2666,14 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
             <TextField required label="Fornecedor (seguradora)" value={fornecedor} onChange={(e) => setFornecedor(e.target.value)} fullWidth />
             <TextField required label="Subestipulante" value={subestipulante} onChange={(e) => setSubestipulante(e.target.value)} fullWidth />
             {showPlano ? (
-              <TextField required label="Plano" value={plano} onChange={(e) => setPlano(e.target.value)} fullWidth sx={{ gridColumn: { sm: 'span 2' } }} />
+              <TextField
+                label="Plano (texto livre)"
+                value={plano}
+                onChange={(e) => setPlano(e.target.value)}
+                fullWidth
+                sx={{ gridColumn: { sm: 'span 2' } }}
+                helperText="Opcional se usar «Dados do seguro» com planos estruturados (vários códigos / faixas etárias)."
+              />
             ) : null}
             {showCoberturas ? (
               <TextField

@@ -1,8 +1,15 @@
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
-import { PortalApoliceProduto, PortalSeguroItemTipo, PortalUserRole } from '@prisma/client'
-import type { Prisma } from '@prisma/client'
+import {
+  PortalApoliceModeloDadosSeguro,
+  PortalApoliceProduto,
+  PortalApoliceTipoCustoPlano,
+  PortalSeguroItemTipo,
+  PortalUserRole,
+  Prisma,
+} from '@prisma/client'
 import { prisma } from '../lib/prisma.js'
+import { normalizarValoresPorFaixa } from '../lib/apolice-planos-faixas.js'
 import { assertRole, requirePortalUser } from '../lib/authz.js'
 import { buildNexusGruposEconomicosEmpresas } from '../lib/nexus-grupos-economicos-view.js'
 import {
@@ -40,11 +47,6 @@ const createApoliceSchema = z
         path: ['numeroApolice'],
       })
     }
-    if (data.produto === PortalApoliceProduto.SAUDE || data.produto === PortalApoliceProduto.ODONTO) {
-      if (!(data.plano ?? '').toString().trim()) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Plano é obrigatório para Saúde ou Odonto.', path: ['plano'] })
-      }
-    }
     if (data.produto === PortalApoliceProduto.VIDA_GRUPO) {
       if (!(data.coberturas ?? '').toString().trim()) {
         ctx.addIssue({
@@ -69,6 +71,51 @@ const patchApoliceSchema = z.object({
   observacoes: z.string().max(2000).optional().nullable(),
   active: z.boolean().optional(),
 })
+
+const planoLinhaInputSchema = z
+  .object({
+    codigoPlano: z.string().min(1).max(500),
+    tipoCusto: z.nativeEnum(PortalApoliceTipoCustoPlano),
+    custoMedio: z.number().nonnegative().nullable().optional(),
+    valoresPorFaixa: z.record(z.string(), z.union([z.number(), z.null()])).optional(),
+  })
+  .superRefine((row, ctx) => {
+    if (row.tipoCusto === PortalApoliceTipoCustoPlano.CUSTO_MEDIO) {
+      const v = row.custoMedio
+      if (v == null || !Number.isFinite(v)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Indique o custo médio.', path: ['custoMedio'] })
+      }
+    } else {
+      const norm = normalizarValoresPorFaixa(row.valoresPorFaixa ?? {})
+      if (!norm) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Valores por faixa etária inválidos.', path: ['valoresPorFaixa'] })
+        return
+      }
+      const hasAny = Object.values(norm).some((x) => x != null)
+      if (!hasAny) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Preencha pelo menos uma faixa etária com valor.',
+          path: ['valoresPorFaixa'],
+        })
+      }
+    }
+  })
+
+const putApoliceDadosSeguroSchema = z
+  .object({
+    modeloDadosSeguro: z.nativeEnum(PortalApoliceModeloDadosSeguro),
+    planoLinhas: z.array(planoLinhaInputSchema).max(200),
+  })
+  .superRefine((data, ctx) => {
+    if (data.modeloDadosSeguro === PortalApoliceModeloDadosSeguro.PLANO && data.planoLinhas.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'No modelo Plano, adicione pelo menos uma linha de plano.',
+        path: ['planoLinhas'],
+      })
+    }
+  })
 
 function normalizeApolicePayload(body: {
   produto: PortalApoliceProduto
@@ -388,26 +435,29 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
     return reply.send({ ok: true, needsSync: false, empresas })
   })
 
-  /** Contratos Nexus filtrados pelo estipulante (grupo + cliente Nexus quando houver). */
+  /**
+
+   * Contratos Nexus: snapshot (filtrado por `limit`) ou filtrados por estipulante (grupo + cliente Nexus).
+   * Sem `estipulanteId`, devolve até `limit` contratos (default 5000), nº apólice descendente — a visão geral usa isto para não enviar o snapshot inteiro.
+   */
   app.get('/seguros/nexus/contratos-opcoes', async (req, reply) => {
     const u = await requirePortalUser(req, reply)
     if (!u) return
 
     const qCo = z.object({
-      estipulanteId: uuid,
+      estipulanteId: uuid.optional(),
       grupoNome: z.string().min(1).max(500).optional(),
+      /** Limite de contratos devolvidos (snapshot pode ser enorme). Ordenação: nº apólice descendente. */
+      limit: z.coerce.number().int().min(1).max(100_000).optional().default(5000),
     })
     let qParsed: z.infer<typeof qCo>
     try {
       qParsed = qCo.parse(req.query)
     } catch {
-      return reply.code(400).send({ error: 'Informe estipulanteId (UUID) na query.' })
+      return reply.code(400).send({ error: 'Query inválida: estipulanteId (UUID opcional), grupoNome e limit (1–100000).' })
     }
     const estipulanteId = qParsed.estipulanteId
     const grupoNomeContratos = qParsed.grupoNome?.trim() || null
-
-    const est = await prisma.portalSeguroEstipulante.findUnique({ where: { id: estipulanteId } })
-    if (!est) return reply.code(404).send({ error: 'Estipulante não encontrado.' })
 
     const snap = await prisma.portalNexusEntitySnapshot.findUnique({
       where: { entityKey: 'contratos' },
@@ -421,6 +471,19 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
           'Dados de contratos Nexus ainda não sincronizados. Peça ao administrador para sincronizar a entidade contratos em Banco de dados.',
       })
     }
+
+    const contratosLim = qParsed.limit
+
+    if (!estipulanteId) {
+      const all = parseContratosSnapshot(snap.rows)
+      const contratos = [...all]
+        .sort((a, b) => b.numero.localeCompare(a.numero, 'pt-BR', { numeric: true }))
+        .slice(0, contratosLim)
+      return reply.send({ ok: true, needsSync: false, contratos, contratosMeta: { limit: contratosLim, returned: contratos.length } })
+    }
+
+    const est = await prisma.portalSeguroEstipulante.findUnique({ where: { id: estipulanteId } })
+    if (!est) return reply.code(404).send({ error: 'Estipulante não encontrado.' })
 
     const siblingIds = await estipulanteSiblingIds(estipulanteId, grupoNomeContratos)
     const ests = await prisma.portalSeguroEstipulante.findMany({ where: { id: { in: siblingIds } } })
@@ -436,11 +499,16 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
         byContratoId.set(c.nexusContratoId, c)
       }
     }
-    const contratos = [...byContratoId.values()].sort((a, b) =>
-      a.numero.localeCompare(b.numero, 'pt-BR', { numeric: true }),
-    )
+    const contratos = [...byContratoId.values()]
+      .sort((a, b) => b.numero.localeCompare(a.numero, 'pt-BR', { numeric: true }))
+      .slice(0, contratosLim)
 
-    return reply.send({ ok: true, needsSync: false, contratos })
+    return reply.send({
+      ok: true,
+      needsSync: false,
+      contratos,
+      contratosMeta: { limit: contratosLim, returned: contratos.length },
+    })
   })
 
   // --- Grupos econômicos ---
@@ -579,6 +647,7 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
         razaoSocial: z.string().min(1).max(500),
         cnpj: z.string().min(8).max(20),
         nomeFantasia: z.string().max(500).optional().nullable(),
+        cnae: z.string().max(50).optional().nullable(),
         observacoes: z.string().max(2000).optional().nullable(),
       })
       .superRefine((d, ctx) => {
@@ -624,6 +693,7 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
           razaoSocial: body.razaoSocial.trim(),
           cnpj: body.cnpj.trim(),
           nomeFantasia: body.nomeFantasia?.trim() || null,
+          cnae: body.cnae?.trim() || null,
           observacoes: body.observacoes?.trim() || null,
         },
       })
@@ -645,6 +715,7 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
       razaoSocial: z.string().min(1).max(500).optional(),
       cnpj: z.string().min(8).max(20).optional(),
       nomeFantasia: z.string().max(500).optional().nullable(),
+      cnae: z.string().max(50).optional().nullable(),
       observacoes: z.string().max(2000).optional().nullable(),
       active: z.boolean().optional(),
     })
@@ -660,6 +731,7 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
     if (body.razaoSocial !== undefined) data.razaoSocial = body.razaoSocial.trim()
     if (body.cnpj !== undefined) data.cnpj = body.cnpj.trim()
     if (body.nomeFantasia !== undefined) data.nomeFantasia = body.nomeFantasia?.trim() || null
+    if (body.cnae !== undefined) data.cnae = body.cnae?.trim() || null
     if (body.observacoes !== undefined) data.observacoes = body.observacoes?.trim() || null
     if (body.active !== undefined) data.active = body.active
 
@@ -688,15 +760,23 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
   })
 
   const cadastroVisaoGeralQuery = z.object({
-    /** Página: máx. 50k por pedido (evita timeouts); o frontend pode pedir várias páginas. */
-    limit: z.coerce.number().int().min(1).max(50000).optional().default(12000),
+    /**
+     * `apolices_recent`: até `limit` apólices mais recentes (comportamento antigo).
+     * `hierarquia`: até `limit` estipulantes (ordenados por grupo → razão social) e **todas** as apólices
+     * vinculadas a esses estipulantes.
+     */
+    carga: z.enum(['apolices_recent', 'hierarquia']).optional().default('apolices_recent'),
+    /** Por pedido: em `apolices_recent` = máx. apólices; em `hierarquia` = máx. estipulantes (1–50000). */
+    limit: z.coerce.number().int().min(1).max(50000).optional().default(2000),
     offset: z.coerce.number().int().min(0).max(10_000_000).optional().default(0),
+    /** `recent`: últimas alteradas primeiro (`updatedAt` desc); `id_asc`: compatível com paginação antiga por UUID. */
+    sort: z.enum(['recent', 'id_asc']).optional().default('recent'),
   })
 
   /**
    * Visão geral: contagens + lista plana de apólices (uma linha = grupo + estipulante + apólice).
    * Não envia `itens` aqui (payload pode estourar o JSON no browser); use GET /seguros/apolices/:id/itens ao abrir o detalhe.
-   * Query: `limit` (1–50000, default 12000), `offset` — ordenação estável por `id` para paginação sem falhas.
+   * Query: `carga=apolices_recent|hierarquia` (default apolices_recent), `limit`, `offset`, `sort=recent|id_asc`.
    */
   app.get('/seguros/cadastro-visao-geral', async (req, reply) => {
     const u = await requirePortalUser(req, reply)
@@ -706,74 +786,134 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
     try {
       q = cadastroVisaoGeralQuery.parse(req.query)
     } catch {
-      return reply.code(400).send({ error: 'Query inválida: use limit (1–50000) e offset (≥ 0).' })
+      return reply.code(400).send({ error: 'Query inválida: carga, limit (1–50000), offset (≥ 0) e sort (recent|id_asc).' })
     }
 
+    const apoliceOrderBy: Prisma.PortalSeguroApoliceOrderByWithRelationInput[] =
+      q.sort === 'recent'
+        ? [{ updatedAt: 'desc' }, { id: 'desc' }]
+        : [{ id: 'asc' }]
+
+    const apoliceVisaoSelect = {
+      id: true,
+      active: true,
+      numeroApolice: true,
+      produto: true,
+      fornecedor: true,
+      subestipulante: true,
+      plano: true,
+      coberturas: true,
+      vigenciaInicio: true,
+      vigenciaFim: true,
+      nexusContratoId: true,
+      observacoes: true,
+      updatedAt: true,
+      estipulante: {
+        select: {
+          id: true,
+          razaoSocial: true,
+          grupoEconomicoNome: true,
+          grupoEconomicoId: true,
+          cnpj: true,
+          cnae: true,
+          nexusClienteId: true,
+          nomeFantasia: true,
+          observacoes: true,
+          grupo: { select: { id: true, nome: true } },
+        },
+      },
+      _count: { select: { itens: true, planoLinhas: true } },
+    } as const
+
+    const estSelectVisao = {
+      id: true,
+      active: true,
+      razaoSocial: true,
+      cnpj: true,
+      cnae: true,
+      grupoEconomicoNome: true,
+      grupoEconomicoId: true,
+      nexusClienteId: true,
+      nomeFantasia: true,
+      observacoes: true,
+      grupo: { select: { id: true, nome: true } },
+    } as const
+
     try {
-      const [gruposEconomicosCount, estipulantesCount, apolicesTotalCount, apolices] = await Promise.all([
+      const [gruposEconomicosCount, estipulantesCount, apolicesTotalCount] = await Promise.all([
         prisma.portalGrupoEconomico.count({ where: { active: true } }),
-        /** Total de linhas de estipulante (ativos e inativos) — a visão geral não deve omitir inativos na consulta. */
         prisma.portalSeguroEstipulante.count(),
         prisma.portalSeguroApolice.count(),
-        prisma.portalSeguroApolice.findMany({
-          take: q.limit,
-          skip: q.offset,
-          orderBy: { id: 'asc' },
-          select: {
-            id: true,
-            active: true,
-            numeroApolice: true,
-            produto: true,
-            fornecedor: true,
-            subestipulante: true,
-            plano: true,
-            coberturas: true,
-            vigenciaInicio: true,
-            vigenciaFim: true,
-            nexusContratoId: true,
-            observacoes: true,
-            updatedAt: true,
-            estipulante: {
-              select: {
-                id: true,
-                razaoSocial: true,
-                grupoEconomicoNome: true,
-                grupoEconomicoId: true,
-                cnpj: true,
-                nexusClienteId: true,
-                nomeFantasia: true,
-                observacoes: true,
-                grupo: { select: { id: true, nome: true } },
-              },
-            },
-            _count: { select: { itens: true } },
-          },
-        }),
       ])
 
-      /**
-       * Só na 1.ª página: lista completa de estipulantes para agrupar por grupo económico (chave = grupo local OU nome Nexus).
-       * Sem filtro `active` — consulta deve espelhar todas as linhas da tabela.
-       */
-      const estipulantesRaw =
-        q.offset === 0
-          ? await prisma.portalSeguroEstipulante.findMany({
-              take: 50000,
-              orderBy: [{ grupoEconomicoNome: 'asc' }, { razaoSocial: 'asc' }],
-              select: {
-                id: true,
-                active: true,
-                razaoSocial: true,
-                cnpj: true,
-                grupoEconomicoNome: true,
-                grupoEconomicoId: true,
-                nexusClienteId: true,
-                nomeFantasia: true,
-                observacoes: true,
-                grupo: { select: { id: true, nome: true } },
-              },
-            })
-          : undefined
+      let apolices: Array<Prisma.PortalSeguroApoliceGetPayload<{ select: typeof apoliceVisaoSelect }>>
+      let estipulantesRaw: Array<Prisma.PortalSeguroEstipulanteGetPayload<{ select: typeof estSelectVisao }>> | undefined
+
+      if (q.carga === 'hierarquia') {
+        const estTake = Math.min(q.limit, 25_000)
+        const estPage = await prisma.portalSeguroEstipulante.findMany({
+          take: estTake,
+          skip: q.offset,
+          orderBy: [{ grupoEconomicoNome: 'asc' }, { razaoSocial: 'asc' }],
+          select: estSelectVisao,
+        })
+        const estIds = estPage.map((e) => e.id)
+        const HIERARQUIA_CHUNK = 800
+        const acc: typeof apolices = []
+        for (let i = 0; i < estIds.length; i += HIERARQUIA_CHUNK) {
+          const chunk = estIds.slice(i, i + HIERARQUIA_CHUNK)
+          const part = await prisma.portalSeguroApolice.findMany({
+            where: { estipulanteId: { in: chunk } },
+            orderBy: apoliceOrderBy,
+            select: apoliceVisaoSelect,
+          })
+          acc.push(...part)
+        }
+        apolices = acc
+        estipulantesRaw = estPage
+      } else {
+        apolices = await prisma.portalSeguroApolice.findMany({
+          take: q.limit,
+          skip: q.offset,
+          orderBy: apoliceOrderBy,
+          select: apoliceVisaoSelect,
+        })
+
+        /**
+         * Só na 1.ª página: estipulantes ligados às apólices desta resposta + preenchimento até `VISAO_EST_CAP`
+         * (últimas linhas alteradas), para não carregar dezenas de milhares de linhas.
+         */
+        const VISAO_EST_CAP = 10_000
+        estipulantesRaw =
+          q.offset === 0
+            ? await (async () => {
+                const apEstIds = [...new Set(apolices.map((a) => a.estipulante.id))]
+                const linked =
+                  apEstIds.length > 0
+                    ? await prisma.portalSeguroEstipulante.findMany({
+                        where: { id: { in: apEstIds } },
+                        select: estSelectVisao,
+                      })
+                    : []
+                const takeRest = Math.max(0, VISAO_EST_CAP - linked.length)
+                const rest =
+                  takeRest > 0
+                    ? await prisma.portalSeguroEstipulante.findMany({
+                        where: apEstIds.length > 0 ? { id: { notIn: apEstIds } } : undefined,
+                        take: takeRest,
+                        orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+                        select: estSelectVisao,
+                      })
+                    : []
+                const byId = new Map<string, (typeof linked)[number]>()
+                for (const e of linked) byId.set(e.id, e)
+                for (const e of rest) {
+                  if (!byId.has(e.id)) byId.set(e.id, e)
+                }
+                return [...byId.values()]
+              })()
+            : undefined
+      }
 
       let estipulantes:
         | Array<
@@ -838,6 +978,10 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
         estipulantes = undefined
       }
 
+      const estDevolvidos = estipulantesRaw?.length ?? 0
+      const apolicesTruncated =
+        q.carga === 'hierarquia' ? q.offset + estDevolvidos < estipulantesCount : q.offset + apolices.length < apolicesTotalCount
+
       return reply.send({
         gruposEconomicosCount,
         estipulantesCount,
@@ -845,9 +989,13 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
         apolices,
         ...(estipulantes != null ? { estipulantes } : {}),
         visaoMeta: {
+          carga: q.carga,
           limit: q.limit,
           offset: q.offset,
           returned: apolices.length,
+          returnedEstipulantes: q.carga === 'hierarquia' ? estDevolvidos : undefined,
+          sort: q.sort,
+          apolicesTruncated,
         },
       })
     } catch (e) {
@@ -891,7 +1039,7 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
           grupo: { select: { id: true, nome: true } },
         },
       },
-      _count: { select: { itens: true } },
+      _count: { select: { itens: true, planoLinhas: true } },
     } as const
 
     let list = await prisma.portalSeguroApolice.findMany({
@@ -1152,8 +1300,14 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
     const { plano, coberturas } = normalizeApolicePayload(merged as { produto: PortalApoliceProduto; plano: string | null; coberturas: string | null })
 
     if (produto === PortalApoliceProduto.SAUDE || produto === PortalApoliceProduto.ODONTO) {
-      if (!(plano ?? '').trim()) {
-        return reply.code(400).send({ error: 'Plano é obrigatório para Saúde ou Odonto.' })
+      const hasPlanoText = !!(plano ?? '').trim()
+      if (!hasPlanoText) {
+        const nLinhas = await prisma.portalSeguroApolicePlanoLinha.count({ where: { apoliceId: id } })
+        if (nLinhas === 0) {
+          return reply
+            .code(400)
+            .send({ error: 'Informe o plano (texto) ou cadastre linhas de plano em «Dados do seguro».' })
+        }
       }
     }
     if (produto === PortalApoliceProduto.VIDA_GRUPO) {
@@ -1216,6 +1370,146 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
       return reply.send({ apolice: row })
     } catch {
       return reply.code(400).send({ error: 'Não foi possível atualizar (número duplicado?).' })
+    }
+  })
+
+  /** Modelo Plano (várias linhas, faixas etárias) vs Cobertura — página dedicada no portal. */
+  app.get('/seguros/apolices/:id/dados-seguro', async (req, reply) => {
+    const u = await requirePortalUser(req, reply)
+    if (!u) return
+
+    const id = (req.params as { id?: string }).id
+    if (!id || !uuid.safeParse(id).success) return reply.code(400).send({ error: 'ID inválido' })
+
+    const ap = await prisma.portalSeguroApolice.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        numeroApolice: true,
+        produto: true,
+        modeloDadosSeguro: true,
+        plano: true,
+        coberturas: true,
+        planoLinhas: { orderBy: [{ sortOrder: 'asc' }, { codigoPlano: 'asc' }] },
+      },
+    })
+    if (!ap) return reply.code(404).send({ error: 'Apólice não encontrada' })
+
+    const planoLinhas = ap.planoLinhas.map((r) => ({
+      id: r.id,
+      sortOrder: r.sortOrder,
+      codigoPlano: r.codigoPlano,
+      tipoCusto: r.tipoCusto,
+      custoMedio: r.custoMedio != null ? Number(r.custoMedio) : null,
+      valoresPorFaixa: (r.valoresPorFaixa as Record<string, number | null> | null) ?? null,
+    }))
+
+    return reply.send({
+      apolice: {
+        id: ap.id,
+        numeroApolice: ap.numeroApolice,
+        produto: ap.produto,
+        modeloDadosSeguro: ap.modeloDadosSeguro,
+        plano: ap.plano,
+        coberturas: ap.coberturas,
+        planoLinhas,
+      },
+    })
+  })
+
+  app.put('/seguros/apolices/:id/dados-seguro', async (req, reply) => {
+    const u = await requirePortalUser(req, reply)
+    if (!u) return
+    if (!assertRole(u, [PortalUserRole.PORTAL_ADMIN], reply)) return
+
+    const id = (req.params as { id?: string }).id
+    if (!id || !uuid.safeParse(id).success) return reply.code(400).send({ error: 'ID inválido' })
+
+    let body: z.infer<typeof putApoliceDadosSeguroSchema>
+    try {
+      body = putApoliceDadosSeguroSchema.parse(req.body)
+    } catch (e) {
+      if (e instanceof z.ZodError) return reply.code(400).send({ error: e.issues[0]?.message || 'Dados inválidos' })
+      return reply.code(400).send({ error: 'Dados inválidos' })
+    }
+
+    const exists = await prisma.portalSeguroApolice.findUnique({ where: { id }, select: { id: true } })
+    if (!exists) return reply.code(404).send({ error: 'Apólice não encontrada' })
+
+    const planoResumo =
+      body.modeloDadosSeguro === PortalApoliceModeloDadosSeguro.PLANO
+        ? body.planoLinhas.map((p) => p.codigoPlano.trim()).filter(Boolean).join(', ') || null
+        : null
+
+    try {
+      await prisma.$transaction(async (tx) => {
+        await tx.portalSeguroApolicePlanoLinha.deleteMany({ where: { apoliceId: id } })
+        if (body.modeloDadosSeguro === PortalApoliceModeloDadosSeguro.PLANO && body.planoLinhas.length > 0) {
+          await tx.portalSeguroApolicePlanoLinha.createMany({
+            data: body.planoLinhas.map((row, i) => {
+              const custoMedio =
+                row.tipoCusto === PortalApoliceTipoCustoPlano.CUSTO_MEDIO ? row.custoMedio! : null
+              return {
+                apoliceId: id,
+                sortOrder: i,
+                codigoPlano: row.codigoPlano.trim(),
+                tipoCusto: row.tipoCusto,
+                custoMedio,
+                valoresPorFaixa:
+                  row.tipoCusto === PortalApoliceTipoCustoPlano.FAIXA_ETARIA
+                    ? (normalizarValoresPorFaixa(row.valoresPorFaixa ?? {}) as Prisma.InputJsonValue)
+                    : Prisma.DbNull,
+              }
+            }),
+          })
+        }
+        await tx.portalSeguroApolice.update({
+          where: { id },
+          data: {
+            modeloDadosSeguro: body.modeloDadosSeguro,
+            ...(body.modeloDadosSeguro === PortalApoliceModeloDadosSeguro.PLANO
+              ? { plano: planoResumo }
+              : {}),
+          },
+        })
+      })
+
+      const ap = await prisma.portalSeguroApolice.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          numeroApolice: true,
+          produto: true,
+          modeloDadosSeguro: true,
+          plano: true,
+          coberturas: true,
+          planoLinhas: { orderBy: [{ sortOrder: 'asc' }, { codigoPlano: 'asc' }] },
+        },
+      })
+      if (!ap) return reply.code(404).send({ error: 'Apólice não encontrada' })
+
+      const planoLinhasOut = ap.planoLinhas.map((r) => ({
+        id: r.id,
+        sortOrder: r.sortOrder,
+        codigoPlano: r.codigoPlano,
+        tipoCusto: r.tipoCusto,
+        custoMedio: r.custoMedio != null ? Number(r.custoMedio) : null,
+        valoresPorFaixa: (r.valoresPorFaixa as Record<string, number | null> | null) ?? null,
+      }))
+
+      return reply.send({
+        apolice: {
+          id: ap.id,
+          numeroApolice: ap.numeroApolice,
+          produto: ap.produto,
+          modeloDadosSeguro: ap.modeloDadosSeguro,
+          plano: ap.plano,
+          coberturas: ap.coberturas,
+          planoLinhas: planoLinhasOut,
+        },
+      })
+    } catch {
+      return reply.code(400).send({ error: 'Não foi possível guardar os dados do seguro.' })
     }
   })
 

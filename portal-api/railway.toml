@@ -1,8 +1,12 @@
-# portal-colaborador-api — No painel Railway: Root Directory = portal-api, branch main.
-# CLI: na RAIZ do repo Git (pasta que contém portal-api/), rode: npx railway up --ci …
-# NÃO use ./portal-api --path-as-root com esse Root Directory — causa "Could not find root directory: portal-api".
+# portal-colaborador-api — Dockerfile e build nesta pasta.
 #
-# Build: Dockerfile nesta pasta. Se o serviço usar raiz do repo vazio, ver Dockerfile.portal-colaborador-api na raiz do monorepo.
+# Painel Railway → Root Directory:
+#   • Valor recomendado: portal-api (sem "/" no início — não use "/portal-api").
+#   • Com este valor, o deploy por CLI deve enviar o monorepo inteiro (ver deploy-railway.ps1: `up .`).
+#
+# Root Directory VAZIO + deploy pela raiz do Git: use o ficheiro na raiz do repo
+#   railway.stack-portal-from-repo-root.toml (Config as code) + Dockerfile.portal-colaborador-api.
+#
 [build]
 builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
