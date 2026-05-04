@@ -70,18 +70,45 @@ enum PortalSubestipulanteStatus {
   CANCELADO
 }
 
+/// Cone geográfico (time de relacionamento).
+enum PortalSeguroConeRegiao {
+  NORTE
+  SUL
+}
+
+/// Catálogo de operadoras / seguradoras (opções persistidas no portal).
+model PortalSeguroOperadora {
+  id        String   @id @default(uuid())
+  nome      String
+  active    Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  apolices  PortalSeguroApolice[]
+
+  @@index([active, sortOrder, nome])
+}
+
+/// Cliente consolidado (Nexus ou histórico) vs. possível cliente futuro (cadastro interno).
+enum PortalGrupoEconomicoClassificacao {
+  CLIENTE
+  PROSPECT
+}
+
 /// Cliente / grupo econômico (nível 1)
 model PortalGrupoEconomico {
-  id            String                   @id @default(uuid())
-  nome          String
-  cnpj          String?
-  observacoes   String?
-  active        Boolean                  @default(true)
-  createdAt     DateTime                 @default(now())
-  updatedAt     DateTime                 @updatedAt
-  estipulantes  PortalSeguroEstipulante[]
+  id              String                           @id @default(uuid())
+  nome            String
+  cnpj            String?
+  observacoes     String?
+  classificacao   PortalGrupoEconomicoClassificacao @default(CLIENTE)
+  active          Boolean                          @default(true)
+  createdAt       DateTime                         @default(now())
+  updatedAt       DateTime                         @updatedAt
+  estipulantes    PortalSeguroEstipulante[]
 
   @@index([nome])
+  @@index([classificacao])
 }
 
 /// Estipulante vinculado a um grupo econômico (nível 2)
@@ -120,7 +147,10 @@ model PortalSeguroApolice {
   nexusContratoId String?
   numeroApolice   String
   produto         PortalApoliceProduto
+  /// Nome da operadora (denormalizado; alinhar com `operadora.nome` quando houver FK).
   fornecedor      String
+  operadoraId     String?
+  operadora       PortalSeguroOperadora? @relation(fields: [operadoraId], references: [id], onDelete: SetNull)
   /// Resumo legado (ex.: primeira razão social); detalhe em `subestipulantes`.
   subestipulante  String?
   plano           String?
@@ -138,10 +168,73 @@ model PortalSeguroApolice {
   itens           PortalSeguroApoliceItem[]
   planoLinhas     PortalSeguroApolicePlanoLinha[]
   subestipulantes PortalSeguroApoliceSubestipulante[]
+  faturasMensais  PortalSeguroApoliceFaturaMes[]
+
+  comissionamento PortalSeguroApoliceComissionamento?
+  fee             PortalSeguroApoliceFee?
+
+  trCone               PortalSeguroConeRegiao?
+  trDiretoria          String?
+  trSuperintendente    String?
+  trGerente            String?
+  trExecutivoConsultor String?
+  trAnalista           String?
 
   @@index([estipulanteId])
   @@index([nexusContratoId])
+  @@index([operadoraId])
   @@unique([estipulanteId, numeroApolice])
+}
+
+/// Comissionamento parcelado (12 parcelas em JSON) por apólice — no máximo um por apólice.
+model PortalSeguroApoliceComissionamento {
+  id                        String              @id @default(uuid())
+  apoliceId                 String              @unique
+  apolice                   PortalSeguroApolice @relation(fields: [apoliceId], references: [id], onDelete: Cascade)
+  temCorretorParceiro       Boolean?            @default(false)
+  valorAgenciamentoContrato Decimal?            @db.Decimal(14, 2)
+  valorVitalicioContrato    Decimal?            @db.Decimal(14, 2)
+  /// JSON: array de 12 percentuais (consultoria — agenciamento)
+  agenciamentoConsultoria   String?             @db.Text
+  /// JSON: array de 12 percentuais (consultoria — vitalício)
+  vitalicioConsultoria      String?             @db.Text
+  agenciamentoCorretor      String?             @db.Text
+  vitalicioCorretor         String?             @db.Text
+  createdAt                 DateTime            @default(now())
+  updatedAt                 DateTime            @updatedAt
+
+  @@index([apoliceId])
+}
+
+/// Valores de fee (mensal / consultoria / parceiro) — no máximo um por apólice.
+model PortalSeguroApoliceFee {
+  id                  String              @id @default(uuid())
+  apoliceId           String              @unique
+  apolice             PortalSeguroApolice @relation(fields: [apoliceId], references: [id], onDelete: Cascade)
+  valorFeeMensal      Decimal?            @db.Decimal(14, 2)
+  feeConsultoria      Decimal?            @db.Decimal(14, 2)
+  feeCorretorParceiro Decimal?            @db.Decimal(14, 2)
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  @@index([apoliceId])
+}
+
+/// Vidas e valor de fatura por competência (mês/ano) — aba financeira da apólice.
+model PortalSeguroApoliceFaturaMes {
+  id             String              @id @default(uuid())
+  apoliceId      String
+  apolice        PortalSeguroApolice @relation(fields: [apoliceId], references: [id], onDelete: Cascade)
+  competenciaAno Int
+  competenciaMes Int
+  vidas          Int                 @default(0)
+  valorFatura    Decimal             @db.Decimal(14, 2)
+  observacoes    String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@unique([apoliceId, competenciaAno, competenciaMes])
+  @@index([apoliceId])
 }
 
 /// Um registo de plano dentro da apólice (pode haver vários). Custos: médio ou por faixa etária (JSON com chaves fixas).

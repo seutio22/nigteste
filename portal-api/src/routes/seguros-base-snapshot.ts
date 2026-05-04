@@ -300,7 +300,7 @@ export async function registerSegurosBaseSnapshotRoutes(app: FastifyInstance) {
 
         path,
 
-        hint: `JSON: schemaVersion=${SEGUROS_BASE_SNAPSHOT_VERSION} e arrays grupos, estipulantes, apolices, itens. Ou use multipart com ficheiro Excel.`,
+        hint: `JSON: schemaVersion=${SEGUROS_BASE_SNAPSHOT_VERSION} e arrays (grupos, estipulantes, apolices, itens; opcionais comissão/fee no Excel). Ou use multipart com ficheiro Excel.`,
 
       })
 

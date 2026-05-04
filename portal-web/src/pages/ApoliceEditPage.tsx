@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type ReactNode, type Dispatch, type SetStateAction } from 'react'
 import { Link as RouterLink, useParams } from 'react-router-dom'
 import AddIcon from '@mui/icons-material/Add'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
@@ -7,6 +7,7 @@ import {
   Alert,
   Box,
   Button,
+  Checkbox,
   Divider,
   FormControl,
   FormControlLabel,
@@ -20,8 +21,15 @@ import {
   Select,
   type SelectChangeEvent,
   Stack,
+  Tab,
+  Tabs,
   TextField,
   Typography,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
 } from '@mui/material'
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
@@ -62,6 +70,75 @@ type LinhaApi = {
   valoresPorFaixa: Record<string, number | null> | null
 }
 
+type FaturaMesApi = {
+  id: string
+  competenciaAno: number
+  competenciaMes: number
+  vidas: number
+  valorFatura: number
+  observacoes: string | null
+}
+
+type TipoFinanceiro = 'comissionamento' | 'fee' | 'comissionamento_fee'
+
+type ComissionamentoApi = {
+  id: string
+  apoliceId: string
+  temCorretorParceiro: boolean | null
+  valorAgenciamentoContrato: number | null
+  valorVitalicioContrato: number | null
+  agenciamentoConsultoria: number[] | null
+  vitalicioConsultoria: number[] | null
+  agenciamentoCorretor: number[] | null
+  vitalicioCorretor: number[] | null
+}
+
+type FeeApi = {
+  id: string
+  apoliceId: string
+  valorFeeMensal: number | null
+  feeConsultoria: number | null
+  feeCorretorParceiro: number | null
+}
+
+function parcelasZeros12(): number[] {
+  return Array.from({ length: 12 }, () => 0)
+}
+
+function parcelasFromApi(a: number[] | null | undefined): number[] {
+  if (a && Array.isArray(a) && a.length === 12) {
+    return a.map((x) => (typeof x === 'number' && Number.isFinite(x) ? x : 0))
+  }
+  return parcelasZeros12()
+}
+
+function mesReferenciaParcela(vigIniIso: string, parcelIndex: number): string {
+  let base = new Date()
+  if (vigIniIso.trim()) {
+    const d = new Date(vigIniIso)
+    if (!Number.isNaN(d.getTime())) base = d
+  }
+  const y = base.getFullYear()
+  const m = base.getMonth()
+  const tm = m + parcelIndex
+  const dt = new Date(y + Math.floor(tm / 12), tm % 12, 1)
+  return dt.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })
+}
+
+function comissionamentoHasData(c: ComissionamentoApi | null | undefined): boolean {
+  if (!c) return false
+  if (c.temCorretorParceiro) return true
+  if (c.valorAgenciamentoContrato != null && c.valorAgenciamentoContrato > 0) return true
+  if (c.valorVitalicioContrato != null && c.valorVitalicioContrato > 0) return true
+  const nz = (arr: number[] | null | undefined) => (arr ?? []).some((x) => x !== 0)
+  return nz(c.agenciamentoConsultoria) || nz(c.vitalicioConsultoria) || nz(c.agenciamentoCorretor) || nz(c.vitalicioCorretor)
+}
+
+function feeHasData(f: FeeApi | null | undefined): boolean {
+  if (!f) return false
+  return [f.valorFeeMensal, f.feeConsultoria, f.feeCorretorParceiro].some((x) => x != null && x > 0)
+}
+
 type SubApi = {
   id: string
   sortOrder: number
@@ -77,6 +154,8 @@ type ApoliceDetalhe = {
   nexusContratoId: string | null
   numeroApolice: string
   produto: ApoliceProduto
+  operadoraId: string | null
+  operadora: { id: string; nome: string } | null
   fornecedor: string
   subestipulante: string | null
   plano: string | null
@@ -86,14 +165,59 @@ type ApoliceDetalhe = {
   observacoes: string | null
   active: boolean
   modeloDadosSeguro: ModeloDados | null
+  comissionamento: ComissionamentoApi | null
+  fee: FeeApi | null
+  trCone: 'NORTE' | 'SUL' | null
+  trDiretoria: string | null
+  trSuperintendente: string | null
+  trGerente: string | null
+  trExecutivoConsultor: string | null
+  trAnalista: string | null
   estipulante: {
-      id: string
-      razaoSocial: string
-      grupoEconomicoNome: string
-      grupo: { id: string; nome: string } | null
+    id: string
+    razaoSocial: string
+    grupoEconomicoNome: string
+    grupo: { id: string; nome: string } | null
   }
   planoLinhas: LinhaApi[]
   subestipulantes: SubApi[]
+  faturasMensais: FaturaMesApi[]
+}
+
+type OperadoraOpt = { id: string; nome: string; sortOrder?: number }
+
+type FaturaFormRow = {
+  competenciaAno: string
+  competenciaMes: string
+  vidasStr: string
+  valorFaturaStr: string
+  observacoes: string
+}
+
+function faturaFormVazia(): FaturaFormRow {
+  return {
+    competenciaAno: String(new Date().getFullYear()),
+    competenciaMes: String(new Date().getMonth() + 1),
+    vidasStr: '',
+    valorFaturaStr: '',
+    observacoes: '',
+  }
+}
+
+function faturasDeApi(rows: FaturaMesApi[]): FaturaFormRow[] {
+  if (rows.length === 0) return [faturaFormVazia()]
+  return rows.map((f) => ({
+    competenciaAno: String(f.competenciaAno),
+    competenciaMes: String(f.competenciaMes),
+    vidasStr: String(f.vidas),
+    valorFaturaStr: f.valorFatura != null ? String(f.valorFatura) : '',
+    observacoes: f.observacoes ?? '',
+  }))
+}
+
+function TabPanel({ children, value, index }: { children: ReactNode; value: number; index: number }) {
+  if (value !== index) return null
+  return <Box sx={{ pt: 2 }}>{children}</Box>
 }
 
 type LinhaForm = {
@@ -142,6 +266,71 @@ function subsDeApi(rows: SubApi[]): SubRowForm[] {
     codigoSub: s.codigoSub,
     status: s.status,
   }))
+}
+
+function ParcelasComissionamentoBlock({
+  titulo,
+  valores,
+  setValores,
+  vigIni,
+  disabled,
+}: {
+  titulo: string
+  valores: number[]
+  setValores: Dispatch<SetStateAction<number[]>>
+  vigIni: string
+  disabled: boolean
+}) {
+  const replicarPrimeiro = () => {
+    const firstNonZero = valores.find((x) => x !== 0)
+    const first = firstNonZero ?? valores[0] ?? 0
+    setValores(Array.from({ length: 12 }, () => first))
+  }
+  return (
+    <Paper variant="outlined" sx={{ p: 1.5, mb: 2 }}>
+      <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ sm: 'center' }} sx={{ mb: 1 }} gap={1}>
+        <Typography variant="subtitle2" fontWeight={600}>
+          {titulo}
+        </Typography>
+        <Button size="small" variant="outlined" disabled={disabled} onClick={replicarPrimeiro}>
+          Replicar 1.º % preenchido
+        </Button>
+      </Stack>
+      <Table size="small">
+        <TableHead>
+          <TableRow>
+            <TableCell>Parcela</TableCell>
+            <TableCell>Mês (competência)</TableCell>
+            <TableCell align="right">% sobre o contrato</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {valores.map((pct, idx) => (
+            <TableRow key={idx}>
+              <TableCell>{idx + 1}</TableCell>
+              <TableCell>{mesReferenciaParcela(vigIni, idx)}</TableCell>
+              <TableCell align="right" sx={{ maxWidth: 140 }}>
+                <TextField
+                  size="small"
+                  value={pct === 0 ? '' : String(pct)}
+                  onChange={(e) => {
+                    const t = e.target.value.trim().replace(',', '.')
+                    const n = t === '' ? 0 : Number(t)
+                    setValores((prev) =>
+                      prev.map((p, j) => (j === idx ? (Number.isFinite(n) ? n : p) : p)),
+                    )
+                  }}
+                  disabled={disabled}
+                  inputProps={{ inputMode: 'decimal', style: { textAlign: 'right' } }}
+                  fullWidth
+                />
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </Paper>
+  )
 }
 
 function parseNumeroPt(s: string): number | null {
@@ -202,6 +391,33 @@ export default function ApoliceEditPage() {
 
   const [modelo, setModelo] = useState<ModeloDados>('PLANO')
   const [linhas, setLinhas] = useState<LinhaForm[]>([linhaFormVazia()])
+
+  const [tab, setTab] = useState(0)
+  const [operadoras, setOperadoras] = useState<OperadoraOpt[]>([])
+  const [operadoraId, setOperadoraId] = useState('')
+  const [novaOperadoraNome, setNovaOperadoraNome] = useState('')
+  const [salvandoOperadora, setSalvandoOperadora] = useState(false)
+
+  const [tipoFinanceiro, setTipoFinanceiro] = useState<TipoFinanceiro>('comissionamento')
+  const [temCorretorParceiroFin, setTemCorretorParceiroFin] = useState(false)
+  const [valorAgenciamentoStr, setValorAgenciamentoStr] = useState('')
+  const [valorVitalicioStr, setValorVitalicioStr] = useState('')
+  const [agenciamentoConsultoriaPerc, setAgenciamentoConsultoriaPerc] = useState<number[]>(() => parcelasZeros12())
+  const [vitalicioConsultoriaPerc, setVitalicioConsultoriaPerc] = useState<number[]>(() => parcelasZeros12())
+  const [agenciamentoCorretorPerc, setAgenciamentoCorretorPerc] = useState<number[]>(() => parcelasZeros12())
+  const [vitalicioCorretorPerc, setVitalicioCorretorPerc] = useState<number[]>(() => parcelasZeros12())
+  const [feeValorMensalStr, setFeeValorMensalStr] = useState('')
+  const [feeConsultoriaStr, setFeeConsultoriaStr] = useState('')
+  const [feeCorretorParceiroStr, setFeeCorretorParceiroStr] = useState('')
+
+  const [trCone, setTrCone] = useState<'NORTE' | 'SUL' | ''>('')
+  const [trDiretoria, setTrDiretoria] = useState('')
+  const [trSuperintendente, setTrSuperintendente] = useState('')
+  const [trGerente, setTrGerente] = useState('')
+  const [trExecutivoConsultor, setTrExecutivoConsultor] = useState('')
+  const [trAnalista, setTrAnalista] = useState('')
+
+  const [faturaRows, setFaturaRows] = useState<FaturaFormRow[]>([faturaFormVazia()])
 
   const showPlano = produto === 'SAUDE' || produto === 'ODONTO'
   const showCoberturas = produto === 'VIDA_GRUPO'
@@ -277,6 +493,48 @@ export default function ApoliceEditPage() {
     setNumeroApolice(ap.numeroApolice)
     setProduto(ap.produto)
     setFornecedor(ap.fornecedor)
+    setOperadoraId(ap.operadoraId ?? '')
+    const com = ap.comissionamento
+    if (com) {
+      setTemCorretorParceiroFin(!!com.temCorretorParceiro)
+      setValorAgenciamentoStr(com.valorAgenciamentoContrato != null ? String(com.valorAgenciamentoContrato) : '')
+      setValorVitalicioStr(com.valorVitalicioContrato != null ? String(com.valorVitalicioContrato) : '')
+      setAgenciamentoConsultoriaPerc(parcelasFromApi(com.agenciamentoConsultoria))
+      setVitalicioConsultoriaPerc(parcelasFromApi(com.vitalicioConsultoria))
+      setAgenciamentoCorretorPerc(parcelasFromApi(com.agenciamentoCorretor))
+      setVitalicioCorretorPerc(parcelasFromApi(com.vitalicioCorretor))
+    } else {
+      setTemCorretorParceiroFin(false)
+      setValorAgenciamentoStr('')
+      setValorVitalicioStr('')
+      setAgenciamentoConsultoriaPerc(parcelasZeros12())
+      setVitalicioConsultoriaPerc(parcelasZeros12())
+      setAgenciamentoCorretorPerc(parcelasZeros12())
+      setVitalicioCorretorPerc(parcelasZeros12())
+    }
+    const feeAp = ap.fee
+    if (feeAp) {
+      setFeeValorMensalStr(feeAp.valorFeeMensal != null ? String(feeAp.valorFeeMensal) : '')
+      setFeeConsultoriaStr(feeAp.feeConsultoria != null ? String(feeAp.feeConsultoria) : '')
+      setFeeCorretorParceiroStr(feeAp.feeCorretorParceiro != null ? String(feeAp.feeCorretorParceiro) : '')
+    } else {
+      setFeeValorMensalStr('')
+      setFeeConsultoriaStr('')
+      setFeeCorretorParceiroStr('')
+    }
+    const hasC = comissionamentoHasData(com)
+    const hasF = feeHasData(feeAp)
+    if (hasC && hasF) setTipoFinanceiro('comissionamento_fee')
+    else if (hasC) setTipoFinanceiro('comissionamento')
+    else if (hasF) setTipoFinanceiro('fee')
+    else setTipoFinanceiro('comissionamento')
+    setTrCone((ap.trCone as '' | 'NORTE' | 'SUL') ?? '')
+    setTrDiretoria(ap.trDiretoria ?? '')
+    setTrSuperintendente(ap.trSuperintendente ?? '')
+    setTrGerente(ap.trGerente ?? '')
+    setTrExecutivoConsultor(ap.trExecutivoConsultor ?? '')
+    setTrAnalista(ap.trAnalista ?? '')
+    setFaturaRows(faturasDeApi(ap.faturasMensais ?? []))
     setPlano(ap.plano ?? '')
     setCoberturas(ap.coberturas ?? '')
     setVigIni(ap.vigenciaInicio ? String(ap.vigenciaInicio).slice(0, 10) : '')
@@ -301,6 +559,13 @@ export default function ApoliceEditPage() {
   }, [load])
 
   useEffect(() => {
+    void (async () => {
+      const r = await api<{ operadoras: OperadoraOpt[] }>('/seguros/operadoras')
+      if (r.ok) setOperadoras(r.data?.operadoras ?? [])
+    })()
+  }, [])
+
+  useEffect(() => {
     if (modelo === 'PLANO' && linhas.length === 0) setLinhas([linhaFormVazia()])
   }, [modelo, linhas.length])
 
@@ -308,6 +573,28 @@ export default function ApoliceEditPage() {
     if (loading || !estipulanteIdEdit) return
     void loadContratos(estipulanteIdEdit, grupoNomeForEdit)
   }, [estipulanteIdEdit, grupoNomeForEdit, loading, loadContratos])
+
+  async function criarOperadora() {
+    if (!isAdmin || !novaOperadoraNome.trim()) return
+    setSalvandoOperadora(true)
+    setErr(null)
+    const r = await api<{ operadora: { id: string; nome: string; sortOrder?: number } }>('/seguros/operadoras', {
+      method: 'POST',
+      body: JSON.stringify({ nome: novaOperadoraNome.trim() }),
+    })
+    setSalvandoOperadora(false)
+    if (!r.ok) {
+      setErr(r.error || 'Não foi possível criar a operadora.')
+      return
+    }
+    const created = r.data?.operadora
+    if (created) {
+      setOperadoras((prev) => [...prev, created].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')))
+      setOperadoraId(created.id)
+      setFornecedor(created.nome)
+      setNovaOperadoraNome('')
+    }
+  }
 
   function buildSubPayload(): { ok: true; rows: SubRowForm[] } | { ok: false; msg: string } {
     const meaningful = subRows.filter(
@@ -326,8 +613,8 @@ export default function ApoliceEditPage() {
     if (!apoliceId || !isAdmin) return
     setErr(null)
 
-    if (!fornecedor.trim() || !numeroOk || !estipulanteIdEdit) {
-      setErr('Preencha fornecedor, estipulante, número da apólice (ou contrato Nexus).')
+    if ((!operadoraId.trim() && !fornecedor.trim()) || !numeroOk || !estipulanteIdEdit) {
+      setErr('Selecione a operadora no catálogo ou preencha o fornecedor em texto, além do estipulante e número da apólice.')
       return
     }
 
@@ -335,6 +622,52 @@ export default function ApoliceEditPage() {
     if (!subPack.ok) {
       setErr(subPack.msg)
       return
+    }
+
+    const faturaKey = new Set<string>()
+    const faturasMensais: Array<{
+      competenciaAno: number
+      competenciaMes: number
+      vidas: number
+      valorFatura: number
+      observacoes: string | null
+    }> = []
+    for (let i = 0; i < faturaRows.length; i++) {
+      const fr = faturaRows[i]
+      const y = parseInt(fr.competenciaAno, 10)
+      const m = parseInt(fr.competenciaMes, 10)
+      const linhaPreenchida =
+        fr.vidasStr.trim() !== '' ||
+        fr.valorFaturaStr.trim() !== '' ||
+        fr.observacoes.trim() !== ''
+      if (!linhaPreenchida) continue
+      if (!Number.isFinite(y) || !Number.isFinite(m) || m < 1 || m > 12) {
+        setErr(`Faturas: competência inválida na linha ${i + 1}.`)
+        return
+      }
+      const k = `${y}-${m}`
+      if (faturaKey.has(k)) {
+        setErr(`Faturas: competência ${m}/${y} duplicada.`)
+        return
+      }
+      faturaKey.add(k)
+      const vidas = parseInt(fr.vidasStr, 10)
+      const vf = parseNumeroPt(fr.valorFaturaStr)
+      if (!Number.isFinite(vidas) || vidas < 0) {
+        setErr(`Faturas (linha ${i + 1}): vidas inválidas.`)
+        return
+      }
+      if (vf == null) {
+        setErr(`Faturas (linha ${i + 1}): valor de fatura inválido.`)
+        return
+      }
+      faturasMensais.push({
+        competenciaAno: y,
+        competenciaMes: m,
+        vidas,
+        valorFatura: vf,
+        observacoes: fr.observacoes.trim() || null,
+      })
     }
 
     const planoLinhas: Array<{
@@ -396,16 +729,16 @@ export default function ApoliceEditPage() {
     }
 
     const nex = nexusContratoId.trim()
-    const patchBody = {
+    const patchBody: Record<string, unknown> = {
       estipulanteId: estipulanteIdEdit,
       produto,
-      fornecedor,
       subestipulantes: subPack.rows.map((r) => ({
         razaoSocial: r.razaoSocial.trim(),
         cnpj: r.cnpj.trim(),
         codigoSub: r.codigoSub.trim(),
         status: r.status,
       })),
+      faturasMensais,
       plano: showPlano ? plano.trim() || null : null,
       coberturas: showCoberturas ? coberturas.trim() || null : null,
       vigenciaInicio: vigIni.trim() || null,
@@ -413,6 +746,18 @@ export default function ApoliceEditPage() {
       observacoes: obsAp.trim() || null,
       nexusContratoId: nex || null,
       numeroApolice: numeroApolice.trim(),
+      trCone: trCone || null,
+      trDiretoria: trDiretoria.trim() || null,
+      trSuperintendente: trSuperintendente.trim() || null,
+      trGerente: trGerente.trim() || null,
+      trExecutivoConsultor: trExecutivoConsultor.trim() || null,
+      trAnalista: trAnalista.trim() || null,
+    }
+    if (operadoraId.trim()) {
+      patchBody.operadoraId = operadoraId.trim()
+    } else {
+      patchBody.operadoraId = null
+      patchBody.fornecedor = fornecedor.trim()
     }
 
     setSaving(true)
@@ -430,11 +775,52 @@ export default function ApoliceEditPage() {
       method: 'PUT',
       body: JSON.stringify({ modeloDadosSeguro: modelo, planoLinhas }),
     })
-    setSaving(false)
     if (!rPut.ok) {
+      setSaving(false)
       setErr(rPut.error || 'Dados gerais guardados, mas falhou ao guardar planos/coberturas estruturados.')
       return
     }
+
+    if (tipoFinanceiro === 'comissionamento' || tipoFinanceiro === 'comissionamento_fee') {
+      const rC = await api<{ comissionamento: ComissionamentoApi | null }>(
+        `/seguros/apolices/${encodeURIComponent(apoliceId)}/comissionamento`,
+        {
+          method: 'PUT',
+          body: JSON.stringify({
+            temCorretorParceiro: temCorretorParceiroFin,
+            valorAgenciamentoContrato: valorAgenciamentoStr.trim() ? parseNumeroPt(valorAgenciamentoStr) : null,
+            valorVitalicioContrato: valorVitalicioStr.trim() ? parseNumeroPt(valorVitalicioStr) : null,
+            agenciamentoConsultoria: agenciamentoConsultoriaPerc,
+            vitalicioConsultoria: vitalicioConsultoriaPerc,
+            agenciamentoCorretor: agenciamentoCorretorPerc,
+            vitalicioCorretor: vitalicioCorretorPerc,
+          }),
+        },
+      )
+      if (!rC.ok) {
+        setSaving(false)
+        setErr(rC.error || 'Erro ao guardar comissionamento.')
+        return
+      }
+    }
+
+    if (tipoFinanceiro === 'fee' || tipoFinanceiro === 'comissionamento_fee') {
+      const rF = await api<{ fee: FeeApi | null }>(`/seguros/apolices/${encodeURIComponent(apoliceId)}/fee`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          valorFeeMensal: feeValorMensalStr.trim() ? parseNumeroPt(feeValorMensalStr) : null,
+          feeConsultoria: feeConsultoriaStr.trim() ? parseNumeroPt(feeConsultoriaStr) : null,
+          feeCorretorParceiro: feeCorretorParceiroStr.trim() ? parseNumeroPt(feeCorretorParceiroStr) : null,
+        }),
+      })
+      if (!rF.ok) {
+        setSaving(false)
+        setErr(rF.error || 'Erro ao guardar fee.')
+        return
+      }
+    }
+
+    setSaving(false)
     void load()
   }
 
@@ -478,9 +864,22 @@ export default function ApoliceEditPage() {
             </Alert>
           ) : null}
 
-          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-            Dados gerais
-          </Typography>
+          <Tabs
+            value={tab}
+            onChange={(_, v) => setTab(v)}
+            variant="scrollable"
+            scrollButtons="auto"
+            allowScrollButtonsMobile
+            sx={{ borderBottom: 1, borderColor: 'divider', mb: 0 }}
+          >
+            <Tab label="Geral e subestipulantes" />
+            <Tab label="Plano / coberturas" />
+            <Tab label="Financeiro" />
+            <Tab label="Time de relacionamento" />
+            <Tab label="Faturas mensais" />
+          </Tabs>
+
+          <TabPanel value={tab} index={0}>
           <Paper sx={{ p: 2, mb: 2 }}>
             <Stack spacing={2}>
               {needsContratosSync ? (
@@ -569,15 +968,57 @@ export default function ApoliceEditPage() {
                     <MenuItem value="OUTROS">Outros</MenuItem>
                   </Select>
                 </FormControl>
+                <FormControl fullWidth size="small" disabled={!isAdmin}>
+                  <InputLabel id="op-ap">Operadora (catálogo)</InputLabel>
+                  <Select
+                    labelId="op-ap"
+                    label="Operadora (catálogo)"
+                    value={operadoraId}
+                    onChange={(e: SelectChangeEvent) => {
+                      const v = e.target.value
+                      setOperadoraId(v)
+                      const op = operadoras.find((o) => o.id === v)
+                      if (op) setFornecedor(op.nome)
+                    }}
+                  >
+                    <MenuItem value="">
+                      <em>Outra — usar texto livre abaixo</em>
+                    </MenuItem>
+                    {operadoras.map((o) => (
+                      <MenuItem key={o.id} value={o.id}>
+                        {o.nome}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
                 <TextField
-                  required
-                  label="Fornecedor (seguradora)"
+                  label={operadoraId ? 'Fornecedor (catálogo)' : 'Fornecedor (texto livre)'}
                   value={fornecedor}
                   onChange={(e) => setFornecedor(e.target.value)}
-                  disabled={!isAdmin}
+                  disabled={!isAdmin || !!operadoraId}
                   fullWidth
                   size="small"
+                  required={!operadoraId}
+                  helperText={
+                    operadoraId
+                      ? 'Sincronizado com a operadora selecionada.'
+                      : 'Quando não existir no catálogo, preencha aqui ou crie a operadora abaixo.'
+                  }
                 />
+                {isAdmin ? (
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }} sx={{ gridColumn: { sm: 'span 2' } }}>
+                    <TextField
+                      size="small"
+                      label="Nome para nova operadora"
+                      value={novaOperadoraNome}
+                      onChange={(e) => setNovaOperadoraNome(e.target.value)}
+                      sx={{ flex: 1 }}
+                    />
+                    <Button variant="outlined" disabled={!novaOperadoraNome.trim() || salvandoOperadora} onClick={() => void criarOperadora()}>
+                      Adicionar ao catálogo
+                    </Button>
+                  </Stack>
+                ) : null}
                 {showPlano ? (
                   <TextField
                     label="Plano (texto livre)"
@@ -716,7 +1157,9 @@ export default function ApoliceEditPage() {
               ) : null}
             </Stack>
           </Paper>
+          </TabPanel>
 
+          <TabPanel value={tab} index={1}>
           <Divider sx={{ my: 2 }} />
 
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
@@ -860,6 +1303,255 @@ export default function ApoliceEditPage() {
               ) : null}
             </Stack>
           )}
+          </TabPanel>
+
+          <TabPanel value={tab} index={2}>
+            <Paper sx={{ p: 2, mb: 2 }} variant="outlined">
+              <Stack spacing={2}>
+                <Typography variant="subtitle2" fontWeight={600}>
+                  Financeiro — comissionamento (12 parcelas) e fee
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  O mês da 1.ª parcela segue a <strong>vigência início</strong> (aba Geral); se estiver vazio, usa a data atual.
+                  Os percentuais por parcela aplicam-se sobre o contrato. Use «Guardar alterações» para persistir.
+                </Typography>
+                <FormControl fullWidth size="small" disabled={!isAdmin} sx={{ maxWidth: 440 }}>
+                  <InputLabel id="tipo-fin">O que pretende tratar nesta apólice</InputLabel>
+                  <Select
+                    labelId="tipo-fin"
+                    label="O que pretende tratar nesta apólice"
+                    value={tipoFinanceiro}
+                    onChange={(e) => setTipoFinanceiro(e.target.value as TipoFinanceiro)}
+                  >
+                    <MenuItem value="comissionamento">Só comissionamento (parcelas %)</MenuItem>
+                    <MenuItem value="fee">Só fee</MenuItem>
+                    <MenuItem value="comissionamento_fee">Comissionamento + fee</MenuItem>
+                  </Select>
+                </FormControl>
+
+                {(tipoFinanceiro === 'comissionamento' || tipoFinanceiro === 'comissionamento_fee') && (
+                  <>
+                    <Divider />
+                    <Typography variant="subtitle2" color="primary">
+                      Comissionamento
+                    </Typography>
+                    <TextField
+                      size="small"
+                      label="Valor agenciamento (contrato)"
+                      value={valorAgenciamentoStr}
+                      onChange={(e) => setValorAgenciamentoStr(e.target.value)}
+                      disabled={!isAdmin}
+                      inputProps={{ inputMode: 'decimal' }}
+                    />
+                    <TextField
+                      size="small"
+                      label="Valor vitalício (contrato)"
+                      value={valorVitalicioStr}
+                      onChange={(e) => setValorVitalicioStr(e.target.value)}
+                      disabled={!isAdmin}
+                      inputProps={{ inputMode: 'decimal' }}
+                    />
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={temCorretorParceiroFin}
+                          onChange={(e) => setTemCorretorParceiroFin(e.target.checked)}
+                          disabled={!isAdmin}
+                        />
+                      }
+                      label="Há corretor parceiro (colunas «Corretor» nas tabelas)"
+                    />
+                    <ParcelasComissionamentoBlock
+                      titulo="Agenciamento — Consultoria"
+                      valores={agenciamentoConsultoriaPerc}
+                      setValores={setAgenciamentoConsultoriaPerc}
+                      vigIni={vigIni}
+                      disabled={!isAdmin}
+                    />
+                    <ParcelasComissionamentoBlock
+                      titulo="Vitalício — Consultoria"
+                      valores={vitalicioConsultoriaPerc}
+                      setValores={setVitalicioConsultoriaPerc}
+                      vigIni={vigIni}
+                      disabled={!isAdmin}
+                    />
+                    <ParcelasComissionamentoBlock
+                      titulo="Agenciamento — Corretor"
+                      valores={agenciamentoCorretorPerc}
+                      setValores={setAgenciamentoCorretorPerc}
+                      vigIni={vigIni}
+                      disabled={!isAdmin}
+                    />
+                    <ParcelasComissionamentoBlock
+                      titulo="Vitalício — Corretor"
+                      valores={vitalicioCorretorPerc}
+                      setValores={setVitalicioCorretorPerc}
+                      vigIni={vigIni}
+                      disabled={!isAdmin}
+                    />
+                  </>
+                )}
+
+                {(tipoFinanceiro === 'fee' || tipoFinanceiro === 'comissionamento_fee') && (
+                  <>
+                    <Divider />
+                    <Typography variant="subtitle2" color="primary">
+                      Fee
+                    </Typography>
+                    <TextField
+                      size="small"
+                      label="Valor fee mensal"
+                      value={feeValorMensalStr}
+                      onChange={(e) => setFeeValorMensalStr(e.target.value)}
+                      disabled={!isAdmin}
+                      inputProps={{ inputMode: 'decimal' }}
+                    />
+                    <TextField
+                      size="small"
+                      label="Fee consultoria"
+                      value={feeConsultoriaStr}
+                      onChange={(e) => setFeeConsultoriaStr(e.target.value)}
+                      disabled={!isAdmin}
+                      inputProps={{ inputMode: 'decimal' }}
+                    />
+                    <TextField
+                      size="small"
+                      label="Fee corretor parceiro"
+                      value={feeCorretorParceiroStr}
+                      onChange={(e) => setFeeCorretorParceiroStr(e.target.value)}
+                      disabled={!isAdmin}
+                      inputProps={{ inputMode: 'decimal' }}
+                    />
+                  </>
+                )}
+              </Stack>
+            </Paper>
+          </TabPanel>
+
+          <TabPanel value={tab} index={3}>
+            <Paper sx={{ p: 2, mb: 2 }} variant="outlined">
+              <Stack spacing={2}>
+                <Typography variant="subtitle2" fontWeight={600}>
+                  Time de relacionamento
+                </Typography>
+                <FormControl size="small" disabled={!isAdmin} sx={{ maxWidth: 280 }}>
+                  <InputLabel>Cone</InputLabel>
+                  <Select label="Cone" value={trCone} onChange={(e) => setTrCone(e.target.value as typeof trCone)}>
+                    <MenuItem value="">
+                      <em>Não informado</em>
+                    </MenuItem>
+                    <MenuItem value="NORTE">Norte</MenuItem>
+                    <MenuItem value="SUL">Sul</MenuItem>
+                  </Select>
+                </FormControl>
+                <TextField label="Diretoria" value={trDiretoria} onChange={(e) => setTrDiretoria(e.target.value)} disabled={!isAdmin} size="small" />
+                <TextField
+                  label="Superintendente"
+                  value={trSuperintendente}
+                  onChange={(e) => setTrSuperintendente(e.target.value)}
+                  disabled={!isAdmin}
+                  size="small"
+                />
+                <TextField label="Gerente" value={trGerente} onChange={(e) => setTrGerente(e.target.value)} disabled={!isAdmin} size="small" />
+                <TextField
+                  label="Executivo / consultor"
+                  value={trExecutivoConsultor}
+                  onChange={(e) => setTrExecutivoConsultor(e.target.value)}
+                  disabled={!isAdmin}
+                  size="small"
+                />
+                <TextField label="Analista" value={trAnalista} onChange={(e) => setTrAnalista(e.target.value)} disabled={!isAdmin} size="small" />
+              </Stack>
+            </Paper>
+          </TabPanel>
+
+          <TabPanel value={tab} index={4}>
+            <Paper sx={{ p: 2, mb: 2 }} variant="outlined">
+              <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+                Vidas e fatura por competência (mensal)
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Uma linha por mês de competência. Linhas vazias são ignoradas ao guardar.
+              </Typography>
+              <Stack spacing={2}>
+                {faturaRows.map((fr, idx) => (
+                  <Paper key={idx} variant="outlined" sx={{ p: 1.5 }}>
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                      <TextField
+                        label="Ano"
+                        size="small"
+                        value={fr.competenciaAno}
+                        onChange={(e) =>
+                          setFaturaRows((prev) =>
+                            prev.map((r, j) => (j === idx ? { ...r, competenciaAno: e.target.value } : r)),
+                          )
+                        }
+                        disabled={!isAdmin}
+                        sx={{ width: 100 }}
+                      />
+                      <TextField
+                        label="Mês"
+                        size="small"
+                        value={fr.competenciaMes}
+                        onChange={(e) =>
+                          setFaturaRows((prev) =>
+                            prev.map((r, j) => (j === idx ? { ...r, competenciaMes: e.target.value } : r)),
+                          )
+                        }
+                        disabled={!isAdmin}
+                        sx={{ width: 96 }}
+                      />
+                      <TextField
+                        label="Vidas"
+                        size="small"
+                        value={fr.vidasStr}
+                        onChange={(e) =>
+                          setFaturaRows((prev) => prev.map((r, j) => (j === idx ? { ...r, vidasStr: e.target.value } : r)))
+                        }
+                        disabled={!isAdmin}
+                        sx={{ width: 120 }}
+                      />
+                      <TextField
+                        label="Valor fatura"
+                        size="small"
+                        value={fr.valorFaturaStr}
+                        onChange={(e) =>
+                          setFaturaRows((prev) =>
+                            prev.map((r, j) => (j === idx ? { ...r, valorFaturaStr: e.target.value } : r)),
+                          )
+                        }
+                        disabled={!isAdmin}
+                        sx={{ flex: '1 1 140px', minWidth: 120 }}
+                        inputProps={{ inputMode: 'decimal' }}
+                      />
+                      <TextField
+                        label="Obs."
+                        size="small"
+                        value={fr.observacoes}
+                        onChange={(e) =>
+                          setFaturaRows((prev) =>
+                            prev.map((r, j) => (j === idx ? { ...r, observacoes: e.target.value } : r)),
+                          )
+                        }
+                        disabled={!isAdmin}
+                        sx={{ flex: '2 1 200px', minWidth: 160 }}
+                      />
+                      {isAdmin && faturaRows.length > 1 ? (
+                        <IconButton aria-label="Remover" onClick={() => setFaturaRows((prev) => prev.filter((_, j) => j !== idx))}>
+                          <DeleteOutlineIcon />
+                        </IconButton>
+                      ) : null}
+                    </Box>
+                  </Paper>
+                ))}
+                {isAdmin ? (
+                  <Button startIcon={<AddIcon />} variant="outlined" onClick={() => setFaturaRows((p) => [...p, faturaFormVazia()])}>
+                    Adicionar competência
+                  </Button>
+                ) : null}
+              </Stack>
+            </Paper>
+          </TabPanel>
 
           {isAdmin ? (
             <Button variant="contained" onClick={() => void salvar()} disabled={saving || loading}>

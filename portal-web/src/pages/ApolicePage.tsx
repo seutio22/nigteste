@@ -73,11 +73,19 @@ const ITEM_TIPO_LABEL: Record<ItemTipo, string> = {
   OUTRO: 'Outro',
 }
 
+type GrupoClassificacao = 'CLIENTE' | 'PROSPECT'
+
+const GRUPO_CLASSIFICACAO_LABEL: Record<GrupoClassificacao, string> = {
+  CLIENTE: 'Cliente',
+  PROSPECT: 'Prospect',
+}
+
 type Grupo = {
   id: string
   nome: string
   cnpj: string | null
   observacoes: string | null
+  classificacao: GrupoClassificacao
   active: boolean
   _count?: { estipulantes: number }
 }
@@ -128,6 +136,8 @@ type Apolice = {
   nexusContratoId: string | null
   numeroApolice: string
   produto: ApoliceProduto
+  operadoraId?: string | null
+  operadora?: { id: string; nome: string } | null
   fornecedor: string
   subestipulante: string | null
   subestipulantes?: ApoliceSubestipulanteList[]
@@ -1640,6 +1650,7 @@ function GruposSection({
   const [nome, setNome] = useState('')
   const [cnpj, setCnpj] = useState('')
   const [observacoes, setObservacoes] = useState('')
+  const [classificacao, setClassificacao] = useState<GrupoClassificacao>('CLIENTE')
   const [saving, setSaving] = useState(false)
 
   function openCreate() {
@@ -1647,6 +1658,7 @@ function GruposSection({
     setNome('')
     setCnpj('')
     setObservacoes('')
+    setClassificacao('CLIENTE')
     setOpen(true)
   }
 
@@ -1655,6 +1667,7 @@ function GruposSection({
     setNome(g.nome)
     setCnpj(g.cnpj ?? '')
     setObservacoes(g.observacoes ?? '')
+    setClassificacao(g.classificacao === 'PROSPECT' ? 'PROSPECT' : 'CLIENTE')
     setOpen(true)
   }
 
@@ -1664,7 +1677,12 @@ function GruposSection({
     if (edit) {
       const r = await api<{ grupo: Grupo }>(`/seguros/grupos-economicos/${edit.id}`, {
         method: 'PATCH',
-        body: JSON.stringify({ nome, cnpj: cnpj.trim() || null, observacoes: observacoes.trim() || null }),
+        body: JSON.stringify({
+          nome,
+          cnpj: cnpj.trim() || null,
+          observacoes: observacoes.trim() || null,
+          classificacao,
+        }),
       })
       setSaving(false)
       if (!r.ok) onError(r.error || 'Erro ao guardar.')
@@ -1675,7 +1693,12 @@ function GruposSection({
     } else {
       const r = await api<{ grupo: Grupo }>('/seguros/grupos-economicos', {
         method: 'POST',
-        body: JSON.stringify({ nome, cnpj: cnpj.trim() || null, observacoes: observacoes.trim() || null }),
+        body: JSON.stringify({
+          nome,
+          cnpj: cnpj.trim() || null,
+          observacoes: observacoes.trim() || null,
+          classificacao,
+        }),
       })
       setSaving(false)
       if (!r.ok) onError(r.error || 'Erro ao guardar.')
@@ -1687,7 +1710,12 @@ function GruposSection({
   }
 
   async function del(id: string) {
-    if (!window.confirm('Remover este grupo? Estipulantes e apólices associados serão removidos.')) return
+    if (
+      !window.confirm(
+        'Remover este grupo local? Os estipulantes deixam de apontar para este registo (não são apagados).',
+      )
+    )
+      return
     onError(null)
     const r = await api(`/seguros/grupos-economicos/${id}`, { method: 'DELETE' })
     if (!r.ok) onError(r.error || 'Erro ao remover.')
@@ -1773,8 +1801,9 @@ function GruposSection({
           <Typography variant="subtitle1" fontWeight={700}>
             Grupos locais do portal
           </Typography>
-          <Typography variant="caption" color="text.secondary">
-            Usados para vínculos com <strong>estipulantes</strong> e <strong>apólices</strong> neste módulo (cadastro interno). O quadro acima reflete apenas o Nexus.
+          <Typography variant="caption" color="text.secondary" component="span" display="block">
+            Usados para vínculos com <strong>estipulantes</strong> e <strong>apólices</strong> neste módulo (cadastro interno). O quadro acima reflete apenas o Nexus. Marque{' '}
+            <strong>Prospect</strong> para grupos apenas como possíveis clientes futuros; registos existentes no portal entram como <strong>Cliente</strong>.
           </Typography>
         </Box>
         {isAdmin ? (
@@ -1788,6 +1817,7 @@ function GruposSection({
           <TableHead>
             <TableRow>
               <TableCell>Nome (local)</TableCell>
+              <TableCell>Tipo</TableCell>
               <TableCell>CNPJ (local)</TableCell>
               <TableCell>Estipulantes</TableCell>
               <TableCell>Ativo</TableCell>
@@ -1798,6 +1828,14 @@ function GruposSection({
             {grupos.map((g) => (
               <TableRow key={g.id} hover>
                 <TableCell>{g.nome}</TableCell>
+                <TableCell>
+                  <Chip
+                    size="small"
+                    label={GRUPO_CLASSIFICACAO_LABEL[g.classificacao === 'PROSPECT' ? 'PROSPECT' : 'CLIENTE']}
+                    color={g.classificacao === 'PROSPECT' ? 'warning' : 'default'}
+                    variant="outlined"
+                  />
+                </TableCell>
                 <TableCell>{g.cnpj ?? '—'}</TableCell>
                 <TableCell>{g._count?.estipulantes ?? '—'}</TableCell>
                 <TableCell>{g.active ? 'Sim' : 'Não'}</TableCell>
@@ -1821,6 +1859,18 @@ function GruposSection({
         <DialogTitle>{edit ? 'Editar grupo econômico' : 'Novo grupo econômico'}</DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
           <TextField required label="Nome do grupo" value={nome} onChange={(e) => setNome(e.target.value)} fullWidth />
+          <FormControl fullWidth>
+            <InputLabel id="grupo-classificacao-label">Classificação</InputLabel>
+            <Select<GrupoClassificacao>
+              labelId="grupo-classificacao-label"
+              label="Classificação"
+              value={classificacao}
+              onChange={(e) => setClassificacao(e.target.value as GrupoClassificacao)}
+            >
+              <MenuItem value="CLIENTE">Cliente (já cliente ou consolidado)</MenuItem>
+              <MenuItem value="PROSPECT">Prospect (possível cliente futuro)</MenuItem>
+            </Select>
+          </FormControl>
           <TextField label="CNPJ" value={cnpj} onChange={(e) => setCnpj(e.target.value)} fullWidth />
           <TextField label="Observações" value={observacoes} onChange={(e) => setObservacoes(e.target.value)} fullWidth multiline minRows={2} />
         </DialogContent>
@@ -2206,6 +2256,10 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
   const [numeroApolice, setNumeroApolice] = useState('')
   const [produto, setProduto] = useState<ApoliceProduto>('OUTROS')
   const [fornecedor, setFornecedor] = useState('')
+  const [operadoraIdNova, setOperadoraIdNova] = useState('')
+  const [operadorasCat, setOperadorasCat] = useState<{ id: string; nome: string }[]>([])
+  const [novaOperadoraNome, setNovaOperadoraNome] = useState('')
+  const [salvandoOperadora, setSalvandoOperadora] = useState(false)
   const [subRows, setSubRows] = useState<NovaApoliceSubRow[]>([novaApoliceSubRowVazia()])
   const [plano, setPlano] = useState('')
   const [coberturas, setCoberturas] = useState('')
@@ -2251,6 +2305,40 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
     const apenasPortal = mergedEstRows.filter((r) => r.kind === 'portal')
     if (apenasPortal.length === 1) setEstipulanteId(apenasPortal[0].e.id)
   }, [grupoNome, loadingEst, mergedEstRows])
+
+  useEffect(() => {
+    void (async () => {
+      const r = await api<{ operadoras: { id: string; nome: string }[] }>('/seguros/operadoras')
+      if (r.ok) setOperadorasCat(r.data?.operadoras ?? [])
+    })()
+  }, [])
+
+  async function criarOperadoraCatalogo() {
+    const nome = novaOperadoraNome.trim()
+    if (!nome) return
+    if (!isAdmin) {
+      onError('Apenas administradores podem adicionar operadoras ao catálogo.')
+      return
+    }
+    setSalvandoOperadora(true)
+    onError(null)
+    const r = await api<{ operadora: { id: string; nome: string } }>('/seguros/operadoras', {
+      method: 'POST',
+      body: JSON.stringify({ nome }),
+    })
+    setSalvandoOperadora(false)
+    if (!r.ok) {
+      onError(r.error || 'Não foi possível criar a operadora.')
+      return
+    }
+    const created = r.data?.operadora
+    if (created) {
+      setOperadorasCat((prev) => [...prev.filter((o) => o.id !== created.id), { id: created.id, nome: created.nome }].sort((a, b) => a.nome.localeCompare(b.nome)))
+      setOperadoraIdNova(created.id)
+      setFornecedor(created.nome)
+      setNovaOperadoraNome('')
+    }
+  }
 
   const loadApoliceTabela = useCallback(async () => {
     if (!grupoNome.trim() && !estipulanteId) {
@@ -2363,6 +2451,8 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
     setNumeroApolice('')
     setProduto('OUTROS')
     setFornecedor('')
+    setOperadoraIdNova('')
+    setNovaOperadoraNome('')
     setSubRows([novaApoliceSubRowVazia()])
     setPlano('')
     setCoberturas('')
@@ -2378,6 +2468,8 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
     setNumeroApolice(c.numero)
     setProduto('OUTROS')
     setFornecedor('')
+    setOperadoraIdNova('')
+    setNovaOperadoraNome('')
     setSubRows([novaApoliceSubRowVazia()])
     setPlano('')
     setCoberturas('')
@@ -2399,9 +2491,15 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
       }))
       .filter((r) => r.razaoSocial.length > 0)
 
-    const base = {
+    if (!operadoraIdNova.trim() && !fornecedor.trim()) {
+      setSaving(false)
+      onError('Selecione a operadora no catálogo ou informe o fornecedor em texto.')
+      return
+    }
+
+    const base: Record<string, unknown> = {
       produto,
-      fornecedor,
+      ...(operadoraIdNova.trim() ? { operadoraId: operadoraIdNova.trim() } : { fornecedor: fornecedor.trim() }),
       ...(subPayload.length > 0 ? { subestipulantes: subPayload } : {}),
       plano: showPlano ? plano.trim() : null,
       coberturas: showCoberturas ? coberturas.trim() : null,
@@ -2575,7 +2673,7 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
                       {row.a.nexusContratoId ?? '—'}
                     </TableCell>
                     <TableCell>{PRODUTO_LABEL[row.a.produto]}</TableCell>
-                    <TableCell>{row.a.fornecedor}</TableCell>
+                    <TableCell>{row.a.operadora?.nome ?? row.a.fornecedor}</TableCell>
                     <TableCell sx={{ maxWidth: 220 }}>{resumoSubestipulantesEmLista(row.a)}</TableCell>
                     <TableCell sx={{ maxWidth: 160 }}>{row.a.plano ?? '—'}</TableCell>
                     <TableCell sx={{ maxWidth: 200 }}>{row.a.coberturas ?? '—'}</TableCell>
@@ -2671,7 +2769,66 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
                 <MenuItem value="OUTROS">Outros</MenuItem>
               </Select>
             </FormControl>
-            <TextField required label="Fornecedor (seguradora)" value={fornecedor} onChange={(e) => setFornecedor(e.target.value)} fullWidth />
+            <FormControl fullWidth size="small">
+              <InputLabel id="op-nova-ap">Operadora (catálogo)</InputLabel>
+              <Select
+                labelId="op-nova-ap"
+                label="Operadora (catálogo)"
+                value={operadoraIdNova}
+                onChange={(e: SelectChangeEvent) => {
+                  const v = e.target.value
+                  setOperadoraIdNova(v)
+                  const op = operadorasCat.find((o) => o.id === v)
+                  if (op) setFornecedor(op.nome)
+                }}
+              >
+                <MenuItem value="">
+                  <em>Outra — usar texto livre abaixo</em>
+                </MenuItem>
+                {operadorasCat.map((o) => (
+                  <MenuItem key={o.id} value={o.id}>
+                    {o.nome}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <TextField
+              label={operadoraIdNova ? 'Fornecedor (catálogo)' : 'Fornecedor (texto livre)'}
+              value={fornecedor}
+              onChange={(e) => setFornecedor(e.target.value)}
+              fullWidth
+              disabled={!!operadoraIdNova}
+              required={!operadoraIdNova}
+              sx={{ gridColumn: { sm: 'span 2' } }}
+              helperText={
+                operadoraIdNova
+                  ? 'Sincronizado com a operadora selecionada.'
+                  : 'Quando não existir no catálogo, preencha aqui ou peça a um administrador para adicionar ao catálogo.'
+              }
+            />
+            {isAdmin ? (
+              <Stack
+                direction={{ xs: 'column', sm: 'row' }}
+                spacing={1}
+                alignItems={{ sm: 'center' }}
+                sx={{ gridColumn: { sm: 'span 2' } }}
+              >
+                <TextField
+                  size="small"
+                  label="Nome para nova operadora"
+                  value={novaOperadoraNome}
+                  onChange={(e) => setNovaOperadoraNome(e.target.value)}
+                  sx={{ flex: 1 }}
+                />
+                <Button
+                  variant="outlined"
+                  disabled={!novaOperadoraNome.trim() || salvandoOperadora}
+                  onClick={() => void criarOperadoraCatalogo()}
+                >
+                  Adicionar ao catálogo
+                </Button>
+              </Stack>
+            ) : null}
             <Typography variant="subtitle2" sx={{ gridColumn: { sm: 'span 2' }, mt: 0.5 }}>
               Empresas subestipulantes (opcional)
             </Typography>

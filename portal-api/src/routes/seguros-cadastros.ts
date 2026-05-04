@@ -4,6 +4,8 @@ import {
   PortalApoliceModeloDadosSeguro,
   PortalApoliceProduto,
   PortalApoliceTipoCustoPlano,
+  PortalGrupoEconomicoClassificacao,
+  PortalSeguroConeRegiao,
   PortalSeguroItemTipo,
   PortalSubestipulanteStatus,
   PortalUserRole,
@@ -21,6 +23,29 @@ import {
 
 const uuid = z.string().uuid()
 
+const grupoClassificacaoSchema = z.nativeEnum(PortalGrupoEconomicoClassificacao)
+
+async function nomesGruposEconomicosPortalAtivos(): Promise<string[]> {
+  const rows = await prisma.portalGrupoEconomico.findMany({
+    where: { active: true },
+    select: { nome: true },
+  })
+  return rows.map((r) => r.nome.trim()).filter(Boolean)
+}
+
+function mergeSortedGrupoNomesNexusEPortal(nexusNomes: string[], portalNomes: string[]): string[] {
+  const set = new Set<string>()
+  for (const n of nexusNomes) {
+    const t = (n || '').trim()
+    if (t) set.add(t)
+  }
+  for (const n of portalNomes) {
+    const t = (n || '').trim()
+    if (t) set.add(t)
+  }
+  return [...set].sort((a, b) => a.localeCompare(b, 'pt-BR', { sensitivity: 'base' }))
+}
+
 const produtoSchema = z.nativeEnum(PortalApoliceProduto)
 const itemTipoSchema = z.nativeEnum(PortalSeguroItemTipo)
 
@@ -32,13 +57,133 @@ const subestipulanteRowInputSchema = z.object({
   status: subestipulanteStatusSchema,
 })
 
+const coneRegiaoSchema = z.nativeEnum(PortalSeguroConeRegiao)
+
+const parcelas12Schema = z.array(z.number()).length(12).nullable().optional()
+
+const putComissionamentoApoliceSchema = z.object({
+  temCorretorParceiro: z.boolean().optional().nullable(),
+  valorAgenciamentoContrato: z.number().optional().nullable(),
+  valorVitalicioContrato: z.number().optional().nullable(),
+  agenciamentoConsultoria: parcelas12Schema,
+  vitalicioConsultoria: parcelas12Schema,
+  agenciamentoCorretor: parcelas12Schema,
+  vitalicioCorretor: parcelas12Schema,
+})
+
+const putFeeApoliceSchema = z.object({
+  valorFeeMensal: z.number().optional().nullable(),
+  feeConsultoria: z.number().optional().nullable(),
+  feeCorretorParceiro: z.number().optional().nullable(),
+})
+
+function parseParcelas12Db(s: string | null | undefined): number[] | null {
+  if (s == null || String(s).trim() === '') return null
+  try {
+    const j = JSON.parse(String(s)) as unknown
+    if (!Array.isArray(j) || j.length !== 12) return null
+    return j.map((x) => (typeof x === 'number' && Number.isFinite(x) ? x : 0))
+  } catch {
+    return null
+  }
+}
+
+function serializeParcelas12(arr: number[] | null | undefined): string | null {
+  if (arr == null) return null
+  return JSON.stringify(arr)
+}
+
+function mapComissionamentoApi(row: {
+  id: string
+  apoliceId: string
+  temCorretorParceiro: boolean | null
+  valorAgenciamentoContrato: Prisma.Decimal | null
+  valorVitalicioContrato: Prisma.Decimal | null
+  agenciamentoConsultoria: string | null
+  vitalicioConsultoria: string | null
+  agenciamentoCorretor: string | null
+  vitalicioCorretor: string | null
+}) {
+  return {
+    id: row.id,
+    apoliceId: row.apoliceId,
+    temCorretorParceiro: row.temCorretorParceiro,
+    valorAgenciamentoContrato:
+      row.valorAgenciamentoContrato != null ? Number(row.valorAgenciamentoContrato) : null,
+    valorVitalicioContrato: row.valorVitalicioContrato != null ? Number(row.valorVitalicioContrato) : null,
+    agenciamentoConsultoria: parseParcelas12Db(row.agenciamentoConsultoria),
+    vitalicioConsultoria: parseParcelas12Db(row.vitalicioConsultoria),
+    agenciamentoCorretor: parseParcelas12Db(row.agenciamentoCorretor),
+    vitalicioCorretor: parseParcelas12Db(row.vitalicioCorretor),
+  }
+}
+
+function mapFeeApi(row: {
+  id: string
+  apoliceId: string
+  valorFeeMensal: Prisma.Decimal | null
+  feeConsultoria: Prisma.Decimal | null
+  feeCorretorParceiro: Prisma.Decimal | null
+}) {
+  return {
+    id: row.id,
+    apoliceId: row.apoliceId,
+    valorFeeMensal: row.valorFeeMensal != null ? Number(row.valorFeeMensal) : null,
+    feeConsultoria: row.feeConsultoria != null ? Number(row.feeConsultoria) : null,
+    feeCorretorParceiro: row.feeCorretorParceiro != null ? Number(row.feeCorretorParceiro) : null,
+  }
+}
+
+function comissionamentoToDb(body: z.infer<typeof putComissionamentoApoliceSchema>) {
+  return {
+    temCorretorParceiro: body.temCorretorParceiro ?? false,
+    valorAgenciamentoContrato: body.valorAgenciamentoContrato ?? null,
+    valorVitalicioContrato: body.valorVitalicioContrato ?? null,
+    agenciamentoConsultoria: serializeParcelas12(body.agenciamentoConsultoria ?? null),
+    vitalicioConsultoria: serializeParcelas12(body.vitalicioConsultoria ?? null),
+    agenciamentoCorretor: serializeParcelas12(body.agenciamentoCorretor ?? null),
+    vitalicioCorretor: serializeParcelas12(body.vitalicioCorretor ?? null),
+  }
+}
+
+function isComissionamentoEmptyDb(payload: ReturnType<typeof comissionamentoToDb>): boolean {
+  const jsonVoid = (s: string | null) =>
+    s == null || s === '' || s === JSON.stringify([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+  const num0 = (n: number | null | undefined) => n == null || n === 0
+  return (
+    !payload.temCorretorParceiro &&
+    num0(payload.valorAgenciamentoContrato as number | null | undefined) &&
+    num0(payload.valorVitalicioContrato as number | null | undefined) &&
+    jsonVoid(payload.agenciamentoConsultoria) &&
+    jsonVoid(payload.vitalicioConsultoria) &&
+    jsonVoid(payload.agenciamentoCorretor) &&
+    jsonVoid(payload.vitalicioCorretor)
+  )
+}
+
+function isFeeEmptyDb(body: z.infer<typeof putFeeApoliceSchema>): boolean {
+  const isNullOrZero = (n: number | null | undefined) => n == null || n === 0
+  return isNullOrZero(body.valorFeeMensal) && isNullOrZero(body.feeConsultoria) && isNullOrZero(body.feeCorretorParceiro)
+}
+
+const faturaMesInputSchema = z.object({
+  competenciaAno: z.number().int().min(1990).max(2100),
+  competenciaMes: z.number().int().min(1).max(12),
+  vidas: z.number().int().min(0).max(50_000_000),
+  valorFatura: z.number().nonnegative(),
+  observacoes: z.string().max(500).optional().nullable(),
+})
+
 const createApoliceSchema = z
   .object({
     estipulanteId: uuid,
     numeroApolice: z.string().max(120).optional().nullable(),
     nexusContratoId: z.string().max(120).optional().nullable(),
     produto: produtoSchema,
-    fornecedor: z.string().min(1).max(500),
+    /** Catálogo PortalSeguroOperadora; se preenchido, o nome gravado em `fornecedor` copia o catálogo. */
+    operadoraId: uuid.optional().nullable(),
+    /** Texto livre só quando não há `operadoraId`. */
+    fornecedor: z.string().max(500).optional().nullable(),
     subestipulante: z.string().max(500).optional().nullable(),
     subestipulantes: z.array(subestipulanteRowInputSchema).max(200).optional(),
     plano: z.string().max(2000).optional().nullable(),
@@ -57,6 +202,15 @@ const createApoliceSchema = z
         path: ['numeroApolice'],
       })
     }
+    const hasOp = !!(data.operadoraId ?? '').toString().trim()
+    const hasForn = !!(data.fornecedor ?? '').toString().trim()
+    if (!hasOp && !hasForn) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Selecione a operadora no catálogo ou informe o fornecedor em texto.',
+        path: ['operadoraId'],
+      })
+    }
     if (data.produto === PortalApoliceProduto.VIDA_GRUPO) {
       if (!(data.coberturas ?? '').toString().trim()) {
         ctx.addIssue({
@@ -68,21 +222,47 @@ const createApoliceSchema = z
     }
   })
 
-const patchApoliceSchema = z.object({
-  estipulanteId: uuid.optional(),
-  numeroApolice: z.string().min(1).max(120).optional(),
-  nexusContratoId: z.string().max(120).optional().nullable(),
-  produto: produtoSchema.optional(),
-  fornecedor: z.string().min(1).max(500).optional(),
-  subestipulante: z.string().max(500).optional().nullable(),
-  subestipulantes: z.array(subestipulanteRowInputSchema).max(200).optional(),
-  plano: z.string().max(2000).optional().nullable(),
-  coberturas: z.string().max(8000).optional().nullable(),
-  vigenciaInicio: z.string().max(40).optional().nullable(),
-  vigenciaFim: z.string().max(40).optional().nullable(),
-  observacoes: z.string().max(2000).optional().nullable(),
-  active: z.boolean().optional(),
-})
+const patchApoliceSchema = z
+  .object({
+    estipulanteId: uuid.optional(),
+    numeroApolice: z.string().min(1).max(120).optional(),
+    nexusContratoId: z.string().max(120).optional().nullable(),
+    produto: produtoSchema.optional(),
+    operadoraId: uuid.optional().nullable(),
+    fornecedor: z.string().min(1).max(500).optional(),
+    subestipulante: z.string().max(500).optional().nullable(),
+    subestipulantes: z.array(subestipulanteRowInputSchema).max(200).optional(),
+    faturasMensais: z.array(faturaMesInputSchema).max(500).optional(),
+    plano: z.string().max(2000).optional().nullable(),
+    coberturas: z.string().max(8000).optional().nullable(),
+    vigenciaInicio: z.string().max(40).optional().nullable(),
+    vigenciaFim: z.string().max(40).optional().nullable(),
+    observacoes: z.string().max(2000).optional().nullable(),
+    active: z.boolean().optional(),
+    trCone: coneRegiaoSchema.optional().nullable(),
+    trDiretoria: z.string().max(500).optional().nullable(),
+    trSuperintendente: z.string().max(500).optional().nullable(),
+    trGerente: z.string().max(500).optional().nullable(),
+    trExecutivoConsultor: z.string().max(500).optional().nullable(),
+    trAnalista: z.string().max(500).optional().nullable(),
+  })
+  .superRefine((data, ctx) => {
+    if (!data.faturasMensais) return
+    const seen = new Set<string>()
+    for (let i = 0; i < data.faturasMensais.length; i++) {
+      const r = data.faturasMensais[i]
+      const k = `${r.competenciaAno}-${r.competenciaMes}`
+      if (seen.has(k)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Competência duplicada: ${r.competenciaMes}/${r.competenciaAno}.`,
+          path: ['faturasMensais', i],
+        })
+        return
+      }
+      seen.add(k)
+    }
+  })
 
 const planoLinhaInputSchema = z
   .object({
@@ -354,6 +534,37 @@ async function estipulanteSiblingIds(estipulanteId: string, grupoNexusNome?: str
 }
 
 export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
+  /** Catálogo de operadoras (seguradoras) — opções persistidas no portal. */
+  app.get('/seguros/operadoras', async (req, reply) => {
+    const u = await requirePortalUser(req, reply)
+    if (!u) return
+    const operadoras = await prisma.portalSeguroOperadora.findMany({
+      where: { active: true },
+      orderBy: [{ sortOrder: 'asc' }, { nome: 'asc' }],
+      select: { id: true, nome: true, sortOrder: true },
+    })
+    return reply.send({ operadoras })
+  })
+
+  app.post('/seguros/operadoras', async (req, reply) => {
+    const u = await requirePortalUser(req, reply)
+    if (!u) return
+    if (!assertRole(u, [PortalUserRole.PORTAL_ADMIN], reply)) return
+    let body: { nome: string; sortOrder?: number }
+    try {
+      body = z
+        .object({ nome: z.string().min(1).max(500), sortOrder: z.number().int().optional() })
+        .parse(req.body)
+    } catch (e) {
+      if (e instanceof z.ZodError) return reply.code(400).send({ error: e.issues[0]?.message || 'Dados inválidos' })
+      return reply.code(400).send({ error: 'Dados inválidos' })
+    }
+    const row = await prisma.portalSeguroOperadora.create({
+      data: { nome: body.nome.trim(), sortOrder: body.sortOrder ?? 0 },
+    })
+    return reply.code(201).send({ operadora: row })
+  })
+
   /**
    * Visão leitura para a página Apólice — empresas (clientes Nexus) agrupadas por `grupoEconomico`.
    * Fonte: snapshot `clientes` sincronizado da API Nexus.
@@ -391,27 +602,31 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
     })
   })
 
-  /** Nomes distintos de grupo econômico (Nexus) para seletores de cadastro. */
+  /** Nomes distintos de grupo econômico (Nexus + grupos locais ativos) para seletores de cadastro. */
   app.get('/seguros/nexus/grupos-economicos-nomes', async (req, reply) => {
     const u = await requirePortalUser(req, reply)
     if (!u) return
+
+    const portalNomes = await nomesGruposEconomicosPortalAtivos()
 
     const snap = await prisma.portalNexusEntitySnapshot.findUnique({
       where: { entityKey: 'clientes' },
     })
     if (!snap || !Array.isArray(snap.rows) || snap.rowCount === 0) {
+      const nomes = mergeSortedGrupoNomesNexusEPortal([], portalNomes)
       return reply.send({
-        ok: false,
+        ok: true,
         needsSync: true,
-        nomes: [] as string[],
+        nomes,
         message:
-          'Dados de clientes Nexus ainda não sincronizados. Peça ao administrador para configurar NEXUS_API_* e executar a sincronização em Banco de dados.',
+          nomes.length > 0
+            ? 'Clientes Nexus não sincronizados; a lista inclui grupos locais do portal (incl. prospects). Sincronize o Nexus para ver clientes oficiais.'
+            : 'Dados de clientes Nexus ainda não sincronizados. Peça ao administrador para configurar NEXUS_API_* e executar a sincronização em Banco de dados.',
       })
     }
     const empresas = buildNexusGruposEconomicosEmpresas(snap.rows)
-    const nomes = [...new Set(empresas.map((e) => e.grupoEconomicoNome))].sort((a, b) =>
-      a.localeCompare(b, 'pt-BR', { sensitivity: 'base' }),
-    )
+    const nomesNexus = [...new Set(empresas.map((e) => e.grupoEconomicoNome))]
+    const nomes = mergeSortedGrupoNomesNexusEPortal(nomesNexus, portalNomes)
     return reply.send({ ok: true, needsSync: false, nomes })
   })
 
@@ -544,6 +759,7 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
       nome: z.string().min(1).max(500),
       cnpj: z.string().max(20).optional().nullable(),
       observacoes: z.string().max(2000).optional().nullable(),
+      classificacao: grupoClassificacaoSchema.optional().default(PortalGrupoEconomicoClassificacao.CLIENTE),
     })
     let body: z.infer<typeof schema>
     try {
@@ -558,6 +774,7 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
         nome: body.nome.trim(),
         cnpj: body.cnpj?.trim() || null,
         observacoes: body.observacoes?.trim() || null,
+        classificacao: body.classificacao,
       },
     })
     return reply.code(201).send({ grupo: row })
@@ -575,6 +792,7 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
       nome: z.string().min(1).max(500).optional(),
       cnpj: z.string().max(20).optional().nullable(),
       observacoes: z.string().max(2000).optional().nullable(),
+      classificacao: grupoClassificacaoSchema.optional(),
       active: z.boolean().optional(),
     })
     let body: z.infer<typeof schema>
@@ -589,6 +807,7 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
     if (body.nome !== undefined) data.nome = body.nome.trim()
     if (body.cnpj !== undefined) data.cnpj = body.cnpj?.trim() || null
     if (body.observacoes !== undefined) data.observacoes = body.observacoes?.trim() || null
+    if (body.classificacao !== undefined) data.classificacao = body.classificacao
     if (body.active !== undefined) data.active = body.active
 
     try {
@@ -1051,6 +1270,7 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
           grupo: { select: { id: true, nome: true } },
         },
       },
+      operadora: { select: { id: true, nome: true } },
       subestipulantes: {
         orderBy: [{ sortOrder: 'asc' }],
         take: 12,
@@ -1264,6 +1484,18 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
 
     const { plano, coberturas } = normalizeApolicePayload(body)
 
+    let fornecedorStr = (body.fornecedor ?? '').trim()
+    const operadoraIdCreate = body.operadoraId?.trim() || null
+    if (operadoraIdCreate) {
+      const op = await prisma.portalSeguroOperadora.findFirst({
+        where: { id: operadoraIdCreate, active: true },
+      })
+      if (!op) return reply.code(400).send({ error: 'Operadora não encontrada ou inativa.' })
+      fornecedorStr = op.nome
+    } else if (!fornecedorStr) {
+      return reply.code(400).send({ error: 'Selecione a operadora ou informe o fornecedor.' })
+    }
+
     const subRows =
       body.subestipulantes && body.subestipulantes.length > 0
         ? body.subestipulantes
@@ -1287,7 +1519,8 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
           nexusContratoId,
           numeroApolice,
           produto: body.produto,
-          fornecedor: body.fornecedor.trim(),
+          operadoraId: operadoraIdCreate,
+          fornecedor: fornecedorStr,
           subestipulante: summarySub,
           plano,
           coberturas,
@@ -1331,8 +1564,12 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
             grupo: { select: { id: true, nome: true } },
           },
         },
+        operadora: { select: { id: true, nome: true } },
         planoLinhas: { orderBy: [{ sortOrder: 'asc' }, { codigoPlano: 'asc' }] },
         subestipulantes: { orderBy: [{ sortOrder: 'asc' }] },
+        faturasMensais: { orderBy: [{ competenciaAno: 'asc' }, { competenciaMes: 'asc' }] },
+        comissionamento: true,
+        fee: true,
       },
     })
     if (!ap) return reply.code(404).send({ error: 'Apólice não encontrada' })
@@ -1355,6 +1592,15 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
       status: s.status,
     }))
 
+    const faturasMensais = ap.faturasMensais.map((f) => ({
+      id: f.id,
+      competenciaAno: f.competenciaAno,
+      competenciaMes: f.competenciaMes,
+      vidas: f.vidas,
+      valorFatura: Number(f.valorFatura),
+      observacoes: f.observacoes,
+    }))
+
     const e = ap.estipulante
     return reply.send({
       apolice: {
@@ -1363,6 +1609,8 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
         nexusContratoId: ap.nexusContratoId,
         numeroApolice: ap.numeroApolice,
         produto: ap.produto,
+        operadoraId: ap.operadoraId,
+        operadora: ap.operadora ? { id: ap.operadora.id, nome: ap.operadora.nome } : null,
         fornecedor: ap.fornecedor,
         subestipulante: ap.subestipulante,
         plano: ap.plano,
@@ -1372,6 +1620,14 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
         observacoes: ap.observacoes,
         active: ap.active,
         modeloDadosSeguro: ap.modeloDadosSeguro,
+        comissionamento: ap.comissionamento ? mapComissionamentoApi(ap.comissionamento) : null,
+        fee: ap.fee ? mapFeeApi(ap.fee) : null,
+        trCone: ap.trCone,
+        trDiretoria: ap.trDiretoria,
+        trSuperintendente: ap.trSuperintendente,
+        trGerente: ap.trGerente,
+        trExecutivoConsultor: ap.trExecutivoConsultor,
+        trAnalista: ap.trAnalista,
         estipulante: {
           id: e.id,
           razaoSocial: e.razaoSocial,
@@ -1380,8 +1636,83 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
         },
         planoLinhas,
         subestipulantes,
+        faturasMensais,
       },
     })
+  })
+
+  app.put('/seguros/apolices/:id/comissionamento', async (req, reply) => {
+    const u = await requirePortalUser(req, reply)
+    if (!u) return
+    if (!assertRole(u, [PortalUserRole.PORTAL_ADMIN], reply)) return
+
+    const id = (req.params as { id?: string }).id
+    if (!id || !uuid.safeParse(id).success) return reply.code(400).send({ error: 'ID inválido' })
+
+    let body: z.infer<typeof putComissionamentoApoliceSchema>
+    try {
+      body = putComissionamentoApoliceSchema.parse(req.body)
+    } catch (e) {
+      if (e instanceof z.ZodError) return reply.code(400).send({ error: e.issues[0]?.message || 'Dados inválidos' })
+      return reply.code(400).send({ error: 'Dados inválidos' })
+    }
+
+    const exists = await prisma.portalSeguroApolice.findUnique({ where: { id }, select: { id: true } })
+    if (!exists) return reply.code(404).send({ error: 'Apólice não encontrada' })
+
+    const payload = comissionamentoToDb(body)
+    if (isComissionamentoEmptyDb(payload)) {
+      await prisma.portalSeguroApoliceComissionamento.deleteMany({ where: { apoliceId: id } })
+      return reply.send({ comissionamento: null })
+    }
+
+    const row = await prisma.portalSeguroApoliceComissionamento.upsert({
+      where: { apoliceId: id },
+      create: { apoliceId: id, ...payload },
+      update: payload,
+    })
+    return reply.send({ comissionamento: mapComissionamentoApi(row) })
+  })
+
+  app.put('/seguros/apolices/:id/fee', async (req, reply) => {
+    const u = await requirePortalUser(req, reply)
+    if (!u) return
+    if (!assertRole(u, [PortalUserRole.PORTAL_ADMIN], reply)) return
+
+    const id = (req.params as { id?: string }).id
+    if (!id || !uuid.safeParse(id).success) return reply.code(400).send({ error: 'ID inválido' })
+
+    let body: z.infer<typeof putFeeApoliceSchema>
+    try {
+      body = putFeeApoliceSchema.parse(req.body)
+    } catch (e) {
+      if (e instanceof z.ZodError) return reply.code(400).send({ error: e.issues[0]?.message || 'Dados inválidos' })
+      return reply.code(400).send({ error: 'Dados inválidos' })
+    }
+
+    const exists = await prisma.portalSeguroApolice.findUnique({ where: { id }, select: { id: true } })
+    if (!exists) return reply.code(404).send({ error: 'Apólice não encontrada' })
+
+    if (isFeeEmptyDb(body)) {
+      await prisma.portalSeguroApoliceFee.deleteMany({ where: { apoliceId: id } })
+      return reply.send({ fee: null })
+    }
+
+    const row = await prisma.portalSeguroApoliceFee.upsert({
+      where: { apoliceId: id },
+      create: {
+        apoliceId: id,
+        valorFeeMensal: body.valorFeeMensal ?? null,
+        feeConsultoria: body.feeConsultoria ?? null,
+        feeCorretorParceiro: body.feeCorretorParceiro ?? null,
+      },
+      update: {
+        valorFeeMensal: body.valorFeeMensal ?? null,
+        feeConsultoria: body.feeConsultoria ?? null,
+        feeCorretorParceiro: body.feeCorretorParceiro ?? null,
+      },
+    })
+    return reply.send({ fee: mapFeeApi(row) })
   })
 
   app.patch('/seguros/apolices/:id', async (req, reply) => {
@@ -1500,7 +1831,30 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
       data.numeroApolice = body.numeroApolice.trim()
     }
     if (body.produto !== undefined) data.produto = body.produto
-    if (body.fornecedor !== undefined) data.fornecedor = body.fornecedor.trim()
+
+    if (body.operadoraId !== undefined) {
+      if (body.operadoraId === null) {
+        data.operadora = { disconnect: true }
+      } else {
+        const op = await prisma.portalSeguroOperadora.findFirst({
+          where: { id: body.operadoraId, active: true },
+        })
+        if (!op) return reply.code(400).send({ error: 'Operadora não encontrada ou inativa.' })
+        data.operadora = { connect: { id: op.id } }
+        data.fornecedor = op.nome
+      }
+    } else     if (body.fornecedor !== undefined) {
+      data.fornecedor = body.fornecedor.trim()
+    }
+
+    if (body.trCone !== undefined) data.trCone = body.trCone
+    if (body.trDiretoria !== undefined) data.trDiretoria = body.trDiretoria?.trim() || null
+    if (body.trSuperintendente !== undefined) data.trSuperintendente = body.trSuperintendente?.trim() || null
+    if (body.trGerente !== undefined) data.trGerente = body.trGerente?.trim() || null
+    if (body.trExecutivoConsultor !== undefined) {
+      data.trExecutivoConsultor = body.trExecutivoConsultor?.trim() || null
+    }
+    if (body.trAnalista !== undefined) data.trAnalista = body.trAnalista?.trim() || null
     if (body.subestipulante !== undefined && body.subestipulantes === undefined) {
       data.subestipulante = body.subestipulante?.trim() ? body.subestipulante.trim() : null
     }
@@ -1529,6 +1883,22 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
             data.subestipulante = body.subestipulantes[0].razaoSocial.trim()
           } else {
             data.subestipulante = null
+          }
+        }
+
+        if (body.faturasMensais !== undefined) {
+          await tx.portalSeguroApoliceFaturaMes.deleteMany({ where: { apoliceId: id } })
+          if (body.faturasMensais.length > 0) {
+            await tx.portalSeguroApoliceFaturaMes.createMany({
+              data: body.faturasMensais.map((r) => ({
+                apoliceId: id,
+                competenciaAno: r.competenciaAno,
+                competenciaMes: r.competenciaMes,
+                vidas: r.vidas,
+                valorFatura: r.valorFatura,
+                observacoes: r.observacoes?.trim() || null,
+              })),
+            })
           }
         }
 

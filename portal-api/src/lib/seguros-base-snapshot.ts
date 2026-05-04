@@ -2,11 +2,18 @@
  * Backup / restauração da base cadastral de seguros (grupos, estipulantes, apólices, itens).
  * JSON versionado + validação com erros bloqueantes e avisos de inconsistência.
  */
-import { PortalApoliceProduto, PortalSeguroItemTipo, PortalSubestipulanteStatus, type Prisma } from '@prisma/client'
+import {
+  PortalApoliceProduto,
+  PortalGrupoEconomicoClassificacao,
+  PortalSeguroConeRegiao,
+  PortalSeguroItemTipo,
+  PortalSubestipulanteStatus,
+  type Prisma,
+} from '@prisma/client'
 import { z } from 'zod'
 import { prisma } from './prisma.js'
 
-export const SEGUROS_BASE_SNAPSHOT_VERSION = 1 as const
+export const SEGUROS_BASE_SNAPSHOT_VERSION = 2 as const
 
 const uuid = z.string().uuid()
 
@@ -16,6 +23,22 @@ function normCnpjDigits(s: string) {
 
 function normGrupoNome(s: string): string {
   return (s || '').trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
+function parcelasToDbJson(arr: number[] | null | undefined): string | null {
+  if (arr == null) return null
+  return JSON.stringify(arr)
+}
+
+function parseParcelas12Snapshot(s: string | null | undefined): number[] | null {
+  if (s == null || String(s).trim() === '') return null
+  try {
+    const j = JSON.parse(String(s)) as unknown
+    if (!Array.isArray(j) || j.length !== 12) return null
+    return j.map((x) => (typeof x === 'number' && Number.isFinite(x) ? x : 0))
+  } catch {
+    return null
+  }
 }
 
 const produtoSchema = z.nativeEnum(PortalApoliceProduto)
@@ -34,6 +57,10 @@ const grupoRowSchema = z.object({
   nome: z.string().min(1).max(500),
   cnpj: z.string().max(30).nullable().optional(),
   observacoes: z.string().max(8000).nullable().optional(),
+  classificacao: z
+    .nativeEnum(PortalGrupoEconomicoClassificacao)
+    .optional()
+    .default(PortalGrupoEconomicoClassificacao.CLIENTE),
   active: z.boolean().optional().default(true),
   createdAt: dateish.optional(),
   updatedAt: dateish.optional(),
@@ -56,6 +83,17 @@ const estipulanteRowSchema = z.object({
 })
 
 const subStatusSchema = z.nativeEnum(PortalSubestipulanteStatus)
+const coneSnap = z.nativeEnum(PortalSeguroConeRegiao)
+const parcelas12Snap = z.array(z.number()).length(12).nullable().optional()
+
+const operadoraRowSchema = z.object({
+  id: uuid,
+  nome: z.string().min(1).max(500),
+  active: z.boolean().optional().default(true),
+  sortOrder: z.number().int().min(0).max(99999).optional().default(0),
+  createdAt: dateish.optional(),
+  updatedAt: dateish.optional(),
+})
 
 const apoliceRowSchema = z.object({
   id: uuid,
@@ -63,6 +101,7 @@ const apoliceRowSchema = z.object({
   nexusContratoId: z.string().max(120).nullable().optional(),
   numeroApolice: z.string().max(120),
   produto: produtoSchema,
+  operadoraId: uuid.nullable().optional(),
   fornecedor: z.string().max(500),
   subestipulante: z.string().max(500).nullable().optional(),
   plano: z.string().max(2000).nullable().optional(),
@@ -72,6 +111,48 @@ const apoliceRowSchema = z.object({
   observacoes: z.string().max(8000).nullable().optional(),
   active: z.boolean().optional().default(true),
   importadoNexusEm: dateish.optional(),
+  createdAt: dateish.optional(),
+  updatedAt: dateish.optional(),
+  trCone: coneSnap.nullable().optional(),
+  trDiretoria: z.string().max(500).nullable().optional(),
+  trSuperintendente: z.string().max(500).nullable().optional(),
+  trGerente: z.string().max(500).nullable().optional(),
+  trExecutivoConsultor: z.string().max(500).nullable().optional(),
+  trAnalista: z.string().max(500).nullable().optional(),
+})
+
+const apoliceComissionamentoRowSchema = z.object({
+  id: uuid,
+  apoliceId: uuid,
+  temCorretorParceiro: z.boolean().nullable().optional(),
+  valorAgenciamentoContrato: z.number().nullable().optional(),
+  valorVitalicioContrato: z.number().nullable().optional(),
+  agenciamentoConsultoria: parcelas12Snap,
+  vitalicioConsultoria: parcelas12Snap,
+  agenciamentoCorretor: parcelas12Snap,
+  vitalicioCorretor: parcelas12Snap,
+  createdAt: dateish.optional(),
+  updatedAt: dateish.optional(),
+})
+
+const apoliceFeeRowSchema = z.object({
+  id: uuid,
+  apoliceId: uuid,
+  valorFeeMensal: z.number().nullable().optional(),
+  feeConsultoria: z.number().nullable().optional(),
+  feeCorretorParceiro: z.number().nullable().optional(),
+  createdAt: dateish.optional(),
+  updatedAt: dateish.optional(),
+})
+
+const apoliceFaturaRowSchema = z.object({
+  id: uuid,
+  apoliceId: uuid,
+  competenciaAno: z.number().int().min(1990).max(2100),
+  competenciaMes: z.number().int().min(1).max(12),
+  vidas: z.number().int().min(0).max(50_000_000).optional().default(0),
+  valorFatura: z.number().nonnegative(),
+  observacoes: z.string().max(500).nullable().optional(),
   createdAt: dateish.optional(),
   updatedAt: dateish.optional(),
 })
@@ -105,8 +186,12 @@ export const segurosBaseSnapshotBodySchema = z.object({
   exportedAt: z.string().optional(),
   grupos: z.array(grupoRowSchema),
   estipulantes: z.array(estipulanteRowSchema),
+  operadoras: z.array(operadoraRowSchema).optional().default([]),
   apolices: z.array(apoliceRowSchema),
   apoliceSubestipulantes: z.array(apoliceSubestipulanteRowSchema).optional().default([]),
+  apoliceFaturasMensais: z.array(apoliceFaturaRowSchema).optional().default([]),
+  apoliceComissionamentos: z.array(apoliceComissionamentoRowSchema).optional().default([]),
+  apoliceFees: z.array(apoliceFeeRowSchema).optional().default([]),
   itens: z.array(itemRowSchema),
 })
 
@@ -125,19 +210,39 @@ export type SegurosBaseIssue = {
 export type SegurosBaseImportStats = {
   grupos: { create: number; update: number }
   estipulantes: { create: number; update: number }
+  operadoras: { create: number; update: number }
   apolices: { create: number; update: number }
   apoliceSubestipulantes: { create: number; update: number }
+  apoliceFaturasMensais: { create: number; update: number }
+  apoliceComissionamentos: { create: number; update: number }
+  apoliceFees: { create: number; update: number }
   itens: { create: number; update: number }
 }
 
 export async function buildSegurosBaseSnapshot(): Promise<SegurosBaseSnapshotParsed> {
-  const [grupos, estipulantes, apolices, apoliceSubestipulantes, itens] = await Promise.all([
+  const [
+    grupos,
+    estipulantes,
+    operadoras,
+    apolices,
+    apoliceSubestipulantes,
+    apoliceFaturasMensais,
+    apoliceComissionamentos,
+    apoliceFees,
+    itens,
+  ] = await Promise.all([
     prisma.portalGrupoEconomico.findMany({ orderBy: { nome: 'asc' } }),
     prisma.portalSeguroEstipulante.findMany({ orderBy: [{ grupoEconomicoNome: 'asc' }, { razaoSocial: 'asc' }] }),
+    prisma.portalSeguroOperadora.findMany({ orderBy: [{ sortOrder: 'asc' }, { nome: 'asc' }] }),
     prisma.portalSeguroApolice.findMany({ orderBy: [{ estipulanteId: 'asc' }, { numeroApolice: 'asc' }] }),
     prisma.portalSeguroApoliceSubestipulante.findMany({
       orderBy: [{ apoliceId: 'asc' }, { sortOrder: 'asc' }],
     }),
+    prisma.portalSeguroApoliceFaturaMes.findMany({
+      orderBy: [{ apoliceId: 'asc' }, { competenciaAno: 'asc' }, { competenciaMes: 'asc' }],
+    }),
+    prisma.portalSeguroApoliceComissionamento.findMany({ orderBy: { apoliceId: 'asc' } }),
+    prisma.portalSeguroApoliceFee.findMany({ orderBy: { apoliceId: 'asc' } }),
     prisma.portalSeguroApoliceItem.findMany({ orderBy: [{ apoliceId: 'asc' }, { sortOrder: 'asc' }] }),
   ])
 
@@ -149,6 +254,7 @@ export async function buildSegurosBaseSnapshot(): Promise<SegurosBaseSnapshotPar
       nome: g.nome,
       cnpj: g.cnpj,
       observacoes: g.observacoes,
+      classificacao: g.classificacao,
       active: g.active,
       createdAt: g.createdAt,
       updatedAt: g.updatedAt,
@@ -168,12 +274,21 @@ export async function buildSegurosBaseSnapshot(): Promise<SegurosBaseSnapshotPar
       createdAt: e.createdAt,
       updatedAt: e.updatedAt,
     })),
+    operadoras: operadoras.map((o) => ({
+      id: o.id,
+      nome: o.nome,
+      active: o.active,
+      sortOrder: o.sortOrder,
+      createdAt: o.createdAt,
+      updatedAt: o.updatedAt,
+    })),
     apolices: apolices.map((a) => ({
       id: a.id,
       estipulanteId: a.estipulanteId,
       nexusContratoId: a.nexusContratoId,
       numeroApolice: a.numeroApolice,
       produto: a.produto,
+      operadoraId: a.operadoraId,
       fornecedor: a.fornecedor,
       subestipulante: a.subestipulante,
       plano: a.plano,
@@ -185,6 +300,12 @@ export async function buildSegurosBaseSnapshot(): Promise<SegurosBaseSnapshotPar
       importadoNexusEm: a.importadoNexusEm,
       createdAt: a.createdAt,
       updatedAt: a.updatedAt,
+      trCone: a.trCone,
+      trDiretoria: a.trDiretoria,
+      trSuperintendente: a.trSuperintendente,
+      trGerente: a.trGerente,
+      trExecutivoConsultor: a.trExecutivoConsultor,
+      trAnalista: a.trAnalista,
     })),
     apoliceSubestipulantes: apoliceSubestipulantes.map((s) => ({
       id: s.id,
@@ -196,6 +317,39 @@ export async function buildSegurosBaseSnapshot(): Promise<SegurosBaseSnapshotPar
       status: s.status,
       createdAt: s.createdAt,
       updatedAt: s.updatedAt,
+    })),
+    apoliceFaturasMensais: apoliceFaturasMensais.map((f) => ({
+      id: f.id,
+      apoliceId: f.apoliceId,
+      competenciaAno: f.competenciaAno,
+      competenciaMes: f.competenciaMes,
+      vidas: f.vidas,
+      valorFatura: Number(f.valorFatura),
+      observacoes: f.observacoes,
+      createdAt: f.createdAt,
+      updatedAt: f.updatedAt,
+    })),
+    apoliceComissionamentos: apoliceComissionamentos.map((c) => ({
+      id: c.id,
+      apoliceId: c.apoliceId,
+      temCorretorParceiro: c.temCorretorParceiro,
+      valorAgenciamentoContrato: c.valorAgenciamentoContrato != null ? Number(c.valorAgenciamentoContrato) : null,
+      valorVitalicioContrato: c.valorVitalicioContrato != null ? Number(c.valorVitalicioContrato) : null,
+      agenciamentoConsultoria: parseParcelas12Snapshot(c.agenciamentoConsultoria),
+      vitalicioConsultoria: parseParcelas12Snapshot(c.vitalicioConsultoria),
+      agenciamentoCorretor: parseParcelas12Snapshot(c.agenciamentoCorretor),
+      vitalicioCorretor: parseParcelas12Snapshot(c.vitalicioCorretor),
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
+    })),
+    apoliceFees: apoliceFees.map((fee) => ({
+      id: fee.id,
+      apoliceId: fee.apoliceId,
+      valorFeeMensal: fee.valorFeeMensal != null ? Number(fee.valorFeeMensal) : null,
+      feeConsultoria: fee.feeConsultoria != null ? Number(fee.feeConsultoria) : null,
+      feeCorretorParceiro: fee.feeCorretorParceiro != null ? Number(fee.feeCorretorParceiro) : null,
+      createdAt: fee.createdAt,
+      updatedAt: fee.updatedAt,
     })),
     itens: itens.map((i) => ({
       id: i.id,
@@ -247,6 +401,15 @@ export async function analyzeSegurosBaseSnapshot(data: SegurosBaseSnapshotParsed
   for (const it of data.itens) {
     if (seenIt.has(it.id)) push(issues, 'error', 'duplicate_id', `ID de item repetido no ficheiro: ${it.id}`, 'itens')
     seenIt.set(it.id, it.id)
+  }
+
+  const opIds = new Set(data.operadoras.map((o) => o.id))
+  const seenOp = new Map<string, string>()
+  for (const o of data.operadoras) {
+    if (seenOp.has(o.id)) {
+      push(issues, 'error', 'duplicate_id', `ID de operadora repetido no ficheiro: ${o.id}`, 'operadoras')
+    }
+    seenOp.set(o.id, o.id)
   }
 
   const estUniqKey = new Map<string, string>()
@@ -364,6 +527,17 @@ export async function analyzeSegurosBaseSnapshot(data: SegurosBaseSnapshotParsed
       )
     }
 
+    if (a.operadoraId && !opIds.has(a.operadoraId)) {
+      push(
+        issues,
+        'error',
+        'fk_operadora_snapshot',
+        `Apólice «${num || a.id}» referencia operadoraId ausente em operadoras[] — inclua o registo no snapshot.`,
+        `apolices[${i}].operadoraId`,
+        [a.id, a.operadoraId],
+      )
+    }
+
     if (num && estIds.has(a.estipulanteId)) {
       const uk = `${a.estipulanteId}|${num}`
       const prevA = apUniq.get(uk)
@@ -403,6 +577,119 @@ export async function analyzeSegurosBaseSnapshot(data: SegurosBaseSnapshotParsed
         [s.id, s.apoliceId],
       )
     }
+  }
+
+  const seenFat = new Map<string, string>()
+  const fatNat = new Map<string, string>()
+  for (let i = 0; i < data.apoliceFaturasMensais.length; i++) {
+    const f = data.apoliceFaturasMensais[i]
+    if (seenFat.has(f.id)) {
+      push(
+        issues,
+        'error',
+        'duplicate_id',
+        `ID de fatura (mês) repetido no ficheiro: ${f.id}`,
+        `apoliceFaturasMensais[${i}]`,
+      )
+    }
+    seenFat.set(f.id, f.id)
+    if (!apIds.has(f.apoliceId)) {
+      push(
+        issues,
+        'error',
+        'fk_apolice_fatura',
+        'Linha de fatura mensal referencia apoliceId inexistente no snapshot.',
+        `apoliceFaturasMensais[${i}].apoliceId`,
+        [f.id, f.apoliceId],
+      )
+    }
+    const kn = `${f.apoliceId}|${f.competenciaAno}|${f.competenciaMes}`
+    const prevF = fatNat.get(kn)
+    if (prevF && prevF !== f.id) {
+      push(
+        issues,
+        'error',
+        'duplicate_fatura_competencia',
+        `Duas linhas no ficheiro para a mesma apólice e competência ${f.competenciaMes}/${f.competenciaAno}.`,
+        `apoliceFaturasMensais[${i}]`,
+        [prevF, f.id],
+      )
+    } else fatNat.set(kn, f.id)
+  }
+
+  const seenComId = new Map<string, string>()
+  const comPorApolice = new Map<string, string>()
+  for (let i = 0; i < data.apoliceComissionamentos.length; i++) {
+    const c = data.apoliceComissionamentos[i]
+    const prevId = seenComId.get(c.id)
+    if (prevId) {
+      push(
+        issues,
+        'error',
+        'duplicate_id',
+        `ID de comissionamento de apólice repetido no ficheiro: ${c.id}`,
+        `apoliceComissionamentos[${i}]`,
+      )
+    }
+    seenComId.set(c.id, c.id)
+    if (!apIds.has(c.apoliceId)) {
+      push(
+        issues,
+        'error',
+        'fk_apolice_comissionamento',
+        'Comissionamento referencia apoliceId inexistente no snapshot.',
+        `apoliceComissionamentos[${i}].apoliceId`,
+        [c.id, c.apoliceId],
+      )
+    }
+    const prevAp = comPorApolice.get(c.apoliceId)
+    if (prevAp && prevAp !== c.id) {
+      push(
+        issues,
+        'error',
+        'duplicate_comissionamento_apolice',
+        `Mais de um comissionamento no ficheiro para a mesma apólice (${c.apoliceId}).`,
+        `apoliceComissionamentos[${i}]`,
+        [prevAp, c.id],
+      )
+    } else comPorApolice.set(c.apoliceId, c.id)
+  }
+
+  const seenFeeId = new Map<string, string>()
+  const feePorApolice = new Map<string, string>()
+  for (let i = 0; i < data.apoliceFees.length; i++) {
+    const f = data.apoliceFees[i]
+    if (seenFeeId.has(f.id)) {
+      push(
+        issues,
+        'error',
+        'duplicate_id',
+        `ID de fee de apólice repetido no ficheiro: ${f.id}`,
+        `apoliceFees[${i}]`,
+      )
+    }
+    seenFeeId.set(f.id, f.id)
+    if (!apIds.has(f.apoliceId)) {
+      push(
+        issues,
+        'error',
+        'fk_apolice_fee',
+        'Fee referencia apoliceId inexistente no snapshot.',
+        `apoliceFees[${i}].apoliceId`,
+        [f.id, f.apoliceId],
+      )
+    }
+    const prevAp = feePorApolice.get(f.apoliceId)
+    if (prevAp && prevAp !== f.id) {
+      push(
+        issues,
+        'error',
+        'duplicate_fee_apolice',
+        `Mais de um fee no ficheiro para a mesma apólice (${f.apoliceId}).`,
+        `apoliceFees[${i}]`,
+        [prevAp, f.id],
+      )
+    } else feePorApolice.set(f.apoliceId, f.id)
   }
 
   for (let i = 0; i < data.itens.length; i++) {
@@ -475,14 +762,25 @@ export async function analyzeSegurosBaseSnapshot(data: SegurosBaseSnapshotParsed
   const statsIfApplied: SegurosBaseImportStats = {
     grupos: { create: 0, update: 0 },
     estipulantes: { create: 0, update: 0 },
+    operadoras: { create: 0, update: 0 },
     apolices: { create: 0, update: 0 },
     apoliceSubestipulantes: { create: 0, update: 0 },
+    apoliceFaturasMensais: { create: 0, update: 0 },
+    apoliceComissionamentos: { create: 0, update: 0 },
+    apoliceFees: { create: 0, update: 0 },
     itens: { create: 0, update: 0 },
   }
 
   for (const g of data.grupos) {
     if (existingGrupoSet.has(g.id)) statsIfApplied.grupos.update++
     else statsIfApplied.grupos.create++
+  }
+
+  const existingOp = await prisma.portalSeguroOperadora.findMany({ select: { id: true } })
+  const existingOpSet = new Set(existingOp.map((x) => x.id))
+  for (const o of data.operadoras) {
+    if (existingOpSet.has(o.id)) statsIfApplied.operadoras.update++
+    else statsIfApplied.operadoras.create++
   }
 
   const existingEstSet = new Set(existingEst.map((e) => e.id))
@@ -511,6 +809,27 @@ export async function analyzeSegurosBaseSnapshot(data: SegurosBaseSnapshotParsed
     else statsIfApplied.itens.create++
   }
 
+  const existingFat = await prisma.portalSeguroApoliceFaturaMes.findMany({ select: { id: true } })
+  const existingFatSet = new Set(existingFat.map((x) => x.id))
+  for (const f of data.apoliceFaturasMensais) {
+    if (existingFatSet.has(f.id)) statsIfApplied.apoliceFaturasMensais.update++
+    else statsIfApplied.apoliceFaturasMensais.create++
+  }
+
+  const existingCom = await prisma.portalSeguroApoliceComissionamento.findMany({ select: { id: true } })
+  const existingComSet = new Set(existingCom.map((x) => x.id))
+  for (const c of data.apoliceComissionamentos) {
+    if (existingComSet.has(c.id)) statsIfApplied.apoliceComissionamentos.update++
+    else statsIfApplied.apoliceComissionamentos.create++
+  }
+
+  const existingFeeRows = await prisma.portalSeguroApoliceFee.findMany({ select: { id: true } })
+  const existingFeeSet = new Set(existingFeeRows.map((x) => x.id))
+  for (const f of data.apoliceFees) {
+    if (existingFeeSet.has(f.id)) statsIfApplied.apoliceFees.update++
+    else statsIfApplied.apoliceFees.create++
+  }
+
   return { issues, statsIfApplied }
 }
 
@@ -518,8 +837,12 @@ function emptyStats(): SegurosBaseImportStats {
   return {
     grupos: { create: 0, update: 0 },
     estipulantes: { create: 0, update: 0 },
+    operadoras: { create: 0, update: 0 },
     apolices: { create: 0, update: 0 },
     apoliceSubestipulantes: { create: 0, update: 0 },
+    apoliceFaturasMensais: { create: 0, update: 0 },
+    apoliceComissionamentos: { create: 0, update: 0 },
+    apoliceFees: { create: 0, update: 0 },
     itens: { create: 0, update: 0 },
   }
 }
@@ -541,6 +864,7 @@ export async function applySegurosBaseSnapshot(data: SegurosBaseSnapshotParsed):
           nome: g.nome.trim(),
           cnpj: g.cnpj?.trim() || null,
           observacoes: g.observacoes?.trim() || null,
+          classificacao: g.classificacao,
           active: g.active,
         }
         if (ex) {
@@ -550,6 +874,7 @@ export async function applySegurosBaseSnapshot(data: SegurosBaseSnapshotParsed):
               nome: base.nome,
               cnpj: base.cnpj,
               observacoes: base.observacoes,
+              classificacao: base.classificacao,
               active: base.active,
             },
           })
@@ -563,6 +888,32 @@ export async function applySegurosBaseSnapshot(data: SegurosBaseSnapshotParsed):
             },
           })
           stats.grupos.create++
+        }
+      }
+
+      for (const o of data.operadoras) {
+        const ex = await tx.portalSeguroOperadora.findUnique({ where: { id: o.id } })
+        const base = {
+          id: o.id,
+          nome: o.nome.trim(),
+          active: o.active,
+          sortOrder: o.sortOrder ?? 0,
+        }
+        if (ex) {
+          await tx.portalSeguroOperadora.update({
+            where: { id: o.id },
+            data: { nome: base.nome, active: base.active, sortOrder: base.sortOrder },
+          })
+          stats.operadoras.update++
+        } else {
+          await tx.portalSeguroOperadora.create({
+            data: {
+              ...base,
+              createdAt: o.createdAt ?? undefined,
+              updatedAt: o.updatedAt ?? undefined,
+            },
+          })
+          stats.operadoras.create++
         }
       }
 
@@ -620,12 +971,19 @@ export async function applySegurosBaseSnapshot(data: SegurosBaseSnapshotParsed):
           nexusContratoId: a.nexusContratoId?.trim() || null,
           numeroApolice: (a.numeroApolice ?? '').trim() || (a.nexusContratoId?.trim() ? `nx:${a.nexusContratoId!.trim()}` : '—'),
           produto: a.produto,
+          operadoraId: a.operadoraId ?? null,
           fornecedor: (a.fornecedor ?? '').trim() || '—',
           subestipulante: sub,
           plano: a.plano?.trim() || null,
           coberturas: a.coberturas?.trim() || null,
           vigenciaInicio: a.vigenciaInicio,
           vigenciaFim: a.vigenciaFim,
+          trCone: a.trCone ?? null,
+          trDiretoria: a.trDiretoria?.trim() || null,
+          trSuperintendente: a.trSuperintendente?.trim() || null,
+          trGerente: a.trGerente?.trim() || null,
+          trExecutivoConsultor: a.trExecutivoConsultor?.trim() || null,
+          trAnalista: a.trAnalista?.trim() || null,
           observacoes: a.observacoes?.trim() || null,
           active: a.active,
           importadoNexusEm: a.importadoNexusEm,
@@ -638,6 +996,7 @@ export async function applySegurosBaseSnapshot(data: SegurosBaseSnapshotParsed):
               nexusContratoId: dataRow.nexusContratoId,
               numeroApolice: dataRow.numeroApolice,
               produto: dataRow.produto,
+              operadoraId: dataRow.operadoraId,
               fornecedor: dataRow.fornecedor,
               subestipulante: dataRow.subestipulante,
               plano: dataRow.plano,
@@ -647,6 +1006,12 @@ export async function applySegurosBaseSnapshot(data: SegurosBaseSnapshotParsed):
               observacoes: dataRow.observacoes,
               active: dataRow.active,
               importadoNexusEm: dataRow.importadoNexusEm,
+              trCone: dataRow.trCone,
+              trDiretoria: dataRow.trDiretoria,
+              trSuperintendente: dataRow.trSuperintendente,
+              trGerente: dataRow.trGerente,
+              trExecutivoConsultor: dataRow.trExecutivoConsultor,
+              trAnalista: dataRow.trAnalista,
             },
           })
           stats.apolices.update++
@@ -695,6 +1060,114 @@ export async function applySegurosBaseSnapshot(data: SegurosBaseSnapshotParsed):
             },
           })
           stats.apoliceSubestipulantes.create++
+        }
+      }
+
+      for (const f of data.apoliceFaturasMensais) {
+        const ex = await tx.portalSeguroApoliceFaturaMes.findUnique({ where: { id: f.id } })
+        const row = {
+          id: f.id,
+          apoliceId: f.apoliceId,
+          competenciaAno: f.competenciaAno,
+          competenciaMes: f.competenciaMes,
+          vidas: f.vidas ?? 0,
+          valorFatura: f.valorFatura,
+          observacoes: f.observacoes?.trim() || null,
+        }
+        if (ex) {
+          await tx.portalSeguroApoliceFaturaMes.update({
+            where: { id: f.id },
+            data: {
+              apoliceId: row.apoliceId,
+              competenciaAno: row.competenciaAno,
+              competenciaMes: row.competenciaMes,
+              vidas: row.vidas,
+              valorFatura: row.valorFatura,
+              observacoes: row.observacoes,
+            },
+          })
+          stats.apoliceFaturasMensais.update++
+        } else {
+          await tx.portalSeguroApoliceFaturaMes.create({
+            data: {
+              ...row,
+              createdAt: f.createdAt ?? undefined,
+              updatedAt: f.updatedAt ?? undefined,
+            },
+          })
+          stats.apoliceFaturasMensais.create++
+        }
+      }
+
+      for (const c of data.apoliceComissionamentos) {
+        const ex = await tx.portalSeguroApoliceComissionamento.findUnique({ where: { id: c.id } })
+        const row = {
+          id: c.id,
+          apoliceId: c.apoliceId,
+          temCorretorParceiro: c.temCorretorParceiro ?? false,
+          valorAgenciamentoContrato: c.valorAgenciamentoContrato ?? null,
+          valorVitalicioContrato: c.valorVitalicioContrato ?? null,
+          agenciamentoConsultoria: parcelasToDbJson(c.agenciamentoConsultoria ?? null),
+          vitalicioConsultoria: parcelasToDbJson(c.vitalicioConsultoria ?? null),
+          agenciamentoCorretor: parcelasToDbJson(c.agenciamentoCorretor ?? null),
+          vitalicioCorretor: parcelasToDbJson(c.vitalicioCorretor ?? null),
+        }
+        if (ex) {
+          await tx.portalSeguroApoliceComissionamento.update({
+            where: { id: c.id },
+            data: {
+              apoliceId: row.apoliceId,
+              temCorretorParceiro: row.temCorretorParceiro,
+              valorAgenciamentoContrato: row.valorAgenciamentoContrato,
+              valorVitalicioContrato: row.valorVitalicioContrato,
+              agenciamentoConsultoria: row.agenciamentoConsultoria,
+              vitalicioConsultoria: row.vitalicioConsultoria,
+              agenciamentoCorretor: row.agenciamentoCorretor,
+              vitalicioCorretor: row.vitalicioCorretor,
+            },
+          })
+          stats.apoliceComissionamentos.update++
+        } else {
+          await tx.portalSeguroApoliceComissionamento.create({
+            data: {
+              ...row,
+              createdAt: c.createdAt ?? undefined,
+              updatedAt: c.updatedAt ?? undefined,
+            },
+          })
+          stats.apoliceComissionamentos.create++
+        }
+      }
+
+      for (const fee of data.apoliceFees) {
+        const ex = await tx.portalSeguroApoliceFee.findUnique({ where: { id: fee.id } })
+        const row = {
+          id: fee.id,
+          apoliceId: fee.apoliceId,
+          valorFeeMensal: fee.valorFeeMensal ?? null,
+          feeConsultoria: fee.feeConsultoria ?? null,
+          feeCorretorParceiro: fee.feeCorretorParceiro ?? null,
+        }
+        if (ex) {
+          await tx.portalSeguroApoliceFee.update({
+            where: { id: fee.id },
+            data: {
+              apoliceId: row.apoliceId,
+              valorFeeMensal: row.valorFeeMensal,
+              feeConsultoria: row.feeConsultoria,
+              feeCorretorParceiro: row.feeCorretorParceiro,
+            },
+          })
+          stats.apoliceFees.update++
+        } else {
+          await tx.portalSeguroApoliceFee.create({
+            data: {
+              ...row,
+              createdAt: fee.createdAt ?? undefined,
+              updatedAt: fee.updatedAt ?? undefined,
+            },
+          })
+          stats.apoliceFees.create++
         }
       }
 

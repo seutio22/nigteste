@@ -1,8 +1,10 @@
 /**
  * Export / import do snapshot de seguros em Excel (.xlsx).
- * Folhas: _portal (metadados), Leia-me, grupos, estipulantes, apolices, itens.
+ * Folhas: _portal (metadados), Leia-me, grupos, estipulantes, apolices, apolice_comissionamentos,
+ * apolice_fees, itens.
  */
 import ExcelJS from 'exceljs'
+import { PortalGrupoEconomicoClassificacao } from '@prisma/client'
 import {
   SEGUROS_BASE_SNAPSHOT_VERSION,
   segurosBaseSnapshotBodySchema,
@@ -12,11 +14,22 @@ import {
 const SHEET_GRUPOS = 'grupos'
 const SHEET_EST = 'estipulantes'
 const SHEET_AP = 'apolices'
+const SHEET_AP_COM = 'apolice_comissionamentos'
+const SHEET_AP_FEE = 'apolice_fees'
 const SHEET_IT = 'itens'
 const SHEET_META = '_portal'
 const SHEET_HELP = 'Leia-me'
 
-export const GRUPO_HEADERS = ['id', 'nome', 'cnpj', 'observacoes', 'active', 'createdAt', 'updatedAt'] as const
+export const GRUPO_HEADERS = [
+  'id',
+  'nome',
+  'cnpj',
+  'observacoes',
+  'classificacao',
+  'active',
+  'createdAt',
+  'updatedAt',
+] as const
 export const EST_HEADERS = [
   'id',
   'grupoEconomicoId',
@@ -38,6 +51,7 @@ export const AP_HEADERS = [
   'nexusContratoId',
   'numeroApolice',
   'produto',
+  'operadoraId',
   'fornecedor',
   'subestipulante',
   'plano',
@@ -50,6 +64,32 @@ export const AP_HEADERS = [
   'createdAt',
   'updatedAt',
 ] as const
+
+/** Percentuais das 12 parcelas em JSON (ex.: [0,0,8.33,...]). */
+export const AP_COM_HEADERS = [
+  'id',
+  'apoliceId',
+  'temCorretorParceiro',
+  'valorAgenciamentoContrato',
+  'valorVitalicioContrato',
+  'agenciamentoConsultoria',
+  'vitalicioConsultoria',
+  'agenciamentoCorretor',
+  'vitalicioCorretor',
+  'createdAt',
+  'updatedAt',
+] as const
+
+export const AP_FEE_HEADERS = [
+  'id',
+  'apoliceId',
+  'valorFeeMensal',
+  'feeConsultoria',
+  'feeCorretorParceiro',
+  'createdAt',
+  'updatedAt',
+] as const
+
 export const IT_HEADERS = [
   'id',
   'apoliceId',
@@ -177,12 +217,50 @@ function optionalIso(v: unknown): string | null {
   return d.toISOString()
 }
 
+function optionalNumber(v: unknown): number | null {
+  if (v == null || v === '') return null
+  if (typeof v === 'number' && Number.isFinite(v)) return v
+  const t = String(v).trim().replace(/\s/g, '').replace(',', '.')
+  if (!t) return null
+  const n = Number(t)
+  return Number.isFinite(n) ? n : null
+}
+
+function parseBoolNullable(v: unknown): boolean | null {
+  if (v == null || v === '') return null
+  if (typeof v === 'boolean') return v
+  if (typeof v === 'number') return v !== 0
+  const u = String(v).trim().toUpperCase()
+  if (['TRUE', 'VERDADEIRO', 'SIM', 'S', '1', 'YES'].includes(u)) return true
+  if (['FALSE', 'FALSO', 'NÃO', 'NAO', 'N', '0', 'NO'].includes(u)) return false
+  return null
+}
+
+function parseParcelas12JsonCell(v: unknown): number[] | null {
+  const s = strNull(v)
+  if (s == null) return null
+  try {
+    const j = JSON.parse(s) as unknown
+    if (!Array.isArray(j) || j.length !== 12) return null
+    return j.map((x) => (typeof x === 'number' && Number.isFinite(x) ? x : 0))
+  } catch {
+    return null
+  }
+}
+
+function parseGrupoClassificacaoCell(v: unknown): PortalGrupoEconomicoClassificacao {
+  const u = str(v).toUpperCase()
+  if (u === 'PROSPECT') return PortalGrupoEconomicoClassificacao.PROSPECT
+  return PortalGrupoEconomicoClassificacao.CLIENTE
+}
+
 function mapGrupoRow(o: Record<string, unknown>) {
   return {
     id: str(o.id),
     nome: str(o.nome),
     cnpj: strNull(o.cnpj),
     observacoes: strNull(o.observacoes),
+    classificacao: parseGrupoClassificacaoCell(o.classificacao),
     active: parseBool(o.active),
     createdAt: optionalIso(o.createdAt),
     updatedAt: optionalIso(o.updatedAt),
@@ -215,6 +293,7 @@ function mapApRow(o: Record<string, unknown>) {
     nexusContratoId: strNull(o.nexusContratoId),
     numeroApolice: str(o.numeroApolice),
     produto: str(o.produto),
+    operadoraId: strNull(o.operadoraId),
     fornecedor: str(o.fornecedor),
     subestipulante: str(o.subestipulante),
     plano: strNull(o.plano),
@@ -224,6 +303,34 @@ function mapApRow(o: Record<string, unknown>) {
     observacoes: strNull(o.observacoes),
     active: parseBool(o.active),
     importadoNexusEm: optionalIso(o.importadoNexusEm),
+    createdAt: optionalIso(o.createdAt),
+    updatedAt: optionalIso(o.updatedAt),
+  }
+}
+
+function mapComRow(o: Record<string, unknown>) {
+  return {
+    id: str(o.id),
+    apoliceId: str(o.apoliceId),
+    temCorretorParceiro: parseBoolNullable(o.temCorretorParceiro),
+    valorAgenciamentoContrato: optionalNumber(o.valorAgenciamentoContrato),
+    valorVitalicioContrato: optionalNumber(o.valorVitalicioContrato),
+    agenciamentoConsultoria: parseParcelas12JsonCell(o.agenciamentoConsultoria),
+    vitalicioConsultoria: parseParcelas12JsonCell(o.vitalicioConsultoria),
+    agenciamentoCorretor: parseParcelas12JsonCell(o.agenciamentoCorretor),
+    vitalicioCorretor: parseParcelas12JsonCell(o.vitalicioCorretor),
+    createdAt: optionalIso(o.createdAt),
+    updatedAt: optionalIso(o.updatedAt),
+  }
+}
+
+function mapFeeRow(o: Record<string, unknown>) {
+  return {
+    id: str(o.id),
+    apoliceId: str(o.apoliceId),
+    valorFeeMensal: optionalNumber(o.valorFeeMensal),
+    feeConsultoria: optionalNumber(o.feeConsultoria),
+    feeCorretorParceiro: optionalNumber(o.feeCorretorParceiro),
     createdAt: optionalIso(o.createdAt),
     updatedAt: optionalIso(o.updatedAt),
   }
@@ -257,6 +364,13 @@ export async function segurosSnapshotToExcelBuffer(snapshot: SegurosBaseSnapshot
     ['• Datas: use formato de data do Excel ou texto ISO (2026-05-02T12:00:00.000Z).'],
     ['• produto: SAUDE | ODONTO | VIDA_GRUPO | OUTROS'],
     ['• tipo (itens): COBERTURA | SERVICO | CLAUSULA | OUTRO'],
+    [
+      '• Folhas opcionais na importação: apolice_comissionamentos, apolice_fees (se ausentes, tratadas como vazias).',
+    ],
+    [
+      '• Colunas agenciamento*/vitalicio* (consultoria/corretor): texto JSON com exatamente 12 percentuais, ex. [0,0,8.33,8.33,…].',
+    ],
+    ['• Coluna operadoraId em apolices: UUID no catálogo (opcional; ficheiros antigos sem esta coluna continuam válidos).'],
     ['• Após editar: importe de novo na Visão geral; a análise indica inconsistências antes de gravar.'],
     [''],
     [`schemaVersion exportado: ${snapshot.schemaVersion}`],
@@ -289,10 +403,29 @@ export async function segurosSnapshotToExcelBuffer(snapshot: SegurosBaseSnapshot
     for (let i = 0; i < headers.length; i++) {
       const h = headers[i]
       const col = ws.getColumn(i + 1)
-      if (['id', 'cnpj', 'cnae', 'nexusClienteId', 'nexusContratoId', 'numeroApolice', 'estipulanteId', 'apoliceId', 'grupoEconomicoId'].includes(h)) {
+      if (
+        [
+          'id',
+          'cnpj',
+          'cnae',
+          'nexusClienteId',
+          'nexusContratoId',
+          'numeroApolice',
+          'estipulanteId',
+          'apoliceId',
+          'grupoEconomicoId',
+          'operadoraId',
+        ].includes(h)
+      ) {
         col.numFmt = '@'
       }
-      col.width = Math.min(46, Math.max(10, h.length + 4))
+      if (
+        ['agenciamentoConsultoria', 'vitalicioConsultoria', 'agenciamentoCorretor', 'vitalicioCorretor'].includes(h)
+      ) {
+        col.width = 56
+      } else {
+        col.width = Math.min(46, Math.max(10, h.length + 4))
+      }
     }
   }
 
@@ -315,6 +448,35 @@ export async function segurosSnapshotToExcelBuffer(snapshot: SegurosBaseSnapshot
   addTable(SHEET_AP, AP_HEADERS, snapshot.apolices, (a) =>
     AP_HEADERS.map((k) => {
       const v = (a as Record<string, unknown>)[k]
+      if (v instanceof Date) return v.toISOString()
+      return v ?? ''
+    }),
+  )
+
+  const parcelasJsonKeys = new Set([
+    'agenciamentoConsultoria',
+    'vitalicioConsultoria',
+    'agenciamentoCorretor',
+    'vitalicioCorretor',
+  ])
+
+  addTable(SHEET_AP_COM, AP_COM_HEADERS, snapshot.apoliceComissionamentos, (c) =>
+    AP_COM_HEADERS.map((k) => {
+      const v = (c as Record<string, unknown>)[k]
+      if (parcelasJsonKeys.has(k)) {
+        if (v == null) return ''
+        if (Array.isArray(v)) return JSON.stringify(v)
+        return String(v)
+      }
+      if (v instanceof Date) return v.toISOString()
+      if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE'
+      return v ?? ''
+    }),
+  )
+
+  addTable(SHEET_AP_FEE, AP_FEE_HEADERS, snapshot.apoliceFees, (f) =>
+    AP_FEE_HEADERS.map((k) => {
+      const v = (f as Record<string, unknown>)[k]
       if (v instanceof Date) return v.toISOString()
       return v ?? ''
     }),
@@ -376,15 +538,22 @@ export async function parseSegurosBaseExcelBuffer(buffer: Uint8Array): Promise<E
   if (!wsG || !wsE || !wsA || !wsI) {
     return {
       ok: false,
-      error: 'Folhas em falta. Esperadas: grupos, estipulantes, apolices, itens (exporte um modelo a partir do portal).',
+      error:
+        'Folhas em falta. Obrigatórias: grupos, estipulantes, apolices, itens. Opcionais: apolice_comissionamentos, apolice_fees. Exporte um modelo a partir do portal.',
     }
   }
 
-  const rg = sheetToRows(wsG, GRUPO_HEADERS)
+  const rg = sheetToRows(wsG, GRUPO_HEADERS, { optionalHeaders: new Set(['classificacao']) })
   const re = sheetToRows(wsE, EST_HEADERS, { optionalHeaders: new Set(['cnae']) })
-  const ra = sheetToRows(wsA, AP_HEADERS)
+  const ra = sheetToRows(wsA, AP_HEADERS, { optionalHeaders: new Set(['operadoraId']) })
   const ri = sheetToRows(wsI, IT_HEADERS)
-  const structural = [...rg.errors, ...re.errors, ...ra.errors, ...ri.errors]
+
+  const wsCom = findSheet(wb, SHEET_AP_COM)
+  const rc = wsCom ? sheetToRows(wsCom, AP_COM_HEADERS) : { rows: [] as Record<string, unknown>[], errors: [] as string[] }
+  const wsFee = findSheet(wb, SHEET_AP_FEE)
+  const rf = wsFee ? sheetToRows(wsFee, AP_FEE_HEADERS) : { rows: [] as Record<string, unknown>[], errors: [] as string[] }
+
+  const structural = [...rg.errors, ...re.errors, ...ra.errors, ...ri.errors, ...rc.errors, ...rf.errors]
   if (structural.length) {
     return { ok: false, error: structural.join(' ') }
   }
@@ -395,6 +564,8 @@ export async function parseSegurosBaseExcelBuffer(buffer: Uint8Array): Promise<E
     grupos: rg.rows.map(mapGrupoRow),
     estipulantes: re.rows.map(mapEstRow),
     apolices: ra.rows.map(mapApRow),
+    apoliceComissionamentos: rc.rows.map(mapComRow),
+    apoliceFees: rf.rows.map(mapFeeRow),
     itens: ri.rows.map(mapItRow),
   }
 
