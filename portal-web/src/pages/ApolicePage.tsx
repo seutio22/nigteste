@@ -495,6 +495,7 @@ type CadastroVisaoGeralApolice = {
   active: boolean
   numeroApolice: string
   produto: ApoliceProduto
+  operadora?: { id: string; nome: string } | null
   fornecedor: string
   subestipulante: string | null
   plano: string | null
@@ -1111,6 +1112,7 @@ function VisaoGeral({
       visaoMatchesQuery(searchTerm, [
         a.numeroApolice,
         PRODUTO_LABEL[a.produto],
+        a.operadora?.nome,
         a.fornecedor,
         a.subestipulante ?? '',
         a.plano,
@@ -1201,7 +1203,7 @@ function VisaoGeral({
         <TextField
           fullWidth
           size="small"
-          placeholder="Pesquisar por grupo, estipulante, CNPJ, nº apólice, produto, fornecedor…"
+          placeholder="Pesquisar por grupo, estipulante, CNPJ, nº apólice, produto, operadora…"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           InputProps={{
@@ -1441,7 +1443,7 @@ function VisaoGeral({
                                     <TableCell>Situação</TableCell>
                                     <TableCell>Nº apólice</TableCell>
                                     <TableCell>Produto</TableCell>
-                                    <TableCell>Fornecedor</TableCell>
+                                    <TableCell>Operadora</TableCell>
                                     <TableCell>Vigência</TableCell>
                                     <TableCell align="center">Itens</TableCell>
                                     <TableCell align="right">Ficha</TableCell>
@@ -1476,7 +1478,9 @@ function VisaoGeral({
                                         </TableCell>
                                         <TableCell sx={{ verticalAlign: 'top', fontWeight: 600 }}>{a.numeroApolice}</TableCell>
                                         <TableCell sx={{ verticalAlign: 'top' }}>{PRODUTO_LABEL[a.produto]}</TableCell>
-                                        <TableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>{a.fornecedor}</TableCell>
+                                        <TableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>
+                                          {a.operadora?.nome ?? a.fornecedor}
+                                        </TableCell>
                                         <TableCell sx={{ whiteSpace: 'nowrap', verticalAlign: 'top' }}>
                                           {fmtDate(a.vigenciaInicio)} — {fmtDate(a.vigenciaFim)}
                                         </TableCell>
@@ -1599,7 +1603,7 @@ function VisaoGeral({
             <Typography variant="body2" sx={{ mb: 1 }}>
               Produto: {PRODUTO_LABEL[detailAp.produto]}
               <br />
-              Fornecedor: {detailAp.fornecedor}
+              Operadora: {detailAp.operadora?.nome ?? detailAp.fornecedor}
               <br />
               Subestipulante: {detailAp.subestipulante?.trim() ? detailAp.subestipulante : '—'}
               <br />
@@ -2337,7 +2341,6 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
   const [nexusContratoId, setNexusContratoId] = useState('')
   const [numeroApolice, setNumeroApolice] = useState('')
   const [produto, setProduto] = useState<ApoliceProduto>('OUTROS')
-  const [fornecedor, setFornecedor] = useState('')
   const [operadoraIdNova, setOperadoraIdNova] = useState('')
   const [operadorasCat, setOperadorasCat] = useState<{ id: string; nome: string }[]>([])
   const [novaOperadoraNome, setNovaOperadoraNome] = useState('')
@@ -2389,11 +2392,13 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
   }, [grupoNome, loadingEst, mergedEstRows])
 
   useEffect(() => {
+    if (!open) return
     void (async () => {
       const r = await api<{ operadoras: { id: string; nome: string }[] }>('/seguros/operadoras')
       if (r.ok) setOperadorasCat(r.data?.operadoras ?? [])
+      else onError(r.error || 'Não foi possível carregar o catálogo de operadoras.')
     })()
-  }, [])
+  }, [open, onError])
 
   async function criarOperadoraCatalogo() {
     const nome = novaOperadoraNome.trim()
@@ -2417,7 +2422,6 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
     if (created) {
       setOperadorasCat((prev) => [...prev.filter((o) => o.id !== created.id), { id: created.id, nome: created.nome }].sort((a, b) => a.nome.localeCompare(b.nome)))
       setOperadoraIdNova(created.id)
-      setFornecedor(created.nome)
       setNovaOperadoraNome('')
     }
   }
@@ -2532,7 +2536,6 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
     setNexusContratoId('')
     setNumeroApolice('')
     setProduto('OUTROS')
-    setFornecedor('')
     setOperadoraIdNova('')
     setNovaOperadoraNome('')
     setSubRows([novaApoliceSubRowVazia()])
@@ -2549,7 +2552,6 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
     setNexusContratoId(c.nexusContratoId)
     setNumeroApolice(c.numero)
     setProduto('OUTROS')
-    setFornecedor('')
     setOperadoraIdNova('')
     setNovaOperadoraNome('')
     setSubRows([novaApoliceSubRowVazia()])
@@ -2573,15 +2575,15 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
       }))
       .filter((r) => r.razaoSocial.length > 0)
 
-    if (!operadoraIdNova.trim() && !fornecedor.trim()) {
+    if (!operadoraIdNova.trim()) {
       setSaving(false)
-      onError('Selecione a operadora no catálogo ou informe o fornecedor em texto.')
+      onError('Selecione a operadora no catálogo.')
       return
     }
 
     const base: Record<string, unknown> = {
       produto,
-      ...(operadoraIdNova.trim() ? { operadoraId: operadoraIdNova.trim() } : { fornecedor: fornecedor.trim() }),
+      operadoraId: operadoraIdNova.trim(),
       ...(subPayload.length > 0 ? { subestipulantes: subPayload } : {}),
       plano: showPlano ? plano.trim() : null,
       coberturas: showCoberturas ? coberturas.trim() : null,
@@ -2709,7 +2711,7 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
                 <TableCell>Nº apólice</TableCell>
                 <TableCell>Contrato Nexus</TableCell>
                 <TableCell>Produto</TableCell>
-                <TableCell>Fornecedor</TableCell>
+                <TableCell>Operadora</TableCell>
                 <TableCell>Subestipulantes</TableCell>
                 <TableCell>Plano</TableCell>
                 <TableCell>Coberturas</TableCell>
@@ -2755,7 +2757,7 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
                       {row.a.nexusContratoId ?? '—'}
                     </TableCell>
                     <TableCell>{PRODUTO_LABEL[row.a.produto]}</TableCell>
-                    <TableCell>{row.a.operadora?.nome ?? row.a.fornecedor}</TableCell>
+                    <TableCell>{row.a.operadora?.nome ?? row.a.fornecedor ?? '—'}</TableCell>
                     <TableCell sx={{ maxWidth: 220 }}>{resumoSubestipulantesEmLista(row.a)}</TableCell>
                     <TableCell sx={{ maxWidth: 160 }}>{row.a.plano ?? '—'}</TableCell>
                     <TableCell sx={{ maxWidth: 200 }}>{row.a.coberturas ?? '—'}</TableCell>
@@ -2851,21 +2853,16 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
                 <MenuItem value="OUTROS">Outros</MenuItem>
               </Select>
             </FormControl>
-            <FormControl fullWidth size="small">
-              <InputLabel id="op-nova-ap">Operadora (catálogo)</InputLabel>
+            <FormControl fullWidth required size="small" sx={{ gridColumn: { sm: 'span 2' } }}>
+              <InputLabel id="op-nova-ap">Operadora</InputLabel>
               <Select
                 labelId="op-nova-ap"
-                label="Operadora (catálogo)"
+                label="Operadora"
                 value={operadoraIdNova}
-                onChange={(e: SelectChangeEvent) => {
-                  const v = e.target.value
-                  setOperadoraIdNova(v)
-                  const op = operadorasCat.find((o) => o.id === v)
-                  if (op) setFornecedor(op.nome)
-                }}
+                onChange={(e: SelectChangeEvent) => setOperadoraIdNova(e.target.value)}
               >
                 <MenuItem value="">
-                  <em>Outra — usar texto livre abaixo</em>
+                  <em>Selecione…</em>
                 </MenuItem>
                 {operadorasCat.map((o) => (
                   <MenuItem key={o.id} value={o.id}>
@@ -2874,20 +2871,6 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
                 ))}
               </Select>
             </FormControl>
-            <TextField
-              label={operadoraIdNova ? 'Fornecedor (catálogo)' : 'Fornecedor (texto livre)'}
-              value={fornecedor}
-              onChange={(e) => setFornecedor(e.target.value)}
-              fullWidth
-              disabled={!!operadoraIdNova}
-              required={!operadoraIdNova}
-              sx={{ gridColumn: { sm: 'span 2' } }}
-              helperText={
-                operadoraIdNova
-                  ? 'Sincronizado com a operadora selecionada.'
-                  : 'Quando não existir no catálogo, preencha aqui ou peça a um administrador para adicionar ao catálogo.'
-              }
-            />
             {isAdmin ? (
               <Stack
                 direction={{ xs: 'column', sm: 'row' }}
@@ -3020,7 +3003,7 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
           <Button onClick={() => setOpen(false)}>Cancelar</Button>
           <Button
             variant="contained"
-            disabled={saving || !numeroOk || !fornecedor.trim()}
+            disabled={saving || !numeroOk || !operadoraIdNova.trim()}
             onClick={() => void saveNew()}
           >
             Guardar

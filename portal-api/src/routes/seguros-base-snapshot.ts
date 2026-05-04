@@ -80,6 +80,8 @@ async function sendImportResult(
 
         apolices: parsed.apolices.length,
 
+        apolicePlanoLinhas: parsed.apolicePlanoLinhas.length,
+
         itens: parsed.itens.length,
 
       },

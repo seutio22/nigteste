@@ -1,7 +1,7 @@
 /**
  * Export / import do snapshot de seguros em Excel (.xlsx).
- * Folhas: _portal (metadados), Leia-me, grupos, estipulantes, apolices, apolice_comissionamentos,
- * apolice_fees, itens.
+ * Folhas: _portal (metadados), Leia-me, grupos, estipulantes, operadoras, apolices, apolice_planos
+ * (opcional na importação), apolice_comissionamentos, apolice_fees, itens.
  */
 import ExcelJS from 'exceljs'
 import { PortalGrupoEconomicoClassificacao } from '@prisma/client'
@@ -13,7 +13,9 @@ import {
 
 const SHEET_GRUPOS = 'grupos'
 const SHEET_EST = 'estipulantes'
+const SHEET_OPERADORAS = 'operadoras'
 const SHEET_AP = 'apolices'
+const SHEET_AP_PLANOS = 'apolice_planos'
 const SHEET_AP_COM = 'apolice_comissionamentos'
 const SHEET_AP_FEE = 'apolice_fees'
 const SHEET_IT = 'itens'
@@ -52,7 +54,6 @@ export const AP_HEADERS = [
   'numeroApolice',
   'produto',
   'operadoraId',
-  'fornecedor',
   'subestipulante',
   'plano',
   'coberturas',
@@ -61,6 +62,21 @@ export const AP_HEADERS = [
   'observacoes',
   'active',
   'importadoNexusEm',
+  'createdAt',
+  'updatedAt',
+] as const
+
+export const OPERADORA_HEADERS = ['id', 'nome', 'active', 'sortOrder', 'createdAt', 'updatedAt'] as const
+
+/** Vários planos por apólice: tipoCusto CUSTO_MEDIO | FAIXA_ETARIA; valoresPorFaixa = JSON (chaves de faixa etária). */
+export const AP_PLANO_HEADERS = [
+  'id',
+  'apoliceId',
+  'sortOrder',
+  'codigoPlano',
+  'tipoCusto',
+  'custoMedio',
+  'valoresPorFaixa',
   'createdAt',
   'updatedAt',
 ] as const
@@ -286,6 +302,63 @@ function mapEstRow(o: Record<string, unknown>) {
   }
 }
 
+function parseTipoCustoPlanoCell(v: unknown): string {
+  const raw = str(v).trim().toUpperCase().replace(/\s+/g, '_')
+  if (raw.includes('FAIXA') && raw.includes('ETAR')) return 'FAIXA_ETARIA'
+  if (raw.includes('CUSTO') && raw.includes('MED')) return 'CUSTO_MEDIO'
+  return raw
+}
+
+function parseValoresPorFaixaCell(v: unknown): Record<string, number | null> | null {
+  if (v == null || v === '') return null
+  if (typeof v === 'object' && !Array.isArray(v)) {
+    const o = v as Record<string, unknown>
+    const out: Record<string, number | null> = {}
+    for (const [k, val] of Object.entries(o)) {
+      if (val === null || val === '') out[k] = null
+      else {
+        const n = typeof val === 'number' ? val : Number(String(val).replace(/\s/g, '').replace(',', '.'))
+        out[k] = Number.isFinite(n) ? n : null
+      }
+    }
+    return out
+  }
+  const s = String(v).trim()
+  if (!s) return null
+  try {
+    const j = JSON.parse(s) as unknown
+    if (!j || typeof j !== 'object' || Array.isArray(j)) return null
+    return parseValoresPorFaixaCell(j)
+  } catch {
+    return null
+  }
+}
+
+function mapOperadoraRow(o: Record<string, unknown>) {
+  return {
+    id: str(o.id),
+    nome: str(o.nome),
+    active: parseBool(o.active),
+    sortOrder: parseIntOrder(o.sortOrder),
+    createdAt: optionalIso(o.createdAt),
+    updatedAt: optionalIso(o.updatedAt),
+  }
+}
+
+function mapPlanoLinhaRow(o: Record<string, unknown>) {
+  return {
+    id: str(o.id),
+    apoliceId: str(o.apoliceId),
+    sortOrder: parseIntOrder(o.sortOrder),
+    codigoPlano: str(o.codigoPlano),
+    tipoCusto: parseTipoCustoPlanoCell(o.tipoCusto),
+    custoMedio: optionalNumber(o.custoMedio),
+    valoresPorFaixa: parseValoresPorFaixaCell(o.valoresPorFaixa),
+    createdAt: optionalIso(o.createdAt),
+    updatedAt: optionalIso(o.updatedAt),
+  }
+}
+
 function mapApRow(o: Record<string, unknown>) {
   return {
     id: str(o.id),
@@ -294,8 +367,8 @@ function mapApRow(o: Record<string, unknown>) {
     numeroApolice: str(o.numeroApolice),
     produto: str(o.produto),
     operadoraId: strNull(o.operadoraId),
-    fornecedor: str(o.fornecedor),
-    subestipulante: str(o.subestipulante),
+    fornecedor: '',
+    subestipulante: strNull(o.subestipulante),
     plano: strNull(o.plano),
     coberturas: strNull(o.coberturas),
     vigenciaInicio: optionalIso(o.vigenciaInicio),
@@ -365,12 +438,15 @@ export async function segurosSnapshotToExcelBuffer(snapshot: SegurosBaseSnapshot
     ['• produto: SAUDE | ODONTO | VIDA_GRUPO | OUTROS'],
     ['• tipo (itens): COBERTURA | SERVICO | CLAUSULA | OUTRO'],
     [
-      '• Folhas opcionais na importação: apolice_comissionamentos, apolice_fees (se ausentes, tratadas como vazias).',
+      '• Folhas opcionais na importação: operadoras, apolice_planos, apolice_comissionamentos, apolice_fees (ausentes = vazias).',
     ],
     [
       '• Colunas agenciamento*/vitalicio* (consultoria/corretor): texto JSON com exatamente 12 percentuais, ex. [0,0,8.33,8.33,…].',
     ],
-    ['• Coluna operadoraId em apolices: UUID no catálogo (opcional; ficheiros antigos sem esta coluna continuam válidos).'],
+    ['• apolices.operadoraId: UUID obrigatório (catálogo). O nome da operadora é derivado na gravação; não use coluna «fornecedor» (legada).'],
+    [
+      '• apolice_planos: várias linhas por apólice; tipoCusto CUSTO_MEDIO ou FAIXA_ETARIA; valoresPorFaixa = objeto JSON (exportado como texto).',
+    ],
     ['• Após editar: importe de novo na Visão geral; a análise indica inconsistências antes de gravar.'],
     [''],
     [`schemaVersion exportado: ${snapshot.schemaVersion}`],
@@ -420,7 +496,7 @@ export async function segurosSnapshotToExcelBuffer(snapshot: SegurosBaseSnapshot
         col.numFmt = '@'
       }
       if (
-        ['agenciamentoConsultoria', 'vitalicioConsultoria', 'agenciamentoCorretor', 'vitalicioCorretor'].includes(h)
+        ['agenciamentoConsultoria', 'vitalicioConsultoria', 'agenciamentoCorretor', 'vitalicioCorretor', 'valoresPorFaixa'].includes(h)
       ) {
         col.width = 56
       } else {
@@ -445,9 +521,31 @@ export async function segurosSnapshotToExcelBuffer(snapshot: SegurosBaseSnapshot
     }),
   )
 
+  addTable(SHEET_OPERADORAS, OPERADORA_HEADERS, snapshot.operadoras ?? [], (o) =>
+    OPERADORA_HEADERS.map((k) => {
+      const v = (o as Record<string, unknown>)[k]
+      if (v instanceof Date) return v.toISOString()
+      if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE'
+      return v ?? ''
+    }),
+  )
+
   addTable(SHEET_AP, AP_HEADERS, snapshot.apolices, (a) =>
     AP_HEADERS.map((k) => {
       const v = (a as Record<string, unknown>)[k]
+      if (v instanceof Date) return v.toISOString()
+      return v ?? ''
+    }),
+  )
+
+  addTable(SHEET_AP_PLANOS, AP_PLANO_HEADERS, snapshot.apolicePlanoLinhas ?? [], (p) =>
+    AP_PLANO_HEADERS.map((k) => {
+      const v = (p as Record<string, unknown>)[k]
+      if (k === 'valoresPorFaixa') {
+        if (v == null) return ''
+        if (typeof v === 'object' && !Array.isArray(v)) return JSON.stringify(v)
+        return String(v)
+      }
       if (v instanceof Date) return v.toISOString()
       return v ?? ''
     }),
@@ -539,21 +637,30 @@ export async function parseSegurosBaseExcelBuffer(buffer: Uint8Array): Promise<E
     return {
       ok: false,
       error:
-        'Folhas em falta. Obrigatórias: grupos, estipulantes, apolices, itens. Opcionais: apolice_comissionamentos, apolice_fees. Exporte um modelo a partir do portal.',
+        'Folhas em falta. Obrigatórias: grupos, estipulantes, apolices, itens. Opcionais: operadoras, apolice_planos, apolice_comissionamentos, apolice_fees. Exporte um modelo a partir do portal.',
     }
   }
 
   const rg = sheetToRows(wsG, GRUPO_HEADERS, { optionalHeaders: new Set(['classificacao']) })
   const re = sheetToRows(wsE, EST_HEADERS, { optionalHeaders: new Set(['cnae']) })
-  const ra = sheetToRows(wsA, AP_HEADERS, { optionalHeaders: new Set(['operadoraId']) })
+  const ra = sheetToRows(wsA, AP_HEADERS)
   const ri = sheetToRows(wsI, IT_HEADERS)
+
+  const wsOp = findSheet(wb, SHEET_OPERADORAS)
+  const ro = wsOp
+    ? sheetToRows(wsOp, OPERADORA_HEADERS)
+    : { rows: [] as Record<string, unknown>[], errors: [] as string[] }
+  const wsPlan = findSheet(wb, SHEET_AP_PLANOS)
+  const rpl = wsPlan
+    ? sheetToRows(wsPlan, AP_PLANO_HEADERS)
+    : { rows: [] as Record<string, unknown>[], errors: [] as string[] }
 
   const wsCom = findSheet(wb, SHEET_AP_COM)
   const rc = wsCom ? sheetToRows(wsCom, AP_COM_HEADERS) : { rows: [] as Record<string, unknown>[], errors: [] as string[] }
   const wsFee = findSheet(wb, SHEET_AP_FEE)
   const rf = wsFee ? sheetToRows(wsFee, AP_FEE_HEADERS) : { rows: [] as Record<string, unknown>[], errors: [] as string[] }
 
-  const structural = [...rg.errors, ...re.errors, ...ra.errors, ...ri.errors, ...rc.errors, ...rf.errors]
+  const structural = [...rg.errors, ...re.errors, ...ra.errors, ...ri.errors, ...ro.errors, ...rpl.errors, ...rc.errors, ...rf.errors]
   if (structural.length) {
     return { ok: false, error: structural.join(' ') }
   }
@@ -563,7 +670,9 @@ export async function parseSegurosBaseExcelBuffer(buffer: Uint8Array): Promise<E
     exportedAt: exportedAt ?? new Date().toISOString(),
     grupos: rg.rows.map(mapGrupoRow),
     estipulantes: re.rows.map(mapEstRow),
+    operadoras: ro.rows.map(mapOperadoraRow),
     apolices: ra.rows.map(mapApRow),
+    apolicePlanoLinhas: rpl.rows.map(mapPlanoLinhaRow),
     apoliceComissionamentos: rc.rows.map(mapComRow),
     apoliceFees: rf.rows.map(mapFeeRow),
     itens: ri.rows.map(mapItRow),

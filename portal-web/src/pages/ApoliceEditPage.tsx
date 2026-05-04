@@ -381,7 +381,6 @@ export default function ApoliceEditPage() {
   const [nexusContratoId, setNexusContratoId] = useState('')
   const [numeroApolice, setNumeroApolice] = useState('')
   const [produto, setProduto] = useState<ApoliceProduto>('OUTROS')
-  const [fornecedor, setFornecedor] = useState('')
   const [subRows, setSubRows] = useState<SubRowForm[]>([subRowVazia()])
   const [plano, setPlano] = useState('')
   const [coberturas, setCoberturas] = useState('')
@@ -473,12 +472,21 @@ export default function ApoliceEditPage() {
     }
     setLoading(true)
     setErr(null)
-    const r = await api<{ apolice: ApoliceDetalhe }>(`/seguros/apolices/${encodeURIComponent(apoliceId)}`)
+    const [r, rOp] = await Promise.all([
+      api<{ apolice: ApoliceDetalhe }>(`/seguros/apolices/${encodeURIComponent(apoliceId)}`),
+      api<{ operadoras: OperadoraOpt[] }>('/seguros/operadoras'),
+    ])
     if (!r.ok) {
       setLoading(false)
       setErr(r.error || 'Erro ao carregar apólice.')
       setCab(null)
       return
+    }
+    if (rOp.ok) {
+      setOperadoras(rOp.data?.operadoras ?? [])
+    } else {
+      setOperadoras([])
+      setErr(rOp.error || 'Não foi possível carregar o catálogo de operadoras.')
     }
     const ap = r.data!.apolice
     setCab(ap)
@@ -492,7 +500,6 @@ export default function ApoliceEditPage() {
     setNexusContratoId(ap.nexusContratoId ?? '')
     setNumeroApolice(ap.numeroApolice)
     setProduto(ap.produto)
-    setFornecedor(ap.fornecedor)
     setOperadoraId(ap.operadoraId ?? '')
     const com = ap.comissionamento
     if (com) {
@@ -559,13 +566,6 @@ export default function ApoliceEditPage() {
   }, [load])
 
   useEffect(() => {
-    void (async () => {
-      const r = await api<{ operadoras: OperadoraOpt[] }>('/seguros/operadoras')
-      if (r.ok) setOperadoras(r.data?.operadoras ?? [])
-    })()
-  }, [])
-
-  useEffect(() => {
     if (modelo === 'PLANO' && linhas.length === 0) setLinhas([linhaFormVazia()])
   }, [modelo, linhas.length])
 
@@ -591,7 +591,6 @@ export default function ApoliceEditPage() {
     if (created) {
       setOperadoras((prev) => [...prev, created].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')))
       setOperadoraId(created.id)
-      setFornecedor(created.nome)
       setNovaOperadoraNome('')
     }
   }
@@ -613,8 +612,8 @@ export default function ApoliceEditPage() {
     if (!apoliceId || !isAdmin) return
     setErr(null)
 
-    if ((!operadoraId.trim() && !fornecedor.trim()) || !numeroOk || !estipulanteIdEdit) {
-      setErr('Selecione a operadora no catálogo ou preencha o fornecedor em texto, além do estipulante e número da apólice.')
+    if (!operadoraId.trim() || !numeroOk || !estipulanteIdEdit) {
+      setErr('Selecione a operadora no catálogo, além do estipulante e número da apólice.')
       return
     }
 
@@ -752,14 +751,8 @@ export default function ApoliceEditPage() {
       trGerente: trGerente.trim() || null,
       trExecutivoConsultor: trExecutivoConsultor.trim() || null,
       trAnalista: trAnalista.trim() || null,
+      operadoraId: operadoraId.trim(),
     }
-    if (operadoraId.trim()) {
-      patchBody.operadoraId = operadoraId.trim()
-    } else {
-      patchBody.operadoraId = null
-      patchBody.fornecedor = fornecedor.trim()
-    }
-
     setSaving(true)
     const rPatch = await api(`/seguros/apolices/${encodeURIComponent(apoliceId)}`, {
       method: 'PATCH',
@@ -968,21 +961,16 @@ export default function ApoliceEditPage() {
                     <MenuItem value="OUTROS">Outros</MenuItem>
                   </Select>
                 </FormControl>
-                <FormControl fullWidth size="small" disabled={!isAdmin}>
-                  <InputLabel id="op-ap">Operadora (catálogo)</InputLabel>
+                <FormControl fullWidth required size="small" disabled={!isAdmin}>
+                  <InputLabel id="op-ap">Operadora</InputLabel>
                   <Select
                     labelId="op-ap"
-                    label="Operadora (catálogo)"
+                    label="Operadora"
                     value={operadoraId}
-                    onChange={(e: SelectChangeEvent) => {
-                      const v = e.target.value
-                      setOperadoraId(v)
-                      const op = operadoras.find((o) => o.id === v)
-                      if (op) setFornecedor(op.nome)
-                    }}
+                    onChange={(e: SelectChangeEvent) => setOperadoraId(e.target.value)}
                   >
                     <MenuItem value="">
-                      <em>Outra — usar texto livre abaixo</em>
+                      <em>Selecione…</em>
                     </MenuItem>
                     {operadoras.map((o) => (
                       <MenuItem key={o.id} value={o.id}>
@@ -991,20 +979,6 @@ export default function ApoliceEditPage() {
                     ))}
                   </Select>
                 </FormControl>
-                <TextField
-                  label={operadoraId ? 'Fornecedor (catálogo)' : 'Fornecedor (texto livre)'}
-                  value={fornecedor}
-                  onChange={(e) => setFornecedor(e.target.value)}
-                  disabled={!isAdmin || !!operadoraId}
-                  fullWidth
-                  size="small"
-                  required={!operadoraId}
-                  helperText={
-                    operadoraId
-                      ? 'Sincronizado com a operadora selecionada.'
-                      : 'Quando não existir no catálogo, preencha aqui ou crie a operadora abaixo.'
-                  }
-                />
                 {isAdmin ? (
                   <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }} sx={{ gridColumn: { sm: 'span 2' } }}>
                     <TextField

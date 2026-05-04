@@ -180,10 +180,8 @@ const createApoliceSchema = z
     numeroApolice: z.string().max(120).optional().nullable(),
     nexusContratoId: z.string().max(120).optional().nullable(),
     produto: produtoSchema,
-    /** Catálogo PortalSeguroOperadora; se preenchido, o nome gravado em `fornecedor` copia o catálogo. */
-    operadoraId: uuid.optional().nullable(),
-    /** Texto livre só quando não há `operadoraId`. */
-    fornecedor: z.string().max(500).optional().nullable(),
+    /** Obrigatório: catálogo PortalSeguroOperadora; o nome gravado em `fornecedor` copia o catálogo. */
+    operadoraId: uuid,
     subestipulante: z.string().max(500).optional().nullable(),
     subestipulantes: z.array(subestipulanteRowInputSchema).max(200).optional(),
     plano: z.string().max(2000).optional().nullable(),
@@ -202,12 +200,10 @@ const createApoliceSchema = z
         path: ['numeroApolice'],
       })
     }
-    const hasOp = !!(data.operadoraId ?? '').toString().trim()
-    const hasForn = !!(data.fornecedor ?? '').toString().trim()
-    if (!hasOp && !hasForn) {
+    if (!data.operadoraId?.trim()) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'Selecione a operadora no catálogo ou informe o fornecedor em texto.',
+        message: 'Selecione a operadora no catálogo.',
         path: ['operadoraId'],
       })
     }
@@ -228,8 +224,7 @@ const patchApoliceSchema = z
     numeroApolice: z.string().min(1).max(120).optional(),
     nexusContratoId: z.string().max(120).optional().nullable(),
     produto: produtoSchema.optional(),
-    operadoraId: uuid.optional().nullable(),
-    fornecedor: z.string().min(1).max(500).optional(),
+    operadoraId: uuid.optional(),
     subestipulante: z.string().max(500).optional().nullable(),
     subestipulantes: z.array(subestipulanteRowInputSchema).max(200).optional(),
     faturasMensais: z.array(faturaMesInputSchema).max(500).optional(),
@@ -1030,6 +1025,8 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
       active: true,
       numeroApolice: true,
       produto: true,
+      operadoraId: true,
+      operadora: { select: { id: true, nome: true } },
       fornecedor: true,
       subestipulante: true,
       plano: true,
@@ -1484,17 +1481,13 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
 
     const { plano, coberturas } = normalizeApolicePayload(body)
 
-    let fornecedorStr = (body.fornecedor ?? '').trim()
-    const operadoraIdCreate = body.operadoraId?.trim() || null
-    if (operadoraIdCreate) {
-      const op = await prisma.portalSeguroOperadora.findFirst({
-        where: { id: operadoraIdCreate, active: true },
-      })
-      if (!op) return reply.code(400).send({ error: 'Operadora não encontrada ou inativa.' })
-      fornecedorStr = op.nome
-    } else if (!fornecedorStr) {
-      return reply.code(400).send({ error: 'Selecione a operadora ou informe o fornecedor.' })
-    }
+    let fornecedorStr: string
+    const operadoraIdCreate = body.operadoraId.trim()
+    const op = await prisma.portalSeguroOperadora.findFirst({
+      where: { id: operadoraIdCreate, active: true },
+    })
+    if (!op) return reply.code(400).send({ error: 'Operadora não encontrada ou inativa.' })
+    fornecedorStr = op.nome
 
     const subRows =
       body.subestipulantes && body.subestipulantes.length > 0
@@ -1833,18 +1826,16 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
     if (body.produto !== undefined) data.produto = body.produto
 
     if (body.operadoraId !== undefined) {
-      if (body.operadoraId === null) {
-        data.operadora = { disconnect: true }
-      } else {
-        const op = await prisma.portalSeguroOperadora.findFirst({
-          where: { id: body.operadoraId, active: true },
-        })
-        if (!op) return reply.code(400).send({ error: 'Operadora não encontrada ou inativa.' })
-        data.operadora = { connect: { id: op.id } }
-        data.fornecedor = op.nome
+      const oid = body.operadoraId.trim()
+      if (!oid) {
+        return reply.code(400).send({ error: 'Operadora é obrigatória. Selecione uma opção no catálogo.' })
       }
-    } else     if (body.fornecedor !== undefined) {
-      data.fornecedor = body.fornecedor.trim()
+      const op = await prisma.portalSeguroOperadora.findFirst({
+        where: { id: oid, active: true },
+      })
+      if (!op) return reply.code(400).send({ error: 'Operadora não encontrada ou inativa.' })
+      data.operadora = { connect: { id: op.id } }
+      data.fornecedor = op.nome
     }
 
     if (body.trCone !== undefined) data.trCone = body.trCone

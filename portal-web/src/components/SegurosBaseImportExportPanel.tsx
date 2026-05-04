@@ -62,7 +62,7 @@ type DryRunResponse = {
 
   schemaVersion: number
 
-  counts: { grupos: number; estipulantes: number; apolices: number; itens: number }
+  counts: { grupos: number; estipulantes: number; apolices: number; itens: number; apolicePlanoLinhas?: number }
 
   statsIfApplied: {
 
@@ -73,6 +73,8 @@ type DryRunResponse = {
     apolices: { create: number; update: number }
 
     itens: { create: number; update: number }
+
+    apolicePlanoLinhas?: { rows: number }
 
   }
 
@@ -101,6 +103,8 @@ type ApplyResponse = {
     apolices: { create: number; update: number }
 
     itens: { create: number; update: number }
+
+    apolicePlanoLinhas?: { rows: number }
 
   }
 
@@ -290,7 +294,7 @@ export default function SegurosBaseImportExportPanel() {
 
         Na <strong>visão geral</strong>, exporta ou importa <strong>grupos económicos</strong>, <strong>estipulantes</strong>,{' '}
 
-        <strong>apólices</strong> e <strong>itens</strong> em ficheiro <strong>Excel (.xlsx)</strong>, com várias folhas. Ao importar, a{' '}
+        <strong>apólices</strong>, <strong>planos por apólice</strong> e <strong>itens</strong> em ficheiro <strong>Excel (.xlsx)</strong>, com várias folhas. Ao importar, a{' '}
 
         <strong>simulação</strong> lista <strong>erros bloqueantes</strong> e <strong>avisos</strong> (chaves, referências, vigências, produto) e cruza com a
 
@@ -400,6 +404,9 @@ export default function SegurosBaseImportExportPanel() {
 
             <Chip size="small" label={`${dryResult.counts.apolices} apólices`} variant="outlined" />
 
+            <Chip size="small" label={`${dryResult.counts.apolicePlanoLinhas ?? 0} linhas de plano`} variant="outlined" />
+
+
             <Chip size="small" label={`${dryResult.counts.itens} itens`} variant="outlined" />
 
             <Chip
@@ -420,7 +427,9 @@ export default function SegurosBaseImportExportPanel() {
 
             estipulantes +{dryResult.statsIfApplied.estipulantes.create}/~{dryResult.statsIfApplied.estipulantes.update},{' '}
 
-            apólices +{dryResult.statsIfApplied.apolices.create}/~{dryResult.statsIfApplied.apolices.update}, itens +
+            apólices +{dryResult.statsIfApplied.apolices.create}/~{dryResult.statsIfApplied.apolices.update}, linhas de plano{' '}
+
+            {dryResult.statsIfApplied.apolicePlanoLinhas?.rows ?? 0}, itens +
 
             {dryResult.statsIfApplied.itens.create}/~{dryResult.statsIfApplied.itens.update}.
 
@@ -517,6 +526,8 @@ export default function SegurosBaseImportExportPanel() {
             estipulantes: +{applyResult.applied.estipulantes.create} / atual. {applyResult.applied.estipulantes.update},{' '}
 
             apólices: +{applyResult.applied.apolices.create} / atual. {applyResult.applied.apolices.update},{' '}
+
+            linhas de plano gravadas: {applyResult.applied.apolicePlanoLinhas?.rows ?? 0},{' '}
 
             itens: +{applyResult.applied.itens.create} / atual. {applyResult.applied.itens.update}.
 

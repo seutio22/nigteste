@@ -4,13 +4,15 @@
  */
 import {
   PortalApoliceProduto,
+  PortalApoliceTipoCustoPlano,
   PortalGrupoEconomicoClassificacao,
   PortalSeguroConeRegiao,
   PortalSeguroItemTipo,
   PortalSubestipulanteStatus,
-  type Prisma,
+  Prisma,
 } from '@prisma/client'
 import { z } from 'zod'
+import { normalizarValoresPorFaixa } from './apolice-planos-faixas.js'
 import { prisma } from './prisma.js'
 
 export const SEGUROS_BASE_SNAPSHOT_VERSION = 2 as const
@@ -121,6 +123,20 @@ const operadoraRowSchema = z.object({
   updatedAt: dateish.optional(),
 })
 
+const tipoCustoPlanoSchema = z.nativeEnum(PortalApoliceTipoCustoPlano)
+
+const apolicePlanoLinhaRowSchema = z.object({
+  id: uuid,
+  apoliceId: uuid,
+  sortOrder: z.number().int().min(0).max(99999).optional().default(0),
+  codigoPlano: z.string().min(1).max(200),
+  tipoCusto: tipoCustoPlanoSchema,
+  custoMedio: z.number().nonnegative().nullable().optional(),
+  valoresPorFaixa: z.record(z.string(), z.number().nullable()).nullable().optional(),
+  createdAt: dateish.optional(),
+  updatedAt: dateish.optional(),
+})
+
 const apoliceRowSchema = z.object({
   id: uuid,
   estipulanteId: uuid,
@@ -128,7 +144,8 @@ const apoliceRowSchema = z.object({
   numeroApolice: z.string().max(120),
   produto: produtoSchema,
   operadoraId: uuid.nullable().optional(),
-  fornecedor: z.string().max(500),
+  /** Mantido para compatibilidade de export; em novas linhas use operadoraId (catálogo). */
+  fornecedor: z.string().max(500).optional().default(''),
   subestipulante: z.string().max(500).nullable().optional(),
   plano: z.string().max(2000).nullable().optional(),
   coberturas: z.string().max(8000).nullable().optional(),
@@ -218,6 +235,8 @@ export const segurosBaseSnapshotBodySchema = z.object({
   apoliceFaturasMensais: z.array(apoliceFaturaRowSchema).optional().default([]),
   apoliceComissionamentos: z.array(apoliceComissionamentoRowSchema).optional().default([]),
   apoliceFees: z.array(apoliceFeeRowSchema).optional().default([]),
+  /** Vários planos estruturados por apólice (código + custo médio ou faixas etárias). */
+  apolicePlanoLinhas: z.array(apolicePlanoLinhaRowSchema).optional().default([]),
   itens: z.array(itemRowSchema),
 })
 
@@ -242,6 +261,8 @@ export type SegurosBaseImportStats = {
   apoliceFaturasMensais: { create: number; update: number }
   apoliceComissionamentos: { create: number; update: number }
   apoliceFees: { create: number; update: number }
+  /** Linhas de plano gravadas após substituição por apólice (só apólices presentes em apolicePlanoLinhas). */
+  apolicePlanoLinhas: { rows: number }
   itens: { create: number; update: number }
 }
 
@@ -256,6 +277,7 @@ export async function buildSegurosBaseSnapshot(): Promise<SegurosBaseSnapshotPar
     apoliceComissionamentos,
     apoliceFees,
     itens,
+    apolicePlanoLinhasDb,
   ] = await Promise.all([
     prisma.portalGrupoEconomico.findMany({ orderBy: { nome: 'asc' } }),
     prisma.portalSeguroEstipulante.findMany({ orderBy: [{ grupoEconomicoNome: 'asc' }, { razaoSocial: 'asc' }] }),
@@ -270,6 +292,9 @@ export async function buildSegurosBaseSnapshot(): Promise<SegurosBaseSnapshotPar
     prisma.portalSeguroApoliceComissionamento.findMany({ orderBy: { apoliceId: 'asc' } }),
     prisma.portalSeguroApoliceFee.findMany({ orderBy: { apoliceId: 'asc' } }),
     prisma.portalSeguroApoliceItem.findMany({ orderBy: [{ apoliceId: 'asc' }, { sortOrder: 'asc' }] }),
+    prisma.portalSeguroApolicePlanoLinha.findMany({
+      orderBy: [{ apoliceId: 'asc' }, { sortOrder: 'asc' }, { codigoPlano: 'asc' }],
+    }),
   ])
 
   return {
@@ -376,6 +401,17 @@ export async function buildSegurosBaseSnapshot(): Promise<SegurosBaseSnapshotPar
       feeCorretorParceiro: fee.feeCorretorParceiro != null ? Number(fee.feeCorretorParceiro) : null,
       createdAt: fee.createdAt,
       updatedAt: fee.updatedAt,
+    })),
+    apolicePlanoLinhas: apolicePlanoLinhasDb.map((r) => ({
+      id: r.id,
+      apoliceId: r.apoliceId,
+      sortOrder: r.sortOrder,
+      codigoPlano: r.codigoPlano,
+      tipoCusto: r.tipoCusto,
+      custoMedio: r.custoMedio != null ? Number(r.custoMedio) : null,
+      valoresPorFaixa: (r.valoresPorFaixa as Record<string, number | null> | null) ?? null,
+      createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
     })),
     itens: itens.map((i) => ({
       id: i.id,
@@ -582,15 +618,32 @@ export async function analyzeSegurosBaseSnapshot(data: SegurosBaseSnapshotParsed
       )
     }
 
-    if (a.operadoraId && !opIds.has(a.operadoraId)) {
+    if (!(a.operadoraId ?? '').toString().trim()) {
       push(
         issues,
         'error',
-        'fk_operadora_snapshot',
-        `Apólice «${num || a.id}» referencia operadoraId ausente em operadoras[] — inclua o registo no snapshot.`,
+        'apolice_sem_operadora',
+        `Apólice «${num || a.id}» sem operadoraId — preencha com um UUID do catálogo (folha operadoras + coluna operadoraId em apolices).`,
         `apolices[${i}].operadoraId`,
-        [a.id, a.operadoraId],
+        [a.id],
       )
+    }
+
+    if (a.operadoraId && !opIds.has(a.operadoraId)) {
+      const inDb = await prisma.portalSeguroOperadora.findUnique({
+        where: { id: a.operadoraId },
+        select: { id: true },
+      })
+      if (!inDb) {
+        push(
+          issues,
+          'error',
+          'fk_operadora_snapshot',
+          `Apólice «${num || a.id}» referencia operadoraId ausente no ficheiro e na base — inclua a operadora na folha «operadoras» ou use um ID existente.`,
+          `apolices[${i}].operadoraId`,
+          [a.id, a.operadoraId],
+        )
+      }
     }
 
     if (num && estIds.has(a.estipulanteId)) {
@@ -747,6 +800,65 @@ export async function analyzeSegurosBaseSnapshot(data: SegurosBaseSnapshotParsed
     } else feePorApolice.set(f.apoliceId, f.id)
   }
 
+  const seenPlano = new Map<string, string>()
+  for (let i = 0; i < data.apolicePlanoLinhas.length; i++) {
+    const p = data.apolicePlanoLinhas[i]
+    if (seenPlano.has(p.id)) {
+      push(
+        issues,
+        'error',
+        'duplicate_id',
+        `ID de linha de plano repetido no ficheiro: ${p.id}`,
+        `apolicePlanoLinhas[${i}]`,
+      )
+    }
+    seenPlano.set(p.id, p.id)
+    if (!apIds.has(p.apoliceId)) {
+      push(
+        issues,
+        'error',
+        'fk_apolice_plano',
+        'Linha de plano referencia apoliceId inexistente no snapshot.',
+        `apolicePlanoLinhas[${i}].apoliceId`,
+        [p.id, p.apoliceId],
+      )
+    }
+    if (p.tipoCusto === PortalApoliceTipoCustoPlano.CUSTO_MEDIO) {
+      const v = p.custoMedio
+      if (v == null || !Number.isFinite(v)) {
+        push(
+          issues,
+          'error',
+          'plano_custo_medio_invalido',
+          `Plano «${p.codigoPlano}»: indique custoMedio numérico quando tipoCusto=CUSTO_MEDIO.`,
+          `apolicePlanoLinhas[${i}].custoMedio`,
+          [p.id, p.apoliceId],
+        )
+      }
+    } else {
+      const norm = normalizarValoresPorFaixa(p.valoresPorFaixa ?? {})
+      if (!norm) {
+        push(
+          issues,
+          'error',
+          'plano_faixas_invalidas',
+          `Plano «${p.codigoPlano}» (FAIXA_ETARIA): coluna valoresPorFaixa deve ser JSON com as chaves de faixa etária esperadas.`,
+          `apolicePlanoLinhas[${i}].valoresPorFaixa`,
+          [p.id, p.apoliceId],
+        )
+      } else if (!Object.values(norm).some((x) => x != null)) {
+        push(
+          issues,
+          'error',
+          'plano_faixas_vazias',
+          `Plano «${p.codigoPlano}» (FAIXA_ETARIA): preencha pelo menos uma faixa com valor.`,
+          `apolicePlanoLinhas[${i}].valoresPorFaixa`,
+          [p.id, p.apoliceId],
+        )
+      }
+    }
+  }
+
   for (let i = 0; i < data.itens.length; i++) {
     const it = data.itens[i]
     if (!apIds.has(it.apoliceId)) {
@@ -901,17 +1013,6 @@ export async function analyzeSegurosBaseSnapshot(data: SegurosBaseSnapshotParsed
         'import_merge_apolice',
         'import_conflict_apolice',
         ent,
-        'fornecedor',
-        `apolices[${i}].fornecedor`,
-        a.fornecedor,
-        ex.fornecedor,
-        [a.id],
-      )
-      warnImportStrDiff(
-        issues,
-        'import_merge_apolice',
-        'import_conflict_apolice',
-        ent,
         'subestipulante (resumo)',
         `apolices[${i}].subestipulante`,
         a.subestipulante,
@@ -964,6 +1065,7 @@ export async function analyzeSegurosBaseSnapshot(data: SegurosBaseSnapshotParsed
     apoliceFaturasMensais: { create: 0, update: 0 },
     apoliceComissionamentos: { create: 0, update: 0 },
     apoliceFees: { create: 0, update: 0 },
+    apolicePlanoLinhas: { rows: data.apolicePlanoLinhas.length },
     itens: { create: 0, update: 0 },
   }
 
@@ -1027,6 +1129,20 @@ export async function analyzeSegurosBaseSnapshot(data: SegurosBaseSnapshotParsed
   return { issues, statsIfApplied }
 }
 
+async function fornecedorNomeParaApolice(
+  tx: Prisma.TransactionClient,
+  operadoraId: string | null | undefined,
+  snapFornecedor: string,
+  exFornecedor: string | null | undefined,
+): Promise<string> {
+  const id = operadoraId?.trim()
+  if (id) {
+    const op = await tx.portalSeguroOperadora.findUnique({ where: { id }, select: { nome: true } })
+    return (op?.nome ?? '').trim() || '—'
+  }
+  return mergeImportFornecedor(snapFornecedor, exFornecedor)
+}
+
 function emptyStats(): SegurosBaseImportStats {
   return {
     grupos: { create: 0, update: 0 },
@@ -1037,6 +1153,7 @@ function emptyStats(): SegurosBaseImportStats {
     apoliceFaturasMensais: { create: 0, update: 0 },
     apoliceComissionamentos: { create: 0, update: 0 },
     apoliceFees: { create: 0, update: 0 },
+    apolicePlanoLinhas: { rows: 0 },
     itens: { create: 0, update: 0 },
   }
 }
@@ -1161,14 +1278,19 @@ export async function applySegurosBaseSnapshot(data: SegurosBaseSnapshotParsed):
         const ex = await tx.portalSeguroApolice.findUnique({ where: { id: a.id } })
         const subRaw = (a.subestipulante ?? '').trim()
         const sub = subRaw && subRaw !== '—' ? subRaw : null
+        const mergedOperadoraId =
+          a.operadoraId != null && String(a.operadoraId).trim() !== ''
+            ? String(a.operadoraId).trim()
+            : ex?.operadoraId ?? null
+        const fornecedorStr = await fornecedorNomeParaApolice(tx, mergedOperadoraId, a.fornecedor ?? '', ex?.fornecedor)
         const dataRow: Prisma.PortalSeguroApoliceUncheckedCreateInput = {
           id: a.id,
           estipulanteId: a.estipulanteId,
           nexusContratoId: a.nexusContratoId?.trim() || null,
           numeroApolice: (a.numeroApolice ?? '').trim() || (a.nexusContratoId?.trim() ? `nx:${a.nexusContratoId!.trim()}` : '—'),
           produto: a.produto,
-          operadoraId: a.operadoraId ?? null,
-          fornecedor: (a.fornecedor ?? '').trim() || '—',
+          operadoraId: mergedOperadoraId,
+          fornecedor: fornecedorStr,
           subestipulante: sub,
           plano: a.plano?.trim() || null,
           coberturas: a.coberturas?.trim() || null,
@@ -1200,9 +1322,8 @@ export async function applySegurosBaseSnapshot(data: SegurosBaseSnapshotParsed):
                 (a.nexusContratoId?.trim() ? `nx:${a.nexusContratoId!.trim()}` : '') ||
                 ex.numeroApolice,
               produto: a.produto,
-              operadoraId:
-                a.operadoraId != null && String(a.operadoraId).trim() !== '' ? a.operadoraId : ex.operadoraId,
-              fornecedor: mergeImportFornecedor(a.fornecedor, ex.fornecedor),
+              operadoraId: mergedOperadoraId,
+              fornecedor: fornecedorStr,
               subestipulante: mergedSub,
               plano: mergeImportOptionalString(a.plano, ex.plano),
               coberturas: mergeImportOptionalString(a.coberturas, ex.coberturas),
@@ -1374,6 +1495,39 @@ export async function applySegurosBaseSnapshot(data: SegurosBaseSnapshotParsed):
           })
           stats.apoliceFees.create++
         }
+      }
+
+      const planoPorAp = new Map<string, typeof data.apolicePlanoLinhas>()
+      for (const row of data.apolicePlanoLinhas) {
+        const list = planoPorAp.get(row.apoliceId)
+        if (list) list.push(row)
+        else planoPorAp.set(row.apoliceId, [row])
+      }
+      for (const [apId, rows] of planoPorAp) {
+        const sorted = [...rows].sort((x, y) => (x.sortOrder ?? 0) - (y.sortOrder ?? 0))
+        await tx.portalSeguroApolicePlanoLinha.deleteMany({ where: { apoliceId: apId } })
+        if (sorted.length === 0) continue
+        await tx.portalSeguroApolicePlanoLinha.createMany({
+          data: sorted.map((r, i) => {
+            const custoMedio =
+              r.tipoCusto === PortalApoliceTipoCustoPlano.CUSTO_MEDIO ? (r.custoMedio ?? null) : null
+            return {
+              id: r.id,
+              apoliceId: r.apoliceId,
+              sortOrder: r.sortOrder ?? i,
+              codigoPlano: r.codigoPlano.trim(),
+              tipoCusto: r.tipoCusto,
+              custoMedio,
+              valoresPorFaixa:
+                r.tipoCusto === PortalApoliceTipoCustoPlano.FAIXA_ETARIA
+                  ? ((normalizarValoresPorFaixa(r.valoresPorFaixa ?? {}) ?? {}) as Prisma.InputJsonValue)
+                  : Prisma.DbNull,
+              createdAt: r.createdAt ?? undefined,
+              updatedAt: r.updatedAt ?? undefined,
+            }
+          }),
+        })
+        stats.apolicePlanoLinhas.rows += sorted.length
       }
 
       for (const it of data.itens) {
