@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link as RouterLink, useNavigate } from 'react-router-dom'
 import {
   Accordion,
@@ -26,7 +26,9 @@ import {
   Select,
   type SelectChangeEvent,
   Stack,
+  Tab,
   Table,
+  Tabs,
   TableContainer,
   TableBody,
   TableCell,
@@ -42,7 +44,6 @@ import AccountTreeIcon from '@mui/icons-material/AccountTree'
 import BusinessIcon from '@mui/icons-material/Business'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import DescriptionIcon from '@mui/icons-material/Description'
-import ListAltIcon from '@mui/icons-material/ListAlt'
 import HomeWorkIcon from '@mui/icons-material/HomeWork'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import SearchIcon from '@mui/icons-material/Search'
@@ -54,7 +55,7 @@ import SegurosBaseImportExportPanel from '../components/SegurosBaseImportExportP
 
 const DRAWER = 280
 
-type Section = 'visao' | 'grupos' | 'estipulantes' | 'apolices' | 'itens'
+type Section = 'visao' | 'grupos' | 'estipulantes' | 'apolices'
 
 type ApoliceProduto = 'SAUDE' | 'ODONTO' | 'VIDA_GRUPO' | 'OUTROS'
 type ItemTipo = 'COBERTURA' | 'SERVICO' | 'CLAUSULA' | 'OUTRO'
@@ -393,11 +394,7 @@ export default function ApolicePage() {
         </ListItemButton>
         <ListItemButton selected={section === 'apolices'} onClick={() => { setSection('apolices'); setMobileOpen(false) }}>
           <DescriptionIcon sx={{ mr: 1, fontSize: 20, opacity: 0.8 }} />
-          <ListItemText primary="Apólices" secondary="Incluir / editar" />
-        </ListItemButton>
-        <ListItemButton selected={section === 'itens'} onClick={() => { setSection('itens'); setMobileOpen(false) }}>
-          <ListAltIcon sx={{ mr: 1, fontSize: 20, opacity: 0.8 }} />
-          <ListItemText primary="Itens da apólice" secondary="Incluir / editar" />
+          <ListItemText primary="Apólices e itens" secondary="Lista e coberturas por apólice" />
         </ListItemButton>
       </List>
     </Box>
@@ -421,9 +418,10 @@ export default function ApolicePage() {
         component="main"
         sx={{
           flexGrow: 1,
-          p: { xs: 2, md: 3 },
-          maxWidth: { md: `calc(100% - ${DRAWER}px)` },
+          p: { xs: 2, sm: 2.5, md: 3 },
           width: '100%',
+          maxWidth: { md: `calc(100vw - ${DRAWER}px)` },
+          minWidth: 0,
         }}
       >
         <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, mb: 2 }}>
@@ -442,13 +440,11 @@ export default function ApolicePage() {
         <Typography color="text.secondary" sx={{ mb: 2 }}>
           {section === 'visao' ? (
             <>
-              Na <strong>Visão geral</strong> consulta-se todo o cadastro (grupo → estipulante → apólice → itens) de forma unificada, com pesquisa e
-              detalhe ao clicar numa apólice. Nas outras secções do menu incluem-se ou editam-se os dados.
+              Na <strong>Visão geral</strong> consulta-se o cadastro por grupo (com paginação). Utilize a <strong>ficha completa</strong> para ver e editar todos os dados de uma apólice. A importação Excel valida contra a base e permite <strong>completar</strong> campos vazios.
             </>
           ) : (
             <>
-              Estrutura em camadas para uso nas <strong>solicitações</strong>: cadastre primeiro o <strong>grupo econômico</strong>, depois o{' '}
-              <strong>estipulante</strong>, em seguida a <strong>apólice</strong> e, por fim, os <strong>itens</strong> (coberturas, serviços, cláusulas).
+              Em <strong>Apólices e itens</strong> gere apólices e coberturas no mesmo sítio (separador interno). Nos restantes menus mantém-se a hierarquia grupo → estipulante.
             </>
           )}
         </Typography>
@@ -478,8 +474,7 @@ export default function ApolicePage() {
         )}
         {section === 'grupos' && <GruposSection grupos={grupos} isAdmin={isAdmin} onRefresh={loadGrupos} onError={setErr} />}
         {section === 'estipulantes' && <EstipulantesSection isAdmin={isAdmin} onError={setErr} />}
-        {section === 'apolices' && <ApolicesSection isAdmin={isAdmin} onError={setErr} />}
-        {section === 'itens' && <ItensSection isAdmin={isAdmin} onError={setErr} />}
+        {section === 'apolices' && <ApolicesEItensSection isAdmin={isAdmin} onError={setErr} />}
       </Box>
     </Box>
   )
@@ -904,14 +899,18 @@ function VisaoGeral({
   onIrParaApolices: () => void
   onIrParaEstipulantes: () => void
 }) {
+  const nextEstOffsetRef = useRef(0)
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [gruposEconomicosCount, setGruposEconomicosCount] = useState<number | null>(null)
   const [estipulantesCount, setEstipulantesCount] = useState<number | null>(null)
   const [apolicesTotalCount, setApolicesTotalCount] = useState<number | null>(null)
   const [apolices, setApolices] = useState<CadastroVisaoGeralApolice[]>([])
   const [estipulantesVisao, setEstipulantesVisao] = useState<CadastroVisaoEstipulanteRow[]>([])
-  /** Snapshot `contratos` Nexus para alinhar a visão geral com o separador Apólices (linhas «só Nexus»). */
+  /** Snapshot `contratos` Nexus — só após pedido explícito (evita carregar milhares de linhas logo ao abrir). */
   const [contratosNexusVisao, setContratosNexusVisao] = useState<NexusContratoOpcao[]>([])
+  const [nexusContratosCarregados, setNexusContratosCarregados] = useState(false)
+  const [nexusContratosLoading, setNexusContratosLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [detailAp, setDetailAp] = useState<CadastroVisaoGeralApolice | null>(null)
   const [detailItensLoading, setDetailItensLoading] = useState(false)
@@ -923,9 +922,11 @@ function VisaoGeral({
   const [visaoMetaCarga, setVisaoMetaCarga] = useState<'hierarquia' | 'apolices_recent'>('hierarquia')
   const [healthBusy, setHealthBusy] = useState(false)
   const [healthHint, setHealthHint] = useState<string | null>(null)
+  /** Há mais titulares para pedir com `offset` (modo hierarquia). */
+  const [hasMoreEstipulantes, setHasMoreEstipulantes] = useState(false)
 
-  const VISAO_GERAL_LIMIT = 20000
-  const NEXUS_CONTRATOS_VISAO_LIMIT = 5000
+  const VISAO_PAGE_SIZE = 400
+  const NEXUS_CONTRATOS_VISAO_LIMIT = 1500
 
   const testApiHealth = useCallback(async () => {
     setHealthBusy(true)
@@ -941,101 +942,132 @@ function VisaoGeral({
     }
   }, [])
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    setVisaoLoadOk(false)
-    setLoadHint(null)
-    setVisaoApolicesTruncated(false)
-    setContratosNexusVisao([])
-    onError(null)
-    try {
-      const r = await api<{
-        gruposEconomicosCount: number
-        estipulantesCount: number
-        apolicesTotalCount: number
-        apolices: CadastroVisaoGeralApolice[]
-        estipulantes?: CadastroVisaoEstipulanteRow[]
-        visaoMeta?: {
-          carga?: string
-          limit: number
-          offset: number
-          returned: number
-          returnedEstipulantes?: number
-          sort?: string
-          apolicesTruncated?: boolean
-        }
-      }>(
-        `/seguros/cadastro-visao-geral?carga=hierarquia&limit=${VISAO_GERAL_LIMIT}&offset=0&sort=recent`,
-      )
-
-      if (!r.ok) {
-        onError(r.error || 'Erro ao carregar visão geral do cadastro.')
-        setApolices([])
-        setEstipulantesVisao([])
+  const load = useCallback(
+    async (append: boolean) => {
+      if (!append) {
+        setLoading(true)
+        nextEstOffsetRef.current = 0
+        setVisaoLoadOk(false)
+        setLoadHint(null)
+        setVisaoApolicesTruncated(false)
         setContratosNexusVisao([])
-        setGruposEconomicosCount(null)
-        setEstipulantesCount(null)
-        setApolicesTotalCount(null)
-        return
-      }
-      if (!r.data || typeof r.data !== 'object') {
-        onError('Resposta vazia ou inválida da API.')
-        setApolices([])
-        setEstipulantesVisao([])
-        setContratosNexusVisao([])
-        setGruposEconomicosCount(null)
-        setEstipulantesCount(null)
-        setApolicesTotalCount(null)
-        return
-      }
-      const d = r.data
-      if (!Array.isArray(d.apolices)) {
-        onError(
-          'A API devolveu um formato anómalo (sem lista de apólices). Confirme o deploy da API portal-colaborador no Railway e a variável VITE_API_URL no Vercel (URL da API, não do site).',
-        )
-        setApolices([])
-        setEstipulantesVisao([])
-        setContratosNexusVisao([])
-        setGruposEconomicosCount(null)
-        setEstipulantesCount(null)
-        setApolicesTotalCount(null)
-        return
-      }
-
-      const gruposEconomicosCount = d.gruposEconomicosCount ?? 0
-      const estipulantesCount = d.estipulantesCount ?? 0
-      const apolicesTotalCount = d.apolicesTotalCount ?? 0
-      const estipulantesDaApi = Array.isArray(d.estipulantes) ? d.estipulantes : []
-
-      setLoadHint(null)
-      setVisaoLoadOk(true)
-      setVisaoMetaCarga(d.visaoMeta?.carga === 'apolices_recent' ? 'apolices_recent' : 'hierarquia')
-      setGruposEconomicosCount(gruposEconomicosCount)
-      setEstipulantesCount(estipulantesCount)
-      setApolicesTotalCount(apolicesTotalCount)
-      setVisaoApolicesTruncated(d.visaoMeta?.apolicesTruncated === true)
-      setEstipulantesVisao(estipulantesDaApi)
-      setApolices(sortVisaoApolices(d.apolices))
-
-      const rCt = await api<{
-        ok?: boolean
-        needsSync?: boolean
-        contratos?: NexusContratoOpcao[]
-        contratosMeta?: { limit: number; returned: number }
-      }>(`/seguros/nexus/contratos-opcoes?limit=${NEXUS_CONTRATOS_VISAO_LIMIT}`)
-      if (rCt.ok && Array.isArray(rCt.data?.contratos)) {
-        setContratosNexusVisao(rCt.data!.contratos!)
+        setNexusContratosCarregados(false)
+        onError(null)
       } else {
-        setContratosNexusVisao([])
+        setLoadingMore(true)
+        onError(null)
       }
-    } finally {
-      setLoading(false)
-      setLoadHint(null)
+      try {
+        const offset = append ? nextEstOffsetRef.current : 0
+        const r = await api<{
+          gruposEconomicosCount: number
+          estipulantesCount: number
+          apolicesTotalCount: number
+          apolices: CadastroVisaoGeralApolice[]
+          estipulantes?: CadastroVisaoEstipulanteRow[]
+          visaoMeta?: {
+            carga?: string
+            limit: number
+            offset: number
+            returned: number
+            returnedEstipulantes?: number
+            sort?: string
+            apolicesTruncated?: boolean
+          }
+        }>(
+          `/seguros/cadastro-visao-geral?carga=hierarquia&limit=${VISAO_PAGE_SIZE}&offset=${offset}&sort=recent`,
+        )
+
+        if (!r.ok) {
+          onError(r.error || 'Erro ao carregar visão geral do cadastro.')
+          if (!append) {
+            setApolices([])
+            setEstipulantesVisao([])
+            setGruposEconomicosCount(null)
+            setEstipulantesCount(null)
+            setApolicesTotalCount(null)
+          }
+          return
+        }
+        if (!r.data || typeof r.data !== 'object') {
+          onError('Resposta vazia ou inválida da API.')
+          if (!append) {
+            setApolices([])
+            setEstipulantesVisao([])
+            setGruposEconomicosCount(null)
+            setEstipulantesCount(null)
+            setApolicesTotalCount(null)
+          }
+          return
+        }
+        const d = r.data
+        if (!Array.isArray(d.apolices)) {
+          onError(
+            'A API devolveu um formato anómalo (sem lista de apólices). Confirme o deploy da API portal-colaborador no Railway e a variável VITE_API_URL no Vercel (URL da API, não do site).',
+          )
+          if (!append) {
+            setApolices([])
+            setEstipulantesVisao([])
+            setGruposEconomicosCount(null)
+            setEstipulantesCount(null)
+            setApolicesTotalCount(null)
+          }
+          return
+        }
+
+        const gruposEconomicosCountLocal = d.gruposEconomicosCount ?? 0
+        const estipulantesCountLocal = d.estipulantesCount ?? 0
+        const apolicesTotalCountLocal = d.apolicesTotalCount ?? 0
+        const estipulantesDaApi = Array.isArray(d.estipulantes) ? d.estipulantes : []
+        const retEst = d.visaoMeta?.returnedEstipulantes ?? estipulantesDaApi.length
+
+        setLoadHint(null)
+        setVisaoLoadOk(true)
+        setVisaoMetaCarga(d.visaoMeta?.carga === 'apolices_recent' ? 'apolices_recent' : 'hierarquia')
+        setGruposEconomicosCount(gruposEconomicosCountLocal)
+        setEstipulantesCount(estipulantesCountLocal)
+        setApolicesTotalCount(apolicesTotalCountLocal)
+        setVisaoApolicesTruncated(d.visaoMeta?.apolicesTruncated === true)
+        setHasMoreEstipulantes(d.visaoMeta?.apolicesTruncated === true)
+
+        if (append) {
+          setApolices((prev) => sortVisaoApolices([...prev, ...d.apolices]))
+          setEstipulantesVisao((prev) => [...prev, ...estipulantesDaApi])
+        } else {
+          setEstipulantesVisao(estipulantesDaApi)
+          setApolices(sortVisaoApolices(d.apolices))
+        }
+        nextEstOffsetRef.current = offset + retEst
+      } finally {
+        if (!append) setLoading(false)
+        else setLoadingMore(false)
+        setLoadHint(null)
+      }
+    },
+    [onError],
+  )
+
+  const carregarContratosNexusOpcional = useCallback(async () => {
+    setNexusContratosLoading(true)
+    onError(null)
+    const rCt = await api<{
+      ok?: boolean
+      needsSync?: boolean
+      contratos?: NexusContratoOpcao[]
+      contratosMeta?: { limit: number; returned: number }
+    }>(`/seguros/nexus/contratos-opcoes?limit=${NEXUS_CONTRATOS_VISAO_LIMIT}`)
+    setNexusContratosLoading(false)
+    if (rCt.ok && Array.isArray(rCt.data?.contratos)) {
+      setContratosNexusVisao(rCt.data!.contratos!)
+      setNexusContratosCarregados(true)
+    } else {
+      setContratosNexusVisao([])
+      setNexusContratosCarregados(false)
     }
   }, [onError])
 
   useEffect(() => {
-    void load()
+    void load(false)
   }, [load])
 
   const { apolicesVisaoComNexus, estipulantesVisaoComNexus, somenteNexusNaVisaoCount } = useMemo(() => {
@@ -1134,29 +1166,31 @@ function VisaoGeral({
 
   return (
     <>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <Alert severity="info" sx={{ borderRadius: 2 }}>
-          <strong>Visão por grupo económico.</strong> Dentro de cada accordeão, por <strong>hierarquia</strong>{' '}
-          (grupo → titular / estipulante → apólices listadas em tabela). A <strong>razão social e o CNPJ</strong> aparecem no
-          cabeçalho de cada titular; na tabela, <strong>cada linha é uma apólice</strong> (sem repetir titular em colunas). Os
-          números no sumário do accordeão são totais naquele grupo. As apólices gravadas na PostgreSQL vivem em{' '}
-          <strong>PortalSeguroApolice</strong>; contratos apenas no snapshot Nexus aparecem aqui como linha{' '}
-          <strong>«Só Nexus»</strong> até serem complementados no menu <strong>Apólices</strong>.
-        </Alert>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%' }}>
+        <Accordion defaultExpanded={false} elevation={0} sx={{ border: 1, borderColor: 'divider', borderRadius: 2 }}>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography fontWeight={700}>Como funciona esta vista</Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Typography variant="body2" color="text.secondary">
+              Agrupamento por <strong>grupo económico</strong> (accordeões). Dentro: <strong>titular</strong> e tabela de{' '}
+              <strong>apólices</strong> (uma linha por apólice). Dados gravados em PostgreSQL podem abrir a{' '}
+              <strong>ficha completa</strong>; contratos apenas no snapshot Nexus ficam como «Só Nexus» até cadastrar no portal. A
+              primeira carga é limitada; use <strong>Carregar mais titulares</strong> e, se precisar, <strong>Mostrar contratos só Nexus</strong>.
+            </Typography>
+          </AccordionDetails>
+        </Accordion>
 
         {visaoLoadOk && visaoApolicesTruncated ? (
           visaoMetaCarga === 'hierarquia' ? (
             <Alert severity="warning" sx={{ borderRadius: 2 }}>
-              <strong>Desempenho: lista parcial por estipulante.</strong> A API carrega até{' '}
-              <strong>{VISAO_GERAL_LIMIT}</strong> estipulantes por pedido (ordenados por grupo económico e razão social) e{' '}
-              <strong>todas as apólices</strong> ligadas a esses titulares. Há mais estipulantes na base do que cabe neste
-              lote — aumente <code>limit</code> em <code>GET /seguros/cadastro-visao-geral?carga=hierarquia</code> ou
-              implemente «carregar mais» no portal.
+              <strong>Desempenho: lista parcial por titular.</strong> Cada pedido traz até <strong>{VISAO_PAGE_SIZE}</strong> estipulantes e as apólices
+              ligadas. Clique em <strong>Carregar mais titulares</strong> para continuar a paginação.
             </Alert>
           ) : (
             <Alert severity="warning" sx={{ borderRadius: 2 }}>
               <strong>Modo legado: lista parcial por apólice.</strong> Foram carregadas as apólices{' '}
-              <strong>mais recentemente alteradas</strong> (até <strong>{VISAO_GERAL_LIMIT}</strong> linhas por pedido). O
+              <strong>mais recentemente alteradas</strong> (até <strong>{VISAO_PAGE_SIZE}</strong> linhas por pedido). O
               total na base é <strong>{apolicesTotalCount ?? '—'}</strong> — linhas mais antigas não aparecem nesta vista
               até aumentar <code>limit</code> em <code>GET /seguros/cadastro-visao-geral</code> ou adicionar «carregar mais»
               no portal.
@@ -1179,6 +1213,33 @@ function VisaoGeral({
           }}
         />
 
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
+          <Button size="small" variant="outlined" disabled={loading || loadingMore} onClick={() => void load(false)}>
+            Recarregar vista
+          </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            disabled={loadingMore || !hasMoreEstipulantes || loading || !visaoLoadOk}
+            onClick={() => void load(true)}
+          >
+            {loadingMore ? 'A carregar…' : 'Carregar mais titulares'}
+          </Button>
+          <Button
+            size="small"
+            variant={nexusContratosCarregados ? 'outlined' : 'contained'}
+            color="secondary"
+            disabled={nexusContratosLoading || loading}
+            onClick={() => void carregarContratosNexusOpcional()}
+          >
+            {nexusContratosLoading
+              ? 'A carregar Nexus…'
+              : nexusContratosCarregados
+                ? 'Atualizar contratos Nexus'
+                : 'Mostrar contratos só Nexus (opcional)'}
+          </Button>
+        </Box>
+
         <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
           <Typography variant="body2" color="text.secondary">
             Na base: <strong>{loading ? '…' : (gruposEconomicosCount ?? '—')}</strong> grupos (cadastro local){' · '}
@@ -1194,8 +1255,11 @@ function VisaoGeral({
             <strong>{loading ? '…' : filterAp.length}</strong> apólice(s) no filtro ·{' '}
             <strong>{loading ? '…' : filterEstReaisCount}</strong> estipulante(s) no filtro ·{' '}
             <strong>{loading ? '…' : gruposVisao.length}</strong> grupo(s) distinto(s) na vista
-            {visaoLoadOk && apolicesTotalCount != null && apolices.length === apolicesTotalCount && apolicesTotalCount > 0 ? (
-              <span> · apólices na API (PostgreSQL): {apolices.length}</span>
+            {visaoLoadOk ? (
+              <>
+                {' · '}
+                <strong>{estipulantesVisao.length}</strong> titular(es) carregado(s) nesta vista · <strong>{apolices.length}</strong> apólice(s) em memória
+              </>
             ) : null}
           </Typography>
           <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
@@ -1303,7 +1367,7 @@ function VisaoGeral({
             {gruposVisao.map((g) => (
               <Accordion
                 key={g.key}
-                defaultExpanded
+                defaultExpanded={false}
                 disableGutters
                 elevation={0}
                 sx={{ border: 1, borderColor: 'divider', borderRadius: 2, '&:before': { display: 'none' } }}
@@ -1374,13 +1438,13 @@ function VisaoGeral({
                               <Table size="small" stickyHeader>
                                 <TableHead>
                                   <TableRow>
-                                    <TableCell>Grupo económico</TableCell>
                                     <TableCell>Situação</TableCell>
                                     <TableCell>Nº apólice</TableCell>
                                     <TableCell>Produto</TableCell>
                                     <TableCell>Fornecedor</TableCell>
                                     <TableCell>Vigência</TableCell>
                                     <TableCell align="center">Itens</TableCell>
+                                    <TableCell align="right">Ficha</TableCell>
                                   </TableRow>
                                 </TableHead>
                                 <TableBody>
@@ -1398,9 +1462,6 @@ function VisaoGeral({
                                           '&:hover': { bgcolor: 'action.selected' },
                                         }}
                                       >
-                                        <TableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>
-                                          <Typography variant="body2">{g.titulo}</Typography>
-                                        </TableCell>
                                         <TableCell sx={{ verticalAlign: 'middle' }}>
                                           {nx ? (
                                             <Chip size="small" label="Só Nexus" color="info" variant="outlined" />
@@ -1415,12 +1476,28 @@ function VisaoGeral({
                                         </TableCell>
                                         <TableCell sx={{ verticalAlign: 'top', fontWeight: 600 }}>{a.numeroApolice}</TableCell>
                                         <TableCell sx={{ verticalAlign: 'top' }}>{PRODUTO_LABEL[a.produto]}</TableCell>
-                                        <TableCell sx={{ maxWidth: 120, verticalAlign: 'top' }}>{a.fornecedor}</TableCell>
+                                        <TableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>{a.fornecedor}</TableCell>
                                         <TableCell sx={{ whiteSpace: 'nowrap', verticalAlign: 'top' }}>
                                           {fmtDate(a.vigenciaInicio)} — {fmtDate(a.vigenciaFim)}
                                         </TableCell>
                                         <TableCell align="center" sx={{ verticalAlign: 'top' }}>
                                           <Chip size="small" label={`${visaoItensCount(a)}`} variant="outlined" />
+                                        </TableCell>
+                                        <TableCell align="right" sx={{ verticalAlign: 'middle' }} onClick={(e) => e.stopPropagation()}>
+                                          {!nx ? (
+                                            <Button
+                                              component={RouterLink}
+                                              size="small"
+                                              variant="outlined"
+                                              to={`/apolice/editar/${a.id}`}
+                                            >
+                                              Ficha completa
+                                            </Button>
+                                          ) : (
+                                            <Typography variant="caption" color="text.secondary">
+                                              —
+                                            </Typography>
+                                          )}
                                         </TableCell>
                                       </TableRow>
                                     )
@@ -1575,7 +1652,12 @@ function VisaoGeral({
               </Table>
             )}
 
-            <Box sx={{ mt: 3 }}>
+            <Box sx={{ mt: 3, display: 'flex', flexDirection: 'column', gap: 1 }}>
+              {!detailAp.somenteNexus && !detailAp.id.startsWith('__nexus_contrato__') ? (
+                <Button component={RouterLink} variant="contained" fullWidth to={`/apolice/editar/${detailAp.id}`}>
+                  Abrir ficha completa (todas as abas)
+                </Button>
+              ) : null}
               <Button
                 variant="outlined"
                 fullWidth
@@ -1584,7 +1666,7 @@ function VisaoGeral({
                   setDetailItensLoading(false)
                 }}
               >
-                Fechar
+                Fechar pré-visualização
               </Button>
             </Box>
           </Box>
@@ -3313,5 +3395,24 @@ function ItensSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: str
         </DialogActions>
       </Dialog>
     </>
+  )
+}
+
+function ApolicesEItensSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: string | null) => void }) {
+  const [tab, setTab] = useState<'apolices' | 'itens'>('apolices')
+  return (
+    <Box sx={{ width: '100%' }}>
+      <Tabs
+        value={tab}
+        onChange={(_, v) => setTab(v as 'apolices' | 'itens')}
+        variant="scrollable"
+        allowScrollButtonsMobile
+        sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}
+      >
+        <Tab value="apolices" label="Apólices" />
+        <Tab value="itens" label="Itens (por apólice)" />
+      </Tabs>
+      {tab === 'apolices' ? <ApolicesSection isAdmin={isAdmin} onError={onError} /> : <ItensSection isAdmin={isAdmin} onError={onError} />}
+    </Box>
   )
 }

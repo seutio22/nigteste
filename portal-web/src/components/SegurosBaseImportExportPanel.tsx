@@ -292,9 +292,15 @@ export default function SegurosBaseImportExportPanel() {
 
         <strong>apólices</strong> e <strong>itens</strong> em ficheiro <strong>Excel (.xlsx)</strong>, com várias folhas. Ao importar, a{' '}
 
-        <strong>simulação</strong> lista <strong>erros bloqueantes</strong> e <strong>avisos</strong> (chaves, referências, vigências, produto).
+        <strong>simulação</strong> lista <strong>erros bloqueantes</strong> e <strong>avisos</strong> (chaves, referências, vigências, produto) e cruza com a
 
-        Só pode gravar quando não há erros. Não altere os <strong>nomes das colunas</strong> nas folhas de dados.
+        <strong> base PostgreSQL</strong>: indica <strong>complementos</strong> (campo vazio na base preenchido na planilha) e <strong>conflitos</strong> (valor
+
+        diferente). Na gravação, <strong>células vazias ou «—»</strong> em linhas já existentes <strong>não apagam</strong> o que já está guardado — só
+
+        valores novos substituem ou preenchem.
+
+        Não altere os <strong>nomes das colunas</strong> nas folhas de dados.
 
       </Typography>
 

@@ -25,6 +25,32 @@ function normGrupoNome(s: string): string {
   return (s || '').trim().toLowerCase().replace(/\s+/g, ' ')
 }
 
+/** Célula vazia ou «—» na planilha = não sobrescrever o valor já gravado na base (atualizações). */
+export function importCellEmpty(s: string | null | undefined): boolean {
+  if (s == null) return true
+  const t = String(s).trim()
+  return t === '' || t === '—'
+}
+
+function mergeImportOptionalString(inc: string | null | undefined, db: string | null | undefined): string | null {
+  if (!importCellEmpty(inc)) return (inc ?? '').trim() || null
+  return db ?? null
+}
+
+function mergeImportFornecedor(inc: string | null | undefined, db: string | null | undefined): string {
+  if (!importCellEmpty(inc)) {
+    const x = (inc ?? '').trim()
+    if (x && x !== '—') return x
+  }
+  const d = (db ?? '').trim()
+  return d || '—'
+}
+
+function mergeImportDate(inc: Date | null | undefined, db: Date | null | undefined): Date | null {
+  if (inc != null && !Number.isNaN(new Date(inc).getTime())) return inc
+  return db ?? null
+}
+
 function parcelasToDbJson(arr: number[] | null | undefined): string | null {
   if (arr == null) return null
   return JSON.stringify(arr)
@@ -374,6 +400,35 @@ function push(
   ids?: string[],
 ) {
   issues.push({ severity, code, message, path, ids })
+}
+
+function warnImportStrDiff(
+  issues: SegurosBaseIssue[],
+  codeComplement: string,
+  codeConflict: string,
+  entidade: string,
+  campo: string,
+  path: string,
+  inc: string | null | undefined,
+  db: string | null | undefined,
+  ids: string[],
+) {
+  const incE = importCellEmpty(inc)
+  const dbE = importCellEmpty(db)
+  const iS = (inc ?? '').trim()
+  const dS = (db ?? '').trim()
+  if (dbE && !incE) {
+    push(issues, 'warning', codeComplement, `${entidade} — campo «${campo}» vazio na base; a planilha preenche.`, path, ids)
+  } else if (!dbE && !incE && iS !== dS) {
+    push(
+      issues,
+      'warning',
+      codeConflict,
+      `${entidade} — «${campo}» na base difere da planilha. Ao gravar: célula vazia/«—» mantém a base; valor preenchido substitui.`,
+      path,
+      ids,
+    )
+  }
 }
 
 export async function analyzeSegurosBaseSnapshot(data: SegurosBaseSnapshotParsed): Promise<{
@@ -759,6 +814,147 @@ export async function analyzeSegurosBaseSnapshot(data: SegurosBaseSnapshotParsed
     }
   }
 
+  const existingEstIdSet = new Set(existingEst.map((e) => e.id))
+
+  const mergeGrupoIds = data.grupos.filter((g) => existingGrupoSet.has(g.id)).map((g) => g.id)
+  if (mergeGrupoIds.length > 0) {
+    const rows = await prisma.portalGrupoEconomico.findMany({ where: { id: { in: mergeGrupoIds } } })
+    const byId = new Map(rows.map((r) => [r.id, r]))
+    for (let i = 0; i < data.grupos.length; i++) {
+      const g = data.grupos[i]
+      const ex = byId.get(g.id)
+      if (!ex) continue
+      const ent = `Grupo «${g.nome}» (${g.id})`
+      warnImportStrDiff(issues, 'import_merge_grupo', 'import_conflict_grupo', ent, 'CNPJ', `grupos[${i}].cnpj`, g.cnpj, ex.cnpj, [g.id])
+      warnImportStrDiff(
+        issues,
+        'import_merge_grupo',
+        'import_conflict_grupo',
+        ent,
+        'observações',
+        `grupos[${i}].observacoes`,
+        g.observacoes,
+        ex.observacoes,
+        [g.id],
+      )
+    }
+  }
+
+  const estMergeIds = data.estipulantes.filter((e) => existingEstIdSet.has(e.id)).map((e) => e.id)
+  if (estMergeIds.length > 0) {
+    const rows = await prisma.portalSeguroEstipulante.findMany({ where: { id: { in: estMergeIds } } })
+    const byId = new Map(rows.map((r) => [r.id, r]))
+    for (let i = 0; i < data.estipulantes.length; i++) {
+      const e = data.estipulantes[i]
+      const ex = byId.get(e.id)
+      if (!ex) continue
+      const ent = `Estipulante «${e.razaoSocial}» (${e.id})`
+      warnImportStrDiff(issues, 'import_merge_est', 'import_conflict_est', ent, 'CNAE', `estipulantes[${i}].cnae`, e.cnae, ex.cnae, [e.id])
+      warnImportStrDiff(
+        issues,
+        'import_merge_est',
+        'import_conflict_est',
+        ent,
+        'nome fantasia',
+        `estipulantes[${i}].nomeFantasia`,
+        e.nomeFantasia,
+        ex.nomeFantasia,
+        [e.id],
+      )
+      warnImportStrDiff(
+        issues,
+        'import_merge_est',
+        'import_conflict_est',
+        ent,
+        'observações',
+        `estipulantes[${i}].observacoes`,
+        e.observacoes,
+        ex.observacoes,
+        [e.id],
+      )
+      warnImportStrDiff(
+        issues,
+        'import_merge_est',
+        'import_conflict_est',
+        ent,
+        'grupo económico (nome Nexus)',
+        `estipulantes[${i}].grupoEconomicoNome`,
+        e.grupoEconomicoNome,
+        ex.grupoEconomicoNome,
+        [e.id],
+      )
+    }
+  }
+
+  const existingApIdSet = new Set(existingAp.map((a) => a.id))
+  const apMergeIds = data.apolices.filter((a) => existingApIdSet.has(a.id)).map((a) => a.id)
+  if (apMergeIds.length > 0) {
+    const rows = await prisma.portalSeguroApolice.findMany({ where: { id: { in: apMergeIds } } })
+    const byId = new Map(rows.map((r) => [r.id, r]))
+    for (let i = 0; i < data.apolices.length; i++) {
+      const a = data.apolices[i]
+      const ex = byId.get(a.id)
+      if (!ex) continue
+      const ent = `Apólice «${(a.numeroApolice ?? '').trim() || a.id}» (${a.id})`
+      warnImportStrDiff(
+        issues,
+        'import_merge_apolice',
+        'import_conflict_apolice',
+        ent,
+        'fornecedor',
+        `apolices[${i}].fornecedor`,
+        a.fornecedor,
+        ex.fornecedor,
+        [a.id],
+      )
+      warnImportStrDiff(
+        issues,
+        'import_merge_apolice',
+        'import_conflict_apolice',
+        ent,
+        'subestipulante (resumo)',
+        `apolices[${i}].subestipulante`,
+        a.subestipulante,
+        ex.subestipulante,
+        [a.id],
+      )
+      warnImportStrDiff(issues, 'import_merge_apolice', 'import_conflict_apolice', ent, 'plano', `apolices[${i}].plano`, a.plano, ex.plano, [a.id])
+      warnImportStrDiff(
+        issues,
+        'import_merge_apolice',
+        'import_conflict_apolice',
+        ent,
+        'coberturas',
+        `apolices[${i}].coberturas`,
+        a.coberturas,
+        ex.coberturas,
+        [a.id],
+      )
+      warnImportStrDiff(
+        issues,
+        'import_merge_apolice',
+        'import_conflict_apolice',
+        ent,
+        'observações',
+        `apolices[${i}].observacoes`,
+        a.observacoes,
+        ex.observacoes,
+        [a.id],
+      )
+      warnImportStrDiff(
+        issues,
+        'import_merge_apolice',
+        'import_conflict_apolice',
+        ent,
+        'ID contrato Nexus',
+        `apolices[${i}].nexusContratoId`,
+        a.nexusContratoId,
+        ex.nexusContratoId,
+        [a.id],
+      )
+    }
+  }
+
   const statsIfApplied: SegurosBaseImportStats = {
     grupos: { create: 0, update: 0 },
     estipulantes: { create: 0, update: 0 },
@@ -783,15 +979,13 @@ export async function analyzeSegurosBaseSnapshot(data: SegurosBaseSnapshotParsed
     else statsIfApplied.operadoras.create++
   }
 
-  const existingEstSet = new Set(existingEst.map((e) => e.id))
   for (const e of data.estipulantes) {
-    if (existingEstSet.has(e.id)) statsIfApplied.estipulantes.update++
+    if (existingEstIdSet.has(e.id)) statsIfApplied.estipulantes.update++
     else statsIfApplied.estipulantes.create++
   }
 
-  const existingApSet = new Set(existingAp.map((a) => a.id))
   for (const a of data.apolices) {
-    if (existingApSet.has(a.id)) statsIfApplied.apolices.update++
+    if (existingApIdSet.has(a.id)) statsIfApplied.apolices.update++
     else statsIfApplied.apolices.create++
   }
 
@@ -872,10 +1066,10 @@ export async function applySegurosBaseSnapshot(data: SegurosBaseSnapshotParsed):
             where: { id: g.id },
             data: {
               nome: base.nome,
-              cnpj: base.cnpj,
-              observacoes: base.observacoes,
+              cnpj: mergeImportOptionalString(g.cnpj, ex.cnpj),
+              observacoes: mergeImportOptionalString(g.observacoes, ex.observacoes),
               classificacao: base.classificacao,
-              active: base.active,
+              active: g.active,
             },
           })
           stats.grupos.update++
@@ -936,16 +1130,18 @@ export async function applySegurosBaseSnapshot(data: SegurosBaseSnapshotParsed):
           await tx.portalSeguroEstipulante.update({
             where: { id: e.id },
             data: {
-              grupoEconomicoId: dataRow.grupoEconomicoId,
-              grupoEconomicoNome: dataRow.grupoEconomicoNome,
-              nexusClienteId: dataRow.nexusClienteId,
+              grupoEconomicoId: e.grupoEconomicoId ?? ex.grupoEconomicoId,
+              grupoEconomicoNome: importCellEmpty(e.grupoEconomicoNome)
+                ? ex.grupoEconomicoNome
+                : (e.grupoEconomicoNome || '').trim() || '—',
+              nexusClienteId: mergeImportOptionalString(e.nexusClienteId, ex.nexusClienteId),
               razaoSocial: dataRow.razaoSocial,
               cnpj: dataRow.cnpj,
-              cnae: dataRow.cnae,
-              nomeFantasia: dataRow.nomeFantasia,
-              observacoes: dataRow.observacoes,
-              active: dataRow.active,
-              importadoNexusEm: dataRow.importadoNexusEm,
+              cnae: mergeImportOptionalString(e.cnae, ex.cnae),
+              nomeFantasia: mergeImportOptionalString(e.nomeFantasia, ex.nomeFantasia),
+              observacoes: mergeImportOptionalString(e.observacoes, ex.observacoes),
+              active: e.active,
+              importadoNexusEm: e.importadoNexusEm ?? ex.importadoNexusEm,
             },
           })
           stats.estipulantes.update++
@@ -989,29 +1185,38 @@ export async function applySegurosBaseSnapshot(data: SegurosBaseSnapshotParsed):
           importadoNexusEm: a.importadoNexusEm,
         }
         if (ex) {
+          const mergedSub = importCellEmpty(a.subestipulante)
+            ? ex.subestipulante
+            : sub && sub !== '—'
+              ? sub
+              : ex.subestipulante
           await tx.portalSeguroApolice.update({
             where: { id: a.id },
             data: {
               estipulanteId: dataRow.estipulanteId,
-              nexusContratoId: dataRow.nexusContratoId,
-              numeroApolice: dataRow.numeroApolice,
-              produto: dataRow.produto,
-              operadoraId: dataRow.operadoraId,
-              fornecedor: dataRow.fornecedor,
-              subestipulante: dataRow.subestipulante,
-              plano: dataRow.plano,
-              coberturas: dataRow.coberturas,
-              vigenciaInicio: dataRow.vigenciaInicio,
-              vigenciaFim: dataRow.vigenciaFim,
-              observacoes: dataRow.observacoes,
-              active: dataRow.active,
-              importadoNexusEm: dataRow.importadoNexusEm,
-              trCone: dataRow.trCone,
-              trDiretoria: dataRow.trDiretoria,
-              trSuperintendente: dataRow.trSuperintendente,
-              trGerente: dataRow.trGerente,
-              trExecutivoConsultor: dataRow.trExecutivoConsultor,
-              trAnalista: dataRow.trAnalista,
+              nexusContratoId: mergeImportOptionalString(a.nexusContratoId, ex.nexusContratoId),
+              numeroApolice:
+                (a.numeroApolice ?? '').trim() ||
+                (a.nexusContratoId?.trim() ? `nx:${a.nexusContratoId!.trim()}` : '') ||
+                ex.numeroApolice,
+              produto: a.produto,
+              operadoraId:
+                a.operadoraId != null && String(a.operadoraId).trim() !== '' ? a.operadoraId : ex.operadoraId,
+              fornecedor: mergeImportFornecedor(a.fornecedor, ex.fornecedor),
+              subestipulante: mergedSub,
+              plano: mergeImportOptionalString(a.plano, ex.plano),
+              coberturas: mergeImportOptionalString(a.coberturas, ex.coberturas),
+              vigenciaInicio: mergeImportDate(a.vigenciaInicio, ex.vigenciaInicio),
+              vigenciaFim: mergeImportDate(a.vigenciaFim, ex.vigenciaFim),
+              observacoes: mergeImportOptionalString(a.observacoes, ex.observacoes),
+              active: a.active,
+              importadoNexusEm: a.importadoNexusEm ?? ex.importadoNexusEm,
+              trCone: a.trCone ?? ex.trCone,
+              trDiretoria: mergeImportOptionalString(a.trDiretoria, ex.trDiretoria),
+              trSuperintendente: mergeImportOptionalString(a.trSuperintendente, ex.trSuperintendente),
+              trGerente: mergeImportOptionalString(a.trGerente, ex.trGerente),
+              trExecutivoConsultor: mergeImportOptionalString(a.trExecutivoConsultor, ex.trExecutivoConsultor),
+              trAnalista: mergeImportOptionalString(a.trAnalista, ex.trAnalista),
             },
           })
           stats.apolices.update++
@@ -1188,10 +1393,10 @@ export async function applySegurosBaseSnapshot(data: SegurosBaseSnapshotParsed):
             data: {
               apoliceId: dataRow.apoliceId,
               tipo: dataRow.tipo,
-              descricao: dataRow.descricao,
-              detalhes: dataRow.detalhes,
+              descricao: importCellEmpty(it.descricao) ? ex.descricao : it.descricao.trim(),
+              detalhes: mergeImportOptionalString(it.detalhes, ex.detalhes),
               sortOrder: dataRow.sortOrder,
-              active: dataRow.active,
+              active: it.active,
             },
           })
           stats.itens.update++
