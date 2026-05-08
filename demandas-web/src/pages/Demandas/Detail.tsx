@@ -687,6 +687,36 @@ function EditInline({
           })
           return
         }
+        if (k === 'sistemasMetrics') {
+          const sistemasLabel = (id: string) => md.sistemas.find((s) => s.id === id)?.nome || id
+          const metricsToText = (raw: unknown) => {
+            if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return '—'
+            const entries = Object.entries(raw as Record<string, any>).sort(([a], [b]) => a.localeCompare(b))
+            if (!entries.length) return '—'
+            const parts: string[] = []
+            for (const [sid, v] of entries) {
+              if (!sid || !v || typeof v !== 'object' || Array.isArray(v)) continue
+              const qU = (v as any).qtdUsuarios
+              const qC = (v as any).qtdClientesVinculados
+              const segs: string[] = []
+              if (qU !== undefined && qU !== null && qU !== '') segs.push(`usuários=${Number(qU)}`)
+              if (qC !== undefined && qC !== null && qC !== '') segs.push(`clientes=${Number(qC)}`)
+              if (!segs.length) continue
+              parts.push(`${sistemasLabel(sid)}: ${segs.join(', ')}`)
+            }
+            return parts.length ? parts.join(' | ') : '—'
+          }
+
+          store.log({
+            demandaId: d.id,
+            type: 'field_change' as const,
+            field: 'métricas por sistema',
+            from: metricsToText((d as any).sistemasMetrics),
+            to: metricsToText((draft as any).sistemasMetrics),
+            user: currentUser?.name,
+          })
+          return
+        }
         // Função para converter ID em nome para logs
         const convertIdToName = (id: string | undefined, fieldType: string) => {
           if (!id) return 'N/A'
