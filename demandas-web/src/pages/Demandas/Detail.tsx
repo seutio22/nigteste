@@ -1043,6 +1043,112 @@ function EditInline({
           </select>
         </div>
       </div>
+
+      {/* Métricas por sistema — dentro do módulo Sistemas */}
+      <div className="mt-4 space-y-3">
+        {sistemasSelecionados.map((s) => {
+          const metrics = ((draft as any).sistemasMetrics || {}) as Record<string, any>
+          const m = metrics[s.id] || {}
+          return (
+            <div
+              key={s.id}
+              className="rounded-xl border border-sky-200/40 bg-gradient-to-br from-sky-50/50 via-white to-white p-3.5 shadow-sm"
+            >
+              <div className="mb-2.5 text-xs font-semibold uppercase tracking-wide text-sky-900/80">{s.nome}</div>
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                <div>
+                  <label className={labelCls}>Qtd de usuários</label>
+                  <input
+                    type="number"
+                    value={m.qtdUsuarios ?? ''}
+                    onChange={(e) => {
+                      const next = { ...(metrics || {}) }
+                      next[s.id] = { ...(next[s.id] || {}), qtdUsuarios: e.target.value ? Number(e.target.value) : undefined }
+                      setDraft({ ...draft, sistemasMetrics: next } as any)
+                    }}
+                    placeholder="Digite um número"
+                    min="0"
+                    step="1"
+                    className={inputCls}
+                  />
+                </div>
+                <div>
+                  <label className={labelCls}>Qtd de clientes vinculados</label>
+                  <input
+                    type="number"
+                    value={m.qtdClientesVinculados ?? ''}
+                    onChange={(e) => {
+                      const next = { ...(metrics || {}) }
+                      next[s.id] = { ...(next[s.id] || {}), qtdClientesVinculados: e.target.value ? Number(e.target.value) : undefined }
+                      setDraft({ ...draft, sistemasMetrics: next } as any)
+                    }}
+                    placeholder="Digite um número"
+                    min="0"
+                    step="1"
+                    className={inputCls}
+                  />
+                </div>
+              </div>
+            </div>
+          )
+        })}
+        {sistemasSelecionados.length === 0 && (
+          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+            Selecione um ou mais sistemas para preencher as métricas.
+          </div>
+        )}
+      </div>
+
+      {/* Legado (cadastros antigos): manter métricas globais dentro do módulo Sistemas */}
+      {showLegacyEdit && (
+        <div className="mt-4 rounded-xl border border-amber-200/50 bg-amber-50/40 p-3.5">
+          <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-amber-900/80">
+            Métricas (legado)
+          </div>
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+            <div>
+              <label className={labelCls}>Qtd de usuários</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={draft.qtdUsuarios ?? ''}
+                onChange={(e) => setDraft({ ...draft, qtdUsuarios: e.target.value || undefined })}
+                placeholder="Digite um número"
+                className={inputCls}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>QTD Clientes Vinculados — EDGE</label>
+              <input
+                type="number"
+                min="0"
+                value={draft.qtdClientesVinculados ?? ''}
+                onChange={(e) =>
+                  setDraft({
+                    ...draft,
+                    qtdClientesVinculados: e.target.value ? Number(e.target.value) : undefined,
+                  })
+                }
+                placeholder="0"
+                className={inputCls}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Usuários Empresa — MOVE</label>
+              <input
+                type="number"
+                min="0"
+                value={draft.usuariosEmpresa ?? ''}
+                onChange={(e) =>
+                  setDraft({ ...draft, usuariosEmpresa: e.target.value ? Number(e.target.value) : undefined })
+                }
+                placeholder="0"
+                className={inputCls}
+              />
+            </div>
+          </div>
+        </div>
+      )}
       </div>
 
       <div className="rounded-2xl border border-slate-200/50 bg-white p-5 shadow-[0_8px_30px_-12px_rgba(15,23,42,0.12)] ring-1 ring-slate-900/[0.02] sm:p-6">
@@ -1150,20 +1256,6 @@ function EditInline({
       </div>
       <div className="space-y-3">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {showLegacyEdit && (
-          <div>
-            <label className={labelCls}>Qtd de usuários</label>
-            <input
-              type="text"
-              inputMode="numeric"
-              value={draft.qtdUsuarios ?? ''}
-              onChange={(e) => setDraft({ ...draft, qtdUsuarios: e.target.value || undefined })}
-              placeholder="Digite um número"
-              className={inputCls}
-            />
-            <p className="text-xs text-gray-500 mt-1">Campo do cadastro antigo; novos chamados usam métricas por sistema.</p>
-          </div>
-        )}
         <div>
           <label className={labelCls}>Quantidade de Retornos</label>
           <input
@@ -1184,39 +1276,6 @@ function EditInline({
             className={inputCls}
           />
         </div>
-        {showLegacyEdit && (
-          <div>
-            <label className={labelCls}>QTD Clientes Vinculados — EDGE</label>
-            <input
-              type="number"
-              min="0"
-              value={draft.qtdClientesVinculados ?? ''}
-              onChange={(e) =>
-                setDraft({
-                  ...draft,
-                  qtdClientesVinculados: e.target.value ? Number(e.target.value) : undefined,
-                })
-              }
-              placeholder="0"
-              className={inputCls}
-            />
-          </div>
-        )}
-        {showLegacyEdit && (
-          <div>
-            <label className={labelCls}>Usuários Empresa — MOVE</label>
-            <input
-              type="number"
-              min="0"
-              value={draft.usuariosEmpresa ?? ''}
-              onChange={(e) =>
-                setDraft({ ...draft, usuariosEmpresa: e.target.value ? Number(e.target.value) : undefined })
-              }
-              placeholder="0"
-              className={inputCls}
-            />
-          </div>
-        )}
       </div>
 
       {/* Qualidade — só leitura; derivada dos retornos */}
@@ -1237,60 +1296,6 @@ function EditInline({
         <p className="mt-1 text-xs text-slate-500">Calculada automaticamente a partir da quantidade de retornos.</p>
       </div>
 
-      {/* Métricas por sistema — mesmo padrão do "Novo chamado" */}
-      <div className="space-y-3">
-        {sistemasSelecionados.map((s) => {
-          const metrics = ((draft as any).sistemasMetrics || {}) as Record<string, any>
-          const m = metrics[s.id] || {}
-          return (
-            <div
-              key={s.id}
-              className="rounded-xl border border-sky-200/40 bg-gradient-to-br from-sky-50/50 via-white to-white p-3.5 shadow-sm"
-            >
-              <div className="mb-2.5 text-xs font-semibold uppercase tracking-wide text-sky-900/80">{s.nome}</div>
-              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                <div>
-                  <label className={labelCls}>Qtd de usuários</label>
-                  <input
-                    type="number"
-                    value={m.qtdUsuarios ?? ''}
-                    onChange={(e) => {
-                      const next = { ...(metrics || {}) }
-                      next[s.id] = { ...(next[s.id] || {}), qtdUsuarios: e.target.value ? Number(e.target.value) : undefined }
-                      setDraft({ ...draft, sistemasMetrics: next } as any)
-                    }}
-                    placeholder="Digite um número"
-                    min="0"
-                    step="1"
-                    className={inputCls}
-                  />
-                </div>
-                <div>
-                  <label className={labelCls}>Qtd de clientes vinculados</label>
-                  <input
-                    type="number"
-                    value={m.qtdClientesVinculados ?? ''}
-                    onChange={(e) => {
-                      const next = { ...(metrics || {}) }
-                      next[s.id] = { ...(next[s.id] || {}), qtdClientesVinculados: e.target.value ? Number(e.target.value) : undefined }
-                      setDraft({ ...draft, sistemasMetrics: next } as any)
-                    }}
-                    placeholder="Digite um número"
-                    min="0"
-                    step="1"
-                    className={inputCls}
-                  />
-                </div>
-              </div>
-            </div>
-          )
-        })}
-        {sistemasSelecionados.length === 0 && (
-          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-            Selecione um ou mais sistemas para preencher as métricas.
-          </div>
-        )}
-      </div>
       </div>
       </div>
 
