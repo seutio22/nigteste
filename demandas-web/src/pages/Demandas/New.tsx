@@ -754,12 +754,85 @@ export default function DemandNewPage() {
                   />
                 )}
               />
+
+              {sistemasSelecionados.length > 0 && (
+                <Box sx={{ mt: 2.5 }}>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, maxWidth: 860 }}>
+                    Preencha as métricas por sistema. Esses valores ficam vinculados ao(s) sistema(s) selecionado(s).
+                  </Typography>
+                  <Grid container spacing={2}>
+                    {sistemasSelecionados.map((s) => (
+                      <Grid item xs={12} key={s.id}>
+                        <Box
+                          sx={{
+                            p: 2,
+                            borderRadius: 2,
+                            border: '1px solid',
+                            borderColor: 'rgba(0, 159, 223, 0.18)',
+                            background:
+                              'linear-gradient(135deg, rgba(0,159,223,0.06) 0%, rgba(255,255,255,0.95) 48%, #fff 100%)',
+                          }}
+                        >
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              display: 'block',
+                              mb: 1.25,
+                              fontWeight: 800,
+                              letterSpacing: '0.04em',
+                              color: 'primary.dark',
+                              textTransform: 'uppercase',
+                              fontSize: '0.7rem',
+                            }}
+                          >
+                            {s.nome}
+                          </Typography>
+                          <Grid container spacing={1}>
+                            <Grid item xs={12} sm={6}>
+                              <Controller
+                                name={`sistemasMetrics.${s.id}.qtdUsuarios` as any}
+                                control={control}
+                                render={({ field }) => (
+                                  <TextField
+                                    {...field}
+                                    type="number"
+                                    label="Usuários"
+                                    {...formField}
+                                    placeholder="0"
+                                    inputProps={{ min: 0, step: 1 }}
+                                  />
+                                )}
+                              />
+                            </Grid>
+                            <Grid item xs={12} sm={6}>
+                              <Controller
+                                name={`sistemasMetrics.${s.id}.qtdClientesVinculados` as any}
+                                control={control}
+                                render={({ field }) => (
+                                  <TextField
+                                    {...field}
+                                    type="number"
+                                    label="Clientes vinculados"
+                                    {...formField}
+                                    placeholder="0"
+                                    inputProps={{ min: 0, step: 1 }}
+                                  />
+                                )}
+                              />
+                            </Grid>
+                          </Grid>
+                        </Box>
+                      </Grid>
+                    ))}
+                  </Grid>
+                </Box>
+              )}
             </CardContent>
           </Card>
 
           <Card elevation={0} sx={cardSx}>
             <CardContent sx={{ py: 3, px: { xs: 2.25, sm: 3 }, '&:last-child': { pb: 3 } }}>
-              <SectionTitle>Métricas</SectionTitle>
+              <SectionTitle>Retornos e qualidade</SectionTitle>
               <Grid container spacing={2}>
                 <Grid item xs={6} sm={4}>
                   <Controller name="qtdRetornos" control={control} render={({ field }) => (
@@ -786,57 +859,6 @@ export default function DemandNewPage() {
                     helperText="Calculada automaticamente a partir da quantidade de retornos."
                   />
                 </Grid>
-                {sistemasSelecionados.map((s) => (
-                  <Grid item xs={12} key={s.id}>
-                    <Box
-                      sx={{
-                        p: 2,
-                        borderRadius: 2,
-                        border: '1px solid',
-                        borderColor: 'rgba(0, 159, 223, 0.18)',
-                        background: 'linear-gradient(135deg, rgba(0,159,223,0.06) 0%, rgba(255,255,255,0.95) 48%, #fff 100%)',
-                      }}
-                    >
-                      <Typography variant="caption" sx={{ display: 'block', mb: 1.25, fontWeight: 800, letterSpacing: '0.04em', color: 'primary.dark', textTransform: 'uppercase', fontSize: '0.7rem' }}>
-                        {s.nome}
-                      </Typography>
-                      <Grid container spacing={1}>
-                        <Grid item xs={12} sm={6}>
-                          <Controller
-                            name={`sistemasMetrics.${s.id}.qtdUsuarios` as any}
-                            control={control}
-                            render={({ field }) => (
-                              <TextField
-                                {...field}
-                                type="number"
-                                label="Usuários"
-                                {...formField}
-                                placeholder="0"
-                                inputProps={{ min: 0, step: 1 }}
-                              />
-                            )}
-                          />
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                          <Controller
-                            name={`sistemasMetrics.${s.id}.qtdClientesVinculados` as any}
-                            control={control}
-                            render={({ field }) => (
-                              <TextField
-                                {...field}
-                                type="number"
-                                label="Clientes vinculados"
-                                {...formField}
-                                placeholder="0"
-                                inputProps={{ min: 0, step: 1 }}
-                              />
-                            )}
-                          />
-                        </Grid>
-                      </Grid>
-                    </Box>
-                  </Grid>
-                ))}
               </Grid>
             </CardContent>
           </Card>
