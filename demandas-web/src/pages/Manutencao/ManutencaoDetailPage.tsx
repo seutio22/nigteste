@@ -8,12 +8,13 @@ import { Timeline } from '../../components/Timeline'
 import { EmailComunicacaoModal } from '../../components/EmailComunicacaoModal'
 import { fmt } from '../../lib/utils'
 import { fixEncoding } from '../../utils/encodingFix'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { Save, Edit3, Clock, ArrowLeft } from 'lucide-react'
 import { Autocomplete, Box, TextField, Typography } from '@mui/material'
 import { Save as SaveIcon, Email as EmailIcon } from '@mui/icons-material'
 import { PrimaryActionButton } from '../../components/PrimaryActionButton'
 import { createPerfLogger } from '../../utils/perf'
+import { qualidadeFromQtdRetornos } from '../../utils/qualidadeRetornos'
 
 // Função para converter código de qualidade em texto legível
 const getQualidadeLabel = (value?: string) => {
@@ -85,9 +86,22 @@ export default function ManutencaoDetailPage() {
 
   // Verificar se os dados mestres estão carregados
   useEffect(() => {
-    const isLoaded = md.tiposCadastro.length > 0 && md.padrao.length > 0 && md.clientes.length > 0
+    // Para manutenções antigas, cliente/contrato podem não existir ou a lista pode demorar.
+    // Não travar a tela exigindo `clientes`/`contratos`; basta ter o essencial para renderizar.
+    const isLoaded =
+      md.tiposCadastro.length > 0 &&
+      md.padrao.length > 0 &&
+      md.sistemas.length > 0 &&
+      md.areas.length > 0 &&
+      md.analistas.length > 0
     setMasterDataLoaded(isLoaded)
-  }, [md.tiposCadastro.length, md.padrao.length, md.clientes.length])
+  }, [
+    md.tiposCadastro.length,
+    md.padrao.length,
+    md.sistemas.length,
+    md.areas.length,
+    md.analistas.length,
+  ])
 
   // Debug removido para limpeza do console
   
@@ -263,56 +277,7 @@ export default function ManutencaoDetailPage() {
             <EditInline d={d} />
           </div>
 
-          {/* Informações Adicionais */}
-          <div className="bg-white p-6 rounded-lg border shadow-sm">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Informações Adicionais</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-gray-500">Tipo de Serviço</p>
-                <p className="font-medium">{label(d.tipoServicoId, md.tiposCadastro)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Analista</p>
-                <p className="font-medium">{label(d.analistaId, md.analistas)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Solicitante</p>
-                <p className="font-medium">{label(d.solicitante, md.solicitantes)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Tipo de Manutenção</p>
-                <p className="font-medium">{label(d.tipoId, md.padrao)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Data de Início</p>
-                <p className="font-medium">{fmt(d.dataInicio)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Data Final</p>
-                <p className="font-medium">{fmt(d.dataFinal)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Criado por</p>
-                <p className="font-medium">{d.user?.name || '-'}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Quantidade de Retornos</p>
-                <p className="font-medium">{d.qtdRetornos || 0}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Qualidade</p>
-                <p className="font-medium text-xs leading-tight">{getQualidadeLabel(d.qualidade)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">QTD Clientes Vinculados - EDGE</p>
-                <p className="font-medium">{d.total || 0}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Observações</p>
-                <p className="font-medium">{d.observacoes || '-'}</p>
-              </div>
-            </div>
-          </div>
+          {/* (Removido) Informações Adicionais */}
         </div>
 
         {/* Coluna Lateral - Indicadores e Timeline */}
@@ -364,6 +329,20 @@ function EditInline({ d }: { d: any }) {
   const { user: currentUser } = useAuthStore()
   const [draft, setDraft] = useState(d)
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const [sistemasIds, setSistemasIds] = useState<string[]>([])
+  const [sistemasTotais, setSistemasTotais] = useState<Record<string, number>>({})
+
+  const sectionCardCls =
+    'rounded-2xl border border-slate-200/50 bg-white p-5 shadow-[0_8px_30px_-12px_rgba(15,23,42,0.12)] ring-1 ring-slate-900/[0.02] sm:p-6'
+  const sectionHeaderCls = 'mb-4 flex items-center gap-2.5 border-b border-slate-100 pb-3'
+  const sectionBarCls =
+    'h-7 w-1 shrink-0 rounded-full bg-[#009FDF] shadow-[0_0_0_3px_rgba(0,159,223,0.14)]'
+  // Mesmo padrão visual do Cadastro (Detail.tsx)
+  const inputCls =
+    'w-full rounded-xl border border-slate-200/90 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-[#009FDF] focus:ring-2 focus:ring-[#009FDF]/20'
+  const inputReadonlyCls =
+    'w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600'
+  const labelCls = 'mb-1.5 block text-sm font-medium text-slate-600'
 
   // Função label local para o componente EditInline
   const label = (id?: string, arr?: { id: string, nome: string }[]) => {
@@ -376,6 +355,44 @@ function EditInline({ d }: { d: any }) {
     setDraft(d)
   }, [d])
 
+  useEffect(() => {
+    const parseSistemasIds = (raw: unknown): string[] => {
+      if (Array.isArray(raw)) return raw.map(String).map((s) => s.trim()).filter(Boolean)
+      if (typeof raw === 'string') {
+        const t = raw.trim()
+        if (!t) return []
+        try {
+          if (t.startsWith('[')) {
+            const j = JSON.parse(t)
+            if (Array.isArray(j)) return j.map(String).map((s) => s.trim()).filter(Boolean)
+          }
+        } catch {
+          /* ignore */
+        }
+      }
+      return []
+    }
+
+    let initial = parseSistemasIds((d as any)?.sistemasIds)
+    if (!initial.length && d?.sistemaId) initial = [String(d.sistemaId)]
+
+    let nextTotais: Record<string, number> = {}
+    const rawTotais = (d as any)?.sistemasTotais
+    if (rawTotais && typeof rawTotais === 'object' && !Array.isArray(rawTotais)) {
+      for (const [k, v] of Object.entries(rawTotais as Record<string, unknown>)) {
+        const n = Number(v)
+        if (k && Number.isFinite(n) && n >= 0) nextTotais[String(k)] = n
+      }
+    }
+    if (!Object.keys(nextTotais).length && initial[0]) {
+      const n = typeof d.total === 'number' ? d.total : d.total ? Number(d.total) : 0
+      nextTotais = { [initial[0]]: Number.isFinite(n) ? n : 0 }
+    }
+
+    setSistemasIds(initial)
+    setSistemasTotais(nextTotais)
+  }, [d?.id])
+
   const clienteIdNormalized = draft.clienteId
   const grupoDoCliente = md.clientes.find(cl => cl.id === clienteIdNormalized)?.grupoEconomico
   const contratosDoCliente = md.contratos.filter(c =>
@@ -383,19 +400,81 @@ function EditInline({ d }: { d: any }) {
     (grupoDoCliente && c.grupoEconomico === grupoDoCliente)
   )
 
-  const changedKeys = ((): string[] => {
-    const keys = ['status', 'ticket', 'clienteId', 'contratoId', 'operadoraId', 'produtoId', 'sistemaId', 'areaId', 'tipoId', 'tipoServicoId', 'descricao', 'solicitante', 'dataInicio', 'dataFinal', 'qtdRetornos', 'qualidade', 'total', 'observacoes'] as const
-    
-    const changed = keys.filter((k) => {
-      const dValue = k === 'status' ? d.status : k === 'ticket' ? d.ticket : k === 'clienteId' ? d.clienteId : k === 'contratoId' ? d.contratoId : k === 'operadoraId' ? d.operadoraId : k === 'produtoId' ? d.produtoId : k === 'sistemaId' ? d.sistemaId : k === 'areaId' ? d.areaId : k === 'tipoId' ? d.tipoId : k === 'tipoServicoId' ? d.tipoServicoId : k === 'descricao' ? d.descricao : k === 'solicitante' ? d.solicitante : k === 'dataInicio' ? d.dataInicio : k === 'dataFinal' ? d.dataFinal : k === 'qtdRetornos' ? d.qtdRetornos : k === 'qualidade' ? d.qualidade : k === 'total' ? d.total : d.observacoes
-      const draftValue = k === 'status' ? draft.status : k === 'ticket' ? draft.ticket : k === 'clienteId' ? draft.clienteId : k === 'contratoId' ? draft.contratoId : k === 'operadoraId' ? draft.operadoraId : k === 'produtoId' ? draft.produtoId : k === 'sistemaId' ? draft.sistemaId : k === 'areaId' ? draft.areaId : k === 'tipoId' ? draft.tipoId : k === 'tipoServicoId' ? draft.tipoServicoId : k === 'descricao' ? draft.descricao : k === 'solicitante' ? draft.solicitante : k === 'dataInicio' ? draft.dataInicio : k === 'dataFinal' ? draft.dataFinal : k === 'qtdRetornos' ? draft.qtdRetornos : k === 'qualidade' ? draft.qualidade : k === 'total' ? draft.total : draft.observacoes
-      
-      const isChanged = String(dValue ?? '') !== String(draftValue ?? '')
-      return isChanged
-    })
-    
-    return changed
-  })()
+  const padroesParaEdicao = useMemo(() => {
+    const all = md.padrao || []
+    const active = all.filter((p: any) => p?.ativo !== false)
+    const currentId = draft?.tipoId ? String(draft.tipoId) : ''
+    if (!currentId) return active
+    const current = all.find((p: any) => String(p?.id) === currentId)
+    if (current && current.ativo === false && !active.some((p: any) => String(p?.id) === currentId)) {
+      return [current, ...active]
+    }
+    return active
+  }, [md.padrao, draft?.tipoId])
+
+  const changedKeys = useMemo((): string[] => {
+    const changed: string[] = []
+
+    const isDiff = (a: unknown, b: unknown) => String(a ?? '') !== String(b ?? '')
+
+    // campos simples do draft
+    const simpleKeys = [
+      'status',
+      'ticket',
+      'clienteId',
+      'contratoId',
+      'operadoraId',
+      'produtoId',
+      'areaId',
+      'tipoId',
+      'tipoServicoId',
+      'descricao',
+      'solicitante',
+      'dataInicio',
+      'dataFinal',
+      'qtdRetornos',
+      'qualidade',
+      'observacoes',
+    ] as const
+
+    for (const k of simpleKeys) {
+      if (isDiff((d as any)?.[k], (draft as any)?.[k])) changed.push(k)
+    }
+
+    // sistemas (novos campos) — não dependem do draft (são state)
+    const normIds = (raw: unknown): string[] => {
+      const arr = Array.isArray(raw) ? raw : []
+      return [...new Set(arr.map(String).map((s) => s.trim()).filter(Boolean))].sort()
+    }
+    const dSis = normIds((d as any)?.sistemasIds ?? ((d as any)?.sistemaId ? [String((d as any).sistemaId)] : []))
+    const stSis = normIds(sistemasIds)
+    if (JSON.stringify(dSis) !== JSON.stringify(stSis)) changed.push('sistemasIds')
+
+    const normTotais = (raw: unknown): Record<string, number> => {
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
+      const out: Record<string, number> = {}
+      for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+        const n = Number(v)
+        if (k && Number.isFinite(n) && n >= 0) out[String(k)] = n
+      }
+      return out
+    }
+    const dTotais = normTotais((d as any)?.sistemasTotais)
+    const stTotais = normTotais(sistemasTotais)
+    if (JSON.stringify(Object.entries(dTotais).sort()) !== JSON.stringify(Object.entries(stTotais).sort())) {
+      changed.push('sistemasTotais')
+    }
+
+    // total (soma) é derivado dos totais por sistema
+    const totalSum = sistemasIds.reduce((acc, sid) => acc + (sistemasTotais[sid] ?? 0), 0) || null
+    if (isDiff((d as any)?.total, totalSum)) changed.push('total')
+
+    // sistemaId (compatibilidade) = primeiro sistema selecionado
+    const sistemaPrincipalId = sistemasIds[0] || null
+    if (isDiff((d as any)?.sistemaId, sistemaPrincipalId)) changed.push('sistemaId')
+
+    return [...new Set(changed)]
+  }, [d, draft, sistemasIds, sistemasTotais])
 
   async function applySave() {
     try {
@@ -418,6 +497,8 @@ function EditInline({ d }: { d: any }) {
 
       // Preparar payload seguro para o backend
       // NOTA: userId não deve ser alterado durante edição (é quem criou originalmente)
+      const sistemaPrincipalId = sistemasIds[0] || null
+      const totalSum = sistemasIds.reduce((acc, sid) => acc + (sistemasTotais[sid] ?? 0), 0)
       const updatePayload = {
         status: draft.status,
         ticket: draft.ticket || null,
@@ -426,7 +507,7 @@ function EditInline({ d }: { d: any }) {
         observacoes: draft.observacoes || null,
         qualidade: draft.qualidade || null,
         qtdRetornos: draft.qtdRetornos || null,
-        total: draft.total || null,
+        total: totalSum || null,
         dataInicio: formatDateForAPI(draft.dataInicio),
         dataFinal: formatDateForAPI(draft.dataFinal),
         // Sempre incluir todos os campos de ID, mesmo que sejam vazios
@@ -435,7 +516,9 @@ function EditInline({ d }: { d: any }) {
         contratoId: draft.contratoId || null,
         operadoraId: draft.operadoraId || null,
         produtoId: draft.produtoId || null,
-        sistemaId: draft.sistemaId || null,
+        sistemaId: sistemaPrincipalId,
+        sistemasIds: sistemasIds.length ? sistemasIds : null,
+        sistemasTotais: Object.keys(sistemasTotais).length ? sistemasTotais : null,
         areaId: draft.areaId || null,
         tipoId: draft.tipoId || null,
         tipoServicoId: draft.tipoServicoId || null,
@@ -445,10 +528,20 @@ function EditInline({ d }: { d: any }) {
       await api.updateManutencao(d.id, updatePayload)
       
       // Atualizar no store local
-      store.upsert(draft)
+      store.upsert({ ...draft, sistemaId: sistemaPrincipalId, sistemasIds, sistemasTotais, total: totalSum || null })
       
       // Log das mudanças no timeline
       changedKeys.forEach((k) => {
+        const sistemasLabel = (id: string) => fixEncoding(md.sistemas.find((s) => s.id === id)?.nome) || id
+        const sistemasIdsToText = (ids: string[]) => (ids.length ? ids.map(sistemasLabel).join(', ') : '—')
+        const totalsToText = (totais: Record<string, number>) => {
+          const entries = Object.entries(totais)
+            .filter(([sid]) => !!sid)
+            .sort(([a], [b]) => a.localeCompare(b))
+          if (!entries.length) return '—'
+          return entries.map(([sid, v]) => `${sistemasLabel(sid)}=${Number(v)}`).join('; ')
+        }
+
         // Função para converter ID em nome para logs
         const convertIdToName = (id: string | undefined, fieldType: string) => {
           if (!id) return 'N/A'
@@ -491,8 +584,44 @@ function EditInline({ d }: { d: any }) {
         
         const fieldName = fieldMapping[k] || k
         
-        const from = k === 'status' ? String(d.status ?? '') : k === 'ticket' ? String(d.ticket ?? '') : k === 'clienteId' ? convertIdToName(d.clienteId, 'clienteId') : k === 'contratoId' ? convertIdToName(d.contratoId, 'contratoId') : k === 'operadoraId' ? convertIdToName(d.operadoraId, 'operadoraId') : k === 'produtoId' ? convertIdToName(d.produtoId, 'produtoId') : k === 'sistemaId' ? convertIdToName(d.sistemaId, 'sistemaId') : k === 'areaId' ? convertIdToName(d.areaId, 'areaId') : k === 'tipoId' ? convertIdToName(d.tipoId, 'tipoId') : k === 'tipoServicoId' ? convertIdToName(d.tipoServicoId, 'tipoServicoId') : k === 'descricao' ? String(d.descricao ?? '') : k === 'solicitante' ? convertIdToName(d.solicitante, 'solicitante') : k === 'dataInicio' ? String(d.dataInicio ?? '') : k === 'dataFinal' ? String(d.dataFinal ?? '') : k === 'qtdRetornos' ? String(d.qtdRetornos ?? '') : k === 'qualidade' ? String(d.qualidade ?? '') : k === 'qtdClientesVinculados' ? String(d.qtdClientesVinculados ?? '') : k === 'usuariosEmpresa' ? String(d.usuariosEmpresa ?? '') : String(d.observacoes ?? '')
-        const to = k === 'status' ? String(draft.status ?? '') : k === 'ticket' ? String(draft.ticket ?? '') : k === 'clienteId' ? convertIdToName(draft.clienteId, 'clienteId') : k === 'contratoId' ? convertIdToName(draft.contratoId, 'contratoId') : k === 'operadoraId' ? convertIdToName(draft.operadoraId, 'operadoraId') : k === 'produtoId' ? convertIdToName(draft.produtoId, 'produtoId') : k === 'sistemaId' ? convertIdToName(draft.sistemaId, 'sistemaId') : k === 'areaId' ? convertIdToName(draft.areaId, 'areaId') : k === 'tipoId' ? convertIdToName(draft.tipoId, 'tipoId') : k === 'tipoServicoId' ? convertIdToName(draft.tipoServicoId, 'tipoServicoId') : k === 'descricao' ? String(draft.descricao ?? '') : k === 'solicitante' ? convertIdToName(draft.solicitante, 'solicitante') : k === 'dataInicio' ? String(draft.dataInicio ?? '') : k === 'dataFinal' ? String(draft.dataFinal ?? '') : k === 'qtdRetornos' ? String(draft.qtdRetornos ?? '') : k === 'qualidade' ? String(draft.qualidade ?? '') : k === 'qtdClientesVinculados' ? String(draft.qtdClientesVinculados ?? '') : k === 'usuariosEmpresa' ? String(draft.usuariosEmpresa ?? '') : String(draft.observacoes ?? '')
+        const legacyIds = Array.isArray((d as any)?.sistemasIds) ? ((d as any).sistemasIds as any[]).map(String) : []
+        const legacyFallback = legacyIds.length ? legacyIds : (d?.sistemaId ? [String(d.sistemaId)] : [])
+        const fromSistemasIds = legacyFallback.map((s) => s.trim()).filter(Boolean)
+        const toSistemasIds = sistemasIds
+
+        const fromTotais = (d as any)?.sistemasTotais && typeof (d as any).sistemasTotais === 'object' && !Array.isArray((d as any).sistemasTotais)
+          ? (d as any).sistemasTotais as Record<string, number>
+          : {}
+        const toTotais = sistemasTotais
+
+        const from = k === 'sistemasIds'
+          ? sistemasIdsToText(fromSistemasIds)
+          : k === 'sistemasTotais'
+            ? totalsToText(fromTotais)
+            : k === 'total'
+              ? String((d as any)?.total ?? '')
+              : k === 'sistemaId'
+                ? convertIdToName((d as any)?.sistemaId, 'sistemaId')
+                : k === 'status' ? String(d.status ?? '') : k === 'ticket' ? String(d.ticket ?? '') : k === 'clienteId' ? convertIdToName(d.clienteId, 'clienteId') : k === 'contratoId' ? convertIdToName(d.contratoId, 'contratoId') : k === 'operadoraId' ? convertIdToName(d.operadoraId, 'operadoraId') : k === 'produtoId' ? convertIdToName(d.produtoId, 'produtoId') : k === 'areaId' ? convertIdToName(d.areaId, 'areaId') : k === 'tipoId' ? convertIdToName(d.tipoId, 'tipoId') : k === 'tipoServicoId' ? convertIdToName(d.tipoServicoId, 'tipoServicoId') : k === 'descricao' ? String(d.descricao ?? '') : k === 'solicitante' ? convertIdToName(d.solicitante, 'solicitante') : k === 'dataInicio' ? String(d.dataInicio ?? '') : k === 'dataFinal' ? String(d.dataFinal ?? '') : k === 'qtdRetornos' ? String(d.qtdRetornos ?? '') : k === 'qualidade' ? String(d.qualidade ?? '') : k === 'usuariosEmpresa' ? String(d.usuariosEmpresa ?? '') : String(d.observacoes ?? '')
+
+        const to = k === 'sistemasIds'
+          ? sistemasIdsToText(toSistemasIds)
+          : k === 'sistemasTotais'
+            ? totalsToText(toTotais)
+            : k === 'total'
+              ? String(totalSum || '')
+              : k === 'sistemaId'
+                ? convertIdToName(String(sistemaPrincipalId || ''), 'sistemaId')
+                : k === 'status' ? String(draft.status ?? '') : k === 'ticket' ? String(draft.ticket ?? '') : k === 'clienteId' ? convertIdToName(draft.clienteId, 'clienteId') : k === 'contratoId' ? convertIdToName(draft.contratoId, 'contratoId') : k === 'operadoraId' ? convertIdToName(draft.operadoraId, 'operadoraId') : k === 'produtoId' ? convertIdToName(draft.produtoId, 'produtoId') : k === 'areaId' ? convertIdToName(draft.areaId, 'areaId') : k === 'tipoId' ? convertIdToName(draft.tipoId, 'tipoId') : k === 'tipoServicoId' ? convertIdToName(draft.tipoServicoId, 'tipoServicoId') : k === 'descricao' ? String(draft.descricao ?? '') : k === 'solicitante' ? convertIdToName(draft.solicitante, 'solicitante') : k === 'dataInicio' ? String(draft.dataInicio ?? '') : k === 'dataFinal' ? String(draft.dataFinal ?? '') : k === 'qtdRetornos' ? String(draft.qtdRetornos ?? '') : k === 'qualidade' ? String(draft.qualidade ?? '') : k === 'usuariosEmpresa' ? String(draft.usuariosEmpresa ?? '') : String(draft.observacoes ?? '')
+
+        const fieldNameFinal =
+          k === 'sistemasIds'
+            ? 'sistemas'
+            : k === 'sistemasTotais'
+              ? 'totaisPorSistema'
+              : k === 'total'
+                ? 'total'
+                : fieldName
         
         if (k === 'status') {
           store.log({ 
@@ -507,7 +636,7 @@ function EditInline({ d }: { d: any }) {
           store.log({ 
             manutencaoId: d.id, 
             type: 'field_change' as const, 
-            field: fieldName, 
+            field: fieldNameFinal, 
             from, 
             to,
             user: currentUser.name
@@ -539,25 +668,31 @@ function EditInline({ d }: { d: any }) {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Status */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Status *</label>
-        <select
-          value={draft.status}
-          onChange={(e) => setDraft({ ...draft, status: e.target.value })}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        >
-          {['Aberta', 'Em andamento', 'Transf. Analista', 'Aguardando validação', 'Com erros', 'Concluída', 'Cancelada'].map(s => (
-            <option key={s} value={s}>{s}</option>
-          ))}
-        </select>
-      </div>
+    <div className="mx-auto max-w-5xl space-y-4 pb-2">
+      <div className={sectionCardCls}>
+        <div className={sectionHeaderCls}>
+          <span className={sectionBarCls} aria-hidden />
+          <h3 className="text-[0.95rem] font-semibold tracking-tight text-slate-800">Identificação</h3>
+        </div>
+        <div className="space-y-3">
+          {/* Status (não ocupar a linha inteira) */}
+          <div className="max-w-[320px]">
+            <label className={labelCls}>Status *</label>
+            <select
+              value={draft.status}
+              onChange={(e) => setDraft({ ...draft, status: e.target.value })}
+              className={inputCls}
+            >
+              {['Aberta', 'Em andamento', 'Transf. Analista', 'Aguardando validação', 'Com erros', 'Concluída', 'Cancelada'].map(s => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </div>
 
       {/* Primeira linha - Cliente e Contrato */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Cliente</label>
+          <label className={labelCls}>Cliente</label>
           <Autocomplete
             options={md.clientes}
             getOptionLabel={(option) => option.nome || ''}
@@ -599,7 +734,7 @@ function EditInline({ d }: { d: any }) {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Contrato</label>
+          <label className={labelCls}>Contrato</label>
           <Autocomplete
             options={contratosDoCliente}
             getOptionLabel={(option: any) => option?.codigo || option?.numero || ''}
@@ -646,24 +781,24 @@ function EditInline({ d }: { d: any }) {
       </div>
 
       {/* Segunda linha - Operadora e Produto */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Operadora</label>
+          <label className={labelCls}>Operadora</label>
           <select
             value={draft.operadoraId || ''}
             onChange={(e) => setDraft({ ...draft, operadoraId: e.target.value || undefined })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className={inputCls}
           >
             <option value="">Selecione...</option>
             {md.operadoras.map(o => <option key={o.id} value={o.id}>{o.nome}</option>)}
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Produto</label>
+          <label className={labelCls}>Produto</label>
           <select
             value={draft.produtoId || ''}
             onChange={(e) => setDraft({ ...draft, produtoId: e.target.value || undefined })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className={inputCls}
           >
             <option value="">Selecione...</option>
             {md.produtos.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
@@ -671,25 +806,35 @@ function EditInline({ d }: { d: any }) {
         </div>
       </div>
 
-      {/* Terceira linha - Sistema e Área */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Terceira linha - Ticket, Solicitante e Área */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Sistema</label>
+          <label className={labelCls}>Nº Ticket</label>
+          <input
+            type="text"
+            value={draft.ticket || ''}
+            onChange={(e) => setDraft({ ...draft, ticket: e.target.value || undefined })}
+            placeholder="Número do ticket"
+            className={inputCls}
+          />
+        </div>
+        <div>
+          <label className={labelCls}>Solicitante</label>
           <select
-            value={draft.sistemaId || ''}
-            onChange={(e) => setDraft({ ...draft, sistemaId: e.target.value || undefined })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            value={draft.solicitante || ''}
+            onChange={(e) => setDraft({ ...draft, solicitante: e.target.value || undefined })}
+            className={inputCls}
           >
             <option value="">Selecione...</option>
-            {md.sistemas.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
+            {md.solicitantes.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Área</label>
+          <label className={labelCls}>Área</label>
           <select
             value={draft.areaId || ''}
             onChange={(e) => setDraft({ ...draft, areaId: e.target.value || undefined })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className={inputCls}
           >
             <option value="">Selecione...</option>
             {md.areas.map(a => <option key={a.id} value={a.id}>{a.nome}</option>)}
@@ -697,164 +842,211 @@ function EditInline({ d }: { d: any }) {
         </div>
       </div>
 
-      {/* Quarta linha - Ticket e Solicitante */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Nº Ticket</label>
-          <input
-            type="text"
-            value={draft.ticket || ''}
-            onChange={(e) => setDraft({ ...draft, ticket: e.target.value || undefined })}
-            placeholder="Número do ticket"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Solicitante</label>
-          <select
-            value={draft.solicitante || ''}
-            onChange={(e) => setDraft({ ...draft, solicitante: e.target.value || undefined })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="">Selecione...</option>
-            {md.solicitantes.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
-          </select>
-        </div>
-      </div>
-
       {/* Quinta linha - Analista */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Analista Responsável</label>
+        <label className={labelCls}>Analista Responsável</label>
         <input
           type="text"
           value={label(draft.analistaId, md.analistas)}
           readOnly
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
+          className={inputReadonlyCls}
           placeholder="Definido na criação"
         />
-        <p className="text-xs text-gray-500 mt-1">
+        <p className="mt-1 text-xs text-slate-500">
           ⚠️ O analista responsável é definido na criação e não pode ser alterado
         </p>
       </div>
 
       {/* Sexta linha - Tipo de Serviço e Tipo de Manutenção */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Serviço</label>
+          <label className={labelCls}>Tipo de Serviço</label>
           <select
             value={draft.tipoServicoId || ''}
             onChange={(e) => setDraft({ ...draft, tipoServicoId: e.target.value || undefined })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className={inputCls}
           >
             <option value="">Selecione...</option>
             {md.tiposCadastro.map(ts => <option key={ts.id} value={ts.id}>{ts.nome}</option>)}
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Manutenção</label>
+          <label className={labelCls}>Tipo de Manutenção</label>
           <select
             value={draft.tipoId || ''}
             onChange={(e) => setDraft({ ...draft, tipoId: e.target.value || undefined })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className={inputCls}
           >
             <option value="">Selecione...</option>
-            {md.padrao.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+            {padroesParaEdicao.map((p: any) => (
+              <option key={p.id} value={p.id}>{p.nome}</option>
+            ))}
           </select>
         </div>
       </div>
 
       {/* Sexta linha - Datas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Data de Início</label>
+          <label className={labelCls}>Data de Início</label>
           <input
             type="date"
             value={draft.dataInicio ? draft.dataInicio.split('T')[0] : ''}
             onChange={(e) => setDraft({ ...draft, dataInicio: e.target.value || undefined })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className={inputCls}
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Data Final</label>
+          <label className={labelCls}>Data Final</label>
           <input
             type="date"
             value={draft.dataFinal ? draft.dataFinal.split('T')[0] : ''}
             onChange={(e) => setDraft({ ...draft, dataFinal: e.target.value || undefined })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className={inputCls}
           />
         </div>
       </div>
-
-      {/* Sétima linha - Quantidade de Retornos */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Quantidade de Retornos</label>
-          <input
-            type="number"
-            min="0"
-            value={draft.qtdRetornos || ''}
-            onChange={(e) => setDraft({ ...draft, qtdRetornos: e.target.value ? parseInt(e.target.value) : undefined })}
-            placeholder="0"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
         </div>
       </div>
 
-      {/* Nona linha - Qualidade */}
-      <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Qualidade</label>
-          <select
-            value={draft.qualidade || ''}
-            onChange={(e) => setDraft({ ...draft, qualidade: e.target.value || undefined })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="">Selecione...</option>
-            <option value="0">0 - RUIM - MAIS DE 3 RETORNOS; ITENS INCOMPLETOS, SEM RETORNO</option>
-            <option value="1">1 - MEDIANO - NO MÁX 2 RETORNOS</option>
-            <option value="2">2 - BOM - NO MÁX 1 RETORNO; TODOS OS ITENS COMPLETOS</option>
-            <option value="3">3 - EXCELENTE - SEM NENHUMA CONSIDERAÇÃO</option>
-          </select>
+      <div className={sectionCardCls}>
+        <div className={sectionHeaderCls}>
+          <span className={sectionBarCls} aria-hidden />
+          <h3 className="text-[0.95rem] font-semibold tracking-tight text-slate-800">Operação</h3>
         </div>
+
+        <div className="grid grid-cols-1 gap-4">
+          <div>
+            <label className={labelCls}>Sistemas</label>
+            <Autocomplete
+              multiple
+              options={md.sistemas}
+              getOptionLabel={(option) => option.nome || ''}
+              isOptionEqualToValue={(option, value) => option.id === value?.id}
+              value={md.sistemas.filter((s) => sistemasIds.includes(s.id))}
+              onChange={(_, newValue) => {
+                const ids = (newValue ?? []).map((s) => s.id)
+                setSistemasIds(ids)
+                setSistemasTotais((prev) => {
+                  const next: Record<string, number> = {}
+                  for (const id of ids) next[id] = prev[id] ?? 0
+                  return next
+                })
+                setDraft({ ...draft, sistemaId: ids[0] || undefined })
+              }}
+              renderInput={(params) => (
+                <TextField {...params} size="small" placeholder="Selecione um ou mais sistemas" />
+              )}
+            />
+          </div>
+        </div>
+
+        {sistemasIds.length > 0 && (
+          <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+            {sistemasIds.map((sid) => {
+              const nome = md.sistemas.find((s) => s.id === sid)?.nome || sid
+              return (
+                <div key={sid}>
+                  <label className={labelCls}>{`Total - ${nome}`}</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={String(sistemasTotais[sid] ?? 0)}
+                    onChange={(e) => {
+                      const raw = e.target.value
+                      const n = raw === '' ? 0 : Number(raw)
+                      setSistemasTotais((prev) => ({ ...prev, [sid]: Number.isFinite(n) ? n : 0 }))
+                    }}
+                    className={inputCls}
+                  />
+                </div>
+              )
+            })}
+
+            {/* Total (soma) — solicitado para ficar no módulo Operação */}
+            <div>
+              <label className={labelCls}>Total (soma)</label>
+              <input
+                type="number"
+                min="0"
+                value={String(sistemasIds.reduce((acc, sid) => acc + (sistemasTotais[sid] ?? 0), 0))}
+                readOnly
+                placeholder="0"
+                className={inputReadonlyCls}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Décima linha - Total */}
-      <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Total</label>
-          <input
-            type="number"
-            min="0"
-            value={draft.total || ''}
-            onChange={(e) => setDraft({ ...draft, total: e.target.value ? parseInt(e.target.value) : undefined })}
-            placeholder="0"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
+      <div className={sectionCardCls}>
+        <div className={sectionHeaderCls}>
+          <span className={sectionBarCls} aria-hidden />
+          <h3 className="text-[0.95rem] font-semibold tracking-tight text-slate-800">Métricas</h3>
+        </div>
+        <div className="space-y-3">
+          {/* Quantidade de Retornos */}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div>
+              <label className={labelCls}>Quantidade de Retornos</label>
+              <input
+                type="number"
+                min="0"
+                value={draft.qtdRetornos || ''}
+                onChange={(e) => {
+                  const qtd = e.target.value ? parseInt(e.target.value) : undefined
+                  const q = qualidadeFromQtdRetornos(qtd)
+                  setDraft({ ...draft, qtdRetornos: qtd, qualidade: q ?? draft.qualidade })
+                }}
+                placeholder="0"
+                className={inputCls}
+              />
+            </div>
+          </div>
+
+          {/* Qualidade */}
+          <div>
+            <label className={labelCls}>Qualidade</label>
+            <input
+              type="text"
+              value={getQualidadeLabel(draft.qualidade)}
+              readOnly
+              className={inputReadonlyCls}
+            />
+            <p className="mt-1 text-xs text-slate-500">Definida automaticamente pela quantidade de retornos</p>
+          </div>
         </div>
       </div>
 
       {/* Descrição */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Descrição</label>
-        <textarea
-          value={draft.descricao ?? ''}
-          onChange={(e) => setDraft({ ...draft, descricao: e.target.value || undefined })}
-          rows={6}
-          placeholder="Descreva detalhadamente a manutenção..."
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-vertical"
-        />
-      </div>
+      <div className={sectionCardCls}>
+        <div className={sectionHeaderCls}>
+          <span className={sectionBarCls} aria-hidden />
+          <h3 className="text-[0.95rem] font-semibold tracking-tight text-slate-800">Descrição e notas</h3>
+        </div>
+        <div className="space-y-4">
+          <div>
+            <label className={labelCls}>Descrição</label>
+            <textarea
+              value={draft.descricao ?? ''}
+              onChange={(e) => setDraft({ ...draft, descricao: e.target.value || undefined })}
+              rows={10}
+              placeholder="Descreva detalhadamente a manutenção..."
+              className={`${inputCls} resize-y min-h-[220px] leading-relaxed`}
+            />
+          </div>
 
-      {/* Observações */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Observações</label>
-        <textarea
-          value={draft.observacoes ?? ''}
-          onChange={(e) => setDraft({ ...draft, observacoes: e.target.value || undefined })}
-          rows={4}
-          placeholder="Observações adicionais..."
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-vertical"
-        />
+          <div className="border-t border-slate-100 pt-4">
+            <label className={labelCls}>Observações</label>
+            <textarea
+              value={draft.observacoes ?? ''}
+              onChange={(e) => setDraft({ ...draft, observacoes: e.target.value || undefined })}
+              rows={6}
+              placeholder="Observações adicionais..."
+              className={`${inputCls} resize-y min-h-[140px] leading-relaxed`}
+            />
+          </div>
+        </div>
       </div>
 
       {/* Botão de salvar */}
