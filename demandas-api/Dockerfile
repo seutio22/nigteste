@@ -5,12 +5,16 @@ RUN apt-get update && apt-get install -y openssl ca-certificates && rm -rf /var/
 
 WORKDIR /app
 
-COPY package*.json ./
-COPY prisma ./prisma/
+# Monorepo: o contexto de build no Railway é o repositório inteiro.
+# Copiar manifests e prisma APENAS do `demandas-api/`.
+COPY demandas-api/package*.json ./demandas-api/
+COPY demandas-api/prisma ./demandas-api/prisma/
+
+WORKDIR /app/demandas-api
 
 RUN if [ -f package-lock.json ]; then npm ci; else npm install --include=dev; fi
 
-COPY . .
+COPY demandas-api/ .
 
 RUN npx prisma generate && npm run build
 
