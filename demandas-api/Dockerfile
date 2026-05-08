@@ -6,7 +6,7 @@ RUN apt-get update && apt-get install -y openssl ca-certificates && rm -rf /var/
 WORKDIR /app
 
 # Railway está com root_dir = `demandas-api`, então o contexto já é essa pasta.
-COPY package*.json ./
+COPY package.json package-lock.json ./
 COPY prisma ./prisma/
 
 RUN if [ -f package-lock.json ]; then npm ci; else npm install --include=dev; fi
