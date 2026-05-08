@@ -142,6 +142,8 @@ model Padrao {
   id            String       @id @default(uuid())
   nome          String
   tipoServicoId String?
+  /// Quando false, o padrão não aparece nas caixas de seleção (Dados → Padrão controla isso)
+  ativo         Boolean      @default(true)
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
   tipoServico   TipoServico? @relation(fields: [tipoServicoId], references: [id])
@@ -230,6 +232,10 @@ model Manutencao {
   produtoId       String?
   tipoServicoId   String?
   sistemaId       String?
+  /// Lista de IDs de sistemas (multi-seleção); `sistemaId` espelha o primeiro para compatibilidade
+  sistemasIds     Json?
+  /// Totais por sistema (key = sistemaId): number
+  sistemasTotais  Json?
   dataInicio      DateTime?
   dataFinal       DateTime?
   qtdRetornos     Int?
