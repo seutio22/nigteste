@@ -2722,6 +2722,52 @@ function crud(entity: keyof PrismaClient) {
         console.log('🔍 DEMANDA UPDATE: Dados processados:', JSON.stringify(demandaData, null, 2));
         return anyPrisma[entity].update({ where: { id }, data: demandaData });
       }
+
+      // Tratamento específico para manutenções - converter IDs para relacionamentos connect/disconnect
+      if (entity === 'manutencao') {
+        const manutencaoData = { ...data as any }
+
+        // Remover campos que não devem ser atualizados diretamente
+        delete manutencaoData.id
+        delete manutencaoData.createdAt
+        // Campos virtuais do frontend (se vierem)
+        delete manutencaoData.analista
+        delete manutencaoData.tipo
+        delete manutencaoData.tipoServico
+        delete manutencaoData.cliente
+        delete manutencaoData.contrato
+        delete manutencaoData.operadora
+        delete manutencaoData.produto
+        delete manutencaoData.sistema
+        delete manutencaoData.area
+
+        const relationshipFields = [
+          { field: 'tipoServicoId', relation: 'tipoServico' },
+          { field: 'tipoId', relation: 'tipo' },
+          { field: 'analistaId', relation: 'analista' },
+          { field: 'areaId', relation: 'area' },
+          { field: 'clienteId', relation: 'cliente' },
+          { field: 'contratoId', relation: 'contrato' },
+          { field: 'operadoraId', relation: 'operadora' },
+          { field: 'produtoId', relation: 'produto' },
+          { field: 'sistemaId', relation: 'sistema' },
+          { field: 'userId', relation: 'user' },
+        ] as const
+
+        for (const { field, relation } of relationshipFields) {
+          if (manutencaoData[field] !== undefined) {
+            if (manutencaoData[field] === null || manutencaoData[field] === '') {
+              manutencaoData[relation] = { disconnect: true }
+            } else {
+              manutencaoData[relation] = { connect: { id: manutencaoData[field] } }
+            }
+            delete manutencaoData[field]
+          }
+        }
+
+        console.log('🔍 MANUTENCAO UPDATE: Dados processados:', JSON.stringify(manutencaoData, null, 2))
+        return anyPrisma[entity].update({ where: { id }, data: manutencaoData })
+      }
       
       // Tratamento especial para reajusteLancamento - whitelist + conversões seguras
       if (entity === 'reajusteLancamento') {
