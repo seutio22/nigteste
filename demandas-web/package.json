@@ -15,8 +15,11 @@
     "test:watch": "vitest",
     "verify": "npm run build && npm run test",
     "verify:all": "npm run build && npm run test && npm run type-check",
-    "deploy": "npx vercel@latest deploy --prod --yes",
-    "deploy:vercel": "npx vercel@latest deploy --prod --yes"
+    "deploy": "npx vercel@latest deploy --yes",
+    "deploy:vercel": "npx vercel@latest deploy --yes",
+    "deploy:preview": "npx vercel@latest deploy --yes",
+    "deploy:prod": "npx vercel@latest deploy --prod --yes",
+    "promote": "npx vercel@latest promote"
   },
   "dependencies": {
     "@emotion/react": "^11.11.4",

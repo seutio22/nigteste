@@ -1993,6 +1993,11 @@ export default function ProjectDetailPage() {
   // Função para salvar edição de tarefa
   const handleSaveTaskEdit = () => {
     if (editingTask) {
+      // Não permitir concluir sem data de finalização
+      if (String(editingTask.status) === 'completed' && !editingTask.actualEndDate) {
+        alert('❌ Para marcar como Concluída, informe a Data de Finalização.')
+        return
+      }
       // Validação de datas
       if (editingTask.actualEndDate && editingTask.startDate) {
         const startDate = new Date(editingTask.startDate)
@@ -2083,6 +2088,11 @@ export default function ProjectDetailPage() {
   // Função para salvar edição de subtarefa
   const handleSaveSubtaskEdit = () => {
     if (editingSubtask && selectedTask) {
+      // Não permitir concluir sem data de finalização
+      if (String(editingSubtask.status) === 'completed' && !editingSubtask.actualEndDate) {
+        alert('❌ Para marcar como Concluída, informe a Data de Finalização.')
+        return
+      }
       // Validação de datas
       if (editingSubtask.actualEndDate && editingSubtask.startDate) {
         const startDate = new Date(editingSubtask.startDate)
@@ -2235,6 +2245,11 @@ export default function ProjectDetailPage() {
   // Função para salvar edição de fase
   const handleSavePhaseEdit = () => {
     if (editingPhase) {
+      // Não permitir concluir sem data de conclusão
+      if (String(editingPhase.status) === 'concluido' && !editingPhase.actualEndDate) {
+        alert('❌ Para marcar a fase como Concluída, informe a Data de Conclusão.')
+        return
+      }
       // Atualizar o projeto com a fase editada
       const updatedProject = { ...project }
       updatedProject.timeline.phases.forEach((phase: any) => {
@@ -2243,7 +2258,8 @@ export default function ProjectDetailPage() {
           const updatedPhase = {
             ...editingPhase,
             startDate: editingPhase.startDate || null,
-            endDate: editingPhase.endDate || null
+            endDate: editingPhase.endDate || null,
+            actualEndDate: editingPhase.actualEndDate || null
           }
           
           // Registrar log de atividade antes de atualizar
@@ -2320,7 +2336,14 @@ export default function ProjectDetailPage() {
                 <Select
                   value={editingTask.status}
                   label="Status"
-                  onChange={(e) => setEditingTask({ ...editingTask, status: e.target.value })}
+                  onChange={(e) => {
+                    const next = String(e.target.value)
+                    if (next === 'completed' && !editingTask.actualEndDate) {
+                      alert('❌ Para marcar como Concluída, informe a Data de Finalização.')
+                      return
+                    }
+                    setEditingTask({ ...editingTask, status: next })
+                  }}
                   MenuProps={{
                     PaperProps: {
                       style: {
@@ -2493,7 +2516,14 @@ export default function ProjectDetailPage() {
                 <Select
                   value={editingSubtask.status}
                   label="Status"
-                  onChange={(e) => setEditingSubtask({ ...editingSubtask, status: e.target.value })}
+                  onChange={(e) => {
+                    const next = String(e.target.value)
+                    if (next === 'completed' && !editingSubtask.actualEndDate) {
+                      alert('❌ Para marcar como Concluída, informe a Data de Finalização.')
+                      return
+                    }
+                    setEditingSubtask({ ...editingSubtask, status: next })
+                  }}
                   MenuProps={{
                     PaperProps: {
                       style: {
@@ -2681,6 +2711,18 @@ export default function ProjectDetailPage() {
                 }}
               />
             </Grid>
+
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Data de Conclusão"
+                type="date"
+                value={formatDateForInput(editingPhase.actualEndDate || '')}
+                onChange={(e) => setEditingPhase({ ...editingPhase, actualEndDate: e.target.value || undefined })}
+                InputLabelProps={{ shrink: true }}
+                helperText="Obrigatório para status Concluído"
+              />
+            </Grid>
             
             <Grid item xs={12}>
               <FormControl fullWidth>
@@ -2688,7 +2730,14 @@ export default function ProjectDetailPage() {
                 <Select
                   value={editingPhase.status}
                   label="Status"
-                  onChange={(e) => setEditingPhase({ ...editingPhase, status: e.target.value })}
+                  onChange={(e) => {
+                    const next = String(e.target.value)
+                    if (next === 'concluido' && !editingPhase.actualEndDate) {
+                      alert('❌ Para marcar a fase como Concluída, informe a Data de Conclusão.')
+                      return
+                    }
+                    setEditingPhase({ ...editingPhase, status: next })
+                  }}
                   MenuProps={{
                     PaperProps: {
                       style: {

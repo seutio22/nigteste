@@ -68,7 +68,6 @@ function extractBodyInnerHtml(fullHtml: string): string {
  */
 function copyUsingCopyEvent(fullHtml: string, plain: string): boolean {
   const fragment = extractBodyInnerHtml(fullHtml)
-  const cfHtml = buildWindowsCfHtml(fragment)
 
   const container = document.createElement('div')
   container.setAttribute('contenteditable', 'true')
@@ -92,7 +91,10 @@ function copyUsingCopyEvent(fullHtml: string, plain: string): boolean {
     const dt = e.clipboardData
     if (!dt) return
     try {
-      dt.setData('text/html', cfHtml)
+      // IMPORTANTE: não enviar payload CF_HTML (com header "Version:0.9...") em text/html,
+      // pois algumas versões do Outlook colam esse header como texto no início do e-mail.
+      // Enviando apenas HTML "limpo", o browser/Windows geram o formato nativo quando aplicável.
+      dt.setData('text/html', fullHtml)
       dt.setData('text/plain', plain)
     } catch {
       try {
@@ -199,8 +201,10 @@ async function copyWithClipboardApi(fullHtml: string, plain: string, useCfHtml: 
     return false
   }
   try {
-    const htmlPayload = useCfHtml ? buildWindowsCfHtml(extractBodyInnerHtml(fullHtml)) : fullHtml
-    const htmlBlob = new Blob([htmlPayload], { type: 'text/html;charset=utf-8' })
+    // IMPORTANTE: não enviar CF_HTML (com header) como text/html.
+    // Isso pode aparecer como texto em alguns Outlooks.
+    // Mantemos o HTML completo; o SO/cliente decide como interpretar.
+    const htmlBlob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' })
     const textBlob = new Blob([plain], { type: 'text/plain;charset=utf-8' })
     await navigator.clipboard.write([
       new ClipboardItem({
@@ -224,7 +228,8 @@ export async function copyRichHtmlToClipboard(fullHtml: string): Promise<void> {
     return
   }
 
-  if (await copyWithClipboardApi(fullHtml, plain, true)) {
+  // Não usar CF_HTML header via Clipboard API (evita texto "Version:0.9..." em alguns Outlooks).
+  if (await copyWithClipboardApi(fullHtml, plain, false)) {
     return
   }
 
@@ -233,10 +238,6 @@ export async function copyRichHtmlToClipboard(fullHtml: string): Promise<void> {
   }
 
   if (copyHtmlUsingContentEditableExecCommand(fullHtml)) {
-    return
-  }
-
-  if (await copyWithClipboardApi(fullHtml, plain, false)) {
     return
   }
 

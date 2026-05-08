@@ -18,13 +18,14 @@ import {
   TrendingUp as TrendingUpIcon,
   Assessment as AssessmentIcon
 } from '@mui/icons-material'
-import type { AdvancedIndicator, TempoExecucaoMetrics, AnalistaMetrics } from '../../hooks/useAdvancedIndicators'
+import type { AdvancedIndicator, TempoExecucaoMetrics, AnalistaMetrics, UnassignedPerformanceItem } from '../../hooks/useAdvancedIndicators'
 import { formatDecimalPtBR, formatIntegerPtBR, formatNumberPtBR } from '../../utils/formatNumber'
 
 interface AdvancedIndicatorsProps {
   indicators: AdvancedIndicator[]
   tempoExecucaoMetrics: TempoExecucaoMetrics[]
   analistaMetrics: AnalistaMetrics[]
+  unassignedPerformanceItems?: UnassignedPerformanceItem[]
 }
 
 const iconMap = {
@@ -49,7 +50,8 @@ const paginaNomeMap: Record<string, string> = {
 export const AdvancedIndicators: React.FC<AdvancedIndicatorsProps> = ({
   indicators,
   tempoExecucaoMetrics,
-  analistaMetrics
+  analistaMetrics,
+  unassignedPerformanceItems = []
 }) => {
   const theme = useTheme()
 
@@ -191,6 +193,39 @@ export const AdvancedIndicators: React.FC<AdvancedIndicatorsProps> = ({
         <Typography variant="h5" sx={{ fontWeight: 600, mb: 3, color: theme.palette.text.primary }}>
           👥 Performance por Analista
         </Typography>
+
+        {unassignedPerformanceItems.length > 0 ? (
+          <Card sx={{ borderRadius: 3, mb: 3, border: `1px solid ${alpha(theme.palette.warning.main, 0.35)}` }}>
+            <CardContent sx={{ p: 2.5 }}>
+              <Typography variant="body2" sx={{ fontWeight: 700, color: theme.palette.warning.main, mb: 1 }}>
+                Itens concluídos no período não atribuídos a um analista ({formatIntegerPtBR(unassignedPerformanceItems.length)})
+              </Typography>
+              <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1.5 }}>
+                Lista para diagnóstico (página + id/ticket). Isso explica diferenças entre “Resumo Geral” e a soma por analista.
+              </Typography>
+              <Grid container spacing={1}>
+                {unassignedPerformanceItems.slice(0, 12).map((it, idx) => (
+                  <Grid item xs={12} md={6} key={`${it.page}-${it.id ?? it.label}-${idx}`}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
+                      <Typography variant="caption" sx={{ fontWeight: 700 }}>
+                        {it.page}: {it.label}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {it.reason}
+                      </Typography>
+                    </Box>
+                  </Grid>
+                ))}
+              </Grid>
+              {unassignedPerformanceItems.length > 12 ? (
+                <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+                  Mostrando 12 de {formatIntegerPtBR(unassignedPerformanceItems.length)} (reduza filtros para ver mais).
+                </Typography>
+              ) : null}
+            </CardContent>
+          </Card>
+        ) : null}
+
         <Grid container spacing={3}>
           {analistaMetrics.map((analista) => (
             <Grid item xs={12} sm={6} md={4} key={analista.analistaId}>
@@ -201,36 +236,85 @@ export const AdvancedIndicators: React.FC<AdvancedIndicatorsProps> = ({
                     <Typography variant="h6" sx={{ fontWeight: 600 }}>
                       {analista.analistaNome}
                     </Typography>
+                    <Chip
+                      label={`Total: ${formatIntegerPtBR(analista.totalNoPeriodo)}`}
+                      size="small"
+                      sx={{ ml: 'auto', backgroundColor: alpha(theme.palette.primary.main, 0.08) }}
+                    />
                   </Box>
                   
                   <Box sx={{ mb: 2 }}>
-                    <Typography variant="h3" sx={{ fontWeight: 700, color: theme.palette.text.primary }}>
-                      {formatIntegerPtBR(analista.totalItens)} <span style={{ fontSize: '0.5em', color: theme.palette.text.secondary }}>itens</span>
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Tempo médio: {formatDecimalPtBR(analista.tempoMedioExecucao, 1)} dias
-                    </Typography>
+                    <Grid container spacing={1.5}>
+                      <Grid item xs={12} sm={4}>
+                        <Typography variant="h4" sx={{ fontWeight: 800, color: theme.palette.info.main, lineHeight: 1.1 }}>
+                          {formatIntegerPtBR(analista.itensCriadosNoPeriodo)}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Criados no período
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={12} sm={4}>
+                        <Typography variant="h4" sx={{ fontWeight: 800, color: theme.palette.success.main, lineHeight: 1.1 }}>
+                          {formatIntegerPtBR(analista.itensConcluidosNoPeriodoCriadosNoPeriodo)}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Concluídos no período (criados no período)
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={12} sm={4}>
+                        <Typography variant="h4" sx={{ fontWeight: 800, color: theme.palette.warning.main, lineHeight: 1.1 }}>
+                          {formatIntegerPtBR(analista.itensConcluidosNoPeriodoCriadosFora)}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Concluídos no período (criados fora)
+                        </Typography>
+                      </Grid>
+                    </Grid>
                   </Box>
 
                   <Box>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                      Distribuição por página:
-                    </Typography>
-                    {Object.entries(analista.itensPorPagina)
-                      .sort(([, a], [, b]) => Number(b) - Number(a)) // Ordenar por quantidade (maior primeiro)
-                      .map(([pagina, quantidade]) => {
-                        const nomePagina = paginaNomeMap[pagina] || pagina
-                        return (
-                          <Box key={pagina} sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                            <Typography variant="caption" sx={{ textTransform: 'capitalize' }}>
-                              {nomePagina}:
-                            </Typography>
-                            <Typography variant="caption" sx={{ fontWeight: 600 }}>
-                              {formatIntegerPtBR(quantidade)}
-                            </Typography>
-                          </Box>
-                        )
-                      })}
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} sm={6}>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                          Criados por página (no período)
+                        </Typography>
+                        {Object.entries(analista.itensPorPagina)
+                          .sort(([, a], [, b]) => Number(b) - Number(a))
+                          .map(([pagina, quantidade]) => {
+                            const nomePagina = paginaNomeMap[pagina] || pagina
+                            return (
+                              <Box key={pagina} sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                                <Typography variant="caption" sx={{ textTransform: 'capitalize' }}>
+                                  {nomePagina}:
+                                </Typography>
+                                <Typography variant="caption" sx={{ fontWeight: 600 }}>
+                                  {formatIntegerPtBR(quantidade)}
+                                </Typography>
+                              </Box>
+                            )
+                          })}
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                          Concluídos por página (no período)
+                        </Typography>
+                        {Object.entries(analista.concluidosNoPeriodoPorPagina)
+                          .sort(([, a], [, b]) => Number(b) - Number(a))
+                          .map(([pagina, quantidade]) => {
+                            const nomePagina = paginaNomeMap[pagina] || pagina
+                            return (
+                              <Box key={pagina} sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                                <Typography variant="caption" sx={{ textTransform: 'capitalize' }}>
+                                  {nomePagina}:
+                                </Typography>
+                                <Typography variant="caption" sx={{ fontWeight: 600 }}>
+                                  {formatIntegerPtBR(quantidade)}
+                                </Typography>
+                              </Box>
+                            )
+                          })}
+                      </Grid>
+                    </Grid>
                   </Box>
                 </CardContent>
               </Card>

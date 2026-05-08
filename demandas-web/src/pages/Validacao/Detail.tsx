@@ -1242,6 +1242,7 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
               { value: "1-COPARTICIPACAO", label: "1-ERRO Coparticipação" },
               { value: "1-CONTRIBUICAO", label: "1-ERRO Contribuição" },
               { value: "1-DADOS_GERAIS", label: "1-ERRO Dados Gerais" },
+              { value: "1-ACESSOS", label: "1-ERRO ACESSOS" },
               { value: "1-ERRO_EQUIPE_ATENDIMENTO_MDS", label: "1-ERRO EQUIPE ATENDIMENTO MDS" }
             ].map((option) => {
               const estruturaEdgeArray = Array.isArray(draft.estruturaEdge) ? draft.estruturaEdge : []

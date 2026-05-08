@@ -285,11 +285,17 @@ export const useDadosCRUD = () => {
           const tipoServicoNomePadrao = form.tipoServicoId ? 
             (store.tiposServico.find(ts => ts.id === form.tipoServicoId)?.nome || form.tipoServicoId) : 
             null
-          newEntity = { id, nome: form.nome, tipoServicoId: tipoServicoNomePadrao }
+          newEntity = {
+            id,
+            nome: form.nome,
+            tipoServicoId: tipoServicoNomePadrao,
+            ativo: form.ativo !== false
+          }
           // PRIMEIRO: Salvar na API (banco de dados)
           await api.post(config.endpoint, { 
             nome: form.nome, 
-            tipoServicoId: form.tipoServicoId || null 
+            tipoServicoId: form.tipoServicoId || null,
+            ativo: form.ativo !== false
           })
           console.log('✅ Padrão salvo no banco de dados:', newEntity.id)
           // DEPOIS: Salvar no store local (cache)
@@ -514,13 +520,19 @@ export const useDadosCRUD = () => {
           const tipoServicoNomePadrao = form.tipoServicoId ? 
             (store.tiposServico.find(ts => ts.id === form.tipoServicoId)?.nome || form.tipoServicoId) : 
             null
-          const updatedPadrao = { id, nome: form.nome, tipoServicoId: tipoServicoNomePadrao }
+          const updatedPadrao = {
+            id,
+            nome: form.nome,
+            tipoServicoId: tipoServicoNomePadrao,
+            ativo: form.ativo !== false
+          }
           store.upsertMany({
             padrao: store.padrao.map(d => d.id === id ? updatedPadrao : d)
           })
           await api.put(`${config.endpoint}/${id}`, { 
             nome: form.nome, 
-            tipoServicoId: form.tipoServicoId || null 
+            tipoServicoId: form.tipoServicoId || null,
+            ativo: form.ativo !== false
           })
           break
           

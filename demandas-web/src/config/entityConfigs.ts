@@ -86,8 +86,8 @@ export const ENTITY_CONFIGS: EntityConfigs = {
     displayName: 'Modelo'
   },
   padrao: {
-    endpoint: '/padroes',
-    fields: ['nome', 'tipoServicoId'],
+    endpoint: '/padrao',
+    fields: ['nome', 'tipoServicoId', 'ativo'],
     requiredFields: ['nome'],
     displayName: 'Demanda Padrão'
   },

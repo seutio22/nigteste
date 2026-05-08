@@ -292,10 +292,9 @@ function statusIndicaConcluidoHeuristica(page: string, t: string): boolean {
       if (t.includes('concluid')) return true
       return false
     case 'projetos':
-      if (t === 'completed' || t === 'done' || t === 'closed') return true
-      if (t.includes('concluid')) return true
-      if (t.includes('finaliz')) return true
-      if (t.includes('entreg')) return true
+      // Projetos têm status padronizado na UI/API: active | paused | completed | cancelled.
+      // Para evitar falso-positivo (ex.: "finalizado" em descrições/labels), só aceitamos o valor canônico.
+      if (t === 'completed') return true
       return false
     default:
       return false

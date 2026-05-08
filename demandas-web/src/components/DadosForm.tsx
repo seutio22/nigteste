@@ -283,6 +283,15 @@ export const DadosForm: React.FC<DadosFormProps> = ({
                 <MenuItem key={ts.id} value={ts.id}>{ts.nome}</MenuItem>
               ))}
             </TextField>
+            <TextField
+              select
+              label="No cadastro"
+              value={form.ativo === false ? 'inativo' : 'ativo'}
+              onChange={(e) => handleFieldChange('ativo', e.target.value === 'ativo')}
+            >
+              <MenuItem value="ativo">Ativo</MenuItem>
+              <MenuItem value="inativo">Inativo</MenuItem>
+            </TextField>
           </Stack>
         )
 

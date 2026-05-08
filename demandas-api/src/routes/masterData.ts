@@ -8,11 +8,15 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
 
   // Schema de validação para Solicitante
   const solicitanteCreateSchema = z.object({
-    nome: z.string().min(1, 'Nome é obrigatório')
+    nome: z.string()
+      .transform((s) => s.trim().replace(/\s+/g, ' '))
+      .refine((s) => s.length > 0, 'Nome é obrigatório')
   })
 
   const solicitanteUpdateSchema = z.object({
-    nome: z.string().min(1, 'Nome é obrigatório')
+    nome: z.string()
+      .transform((s) => s.trim().replace(/\s+/g, ' '))
+      .refine((s) => s.length > 0, 'Nome é obrigatório')
   })
 
   // Schema de validação para Relatório
@@ -72,7 +76,7 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
   // POST /solicitantes
   app.post('/solicitantes', async (request, reply) => {
     try {
-      const body = solicitanteCreateSchema.parse(request.body)
+      const body: z.infer<typeof solicitanteCreateSchema> = solicitanteCreateSchema.parse(request.body)
       
       // Verificar se já existe solicitante com mesmo nome (case insensitive)
       const existingSolicitante = await prisma.solicitante.findFirst({
@@ -92,7 +96,7 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
       }
       
       const solicitante = await prisma.solicitante.create({
-        data: body
+        data: { nome: body.nome }
       })
       // Invalidar cache ao criar
       masterDataCache.delete('solicitantes')
@@ -110,7 +114,7 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
   app.put('/solicitantes/:id', async (request, reply) => {
     try {
       const { id } = request.params as { id: string }
-      const body = solicitanteUpdateSchema.parse(request.body)
+      const body: z.infer<typeof solicitanteUpdateSchema> = solicitanteUpdateSchema.parse(request.body)
       
       // Verificar se já existe outro solicitante com mesmo nome (excluindo o próprio)
       const duplicateSolicitante = await prisma.solicitante.findFirst({
@@ -134,7 +138,7 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
       
       const solicitante = await prisma.solicitante.update({
         where: { id },
-        data: body
+        data: { nome: body.nome }
       })
       // Invalidar cache ao atualizar
       masterDataCache.delete('solicitantes')

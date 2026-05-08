@@ -114,6 +114,19 @@ export const DadosGrid: React.FC<DadosGridProps> = ({
       ],
       padrao: [
         { field: 'nome', headerName: 'Nome', flex: 1 },
+        {
+          field: 'ativo',
+          headerName: 'No cadastro',
+          width: 130,
+          renderCell: (params) => (
+            <Chip
+              label={params.value === false ? 'Inativo' : 'Ativo'}
+              color={params.value === false ? 'default' : 'success'}
+              size="small"
+              variant={params.value === false ? 'outlined' : 'filled'}
+            />
+          ),
+        },
       ],
       configuracoes: [
         { field: 'chave', headerName: 'Chave', flex: 1 },

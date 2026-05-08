@@ -4,6 +4,9 @@ import {
   Paper,
   Typography,
   Grid,
+  Alert,
+  Card,
+  CardContent,
   FormControl,
   InputLabel,
   Select,
@@ -14,7 +17,6 @@ import {
   Tooltip,
   Button,
   LinearProgress,
-  Alert,
   CircularProgress
 } from '@mui/material'
 import {
@@ -139,6 +141,14 @@ export default function DashboardPage() {
   const [projectStatsRefreshTick, setProjectStatsRefreshTick] = useState(0)
   const projectStatsBumpSkipRef = useRef(true)
 
+  // Intervalo efetivo para o painel "Projetos e cronograma":
+  // - Com filtro manual: usa from/to escolhidos.
+  // - Sem filtro manual: deriva do período selecionado (daily/monthly/quarterly).
+  const projectPanelRange = useMemo(() => {
+    if (isManualDateFilter && fromDate && toDate) return { fromDate, toDate }
+    return getPeriodDates(indicatorPeriod)
+  }, [isManualDateFilter, fromDate, toDate, indicatorPeriod])
+
   useEffect(() => {
     if (prevDashboardSyncing.current && !dashboardSyncing) {
       setDashboardSyncFinishedOnce(true)
@@ -230,18 +240,35 @@ export default function DashboardPage() {
   const dashboardFilters = useMemo(() => ({
     areaId,
     analistaId: effectiveAnalistaId,
+    // Restringir o dashboard ao departamento NIG (quando os analistas carregam o departmentId/department).
+    allowedAnalistaIds: (() => {
+      const nigArea = masterDataStore.areas.find((a) => String(a.nome || '').toLowerCase().includes('nig'))
+      if (!nigArea) return undefined
+      const nigIds = (masterDataStore.analistas as any[])
+        .filter((a) => {
+          const depId = a?.departmentId || a?.department?.id || a?.areaId || a?.area?.id
+          const depNome = a?.department?.nome || a?.area?.nome
+          if (depId && String(depId) === String(nigArea.id)) return true
+          if (depNome && String(depNome).toLowerCase().includes('nig')) return true
+          return false
+        })
+        .map((a) => String(a?.id))
+        .filter(Boolean)
+      return nigIds.length > 0 ? nigIds : undefined
+    })(),
     userScopePending,
     // Passar filtros de data apenas se for filtro manual
     // Quando não é manual, o hook usa o período para calcular as datas automaticamente
     fromDate: isManualDateFilter && fromDate ? fromDate : undefined,
     toDate: isManualDateFilter && toDate ? toDate : undefined
-  }), [areaId, effectiveAnalistaId, userScopePending, isManualDateFilter, fromDate, toDate])
+  }), [areaId, effectiveAnalistaId, userScopePending, isManualDateFilter, fromDate, toDate, masterDataStore.areas, masterDataStore.analistas])
 
   const {
     indicators,
     indicatorsByCategory,
     pageMetrics,
     generalStats,
+    debugCompletedDailyFallback,
     chartPeriodComparison,
     chartDailyEvolution
   } = useDashboardIndicators(effectivePeriod, dashboardFilters)
@@ -251,13 +278,35 @@ export default function DashboardPage() {
   const advancedFilters = useMemo(() => ({
     areaId,
     analistaId: effectiveAnalistaId,
+    allowedAnalistaIds: (() => {
+      const nigArea = masterDataStore.areas.find((a) => String(a.nome || '').toLowerCase().includes('nig'))
+      if (!nigArea) return undefined
+      const nigIds = (masterDataStore.analistas as any[])
+        .filter((a) => {
+          const depId = a?.departmentId || a?.department?.id || a?.areaId || a?.area?.id
+          const depNome = a?.department?.nome || a?.area?.nome
+          if (depId && String(depId) === String(nigArea.id)) return true
+          if (depNome && String(depNome).toLowerCase().includes('nig')) return true
+          return false
+        })
+        .map((a) => String(a?.id))
+        .filter(Boolean)
+      return nigIds.length > 0 ? nigIds : undefined
+    })(),
     userScopePending,
     // Sempre usar as datas do período atual (ou manual, se aplicado)
     fromDate: fromDate || undefined,
     toDate: toDate || undefined
-  }), [areaId, effectiveAnalistaId, userScopePending, fromDate, toDate])
+  }), [areaId, effectiveAnalistaId, userScopePending, fromDate, toDate, masterDataStore.areas, masterDataStore.analistas])
 
-  const { advancedIndicators, tempoExecucaoMetrics, analistaMetrics } = useAdvancedIndicators(advancedFilters)
+  const { advancedIndicators, tempoExecucaoMetrics, analistaMetrics, unassignedPerformanceItems } =
+    useAdvancedIndicators(advancedFilters)
+
+  const concluidoAdvancedTotal = useMemo(() => {
+    return (analistaMetrics || []).reduce((sum, a) => {
+      return sum + (a.itensConcluidosNoPeriodoCriadosNoPeriodo || 0) + (a.itensConcluidosNoPeriodoCriadosFora || 0)
+    }, 0)
+  }, [analistaMetrics])
 
   // Função utilitária para formatar data
   const formatDateToString = useCallback((date: Date): string => {
@@ -674,8 +723,8 @@ export default function DashboardPage() {
               <DashboardProjectIndicators
                 refreshTick={projectStatsRefreshTick}
                 analistaId={projectStatsAnalistaId}
-                fromDate={fromDate || undefined}
-                toDate={toDate || undefined}
+                fromDate={projectPanelRange.fromDate}
+                toDate={projectPanelRange.toDate}
               />
             }
           />
@@ -687,6 +736,7 @@ export default function DashboardPage() {
             indicators={advancedIndicators}
             tempoExecucaoMetrics={tempoExecucaoMetrics}
             analistaMetrics={analistaMetrics}
+            unassignedPerformanceItems={unassignedPerformanceItems}
           />
         </Box>
 
@@ -712,6 +762,36 @@ export default function DashboardPage() {
         showAnalistaFilter={isAdmin}
         userScopePending={userScopePending}
       />
+
+      {typeof generalStats?.completed === 'number' &&
+      typeof concluidoAdvancedTotal === 'number' &&
+      generalStats.completed !== concluidoAdvancedTotal ? (
+        <Card sx={{ mt: 3, borderRadius: 2, border: '1px solid', borderColor: 'warning.light' }}>
+          <CardContent>
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              Divergência detectada: Resumo Geral (concluídas) = {generalStats.completed} vs Performance por analista ={' '}
+              {concluidoAdvancedTotal}.
+            </Alert>
+            {Array.isArray(debugCompletedDailyFallback) && debugCompletedDailyFallback.length > 0 ? (
+              <Box>
+                <Typography variant="body2" sx={{ fontWeight: 700, mb: 1 }}>
+                  Itens contados como concluídos no diário por fallback (“criado hoje”)
+                </Typography>
+                {debugCompletedDailyFallback.slice(0, 12).map((it, idx) => (
+                  <Typography key={`${it.page}-${it.id ?? idx}`} variant="caption" sx={{ display: 'block', mb: 0.5 }}>
+                    {it.page} — {it.label} (createdAt: {it.createdAt ?? '-'} | refConclusao: {it.completedRef ?? '-'})
+                  </Typography>
+                ))}
+              </Box>
+            ) : (
+              <Typography variant="caption" color="text.secondary">
+                Nenhum item entrou por fallback do diário (criado hoje). Se a divergência persistir, o item extra está
+                vindo de outra regra (status/data) e eu ajusto exibindo a lista completa.
+              </Typography>
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
 
     </Box>
   )

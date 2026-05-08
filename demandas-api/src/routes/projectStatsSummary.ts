@@ -116,13 +116,25 @@ function parseAnyDateTime(d: unknown): Date | null {
   return new Date(t)
 }
 
-/** `from` e `to` em YYYY-MM-DD (interpretação em UTC, alinhada ao envio do front). */
-function parseDateRangeInclusive(fromS: string, toS: string): { start: Date; end: Date } | null {
+/**
+ * `from` e `to` em YYYY-MM-DD.
+ * Usa `tzOffsetMinutes` (Date.getTimezoneOffset do browser) para alinhar o intervalo ao dia local do usuário.
+ */
+function parseDateRangeInclusive(
+  fromS: string,
+  toS: string,
+  tzOffsetMinutes: number
+): { start: Date; end: Date } | null {
   const fm = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(fromS).trim())
   const tm = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(toS).trim())
   if (!fm || !tm) return null
-  const start = new Date(Date.UTC(Number(fm[1]), Number(fm[2]) - 1, Number(fm[3]), 0, 0, 0, 0))
-  const end = new Date(Date.UTC(Number(tm[1]), Number(tm[2]) - 1, Number(tm[3]), 23, 59, 59, 999))
+  const off = Number.isFinite(tzOffsetMinutes) ? tzOffsetMinutes : 0
+  // getTimezoneOffset: minutos a SOMAR ao horário local para obter UTC.
+  const shiftMs = off * 60 * 1000
+  const startUtcMs = Date.UTC(Number(fm[1]), Number(fm[2]) - 1, Number(fm[3]), 0, 0, 0, 0) + shiftMs
+  const endUtcMs = Date.UTC(Number(tm[1]), Number(tm[2]) - 1, Number(tm[3]), 23, 59, 59, 999) + shiftMs
+  const start = new Date(startUtcMs)
+  const end = new Date(endUtcMs)
   if (start.getTime() > end.getTime()) return null
   return { start, end }
 }
@@ -277,12 +289,19 @@ export default async function projectStatsSummaryRoutes(
       const isAdmin = roleLc === 'admin'
       const canFilterByAnalista = isAdmin || roleLc === 'gerente'
 
-      const q = req.query as { analistaId?: string; fromDate?: string; toDate?: string }
+      const q = req.query as {
+        analistaId?: string
+        fromDate?: string
+        toDate?: string
+        tzOffsetMinutes?: string
+      }
       const analistaIdParam =
         typeof q.analistaId === 'string' && q.analistaId.trim() ? q.analistaId.trim() : null
       const fromDateQ = typeof q.fromDate === 'string' && q.fromDate.trim() ? q.fromDate.trim() : ''
       const toDateQ = typeof q.toDate === 'string' && q.toDate.trim() ? q.toDate.trim() : ''
-      const periodRange = fromDateQ && toDateQ ? parseDateRangeInclusive(fromDateQ, toDateQ) : null
+      const tzOffsetMinutes = q.tzOffsetMinutes ? Number.parseInt(q.tzOffsetMinutes, 10) : 0
+      const periodRange =
+        fromDateQ && toDateQ ? parseDateRangeInclusive(fromDateQ, toDateQ, tzOffsetMinutes) : null
 
       if (analistaIdParam && !canFilterByAnalista) {
         return reply.status(403).send({ error: 'Sem permissão para filtrar indicadores de projetos por analista.' })
@@ -319,8 +338,12 @@ export default async function projectStatsSummaryRoutes(
         where: isGlobalAdminView ? {} : whereScoped,
         select: {
           id: true,
+          name: true,
           status: true,
+          createdAt: true,
+          startDate: true,
           endDate: true,
+          updatedAt: true,
           timeline: true
         }
       })
@@ -359,6 +382,21 @@ export default async function projectStatsSummaryRoutes(
       let phasesCompletedInPeriod = 0
       let tasksCompletedInPeriod = 0
       let subtasksCompletedInPeriod = 0
+      let projectsCompletedInPeriod = 0
+
+      type CompletedTimelineItem = {
+        type: 'projeto' | 'etapa' | 'tarefa' | 'subtarefa'
+        projectId: string
+        projectName: string
+        label: string
+        completedAt: string
+      }
+      const completedItemsInPeriod: CompletedTimelineItem[] = []
+      const pushCompleted = (it: CompletedTimelineItem) => {
+        // evita lista enorme no painel (UX) e no payload
+        if (completedItemsInPeriod.length >= 15) return
+        completedItemsInPeriod.push(it)
+      }
 
       let respTasksTotal = 0
       let respTasksCompleted = 0
@@ -376,10 +414,49 @@ export default async function projectStatsSummaryRoutes(
           .toLowerCase()
           .normalize('NFD')
           .replace(/[\u0300-\u036f]/g, '')
-        if (st.includes('conclu') || st === 'completed') completedProjectCount++
+        const projectCompleted =
+          st === 'completed' ||
+          st === 'done' ||
+          st === 'closed' ||
+          st.includes('conclu') ||
+          st.includes('finaliz') ||
+          st.includes('entreg')
+        if (projectCompleted) completedProjectCount++
         else if (st.includes('paus')) pausedProjectCount++
         else if (st.includes('cancel')) cancelledProjectCount++
         else activeProjectCount++
+
+        // Conclusões de PROJETOS no período (o "Resumo Geral" considera o projeto como item concluído).
+        // Nem todo projeto concluído tem tarefa/subtarefa/etapa com `actualEndDate`, então também listamos aqui.
+        if (periodRange && projectCompleted) {
+          const pUpdated = parseAnyDateTime((p as any)?.updatedAt)
+          const completionRef = pUpdated || parseAnyDateTime((p as any)?.endDate)
+          const createdRef = parseAnyDateTime((p as any)?.createdAt)
+          const startRef = parseAnyDateTime((p as any)?.startDate)
+          const creationRef = createdRef || startRef
+
+          // Alinha com o Dashboard: no "diário", se não houver data de conclusão no intervalo,
+          // ainda conta quando o item foi criado no próprio dia selecionado.
+          const isSingleDay =
+            fromDateQ &&
+            toDateQ &&
+            String(fromDateQ).trim() === String(toDateQ).trim()
+
+          const inCompletion = completionRef && inDateRange(completionRef, periodRange)
+          const inCreationDailyFallback =
+            !inCompletion && isSingleDay && creationRef && inDateRange(creationRef, periodRange)
+
+          if (inCompletion || inCreationDailyFallback) {
+            projectsCompletedInPeriod++
+            pushCompleted({
+              type: 'projeto',
+              projectId: p.id,
+              projectName: p.name,
+              label: `${p.name} • Projeto concluído`,
+              completedAt: (completionRef || creationRef!).toISOString()
+            })
+          }
+        }
 
         const pend = p.endDate instanceof Date ? p.endDate : new Date(p.endDate)
         const pendDay = new Date(pend.getFullYear(), pend.getMonth(), pend.getDate())
@@ -403,6 +480,20 @@ export default async function projectStatsSummaryRoutes(
             const phActual = parseAnyDateTime((phase as Record<string, unknown>)?.actualEndDate)
             if (periodRange && phActual && inDateRange(phActual, periodRange)) phasesCompletedInPeriod++
             else if (periodRange && !phActual && phEnd && inDateRange(phEnd, periodRange)) phasesCompletedInPeriod++
+            if (periodRange) {
+              const dt = phActual || (phEnd ? new Date(phEnd) : null)
+              if (dt && inDateRange(dt, periodRange)) {
+                const phName =
+                  (phase as any)?.name || (phase as any)?.title || (phase as any)?.nome || 'Etapa'
+                pushCompleted({
+                  type: 'etapa',
+                  projectId: p.id,
+                  projectName: p.name,
+                  label: `${p.name} • Etapa: ${String(phName)}`,
+                  completedAt: dt.toISOString()
+                })
+              }
+            }
           } else if (phEnd && phEnd.getTime() < todayStart.getTime()) phasesOverdue++
           else phasesOpenOnTrack++
 
@@ -417,6 +508,10 @@ export default async function projectStatsSummaryRoutes(
             const tEnd = ymd(t?.plannedEndDate ?? t?.dueDate ?? t?.endDate)
             const tDone = isDoneStatus(t?.status, t?.completed as boolean | undefined)
             const actualEnd = parseAnyDateTime(t?.actualEndDate)
+            // Alguns cronogramas não preenchem `actualEndDate`. Para não subcontar “concluídos no período”,
+            // usamos `updatedAt` como fallback quando o status já está concluído.
+            const tUpdated = parseAnyDateTime(t?.updatedAt ?? (t as any)?.updated_at)
+            const completionRef = actualEnd || (tDone ? tUpdated : null)
             const taskSegs = extractResponsibleSegmentsFromItem(t)
             const taskMatch =
               responsibleAliases.length > 0 && responsibleMatches(taskSegs, responsibleAliases)
@@ -425,14 +520,25 @@ export default async function projectStatsSummaryRoutes(
               respTasksTotal++
               if (tDone) {
                 respTasksCompleted++
-                if (periodRange && actualEnd && inDateRange(actualEnd, periodRange)) respTasksCompletedInPeriod++
+                if (periodRange && completionRef && inDateRange(completionRef, periodRange)) respTasksCompletedInPeriod++
               } else if (tEnd && tEnd.getTime() < todayStart.getTime()) respTasksOverdue++
               if (periodRange && tRef && inDateRange(tRef, periodRange)) respTasksCreatedInPeriod++
             }
 
             if (tDone) {
               tasksCompleted++
-              if (periodRange && actualEnd && inDateRange(actualEnd, periodRange)) tasksCompletedInPeriod++
+              if (periodRange && completionRef && inDateRange(completionRef, periodRange)) tasksCompletedInPeriod++
+              if (periodRange && completionRef && inDateRange(completionRef, periodRange)) {
+                const taskTitle = (t as any)?.title || (t as any)?.name || (t as any)?.nome || 'Tarefa'
+                const phName = (phase as any)?.name || (phase as any)?.title || (phase as any)?.nome
+                pushCompleted({
+                  type: 'tarefa',
+                  projectId: p.id,
+                  projectName: p.name,
+                  label: `${p.name}${phName ? ` • Etapa: ${String(phName)}` : ''} • Tarefa: ${String(taskTitle)}`,
+                  completedAt: completionRef.toISOString()
+                })
+              }
 
               const planned = ymd(t?.plannedEndDate ?? t?.dueDate)
               const actual = ymd(t?.actualEndDate)
@@ -452,6 +558,8 @@ export default async function projectStatsSummaryRoutes(
               const sEnd = ymd(s?.dueDate ?? s?.plannedEndDate)
               const sDone = isDoneStatus(s?.status, s?.completed as boolean | undefined)
               const adSub = parseAnyDateTime(s?.actualEndDate)
+              const sUpdated = parseAnyDateTime(s?.updatedAt ?? (s as any)?.updated_at)
+              const subCompletionRef = adSub || (sDone ? sUpdated : null)
               let subSegs = extractResponsibleSegmentsFromItem(s)
               if (subSegs.length === 0) subSegs = taskSegs
               const subMatch =
@@ -461,14 +569,26 @@ export default async function projectStatsSummaryRoutes(
                 respSubtasksTotal++
                 if (sDone) {
                   respSubtasksCompleted++
-                  if (periodRange && adSub && inDateRange(adSub, periodRange)) respSubtasksCompletedInPeriod++
+                  if (periodRange && subCompletionRef && inDateRange(subCompletionRef, periodRange)) respSubtasksCompletedInPeriod++
                 } else if (sEnd && sEnd.getTime() < todayStart.getTime()) respSubtasksOverdue++
                 if (periodRange && sRef && inDateRange(sRef, periodRange)) respSubtasksCreatedInPeriod++
               }
 
               if (sDone) {
                 subtasksCompleted++
-                if (periodRange && adSub && inDateRange(adSub, periodRange)) subtasksCompletedInPeriod++
+                if (periodRange && subCompletionRef && inDateRange(subCompletionRef, periodRange)) subtasksCompletedInPeriod++
+                if (periodRange && subCompletionRef && inDateRange(subCompletionRef, periodRange)) {
+                  const subTitle = (s as any)?.title || (s as any)?.name || (s as any)?.nome || 'Subtarefa'
+                  const taskTitle = (t as any)?.title || (t as any)?.name || (t as any)?.nome
+                  const phName = (phase as any)?.name || (phase as any)?.title || (phase as any)?.nome
+                  pushCompleted({
+                    type: 'subtarefa',
+                    projectId: p.id,
+                    projectName: p.name,
+                    label: `${p.name}${phName ? ` • Etapa: ${String(phName)}` : ''}${taskTitle ? ` • Tarefa: ${String(taskTitle)}` : ''} • Subtarefa: ${String(subTitle)}`,
+                    completedAt: subCompletionRef.toISOString()
+                  })
+                }
 
                 const pd = ymd(s?.dueDate ?? s?.plannedEndDate)
                 const adY = ymd(s?.actualEndDate)
@@ -557,9 +677,13 @@ export default async function projectStatsSummaryRoutes(
                 phasesCreated: phasesCreatedInPeriod,
                 tasksCreated: tasksCreatedInPeriod,
                 subtasksCreated: subtasksCreatedInPeriod,
+                projectsCompleted: projectsCompletedInPeriod,
                 phasesCompleted: phasesCompletedInPeriod,
                 tasksCompleted: tasksCompletedInPeriod,
                 subtasksCompleted: subtasksCompletedInPeriod,
+                completedItems: completedItemsInPeriod
+                  .sort((a, b) => b.completedAt.localeCompare(a.completedAt))
+                  .slice(0, 10),
                 responsibleTasksCreated: respTasksCreatedInPeriod,
                 responsibleTasksCompleted: respTasksCompletedInPeriod,
                 responsibleSubtasksCreated: respSubtasksCreatedInPeriod,

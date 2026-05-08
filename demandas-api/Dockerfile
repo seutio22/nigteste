@@ -5,10 +5,10 @@ RUN apt-get update && apt-get install -y openssl ca-certificates && rm -rf /var/
 
 WORKDIR /app
 
-COPY package.json package-lock.json ./
+COPY package*.json ./
 COPY prisma ./prisma/
 
-RUN npm ci
+RUN if [ -f package-lock.json ]; then npm ci; else npm install --include=dev; fi
 
 COPY . .
 

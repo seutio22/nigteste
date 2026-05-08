@@ -85,6 +85,7 @@ import {
   CloudUpload,
   FolderOpen,
   Assignment,
+  FileCopy,
   Work,
   Business,
   Engineering,
@@ -102,6 +103,8 @@ import { getApi } from '../../lib/apiConfig'
 import { PermissionGate } from '../../components/PermissionGate'
 import { PrimaryActionButton } from '../../components/PrimaryActionButton'
 import { formatIntegerPtBR } from '../../utils/formatNumber'
+import { duplicateProjectTimelineReset } from '../../utils/duplicateProjectTimeline'
+import { api } from '../../lib/api.local'
 
 export default function ProjectListPageSimple() {
   const navigate = useNavigate()
@@ -111,6 +114,7 @@ export default function ProjectListPageSimple() {
   const error = useProjectStore((state) => state.error)
   const syncFromApi = useProjectStore((state) => state.syncFromApi)
   const add = useProjectStore((state) => state.add)
+  const upsert = useProjectStore((state) => state.upsert)
   const remove = useProjectStore((state) => state.remove)
   const { user } = useAuthStore()
 
@@ -139,6 +143,7 @@ export default function ProjectListPageSimple() {
     progress: number
   }>>([])
   const [bulkAddLoading, setBulkAddLoading] = useState(false)
+  const [duplicatingProjectId, setDuplicatingProjectId] = useState<string | null>(null)
 
   // Carregar dados quando a página carrega (padrão: filtro «Meus projetos»)
   useEffect(() => {
@@ -160,6 +165,48 @@ export default function ProjectListPageSimple() {
     } catch (error) {
       console.error('Erro ao excluir projeto:', error)
       alert('Erro ao excluir projeto. Tente novamente.')
+    }
+  }
+
+  const handleDuplicateProject = async (id: string) => {
+    try {
+      if (duplicatingProjectId) return
+      setDuplicatingProjectId(id)
+
+      const source = await api.getProject(id)
+      const timelineRaw = (source as any)?.timeline
+      const timelineObj =
+        typeof timelineRaw === 'string'
+          ? (() => { try { return JSON.parse(timelineRaw) } catch { return { phases: [] } } })()
+          : (timelineRaw ?? { phases: [] })
+
+      const duplicatedTimeline = duplicateProjectTimelineReset(timelineObj)
+
+      const base = {
+        name: `${(source as any)?.name || 'Projeto'} (cópia)`,
+        description: (source as any)?.description || '',
+        status: ((source as any)?.status || 'active') as any,
+        priority: ((source as any)?.priority || 'medium') as any,
+        startDate: (source as any)?.startDate || new Date().toISOString(),
+        endDate: (source as any)?.endDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        manager: (source as any)?.manager || user?.name || 'Não definido',
+        budget: (source as any)?.budget ?? undefined,
+        progress: 0,
+        team: Array.isArray((source as any)?.team) ? (source as any).team : [],
+        tags: Array.isArray((source as any)?.tags) ? (source as any).tags : [],
+        color: (source as any)?.color || '#1976d2',
+        isPrivate: (source as any)?.isPrivate ?? false,
+      }
+
+      const created = await add(base as any)
+      await upsert({ ...(created as any), progress: 0, timeline: duplicatedTimeline } as any)
+
+      navigate(`/projetos/${created.id}`)
+    } catch (error) {
+      console.error('Erro ao duplicar projeto:', error)
+      alert('Erro ao duplicar projeto. Tente novamente.')
+    } finally {
+      setDuplicatingProjectId(null)
     }
   }
   
@@ -861,22 +908,43 @@ export default function ProjectListPageSimple() {
                             {project.name || 'Projeto sem nome'}
                           </Typography>
                           {(project as any).canEdit && (
-                            <IconButton
-                              size="small"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                if (window.confirm('Tem certeza que deseja excluir este projeto?')) {
-                                  handleRemoveProject(project.id)
-                                }
-                              }}
-                              sx={{
-                                color: 'error.main',
-                                borderRadius: 2,
-                                '&:hover': { backgroundColor: 'rgba(239,68,68,0.08)' }
-                              }}
-                            >
-                              <Delete />
-                            </IconButton>
+                            <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+                              <Tooltip title="Duplicar (zera datas e responsáveis do cronograma)">
+                                <span>
+                                  <IconButton
+                                    size="small"
+                                    disabled={duplicatingProjectId === project.id}
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleDuplicateProject(project.id)
+                                    }}
+                                    sx={{
+                                      color: 'primary.main',
+                                      borderRadius: 2,
+                                      '&:hover': { backgroundColor: 'rgba(0,159,223,0.08)' }
+                                    }}
+                                  >
+                                    {duplicatingProjectId === project.id ? <CircularProgress size={18} /> : <FileCopy fontSize="small" />}
+                                  </IconButton>
+                                </span>
+                              </Tooltip>
+                              <IconButton
+                                size="small"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  if (window.confirm('Tem certeza que deseja excluir este projeto?')) {
+                                    handleRemoveProject(project.id)
+                                  }
+                                }}
+                                sx={{
+                                  color: 'error.main',
+                                  borderRadius: 2,
+                                  '&:hover': { backgroundColor: 'rgba(239,68,68,0.08)' }
+                                }}
+                              >
+                                <Delete />
+                              </IconButton>
+                            </Stack>
                           )}
                         </Box>
 

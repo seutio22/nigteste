@@ -23,6 +23,7 @@ interface ExcelExportData {
   pageMetrics: { [key: string]: PageMetrics }
   generalStats: {
     total: number
+    itemsCreated: number
     completed: number
     canceled: number
     inProgress: number
@@ -47,11 +48,12 @@ export const useExcelExport = () => {
       ['Data de Exportação:', new Date().toLocaleDateString('pt-BR')],
       [''],
       ['ESTATÍSTICAS GERAIS'],
-      ['Total de Atividades:', generalStats.total],
+      ['Total (período):', generalStats.total],
+      ['Itens criados (período):', generalStats.itemsCreated],
       ['Atividades Concluídas (produção):', generalStats.completed],
       ['Atividades Canceladas:', generalStats.canceled],
       ['Taxa de Conclusão (produção):', `${generalStats.completionRate.toFixed(1)}%`],
-      ['(Concluídas ÷ (Total − Canceladas))', ''],
+      ['(Concluídas ÷ (Itens criados − Canceladas))', ''],
       [''],
       ['INDICADORES POR CATEGORIA'],
       ['Categoria', 'Página', 'Total', 'Criados', 'Concluídos', 'Cancelados', 'Em andamento', 'Taxa produção %'],

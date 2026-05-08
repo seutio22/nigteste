@@ -79,14 +79,24 @@ export function useDynamicSync() {
     }
 
     const currentPath = location.pathname
-    const config = ROUTE_SYNC_CONFIG[currentPath as keyof typeof ROUTE_SYNC_CONFIG]
+
+    // Match por rota exata ou por prefixo (ex.: /dados/nig -> /dados)
+    const routeKeys = Object.keys(ROUTE_SYNC_CONFIG)
+    const matchedKey = routeKeys
+      .filter((k) => currentPath === k || currentPath.startsWith(`${k}/`))
+      .sort((a, b) => b.length - a.length)[0]
+
+    const config = matchedKey
+      ? ROUTE_SYNC_CONFIG[matchedKey as keyof typeof ROUTE_SYNC_CONFIG]
+      : undefined
     
     if (!config || !syncFromApi || isSyncing || isSyncingRef.current) {
       return
     }
     
     // Verificar cache
-    const cached = syncCache.get(currentPath)
+    const cacheKey = matchedKey ?? currentPath
+    const cached = syncCache.get(cacheKey)
     const now = Date.now()
     
     if (cached && (now - cached.timestamp) < CACHE_DURATION) {
@@ -96,7 +106,7 @@ export function useDynamicSync() {
     // Executar sincronização
     isSyncingRef.current = true
     syncFromApi({ entities: config.entities as (keyof MasterDataState)[] }).then(() => {
-      syncCache.set(currentPath, { timestamp: now, entities: config.entities })
+      syncCache.set(cacheKey, { timestamp: now, entities: config.entities })
     }).finally(() => {
       isSyncingRef.current = false
     })

@@ -37,7 +37,10 @@ interface DashboardIndicatorsProps {
   /** Painel de projetos (cronograma + logs) no lugar da antiga secção «Páginas Secundárias». */
   projectsPanel?: React.ReactNode
   generalStats: {
+    /** Total (por período): Itens criados + Concluídas + Canceladas + Em andamento */
     total: number
+    /** Itens criados no período selecionado (soma das páginas). */
+    itemsCreated: number
     completed: number
     canceled: number
     inProgress: number
@@ -112,7 +115,7 @@ export const DashboardIndicators: React.FC<DashboardIndicatorsProps> = ({
 
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
           <Tooltip 
-            title={`Total filtrado por período: ${period === 'daily' ? 'Hoje' : period === 'monthly' ? 'Este mês' : 'Este trimestre'}. Diferente da Home que mostra o total geral.`}
+            title={`Total por período: soma de Itens criados + Concluídas + Canceladas + Em andamento (${period === 'daily' ? 'Hoje' : period === 'monthly' ? 'Este mês' : 'Este trimestre'}).`}
             arrow
           >
             <Typography variant="h4" sx={{ fontWeight: 700, color: theme.palette.text.primary, cursor: 'help' }}>
@@ -231,6 +234,18 @@ export const DashboardIndicators: React.FC<DashboardIndicatorsProps> = ({
               </Stack>
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center' }}>
                 Total
+              </Typography>
+            </Box>
+
+            <Box sx={{ minWidth: 150, flex: '1 1 160px' }}>
+              <Stack direction="row" spacing={1} sx={{ alignItems: 'center', justifyContent: 'center' }}>
+                <ChecklistIcon sx={{ color: theme.palette.info.main }} />
+                <Typography variant="h5" sx={{ fontWeight: 800, color: theme.palette.info.main }}>
+                  {formatIntegerPtBR(generalStats.itemsCreated)}
+                </Typography>
+              </Stack>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center' }}>
+                Itens criados
               </Typography>
             </Box>
 

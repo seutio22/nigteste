@@ -81,7 +81,11 @@ export function Layout() {
       <List>
         {menu.map((item) => (
           <ListItem key={item.to} disablePadding>
-            <ListItemButton component={Link} to={item.to} selected={location.pathname === item.to}>
+            <ListItemButton
+              component={Link}
+              to={item.to}
+              selected={location.pathname === item.to || location.pathname.startsWith(`${item.to}/`)}
+            >
               <ListItemIcon>{item.icon}</ListItemIcon>
               <ListItemText primary={item.label} />
             </ListItemButton>

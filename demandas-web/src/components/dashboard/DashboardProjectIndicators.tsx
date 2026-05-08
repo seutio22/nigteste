@@ -49,9 +49,17 @@ export type ProjectStatsSummary = {
     phasesCreated: number
     tasksCreated: number
     subtasksCreated: number
+    projectsCompleted?: number
     phasesCompleted: number
     tasksCompleted: number
     subtasksCompleted: number
+    completedItems?: Array<{
+      type: 'projeto' | 'etapa' | 'tarefa' | 'subtarefa'
+      projectId: string
+      projectName: string
+      label: string
+      completedAt: string
+    }>
     responsibleTasksCreated?: number
     responsibleTasksCompleted?: number
     responsibleSubtasksCreated?: number
@@ -161,6 +169,8 @@ export function DashboardProjectIndicators({ refreshTick, analistaId, fromDate, 
       if (fromDate && String(fromDate).trim() && toDate && String(toDate).trim()) {
         params.set('fromDate', String(fromDate).trim())
         params.set('toDate', String(toDate).trim())
+        // Alinha o "diário" do painel com o dia local do usuário (evita diferença UTC vs BRT).
+        params.set('tzOffsetMinutes', String(new Date().getTimezoneOffset()))
       }
       const qs = params.toString() ? `?${params.toString()}` : ''
       const data = await api.get<ProjectStatsSummary>(`/projetos/stats/summary${qs}`)
@@ -350,6 +360,29 @@ export function DashboardProjectIndicators({ refreshTick, analistaId, fromDate, 
               />
             </Grid>
           </Grid>
+
+          {period && Array.isArray(period.completedItems) && period.completedItems.length > 0 ? (
+            <Box sx={{ mt: 2, p: 2, borderRadius: 2, bgcolor: alpha(theme.palette.info.main, 0.06) }}>
+              <Typography variant="body2" sx={{ fontWeight: 700, mb: 1 }}>
+                O que foi concluído no período
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+                {period.completedItems.map((it, idx) => (
+                  <Box
+                    key={`${it.type}-${it.projectId}-${idx}`}
+                    sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}
+                  >
+                    <Typography variant="caption">
+                      <strong style={{ textTransform: 'capitalize' }}>{it.type}</strong> — {it.label}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {new Date(it.completedAt).toLocaleString('pt-BR')}
+                    </Typography>
+                  </Box>
+                ))}
+              </Box>
+            </Box>
+          ) : null}
 
           <Box
             sx={{

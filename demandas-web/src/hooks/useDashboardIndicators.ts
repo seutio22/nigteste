@@ -201,6 +201,8 @@ export const useDashboardIndicators = (
   filters?: {
     areaId?: string
     analistaId?: string
+    /** Quando preenchido, restringe os dados a um conjunto de analistas (ex.: departamento NIG). */
+    allowedAnalistaIds?: string[]
     fromDate?: string
     toDate?: string
     /** Enquanto true, não agrega dados (evita flash de totais globais antes de resolver analista vinculado). */
@@ -294,9 +296,18 @@ export const useDashboardIndicators = (
     }
 
     return items.filter(item => {
-      // Projetos: só os vinculados ao utilizador (dono, gestor, membro, equipe)
+      // Projetos: quando há escopo por analistas (ex.: NIG), filtra por owner/manager/team;
+      // caso contrário, mantém regra do usuário vinculado.
       if (page === 'projetos') {
-        if (!isProjectLinkedToUser(item, user?.id)) return false
+        const allowed = filters.allowedAnalistaIds?.filter(Boolean) ?? []
+        if (allowed.length > 0) {
+          const hitDirect = allowed.includes(String(item.ownerId || '')) || allowed.includes(String(item.managerId || ''))
+          const team = item.team
+          const inTeam = Array.isArray(team) && team.some((x: any) => allowed.includes(String(x)))
+          if (!hitDirect && !inTeam) return false
+        } else {
+          if (!isProjectLinkedToUser(item, user?.id)) return false
+        }
       }
 
       // Filtro por área (para demandas e atendimentos)
@@ -307,6 +318,15 @@ export const useDashboardIndicators = (
         }
       }
       
+      // Filtro por conjunto de analistas permitido (ex.: departamento NIG)
+      if (filters.allowedAnalistaIds && filters.allowedAnalistaIds.length > 0 && page !== 'projetos') {
+        const itemAnalista = getAnalistaValue(item)
+        const resolvedId = itemAnalista && typeof itemAnalista === 'object' ? itemAnalista.id : itemAnalista
+        if (!filters.allowedAnalistaIds.includes(String(resolvedId ?? ''))) {
+          return false
+        }
+      }
+
       // Filtro por analista (projetos: dono, gerente, equipe — não usam analistaId de demanda)
       if (filters.analistaId) {
         if (page === 'projetos') {
@@ -499,7 +519,9 @@ export const useDashboardIndicators = (
         const d = getDataReferenciaConclusao(page, item)
         const refOk = d ? isItemDateInRange(d, range.from, range.to) : false
         if (refOk) return true
-        if (period === 'daily' && !hasDateFilters) {
+        // Fallback do diário ("criado hoje") é válido para chamados, mas NÃO para Projetos.
+        // Em Projetos, "criado hoje" não implica "concluído hoje".
+        if (page !== 'projetos' && period === 'daily' && !hasDateFilters) {
           const created = getDashboardItemCreatedDate(page, item)
           return !!(created && isItemDateInRange(created, range.from, range.to))
         }
@@ -517,6 +539,65 @@ export const useDashboardIndicators = (
 
     return out
   }, [pageMetrics, storeMapSansDate, period, filters?.fromDate, filters?.toDate, hasDateFilters])
+
+  /**
+   * Diagnóstico: quando há divergência entre "Resumo Geral" e "Performance por analista",
+   * conseguimos apontar exatamente quais itens entraram por fallback do diário (criado hoje).
+   */
+  const debugCompletedDailyFallback = useMemo(() => {
+    if (period !== 'daily' || hasDateFilters) return null
+    const range = resolveIndicatorDateRange(period, filters?.fromDate, filters?.toDate)
+    const getId = (item: any) =>
+      (item?.id != null ? String(item.id) : undefined) ||
+      (item?.ticket != null ? String(item.ticket) : undefined) ||
+      (item?._id != null ? String(item._id) : undefined)
+    const getLabel = (page: string, item: any) => {
+      const parts: string[] = []
+      const id = getId(item)
+      if (id) parts.push(id)
+      const title =
+        item?.titulo ||
+        item?.title ||
+        item?.nome ||
+        item?.name ||
+        item?.descricao ||
+        item?.descricaoCurta
+      if (title) parts.push(String(title))
+      return parts.length ? parts.join(' • ') : `${page} • ${id ?? '(sem id)'}`
+    }
+
+    const out: Array<{
+      page: string
+      id?: string
+      label: string
+      createdAt?: string
+      completedRef?: string
+    }> = []
+
+    PAGE_CONFIGS.forEach((cfg) => {
+      const page = cfg.page
+      if (page === 'projetos') return
+      const itemsSans = storeMapSansDate[page as keyof typeof storeMapSansDate] || []
+      itemsSans.forEach((item) => {
+        if (!isItemConcluidoProducao(page, item)) return
+        const d = getDataReferenciaConclusao(page, item)
+        const refOk = d ? isItemDateInRange(d, range.from, range.to) : false
+        if (refOk) return
+        const created = getDashboardItemCreatedDate(page, item)
+        const createdOk = !!(created && isItemDateInRange(created, range.from, range.to))
+        if (!createdOk) return
+        out.push({
+          page,
+          id: getId(item),
+          label: getLabel(page, item),
+          createdAt: created,
+          completedRef: d
+        })
+      })
+    })
+
+    return out.slice(0, 50)
+  }, [period, hasDateFilters, filters?.fromDate, filters?.toDate, storeMapSansDate])
 
   // Gerar indicadores para o período selecionado
   const indicators = useMemo(() => {
@@ -587,7 +668,11 @@ export const useDashboardIndicators = (
 
   // Estatísticas gerais
   const generalStats = useMemo(() => {
-    const total = indicators.reduce((sum, i) => sum + i.value, 0)
+    // "Itens criados" = soma do campo "created" do período (por página)
+    const itemsCreated = indicators.reduce((sum, i) => {
+      const metrics = pageMetricsWithProducao[i.page]
+      return sum + (metrics ? metrics[period].created : 0)
+    }, 0)
     /** Concluídos agregados pelas entradas «primary» em PAGE_CONFIG (inclui Projetos). */
     const primaryPages = PAGE_CONFIGS.filter((c) => c.category === 'primary').map((c) => c.page)
     const completed = primaryPages.reduce((sum, p) => {
@@ -613,15 +698,20 @@ export const useDashboardIndicators = (
     const eligible = totalPrimary - canceledPrimary
     const completionRate = eligible > 0 ? (completed / eligible) * 100 : 0
 
+    // "Total" (por período) = soma dos indicadores do período
+    // (itens criados + concluídas + canceladas + em andamento).
+    const total = itemsCreated + completed + canceled + inProgress
+
     return {
       total,
+      itemsCreated,
       completed,
       canceled,
       inProgress,
       completionRate: Math.round(completionRate * 10) / 10,
       period
     }
-  }, [indicators, pageMetricsWithProducao, period, filters])
+  }, [indicators, pageMetricsWithProducao, period])
 
   return {
     indicators,
@@ -630,6 +720,7 @@ export const useDashboardIndicators = (
     generalStats,
     period,
     chartPeriodComparison,
-    chartDailyEvolution
+    chartDailyEvolution,
+    debugCompletedDailyFallback
   }
 }

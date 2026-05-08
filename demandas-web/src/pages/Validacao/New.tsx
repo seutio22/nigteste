@@ -575,6 +575,7 @@ export default function ValidationNewPage() {
                 <MenuItem value="1-COPARTICIPACAO">1-ERRO Coparticipação</MenuItem>
                 <MenuItem value="1-CONTRIBUICAO">1-ERRO Contribuição</MenuItem>
                 <MenuItem value="1-DADOS_GERAIS">1-ERRO Dados Gerais</MenuItem>
+                <MenuItem value="1-ACESSOS">1-ERRO ACESSOS</MenuItem>
                 <MenuItem value="1-ERRO_EQUIPE_ATENDIMENTO_MDS">1-ERRO EQUIPE ATENDIMENTO MDS</MenuItem>
               </TextField>
             )} />

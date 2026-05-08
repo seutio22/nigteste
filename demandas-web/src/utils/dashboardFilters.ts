@@ -309,6 +309,14 @@ export const isItemDateInRange = (
   toYmd: string
 ): boolean => {
   if (!iso) return false
+  // Alguns registros chegam com "data-only" serializada como meia-noite UTC (ex.: 2026-05-07T00:00:00.000Z).
+  // No fuso -03 isso cai no dia anterior e quebra o recorte diário. Nesses casos,
+  // tratamos como data de calendário (YYYY-MM-DD) para comparação.
+  const isoStr = String(iso)
+  if (/^\d{4}-\d{2}-\d{2}T00:00:00(\.000)?Z$/.test(isoStr)) {
+    const ymd = isoStr.slice(0, 10)
+    return ymd >= fromYmd && ymd <= toYmd
+  }
   const itemDate = parseDateForFilter(iso)
   if (!itemDate || isNaN(itemDate.getTime())) return false
   const normalizeStart = (dateStr: string) => {

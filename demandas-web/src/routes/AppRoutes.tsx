@@ -28,7 +28,10 @@ import MaillingListPage from '../pages/Mailling/List'
 import AnalyticsPage from '../pages/Analytics'
 import AnalyticsNewPage from '../pages/Analytics/New'
 import AnalyticsDetailPage from '../pages/Analytics/Detail'
-import DadosPage from '../pages/Dados'
+import DadosLayoutPage from '../pages/DadosLayout'
+import DadosNigPage from '../pages/DadosNig'
+import DadosProdutividadePage from '../pages/DadosProdutividade'
+import DadosPlacementPage from '../pages/DadosPlacement'
 import AdminUsersPage from '../pages/Admin/Users'
 import KanbanPage from '../pages/Kanban'
 import ProjectListPage from '../pages/Projetos/ListSimple'
@@ -212,11 +215,19 @@ export function AppRoutes() {
             } />
           </Route>
           
-          <Route path="dados" element={
-            <ProtectedRoute module="dados">
-              <DadosPage />
-            </ProtectedRoute>
-          } />
+          <Route
+            path="dados"
+            element={
+              <ProtectedRoute module="dados">
+                <DadosLayoutPage />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<Navigate to="nig" replace />} />
+            <Route path="nig" element={<DadosNigPage />} />
+            <Route path="produtividade" element={<DadosProdutividadePage />} />
+            <Route path="placement" element={<DadosPlacementPage />} />
+          </Route>
           
           {/* Rota admin/limpeza removida - página de limpeza de duplicatas removida */}
           

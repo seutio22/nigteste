@@ -154,17 +154,18 @@ function drawKpiStrip(
   generalStats: DashboardPdfExportInput['generalStats']
 ): number {
   const gap = 3
-  const n = 4
+  const n = 5
   const boxW = (contentWidth - gap * (n - 1)) / n
   const boxH = 24
-  const labels = ['Total', 'Concluídas', 'Canceladas', 'Em andamento']
+  const labels = ['Total', 'Itens criados', 'Concluídas', 'Canceladas', 'Em andamento']
   const values = [
     String(generalStats.total),
+    String(generalStats.itemsCreated),
     String(generalStats.completed),
     String(generalStats.canceled),
     String(generalStats.inProgress)
   ]
-  const accents = [PDF_COLORS.cyan, PDF_COLORS.green, PDF_COLORS.danger, PDF_COLORS.warning]
+  const accents = [PDF_COLORS.primary, PDF_COLORS.cyan, PDF_COLORS.green, PDF_COLORS.danger, PDF_COLORS.warning]
   for (let i = 0; i < n; i++) {
     const x = margin + i * (boxW + gap)
     doc.setFillColor(PDF_COLORS.rowAlt[0], PDF_COLORS.rowAlt[1], PDF_COLORS.rowAlt[2])
@@ -330,6 +331,7 @@ export interface DashboardPdfExportInput {
   pageMetrics: { [key: string]: PageMetrics }
   generalStats: {
     total: number
+    itemsCreated: number
     completed: number
     canceled: number
     inProgress: number
