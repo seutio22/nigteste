@@ -1966,6 +1966,8 @@ function crud(entity: keyof PrismaClient) {
             operadoraId: true,
             produtoId: true,
             sistemaId: true,
+            sistemasIds: true,
+            sistemasTotais: true,
             tipoServicoId: true,
             tipoId: true,
             qtdRetornos: true,
