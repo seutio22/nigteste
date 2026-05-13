@@ -61,11 +61,32 @@ const allowedOrigins = [
   'http://127.0.0.1:5173',
   'http://127.0.0.1:3000'
 ]
+
+/**
+ * Padrões de origem aceitos via regex (previews Vercel do projeto nigteste).
+ * - Aliases de branch: https://nigteste-git-<branch>-denisons-projects-6adcf8ff.vercel.app
+ * - Deploys únicos:    https://nigteste-<hash>-denisons-projects-6adcf8ff.vercel.app
+ * Permite validar PRs e branches sem precisar atualizar a whitelist a cada deploy.
+ */
+const allowedOriginPatterns: RegExp[] = [
+  /^https:\/\/nigteste(?:-[a-z0-9-]+)?-denisons-projects-6adcf8ff\.vercel\.app$/,
+]
+
+function isOriginAllowed(origin: string | undefined): boolean {
+  if (!origin) return true
+  if (allowedOrigins.includes(origin)) return true
+  return allowedOriginPatterns.some((rx) => rx.test(origin))
+}
+
+function pickAllowOrigin(origin: string | undefined): string {
+  return origin && isOriginAllowed(origin) ? origin : allowedOrigins[0]
+}
+
 // Handler explícito para preflight OPTIONS - garante CORS mesmo se o plugin falhar
 app.addHook('onRequest', async (request, reply) => {
   if ((request as any).method === 'OPTIONS') {
     const origin = (request as any).headers?.origin
-    const allowOrigin = origin && allowedOrigins.includes(origin) ? origin : allowedOrigins[0]
+    const allowOrigin = pickAllowOrigin(origin)
     reply.header('Access-Control-Allow-Origin', allowOrigin)
     reply.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD')
     reply.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Origin, Accept, X-Requested-With, X-Session-ID, x-user-id, x-user-role')
@@ -76,7 +97,7 @@ app.addHook('onRequest', async (request, reply) => {
 })
 const corsOptions = {
   origin: (origin: string | undefined, cb: (err: Error | null, allow?: boolean | string) => void) => {
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (isOriginAllowed(origin)) {
       cb(null, true)
     } else {
       cb(null, allowedOrigins[0])
@@ -150,8 +171,7 @@ app.addHook('onSend', async (request, reply, payload) => {
   // Garantir CORS em todas as respostas (erros podem não passar pelo plugin)
   if (!reply.getHeader('Access-Control-Allow-Origin')) {
     const origin = (request as any).headers?.origin
-    const allowOrigin = origin && allowedOrigins.includes(origin) ? origin : allowedOrigins[0]
-    reply.header('Access-Control-Allow-Origin', allowOrigin)
+    reply.header('Access-Control-Allow-Origin', pickAllowOrigin(origin))
     reply.header('Access-Control-Allow-Credentials', 'true')
   }
   return payload
