@@ -39,6 +39,7 @@ model Analista {
   reajusteLancamentos  ReajusteLancamento[]
   validacoes           Validacao[]
   validacoesManutencao ValidacaoManutencao[]
+  placementCotacoes    PlacementCotacao[]
 }
 
 model Operadora {
@@ -91,21 +92,22 @@ model Grupo {
 }
 
 model Cliente {
-  id             String        @id @default(uuid())
-  nome           String
-  grupoEconomico String?
-  cnpj           String?       @unique
-  telefone       String?
-  email          String?
-  endereco       String?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  atendimentos   Atendimento[]
-  contratos      Contrato[]
-  demandas       Demanda[]
-  manutencoes    Manutencao[]
-  projects       Project[]
-  validacoes     Validacao[]
+  id                String             @id @default(uuid())
+  nome              String
+  grupoEconomico    String?
+  cnpj              String?            @unique
+  telefone          String?
+  email             String?
+  endereco          String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  atendimentos      Atendimento[]
+  contratos         Contrato[]
+  demandas          Demanda[]
+  manutencoes       Manutencao[]
+  projects          Project[]
+  validacoes        Validacao[]
+  placementCotacoes PlacementCotacao[]
 }
 
 model Contrato {
@@ -822,19 +824,56 @@ model PlacementFilial {
   @@index([razaoSocial])
 }
 
+/// Cotações do módulo Placement (página "Fila").
+/// Cada cotação representa uma demanda em andamento entre operadoras,
+/// antes de virar apólice. Status segue um fluxo simples (Aberta → Fechada/Perdida).
+model PlacementCotacao {
+  id                 String    @id @default(uuid())
+  ticket             String    @unique
+  status             String    @default("Aberta")
+  /// Analista responsável (usuário interno) — opcional para casos de import.
+  analistaId         String?
+  /// Usuário que criou a cotação.
+  userId             String?
+  /// Estipulante/cliente — relacionamento com Cliente do master data.
+  clienteId          String?
+  /// Ramo/produto da cotação (Vida, Saúde, Odonto, Patrimonial, RC, Auto, etc.).
+  ramo               String?
+  /// Operadoras cotadas (multi-seleção). Lista de IDs serializada como JSON.
+  operadorasIds      Json?
+  /// Estimativa de vidas / itens.
+  vidas              Int?
+  /// Valor estimado (prêmio/comissão), em centavos para evitar float.
+  valorEstimadoCents Int?
+  dataInicio         DateTime?
+  dataLimite         DateTime?
+  descricao          String?
+  observacoes        String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  analista Analista? @relation(fields: [analistaId], references: [id])
+  cliente  Cliente?  @relation(fields: [clienteId], references: [id])
+  user     User?     @relation(fields: [userId], references: [id])
+
+  @@index([status, updatedAt])
+  @@index([analistaId])
+  @@index([clienteId])
+}
+
 model ProjectAlert {
-  id               String   @id @default(uuid())
-  projectId        String
-  userId           String
-  responsavelNome  String   @default("") // "" = projeto; nome = responsável
-  targetType       String   @default("") // "project" | "responsible" | "task" | "subtask"
-  targetId         String   @default("") // id da tarefa ou subtarefa quando targetType = task/subtask
-  diasAntes        Int      @default(1) // 1, 3, 7 ou 15 dias antes da previsão
-  enabled          Boolean  @default(true)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  project          Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id              String   @id @default(uuid())
+  projectId       String
+  userId          String
+  responsavelNome String   @default("") // "" = projeto; nome = responsável
+  targetType      String   @default("") // "project" | "responsible" | "task" | "subtask"
+  targetId        String   @default("") // id da tarefa ou subtarefa quando targetType = task/subtask
+  diasAntes       Int      @default(1) // 1, 3, 7 ou 15 dias antes da previsão
+  enabled         Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([projectId, userId, targetType, targetId, responsavelNome, diasAntes])
 }
@@ -883,24 +922,24 @@ model ComunicadoComentario {
 
 // Alertas manuais criados pelo usuário (ex: no dropdown de notificações)
 model AlertaUsuario {
-  id           String   @id @default(uuid())
-  titulo       String
-  mensagem     String
-  autorId      String
-  autorNome    String
-  prioridade   String   @default("media") // baixa, media, alta, urgente
-  dataExibicao DateTime // Dia em que o alerta deve ser exibido
-  targetUserIds String  @default("[]") // JSON array de IDs (vazio = todos)
-  createdAt    DateTime @default(now())
+  id            String                      @id @default(uuid())
+  titulo        String
+  mensagem      String
+  autorId       String
+  autorNome     String
+  prioridade    String                      @default("media") // baixa, media, alta, urgente
+  dataExibicao  DateTime // Dia em que o alerta deve ser exibido
+  targetUserIds String                      @default("[]") // JSON array de IDs (vazio = todos)
+  createdAt     DateTime                    @default(now())
   visualizacoes AlertaUsuarioVisualizacao[]
 }
 
 model AlertaUsuarioVisualizacao {
-  id               String   @id @default(uuid())
+  id               String        @id @default(uuid())
   alertaId         String
   usuarioId        String
   usuarioNome      String
-  dataVisualizacao DateTime @default(now())
+  dataVisualizacao DateTime      @default(now())
   alerta           AlertaUsuario @relation(fields: [alertaId], references: [id], onDelete: Cascade)
 }
 
@@ -935,7 +974,9 @@ model User {
   password             String?
   passwordUpdatedAt    DateTime?             @default(now())
   role                 String                @default("analista")
-  /** Área/departamento (cadastro em Dados → Áreas). Opcional. */
+  /**
+   * Área/departamento (cadastro em Dados → Áreas). Opcional.
+   */
   departmentId         String?
   department           Area?                 @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   active               Boolean               @default(true)
@@ -964,6 +1005,7 @@ model User {
   userMonitoring       UserMonitoring[]
   deletionLogs         DeletionLog[]
   projectAlerts        ProjectAlert[]
+  placementCotacoes    PlacementCotacao[]
 }
 
 model KanbanTicket {
@@ -1045,9 +1087,13 @@ model UserMonitoring {
   logoutCount          Int      @default(0)
   pageViewCount        Int      @default(0)
   apiCallCount         Int      @default(0)
-  /** Soma do tempo (segundos) registrado via action page_time neste dia */
+  /**
+   * Soma do tempo (segundos) registrado via action page_time neste dia
+   */
   pageDwellSeconds     Int      @default(0)
-  /** Quantidade de encerramentos de permanência (eventos page_time) neste dia */
+  /**
+   * Quantidade de encerramentos de permanência (eventos page_time) neste dia
+   */
   pageDwellSessions    Int      @default(0)
   averageSessionTime   Int      @default(0) // em minutos
   lastAccess           DateTime @default(now())

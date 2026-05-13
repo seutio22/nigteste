@@ -32,6 +32,9 @@ import DadosLayoutPage from '../pages/DadosLayout'
 import DadosNigPage from '../pages/DadosNig'
 import DadosProdutividadePage from '../pages/DadosProdutividade'
 import DadosPlacementPage from '../pages/DadosPlacement'
+import PlacementFilaListPage from '../pages/Placement/Fila/List'
+import PlacementFilaNewPage from '../pages/Placement/Fila/New'
+import PlacementFilaDetailPage from '../pages/Placement/Fila/Detail'
 import AdminUsersPage from '../pages/Admin/Users'
 import KanbanPage from '../pages/Kanban'
 import ProjectListPage from '../pages/Projetos/ListSimple'
@@ -215,6 +218,31 @@ export function AppRoutes() {
             } />
           </Route>
           
+          <Route path="placement">
+            <Route path="fila">
+              <Route index element={
+                <ProtectedRoute module="placementFila">
+                  <PlacementFilaListPage />
+                </ProtectedRoute>
+              } />
+              <Route path="nova" element={
+                <ProtectedRoute module="placementFila" action="create">
+                  <PlacementFilaNewPage />
+                </ProtectedRoute>
+              } />
+              <Route path=":id" element={
+                <ProtectedRoute module="placementFila">
+                  <PlacementFilaDetailPage />
+                </ProtectedRoute>
+              } />
+              <Route path=":id/edit" element={
+                <ProtectedRoute module="placementFila" action="edit">
+                  <PlacementFilaDetailPage />
+                </ProtectedRoute>
+              } />
+            </Route>
+          </Route>
+
           <Route
             path="dados"
             element={

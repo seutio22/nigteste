@@ -22,6 +22,8 @@ import {
   Wrench,
   Layers,
   Briefcase,
+  Target,
+  ListChecks,
 } from 'lucide-react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -41,6 +43,7 @@ type MenuModule =
   | 'kanban'
   | 'dados'
   | 'usuarios'
+  | 'placementFila'
 
 type MenuLink = {
   icon: React.ComponentType<{ className?: string }>
@@ -57,6 +60,11 @@ const nigMenuItems: MenuLink[] = [
   { icon: CheckCircle, label: 'Validação', path: '/validacao', module: 'validacao' },
   { icon: TrendingUp, label: 'Reajuste', path: '/reajuste', module: 'reajuste' },
   { icon: BarChart3, label: 'Analytics', path: '/analytics', module: 'analytics' },
+]
+
+/** Rotas do módulo operacional PLACEMENT (cotações). */
+const placementMenuItems: MenuLink[] = [
+  { icon: ListChecks, label: 'Fila', path: '/placement/fila', module: 'placementFila' },
 ]
 
 const topMenuItems: MenuLink[] = [
@@ -86,8 +94,16 @@ const NIG_PATH_PREFIXES = [
   '/analytics',
 ] as const
 
+const PLACEMENT_PATH_PREFIXES = ['/placement'] as const
+
 function pathMatchesNig(pathname: string) {
   return NIG_PATH_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  )
+}
+
+function pathMatchesPlacement(pathname: string) {
+  return PLACEMENT_PATH_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
   )
 }
@@ -109,12 +125,17 @@ export function Sidebar() {
   const { user } = useAuthStore()
   const areasById = useMasterDataStore((s) => s.areasById)
   const { pathname } = useLocation()
-  /** NIG e Administrativo começam fechados; o usuário clica no título para expandir o submenu */
+  /** NIG, PLACEMENT e Administrativo começam fechados; o usuário clica no título para expandir o submenu */
   const [nigOpen, setNigOpen] = useState(false)
+  const [placementOpen, setPlacementOpen] = useState(false)
   const [administrativoOpen, setAdministrativoOpen] = useState(false)
 
   const filteredTop = useMemo(() => filterByPermission(topMenuItems, user), [user])
   const filteredNig = useMemo(() => filterByPermission(nigMenuItems, user), [user])
+  const filteredPlacement = useMemo(
+    () => filterByPermission(placementMenuItems, user),
+    [user]
+  )
   const filteredAdministrativo = useMemo(
     () => filterByPermission(administrativoMenuItems, user),
     [user]
@@ -122,11 +143,16 @@ export function Sidebar() {
   const filteredTools = useMemo(() => filterByPermission(toolsMenuItems, user), [user])
 
   const isNigRoute = pathMatchesNig(pathname)
+  const isPlacementRoute = pathMatchesPlacement(pathname)
   const isAdministrativoRoute = pathMatchesAdministrativo(pathname)
 
   useEffect(() => {
     if (isNigRoute) setNigOpen(true)
   }, [isNigRoute])
+
+  useEffect(() => {
+    if (isPlacementRoute) setPlacementOpen(true)
+  }, [isPlacementRoute])
 
   useEffect(() => {
     if (isAdministrativoRoute) setAdministrativoOpen(true)
@@ -268,10 +294,59 @@ export function Sidebar() {
             </div>
           )}
 
+          {filteredPlacement.length > 0 && (
+            <div className="pt-0.5">
+              {isCollapsed ? (
+                <>
+                  <div className="mx-1 my-2 h-px bg-white/15" aria-hidden />
+                  {filteredPlacement.map((item) => renderLink(item, { nested: false }))}
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setPlacementOpen((o) => !o)}
+                    className={`sidebar-item w-full justify-between gap-1 ${
+                      isPlacementRoute ? 'bg-white/10' : ''
+                    }`}
+                    aria-expanded={placementOpen}
+                  >
+                    <span className="flex items-center gap-2 min-w-0">
+                      <Target className="w-5 h-5 flex-shrink-0 text-emerald-200/90" />
+                      <span className="font-semibold tracking-wide truncate">PLACEMENT</span>
+                    </span>
+                    <ChevronDown
+                      className={`w-4 h-4 flex-shrink-0 transition-transform duration-200 ${
+                        placementOpen ? 'rotate-0' : '-rotate-90'
+                      }`}
+                    />
+                  </button>
+                  <AnimatePresence initial={false}>
+                    {placementOpen && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="space-y-0.5 mt-1 pb-1">
+                          {filteredPlacement.map((item) => renderLink(item, { nested: true }))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </>
+              )}
+            </div>
+          )}
+
           {filteredTools.length > 0 && (
             <div
               className={`space-y-1 ${
-                filteredNig.length > 0 ? 'pt-2 mt-1 border-t border-white/10' : 'pt-0.5'
+                filteredNig.length > 0 || filteredPlacement.length > 0
+                  ? 'pt-2 mt-1 border-t border-white/10'
+                  : 'pt-0.5'
               }`}
             >
               {filteredTools.map((item) => renderLink(item))}
@@ -281,7 +356,9 @@ export function Sidebar() {
           {filteredAdministrativo.length > 0 && (
             <div
               className={`${
-                filteredNig.length > 0 || filteredTools.length > 0
+                filteredNig.length > 0 ||
+                filteredPlacement.length > 0 ||
+                filteredTools.length > 0
                   ? 'pt-2 mt-1 border-t border-white/10'
                   : 'pt-0.5'
               }`}

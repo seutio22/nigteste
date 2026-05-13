@@ -27,6 +27,8 @@ export interface SystemPermissions {
   usuarios: ModulePermission;
   configuracoes: ModulePermission;
   relatorios: ModulePermission;
+  /** Módulo PLACEMENT — Fila de cotações (analistas). */
+  placementFila: ModulePermission;
 }
 
 // Função para verificar permissão específica

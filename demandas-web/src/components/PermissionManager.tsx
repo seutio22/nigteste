@@ -47,7 +47,8 @@ const MODULE_LABELS: Record<keyof SystemPermissions, string> = {
   dados: 'Dados',
   usuarios: 'Usuários',
   configuracoes: 'Configurações',
-  relatorios: 'Relatórios'
+  relatorios: 'Relatórios',
+  placementFila: 'Placement · Fila'
 };
 
 const ACTION_LABELS: Record<keyof ModulePermission, string> = {

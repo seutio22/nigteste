@@ -78,7 +78,8 @@ export const DEFAULT_PERMISSIONS: Record<string, SystemPermissions> = {
     dados: fullPermission,
     usuarios: fullPermission,
     configuracoes: fullPermission,
-    relatorios: fullPermission
+    relatorios: fullPermission,
+    placementFila: fullPermission
   },
   
   gerente: {
@@ -97,7 +98,8 @@ export const DEFAULT_PERMISSIONS: Record<string, SystemPermissions> = {
     dados: fullPermission,
     usuarios: noPermission, // ❌ CORRIGIDO: Gerentes não devem ter acesso a usuários
     configuracoes: readOnlyPermission,
-    relatorios: fullPermission
+    relatorios: fullPermission,
+    placementFila: fullPermission
   },
   
   analista: {
@@ -116,7 +118,8 @@ export const DEFAULT_PERMISSIONS: Record<string, SystemPermissions> = {
     dados: analistaPermission,
     usuarios: noPermission,
     configuracoes: readOnlyPermission,
-    relatorios: analistaPermission
+    relatorios: analistaPermission,
+    placementFila: analistaPermission
   },
   
   solicitante: {
@@ -135,7 +138,8 @@ export const DEFAULT_PERMISSIONS: Record<string, SystemPermissions> = {
     dados: noPermission,
     usuarios: noPermission,
     configuracoes: noPermission,
-    relatorios: noPermission
+    relatorios: noPermission,
+    placementFila: noPermission
   }
 }
 
@@ -148,35 +152,30 @@ export function getUserPermissions(
   userPermissionsString: string | null | undefined | any,
   userRole: string
 ): SystemPermissions {
+  const roleDefaults =
+    DEFAULT_PERMISSIONS[userRole?.toLowerCase()] ?? DEFAULT_PERMISSIONS.analista
+
   // 🎯 PRIORIDADE 1: Usar permissões CUSTOMIZADAS do usuário (Gerenciar Permissões)
   if (userPermissionsString) {
     try {
-      // Se já é um objeto, usar diretamente (caso o banco retorne objeto)
+      let parsed: any = null
       if (typeof userPermissionsString === 'object' && userPermissionsString !== null) {
-        return userPermissionsString as SystemPermissions
+        parsed = userPermissionsString
+      } else if (typeof userPermissionsString === 'string') {
+        parsed = JSON.parse(userPermissionsString)
       }
-      
-      // Se é string, fazer parse
-      if (typeof userPermissionsString === 'string') {
-        const parsed = JSON.parse(userPermissionsString)
-        // Validar se tem estrutura válida
-        if (parsed && typeof parsed === 'object') {
-          return parsed as SystemPermissions
-        }
+      if (parsed && typeof parsed === 'object') {
+        // 🔁 Mescla com os defaults do role para preencher módulos novos que ainda
+        // não constem nas permissões customizadas (ex.: usuários criados antes da
+        // adição do módulo `placementFila`).
+        return { ...roleDefaults, ...parsed } as SystemPermissions
       }
     } catch (error) {
       // Erro silencioso - usar fallback
     }
   }
-  
-  // 🔄 FALLBACK: Permissões padrão do role (apenas para usuários sem configuração)
-  const rolePermissions = DEFAULT_PERMISSIONS[userRole.toLowerCase()]
-  if (rolePermissions) {
-    return rolePermissions
-  }
-  
-  // 🆘 FALLBACK FINAL: Role desconhecido
-  return DEFAULT_PERMISSIONS.analista
+
+  return roleDefaults
 }
 
 /**
