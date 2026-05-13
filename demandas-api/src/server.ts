@@ -12,6 +12,7 @@ import projectTeamRoutes from './routes/projectTeam'
 import projectWorkAuditRoutes from './routes/projectWorkAudit'
 import projectStatsSummaryRoutes from './routes/projectStatsSummary'
 import shareRoutes from './routes/share'
+import placementRoutes from './routes/placement'
 import { masterDataRoutes } from './routes/masterData'
 import { kanbanRoutes } from './routes/kanban'
 import monitoringRoutes from './routes/monitoring'
@@ -5696,6 +5697,7 @@ app.register(projectWorkAuditRoutes, { prisma })
 
 // Rotas de compartilhamento (DEVEM vir ANTES das rotas genéricas)
 app.register(shareRoutes, { prisma })
+app.register(placementRoutes, { prisma })
 
 // Rotas de dados mestres
 app.register(masterDataRoutes, { prisma })

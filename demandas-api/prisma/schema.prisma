@@ -809,6 +809,19 @@ model ProjectShareAccessLog {
   @@index([shareTokenId, accessedAt])
 }
 
+/// Cadastros do módulo Placement (Dados > Placement).
+/// Filiais cadastradas com razão social, CNPJ e status (Ativo/Inativo).
+model PlacementFilial {
+  id          String   @id @default(uuid())
+  razaoSocial String
+  cnpj        String   @unique
+  status      String   @default("Ativo") // "Ativo" | "Inativo"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([razaoSocial])
+}
+
 model ProjectAlert {
   id               String   @id @default(uuid())
   projectId        String
