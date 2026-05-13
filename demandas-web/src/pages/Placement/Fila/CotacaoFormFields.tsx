@@ -9,7 +9,7 @@ import {
   InputAdornment,
 } from '@mui/material'
 import { useMasterDataStore } from '../../../store/masterDataStore'
-import { COTACAO_STATUSES, RAMO_SUGGESTIONS, formatCentsToBRL, parseBRLToCents } from './utils'
+import { COTACAO_STATUSES, formatCentsToBRL, parseBRLToCents } from './utils'
 
 export interface CotacaoFormState {
   ticket: string
@@ -49,11 +49,18 @@ interface Props {
 }
 
 export function CotacaoFormFields({ value, onChange, errors, disabled }: Props) {
-  const { analistas, clientes, operadoras } = useMasterDataStore()
+  const { analistas, clientes, operadoras, produtos } = useMasterDataStore()
 
   function patch(part: Partial<CotacaoFormState>) {
     onChange({ ...value, ...part })
   }
+
+  /**
+   * Ramo / Produto é uma string livre no backend, mas o cadastro deve vir
+   * da tabela de produtos (Dados → NIG → Produtos). Resolvemos o produto
+   * selecionado pelo nome para preservar dados antigos / cotações importadas.
+   */
+  const selectedProduto = produtos.find((p) => p.nome === value.ramo) ?? null
 
   return (
     <Grid container spacing={2}>
@@ -120,14 +127,25 @@ export function CotacaoFormFields({ value, onChange, errors, disabled }: Props) 
 
       <Grid item xs={12} md={6}>
         <Autocomplete
-          freeSolo
-          options={RAMO_SUGGESTIONS}
-          value={value.ramo}
+          options={produtos}
+          getOptionLabel={(o) => (typeof o === 'string' ? o : o.nome)}
+          value={selectedProduto}
           disabled={disabled}
-          onChange={(_, val) => patch({ ramo: String(val ?? '') })}
-          onInputChange={(_, val) => patch({ ramo: val ?? '' })}
+          onChange={(_, opt) => patch({ ramo: opt && typeof opt !== 'string' ? opt.nome : '' })}
+          isOptionEqualToValue={(opt, val) =>
+            typeof opt !== 'string' && typeof val !== 'string' && opt.id === val.id
+          }
           renderInput={(params) => (
-            <TextField {...params} label="Ramo / Produto" placeholder="Ex.: Saúde, Vida..." />
+            <TextField
+              {...params}
+              label="Ramo / Produto"
+              placeholder={produtos.length ? 'Selecione um produto' : 'Cadastre produtos em Dados → NIG → Produtos'}
+              helperText={
+                value.ramo && !selectedProduto
+                  ? `Valor atual “${value.ramo}” não está mais no cadastro de Produtos`
+                  : undefined
+              }
+            />
           )}
         />
       </Grid>

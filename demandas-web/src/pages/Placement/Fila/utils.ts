@@ -14,21 +14,6 @@ export function getStatusColor(status: string) {
   return STATUS_COLORS[status as CotacaoStatus] ?? STATUS_COLORS['Aberta']
 }
 
-export const RAMO_SUGGESTIONS = [
-  'Vida',
-  'Saúde',
-  'Odonto',
-  'Patrimonial',
-  'Responsabilidade Civil',
-  'Auto',
-  'Frota',
-  'Transporte',
-  'Riscos Diversos',
-  'Engenharia',
-  'D&O',
-  'Cyber',
-]
-
 export function formatCentsToBRL(cents: number | null | undefined): string {
   if (cents == null || Number.isNaN(cents)) return '—'
   const value = cents / 100
