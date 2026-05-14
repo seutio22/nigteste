@@ -211,17 +211,161 @@ export default async function placementRoutes(
     }
   });
 
+  // ---- Prospects --------------------------------------------------------
+
+  /** Cadastros de prospects (clientes potenciais) do módulo Placement. */
+  fastify.get('/placement/prospects', async (_request, reply) => {
+    try {
+      const prospects = await prisma.placementProspect.findMany({
+        orderBy: { razaoSocial: 'asc' },
+      });
+      return { prospects };
+    } catch (error) {
+      console.error('❌ GET /placement/prospects:', error);
+      return reply.status(500).send({ error: 'Erro interno do servidor' });
+    }
+  });
+
+  fastify.get('/placement/prospects/:id', async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string };
+      const prospect = await prisma.placementProspect.findUnique({ where: { id } });
+      if (!prospect) return reply.status(404).send({ error: 'Prospect não encontrado' });
+      return prospect;
+    } catch (error) {
+      console.error('❌ GET /placement/prospects/:id:', error);
+      return reply.status(500).send({ error: 'Erro interno do servidor' });
+    }
+  });
+
+  fastify.post('/placement/prospects', async (request, reply) => {
+    try {
+      const body = (request.body ?? {}) as {
+        razaoSocial?: string;
+        cnpj?: string;
+        grupoEconomico?: string;
+      };
+
+      const razaoSocial = String(body.razaoSocial ?? '').trim();
+      const cnpjDigits = onlyDigits(String(body.cnpj ?? ''));
+      const grupoEconomico = body.grupoEconomico ? String(body.grupoEconomico).trim() : null;
+
+      if (!razaoSocial) {
+        return reply.status(400).send({ error: 'Razão social é obrigatória' });
+      }
+      if (cnpjDigits.length !== 14) {
+        return reply
+          .status(400)
+          .send({ error: 'CNPJ inválido — informe os 14 dígitos' });
+      }
+
+      const exists = await prisma.placementProspect.findUnique({ where: { cnpj: cnpjDigits } });
+      if (exists) {
+        return reply.status(409).send({
+          error: 'CNPJ já cadastrado',
+          message: `Já existe um prospect cadastrado com este CNPJ (${exists.razaoSocial}).`,
+        });
+      }
+
+      const created = await prisma.placementProspect.create({
+        data: { razaoSocial, cnpj: cnpjDigits, grupoEconomico },
+      });
+      return reply.status(201).send(created);
+    } catch (error) {
+      console.error('❌ POST /placement/prospects:', error);
+      return reply.status(500).send({ error: 'Erro interno do servidor' });
+    }
+  });
+
+  fastify.put('/placement/prospects/:id', async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string };
+      const body = (request.body ?? {}) as {
+        razaoSocial?: string;
+        cnpj?: string;
+        grupoEconomico?: string;
+      };
+
+      const existing = await prisma.placementProspect.findUnique({ where: { id } });
+      if (!existing) return reply.status(404).send({ error: 'Prospect não encontrado' });
+
+      const data: Record<string, unknown> = {};
+
+      if (body.razaoSocial !== undefined) {
+        const razaoSocial = String(body.razaoSocial).trim();
+        if (!razaoSocial) {
+          return reply.status(400).send({ error: 'Razão social é obrigatória' });
+        }
+        data.razaoSocial = razaoSocial;
+      }
+
+      if (body.cnpj !== undefined) {
+        const cnpjDigits = onlyDigits(String(body.cnpj));
+        if (cnpjDigits.length !== 14) {
+          return reply.status(400).send({ error: 'CNPJ inválido — informe os 14 dígitos' });
+        }
+        if (cnpjDigits !== existing.cnpj) {
+          const dup = await prisma.placementProspect.findUnique({ where: { cnpj: cnpjDigits } });
+          if (dup && dup.id !== id) {
+            return reply.status(409).send({
+              error: 'CNPJ já cadastrado',
+              message: `Já existe outro prospect com este CNPJ (${dup.razaoSocial}).`,
+            });
+          }
+        }
+        data.cnpj = cnpjDigits;
+      }
+
+      if (body.grupoEconomico !== undefined) {
+        const ge = String(body.grupoEconomico ?? '').trim();
+        data.grupoEconomico = ge || null;
+      }
+
+      const updated = await prisma.placementProspect.update({ where: { id }, data });
+      return updated;
+    } catch (error) {
+      console.error('❌ PUT /placement/prospects/:id:', error);
+      return reply.status(500).send({ error: 'Erro interno do servidor' });
+    }
+  });
+
+  fastify.delete('/placement/prospects/:id', async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string };
+      const existing = await prisma.placementProspect.findUnique({ where: { id } });
+      if (!existing) return reply.status(404).send({ error: 'Prospect não encontrado' });
+
+      // Bloquear exclusão se houver cotações vinculadas
+      const linked = await prisma.placementCotacao.count({ where: { prospectId: id } });
+      if (linked > 0) {
+        return reply.status(409).send({
+          error: 'Prospect em uso',
+          message: `Existem ${linked} cotação(ões) vinculadas a este prospect. Reatribua-as antes de excluir.`,
+        });
+      }
+
+      await prisma.placementProspect.delete({ where: { id } });
+      return { success: true };
+    } catch (error) {
+      console.error('❌ DELETE /placement/prospects/:id:', error);
+      return reply.status(500).send({ error: 'Erro interno do servidor' });
+    }
+  });
+
   // ---- Cotações (Fila) --------------------------------------------------
 
-  /** Lista todas as cotações com analista e cliente para exibição direta. */
+  /** Inclui analista, cliente e prospect para a Fila exibir o nome direto. */
+  const cotacaoInclude = {
+    analista: { select: { id: true, nome: true } },
+    cliente: { select: { id: true, nome: true, cnpj: true, grupoEconomico: true } },
+    prospect: { select: { id: true, razaoSocial: true, cnpj: true, grupoEconomico: true } },
+    user: { select: { id: true, name: true, email: true } },
+  } as const;
+
   fastify.get('/placement/cotacoes', async (_request, reply) => {
     try {
       const cotacoes = await prisma.placementCotacao.findMany({
-        include: {
-          analista: { select: { id: true, nome: true } },
-          cliente: { select: { id: true, nome: true, cnpj: true } },
-          user: { select: { id: true, name: true, email: true } },
-        },
+        include: cotacaoInclude,
         orderBy: { updatedAt: 'desc' },
       });
       return { cotacoes };
@@ -236,11 +380,7 @@ export default async function placementRoutes(
       const { id } = request.params as { id: string };
       const cotacao = await prisma.placementCotacao.findUnique({
         where: { id },
-        include: {
-          analista: { select: { id: true, nome: true } },
-          cliente: { select: { id: true, nome: true, cnpj: true } },
-          user: { select: { id: true, name: true, email: true } },
-        },
+        include: cotacaoInclude,
       });
       if (!cotacao) return reply.status(404).send({ error: 'Cotação não encontrada' });
       return cotacao;
@@ -262,7 +402,14 @@ export default async function placementRoutes(
 
       const analistaId = body.analistaId ? String(body.analistaId) : null;
       const clienteId = body.clienteId ? String(body.clienteId) : null;
+      const prospectId = body.prospectId ? String(body.prospectId) : null;
       const userId = body.userId ? String(body.userId) : null;
+
+      if (clienteId && prospectId) {
+        return reply.status(400).send({
+          error: 'Informe apenas Cliente OU Prospect na mesma cotação',
+        });
+      }
       const operadorasIds = toOperadorasArray(body.operadorasIds) ?? null;
       const vidas = toIntOrNull(body.vidas) ?? null;
       const valorEstimadoCents = toIntOrNull(body.valorEstimadoCents) ?? null;
@@ -288,6 +435,7 @@ export default async function placementRoutes(
           status,
           analistaId,
           clienteId,
+          prospectId,
           userId,
           ramo: ramo || null,
           operadorasIds: operadorasIds as any,
@@ -298,11 +446,7 @@ export default async function placementRoutes(
           descricao: descricao || null,
           observacoes: observacoes || null,
         },
-        include: {
-          analista: { select: { id: true, nome: true } },
-          cliente: { select: { id: true, nome: true, cnpj: true } },
-          user: { select: { id: true, name: true, email: true } },
-        },
+        include: cotacaoInclude,
       });
       return reply.status(201).send(created);
     } catch (error) {
@@ -341,8 +485,18 @@ export default async function placementRoutes(
       if (body.status !== undefined) data.status = normalizeCotacaoStatus(body.status);
       if (body.analistaId !== undefined) data.analistaId = body.analistaId ? String(body.analistaId) : null;
       if (body.clienteId !== undefined) data.clienteId = body.clienteId ? String(body.clienteId) : null;
+      if (body.prospectId !== undefined) data.prospectId = body.prospectId ? String(body.prospectId) : null;
       if (body.userId !== undefined) data.userId = body.userId ? String(body.userId) : null;
       if (body.ramo !== undefined) data.ramo = String(body.ramo ?? '').trim() || null;
+
+      // Cliente e Prospect são mutuamente exclusivos
+      const nextCliente = data.clienteId ?? existing.clienteId;
+      const nextProspect = data.prospectId ?? existing.prospectId;
+      if (nextCliente && nextProspect) {
+        return reply.status(400).send({
+          error: 'Informe apenas Cliente OU Prospect na mesma cotação',
+        });
+      }
       if (body.descricao !== undefined) data.descricao = String(body.descricao ?? '').trim() || null;
       if (body.observacoes !== undefined) data.observacoes = String(body.observacoes ?? '').trim() || null;
 
@@ -364,11 +518,7 @@ export default async function placementRoutes(
       const updated = await prisma.placementCotacao.update({
         where: { id },
         data,
-        include: {
-          analista: { select: { id: true, nome: true } },
-          cliente: { select: { id: true, nome: true, cnpj: true } },
-          user: { select: { id: true, name: true, email: true } },
-        },
+        include: cotacaoInclude,
       });
       return updated;
     } catch (error) {

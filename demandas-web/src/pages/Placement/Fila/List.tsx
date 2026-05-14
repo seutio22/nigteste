@@ -23,6 +23,7 @@ import ViewKanbanIcon from '@mui/icons-material/ViewKanban'
 import { PrimaryActionButton } from '../../../components/PrimaryActionButton'
 import { useMasterDataStore } from '../../../store/masterDataStore'
 import { usePlacementCotacaoStore, COTACAO_STATUSES, type PlacementCotacao } from '../../../store/placementCotacaoStore'
+import { usePlacementStore } from '../../../store/placementStore'
 import { formatCentsToBRL, getStatusColor } from './utils'
 import { formatGridDatePtBR, gridCellToDate } from '../../../utils/gridDate'
 
@@ -32,24 +33,41 @@ export default function PlacementFilaListPage() {
   const navigate = useNavigate()
   const { cotacoes, isLoading, syncCotacoes } = usePlacementCotacaoStore()
   const { analistasById, clientesById, syncFromApi } = useMasterDataStore()
+  const prospects = usePlacementStore((s) => s.prospects)
+  const syncProspects = usePlacementStore((s) => s.syncProspects)
 
   const [viewMode, setViewMode] = useState<ViewMode>('lista')
 
   useEffect(() => {
     syncFromApi?.()
     syncCotacoes()
-  }, [syncFromApi, syncCotacoes])
+    syncProspects()
+  }, [syncFromApi, syncCotacoes, syncProspects])
+
+  const prospectsById = useMemo(() => {
+    const map: Record<string, (typeof prospects)[number]> = {}
+    prospects.forEach((p) => {
+      map[p.id] = p
+    })
+    return map
+  }, [prospects])
 
   const rows = useMemo(
     () =>
-      cotacoes.map((c) => ({
-        ...c,
-        analistaNome:
-          c.analista?.nome ?? (c.analistaId ? analistasById[c.analistaId]?.nome : '') ?? '',
-        clienteNome:
-          c.cliente?.nome ?? (c.clienteId ? clientesById[c.clienteId]?.nome : '') ?? '',
-      })),
-    [cotacoes, analistasById, clientesById]
+      cotacoes.map((c) => {
+        const prospect = c.prospect ?? (c.prospectId ? prospectsById[c.prospectId] : null)
+        const cliente = c.cliente ?? (c.clienteId ? clientesById[c.clienteId] : null)
+        const clienteNome = cliente?.nome ?? prospect?.razaoSocial ?? ''
+        const isProspect = !!prospect
+        return {
+          ...c,
+          analistaNome:
+            c.analista?.nome ?? (c.analistaId ? analistasById[c.analistaId]?.nome : '') ?? '',
+          clienteNome,
+          isProspect,
+        }
+      }),
+    [cotacoes, analistasById, clientesById, prospectsById]
   )
 
   const columns: GridColDef[] = [
@@ -90,7 +108,28 @@ export default function PlacementFilaListPage() {
         )
       },
     },
-    { field: 'clienteNome', headerName: 'Estipulante / Cliente', flex: 1, minWidth: 200 },
+    {
+      field: 'clienteNome',
+      headerName: 'Estipulante / Cliente',
+      flex: 1,
+      minWidth: 220,
+      renderCell: (p) => (
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ width: '100%' }}>
+          <Typography variant="body2" noWrap title={String(p.value ?? '')}>
+            {String(p.value ?? '—')}
+          </Typography>
+          {p.row.isProspect && (
+            <Chip
+              label="Prospect"
+              size="small"
+              color="warning"
+              variant="outlined"
+              sx={{ height: 20, fontSize: 11 }}
+            />
+          )}
+        </Stack>
+      ),
+    },
     { field: 'ramo', headerName: 'Ramo', width: 160 },
     { field: 'analistaNome', headerName: 'Analista', width: 180 },
     {

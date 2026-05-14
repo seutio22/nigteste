@@ -4,8 +4,6 @@ import {
   Alert,
   Box,
   Button,
-  Card,
-  CardContent,
   CircularProgress,
   Container,
   Paper,
@@ -93,7 +91,8 @@ export default function PlacementFilaDetailPage() {
         ticket: form.ticket?.trim() || undefined,
         status: form.status,
         analistaId: form.analistaId || null,
-        clienteId: form.clienteId || null,
+        clienteId: form.clienteTipo === 'casa' ? form.clienteId || null : null,
+        prospectId: form.clienteTipo === 'prospect' ? form.prospectId || null : null,
         ramo: form.ramo?.trim() || null,
         operadorasIds: form.operadorasIds.length ? form.operadorasIds : null,
         vidas: form.vidas ? Number(form.vidas) : null,
@@ -169,11 +168,7 @@ export default function PlacementFilaDetailPage() {
         </Box>
       ) : (
         <>
-          <Card>
-            <CardContent>
-              <CotacaoFormFields value={form} onChange={setForm} disabled={saving} />
-            </CardContent>
-          </Card>
+          <CotacaoFormFields value={form} onChange={setForm} disabled={saving} />
 
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
             <Button
@@ -216,11 +211,18 @@ export default function PlacementFilaDetailPage() {
 
 function toFormState(data: any): CotacaoFormState {
   const valorCents = typeof data?.valorEstimadoCents === 'number' ? data.valorEstimadoCents : null
+  const prospectId = data?.prospectId ?? data?.prospect?.id ?? ''
+  const clienteId = data?.clienteId ?? data?.cliente?.id ?? ''
+  const grupoEconomico =
+    data?.cliente?.grupoEconomico ?? data?.prospect?.grupoEconomico ?? ''
   return {
     ticket: data?.ticket ?? '',
     status: data?.status ?? 'Aberta',
     analistaId: data?.analistaId ?? data?.analista?.id ?? '',
-    clienteId: data?.clienteId ?? data?.cliente?.id ?? '',
+    clienteTipo: prospectId ? 'prospect' : 'casa',
+    grupoEconomico,
+    clienteId,
+    prospectId,
     ramo: data?.ramo ?? '',
     operadorasIds: Array.isArray(data?.operadorasIds) ? data.operadorasIds : [],
     vidas: data?.vidas != null ? String(data.vidas) : '',

@@ -1,8 +1,9 @@
 import React, { useState } from 'react'
 import { Box, Paper, Tab, Tabs, Typography } from '@mui/material'
 import FiliaisTab from './Placement/FiliaisTab'
+import ProspectsTab from './Placement/ProspectsTab'
 
-type PlacementTabKey = 'filiais'
+type PlacementTabKey = 'filiais' | 'prospects'
 
 export default function DadosPlacementPage() {
   const [activeTab, setActiveTab] = useState<PlacementTabKey>('filiais')
@@ -36,9 +37,13 @@ export default function DadosPlacementPage() {
         }}
       >
         <Tab value="filiais" label="Filiais" />
+        <Tab value="prospects" label="Prospect" />
       </Tabs>
 
-      <Box>{activeTab === 'filiais' && <FiliaisTab />}</Box>
+      <Box>
+        {activeTab === 'filiais' && <FiliaisTab />}
+        {activeTab === 'prospects' && <ProspectsTab />}
+      </Box>
     </Paper>
   )
 }

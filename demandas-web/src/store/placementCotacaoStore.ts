@@ -21,6 +21,7 @@ export interface PlacementCotacao {
   analistaId?: string | null
   userId?: string | null
   clienteId?: string | null
+  prospectId?: string | null
   ramo?: string | null
   operadorasIds?: string[] | null
   vidas?: number | null
@@ -32,7 +33,8 @@ export interface PlacementCotacao {
   createdAt?: string
   updatedAt?: string
   analista?: { id: string; nome: string } | null
-  cliente?: { id: string; nome: string; cnpj?: string | null } | null
+  cliente?: { id: string; nome: string; cnpj?: string | null; grupoEconomico?: string | null } | null
+  prospect?: { id: string; razaoSocial: string; cnpj?: string | null; grupoEconomico?: string | null } | null
   user?: { id: string; name: string; email?: string | null } | null
 }
 

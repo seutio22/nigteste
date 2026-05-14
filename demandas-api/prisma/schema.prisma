@@ -827,6 +827,10 @@ model PlacementFilial {
 /// Cotações do módulo Placement (página "Fila").
 /// Cada cotação representa uma demanda em andamento entre operadoras,
 /// antes de virar apólice. Status segue um fluxo simples (Aberta → Fechada/Perdida).
+///
+/// Cliente da cotação pode ser um Cliente (cliente da casa, com FK para Cliente)
+/// OU um PlacementProspect (prospect cadastrado no módulo Placement).
+/// Apenas um dos dois deve ser preenchido por cotação.
 model PlacementCotacao {
   id                 String    @id @default(uuid())
   ticket             String    @unique
@@ -835,8 +839,10 @@ model PlacementCotacao {
   analistaId         String?
   /// Usuário que criou a cotação.
   userId             String?
-  /// Estipulante/cliente — relacionamento com Cliente do master data.
+  /// Cliente da casa — relacionamento com Cliente do master data.
   clienteId          String?
+  /// Prospect — relacionamento com PlacementProspect (cliente novo, não da casa).
+  prospectId         String?
   /// Ramo/produto da cotação (Vida, Saúde, Odonto, Patrimonial, RC, Auto, etc.).
   ramo               String?
   /// Operadoras cotadas (multi-seleção). Lista de IDs serializada como JSON.
@@ -852,13 +858,32 @@ model PlacementCotacao {
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
-  analista Analista? @relation(fields: [analistaId], references: [id])
-  cliente  Cliente?  @relation(fields: [clienteId], references: [id])
-  user     User?     @relation(fields: [userId], references: [id])
+  analista Analista?          @relation(fields: [analistaId], references: [id])
+  cliente  Cliente?           @relation(fields: [clienteId], references: [id])
+  prospect PlacementProspect? @relation(fields: [prospectId], references: [id])
+  user     User?              @relation(fields: [userId], references: [id])
 
   @@index([status, updatedAt])
   @@index([analistaId])
   @@index([clienteId])
+  @@index([prospectId])
+}
+
+/// Prospects (clientes potenciais) do módulo Placement.
+/// Base de empresas que ainda não são clientes da casa mas têm cotações
+/// em andamento. Cadastrados em Dados → Placement → Prospect.
+model PlacementProspect {
+  id             String   @id @default(uuid())
+  razaoSocial    String
+  grupoEconomico String?
+  cnpj           String   @unique
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  cotacoes PlacementCotacao[]
+
+  @@index([razaoSocial])
+  @@index([grupoEconomico])
 }
 
 model ProjectAlert {

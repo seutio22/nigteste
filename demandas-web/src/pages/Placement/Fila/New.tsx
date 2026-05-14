@@ -4,8 +4,6 @@ import {
   Alert,
   Box,
   Button,
-  Card,
-  CardContent,
   Container,
   Paper,
   Stack,
@@ -62,6 +60,14 @@ export default function PlacementFilaNewPage() {
       setErrorMsg('Informe o status.')
       return
     }
+    if (form.clienteTipo === 'casa' && !form.clienteId) {
+      setErrorMsg('Selecione o cliente da casa no Mapeamento.')
+      return
+    }
+    if (form.clienteTipo === 'prospect' && !form.prospectId) {
+      setErrorMsg('Selecione o prospect no Mapeamento (ou cadastre um novo).')
+      return
+    }
     setSubmitting(true)
     try {
       const created = await addCotacao({
@@ -69,7 +75,8 @@ export default function PlacementFilaNewPage() {
         status: form.status,
         analistaId: form.analistaId || null,
         userId: user?.id ?? null,
-        clienteId: form.clienteId || null,
+        clienteId: form.clienteTipo === 'casa' ? form.clienteId || null : null,
+        prospectId: form.clienteTipo === 'prospect' ? form.prospectId || null : null,
         ramo: form.ramo?.trim() || null,
         operadorasIds: form.operadorasIds.length ? form.operadorasIds : null,
         vidas: form.vidas ? Number(form.vidas) : null,
@@ -115,11 +122,7 @@ export default function PlacementFilaNewPage() {
         </Alert>
       )}
 
-      <Card>
-        <CardContent>
-          <CotacaoFormFields value={form} onChange={setForm} disabled={submitting} />
-        </CardContent>
-      </Card>
+      <CotacaoFormFields value={form} onChange={setForm} disabled={submitting} />
 
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
         <PrimaryActionButton
