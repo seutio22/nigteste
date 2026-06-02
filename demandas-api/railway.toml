@@ -29,3 +29,5 @@ restartPolicyType = "on_failure"
 
 [env]
 NODE_ENV = "production"
+CORS_ALLOW_VERCEL_PREVIEWS = "1"
+FRONTEND_URL = "https://nigdynamic.com"

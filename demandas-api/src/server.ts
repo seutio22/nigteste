@@ -137,9 +137,15 @@ app.addHook('onRequest', async (request, reply) => {
     const connected = await ensureConnection()
     if (!connected) {
       console.error('❌ Falha ao reconectar, retornando erro 503')
-      return reply.code(503).send({ 
-        error: 'Service Unavailable', 
-        message: 'Banco de dados temporariamente indisponível' 
+      const origin = (request as any).headers?.origin as string | undefined
+      const allowOrigin = resolveAccessControlAllowOrigin(origin)
+      if (allowOrigin) {
+        reply.header('Access-Control-Allow-Origin', allowOrigin)
+        reply.header('Access-Control-Allow-Credentials', 'true')
+      }
+      return reply.code(503).send({
+        error: 'Service Unavailable',
+        message: 'Banco de dados temporariamente indisponível',
       })
     }
   }
