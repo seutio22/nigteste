@@ -1,0 +1,26 @@
+# Build a partir da RAIZ do monorepo — evita "/package.json: not found" quando o
+# Root Directory no Railway está vazio ou o contexto Docker é a raiz do repositório.
+# Config Railway: Settings → Config as code → /railway.stack-demandas-from-repo-root.toml
+FROM node:20-bookworm-slim
+
+RUN apt-get update && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+ENV DATABASE_URL="postgresql://build:build@127.0.0.1:5432/build"
+
+COPY demandas-api/package.json demandas-api/package-lock.json ./
+COPY demandas-api/prisma ./prisma/
+
+RUN if [ -f package-lock.json ]; then npm ci; else npm install --include=dev; fi
+
+COPY demandas-api/ .
+
+RUN npx prisma generate && npm run build
+
+ENV NODE_ENV=production
+ENV HOST=0.0.0.0
+
+EXPOSE 3333
+
+CMD ["node", "scripts/start-production.cjs"]

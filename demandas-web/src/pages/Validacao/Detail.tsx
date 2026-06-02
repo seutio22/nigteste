@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useValidationStore } from '../../store/validationStore'
+import { mapApiValidacaoToEntry, useValidationStore } from '../../store/validationStore'
+import { formatContratoLabel, relationId, validateContratoParaCliente } from '../../utils/validationRelations'
+import { filterContratosDoCliente } from '../../utils/manutencaoContratos'
+import { ContratoLocalAutocomplete } from '../../components/ContratoLocalAutocomplete'
 import { useMasterDataStore } from '../../store/masterDataStore'
 import { useAuthStore } from '../../store/authStore'
 import { ArrowLeft, Edit3, Save, Clock } from 'lucide-react'
@@ -40,60 +43,7 @@ export default function ValidationDetailPage() {
               return
             }
             // Inserir diretamente no store para evitar espera do sync
-            const mapOne = (validacao: any): ValidationEntry => ({
-              id: validacao.id,
-              analista: validacao.analista || validacao.analistaId || { nome: 'N/A' },
-              dataInicio: validacao.dataInicio,
-              dataFinal: validacao.dataFim,
-              status: validacao.status,
-              observacoes: validacao.observacoes,
-              demanda: validacao.demandaId,
-              ticket: validacao.ticket || `VAL-${validacao.id.slice(0, 8)}`,
-              solicitante: validacao.solicitante || undefined,
-              tipo: validacao.tipo || '',
-              descricao: validacao.descricao || 'Validação de demanda',
-              qualidade: validacao.qualidade || undefined,
-              qtdRetornos: validacao.qtdRetornos || 0,
-              vigencia: validacao.vigencia || undefined,
-              total: validacao.total || 0,
-              area: validacao.area || 'N/A',
-              sistema: validacao.sistema || 'N/A',
-              localizacao: validacao.localizacao || 'N/A',
-              clienteId: validacao.clienteId,
-              contratoId: validacao.contratoId,
-              operadoraId: validacao.operadoraId,
-              produtoId: validacao.produtoId,
-              cliente: validacao.clienteId,
-              contrato: validacao.contratoId,
-              operadora: validacao.operadoraId,
-              produto: validacao.produtoId,
-              estruturaEdge: (() => {
-                if (!validacao.estruturaEdge) return []
-                if (typeof validacao.estruturaEdge === 'string') {
-                  try {
-                    const parsed = JSON.parse(validacao.estruturaEdge)
-                    return Array.isArray(parsed) ? parsed : []
-                  } catch { return [] }
-                }
-                return Array.isArray(validacao.estruturaEdge) ? validacao.estruturaEdge : []
-              })(),
-              estruturaMove: (() => {
-                if (!validacao.estruturaMove) return []
-                if (typeof validacao.estruturaMove === 'string') {
-                  try {
-                    const parsed = JSON.parse(validacao.estruturaMove)
-                    return Array.isArray(parsed) ? parsed : []
-                  } catch { return [] }
-                }
-                return Array.isArray(validacao.estruturaMove) ? validacao.estruturaMove : []
-              })(),
-              formalizacao: validacao.formalizacao,
-              itensPendentes: validacao.itensPendentes,
-              itensConcluidos: validacao.itensConcluidos,
-              createdAt: validacao.createdAt,
-              updatedAt: validacao.updatedAt
-            })
-            const mapped = mapOne(fetched)
+            const mapped = mapApiValidacaoToEntry(fetched)
             try {
               useValidationStore.setState((s) => ({ items: [mapped, ...s.items.filter(x => x.id !== mapped.id)] }))
             } catch {}
@@ -175,8 +125,8 @@ export default function ValidationDetailPage() {
         }
       }
 
-      // Tentativa direta por ID se ainda não encontrou; caso 404, voltar para lista
-      if (!validation && id) {
+      // Sempre atualizar este registro pela API (garante contrato/cliente aninhados do banco)
+      if (id) {
         try {
           const { api } = await import('../../lib/api.local')
           const fetchedRaw = await api.getValidacao(id)
@@ -186,58 +136,19 @@ export default function ValidationDetailPage() {
               navigate(`/validacao/${fetched.id}`)
               return
             }
-            const mapOne = (validacao: any): ValidationEntry => ({
-              id: validacao.id,
-              analista: validacao.analista || validacao.analistaId || { nome: 'N/A' },
-              dataInicio: validacao.dataInicio,
-              dataFinal: validacao.dataFim,
-              status: validacao.status,
-              observacoes: validacao.observacoes,
-              demanda: validacao.demandaId,
-              ticket: validacao.ticket || `VAL-${validacao.id.slice(0, 8)}`,
-              solicitante: validacao.solicitante || undefined,
-              tipo: validacao.tipo || '',
-              descricao: validacao.descricao || 'Validação de demanda',
-              qualidade: validacao.qualidade || undefined,
-              qtdRetornos: validacao.qtdRetornos || 0,
-              vigencia: validacao.vigencia || undefined,
-              total: validacao.total || 0,
-              area: validacao.area || 'N/A',
-              sistema: validacao.sistema || 'N/A',
-              localizacao: validacao.localizacao || 'N/A',
-              clienteId: validacao.clienteId,
-              contratoId: validacao.contratoId,
-              operadoraId: validacao.operadoraId,
-              produtoId: validacao.produtoId,
-              cliente: validacao.clienteId,
-              contrato: validacao.contratoId,
-              operadora: validacao.operadoraId,
-              produto: validacao.produtoId,
-              estruturaEdge: (() => {
-                if (!validacao.estruturaEdge) return []
-                if (typeof validacao.estruturaEdge === 'string') { try { return JSON.parse(validacao.estruturaEdge) } catch { return [] } }
-                return validacao.estruturaEdge
-              })(),
-              estruturaMove: (() => {
-                if (!validacao.estruturaMove) return []
-                if (typeof validacao.estruturaMove === 'string') { try { return JSON.parse(validacao.estruturaMove) } catch { return [] } }
-                return validacao.estruturaMove
-              })(),
-              formalizacao: validacao.formalizacao,
-              itensPendentes: validacao.itensPendentes,
-              itensConcluidos: validacao.itensConcluidos,
-              createdAt: validacao.createdAt,
-              updatedAt: validacao.updatedAt
-            })
-            const mapped = mapOne(fetched)
-            useValidationStore.setState((s) => ({ items: [mapped, ...s.items.filter(x => x.id !== mapped.id)] }))
-          } else {
+            const mapped = mapApiValidacaoToEntry(fetched)
+            useValidationStore.setState((s) => ({
+              items: [mapped, ...s.items.filter((x) => x.id !== mapped.id)]
+            }))
+          } else if (!validation) {
             navigate('/validacao')
             return
           }
         } catch {
-          navigate('/validacao')
-          return
+          if (!validation) {
+            navigate('/validacao')
+            return
+          }
         }
       }
     }
@@ -255,8 +166,6 @@ export default function ValidationDetailPage() {
 
   const label = (id?: string, arr?: { id: string, nome: string }[]) => 
     arr?.find(a => a.id === id)?.nome || '-'
-
-  const contratosParaLabel = md.contratos.map((c) => ({ id: c.id, nome: c.codigo || c.numero }))
 
   // Função específica para exibir cliente com grupo econômico
   const labelCliente = (id?: string) => {
@@ -374,14 +283,7 @@ export default function ValidationDetailPage() {
                 <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
                 <div>
                   <p className="text-sm text-apoio-400">Contrato</p>
-                  <p className="font-medium">{(() => {
-                    const vct = validation.contrato
-                    if (vct != null && typeof vct === 'object') {
-                      const o = vct as { numero?: string; codigo?: string }
-                      return o.numero || o.codigo || '-'
-                    }
-                    return label(typeof vct === 'string' ? vct : undefined, contratosParaLabel)
-                  })()}</p>
+                  <p className="font-medium">{formatContratoLabel(validation.contrato, validation.contratoId, md.contratos)}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
@@ -567,22 +469,19 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
     ? md.clientes.find(cliente => cliente.id === clienteIdNormalized)
     : null
 
-  // Filtrar contratos por clienteId (relação direta) OU por grupoEconomico (relação indireta)
-  const contratosFiltrados = clienteIdNormalized 
-    ? md.contratos.filter((c: any) => {
-        const matchClienteId = c.clienteId === clienteIdNormalized
-        const matchGrupo = clienteSelecionadoData?.grupoEconomico && c.grupoEconomico === clienteSelecionadoData.grupoEconomico
-        return matchClienteId || matchGrupo
-      })
-    : md.contratos
-  
+  const contratosDoCliente = clienteIdNormalized
+    ? filterContratosDoCliente(
+        md.contratos,
+        clienteIdNormalized,
+        clienteSelecionadoData?.grupoEconomico || null
+      )
+    : []
 
-  // Filtrar produtos por operadora selecionada
-  const produtosFiltrados = draft.operadora 
-    ? md.produtos.filter(produto => produto.operadoraId === draft.operadora || !produto.operadoraId)
+  const produtosFiltrados = draft.operadora
+    ? md.produtos.filter((p) => p.operadoraId === draft.operadora || !p.operadoraId)
     : md.produtos
 
-  // Nome do analista responsável (sempre o da validação, nunca o usuário que está acessando)
+  // Nome do analista responsável
   const analistaResponsavelNome = (() => {
     const a = draft.analista ?? validation.analista
     if (a == null) return '-'
@@ -601,12 +500,8 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
     const normalizedDraft = {
       ...validation,
       tipo: validation.tipo || '',
-      contrato: validation.contrato != null && typeof validation.contrato === 'object'
-        ? (validation.contrato as { id: string }).id
-        : validation.contrato || '',
-      cliente: validation.cliente != null && typeof validation.cliente === 'object'
-        ? (validation.cliente as { id: string }).id
-        : validation.cliente || '',
+      contrato: relationId(validation.contrato, validation.contratoId),
+      cliente: relationId(validation.cliente, validation.clienteId),
       operadora: validation.operadora != null && typeof validation.operadora === 'object'
         ? (validation.operadora as { id: string }).id
         : validation.operadora || '',
@@ -623,7 +518,7 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
       estruturaMove: normalizeArrayField(validation.estruturaMove)
     }
     setDraft(normalizedDraft)
-  }, [validation.id, validation.tipo, validation.contrato, validation.analista, validation.estruturaEdge, validation.estruturaMove])
+  }, [validation.id, validation.tipo, validation.contrato, validation.contratoId, validation.analista, validation.estruturaEdge, validation.estruturaMove])
 
   const changedKeys = ((): string[] => {
     // Excluir 'total' da lista pois é calculado automaticamente
@@ -644,7 +539,7 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
         case 'descricao': validationValue = validation.descricao; break
         case 'observacoes': validationValue = validation.observacoes; break
         case 'cliente': validationValue = validation.cliente; break
-        case 'contrato': validationValue = validation.contrato; break
+        case 'contrato': validationValue = relationId(validation.contrato, validation.contratoId); break
         case 'operadora': validationValue = validation.operadora; break
         case 'produto': validationValue = validation.produto; break
         case 'vigencia': validationValue = validation.vigencia; break
@@ -708,8 +603,8 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
       const normalizedValidation = normalizeValue(validationValue)
       const normalizedDraft = normalizeValue(draftValue)
       
-      // Debug específico para tipo e contrato
-      if (k === 'tipo' || k === 'contrato') {
+      // Debug específico para tipo
+      if (k === 'tipo') {
         console.log(`🔍 Comparando ${k}:`, {
           validationValue,
           draftValue,
@@ -790,12 +685,22 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
       }
       
       // Debug: mostrar o que será enviado
+      const contratoErr = validateContratoParaCliente(
+        typeof draft.contrato === 'string' ? draft.contrato : relationId(draft.contrato, validation.contratoId),
+        clienteIdNormalized,
+        contratosDoCliente,
+        md.contratos
+      )
+      if (contratoErr) {
+        alert(contratoErr)
+        setConfirmOpen(false)
+        return
+      }
+
       const dataToSave = { ...draft, total: totalCalculado }
       console.log('🔍 Dados que serão salvos:', dataToSave)
       
-      // Atualizar no store local - seguindo padrão do demandStore
-      console.log('🔄 Chamando store.upsert...')
-      await store.upsert(dataToSave)
+      await store.upsert(dataToSave as ValidationEntry)
       console.log('✅ store.upsert concluído')
       
       // Log das mudanças
@@ -1040,7 +945,7 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
         </div>
       </div>
 
-      {/* Cliente e Operadora */}
+      {/* Cliente, contrato, operadora e produto */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Cliente</label>
@@ -1049,55 +954,27 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
             getOptionLabel={(option) => option?.nome || ''}
             isOptionEqualToValue={(option, value) => option.id === value?.id}
             value={md.clientes.find(c => c.id === (clienteIdNormalized || '')) || null}
-            onChange={(_, newValue) => setDraft({ 
-              ...draft, 
+            onChange={(_, newValue) => setDraft({
+              ...draft,
               cliente: newValue?.id || undefined,
-              contrato: undefined // Limpar contrato quando cliente mudar
+              contrato: undefined,
             })}
             renderInput={(params) => (
-              <TextField
-                {...params}
-                placeholder="Digite para buscar..."
-                variant="outlined"
-                size="small"
-                fullWidth
-              />
-            )}
-            renderOption={(props, option) => (
-              <Box component="li" {...props} key={option.id}>
-                <Box>
-                  <Typography variant="body1" fontWeight="medium">
-                    {option.nome}
-                  </Typography>
-                  {option.grupoEconomico && (
-                    <Typography variant="caption" color="text.secondary">
-                      Grupo: {option.grupoEconomico}
-                    </Typography>
-                  )}
-                </Box>
-              </Box>
+              <TextField {...params} placeholder="Digite para buscar..." variant="outlined" size="small" fullWidth />
             )}
             noOptionsText="Nenhum cliente encontrado"
-            loading={md.clientes.length === 0}
-            loadingText="Carregando clientes..."
-            filterOptions={(options, { inputValue }) => {
-              return options.filter(option =>
-                option.nome.toLowerCase().includes(inputValue.toLowerCase()) ||
-                (option.grupoEconomico && option.grupoEconomico.toLowerCase().includes(inputValue.toLowerCase()))
-              )
-            }}
           />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Operadora</label>
           <select
-            value={draft.operadora != null && typeof draft.operadora === 'object' 
-              ? (draft.operadora as { id: string }).id 
+            value={draft.operadora != null && typeof draft.operadora === 'object'
+              ? (draft.operadora as { id: string }).id
               : (draft.operadora || '')}
-            onChange={(e) => setDraft({ 
-              ...draft, 
+            onChange={(e) => setDraft({
+              ...draft,
               operadora: e.target.value || undefined,
-              produto: undefined // Limpar produto quando operadora mudar
+              produto: undefined,
             })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
@@ -1105,67 +982,20 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
             {md.operadoras.map(op => <option key={op.id} value={op.id}>{op.nome}</option>)}
           </select>
         </div>
-      </div>
-
-      {/* Contrato e Produto */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Contrato</label>
-          <Autocomplete
-            options={contratosFiltrados}
-            getOptionLabel={(option: any) => option?.codigo || option?.numero || ''}
-            isOptionEqualToValue={(option: any, value: any) => option.id === value?.id}
-            value={contratosFiltrados.find((c: any) => c.id === (draft.contrato != null && typeof draft.contrato === 'object' ? (draft.contrato as { id: string }).id : draft.contrato)) || null}
-            onChange={(_, newValue: any | null) => setDraft({ ...draft, contrato: newValue?.id || undefined })}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                placeholder={clienteIdNormalized ? 'Digite para buscar...' : 'Selecione um cliente primeiro'}
-                variant="outlined"
-                size="small"
-                fullWidth
-                disabled={!clienteIdNormalized}
-              />
-            )}
-            renderOption={(props, option: any) => (
-              <Box component="li" {...props} key={option.id}>
-                <Box>
-                  <Typography variant="body1" fontWeight="medium">
-                    {option.codigo || option.numero}
-                  </Typography>
-                  {option.grupoEconomico && (
-                    <Typography variant="caption" color="text.secondary">
-                      Grupo: {option.grupoEconomico}
-                    </Typography>
-                  )}
-                </Box>
-              </Box>
-            )}
-            noOptionsText={clienteIdNormalized ? 'Nenhum contrato encontrado' : 'Selecione um cliente primeiro'}
-            loading={contratosFiltrados.length === 0 && !!clienteIdNormalized}
-            loadingText="Carregando contratos..."
-            filterOptions={(options, { inputValue }) => {
-              const term = inputValue.toLowerCase()
-              return options.filter((option: any) =>
-                (option.codigo && option.codigo.toLowerCase().includes(term)) ||
-                (option.numero && option.numero.toLowerCase().includes(term)) ||
-                (option.grupoEconomico && option.grupoEconomico.toLowerCase().includes(term))
-              )
-            }}
+          <ContratoLocalAutocomplete
+            valueId={typeof draft.contrato === 'string' ? draft.contrato : relationId(draft.contrato, validation.contratoId)}
+            onChangeId={(id) => setDraft({ ...draft, contrato: id || undefined })}
+            contratos={contratosDoCliente}
+            disabled={!clienteIdNormalized}
           />
-          <p className="text-xs text-apoio-400 mt-1">
-            {clienteIdNormalized
-              ? (contratosFiltrados.length > 0 
-                  ? `${contratosFiltrados.length} contrato(s) disponível(is)`
-                  : 'Nenhum contrato encontrado para este cliente')
-              : 'Selecione um cliente primeiro'}
-          </p>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Produto</label>
           <select
-            value={draft.produto != null && typeof draft.produto === 'object' 
-              ? (draft.produto as { id: string }).id 
+            value={draft.produto != null && typeof draft.produto === 'object'
+              ? (draft.produto as { id: string }).id
               : (draft.produto || '')}
             onChange={(e) => setDraft({ ...draft, produto: e.target.value || undefined })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -1173,9 +1003,6 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
             <option value="">Selecione um produto</option>
             {produtosFiltrados.map(produto => <option key={produto.id} value={produto.id}>{produto.nome}</option>)}
           </select>
-          <p className="text-xs text-apoio-400 mt-1">
-            {produtosFiltrados.length} produtos disponíveis
-          </p>
         </div>
       </div>
 

@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [
     react()
     // Removido plugin de cópia manual - o Vite já copia automaticamente arquivos da pasta public
@@ -9,6 +9,11 @@ export default defineConfig({
   ],
   base: '/',
   publicDir: 'public', // Garantir que a pasta public seja copiada
+  esbuild: {
+    // Produção: remove logs de debug do bundle (mantém console.warn/error)
+    pure: mode === 'production' ? ['console.log', 'console.info', 'console.debug'] : [],
+    drop: mode === 'production' ? ['debugger'] : [],
+  },
   build: {
     outDir: 'dist',
     sourcemap: false,
@@ -38,4 +43,4 @@ export default defineConfig({
       }
     }
   }
-})
+}))

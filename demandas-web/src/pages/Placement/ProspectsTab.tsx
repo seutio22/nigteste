@@ -12,6 +12,8 @@ import {
 } from '../../store/placementStore'
 import { SnackNotification } from '../../components/SnackNotification'
 import { ProspectFormModal } from './ProspectFormModal'
+import { CondicaoFormModal } from './CondicaoFormModal'
+import { formatCnaeDisplay, normalizeCnaeDigits } from './Fila/utils'
 
 function formatCnpjDisplay(value: string): string {
   const d = (value || '').replace(/\D+/g, '').slice(0, 14)
@@ -79,6 +81,7 @@ export default function ProspectsTab() {
     razaoSocial: string
     cnpj: string
     grupoEconomico: string | null
+    cnae: string
   }) => {
     if (editing?.id) {
       await updateProspect(editing.id, data)
@@ -106,6 +109,13 @@ export default function ProspectsTab() {
         flex: 1,
         minWidth: 180,
         valueFormatter: (value) => (value ? String(value) : '—'),
+      },
+      {
+        field: 'cnae',
+        headerName: 'CNAE',
+        width: 150,
+        renderCell: (params) =>
+          formatCnaeDisplay(normalizeCnaeDigits(String(params.value ?? ''))),
       },
       {
         field: 'cnpj',
@@ -159,7 +169,7 @@ export default function ProspectsTab() {
           </Typography>
           <Typography variant="body2" color="text.secondary">
             Base de clientes potenciais usados nas cotações Placement
-            (razão social, grupo econômico e CNPJ).
+            (razão social, grupo econômico, CNPJ e CNAE).
           </Typography>
         </Box>
         <Stack direction="row" gap={1}>

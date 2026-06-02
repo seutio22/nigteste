@@ -24,25 +24,37 @@ import { PrimaryActionButton } from '../../../components/PrimaryActionButton'
 import { useMasterDataStore } from '../../../store/masterDataStore'
 import { usePlacementCotacaoStore, COTACAO_STATUSES, type PlacementCotacao } from '../../../store/placementCotacaoStore'
 import { usePlacementStore } from '../../../store/placementStore'
-import { formatCentsToBRL, getStatusColor } from './utils'
+import { useAuthStore } from '../../../store/authStore'
+import { formatCentsToBRL, formatCnaeDisplay, getStatusColor } from './utils'
+import { PLACEMENT_STATUS_RASCUNHO } from './placementCotacaoStatus'
 import { formatGridDatePtBR, gridCellToDate } from '../../../utils/gridDate'
+import { FormularioTipoPickerDialog } from './FormularioTipoPicker'
+import type { PlacementFormularioTipo } from './placementFormularioContrato'
 
 type ViewMode = 'lista' | 'kanban'
 
 export default function PlacementFilaListPage() {
   const navigate = useNavigate()
-  const { cotacoes, isLoading, syncCotacoes } = usePlacementCotacaoStore()
+  const { user } = useAuthStore()
+  const { cotacoes, rascunhos, isLoading, isLoadingRascunhos, syncCotacoes, syncRascunhos } =
+    usePlacementCotacaoStore()
   const { analistasById, clientesById, syncFromApi } = useMasterDataStore()
   const prospects = usePlacementStore((s) => s.prospects)
   const syncProspects = usePlacementStore((s) => s.syncProspects)
 
   const [viewMode, setViewMode] = useState<ViewMode>('lista')
+  const [formularioPickerOpen, setFormularioPickerOpen] = useState(false)
+
+  function iniciarNovaCotacao(tipo: PlacementFormularioTipo) {
+    navigate(`/placement/fila/nova?tipo=${encodeURIComponent(tipo)}`)
+  }
 
   useEffect(() => {
     syncFromApi?.()
     syncCotacoes()
     syncProspects()
-  }, [syncFromApi, syncCotacoes, syncProspects])
+    if (user?.id) syncRascunhos(user.id)
+  }, [syncFromApi, syncCotacoes, syncProspects, syncRascunhos, user?.id])
 
   const prospectsById = useMemo(() => {
     const map: Record<string, (typeof prospects)[number]> = {}
@@ -57,7 +69,11 @@ export default function PlacementFilaListPage() {
       cotacoes.map((c) => {
         const prospect = c.prospect ?? (c.prospectId ? prospectsById[c.prospectId] : null)
         const cliente = c.cliente ?? (c.clienteId ? clientesById[c.clienteId] : null)
-        const clienteNome = cliente?.nome ?? prospect?.razaoSocial ?? ''
+        const clienteNome =
+          c.condicao?.razaoSocial?.trim() ||
+          cliente?.nome ||
+          prospect?.razaoSocial ||
+          ''
         const isProspect = !!prospect
         return {
           ...c,
@@ -68,6 +84,26 @@ export default function PlacementFilaListPage() {
         }
       }),
     [cotacoes, analistasById, clientesById, prospectsById]
+  )
+
+  const rascunhoRows = useMemo(
+    () =>
+      rascunhos.map((c) => {
+        const prospect = c.prospect ?? (c.prospectId ? prospectsById[c.prospectId] : null)
+        const cliente = c.cliente ?? (c.clienteId ? clientesById[c.clienteId] : null)
+        const clienteNome =
+          c.condicao?.razaoSocial?.trim() ||
+          cliente?.nome ||
+          prospect?.razaoSocial ||
+          '(sem estipulante)'
+        return {
+          ...c,
+          analistaNome:
+            c.analista?.nome ?? (c.analistaId ? analistasById[c.analistaId]?.nome : '') ?? '',
+          clienteNome,
+        }
+      }),
+    [rascunhos, analistasById, clientesById, prospectsById]
   )
 
   const columns: GridColDef[] = [
@@ -130,7 +166,30 @@ export default function PlacementFilaListPage() {
         </Stack>
       ),
     },
-    { field: 'ramo', headerName: 'Ramo', width: 160 },
+    {
+      field: 'filialNome',
+      headerName: 'Filial',
+      width: 200,
+      sortable: false,
+      valueGetter: (_: unknown, row: PlacementCotacao) => row.filial?.razaoSocial ?? '',
+    },
+    {
+      field: 'corretorParceiroNome',
+      headerName: 'Corretor parceiro',
+      width: 180,
+      sortable: false,
+      valueGetter: (_: unknown, row: PlacementCotacao) => row.corretorParceiro?.nome ?? '',
+    },
+    {
+      field: 'cnaeDisplay',
+      headerName: 'CNAE',
+      width: 140,
+      sortable: false,
+      valueGetter: (_: unknown, row: PlacementCotacao & { isProspect: boolean }) =>
+        row.condicao?.cnae || row.prospect?.cnae || '',
+      renderCell: (p) => formatCnaeDisplay(String(p.value ?? '')),
+    },
+    { field: 'ramo', headerName: 'Produtos (resumo)', width: 200 },
     { field: 'analistaNome', headerName: 'Analista', width: 180 },
     {
       field: 'operadorasIds',
@@ -218,20 +277,51 @@ export default function PlacementFilaListPage() {
             <Button
               variant="outlined"
               startIcon={<RefreshIcon />}
-              onClick={() => syncCotacoes(true)}
-              disabled={isLoading}
+              onClick={() => {
+                syncCotacoes(true)
+                if (user?.id) syncRascunhos(user.id, true)
+              }}
+              disabled={isLoading || isLoadingRascunhos}
             >
               Atualizar
             </Button>
             <PrimaryActionButton
               startIcon={<AddCircleOutlineIcon />}
-              onClick={() => navigate('/placement/fila/nova')}
+              onClick={() => setFormularioPickerOpen(true)}
             >
               Nova cotação
             </PrimaryActionButton>
           </Stack>
         </Stack>
       </Paper>
+
+      {rascunhoRows.length > 0 && (
+        <Paper sx={{ p: 2, mb: 2 }}>
+          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+              Meus rascunhos
+            </Typography>
+            <Chip label={PLACEMENT_STATUS_RASCUNHO} size="small" sx={{ fontWeight: 600 }} />
+          </Stack>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+            Rascunhos não aparecem na fila nem no kanban até você iniciar o processo.
+          </Typography>
+          <DataGrid
+            rows={rascunhoRows}
+            columns={columns.filter((c) => c.field !== 'status')}
+            loading={isLoadingRascunhos}
+            autoHeight
+            disableRowSelectionOnClick
+            hideFooter={rascunhoRows.length <= 5}
+            onRowDoubleClick={(p) => navigate(`/placement/fila/${p.id}`)}
+            initialState={{
+              sorting: { sortModel: [{ field: 'updatedAt', sort: 'desc' }] },
+              pagination: { paginationModel: { pageSize: 5 } },
+            }}
+            pageSizeOptions={[5, 10]}
+          />
+        </Paper>
+      )}
 
       {viewMode === 'lista' ? (
         <Paper sx={{ height: 'calc(100vh - 280px)', minHeight: 480, p: 1 }}>
@@ -253,6 +343,12 @@ export default function PlacementFilaListPage() {
       ) : (
         <KanbanBoard cotacoes={rows} />
       )}
+
+      <FormularioTipoPickerDialog
+        open={formularioPickerOpen}
+        onClose={() => setFormularioPickerOpen(false)}
+        onSelect={iniciarNovaCotacao}
+      />
     </Container>
   )
 }

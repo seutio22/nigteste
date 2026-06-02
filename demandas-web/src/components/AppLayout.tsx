@@ -7,7 +7,7 @@ import { useSidebar } from '../contexts/SidebarContext'
 import { useMasterDataStore } from '../store/masterDataStore'
 import { useComunicadoStore } from '../store/comunicadoStore'
 import { useValidationStore } from '../store/validationStore'
-import { useDemandStore } from '../store/demandStore'
+import { clearDemandLocalCache, useDemandStore } from '../store/demandStore'
 import { useManutencaoStore } from '../store/manutencaoStore'
 import { useProjectStore } from '../store/projectStore'
 import { useInactivityTimeout } from '../hooks/useInactivityTimeout'
@@ -105,6 +105,10 @@ export function AppLayout() {
     setShowTimeoutWarning(false)
     resetTimeout()
   }
+
+  useEffect(() => {
+    clearDemandLocalCache()
+  }, [])
 
   useEffect(() => {
     if (typeof document !== 'undefined' && document.hidden) return

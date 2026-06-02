@@ -27,6 +27,7 @@
     "@fastify/compress": "^8.1.0",
     "@fastify/cors": "^11.1.0",
     "@fastify/jwt": "^9.1.0",
+    "@fastify/multipart": "^9.4.0",
     "@prisma/client": "^6.16.3",
     "@types/node": "^24.2.1",
     "bcryptjs": "^3.0.2",

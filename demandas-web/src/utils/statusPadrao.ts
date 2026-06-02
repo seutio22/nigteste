@@ -8,6 +8,7 @@ export const STATUS_REPORT_PADRAO = [
   'Pendente',
   'Em andamento',
   'Transf. Analista',
+  'Concluído Parcialmente',
   'Concluída',
   'Entregue',
   'Cancelada'
@@ -26,6 +27,8 @@ const MAPA_NORMALIZACAO: Record<string, StatusReportPadrao> = {
   'transf. analista': 'Transf. Analista',
   transf_analista: 'Transf. Analista',
   transfanalista: 'Transf. Analista',
+  'concluído parcialmente': 'Concluído Parcialmente',
+  'concluido parcialmente': 'Concluído Parcialmente',
   concluída: 'Concluída',
   concluida: 'Concluída',
   concluido: 'Concluída',
@@ -48,7 +51,8 @@ export function normalizeReportStatus(value: string | null | undefined): StatusR
   const padrao = MAPA_NORMALIZACAO[key]
   if (padrao) return padrao
   // Fallback por substring para grafias com acento
-  if (/concluíd?a?o?/i.test(s)) return 'Concluída'
+  if (/parcialmente/i.test(s)) return 'Concluído Parcialmente'
+  if (/concluíd?a?o?/i.test(s) && !/parcial/i.test(s)) return 'Concluída'
   if (/em\s*andamento|andamento/i.test(s)) return 'Em andamento'
   if (/transf|analista/i.test(s)) return 'Transf. Analista'
   if (/entregue/i.test(s)) return 'Entregue'

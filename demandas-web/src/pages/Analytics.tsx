@@ -6,7 +6,7 @@ import { useMasterDataStore } from '../store/masterDataStore'
 import { useAuthStore } from '../store/authStore'
 import { ReportStatusBadge } from '../components/ReportStatusBadge'
 import { PriorityBadge } from '../components/PriorityBadge'
-import { normalizeReportStatus } from '../utils/statusPadrao'
+import { normalizeReportStatus, STATUS_REPORT_PADRAO } from '../utils/statusPadrao'
 import { SmartImporter } from '../components/SmartImporter'
 import { smartImporterConfigs } from '../config/smartImporterConfigs'
 import type { ImportResult } from '../types/smartImporter'
@@ -29,6 +29,7 @@ import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
 import { PrimaryActionButton } from '../components/PrimaryActionButton'
 import { formatIntegerPtBR } from '../utils/formatNumber'
 import { formatGridDatePtBR, gridCellToDate } from '../utils/gridDate'
+import { useHomePanoramaListFilters } from '../utils/homePanoramaListFilters'
 
 const isDev = import.meta.env.DEV
 const logDev = (...args: unknown[]) => {
@@ -88,6 +89,8 @@ export default function AnalyticsPage() {
   const navigate = useNavigate()
   const reportStore = useReportStore()
   const items = useReportStore(state => state.items)
+  const isLoading = useReportStore(state => state.isLoading)
+  const syncError = useReportStore(state => state.syncError)
   const md = useMasterDataStore()
   const { user } = useAuthStore()
   const { canCreate, canImport, canExport, canDelete } = usePermissions('analytics')
@@ -126,6 +129,12 @@ export default function AnalyticsPage() {
       return false
     })
   }, [showOnlyMyReports, items, md.analistas, user?.name])
+
+  const { itemsForGrid } = useHomePanoramaListFilters(
+    'analytics',
+    finalFilteredItems,
+    setShowOnlyMyReports
+  )
   
   // Debug logs
   logDev('🔍 AnalyticsPage: Total de items:', items.length)
@@ -149,15 +158,20 @@ export default function AnalyticsPage() {
     }
   }
   
-  logDev('🔍 AnalyticsPage: FinalFilteredItems:', finalFilteredItems.length)
+  logDev('🔍 AnalyticsPage: FinalFilteredItems:', itemsForGrid.length)
 
-  // Sincronizar dados mestres ao abrir a página
+  // Sincronizar dados mestres e relatórios em paralelo
   useEffect(() => {
+    if (!user?.id) return
+
+    const tasks: Promise<void>[] = [reportStore.syncFromApi()]
+
     if (md.syncFromApi) {
-      logDev('🔄 AnalyticsPage: Sincronizando dados mestres (analistas)...')
-      md.syncFromApi()
+      tasks.push(md.syncFromApi())
     }
-  }, [])
+
+    void Promise.all(tasks)
+  }, [user?.id])
 
   // carregar preferências
   useEffect(() => {
@@ -185,27 +199,6 @@ export default function AnalyticsPage() {
       setShowOnlyMyReports(true)
     }
   }, [])
-
-  // Carregar dados automaticamente quando a página é carregada
-  useEffect(() => {
-    logDev('🔄 AnalyticsPage: useEffect executado, user.id:', user?.id)
-    if (user?.id) {
-      // FORÇAR sincronização IMEDIATA ignorando cache
-      logDev('🔄 AnalyticsPage: FORÇANDO syncFromApi...')
-      const syncNow = async () => {
-        try {
-          const store = useReportStore.getState()
-          await store.syncFromApi()
-          logDev('✅ AnalyticsPage: syncFromApi completado!')
-        } catch (error) {
-          console.error('❌ AnalyticsPage: Erro no syncFromApi:', error)
-        }
-      }
-      syncNow()
-    } else {
-      logDev('⚠️ AnalyticsPage: Usuário não encontrado')
-    }
-  }, [user?.id])
 
   // Persistir preferência do filtro de usuário
   useEffect(() => {
@@ -459,7 +452,7 @@ export default function AnalyticsPage() {
   }
 
 
-  const rows = finalFilteredItems.map((r) => {
+  const rows = itemsForGrid.map((r) => {
     // DEBUG: Verificar dados de data
     logDev('🔍 DEBUG Analytics - Item:', r.id, {
       dataInicio: r.dataInicio,
@@ -546,7 +539,7 @@ export default function AnalyticsPage() {
                 
                 {/* Contador de relatórios */}
                 <Chip
-                  label={`${finalFilteredItems.length} relatório${finalFilteredItems.length !== 1 ? 's' : ''}`}
+                  label={`${itemsForGrid.length} relatório${itemsForGrid.length !== 1 ? 's' : ''}`}
                   size="small"
                   variant="outlined"
                   className={`${
@@ -646,9 +639,25 @@ export default function AnalyticsPage() {
       </div>
       
       <div className="flex-1 px-6 pb-6">
+        {syncError && (
+          <Box sx={{ mb: 1, p: 1.5, bgcolor: 'error.light', borderRadius: 1 }}>
+            <Typography variant="body2" color="error.contrastText">
+              Erro ao atualizar relatórios: {syncError}
+            </Typography>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => reportStore.syncFromApi(true)}
+              sx={{ mt: 1 }}
+            >
+              Tentar novamente
+            </Button>
+          </Box>
+        )}
         <DataGrid
           columns={columns}
           rows={sortedRows}
+          loading={isLoading}
           disableRowSelectionOnClick
           checkboxSelection
           onRowSelectionModelChange={(newSelection) => {
@@ -763,7 +772,7 @@ export default function AnalyticsPage() {
           showAnalistaFilter: true,
           analistas: md.analistas
         }}
-        data={finalFilteredItems.map(r => {
+        data={itemsForGrid.map(r => {
           const isUuid = (v: string | undefined) => v && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)
           const orNa = (v: string | undefined) => (!v || isUuid(v)) ? 'N/A' : v
 
@@ -850,7 +859,7 @@ export default function AnalyticsPage() {
         moduleTitle="Analytics"
         appliedFilters={{
           'Meus Relatórios': showOnlyMyReports ? 'Sim' : 'Não',
-          'Total na lista': finalFilteredItems.length
+          'Total na lista': itemsForGrid.length
         }}
         columns={[
           { key: 'titulo', label: 'Título' },
@@ -1008,14 +1017,8 @@ function ActionCell({ id, status }: { id: string, status: string }) {
         <DialogTitle>Alterar status</DialogTitle>
         <DialogContent>
           <TextField select label="Novo status" value={newStatus} onChange={(e) => setNewStatus(e.target.value)} sx={{ mt: 1, minWidth: 280 }}>
-            {['pendente','emandamento','transfanalista','concluido','entregue','cancelado'].map(s => (
-              <MenuItem key={s} value={s}>
-                {s === 'pendente' ? 'Pendente' : 
-                 s === 'emandamento' ? 'Em Andamento' : 
-                 s === 'transfanalista' ? 'Transf. Analista' :
-                 s === 'concluido' ? 'Concluído' : 
-                 s === 'entregue' ? 'Entregue' : 'Cancelado'}
-              </MenuItem>
+            {STATUS_REPORT_PADRAO.map((s) => (
+              <MenuItem key={s} value={s}>{s}</MenuItem>
             ))}
           </TextField>
         </DialogContent>

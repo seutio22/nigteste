@@ -9,6 +9,8 @@ export interface Cliente {
   id: Id
   nome: string
   grupoEconomico?: string
+  /** CNPJ cadastrado em Dados → Clientes (usado no Placement para vincular condição). */
+  cnpj?: string | null
 }
 
 export interface Contrato {

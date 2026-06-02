@@ -1,0 +1,158 @@
+import {
+  PLACEMENT_COTACAO_WORKFLOW_STATUSES,
+  PLACEMENT_STATUS_RASCUNHO,
+  isRascunhoStatus,
+  type PlacementCotacaoWorkflowStatus,
+} from './placementCotacaoStatus'
+
+export { PLACEMENT_STATUS_RASCUNHO }
+
+export type WorkflowStageKey =
+  | 'base_atual'
+  | 'kick_off'
+  | 'em_cotacao'
+  | 'aguardando_operadora'
+  | 'proposta_enviada'
+  | 'fechada'
+  | 'perdida'
+  | 'cancelada'
+
+export type WorkflowStageMeta = {
+  status: PlacementCotacaoWorkflowStatus
+  key: WorkflowStageKey
+  label: string
+  description: string
+  /** Objetivo operacional desta etapa. */
+  objective: string
+  /** Índice no fluxo principal (null = etapa terminal/lateral). */
+  mainFlowIndex: number | null
+}
+
+/** Etapas do fluxo principal (avanço sequencial). */
+export const PLACEMENT_WORKFLOW_MAIN_STAGES: WorkflowStageMeta[] = [
+  {
+    status: 'Aberta',
+    key: 'base_atual',
+    label: 'Base atual',
+    description: 'O que o cliente tem hoje',
+    objective:
+      'Documente a situação atual do cliente: estipulante, produtos, fornecedores, planos vigentes e quesito financeiro do contrato em vigor. Esta é a base para montar a proposta.',
+    mainFlowIndex: 0,
+  },
+  {
+    status: 'Kick off',
+    key: 'kick_off',
+    label: 'Kick off',
+    description: 'Alinhamento de estratégia',
+    objective:
+      'Alinhe a estratégia do processo de cotação: premissas, condições a cotar e mercado analisado, com base no resumo da abertura do chamado.',
+    mainFlowIndex: 1,
+  },
+  {
+    status: 'Em cotação',
+    key: 'em_cotacao',
+    label: 'Em cotação',
+    description: 'Cenário de estudo e operadoras',
+    objective:
+      'Cinco etapas internas: base de beneficiários, slides de apresentação (grupo elegível, contrato atual, localidade) e comunicação ao mercado antes de aguardar retorno das operadoras.',
+    mainFlowIndex: 2,
+  },
+  {
+    status: 'Aguardando operadora',
+    key: 'aguardando_operadora',
+    label: 'Aguardando operadora',
+    description: 'Retorno das operadoras',
+    objective: 'Aguarde e registre retornos, documentação e condições das operadoras.',
+    mainFlowIndex: 3,
+  },
+  {
+    status: 'Proposta enviada',
+    key: 'proposta_enviada',
+    label: 'Proposta enviada',
+    description: 'Proposta ao cliente',
+    objective: 'Proposta formal enviada ao cliente para análise e negociação.',
+    mainFlowIndex: 4,
+  },
+  {
+    status: 'Fechada',
+    key: 'fechada',
+    label: 'Fechada',
+    description: 'Negócio concluído',
+    objective: 'Oportunidade concluída com sucesso.',
+    mainFlowIndex: 5,
+  },
+]
+
+export const PLACEMENT_WORKFLOW_TERMINAL_STAGES: WorkflowStageMeta[] = [
+  {
+    status: 'Perdida',
+    key: 'perdida',
+    label: 'Perdida',
+    description: 'Sem fechamento',
+    objective: 'Oportunidade encerrada sem fechamento.',
+    mainFlowIndex: null,
+  },
+  {
+    status: 'Cancelada',
+    key: 'cancelada',
+    label: 'Cancelada',
+    description: 'Processo cancelado',
+    objective: 'Processo cancelado antes da conclusão.',
+    mainFlowIndex: null,
+  },
+]
+
+/** Metadados de todas as etapas (stepper + encerramentos). */
+export const PLACEMENT_WORKFLOW_STAGES: WorkflowStageMeta[] = [
+  ...PLACEMENT_WORKFLOW_MAIN_STAGES,
+  ...PLACEMENT_WORKFLOW_TERMINAL_STAGES,
+]
+
+export function getWorkflowStageMeta(status: string): WorkflowStageMeta | undefined {
+  return PLACEMENT_WORKFLOW_STAGES.find(
+    (s) => s.status.toLowerCase() === String(status).trim().toLowerCase()
+  )
+}
+
+export function getWorkflowStageKey(status: string): WorkflowStageKey {
+  return getWorkflowStageMeta(status)?.key ?? 'base_atual'
+}
+
+/** Próximo status no fluxo principal (null se já terminal ou último). */
+export function nextMainFlowStatus(current: string): PlacementCotacaoWorkflowStatus | null {
+  const meta = getWorkflowStageMeta(current)
+  if (!meta || meta.mainFlowIndex == null) return null
+  const next = PLACEMENT_WORKFLOW_MAIN_STAGES.find((s) => s.mainFlowIndex === meta.mainFlowIndex + 1)
+  return next?.status ?? null
+}
+
+export function workflowStageIndex(status: string): number {
+  if (isRascunhoStatus(status)) return -1
+  const idx = PLACEMENT_COTACAO_WORKFLOW_STATUSES.findIndex(
+    (s) => s.toLowerCase() === String(status).trim().toLowerCase()
+  )
+  return idx >= 0 ? idx : 0
+}
+
+/** @deprecated Use nextMainFlowStatus */
+export function nextWorkflowStatus(current: string): PlacementCotacaoWorkflowStatus | null {
+  return nextMainFlowStatus(current)
+}
+
+export function canAdvanceMainFlow(status: string): boolean {
+  return nextMainFlowStatus(status) != null
+}
+
+/** Etapa anterior no fluxo principal (null se já na primeira). */
+export function previousMainFlowStatus(current: string): PlacementCotacaoWorkflowStatus | null {
+  const meta = getWorkflowStageMeta(current)
+  if (!meta || meta.mainFlowIndex == null || meta.mainFlowIndex <= 0) return null
+  const prev = PLACEMENT_WORKFLOW_MAIN_STAGES.find(
+    (s) => s.mainFlowIndex === meta.mainFlowIndex! - 1
+  )
+  return prev?.status ?? null
+}
+
+export function canRetreatMainFlow(status: string): boolean {
+  return previousMainFlowStatus(status) != null
+}

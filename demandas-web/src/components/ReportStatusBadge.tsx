@@ -13,6 +13,7 @@ export function ReportStatusBadge({ status, size = 'medium' }: ReportStatusBadge
       'Pendente': 'warning',
       'Em andamento': 'info',
       'Transf. Analista': 'info',
+      'Concluído Parcialmente': 'info',
       'Concluída': 'success',
       'Entregue': 'success',
       'Cancelada': 'error'
@@ -20,6 +21,7 @@ export function ReportStatusBadge({ status, size = 'medium' }: ReportStatusBadge
     if (padroes[s]) return { label: s, color: padroes[s] }
     // Fallback para variações antigas
     const lower = s.toLowerCase()
+    if (lower.includes('parcialmente')) return { label: 'Concluído Parcialmente', color: 'info' }
     if (lower === 'concluido' || lower === 'concluído' || lower === 'concluida' || lower === 'concluída') return { label: 'Concluída', color: 'success' }
     if (lower === 'pendente') return { label: 'Pendente', color: 'warning' }
     if (lower === 'em_andamento' || lower === 'em andamento' || lower === 'emandamento') return { label: 'Em andamento', color: 'info' }

@@ -56,6 +56,22 @@ model Operadora {
   manutencoes  Manutencao[]
   produtos     Produto[]
   validacoes   Validacao[]
+  placementLogo PlacementOperadoraLogo?
+  placementPlanos PlacementPlano[]
+}
+
+/// Logo da operadora (fornecedor) para apresentações Placement — cadastro em Dados → Placement.
+model PlacementOperadoraLogo {
+  id           String   @id @default(uuid())
+  operadoraId  String   @unique
+  nomeOriginal String
+  storedName   String
+  mimeType     String
+  size         Int
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  operadora Operadora @relation(fields: [operadoraId], references: [id], onDelete: Cascade)
 }
 
 model Produto {
@@ -230,6 +246,10 @@ model Manutencao {
   descricao       String?
   clienteId       String?
   contratoId      String?
+  /// Lista de IDs de contratos (multi-seleção); `contratoId` espelha o primeiro para compatibilidade
+  contratosIds    Json?
+  /// Vínculo por linha: contrato + operadora + produto (e-mail Comunicar)
+  contratosVinculos Json?
   operadoraId     String?
   produtoId       String?
   tipoServicoId   String?
@@ -821,7 +841,127 @@ model PlacementFilial {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  cotacoes PlacementCotacao[]
+
   @@index([razaoSocial])
+}
+
+/// Planos por fornecedor (Dados → Placement → Planos). Usado no mapeamento de itens (categoria por operadora).
+model PlacementPlano {
+  id                   String   @id @default(uuid())
+  operadoraId          String
+  categoria            String
+  plano                String
+  reembolso            String?
+  eventosReembolsaveis String?
+  acomodacao           String?
+  abrangencia          String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  operadora Operadora @relation(fields: [operadoraId], references: [id], onDelete: Cascade)
+
+  @@index([operadoraId])
+  @@index([categoria])
+  @@index([plano])
+}
+
+/// Corretor parceiro (Dados → Placement). Apenas nome; usado na Fila ao lado da filial.
+model PlacementCorretorParceiro {
+  id        String   @id @default(uuid())
+  nome      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cotacoes PlacementCotacao[]
+
+  @@index([nome])
+}
+
+/// Tipo de contratação (Dados → Placement). Apenas nome; usado na cotação antes do plano.
+model PlacementTipoContratacao {
+  id        String   @id @default(uuid())
+  nome      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cotacoes PlacementCotacao[]
+
+  @@index([nome])
+}
+
+/// Modalidade de contrato (Dados → Placement). Apenas nome.
+model PlacementModalidadeContrato {
+  id        String   @id @default(uuid())
+  nome      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cotacoes PlacementCotacao[]
+
+  @@index([nome])
+}
+
+/// Prazo de vigência do contrato — opções cadastradas (Dados → Placement). Apenas nome.
+model PlacementPrazoVigenciaContrato {
+  id        String   @id @default(uuid())
+  nome      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cotacoes PlacementCotacao[]
+
+  @@index([nome])
+}
+
+/// Projeto (Dados → Placement → Projetos). Apenas texto (nome).
+model PlacementProjeto {
+  id        String   @id @default(uuid())
+  nome      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cotacoes PlacementCotacao[]
+
+  @@index([nome])
+}
+
+/// Tipo de pedido/conta (Dados → Placement → Pedido). Apenas texto (nome).
+model PlacementPedido {
+  id        String   @id @default(uuid())
+  nome      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cotacoes PlacementCotacao[]
+
+  @@index([nome])
+}
+
+/// Temperatura (Dados → Placement). Apenas texto (nome).
+model PlacementTemperatura {
+  id        String   @id @default(uuid())
+  nome      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cotacoes PlacementCotacao[]
+
+  @@index([nome])
+}
+
+/// Analista do processo (Dados → Placement → Analista).
+model PlacementAnalista {
+  id                  String   @id @default(uuid())
+  nome                String
+  coordenadorAnalista String
+  gerenteAnalista     String
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  cotacoesResponsavel PlacementCotacao[]
+
+  @@index([nome])
 }
 
 /// Cotações do módulo Placement (página "Fila").
@@ -831,22 +971,71 @@ model PlacementFilial {
 /// Cliente da cotação pode ser um Cliente (cliente da casa, com FK para Cliente)
 /// OU um PlacementProspect (prospect cadastrado no módulo Placement).
 /// Apenas um dos dois deve ser preenchido por cotação.
+/// Com cliente da casa, use `condicaoId` (tabela Condições) para amarrar CNAE.
 model PlacementCotacao {
   id                 String    @id @default(uuid())
   ticket             String    @unique
   status             String    @default("Aberta")
-  /// Analista responsável (usuário interno) — opcional para casos de import.
+  /// Analista de cadastro (master Analista / usuário interno na abertura).
   analistaId         String?
+  /// Analista responsável pelo processo (catálogo Placement → Analista).
+  analistaResponsavelId String?
   /// Usuário que criou a cotação.
   userId             String?
   /// Cliente da casa — relacionamento com Cliente do master data.
   clienteId          String?
   /// Prospect — relacionamento com PlacementProspect (cliente novo, não da casa).
   prospectId         String?
+  /// Condição Placement (grupo econômico + razão social + CNAE) — obrigatório com cliente da casa.
+  condicaoId         String?
+  /// Filial interna (Dados → Placement → Filial), independente de cliente/prospect.
+  filialId             String?
+  /// Corretor parceiro (Dados → Placement → Corretor parceiro), opcional.
+  corretorParceiroId   String?
+  /// Projeto (Dados → Placement → Projetos), opcional.
+  projetoId            String?
+  /// Tipo de pedido/conta (Dados → Placement → Pedido), opcional.
+  pedidoId             String?
+  /// Solicitante (texto livre).
+  solicitante          String?
+  /// Temperatura (Dados → Placement), opcional.
+  temperaturaId        String?
+  /// Vigência da apólice (data).
+  vigenciaApolice              DateTime?
+  tipoContratacaoId            String?
+  modalidadeContratoId         String?
+  prazoVigenciaContratoId      String?
+  /// Break-even (texto livre: valor, prazo, observação).
+  breakEven                    String?
+  /// Tipo de formulário: saude | odontologico | vida_em_grupo | nao_seguraveis
+  formularioTipo               String?
+  /// Contrato prevê multa para rescisão contratual?
+  multaRescisaoContratual      Boolean?
+  multaRescisaoValor           String?
+  multaRescisaoRegra           String?
+  multaRescisaoAvisoPrevio     String?
+  /// Possui convenção coletiva?
+  possuiConvencaoColetiva      Boolean?
+  /// Permite upgrade de plano (independente do downgrade).
+  permiteUpgrade               Boolean?
+  regraUpgrade                 String?
+  /// Permite downgrade de plano (independente do upgrade).
+  permiteDowngrade             Boolean?
+  regraDowngrade               String?
+  /// Legado — migrado para permiteUpgrade/permiteDowngrade.
+  permiteUpgradeDowngrade      Boolean?
+  regraUpgradeDowngrade        String?
   /// Ramo/produto da cotação (Vida, Saúde, Odonto, Patrimonial, RC, Auto, etc.).
+  /// Pode ser resumo (vários produtos) derivado de `itensMapeamento`.
   ramo               String?
-  /// Operadoras cotadas (multi-seleção). Lista de IDs serializada como JSON.
+  /// Operadoras / fornecedores (IDs). Derivado do mapeamento produto × fornecedor quando houver.
   operadorasIds      Json?
+  /// Sugestão de fornecedores (operadoras) a consultar na cotação — multi-seleção na abertura.
+  operadorasSugestaoIds Json?
+  /// Mapeamento: cada item = produto + fornecedor atual (operadora).
+  itensMapeamento    Json?
+  /// Planos/coberturas (Saúde/Odontológico) por linha de mapeamento, quando aplicável.
+  planosCobertura    Json?
   /// Estimativa de vidas / itens.
   vidas              Int?
   /// Valor estimado (prêmio/comissão), em centavos para evitar float.
@@ -855,18 +1044,122 @@ model PlacementCotacao {
   dataLimite         DateTime?
   descricao          String?
   observacoes        String?
+  /// Subetapa do workflow «Em cotação»: beneficiarios | etapa2 | etapa3
+  emCotacaoSubetapa  String?   @default("beneficiarios")
+  /// Estratégia alinhada na etapa Kick off (seções flexíveis + mercado analisado).
+  kickOffEstrategia  Json?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
   analista Analista?          @relation(fields: [analistaId], references: [id])
+  analistaResponsavel PlacementAnalista? @relation(fields: [analistaResponsavelId], references: [id], onDelete: SetNull)
   cliente  Cliente?           @relation(fields: [clienteId], references: [id])
   prospect PlacementProspect? @relation(fields: [prospectId], references: [id])
+  condicao PlacementCondicao? @relation(fields: [condicaoId], references: [id])
+  filial             PlacementFilial?           @relation(fields: [filialId], references: [id], onDelete: SetNull)
+  corretorParceiro   PlacementCorretorParceiro? @relation(fields: [corretorParceiroId], references: [id], onDelete: SetNull)
+  projeto            PlacementProjeto?          @relation(fields: [projetoId], references: [id], onDelete: SetNull)
+  pedido             PlacementPedido?           @relation(fields: [pedidoId], references: [id], onDelete: SetNull)
+  temperatura        PlacementTemperatura?      @relation(fields: [temperaturaId], references: [id], onDelete: SetNull)
+  tipoContratacao          PlacementTipoContratacao?        @relation(fields: [tipoContratacaoId], references: [id], onDelete: SetNull)
+  modalidadeContrato       PlacementModalidadeContrato?     @relation(fields: [modalidadeContratoId], references: [id], onDelete: SetNull)
+  prazoVigenciaContrato    PlacementPrazoVigenciaContrato?  @relation(fields: [prazoVigenciaContratoId], references: [id], onDelete: SetNull)
   user     User?              @relation(fields: [userId], references: [id])
+
+  /// Empresas participantes (subfaturas) vinculadas à cotação.
+  subfaturas PlacementSubfatura[]
+  /// Base de beneficiários para cotação (upload planilha).
+  beneficiarios PlacementCotacaoBeneficiario[]
 
   @@index([status, updatedAt])
   @@index([analistaId])
+  @@index([analistaResponsavelId])
   @@index([clienteId])
   @@index([prospectId])
+  @@index([condicaoId])
+  @@index([filialId])
+  @@index([corretorParceiroId])
+  @@index([projetoId])
+  @@index([pedidoId])
+  @@index([temperaturaId])
+  @@index([tipoContratacaoId])
+  @@index([modalidadeContratoId])
+  @@index([prazoVigenciaContratoId])
+}
+
+/// Beneficiário da base para cotação (planilha «Em cotação» — etapa 1).
+model PlacementCotacaoBeneficiario {
+  id                   String    @id @default(uuid())
+  cotacaoId            String
+  ordem                Int?
+  empresa              String?
+  sub                  String?
+  cnpj                 String?
+  matricula            String?
+  sexo                 String?
+  nome                 String?
+  dataNascimento       DateTime?
+  grauParentesco       String?
+  statusBeneficiario   String?
+  cid10                String?
+  motivoAfastamento    String?
+  dataInicioBeneficio  DateTime?
+  dataFinalBeneficio   DateTime?
+  cargo                String?
+  cidade               String?
+  uf                   String?
+  operadora            String?
+  planoAtual           String?
+  acomodacao           String?
+  custoPerCapita       String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  cotacao PlacementCotacao @relation(fields: [cotacaoId], references: [id], onDelete: Cascade)
+
+  @@index([cotacaoId])
+  @@index([cotacaoId, matricula])
+}
+
+/// Subfatura: empresas participantes do contrato (CNPJ, endereço resumido, vidas, anexos).
+model PlacementSubfatura {
+  id          String   @id @default(uuid())
+  cotacaoId   String
+  /// CNPJ apenas dígitos (14).
+  cnpj        String
+  razaoSocial String
+  cidade      String?
+  uf          String?
+  vidas       Int?
+  /// Lista de anexos: [{ "id", "nomeOriginal", "storedName", "mimeType", "size" }].
+  anexos      Json     @default("[]")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  cotacao PlacementCotacao @relation(fields: [cotacaoId], references: [id], onDelete: Cascade)
+
+  @@unique([cotacaoId, cnpj])
+  @@index([cotacaoId])
+}
+
+/// Condições do módulo Placement (Dados → Placement → Condições).
+/// Amarra grupo econômico, razão social e CNAE para uso em cotações com cliente da casa.
+model PlacementCondicao {
+  id             String   @id @default(uuid())
+  grupoEconomico String?
+  razaoSocial    String
+  /// CNPJ da matriz/filial consultado (14 dígitos), opcional.
+  cnpj           String?  @unique
+  /// CNAE normalizado (apenas dígitos; subclasses com 7 dígitos).
+  cnae           String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  cotacoes PlacementCotacao[]
+
+  @@index([grupoEconomico])
+  @@index([razaoSocial])
+  @@index([cnae])
 }
 
 /// Prospects (clientes potenciais) do módulo Placement.
@@ -877,6 +1170,8 @@ model PlacementProspect {
   razaoSocial    String
   grupoEconomico String?
   cnpj           String   @unique
+  /// CNAE normalizado (apenas dígitos).
+  cnae           String   @default("")
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -884,6 +1179,7 @@ model PlacementProspect {
 
   @@index([razaoSocial])
   @@index([grupoEconomico])
+  @@index([cnae])
 }
 
 model ProjectAlert {

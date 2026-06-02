@@ -309,6 +309,7 @@ export default function ReajusteNewPage() {
                 <MenuItem value="Pendente">Pendente</MenuItem>
                 <MenuItem value="Em Andamento">Em Andamento</MenuItem>
                 <MenuItem value="Transf. Analista">Transf. Analista</MenuItem>
+                <MenuItem value="Concluído Parcialmente">Concluído Parcialmente</MenuItem>
                 <MenuItem value="Concluído">Concluído</MenuItem>
                 <MenuItem value="Cancelado">Cancelado</MenuItem>
               </TextField>

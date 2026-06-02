@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { shouldSkipStoreSync } from '../utils/syncCooldown'
 
 export interface Report {
   id: string
@@ -44,6 +45,8 @@ interface ReportState {
   items: Report[]
   timeline: TimelineEvent[]
   lastSync: number
+  isLoading: boolean
+  syncError: string | null
   add: (report: Omit<Report, 'id' | 'dataCriacao' | 'dataAtualizacao'>) => Promise<Report>
   update: (id: string, updates: Partial<Report>) => void
   remove: (id: string) => Promise<void>
@@ -62,6 +65,8 @@ export const useReportStore = create<ReportState>()(
       items: [],
       timeline: [],
       lastSync: 0,
+      isLoading: false,
+      syncError: null,
       add: async (payload) => {
         try {
           console.log('🔍 ReportStore.add: Iniciando criação de relatório')
@@ -199,9 +204,11 @@ export const useReportStore = create<ReportState>()(
       },
       async syncFromApi(force?: boolean) {
         const state = get()
+        if (state.isLoading) return
         const now = Date.now()
-        if (!force && now - state.lastSync < 2 * 60 * 1000) return
+        if (shouldSkipStoreSync(state.lastSync, state.items.length, force)) return
         try {
+          set({ isLoading: true, syncError: null })
           const { api } = await import('../lib/api.local')
           
           const response = await api.getAnalytics()
@@ -335,10 +342,13 @@ export const useReportStore = create<ReportState>()(
             })
           }
           
-          set({ items: reports, lastSync: now })
+          set({ items: reports, lastSync: now, isLoading: false, syncError: null })
         } catch (error) {
           console.error('❌ Erro ao sincronizar analytics:', error)
-          set({ items: [] })
+          set({
+            isLoading: false,
+            syncError: error instanceof Error ? error.message : 'Erro ao carregar relatórios',
+          })
         }
       },
       addTimelineEvent: (event) => {
@@ -436,6 +446,21 @@ export const useReportStore = create<ReportState>()(
         }
       }
     }),
-    { name: 'reports-v1' }
+    {
+      name: 'reports-v1',
+      partialize: (state) => ({
+        items: state.items,
+        timeline: state.timeline,
+        lastSync: state.lastSync,
+      }),
+      onRehydrateStorage: () => () => {
+        queueMicrotask(() => {
+          const s = useReportStore.getState()
+          if (s.items.length === 0 && !s.isLoading) {
+            void s.syncFromApi()
+          }
+        })
+      },
+    }
   )
 )

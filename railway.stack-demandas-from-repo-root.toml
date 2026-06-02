@@ -1,0 +1,21 @@
+# demandas-api — quando o Root Directory no Railway está VAZIO (raiz do repo).
+# Evita "package.json: not found" no Docker build. Contexto = raiz do repositório Git.
+#
+# No serviço da API no Railway: Settings → Config as code → ficheiro
+#   /railway.stack-demandas-from-repo-root.toml
+# (caminho absoluto a partir da raiz do repositório; ver docs "Monorepo").
+#
+# Alternativa: Root Directory = demandas-api e deploy via deploy-railway-direto.ps1
+# (usa demandas-api/Dockerfile + demandas-api/railway.toml).
+#
+# Branch de deploy: main (Settings → Source).
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile.demandas-api"
+
+[deploy]
+startCommand = "node scripts/start-production.cjs"
+restartPolicyType = "ON_FAILURE"
+
+[env]
+NODE_ENV = "production"

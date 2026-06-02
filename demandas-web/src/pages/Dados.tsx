@@ -85,7 +85,6 @@ export default function DadosPage() {
     
     return data
   }, [dataMap, activeTab, store.showOnlyActiveContracts])
-  
 
   // Handlers
   const handleAdd = () => {
@@ -1317,7 +1316,9 @@ export default function DadosPage() {
 
 
       <Typography variant="body2" sx={{ mb: 2 }}>
-        Para importar, utilize o modelo com abas: Clientes, Contratos, Operadoras, Produtos, Sistemas, Analistas, Areas, Areas Mailling, Cargos Mailling, Filiais Mailling, Tipos, Servicos, Solicitantes, Relatorios, Modelos. As colunas devem seguir exatamente os nomes do modelo. Em "Tipos", preencha "tipoServicoId" com CAD (Cadastro) ou MAN (Manutenção).
+        Use o <strong>Importador Inteligente</strong> no topo para cadastrar vários registros de uma vez com
+        validação automática. O botão Upload ainda aceita o arquivo completo com várias abas (importação em lote
+        legada).
       </Typography>
 
       {/* Status de sincronização */}

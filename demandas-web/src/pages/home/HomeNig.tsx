@@ -51,6 +51,7 @@ import type { SystemPermissions, ModulePermission } from '../../types/permission
 import type { Project } from '../../types/project'
 import type { MaillingContact } from '../../types/mailling'
 import { getUserDepartmentDisplay } from '../../utils/userDepartmentDisplay'
+import { homePanoramaListPath } from '../../utils/homePanoramaListFilters'
 
 const normalizeTextHome = (value?: string) => (value || '').trim().toLowerCase()
 
@@ -523,7 +524,6 @@ export default function HomeNigPage() {
     }
     return [...pendingByUser]
       .sort((a, b) => new Date(b.criadoEm || 0).getTime() - new Date(a.criadoEm || 0).getTime())
-      .slice(0, 8)
       .map((r) => ({
         id: `${r.tipo}-${r.id}`,
         title: r.titulo || r.ticket || '(Sem título)',
@@ -607,6 +607,11 @@ export default function HomeNigPage() {
   }, [user?.id, collectHomeSyncTasks])
 
   const prevPathForHomeRef = useRef<string | undefined>(undefined)
+  const filaPendenciasRef = useRef<HTMLElement>(null)
+
+  const scrollToFilaPendencias = useCallback(() => {
+    filaPendenciasRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [])
 
   useEffect(() => {
     if (!user?.id) return
@@ -788,7 +793,7 @@ export default function HomeNigPage() {
         id: 'demandas',
         label: 'Demandas',
         hint: 'Cadastro de solicitações',
-        path: '/cadastro',
+        path: homePanoramaListPath('/cadastro'),
         perm: 'cadastro',
         total: stats.demandas.total,
         open: stats.demandas.pendentes,
@@ -798,7 +803,7 @@ export default function HomeNigPage() {
         id: 'atendimentos',
         label: 'Atendimentos',
         hint: 'Chamados e suporte',
-        path: '/atendimento',
+        path: homePanoramaListPath('/atendimento'),
         perm: 'atendimento',
         total: stats.atendimentos.total,
         open: stats.atendimentos.abertos,
@@ -808,7 +813,7 @@ export default function HomeNigPage() {
         id: 'validacoes',
         label: 'Validações',
         hint: 'Aprovações e conferência',
-        path: '/validacao',
+        path: homePanoramaListPath('/validacao'),
         perm: 'validacao',
         total: stats.validacoes.total,
         open: stats.validacoes.pendentes,
@@ -818,7 +823,7 @@ export default function HomeNigPage() {
         id: 'reajustes',
         label: 'Reajustes',
         hint: 'Lançamentos e valores',
-        path: '/reajuste',
+        path: homePanoramaListPath('/reajuste'),
         perm: 'reajuste',
         total: stats.reajustes.total,
         open: stats.reajustes.pendentes,
@@ -828,20 +833,20 @@ export default function HomeNigPage() {
         id: 'manutencoes',
         label: 'Manutenções',
         hint: 'Correções e ajustes',
-        path: '/manutencao',
+        path: homePanoramaListPath('/manutencao'),
         perm: 'manutencao',
         total: stats.manutencoes.total,
-        open: stats.manutencoes.pendentes + stats.manutencoes.emAndamento,
+        open: stats.manutencoes.pendentes,
         done: stats.manutencoes.concluidas
       },
       {
         id: 'analytics',
         label: 'Analytics',
         hint: 'Relatórios analíticos',
-        path: '/analytics',
+        path: homePanoramaListPath('/analytics'),
         perm: 'analytics',
         total: stats.analytics.total,
-        open: stats.analytics.pendentes + stats.analytics.emAndamento,
+        open: stats.analytics.pendentes,
         done: stats.analytics.concluidos
       }
     ]
@@ -1083,11 +1088,15 @@ export default function HomeNigPage() {
               </button>
               <button
                 type="button"
-                onClick={() => navigate('/cadastro')}
+                onClick={scrollToFilaPendencias}
                 className="text-left bg-white rounded-2xl p-5 shadow-sm border border-apoio-100 hover:shadow-md hover:border-warning-dark transition-all"
+                aria-describedby="home-pendencias-hint"
               >
                 <div className="text-2xl sm:text-3xl font-bold text-[#1a1a1a] font-geometria">{formatIntegerPtBR(pendenciasDoUsuario)}</div>
                 <div className="text-sm font-medium text-[#050032] font-geometria">Suas pendências</div>
+                <div id="home-pendencias-hint" className="text-xs text-apoio-500 mt-1 font-geometria">
+                  Todos os módulos · toque para ver a fila
+                </div>
               </button>
               <button
                 type="button"
@@ -1212,8 +1221,8 @@ export default function HomeNigPage() {
                 </h2>
                 <p className="text-sm text-apoio-500 mt-0.5 max-w-2xl">
                   {isAdminUser
-                    ? 'Cada linha mostra o volume global do módulo: total, em aberto e encerrado. Toque para abrir a lista.'
-                    : 'Apenas módulos que você pode ver, com volume vinculado a você (dono ou analista vinculado ao seu login). Toque para abrir a lista.'}
+                    ? 'Cada linha mostra o volume global do módulo: total, em aberto e encerrado. Toque para abrir a lista com seus itens em aberto.'
+                    : 'Apenas módulos que você pode ver, com volume vinculado a você (dono ou analista vinculado ao seu login). Toque para abrir a lista com seus itens em aberto.'}
                 </p>
               </div>
             </div>
@@ -1295,8 +1304,12 @@ export default function HomeNigPage() {
           </ul>
         </section>
 
-        {/* Sua fila: largura total, abaixo do panorama */}
-        <section className="mb-8 rounded-2xl border border-apoio-100 bg-white p-5 shadow-sm sm:p-6">
+        {/* Sua fila: largura total, abaixo do panorama — destino do KPI "Suas pendências" */}
+        <section
+          ref={filaPendenciasRef}
+          id="prioridades-fila"
+          className="mb-8 scroll-mt-24 rounded-2xl border border-apoio-100 bg-white p-5 shadow-sm sm:p-6"
+        >
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h3 className="text-lg font-semibold text-[#050032] font-geometria flex items-center gap-2">

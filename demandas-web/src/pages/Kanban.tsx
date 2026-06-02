@@ -2,7 +2,7 @@ import React, { useEffect, useMemo } from 'react'
 import { Box, Typography, Chip, IconButton, Tooltip, Button } from '@mui/material'
 import { Refresh as RefreshIcon, FilterList as FilterIcon, DeleteSweep as DeleteSweepIcon } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
-import { useKanbanStore } from '../store/kanbanStore'
+import { clearKanbanLocalCache, useKanbanStore } from '../store/kanbanStore'
 import { useMasterDataStore } from '../store/masterDataStore'
 import { useAuthStore } from '../store/authStore'
 import { KanbanBoard } from '../components/KanbanBoard'
@@ -24,7 +24,8 @@ export default function KanbanPage() {
     }
 
     console.log('✅ Kanban: Usuário autenticado, carregando dados...')
-    
+    clearKanbanLocalCache()
+
     // Sincronizar dados com API
     kanbanStore.syncFromApi().then(() => {
       console.log('✅ Kanban: Dados sincronizados com sucesso')

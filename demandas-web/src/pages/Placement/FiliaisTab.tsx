@@ -32,7 +32,7 @@ export default function FiliaisTab() {
   } | null>(null)
 
   useEffect(() => {
-    syncFiliais()
+    syncFiliais(true)
   }, [syncFiliais])
 
   const handleAdd = () => {

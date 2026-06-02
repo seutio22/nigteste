@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { buildEmailLinhasFromManutencao } from '../utils/manutencaoContratos'
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Typography, Box, Chip, FormControl, InputLabel, Select, MenuItem, Checkbox, ListItemText, OutlinedInput, IconButton, Tooltip, Card, CardContent, Divider, Paper } from '@mui/material'
 import { Copy, Mail, Users, CheckCircle, X, Settings, Send, Edit3, Eye, Code } from 'lucide-react'
 import { useMasterDataStore } from '../store/masterDataStore'
@@ -432,35 +433,9 @@ export function EmailComunicacaoModal({ open, onClose, manutencao }: EmailComuni
         return
       }
       
-      // Carregar dados existentes na primeira linha da tabela
-      const cliente = md.clientes.find(c => c.id === manutencao?.clienteId)
-      const operadora = md.operadoras.find(o => o.id === manutencao?.operadoraId)
-      const produto = md.produtos.find(p => p.id === manutencao?.produtoId)
-      const sistema = md.sistemas.find(s => s.id === manutencao?.sistemaId)
-      const tipoServico = md.tiposCadastro.find(t => t.id === manutencao?.tipoServicoId)
-      const tipo = md.padrao.find(t => t.id === manutencao?.tipoId)
-      const contrato = manutencao?.contratoId ? 
-        md.contratos.find(c => c.id === manutencao.contratoId) : null
-
-      console.log('📊 Inicializando tabela com dados da manutenção:', {
-        contrato: contrato?.codigo || contrato?.numero || manutencao?.ticket,
-        operadora: operadora?.nome,
-        produto: produto?.nome,
-        atualizacao: tipoServico?.nome,
-        subtipo: tipo?.nome,
-        tipo: sistema?.nome
-      })
-
-      // Atualizar primeira linha com dados existentes
-      setLinhasTabela([{
-        id: 1,
-        contrato: contrato?.codigo || contrato?.numero || manutencao?.ticket || '',
-        operadora: operadora?.nome || '',
-        produto: produto?.nome || '',
-        atualizacao: tipoServico?.nome || '',
-        subtipo: tipo?.nome || '',
-        tipo: sistema?.nome || ''
-      }])
+      const linhas = buildEmailLinhasFromManutencao(manutencao, md)
+      console.log('📊 Inicializando tabela com vínculos da manutenção:', linhas)
+      setLinhasTabela(linhas)
       
       // Inicializar descrição editável com a descrição da manutenção
       if (!descricaoEditavel && manutencao?.descricao) {

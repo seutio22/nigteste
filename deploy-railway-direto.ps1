@@ -9,9 +9,9 @@ function Invoke-Railway {
     if (Get-Command railway -ErrorAction SilentlyContinue) {
         & railway @CliArgs
     } else {
-        # No Windows o `npx @railway/cli` pode falhar com "could not determine executable to run"
-        # dependendo de como os argumentos são splatados. Usamos parâmetro explícito.
-        & npx --yes "@railway/cli@latest" @CliArgs
+        # No Windows `npx --yes "@railway/cli@latest"` pode falhar com "could not determine executable to run".
+        # `npx -y @railway/cli@latest` é o formato estável no PowerShell.
+        & npx -y '@railway/cli@latest' @CliArgs
     }
 }
 
@@ -31,6 +31,9 @@ try {
     Write-Host "✅ Logado no Railway como: $railwayStatus" -ForegroundColor Green
 
     Write-Host "📦 Fazendo deploy do backend..." -ForegroundColor Cyan
+    Write-Host "💡 Se o build falhar com package.json not found, no Railway use:" -ForegroundColor Yellow
+    Write-Host "   Settings → Config as code → /railway.stack-demandas-from-repo-root.toml" -ForegroundColor Yellow
+    Write-Host "   e deixe Root Directory vazio (raiz do repo)." -ForegroundColor Yellow
 
     # Projeto/serviço da API demandas (evita falhar quando esta pasta está `railway link` a outro serviço, ex.: portal-colaborador-api).
     $railwayProject = if ($env:RAILWAY_PROJECT_ID) { $env:RAILWAY_PROJECT_ID } else { '2192a2e2-aa38-4290-9bd7-6c895e168b06' }

@@ -27,6 +27,7 @@ import { usePermissions } from '../../hooks/usePermissions'
 import { PrimaryActionButton } from '../../components/PrimaryActionButton'
 import { formatIntegerPtBR } from '../../utils/formatNumber'
 import { formatGridDatePtBR, gridCellToDate } from '../../utils/gridDate'
+import { useHomePanoramaListFilters } from '../../utils/homePanoramaListFilters'
 
 const columns: GridColDef[] = [
   { field: 'acoes', headerName: 'Ações', width: 80, sortable: false, filterable: false, renderCell: (p) => (
@@ -171,6 +172,12 @@ export default function DemandListPage() {
       return isMyDemand
     })
   }, [showOnlyMyDemands, filteredItems, analistasById, user?.id, user?.name, user?.role])
+
+  const { itemsForGrid } = useHomePanoramaListFilters(
+    'demandas',
+    finalFilteredItems,
+    setShowOnlyMyDemands
+  )
 
   // carregar preferências
   useEffect(() => {
@@ -475,7 +482,7 @@ export default function DemandListPage() {
   }
 
   // 🚀 OTIMIZAÇÃO: Geração de rows simplificada (mesma abordagem da página Manutenção)
-  const rows = useMemo(() => finalFilteredItems.map((d) => ({
+  const rows = useMemo(() => itemsForGrid.map((d) => ({
     id: d.id,
     ticket: d.ticket || d.id,
     descricao: d.descricao ?? '',
@@ -556,7 +563,7 @@ export default function DemandListPage() {
     createdAt: d.createdAt || '',
     updatedAt: d.updatedAt || '',
   })), [
-    finalFilteredItems,
+    itemsForGrid,
     analistasById,
     areasById,
     tiposServicoById,
@@ -584,8 +591,8 @@ export default function DemandListPage() {
   ), [rows])
 
   const demandById = useMemo(
-    () => Object.fromEntries(finalFilteredItems.map((d) => [d.id, d])),
-    [finalFilteredItems]
+    () => Object.fromEntries(itemsForGrid.map((d) => [d.id, d])),
+    [itemsForGrid]
   )
 
   return (
@@ -638,7 +645,7 @@ export default function DemandListPage() {
                 
                 {/* Contador de demandas */}
                 <Chip
-                  label={`${formatIntegerPtBR(finalFilteredItems.length)} demanda${finalFilteredItems.length !== 1 ? 's' : ''}`}
+                  label={`${formatIntegerPtBR(itemsForGrid.length)} demanda${itemsForGrid.length !== 1 ? 's' : ''}`}
                   size="small"
                   variant="outlined"
                   className={`${
@@ -869,7 +876,7 @@ export default function DemandListPage() {
         moduleTitle="Cadastro"
         appliedFilters={{
           'Meus Cadastros': showOnlyMyDemands ? 'Sim' : 'Não',
-          'Total na lista': finalFilteredItems.length
+          'Total na lista': itemsForGrid.length
         }}
         columns={[
           { key: 'id', label: 'ID' },

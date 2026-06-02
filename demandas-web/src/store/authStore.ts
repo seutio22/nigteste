@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { SystemPermissions } from '../types/permissions'
 import { clearAllSystemData } from '../utils/logoutCleanup'
+import { logDev, logError } from '../utils/logger'
 import { notifyServerLogout } from '../lib/monitoringClient'
 import { flushPageDwellBeforeLogout } from '../hooks/usePageDwellTracking'
 import { useNotificationStore } from './notificationStore'
@@ -59,7 +60,7 @@ export const useAuthStore = create<AuthState>()(
       
       setAuth: (token: string, user: User) => {
         const now = new Date().toISOString()
-        console.log('✅ Login realizado às:', now)
+        logDev('✅ Login realizado')
         set({ token, user, loading: false, loginDate: now })
       },
       
@@ -71,7 +72,7 @@ export const useAuthStore = create<AuthState>()(
       },
       
       logout: () => {
-        console.log('🔒 Iniciando logout seguro...')
+        logDev('🔒 Iniciando logout seguro...')
         const { token, user } = get()
         flushPageDwellBeforeLogout()
         if (token && user?.id) {
@@ -87,7 +88,7 @@ export const useAuthStore = create<AuthState>()(
         // 3. Limpar TODOS os dados do localStorage
         clearAllSystemData()
         
-        console.log('✅ Logout seguro concluído - todos os dados foram removidos')
+        logDev('✅ Logout seguro concluído')
       },
       
       setLoading: (loading: boolean) => {
@@ -106,8 +107,8 @@ export const useAuthStore = create<AuthState>()(
         if (!token || !user) return false
         
         if (hasPassedOneDay(loginDate)) {
-          console.log('⏰ Login expirado (passou mais de 12 horas)')
-          console.log('🔒 Fazendo logout automático...')
+          logDev('⏰ Login expirado (passou mais de 12 horas)')
+          logDev('🔒 Fazendo logout automático...')
           get().logout()
           return true
         }
@@ -128,22 +129,19 @@ export const useAuthStore = create<AuthState>()(
           // Se tem token e usuário, verificar se expirou
           if (token && user) {
             if (hasPassedOneDay(loginDate)) {
-              console.log('⏰ Login expirado ao inicializar (passou mais de 12 horas)')
-              console.log('🔒 Limpando dados antigos...')
+              logDev('⏰ Login expirado ao inicializar')
+              logDev('🔒 Limpando dados antigos...')
               get().logout()
               set({ loading: false })
             } else {
-              const login = new Date(loginDate || '')
-              const now = new Date()
-              const hoursAgo = ((now.getTime() - login.getTime()) / (1000 * 60 * 60)).toFixed(1)
-              console.log(`✅ Login ainda válido (${hoursAgo}h atrás)`)
+              logDev('✅ Sessão válida')
               set({ loading: false })
             }
           } else {
             set({ loading: false })
           }
         } catch (error) {
-          console.error('❌ Erro ao inicializar authStore:', error)
+          logError('❌ Erro ao inicializar authStore:', error)
           set({ loading: false })
         }
       }

@@ -13,6 +13,7 @@
 // 🔒 Chaves dos stores Zustand com persist
 const ZUSTAND_STORE_KEYS = [
   'auth-store',
+  'demandStore',
   'demands-v1',
   'demands-v2', 
   'validations-v1',

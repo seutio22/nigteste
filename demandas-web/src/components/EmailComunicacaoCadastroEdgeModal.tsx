@@ -28,6 +28,7 @@ import { useMaillingStore } from '../store/maillingStore'
 import type { Demand } from '../types/demand'
 import { buildEmlForOutlook } from '../utils/buildEmlForOutlook'
 import { copyRichHtmlToClipboard } from '../utils/copyRichHtmlClipboard'
+import { embedEmailImagesForOutlookClipboard } from '../utils/embedEmailImagesForOutlookClipboard'
 
 type Props = {
   open: boolean
@@ -616,7 +617,8 @@ export function EmailComunicacaoCadastroEdgeModal({ open, onClose, demanda }: Pr
   const handleCopyOutlook = async () => {
     if (!modeloDisponivel) return
     try {
-      await copyRichHtmlToClipboard(buildHtml())
+      const html = await embedEmailImagesForOutlookClipboard(buildHtml())
+      await copyRichHtmlToClipboard(html)
       setCopiadoEmail(true)
       setTimeout(() => setCopiadoEmail(false), 2000)
     } catch (error) {

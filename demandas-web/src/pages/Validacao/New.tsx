@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Autocomplete, Box, Button, Container, Paper, Stack, TextField, Typography, MenuItem, FormControl, InputLabel, Select, Grid } from '@mui/material'
+import { Autocomplete, Box, Button, Container, Paper, Stack, TextField, Typography, MenuItem, Grid } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -9,7 +9,9 @@ import { useValidationStore } from '../../store/validationStore'
 import { useAuthStore } from '../../store/authStore'
 import { createPerfLogger } from '../../utils/perf'
 import { AsyncClienteAutocomplete, type ClienteOption } from '../../components/AsyncClienteAutocomplete'
-import { AsyncContratoAutocomplete } from '../../components/AsyncContratoAutocomplete'
+import { ContratoLocalAutocomplete } from '../../components/ContratoLocalAutocomplete'
+import { filterContratosDoCliente } from '../../utils/manutencaoContratos'
+import { validateContratoParaCliente } from '../../utils/validationRelations'
 import { PrimaryActionButton } from '../../components/PrimaryActionButton'
 
 const schema = z.object({
@@ -113,19 +115,25 @@ export default function ValidationNewPage() {
   const estruturaEdge = watch('estruturaEdge')
   const estruturaMove = watch('estruturaMove')
 
+  const produtosFiltrados = operadoraSelecionada
+    ? md.produtos.filter((p) => p.operadoraId === operadoraSelecionada || !p.operadoraId)
+    : md.produtos
 
-  // Filtrar produtos por operadora selecionada
-  const produtosFiltrados = md.produtos
+  const contratosDoCliente = React.useMemo(
+    () =>
+      filterContratosDoCliente(
+        md.contratos,
+        clienteSelecionado || undefined,
+        selectedCliente?.grupoEconomico || null
+      ),
+    [md.contratos, clienteSelecionado, selectedCliente?.grupoEconomico]
+  )
 
-
-  // Sincronização desabilitada - causando problemas de memória
   React.useEffect(() => {
-    console.log('🔧 ValidacaoNewPage: Sincronização desabilitada - causando problemas de memória')
-    // TODO: Implementar sistema mais leve no futuro
-    // if (md.syncFromApi) {
-    //   md.syncFromApi()
-    // }
-  }, [md.syncFromApi])
+    if (md.contratos.length === 0 && md.syncFromApi) {
+      void md.syncFromApi()
+    }
+  }, [md.contratos.length, md.syncFromApi])
 
   // LÓGICA ATUALIZADA: Preencher com o analista correspondente ao usuário logado
   React.useEffect(() => {
@@ -259,16 +267,30 @@ export default function ValidationNewPage() {
         console.log('⚠️ VALIDAÇÃO TICKET VALIDAÇÃO: Campo ticket vazio ou não fornecido - pulando validação')
       }
       
-      const validationData = { 
-        ...data,
-        // Converter ticket vazio para null para evitar problemas no banco
-        ticket: data.ticket && data.ticket.trim() !== '' ? data.ticket.trim() : null,
-        total: totalCalculado, 
-        updatedAt: new Date().toISOString() 
+      const contratoErr = validateContratoParaCliente(
+        data.contrato,
+        data.cliente,
+        contratosDoCliente,
+        md.contratos
+      )
+      if (contratoErr) {
+        alert(contratoErr)
+        return
       }
-      
+
+      const validationData = {
+        ...data,
+        clienteId: data.cliente || undefined,
+        contratoId: data.contrato || undefined,
+        operadoraId: data.operadora || undefined,
+        produtoId: data.produto || undefined,
+        ticket: data.ticket && data.ticket.trim() !== '' ? data.ticket.trim() : null,
+        total: totalCalculado,
+        updatedAt: new Date().toISOString(),
+      }
+
       console.log('🔍 ValidationNewPage: Dados para validação:', validationData)
-      
+
       await store.add(validationData)
       navigate('/validacao')
     } catch (error) {
@@ -416,30 +438,26 @@ export default function ValidationNewPage() {
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
             <Controller name="contrato" control={control} render={({ field }) => (
-              <AsyncContratoAutocomplete
+              <ContratoLocalAutocomplete
                 valueId={field.value}
                 onChangeId={field.onChange}
-                label="Contrato"
+                contratos={contratosDoCliente}
+                disabled={!clienteSelecionado}
                 error={!!errors.contrato}
                 helperText={errors.contrato?.message}
-                disabled={!clienteSelecionado}
-                clienteId={clienteSelecionado || undefined}
-                grupoEconomico={selectedCliente?.grupoEconomico || null}
               />
             )} />
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
             <Controller name="operadora" control={control} render={({ field }) => (
               <Autocomplete
-                {...field}
                 options={md.operadoras}
                 getOptionLabel={(option) => option.nome || ''}
                 isOptionEqualToValue={(option, value) => option.id === value?.id}
-                value={md.operadoras.find(o => o.id === field.value) || null}
+                value={md.operadoras.find((o) => o.id === field.value) || null}
                 onChange={(_, newValue) => {
                   field.onChange(newValue?.id || '')
-                  // Limpar produto quando operadora mudar
-                  control._formValues.produto = ''
+                  setValue('produto', '')
                 }}
                 renderInput={(params) => (
                   <TextField
@@ -447,36 +465,25 @@ export default function ValidationNewPage() {
                     label="Operadora"
                     fullWidth
                     error={!!errors.operadora}
-                    helperText={errors.operadora?.message || 'Digite para buscar uma operadora'}
+                    helperText={errors.operadora?.message}
                     placeholder="Digite para buscar..."
                   />
                 )}
-                renderOption={(props, option) => (
-                  <Box component="li" {...props} key={option.id}>
-                    <Typography variant="body1" fontWeight="medium">
-                      {option.nome}
-                    </Typography>
-                  </Box>
-                )}
                 noOptionsText="Nenhuma operadora encontrada"
-                loading={md.operadoras.length === 0}
-                loadingText="Carregando operadoras..."
-                filterOptions={(options, { inputValue }) => {
-                  const filtered = options.filter(option =>
-                    option.nome.toLowerCase().includes(inputValue.toLowerCase())
-                  )
-                  return filtered
-                }}
               />
             )} />
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
             <Controller name="produto" control={control} render={({ field }) => (
-              <TextField {...field} select label="Produto" fullWidth error={!!errors.produto} helperText={errors.produto?.message || `${produtosFiltrados.length} produtos disponíveis`}>
+              <TextField {...field} select label="Produto" fullWidth error={!!errors.produto} helperText={errors.produto?.message}>
                 <MenuItem value="">
                   <em>Selecione um produto</em>
                 </MenuItem>
-                {produtosFiltrados.map(produto => <MenuItem key={produto.id} value={produto.id}>{produto.nome}</MenuItem>)}
+                {produtosFiltrados.map((produto) => (
+                  <MenuItem key={produto.id} value={produto.id}>
+                    {produto.nome}
+                  </MenuItem>
+                ))}
               </TextField>
             )} />
           </Grid>

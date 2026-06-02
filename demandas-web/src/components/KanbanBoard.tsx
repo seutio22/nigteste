@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { useLocation } from 'react-router-dom'
 import { 
   Box, 
@@ -78,16 +78,8 @@ export const KanbanBoard: React.FC = () => {
   const ticketRefs = useRef<{ [key: string]: HTMLDivElement | null }>({})
 
   // Usar o store Zustand
-  const {
-    tickets,
-    addTicket,
-    updateTicket,
-    moveTicket,
-    deleteTicket,
-    deleteAllTickets,
-    getColumnsWithTickets,
-    getFilteredColumnsWithTickets
-  } = useKanbanStore()
+  const tickets = useKanbanStore((state) => state.tickets)
+  const { addTicket, updateTicket, moveTicket, deleteTicket, deleteAllTickets } = useKanbanStore()
 
   // Função para obter nome do usuário pelo ID
   const getUserNameById = (userId: string): string => {
@@ -105,16 +97,25 @@ export const KanbanBoard: React.FC = () => {
     return userId
   }
 
-  // Obter colunas com tickets filtrados por permissão - SEMPRE filtrar por usuário logado
-  const columns = getFilteredColumnsWithTickets(user?.role, user?.id, true) // true = viewOwnDataOnly
-  
-  // Obter tickets filtrados para o usuário logado - SEMPRE mostrar apenas os próprios tickets
-  const userTickets = useKanbanStore(state => state.getFilteredTickets(user?.role, user?.id, true)) // true = viewOwnDataOnly
+  // Tickets do usuário logado (evita selector que retorna array novo → loop de re-render no Zustand)
+  const userTickets = useMemo(() => {
+    if (!user?.id) return []
+    return tickets.filter((ticket) => ticket.assignee === user.id)
+  }, [tickets, user?.id])
+
+  const columns = useMemo(
+    () =>
+      KANBAN_COLUMNS.map((col) => ({
+        ...col,
+        tickets: userTickets.filter((ticket) => ticket.status === col.id),
+      })),
+    [userTickets]
+  )
 
   // Verificar tarefas vencidas e próximas do vencimento (lógica central em kanbanDeadlineNotify)
   useEffect(() => {
     const checkOverdueTasks = () => {
-      const result = runKanbanDeadlineChecks(userTickets)
+      const result = runKanbanDeadlineChecks(userTickets, { syncToNotificationCenter: false })
       if (result.overdueTitles.length > 0) {
         setOverdueMessage(
           `${result.overdueTitles.length} tarefa(s) vencida(s): ${result.overdueTitles.join(', ')}`
@@ -291,7 +292,7 @@ export const KanbanBoard: React.FC = () => {
     // Recalcular notificações de prazo com o estado já atualizado no store
     queueMicrotask(() => {
       const list = useKanbanStore.getState().getFilteredTickets(user?.role, user?.id, true)
-      runKanbanDeadlineChecks(list)
+      runKanbanDeadlineChecks(list, { syncToNotificationCenter: false })
     })
 
     setOpenDialog(false)

@@ -28,6 +28,24 @@ export const API_CONFIG = {
   }
 }
 
+/** Mensagem legível a partir do corpo JSON/texto de erros da API (ex.: 409 Conflict). */
+export function messageFromApiErrorBody(status: number, errorText: string): string {
+  const raw = (errorText || '').trim()
+  if (raw) {
+    try {
+      const j = JSON.parse(raw) as { message?: unknown; error?: unknown }
+      const msg = typeof j.message === 'string' && j.message.trim() ? j.message.trim() : ''
+      if (msg) return msg
+      const err = typeof j.error === 'string' && j.error.trim() ? j.error.trim() : ''
+      if (err) return err
+    } catch {
+      /* não é JSON */
+    }
+    return raw.length > 800 ? `${raw.slice(0, 800)}…` : raw
+  }
+  return `HTTP error! status: ${status}`
+}
+
 // Debug removido para limpeza do console
 
 // Função para fazer requisições HTTP
@@ -82,13 +100,7 @@ export async function apiRequest<T = any>(
       } else {
         const errorText = await response.text()
         console.error('Erro HTTP DELETE:', response.status, errorText)
-        
-        // Para erros 500, incluir o texto do erro na mensagem
-        if (response.status === 500) {
-          throw new Error(`HTTP error! status: ${response.status} ${errorText}`)
-        } else {
-          throw new Error(`HTTP error! status: ${response.status}`)
-        }
+        throw new Error(messageFromApiErrorBody(response.status, errorText))
       }
     }
     
@@ -96,10 +108,9 @@ export async function apiRequest<T = any>(
     if (!response.ok) {
       const errorText = await response.text()
       console.error('Erro HTTP:', response.status, errorText)
-      
-      // Criar erro com mensagem detalhada para permitir fallback
-      const error = new Error(`HTTP error! status: ${response.status}`)
+      const error = new Error(messageFromApiErrorBody(response.status, errorText))
       ;(error as any).responseText = errorText
+      ;(error as any).status = response.status
       throw error
     }
     
@@ -134,6 +145,59 @@ export const api = {
   delete: (endpoint: string) => apiRequest(endpoint, {
     method: 'DELETE',
   }),
+
+  /** POST multipart (ex.: anexos Placement). Não define Content-Type (boundary automático). */
+  postFormData: async <T = unknown>(endpoint: string, formData: FormData): Promise<T> => {
+    const url = `${API_CONFIG.BASE_URL}${endpoint}`
+    const authState = useAuthStore.getState()
+    const token = authState.token
+    const userId = authState.user?.id || null
+    const userRole = (authState.user as any)?.role || null
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` }),
+        ...(userId && { 'x-user-id': userId }),
+        ...(userRole && { 'x-user-role': userRole }),
+      },
+      body: formData,
+    })
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('Erro HTTP (formData):', response.status, errorText)
+      const error = new Error(messageFromApiErrorBody(response.status, errorText))
+      ;(error as any).responseText = errorText
+      ;(error as any).status = response.status
+      throw error
+    }
+    const contentType = response.headers.get('content-type')
+    if (contentType?.includes('application/json')) {
+      return (await response.json()) as T
+    }
+    return (await response.text()) as T
+  },
+
+  /** GET binário com autenticação (download de anexo). */
+  getBlob: async (endpoint: string): Promise<Blob> => {
+    const url = `${API_CONFIG.BASE_URL}${endpoint}`
+    const authState = useAuthStore.getState()
+    const token = authState.token
+    const userId = authState.user?.id || null
+    const userRole = (authState.user as any)?.role || null
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` }),
+        ...(userId && { 'x-user-id': userId }),
+        ...(userRole && { 'x-user-role': userRole }),
+      },
+    })
+    if (!response.ok) {
+      const t = await response.text()
+      throw new Error(t || `HTTP ${response.status}`)
+    }
+    return response.blob()
+  },
 
   // Autenticação
   login: (credentials: { email: string; password: string }) =>

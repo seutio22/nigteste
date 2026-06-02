@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { ValidationEntry } from '../types/validation'
+import { shouldSkipStoreSync } from '../utils/syncCooldown'
 
 interface ValidationLog {
   validationId: string
@@ -13,7 +14,33 @@ interface ValidationLog {
   userName?: string
 }
 
-function mapApiValidacaoToEntry(validacao: any): ValidationEntry {
+function resolveRelationId(
+  entry: ValidationEntry,
+  idKey: keyof ValidationEntry,
+  legacyKey: keyof ValidationEntry,
+  objKey?: keyof ValidationEntry
+): string | undefined {
+  const rawId = entry[idKey]
+  if (typeof rawId === 'string' && rawId.trim()) return rawId.trim()
+  if (rawId != null && typeof rawId === 'object' && (rawId as { id?: string }).id) {
+    return String((rawId as { id: string }).id).trim()
+  }
+
+  const legacy = entry[legacyKey]
+  if (typeof legacy === 'string' && legacy.trim()) return legacy.trim()
+  if (legacy != null && typeof legacy === 'object' && (legacy as { id?: string }).id) {
+    return String((legacy as { id: string }).id).trim()
+  }
+
+  if (objKey) {
+    const obj = entry[objKey] as { id?: string } | undefined
+    if (obj?.id) return String(obj.id).trim()
+  }
+
+  return undefined
+}
+
+export function mapApiValidacaoToEntry(validacao: any): ValidationEntry {
   const parseArray = (v: any) => {
     if (!v) return []
     if (typeof v === 'string') {
@@ -145,7 +172,7 @@ export const useValidationStore = create<ValidationState>()(
 
           const requestBody = {
             id: validation.id,
-            demandaId: validation.demanda,
+            demandaId: resolveRelationId(validation, 'demandaId', 'demanda'),
             analistaId:
               validation.analista != null && typeof validation.analista === 'object'
                 ? (validation.analista as { id?: string }).id
@@ -154,10 +181,10 @@ export const useValidationStore = create<ValidationState>()(
             dataInicio: cleanDateField(validation.dataInicio),
             dataFim: cleanDateField(validation.dataFinal),
             observacoes: validation.observacoes,
-            clienteId: validation.cliente,
-            contratoId: validation.contrato,
-            operadoraId: validation.operadora,
-            produtoId: validation.produto,
+            clienteId: resolveRelationId(validation, 'clienteId', 'cliente', 'clienteObj'),
+            contratoId: resolveRelationId(validation, 'contratoId', 'contrato', 'contratoObj'),
+            operadoraId: resolveRelationId(validation, 'operadoraId', 'operadora', 'operadoraObj'),
+            produtoId: resolveRelationId(validation, 'produtoId', 'produto', 'produtoObj'),
             estruturaEdge: validation.estruturaEdge,
             estruturaMove: validation.estruturaMove,
             formalizacao: validation.formalizacao,
@@ -183,7 +210,7 @@ export const useValidationStore = create<ValidationState>()(
         } catch (error) {
           console.error('❌ Erro ao criar validação:', error)
           set({ error: `Erro ao criar validação: ${error}` })
-          return undefined
+          throw error
         }
       },
 
@@ -228,10 +255,10 @@ export const useValidationStore = create<ValidationState>()(
             dataInicio: cleanDateField(validation.dataInicio),
             dataFim: cleanDateField(validation.dataFinal),
             observacoes: validation.observacoes,
-            clienteId: validation.cliente,
-            contratoId: validation.contrato,
-            operadoraId: validation.operadora,
-            produtoId: validation.produto,
+            clienteId: resolveRelationId(validation, 'clienteId', 'cliente', 'clienteObj'),
+            contratoId: resolveRelationId(validation, 'contratoId', 'contrato', 'contratoObj'),
+            operadoraId: resolveRelationId(validation, 'operadoraId', 'operadora', 'operadoraObj'),
+            produtoId: resolveRelationId(validation, 'produtoId', 'produto', 'produtoObj'),
             estruturaEdge: Array.isArray(validation.estruturaEdge) && validation.estruturaEdge.length > 0 ? validation.estruturaEdge : null,
             estruturaMove: Array.isArray(validation.estruturaMove) && validation.estruturaMove.length > 0 ? validation.estruturaMove : null,
             formalizacao: validation.formalizacao,
@@ -415,7 +442,7 @@ export const useValidationStore = create<ValidationState>()(
           return
         }
         const now = Date.now()
-        if (!opts?.force && now - state.lastSync < 2 * 60 * 1000) {
+        if (shouldSkipStoreSync(state.lastSync, state.items.length, opts?.force)) {
           return
         }
         
@@ -483,7 +510,15 @@ export const useValidationStore = create<ValidationState>()(
       partialize: (state) => ({ 
         // Não persistir items, apenas configurações
         logs: state.logs 
-      })
+      }),
+      onRehydrateStorage: () => () => {
+        queueMicrotask(() => {
+          const s = useValidationStore.getState()
+          if (s.items.length === 0 && !s.loading) {
+            void s.syncFromApi()
+          }
+        })
+      },
     }
   )
 )

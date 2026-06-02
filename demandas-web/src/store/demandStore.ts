@@ -2,7 +2,15 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { Demand, DemandId } from '../types/demand'
 import type { TimelineEvent } from '../types/timeline'
+import { createSafePersistStorage, removeLocalStorageByPrefix } from '../lib/safePersistStorage'
 import { useMasterDataStore } from './masterDataStore'
+import { shouldSkipStoreSync } from '../utils/syncCooldown'
+
+/** Remove cache legado que persistia todas as demandas + timeline (estourava cota). */
+export function clearDemandLocalCache(): void {
+  removeLocalStorageByPrefix('demandStore')
+  removeLocalStorageByPrefix('demands-v')
+}
 
 interface DemandState {
   items: Demand[]
@@ -341,7 +349,7 @@ export const useDemandStore = create<DemandState>()(
           return
         }
         const now = Date.now()
-        if (!force && now - state.lastSync < 2 * 60 * 1000) {
+        if (shouldSkipStoreSync(state.lastSync, state.items.length, force)) {
           return
         }
         
@@ -352,6 +360,7 @@ export const useDemandStore = create<DemandState>()(
         }, 30000) // 30 segundos
         
         try {
+          clearDemandLocalCache()
           set({ isLoading: true })
           console.log('🔄 DemandStore: Iniciando syncFromApi...')
 
@@ -545,10 +554,19 @@ export const useDemandStore = create<DemandState>()(
     }),
     {
       name: 'demandStore',
-      partialize: (state) => ({ 
-        items: state.items, 
-        timeline: state.timeline 
-      })
+      // Não persistir lista/timeline — API é fonte da verdade (evita QuotaExceededError)
+      partialize: (state) => ({ lastSync: state.lastSync }),
+      storage: createSafePersistStorage<DemandState>('demandStore', {
+        onQuotaExceeded: clearDemandLocalCache,
+      }),
+      onRehydrateStorage: () => () => {
+        queueMicrotask(() => {
+          const s = useDemandStore.getState()
+          if (s.items.length === 0 && !s.isLoading) {
+            void s.syncFromApi()
+          }
+        })
+      },
     }
   )
 )

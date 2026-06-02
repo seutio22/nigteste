@@ -15,6 +15,20 @@ import { Save as SaveIcon, Email as EmailIcon } from '@mui/icons-material'
 import { PrimaryActionButton } from '../../components/PrimaryActionButton'
 import { createPerfLogger } from '../../utils/perf'
 import { qualidadeFromQtdRetornos } from '../../utils/qualidadeRetornos'
+import {
+  ManutencaoContratosVinculosResumo,
+  ManutencaoContratosVinculosSection,
+} from '../../components/ManutencaoContratosVinculosSection'
+import {
+  contratosVinculosToApi,
+  deriveContratosIds,
+  emptyContratoVinculoRow,
+  parseContratosVinculos,
+  rowsToVinculos,
+  vinculosToLabel,
+  vinculosToRows,
+  type ContratoVinculoRow,
+} from '../../utils/manutencaoContratos'
 
 // Função para converter código de qualidade em texto legível
 const getQualidadeLabel = (value?: string) => {
@@ -125,11 +139,21 @@ export default function ManutencaoDetailPage() {
     return fixEncoding(cliente.nome)
   }
   
-  const labelContrato = (id?: string) => {
-    if (!id) return '-'
-    const contrato = md.contratos.find(c => c.id === id)
-    if (!contrato) return '-'
-    return contrato.codigo || contrato.numero || `ID: ${id.substring(0, 8)}...`
+  const labelContratos = (item: {
+    contratosVinculos?: unknown
+    contratosIds?: unknown
+    contratoId?: string | null
+    operadoraId?: string | null
+    produtoId?: string | null
+  }) => {
+    const vinculos = parseContratosVinculos(item?.contratosVinculos, {
+      contratosIds: item?.contratosIds,
+      contratoId: item?.contratoId,
+      operadoraId: item?.operadoraId,
+      produtoId: item?.produtoId,
+    })
+    if (!vinculos.length) return '-'
+    return fixEncoding(vinculosToLabel(vinculos, md.contratos, md.operadoras, md.produtos))
   }
 
   // Mostrar carregamento apenas se realmente estiver carregando
@@ -252,7 +276,14 @@ export default function ManutencaoDetailPage() {
                 <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
                 <div>
                   <p className="text-sm text-gray-500">Contrato</p>
-                  <p className="font-medium">{labelContrato(d.contratoId)}</p>
+                  <div className="font-medium">
+                    <ManutencaoContratosVinculosResumo
+                      item={d}
+                      contratos={md.contratos}
+                      operadoras={md.operadoras}
+                      produtos={md.produtos}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -331,6 +362,7 @@ function EditInline({ d }: { d: any }) {
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [sistemasIds, setSistemasIds] = useState<string[]>([])
   const [sistemasTotais, setSistemasTotais] = useState<Record<string, number>>({})
+  const [contratosVinculosRows, setContratosVinculosRows] = useState<ContratoVinculoRow[]>([emptyContratoVinculoRow()])
 
   const sectionCardCls =
     'rounded-2xl border border-slate-200/50 bg-white p-5 shadow-[0_8px_30px_-12px_rgba(15,23,42,0.12)] ring-1 ring-slate-900/[0.02] sm:p-6'
@@ -391,6 +423,13 @@ function EditInline({ d }: { d: any }) {
 
     setSistemasIds(initial)
     setSistemasTotais(nextTotais)
+    const vinculos = parseContratosVinculos((d as any)?.contratosVinculos, {
+      contratosIds: (d as any)?.contratosIds,
+      contratoId: d?.contratoId,
+      operadoraId: d?.operadoraId,
+      produtoId: d?.produtoId,
+    })
+    setContratosVinculosRows(vinculosToRows(vinculos))
   }, [d?.id])
 
   const clienteIdNormalized = draft.clienteId
@@ -422,7 +461,6 @@ function EditInline({ d }: { d: any }) {
       'status',
       'ticket',
       'clienteId',
-      'contratoId',
       'operadoraId',
       'produtoId',
       'areaId',
@@ -446,6 +484,21 @@ function EditInline({ d }: { d: any }) {
       const arr = Array.isArray(raw) ? raw : []
       return [...new Set(arr.map(String).map((s) => s.trim()).filter(Boolean))].sort()
     }
+    const serializeVinculos = (list: ReturnType<typeof rowsToVinculos>) =>
+      JSON.stringify(
+        list
+          .map((v) => ({ c: v.contratoId, o: v.operadoraId || '', p: v.produtoId || '' }))
+          .sort((a, b) => a.c.localeCompare(b.c))
+      )
+    const dV = parseContratosVinculos((d as any)?.contratosVinculos, {
+      contratosIds: (d as any)?.contratosIds,
+      contratoId: (d as any)?.contratoId,
+      operadoraId: (d as any)?.operadoraId,
+      produtoId: (d as any)?.produtoId,
+    })
+    const stV = rowsToVinculos(contratosVinculosRows)
+    if (serializeVinculos(dV) !== serializeVinculos(stV)) changed.push('contratosVinculos')
+
     const dSis = normIds((d as any)?.sistemasIds ?? ((d as any)?.sistemaId ? [String((d as any).sistemaId)] : []))
     const stSis = normIds(sistemasIds)
     if (JSON.stringify(dSis) !== JSON.stringify(stSis)) changed.push('sistemasIds')
@@ -474,7 +527,7 @@ function EditInline({ d }: { d: any }) {
     if (isDiff((d as any)?.sistemaId, sistemaPrincipalId)) changed.push('sistemaId')
 
     return [...new Set(changed)]
-  }, [d, draft, sistemasIds, sistemasTotais])
+  }, [d, draft, sistemasIds, sistemasTotais, contratosVinculosRows])
 
   async function applySave() {
     try {
@@ -499,6 +552,8 @@ function EditInline({ d }: { d: any }) {
       // NOTA: userId não deve ser alterado durante edição (é quem criou originalmente)
       const sistemaPrincipalId = sistemasIds[0] || null
       const totalSum = sistemasIds.reduce((acc, sid) => acc + (sistemasTotais[sid] ?? 0), 0)
+      const vinculosApi = contratosVinculosToApi(contratosVinculosRows)
+      const contratosIds = vinculosApi ? deriveContratosIds(vinculosApi) : []
       const updatePayload = {
         status: draft.status,
         ticket: draft.ticket || null,
@@ -513,9 +568,11 @@ function EditInline({ d }: { d: any }) {
         // Sempre incluir todos os campos de ID, mesmo que sejam vazios
         analistaId: draft.analistaId || null,
         clienteId: draft.clienteId || null,
-        contratoId: draft.contratoId || null,
-        operadoraId: draft.operadoraId || null,
-        produtoId: draft.produtoId || null,
+        contratosVinculos: vinculosApi,
+        contratoId: contratosIds[0] || null,
+        contratosIds: contratosIds.length ? contratosIds : null,
+        operadoraId: vinculosApi?.[0]?.operadoraId || null,
+        produtoId: vinculosApi?.[0]?.produtoId || null,
         sistemaId: sistemaPrincipalId,
         sistemasIds: sistemasIds.length ? sistemasIds : null,
         sistemasTotais: Object.keys(sistemasTotais).length ? sistemasTotais : null,
@@ -528,12 +585,28 @@ function EditInline({ d }: { d: any }) {
       await api.updateManutencao(d.id, updatePayload)
       
       // Atualizar no store local
-      store.upsert({ ...draft, sistemaId: sistemaPrincipalId, sistemasIds, sistemasTotais, total: totalSum || null })
+      store.upsert({
+        ...draft,
+        contratosVinculos: vinculosApi,
+        contratoId: contratosIds[0] || null,
+        contratosIds: contratosIds.length ? contratosIds : null,
+        operadoraId: vinculosApi?.[0]?.operadoraId || null,
+        produtoId: vinculosApi?.[0]?.produtoId || null,
+        sistemaId: sistemaPrincipalId,
+        sistemasIds,
+        sistemasTotais,
+        total: totalSum || null,
+      })
       
       // Log das mudanças no timeline
       changedKeys.forEach((k) => {
         const sistemasLabel = (id: string) => fixEncoding(md.sistemas.find((s) => s.id === id)?.nome) || id
         const sistemasIdsToText = (ids: string[]) => (ids.length ? ids.map(sistemasLabel).join(', ') : '—')
+        const contratoLabel = (id: string) => {
+          const c = md.contratos.find((x) => x.id === id)
+          return fixEncoding(c?.codigo || c?.numero) || id
+        }
+        const contratosIdsToText = (ids: string[]) => (ids.length ? ids.map(contratoLabel).join(', ') : '—')
         const totalsToText = (totais: Record<string, number>) => {
           const entries = Object.entries(totais)
             .filter(([sid]) => !!sid)
@@ -588,13 +661,26 @@ function EditInline({ d }: { d: any }) {
         const legacyFallback = legacyIds.length ? legacyIds : (d?.sistemaId ? [String(d.sistemaId)] : [])
         const fromSistemasIds = legacyFallback.map((s) => s.trim()).filter(Boolean)
         const toSistemasIds = sistemasIds
+        const fromVinculos = parseContratosVinculos((d as any)?.contratosVinculos, {
+          contratosIds: (d as any)?.contratosIds,
+          contratoId: d?.contratoId,
+          operadoraId: d?.operadoraId,
+          produtoId: d?.produtoId,
+        })
+        const toVinculos = rowsToVinculos(contratosVinculosRows)
+        const vinculosToText = (list: typeof fromVinculos) =>
+          list.length
+            ? fixEncoding(vinculosToLabel(list, md.contratos, md.operadoras, md.produtos))
+            : '—'
 
         const fromTotais = (d as any)?.sistemasTotais && typeof (d as any).sistemasTotais === 'object' && !Array.isArray((d as any).sistemasTotais)
           ? (d as any).sistemasTotais as Record<string, number>
           : {}
         const toTotais = sistemasTotais
 
-        const from = k === 'sistemasIds'
+        const from = k === 'contratosVinculos'
+          ? vinculosToText(fromVinculos)
+          : k === 'sistemasIds'
           ? sistemasIdsToText(fromSistemasIds)
           : k === 'sistemasTotais'
             ? totalsToText(fromTotais)
@@ -604,7 +690,9 @@ function EditInline({ d }: { d: any }) {
                 ? convertIdToName((d as any)?.sistemaId, 'sistemaId')
                 : k === 'status' ? String(d.status ?? '') : k === 'ticket' ? String(d.ticket ?? '') : k === 'clienteId' ? convertIdToName(d.clienteId, 'clienteId') : k === 'contratoId' ? convertIdToName(d.contratoId, 'contratoId') : k === 'operadoraId' ? convertIdToName(d.operadoraId, 'operadoraId') : k === 'produtoId' ? convertIdToName(d.produtoId, 'produtoId') : k === 'areaId' ? convertIdToName(d.areaId, 'areaId') : k === 'tipoId' ? convertIdToName(d.tipoId, 'tipoId') : k === 'tipoServicoId' ? convertIdToName(d.tipoServicoId, 'tipoServicoId') : k === 'descricao' ? String(d.descricao ?? '') : k === 'solicitante' ? convertIdToName(d.solicitante, 'solicitante') : k === 'dataInicio' ? String(d.dataInicio ?? '') : k === 'dataFinal' ? String(d.dataFinal ?? '') : k === 'qtdRetornos' ? String(d.qtdRetornos ?? '') : k === 'qualidade' ? String(d.qualidade ?? '') : k === 'usuariosEmpresa' ? String(d.usuariosEmpresa ?? '') : String(d.observacoes ?? '')
 
-        const to = k === 'sistemasIds'
+        const to = k === 'contratosVinculos'
+          ? vinculosToText(toVinculos)
+          : k === 'sistemasIds'
           ? sistemasIdsToText(toSistemasIds)
           : k === 'sistemasTotais'
             ? totalsToText(toTotais)
@@ -615,7 +703,9 @@ function EditInline({ d }: { d: any }) {
                 : k === 'status' ? String(draft.status ?? '') : k === 'ticket' ? String(draft.ticket ?? '') : k === 'clienteId' ? convertIdToName(draft.clienteId, 'clienteId') : k === 'contratoId' ? convertIdToName(draft.contratoId, 'contratoId') : k === 'operadoraId' ? convertIdToName(draft.operadoraId, 'operadoraId') : k === 'produtoId' ? convertIdToName(draft.produtoId, 'produtoId') : k === 'areaId' ? convertIdToName(draft.areaId, 'areaId') : k === 'tipoId' ? convertIdToName(draft.tipoId, 'tipoId') : k === 'tipoServicoId' ? convertIdToName(draft.tipoServicoId, 'tipoServicoId') : k === 'descricao' ? String(draft.descricao ?? '') : k === 'solicitante' ? convertIdToName(draft.solicitante, 'solicitante') : k === 'dataInicio' ? String(draft.dataInicio ?? '') : k === 'dataFinal' ? String(draft.dataFinal ?? '') : k === 'qtdRetornos' ? String(draft.qtdRetornos ?? '') : k === 'qualidade' ? String(draft.qualidade ?? '') : k === 'usuariosEmpresa' ? String(draft.usuariosEmpresa ?? '') : String(draft.observacoes ?? '')
 
         const fieldNameFinal =
-          k === 'sistemasIds'
+          k === 'contratosVinculos'
+            ? 'contratos'
+            : k === 'sistemasIds'
             ? 'sistemas'
             : k === 'sistemasTotais'
               ? 'totaisPorSistema'
@@ -683,7 +773,7 @@ function EditInline({ d }: { d: any }) {
               onChange={(e) => setDraft({ ...draft, status: e.target.value })}
               className={inputCls}
             >
-              {['Aberta', 'Em andamento', 'Transf. Analista', 'Aguardando validação', 'Com erros', 'Concluída', 'Cancelada'].map(s => (
+              {['Aberta', 'Em andamento', 'Transf. Analista', 'Aguardando validação', 'Com erros', 'Concluído Parcialmente', 'Concluída', 'Cancelada'].map(s => (
                 <option key={s} value={s}>{s}</option>
               ))}
             </select>
@@ -698,7 +788,10 @@ function EditInline({ d }: { d: any }) {
             getOptionLabel={(option) => option.nome || ''}
             isOptionEqualToValue={(option, value) => option.id === value?.id}
             value={md.clientes.find(c => c.id === draft.clienteId) || null}
-            onChange={(_, newValue) => setDraft({ ...draft, clienteId: newValue?.id || undefined, contratoId: undefined })}
+            onChange={(_, newValue) => {
+              setDraft({ ...draft, clienteId: newValue?.id || undefined, contratoId: undefined })
+              setContratosVinculosRows([emptyContratoVinculoRow()])
+            }}
             renderInput={(params) => (
               <TextField
                 {...params}
@@ -733,77 +826,19 @@ function EditInline({ d }: { d: any }) {
             }}
           />
         </div>
-        <div>
-          <label className={labelCls}>Contrato</label>
-          <Autocomplete
-            options={contratosDoCliente}
-            getOptionLabel={(option: any) => option?.codigo || option?.numero || ''}
-            isOptionEqualToValue={(option: any, value: any) => option.id === value?.id}
-            value={contratosDoCliente.find((c: any) => c.id === draft.contratoId) || null}
-            onChange={(_, newValue: any | null) => setDraft({ ...draft, contratoId: newValue?.id || undefined })}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                placeholder={clienteIdNormalized ? 'Digite para buscar...' : 'Selecione um cliente primeiro'}
-                variant="outlined"
-                size="small"
-                fullWidth
-                disabled={!clienteIdNormalized}
-              />
-            )}
-            renderOption={(props, option: any) => (
-              <Box component="li" {...props} key={option.id}>
-                <Box>
-                  <Typography variant="body1" fontWeight="medium">
-                    {fixEncoding(option.codigo || option.numero || '')}
-                  </Typography>
-                  {option.grupoEconomico && (
-                    <Typography variant="caption" color="text.secondary">
-                      Grupo: {fixEncoding(option.grupoEconomico)}
-                    </Typography>
-                  )}
-                </Box>
-              </Box>
-            )}
-            noOptionsText={clienteIdNormalized ? 'Nenhum contrato encontrado' : 'Selecione um cliente primeiro'}
-            loading={contratosDoCliente.length === 0 && !!clienteIdNormalized}
-            loadingText="Carregando contratos..."
-            filterOptions={(options, { inputValue }) => {
-              const term = inputValue.toLowerCase()
-              return options.filter((option: any) =>
-                (option.codigo && option.codigo.toLowerCase().includes(term)) ||
-                (option.numero && option.numero.toLowerCase().includes(term)) ||
-                (option.grupoEconomico && option.grupoEconomico.toLowerCase().includes(term))
-              )
-            }}
-          />
-        </div>
       </div>
 
-      {/* Segunda linha - Operadora e Produto */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div>
-          <label className={labelCls}>Operadora</label>
-          <select
-            value={draft.operadoraId || ''}
-            onChange={(e) => setDraft({ ...draft, operadoraId: e.target.value || undefined })}
-            className={inputCls}
-          >
-            <option value="">Selecione...</option>
-            {md.operadoras.map(o => <option key={o.id} value={o.id}>{o.nome}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className={labelCls}>Produto</label>
-          <select
-            value={draft.produtoId || ''}
-            onChange={(e) => setDraft({ ...draft, produtoId: e.target.value || undefined })}
-            className={inputCls}
-          >
-            <option value="">Selecione...</option>
-            {md.produtos.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
-          </select>
-        </div>
+      <div>
+        <label className={labelCls}>Contratos, operadora e produto</label>
+        <ManutencaoContratosVinculosSection
+          rows={contratosVinculosRows}
+          onChange={setContratosVinculosRows}
+          contratos={contratosDoCliente}
+          operadoras={md.operadoras}
+          produtos={md.produtos}
+          clienteSelected={!!clienteIdNormalized}
+          textFieldProps={{ size: 'small', margin: 'none', fullWidth: true, variant: 'outlined' }}
+        />
       </div>
 
       {/* Terceira linha - Ticket, Solicitante e Área */}

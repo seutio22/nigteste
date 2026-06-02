@@ -5,6 +5,7 @@ import { useAuthStore } from './authStore'
 import { useMasterDataStore } from './masterDataStore'
 import { api } from '../lib/api'
 import type { TimelineEventType } from '../types/timeline'
+import { shouldSkipStoreSync } from '../utils/syncCooldown'
 
 interface ReajusteState {
   items: ReajusteEntry[]
@@ -235,7 +236,7 @@ export const useReajusteStore = create<ReajusteState>()(
         try {
           const state = get()
           const now = Date.now()
-          if (!force && now - state.lastSync < 2 * 60 * 1000) return
+          if (shouldSkipStoreSync(state.lastSync, state.items.length, force)) return
           console.log('🔍 ReajusteStore: Iniciando syncFromApi...')
           
           const response = await api.get('/reajusteLancamentos')

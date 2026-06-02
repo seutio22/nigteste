@@ -102,6 +102,17 @@ export const useNotificationStore = create<NotificationState>()(
         if (dismissed.some((k) => k === ck)) return
         if (dk && state.notifications.some((n) => normKey(n.dados?.dedupeKey) === dk)) return
         if (ak && state.notifications.some((n) => normKey(n.dados?.alertaId) === ak)) return
+        const kanbanTid = rest.dados?.kanbanTicketId
+        const kanbanCat = rest.dados?.categoria
+        if (
+          kanbanTid &&
+          kanbanCat?.startsWith('kanban-') &&
+          state.notifications.some(
+            (n) => n.dados?.kanbanTicketId === kanbanTid && n.dados?.categoria === kanbanCat
+          )
+        ) {
+          return
+        }
         if (state.notifications.some((n) => contentKey(n) === ck)) return
 
         const newNotification: Notification = {

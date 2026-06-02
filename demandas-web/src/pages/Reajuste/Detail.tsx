@@ -873,6 +873,7 @@ function EditInline({ reajuste }: { reajuste: any }) {
               <option value="Pendente">Pendente</option>
               <option value="Em Andamento">Em Andamento</option>
               <option value="Transf. Analista">Transf. Analista</option>
+              <option value="Concluído Parcialmente">Concluído Parcialmente</option>
               <option value="Concluído">Concluído</option>
               <option value="Cancelado">Cancelado</option>
             </select>

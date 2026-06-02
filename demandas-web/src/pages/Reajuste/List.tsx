@@ -15,6 +15,7 @@ import { usePermissions } from '../../hooks/usePermissions'
 import { PrimaryActionButton } from '../../components/PrimaryActionButton'
 import { formatIntegerPtBR } from '../../utils/formatNumber'
 import { formatGridDatePtBR, gridCellToDate } from '../../utils/gridDate'
+import { useHomePanoramaListFilters } from '../../utils/homePanoramaListFilters'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
@@ -160,7 +161,11 @@ export default function ReajusteListPage() {
     })
   }, [showOnlyMyReajustes, filteredItems, user?.name, md.analistas])
 
-
+  const { itemsForGrid } = useHomePanoramaListFilters(
+    'reajustes',
+    finalFilteredItems,
+    setShowOnlyMyReajustes
+  )
 
   // carregar preferências
   useEffect(() => {
@@ -639,7 +644,7 @@ export default function ReajusteListPage() {
     ) || null
   }
 
-  const rows = finalFilteredItems.map((r) => {
+  const rows = itemsForGrid.map((r) => {
     // ReajusteLancamento armazena operadora, cliente, contrato, produto como strings (nomes)
     // Tentar buscar por ID primeiro, depois por nome
     let operadoraNome = ''
@@ -778,7 +783,7 @@ export default function ReajusteListPage() {
                 
                 {/* Contador de reajustes */}
                 <Chip
-                  label={`${finalFilteredItems.length} reajuste${finalFilteredItems.length !== 1 ? 's' : ''}`}
+                  label={`${itemsForGrid.length} reajuste${itemsForGrid.length !== 1 ? 's' : ''}`}
                   size="small"
                   variant="outlined"
                   className={`${
@@ -1005,7 +1010,7 @@ export default function ReajusteListPage() {
           showAnalistaFilter: true,
           analistas: md.analistas
         }}
-        data={finalFilteredItems.map(r => {
+        data={itemsForGrid.map(r => {
           const isUuid = (v: string | undefined) => v && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)
           const orNa = (v: string | undefined) => (!v || isUuid(v)) ? 'N/A' : v
 
@@ -1090,7 +1095,7 @@ export default function ReajusteListPage() {
         moduleTitle="Reajustes"
         appliedFilters={{
           'Meus Reajustes': showOnlyMyReajustes ? 'Sim' : 'Não',
-          'Total na lista': finalFilteredItems.length
+          'Total na lista': itemsForGrid.length
         }}
         columns={[
           { key: 'mes', label: 'Mês' },
@@ -1310,7 +1315,7 @@ function ActionCell({ id, status }: { id: string, status: string }) {
         <DialogTitle>Alterar status</DialogTitle>
         <DialogContent>
           <TextField select label="Novo status" value={newStatus} onChange={(e) => setNewStatus(e.target.value)} sx={{ mt: 1, minWidth: 280 }}>
-            {['Ativo','Inativo','Pendente','Transf. Analista','Aprovado','Rejeitado'].map(s => (
+            {['Pendente','Em Andamento','Transf. Analista','Concluído Parcialmente','Concluído','Cancelado'].map(s => (
               <MenuItem key={s} value={s}>{s}</MenuItem>
             ))}
           </TextField>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ChangeEvent, type FocusEvent } from 'react'
 import {
   Box,
   Button,
@@ -48,6 +48,84 @@ const COMPLEXIDADES: Complexidade[] = ['baixa', 'media', 'alta']
 
 const endpoint = '/produtividade-regras'
 
+/** Campos numéricos do formulário (texto livre com formatação pt-BR). */
+type NumFieldKey =
+  | 'slaHours'
+  | 'qtdSistemas'
+  | 'qtdUsuarios'
+  | 'qtdClientes'
+  | 'qtdRetornos'
+  | 'tempoPrevistoMin'
+  | 'pesoPontos'
+
+/** Interpreta valor digitado em pt-BR (milhar `.` e decimal `,`). */
+function parsePtBrNumber(raw: string | undefined): number | null {
+  if (raw == null) return null
+  const s = raw.trim().replace(/\s/g, '')
+  if (!s) return null
+  const normalized = s.includes(',') ? s.replace(/\./g, '').replace(',', '.') : s.replace(/\./g, '')
+  const n = Number(normalized)
+  return Number.isFinite(n) ? n : null
+}
+
+function formatIntPtBr(value: number | null | undefined): string {
+  if (value == null || Number.isNaN(Number(value))) return ''
+  return new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 }).format(Number(value))
+}
+
+function formatDec2PtBr(value: number | null | undefined): string {
+  if (value == null || Number.isNaN(Number(value))) return ''
+  return new Intl.NumberFormat('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number(value))
+}
+
+function emptyNumDraft(): Record<NumFieldKey, string> {
+  return {
+    slaHours: '',
+    qtdSistemas: '',
+    qtdUsuarios: '',
+    qtdClientes: '',
+    qtdRetornos: '',
+    tempoPrevistoMin: '',
+    pesoPontos: '',
+  }
+}
+
+function numDraftFromRule(f: Partial<ProdutividadeRule>): Record<NumFieldKey, string> {
+  return {
+    slaHours: formatIntPtBr(f.slaHours ?? null),
+    qtdSistemas: formatIntPtBr(f.qtdSistemas ?? null),
+    qtdUsuarios: formatIntPtBr(f.qtdUsuarios ?? null),
+    qtdClientes: formatIntPtBr(f.qtdClientes ?? null),
+    qtdRetornos: formatIntPtBr(f.qtdRetornos ?? null),
+    tempoPrevistoMin: formatDec2PtBr(f.tempoPrevistoMin ?? null),
+    pesoPontos: formatDec2PtBr(f.pesoPontos ?? null),
+  }
+}
+
+function applyNumDraftToForm(
+  f: Partial<ProdutividadeRule>,
+  draft: Record<NumFieldKey, string>
+): Partial<ProdutividadeRule> {
+  const intVal = (s: string) => {
+    const n = parsePtBrNumber(s)
+    return n == null ? null : Math.round(n)
+  }
+  const decVal = (s: string) => parsePtBrNumber(s)
+  return {
+    ...f,
+    slaHours: intVal(draft.slaHours),
+    qtdSistemas: intVal(draft.qtdSistemas),
+    qtdUsuarios: intVal(draft.qtdUsuarios),
+    qtdClientes: intVal(draft.qtdClientes),
+    qtdRetornos: intVal(draft.qtdRetornos),
+    tempoPrevistoMin: decVal(draft.tempoPrevistoMin),
+    pesoPontos: decVal(draft.pesoPontos),
+  }
+}
+
 export default function DadosProdutividadePage() {
   const store = useMasterDataStore()
   const [rows, setRows] = useState<ProdutividadeRule[]>([])
@@ -59,6 +137,7 @@ export default function DadosProdutividadePage() {
     pageKey: 'demandas',
     ativo: true,
   })
+  const [numDraft, setNumDraft] = useState<Record<NumFieldKey, string>>(emptyNumDraft)
 
   const columns = useMemo<GridColDef[]>(
     () => [
@@ -82,13 +161,13 @@ export default function DadosProdutividadePage() {
             : '—',
       },
       { field: 'complexidade', headerName: 'Complexidade', width: 140 },
-      { field: 'slaHours', headerName: 'SLA (h)', width: 110 },
-      { field: 'qtdSistemas', headerName: 'Sistemas', width: 110 },
-      { field: 'qtdUsuarios', headerName: 'Usuários', width: 110 },
-      { field: 'qtdClientes', headerName: 'Clientes', width: 110 },
-      { field: 'qtdRetornos', headerName: 'Retornos', width: 110 },
-      { field: 'tempoPrevistoMin', headerName: 'Previsto (min)', width: 130 },
-      { field: 'pesoPontos', headerName: 'Peso', width: 90 },
+      { field: 'slaHours', headerName: 'SLA (h)', width: 110, valueFormatter: (v) => (v != null ? formatIntPtBr(Number(v)) : '—') },
+      { field: 'qtdSistemas', headerName: 'Sistemas', width: 110, valueFormatter: (v) => (v != null ? formatIntPtBr(Number(v)) : '—') },
+      { field: 'qtdUsuarios', headerName: 'Usuários', width: 110, valueFormatter: (v) => (v != null ? formatIntPtBr(Number(v)) : '—') },
+      { field: 'qtdClientes', headerName: 'Clientes', width: 110, valueFormatter: (v) => (v != null ? formatIntPtBr(Number(v)) : '—') },
+      { field: 'qtdRetornos', headerName: 'Retornos', width: 110, valueFormatter: (v) => (v != null ? formatIntPtBr(Number(v)) : '—') },
+      { field: 'tempoPrevistoMin', headerName: 'Previsto (min)', width: 130, valueFormatter: (v) => (v != null ? formatDec2PtBr(Number(v)) : '—') },
+      { field: 'pesoPontos', headerName: 'Peso', width: 90, valueFormatter: (v) => (v != null ? formatDec2PtBr(Number(v)) : '—') },
       {
         field: 'ativo',
         headerName: 'Ativo',
@@ -155,34 +234,54 @@ export default function DadosProdutividadePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  useEffect(() => {
+    if (!open) {
+      setNumDraft(emptyNumDraft())
+      return
+    }
+    setNumDraft(numDraftFromRule(form))
+  }, [
+    open,
+    form.id,
+    form.slaHours,
+    form.qtdSistemas,
+    form.qtdUsuarios,
+    form.qtdClientes,
+    form.qtdRetornos,
+    form.tempoPrevistoMin,
+    form.pesoPontos,
+  ])
+
   const handleSave = async () => {
     setLoading(true)
     setError(null)
     try {
       const api = getApi()
+      const merged = applyNumDraftToForm(form, numDraft)
       const payload = {
-        pageKey: form.pageKey,
-        tipoServicoId: form.tipoServicoId || null,
-        tipoDemandaId: form.tipoDemandaId || null,
-        qtdSistemas: form.qtdSistemas ?? null,
-        qtdUsuarios: form.qtdUsuarios ?? null,
-        qtdClientes: form.qtdClientes ?? null,
-        qtdRetornos: form.qtdRetornos ?? null,
-        complexidade: form.complexidade ?? null,
-        slaHours: form.slaHours ?? null,
-        tempoPrevistoMin: form.tempoPrevistoMin ?? null,
-        pesoPontos: form.pesoPontos ?? null,
-        ativo: form.ativo !== false,
+        pageKey: merged.pageKey,
+        tipoServicoId: merged.tipoServicoId || null,
+        tipoDemandaId: merged.tipoDemandaId || null,
+        qtdSistemas: merged.qtdSistemas ?? null,
+        qtdUsuarios: merged.qtdUsuarios ?? null,
+        qtdClientes: merged.qtdClientes ?? null,
+        qtdRetornos: merged.qtdRetornos ?? null,
+        complexidade: merged.complexidade ?? null,
+        slaHours: merged.slaHours ?? null,
+        tempoPrevistoMin: merged.tempoPrevistoMin ?? null,
+        pesoPontos: merged.pesoPontos ?? null,
+        ativo: merged.ativo !== false,
       }
 
-      if (form.id) {
-        await api.put(`${endpoint}/${form.id}`, payload)
+      if (merged.id) {
+        await api.put(`${endpoint}/${merged.id}`, payload)
       } else {
         await api.post(endpoint, payload)
       }
 
       setOpen(false)
       setForm({ pageKey: 'demandas', ativo: true })
+      setNumDraft(emptyNumDraft())
       await fetchRows()
     } catch (e: any) {
       setError(e?.message ?? 'Erro ao salvar regra')
@@ -203,6 +302,36 @@ export default function DadosProdutividadePage() {
       setError(e?.message ?? 'Erro ao excluir regra')
     } finally {
       setLoading(false)
+    }
+  }
+
+  type IntNumKey = Exclude<NumFieldKey, 'tempoPrevistoMin' | 'pesoPontos'>
+
+  function bindIntField(key: IntNumKey) {
+    return {
+      value: numDraft[key],
+      onChange: (e: ChangeEvent<HTMLInputElement>) =>
+        setNumDraft((d) => ({ ...d, [key]: e.target.value })),
+      onBlur: (e: FocusEvent<HTMLInputElement>) => {
+        const n = parsePtBrNumber(e.target.value)
+        const display = n == null ? '' : formatIntPtBr(Math.round(n))
+        setNumDraft((d) => ({ ...d, [key]: display }))
+        setForm((f) => ({ ...f, [key]: n == null ? null : Math.round(n) }))
+      },
+    }
+  }
+
+  function bindDec2Field(key: 'tempoPrevistoMin' | 'pesoPontos') {
+    return {
+      value: numDraft[key],
+      onChange: (e: ChangeEvent<HTMLInputElement>) =>
+        setNumDraft((d) => ({ ...d, [key]: e.target.value })),
+      onBlur: (e: FocusEvent<HTMLInputElement>) => {
+        const n = parsePtBrNumber(e.target.value)
+        const display = n == null ? '' : formatDec2PtBr(n)
+        setNumDraft((d) => ({ ...d, [key]: display }))
+        setForm((f) => ({ ...f, [key]: n == null ? null : n }))
+      },
     }
   }
 
@@ -327,70 +456,65 @@ export default function DadosProdutividadePage() {
 
               <TextField
                 fullWidth
-                type="number"
                 label="SLA (horas)"
-                value={form.slaHours ?? ''}
-                onChange={(e) => setForm((p) => ({ ...p, slaHours: e.target.value === '' ? null : Number(e.target.value) }))}
+                placeholder="ex.: 24 ou 1.000"
+                helperText="Ao sair do campo: separador de milhar (.) e valor inteiro."
+                inputProps={{ inputMode: 'decimal' }}
+                {...bindIntField('slaHours')}
               />
             </Stack>
 
             <Stack direction={{ xs: 'column', md: 'row' }} gap={2}>
               <TextField
                 fullWidth
-                type="number"
                 label="Qtd. sistemas"
-                value={form.qtdSistemas ?? ''}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, qtdSistemas: e.target.value === '' ? null : Number(e.target.value) }))
-                }
+                placeholder="ex.: 10 ou 1.500"
+                helperText="Milhar com ponto; inteiro ao sair do campo."
+                inputProps={{ inputMode: 'numeric' }}
+                {...bindIntField('qtdSistemas')}
               />
               <TextField
                 fullWidth
-                type="number"
                 label="Qtd. usuários"
-                value={form.qtdUsuarios ?? ''}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, qtdUsuarios: e.target.value === '' ? null : Number(e.target.value) }))
-                }
+                placeholder="ex.: 10 ou 1.500"
+                helperText="Milhar com ponto; inteiro ao sair do campo."
+                inputProps={{ inputMode: 'numeric' }}
+                {...bindIntField('qtdUsuarios')}
               />
               <TextField
                 fullWidth
-                type="number"
                 label="Qtd. clientes"
-                value={form.qtdClientes ?? ''}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, qtdClientes: e.target.value === '' ? null : Number(e.target.value) }))
-                }
+                placeholder="ex.: 10 ou 1.500"
+                helperText="Milhar com ponto; inteiro ao sair do campo."
+                inputProps={{ inputMode: 'numeric' }}
+                {...bindIntField('qtdClientes')}
               />
               <TextField
                 fullWidth
-                type="number"
                 label="Qtd. retornos"
-                value={form.qtdRetornos ?? ''}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, qtdRetornos: e.target.value === '' ? null : Number(e.target.value) }))
-                }
+                placeholder="ex.: 10 ou 1.500"
+                helperText="Milhar com ponto; inteiro ao sair do campo."
+                inputProps={{ inputMode: 'numeric' }}
+                {...bindIntField('qtdRetornos')}
               />
             </Stack>
 
             <Stack direction={{ xs: 'column', md: 'row' }} gap={2}>
               <TextField
                 fullWidth
-                type="number"
                 label="Tempo previsto (min)"
-                value={form.tempoPrevistoMin ?? ''}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, tempoPrevistoMin: e.target.value === '' ? null : Number(e.target.value) }))
-                }
+                placeholder="ex.: 90 ou 1.234,50"
+                helperText="Ao sair: vírgula decimal e duas casas (ex.: 10,00)."
+                inputProps={{ inputMode: 'decimal' }}
+                {...bindDec2Field('tempoPrevistoMin')}
               />
               <TextField
                 fullWidth
-                type="number"
                 label="Peso (pontos)"
-                value={form.pesoPontos ?? ''}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, pesoPontos: e.target.value === '' ? null : Number(e.target.value) }))
-                }
+                placeholder="ex.: 1,25 ou 10,00"
+                helperText="Ao sair: vírgula decimal e duas casas (ex.: 10,00)."
+                inputProps={{ inputMode: 'decimal' }}
+                {...bindDec2Field('pesoPontos')}
               />
             </Stack>
           </Stack>

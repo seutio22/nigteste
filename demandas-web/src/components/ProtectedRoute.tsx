@@ -5,6 +5,7 @@ import { Lock as LockIcon } from '@mui/icons-material'
 import { useAuthStore } from '../store/authStore'
 import { getUserPermissions, checkPermission } from '../utils/defaultPermissions'
 import type { SystemPermissions } from '../types/permissions'
+import { logDev } from '../utils/logger'
 
 interface ProtectedRouteProps {
   children: React.ReactNode
@@ -39,8 +40,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   // Verifica se tem permissão para acessar
   const hasAccess = checkPermission(userPermissions, module, action)
   
-  // Log para debug (remover em produção)
-  console.log(`🔐 ProtectedRoute: ${module}.${action} = ${hasAccess ? '✅' : '❌'} (${user.role})`)
+  logDev(`🔐 ProtectedRoute: ${module}.${action} = ${hasAccess ? '✅' : '❌'}`)
   
   // Se não tem permissão, mostra tela de acesso negado
   if (!hasAccess) {

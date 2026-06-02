@@ -1,26 +1,30 @@
 import { useNotificationStore } from '../store/notificationStore'
 import type { KanbanTicket } from '../store/kanbanStore'
-import { businessDaysFromTomorrowToDueInclusive, parseLocalDateFromYmd } from './kanbanDates'
+import {
+  activeCategoryForTicket,
+  alertsForKanbanTicket,
+  isKanbanDeadlineCategory,
+} from './kanbanDeadlineRules'
+import { parseLocalDateFromYmd } from './kanbanDates'
 
 export type KanbanDeadlineCheckResult = {
   overdueTitles: string[]
 }
 
-/** Categorias antigas (antes da regra só 3 úteis / 1 útil / vencido) — removidas do centro de notificações. */
-const DEPRECATED_KANBAN_CATS = new Set([
-  'kanban-due-today',
-  'kanban-due-tomorrow',
-  'kanban-due-soon',
-  'kanban-prazo-registrado',
-])
+export type KanbanDeadlineCheckOptions = {
+  /** false = só alerta no quadro + limpeza; notificações vêm do hook useDeadlineNotifications (API) */
+  syncToNotificationCenter?: boolean
+}
 
 /**
- * Notificações do Kanban: apenas
- * - 3 dias úteis antes do vencimento
- * - 1 dia útil antes do vencimento
- * - vencido (data de vencimento antes de hoje)
+ * Verifica prazos: alerta amarelo no quadro + limpeza de notificações obsoletas.
+ * Inclusão no sino é feita pela API (/notifications/kanban-deadlines) com as mesmas regras.
  */
-export function runKanbanDeadlineChecks(tickets: KanbanTicket[]): KanbanDeadlineCheckResult {
+export function runKanbanDeadlineChecks(
+  tickets: KanbanTicket[],
+  options?: KanbanDeadlineCheckOptions
+): KanbanDeadlineCheckResult {
+  const syncToNotificationCenter = options?.syncToNotificationCenter === true
   const { notifications, add, remove } = useNotificationStore.getState()
 
   const today = new Date()
@@ -31,61 +35,22 @@ export function runKanbanDeadlineChecks(tickets: KanbanTicket[]): KanbanDeadline
   const hasCat = (taskId: string, cat: string) =>
     notifications.some((n) => n.dados?.kanbanTicketId === taskId && n.dados?.categoria === cat)
 
-  // Limpar notificações de regras antigas
-  ;[...notifications].forEach((n) => {
-    const cat = n.dados?.categoria
-    if (cat && DEPRECATED_KANBAN_CATS.has(cat)) {
-      remove(n.id)
-    }
-  })
-
   for (const task of tickets) {
-    if (!task.dueDate || task.status === 'done') continue
-
-    const due = parseLocalDateFromYmd(task.dueDate)
-    if (!due) continue
-
-    const dateLabel = due.toLocaleDateString('pt-BR')
-    const bd = businessDaysFromTomorrowToDueInclusive(todayStart, due)
-
-    if (bd < 0) {
+    const alerts = alertsForKanbanTicket(task, todayStart)
+    if (alerts.some((a) => a.dados.categoria === 'kanban-overdue')) {
       overdueTitles.push(task.title)
-      if (!hasCat(task.id, 'kanban-overdue')) {
-        add({
-          titulo: 'Tarefa vencida',
-          mensagem: `A tarefa "${task.title}" está vencida (prazo ${dateLabel}).`,
-          tipo: 'sistema',
-          prioridade: 'urgente',
-          dados: { categoria: 'kanban-overdue', kanbanTicketId: task.id },
-          dedupeKey: `kanban-overdue-${task.id}`,
-        })
-      }
-      continue
     }
-
-    if (bd === 3) {
-      if (!hasCat(task.id, 'kanban-3bd')) {
+    if (!syncToNotificationCenter) continue
+    for (const alert of alerts) {
+      const cat = alert.dados.categoria
+      if (!hasCat(task.id, cat)) {
         add({
-          titulo: 'Prazo: 3 dias úteis',
-          mensagem: `A tarefa "${task.title}" vence em 3 dias úteis (${dateLabel}).`,
+          titulo: alert.titulo,
+          mensagem: alert.mensagem,
           tipo: 'sistema',
-          prioridade: 'media',
-          dados: { categoria: 'kanban-3bd', kanbanTicketId: task.id },
-          dedupeKey: `kanban-3bd-${task.id}`,
-        })
-      }
-      continue
-    }
-
-    if (bd === 1) {
-      if (!hasCat(task.id, 'kanban-1bd')) {
-        add({
-          titulo: 'Prazo: 1 dia útil',
-          mensagem: `A tarefa "${task.title}" vence em 1 dia útil (${dateLabel}).`,
-          tipo: 'sistema',
-          prioridade: 'alta',
-          dados: { categoria: 'kanban-1bd', kanbanTicketId: task.id },
-          dedupeKey: `kanban-1bd-${task.id}`,
+          prioridade: alert.prioridade,
+          dados: alert.dados,
+          dedupeKey: alert.dedupeKey,
         })
       }
     }
@@ -93,26 +58,19 @@ export function runKanbanDeadlineChecks(tickets: KanbanTicket[]): KanbanDeadline
 
   const finalNotes = useNotificationStore.getState().notifications
 
-  // Remover notificações kanban de tarefas concluídas ou fora da janela (ex.: já passou de “3 úteis”)
   ;[...finalNotes].forEach((notification) => {
     const cat = notification.dados?.categoria
     const tid = notification.dados?.kanbanTicketId
-    if (!cat?.startsWith('kanban-') || !tid) return
+    if (!isKanbanDeadlineCategory(cat) || !tid) return
 
     const task = tickets.find((t) => t.id === tid)
-    if (task?.status === 'done') {
+    if (!task || task.status === 'done') {
       remove(notification.id)
       return
     }
 
-    if (!task?.dueDate) return
-    const dueD = parseLocalDateFromYmd(task.dueDate)
-    if (!dueD) return
-    const bdNow = businessDaysFromTomorrowToDueInclusive(todayStart, dueD)
-
-    if (cat === 'kanban-3bd' && bdNow !== 3) remove(notification.id)
-    if (cat === 'kanban-1bd' && bdNow !== 1) remove(notification.id)
-    if (cat === 'kanban-overdue' && bdNow >= 0) remove(notification.id)
+    const active = activeCategoryForTicket(task, todayStart)
+    if (active !== cat) remove(notification.id)
   })
 
   return { overdueTitles }

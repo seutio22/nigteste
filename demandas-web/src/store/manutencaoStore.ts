@@ -2,7 +2,13 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 // Removido import de Demand - usando tipo genérico
 import type { TimelineEvent } from '../types/timeline'
+import { createSafePersistStorage, removeLocalStorageByPrefix } from '../lib/safePersistStorage'
 import { useMasterDataStore } from './masterDataStore'
+import { shouldSkipStoreSync } from '../utils/syncCooldown'
+
+export function clearManutencaoLocalCache(): void {
+  removeLocalStorageByPrefix('manutencoes-v')
+}
 
 interface ManutencaoState {
   items: any[]
@@ -93,8 +99,10 @@ export const useManutencaoStore = create<ManutencaoState>()(
             // Manter os IDs originais para edição
             clienteId: payload.clienteId,
             contratoId: payload.contratoId,
-            operadoraId: payload.operadoraId,
-            produtoId: payload.produtoId,
+            contratosIds: (createdManutencao as any)?.contratosIds ?? payload.contratosIds,
+            contratosVinculos: (createdManutencao as any)?.contratosVinculos ?? payload.contratosVinculos,
+            operadoraId: (createdManutencao as any)?.operadoraId ?? payload.operadoraId,
+            produtoId: (createdManutencao as any)?.produtoId ?? payload.produtoId,
             sistemaId: (createdManutencao as any)?.sistemaId ?? payload.sistemaId,
             sistemasIds: (createdManutencao as any)?.sistemasIds ?? payload.sistemasIds,
             sistemasTotais: (createdManutencao as any)?.sistemasTotais ?? payload.sistemasTotais,
@@ -340,11 +348,12 @@ export const useManutencaoStore = create<ManutencaoState>()(
           return
         }
         const now = Date.now()
-        if (!force && now - state.lastSync < 2 * 60 * 1000) {
+        if (shouldSkipStoreSync(state.lastSync, state.items.length, force)) {
           return
         }
         
         try {
+          clearManutencaoLocalCache()
           set({ isLoading: true })
           
           // Importar API dinamicamente
@@ -374,6 +383,8 @@ export const useManutencaoStore = create<ManutencaoState>()(
             // IDs para edição
             clienteId: m.clienteId,
             contratoId: m.contratoId,
+            contratosIds: m.contratosIds,
+            contratosVinculos: m.contratosVinculos,
             operadoraId: m.operadoraId,
             produtoId: m.produtoId,
             sistemaId: m.sistemaId,
@@ -459,10 +470,18 @@ export const useManutencaoStore = create<ManutencaoState>()(
     }),
     {
       name: 'manutencoes-v1',
-      partialize: (state) => ({
-        items: state.items,
-        timeline: state.timeline,
+      partialize: (state) => ({ lastSync: state.lastSync }),
+      storage: createSafePersistStorage<ManutencaoState>('manutencoes-v1', {
+        onQuotaExceeded: clearManutencaoLocalCache,
       }),
+      onRehydrateStorage: () => () => {
+        queueMicrotask(() => {
+          const s = useManutencaoStore.getState()
+          if (s.items.length === 0 && !s.isLoading) {
+            void s.syncFromApi()
+          }
+        })
+      },
     }
   )
 )

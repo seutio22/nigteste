@@ -42,7 +42,10 @@ export function AsyncContratoAutocomplete({
   const [searchSupported, setSearchSupported] = useState(false)
   const debounceRef = useRef<number | undefined>(undefined)
 
-  const selected = options.find((opt) => opt.id === valueId) || null
+  const selectedFromOptions = options.find((opt) => opt.id === valueId)
+  const selected: ContratoOption | null =
+    selectedFromOptions ||
+    (valueId ? { id: valueId, codigo: valueId, numero: valueId } : null)
 
   useEffect(() => {
     if (!valueId) return
@@ -91,7 +94,8 @@ export function AsyncContratoAutocomplete({
     if (disabled) return
     const term = inputValue.trim()
     if (term.length < 2) {
-      if (!searchSupported) {
+      // Não esvaziar opções quando já há contrato selecionado — evita Autocomplete limpar o valueId
+      if (!searchSupported && !valueId) {
         setOptions([])
       }
       return
@@ -135,7 +139,7 @@ export function AsyncContratoAutocomplete({
         clearTimeout(debounceRef.current)
       }
     }
-  }, [inputValue, limit, disabled, clienteId, grupoEconomico, searchSupported])
+  }, [inputValue, limit, disabled, clienteId, grupoEconomico, searchSupported, valueId])
 
   useEffect(() => {
     if (disabled) return
@@ -156,6 +160,7 @@ export function AsyncContratoAutocomplete({
   return (
     <Autocomplete
       options={options}
+      disableClearable={!!valueId}
       getOptionLabel={labelForOption}
       isOptionEqualToValue={(option, value) => option.id === value?.id}
       value={selected}

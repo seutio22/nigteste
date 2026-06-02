@@ -1,5 +1,17 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+
+/** Remove cache legado que estourava a cota do localStorage (tickets duplicados). */
+export function clearKanbanLocalCache(): void {
+  try {
+    localStorage.removeItem('kanban-store-v1')
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i)
+      if (key && key.startsWith('kanban-store')) localStorage.removeItem(key)
+    }
+  } catch {
+    /* ignore */
+  }
+}
 
 /** A API devolve `tags` como string; o front usa `string[]` no estado. */
 function normalizeTagsFromApi(tags: unknown): string[] {
@@ -98,9 +110,7 @@ interface KanbanState {
   clearError: () => void
 }
 
-export const useKanbanStore = create<KanbanState>()(
-  persist(
-    (set, get) => {
+export const useKanbanStore = create<KanbanState>()((set, get) => {
       return {
         tickets: [],
         columns: KANBAN_COLUMNS,
@@ -290,9 +300,7 @@ export const useKanbanStore = create<KanbanState>()(
           }
           
           // SEMPRE filtrar por tickets do usuário logado (tickets privados)
-          const filtered = tickets.filter(ticket => ticket.assignee === userId)
-          console.log(`🔍 KanbanStore: Filtrando tickets para usuário ${userId}: ${filtered.length} de ${tickets.length} tickets`)
-          return filtered
+          return tickets.filter(ticket => ticket.assignee === userId)
         },
         
         getFilteredColumnsWithTickets: (userRole?: string, userId?: string, viewOwnDataOnly?: boolean) => {
@@ -352,10 +360,4 @@ export const useKanbanStore = create<KanbanState>()(
         
         clearError: () => set({ error: null })
       }
-    },
-    {
-      name: 'kanban-store-v1',
-      version: 1
-    }
-  )
-)
+})

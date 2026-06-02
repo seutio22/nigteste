@@ -10,9 +10,15 @@ import { useAuthStore } from '../../store/authStore'
 import { api } from '../../lib/api.local'
 import { createPerfLogger } from '../../utils/perf'
 import { AsyncClienteAutocomplete, type ClienteOption } from '../../components/AsyncClienteAutocomplete'
-import { AsyncContratoAutocomplete } from '../../components/AsyncContratoAutocomplete'
 import { PrimaryActionButton } from '../../components/PrimaryActionButton'
 import { qualidadeFromQtdRetornos } from '../../utils/qualidadeRetornos'
+import { ManutencaoContratosVinculosSection } from '../../components/ManutencaoContratosVinculosSection'
+import {
+  contratosVinculosToApi,
+  deriveContratosIds,
+  emptyContratoVinculoRow,
+  type ContratoVinculoRow,
+} from '../../utils/manutencaoContratos'
 
 const schema = z.object({
   // Campos obrigatórios - igual à página de cadastro
@@ -29,9 +35,6 @@ const schema = z.object({
   solicitante: z.string().optional(),
   area: z.string().optional(),
   cliente: z.string().optional(),
-  contrato: z.string().optional(),
-  operadora: z.string().optional(),
-  produto: z.string().optional(),
   sistemasIds: z.array(z.string()).optional(),
   sistemasTotais: z.record(z.coerce.number().min(0, 'Deve ser um número positivo')).optional(),
   qtdRetornos: z.coerce.number().min(0).optional(),
@@ -43,7 +46,7 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>
 
 const listas = {
-  status: ['Aberta', 'Em andamento', 'Transf. Analista', 'Aguardando validação', 'Com erros', 'Concluída', 'Cancelada'],
+  status: ['Aberta', 'Em andamento', 'Transf. Analista', 'Aguardando validação', 'Com erros', 'Concluído Parcialmente', 'Concluída', 'Cancelada'],
   qualidade: [
     { value: '0', label: '0 - RUIM - MAIS DE 3 RETORNOS; ITENS INCOMPLETOS, SEM RETORNO' },
     { value: '1', label: '1 - MEDIANO - NO MÁX 2 RETORNOS' },
@@ -72,9 +75,6 @@ export default function ManutencaoNewPage() {
       solicitante: '',
       area: '',
       cliente: '',
-      contrato: '',
-      operadora: '',
-      produto: '',
       sistemasIds: [],
       sistemasTotais: {},
       qtdRetornos: 0,
@@ -90,6 +90,7 @@ export default function ManutencaoNewPage() {
   const { user } = useAuthStore()
   const selectedClienteId = useWatch({ control, name: 'cliente' })
   const [selectedCliente, setSelectedCliente] = useState<ClienteOption | null>(null)
+  const [contratosVinculosRows, setContratosVinculosRows] = useState<ContratoVinculoRow[]>([emptyContratoVinculoRow()])
   
   const selectedTipoServicoId = useWatch({ control, name: 'tipoServico' })
   const selectedTipoId = useWatch({ control, name: 'tipo' })
@@ -102,6 +103,14 @@ export default function ManutencaoNewPage() {
     if (code === undefined) return '—'
     return listas.qualidade.find((q) => q.value === code)?.label ?? `Código ${code}`
   }, [watchedQtdRetornos])
+
+  const contratosDoCliente = useMemo(() => {
+    if (!selectedClienteId) return []
+    const grupo = selectedCliente?.grupoEconomico
+    return md.contratos.filter(
+      (c) => c.clienteId === selectedClienteId || (grupo && c.grupoEconomico === grupo)
+    )
+  }, [md.contratos, selectedCliente?.grupoEconomico, selectedClienteId])
 
   const selectedSistemas = useMemo(() => {
     const ids = Array.isArray(watchedSistemasIds) ? watchedSistemasIds : []
@@ -281,10 +290,7 @@ export default function ManutencaoNewPage() {
         tipoServico: emptyToNull(data.tipoServico),
         tipo: emptyToNull(data.tipo),
         cliente: emptyToNull(data.cliente),
-        contrato: emptyToNull(data.contrato),
         area: emptyToNull(data.area),
-        operadora: emptyToNull(data.operadora),
-        produto: emptyToNull(data.produto),
         sistemasIds: Array.isArray(data.sistemasIds) ? data.sistemasIds.filter(Boolean) : [],
         sistemasTotais: (data.sistemasTotais && typeof data.sistemasTotais === 'object') ? data.sistemasTotais : {}
       }
@@ -318,9 +324,15 @@ export default function ManutencaoNewPage() {
       if (sanitizedData.tipo) storePayload.tipoId = sanitizedData.tipo
       if (sanitizedData.tipoServico) storePayload.tipoServicoId = sanitizedData.tipoServico
       if (sanitizedData.cliente) storePayload.clienteId = sanitizedData.cliente
-      if (sanitizedData.contrato) storePayload.contratoId = sanitizedData.contrato
-      if (sanitizedData.operadora) storePayload.operadoraId = sanitizedData.operadora
-      if (sanitizedData.produto) storePayload.produtoId = sanitizedData.produto
+      const vinculosApi = contratosVinculosToApi(contratosVinculosRows)
+      if (vinculosApi?.length) {
+        storePayload.contratosVinculos = vinculosApi
+        const ids = deriveContratosIds(vinculosApi)
+        storePayload.contratosIds = ids
+        storePayload.contratoId = ids[0]
+        if (vinculosApi[0].operadoraId) storePayload.operadoraId = vinculosApi[0].operadoraId
+        if (vinculosApi[0].produtoId) storePayload.produtoId = vinculosApi[0].produtoId
+      }
       if (sistemaPrincipalId) storePayload.sistemaId = sistemaPrincipalId
       
       try {
@@ -550,7 +562,7 @@ export default function ManutencaoNewPage() {
                       valueId={field.value}
                       onChangeId={(nextId) => {
                         field.onChange(nextId)
-                        setValue('contrato', '')
+                        setContratosVinculosRows([emptyContratoVinculoRow()])
                       }}
                       label="Cliente"
                       error={!!errors.cliente}
@@ -559,56 +571,16 @@ export default function ManutencaoNewPage() {
                     />
                   )} />
                 </Grid>
-                <Grid item xs={12} sm={6} md={4}>
-                  <Controller name="contrato" control={control} render={({ field }) => (
-                    <AsyncContratoAutocomplete
-                      valueId={field.value}
-                      onChangeId={field.onChange}
-                      label="Contrato"
-                      error={!!errors.contrato}
-                      helperText={errors.contrato?.message}
-                      disabled={!selectedClienteId}
-                      clienteId={selectedClienteId}
-                      grupoEconomico={selectedCliente?.grupoEconomico || null}
-                    />
-                  )} />
-                </Grid>
-                <Grid item xs={12} sm={6} md={4}>
-                  <Controller name="operadora" control={control} render={({ field }) => (
-                    <Autocomplete
-                      options={md.operadoras}
-                      getOptionLabel={(option) => option.nome || ''}
-                      isOptionEqualToValue={(option, value) => option.id === value?.id}
-                      value={md.operadoras.find(o => o.id === field.value) || null}
-                      onChange={(_, newValue) => field.onChange(newValue?.id || '')}
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          label="Operadora"
-                          {...formField}
-                          error={!!errors.operadora}
-                          helperText={errors.operadora?.message || 'Digite para buscar uma operadora'}
-                          placeholder="Digite para buscar..."
-                        />
-                      )}
-                      renderOption={(props, option) => (
-                        <Box component="li" {...props} key={option.id}>
-                          <Typography variant="body1" fontWeight="medium">{option.nome}</Typography>
-                        </Box>
-                      )}
-                      noOptionsText="Nenhuma operadora encontrada"
-                      loading={md.operadoras.length === 0}
-                      loadingText="Carregando operadoras..."
-                    />
-                  )} />
-                </Grid>
-                <Grid item xs={12} sm={6} md={4}>
-                  <Controller name="produto" control={control} render={({ field }) => (
-                    <TextField {...field} select label="Produto" {...formField} error={!!errors.produto} helperText={errors.produto?.message}>
-                      <MenuItem value="">Selecione...</MenuItem>
-                      {md.produtos.map(p => <MenuItem key={p.id} value={p.id}>{p.nome}</MenuItem>)}
-                    </TextField>
-                  )} />
+                <Grid item xs={12}>
+                  <ManutencaoContratosVinculosSection
+                    rows={contratosVinculosRows}
+                    onChange={setContratosVinculosRows}
+                    contratos={contratosDoCliente}
+                    operadoras={md.operadoras}
+                    produtos={md.produtos}
+                    clienteSelected={!!selectedClienteId}
+                    textFieldProps={formField}
+                  />
                 </Grid>
               </Grid>
             </CardContent>

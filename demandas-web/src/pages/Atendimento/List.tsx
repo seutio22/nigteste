@@ -15,6 +15,7 @@ import { usePermissions } from '../../hooks/usePermissions'
 import { PrimaryActionButton } from '../../components/PrimaryActionButton'
 import { formatIntegerPtBR } from '../../utils/formatNumber'
 import { gridCellToDate } from '../../utils/gridDate'
+import { useHomePanoramaListFilters } from '../../utils/homePanoramaListFilters'
 
 const tipoServicoLabel: Record<string, string> = {
   duvida: 'Dúvida',
@@ -131,15 +132,20 @@ export default function AtendimentoListPage() {
     })
   }, [showOnlyMyAtendimentos, atendimentos, analistasById, user?.id, user?.name, user?.role])
 
+  const { itemsForGrid } = useHomePanoramaListFilters(
+    'atendimentos',
+    filteredByUser,
+    setShowOnlyMyAtendimentos
+  )
 
   // Ordenar por data de criação (mais recente primeiro)
   const sortedAtendimentos = useMemo(() => {
-    return [...filteredByUser].sort((a, b) => {
+    return [...itemsForGrid].sort((a, b) => {
       const dateA = new Date(a.createdAt || a.updatedAt || 0)
       const dateB = new Date(b.createdAt || b.updatedAt || 0)
       return dateB.getTime() - dateA.getTime()
     })
-  }, [filteredByUser])
+  }, [itemsForGrid])
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, id: string) => {
     setAnchorEl(event.currentTarget)

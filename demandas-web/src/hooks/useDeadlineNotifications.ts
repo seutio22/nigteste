@@ -20,20 +20,19 @@ export const useDeadlineNotifications = () => {
 
       notifications.forEach((n: any) => {
         const ticketId = n.dados?.kanbanTicketId ?? ''
-        const categoria = n.dados?.categoria ?? 'kanban'
-        const key = `kanban-${categoria}-${ticketId}`
-        if (!localStorage.getItem(key)) {
-          addNotification({
-            titulo: n.titulo,
-            mensagem: n.mensagem,
-            tipo: n.tipo || 'sistema',
-            prioridade: n.prioridade || 'alta',
-            link: n.link,
-            dados: n.dados,
-            dedupeKey: key
-          })
-          localStorage.setItem(key, 'true')
-        }
+        const categoria = n.dados?.categoria ?? ''
+        if (!ticketId || !categoria) return
+        // Mesma chave que kanbanDeadlineNotify (evita duplicata com o quadro Kanban)
+        const dedupeKey = `${categoria}-${ticketId}`
+        addNotification({
+          titulo: n.titulo,
+          mensagem: n.mensagem,
+          tipo: n.tipo || 'sistema',
+          prioridade: n.prioridade || 'alta',
+          link: n.link,
+          dados: n.dados,
+          dedupeKey,
+        })
       })
     } catch (error) {
       console.error('Erro ao verificar notificações Kanban:', error)

@@ -21,8 +21,12 @@ import { convertToWordRoutes } from './routes/convertToWord'
 import { trackUserActivity, trackSessionStart, trackSessionEnd } from './middleware/activityTracker'
 import { PrismaClient } from '@prisma/client'
 import { prisma } from './lib/prisma'
-import { businessDaysFromTomorrowToDueInclusive } from './lib/kanbanBusinessDays'
 import { logCronogramaAudit } from './lib/projectWorkAuditLog'
+import {
+  getCorsStaticOrigins,
+  isAllowedRequestOrigin,
+  resolveAccessControlAllowOrigin,
+} from './lib/corsOrigins'
 
 // Configurar tratamento de sinais para evitar SIGTERM
 process.on('SIGTERM', () => {
@@ -51,36 +55,40 @@ const app = Fastify({
 })
 // Usar singleton do PrismaClient para evitar múltiplas conexões
 
-// CORS deve ser o primeiro plugin para preflight OPTIONS funcionar corretamente
-const allowedOrigins = [
-  'https://nigteste.vercel.app',
-  'https://nigdynamic.vercel.app',
-  'https://nigdynamic.com',
-  'http://localhost:5173',
-  'http://localhost:3000',
-  'http://127.0.0.1:5173',
-  'http://127.0.0.1:3000'
-]
+// CORS: lista em corsOrigins.ts + env FRONTEND_URL, CORS_ORIGINS, CORS_ALLOW_VERCEL_PREVIEWS
+const allowedOrigins = getCorsStaticOrigins()
+if (process.env.NODE_ENV === 'production') {
+  app.log.info(
+    { count: allowedOrigins.length, vercelPreviews: process.env.CORS_ALLOW_VERCEL_PREVIEWS === '1' },
+    'CORS origens estáticas carregadas'
+  )
+}
 // Handler explícito para preflight OPTIONS - garante CORS mesmo se o plugin falhar
 app.addHook('onRequest', async (request, reply) => {
   if ((request as any).method === 'OPTIONS') {
-    const origin = (request as any).headers?.origin
-    const allowOrigin = origin && allowedOrigins.includes(origin) ? origin : allowedOrigins[0]
-    reply.header('Access-Control-Allow-Origin', allowOrigin)
+    const origin = (request as any).headers?.origin as string | undefined
+    const allowOrigin = resolveAccessControlAllowOrigin(origin)
+    if (allowOrigin) {
+      reply.header('Access-Control-Allow-Origin', allowOrigin)
+      reply.header('Access-Control-Allow-Credentials', 'true')
+    }
     reply.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD')
     reply.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Origin, Accept, X-Requested-With, X-Session-ID, x-user-id, x-user-role')
-    reply.header('Access-Control-Allow-Credentials', 'true')
     reply.header('Access-Control-Max-Age', '86400')
     return reply.code(204).send()
   }
 })
 const corsOptions = {
   origin: (origin: string | undefined, cb: (err: Error | null, allow?: boolean | string) => void) => {
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!origin) {
       cb(null, true)
-    } else {
-      cb(null, allowedOrigins[0])
+      return
     }
+    if (isAllowedRequestOrigin(origin)) {
+      cb(null, true)
+      return
+    }
+    cb(null, false)
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
@@ -149,10 +157,12 @@ app.addHook('onSend', async (request, reply, payload) => {
   }
   // Garantir CORS em todas as respostas (erros podem não passar pelo plugin)
   if (!reply.getHeader('Access-Control-Allow-Origin')) {
-    const origin = (request as any).headers?.origin
-    const allowOrigin = origin && allowedOrigins.includes(origin) ? origin : allowedOrigins[0]
-    reply.header('Access-Control-Allow-Origin', allowOrigin)
-    reply.header('Access-Control-Allow-Credentials', 'true')
+    const origin = (request as any).headers?.origin as string | undefined
+    const allowOrigin = resolveAccessControlAllowOrigin(origin)
+    if (allowOrigin) {
+      reply.header('Access-Control-Allow-Origin', allowOrigin)
+      reply.header('Access-Control-Allow-Credentials', 'true')
+    }
   }
   return payload
 })
@@ -1626,23 +1636,43 @@ app.get('/users/validate/:id', async (req: any) => {
 function normalizeReportStatus(value: string | null | undefined): string {
   if (value == null || value === '') return 'Pendente'
   const s = String(value).trim()
-  const padroes = ['Pendente', 'Em andamento', 'Transf. Analista', 'Concluída', 'Entregue', 'Cancelada']
+  const padroes = ['Pendente', 'Em andamento', 'Transf. Analista', 'Concluído Parcialmente', 'Concluída', 'Entregue', 'Cancelada']
   if (padroes.includes(s)) return s
   const key = s.toLowerCase().replace(/\s+/g, ' ')
   const map: Record<string, string> = {
     pendente: 'Pendente', aberta: 'Pendente',
     'em andamento': 'Em andamento', em_andamento: 'Em andamento', emandamento: 'Em andamento',
     'transf. analista': 'Transf. Analista', transf_analista: 'Transf. Analista', transfanalista: 'Transf. Analista',
+    'concluído parcialmente': 'Concluído Parcialmente', 'concluido parcialmente': 'Concluído Parcialmente',
     concluída: 'Concluída', concluida: 'Concluída', concluido: 'Concluída', concluído: 'Concluída',
     entregue: 'Entregue', cancelada: 'Cancelada', cancelado: 'Cancelada'
   }
   if (map[key]) return map[key]
-  if (/concluíd?a?o?/i.test(s)) return 'Concluída'
+  if (/parcialmente/i.test(s)) return 'Concluído Parcialmente'
+  if (/concluíd?a?o?/i.test(s) && !/parcial/i.test(s)) return 'Concluída'
   if (/em\s*andamento|andamento/i.test(s)) return 'Em andamento'
   if (/transf|analista/i.test(s)) return 'Transf. Analista'
   if (/entregue/i.test(s)) return 'Entregue'
   if (/cancelad/i.test(s)) return 'Cancelada'
   return 'Pendente'
+}
+
+/** Mapeia nomes de campo do formulário (cliente, contrato…) para *Id antes de remover aliases. */
+function mapValidacaoFkAliases(data: Record<string, any>) {
+  const aliases: Array<[string, string]> = [
+    ['cliente', 'clienteId'],
+    ['contrato', 'contratoId'],
+    ['operadora', 'operadoraId'],
+    ['produto', 'produtoId'],
+    ['analista', 'analistaId'],
+    ['demanda', 'demandaId'],
+  ]
+  for (const [from, to] of aliases) {
+    if (data[to]) continue
+    const v = data[from]
+    if (v == null || v === '') continue
+    data[to] = typeof v === 'object' && v?.id ? v.id : v
+  }
 }
 
 /**
@@ -1652,6 +1682,7 @@ function normalizeReportStatus(value: string | null | undefined): string {
  */
 async function executeValidacaoUpdate(id: string, body: any) {
   const cleanedData = { ...body }
+  mapValidacaoFkAliases(cleanedData)
 
   Object.keys(cleanedData).forEach((key) => {
     const value = cleanedData[key]
@@ -1713,8 +1744,12 @@ async function executeValidacaoUpdate(id: string, body: any) {
     if (row) {
       updateData[fieldName] = { connect: { id: fkId } }
     } else {
-      console.warn(`⚠️ PUT/validacoes: ${model} "${fkId}" não existe — desvinculando`)
-      updateData[fieldName] = { disconnect: true }
+      const err: any = new Error(
+        `${model === 'contrato' ? 'Contrato' : model === 'cliente' ? 'Cliente' : model === 'operadora' ? 'Operadora' : 'Produto'} com ID "${fkId}" não foi encontrado no banco de dados.`
+      )
+      err.code = model === 'contrato' ? 'CONTRATO_NAO_ENCONTRADO' : 'FK_NAO_ENCONTRADO'
+      err.statusCode = 400
+      throw err
     }
   }
 
@@ -1964,6 +1999,8 @@ function crud(entity: keyof PrismaClient) {
             areaId: true,
             clienteId: true,
             contratoId: true,
+            contratosIds: true,
+            contratosVinculos: true,
             operadoraId: true,
             produtoId: true,
             sistemaId: true,
@@ -3057,6 +3094,62 @@ const validateForeignKeys = {
   }
 };
 
+type ManutencaoContratoVinculoRow = {
+  contratoId: string
+  operadoraId?: string | null
+  produtoId?: string | null
+}
+
+const parseContratosVinculosBody = (raw: unknown): ManutencaoContratoVinculoRow[] | null | undefined => {
+  if (raw === undefined) return undefined
+  if (raw === null) return null
+  if (!Array.isArray(raw)) return undefined
+  const out: ManutencaoContratoVinculoRow[] = []
+  for (const item of raw) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) continue
+    const o = item as Record<string, unknown>
+    const contratoId = o.contratoId != null ? String(o.contratoId).trim() : ''
+    if (!contratoId) continue
+    const operadoraId =
+      o.operadoraId != null && String(o.operadoraId).trim() ? String(o.operadoraId).trim() : null
+    const produtoId = o.produtoId != null && String(o.produtoId).trim() ? String(o.produtoId).trim() : null
+    out.push({ contratoId, operadoraId, produtoId })
+  }
+  return out.length ? out : null
+}
+
+async function applyContratosVinculosManutencao(cleanedData: Record<string, unknown>): Promise<void> {
+  if (!Object.prototype.hasOwnProperty.call(cleanedData, 'contratosVinculos')) return
+  const parsed = parseContratosVinculosBody(cleanedData.contratosVinculos)
+  if (parsed === undefined) return
+  if (parsed === null || parsed.length === 0) {
+    cleanedData.contratosVinculos = null
+    if (!Object.prototype.hasOwnProperty.call(cleanedData, 'contratosIds')) {
+      cleanedData.contratosIds = null
+      cleanedData.contratoId = null
+    }
+    return
+  }
+  const validados: ManutencaoContratoVinculoRow[] = []
+  for (const v of parsed) {
+    const ok = await validateForeignKeys.validateContrato(v.contratoId)
+    if (ok) validados.push(v)
+  }
+  if (!validados.length) {
+    cleanedData.contratosVinculos = null
+    cleanedData.contratosIds = null
+    cleanedData.contratoId = null
+    return
+  }
+  cleanedData.contratosVinculos = validados
+  const ids = [...new Set(validados.map((v) => v.contratoId))]
+  cleanedData.contratosIds = ids
+  cleanedData.contratoId = ids[0]
+  const first = validados[0]
+  cleanedData.operadoraId = first.operadoraId ?? null
+  cleanedData.produtoId = first.produtoId ?? null
+}
+
 const resources = {
          areas: {
            ...crud('area'),
@@ -3788,43 +3881,8 @@ app.get('/notifications/kanban-deadlines', async (req: any, reply: any) => {
       }
     })
 
-    const notifications: any[] = []
-    tickets.forEach((ticket) => {
-      if (!ticket.dueDate) return
-      const dueDate = new Date(ticket.dueDate)
-      const dueCivil = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate())
-      const dateLabel = dueCivil.toLocaleDateString('pt-BR')
-      const bd = businessDaysFromTomorrowToDueInclusive(today, dueCivil)
-
-      if (bd < 0) {
-        notifications.push({
-          titulo: 'Tarefa vencida',
-          mensagem: `A tarefa "${ticket.title}" está vencida (prazo ${dateLabel}).`,
-          tipo: 'sistema',
-          prioridade: 'urgente',
-          dados: { categoria: 'kanban-overdue', kanbanTicketId: ticket.id },
-          link: '/kanban'
-        })
-      } else if (bd === 3) {
-        notifications.push({
-          titulo: 'Prazo: 3 dias úteis',
-          mensagem: `A tarefa "${ticket.title}" vence em 3 dias úteis (${dateLabel}).`,
-          tipo: 'sistema',
-          prioridade: 'media',
-          dados: { categoria: 'kanban-3bd', kanbanTicketId: ticket.id },
-          link: '/kanban'
-        })
-      } else if (bd === 1) {
-        notifications.push({
-          titulo: 'Prazo: 1 dia útil',
-          mensagem: `A tarefa "${ticket.title}" vence em 1 dia útil (${dateLabel}).`,
-          tipo: 'sistema',
-          prioridade: 'alta',
-          dados: { categoria: 'kanban-1bd', kanbanTicketId: ticket.id },
-          link: '/kanban'
-        })
-      }
-    })
+    const { buildKanbanDeadlineNotifications } = await import('./lib/kanbanDeadlineNotifications')
+    const notifications = buildKanbanDeadlineNotifications(tickets, today)
 
     return reply.send({ notifications, count: notifications.length })
   } catch (error) {
@@ -4724,19 +4782,49 @@ for (const [path, repo] of Object.entries(resources)) {
           }
         }
         
-        // Validar contratoId se fornecido
-        if (cleanedData.contratoId) {
-          try {
-            const contratoValido = await validateForeignKeys.validateContrato(cleanedData.contratoId);
-            if (!contratoValido) {
-              console.warn(`⚠️ POST /manutencoes: Removendo contratoId inválido: ${cleanedData.contratoId}`);
-              delete cleanedData.contratoId;
-            }
-          } catch (error) {
-            console.error(`❌ POST /manutencoes: Erro ao validar contrato:`, error)
+        const normalizeManutencaoIdsJson = (raw: unknown): string[] | undefined => {
+          if (raw == null) return undefined
+          if (Array.isArray(raw)) {
+            const u = [...new Set(raw.filter((x): x is string => typeof x === 'string' && String(x).trim() !== ''))]
+            return u.length ? u : undefined
           }
+          if (typeof raw === 'string') {
+            try {
+              const j = JSON.parse(raw)
+              if (Array.isArray(j)) return normalizeManutencaoIdsJson(j)
+            } catch {
+              /* ignore */
+            }
+          }
+          return undefined
         }
-        
+
+        await applyContratosVinculosManutencao(cleanedData)
+
+        let contratosIds = normalizeManutencaoIdsJson(cleanedData.contratosIds)
+        if (!contratosIds?.length && cleanedData.contratoId) contratosIds = [String(cleanedData.contratoId)]
+        if (contratosIds?.length) {
+          const validados: string[] = []
+          for (const cid of contratosIds) {
+            try {
+              const ok = await validateForeignKeys.validateContrato(cid)
+              if (ok) validados.push(cid)
+              else console.warn(`⚠️ POST /manutencoes: Contrato inválido ignorado: ${cid}`)
+            } catch (error) {
+              console.error(`❌ POST /manutencoes: Erro ao validar contrato ${cid}:`, error)
+            }
+          }
+          if (validados.length) {
+            cleanedData.contratosIds = validados
+            cleanedData.contratoId = validados[0]
+          } else {
+            delete cleanedData.contratosIds
+            delete cleanedData.contratoId
+          }
+        } else {
+          delete cleanedData.contratosIds
+        }
+
         const created = await repo.create(cleanedData)
         console.log(`✅ POST /${path}: Criado com sucesso:`, created.id)
         res.code(201)
@@ -4793,6 +4881,7 @@ for (const [path, repo] of Object.entries(resources)) {
       } else if (path === 'validacoes') {
         // Tratamento especial para validações
         const cleanedData = { ...req.body }
+        mapValidacaoFkAliases(cleanedData)
         
         console.log(`🔍 POST /validacoes: Dados originais recebidos:`, JSON.stringify(req.body, null, 2))
         
@@ -4943,10 +5032,22 @@ for (const [path, repo] of Object.entries(resources)) {
               createData.contrato = { connect: { id: dataWithDates.contratoId } }
               console.log(`✅ POST /validacoes: Contrato conectado: ${contratoExiste.numero}`)
             } else {
-              console.warn(`⚠️ POST /validacoes: Contrato ID "${dataWithDates.contratoId}" não encontrado, ignorando`)
+              console.error(`❌ POST /validacoes: Contrato ID "${dataWithDates.contratoId}" NÃO EXISTE no banco!`)
+              res.code(400)
+              return {
+                error: 'Contrato inválido',
+                message: `Contrato com ID "${dataWithDates.contratoId}" não foi encontrado no banco de dados.`,
+                code: 'CONTRATO_NAO_ENCONTRADO',
+              }
             }
           } catch (error) {
             console.error(`❌ POST /validacoes: Erro ao verificar contrato:`, error)
+            res.code(500)
+            return {
+              error: 'Erro interno',
+              message: `Erro ao verificar contrato: ${error}`,
+              code: 'INTERNAL_ERROR',
+            }
           }
           delete createData.contratoId
         }
@@ -4992,7 +5093,15 @@ for (const [path, repo] of Object.entries(resources)) {
         }
 
         const created = await prisma.validacao.create({
-          data: createData
+          data: createData,
+          include: {
+            cliente: { select: { id: true, nome: true } },
+            contrato: { select: { id: true, codigo: true, numero: true } },
+            operadora: { select: { id: true, nome: true } },
+            produto: { select: { id: true, nome: true } },
+            analista: { select: { id: true, nome: true, createdAt: true, updatedAt: true } },
+            demanda: { select: { id: true, ticket: true, descricao: true } },
+          }
         })
         console.log(`✅ POST /${path}: Criado com sucesso:`, created.id)
         res.code(201)
@@ -5134,7 +5243,15 @@ for (const [path, repo] of Object.entries(resources)) {
       // Tratamento especial para validações
       if (path === 'validacoes') {
         console.log(`🔧 PUT /validacoes/${req.params.id}: executeValidacaoUpdate (FKs seguras)`)
-        updated = await executeValidacaoUpdate(req.params.id, req.body)
+        try {
+          updated = await executeValidacaoUpdate(req.params.id, req.body)
+        } catch (error: any) {
+          if (error?.statusCode === 400 || error?.code === 'CONTRATO_NAO_ENCONTRADO' || error?.code === 'FK_NAO_ENCONTRADO') {
+            res.code(400)
+            return { error: error.code || 'FK_NAO_ENCONTRADO', message: error.message }
+          }
+          throw error
+        }
         console.log(`✅ PUT /validacoes: Validação atualizada com sucesso:`, updated.id)
         res.code(200)
         return updated
@@ -5262,6 +5379,64 @@ for (const [path, repo] of Object.entries(resources)) {
           console.log(`✅ PUT /atendimentos: Tipo de Serviço aceito sem validação: ${cleanedData.tipoServicoId}`)
         }
         
+        updated = await repo.update(req.params.id, cleanedData)
+      } else if (path === 'manutencoes') {
+        const cleanedData = { ...req.body }
+
+        Object.keys(cleanedData).forEach((key) => {
+          const value = cleanedData[key]
+          if (value === null || value === undefined || value === '') {
+            delete cleanedData[key]
+          }
+        })
+
+        const camposParaRemover = ['analista', 'tipo', 'tipoServico', 'cliente', 'contrato', 'operadora', 'produto', 'sistema', 'area']
+        camposParaRemover.forEach((campo) => {
+          if (cleanedData[campo]) delete cleanedData[campo]
+        })
+
+        const normalizeManutencaoIdsJsonUpd = (raw: unknown): string[] | null | undefined => {
+          if (raw === null) return null
+          if (raw === undefined) return undefined
+          if (Array.isArray(raw)) {
+            const u = [...new Set(raw.filter((x): x is string => typeof x === 'string' && String(x).trim() !== ''))]
+            return u.length ? u : null
+          }
+          if (typeof raw === 'string') {
+            try {
+              const j = JSON.parse(raw)
+              if (Array.isArray(j)) return normalizeManutencaoIdsJsonUpd(j)
+            } catch {
+              /* ignore */
+            }
+          }
+          return undefined
+        }
+
+        await applyContratosVinculosManutencao(cleanedData)
+
+        if (Object.prototype.hasOwnProperty.call(cleanedData, 'contratosIds') || Object.prototype.hasOwnProperty.call(cleanedData, 'contratoId')) {
+          let contratosIds = normalizeManutencaoIdsJsonUpd(cleanedData.contratosIds)
+          if (contratosIds === undefined && cleanedData.contratoId) contratosIds = [String(cleanedData.contratoId)]
+          if (contratosIds === null || (Array.isArray(contratosIds) && contratosIds.length === 0)) {
+            cleanedData.contratosIds = null
+            cleanedData.contratoId = null
+          } else if (Array.isArray(contratosIds) && contratosIds.length) {
+            const validados: string[] = []
+            for (const cid of contratosIds) {
+              const ok = await validateForeignKeys.validateContrato(cid)
+              if (ok) validados.push(cid)
+            }
+            if (validados.length) {
+              cleanedData.contratosIds = validados
+              cleanedData.contratoId = validados[0]
+            } else {
+              cleanedData.contratosIds = null
+              cleanedData.contratoId = null
+            }
+          }
+        }
+
         updated = await repo.update(req.params.id, cleanedData)
       } else {
         updated = await repo.update(req.params.id, req.body)

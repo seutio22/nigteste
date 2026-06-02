@@ -14,6 +14,7 @@ import { usePermissions } from '../../hooks/usePermissions'
 import { PrimaryActionButton } from '../../components/PrimaryActionButton'
 import { formatIntegerPtBR } from '../../utils/formatNumber'
 import { formatGridDatePtBR, gridCellToDate } from '../../utils/gridDate'
+import { useHomePanoramaListFilters } from '../../utils/homePanoramaListFilters'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
@@ -394,12 +395,7 @@ const columns: GridColDef[] = [
 export default function ValidationListPage() {
   const navigate = useNavigate()
   const store = useValidationStore()
-  const { items, loading, error, clearError, syncFromApi } = store
-  // Função para limpar erro manualmente
-  const handleClearError = () => {
-    clearError()
-  }
-  
+  const { items, loading, error, syncFromApi } = store
   const md = useMasterDataStore()
   const {
     analistasById,
@@ -463,7 +459,11 @@ export default function ValidationListPage() {
     })
   }, [items, showOnlyMyValidations, user?.id, user?.name, user?.role, user?.viewOwnDataOnly, analistasById])
 
-  const itemsForGrid = finalFilteredItems
+  const { itemsForGrid } = useHomePanoramaListFilters(
+    'validacoes',
+    finalFilteredItems,
+    setShowOnlyMyValidations
+  )
 
   // carregar preferências
   useEffect(() => {
@@ -486,25 +486,18 @@ export default function ValidationListPage() {
     } catch {}
     }, [])
 
-  // Carregar dados da API automaticamente quando a página é carregada (apenas uma vez)
-  const hasLoadedRef = React.useRef(false)
+  // Carregar validações e dados mestres em paralelo
   useEffect(() => {
-    // Só carregar dados se o usuário estiver logado e ainda não carregou
-    if (user?.id && !hasLoadedRef.current && !loading) {
-      hasLoadedRef.current = true
-      syncFromApi()
-    }
-  }, [user?.id, loading]) // Depender do ID do usuário para carregar dados
+    if (!user?.id) return
 
-  // Garantir que os dados mestres sejam carregados (apenas uma vez)
-  const masterDataLoadedRef = React.useRef(false)
-  useEffect(() => {
-    if (md.clientes.length === 0 && !masterDataLoadedRef.current && md.syncFromApi) {
-      masterDataLoadedRef.current = true
-      logDev('🔍 Validacao: Dados mestres vazios, chamando syncFromApi...')
-      md.syncFromApi()
+    const tasks: Promise<void>[] = [syncFromApi()]
+
+    if (md.clientes.length === 0 && md.syncFromApi) {
+      tasks.push(md.syncFromApi())
     }
-  }, [md.clientes.length, md.syncFromApi]) // Apenas quando necessário
+
+    void Promise.all(tasks)
+  }, [user?.id])
 
   // Persistir preferência do filtro de usuário
   useEffect(() => {
@@ -975,7 +968,7 @@ export default function ValidationListPage() {
           </Typography>
           <Button 
             variant="outlined" 
-            onClick={handleClearError}
+            onClick={() => syncFromApi({ force: true })}
             size="small"
             className="text-error-600 border-error-300 hover:text-error-700 hover:border-error-400 hover:bg-error-50 transition-all duration-300 font-medium mt-2"
             sx={{
@@ -993,7 +986,7 @@ export default function ValidationListPage() {
               }
             }}
           >
-            Limpar Erro
+            Tentar novamente
           </Button>
         </Box>
       )}
@@ -1010,6 +1003,7 @@ export default function ValidationListPage() {
         <DataGrid
           columns={columns}
           rows={rows}
+          loading={loading}
           disableRowSelectionOnClick
           checkboxSelection
           onRowSelectionModelChange={(newSelection) => {
@@ -1129,7 +1123,7 @@ export default function ValidationListPage() {
           showAnalistaFilter: true,
           analistas: md.analistas
         }}
-        data={finalFilteredItems.map(v => {
+        data={itemsForGrid.map(v => {
           const clienteId = (v as any).cliente ?? (v as any).clienteId
           const contratoId = (v as any).contrato ?? (v as any).contratoId
           const clienteResolved = typeof clienteId === 'object' ? (clienteId?.nome ?? 'N/A') : (clientesById[clienteId || '']?.nome ?? clienteId ?? 'N/A')
@@ -1171,7 +1165,7 @@ export default function ValidationListPage() {
         moduleTitle="Validações"
         appliedFilters={{
           'Minhas Validações': showOnlyMyValidations ? 'Sim' : 'Não',
-          'Total na lista': finalFilteredItems.length
+          'Total na lista': itemsForGrid.length
         }}
         columns={[
           { key: 'ticket', label: 'Nº Ticket' },

@@ -15,6 +15,7 @@ import { usePermissions } from '../../hooks/usePermissions'
 import { PrimaryActionButton } from '../../components/PrimaryActionButton'
 import { formatIntegerPtBR } from '../../utils/formatNumber'
 import { formatGridDatePtBR, gridCellToDate } from '../../utils/gridDate'
+import { useHomePanoramaListFilters } from '../../utils/homePanoramaListFilters'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
@@ -75,7 +76,7 @@ const columns: GridColDef[] = [
 export default function ManutencaoListPage() {
   // v0.6.0 - CORREÇÃO: Regex duplicação ticket aceita apenas sufixos de 1-3 dígitos
   const navigate = useNavigate()
-  const { items } = useManutencaoStore()
+  const { items, isLoading } = useManutencaoStore()
   const manutencaoStore = useManutencaoStore()
   const md = useMasterDataStore()
   const {
@@ -137,6 +138,12 @@ export default function ManutencaoListPage() {
     })
   }, [showOnlyMyManutencoes, filteredItems, analistasById, user?.id, user?.name, user?.role])
 
+  const { itemsForGrid } = useHomePanoramaListFilters(
+    'manutencoes',
+    finalFilteredItems,
+    setShowOnlyMyManutencoes
+  )
+
   // carregar preferências
   useEffect(() => {
     try {
@@ -164,21 +171,19 @@ export default function ManutencaoListPage() {
     }
   }, [])
 
-  // Carregar dados mestres e manutenções uma única vez
+  // Carregar dados mestres e manutenções em paralelo
   useEffect(() => {
-    const loadData = async () => {
-      // Carregar dados mestres se necessário
-      if (md.analistas.length === 0 || md.tiposCadastro.length === 0 || md.padrao.length === 0) {
-        await md.syncFromApi?.()
-      }
-      
-      // Carregar manutenções se usuário estiver logado
-      if (user?.id) {
-        await manutencaoStore.syncFromApi()
-      }
+    if (!user?.id) return
+
+    const tasks: Promise<void>[] = []
+
+    if (md.analistas.length === 0 || md.tiposCadastro.length === 0 || md.padrao.length === 0) {
+      tasks.push(md.syncFromApi?.() ?? Promise.resolve())
     }
-    
-    loadData()
+
+    tasks.push(manutencaoStore.syncFromApi())
+
+    void Promise.all(tasks)
   }, [user?.id]) // Apenas quando usuário muda
 
   // Recarregar dados quando a página recebe foco (volta de outras páginas)
@@ -480,7 +485,7 @@ export default function ManutencaoListPage() {
   ), [md.padrao])
 
 
-  const rows = useMemo(() => finalFilteredItems.map((d) => {
+  const rows = useMemo(() => itemsForGrid.map((d) => {
     return {
       id: d.id,
       ticket: d.ticket || d.id,
@@ -530,15 +535,20 @@ export default function ManutencaoListPage() {
         return d.cliente || ''
       })(),
       contrato: (() => {
+        const rawIds = (d as any).contratosIds
+        const ids = Array.isArray(rawIds)
+          ? rawIds.map(String).filter(Boolean)
+          : d.contratoId
+            ? [String(d.contratoId)]
+            : []
+        if (ids.length) {
+          return ids
+            .map((id) => contratosById[id]?.numero ?? contratosById[id]?.codigo ?? id)
+            .join(', ')
+        }
         if (d.contrato && typeof d.contrato === 'string' && d.contrato.length > 20) {
           return contratosById[d.contrato]?.numero ?? d.contrato
         }
-        
-        // Se d.contratoId existe, buscar o código
-        if (d.contratoId) {
-          return contratosById[d.contratoId]?.numero ?? d.contratoId
-        }
-        
         return d.contrato || ''
       })(),
       operadora: (() => {
@@ -600,7 +610,7 @@ export default function ManutencaoListPage() {
       updatedAt: d.updatedAt || '',
     }
   }), [
-    finalFilteredItems,
+    itemsForGrid,
     analistasById,
     areasById,
     clientesById,
@@ -687,7 +697,7 @@ export default function ManutencaoListPage() {
                 
                 {/* Contador de manutenções */}
                 <Chip
-                  label={`${formatIntegerPtBR(finalFilteredItems.length)} manutenção${finalFilteredItems.length !== 1 ? 'ões' : ''}`}
+                  label={`${formatIntegerPtBR(itemsForGrid.length)} manutenção${itemsForGrid.length !== 1 ? 'ões' : ''}`}
                   size="small"
                   variant="outlined"
                   className={`${
@@ -787,6 +797,7 @@ export default function ManutencaoListPage() {
         <DataGrid
           rows={sortedRows}
           columns={columns}
+          loading={isLoading}
           getRowId={(row) => row.id}
           initialState={{
             pagination: {
@@ -862,12 +873,25 @@ export default function ManutencaoListPage() {
           showAnalistaFilter: true,
           analistas: md.analistas
         }}
-        data={finalFilteredItems.map(d => ({
+        data={itemsForGrid.map(d => ({
           ...d,
           analista: analistasById[d.analistaId]?.nome ?? d.analista ?? 'N/A',
           area: areasById[d.areaId]?.nome ?? d.area ?? 'N/A',
           cliente: clientesById[d.clienteId]?.nome ?? d.cliente ?? 'N/A',
-          contrato: contratosById[d.contratoId]?.numero ?? contratosById[d.contratoId]?.codigo ?? d.contrato ?? 'N/A',
+          contrato: (() => {
+            const rawIds = (d as any).contratosIds
+            const ids = Array.isArray(rawIds)
+              ? rawIds.map(String).filter(Boolean)
+              : d.contratoId
+                ? [String(d.contratoId)]
+                : []
+            if (ids.length) {
+              return ids
+                .map((id) => contratosById[id]?.numero ?? contratosById[id]?.codigo ?? id)
+                .join(', ')
+            }
+            return d.contrato ?? 'N/A'
+          })(),
           operadora: operadorasById[d.operadoraId]?.nome ?? d.operadora ?? 'N/A',
           produto: produtosById[d.produtoId]?.nome ?? d.produto ?? 'N/A',
           sistema: sistemasById[d.sistemaId]?.nome ?? d.sistema ?? 'N/A',
@@ -891,7 +915,7 @@ export default function ManutencaoListPage() {
         moduleTitle="Manutenções"
         appliedFilters={{
           'Minhas Manutenções': showOnlyMyManutencoes ? 'Sim' : 'Não',
-          'Total na lista': finalFilteredItems.length
+          'Total na lista': itemsForGrid.length
         }}
         columns={[
           { key: 'ticket', label: 'Nº Ticket' },
@@ -1278,7 +1302,7 @@ const ActionCell = memo(function ActionCell({ id, status }: { id: string, status
         <DialogTitle>Alterar status</DialogTitle>
         <DialogContent>
           <TextField select label="Novo status" value={newStatus} onChange={(e) => setNewStatus(e.target.value)} sx={{ mt: 1, minWidth: 280 }}>
-            {['Aberta','Em andamento','Transf. Analista','Aguardando validação','Com erros','Concluída','Cancelada'].map(s => (
+            {['Aberta','Em andamento','Transf. Analista','Aguardando validação','Com erros','Concluído Parcialmente','Concluída','Cancelada'].map(s => (
               <MenuItem key={s} value={s}>{s}</MenuItem>
             ))}
           </TextField>

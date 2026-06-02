@@ -70,6 +70,11 @@ import { api } from '../lib/api.local';
 import ProjectGantt from '../components/ProjectGantt';
 import { PrimaryActionButton } from '../components/PrimaryActionButton';
 import { formatIntegerPtBR } from '../utils/formatNumber';
+import {
+  getProjectStatusColor,
+  getProjectStatusLabel,
+  isPendingProjectStatus,
+} from '../utils/projectStatusLabels';
 
 // Componente de Card Estatístico Moderno
 const StatCard: React.FC<{
@@ -420,24 +425,7 @@ const ShareProject: React.FC = () => {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    const statusColors: { [key: string]: string } = {
-      active: '#00A649',
-      completed: '#00A649',
-      paused: '#E5B800',
-      cancelled: '#DA3832',
-      todo: '#6b7a80',
-      in_progress: '#009FDF',
-      review: '#E5B800',
-      done: '#00A649',
-      concluido: '#00A649',
-      em_andamento: '#009FDF',
-      nao_iniciado: '#E5B800',
-      'in-progress': '#009FDF',
-      not_started: '#E5B800'
-    };
-    return statusColors[status] || '#6b7a80';
-  };
+  const getStatusColor = (status: string) => getProjectStatusColor(status);
 
   const getPriorityColor = (priority: string) => {
     const priorityColors: { [key: string]: string } = {
@@ -493,24 +481,7 @@ const ShareProject: React.FC = () => {
     });
   };
 
-  const getStatusLabel = (status: string) => {
-    const statusLabels: { [key: string]: string } = {
-      active: 'Ativo',
-      completed: 'Concluído',
-      paused: 'Pausado',
-      cancelled: 'Cancelado',
-      todo: 'A fazer',
-      in_progress: 'Em andamento',
-      review: 'Em revisão',
-      done: 'Concluído',
-      concluido: 'Concluído',
-      em_andamento: 'Em andamento',
-      nao_iniciado: 'Não iniciado',
-      'in-progress': 'Em andamento',
-      not_started: 'Não iniciado'
-    };
-    return statusLabels[status] || status;
-  };
+  const getStatusLabel = (status: string) => getProjectStatusLabel(status);
 
   const getPriorityLabel = (priority: string) => {
     const priorityLabels: { [key: string]: string } = {
@@ -1199,7 +1170,7 @@ const ShareProject: React.FC = () => {
               {[
                 { label: 'Em Andamento', count: phases.filter((p: any) => p.status === 'em_andamento' || p.status === 'in-progress').length, color: '#050032', bg: 'rgba(5, 0, 50, 0.1)' },
                 { label: 'Concluídas', count: phases.filter((p: any) => p.status === 'concluido' || p.status === 'completed').length, color: '#00A649', bg: 'rgba(0, 166, 73, 0.1)' },
-                { label: 'Pendentes', count: phases.filter((p: any) => p.status === 'nao_iniciado' || p.status === 'not_started' || !p.status).length, color: '#E5B800', bg: 'rgba(229, 184, 0, 0.15)' },
+                { label: 'Não iniciadas', count: phases.filter((p: any) => isPendingProjectStatus(p.status)).length, color: '#E5B800', bg: 'rgba(229, 184, 0, 0.15)' },
                 { label: 'Total Tarefas', count: totalTasks, color: '#6366f1', bg: 'rgba(99, 102, 241, 0.1)' }
               ].map((item, index) => (
                 <Grid item xs={6} sm={3} key={index}>

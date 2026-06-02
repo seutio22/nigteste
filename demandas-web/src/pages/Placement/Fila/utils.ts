@@ -1,7 +1,9 @@
-import { COTACAO_STATUSES, type CotacaoStatus } from '../../../store/placementCotacaoStore'
+import { COTACAO_FILA_STATUSES, PLACEMENT_STATUS_RASCUNHO, type CotacaoStatus } from './placementCotacaoStatus'
 
 export const STATUS_COLORS: Record<CotacaoStatus, { bg: string; text: string; chip: 'default' | 'primary' | 'info' | 'warning' | 'success' | 'error' }> = {
+  [PLACEMENT_STATUS_RASCUNHO]: { bg: '#F3F4F6', text: '#4B5563', chip: 'default' },
   'Aberta':                  { bg: '#E0F2FE', text: '#075985', chip: 'info' },
+  'Kick off':                { bg: '#EDE9FE', text: '#5B21B6', chip: 'primary' },
   'Em cotação':              { bg: '#FEF3C7', text: '#92400E', chip: 'warning' },
   'Aguardando operadora':    { bg: '#FCE7F3', text: '#9D174D', chip: 'warning' },
   'Proposta enviada':        { bg: '#DBEAFE', text: '#1E40AF', chip: 'primary' },
@@ -28,4 +30,21 @@ export function parseBRLToCents(input: string): number | null {
   return Math.round(n * 100)
 }
 
-export { COTACAO_STATUSES }
+/** CNAE: apenas dígitos, até 8 (classe/subclasse). */
+export function normalizeCnaeDigits(input: string): string {
+  return (input || '').replace(/\D/g, '').slice(0, 8)
+}
+
+export function isValidCnaeLen(d: string): boolean {
+  return d.length === 7 || d.length === 8
+}
+
+export function formatCnaeDisplay(digits: string | null | undefined): string {
+  const d = (digits || '').replace(/\D/g, '')
+  if (!d) return '—'
+  if (d.length < 7) return d
+  if (d.length === 7) return `${d.slice(0, 4)}-${d.slice(4, 5)}/${d.slice(5, 7)}`
+  return `${d.slice(0, 4)}-${d.slice(4, 5)}/${d.slice(5, 8)}`
+}
+
+export { COTACAO_FILA_STATUSES as COTACAO_STATUSES, PLACEMENT_STATUS_RASCUNHO }

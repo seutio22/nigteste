@@ -30,3 +30,7 @@ node_modules/
 
 # Manter demandas-api (NAO ignorar - Railway precisa dela)
 # demandas-api/ <- REMOVIDO - estava excluindo a pasta do upload!
+
+# Garantir que o backend leva `package.json` (necessário no build via Dockerfile)
+!demandas-api/package.json
+!demandas-api/package-lock.json
