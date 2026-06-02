@@ -32,7 +32,7 @@ import {
   type AguardandoOperadoraFornecedorState,
   type AguardandoOperadoraState,
 } from './placementAguardandoOperadora'
-import { buildKickOffEstrategiaPatch } from './placementKickOffPersist'
+import { buildKickOffEstrategiaPatch, mergeSavedKickOffIntoApiCotacao } from './placementKickOffPersist'
 import { sanitizePercentInput } from './placementCotacaoFinanceiro'
 import { api } from '../../../lib/api.local'
 
@@ -122,7 +122,7 @@ export function PlacementAguardandoOperadoraPanel({
         const updated = await api.put(`/placement/cotacoes/${cotacaoId}`, {
           kickOffEstrategia: kickOff,
         })
-        onPersisted?.(updated)
+        onPersisted?.(mergeSavedKickOffIntoApiCotacao(updated, kickOff))
         setSaveState('saved')
       } catch {
         setSaveState('error')

@@ -54,7 +54,7 @@ import {
 } from './placementComunicarMercado'
 import { ComunicarMercadoLocalidadeCapture } from './ComunicarMercadoLocalidadeCapture'
 import { readImageFileAsDataUri } from './placementSlideCapture'
-import { buildKickOffEstrategiaPatch } from './placementKickOffPersist'
+import { buildKickOffEstrategiaPatch, mergeSavedKickOffIntoApiCotacao } from './placementKickOffPersist'
 
 type Props = {
   cotacaoId: string
@@ -267,7 +267,7 @@ export function PlacementComunicarMercadoPanel({
         const updated = await api.put(`/placement/cotacoes/${cotacaoId}`, {
           kickOffEstrategia: kickOff,
         })
-        onPersisted?.(updated)
+        onPersisted?.(mergeSavedKickOffIntoApiCotacao(updated, kickOff))
         setSaveState('saved')
       } catch {
         setSaveState('error')
@@ -329,17 +329,16 @@ export function PlacementComunicarMercadoPanel({
 
   function toggleComunicado(key: string, nome: string, checked: boolean) {
     const st = comunicarMercado.fornecedores[key]
-    patchFornecedorByKey(
-      key,
-      {
-        enviado: checked,
-        ...(checked && !st?.dataEnvio ? { dataEnvio: new Date().toISOString().slice(0, 10) } : {}),
-      },
-      { immediate: true }
-    )
+    const next = ensureComunicarMercadoState(comunicarMercado, form, operadoras, operadorasById)
+    next.fornecedores[key] = {
+      ...next.fornecedores[key],
+      enviado: checked,
+      ...(checked && !st?.dataEnvio ? { dataEnvio: new Date().toISOString().slice(0, 10) } : {}),
+    }
+    persistComunicarMercado(next, { immediate: true })
     if (checked) {
       const idx = fornecedores.indexOf(nome)
-      const proximo = fornecedores.slice(idx + 1).find((n) => !comunicarMercado.fornecedores[normKey(n)]?.enviado)
+      const proximo = fornecedores.slice(idx + 1).find((n) => !next.fornecedores[normKey(n)]?.enviado)
       if (proximo) setFornecedorAtivo(proximo)
     }
   }
