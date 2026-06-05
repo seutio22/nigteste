@@ -1,45 +1,4 @@
-/* Geometria – Design System (Light 300, Regular 400, Medium 500, Bold 700, Extra Bold 800).
-   Coloque os arquivos .woff2 em public/fonts/ (ex.: Geometria-Light.woff2, Geometria-Regular.woff2, …). */
-@font-face {
-  font-family: 'Geometria';
-  src: url('/fonts/Geometria-Light.woff2') format('woff2'),
-       url('/fonts/Geometria-Light.woff') format('woff');
-  font-weight: 300;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Geometria';
-  src: url('/fonts/Geometria-Regular.woff2') format('woff2'),
-       url('/fonts/Geometria-Regular.woff') format('woff');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Geometria';
-  src: url('/fonts/Geometria-Medium.woff2') format('woff2'),
-       url('/fonts/Geometria-Medium.woff') format('woff');
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Geometria';
-  src: url('/fonts/Geometria-Bold.woff2') format('woff2'),
-       url('/fonts/Geometria-Bold.woff') format('woff');
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Geometria';
-  src: url('/fonts/Geometria-ExtraBold.woff2') format('woff2'),
-       url('/fonts/Geometria-ExtraBold.woff') format('woff');
-  font-weight: 800;
-  font-style: normal;
-  font-display: swap;
-}
+/* Tipografia: Plus Jakarta Sans (bundled via @fontsource). Geometria MDS exige arquivos em public/fonts/. */
 
 @tailwind base;
 @tailwind components;
@@ -293,27 +252,27 @@ body {
 
 @layer base {
   html {
-    font-family: 'Geometria', sans-serif;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
   }
   
   body {
     @apply bg-neutral-50 text-neutral-900 antialiased dark:bg-[#0d1114] dark:text-neutral-100;
-    font-family: 'Geometria', sans-serif;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
     font-weight: 400;
     line-height: 1.25; /* 125% – Design System */
   }
   
   /* Títulos: line-height 125% conforme MDS */
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Geometria', sans-serif;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
     line-height: 1.25;
   }
 }
 
-/* Geometria Light (300): parágrafo de abertura / lead – use a classe .text-lead */
+/* Lead / parágrafo de abertura – use a classe .text-lead */
 @layer components {
   .text-lead {
-    font-family: 'Geometria', sans-serif;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
     font-weight: 300;
     line-height: 1.25;
   }

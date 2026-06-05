@@ -23,16 +23,16 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       output: {
         // Force new hash generation - v0.8.5 (alinha versão com package.json / UI)
-        entryFileNames: `assets/[name]-[hash]-v0637.js`,
-        chunkFileNames: `assets/[name]-[hash]-v0637.js`,
+        entryFileNames: `assets/[name]-[hash]-v0638.js`,
+        chunkFileNames: `assets/[name]-[hash]-v0638.js`,
         assetFileNames: (assetInfo) => {
           // Garantir que CSS e outros assets usem o mesmo padrão de hash
           // Arquivos da pasta public NÃO passam por aqui - são copiados diretamente
           const ext = assetInfo.name?.split('.').pop() || 'ext'
           if (ext === 'css') {
-            return `assets/[name]-[hash]-v0637.css`
+            return `assets/[name]-[hash]-v0638.css`
           }
-          return `assets/[name]-[hash]-v0637.[ext]`
+          return `assets/[name]-[hash]-v0638.[ext]`
         },
         manualChunks: {
           vendor: ['react', 'react-dom'],

@@ -4,6 +4,11 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import './index.css'
+import '@fontsource/plus-jakarta-sans/300.css'
+import '@fontsource/plus-jakarta-sans/400.css'
+import '@fontsource/plus-jakarta-sans/500.css'
+import '@fontsource/plus-jakarta-sans/700.css'
+import '@fontsource/plus-jakarta-sans/800.css'
 import { ThemeModeProvider } from './components/ThemeModeProvider'
 
 // Error handler mais seletivo - só suprimir erros de recursos estáticos claramente de cache antigo
