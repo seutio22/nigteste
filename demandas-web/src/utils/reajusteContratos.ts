@@ -49,6 +49,42 @@ function resolveIdOrName(
   return findIdByName(value, byName) || ''
 }
 
+function contratoCodigoFromValue(value: string | undefined, contratos: ContratoEntity[]): string {
+  if (!value) return ''
+  if (UUID_RE.test(value)) {
+    const c = contratos.find((x) => x.id === value)
+    return c?.codigo ?? c?.numero ?? ''
+  }
+  const normalizedValue = normalizeString(value)
+  const found = contratos.find(
+    (c) =>
+      normalizeString(c.codigo) === normalizedValue || normalizeString(c.numero) === normalizedValue
+  )
+  return found?.codigo ?? found?.numero ?? value
+}
+
+/** Rótulo da coluna Contrato na lista: todos os vínculos, separados por vírgula. */
+export function formatReajusteContratosDisplay(
+  reajuste: { contratosVinculos?: unknown; contrato?: string | null },
+  md: { contratos: ContratoEntity[] }
+): string {
+  const vinculos = parseContratosVinculos(reajuste.contratosVinculos, {})
+  if (vinculos.length) {
+    const labels = [
+      ...new Set(
+        vinculos
+          .map((v) => {
+            const c = md.contratos.find((x) => x.id === v.contratoId)
+            return c?.codigo || c?.numero || ''
+          })
+          .filter(Boolean)
+      ),
+    ]
+    if (labels.length) return labels.join(', ')
+  }
+  return contratoCodigoFromValue(reajuste.contrato ?? undefined, md.contratos)
+}
+
 export function resolveReajusteContratoVinculos(
   reajuste: {
     contratosVinculos?: unknown

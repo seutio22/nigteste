@@ -26,6 +26,7 @@ import PersonIcon from '@mui/icons-material/Person'
 import GroupIcon from '@mui/icons-material/Group'
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline'
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
+import { formatReajusteContratosDisplay } from '../../utils/reajusteContratos'
 
 const columns: GridColDef[] = [
   { field: 'acoes', headerName: 'Ações', width: 80, sortable: false, filterable: false, renderCell: (p) => (
@@ -37,7 +38,7 @@ const columns: GridColDef[] = [
   { field: 'operadora', headerName: 'Operadora', width: 160 },
   { field: 'responsavelAnalista', headerName: 'Analista', width: 160 },
   { field: 'cliente', headerName: 'Cliente', width: 200 },
-  { field: 'contrato', headerName: 'Contrato', width: 140 },
+  { field: 'contrato', headerName: 'Contrato', width: 200 },
   { field: 'produto', headerName: 'Produto', width: 160 },
   { field: 'status', headerName: 'Status', width: 150, renderCell: (p) => <StatusBadge status={String(p.value ?? '')} /> },
   { 
@@ -682,17 +683,7 @@ export default function ReajusteListPage() {
       }
     }
 
-    let contratoCodigo = ''
-    if (r.contrato) {
-      const isId = r.contrato.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
-      if (isId) {
-        contratoCodigo = md.contratos.find(c => c.id === r.contrato)?.codigo ?? md.contratos.find(c => c.id === r.contrato)?.numero ?? ''
-      } else {
-        // É um código/número, buscar nos dados mestres
-        const found = findContratoByCodigo(r.contrato, md.contratos)
-        contratoCodigo = found?.codigo ?? found?.numero ?? r.contrato
-      }
-    }
+    const contratoCodigo = formatReajusteContratosDisplay(r, md)
 
     let produtoNome = ''
     if (r.produto) {
@@ -1029,16 +1020,7 @@ export default function ReajusteListPage() {
             if (isUuid(r.cliente)) clienteNome = md.clientes.find(c => c.id === r.cliente)?.nome ?? ''
             else clienteNome = findByName(r.cliente, md.clientes)?.nome ?? r.cliente
           }
-          let contratoLabel = ''
-          if (r.contrato) {
-            if (isUuid(r.contrato)) {
-              const c = md.contratos.find(x => x.id === r.contrato)
-              contratoLabel = (c as any)?.codigo ?? (c as any)?.numero ?? ''
-            } else {
-              const found = findContratoByCodigo(r.contrato, md.contratos)
-              contratoLabel = (found as any)?.codigo ?? (found as any)?.numero ?? r.contrato
-            }
-          }
+          const contratoLabel = formatReajusteContratosDisplay(r, md)
           let produtoNome = ''
           if (r.produto) {
             if (isUuid(r.produto)) produtoNome = md.produtos.find(p => p.id === r.produto)?.nome ?? ''
@@ -1259,7 +1241,7 @@ function ActionCell({ id, status }: { id: string, status: string }) {
       <tr><td class="muted">Operadora</td><td>${label(r.operadora, md.operadoras)}</td></tr>
       <tr><td class="muted">Analista</td><td>${label(r.responsavelAnalista, md.analistas)}</td></tr>
       <tr><td class="muted">Cliente</td><td>${label(r.cliente, md.clientes)}</td></tr>
-      <tr><td class="muted">Contrato</td><td>${label(r.contrato, md.contratos.map(c => ({ id: c.id, nome: c.codigo })))}</td></tr>
+      <tr><td class="muted">Contrato</td><td>${formatReajusteContratosDisplay(r, md) || '-'}</td></tr>
       <tr><td class="muted">Produto</td><td>${label(r.produto, md.produtos)}</td></tr>
       <tr><td class="muted">Total</td><td>R$ ${r.total?.toLocaleString('pt-BR') || '0'}</td></tr>
       <tr><td class="muted">Atualizado em</td><td>${new Date(r.updatedAt || new Date()).toLocaleString('pt-BR')}</td></tr>
