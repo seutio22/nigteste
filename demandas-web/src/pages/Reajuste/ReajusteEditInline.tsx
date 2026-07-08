@@ -20,6 +20,13 @@ import {
 } from '../../utils/reajusteContratos'
 import { cardSx, SectionTitle } from './reajusteFormLayout'
 
+const EDIT_MASTER_KEYS = ['clientes', 'contratos', 'operadoras', 'produtos', 'analistas', 'solicitantes'] as const
+
+function isMasterListReady(md: Record<string, unknown>, key: string): boolean {
+  const list = md[key]
+  return Array.isArray(list) && list.length > 0
+}
+
 export function ReajusteEditInline({ reajuste }: { reajuste: any }) {
   const md = useMasterDataStore()
   const store = useReajusteStore()
@@ -31,12 +38,15 @@ export function ReajusteEditInline({ reajuste }: { reajuste: any }) {
   ])
   const draftInitializedRef = useRef<string | null>(null)
 
+  const editMastersReady = EDIT_MASTER_KEYS.every((key) => isMasterListReady(md as Record<string, unknown>, key))
+
   useEffect(() => {
-    const entities = ['clientes', 'contratos', 'operadoras', 'produtos', 'analistas', 'solicitantes'] as const
-    const missing = entities.filter((key) => {
-      const list = (md as Record<string, unknown>)[key]
-      return !Array.isArray(list) || list.length === 0
-    })
+    draftInitializedRef.current = null
+  }, [reajuste.id])
+
+  useEffect(() => {
+    const entities = EDIT_MASTER_KEYS
+    const missing = entities.filter((key) => !isMasterListReady(md as Record<string, unknown>, key))
     if (missing.length) {
       md.syncFromApi?.({ entities: [...missing] })
     }
@@ -72,6 +82,8 @@ export function ReajusteEditInline({ reajuste }: { reajuste: any }) {
   }
 
   useEffect(() => {
+    if (!editMastersReady) return
+
     // Só inicializar o draft uma vez por reajuste (quando o ID mudar)
     // Isso evita resetar o draft quando o reajuste é atualizado após salvamento
     if (draftInitializedRef.current === reajuste.id) {
@@ -125,7 +137,7 @@ export function ReajusteEditInline({ reajuste }: { reajuste: any }) {
     setDraft(convertedDraft)
     setContratosVinculosRows(reajusteToContratoVinculoRows(reajuste, md))
     draftInitializedRef.current = reajuste.id
-  }, [reajuste.id, md.operadoras, md.clientes, md.contratos, md.produtos, md.analistas, reajuste.contratosVinculos, reajuste.contrato, reajuste.operadora, reajuste.produto])
+  }, [reajuste.id, editMastersReady, md.operadoras, md.clientes, md.contratos, md.produtos, md.analistas, reajuste.contratosVinculos, reajuste.contrato, reajuste.operadora, reajuste.produto, reajuste.cliente, reajuste.responsavelAnalista])
 
   const changedKeys = useMemo(() => {
     const keys = ['mes', 'ano', 'dataInicio', 'dataFim', 'status', 'qualidade', 'qualidadeInformacao', 'planos', 'responsavelConta', 'filial', 'ticket', 'solicitante', 'responsavelAnalista', 'cliente', 'contrato', 'produto', 'dataAtualizacao', 'itensPendentes', 'itensConcluidos', 'observacoes'] as const
@@ -310,6 +322,15 @@ export function ReajusteEditInline({ reajuste }: { reajuste: any }) {
     () => filterContratosDoCliente(md.contratos, selectedClienteId, grupoDoCliente),
     [md.contratos, selectedClienteId, grupoDoCliente]
   )
+
+  if (!editMastersReady) {
+    return (
+      <div className="flex items-center justify-center py-12 text-gray-500 text-sm">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mr-3" />
+        Carregando formulário...
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6" style={{ background: '#f4f7fb', margin: '-1.5rem', padding: '1.5rem', borderRadius: '0.75rem' }}>

@@ -23,8 +23,9 @@ export default function ReajusteDetailPage() {
   // Controle para sincronizar timeline apenas uma vez
   const timelineSyncedRef = useRef<Set<string>>(new Set())
   const syncedOnceRef = useRef<boolean>(false)
-  const [masterDataLoaded, setMasterDataLoaded] = useState(false)
   const [triedDirectFetch, setTriedDirectFetch] = useState(false)
+
+  const resumoMastersReady = md.operadoras.length > 0 && md.clientes.length > 0
 
   useEffect(() => {
     perfRef.current.log('mount')
@@ -48,9 +49,9 @@ export default function ReajusteDetailPage() {
       if (store.items.length === 0 || !reajuste) {
         await store.syncFromApi?.()
       }
-      const needsMasters = md.operadoras.length === 0
+      const needsMasters = md.operadoras.length === 0 || md.clientes.length === 0
       if (needsMasters) {
-        await md.syncFromApi?.({ entities: ['operadoras'] })
+        await md.syncFromApi?.({ entities: ['operadoras', 'clientes'] })
       }
       if (id && timelineStore.syncTimeline && !timelineSyncedRef.current.has(id)) {
         timelineSyncedRef.current.add(id)
@@ -59,10 +60,6 @@ export default function ReajusteDetailPage() {
     }
     loadData()
   }, [id])
-
-  useEffect(() => {
-    setMasterDataLoaded(true)
-  }, [])
 
   // Fallback extra: se ao recarregar não houver item no store, buscar diretamente por ID
   useEffect(() => {
@@ -106,8 +103,8 @@ export default function ReajusteDetailPage() {
     }
   }, [reajuste, id])
 
-  // Mostrar carregamento enquanto ainda estamos tentando resolver (sync/masters ou GET direto)
-  if (!reajuste && (!masterDataLoaded || !triedDirectFetch)) {
+  // Mostrar carregamento enquanto ainda estamos tentando resolver o reajuste (sync ou GET direto)
+  if (!reajuste && !triedDirectFetch) {
     return (
       <div className="p-6 flex items-center justify-center min-h-[400px]">
         <div className="text-center">
@@ -272,6 +269,12 @@ export default function ReajusteDetailPage() {
           {/* Resumo do Reajuste */}
           <div className="bg-white p-6 rounded-lg border shadow-sm">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Resumo do Reajuste</h2>
+            {!resumoMastersReady ? (
+              <div className="flex items-center justify-center py-8 text-gray-500 text-sm">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mr-3" />
+                Carregando resumo...
+              </div>
+            ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
@@ -302,6 +305,7 @@ export default function ReajusteDetailPage() {
                 </div>
               </div>
             </div>
+            )}
           </div>
 
           {/* Descrição */}
