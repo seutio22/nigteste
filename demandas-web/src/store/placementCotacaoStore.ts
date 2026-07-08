@@ -1,9 +1,11 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { api } from '../lib/api.local'
+import { createSafePersistStorage, removeLocalStorageByPrefix } from '../lib/safePersistStorage'
 import {
   COTACAO_FILA_STATUSES,
   PLACEMENT_STATUS_RASCUNHO,
+  isRascunhoStatus,
   type CotacaoStatus,
 } from '../pages/Placement/Fila/placementCotacaoStatus'
 
@@ -124,13 +126,28 @@ interface PlacementCotacaoState {
   syncCotacoes: (force?: boolean) => Promise<void>
   syncRascunhos: (userId: string, force?: boolean) => Promise<void>
   addCotacao: (input: CotacaoInput) => Promise<PlacementCotacao>
-  updateCotacao: (id: string, input: CotacaoInput) => Promise<PlacementCotacao>
+  updateCotacao: (id: string, input: CotacaoInput, options?: { light?: boolean }) => Promise<PlacementCotacao>
+  patchWorkflowStatus: (
+    id: string,
+    input: {
+      status: string
+      discard?: { kickOffEstrategia?: boolean; emCotacaoSubetapa?: boolean }
+    }
+  ) => Promise<Pick<PlacementCotacao, 'id' | 'status' | 'emCotacaoSubetapa' | 'updatedAt' | 'kickOffEstrategia' | 'vidas' | 'valorEstimadoCents'>>
   iniciarProcesso: (id: string, input: CotacaoInput) => Promise<PlacementCotacao>
   removeCotacao: (id: string) => Promise<void>
+  duplicateCotacao: (id: string, userId?: string | null) => Promise<PlacementCotacao>
   getById: (id: string) => PlacementCotacao | undefined
 }
 
 const FIVE_MINUTES_MS = 5 * 60 * 1000
+
+let cotacoesSyncInFlight: Promise<void> | null = null
+let rascunhosSyncInFlight: Promise<void> | null = null
+
+export function clearPlacementCotacaoLocalCache(): void {
+  removeLocalStorageByPrefix('placement-cotacao-v1')
+}
 
 export const usePlacementCotacaoStore = create<PlacementCotacaoState>()(
   persist(
@@ -144,41 +161,53 @@ export const usePlacementCotacaoStore = create<PlacementCotacaoState>()(
 
       async syncCotacoes(force?: boolean) {
         const state = get()
-        if (state.isLoading) return
         const now = Date.now()
-        if (!force && now - state.lastSync < FIVE_MINUTES_MS) return
+        if (!force && state.cotacoes.length > 0 && now - state.lastSync < FIVE_MINUTES_MS) return
+        if (cotacoesSyncInFlight && !force) return cotacoesSyncInFlight
 
-        try {
-          set({ isLoading: true })
-          const resp = (await api.get('/placement/cotacoes?scope=fila')) as
-            | { cotacoes?: PlacementCotacao[] }
-            | PlacementCotacao[]
-          const cotacoes = Array.isArray(resp) ? resp : resp?.cotacoes ?? []
-          set({ cotacoes, isLoading: false, lastSync: now })
-        } catch (err) {
-          console.error('❌ placementCotacaoStore.syncCotacoes:', err)
-          set({ isLoading: false })
-        }
+        cotacoesSyncInFlight = (async () => {
+          try {
+            set({ isLoading: true })
+            const resp = (await api.get('/placement/cotacoes?scope=fila')) as
+              | { cotacoes?: PlacementCotacao[] }
+              | PlacementCotacao[]
+            const cotacoes = Array.isArray(resp) ? resp : resp?.cotacoes ?? []
+            set({ cotacoes, isLoading: false, lastSync: Date.now() })
+          } catch (err) {
+            console.error('❌ placementCotacaoStore.syncCotacoes:', err)
+            set({ isLoading: false })
+          } finally {
+            cotacoesSyncInFlight = null
+          }
+        })()
+
+        return cotacoesSyncInFlight
       },
 
       async syncRascunhos(userId, force?: boolean) {
         if (!userId) return
         const state = get()
-        if (state.isLoadingRascunhos) return
         const now = Date.now()
-        if (!force && now - state.lastSyncRascunhos < FIVE_MINUTES_MS) return
+        if (!force && state.rascunhos.length > 0 && now - state.lastSyncRascunhos < FIVE_MINUTES_MS) return
+        if (rascunhosSyncInFlight && !force) return rascunhosSyncInFlight
 
-        try {
-          set({ isLoadingRascunhos: true })
-          const resp = (await api.get(
-            `/placement/cotacoes?scope=rascunhos&userId=${encodeURIComponent(userId)}`
-          )) as { cotacoes?: PlacementCotacao[] } | PlacementCotacao[]
-          const rascunhos = Array.isArray(resp) ? resp : resp?.cotacoes ?? []
-          set({ rascunhos, isLoadingRascunhos: false, lastSyncRascunhos: now })
-        } catch (err) {
-          console.error('❌ placementCotacaoStore.syncRascunhos:', err)
-          set({ isLoadingRascunhos: false })
-        }
+        rascunhosSyncInFlight = (async () => {
+          try {
+            set({ isLoadingRascunhos: true })
+            const resp = (await api.get(
+              `/placement/cotacoes?scope=rascunhos&userId=${encodeURIComponent(userId)}`
+            )) as { cotacoes?: PlacementCotacao[] } | PlacementCotacao[]
+            const rascunhos = Array.isArray(resp) ? resp : resp?.cotacoes ?? []
+            set({ rascunhos, isLoadingRascunhos: false, lastSyncRascunhos: Date.now() })
+          } catch (err) {
+            console.error('❌ placementCotacaoStore.syncRascunhos:', err)
+            set({ isLoadingRascunhos: false })
+          } finally {
+            rascunhosSyncInFlight = null
+          }
+        })()
+
+        return rascunhosSyncInFlight
       },
 
       async addCotacao(input) {
@@ -193,8 +222,9 @@ export const usePlacementCotacaoStore = create<PlacementCotacaoState>()(
         return created
       },
 
-      async updateCotacao(id, input) {
-        const updated = (await api.put(`/placement/cotacoes/${id}`, input)) as PlacementCotacao
+      async updateCotacao(id, input, options) {
+        const qs = options?.light ? '?light=1' : ''
+        const updated = (await api.put(`/placement/cotacoes/${id}${qs}`, input)) as PlacementCotacao
         const isDraft =
           String(updated.status ?? '').toLowerCase() === PLACEMENT_STATUS_RASCUNHO.toLowerCase()
         set((s) => ({
@@ -204,6 +234,32 @@ export const usePlacementCotacaoStore = create<PlacementCotacaoState>()(
           rascunhos: isDraft
             ? s.rascunhos.map((c) => (c.id === id ? { ...c, ...updated } : c))
             : s.rascunhos.filter((c) => c.id !== id),
+        }))
+        return updated
+      },
+
+      async patchWorkflowStatus(id, input) {
+        const body: Record<string, unknown> = { status: input.status }
+        if (input.discard?.kickOffEstrategia) body.kickOffEstrategia = null
+        if (input.discard?.emCotacaoSubetapa) body.emCotacaoSubetapa = 'beneficiarios'
+
+        type LightPatch = Pick<
+          PlacementCotacao,
+          'id' | 'status' | 'emCotacaoSubetapa' | 'updatedAt' | 'kickOffEstrategia' | 'vidas' | 'valorEstimadoCents'
+        >
+
+        let updated: LightPatch
+        try {
+          updated = (await api.patch(`/placement/cotacoes/${id}/workflow-status`, input)) as LightPatch
+        } catch (err: unknown) {
+          const status = (err as { status?: number })?.status
+          if (status !== 404 && status !== 405) throw err
+          updated = (await api.put(`/placement/cotacoes/${id}?light=1`, body)) as LightPatch
+        }
+
+        set((s) => ({
+          cotacoes: s.cotacoes.map((c) => (c.id === id ? { ...c, ...updated } : c)),
+          rascunhos: s.rascunhos.map((c) => (c.id === id ? { ...c, ...updated } : c)),
         }))
         return updated
       },
@@ -228,16 +284,34 @@ export const usePlacementCotacaoStore = create<PlacementCotacaoState>()(
         }))
       },
 
+      async duplicateCotacao(id, userId) {
+        const created = (await api.post(`/placement/cotacoes/${id}/duplicate`, {
+          ...(userId ? { userId } : {}),
+        })) as PlacementCotacao
+        const isDraft = isRascunhoStatus(String(created.status ?? ''))
+        set((s) =>
+          isDraft
+            ? { rascunhos: [created, ...s.rascunhos] }
+            : { cotacoes: [created, ...s.cotacoes] },
+        )
+        return created
+      },
+
       getById(id) {
         return get().cotacoes.find((c) => c.id === id) ?? get().rascunhos.find((c) => c.id === id)
       },
     }),
     {
       name: 'placement-cotacao-v1',
+      version: 2,
       partialize: (state) => ({
-        cotacoes: state.cotacoes,
         lastSync: state.lastSync,
+        lastSyncRascunhos: state.lastSyncRascunhos,
       }),
+      storage: createSafePersistStorage<Pick<PlacementCotacaoState, 'lastSync' | 'lastSyncRascunhos'>>(
+        'placement-cotacao-v1',
+        { onQuotaExceeded: clearPlacementCotacaoLocalCache }
+      ),
     }
   )
 )
