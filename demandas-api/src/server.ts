@@ -1740,16 +1740,32 @@ async function executeValidacaoUpdate(id: string, body: any) {
   const updateData: any = { ...filteredData }
   delete updateData.id
 
-  const safeConnect = async (
-    fieldName: 'cliente' | 'contrato' | 'operadora' | 'produto',
+  const clienteId = toId(filteredData.clienteId)
+  const contratoId = toId(filteredData.contratoId)
+  const operadoraId = toId(filteredData.operadoraId)
+  const produtoId = toId(filteredData.produtoId)
+  const analistaId = toId(filteredData.analistaId)
+  const demandaId = toId(filteredData.demandaId)
+  const userId = toId(filteredData.userId)
+  delete updateData.clienteId
+  delete updateData.contratoId
+  delete updateData.operadoraId
+  delete updateData.produtoId
+  delete updateData.analistaId
+  delete updateData.demandaId
+  delete updateData.userId
+
+  type FkModel = 'cliente' | 'contrato' | 'operadora' | 'produto'
+
+  const connectFkIfExists = async (
+    model: FkModel,
     fkId: string | null,
-    model: 'cliente' | 'contrato' | 'operadora' | 'produto'
-  ) => {
-    if (!fkId) return
-    const row = await (prisma as any)[model].findUnique({ where: { id: fkId } })
-    if (row) {
-      updateData[fieldName] = { connect: { id: fkId } }
-    } else {
+    required: boolean
+  ): Promise<Record<string, { connect: { id: string } }>> => {
+    if (!fkId) return {}
+    const row = await (prisma as any)[model].findUnique({ where: { id: fkId }, select: { id: true } })
+    if (!row) {
+      if (!required) return {}
       const err: any = new Error(
         `${model === 'contrato' ? 'Contrato' : model === 'cliente' ? 'Cliente' : model === 'operadora' ? 'Operadora' : 'Produto'} com ID "${fkId}" não foi encontrado no banco de dados.`
       )
@@ -1757,64 +1773,50 @@ async function executeValidacaoUpdate(id: string, body: any) {
       err.statusCode = 400
       throw err
     }
+    return { [model]: { connect: { id: fkId } } }
   }
 
-  const clienteId = toId(filteredData.clienteId)
-  delete updateData.clienteId
-  if (clienteId) await safeConnect('cliente', clienteId, 'cliente')
-
-  const contratoId = toId(filteredData.contratoId)
-  delete updateData.contratoId
-  if (contratoId) await safeConnect('contrato', contratoId, 'contrato')
-
-  const operadoraId = toId(filteredData.operadoraId)
-  delete updateData.operadoraId
-  if (operadoraId) await safeConnect('operadora', operadoraId, 'operadora')
-
-  const produtoId = toId(filteredData.produtoId)
-  delete updateData.produtoId
-  if (produtoId) await safeConnect('produto', produtoId, 'produto')
-
-  const analistaId = toId(filteredData.analistaId)
-  delete updateData.analistaId
-  if (analistaId) {
-    const an = await prisma.analista.findUnique({ where: { id: analistaId } })
-    if (an) {
-      updateData.analista = { connect: { id: analistaId } }
-    } else {
-      const primeiro = await prisma.analista.findFirst()
+  const [existing, fkConnects, analistaConnect, demandaConnect, userConnect] = await Promise.all([
+    prisma.validacao.findUnique({ where: { id }, select: { id: true } }),
+    Promise.all([
+      connectFkIfExists('cliente', clienteId, false),
+      connectFkIfExists('contrato', contratoId, !!contratoId),
+      connectFkIfExists('operadora', operadoraId, false),
+      connectFkIfExists('produto', produtoId, false),
+    ]).then((parts) => Object.assign({}, ...parts)),
+    (async () => {
+      if (!analistaId) return {}
+      const an = await prisma.analista.findUnique({ where: { id: analistaId }, select: { id: true } })
+      if (an) return { analista: { connect: { id: analistaId } } }
+      const primeiro = await prisma.analista.findFirst({ select: { id: true } })
       if (primeiro) {
         console.warn(`⚠️ PUT/validacoes: analista ${analistaId} inexistente — usando fallback ${primeiro.id}`)
-        updateData.analista = { connect: { id: primeiro.id } }
+        return { analista: { connect: { id: primeiro.id } } }
       }
-    }
-  }
-
-  const demandaId = toId(filteredData.demandaId)
-  delete updateData.demandaId
-  if (demandaId) {
-    const dm = await prisma.demanda.findUnique({ where: { id: demandaId } })
-    if (dm) updateData.demanda = { connect: { id: demandaId } }
-    else {
+      return {}
+    })(),
+    (async () => {
+      if (!demandaId) return {}
+      const dm = await prisma.demanda.findUnique({ where: { id: demandaId }, select: { id: true } })
+      if (dm) return { demanda: { connect: { id: demandaId } } }
       console.warn(`⚠️ PUT/validacoes: demanda ${demandaId} não existe — desvinculando`)
-      updateData.demanda = { disconnect: true }
-    }
-  }
+      return { demanda: { disconnect: true } }
+    })(),
+    (async () => {
+      if (!userId) return {}
+      const u = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } })
+      if (u) return { user: { connect: { id: userId } } }
+      return { user: { disconnect: true } }
+    })(),
+  ])
 
-  const userId = toId(filteredData.userId)
-  delete updateData.userId
-  if (userId) {
-    const u = await prisma.user.findUnique({ where: { id: userId } })
-    if (u) updateData.user = { connect: { id: userId } }
-    else updateData.user = { disconnect: true }
-  }
-
-  const existing = await prisma.validacao.findUnique({ where: { id } })
   if (!existing) {
     const err: any = new Error(`Validação ${id} não encontrada`)
     err.code = 'P2025'
     throw err
   }
+
+  Object.assign(updateData, fkConnects, analistaConnect, demandaConnect, userConnect)
 
   return prisma.validacao.update({
     where: { id },
@@ -2636,6 +2638,15 @@ function crud(entity: keyof PrismaClient) {
             reajusteData[campo] = String(reajusteData[campo]);
           }
         });
+
+        delete reajusteData.id
+        delete reajusteData.createdAt
+        delete reajusteData.updatedAt
+
+        if (Object.prototype.hasOwnProperty.call(reajusteData, 'contratosVinculos')) {
+          const parsed = parseContratosVinculosBody(reajusteData.contratosVinculos)
+          reajusteData.contratosVinculos = parsed === undefined ? undefined : parsed
+        }
         
         // Converter mes de nome do mês para número se necessário
         if (reajusteData.mes && typeof reajusteData.mes === 'string') {
@@ -2701,6 +2712,23 @@ function crud(entity: keyof PrismaClient) {
                 if (Object.keys(out).length) clean[sid] = out
               }
               demandaData.sistemasMetrics = Object.keys(clean).length ? clean : null
+            }
+          }
+        }
+
+        if (Object.prototype.hasOwnProperty.call(demandaData, 'qualificacaoChamado')) {
+          const raw = demandaData.qualificacaoChamado
+          if (raw === null) {
+            demandaData.qualificacaoChamado = null
+          } else {
+            let parsed: any = raw
+            if (typeof raw === 'string') {
+              try { parsed = JSON.parse(raw) } catch { parsed = null }
+            }
+            if (parsed == null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+              delete demandaData.qualificacaoChamado
+            } else {
+              demandaData.qualificacaoChamado = parsed
             }
           }
         }
@@ -2811,6 +2839,23 @@ function crud(entity: keyof PrismaClient) {
           }
         }
 
+        if (Object.prototype.hasOwnProperty.call(manutencaoData, 'qualificacaoChamado')) {
+          const raw = manutencaoData.qualificacaoChamado
+          if (raw === null) {
+            manutencaoData.qualificacaoChamado = null
+          } else {
+            let parsed: any = raw
+            if (typeof raw === 'string') {
+              try { parsed = JSON.parse(raw) } catch { parsed = null }
+            }
+            if (parsed == null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+              delete manutencaoData.qualificacaoChamado
+            } else {
+              manutencaoData.qualificacaoChamado = parsed
+            }
+          }
+        }
+
         console.log('🔍 MANUTENCAO UPDATE: Dados processados:', JSON.stringify(manutencaoData, null, 2))
         return anyPrisma[entity].update({ where: { id }, data: manutencaoData })
       }
@@ -2855,6 +2900,10 @@ function crud(entity: keyof PrismaClient) {
         delete (reajusteData as any).userId;
         delete (reajusteData as any).analistaId;
         delete (reajusteData as any).updatedAt;
+        if (Object.prototype.hasOwnProperty.call(raw, 'contratosVinculos')) {
+          const parsed = parseContratosVinculosBody(raw.contratosVinculos)
+          reajusteData.contratosVinculos = parsed === undefined ? undefined : parsed
+        }
         console.log('🔍 REAJUSTE UPDATE: Dados processados:', JSON.stringify(reajusteData, null, 2));
         return anyPrisma[entity].update({ where: { id }, data: reajusteData });
       }
@@ -5015,78 +5064,59 @@ for (const [path, repo] of Object.entries(resources)) {
           }
         }
 
-        // Adicionar relacionamentos se os IDs existirem e forem válidos
-        if (dataWithDates.clienteId) {
-          try {
-            const clienteExiste = await prisma.cliente.findUnique({ where: { id: dataWithDates.clienteId } })
-            if (clienteExiste) {
-              createData.cliente = { connect: { id: dataWithDates.clienteId } }
-              console.log(`✅ POST /validacoes: Cliente conectado: ${clienteExiste.nome}`)
-            } else {
-              console.warn(`⚠️ POST /validacoes: Cliente ID "${dataWithDates.clienteId}" não encontrado, ignorando`)
-            }
-          } catch (error) {
-            console.error(`❌ POST /validacoes: Erro ao verificar cliente:`, error)
-          }
-          delete createData.clienteId
+        // Relacionamentos opcionais — validação em paralelo (evita lentidão no POST/duplicar)
+        const fkIds = {
+          clienteId: dataWithDates.clienteId as string | undefined,
+          contratoId: dataWithDates.contratoId as string | undefined,
+          operadoraId: dataWithDates.operadoraId as string | undefined,
+          produtoId: dataWithDates.produtoId as string | undefined,
         }
-        
-        if (dataWithDates.contratoId) {
-          try {
-            const contratoExiste = await prisma.contrato.findUnique({ where: { id: dataWithDates.contratoId } })
-            if (contratoExiste) {
-              createData.contrato = { connect: { id: dataWithDates.contratoId } }
-              console.log(`✅ POST /validacoes: Contrato conectado: ${contratoExiste.numero}`)
-            } else {
-              console.error(`❌ POST /validacoes: Contrato ID "${dataWithDates.contratoId}" NÃO EXISTE no banco!`)
-              res.code(400)
-              return {
-                error: 'Contrato inválido',
-                message: `Contrato com ID "${dataWithDates.contratoId}" não foi encontrado no banco de dados.`,
-                code: 'CONTRATO_NAO_ENCONTRADO',
-              }
+
+        type PostFkModel = 'cliente' | 'contrato' | 'operadora' | 'produto'
+        const resolvePostFk = async (model: PostFkModel, fkId: string | undefined) => {
+          if (!fkId) return null
+          const row = await (prisma as any)[model].findUnique({ where: { id: fkId }, select: { id: true } })
+          if (!row) {
+            if (model === 'contrato') {
+              const err: any = new Error(`Contrato com ID "${fkId}" não foi encontrado no banco de dados.`)
+              err.code = 'CONTRATO_NAO_ENCONTRADO'
+              err.statusCode = 400
+              throw err
             }
-          } catch (error) {
-            console.error(`❌ POST /validacoes: Erro ao verificar contrato:`, error)
-            res.code(500)
+            console.warn(`⚠️ POST /validacoes: ${model} ID "${fkId}" não encontrado, ignorando`)
+            return null
+          }
+          return { [model]: { connect: { id: fkId } } } as Record<string, { connect: { id: string } }>
+        }
+
+        try {
+          const fkParts = await Promise.all([
+            resolvePostFk('cliente', fkIds.clienteId),
+            resolvePostFk('contrato', fkIds.contratoId),
+            resolvePostFk('operadora', fkIds.operadoraId),
+            resolvePostFk('produto', fkIds.produtoId),
+          ])
+          for (const part of fkParts) {
+            if (part) Object.assign(createData, part)
+          }
+        } catch (error: any) {
+          if (error?.statusCode === 400) {
+            res.code(400)
             return {
-              error: 'Erro interno',
-              message: `Erro ao verificar contrato: ${error}`,
-              code: 'INTERNAL_ERROR',
+              error: error.code === 'CONTRATO_NAO_ENCONTRADO' ? 'Contrato inválido' : 'FK inválida',
+              message: error.message,
+              code: error.code,
             }
           }
-          delete createData.contratoId
+          console.error('❌ POST /validacoes: Erro ao verificar relacionamentos:', error)
+          res.code(500)
+          return { error: 'Erro interno', message: String(error?.message || error), code: 'INTERNAL_ERROR' }
         }
-        
-        if (dataWithDates.operadoraId) {
-          try {
-            const operadoraExiste = await prisma.operadora.findUnique({ where: { id: dataWithDates.operadoraId } })
-            if (operadoraExiste) {
-              createData.operadora = { connect: { id: dataWithDates.operadoraId } }
-              console.log(`✅ POST /validacoes: Operadora conectada: ${operadoraExiste.nome}`)
-            } else {
-              console.warn(`⚠️ POST /validacoes: Operadora ID "${dataWithDates.operadoraId}" não encontrada, ignorando`)
-            }
-          } catch (error) {
-            console.error(`❌ POST /validacoes: Erro ao verificar operadora:`, error)
-          }
-          delete createData.operadoraId
-        }
-        
-        if (dataWithDates.produtoId) {
-          try {
-            const produtoExiste = await prisma.produto.findUnique({ where: { id: dataWithDates.produtoId } })
-            if (produtoExiste) {
-              createData.produto = { connect: { id: dataWithDates.produtoId } }
-              console.log(`✅ POST /validacoes: Produto conectado: ${produtoExiste.nome}`)
-            } else {
-              console.warn(`⚠️ POST /validacoes: Produto ID "${dataWithDates.produtoId}" não encontrado, ignorando`)
-            }
-          } catch (error) {
-            console.error(`❌ POST /validacoes: Erro ao verificar produto:`, error)
-          }
-          delete createData.produtoId
-        }
+
+        delete createData.clienteId
+        delete createData.contratoId
+        delete createData.operadoraId
+        delete createData.produtoId
 
         if (filteredData.id) {
           const existingRow = await prisma.validacao.findUnique({ where: { id: filteredData.id } })
@@ -5320,7 +5350,11 @@ for (const [path, repo] of Object.entries(resources)) {
         }
         if (raw.userId !== undefined) data.user = (raw.userId && String(raw.userId).trim()) ? { connect: { id: String(raw.userId).trim() } } : { disconnect: true }
         if (raw.analistaId !== undefined) data.analista = (raw.analistaId && String(raw.analistaId).trim()) ? { connect: { id: String(raw.analistaId).trim() } } : { disconnect: true }
-        const allowedKeys = new Set([...FIELDS, ...DATE_FIELDS, 'user', 'analista'])
+        if (Object.prototype.hasOwnProperty.call(raw, 'contratosVinculos')) {
+          const parsed = parseContratosVinculosBody(raw.contratosVinculos)
+          data.contratosVinculos = parsed === undefined ? undefined : parsed
+        }
+        const allowedKeys = new Set([...FIELDS, ...DATE_FIELDS, 'user', 'analista', 'contratosVinculos'])
         const finalData = Object.fromEntries(Object.entries(data).filter(([k]) => allowedKeys.has(k)))
         updated = await prisma.reajusteLancamento.update({ where: { id: req.params.id }, data: finalData })
       }

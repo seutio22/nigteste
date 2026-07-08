@@ -19,6 +19,7 @@ export interface ReajusteEntry {
   cliente?: string
   contrato?: string
   produto?: string
+  contratosVinculos?: unknown
   dataAtualizacao?: string
   itensPendentes?: number
   itensConcluidos?: number

@@ -3,47 +3,46 @@
  * Resolve acentos quebrados vindos do backend
  */
 
+const MOJIBAKE_PATTERN = /Ã|Â|â€|�/
+const VALID_UTF8_PATTERN = /[áàâãéêíóôõúçÁÀÂÃÉÊÍÓÔÕÚÇ]/
+
+function tryFixMojibake(text: string): string | null {
+  if (!MOJIBAKE_PATTERN.test(text)) return null
+  try {
+    return decodeURIComponent(escape(text))
+  } catch {
+    return null
+  }
+}
+
 export function fixEncoding(text: string | null | undefined): string {
   if (!text || typeof text !== 'string') {
     return text || ''
   }
 
-  try {
-    // Verificar se o texto já está correto
-    if (text.includes('ção') || text.includes('ã') || text.includes('á') || text.includes('é') || text.includes('í') || text.includes('ó') || text.includes('ú')) {
-      return text
-    }
-
-    // Tentar corrigir encoding usando decodeURIComponent + escape
-    const fixed = decodeURIComponent(escape(text))
-    
-    // Verificar se a correção funcionou
-    if (fixed !== text && (fixed.includes('ção') || fixed.includes('ã') || fixed.includes('á'))) {
-      return fixed
-    }
-
-    // Se não funcionou, tentar outras abordagens
-    try {
-      // Tentar converter de latin1 para utf8
-      const latin1Bytes = new Uint8Array(text.length)
-      for (let i = 0; i < text.length; i++) {
-        latin1Bytes[i] = text.charCodeAt(i)
-      }
-      const decoder = new TextDecoder('utf-8')
-      const fixed2 = decoder.decode(latin1Bytes)
-      
-      if (fixed2 !== text && (fixed2.includes('ção') || fixed2.includes('ã'))) {
-        return fixed2
-      }
-    } catch {
-      // Ignorar erro e continuar
-    }
-
-    return text
-  } catch (error) {
-    console.warn('Erro ao corrigir encoding:', error)
+  if (VALID_UTF8_PATTERN.test(text)) {
     return text
   }
+
+  const fixed = tryFixMojibake(text)
+  if (fixed && fixed !== text && VALID_UTF8_PATTERN.test(fixed)) {
+    return fixed
+  }
+
+  try {
+    const latin1Bytes = new Uint8Array(text.length)
+    for (let i = 0; i < text.length; i++) {
+      latin1Bytes[i] = text.charCodeAt(i)
+    }
+    const fixed2 = new TextDecoder('utf-8').decode(latin1Bytes)
+    if (fixed2 !== text && VALID_UTF8_PATTERN.test(fixed2)) {
+      return fixed2
+    }
+  } catch {
+    // texto já está legível ou não é latin1 mal interpretado
+  }
+
+  return text
 }
 
 /**

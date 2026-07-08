@@ -1,16 +1,24 @@
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm, Controller, useWatch } from 'react-hook-form'
-import { Autocomplete, Box, Button, Grid, MenuItem, Paper, TextField, Typography } from '@mui/material'
+import { Autocomplete, Box, Button, Card, CardContent, Container, Grid, MenuItem, Paper, Stack, TextField, Typography } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 import { useMasterDataStore } from '../../store/masterDataStore'
 import { useReajusteStore } from '../../store/reajusteStore'
 import { useAuthStore } from '../../store/authStore'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPerfLogger } from '../../utils/perf'
 import { AsyncClienteAutocomplete, type ClienteOption } from '../../components/AsyncClienteAutocomplete'
-import { AsyncContratoAutocomplete } from '../../components/AsyncContratoAutocomplete'
 import { PrimaryActionButton } from '../../components/PrimaryActionButton'
+import { ManutencaoContratosVinculosSection } from '../../components/ManutencaoContratosVinculosSection'
+import {
+  emptyContratoVinculoRow,
+  filterContratosDoCliente,
+  rowsToVinculos,
+  type ContratoVinculoRow,
+} from '../../utils/manutencaoContratos'
+import { buildReajusteLegacyFieldsFromVinculos } from '../../utils/reajusteContratos'
+import { cardSx, formField, SectionTitle } from './reajusteFormLayout'
 
 const schema = z.object({
   mes: z.coerce.number().min(1).max(12),
@@ -18,7 +26,6 @@ const schema = z.object({
   dataInicio: z.string().optional(),
   dataFim: z.string().optional(),
   status: z.string().min(1, 'Obrigatório'),
-  operadora: z.string().min(1, 'Obrigatório'),
   qualidade: z.string().optional(),
   qualidadeInformacao: z.string().optional(),
   planos: z.string().optional(),
@@ -28,8 +35,6 @@ const schema = z.object({
   solicitante: z.string().optional(),
   responsavelAnalista: z.string().min(1, 'Obrigatório'),
   cliente: z.string().optional(),
-  contrato: z.string().optional(),
-  produto: z.string().optional(),
   dataAtualizacao: z.string().optional(),
   itensPendentes: z.coerce.number().min(0).optional(),
   itensConcluidos: z.coerce.number().min(0).optional(),
@@ -52,7 +57,6 @@ export default function ReajusteNewPage() {
       dataInicio: new Date().toISOString().split('T')[0],
       dataFim: '',
       status: 'Em andamento',
-      operadora: '',
       qualidade: '',
       qualidadeInformacao: '',
       planos: '',
@@ -62,8 +66,6 @@ export default function ReajusteNewPage() {
       solicitante: '',
       responsavelAnalista: '',
       cliente: '',
-      contrato: '',
-      produto: '',
       dataAtualizacao: new Date().toISOString().split('T')[0],
       itensPendentes: undefined,
       itensConcluidos: undefined,
@@ -76,6 +78,24 @@ export default function ReajusteNewPage() {
   // Lógica para filtrar contratos por cliente (igual à página de cadastro)
   const selectedClienteId = useWatch({ control, name: 'cliente' })
   const [selectedCliente, setSelectedCliente] = useState<ClienteOption | null>(null)
+  const [contratosVinculosRows, setContratosVinculosRows] = useState<ContratoVinculoRow[]>([
+    emptyContratoVinculoRow(),
+  ])
+
+  const contratosDoCliente = useMemo(
+    () =>
+      filterContratosDoCliente(
+        md.contratos,
+        selectedClienteId,
+        selectedCliente?.grupoEconomico || md.clientes.find((c) => c.id === selectedClienteId)?.grupoEconomico
+      ),
+    [md.contratos, md.clientes, selectedClienteId, selectedCliente?.grupoEconomico]
+  )
+
+  const vinculosValidos = useMemo(() => {
+    const vinculos = rowsToVinculos(contratosVinculosRows)
+    return vinculos.length > 0 && vinculos.every((v) => v.operadoraId)
+  }, [contratosVinculosRows])
 
   useEffect(() => {
     perfRef.current.log('mount')
@@ -105,7 +125,6 @@ export default function ReajusteNewPage() {
       dataInicio: '',
       dataFim: '',
       status: '',
-      operadora: '',
       qualidade: '',
       qualidadeInformacao: '',
       planos: '',
@@ -115,8 +134,6 @@ export default function ReajusteNewPage() {
       solicitante: '',
       responsavelAnalista: '',
       cliente: '',
-      contrato: '',
-      produto: '',
       dataAtualizacao: new Date().toISOString().split('T')[0],
       itensPendentes: undefined,
       itensConcluidos: undefined,
@@ -142,11 +159,6 @@ export default function ReajusteNewPage() {
       }
     }
   }, [user?.id, user?.name, md.analistas.length, setValue])
-
-  // Limpar contrato quando cliente for alterado
-  useEffect(() => {
-    setValue('contrato', '')
-  }, [selectedClienteId, setValue])
 
   // Função para verificar se o ticket já existe no banco
   const checkTicketExists = async (ticket: string): Promise<boolean> => {
@@ -200,18 +212,34 @@ export default function ReajusteNewPage() {
         }
       }
       
+      if (!vinculosValidos) {
+        alert('Informe ao menos um contrato com operadora em cada linha.')
+        return
+      }
+
+      const legacy = buildReajusteLegacyFieldsFromVinculos(contratosVinculosRows, data.cliente, md)
+      if (!legacy.operadora) {
+        alert('Informe a operadora no vínculo de contrato.')
+        return
+      }
+      
+      const analista = md.analistas.find((a) => a.id === data.responsavelAnalista)
+
       await store.add({
         ...data,
         mes: String(data.mes),
         ano: String(data.ano),
         status: data.status || 'Em andamento',
-        operadora: data.operadora || '',
-        responsavelAnalista: data.responsavelAnalista || '',
-        // Converter ticket vazio para null para evitar problemas no banco
-        ticket: data.ticket && data.ticket.trim() !== '' ? data.ticket.trim() : null,
-        updatedAt: new Date().toISOString()
+        operadora: legacy.operadora,
+        cliente: legacy.cliente,
+        contrato: legacy.contrato,
+        produto: legacy.produto,
+        contratosVinculos: legacy.contratosVinculos,
+        responsavelAnalista: analista?.nome || data.responsavelAnalista || '',
+        ticket: data.ticket && data.ticket.trim() !== '' ? data.ticket.trim() : null
       })
       
+      setContratosVinculosRows([emptyContratoVinculoRow()])
       // Limpar formulário após envio
       reset({
         mes: undefined,
@@ -245,385 +273,294 @@ export default function ReajusteNewPage() {
   }
 
   return (
-    <Paper sx={{ p: 3 }}>
-      <Typography variant="h5" gutterBottom>Novo Lançamento (Reajuste)</Typography>
-      <Box component="form" onSubmit={handleSubmit(onSubmit)}>
-        <Grid container spacing={2}>
-          {/* Informações Básicas */}
-          <Grid item xs={12}>
-            <Typography variant="h6" gutterBottom sx={{ mt: 2, mb: 1, color: 'primary.main' }}>
-              Informações Básicas
-            </Typography>
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={3}>
-            <Controller name="mes" control={control} render={({ field }) => (
-              <TextField 
-                {...field} 
-                select 
-                label="Mês *" 
-                fullWidth 
-                error={!!errors.mes} 
-                helperText={errors.mes?.message || 'Campo obrigatório'}
-                value={field.value || ''}
-                required
-              >
-                <MenuItem value="" disabled>
-                  <em>Selecione o mês</em>
-                </MenuItem>
-                <MenuItem value={1}>Janeiro</MenuItem>
-                <MenuItem value={2}>Fevereiro</MenuItem>
-                <MenuItem value={3}>Março</MenuItem>
-                <MenuItem value={4}>Abril</MenuItem>
-                <MenuItem value={5}>Maio</MenuItem>
-                <MenuItem value={6}>Junho</MenuItem>
-                <MenuItem value={7}>Julho</MenuItem>
-                <MenuItem value={8}>Agosto</MenuItem>
-                <MenuItem value={9}>Setembro</MenuItem>
-                <MenuItem value={10}>Outubro</MenuItem>
-                <MenuItem value={11}>Novembro</MenuItem>
-                <MenuItem value={12}>Dezembro</MenuItem>
-              </TextField>
-            )} />
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={3}>
-            <Controller name="ano" control={control} render={({ field }) => (
-              <TextField 
-                {...field} 
-                type="number" 
-                label="Ano *" 
-                fullWidth 
-                error={!!errors.ano} 
-                helperText={errors.ano?.message || 'Campo obrigatório'}
-                placeholder="Ex: 2024"
-                value={field.value || ''}
-                required
-              />
-            )} />
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={3}>
-            <Controller name="status" control={control} render={({ field }) => (
-              <TextField {...field} select label="Status *" required fullWidth error={!!errors.status} helperText={errors.status?.message || 'Campo obrigatório'}>
-                <MenuItem value="Pendente">Pendente</MenuItem>
-                <MenuItem value="Em Andamento">Em Andamento</MenuItem>
-                <MenuItem value="Transf. Analista">Transf. Analista</MenuItem>
-                <MenuItem value="Concluído Parcialmente">Concluído Parcialmente</MenuItem>
-                <MenuItem value="Concluído">Concluído</MenuItem>
-                <MenuItem value="Cancelado">Cancelado</MenuItem>
-              </TextField>
-            )} />
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={3}>
-            <Controller name="ticket" control={control} render={({ field }) => (
-              <TextField {...field} label="Ticket" fullWidth />
-            )} />
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={3}>
-            <Controller name="dataInicio" control={control} render={({ field }) => (
-              <TextField 
-                {...field} 
-                type="date" 
-                label="Data de Início" 
-                fullWidth 
-                InputLabelProps={{ shrink: true }}
-                value={field.value || ''}
-              />
-            )} />
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={3}>
-            <Controller name="dataFim" control={control} render={({ field }) => (
-              <TextField 
-                {...field} 
-                type="date" 
-                label="Data de Finalização" 
-                fullWidth 
-                InputLabelProps={{ shrink: true }}
-                value={field.value || ''}
-              />
-            )} />
-          </Grid>
-          
-          {/* Informações do Cliente e Operadora */}
-          <Grid item xs={12}>
-            <Typography variant="h6" gutterBottom sx={{ mt: 2, mb: 1, color: 'primary.main' }}>
-              Informações do Cliente e Operadora
-            </Typography>
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={3}>
-            <Controller name="operadora" control={control} render={({ field }) => (
-              <Autocomplete
-                {...field}
-                options={md.operadoras}
-                getOptionLabel={(option) => option.nome || ''}
-                isOptionEqualToValue={(option, value) => option.id === value?.id}
-                value={md.operadoras.find(o => o.id === field.value) || null}
-                onChange={(_, newValue) => field.onChange(newValue?.id || '')}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Operadora *"
-                    required
-                    fullWidth
-                    error={!!errors.operadora}
-                    helperText={errors.operadora?.message || 'Digite para buscar uma operadora'}
-                    placeholder="Digite para buscar..."
-                  />
-                )}
-                renderOption={(props, option) => (
-                  <Box component="li" {...props} key={option.id}>
-                    <Typography variant="body1" fontWeight="medium">
-                      {option.nome}
-                    </Typography>
-                  </Box>
-                )}
-                noOptionsText="Nenhuma operadora encontrada"
-                loading={md.operadoras.length === 0}
-                loadingText="Carregando operadoras..."
-                filterOptions={(options, { inputValue }) => {
-                  const filtered = options.filter(option =>
-                    option.nome.toLowerCase().includes(inputValue.toLowerCase())
-                  )
-                  return filtered
-                }}
-              />
-            )} />
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={3}>
-            <Controller name="cliente" control={control} render={({ field }) => (
-              <AsyncClienteAutocomplete
-                valueId={field.value}
-                onChangeId={(nextId) => {
-                  field.onChange(nextId)
-                  setValue('contrato', '')
-                }}
-                label="Cliente"
-                onSelectOption={setSelectedCliente}
-              />
-            )} />
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={3}>
-            <Controller name="contrato" control={control} render={({ field }) => (
-              <AsyncContratoAutocomplete
-                valueId={field.value}
-                onChangeId={field.onChange}
-                label="Contrato"
-                error={!!errors.contrato}
-                helperText={errors.contrato?.message}
-                disabled={!selectedClienteId}
-                clienteId={selectedClienteId}
-                grupoEconomico={selectedCliente?.grupoEconomico || null}
-              />
-            )} />
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={3}>
-            <Controller name="produto" control={control} render={({ field }) => (
-              <TextField {...field} select label="Produto" fullWidth>
-                {md.produtos.map(p => <MenuItem key={p.id} value={p.id}>{p.nome}</MenuItem>)}
-              </TextField>
-            )} />
-          </Grid>
-          
-          {/* Informações de Responsabilidade */}
-          <Grid item xs={12}>
-            <Typography variant="h6" gutterBottom sx={{ mt: 2, mb: 1, color: 'primary.main' }}>
-              Informações de Responsabilidade
-            </Typography>
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={3}>
-            <Controller name="responsavelAnalista" control={control} render={({ field }) => (
-              <TextField 
-                {...field} 
-                select 
-                label="Analista responsável *" 
-                fullWidth 
-                error={!!errors.responsavelAnalista} 
-                helperText={errors.responsavelAnalista?.message || `Analista vinculado ao usuário: ${user?.name || 'Carregando...'}`}
-                required
-                InputProps={{
-                  readOnly: true
-                }}
-                sx={{
-                  '& .MuiInputBase-input': {
-                    backgroundColor: '#f5f5f5',
-                    cursor: 'not-allowed'
-                  }
-                }}
-              >
-                {md.analistas.length > 0 ? (
-                  md.analistas.map(analista => (
-                    <MenuItem key={analista.id} value={analista.id}>
-                      {analista.nome}
-                    </MenuItem>
-                  ))
-                ) : (
-                  <MenuItem disabled>Carregando analistas...</MenuItem>
-                )}
-              </TextField>
-            )} />
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={3}>
-            <Controller name="responsavelConta" control={control} render={({ field }) => (
-              <TextField {...field} label="Responsável da Conta" fullWidth />
-            )} />
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={3}>
-            <Controller
-              name="solicitante"
-              control={control}
-              render={({ field }) => (
-                <Autocomplete
-                  {...field}
-                  options={md.solicitantes}
-                  getOptionLabel={(option) => option?.nome || ''}
-                  isOptionEqualToValue={(option, value) => option.id === value?.id}
-                  value={md.solicitantes.find(s => s.id === field.value) || null}
-                  onChange={(_, newValue) => field.onChange(newValue?.id || '')}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label="Solicitante"
-                      fullWidth
-                      error={!!errors.solicitante}
-                      helperText={errors.solicitante?.message || 'Digite para buscar um solicitante'}
-                      placeholder="Digite para buscar..."
-                    />
-                  )}
-                  renderOption={(props, option) => (
-                    <Box component="li" {...props} key={option.id}>
-                      <Typography variant="body1" fontWeight="medium">
-                        {option.nome}
-                      </Typography>
-                    </Box>
-                  )}
-                  noOptionsText="Nenhum solicitante encontrado"
-                  loading={md.solicitantes.length === 0}
-                  loadingText="Carregando solicitantes..."
-                  filterOptions={(options, { inputValue }) => {
-                    const term = inputValue.toLowerCase()
-                    return options.filter(option =>
-                      option.nome.toLowerCase().includes(term)
-                    )
-                  }}
-                />
-              )}
-            />
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={3}>
-            <Controller name="filial" control={control} render={({ field }) => (
-              <TextField {...field} label="Filial" fullWidth />
-            )} />
-          </Grid>
-          
-          {/* Informações de Qualidade e Planos */}
-          <Grid item xs={12}>
-            <Typography variant="h6" gutterBottom sx={{ mt: 2, mb: 1, color: 'primary.main' }}>
-              Informações de Qualidade e Planos
-            </Typography>
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={3}>
-            <Controller name="qualidade" control={control} render={({ field }) => (
-              <TextField {...field} select label="Qualidade (prazo)" fullWidth>
-                <MenuItem value="ANTIGO">ANTIGO</MenuItem>
-                <MenuItem value="FORA DO PRAZO">FORA DO PRAZO</MenuItem>
-                <MenuItem value="NO PRAZO">NO PRAZO</MenuItem>
-              </TextField>
-            )} />
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={3}>
-            <Controller name="qualidadeInformacao" control={control} render={({ field }) => (
-              <TextField {...field} select label="Qualidade da Informação" fullWidth>
-                <MenuItem value="ERRO NOS DADOS">ERRO NOS DADOS</MenuItem>
-                <MenuItem value="FALTA DE DADOS">FALTA DE DADOS</MenuItem>
-                <MenuItem value="OK">OK</MenuItem>
-              </TextField>
-            )} />
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={3}>
-            <Controller name="planos" control={control} render={({ field }) => (
-              <TextField {...field} select label="Planos" fullWidth>
-                <MenuItem value="PENDENTE ATUALIZAÇÃO">PENDENTE ATUALIZAÇÃO</MenuItem>
-                <MenuItem value="OK">OK</MenuItem>
-              </TextField>
-            )} />
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={3}>
-            <Controller name="dataAtualizacao" control={control} render={({ field }) => (
-              <TextField 
-                {...field} 
-                type="date" 
-                label="Data de Atualização" 
-                fullWidth 
-                InputLabelProps={{ shrink: true }}
-                value={field.value || ''}
-              />
-            )} />
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={3}>
-            <Controller name="itensPendentes" control={control} render={({ field }) => (
-              <TextField 
-                {...field} 
-                type="number" 
-                label="Itens Pendentes" 
-                fullWidth 
-                inputProps={{ min: 0 }}
-                value={field.value || ''}
-              />
-            )} />
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={3}>
-            <Controller name="itensConcluidos" control={control} render={({ field }) => (
-              <TextField 
-                {...field} 
-                type="number" 
-                label="Itens Concluídos" 
-                fullWidth 
-                inputProps={{ min: 0 }}
-                value={field.value || ''}
-              />
-            )} />
-          </Grid>
-          
-          {/* Campo de Observações */}
-          <Grid item xs={12}>
-            <Controller name="observacoes" control={control} render={({ field }) => (
-              <TextField 
-                {...field} 
-                label="Observações" 
-                fullWidth 
-                multiline
-                rows={4}
-                placeholder="Digite observações sobre este reajuste..."
-                value={field.value || ''}
-              />
-            )} />
-          </Grid>
-        </Grid>
-        <Box mt={2} display="flex" gap={2}>
-          <PrimaryActionButton type="button" disabled={!isValid} onClick={handleSubmit(onSubmit)}>Salvar</PrimaryActionButton>
-          <Button variant="outlined" onClick={() => navigate('/reajuste')}>Cancelar</Button>
+    <Container maxWidth={false} disableGutters sx={{ py: 0, px: 0, bgcolor: 'transparent', width: '100%' }}>
+      <Paper
+        elevation={0}
+        sx={{
+          borderRadius: { xs: 0, sm: 3 },
+          overflow: 'hidden',
+          border: '1px solid',
+          borderColor: 'rgba(15, 23, 42, 0.06)',
+          boxShadow: '0 12px 40px -16px rgba(15, 23, 42, 0.18)',
+          width: '100%',
+        }}
+      >
+        <Box
+          sx={{
+            px: { xs: 2, sm: 2.5 },
+            py: 2.25,
+            background: 'linear-gradient(125deg, #009FDF 0%, #0077b3 55%, #005a87 100%)',
+            color: 'common.white',
+          }}
+        >
+          <Stack direction="row" alignItems="flex-start" justifyContent="space-between" flexWrap="wrap" gap={1.5}>
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: '-0.03em', color: 'inherit', lineHeight: 1.2 }}>
+                Novo lançamento (Reajuste)
+              </Typography>
+              <Typography variant="body2" sx={{ mt: 0.75, opacity: 0.92, fontWeight: 400, maxWidth: 560 }}>
+                Ordem sugerida: identificação → cliente/contrato → responsabilidade → qualidade e métricas.
+              </Typography>
+            </Box>
+          </Stack>
         </Box>
-      </Box>
-    </Paper>
+
+        <Box
+          component="form"
+          onSubmit={handleSubmit(onSubmit)}
+          sx={{
+            p: { xs: 2.25, sm: 3 },
+            bgcolor: (t) => (t.palette.mode === 'dark' ? 'background.default' : '#f4f7fb'),
+          }}
+        >
+          <Card elevation={0} sx={cardSx}>
+            <CardContent sx={{ py: 3, px: { xs: 2.25, sm: 3 }, '&:last-child': { pb: 3 } }}>
+              <SectionTitle>Identificação</SectionTitle>
+              <Grid container spacing={2.25}>
+                <Grid item xs={12} sm={6} md={3}>
+                  <Controller name="mes" control={control} render={({ field }) => (
+                    <TextField
+                      {...field}
+                      select
+                      label="Mês *"
+                      {...formField}
+                      error={!!errors.mes}
+                      helperText={errors.mes?.message || 'Campo obrigatório'}
+                      value={field.value || ''}
+                      required
+                    >
+                      <MenuItem value="" disabled><em>Selecione o mês</em></MenuItem>
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m, i) => (
+                        <MenuItem key={m} value={m}>
+                          {['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'][i]}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  )} />
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <Controller name="ano" control={control} render={({ field }) => (
+                    <TextField
+                      {...field}
+                      type="number"
+                      label="Ano *"
+                      {...formField}
+                      error={!!errors.ano}
+                      helperText={errors.ano?.message || 'Campo obrigatório'}
+                      placeholder="Ex: 2024"
+                      value={field.value || ''}
+                      required
+                    />
+                  )} />
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <Controller name="status" control={control} render={({ field }) => (
+                    <TextField {...field} select label="Status *" required {...formField} error={!!errors.status} helperText={errors.status?.message || 'Campo obrigatório'}>
+                      <MenuItem value="Pendente">Pendente</MenuItem>
+                      <MenuItem value="Em Andamento">Em Andamento</MenuItem>
+                      <MenuItem value="Transf. Analista">Transf. Analista</MenuItem>
+                      <MenuItem value="Concluído Parcialmente">Concluído Parcialmente</MenuItem>
+                      <MenuItem value="Concluído">Concluído</MenuItem>
+                      <MenuItem value="Cancelado">Cancelado</MenuItem>
+                    </TextField>
+                  )} />
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <Controller name="ticket" control={control} render={({ field }) => (
+                    <TextField {...field} label="Ticket" {...formField} />
+                  )} />
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <Controller name="dataInicio" control={control} render={({ field }) => (
+                    <TextField {...field} type="date" label="Data de início" {...formField} InputLabelProps={{ shrink: true }} value={field.value || ''} />
+                  )} />
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <Controller name="dataFim" control={control} render={({ field }) => (
+                    <TextField {...field} type="date" label="Data final" {...formField} InputLabelProps={{ shrink: true }} value={field.value || ''} />
+                  )} />
+                </Grid>
+              </Grid>
+            </CardContent>
+          </Card>
+
+          <Card elevation={0} sx={cardSx}>
+            <CardContent sx={{ py: 3, px: { xs: 2.25, sm: 3 }, '&:last-child': { pb: 3 } }}>
+              <SectionTitle>Cliente e contrato</SectionTitle>
+              <Grid container spacing={2.25}>
+                <Grid item xs={12} sm={6} md={4}>
+                  <Controller name="cliente" control={control} render={({ field }) => (
+                    <AsyncClienteAutocomplete
+                      valueId={field.value}
+                      onChangeId={(nextId) => {
+                        field.onChange(nextId)
+                        setContratosVinculosRows([emptyContratoVinculoRow()])
+                      }}
+                      label="Cliente"
+                      helperText="Digite para buscar um cliente"
+                      onSelectOption={setSelectedCliente}
+                      textFieldProps={formField}
+                    />
+                  )} />
+                </Grid>
+                <Grid item xs={12}>
+                  <ManutencaoContratosVinculosSection
+                    rows={contratosVinculosRows}
+                    onChange={setContratosVinculosRows}
+                    contratos={contratosDoCliente}
+                    operadoras={md.operadoras}
+                    produtos={md.produtos}
+                    clienteSelected={!!selectedClienteId}
+                    textFieldProps={formField}
+                  />
+                </Grid>
+              </Grid>
+            </CardContent>
+          </Card>
+
+          <Card elevation={0} sx={cardSx}>
+            <CardContent sx={{ py: 3, px: { xs: 2.25, sm: 3 }, '&:last-child': { pb: 3 } }}>
+              <SectionTitle>Responsabilidade</SectionTitle>
+              <Grid container spacing={2.25}>
+                <Grid item xs={12} sm={6} md={3}>
+                  <Controller name="responsavelAnalista" control={control} render={({ field }) => (
+                    <TextField
+                      {...field}
+                      select
+                      label="Analista responsável *"
+                      {...formField}
+                      error={!!errors.responsavelAnalista}
+                      helperText={errors.responsavelAnalista?.message || `Analista vinculado ao usuário: ${user?.name || 'Carregando...'}`}
+                      required
+                      InputProps={{ readOnly: true }}
+                      sx={{ '& .MuiInputBase-input': { backgroundColor: '#f5f5f5', cursor: 'not-allowed' } }}
+                    >
+                      {md.analistas.length > 0 ? (
+                        md.analistas.map((analista) => (
+                          <MenuItem key={analista.id} value={analista.id}>{analista.nome}</MenuItem>
+                        ))
+                      ) : (
+                        <MenuItem disabled>Carregando analistas...</MenuItem>
+                      )}
+                    </TextField>
+                  )} />
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <Controller name="responsavelConta" control={control} render={({ field }) => (
+                    <TextField {...field} label="Responsável da conta" {...formField} />
+                  )} />
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <Controller name="solicitante" control={control} render={({ field }) => (
+                    <Autocomplete
+                      options={md.solicitantes}
+                      getOptionLabel={(option) => option?.nome || ''}
+                      isOptionEqualToValue={(option, value) => option.id === value?.id}
+                      value={md.solicitantes.find((s) => s.id === field.value) || null}
+                      onChange={(_, newValue) => field.onChange(newValue?.id || '')}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          label="Solicitante"
+                          {...formField}
+                          error={!!errors.solicitante}
+                          helperText={errors.solicitante?.message || 'Digite para buscar um solicitante'}
+                          placeholder="Digite para buscar..."
+                        />
+                      )}
+                      renderOption={(props, option) => (
+                        <Box component="li" {...props} key={option.id}>
+                          <Typography variant="body1" fontWeight="medium">{option.nome}</Typography>
+                        </Box>
+                      )}
+                      noOptionsText="Nenhum solicitante encontrado"
+                      loading={md.solicitantes.length === 0}
+                      loadingText="Carregando solicitantes..."
+                      filterOptions={(options, { inputValue }) =>
+                        options.filter((option) => option.nome.toLowerCase().includes(inputValue.toLowerCase()))
+                      }
+                    />
+                  )} />
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <Controller name="filial" control={control} render={({ field }) => (
+                    <TextField {...field} label="Filial" {...formField} />
+                  )} />
+                </Grid>
+              </Grid>
+            </CardContent>
+          </Card>
+
+          <Card elevation={0} sx={cardSx}>
+            <CardContent sx={{ py: 3, px: { xs: 2.25, sm: 3 }, '&:last-child': { pb: 3 } }}>
+              <SectionTitle>Qualidade e métricas</SectionTitle>
+              <Grid container spacing={2.25}>
+                <Grid item xs={12} sm={6} md={3}>
+                  <Controller name="qualidade" control={control} render={({ field }) => (
+                    <TextField {...field} select label="Qualidade (prazo)" {...formField}>
+                      <MenuItem value="ANTIGO">ANTIGO</MenuItem>
+                      <MenuItem value="FORA DO PRAZO">FORA DO PRAZO</MenuItem>
+                      <MenuItem value="NO PRAZO">NO PRAZO</MenuItem>
+                    </TextField>
+                  )} />
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <Controller name="qualidadeInformacao" control={control} render={({ field }) => (
+                    <TextField {...field} select label="Qualidade da informação" {...formField}>
+                      <MenuItem value="ERRO NOS DADOS">ERRO NOS DADOS</MenuItem>
+                      <MenuItem value="FALTA DE DADOS">FALTA DE DADOS</MenuItem>
+                      <MenuItem value="OK">OK</MenuItem>
+                    </TextField>
+                  )} />
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <Controller name="planos" control={control} render={({ field }) => (
+                    <TextField {...field} select label="Planos" {...formField}>
+                      <MenuItem value="PENDENTE ATUALIZAÇÃO">PENDENTE ATUALIZAÇÃO</MenuItem>
+                      <MenuItem value="OK">OK</MenuItem>
+                    </TextField>
+                  )} />
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <Controller name="dataAtualizacao" control={control} render={({ field }) => (
+                    <TextField {...field} type="date" label="Data de atualização" {...formField} InputLabelProps={{ shrink: true }} value={field.value || ''} />
+                  )} />
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <Controller name="itensPendentes" control={control} render={({ field }) => (
+                    <TextField {...field} type="number" label="Itens pendentes" {...formField} inputProps={{ min: 0 }} value={field.value || ''} />
+                  )} />
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <Controller name="itensConcluidos" control={control} render={({ field }) => (
+                    <TextField {...field} type="number" label="Itens concluídos" {...formField} inputProps={{ min: 0 }} value={field.value || ''} />
+                  )} />
+                </Grid>
+                <Grid item xs={12}>
+                  <Controller name="observacoes" control={control} render={({ field }) => (
+                    <TextField
+                      {...field}
+                      label="Observações"
+                      {...formField}
+                      multiline
+                      rows={4}
+                      placeholder="Digite observações sobre este reajuste..."
+                      value={field.value || ''}
+                    />
+                  )} />
+                </Grid>
+              </Grid>
+            </CardContent>
+          </Card>
+
+          <Box display="flex" gap={2} flexWrap="wrap">
+            <PrimaryActionButton type="button" disabled={!isValid || !vinculosValidos} onClick={handleSubmit(onSubmit)}>
+              Salvar
+            </PrimaryActionButton>
+            <Button variant="outlined" onClick={() => navigate('/reajuste')}>Cancelar</Button>
+          </Box>
+        </Box>
+      </Paper>
+    </Container>
   )
 }
-
-

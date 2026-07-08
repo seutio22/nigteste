@@ -27,8 +27,17 @@ export const useReajusteStore = create<ReajusteState>()(
           console.log('🔍 ReajusteStore.add: Iniciando criação de reajuste...')
           console.log('🔍 ReajusteStore.add: Payload recebido:', payload)
           
+          const ALLOWED_CREATE_FIELDS = new Set([
+            'mes', 'ano', 'dataInicio', 'dataFim', 'status', 'operadora', 'qualidade',
+            'qualidadeInformacao', 'planos', 'responsavelConta', 'filial', 'ticket', 'solicitante',
+            'responsavelAnalista', 'cliente', 'contrato', 'produto', 'contratosVinculos', 'dataAtualizacao',
+            'itensPendentes', 'itensConcluidos', 'valorTotal', 'descricao', 'tipoReajuste',
+            'percentual', 'dataAplicacao', 'observacoes', 'analistaId', 'userId'
+          ])
+
           // Sanitizar payload: converter strings vazias em null e garantir formato ISO de datas
           const sanitizedPayload = Object.entries(payload).reduce((acc, [key, value]) => {
+            if (!ALLOWED_CREATE_FIELDS.has(key)) return acc
             // Campos de data que precisam ser convertidos
             if (['dataInicio', 'dataFim', 'dataAtualizacao', 'dataAplicacao'].includes(key)) {
               if (!value || value === '') {
@@ -43,11 +52,13 @@ export const useReajusteStore = create<ReajusteState>()(
                   acc[key] = null
                 }
               }
+            } else if (key === 'contratosVinculos') {
+              acc[key] = value
             } else if (value === '' || value === undefined) {
               // Converter strings vazias e undefined em null
               acc[key] = null
             } else {
-              acc[key] = value
+              acc[key] = typeof value === 'object' && value !== null ? null : value
             }
             return acc
           }, {} as any)
@@ -163,7 +174,7 @@ export const useReajusteStore = create<ReajusteState>()(
             const ALLOWED_FIELDS = new Set([
               'mes', 'ano', 'dataInicio', 'dataFim', 'status', 'operadora', 'qualidade',
               'qualidadeInformacao', 'planos', 'responsavelConta', 'filial', 'ticket', 'solicitante',
-              'responsavelAnalista', 'cliente', 'contrato', 'produto', 'dataAtualizacao',
+              'responsavelAnalista', 'cliente', 'contrato', 'produto', 'contratosVinculos', 'dataAtualizacao',
               'itensPendentes', 'itensConcluidos', 'valorTotal', 'descricao', 'tipoReajuste',
               'percentual', 'dataAplicacao', 'observacoes', 'analistaId', 'userId'
             ])
@@ -183,6 +194,8 @@ export const useReajusteStore = create<ReajusteState>()(
                     acc[key] = null
                   }
                 }
+              } else if (key === 'contratosVinculos') {
+                acc[key] = value
               } else if (value === '' || value === undefined) {
                 acc[key] = null
               } else {

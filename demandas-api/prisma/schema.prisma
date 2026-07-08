@@ -215,6 +215,8 @@ model Demanda {
   qtdUsuarios           String?
   qtdRetornos           Int?
   qualidade             String?
+  /// Qualificação da recepção do chamado (checklist do analista)
+  qualificacaoChamado   Json?
   observacoes           String?
   createdAt             DateTime     @default(now())
   updatedAt             DateTime     @updatedAt
@@ -265,6 +267,7 @@ model Manutencao {
   total           Int? // Total (anteriormente qtdClientesVinculados)
   usuariosEmpresa Int? // USUÁRIOS EMPRESA - MOVE
   observacoes     String?
+  qualificacaoChamado Json?
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
   sistema         Sistema?              @relation(fields: [sistemaId], references: [id])
@@ -429,6 +432,7 @@ model Dados {
 model Solicitante {
   id        String   @id @default(uuid())
   nome      String
+  email     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -586,6 +590,7 @@ model ReajusteLancamento {
   cliente             String?
   contrato            String?
   produto             String?
+  contratosVinculos   Json?
   dataAtualizacao     DateTime?
   itensPendentes      Int?
   itensConcluidos     Int?
