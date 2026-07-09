@@ -32,7 +32,11 @@ export function getCorsStaticOrigins(): string[] {
 }
 
 /** Previews e branch deploys na Vercel (ex.: https://nigteste-xxx-team.vercel.app). */
+const NIGTESTE_VERCEL_PREVIEW =
+  /^https:\/\/nigteste(?:-[a-z0-9-]+)?-denisons-projects-6adcf8ff\.vercel\.app$/
+
 export function isVercelPreviewOrigin(origin: string): boolean {
+  if (NIGTESTE_VERCEL_PREVIEW.test(origin)) return true
   const v = process.env.CORS_ALLOW_VERCEL_PREVIEWS
   if (v !== '1' && v?.toLowerCase() !== 'true') return false
   try {
