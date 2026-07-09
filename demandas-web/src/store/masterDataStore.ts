@@ -1,11 +1,15 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { PersistStorage } from 'zustand/middleware'
 import type { Area, Analista, Cliente, Contrato, Operadora, Produto, Sistema, Grupo, TipoDemanda, TipoServico, TipoCadastro, Solicitante, Relatorio, Modelo } from '../types/masterData'
+import { createSafePersistStorage, removeLocalStorageByPrefix } from '../lib/safePersistStorage'
 
 const isDev = import.meta.env.DEV
 const logDev = (...args: unknown[]) => {
   if (isDev) console.log(...args)
+}
+
+export function clearMasterDataLocalCache(): void {
+  removeLocalStorageByPrefix('master-data-store')
 }
 
 export interface MasterDataState {
@@ -66,6 +70,16 @@ export interface MasterDataState {
   /** Limpa exclusões por id/nome de uma entidade (ex.: tipos sumiram após sync) */
   clearExclusionsForEntity: (entity: string) => void
 }
+
+type MasterDataPersisted = Pick<
+  MasterDataState,
+  | 'lastSync'
+  | 'lastSyncMs'
+  | 'lastSyncByEntity'
+  | 'localExclusions'
+  | 'localExclusionsByNome'
+  | 'showOnlyActiveContracts'
+>
 
 function indexById<T extends { id?: string | null | undefined }>(items: T[]): Record<string, T> {
   return items.reduce<Record<string, T>>((acc, item) => {
@@ -328,7 +342,14 @@ export const useMasterDataStore = create<MasterDataState>()(
             return
           }
           const now = Date.now()
-          if (!force && !requestedEntities && now - state.lastSyncMs < 2 * 60 * 1000) {
+          const ttlMs = 2 * 60 * 1000
+          const isEmptyInMemory = (entity: string) => {
+            const data = (state as any)[entity]
+            return !Array.isArray(data) || data.length === 0
+          }
+          const missingCritical = ['analistas', 'areas'].some(isEmptyInMemory)
+
+          if (!force && !requestedEntities && now - state.lastSyncMs < ttlMs && !missingCritical) {
             return
           }
           
@@ -379,10 +400,15 @@ export const useMasterDataStore = create<MasterDataState>()(
               ? requestedEntities.map(String).filter((e) => allEntities.includes(e))
               : allEntities
 
-            const ttlMs = 2 * 60 * 1000
-            const toFetch = (requestedEntities && requestedEntities.length > 0 && !force)
+            const toFetchBase = (requestedEntities && requestedEntities.length > 0 && !force)
               ? entities.filter((entity) => now - (state.lastSyncByEntity?.[entity] || 0) >= ttlMs)
               : entities
+
+            // Listas não são mais persistidas no localStorage — recarrega entidades vazias na memória.
+            const toFetch = [...new Set([
+              ...toFetchBase,
+              ...entities.filter(isEmptyInMemory),
+            ])]
 
             if (toFetch.length === 0) {
               set({ isSyncing: false })
@@ -466,122 +492,38 @@ export const useMasterDataStore = create<MasterDataState>()(
         }
     }),
     {
-      name: 'master-data-store', // Nome da chave no localStorage
-      partialize: (state) => {
-        // Reduzir dados persistidos: apenas dados essenciais e limitar tamanho
-        const maxItems = 1000; // Limitar quantidade de itens por array
-        
-        return {
-          // Limitar arrays grandes para evitar exceder quota
-          clientes: state.clientes.slice(0, maxItems),
-          contratos: state.contratos.slice(0, maxItems),
-          operadoras: state.operadoras.slice(0, maxItems),
-          produtos: state.produtos.slice(0, maxItems),
-          sistemas: state.sistemas.slice(0, maxItems),
-          analistas: state.analistas.slice(0, maxItems),
-          areas: state.areas.slice(0, maxItems),
-          tiposDemanda: state.tiposDemanda,
-          tiposCadastro: state.tiposCadastro,
-          tiposServico: state.tiposServico,
-          solicitantes: state.solicitantes.slice(0, maxItems),
-          relatorios: state.relatorios,
-          modelos: state.modelos,
-          padrao: state.padrao.slice(0, 100), // Limitar padrões
-          areasMailling: state.areasMailling.slice(0, 100),
-          cargosMailling: state.cargosMailling.slice(0, 100),
-          filiaisMailling: state.filiaisMailling.slice(0, 100),
-          categorias: state.categorias,
-          periodicidades: state.periodicidades,
-          status: state.status,
-          lastSync: state.lastSync,
-          lastSyncMs: state.lastSyncMs,
-          lastSyncByEntity: state.lastSyncByEntity,
-          localExclusions: state.localExclusions,
-          localExclusionsByNome: state.localExclusionsByNome
-        };
-      },
-      // Tratamento de erro para quota excedida (API em string do localStorage; tipagem do persist usa StorageValue)
-      storage: {
-        getItem: (name) => {
-          try {
-            return localStorage.getItem(name);
-          } catch (error) {
-            console.warn('⚠️ Erro ao ler localStorage:', error);
-            return null;
-          }
-        },
-        setItem: (name, value) => {
-          const str = typeof value === 'string' ? value : JSON.stringify(value);
-          try {
-            // Verificar tamanho antes de salvar
-            const size = new Blob([str]).size;
-            const maxSize = 4 * 1024 * 1024; // 4MB (deixar margem de segurança)
-            
-            if (size > maxSize) {
-              console.warn('⚠️ Dados muito grandes para localStorage, limpando cache antigo...');
-              // Limpar dados antigos e tentar novamente
-              try {
-                // Remover apenas este store para liberar espaço
-                localStorage.removeItem(name);
-                // Tentar salvar novamente
-                if (new Blob([str]).size <= maxSize) {
-                  localStorage.setItem(name, str);
-                } else {
-                  console.error('❌ Dados ainda muito grandes após limpeza. Não será persistido.');
-                  // Salvar apenas dados essenciais
-                  const essential = JSON.parse(str);
-                  const minimal = {
-                    lastSync: essential.lastSync,
-                    lastSyncMs: essential.lastSyncMs || 0,
-                    lastSyncByEntity: essential.lastSyncByEntity || {},
-                    localExclusions: essential.localExclusions || {},
-                    localExclusionsByNome: essential.localExclusionsByNome || {}
-                  };
-                  localStorage.setItem(name, JSON.stringify(minimal));
-                }
-              } catch (retryError) {
-                console.error('❌ Erro ao salvar no localStorage após limpeza:', retryError);
-              }
-            } else {
-              localStorage.setItem(name, str);
-            }
-          } catch (error) {
-            if (error instanceof DOMException && error.name === 'QuotaExceededError') {
-              console.error('❌ Quota do localStorage excedida! Limpando cache...');
-              try {
-                // Limpar este store e tentar salvar apenas dados essenciais
-                localStorage.removeItem(name);
-                const data = JSON.parse(str);
-                const minimal = {
-                  lastSync: data.lastSync,
-                  lastSyncMs: data.lastSyncMs || 0,
-                  lastSyncByEntity: data.lastSyncByEntity || {},
-                  localExclusions: data.localExclusions || {},
-                  localExclusionsByNome: data.localExclusionsByNome || {}
-                };
-                localStorage.setItem(name, JSON.stringify(minimal));
-                console.warn('⚠️ Apenas dados essenciais foram salvos. Faça uma nova sincronização.');
-              } catch (cleanupError) {
-                console.error('❌ Não foi possível salvar dados no localStorage:', cleanupError);
-              }
-            } else {
-              console.error('❌ Erro ao salvar no localStorage:', error);
-            }
-          }
-        },
-        removeItem: (name) => {
-          try {
-            localStorage.removeItem(name);
-          } catch (error) {
-            console.warn('⚠️ Erro ao remover do localStorage:', error);
+      name: 'master-data-store',
+      version: 2,
+      partialize: (state): MasterDataPersisted => ({
+        lastSync: state.lastSync,
+        lastSyncMs: state.lastSyncMs,
+        lastSyncByEntity: state.lastSyncByEntity,
+        localExclusions: state.localExclusions,
+        localExclusionsByNome: state.localExclusionsByNome,
+        showOnlyActiveContracts: state.showOnlyActiveContracts,
+      }),
+      storage: createSafePersistStorage<MasterDataPersisted>('master-data-store', {
+        onQuotaExceeded: clearMasterDataLocalCache,
+      }),
+      migrate: (persisted, version) => {
+        if (version < 2 && persisted && typeof persisted === 'object') {
+          const p = persisted as Record<string, unknown>
+          return {
+            lastSync: (p.lastSync as string | null) ?? null,
+            lastSyncMs: Number(p.lastSyncMs) || 0,
+            lastSyncByEntity: (p.lastSyncByEntity as MasterDataState['lastSyncByEntity']) ?? {},
+            localExclusions: (p.localExclusions as MasterDataState['localExclusions']) ?? {},
+            localExclusionsByNome: (p.localExclusionsByNome as MasterDataState['localExclusionsByNome']) ?? {},
+            showOnlyActiveContracts: Boolean(p.showOnlyActiveContracts),
           }
         }
-      } as unknown as PersistStorage<MasterDataState>,
+        return persisted as MasterDataPersisted
+      },
       onRehydrateStorage: () => (state) => {
         if (state) {
           Object.assign(state, buildIndexes(state as MasterDataState))
         }
-      }
+      },
     }
   )
 )

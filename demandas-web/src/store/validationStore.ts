@@ -1,7 +1,15 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { ValidationEntry } from '../types/validation'
+import { createSafePersistStorage, removeLocalStorageByPrefix } from '../lib/safePersistStorage'
 import { shouldSkipStoreSync } from '../utils/syncCooldown'
+import { resolveValidationRelationId } from '../utils/validationRelations'
+
+let validationSyncInFlight: Promise<void> | null = null
+
+export function clearValidationLocalCache(): void {
+  removeLocalStorageByPrefix('validation-storage')
+}
 
 interface ValidationLog {
   validationId: string
@@ -20,24 +28,12 @@ function resolveRelationId(
   legacyKey: keyof ValidationEntry,
   objKey?: keyof ValidationEntry
 ): string | undefined {
-  const rawId = entry[idKey]
-  if (typeof rawId === 'string' && rawId.trim()) return rawId.trim()
-  if (rawId != null && typeof rawId === 'object' && (rawId as { id?: string }).id) {
-    return String((rawId as { id: string }).id).trim()
-  }
-
-  const legacy = entry[legacyKey]
-  if (typeof legacy === 'string' && legacy.trim()) return legacy.trim()
-  if (legacy != null && typeof legacy === 'object' && (legacy as { id?: string }).id) {
-    return String((legacy as { id: string }).id).trim()
-  }
-
-  if (objKey) {
-    const obj = entry[objKey] as { id?: string } | undefined
-    if (obj?.id) return String(obj.id).trim()
-  }
-
-  return undefined
+  return resolveValidationRelationId(
+    entry as Record<string, unknown>,
+    String(idKey),
+    String(legacyKey),
+    objKey ? String(objKey) : undefined
+  )
 }
 
 export function mapApiValidacaoToEntry(validacao: any): ValidationEntry {
@@ -437,15 +433,15 @@ export const useValidationStore = create<ValidationState>()(
       },
       
       syncFromApi: async (opts?: { force?: boolean }) => {
+        if (validationSyncInFlight) return validationSyncInFlight
+
         const state = get()
-        if (state.loading) {
-          return
-        }
         const now = Date.now()
         if (shouldSkipStoreSync(state.lastSync, state.items.length, opts?.force)) {
           return
         }
-        
+
+        validationSyncInFlight = (async () => {
         try {
           set({ loading: true, error: null })
           
@@ -460,7 +456,12 @@ export const useValidationStore = create<ValidationState>()(
         } catch (error) {
           console.error('❌ ValidationStore: Erro no syncFromApi:', error)
           set({ error: error instanceof Error ? error.message : 'Erro desconhecido', loading: false })
+        } finally {
+          validationSyncInFlight = null
         }
+        })()
+
+        return validationSyncInFlight
       },
       async syncTimeline(validationId: string) {
         try {
@@ -506,10 +507,10 @@ export const useValidationStore = create<ValidationState>()(
     }),
     { 
       name: 'validation-storage',
-      version: 6, // Incrementar versão para forçar limpeza
-      partialize: (state) => ({ 
-        // Não persistir items, apenas configurações
-        logs: state.logs 
+      version: 7,
+      partialize: (state) => ({ lastSync: state.lastSync }),
+      storage: createSafePersistStorage<Pick<ValidationState, 'lastSync'>>('validation-storage', {
+        onQuotaExceeded: clearValidationLocalCache,
       }),
       onRehydrateStorage: () => () => {
         queueMicrotask(() => {

@@ -36,6 +36,20 @@ describe('computeBeneficiariosResumo', () => {
     expect(r.potencialGestacional).toBe(1)
     expect(r.titulares).toBe(2)
     expect(r.dependentes).toBe(1)
+    expect(r.agregados).toBe(0)
+  })
+
+  it('conta agregados (tipo A) separado de titulares e dependentes', () => {
+    const rows = [
+      row({ grauParentesco: 'TITULAR' }),
+      row({ grauParentesco: 'Filho (C)' }),
+      row({ grauParentesco: 'AGREGADO' }),
+      row({ grauParentesco: 'REMIDO (A)' }),
+    ]
+    const r = computeBeneficiariosResumo(rows)
+    expect(r.titulares).toBe(1)
+    expect(r.dependentes).toBe(1)
+    expect(r.agregados).toBe(2)
   })
 
   it('classifica afastados e agrupa planos', () => {

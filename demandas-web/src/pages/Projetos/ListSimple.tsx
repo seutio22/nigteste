@@ -105,6 +105,7 @@ import { PrimaryActionButton } from '../../components/PrimaryActionButton'
 import { formatIntegerPtBR } from '../../utils/formatNumber'
 import { duplicateProjectTimelineReset } from '../../utils/duplicateProjectTimeline'
 import { api } from '../../lib/api.local'
+import ProjectTemplatesDialog from '../../components/ProjectTemplatesDialog'
 
 export default function ProjectListPageSimple() {
   const navigate = useNavigate()
@@ -144,6 +145,7 @@ export default function ProjectListPageSimple() {
   }>>([])
   const [bulkAddLoading, setBulkAddLoading] = useState(false)
   const [duplicatingProjectId, setDuplicatingProjectId] = useState<string | null>(null)
+  const [templatesDialogOpen, setTemplatesDialogOpen] = useState(false)
 
   // Carregar dados quando a página carrega (padrão: filtro «Meus projetos»)
   useEffect(() => {
@@ -629,6 +631,15 @@ export default function ProjectListPageSimple() {
               Projetos
             </Typography>
             <div className="flex items-center gap-2 flex-wrap justify-end">
+              <Button
+                variant="outlined"
+                startIcon={<Assignment />}
+                onClick={() => setTemplatesDialogOpen(true)}
+                size="medium"
+                sx={{ borderRadius: '14px', height: '44px', textTransform: 'none' }}
+              >
+                Templates
+              </Button>
               <Button
                 variant="outlined"
                 startIcon={<Download />}
@@ -1449,6 +1460,12 @@ export default function ProjectListPageSimple() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <ProjectTemplatesDialog
+        open={templatesDialogOpen}
+        onClose={() => setTemplatesDialogOpen(false)}
+        mode="manage"
+      />
     </div>
   )
 }

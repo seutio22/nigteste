@@ -5,6 +5,7 @@ export type TabKey = 'clientes' | 'contratos' | 'operadoras' | 'produtos' | 'sis
 export interface FormData {
   id?: string
   nome?: string
+  email?: string
   grupoEconomico?: string
   codigo?: string
   tipoServicoId?: string

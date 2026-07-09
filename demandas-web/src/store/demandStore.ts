@@ -5,12 +5,16 @@ import type { TimelineEvent } from '../types/timeline'
 import { createSafePersistStorage, removeLocalStorageByPrefix } from '../lib/safePersistStorage'
 import { useMasterDataStore } from './masterDataStore'
 import { shouldSkipStoreSync } from '../utils/syncCooldown'
+import { loadChamadoQualificacaoLocal } from '../lib/chamadoQualificacaoStorage'
+import { parseChamadoQualificacao } from '../types/chamadoQualificacao'
 
 /** Remove cache legado que persistia todas as demandas + timeline (estourava cota). */
 export function clearDemandLocalCache(): void {
   removeLocalStorageByPrefix('demandStore')
   removeLocalStorageByPrefix('demands-v')
 }
+
+let demandSyncInFlight: Promise<void> | null = null
 
 interface DemandState {
   items: Demand[]
@@ -110,6 +114,7 @@ export const useDemandStore = create<DemandState>()(
           qtdClientesVinculados: payload.qtdClientesVinculados,
           usuariosEmpresa: payload.usuariosEmpresa,
           observacoes: payload.observacoes,
+          ...(payload.qualificacaoChamado ? { qualificacaoChamado: payload.qualificacaoChamado } : {}),
           createdAt: now,
           updatedAt: now
         }
@@ -147,6 +152,9 @@ export const useDemandStore = create<DemandState>()(
             qualidade: payload.qualidade ?? createdDemanda.qualidade,
             qtdClientesVinculados: payload.qtdClientesVinculados ?? createdDemanda.qtdClientesVinculados,
             usuariosEmpresa: payload.usuariosEmpresa ?? createdDemanda.usuariosEmpresa,
+            qualificacaoChamado:
+              (createdDemanda as { qualificacaoChamado?: Demand['qualificacaoChamado'] }).qualificacaoChamado ??
+              payload.qualificacaoChamado,
             // Garantir que as datas sejam strings
             dataInicio: payload.dataInicio,
             dataFinal: payload.dataFinal,
@@ -343,16 +351,15 @@ export const useDemandStore = create<DemandState>()(
         }
       },
       async syncFromApi(force?: boolean) {
+        if (demandSyncInFlight) return demandSyncInFlight
+
         const state = get()
-        if (state.isLoading) {
-          console.log('⏸️ DemandStore: Já está carregando, ignorando chamada duplicada')
-          return
-        }
         const now = Date.now()
         if (shouldSkipStoreSync(state.lastSync, state.items.length, force)) {
           return
         }
-        
+
+        demandSyncInFlight = (async () => {
         // Timeout de segurança para evitar travamento
         const timeoutId = setTimeout(() => {
           console.warn('⚠️ DemandStore: Timeout de 30s atingido, resetando isLoading')
@@ -438,6 +445,15 @@ export const useDemandStore = create<DemandState>()(
             const sistemaName = sistemaNomeJoined || normalizeName(d.sistema)
             const tipoName = normalizeName(d.tipo)
             const tipoServicoName = normalizeName(d.tipoServico)
+
+            const qualificacaoApi = parseChamadoQualificacao((d as any).qualificacaoChamado)
+            const qualificacaoLocal = loadChamadoQualificacaoLocal(d.id)
+            const qualificacaoChamado =
+              qualificacaoApi?.avaliadoEm
+                ? qualificacaoApi
+                : qualificacaoLocal.avaliadoEm
+                  ? qualificacaoLocal
+                  : qualificacaoApi ?? undefined
             
             return {
               id: d.id,
@@ -446,6 +462,7 @@ export const useDemandStore = create<DemandState>()(
               solicitante: d.solicitante,
               descricao: d.descricao,
               observacoes: d.observacoes,
+              qualificacaoChamado,
               qualidade: d.qualidade,
               qtdUsuarios: d.qtdUsuarios ?? (d as { periodicidade?: string }).periodicidade,
               qtdRetornos: d.qtdRetornos,
@@ -493,7 +510,12 @@ export const useDemandStore = create<DemandState>()(
           clearTimeout(timeoutId)
           // Garantir que isLoading seja resetado mesmo em caso de erro
           set({ isLoading: false })
+        } finally {
+          demandSyncInFlight = null
         }
+        })()
+
+        return demandSyncInFlight
       },
       async syncTimeline(demandaId: string) {
         try {

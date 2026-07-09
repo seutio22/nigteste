@@ -1,10 +1,23 @@
-// Configuração da API - Railway para funcionamento
+// Configuração da API — em dev usa proxy Vite (/api) ou VITE_API_URL
+const PRODUCTION_API = 'https://nigteste-production.up.railway.app'
+
+function resolveApiBaseUrl(): string {
+  const fromEnv = (import.meta.env.VITE_API_URL as string | undefined)?.trim()
+  if (fromEnv) return fromEnv
+  if (import.meta.env.DEV) return '/api'
+  return PRODUCTION_API
+}
+
 export const API_CONFIG = {
-  BASE_URL: 'https://nigteste-production.up.railway.app',
-  TIMEOUT: 10000
+  BASE_URL: resolveApiBaseUrl(),
+  TIMEOUT: 10000,
 };
 
-// Função para obter a URL base - Railway para funcionamento
+if (import.meta.env.DEV) {
+  console.info('[Nexus] API local:', API_CONFIG.BASE_URL)
+}
+
+// Função para obter a URL base
 export function getBaseUrl(): string {
   return API_CONFIG.BASE_URL;
 }

@@ -154,15 +154,25 @@ export const useAuthStore = create<AuthState>()(
         user: state.user,
         loginDate: state.loginDate 
       }),
-      onRehydrateStorage: () => (state) => {
-        // Quando o estado é reidratado do localStorage, verificar expiração
-        if (state) {
-          // Usar setTimeout para garantir que o estado está completamente reidratado
-          setTimeout(() => {
-            state.initialize()
-          }, 0)
+      onRehydrateStorage: () => (state, err) => {
+        if (err) {
+          logError('❌ Erro ao reidratar auth-store:', err)
+          setTimeout(() => useAuthStore.getState().setLoading(false), 0)
+          return
         }
-      }
+        setTimeout(() => {
+          try {
+            if (state) {
+              state.initialize()
+            } else {
+              useAuthStore.getState().setLoading(false)
+            }
+          } catch (error) {
+            logError('❌ Erro ao inicializar auth após reidratação:', error)
+            useAuthStore.getState().setLoading(false)
+          }
+        }, 0)
+      },
     }
   )
 )

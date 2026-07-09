@@ -1,5 +1,8 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
+import '@emotion/react'
+import '@emotion/styled'
+import { styled } from '@mui/material/styles'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 import { ErrorBoundary } from './components/ErrorBoundary'
@@ -10,6 +13,9 @@ import '@fontsource/plus-jakarta-sans/500.css'
 import '@fontsource/plus-jakarta-sans/700.css'
 import '@fontsource/plus-jakarta-sans/800.css'
 import { ThemeModeProvider } from './components/ThemeModeProvider'
+
+// Garante engine Emotion/MUI antes de chunks dinâmicos (evita styled_default is not a function)
+void styled('div')({})
 
 // Error handler mais seletivo - só suprimir erros de recursos estáticos claramente de cache antigo
 window.addEventListener('error', (event) => {

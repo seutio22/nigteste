@@ -1,6 +1,11 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useNotificationStore } from './notificationStore'
+import { createSafePersistStorage, removeLocalStorageByPrefix } from '../lib/safePersistStorage'
+
+export function clearComunicadoLocalCache(): void {
+  removeLocalStorageByPrefix('comunicado-storage')
+}
 
 export interface Comunicado {
   id: string
@@ -300,16 +305,30 @@ export const useComunicadoStore = create<ComunicadoState>()(
         
         // Função para limpar completamente o localStorage e forçar nova sincronização
         clearAll: () => {
-          localStorage.removeItem('comunicado-storage')
+          clearComunicadoLocalCache()
           set({ items: [], loading: false, error: null, lastSync: 0 })
         }
       }
     },
     {
-      name: 'comunicado-storage', // Nome do storage
-      // Persistir apenas os itens; não persistir loading/error para evitar erro travado
-      partialize: (state) => ({ items: state.items }),
-      version: 5, // Incrementar versão para forçar limpeza
+      name: 'comunicado-storage',
+      version: 6,
+      partialize: (state) => ({ lastSync: state.lastSync }),
+      migrate: (persisted, version) => {
+        if (version < 6) return { lastSync: 0 }
+        return persisted as { lastSync: number }
+      },
+      storage: createSafePersistStorage<Pick<ComunicadoState, 'lastSync'>>('comunicado-storage', {
+        onQuotaExceeded: clearComunicadoLocalCache,
+      }),
+      onRehydrateStorage: () => () => {
+        queueMicrotask(() => {
+          const s = useComunicadoStore.getState()
+          if (s.items.length === 0 && !s.loading) {
+            void s.syncFromApi()
+          }
+        })
+      },
     }
   )
 )

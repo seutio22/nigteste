@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { Link as RouterLink, Navigate } from 'react-router-dom'
 import {
   Chip,
-  Container,
   Paper,
   Table,
   TableBody,
@@ -14,6 +13,7 @@ import {
 import { useAuth } from '../context/AuthContext'
 import { api } from '../lib/api'
 import { CASE_STATUS_LABEL } from '../constants/caseStatus'
+import PageScaffold from '../components/PageScaffold'
 
 type CaseRow = {
   id: string
@@ -44,15 +44,15 @@ export default function ManagerCasesPage() {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ py: 3 }}>
+    <PageScaffold>
       <Typography variant="h5" fontWeight={700} gutterBottom>
         Gestão — solicitações da equipe
       </Typography>
       <Typography color="text.secondary" sx={{ mb: 2 }}>
         Solicitações dos colaboradores vinculados a si (campo gestor no cadastro de usuários).
       </Typography>
-      <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden' }}>
-        <Table size="small">
+      <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden', width: '100%', boxSizing: 'border-box' }}>
+        <Table size="small" sx={{ '& .MuiTableCell-root': { py: 1.125, px: 1.5 } }}>
           <TableHead>
             <TableRow sx={{ bgcolor: 'action.hover' }}>
               <TableCell>Protocolo</TableCell>
@@ -91,6 +91,6 @@ export default function ManagerCasesPage() {
           </TableBody>
         </Table>
       </Paper>
-    </Container>
+    </PageScaffold>
   )
 }

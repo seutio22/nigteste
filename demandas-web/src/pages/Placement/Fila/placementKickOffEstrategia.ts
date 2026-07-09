@@ -5,7 +5,7 @@ import {
   mercadoAnalisadoFromSugestao,
   normalizeMercadoAnalisadoNomes,
 } from './placementKickOffFormatters'
-import { formatMultaRescisaoResumo, labelSimNaoChoice } from './placementFormularioContrato'
+import { formatMultaRescisaoResumo, formatConvencaoColetivaResumo } from './placementFormularioContrato'
 import type { Operadora } from '../../../types/masterData'
 import type { ComunicarMercadoState } from './placementComunicarMercado'
 import type { AguardandoOperadoraState } from './placementAguardandoOperadora'
@@ -185,8 +185,8 @@ export function buildDefaultKickOffEstrategia(
           valorAbertura(labels.multaRescisao || formatMultaRescisaoResumo(form))
         ),
         createKickOffItem(
-          'Convenção coletiva',
-          valorAbertura(labels.convencaoColetiva || labelSimNaoChoice(form.possuiConvencaoColetiva))
+          'Em acordo coletivo',
+          valorAbertura(labels.convencaoColetiva || formatConvencaoColetivaResumo(form))
         ),
         createKickOffItem(
           'Upgrade e downgrade',

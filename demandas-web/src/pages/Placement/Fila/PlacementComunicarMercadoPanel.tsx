@@ -29,7 +29,6 @@ import UploadFileIcon from '@mui/icons-material/UploadFile'
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown'
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp'
 import TableChartIcon from '@mui/icons-material/TableChart'
-import MarkEmailReadIcon from '@mui/icons-material/MarkEmailRead'
 import { useMasterDataStore } from '../../../store/masterDataStore'
 import { usePlacementStore } from '../../../store/placementStore'
 import { useMaillingStore } from '../../../store/maillingStore'
@@ -54,7 +53,10 @@ import {
 } from './placementComunicarMercado'
 import { ComunicarMercadoLocalidadeCapture } from './ComunicarMercadoLocalidadeCapture'
 import { readImageFileAsDataUri } from './placementSlideCapture'
-import { buildKickOffEstrategiaPatch, mergeSavedKickOffIntoApiCotacao } from './placementKickOffPersist'
+import { patchKickOffInForm } from './placementPatchKickOff'
+import { ComunicarMercadoFornecedorTableRow } from './ComunicarMercadoFornecedorTableRow'
+import { usePlacementKickOffAutosave } from './usePlacementKickOffAutosave'
+import { PlacementDraftTextField } from './PlacementDraftTextField'
 
 type Props = {
   cotacaoId: string
@@ -69,7 +71,7 @@ function normKey(nome: string): string {
   return nome.trim().toLowerCase()
 }
 
-export function PlacementComunicarMercadoPanel({
+export const PlacementComunicarMercadoPanel = React.memo(function PlacementComunicarMercadoPanel({
   cotacaoId,
   form,
   onChange,
@@ -104,27 +106,32 @@ export function PlacementComunicarMercadoPanel({
   const [copiadoEmail, setCopiadoEmail] = useState(false)
   const [erroCopia, setErroCopia] = useState<string | null>(null)
   const [replicadoMsg, setReplicadoMsg] = useState<string | null>(null)
-  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const tableRef = useRef<HTMLDivElement>(null)
   const emailRef = useRef<HTMLDivElement>(null)
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const formRef = useRef(form)
   formRef.current = form
 
+  const { saveState, scheduleSave } = usePlacementKickOffAutosave({ cotacaoId, onPersisted })
+
+  const kickOffRaw = form.kickOffEstrategia
+
   const fornecedores = useMemo(
     () => mercadoFornecedoresFromForm(form, operadoras, operadorasById),
-    [form, operadoras, operadorasById]
+    [form.itens, form.operadorasSugestaoIds, kickOffRaw?.mercadoAnalisado, operadoras, operadorasById]
   )
+
+  const fornecedoresRef = useRef<string[]>([])
+  fornecedoresRef.current = fornecedores
 
   const comunicarMercado = useMemo(
     () =>
       ensureComunicarMercadoState(
-        parseComunicarMercadoFromKickOff(form.kickOffEstrategia),
+        parseComunicarMercadoFromKickOff(kickOffRaw),
         form,
         operadoras,
         operadorasById
       ),
-    [form, operadoras, operadorasById]
+    [kickOffRaw, form, operadoras, operadorasById]
   )
 
   const condicao = condicoes.find((c) => c.id === form.condicaoId)
@@ -259,59 +266,35 @@ export function PlacementComunicarMercadoPanel({
 
   const activeIndex = fornecedores.indexOf(fornecedorAtivo)
 
-  const flushSave = useCallback(
-    async (kickOff: NonNullable<CotacaoFormState['kickOffEstrategia']>) => {
-      if (!cotacaoId) return
-      setSaveState('saving')
-      try {
-        const updated = await api.put(`/placement/cotacoes/${cotacaoId}`, {
-          kickOffEstrategia: kickOff,
-        })
-        onPersisted?.(mergeSavedKickOffIntoApiCotacao(updated, kickOff))
-        setSaveState('saved')
-      } catch {
-        setSaveState('error')
-      }
+  const persistComunicarMercado = useCallback(
+    (next: ComunicarMercadoState, options?: { immediate?: boolean }) => {
+      const nextForm = patchKickOffInForm(
+        formRef.current,
+        { comunicarMercado: next },
+        fornecedoresRef.current
+      )
+      const kickOff = nextForm.kickOffEstrategia!
+      formRef.current = nextForm
+      onChange(nextForm)
+      scheduleSave(kickOff, options?.immediate)
     },
-    [cotacaoId, onPersisted]
+    [onChange, scheduleSave]
   )
 
-  useEffect(
-    () => () => {
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+  const patchFornecedorByKey = useCallback(
+    (key: string, part: Partial<ComunicarMercadoFornecedorState>, options?: { immediate?: boolean }) => {
+      const f = formRef.current
+      const next = ensureComunicarMercadoState(
+        parseComunicarMercadoFromKickOff(f.kickOffEstrategia),
+        f,
+        operadoras,
+        operadorasById
+      )
+      next.fornecedores[key] = { ...next.fornecedores[key], ...part }
+      persistComunicarMercado(next, { immediate: options?.immediate ?? part.enviado !== undefined })
     },
-    []
+    [operadoras, operadorasById, persistComunicarMercado]
   )
-
-  function persistComunicarMercado(next: ComunicarMercadoState, options?: { immediate?: boolean }) {
-    const kickOff = buildKickOffEstrategiaPatch(
-      form.kickOffEstrategia,
-      { comunicarMercado: next },
-      fornecedores
-    )
-    const nextForm: CotacaoFormState = {
-      ...form,
-      kickOffEstrategia: kickOff,
-    }
-    formRef.current = nextForm
-    onChange(nextForm)
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-    if (options?.immediate) {
-      void flushSave(kickOff)
-    } else {
-      saveTimerRef.current = setTimeout(() => void flushSave(kickOff), 700)
-    }
-  }
-
-  function patchFornecedorByKey(
-    key: string,
-    part: Partial<ComunicarMercadoFornecedorState>,
-    options?: { immediate?: boolean }
-  ) {
-    const next = ensureComunicarMercadoState(comunicarMercado, form, operadoras, operadorasById)
-    next.fornecedores[key] = { ...next.fornecedores[key], ...part }
-    persistComunicarMercado(next, { immediate: options?.immediate ?? part.enviado !== undefined })
-  }
 
   function patchFornecedor(part: Partial<ComunicarMercadoFornecedorState>, options?: { immediate?: boolean }) {
     if (!fornKey) return
@@ -327,21 +310,24 @@ export function PlacementComunicarMercadoPanel({
     }
   }
 
-  function toggleComunicado(key: string, nome: string, checked: boolean) {
-    const st = comunicarMercado.fornecedores[key]
-    const next = ensureComunicarMercadoState(comunicarMercado, form, operadoras, operadorasById)
-    next.fornecedores[key] = {
-      ...next.fornecedores[key],
-      enviado: checked,
-      ...(checked && !st?.dataEnvio ? { dataEnvio: new Date().toISOString().slice(0, 10) } : {}),
-    }
-    persistComunicarMercado(next, { immediate: true })
-    if (checked) {
-      const idx = fornecedores.indexOf(nome)
-      const proximo = fornecedores.slice(idx + 1).find((n) => !next.fornecedores[normKey(n)]?.enviado)
-      if (proximo) setFornecedorAtivo(proximo)
-    }
-  }
+  const toggleComunicado = useCallback(
+    (key: string, nome: string, checked: boolean) => {
+      const st = comunicarMercado.fornecedores[key]
+      const next = ensureComunicarMercadoState(comunicarMercado, form, operadoras, operadorasById)
+      next.fornecedores[key] = {
+        ...next.fornecedores[key],
+        enviado: checked,
+        ...(checked && !st?.dataEnvio ? { dataEnvio: new Date().toISOString().slice(0, 10) } : {}),
+      }
+      persistComunicarMercado(next, { immediate: true })
+      if (checked) {
+        const idx = fornecedores.indexOf(nome)
+        const proximo = fornecedores.slice(idx + 1).find((n) => !next.fornecedores[normKey(n)]?.enviado)
+        if (proximo) setFornecedorAtivo(proximo)
+      }
+    },
+    [comunicarMercado, form, operadoras, operadorasById, fornecedores, persistComunicarMercado]
+  )
 
   function patchTopico(id: string, valor: string) {
     if (!fornKey) return
@@ -491,78 +477,22 @@ export function PlacementComunicarMercadoPanel({
           <TableBody>
             {fornecedores.map((nome) => {
               const key = normKey(nome)
-              const st = comunicarMercado.fornecedores[key]
-              const selected = fornecedorAtivo === nome
               return (
-                <TableRow
+                <ComunicarMercadoFornecedorTableRow
                   key={nome}
-                  hover
-                  selected={selected}
-                  sx={{
-                    cursor: 'pointer',
-                    bgcolor: st?.enviado ? 'success.50' : undefined,
-                  }}
-                  onClick={() => {
+                  nome={nome}
+                  fornKey={key}
+                  selected={fornecedorAtivo === nome}
+                  disabled={disabled}
+                  st={comunicarMercado.fornecedores[key]}
+                  prazoRetorno={comunicarMercado.prazoRetorno}
+                  onSelect={() => {
                     setFornecedorAtivo(nome)
                     emailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
                   }}
-                >
-                  <TableCell>
-                    <Stack direction="row" alignItems="center" gap={0.5}>
-                      {st?.enviado ? <CheckCircleIcon fontSize="small" color="success" /> : null}
-                      <Typography variant="body2" sx={{ fontWeight: selected ? 700 : 400 }}>
-                        {nome}
-                      </Typography>
-                    </Stack>
-                  </TableCell>
-                  <TableCell onClick={(e) => e.stopPropagation()}>
-                    <TextField
-                      type="date"
-                      size="small"
-                      fullWidth
-                      InputLabelProps={{ shrink: true }}
-                      disabled={disabled}
-                      value={st?.dataEnvio?.slice(0, 10) ?? ''}
-                      onChange={(e) => patchFornecedorByKey(key, { dataEnvio: e.target.value })}
-                    />
-                  </TableCell>
-                  <TableCell onClick={(e) => e.stopPropagation()}>
-                    <TextField
-                      type="date"
-                      size="small"
-                      fullWidth
-                      InputLabelProps={{ shrink: true }}
-                      disabled={disabled}
-                      value={
-                        st?.dataPrevisaoRetorno?.slice(0, 10) ||
-                        comunicarMercado.prazoRetorno?.slice(0, 10) ||
-                        ''
-                      }
-                      onChange={(e) => patchFornecedorByKey(key, { dataPrevisaoRetorno: e.target.value })}
-                    />
-                  </TableCell>
-                  <TableCell onClick={(e) => e.stopPropagation()}>
-                    <TextField
-                      size="small"
-                      fullWidth
-                      placeholder="Grupo"
-                      disabled={disabled}
-                      value={st?.grupoProducao ?? ''}
-                      onChange={(e) => patchFornecedorByKey(key, { grupoProducao: e.target.value })}
-                    />
-                  </TableCell>
-                  <TableCell align="center" onClick={(e) => e.stopPropagation()}>
-                    <Tooltip title="Marcar como comunicado ao mercado">
-                      <Checkbox
-                        checked={st?.enviado === true}
-                        disabled={disabled}
-                        icon={<MarkEmailReadIcon fontSize="small" />}
-                        checkedIcon={<MarkEmailReadIcon fontSize="small" color="success" />}
-                        onChange={(e) => toggleComunicado(key, nome, e.target.checked)}
-                      />
-                    </Tooltip>
-                  </TableCell>
-                </TableRow>
+                  onPatch={patchFornecedorByKey}
+                  onToggleComunicado={toggleComunicado}
+                />
               )
             })}
           </TableBody>
@@ -663,7 +593,7 @@ export function PlacementComunicarMercadoPanel({
 
           <Stack gap={1.5}>
             {topicosCorpo.map((t) => (
-              <TextField
+              <PlacementDraftTextField
                 key={t.id}
                 label={`${t.grupo} · ${t.rotulo}`}
                 fullWidth
@@ -672,7 +602,7 @@ export function PlacementComunicarMercadoPanel({
                 minRows={t.valor.length > 80 ? 2 : 1}
                 value={t.valor}
                 disabled={disabled}
-                onChange={(e) => patchTopico(t.id, e.target.value)}
+                onCommit={(v) => patchTopico(t.id, v)}
               />
             ))}
           </Stack>
@@ -684,43 +614,43 @@ export function PlacementComunicarMercadoPanel({
           </Typography>
           <Grid container spacing={2} sx={{ mt: 0.5 }}>
             <Grid item xs={12} md={6}>
-              <TextField
+              <PlacementDraftTextField
                 label="Razão social (fornecedor destino)"
                 fullWidth
                 size="small"
                 value={fornState.razaoSocial}
                 disabled={disabled}
-                onChange={(e) => patchFornecedor({ razaoSocial: e.target.value })}
+                onCommit={(v) => patchFornecedor({ razaoSocial: v })}
               />
             </Grid>
             <Grid item xs={12} md={6}>
-              <TextField
+              <PlacementDraftTextField
                 label="CNPJ (fornecedor destino)"
                 fullWidth
                 size="small"
                 value={fornState.cnpj}
                 disabled={disabled}
-                onChange={(e) => patchFornecedor({ cnpj: e.target.value })}
+                onCommit={(v) => patchFornecedor({ cnpj: v })}
               />
             </Grid>
             <Grid item xs={12} md={6}>
-              <TextField
+              <PlacementDraftTextField
                 label="Atividade econômica principal"
                 fullWidth
                 size="small"
                 value={fornState.atividadeEconomica}
                 disabled={disabled}
-                onChange={(e) => patchFornecedor({ atividadeEconomica: e.target.value })}
+                onCommit={(v) => patchFornecedor({ atividadeEconomica: v })}
               />
             </Grid>
             <Grid item xs={12} md={6}>
-              <TextField
+              <PlacementDraftTextField
                 label="Município/UF do CNPJ"
                 fullWidth
                 size="small"
                 value={fornState.municipioUf}
                 disabled={disabled}
-                onChange={(e) => patchFornecedor({ municipioUf: e.target.value })}
+                onCommit={(v) => patchFornecedor({ municipioUf: v })}
               />
             </Grid>
             <Grid item xs={12}>
@@ -778,7 +708,7 @@ export function PlacementComunicarMercadoPanel({
           </Typography>
           <Grid container spacing={2}>
             <Grid item xs={12}>
-              <TextField
+              <PlacementDraftTextField
                 label="Sinistralidade da apólice e período avaliado"
                 fullWidth
                 size="small"
@@ -786,31 +716,31 @@ export function PlacementComunicarMercadoPanel({
                 minRows={2}
                 value={sinistralidade.sinistralidadePeriodo}
                 disabled={disabled}
-                onChange={(e) => patchSinistralidade({ sinistralidadePeriodo: e.target.value })}
+                onCommit={(v) => patchSinistralidade({ sinistralidadePeriodo: v })}
               />
             </Grid>
             <Grid item xs={12} md={6}>
-              <TextField
+              <PlacementDraftTextField
                 label="Estimativa de reajuste"
                 fullWidth
                 size="small"
                 value={sinistralidade.estimativaReajuste}
                 disabled={disabled}
-                onChange={(e) => patchSinistralidade({ estimativaReajuste: e.target.value })}
+                onCommit={(v) => patchSinistralidade({ estimativaReajuste: v })}
               />
             </Grid>
             <Grid item xs={12} md={6}>
-              <TextField
+              <PlacementDraftTextField
                 label="Índice de reajuste financeiro"
                 fullWidth
                 size="small"
                 value={sinistralidade.indiceReajusteFinanceiro}
                 disabled={disabled}
-                onChange={(e) => patchSinistralidade({ indiceReajusteFinanceiro: e.target.value })}
+                onCommit={(v) => patchSinistralidade({ indiceReajusteFinanceiro: v })}
               />
             </Grid>
             <Grid item xs={12}>
-              <TextField
+              <PlacementDraftTextField
                 label="Justificativa dos picos"
                 fullWidth
                 size="small"
@@ -818,11 +748,11 @@ export function PlacementComunicarMercadoPanel({
                 minRows={2}
                 value={sinistralidade.justificativaPicos}
                 disabled={disabled}
-                onChange={(e) => patchSinistralidade({ justificativaPicos: e.target.value })}
+                onCommit={(v) => patchSinistralidade({ justificativaPicos: v })}
               />
             </Grid>
             <Grid item xs={12} md={6}>
-              <TextField
+              <PlacementDraftTextField
                 label="Maiores usuários"
                 fullWidth
                 size="small"
@@ -830,11 +760,11 @@ export function PlacementComunicarMercadoPanel({
                 minRows={2}
                 value={sinistralidade.maioresUsuarios}
                 disabled={disabled}
-                onChange={(e) => patchSinistralidade({ maioresUsuarios: e.target.value })}
+                onCommit={(v) => patchSinistralidade({ maioresUsuarios: v })}
               />
             </Grid>
             <Grid item xs={12} md={6}>
-              <TextField
+              <PlacementDraftTextField
                 label="Maiores usuários mês a mês"
                 fullWidth
                 size="small"
@@ -842,7 +772,7 @@ export function PlacementComunicarMercadoPanel({
                 minRows={2}
                 value={sinistralidade.maioresUsuariosMesAMes}
                 disabled={disabled}
-                onChange={(e) => patchSinistralidade({ maioresUsuariosMesAMes: e.target.value })}
+                onCommit={(v) => patchSinistralidade({ maioresUsuariosMesAMes: v })}
               />
             </Grid>
             <Grid item xs={12}>
@@ -940,4 +870,4 @@ export function PlacementComunicarMercadoPanel({
       )}
     </Stack>
   )
-}
+})

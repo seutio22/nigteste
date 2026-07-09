@@ -83,6 +83,43 @@ export type PlacementBeneficiario = {
 
 export type BeneficiarioUploadRow = Omit<PlacementBeneficiario, 'id' | 'cotacaoId'>
 
+/** Colunas essenciais para validação da base (devem existir no cabeçalho da planilha). */
+export const BENEFICIARIO_TEMPLATE_REQUIRED_HEADERS = [
+  'NOME',
+  'DATA DE NASCIMENTO',
+  'GRAU DE PARENTESCO',
+  'CNPJ',
+  'OPERADORA',
+  'SEXO',
+] as const
+
+export type BeneficiariosSpreadsheetAudit = {
+  /** Cabeçalhos reconhecidos e mapeados para campos do sistema. */
+  mappedHeaders: string[]
+  /** Colunas do modelo que não foram encontradas na planilha. */
+  missingTemplateHeaders: string[]
+  /** Colunas essenciais ausentes — validação ficará incompleta. */
+  missingRequiredHeaders: string[]
+  /** Cabeçalhos presentes na planilha mas ignorados (não constam no modelo). */
+  unrecognizedHeaders: string[]
+  /** Relação coluna do modelo ↔ cabeçalho encontrado na planilha enviada. */
+  columnMappings: BeneficiarioTemplateColumnMapping[]
+}
+
+export type BeneficiarioTemplateColumnMapping = {
+  templateLabel: string
+  field: keyof BeneficiarioUploadRow
+  required: boolean
+  /** Cabeçalho literal da planilha enviada (quando reconhecido). */
+  uploadedHeader: string | null
+  status: 'ok' | 'missing' | 'required_missing'
+  /** Coluna escolhida manualmente pelo usuário (não veio do reconhecimento automático). */
+  manual?: boolean
+}
+
+/** Mapeamento manual: campo do modelo → cabeçalho literal da planilha enviada. */
+export type BeneficiariosFieldHeaderMap = Partial<Record<keyof BeneficiarioUploadRow, string | null>>
+
 function normHeader(h: string): string {
   return String(h ?? '')
     .trim()
@@ -102,9 +139,13 @@ const HEADER_TO_FIELD: Record<string, keyof BeneficiarioUploadRow> = {
   NOME: 'nome',
   'DATA DE NASCIMENTO': 'dataNascimento',
   'GRAU DE PARENTESCO': 'grauParentesco',
+  PARENTESCO: 'grauParentesco',
+  'GRAU PARENTESCO': 'grauParentesco',
+  'TIPO PARENTESCO': 'grauParentesco',
+  'TIPO DE PARENTESCO': 'grauParentesco',
   STATUS: 'statusBeneficiario',
   'CID 10': 'cid10',
-  'CID10': 'cid10',
+  CID10: 'cid10',
   'MOTIVO DO AFASTAMENTO': 'motivoAfastamento',
   'DATA DE INICIO DO BENEFICIO': 'dataInicioBeneficio',
   'DATA DE INÍCIO DO BENEFÍCIO': 'dataInicioBeneficio',
@@ -118,6 +159,140 @@ const HEADER_TO_FIELD: Record<string, keyof BeneficiarioUploadRow> = {
   ACOMODACAO: 'acomodacao',
   'ACOMODAÇÃO': 'acomodacao',
   'CUSTO PER CAPITA': 'custoPerCapita',
+}
+
+function resolveHeaderField(header: string): keyof BeneficiarioUploadRow | undefined {
+  return HEADER_TO_FIELD[normHeader(header)]
+}
+
+export function getSpreadsheetRawHeaders(sheetRows: Record<string, unknown>[]): string[] {
+  if (!sheetRows.length) return []
+  return Object.keys(sheetRows[0]).filter((h) => String(h ?? '').trim())
+}
+
+function autoDetectFieldHeaderMap(
+  sheetRows: Record<string, unknown>[]
+): Map<keyof BeneficiarioUploadRow, string> {
+  const fieldToUploadedHeader = new Map<keyof BeneficiarioUploadRow, string>()
+  for (const raw of getSpreadsheetRawHeaders(sheetRows)) {
+    const field = resolveHeaderField(raw)
+    if (field && !fieldToUploadedHeader.has(field)) fieldToUploadedHeader.set(field, raw)
+  }
+  return fieldToUploadedHeader
+}
+
+function resolveFieldHeaderMap(
+  sheetRows: Record<string, unknown>[],
+  overrides?: BeneficiariosFieldHeaderMap
+): {
+  fieldToUploadedHeader: Map<keyof BeneficiarioUploadRow, string>
+  manualFields: Set<keyof BeneficiarioUploadRow>
+} {
+  const rawHeaders = new Set(getSpreadsheetRawHeaders(sheetRows))
+  const fieldToUploadedHeader = autoDetectFieldHeaderMap(sheetRows)
+  const manualFields = new Set<keyof BeneficiarioUploadRow>()
+
+  if (overrides) {
+    const auto = autoDetectFieldHeaderMap(sheetRows)
+    for (const [fieldKey, header] of Object.entries(overrides) as [
+      keyof BeneficiarioUploadRow,
+      string | null | undefined,
+    ][]) {
+      const autoHeader = auto.get(fieldKey) ?? null
+      const normalized = header == null || header === '' ? null : header
+      if (normalized !== autoHeader) manualFields.add(fieldKey)
+      if (normalized == null) {
+        fieldToUploadedHeader.delete(fieldKey)
+        continue
+      }
+      if (rawHeaders.has(normalized)) {
+        fieldToUploadedHeader.set(fieldKey, normalized)
+      }
+    }
+  }
+
+  return { fieldToUploadedHeader, manualFields }
+}
+
+export function fieldHeaderMapFromAudit(audit: BeneficiariosSpreadsheetAudit): BeneficiariosFieldHeaderMap {
+  const map: BeneficiariosFieldHeaderMap = {}
+  for (const row of audit.columnMappings) {
+    if (row.uploadedHeader) map[row.field] = row.uploadedHeader
+  }
+  return map
+}
+
+/** Compara cabeçalhos da planilha com o modelo oficial. */
+export function auditBeneficiariosSpreadsheetHeaders(
+  sheetRows: Record<string, unknown>[],
+  overrides?: BeneficiariosFieldHeaderMap
+): BeneficiariosSpreadsheetAudit {
+  const rawHeaders = getSpreadsheetRawHeaders(sheetRows)
+  const { fieldToUploadedHeader, manualFields } = resolveFieldHeaderMap(sheetRows, overrides)
+  const usedHeaders = new Set(fieldToUploadedHeader.values())
+  const mappedHeaders = [...usedHeaders]
+  const unrecognizedHeaders = rawHeaders.filter((h) => !usedHeaders.has(h))
+
+  const columnMappings: BeneficiarioTemplateColumnMapping[] = BENEFICIARIO_COLUMN_LABELS.map(
+    (templateLabel) => {
+      const field = resolveHeaderField(templateLabel)!
+      const required = (BENEFICIARIO_TEMPLATE_REQUIRED_HEADERS as readonly string[]).includes(
+        templateLabel
+      )
+      const uploadedHeader = fieldToUploadedHeader.get(field) ?? null
+      let status: BeneficiarioTemplateColumnMapping['status'] = 'ok'
+      if (!uploadedHeader) {
+        status = required ? 'required_missing' : 'missing'
+      }
+      const manual = manualFields.has(field)
+      return { templateLabel, field, required, uploadedHeader, status, manual }
+    }
+  )
+
+  const missingTemplateHeaders = columnMappings
+    .filter((m) => !m.uploadedHeader)
+    .map((m) => m.templateLabel)
+
+  const missingRequiredHeaders = columnMappings
+    .filter((m) => m.status === 'required_missing')
+    .map((m) => m.templateLabel)
+
+  return {
+    mappedHeaders,
+    missingTemplateHeaders,
+    missingRequiredHeaders,
+    unrecognizedHeaders,
+    columnMappings,
+  }
+}
+
+export function formatBeneficiariosSpreadsheetAuditMessage(audit: BeneficiariosSpreadsheetAudit): string {
+  const parts: string[] = []
+  if (audit.missingRequiredHeaders.length) {
+    parts.push(
+      `Colunas essenciais ausentes: ${audit.missingRequiredHeaders.join(', ')}. Os dados podem ter sido importados, mas a validação não conseguirá conferir esses campos.`
+    )
+  }
+  if (audit.missingTemplateHeaders.length > audit.missingRequiredHeaders.length) {
+    const optional = audit.missingTemplateHeaders.filter(
+      (h) => !(BENEFICIARIO_TEMPLATE_REQUIRED_HEADERS as readonly string[]).includes(h)
+    )
+    if (optional.length) {
+      parts.push(`Outras colunas do modelo não encontradas: ${optional.join(', ')}.`)
+    }
+  }
+  if (audit.unrecognizedHeaders.length) {
+    parts.push(
+      `Colunas ignoradas (não constam no modelo): ${audit.unrecognizedHeaders.slice(0, 8).join(', ')}${
+        audit.unrecognizedHeaders.length > 8 ? '…' : ''
+      }.`
+    )
+  }
+  return parts.join(' ')
+}
+
+export function spreadsheetAuditHasIssues(audit: BeneficiariosSpreadsheetAudit): boolean {
+  return audit.missingRequiredHeaders.length > 0 || audit.unrecognizedHeaders.length > 0
 }
 
 function excelSerialToIso(n: number): string | null {
@@ -166,22 +341,19 @@ function cellToFieldValue(field: keyof BeneficiarioUploadRow, raw: unknown): unk
 
 /** Converte linhas da planilha (objeto header→valor) para payload da API. */
 export function mapSpreadsheetRowsToBeneficiarios(
-  sheetRows: Record<string, unknown>[]
+  sheetRows: Record<string, unknown>[],
+  overrides?: BeneficiariosFieldHeaderMap
 ): BeneficiarioUploadRow[] {
   if (!sheetRows.length) return []
 
-  const first = sheetRows[0]
-  const headerMap: Record<string, keyof BeneficiarioUploadRow> = {}
-  for (const key of Object.keys(first)) {
-    const field = HEADER_TO_FIELD[normHeader(key)]
-    if (field) headerMap[key] = field
-  }
+  const { fieldToUploadedHeader } = resolveFieldHeaderMap(sheetRows, overrides)
+  if (fieldToUploadedHeader.size === 0) return []
 
   const out: BeneficiarioUploadRow[] = []
   for (const row of sheetRows) {
     const rec: BeneficiarioUploadRow = {}
     let hasData = false
-    for (const [header, field] of Object.entries(headerMap)) {
+    for (const [field, header] of fieldToUploadedHeader.entries()) {
       const val = cellToFieldValue(field, row[header])
       if (val != null && val !== '') hasData = true
       ;(rec as Record<string, unknown>)[field] = val

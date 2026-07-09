@@ -20,7 +20,7 @@ interface CondicaoFormModalProps {
   open: boolean
   onClose: () => void
   editingItem?: PlacementCondicao | null
-  /** Pré-preenche grupo ao criar a partir do fluxo de cotação (cliente da casa). */
+  /** Pré-preenche grupo ao criar a partir do fluxo de cotação (Cliente da Carteira). */
   defaultGrupoEconomico?: string | null
   /** Razão social inicial (ex.: nome do estipulante no cadastro de Clientes). */
   defaultRazaoSocial?: string | null

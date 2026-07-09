@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Box, Button, Card, CardContent, Chip, Container, Divider, List, ListItem, ListItemText, Typography } from '@mui/material'
+import { Box, Button, Card, CardContent, Chip, Divider, List, ListItem, ListItemText, Typography } from '@mui/material'
 import RocketLaunchIcon from '@mui/icons-material/RocketLaunch'
 import { api } from '../lib/api'
+import PageScaffold from './PageScaffold'
 
 type AreaRow = {
   id: string
@@ -26,7 +27,7 @@ export default function NewRequestCatalog({ onPick }: Props) {
   }, [])
 
   return (
-    <Container maxWidth="md" sx={{ py: 3 }}>
+    <PageScaffold>
       <Box
         sx={{
           mb: 3,
@@ -93,6 +94,6 @@ export default function NewRequestCatalog({ onPick }: Props) {
           </Card>
         ))
       )}
-    </Container>
+    </PageScaffold>
   )
 }

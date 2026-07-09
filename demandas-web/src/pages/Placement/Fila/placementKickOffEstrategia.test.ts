@@ -67,20 +67,36 @@ describe('placementKickOffEstrategia', () => {
   })
 })
 
-describe('workflow Kick off', () => {
-  it('avança de Aberta para Kick off', () => {
-    expect(nextMainFlowStatus('Aberta')).toBe('Kick off')
+describe('workflow Kick off e Estratégia', () => {
+  it('avança de Aberta para Validação', () => {
+    expect(nextMainFlowStatus('Aberta')).toBe('Validação')
   })
 
-  it('avança de Kick off para Em cotação', () => {
-    expect(nextMainFlowStatus('Kick off')).toBe('Em cotação')
+  it('avança de Validação para Kick off', () => {
+    expect(nextMainFlowStatus('Validação')).toBe('Kick off')
   })
 
-  it('retrocede de Kick off para Aberta', () => {
-    expect(previousMainFlowStatus('Kick off')).toBe('Aberta')
+  it('avança de Kick off para Estratégia', () => {
+    expect(nextMainFlowStatus('Kick off')).toBe('Estratégia')
   })
 
-  it('retrocede de Em cotação para Kick off', () => {
-    expect(previousMainFlowStatus('Em cotação')).toBe('Kick off')
+  it('avança de Estratégia para Em cotação', () => {
+    expect(nextMainFlowStatus('Estratégia')).toBe('Em cotação')
+  })
+
+  it('retrocede de Kick off para Validação', () => {
+    expect(previousMainFlowStatus('Kick off')).toBe('Validação')
+  })
+
+  it('retrocede de Estratégia para Kick off', () => {
+    expect(previousMainFlowStatus('Estratégia')).toBe('Kick off')
+  })
+
+  it('retrocede de Validação para Aberta', () => {
+    expect(previousMainFlowStatus('Validação')).toBe('Aberta')
+  })
+
+  it('retrocede de Em cotação para Estratégia', () => {
+    expect(previousMainFlowStatus('Em cotação')).toBe('Estratégia')
   })
 })

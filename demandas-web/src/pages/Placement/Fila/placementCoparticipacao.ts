@@ -46,6 +46,25 @@ export function emptyCoparticipacao(): CoparticipacaoForm {
   }
 }
 
+/** Cópia profunda para replicar coparticipação entre planos da cotação. */
+export function cloneCoparticipacao(c: CoparticipacaoForm): CoparticipacaoForm {
+  return {
+    possui: c.possui,
+    formaCobranca: c.formaCobranca,
+    linhas: Object.fromEntries(
+      COPART_PROCEDIMENTOS.map((p) => [
+        p.key,
+        { valor: c.linhas[p.key].valor, limitador: c.linhas[p.key].limitador },
+      ])
+    ) as Record<CopartProcedimentoKey, LinhaCoparticipacao>,
+    internacao: {
+      tipoCobranca: c.internacao.tipoCobranca,
+      valor: c.internacao.valor,
+      limitador: c.internacao.limitador,
+    },
+  }
+}
+
 export function parseCoparticipacaoFromApi(raw: unknown): CoparticipacaoForm {
   const base = emptyCoparticipacao()
   if (!raw || typeof raw !== 'object') return base

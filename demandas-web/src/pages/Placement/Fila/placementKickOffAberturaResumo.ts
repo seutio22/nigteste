@@ -9,6 +9,7 @@ import {
 } from './placementKickOffFormatters'
 import {
   formatMultaRescisaoResumo,
+  formatConvencaoColetivaResumo,
   labelFormularioTipo,
   labelSimNaoChoice,
 } from './placementFormularioContrato'
@@ -62,7 +63,7 @@ export function buildAberturaResumoLinhas(input: BuildAberturaResumoInput): Aber
   pushLinha(linhas, g('Identificação'), 'solicitante', 'Solicitante', labels.solicitante || form.solicitante)
   pushLinha(linhas, g('Identificação'), 'data-inicio', 'Data de início', form.dataInicio)
   pushLinha(linhas, g('Identificação'), 'data-limite', 'Data limite', form.dataLimite)
-  pushLinha(linhas, g('Identificação'), 'vigencia', 'Vigência da apólice', labels.vigenciaApolice)
+  pushLinha(linhas, g('Identificação'), 'vigencia', 'Início de vigência', labels.vigenciaApolice)
   pushLinha(linhas, g('Identificação'), 'projeto', 'Projeto', labels.projeto)
   pushLinha(linhas, g('Identificação'), 'pedido', 'Pedido/conta', labels.pedido)
   pushLinha(linhas, g('Identificação'), 'temperatura', 'Temperatura', labels.temperatura)
@@ -95,7 +96,7 @@ export function buildAberturaResumoLinhas(input: BuildAberturaResumoInput): Aber
 
   pushLinha(linhas, g('Contrato'), 'tipo-contratacao', 'Tipo de contratação', labels.tipoContratacao)
   pushLinha(linhas, g('Contrato'), 'modalidade', 'Modalidade de contrato', labels.modalidadeContrato)
-  pushLinha(linhas, g('Contrato'), 'prazo-vigencia', 'Prazo vigência / movimentações', labels.prazoVigencia)
+  pushLinha(linhas, g('Contrato'), 'prazo-vigencia', 'Duração Contratual', labels.prazoVigencia)
   pushLinha(linhas, g('Contrato'), 'break-even', 'Break-even', labels.breakEven || form.breakEven)
   pushLinha(
     linhas,
@@ -115,8 +116,8 @@ export function buildAberturaResumoLinhas(input: BuildAberturaResumoInput): Aber
     linhas,
     g('Contrato'),
     'convencao-coletiva',
-    'Convenção coletiva',
-    labels.convencaoColetiva || labelSimNaoChoice(form.possuiConvencaoColetiva)
+    'Em acordo coletivo',
+    labels.convencaoColetiva || formatConvencaoColetivaResumo(form)
   )
   pushLinha(linhas, g('Contrato'), 'coparticipacao', 'Coparticipação (detalhe)', labels.coparticipacao)
   pushLinha(linhas, g('Contrato'), 'comissao-atual', 'Comissão contrato vigente', labels.comissaoAtual)

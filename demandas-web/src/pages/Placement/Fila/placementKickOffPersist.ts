@@ -20,6 +20,28 @@ export function kickOffWorkflowScore(kickOff?: KickOffEstrategia | null): number
   return score
 }
 
+/** Preserva filtros/visibilidade do comparativo quando a API devolve kickOff desatualizado. */
+export function preferLocalComparativoConfigInKickOff(
+  apiKickOff: KickOffEstrategia | null | undefined,
+  localKickOff: KickOffEstrategia | null | undefined
+): KickOffEstrategia | null | undefined {
+  if (!apiKickOff?.aguardandoOperadora) return apiKickOff
+  const localCfg = localKickOff?.aguardandoOperadora?.comparativoConfig
+  if (!localCfg) return apiKickOff
+  return {
+    ...apiKickOff,
+    aguardandoOperadora: {
+      ...apiKickOff.aguardandoOperadora,
+      comparativoConfig: {
+        ...apiKickOff.aguardandoOperadora.comparativoConfig,
+        ...localCfg,
+        colunasOcultas: localCfg.colunasOcultas ?? apiKickOff.aguardandoOperadora.comparativoConfig?.colunasOcultas,
+        linhasOcultas: localCfg.linhasOcultas ?? apiKickOff.aguardandoOperadora.comparativoConfig?.linhasOcultas,
+      },
+    },
+  }
+}
+
 /** Após PUT parcial, garante que o formulário use o kickOff que acabou de ser salvo. */
 export function mergeSavedKickOffIntoApiCotacao(
   apiRow: unknown,

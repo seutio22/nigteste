@@ -1,7 +1,10 @@
 import React from 'react'
-import { Box, Step, StepLabel, Stepper, Typography } from '@mui/material'
+import { Box } from '@mui/material'
 import { PLACEMENT_WORKFLOW_MAIN_STAGES, workflowStageIndex } from './placementCotacaoWorkflow'
 import { isRascunhoStatus } from './placementCotacaoStatus'
+import { PlacementWorkflowSectionTitle } from './placementWorkflowNav'
+import { PlacementWorkflowStepsRail } from './PlacementWorkflowStepsRail'
+import RouteIcon from '@mui/icons-material/Route'
 
 type Props = {
   status: string
@@ -10,13 +13,7 @@ type Props = {
 
 export function PlacementCotacaoWorkflowBar({ status, compact }: Props) {
   if (isRascunhoStatus(status)) {
-    return (
-      <Box sx={{ py: 1 }}>
-        <Typography variant="body2" color="text.secondary">
-          Esta cotação ainda é um rascunho. Use «Iniciar processo» para entrar no workflow da fila.
-        </Typography>
-      </Box>
-    )
+    return null
   }
 
   const activeStep = Math.min(
@@ -24,35 +21,25 @@ export function PlacementCotacaoWorkflowBar({ status, compact }: Props) {
     PLACEMENT_WORKFLOW_MAIN_STAGES.length - 1
   )
 
+  const steps = PLACEMENT_WORKFLOW_MAIN_STAGES.map((stage, index) => ({
+    id: stage.key,
+    label: stage.label,
+    description: compact ? stage.description : undefined,
+    stepNumber: (stage.mainFlowIndex ?? index) + 1,
+    state:
+      index < activeStep
+        ? ('completed' as const)
+        : index === activeStep
+          ? ('active' as const)
+          : ('upcoming' as const),
+  }))
+
   return (
-    <Box sx={{ py: compact ? 0 : 1 }}>
-      {!compact && (
-        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>
-          Workflow do processo
-        </Typography>
+    <Box sx={{ mb: compact ? 2.5 : 1 }}>
+      {compact && (
+        <PlacementWorkflowSectionTitle title="Etapas do processo" icon={<RouteIcon fontSize="small" />} />
       )}
-      <Stepper activeStep={activeStep} alternativeLabel={!compact}>
-        {PLACEMENT_WORKFLOW_MAIN_STAGES.map((stage) => (
-          <Step
-            key={stage.status}
-            completed={
-              stage.mainFlowIndex != null && stage.mainFlowIndex < activeStep
-            }
-          >
-            <StepLabel
-              optional={
-                !compact ? (
-                  <Typography variant="caption" color="text.secondary">
-                    {stage.description}
-                  </Typography>
-                ) : undefined
-              }
-            >
-              {stage.label}
-            </StepLabel>
-          </Step>
-        ))}
-      </Stepper>
+      <PlacementWorkflowStepsRail steps={steps} heading={compact ? undefined : 'Etapas principais'} />
     </Box>
   )
 }

@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   Alert,
   Box,
   Button,
   CircularProgress,
-  Container,
   Paper,
   Stack,
   Typography,
@@ -20,12 +19,19 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import SaveIcon from '@mui/icons-material/Save'
 import DeleteIcon from '@mui/icons-material/Delete'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
-import { PrimaryActionButton } from '../../../components/PrimaryActionButton'
+import SlideshowIcon from '@mui/icons-material/Slideshow'
+import OpenInFullIcon from '@mui/icons-material/OpenInFull'
+import {
+  PlacementNavForwardButton,
+  placementNavBackSx,
+  placementNavButtonSx,
+} from './placementWorkflowNav'
 import { useMasterDataStore } from '../../../store/masterDataStore'
+import { usePlacementStore } from '../../../store/placementStore'
 import { usePlacementCotacaoStore } from '../../../store/placementCotacaoStore'
 import { api } from '../../../lib/api.local'
 import { CotacaoFormFields, type CotacaoFormState } from './CotacaoFormFields'
-import { formatCentsToBRL, getStatusColor } from './utils'
+import { formatCentsToBRL, getStatusColor, getWorkflowStatusDisplayLabel } from './utils'
 import {
   emptyMapeamentoItem,
   parseItensFromApi,
@@ -33,16 +39,17 @@ import {
   summarizeItensNomes,
 } from './placementCotacaoDetalhes'
 import {
-  buildPlacementDetalhesApiFields,
   validateIniciarProcessoNaFila,
 } from './placementCotacaoSubmit'
-import { buildContratoApoliceApiFields, parseFormularioTipoFromApi, simNaoFromApi } from './placementFormularioContrato'
+import { buildFullCotacaoSavePayload, buildScopedSavePayload } from './placementCotacaoSavePayload'
+import { parseFormularioTipoFromApi, simNaoFromApi } from './placementFormularioContrato'
 import { validateEtapaBaseAtual, validateEtapaEmCotacao, validateEtapaKickOff } from './placementWorkflowAdvance'
 import { PlacementCotacaoWorkflowPanel } from './PlacementCotacaoWorkflowPanel'
 import { PlacementCotacaoDetailTabs } from './PlacementCotacaoDetailTabs'
-import { getWorkflowStageKey } from './placementCotacaoWorkflow'
+import { PlacementFilaPageShell } from './PlacementFilaPageShell'
+import { getWorkflowStageKey, getWorkflowStageMeta } from './placementCotacaoWorkflow'
 import { formScopeForWorkflow } from './placementCotacaoFormScope'
-import { isRascunhoStatus, PLACEMENT_STATUS_RASCUNHO } from './placementCotacaoStatus'
+import { isRascunhoStatus } from './placementCotacaoStatus'
 import type { PlacementCotacaoWorkflowStatus } from './placementCotacaoStatus'
 import { useAuthStore } from '../../../store/authStore'
 import { parseKickOffEstrategiaFromApi } from './placementKickOffEstrategia'
@@ -50,6 +57,7 @@ import { preferRicherKickOffWhenApplyingApi } from './placementKickOffPersist'
 import { getRetreatDiscardScope, type WorkflowRetreatMode } from './placementWorkflowRetreat'
 import { comunicarMercadoIsComplete } from './placementComunicarMercado'
 import { normalizeEmCotacaoSubetapa } from './placementEmCotacaoWorkflow'
+import { ensurePlacementBeforeUnloadFlush, flushAllPlacementPendingSaves, flushAllRegisteredPlacementDrafts } from './placementFlushRegistry'
 
 function metricasResumoDeApi(data: any): { valorCents: number | null; vidas: number | null } {
   return {
@@ -58,19 +66,23 @@ function metricasResumoDeApi(data: any): { valorCents: number | null; vidas: num
   }
 }
 
-export default function PlacementFilaDetailPage() {
+export default function PlacementFilaDetailPage({ fullscreen = false }: { fullscreen?: boolean }) {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
-  const { analistas: analistasCadastro, operadoras, operadorasById } = useMasterDataStore()
+  const { analistas: analistasCadastro, operadoras, operadorasById, syncFromApi: syncMasterData } =
+    useMasterDataStore()
+  const placementAnalistas = usePlacementStore((s) => s.analistas)
   const { user } = useAuthStore()
   const cotacaoFromStore = usePlacementCotacaoStore((s) => s.getById(id ?? ''))
   const updateCotacao = usePlacementCotacaoStore((s) => s.updateCotacao)
+  const patchWorkflowStatus = usePlacementCotacaoStore((s) => s.patchWorkflowStatus)
   const iniciarProcesso = usePlacementCotacaoStore((s) => s.iniciarProcesso)
   const removeCotacao = usePlacementCotacaoStore((s) => s.removeCotacao)
 
   const [form, setForm] = useState<CotacaoFormState | null>(null)
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
+  const [formSaving, setFormSaving] = useState(false)
+  const [workflowSaving, setWorkflowSaving] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [metricasCabecalho, setMetricasCabecalho] = useState<{
@@ -101,6 +113,39 @@ export default function PlacementFilaDetailPage() {
     () => analistaResponsavelMeta?.nome,
     [analistaResponsavelMeta?.nome]
   )
+
+  useEffect(() => {
+    ensurePlacementBeforeUnloadFlush()
+    return () => {
+      flushAllRegisteredPlacementDrafts()
+    }
+  }, [])
+
+  useEffect(() => {
+    void syncMasterData?.({ entities: ['operadoras', 'produtos', 'analistas', 'clientes'] })
+  }, [syncMasterData])
+
+  const voltarParaFila = useCallback(() => {
+    flushAllRegisteredPlacementDrafts()
+    navigate('/placement/fila')
+  }, [navigate])
+
+  const voltarParaCotacao = useCallback(() => {
+    if (id) navigate(`/placement/fila/${id}`)
+    else voltarParaFila()
+  }, [id, navigate, voltarParaFila])
+
+  const abrirSlidesTelaCheia = useCallback(() => {
+    if (id) navigate(`/placement/fila/${id}/slides`)
+  }, [id, navigate])
+
+  const abrirComparativoTelaCheia = useCallback(() => {
+    if (id) navigate(`/placement/fila/${id}/comparativo`)
+  }, [id, navigate])
+
+  const abrirEtapaTelaCheia = useCallback(() => {
+    if (id) navigate(`/placement/fila/${id}/etapa`)
+  }, [id, navigate])
 
   useEffect(() => {
     if (!id) return
@@ -148,7 +193,35 @@ export default function PlacementFilaDetailPage() {
     [form?.status]
   )
 
+  const patchForm = useCallback((next: CotacaoFormState | ((prev: CotacaoFormState | null) => CotacaoFormState | null)) => {
+    setForm(next)
+  }, [])
+
   const isDraft = isRascunhoStatus(form?.status)
+
+  function applyLightCotacaoPatch(data: any) {
+    setForm((prev) => {
+      if (!prev) return prev
+      let kickOffEstrategia = prev.kickOffEstrategia
+      if (data.kickOffEstrategia === null) {
+        kickOffEstrategia = undefined
+      } else if (data.kickOffEstrategia !== undefined) {
+        const apiKickOff = parseKickOffEstrategiaFromApi(data.kickOffEstrategia)
+        kickOffEstrategia = preferRicherKickOffWhenApplyingApi(apiKickOff, prev.kickOffEstrategia)
+      }
+      return {
+        ...prev,
+        status: data.status ?? prev.status,
+        kickOffEstrategia,
+      }
+    })
+    if (data.emCotacaoSubetapa != null) {
+      setEmCotacaoSubetapa(String(data.emCotacaoSubetapa))
+    }
+    if (data.valorEstimadoCents !== undefined || data.vidas !== undefined) {
+      setMetricasCabecalho(metricasResumoDeApi(data))
+    }
+  }
 
   function applyCotacaoFromApi(data: any) {
     setForm((prev) => {
@@ -166,68 +239,47 @@ export default function PlacementFilaDetailPage() {
     setMetricasCabecalho(metricasResumoDeApi(data))
   }
 
-  function buildUpdatePayload() {
-    const detalhesApi = buildPlacementDetalhesApiFields(form!)
-    return {
-      ticket: form!.ticket?.trim() || undefined,
-      status: isDraft ? PLACEMENT_STATUS_RASCUNHO : form!.status,
-      analistaId: form!.analistaId || null,
-      clienteId: form!.clienteTipo === 'casa' ? form!.clienteId || null : null,
-      prospectId: form!.clienteTipo === 'prospect' ? form!.prospectId || null : null,
-      condicaoId: form!.clienteTipo === 'casa' ? form!.condicaoId || null : null,
-      filialId: form!.filialId || null,
-      corretorParceiroId: form!.corretorParceiroId?.trim() || null,
-      projetoId: form!.projetoId?.trim() || null,
-      pedidoId: form!.pedidoId?.trim() || null,
-      solicitante: form!.solicitante?.trim() || null,
-      temperaturaId: form!.temperaturaId?.trim() || null,
-      ...detalhesApi,
-      dataInicio: form!.dataInicio || null,
-      dataLimite: form!.dataLimite || null,
-      descricao: form!.descricao?.trim() || null,
-      observacoes: form!.observacoes?.trim() || null,
-      vigenciaApolice: form!.vigenciaApolice?.trim() || null,
-      tipoContratacaoId: form!.tipoContratacaoId?.trim() || null,
-      modalidadeContratoId: form!.modalidadeContratoId?.trim() || null,
-      prazoVigenciaContratoId: form!.prazoVigenciaContratoId?.trim() || null,
-      breakEven: form!.breakEven?.trim() || null,
-      ...buildContratoApoliceApiFields(form!),
-      operadorasSugestaoIds:
-        form!.operadorasSugestaoIds?.length > 0 ? form!.operadorasSugestaoIds : null,
-      analistaResponsavelId: form!.analistaResponsavelId?.trim() || null,
-      ...(form!.kickOffEstrategia ? { kickOffEstrategia: form!.kickOffEstrategia } : {}),
-    }
-  }
-
   async function handleDesignarAnalista(analistaResponsavelId: string) {
     if (!id || !form) return
-    setSaving(true)
+    setFormSaving(true)
     setErrorMsg(null)
     try {
-      const updated = await updateCotacao(id, {
-        ...buildUpdatePayload(),
-        analistaResponsavelId,
-      })
-      applyCotacaoFromApi(updated)
+      await flushAllPlacementPendingSaves()
+      const updated = await updateCotacao(
+        id,
+        { analistaResponsavelId },
+        { light: true }
+      )
+      setForm((prev) => (prev ? { ...prev, analistaResponsavelId } : prev))
+      const pa = placementAnalistas.find((a) => a.id === analistaResponsavelId)
+      if (pa) {
+        setAnalistaResponsavelMeta({
+          id: pa.id,
+          nome: pa.nome,
+          coordenadorAnalista: pa.coordenadorAnalista ?? '',
+          gerenteAnalista: pa.gerenteAnalista ?? '',
+        })
+      }
+      applyLightCotacaoPatch(updated)
     } catch (err: any) {
       console.error('❌ designar analista:', err)
       setErrorMsg(err?.message ?? 'Erro ao designar analista.')
       throw err
     } finally {
-      setSaving(false)
+      setFormSaving(false)
     }
   }
 
   async function handleSave() {
     if (!id || !form) return
-    setSaving(true)
+    setFormSaving(true)
     setErrorMsg(null)
     if (!isDraft) {
       const scope = formScopeForWorkflow(workflowStageKey, false)
       const filaErr =
         scope === 'em_cotacao'
           ? validateEtapaEmCotacao(form)
-          : scope === 'kick_off'
+          : scope === 'estrategia'
             ? validateEtapaKickOff(form)
             : scope === 'base_atual'
               ? validateEtapaBaseAtual(form)
@@ -236,38 +288,46 @@ export default function PlacementFilaDetailPage() {
                 : null
       if (filaErr) {
         setErrorMsg(filaErr)
-        setSaving(false)
+        setFormSaving(false)
         return
       }
     } else if (form.dataLimite?.trim() && form.dataInicio?.trim() && form.dataLimite < form.dataInicio) {
       setErrorMsg('A data limite deve ser igual ou posterior à data de início.')
-      setSaving(false)
+      setFormSaving(false)
       return
     }
     try {
-      const updated = await updateCotacao(id, buildUpdatePayload())
-      applyCotacaoFromApi(updated)
+      await flushAllPlacementPendingSaves()
+      const scope = formScopeForWorkflow(workflowStageKey, isDraft)
+      const payload = buildScopedSavePayload(form, { scope, editingAbertura, isDraft })
+      const updated = await updateCotacao(id, payload, { light: !isDraft && !editingAbertura && scope !== 'base_atual' && scope !== 'all' })
+      if (!isDraft && !editingAbertura && scope !== 'base_atual' && scope !== 'all') {
+        applyLightCotacaoPatch(updated)
+      } else {
+        applyCotacaoFromApi(updated)
+      }
     } catch (err: any) {
       console.error('❌ updateCotacao:', err)
       setErrorMsg(err?.message ?? 'Erro ao salvar.')
     } finally {
-      setSaving(false)
+      setFormSaving(false)
     }
   }
 
   async function handleIniciarProcesso() {
     if (!id || !form) return
-    setSaving(true)
+    setFormSaving(true)
     setErrorMsg(null)
     const filaErr = validateIniciarProcessoNaFila(form)
     if (filaErr) {
       setErrorMsg(filaErr)
-      setSaving(false)
+      setFormSaving(false)
       return
     }
     try {
+      await flushAllPlacementPendingSaves()
       const updated = await iniciarProcesso(id, {
-        ...buildUpdatePayload(),
+        ...buildFullCotacaoSavePayload(form, true),
         userId: user?.id ?? null,
       })
       applyCotacaoFromApi(updated)
@@ -275,23 +335,41 @@ export default function PlacementFilaDetailPage() {
       console.error('❌ iniciarProcesso:', err)
       setErrorMsg(err?.message ?? 'Erro ao iniciar o processo.')
     } finally {
-      setSaving(false)
+      setFormSaving(false)
     }
   }
 
   async function handleAvancarEtapa(nextStatus: PlacementCotacaoWorkflowStatus) {
     if (!id || !form) return
-    setSaving(true)
     setErrorMsg(null)
+    if (
+      workflowStageKey === 'validacao' &&
+      nextStatus === 'Kick off' &&
+      beneficiariosTotal < 1
+    ) {
+      setErrorMsg(
+        'Importe a base de beneficiários na Análise antes de avançar para Kick off.'
+      )
+      return
+    }
+    if (
+      workflowStageKey === 'validacao' &&
+      nextStatus === 'Kick off' &&
+      !form.analistaResponsavelId?.trim()
+    ) {
+      setErrorMsg(
+        'Designe o analista responsável (catálogo Placement) antes de avançar para Kick off.'
+      )
+      return
+    }
     if (
       workflowStageKey === 'em_cotacao' &&
       nextStatus === 'Aguardando operadora' &&
       beneficiariosTotal < 1
     ) {
       setErrorMsg(
-        'Importe a base de beneficiários (etapa 1 de Em cotação) antes de avançar para Aguardando operadora.'
+        'Importe a base de beneficiários (subetapa 1 de Solicitação Mercado) antes de avançar para Aguardando operadora.'
       )
-      setSaving(false)
       return
     }
     if (
@@ -300,9 +378,8 @@ export default function PlacementFilaDetailPage() {
       normalizeEmCotacaoSubetapa(emCotacaoSubetapa) !== 'comunicar_mercado'
     ) {
       setErrorMsg(
-        'Conclua a etapa «Comunicar mercado» (última subetapa de Em cotação) antes de avançar para Aguardando operadora.'
+        'Conclua a subetapa «Comunicar mercado» (última de Solicitação Mercado) antes de avançar para Aguardando operadora.'
       )
-      setSaving(false)
       return
     }
     if (
@@ -313,28 +390,36 @@ export default function PlacementFilaDetailPage() {
       setErrorMsg(
         'Marque todos os fornecedores do mercado analisado como «comunicado ao mercado» antes de avançar.'
       )
-      setSaving(false)
       return
     }
+
+    const prevStatus = form.status
+    setForm((prev) => (prev ? { ...prev, status: nextStatus } : prev))
+    setWorkflowSaving(true)
+
     try {
-      const updated = await updateCotacao(id, {
-        ...buildUpdatePayload(),
-        status: nextStatus,
-      })
+      await flushAllPlacementPendingSaves()
+      if (workflowStageKey === 'estrategia') {
+        const payload = buildScopedSavePayload(form, { scope: 'estrategia', isDraft: false })
+        await updateCotacao(id, payload, { light: true })
+      }
+      const updated = await patchWorkflowStatus(id, { status: nextStatus })
       const returnedStatus = String(updated.status ?? '').trim().toLowerCase()
       const expectedStatus = String(nextStatus).trim().toLowerCase()
       if (returnedStatus !== expectedStatus) {
         const msg = `Não foi possível avançar para «${nextStatus}» (a API retornou «${updated.status}»).`
+        setForm((prev) => (prev ? { ...prev, status: prevStatus } : prev))
         setErrorMsg(msg)
         throw new Error(msg)
       }
-      applyCotacaoFromApi(updated)
+      applyLightCotacaoPatch(updated)
     } catch (err: any) {
       console.error('❌ avancar etapa:', err)
+      setForm((prev) => (prev ? { ...prev, status: prevStatus } : prev))
       setErrorMsg(err?.message ?? 'Erro ao avançar etapa.')
       throw err
     } finally {
-      setSaving(false)
+      setWorkflowSaving(false)
     }
   }
 
@@ -343,65 +428,77 @@ export default function PlacementFilaDetailPage() {
     mode: WorkflowRetreatMode
   ) {
     if (!id || !form) return
-    setSaving(true)
+    setWorkflowSaving(true)
     setErrorMsg(null)
-    try {
-      const scope = getRetreatDiscardScope(form.status)
+    const curStatus = form.status
+    const scope = getRetreatDiscardScope(form.status)
 
+    setForm((prev) => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        status: prevStatus,
+        kickOffEstrategia:
+          mode === 'discard' && scope.kickOffEstrategia ? undefined : prev.kickOffEstrategia,
+      }
+    })
+    if (mode === 'discard' && scope.emCotacaoSubetapa) {
+      setEmCotacaoSubetapa('beneficiarios')
+    }
+
+    try {
       if (mode === 'discard' && scope.beneficiarios) {
         await api.delete(`/placement/cotacoes/${id}/beneficiarios`)
         setBeneficiariosTotal(0)
       }
 
-      const patch: Record<string, unknown> = {
-        ...buildUpdatePayload(),
+      await flushAllPlacementPendingSaves()
+      const updated = await patchWorkflowStatus(id, {
         status: prevStatus,
-      }
-
-      if (mode === 'discard') {
-        if (scope.kickOffEstrategia) {
-          patch.kickOffEstrategia = null
-        }
-        if (scope.emCotacaoSubetapa) {
-          patch.emCotacaoSubetapa = 'beneficiarios'
-          setEmCotacaoSubetapa('beneficiarios')
-        }
-      }
-
-      const updated = await updateCotacao(id, patch as Parameters<typeof updateCotacao>[1])
+        discard:
+          mode === 'discard'
+            ? {
+                kickOffEstrategia: scope.kickOffEstrategia || undefined,
+                emCotacaoSubetapa: scope.emCotacaoSubetapa || undefined,
+              }
+            : undefined,
+      })
       const returnedStatus = String(updated.status ?? '').trim().toLowerCase()
       const expectedStatus = String(prevStatus).trim().toLowerCase()
       if (returnedStatus !== expectedStatus) {
         const msg = `Não foi possível voltar para «${prevStatus}» (a API retornou «${updated.status}»).`
+        setForm((prev) => (prev ? { ...prev, status: curStatus } : prev))
         setErrorMsg(msg)
         throw new Error(msg)
       }
-      applyCotacaoFromApi(updated)
+      applyLightCotacaoPatch(updated)
     } catch (err: any) {
       console.error('❌ voltar etapa:', err)
+      setForm((prev) => (prev ? { ...prev, status: curStatus } : prev))
       setErrorMsg(err?.message ?? 'Erro ao voltar etapa.')
       throw err
     } finally {
-      setSaving(false)
+      setWorkflowSaving(false)
     }
   }
 
   async function handleEncerrarProcesso(status: 'Perdida' | 'Cancelada' | 'Fechada') {
     if (!id || !form) return
-    setSaving(true)
+    const prevStatus = form.status
+    setForm((prev) => (prev ? { ...prev, status } : prev))
+    setWorkflowSaving(true)
     setErrorMsg(null)
     try {
-      const updated = await updateCotacao(id, {
-        ...buildUpdatePayload(),
-        status,
-      })
-      applyCotacaoFromApi(updated)
+      await flushAllPlacementPendingSaves()
+      const updated = await patchWorkflowStatus(id, { status })
+      applyLightCotacaoPatch(updated)
     } catch (err: any) {
       console.error('❌ encerrar:', err)
+      setForm((prev) => (prev ? { ...prev, status: prevStatus } : prev))
       setErrorMsg(err?.message ?? 'Erro ao encerrar.')
       throw err
     } finally {
-      setSaving(false)
+      setWorkflowSaving(false)
     }
   }
 
@@ -409,6 +506,7 @@ export default function PlacementFilaDetailPage() {
     if (!id) return
     try {
       await removeCotacao(id)
+      flushAllRegisteredPlacementDrafts()
       navigate('/placement/fila')
     } catch (err: any) {
       console.error('❌ removeCotacao:', err)
@@ -416,13 +514,231 @@ export default function PlacementFilaDetailPage() {
     }
   }
 
+  const stageMeta = getWorkflowStageMeta(form?.status ?? 'Aberta')
+
+  const atalhosTelaCheia = !isDraft && id && (
+    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+      {!fullscreen && (
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={<OpenInFullIcon />}
+          onClick={abrirEtapaTelaCheia}
+          disabled={formSaving}
+        >
+          Etapa tela cheia
+        </Button>
+      )}
+      <Button
+        variant="outlined"
+        size="small"
+        startIcon={<SlideshowIcon />}
+        onClick={abrirSlidesTelaCheia}
+        disabled={formSaving}
+      >
+        Slides
+      </Button>
+      <Button
+        variant="outlined"
+        size="small"
+        startIcon={<OpenInFullIcon />}
+        onClick={abrirComparativoTelaCheia}
+        disabled={formSaving}
+      >
+        Comparativo
+      </Button>
+    </Stack>
+  )
+
+  const corpoEtapa =
+    loading || !form ? (
+      <Box sx={{ display: 'flex', justifyContent: 'center', py: fullscreen ? 8 : 6 }}>
+        <CircularProgress />
+      </Box>
+    ) : (
+      <>
+        {!isDraft && (
+          <PlacementCotacaoWorkflowPanel
+            status={form.status}
+            form={form}
+            saving={workflowSaving}
+            beneficiariosTotal={beneficiariosTotal}
+            analistaResponsavel={analistaResponsavelMeta}
+            onDesignarAnalista={handleDesignarAnalista}
+            onAdvance={handleAvancarEtapa}
+            onRetreat={handleVoltarEtapa}
+            onEncerrar={handleEncerrarProcesso}
+          />
+        )}
+
+        {id && (
+          <PlacementCotacaoDetailTabs
+            form={form}
+            onChange={patchForm}
+            cotacaoId={id}
+            workflowStageKey={workflowStageKey}
+            disabled={formSaving}
+            emCotacaoSubetapa={emCotacaoSubetapa}
+            onEmCotacaoSubetapaChange={setEmCotacaoSubetapa}
+            onBeneficiariosTotalChange={setBeneficiariosTotal}
+            onAberturaEditingChange={setEditingAbertura}
+            analistaCadastroNome={analistaCadastroNome}
+            analistaResponsavelNome={analistaResponsavelNome}
+            onPersisted={applyCotacaoFromApi}
+            onOpenSlides={abrirSlidesTelaCheia}
+          />
+        )}
+
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            mt: 2,
+            flexWrap: 'wrap',
+            gap: 1,
+          }}
+        >
+          <Button
+            color="error"
+            variant="outlined"
+            startIcon={<DeleteIcon />}
+            onClick={() => setConfirmDelete(true)}
+            disabled={formSaving}
+            sx={{
+              ...placementNavButtonSx,
+              borderColor: 'error.light',
+              color: 'error.main',
+              '&:hover': { borderColor: 'error.main', bgcolor: 'error.light' },
+            }}
+          >
+            Excluir
+          </Button>
+          <Stack direction="row" spacing={1}>
+            {isDraft && (
+              <PlacementNavForwardButton
+                startIcon={<PlayArrowIcon />}
+                onClick={handleIniciarProcesso}
+                disabled={formSaving}
+              >
+                {formSaving ? 'Iniciando…' : 'Iniciar processo'}
+              </PlacementNavForwardButton>
+            )}
+            <Button
+              variant="outlined"
+              startIcon={<SaveIcon />}
+              onClick={handleSave}
+              disabled={formSaving}
+              sx={placementNavBackSx}
+            >
+              {formSaving ? 'Salvando…' : isDraft ? 'Salvar rascunho' : 'Salvar alterações'}
+            </Button>
+          </Stack>
+        </Box>
+      </>
+    )
+
+  if (fullscreen) {
+    return (
+      <Box
+        sx={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 1300,
+          height: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          bgcolor: 'background.default',
+        }}
+      >
+        <Box
+          component="header"
+          sx={{
+            flexShrink: 0,
+            px: { xs: 1.5, md: 2.5 },
+            py: 1.25,
+            borderBottom: 1,
+            borderColor: 'divider',
+            bgcolor: 'background.paper',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 2,
+            flexWrap: 'wrap',
+          }}
+        >
+          <Stack direction="row" alignItems="center" spacing={1.5} sx={{ minWidth: 0 }}>
+            <Button
+              size="small"
+              startIcon={<ArrowBackIcon />}
+              onClick={voltarParaCotacao}
+              sx={{ minWidth: 0 }}
+            >
+              Voltar
+            </Button>
+            <Box sx={{ minWidth: 0 }}>
+              <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap" useFlexGap>
+                <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
+                  {stageMeta?.label ?? 'Etapa'} · tela cheia
+                </Typography>
+                <Chip
+                  size="small"
+                  label={getWorkflowStatusDisplayLabel(form?.status) || '—'}
+                  color={headerStatusColor.chip}
+                  sx={{ fontWeight: 700 }}
+                />
+              </Stack>
+              <Typography variant="body2" color="text.secondary" noWrap>
+                {form?.ticket || id || '—'}
+                {metricasCabecalho.vidas != null ? ` · ${metricasCabecalho.vidas} vidas` : ''}
+              </Typography>
+            </Box>
+          </Stack>
+          {atalhosTelaCheia}
+        </Box>
+
+        {errorMsg && (
+          <Alert severity="error" sx={{ mx: 2, mt: 1 }} onClose={() => setErrorMsg(null)}>
+            {errorMsg}
+          </Alert>
+        )}
+
+        {isDraft && (
+          <Alert severity="info" sx={{ mx: 2, mt: 1 }}>
+            Rascunho — complete os dados e use «Iniciar processo» para abrir a cotação.
+          </Alert>
+        )}
+
+        <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', px: { xs: 2, md: 3 }, py: 2 }}>
+          {corpoEtapa}
+        </Box>
+
+        <Dialog open={confirmDelete} onClose={() => setConfirmDelete(false)}>
+          <DialogTitle>Excluir cotação?</DialogTitle>
+          <DialogContent>
+            <DialogContentText>
+              Esta ação não pode ser desfeita. Tem certeza que deseja excluir a cotação{' '}
+              <strong>{form?.ticket}</strong>?
+            </DialogContentText>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setConfirmDelete(false)}>Cancelar</Button>
+            <Button color="error" onClick={handleDelete} variant="contained">
+              Excluir
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </Box>
+    )
+  }
+
   return (
-    <Container maxWidth="lg" sx={{ py: 3 }}>
+    <PlacementFilaPageShell>
       <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 2 }}>
         <Button
           startIcon={<ArrowBackIcon />}
           variant="text"
-          onClick={() => navigate('/placement/fila')}
+          onClick={voltarParaFila}
         >
           Voltar para Fila
         </Button>
@@ -446,8 +762,9 @@ export default function PlacementFilaDetailPage() {
             </Typography>
           </Box>
           <Stack direction="row" spacing={1} alignItems="center">
+            {atalhosTelaCheia}
             <Chip
-              label={form?.status ?? '—'}
+              label={getWorkflowStatusDisplayLabel(form?.status) || '—'}
               color={headerStatusColor.chip}
               sx={{ fontWeight: 600 }}
             />
@@ -478,69 +795,7 @@ export default function PlacementFilaDetailPage() {
           <CircularProgress />
         </Box>
       ) : (
-        <>
-          {!isDraft && (
-            <Paper sx={{ p: 2, mb: 2 }}>
-              <PlacementCotacaoWorkflowPanel
-                status={form.status}
-                form={form}
-                saving={saving}
-                analistaResponsavel={analistaResponsavelMeta}
-                onDesignarAnalista={handleDesignarAnalista}
-                onAdvance={handleAvancarEtapa}
-                onRetreat={handleVoltarEtapa}
-                onEncerrar={handleEncerrarProcesso}
-              />
-            </Paper>
-          )}
-
-          {id && (
-            <PlacementCotacaoDetailTabs
-              form={form}
-              onChange={setForm}
-              cotacaoId={id}
-              workflowStageKey={workflowStageKey}
-              disabled={saving}
-              emCotacaoSubetapa={emCotacaoSubetapa}
-              onEmCotacaoSubetapaChange={setEmCotacaoSubetapa}
-              onBeneficiariosTotalChange={setBeneficiariosTotal}
-              onAberturaEditingChange={setEditingAbertura}
-              analistaCadastroNome={analistaCadastroNome}
-              analistaResponsavelNome={analistaResponsavelNome}
-              onPersisted={applyCotacaoFromApi}
-            />
-          )}
-
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2, flexWrap: 'wrap', gap: 1 }}>
-            <Button
-              color="error"
-              startIcon={<DeleteIcon />}
-              onClick={() => setConfirmDelete(true)}
-              disabled={saving}
-            >
-              Excluir
-            </Button>
-            <Stack direction="row" spacing={1}>
-              {isDraft && (
-                <PrimaryActionButton
-                  startIcon={<PlayArrowIcon />}
-                  onClick={handleIniciarProcesso}
-                  disabled={saving}
-                >
-                  {saving ? 'Iniciando…' : 'Iniciar processo'}
-                </PrimaryActionButton>
-              )}
-              <Button
-                variant="outlined"
-                startIcon={<SaveIcon />}
-                onClick={handleSave}
-                disabled={saving}
-              >
-                {saving ? 'Salvando…' : isDraft ? 'Salvar rascunho' : 'Salvar alterações'}
-              </Button>
-            </Stack>
-          </Box>
-        </>
+        corpoEtapa
       )}
 
       <Dialog open={confirmDelete} onClose={() => setConfirmDelete(false)}>
@@ -558,11 +813,11 @@ export default function PlacementFilaDetailPage() {
           </Button>
         </DialogActions>
       </Dialog>
-    </Container>
+    </PlacementFilaPageShell>
   )
 }
 
-function toFormState(data: any): CotacaoFormState {
+export function toFormState(data: any): CotacaoFormState {
   const prospectId = data?.prospectId ?? data?.prospect?.id ?? ''
   const clienteId = data?.clienteId ?? data?.cliente?.id ?? ''
   const condicaoId =
@@ -635,6 +890,8 @@ function toFormState(data: any): CotacaoFormState {
     multaRescisaoAvisoPrevio:
       data?.multaRescisaoAvisoPrevio != null ? String(data.multaRescisaoAvisoPrevio) : '',
     possuiConvencaoColetiva: simNaoFromApi(data?.possuiConvencaoColetiva),
+    convencaoColetivaDetalhe:
+      data?.convencaoColetivaDetalhe != null ? String(data.convencaoColetivaDetalhe) : '',
     subfaturasDraft: [],
     kickOffEstrategia: parseKickOffEstrategiaFromApi(data?.kickOffEstrategia),
   }

@@ -15,6 +15,8 @@ import {
   Divider,
   Drawer,
   FormControl,
+  FormControlLabel,
+  FormHelperText,
   IconButton,
   InputAdornment,
   InputLabel,
@@ -26,6 +28,7 @@ import {
   Select,
   type SelectChangeEvent,
   Stack,
+  Switch,
   Tab,
   Table,
   Tabs,
@@ -38,6 +41,7 @@ import {
   Typography,
   useMediaQuery,
   useTheme,
+  Card,
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import AccountTreeIcon from '@mui/icons-material/AccountTree'
@@ -48,12 +52,22 @@ import HomeWorkIcon from '@mui/icons-material/HomeWork'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import SearchIcon from '@mui/icons-material/Search'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
+import RefreshIcon from '@mui/icons-material/Refresh'
 import CloseIcon from '@mui/icons-material/Close'
 import { api, getPortalApiBaseDisplay } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import SegurosBaseImportExportPanel from '../components/SegurosBaseImportExportPanel'
+import { pageShellSx } from '../layout/pageLayout'
 
 const DRAWER = 280
+
+/** Mesma lógica de lista longa que no Panorama (tabela de apólices na ficha). */
+const CADASTRO_TABLE_CONTAINER_SX = { maxHeight: { xs: 380, md: 'min(68vh, 780px)' }, width: '100%' } as const
+const cadastroTableDenseSx = { '& .MuiTableCell-root': { py: 1.125, px: 1.5 } } as const
+
+/** Rótulo único na UI para apólices/contratos ainda sem registo completo no portal. */
+const CHIP_PENDENTE = 'Pendente de formalização'
 
 type Section = 'visao' | 'grupos' | 'estipulantes' | 'apolices'
 
@@ -359,10 +373,74 @@ export default function ApolicePage() {
     void loadGrupos()
   }, [loadGrupos])
 
+  const sectionHero = useMemo(() => {
+    switch (section) {
+      case 'visao':
+        return {
+          title: 'Carteira de seguros',
+          subtitle:
+            'Grupo económico → tomador (estipulante) → apólice. Fluxo alinhado à prática de corretagem e beneficiários.',
+        }
+      case 'grupos':
+        return {
+          title: 'Grupos econômicos',
+          subtitle:
+            'Primeiro os grupos locais do portal (incluir e editar); em seguida a lista de tomadores da base de referência (só leitura).',
+        }
+      case 'estipulantes':
+        return {
+          title: 'Estipulantes',
+          subtitle: 'Tomadores por grupo económico: cadastro no portal e linhas ainda pendentes de formalização.',
+        }
+      case 'apolices':
+        return {
+          title: 'Apólices e coberturas',
+          subtitle: 'Número, produto, operadora, vigência e itens (coberturas / serviços) no mesmo módulo de cadastro.',
+        }
+      default:
+        return { title: 'Carteira de seguros', subtitle: '' }
+    }
+  }, [section])
+
+  const sectionIntro = useMemo(() => {
+    switch (section) {
+      case 'visao':
+        return (
+          <>
+            No <strong>Panorama</strong> vê a carteira por grupo com paginação. Abra a <strong>ficha completa</strong> para tratar
+            vigência, operadora, subestipulantes e financeiro. Importação Excel mantém consistência com a base.
+          </>
+        )
+      case 'grupos':
+        return (
+          <>
+            Trate primeiro os <strong>grupos locais</strong> (botão no topo, clique na linha para editar). A <strong>referência administrativa</strong>{' '}
+            de tomadores aparece abaixo, só para consulta. Marque <strong>Prospect</strong> apenas para possíveis clientes futuros.
+          </>
+        )
+      case 'estipulantes':
+        return (
+          <>
+            Escolha o <strong>grupo económico</strong>, confira tomadores já cadastrados e formalize linhas{' '}
+            <strong>«{CHIP_PENDENTE}»</strong> quando tiver permissão de administrador.
+          </>
+        )
+      case 'apolices':
+        return (
+          <>
+            Use o separador <strong>Apólices</strong> para formalizar contratos e o de <strong>Itens</strong> para coberturas e
+            serviços. Pode listar por grupo (todas as apólices) ou filtrar por estipulante.
+          </>
+        )
+      default:
+        return null
+    }
+  }, [section])
+
   const drawer = (
     <Box sx={{ py: 1 }}>
       <Typography variant="subtitle2" sx={{ px: 2, py: 1, color: 'text.secondary' }}>
-        Cadastros de seguros
+        Cadastro de seguros
       </Typography>
       <List dense sx={{ pb: 0 }}>
         <ListItemButton
@@ -379,7 +457,7 @@ export default function ApolicePage() {
       <List dense>
         <ListItemButton selected={section === 'visao'} onClick={() => { setSection('visao'); setMobileOpen(false) }}>
           <HomeWorkIcon sx={{ mr: 1, fontSize: 20, opacity: 0.8 }} />
-          <ListItemText primary="Visão geral" secondary="Consulta unificada" />
+          <ListItemText primary="Panorama" secondary="Carteira por grupo" />
         </ListItemButton>
         <ListItemButton selected={section === 'grupos'} onClick={() => { setSection('grupos'); setMobileOpen(false) }}>
           <AccountTreeIcon sx={{ mr: 1, fontSize: 20, opacity: 0.8 }} />
@@ -394,7 +472,7 @@ export default function ApolicePage() {
         </ListItemButton>
         <ListItemButton selected={section === 'apolices'} onClick={() => { setSection('apolices'); setMobileOpen(false) }}>
           <DescriptionIcon sx={{ mr: 1, fontSize: 20, opacity: 0.8 }} />
-          <ListItemText primary="Apólices e itens" secondary="Lista e coberturas por apólice" />
+          <ListItemText primary="Apólices & coberturas" secondary="Lista e itens por apólice" />
         </ListItemButton>
       </List>
     </Box>
@@ -418,12 +496,13 @@ export default function ApolicePage() {
         component="main"
         sx={{
           flexGrow: 1,
-          p: { xs: 2, sm: 2.5, md: 3 },
           width: '100%',
           maxWidth: { md: `calc(100vw - ${DRAWER}px)` },
           minWidth: 0,
+          ...pageShellSx,
         }}
       >
+        <Box sx={{ width: '100%', maxWidth: '100%' }}>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, mb: 2 }}>
           <Button component={RouterLink} to="/" variant="outlined" size="small" startIcon={<ArrowBackIcon />}>
             Voltar ao menu principal
@@ -434,19 +513,18 @@ export default function ApolicePage() {
             </Button>
           ) : null}
         </Box>
-        <Typography variant="h5" fontWeight={800} gutterBottom>
-          Apólice — base cadastral
-        </Typography>
-        <Typography color="text.secondary" sx={{ mb: 2 }}>
-          {section === 'visao' ? (
-            <>
-              Na <strong>Visão geral</strong> consulta-se o cadastro por grupo (com paginação). Utilize a <strong>ficha completa</strong> para ver e editar todos os dados de uma apólice. A importação Excel valida contra a base e permite <strong>completar</strong> campos vazios.
-            </>
-          ) : (
-            <>
-              Em <strong>Apólices e itens</strong> gere apólices e coberturas no mesmo sítio (separador interno). Nos restantes menus mantém-se a hierarquia grupo → estipulante.
-            </>
-          )}
+        <Card variant="outlined" sx={{ mb: 2.5, borderRadius: 2, borderColor: 'divider' }}>
+          <Box sx={{ px: 2.5, py: 2, background: (t) => `linear-gradient(135deg, ${t.palette.primary.dark} 0%, ${t.palette.primary.main} 100%)` }}>
+            <Typography variant="h5" fontWeight={800} sx={{ color: 'primary.contrastText' }}>
+              {sectionHero.title}
+            </Typography>
+            <Typography variant="body2" sx={{ color: 'primary.contrastText', opacity: 0.92, mt: 0.5 }}>
+              {sectionHero.subtitle}
+            </Typography>
+          </Box>
+        </Card>
+        <Typography color="text.secondary" sx={{ mb: 2.5, lineHeight: 1.65, maxWidth: 'none' }}>
+          {sectionIntro}
         </Typography>
 
         {!isAdmin && (
@@ -475,6 +553,7 @@ export default function ApolicePage() {
         {section === 'grupos' && <GruposSection grupos={grupos} isAdmin={isAdmin} onRefresh={loadGrupos} onError={setErr} />}
         {section === 'estipulantes' && <EstipulantesSection isAdmin={isAdmin} onError={setErr} />}
         {section === 'apolices' && <ApolicesEItensSection isAdmin={isAdmin} onError={setErr} />}
+        </Box>
       </Box>
     </Box>
   )
@@ -489,7 +568,7 @@ type CadastroVisaoGeralItem = {
   active: boolean
 }
 
-/** Lista da visão geral: dados por apólice; titular aparece no cabeçalho do bloco, não como colunas na tabela. Itens carregam ao abrir o detalhe. */
+/** Lista da visão geral: dados por apólice; titular no cabeçalho do bloco. Itens da apólice só após expandir na pré-visualização. */
 type CadastroVisaoGeralApolice = {
   id: string
   active: boolean
@@ -551,7 +630,8 @@ function estipulanteEVicioContagemVisao(e: CadastroVisaoEstipulanteRow): boolean
   const rs = (e.razaoSocial || '').trim()
   if (/^\s*Contrato\s*\(/i.test(rs)) return true
   if (e.id.startsWith('__nexus_orf_est__')) return true
-  if (e.somenteNexus === true && /^Cliente Nexus\s*\(/i.test(rs)) return true
+  if (e.somenteNexus === true && (/^Tomador sugerido\s*\(/i.test(rs) || /^Cliente Nexus\s*\(/i.test(rs)))
+    return true
   if (e.somenteNexus === true && /^Estipulante —/i.test(rs)) return true
   return false
 }
@@ -753,10 +833,6 @@ function sortVisaoApolices(rows: CadastroVisaoGeralApolice[]): CadastroVisaoGera
   })
 }
 
-function visaoItensCount(a: CadastroVisaoGeralApolice): number {
-  return a._count?.itens ?? a.itens?.length ?? 0
-}
-
 /** Compara nomes de grupo Nexus vs portal (tolera «1 TELECOM» vs «1TELECOM»). */
 function normGrupoChaveContratoVisao(s: string): string {
   return (s || '').trim().toLowerCase().replace(/\s+/g, '')
@@ -825,7 +901,7 @@ function syntheticNexusOrfaosVisao(
     /** Já existe estipulante no portal: não criar linha de apólice Nexus (fica vazio até haver apólice na base). */
     if (estMatches.length > 0) continue
 
-    const gRaw = (c.grupoEconomico || '').trim() || '— (grupo não informado no snapshot)'
+    const gRaw = (c.grupoEconomico || '').trim() || '— (grupo não informado na origem)'
     const gk =
       normGrupoChaveContratoVisao(c.grupoEconomico) ||
       `__sem_grupo__${c.nexusContratoId.replace(/[^a-z0-9-]/gi, '_')}`
@@ -842,15 +918,15 @@ function syntheticNexusOrfaosVisao(
         id: `__nexus_orf_est__${safeEk}`,
         active: true,
         razaoSocial: cliRaw
-          ? `Cliente Nexus (${cliRaw})`
-          : `Estipulante — ${gRaw} (sem cliente no snapshot; completar no portal)`,
+          ? `Tomador sugerido (ref. ${cliRaw})`
+          : `Titular sugerido — ${gRaw} (completar cadastro)`,
         cnpj: '—',
         cnae: null,
         grupoEconomicoNome: gRaw || '—',
         grupoEconomicoId: null,
         nexusClienteId: cliRaw || null,
         nomeFantasia: null,
-        observacoes: 'Sem estipulante cadastrado no portal para este grupo/cliente; apenas snapshot Nexus.',
+        observacoes: 'Sugestão de titular por grupo; conclua o cadastro de estipulante no portal.',
         grupo: null,
         _count: { apolices: 0 },
         somenteNexus: true,
@@ -870,7 +946,7 @@ function syntheticNexusOrfaosVisao(
       vigenciaInicio: null,
       vigenciaFim: null,
       nexusContratoId: c.nexusContratoId,
-      observacoes: `Contrato Nexus (sem estipulante no portal). Estado no snapshot: ${c.status}.`,
+      observacoes: `Proposta / contrato sugerido (situação: ${c.status}). Conclua o cadastro da apólice no portal.`,
       estipulante: {
         id: est.id,
         razaoSocial: est.razaoSocial,
@@ -915,6 +991,7 @@ function VisaoGeral({
   const [searchTerm, setSearchTerm] = useState('')
   const [detailAp, setDetailAp] = useState<CadastroVisaoGeralApolice | null>(null)
   const [detailItensLoading, setDetailItensLoading] = useState(false)
+  const detailItensFetchRef = useRef<string | null>(null)
   /** `true` só após JSON válido com `apolices` array (evita mensagem “base vazia” quando a API falhou). */
   const [visaoLoadOk, setVisaoLoadOk] = useState(false)
   const [loadHint, setLoadHint] = useState<string | null>(null)
@@ -1004,7 +1081,7 @@ function VisaoGeral({
         const d = r.data
         if (!Array.isArray(d.apolices)) {
           onError(
-            'A API devolveu um formato anómalo (sem lista de apólices). Confirme o deploy da API portal-colaborador no Railway e a variável VITE_API_URL no Vercel (URL da API, não do site).',
+            'A API devolveu um formato inesperado (sem lista de apólices). Verifique a ligação ao servidor e peça suporte técnico se o problema continuar.',
           )
           if (!append) {
             setApolices([])
@@ -1084,26 +1161,11 @@ function VisaoGeral({
 
   const openDetail = useCallback(
     (a: CadastroVisaoGeralApolice) => {
+      detailItensFetchRef.current = null
       setDetailAp({ ...a, itens: [] })
-      if (a.somenteNexus || a.id.startsWith('__nexus_contrato__')) {
-        setDetailItensLoading(false)
-        return
-      }
-      setDetailItensLoading(true)
-      onError(null)
-      void (async () => {
-        const r = await api<{ itens: CadastroVisaoGeralItem[] }>(`/seguros/apolices/${a.id}/itens`)
-        setDetailItensLoading(false)
-        if (!r.ok) {
-          onError(r.error || 'Erro ao carregar itens da apólice.')
-          setDetailAp((prev) => (prev && prev.id === a.id ? { ...prev, itens: [] } : prev))
-          return
-        }
-        const list = r.data?.itens ?? []
-        setDetailAp((prev) => (prev && prev.id === a.id ? { ...prev, itens: list } : prev))
-      })()
+      setDetailItensLoading(false)
     },
-    [onError],
+    [],
   )
 
   const filterAp = useMemo(() => {
@@ -1127,7 +1189,7 @@ function VisaoGeral({
         a.estipulante.observacoes,
         a.estipulante.nexusClienteId,
         labelGrupoEconomico(a.estipulante),
-        a.somenteNexus ? 'só nexus snapshot contrato' : null,
+        a.somenteNexus ? CHIP_PENDENTE : null,
       ]),
     )
   }, [apolicesVisaoComNexus, searchTerm])
@@ -1144,7 +1206,7 @@ function VisaoGeral({
         e.nomeFantasia,
         e.observacoes,
         labelGrupoEconomico(e),
-        e.somenteNexus ? 'só nexus snapshot estipulante sintético' : null,
+        e.somenteNexus ? CHIP_PENDENTE : null,
       ]),
     )
   }, [estipulantesVisaoComNexus, searchTerm])
@@ -1168,7 +1230,7 @@ function VisaoGeral({
 
   return (
     <>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%' }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, width: '100%' }}>
         <Accordion defaultExpanded={false} elevation={0} sx={{ border: 1, borderColor: 'divider', borderRadius: 2 }}>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography fontWeight={700}>Como funciona esta vista</Typography>
@@ -1176,9 +1238,10 @@ function VisaoGeral({
           <AccordionDetails>
             <Typography variant="body2" color="text.secondary">
               Agrupamento por <strong>grupo económico</strong> (accordeões). Dentro: <strong>titular</strong> e tabela de{' '}
-              <strong>apólices</strong> (uma linha por apólice). Dados gravados em PostgreSQL podem abrir a{' '}
-              <strong>ficha completa</strong>; contratos apenas no snapshot Nexus ficam como «Só Nexus» até cadastrar no portal. A
-              primeira carga é limitada; use <strong>Carregar mais titulares</strong> e, se precisar, <strong>Mostrar contratos só Nexus</strong>.
+              <strong>apólices</strong> (uma linha por apólice). Registos já formalizados no portal abrem a{' '}
+              <strong>ficha completa</strong>; contratos ainda só na base administrativa aparecem como «{CHIP_PENDENTE}» até
+              cadastrar no portal. A primeira carga é limitada; use <strong>Carregar mais titulares</strong> e, se precisar,{' '}
+              <strong>Incluir contratos pendentes na vista (opcional)</strong>.
             </Typography>
           </AccordionDetails>
         </Accordion>
@@ -1193,9 +1256,8 @@ function VisaoGeral({
             <Alert severity="warning" sx={{ borderRadius: 2 }}>
               <strong>Modo legado: lista parcial por apólice.</strong> Foram carregadas as apólices{' '}
               <strong>mais recentemente alteradas</strong> (até <strong>{VISAO_PAGE_SIZE}</strong> linhas por pedido). O
-              total na base é <strong>{apolicesTotalCount ?? '—'}</strong> — linhas mais antigas não aparecem nesta vista
-              até aumentar <code>limit</code> em <code>GET /seguros/cadastro-visao-geral</code> ou adicionar «carregar mais»
-              no portal.
+              total na base é <strong>{apolicesTotalCount ?? '—'}</strong> — linhas mais antigas podem não aparecer até
+              usar <strong>Carregar mais titulares</strong> ou pedir ajuste de paginação ao suporte técnico.
             </Alert>
           )
         ) : null}
@@ -1235,14 +1297,14 @@ function VisaoGeral({
             onClick={() => void carregarContratosNexusOpcional()}
           >
             {nexusContratosLoading
-              ? 'A carregar Nexus…'
+              ? 'A carregar contratos pendentes…'
               : nexusContratosCarregados
-                ? 'Atualizar contratos Nexus'
-                : 'Mostrar contratos só Nexus (opcional)'}
+                ? 'Atualizar contratos pendentes'
+                : 'Incluir contratos pendentes na vista (opcional)'}
           </Button>
         </Box>
 
-        <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+        <Paper variant="outlined" sx={{ p: { xs: 2, sm: 2.5 }, borderRadius: 2, width: '100%', boxSizing: 'border-box' }}>
           <Typography variant="body2" color="text.secondary">
             Na base: <strong>{loading ? '…' : (gruposEconomicosCount ?? '—')}</strong> grupos (cadastro local){' · '}
             <strong>{loading ? '…' : (estipulantesCount ?? '—')}</strong> estipulantes ·{' '}
@@ -1250,7 +1312,7 @@ function VisaoGeral({
             {visaoLoadOk && somenteNexusNaVisaoCount > 0 ? (
               <>
                 {' · '}
-                <strong>{somenteNexusNaVisaoCount}</strong> contrato(s) só Nexus na vista (snapshot)
+                <strong>{somenteNexusNaVisaoCount}</strong> contrato(s) «{CHIP_PENDENTE}» nesta vista
               </>
             ) : null}
             {' · '}
@@ -1265,7 +1327,8 @@ function VisaoGeral({
             ) : null}
           </Typography>
           <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
-            «Grupos (cadastro local)» é só a tabela PortalGrupoEconomico; o agrupamento na vista usa sempre o vínculo do estipulante (UUID do grupo local ou nome Nexus).
+            «Grupos (cadastro local)» são os registos criados neste portal; o agrupamento na vista segue o vínculo do estipulante
+            (grupo local ou nome de grupo da base administrativa).
           </Typography>
           <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.75 }}>
             API em uso neste browser:{' '}
@@ -1321,10 +1384,11 @@ function VisaoGeral({
             {semApolicesComEstipulantes ? (
               <>
                 <Alert severity="info" sx={{ borderRadius: 2 }}>
-                  <strong>Total de apólices nesta API = 0</strong> (tabela <strong>PortalSeguroApolice</strong> vazia nesta base PostgreSQL). Grupos e estipulantes podem existir no cadastro, mas sem linhas de apólice o
-                  portal não tem o que vincular: crie apólices no menu <strong>Apólices</strong> (ou fluxo que grave na <strong>mesma</strong> API). Contratos só no Nexus aparecem na visão geral como linhas <strong>«Só Nexus»</strong> até
-                  serem complementados. Se o teste abaixo der certo e o
-                  total continuar 0, esta API realmente não tem apólices — não é só o URL errado.
+                  <strong>Não há apólices formalizadas nesta base</strong> (tabela de apólices vazia neste ambiente). Grupos e
+                  estipulantes podem existir no cadastro, mas sem apólice o portal não tem cobertura para vincular: crie apólices
+                  em <strong>Apólices & coberturas</strong>. Contratos ainda só na base administrativa aparecem como{' '}
+                  <strong>«{CHIP_PENDENTE}»</strong> até serem complementados. Se o teste abaixo indicar ligação OK e o total
+                  continuar 0, esta instância realmente não tem apólices gravadas.
                   <Box sx={{ mt: 1.5, display: 'flex', flexDirection: 'column', gap: 1 }}>
                     <Typography variant="body2" component="div">
                       <strong>URL da API neste browser:</strong>{' '}
@@ -1334,7 +1398,7 @@ function VisaoGeral({
                     </Typography>
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
                       <Button variant="outlined" size="small" disabled={healthBusy} onClick={() => void testApiHealth()}>
-                        {healthBusy ? 'A testar…' : 'Testar GET /health'}
+                        {healthBusy ? 'A testar…' : 'Testar ligação ao servidor'}
                       </Button>
                       {healthHint ? (
                         <Typography variant="body2" color={healthHint.startsWith('Ligação OK') ? 'success.main' : 'error.main'}>
@@ -1343,7 +1407,8 @@ function VisaoGeral({
                       ) : null}
                     </Box>
                     <Typography variant="caption" color="text.secondary">
-                      Em produção, <code>VITE_API_URL</code> define essa URL no <strong>build</strong> (Vercel → variáveis → redeploy do portal). Não pode ser o domínio do site nem a API do Nexus.
+                      Em produção, a URL do backend é definida na configuração de <strong>build</strong> deste portal — deve
+                      apontar para o serviço de API (não para o site público). Em dúvida, fale com o administrador do sistema.
                     </Typography>
                   </Box>
                 </Alert>
@@ -1360,9 +1425,9 @@ function VisaoGeral({
 
             {(apolicesTotalCount ?? 0) === 0 && somenteNexusNaVisaoCount > 0 ? (
               <Alert severity="info" sx={{ borderRadius: 2 }}>
-                A tabela <strong>PortalSeguroApolice</strong> está vazia nesta API, mas o snapshot Nexus devolveu{' '}
-                <strong>{somenteNexusNaVisaoCount}</strong> contrato(s) ligados aos estipulantes abaixo. Essas linhas aparecem como <strong>«Só Nexus»</strong> (igual no menu Apólices); use <strong>Complementar / cadastrar</strong> para
-                gravar no portal.
+                Não há apólices gravadas nesta base, mas a vista inclui <strong>{somenteNexusNaVisaoCount}</strong> contrato(s)
+                sugerido(s) ligados aos titulares abaixo. Essas linhas aparecem como <strong>«{CHIP_PENDENTE}»</strong>; use{' '}
+                <strong>Complementar / cadastrar</strong> para formalizar no portal.
               </Alert>
             ) : null}
 
@@ -1436,8 +1501,8 @@ function VisaoGeral({
                               Sem apólices nesta vista para este titular.
                             </Typography>
                           ) : (
-                            <TableContainer sx={{ maxHeight: 360 }}>
-                              <Table size="small" stickyHeader>
+                            <TableContainer sx={{ maxHeight: { xs: 380, md: 'min(68vh, 780px)' }, width: '100%' }}>
+                              <Table size="small" stickyHeader sx={{ '& .MuiTableCell-root': { py: 1.125, px: 1.5 } }}>
                                 <TableHead>
                                   <TableRow>
                                     <TableCell>Situação</TableCell>
@@ -1445,7 +1510,6 @@ function VisaoGeral({
                                     <TableCell>Produto</TableCell>
                                     <TableCell>Operadora</TableCell>
                                     <TableCell>Vigência</TableCell>
-                                    <TableCell align="center">Itens</TableCell>
                                     <TableCell align="right">Ficha</TableCell>
                                   </TableRow>
                                 </TableHead>
@@ -1466,11 +1530,11 @@ function VisaoGeral({
                                       >
                                         <TableCell sx={{ verticalAlign: 'middle' }}>
                                           {nx ? (
-                                            <Chip size="small" label="Só Nexus" color="info" variant="outlined" />
+                                            <Chip size="small" label={CHIP_PENDENTE} color="info" variant="outlined" />
                                           ) : (
                                             <Chip
                                               size="small"
-                                              label={a.active ? 'Apólice ativa' : 'Apólice inativa'}
+                                              label={a.active ? 'Apólice ativa' : 'Apólice cancelada'}
                                               color={a.active ? 'success' : 'default'}
                                               variant="outlined"
                                             />
@@ -1483,9 +1547,6 @@ function VisaoGeral({
                                         </TableCell>
                                         <TableCell sx={{ whiteSpace: 'nowrap', verticalAlign: 'top' }}>
                                           {fmtDate(a.vigenciaInicio)} — {fmtDate(a.vigenciaFim)}
-                                        </TableCell>
-                                        <TableCell align="center" sx={{ verticalAlign: 'top' }}>
-                                          <Chip size="small" label={`${visaoItensCount(a)}`} variant="outlined" />
                                         </TableCell>
                                         <TableCell align="right" sx={{ verticalAlign: 'middle' }} onClick={(e) => e.stopPropagation()}>
                                           {!nx ? (
@@ -1527,8 +1588,9 @@ function VisaoGeral({
         onClose={() => {
           setDetailAp(null)
           setDetailItensLoading(false)
+          detailItensFetchRef.current = null
         }}
-        PaperProps={{ sx: { width: { xs: '100%', sm: 520, md: 580 }, maxWidth: '100%' } }}
+        PaperProps={{ sx: { width: { xs: '100%', sm: 560, md: 620, lg: 720 }, maxWidth: '100%' } }}
       >
         {detailAp ? (
           <Box sx={{ p: 2, height: '100%', overflow: 'auto' }}>
@@ -1538,12 +1600,12 @@ function VisaoGeral({
                   Apólice {detailAp.numeroApolice}
                 </Typography>
                 {detailAp.somenteNexus || detailAp.id.startsWith('__nexus_contrato__') ? (
-                  <Chip size="small" sx={{ mt: 0.5, display: 'block', width: 'fit-content' }} label="Só Nexus (snapshot)" color="info" variant="outlined" />
+                  <Chip size="small" sx={{ mt: 0.5, display: 'block', width: 'fit-content' }} label={CHIP_PENDENTE} color="info" variant="outlined" />
                 ) : (
                   <Chip
                     size="small"
                     sx={{ mt: 0.5 }}
-                    label={detailAp.active ? 'Ativa' : 'Inativa'}
+                    label={detailAp.active ? 'Ativa' : 'Cancelada'}
                     color={detailAp.active ? 'success' : 'default'}
                     variant="outlined"
                   />
@@ -1554,6 +1616,7 @@ function VisaoGeral({
                 onClick={() => {
                   setDetailAp(null)
                   setDetailItensLoading(false)
+                  detailItensFetchRef.current = null
                 }}
                 size="small"
               >
@@ -1588,7 +1651,7 @@ function VisaoGeral({
               <br />
               CNAE: {detailAp.estipulante.cnae ?? '—'}
               <br />
-              Cliente Nexus: {detailAp.estipulante.nexusClienteId ?? '—'}
+              Referência tomador: {detailAp.estipulante.nexusClienteId ?? '—'}
               <br />
               Nome fantasia: {detailAp.estipulante.nomeFantasia ?? '—'}
               <br />
@@ -1613,48 +1676,93 @@ function VisaoGeral({
               <br />
               Vigência: {fmtDate(detailAp.vigenciaInicio)} — {fmtDate(detailAp.vigenciaFim)}
               <br />
-              Contrato Nexus: {detailAp.nexusContratoId ?? '—'}
+              Referência contrato: {detailAp.nexusContratoId ?? '—'}
               <br />
               Observações: {detailAp.observacoes ?? '—'}
             </Typography>
 
             <Divider sx={{ my: 1.5 }} />
 
-            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-              Itens ({detailItensLoading ? '…' : (detailAp.itens?.length ?? visaoItensCount(detailAp))})
-            </Typography>
-            {detailItensLoading ? (
-              <Typography variant="body2" color="text.secondary">
-                A carregar itens…
-              </Typography>
-            ) : (detailAp.itens?.length ?? 0) === 0 ? (
-              <Typography variant="body2" color="text.secondary">
-                {detailAp.somenteNexus || detailAp.id.startsWith('__nexus_contrato__')
-                  ? 'Sem itens no portal: esta linha existe só no snapshot Nexus. Abra o menu Apólices e use Complementar / cadastrar para criar a apólice na base.'
-                  : 'Sem itens cadastrados.'}
-              </Typography>
-            ) : (
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Tipo</TableCell>
-                    <TableCell>Descrição</TableCell>
-                    <TableCell>Detalhes</TableCell>
-                    <TableCell>Situação</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {(detailAp.itens ?? []).map((it) => (
-                    <TableRow key={it.id}>
-                      <TableCell>{ITEM_TIPO_LABEL[it.tipo]}</TableCell>
-                      <TableCell>{it.descricao}</TableCell>
-                      <TableCell>{it.detalhes ?? '—'}</TableCell>
-                      <TableCell>{it.active ? 'Ativo' : 'Inativo'}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
+            <Accordion
+              elevation={0}
+              variant="outlined"
+              disableGutters
+              sx={{ '&:before': { display: 'none' } }}
+              onChange={(_, expanded) => {
+                if (!expanded || !detailAp) return
+                const nx = detailAp.somenteNexus || detailAp.id.startsWith('__nexus_contrato__')
+                if (nx) return
+                if ((detailAp.itens?.length ?? 0) > 0) return
+                const id = detailAp.id
+                if (detailItensFetchRef.current === id) return
+                detailItensFetchRef.current = id
+                setDetailItensLoading(true)
+                onError(null)
+                void (async () => {
+                  const r = await api<{ itens: CadastroVisaoGeralItem[] }>(`/seguros/apolices/${encodeURIComponent(id)}/itens`)
+                  setDetailItensLoading(false)
+                  if (!r.ok) {
+                    onError(r.error || 'Erro ao carregar itens da apólice.')
+                    detailItensFetchRef.current = null
+                    setDetailAp((prev) => (prev && prev.id === id ? { ...prev, itens: [] } : prev))
+                    return
+                  }
+                  const list = r.data?.itens ?? []
+                  setDetailAp((prev) => (prev && prev.id === id ? { ...prev, itens: list } : prev))
+                })()
+              }}
+            >
+              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Typography variant="subtitle2" color="text.secondary">
+                  {detailAp.somenteNexus || detailAp.id.startsWith('__nexus_contrato__') ? (
+                    <>Itens no portal</>
+                  ) : detailItensLoading ? (
+                    <>Itens da apólice (a carregar…)</>
+                  ) : (detailAp.itens?.length ?? 0) > 0 ? (
+                    <>Itens da apólice ({detailAp.itens!.length})</>
+                  ) : (
+                    <>Itens da apólice — expandir para carregar</>
+                  )}
+                </Typography>
+              </AccordionSummary>
+              <AccordionDetails sx={{ pt: 0 }}>
+                {detailAp.somenteNexus || detailAp.id.startsWith('__nexus_contrato__') ? (
+                  <Typography variant="body2" color="text.secondary">
+                    Sem itens no portal: esta linha ainda não foi formalizada. Em <strong>Apólices & coberturas</strong>, use{' '}
+                    <strong>Complementar / cadastrar</strong> para criar o registo completo.
+                  </Typography>
+                ) : detailItensLoading ? (
+                  <Typography variant="body2" color="text.secondary">
+                    A carregar itens…
+                  </Typography>
+                ) : (detailAp.itens?.length ?? 0) === 0 ? (
+                  <Typography variant="body2" color="text.secondary">
+                    Sem itens cadastrados.
+                  </Typography>
+                ) : (
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Tipo</TableCell>
+                        <TableCell>Descrição</TableCell>
+                        <TableCell>Detalhes</TableCell>
+                        <TableCell>Situação</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {(detailAp.itens ?? []).map((it) => (
+                        <TableRow key={it.id}>
+                          <TableCell>{ITEM_TIPO_LABEL[it.tipo]}</TableCell>
+                          <TableCell>{it.descricao}</TableCell>
+                          <TableCell>{it.detalhes ?? '—'}</TableCell>
+                          <TableCell>{it.active ? 'Ativo' : 'Inativo'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </AccordionDetails>
+            </Accordion>
 
             <Box sx={{ mt: 3, display: 'flex', flexDirection: 'column', gap: 1 }}>
               {!detailAp.somenteNexus && !detailAp.id.startsWith('__nexus_contrato__') ? (
@@ -1668,6 +1776,7 @@ function VisaoGeral({
                 onClick={() => {
                   setDetailAp(null)
                   setDetailItensLoading(false)
+                  detailItensFetchRef.current = null
                 }}
               >
                 Fechar pré-visualização
@@ -1712,7 +1821,7 @@ function GruposSection({
     }>('/seguros/nexus/grupos-economicos-view')
     setNexusLoading(false)
     if (!r.ok) {
-      onError(r.error || 'Erro ao carregar grupos econômicos (Nexus).')
+      onError(r.error || 'Erro ao carregar o painel de grupos econômicos (referência administrativa).')
       setNexusEmpresas([])
       setNexusOk(false)
       setNexusNeedsSync(true)
@@ -1737,7 +1846,18 @@ function GruposSection({
   const [cnpj, setCnpj] = useState('')
   const [observacoes, setObservacoes] = useState('')
   const [classificacao, setClassificacao] = useState<GrupoClassificacao>('CLIENTE')
+  const [activeGrupo, setActiveGrupo] = useState(true)
   const [saving, setSaving] = useState(false)
+  const theme = useTheme()
+
+  const stickyAcoesSx = {
+    position: 'sticky',
+    right: 0,
+    zIndex: 2,
+    bgcolor: 'background.paper',
+    boxShadow: `-8px 0 12px -10px ${theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.9)' : 'rgba(0,0,0,0.14)'}`,
+  } as const
+  const stickyAcoesHeadSx = { ...stickyAcoesSx, zIndex: 3, backgroundColor: theme.palette.background.paper }
 
   function openCreate() {
     setEdit(null)
@@ -1745,6 +1865,7 @@ function GruposSection({
     setCnpj('')
     setObservacoes('')
     setClassificacao('CLIENTE')
+    setActiveGrupo(true)
     setOpen(true)
   }
 
@@ -1754,6 +1875,7 @@ function GruposSection({
     setCnpj(g.cnpj ?? '')
     setObservacoes(g.observacoes ?? '')
     setClassificacao(g.classificacao === 'PROSPECT' ? 'PROSPECT' : 'CLIENTE')
+    setActiveGrupo(g.active)
     setOpen(true)
   }
 
@@ -1768,6 +1890,7 @@ function GruposSection({
           cnpj: cnpj.trim() || null,
           observacoes: observacoes.trim() || null,
           classificacao,
+          active: activeGrupo,
         }),
       })
       setSaving(false)
@@ -1810,15 +1933,137 @@ function GruposSection({
 
   return (
     <>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2, flexWrap: 'wrap', gap: 2 }}>
+        <Box sx={{ flex: '1 1 240px', minWidth: 0 }}>
+          <Typography variant="subtitle1" fontWeight={700}>
+            Grupos locais do portal
+          </Typography>
+          <Typography variant="caption" color="text.secondary" component="span" display="block" sx={{ mt: 0.5 }}>
+            Cadastro interno para vínculos com <strong>estipulantes</strong> e <strong>apólices</strong>. O quadro mais abaixo (referência) é
+            só leitura. Marque <strong>Prospect</strong> para grupos apenas como possíveis clientes futuros.
+          </Typography>
+          {isAdmin ? (
+            <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.75 }}>
+              <strong>Dica:</strong> clique numa linha da tabela para abrir a edição (ou use «Editar» / o ícone de lápis à direita).
+            </Typography>
+          ) : null}
+        </Box>
+        {isAdmin ? (
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ flexShrink: 0 }}>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<RefreshIcon />}
+              onClick={() => {
+                onRefresh()
+                void loadNexus()
+              }}
+            >
+              Atualizar tudo
+            </Button>
+            <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={openCreate}>
+              Novo grupo local
+            </Button>
+          </Stack>
+        ) : null}
+      </Box>
+
+      <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden', mb: 3, width: '100%', boxSizing: 'border-box' }}>
+        <TableContainer sx={CADASTRO_TABLE_CONTAINER_SX}>
+          <Table size="small" stickyHeader sx={cadastroTableDenseSx}>
+            <TableHead>
+              <TableRow>
+                <TableCell>Nome (local)</TableCell>
+                <TableCell>Tipo</TableCell>
+                <TableCell>CNPJ (local)</TableCell>
+                <TableCell>Estipulantes</TableCell>
+                <TableCell>Ativo</TableCell>
+                {isAdmin ? (
+                  <TableCell align="right" sx={stickyAcoesHeadSx}>
+                    Ações
+                  </TableCell>
+                ) : null}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {grupos.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={isAdmin ? 6 : 5} sx={{ py: 3, color: 'text.secondary' }}>
+                    {isAdmin
+                      ? 'Ainda não há grupos locais. Use «Novo grupo local» acima para criar o primeiro.'
+                      : 'Nenhum grupo local nesta base.'}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                grupos.map((g) => (
+                  <TableRow
+                    key={g.id}
+                    hover
+                    onClick={() => {
+                      if (isAdmin) openRow(g)
+                    }}
+                    sx={isAdmin ? { cursor: 'pointer' } : undefined}
+                  >
+                    <TableCell sx={{ fontWeight: 600 }}>{g.nome}</TableCell>
+                    <TableCell>
+                      <Chip
+                        size="small"
+                        label={GRUPO_CLASSIFICACAO_LABEL[g.classificacao === 'PROSPECT' ? 'PROSPECT' : 'CLIENTE']}
+                        color={g.classificacao === 'PROSPECT' ? 'warning' : 'default'}
+                        variant="outlined"
+                      />
+                    </TableCell>
+                    <TableCell>{g.cnpj ?? '—'}</TableCell>
+                    <TableCell>{g._count?.estipulantes ?? '—'}</TableCell>
+                    <TableCell>{g.active ? 'Sim' : 'Não'}</TableCell>
+                    {isAdmin ? (
+                      <TableCell align="right" sx={{ ...stickyAcoesSx, whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
+                        <IconButton
+                          size="small"
+                          aria-label="Editar grupo"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            openRow(g)
+                          }}
+                        >
+                          <EditOutlinedIcon fontSize="small" />
+                        </IconButton>
+                        <Button size="small" onClick={() => openRow(g)}>
+                          Editar
+                        </Button>
+                        <Button
+                          size="small"
+                          color="error"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            void del(g.id)
+                          }}
+                        >
+                          Excluir
+                        </Button>
+                      </TableCell>
+                    ) : null}
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
+
+      <Divider sx={{ my: 2 }} />
+
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
-        <Typography variant="subtitle1" fontWeight={700}>
-          Grupos econômicos (Nexus)
+        <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 0.6 }}>
+          Tomadores (referência — só leitura)
         </Typography>
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
           {nexusSyncedAt ? (
             <Chip size="small" label={`Sincronizado: ${new Date(nexusSyncedAt).toLocaleString('pt-BR')}`} variant="outlined" />
           ) : null}
-          {nexusRowCount !== null ? <Chip size="small" label={`${nexusRowCount} cliente(s) no snapshot`} variant="outlined" /> : null}
+          {nexusRowCount !== null ? (
+            <Chip size="small" label={`${nexusRowCount} tomador(es) na base de referência`} variant="outlined" />
+          ) : null}
           <Button size="small" variant="outlined" onClick={() => void loadNexus()} disabled={nexusLoading}>
             Atualizar lista
           </Button>
@@ -1828,117 +2073,60 @@ function GruposSection({
       {nexusNeedsSync || !nexusOk ? (
         <Alert severity="warning" sx={{ mb: 2 }}>
           {nexusMsg ||
-            'Os clientes do Nexus ainda não foram sincronizados para o portal. Um administrador deve executar a sincronização em «Banco de dados» (Nexus).'}
+            'A base de tomadores ainda não foi sincronizada para o portal. Um administrador deve executar a sincronização em «Banco de dados».'}
         </Alert>
       ) : (
         <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
-          Dados obtidos do snapshot <strong>clientes</strong> da API Nexus. Várias linhas com o mesmo grupo indicam várias empresas naquele grupo económico.
+          Dados obtidos da base administrativa de <strong>tomadores</strong>. Várias linhas com o mesmo grupo indicam várias empresas
+          naquele grupo económico.
         </Typography>
       )}
 
-      <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'auto', mb: 3 }}>
+      <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden', width: '100%', boxSizing: 'border-box' }}>
         {nexusLoading ? (
           <Typography sx={{ p: 2 }} color="text.secondary">
-            A carregar dados Nexus…
+            A carregar dados de referência…
           </Typography>
         ) : (
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Grupo econômico</TableCell>
-                <TableCell>Razão social</TableCell>
-                <TableCell>CNPJ</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell width={120}>Id Nexus</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {nexusEmpresas.length === 0 ? (
+          <TableContainer sx={CADASTRO_TABLE_CONTAINER_SX}>
+            <Table size="small" stickyHeader sx={cadastroTableDenseSx}>
+              <TableHead>
                 <TableRow>
-                  <TableCell colSpan={5}>
-                    <Typography color="text.secondary" variant="body2">
-                      {nexusOk ? 'Nenhuma empresa encontrada no snapshot (ou campos vazios).' : '—'}
-                    </Typography>
-                  </TableCell>
+                  <TableCell>Grupo econômico</TableCell>
+                  <TableCell>Razão social</TableCell>
+                  <TableCell>CNPJ</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell width={120}>ID ref.</TableCell>
                 </TableRow>
-              ) : (
-                nexusEmpresas.map((row) => (
-                  <TableRow key={row.nexusClienteId} hover>
-                    <TableCell>{row.grupoEconomicoNome}</TableCell>
-                    <TableCell>{row.razaoSocial}</TableCell>
-                    <TableCell>{row.cnpj}</TableCell>
-                    <TableCell>{row.status}</TableCell>
-                    <TableCell>
-                      <Typography variant="caption" sx={{ wordBreak: 'break-all' }}>
-                        {row.nexusClienteId}
+              </TableHead>
+              <TableBody>
+                {nexusEmpresas.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5}>
+                      <Typography color="text.secondary" variant="body2">
+                        {nexusOk ? 'Nenhuma empresa encontrada na base de referência (ou campos vazios).' : '—'}
                       </Typography>
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                ) : (
+                  nexusEmpresas.map((row) => (
+                    <TableRow key={row.nexusClienteId} hover>
+                      <TableCell>{row.grupoEconomicoNome}</TableCell>
+                      <TableCell>{row.razaoSocial}</TableCell>
+                      <TableCell>{row.cnpj}</TableCell>
+                      <TableCell>{row.status}</TableCell>
+                      <TableCell>
+                        <Typography variant="caption" sx={{ wordBreak: 'break-all' }}>
+                          {row.nexusClienteId}
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
         )}
-      </Paper>
-
-      <Divider sx={{ my: 2 }} />
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
-        <Box>
-          <Typography variant="subtitle1" fontWeight={700}>
-            Grupos locais do portal
-          </Typography>
-          <Typography variant="caption" color="text.secondary" component="span" display="block">
-            Usados para vínculos com <strong>estipulantes</strong> e <strong>apólices</strong> neste módulo (cadastro interno). O quadro acima reflete apenas o Nexus. Marque{' '}
-            <strong>Prospect</strong> para grupos apenas como possíveis clientes futuros; registos existentes no portal entram como <strong>Cliente</strong>.
-          </Typography>
-        </Box>
-        {isAdmin ? (
-          <Button variant="contained" onClick={openCreate}>
-            Novo grupo local
-          </Button>
-        ) : null}
-      </Box>
-      <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'auto' }}>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Nome (local)</TableCell>
-              <TableCell>Tipo</TableCell>
-              <TableCell>CNPJ (local)</TableCell>
-              <TableCell>Estipulantes</TableCell>
-              <TableCell>Ativo</TableCell>
-              {isAdmin ? <TableCell align="right">Ações</TableCell> : null}
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {grupos.map((g) => (
-              <TableRow key={g.id} hover>
-                <TableCell>{g.nome}</TableCell>
-                <TableCell>
-                  <Chip
-                    size="small"
-                    label={GRUPO_CLASSIFICACAO_LABEL[g.classificacao === 'PROSPECT' ? 'PROSPECT' : 'CLIENTE']}
-                    color={g.classificacao === 'PROSPECT' ? 'warning' : 'default'}
-                    variant="outlined"
-                  />
-                </TableCell>
-                <TableCell>{g.cnpj ?? '—'}</TableCell>
-                <TableCell>{g._count?.estipulantes ?? '—'}</TableCell>
-                <TableCell>{g.active ? 'Sim' : 'Não'}</TableCell>
-                {isAdmin ? (
-                  <TableCell align="right">
-                    <Button size="small" onClick={() => openRow(g)}>
-                      Editar
-                    </Button>
-                    <Button size="small" color="error" onClick={() => void del(g.id)}>
-                      Excluir
-                    </Button>
-                  </TableCell>
-                ) : null}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
       </Paper>
 
       <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm">
@@ -1959,6 +2147,12 @@ function GruposSection({
           </FormControl>
           <TextField label="CNPJ" value={cnpj} onChange={(e) => setCnpj(e.target.value)} fullWidth />
           <TextField label="Observações" value={observacoes} onChange={(e) => setObservacoes(e.target.value)} fullWidth multiline minRows={2} />
+          {edit ? (
+            <FormControlLabel
+              control={<Switch checked={activeGrupo} onChange={(e) => setActiveGrupo(e.target.checked)} />}
+              label="Grupo ativo no portal"
+            />
+          ) : null}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpen(false)}>Cancelar</Button>
@@ -2101,7 +2295,7 @@ function EstipulantesSection({ isAdmin, onError }: { isAdmin: boolean; onError: 
       }
       if (!cnpjBody) {
         setSaving(false)
-        onError('Informe um CNPJ válido ou escolha um cliente Nexus na lista.')
+        onError('Informe um CNPJ válido ou escolha um tomador na lista de pré-preenchimento.')
         return
       }
       const r = await api<{ estipulante: Estipulante }>('/seguros/estipulantes', {
@@ -2135,21 +2329,18 @@ function EstipulantesSection({ isAdmin, onError }: { isAdmin: boolean; onError: 
 
   return (
     <>
-      <Typography variant="subtitle1" fontWeight={700} gutterBottom>
-        Estipulantes
-      </Typography>
       {needsSync ? (
         <Alert severity="warning" sx={{ mb: 2 }}>
           {syncMessage ||
-            'Sincronize os clientes Nexus em Banco de dados para listar os nomes de grupo econômico e pré-preencher CNPJs.'}
+            'Sincronize a base de tomadores em «Banco de dados» para listar os nomes de grupo económico e pré-preencher CNPJs.'}
         </Alert>
       ) : null}
-      <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 2 }}>
+      <Paper variant="outlined" sx={{ p: { xs: 2, sm: 2.5 }, mb: 2.5, borderRadius: 2, width: '100%', boxSizing: 'border-box' }}>
         <FormControl fullWidth size="small">
-          <InputLabel id="g-est">Grupo econômico (Nexus)</InputLabel>
+          <InputLabel id="g-est">Grupo económico</InputLabel>
           <Select
             labelId="g-est"
-            label="Grupo econômico (Nexus)"
+            label="Grupo económico"
             value={grupoNome}
             onChange={(e: SelectChangeEvent) => setGrupoNome(e.target.value)}
           >
@@ -2173,13 +2364,14 @@ function EstipulantesSection({ isAdmin, onError }: { isAdmin: boolean; onError: 
         ) : null}
       </Box>
 
-      <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'auto' }}>
+      <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden', width: '100%', boxSizing: 'border-box' }}>
         {loading ? (
           <Typography sx={{ p: 2 }} color="text.secondary">
             A carregar…
           </Typography>
         ) : (
-          <Table size="small">
+          <TableContainer sx={CADASTRO_TABLE_CONTAINER_SX}>
+            <Table size="small" stickyHeader sx={cadastroTableDenseSx}>
             <TableHead>
               <TableRow>
                 <TableCell>Grupo</TableCell>
@@ -2188,7 +2380,7 @@ function EstipulantesSection({ isAdmin, onError }: { isAdmin: boolean; onError: 
                 <TableCell>CNPJ</TableCell>
                 <TableCell>CNAE</TableCell>
                 <TableCell>Nome fantasia</TableCell>
-                <TableCell>Cliente Nexus</TableCell>
+                <TableCell>Ref. tomador</TableCell>
                 <TableCell>Apólices</TableCell>
                 {isAdmin ? <TableCell align="right">Ações</TableCell> : null}
               </TableRow>
@@ -2198,7 +2390,7 @@ function EstipulantesSection({ isAdmin, onError }: { isAdmin: boolean; onError: 
                 <TableRow>
                   <TableCell colSpan={isAdmin ? 9 : 8} sx={{ py: 2, color: 'text.secondary' }}>
                     {grupoNome
-                      ? 'Nenhuma empresa encontrada no Nexus para este grupo. Verifique a sincronização de clientes em Banco de dados.'
+                      ? 'Nenhum tomador encontrado na base de referência para este grupo. Verifique a sincronização em «Banco de dados».'
                       : 'Selecione um grupo econômico.'}
                   </TableCell>
                 </TableRow>
@@ -2233,7 +2425,7 @@ function EstipulantesSection({ isAdmin, onError }: { isAdmin: boolean; onError: 
                   <TableRow key={`nexus-${row.em.nexusClienteId}`} hover sx={{ bgcolor: 'action.hover' }}>
                     <TableCell sx={{ maxWidth: 160 }}>{row.em.grupoEconomicoNome}</TableCell>
                     <TableCell>
-                      <Chip size="small" label="Só Nexus" color="info" variant="outlined" />
+                      <Chip size="small" label={CHIP_PENDENTE} color="info" variant="outlined" />
                     </TableCell>
                     <TableCell>{row.em.razaoSocial}</TableCell>
                     <TableCell>{row.em.cnpj}</TableCell>
@@ -2253,6 +2445,7 @@ function EstipulantesSection({ isAdmin, onError }: { isAdmin: boolean; onError: 
               )}
             </TableBody>
           </Table>
+          </TableContainer>
         )}
       </Paper>
 
@@ -2261,10 +2454,10 @@ function EstipulantesSection({ isAdmin, onError }: { isAdmin: boolean; onError: 
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
           {!edit && grupoNome ? (
             <FormControl fullWidth size="small">
-              <InputLabel id="imp-cli">Pré-preencher a partir do Nexus (opcional)</InputLabel>
+              <InputLabel id="imp-cli">Pré-preencher a partir da base administrativa (opcional)</InputLabel>
               <Select
                 labelId="imp-cli"
-                label="Pré-preencher a partir do Nexus (opcional)"
+                label="Pré-preencher a partir da base administrativa (opcional)"
                 value={importClienteId}
                 onChange={(e: SelectChangeEvent) => onImportClienteChange(e.target.value)}
               >
@@ -2279,7 +2472,7 @@ function EstipulantesSection({ isAdmin, onError }: { isAdmin: boolean; onError: 
               </Select>
             </FormControl>
           ) : null}
-          {nexusClienteId ? <Chip size="small" label={`Cliente Nexus: ${nexusClienteId}`} variant="outlined" /> : null}
+          {nexusClienteId ? <Chip size="small" label={`Ref. tomador: ${nexusClienteId}`} variant="outlined" /> : null}
           <TextField required label="Razão social" value={razaoSocial} onChange={(e) => setRazaoSocial(e.target.value)} fullWidth />
           <TextField required label="CNPJ" value={cnpj} onChange={(e) => setCnpj(e.target.value)} fullWidth disabled={!!edit} />
           <TextField
@@ -2343,8 +2536,7 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
   const [produto, setProduto] = useState<ApoliceProduto>('OUTROS')
   const [operadoraIdNova, setOperadoraIdNova] = useState('')
   const [operadorasCat, setOperadorasCat] = useState<{ id: string; nome: string }[]>([])
-  const [novaOperadoraNome, setNovaOperadoraNome] = useState('')
-  const [salvandoOperadora, setSalvandoOperadora] = useState(false)
+  const [needsOperadorasSync, setNeedsOperadorasSync] = useState(false)
   const [subRows, setSubRows] = useState<NovaApoliceSubRow[]>([novaApoliceSubRowVazia()])
   const [plano, setPlano] = useState('')
   const [coberturas, setCoberturas] = useState('')
@@ -2394,37 +2586,19 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
   useEffect(() => {
     if (!open) return
     void (async () => {
-      const r = await api<{ operadoras: { id: string; nome: string }[] }>('/seguros/operadoras')
-      if (r.ok) setOperadorasCat(r.data?.operadoras ?? [])
-      else onError(r.error || 'Não foi possível carregar o catálogo de operadoras.')
+      const r = await api<{ operadoras: { id: string; nome: string }[]; needsSync?: boolean }>('/seguros/operadoras')
+      if (r.ok) {
+        const d = r.data
+        const raw = d?.operadoras
+        setOperadorasCat(Array.isArray(raw) ? raw : [])
+        setNeedsOperadorasSync(!!d?.needsSync)
+      } else {
+        setOperadorasCat([])
+        setNeedsOperadorasSync(true)
+        onError(r.error || 'Não foi possível carregar o catálogo de operadoras.')
+      }
     })()
   }, [open, onError])
-
-  async function criarOperadoraCatalogo() {
-    const nome = novaOperadoraNome.trim()
-    if (!nome) return
-    if (!isAdmin) {
-      onError('Apenas administradores podem adicionar operadoras ao catálogo.')
-      return
-    }
-    setSalvandoOperadora(true)
-    onError(null)
-    const r = await api<{ operadora: { id: string; nome: string } }>('/seguros/operadoras', {
-      method: 'POST',
-      body: JSON.stringify({ nome }),
-    })
-    setSalvandoOperadora(false)
-    if (!r.ok) {
-      onError(r.error || 'Não foi possível criar a operadora.')
-      return
-    }
-    const created = r.data?.operadora
-    if (created) {
-      setOperadorasCat((prev) => [...prev.filter((o) => o.id !== created.id), { id: created.id, nome: created.nome }].sort((a, b) => a.nome.localeCompare(b.nome)))
-      setOperadoraIdNova(created.id)
-      setNovaOperadoraNome('')
-    }
-  }
 
   const loadApoliceTabela = useCallback(async () => {
     if (!grupoNome.trim() && !estipulanteId) {
@@ -2537,7 +2711,6 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
     setNumeroApolice('')
     setProduto('OUTROS')
     setOperadoraIdNova('')
-    setNovaOperadoraNome('')
     setSubRows([novaApoliceSubRowVazia()])
     setPlano('')
     setCoberturas('')
@@ -2553,7 +2726,6 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
     setNumeroApolice(c.numero)
     setProduto('OUTROS')
     setOperadoraIdNova('')
-    setNovaOperadoraNome('')
     setSubRows([novaApoliceSubRowVazia()])
     setPlano('')
     setCoberturas('')
@@ -2622,27 +2794,24 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
 
   return (
     <>
-      <Typography variant="subtitle1" fontWeight={700} gutterBottom>
-        Apólices
-      </Typography>
       {needsSync ? (
         <Alert severity="warning" sx={{ mb: 2 }}>
           {syncMessage ||
-            'Sincronize os clientes Nexus em Banco de dados para listar os nomes de grupo econômico nesta página.'}
+            'Sincronize a base de tomadores em «Banco de dados» para listar os nomes de grupo económico nesta página.'}
         </Alert>
       ) : null}
       {grupoNome && !loadingEst && portalEstRows.length === 0 && nexusGrupoEmpresas.length > 0 && !isAdmin ? (
         <Alert severity="info" sx={{ mb: 2 }}>
-          Existem empresas Nexus neste grupo ainda sem estipulante no portal. Peça a um administrador para as cadastrar na
-          aba Estipulantes (ou escolha aqui se tiver permissão).
+          Existem tomadores na base de referência deste grupo ainda sem estipulante no portal. Peça a um administrador para os
+          cadastrar na secção Estipulantes (ou escolha aqui se tiver permissão).
         </Alert>
       ) : null}
-      <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 2, display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
+      <Paper variant="outlined" sx={{ p: { xs: 2, sm: 2.5 }, mb: 2.5, borderRadius: 2, display: 'grid', gap: 2.5, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, width: '100%', boxSizing: 'border-box' }}>
         <FormControl fullWidth size="small">
-          <InputLabel id="g-ap">Grupo econômico (Nexus)</InputLabel>
+          <InputLabel id="g-ap">Grupo económico</InputLabel>
           <Select
             labelId="g-ap"
-            label="Grupo econômico (Nexus)"
+            label="Grupo económico"
             value={grupoNome}
             onChange={(e: SelectChangeEvent) => {
               setGrupoNome(e.target.value)
@@ -2681,7 +2850,7 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
                   value={`${ESTIPULANTE_SEL_NEXUS_PREFIX}${row.em.nexusClienteId}`}
                   disabled={!isAdmin}
                 >
-                  {row.em.razaoSocial} — {row.em.cnpj} (Nexus, pendente no portal)
+                  {row.em.razaoSocial} — {row.em.cnpj} ({CHIP_PENDENTE})
                 </MenuItem>
               ),
             )}
@@ -2697,47 +2866,45 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
         ) : null}
       </Box>
 
-      <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'auto' }}>
+      <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden', width: '100%', boxSizing: 'border-box' }}>
         {loadingAp ? (
           <Typography sx={{ p: 2 }} color="text.secondary">
             A carregar…
           </Typography>
         ) : (
-          <Table size="small">
+          <TableContainer sx={CADASTRO_TABLE_CONTAINER_SX}>
+            <Table size="small" stickyHeader sx={cadastroTableDenseSx}>
             <TableHead>
               <TableRow>
                 <TableCell>Situação</TableCell>
                 <TableCell>Estipulante</TableCell>
                 <TableCell>Nº apólice</TableCell>
-                <TableCell>Contrato Nexus</TableCell>
+                <TableCell>Ref. contrato</TableCell>
                 <TableCell>Produto</TableCell>
                 <TableCell>Operadora</TableCell>
                 <TableCell>Subestipulantes</TableCell>
                 <TableCell>Plano</TableCell>
                 <TableCell>Coberturas</TableCell>
                 <TableCell>Vigência</TableCell>
-                <TableCell>Itens</TableCell>
                 {isAdmin ? <TableCell align="right">Ações</TableCell> : null}
               </TableRow>
             </TableHead>
             <TableBody>
               {displayApRows.length === 0 && (estipulanteId || grupoNome.trim()) && !loadingAp ? (
                 <TableRow>
-                  <TableCell colSpan={isAdmin ? 12 : 11} sx={{ py: 2, color: 'text.secondary' }}>
+                  <TableCell colSpan={isAdmin ? 11 : 10} sx={{ py: 2, color: 'text.secondary' }}>
                     {!estipulanteId && grupoNome.trim() ? (
                       <>
-                        Nenhuma apólice no portal para o grupo económico «{grupoNome}». Confirme no administrativo (Railway)
-                        que as apólices estão em <strong>PortalSeguroApolice</strong> com estipulante cujo grupo coincide com
-                        este nome ou com o grupo local no Portal.
+                        Nenhuma apólice formalizada no portal para o grupo económico «{grupoNome}». Confirme com o administrador
+                        que existem apólices com estipulante cujo grupo coincide com este nome ou com o grupo local cadastrado.
                       </>
                     ) : needsContratosSync ? (
-                      'Não há contratos Nexus sincronizados para este estipulante. Sincronize a entidade contratos em Banco de dados ou cadastre a apólice manualmente.'
+                      'Não há contratos da base administrativa para este estipulante. Sincronize «contratos» em Banco de dados ou cadastre a apólice manualmente.'
                     ) : (
                       <>
-                        Nenhuma apólice no portal nem contrato Nexus para este estipulante. Se a apólice existir na base
-                        mas noutro vínculo, escolha só o <strong>grupo económico</strong> (sem estipulante) para listar
-                        todas as apólices do grupo. Em produção, confirme também <strong>VITE_API_URL</strong> na Vercel
-                        (API Railway atualizada).
+                        Nenhuma apólice no portal nem contrato sugerido para este estipulante. Se a apólice existir na base mas
+                        noutro vínculo, escolha só o <strong>grupo económico</strong> (sem estipulante) para listar todas as
+                        apólices do grupo. Se a lista continuar vazia, verifique a configuração do ambiente com o suporte.
                       </>
                     )}
                   </TableCell>
@@ -2747,24 +2914,28 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
                 row.kind === 'portal' ? (
                   <TableRow key={row.a.id} hover>
                     <TableCell>
-                      <Chip size="small" label="Cadastrado" color="success" variant="outlined" />
+                      <Chip
+                        size="small"
+                        label={row.a.active ? 'Ativa' : 'Cancelada'}
+                        color={row.a.active ? 'success' : 'default'}
+                        variant="outlined"
+                      />
                     </TableCell>
-                    <TableCell sx={{ maxWidth: 200 }}>
+                    <TableCell sx={{ maxWidth: 280, verticalAlign: 'top' }}>
                       {row.a.estipulante?.razaoSocial ?? '—'}
                     </TableCell>
                     <TableCell>{row.a.numeroApolice}</TableCell>
-                    <TableCell sx={{ maxWidth: 120, fontFamily: 'monospace', fontSize: 12 }}>
+                    <TableCell sx={{ maxWidth: 160, fontFamily: 'monospace', fontSize: 12 }}>
                       {row.a.nexusContratoId ?? '—'}
                     </TableCell>
                     <TableCell>{PRODUTO_LABEL[row.a.produto]}</TableCell>
-                    <TableCell>{row.a.operadora?.nome ?? row.a.fornecedor ?? '—'}</TableCell>
-                    <TableCell sx={{ maxWidth: 220 }}>{resumoSubestipulantesEmLista(row.a)}</TableCell>
-                    <TableCell sx={{ maxWidth: 160 }}>{row.a.plano ?? '—'}</TableCell>
-                    <TableCell sx={{ maxWidth: 200 }}>{row.a.coberturas ?? '—'}</TableCell>
+                    <TableCell sx={{ minWidth: 140, verticalAlign: 'top' }}>{row.a.operadora?.nome ?? row.a.fornecedor ?? '—'}</TableCell>
+                    <TableCell sx={{ minWidth: 180, maxWidth: 420 }}>{resumoSubestipulantesEmLista(row.a)}</TableCell>
+                    <TableCell sx={{ minWidth: 120, maxWidth: 280 }}>{row.a.plano ?? '—'}</TableCell>
+                    <TableCell sx={{ minWidth: 140, maxWidth: 360 }}>{row.a.coberturas ?? '—'}</TableCell>
                     <TableCell>
                       {fmtDate(row.a.vigenciaInicio)} — {fmtDate(row.a.vigenciaFim)}
                     </TableCell>
-                    <TableCell>{row.a._count?.itens ?? '—'}</TableCell>
                     {isAdmin ? (
                       <TableCell align="right">
                         <Button size="small" onClick={() => navigate(`/apolice/editar/${row.a.id}`)}>
@@ -2779,7 +2950,7 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
                 ) : (
                   <TableRow key={`nexus-ap-${row.c.nexusContratoId}`} hover sx={{ bgcolor: 'action.hover' }}>
                     <TableCell>
-                      <Chip size="small" label="Só Nexus" color="info" variant="outlined" />
+                      <Chip size="small" label={CHIP_PENDENTE} color="info" variant="outlined" />
                     </TableCell>
                     <TableCell>—</TableCell>
                     <TableCell>{row.c.numero}</TableCell>
@@ -2803,6 +2974,7 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
               )}
             </TableBody>
           </Table>
+          </TableContainer>
         )}
       </Paper>
 
@@ -2811,16 +2983,16 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
           {needsContratosSync ? (
             <Alert severity="info">
-              Contratos Nexus ainda não estão disponíveis (sincronize a entidade <strong>contratos</strong> em Banco de dados).
-              Pode continuar indicando o número da apólice manualmente.
+              A lista de contratos da base administrativa ainda não está disponível (sincronize a entidade <strong>contratos</strong>{' '}
+              em Banco de dados). Pode continuar indicando o número da apólice manualmente.
             </Alert>
           ) : null}
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
             <FormControl fullWidth size="small">
-              <InputLabel id="ctr-nx">Número / contrato (Nexus)</InputLabel>
+              <InputLabel id="ctr-nx">Número / contrato (referência)</InputLabel>
               <Select
                 labelId="ctr-nx"
-                label="Número / contrato (Nexus)"
+                label="Número / contrato (referência)"
                 value={contratoSelectValue}
                 onChange={(e: SelectChangeEvent) => onContratoSelect(e.target.value)}
               >
@@ -2842,7 +3014,7 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
               onChange={(e) => setNumeroApolice(e.target.value)}
               fullWidth
               disabled={!!nexusContratoId.trim()}
-              helperText={nexusContratoId.trim() ? 'Preenchido pelo contrato Nexus selecionado.' : 'Obrigatório se não escolher um contrato na lista.'}
+              helperText={nexusContratoId.trim() ? 'Preenchido pelo contrato selecionado na lista de referência.' : 'Obrigatório se não escolher um contrato na lista.'}
             />
             <FormControl fullWidth required size="small">
               <InputLabel>Produto</InputLabel>
@@ -2870,30 +3042,12 @@ function ApolicesSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: 
                   </MenuItem>
                 ))}
               </Select>
+              <FormHelperText>
+                {needsOperadorasSync && operadorasCat.length === 0
+                  ? 'Sincronize «operadoras» em Banco de dados ou peça suporte: o catálogo ainda não foi carregado.'
+                  : 'Lista de seguradoras / operadoras mantida pela corretora (sincronização periódica).'}
+              </FormHelperText>
             </FormControl>
-            {isAdmin ? (
-              <Stack
-                direction={{ xs: 'column', sm: 'row' }}
-                spacing={1}
-                alignItems={{ sm: 'center' }}
-                sx={{ gridColumn: { sm: 'span 2' } }}
-              >
-                <TextField
-                  size="small"
-                  label="Nome para nova operadora"
-                  value={novaOperadoraNome}
-                  onChange={(e) => setNovaOperadoraNome(e.target.value)}
-                  sx={{ flex: 1 }}
-                />
-                <Button
-                  variant="outlined"
-                  disabled={!novaOperadoraNome.trim() || salvandoOperadora}
-                  onClick={() => void criarOperadoraCatalogo()}
-                >
-                  Adicionar ao catálogo
-                </Button>
-              </Stack>
-            ) : null}
             <Typography variant="subtitle2" sx={{ gridColumn: { sm: 'span 2' }, mt: 0.5 }}>
               Empresas subestipulantes (opcional)
             </Typography>
@@ -3227,26 +3381,27 @@ function ItensSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: str
 
   return (
     <>
-      <Typography variant="subtitle1" fontWeight={700} gutterBottom>
+      <Typography variant="subtitle2" fontWeight={700} gutterBottom color="text.secondary">
         Itens da apólice
       </Typography>
       {needsSync ? (
         <Alert severity="warning" sx={{ mb: 2 }}>
           {syncMessage ||
-            'Sincronize os clientes Nexus em Banco de dados para listar os nomes de grupo econômico nesta página.'}
+            'Sincronize a base de tomadores em «Banco de dados» para listar os nomes de grupo económico nesta página.'}
         </Alert>
       ) : null}
       {grupoNome && !loadingEst && portalEstRows.length === 0 && nexusGrupoEmpresas.length > 0 && !isAdmin ? (
         <Alert severity="info" sx={{ mb: 2 }}>
-          Existem empresas Nexus neste grupo ainda sem estipulante no portal. Um administrador deve cadastrá-las na aba
-          Estipulantes.
+          Existem tomadores na base de referência deste grupo ainda sem estipulante no portal. Um administrador deve cadastrá-los
+          na secção Estipulantes.
         </Alert>
       ) : null}
-      <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 2, display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr 1fr' } }}>
+      <Paper variant="outlined" sx={{ p: { xs: 2, sm: 2.5 }, mb: 2.5, borderRadius: 2, display: 'grid', gap: 2.5, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr 1fr' }, width: '100%', boxSizing: 'border-box' }}>
         <FormControl fullWidth size="small">
-          <InputLabel>Grupo econômico (Nexus)</InputLabel>
+          <InputLabel id="grupo-itens-ap">Grupo económico</InputLabel>
           <Select
-            label="Grupo econômico (Nexus)"
+            labelId="grupo-itens-ap"
+            label="Grupo económico"
             value={grupoNome}
             onChange={(e: SelectChangeEvent) => {
               setGrupoNome(e.target.value)
@@ -3285,7 +3440,7 @@ function ItensSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: str
                   value={`${ESTIPULANTE_SEL_NEXUS_PREFIX}${row.em.nexusClienteId}`}
                   disabled={!isAdmin}
                 >
-                  {row.em.razaoSocial} — {row.em.cnpj} (Nexus, pendente no portal)
+                  {row.em.razaoSocial} — {row.em.cnpj} ({CHIP_PENDENTE})
                 </MenuItem>
               ),
             )}
@@ -3314,13 +3469,14 @@ function ItensSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: str
         ) : null}
       </Box>
 
-      <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'auto' }}>
+      <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden', width: '100%', boxSizing: 'border-box' }}>
         {loadingIt ? (
           <Typography sx={{ p: 2 }} color="text.secondary">
             A carregar…
           </Typography>
         ) : (
-          <Table size="small">
+          <TableContainer sx={CADASTRO_TABLE_CONTAINER_SX}>
+            <Table size="small" stickyHeader sx={cadastroTableDenseSx}>
             <TableHead>
               <TableRow>
                 <TableCell width={80}>Ordem</TableCell>
@@ -3351,6 +3507,7 @@ function ItensSection({ isAdmin, onError }: { isAdmin: boolean; onError: (s: str
               ))}
             </TableBody>
           </Table>
+          </TableContainer>
         )}
       </Paper>
 

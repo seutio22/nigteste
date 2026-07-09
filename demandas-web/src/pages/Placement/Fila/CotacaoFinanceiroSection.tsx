@@ -266,13 +266,11 @@ export function CotacaoFinanceiroSection({
 
       </Typography>
 
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-
-        {showEstudo
-          ? 'Comissões e participação do contrato vigente e do cenário de estudo da cotação.'
-          : 'Etapa Base atual: documente apenas o que o cliente tem hoje (contrato vigente). O cenário de estudo será preenchido na próxima etapa.'}
-
-      </Typography>
+      {showEstudo && (
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Comissões e participação do contrato vigente e do cenário de estudo da cotação.
+        </Typography>
+      )}
 
 
 
@@ -294,7 +292,7 @@ export function CotacaoFinanceiroSection({
 
                 <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1.5 }}>
 
-                  Vitalício obrigatório para cliente da casa.
+                  Vitalício obrigatório para Cliente da Carteira.
 
                 </Typography>
 

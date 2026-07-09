@@ -10,8 +10,6 @@ import {
 
   Button,
 
-  Container,
-
   Paper,
 
   Stack,
@@ -67,6 +65,8 @@ import {
   parseFormularioTipoFromSearch,
 
 } from './FormularioTipoPicker'
+
+import { PlacementFilaPageShell } from './PlacementFilaPageShell'
 
 
 
@@ -370,7 +370,7 @@ export default function PlacementFilaNewPage() {
 
   return (
 
-    <Container maxWidth="lg" sx={{ py: 3 }}>
+    <PlacementFilaPageShell>
 
       <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 2 }}>
 
@@ -500,7 +500,7 @@ export default function PlacementFilaNewPage() {
 
       )}
 
-    </Container>
+    </PlacementFilaPageShell>
 
   )
 

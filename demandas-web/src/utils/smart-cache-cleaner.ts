@@ -333,12 +333,11 @@ class SmartCacheCleaner {
 // Instância singleton
 export const smartCacheCleaner = SmartCacheCleaner.getInstance();
 
-// Executar limpeza automática quando o módulo for carregado
-if (typeof window !== 'undefined') {
-  // Executar após um pequeno delay para garantir que a página carregou
+// Executar limpeza automática quando o módulo for carregado (somente produção)
+if (typeof window !== 'undefined' && !import.meta.env.DEV) {
   setTimeout(() => {
-    smartCacheCleaner.performSmartCleanup();
-  }, 1000);
+    smartCacheCleaner.performSmartCleanup()
+  }, 1000)
 }
 
 // Exportar função de limpeza forçada para uso manual

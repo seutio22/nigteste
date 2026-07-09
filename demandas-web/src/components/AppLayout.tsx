@@ -8,6 +8,7 @@ import { useMasterDataStore } from '../store/masterDataStore'
 import { useComunicadoStore } from '../store/comunicadoStore'
 import { useValidationStore } from '../store/validationStore'
 import { clearDemandLocalCache, useDemandStore } from '../store/demandStore'
+import { purgeOversizedPersistEntries } from '../lib/safePersistStorage'
 import { useManutencaoStore } from '../store/manutencaoStore'
 import { useProjectStore } from '../store/projectStore'
 import { useInactivityTimeout } from '../hooks/useInactivityTimeout'
@@ -108,6 +109,7 @@ export function AppLayout() {
 
   useEffect(() => {
     clearDemandLocalCache()
+    purgeOversizedPersistEntries()
   }, [])
 
   useEffect(() => {

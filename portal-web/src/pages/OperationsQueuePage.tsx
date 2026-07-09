@@ -4,7 +4,6 @@ import {
   Box,
   Button,
   Chip,
-  Container,
   Dialog,
   DialogActions,
   DialogContent,
@@ -26,6 +25,7 @@ import { useAuth } from '../context/AuthContext'
 import { api } from '../lib/api'
 import { CASE_STATUS_LABEL } from '../constants/caseStatus'
 import { PRIORITY_LABEL } from '../constants/priority'
+import PageScaffold from '../components/PageScaffold'
 
 type OpUser = { id: string; name: string; email: string; role: string }
 
@@ -116,7 +116,7 @@ export default function OperationsQueuePage() {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ py: 3 }}>
+    <PageScaffold>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h5" fontWeight={700}>
           Operação — fila e atribuição
@@ -130,8 +130,8 @@ export default function OperationsQueuePage() {
         (operador/admin).
       </Typography>
 
-      <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'auto' }}>
-        <Table size="small">
+      <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'auto', width: '100%', boxSizing: 'border-box' }}>
+        <Table size="small" sx={{ '& .MuiTableCell-root': { py: 1.125, px: 1.5 } }}>
           <TableHead>
             <TableRow sx={{ bgcolor: 'action.hover' }}>
               <TableCell>Protocolo</TableCell>
@@ -240,6 +240,6 @@ export default function OperationsQueuePage() {
           </Button>
         </DialogActions>
       </Dialog>
-    </Container>
+    </PageScaffold>
   )
 }

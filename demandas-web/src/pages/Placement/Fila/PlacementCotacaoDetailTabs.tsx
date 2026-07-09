@@ -1,10 +1,11 @@
 import React, { useMemo, useState } from 'react'
-import { Box, Paper, Tab, Tabs, Typography } from '@mui/material'
+import { Box, Tab, Tabs, Typography } from '@mui/material'
 import type { CotacaoFormState } from './CotacaoFormFields'
 import { CotacaoFormFields } from './CotacaoFormFields'
 import { CotacaoDadosLancadosView } from './CotacaoDadosLancadosView'
 import { PlacementEmCotacaoPanel } from './PlacementEmCotacaoPanel'
 import { PlacementKickOffPanel } from './PlacementKickOffPanel'
+import { PlacementEstrategiaPanel } from './PlacementEstrategiaPanel'
 import { PlacementAguardandoOperadoraPanel } from './PlacementAguardandoOperadoraPanel'
 import { formScopeForWorkflow } from './placementCotacaoFormScope'
 import { getWorkflowStageMeta, type WorkflowStageKey } from './placementCotacaoWorkflow'
@@ -25,6 +26,7 @@ type Props = {
   analistaCadastroNome?: string
   analistaResponsavelNome?: string
   onPersisted?: (apiCotacao: unknown) => void
+  onOpenSlides?: () => void
 }
 
 export function PlacementCotacaoDetailTabs({
@@ -40,6 +42,7 @@ export function PlacementCotacaoDetailTabs({
   analistaCadastroNome,
   analistaResponsavelNome,
   onPersisted,
+  onOpenSlides,
 }: Props) {
   const isDraft = isRascunhoStatus(form.status)
   const formScope = formScopeForWorkflow(workflowStageKey, isDraft)
@@ -48,6 +51,9 @@ export function PlacementCotacaoDetailTabs({
     if (isDraft) return [{ id: 'etapa_atual' as DetailTabId, label: 'Rascunho' }]
     const stageLabel = getWorkflowStageMeta(form.status)?.label ?? 'Etapa atual'
     if (workflowStageKey === 'base_atual') {
+      return [{ id: 'etapa_atual' as DetailTabId, label: `Etapa: ${stageLabel}` }]
+    }
+    if (workflowStageKey === 'validacao') {
       return [{ id: 'etapa_atual' as DetailTabId, label: `Etapa: ${stageLabel}` }]
     }
     return [
@@ -59,7 +65,10 @@ export function PlacementCotacaoDetailTabs({
   const [tab, setTab] = useState<DetailTabId>('etapa_atual')
 
   const showDadosLancados =
-    !isDraft && workflowStageKey !== 'base_atual' && tab === 'dados_lancados'
+    !isDraft &&
+    workflowStageKey !== 'base_atual' &&
+    workflowStageKey !== 'validacao' &&
+    tab === 'dados_lancados'
 
   return (
     <Box>
@@ -90,6 +99,7 @@ export function PlacementCotacaoDetailTabs({
           analistaCadastroNome={analistaCadastroNome}
           analistaResponsavelNome={analistaResponsavelNome}
           onPersisted={onPersisted}
+          onOpenSlides={onOpenSlides}
         />
       )}
 
@@ -121,6 +131,7 @@ function StackEtapaAtual({
   analistaCadastroNome,
   analistaResponsavelNome,
   onPersisted,
+  onOpenSlides,
 }: {
   form: CotacaoFormState
   onChange: (next: CotacaoFormState) => void
@@ -135,6 +146,7 @@ function StackEtapaAtual({
   analistaCadastroNome?: string
   analistaResponsavelNome?: string
   onPersisted?: (apiCotacao: unknown) => void
+  onOpenSlides?: () => void
 }) {
   return (
     <>
@@ -149,11 +161,32 @@ function StackEtapaAtual({
         />
       )}
 
-      {workflowStageKey === 'em_cotacao' && !isDraft && (
-        <Paper sx={{ p: 2, mb: 2 }}>
+      {workflowStageKey === 'estrategia' && !isDraft && (
+        <PlacementEstrategiaPanel
+          form={form}
+          onChange={onChange}
+          cotacaoId={cotacaoId}
+          disabled={disabled}
+        />
+      )}
+
+      {workflowStageKey === 'validacao' && !isDraft && (
           <PlacementEmCotacaoPanel
             cotacaoId={cotacaoId}
             form={form}
+            variant="validacao"
+            subetapaInicial={emCotacaoSubetapa}
+            disabled={disabled}
+            onSubetapaChange={onEmCotacaoSubetapaChange}
+            onBeneficiariosTotalChange={onBeneficiariosTotalChange}
+          />
+      )}
+
+      {workflowStageKey === 'em_cotacao' && !isDraft && (
+          <PlacementEmCotacaoPanel
+            cotacaoId={cotacaoId}
+            form={form}
+            variant="em_cotacao"
             subetapaInicial={emCotacaoSubetapa}
             disabled={disabled}
             onChange={onChange}
@@ -162,22 +195,23 @@ function StackEtapaAtual({
             onBeneficiariosTotalChange={onBeneficiariosTotalChange}
             onPersisted={onPersisted}
           />
-        </Paper>
       )}
-
       {workflowStageKey === 'aguardando_operadora' && !isDraft && (
-        <Paper sx={{ p: 2, mb: 2 }}>
+        <Box sx={{ mb: 2 }}>
           <PlacementAguardandoOperadoraPanel
             cotacaoId={cotacaoId}
             form={form}
             onChange={onChange}
             onPersisted={onPersisted}
             disabled={disabled}
+            onOpenSlides={onOpenSlides}
           />
-        </Paper>
+        </Box>
       )}
 
-      {workflowStageKey !== 'kick_off' && (
+      {workflowStageKey !== 'kick_off' &&
+        workflowStageKey !== 'estrategia' &&
+        workflowStageKey !== 'validacao' && (
         <>
           {workflowStageKey === 'em_cotacao' && !isDraft && (
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>

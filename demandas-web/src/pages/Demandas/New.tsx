@@ -26,10 +26,25 @@ import { api } from '../../lib/api.local'
 import { createPerfLogger } from '../../utils/perf'
 import { PrimaryActionButton } from '../../components/PrimaryActionButton'
 import { qualidadeFromQtdRetornos } from '../../utils/qualidadeRetornos'
+import { QualificacaoChamadoFields } from '../../components/cadastro/QualificacaoChamadoFields'
+import {
+  EMPTY_CHAMADO_QUALIFICACAO,
+  type ChamadoQualificacao,
+} from '../../types/chamadoQualificacao'
+import { saveChamadoQualificacaoLocal } from '../../lib/chamadoQualificacaoStorage'
 
 const metricSchema = z.object({
   qtdUsuarios: z.coerce.number().min(0, 'Deve ser um número positivo').optional(),
   qtdClientesVinculados: z.coerce.number().min(0, 'Deve ser um número positivo').optional(),
+})
+
+const qualificacaoChamadoSchema = z.object({
+  dadosIncorretos: z.boolean(),
+  dadosIncompletos: z.boolean(),
+  semGestorEmCopia: z.boolean(),
+  semRetorno: z.boolean(),
+  formularioIncorreto: z.boolean(),
+  observacao: z.string().optional(),
 })
 
 const schema = z.object({
@@ -56,6 +71,7 @@ const schema = z.object({
   qtdClientesVinculados: z.coerce.number().min(0, 'Deve ser um número positivo').optional(),
   usuariosEmpresa: z.coerce.number().min(0, 'Deve ser um número positivo').optional(),
   observacoes: z.string().optional(),
+  qualificacaoChamado: qualificacaoChamadoSchema,
 })
 
 type FormValues = z.infer<typeof schema>
@@ -98,6 +114,7 @@ export default function DemandNewPage() {
       qtdClientesVinculados: 0,
       usuariosEmpresa: 0,
       observacoes: '',
+      qualificacaoChamado: { ...EMPTY_CHAMADO_QUALIFICACAO },
     }
   })
   const perfRef = useRef(createPerfLogger('Cadastro/Novo'))
@@ -408,6 +425,13 @@ export default function DemandNewPage() {
 
       const sistemaIdPrimeiro = sistemaIds.length ? validateId(sistemaIds[0], md.sistemas, 'Sistema') : null
 
+      const qualificacaoChamado: ChamadoQualificacao = {
+        ...data.qualificacaoChamado,
+        observacao: data.qualificacaoChamado.observacao?.trim() ?? '',
+        avaliadoEm: new Date().toISOString(),
+        avaliadoPor: user?.name || user?.email || 'Analista',
+      }
+
       const backendPayload: Record<string, unknown> = {
         status: data.status,
         ticket: finalTicket,
@@ -433,6 +457,7 @@ export default function DemandNewPage() {
         qtdClientesVinculados: qtdClientesVinculadosValor !== '' && qtdClientesVinculadosValor !== null ? Number(qtdClientesVinculadosValor) : null,
         usuariosEmpresa: usuariosEmpresaValor !== '' && usuariosEmpresaValor !== null ? Number(usuariosEmpresaValor) : null,
         observacoes: emptyToNull(data.observacoes),
+        qualificacaoChamado,
       }
 
       const rejectedFields: string[] = []
@@ -487,10 +512,12 @@ export default function DemandNewPage() {
         qtdClientesVinculados: qtdClientesVinculadosValor !== '' && qtdClientesVinculadosValor !== null ? Number(qtdClientesVinculadosValor) : null,
         usuariosEmpresa: usuariosEmpresaValor !== '' && usuariosEmpresaValor !== null ? Number(usuariosEmpresaValor) : null,
         observacoes: emptyToNull(data.observacoes),
+        qualificacaoChamado,
       }
 
       // Usar o store para criar a demanda (que fará o mapeamento correto)
       const createdDemand = await store.add(storePayload)
+      saveChamadoQualificacaoLocal(createdDemand.id, qualificacaoChamado)
       
       console.log('✅ DemandNewPage: Demanda criada com sucesso:', createdDemand)
       navigate('/cadastro')
@@ -573,8 +600,8 @@ export default function DemandNewPage() {
               <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: '-0.03em', color: 'inherit', lineHeight: 1.2 }}>
                 Novo cadastro
               </Typography>
-              <Typography variant="body2" sx={{ mt: 0.75, opacity: 0.92, fontWeight: 400, maxWidth: 480 }}>
-                Ordem sugerida: identificação → sistemas → métricas → descrição e observações. Obrigatórios: tipo de serviço e tipo de demanda.
+              <Typography variant="body2" sx={{ mt: 0.75, opacity: 0.92, fontWeight: 400, maxWidth: 520 }}>
+                Identificação, sistemas, métricas, descrição e observações; finalize com a qualificação da recepção.
               </Typography>
             </Box>
           </Stack>
@@ -863,11 +890,11 @@ export default function DemandNewPage() {
             </CardContent>
           </Card>
 
-          <Card elevation={0} sx={{ ...cardSx, mb: 0 }}>
+          <Card elevation={0} sx={cardSx}>
             <CardContent sx={{ py: 3, px: { xs: 2.25, sm: 3 }, '&:last-child': { pb: 3 } }}>
               <SectionTitle>Descrição e observações</SectionTitle>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5, maxWidth: 720 }}>
-                Por último, descreva o pedido e acrescente notas. Os campos expandem com o texto; depois é só salvar.
+                Descreva o pedido e acrescente notas. Os campos expandem com o texto.
               </Typography>
               <Stack spacing={3}>
                 <Box>
@@ -917,6 +944,26 @@ export default function DemandNewPage() {
                   />
                 </Box>
               </Stack>
+            </CardContent>
+          </Card>
+
+          <Card elevation={0} sx={{ ...cardSx, mb: 0 }}>
+            <CardContent sx={{ py: 3, px: { xs: 2.25, sm: 3 }, '&:last-child': { pb: 3 } }}>
+              <SectionTitle>Qualificação do chamado</SectionTitle>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5, maxWidth: 720 }}>
+                Por último, avalie a qualidade dos dados recepcionados antes de salvar o cadastro.
+              </Typography>
+              <Controller
+                name="qualificacaoChamado"
+                control={control}
+                render={({ field }) => (
+                  <QualificacaoChamadoFields
+                    value={field.value}
+                    onChange={field.onChange}
+                    showHelper={false}
+                  />
+                )}
+              />
             </CardContent>
           </Card>
 

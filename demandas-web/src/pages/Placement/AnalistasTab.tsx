@@ -109,7 +109,7 @@ export default function AnalistasTab() {
         gap={1}
       >
         <Typography variant="body2" color="text.secondary">
-          Catálogo para designar o analista responsável pelo processo na Fila (antes de Em cotação).
+          Catálogo para designar o analista responsável pelo processo na Fila (antes de Solicitação Mercado).
         </Typography>
         <Stack direction="row" spacing={1}>
           <Button

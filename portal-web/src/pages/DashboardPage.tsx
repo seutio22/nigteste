@@ -7,7 +7,6 @@ import {
   CardActionArea,
   CardContent,
   Chip,
-  Container,
   Grid,
   List,
   ListItem,
@@ -22,6 +21,7 @@ import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings'
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import { CASE_STATUS_LABEL } from '../constants/caseStatus'
+import PageScaffold from '../components/PageScaffold'
 
 type CaseRow = {
   id: string
@@ -48,7 +48,7 @@ export default function DashboardPage() {
   const openCount = cases.filter((x) => !['COMPLETED', 'CANCELLED'].includes(x.status)).length
 
   return (
-    <Container maxWidth="lg" sx={{ py: 3 }}>
+    <PageScaffold>
       <Typography variant="h5" fontWeight={700} gutterBottom>
         Olá, {user?.name}
       </Typography>
@@ -56,7 +56,7 @@ export default function DashboardPage() {
         Acompanhe suas solicitações e abra novos pedidos escolhendo o tipo no catálogo.
       </Typography>
 
-      <Grid container spacing={2} sx={{ mb: 4 }}>
+      <Grid container spacing={{ xs: 2, md: 2.5 }} sx={{ mb: 4 }}>
         <Grid item xs={12} sm={6}>
           <Card variant="outlined" sx={{ height: '100%' }}>
             <CardActionArea component={RouterLink} to="/solicitacoes/nova" sx={{ height: '100%', alignItems: 'stretch' }}>
@@ -92,9 +92,9 @@ export default function DashboardPage() {
           <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1.5 }}>
             Atalhos do seu perfil
           </Typography>
-          <Grid container spacing={2} sx={{ mb: 4 }}>
+          <Grid container spacing={{ xs: 2, md: 2.5 }} sx={{ mb: 4 }}>
             {user?.role === 'REQUESTER_MANAGER' && (
-              <Grid item xs={12} sm={6} md={4}>
+              <Grid item xs={12} sm={6} md={3}>
                 <Card variant="outlined" sx={{ height: '100%' }}>
                   <CardActionArea component={RouterLink} to="/gestao/solicitacoes" sx={{ height: '100%' }}>
                     <CardContent>
@@ -109,7 +109,7 @@ export default function DashboardPage() {
               </Grid>
             )}
             {(user?.role === 'PORTAL_OPERATOR' || user?.role === 'PORTAL_ADMIN') && (
-              <Grid item xs={12} sm={6} md={4}>
+              <Grid item xs={12} sm={6} md={3}>
                 <Card variant="outlined" sx={{ height: '100%' }}>
                   <CardActionArea component={RouterLink} to="/operacao/fila" sx={{ height: '100%' }}>
                     <CardContent>
@@ -124,7 +124,7 @@ export default function DashboardPage() {
               </Grid>
             )}
             {user?.role === 'PORTAL_ADMIN' && (
-              <Grid item xs={12} sm={6} md={4}>
+              <Grid item xs={12} sm={6} md={3}>
                 <Card variant="outlined" sx={{ height: '100%' }}>
                   <CardActionArea component={RouterLink} to="/admin/centro" sx={{ height: '100%' }}>
                     <CardContent>
@@ -175,6 +175,6 @@ export default function DashboardPage() {
           ))}
         </List>
       )}
-    </Container>
+    </PageScaffold>
   )
 }

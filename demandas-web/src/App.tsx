@@ -29,20 +29,16 @@ function App() {
   useUserAlerts()
   
   useEffect(() => {
-    // O initialize() já é chamado automaticamente pelo onRehydrateStorage do persist
-    // Não precisamos chamar novamente aqui para evitar duplicação
-    // Apenas garantir que loading seja false se já tiver passado muito tempo
+    // Garantir que a UI não fique presa no loading (tela branca) se a reidratação falhar
     const timeoutId = setTimeout(() => {
-      if (loading) {
-        console.warn('⚠️ Loading ainda true após timeout, forçando false')
+      if (useAuthStore.getState().loading) {
+        console.warn('[Nexus] Timeout de autenticação — liberando interface')
         useAuthStore.getState().setLoading(false)
       }
-    }, 2000) // Timeout de segurança de 2 segundos
-    
-    return () => {
-      clearTimeout(timeoutId)
-    }
-  }, [loading])
+    }, 800)
+
+    return () => clearTimeout(timeoutId)
+  }, [])
   
   // Mostrar loading bonito enquanto carrega
   if (loading) {

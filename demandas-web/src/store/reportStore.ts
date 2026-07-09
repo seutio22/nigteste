@@ -1,6 +1,11 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { createSafePersistStorage, removeLocalStorageByPrefix } from '../lib/safePersistStorage'
 import { shouldSkipStoreSync } from '../utils/syncCooldown'
+
+export function clearReportLocalCache(): void {
+  removeLocalStorageByPrefix('reports-v1')
+}
 
 export interface Report {
   id: string
@@ -448,10 +453,10 @@ export const useReportStore = create<ReportState>()(
     }),
     {
       name: 'reports-v1',
-      partialize: (state) => ({
-        items: state.items,
-        timeline: state.timeline,
-        lastSync: state.lastSync,
+      version: 2,
+      partialize: (state) => ({ lastSync: state.lastSync }),
+      storage: createSafePersistStorage<Pick<ReportState, 'lastSync'>>('reports-v1', {
+        onQuotaExceeded: clearReportLocalCache,
       }),
       onRehydrateStorage: () => () => {
         queueMicrotask(() => {

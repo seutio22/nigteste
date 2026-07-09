@@ -104,55 +104,62 @@ export default function ValidationDetailPage() {
 
   // Carregar dados quando a página for acessada (modelo igual Manutenção)
   useEffect(() => {
+    if (!id) return
+
+    let cancelled = false
+
     const loadData = async () => {
-      console.log('🔍 ValidationDetailPage: Carregando dados para ID:', id)
-      console.log('🔍 ValidationDetailPage: Items no store:', items.length)
-      console.log('🔍 ValidationDetailPage: Loading:', loading)
+      const tasks: Promise<void>[] = []
 
-      // Carregar validações se necessário (apenas uma vez)
-      if (!syncedOnceRef.current && (items.length === 0 || !validation)) {
-        syncedOnceRef.current = true
-        await syncFromApi()
+      if (md.clientes.length === 0 && md.contratos.length === 0 && md.syncFromApi) {
+        tasks.push(
+          md.syncFromApi().then(() => {
+            if (!cancelled) setMasterDataLoaded(true)
+          })
+        )
+      } else {
+        setMasterDataLoaded(true)
       }
 
-      // Carregar dados mestres se necessário
-      if (!masterDataLoaded && md.syncFromApi) {
-        try {
-          await md.syncFromApi()
-          setMasterDataLoaded(true)
-        } catch (error) {
-          console.error('❌ ValidationDetailPage: Erro ao carregar dados mestres:', error)
-        }
-      }
-
-      // Sempre atualizar este registro pela API (garante contrato/cliente aninhados do banco)
-      if (id) {
-        try {
-          const { api } = await import('../../lib/api.local')
-          const fetchedRaw = await api.getValidacao(id)
-          const fetched: any = (fetchedRaw && fetchedRaw.id) ? fetchedRaw : fetchedRaw?.data
-          if (fetched?.id) {
-            if (fetched.id !== id) {
-              navigate(`/validacao/${fetched.id}`)
-              return
+      tasks.push(
+        (async () => {
+          try {
+            const { api } = await import('../../lib/api.local')
+            const fetchedRaw = await api.getValidacao(id)
+            const fetched: any = fetchedRaw && fetchedRaw.id ? fetchedRaw : fetchedRaw?.data
+            if (cancelled) return
+            if (fetched?.id) {
+              if (fetched.id !== id) {
+                navigate(`/validacao/${fetched.id}`)
+                return
+              }
+              const mapped = mapApiValidacaoToEntry(fetched)
+              useValidationStore.setState((s) => ({
+                items: [mapped, ...s.items.filter((x) => x.id !== mapped.id)],
+              }))
+            } else if (!validation) {
+              navigate('/validacao')
             }
-            const mapped = mapApiValidacaoToEntry(fetched)
-            useValidationStore.setState((s) => ({
-              items: [mapped, ...s.items.filter((x) => x.id !== mapped.id)]
-            }))
-          } else if (!validation) {
-            navigate('/validacao')
-            return
+          } catch {
+            if (!cancelled && !validation) {
+              navigate('/validacao')
+            }
           }
-        } catch {
-          if (!validation) {
-            navigate('/validacao')
-            return
-          }
-        }
+        })()
+      )
+
+      if (!syncedOnceRef.current && items.length === 0) {
+        syncedOnceRef.current = true
+        void syncFromApi()
       }
+
+      await Promise.all(tasks)
     }
-    loadData()
+
+    void loadData()
+    return () => {
+      cancelled = true
+    }
   }, [id])
 
   // Debug: verificar se a validação foi encontrada
@@ -458,6 +465,7 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
     estruturaMove: normalizeArrayField(validation.estruturaMove)
   }))
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
 
   // Buscar o grupo econômico do cliente selecionado
   // Normalizar cliente para garantir que seja sempre um ID (string)
@@ -497,17 +505,21 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
   useEffect(() => {
     // Normalizar valores da validação antes de definir no draft
     // Analista: sempre usar o da validação (quem criou/responsável), nunca o usuário que está acessando
+    const clienteNorm = relationId(validation.cliente, validation.clienteId) || undefined
+    const contratoNorm = relationId(validation.contrato, validation.contratoId) || undefined
+    const operadoraNorm = relationId(validation.operadora, validation.operadoraId) || undefined
+    const produtoNorm = relationId(validation.produto, validation.produtoId) || undefined
     const normalizedDraft = {
       ...validation,
       tipo: validation.tipo || '',
-      contrato: relationId(validation.contrato, validation.contratoId),
-      cliente: relationId(validation.cliente, validation.clienteId),
-      operadora: validation.operadora != null && typeof validation.operadora === 'object'
-        ? (validation.operadora as { id: string }).id
-        : validation.operadora || '',
-      produto: validation.produto != null && typeof validation.produto === 'object'
-        ? (validation.produto as { id: string }).id
-        : validation.produto || '',
+      cliente: clienteNorm,
+      clienteId: clienteNorm,
+      contrato: contratoNorm,
+      contratoId: contratoNorm,
+      operadora: operadoraNorm,
+      operadoraId: operadoraNorm,
+      produto: produtoNorm,
+      produtoId: produtoNorm,
       analista: validation.analista != null && typeof validation.analista === 'object'
         ? (validation.analista as { id: string }).id
         : validation.analista || '',
@@ -518,7 +530,7 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
       estruturaMove: normalizeArrayField(validation.estruturaMove)
     }
     setDraft(normalizedDraft)
-  }, [validation.id, validation.tipo, validation.contrato, validation.contratoId, validation.analista, validation.estruturaEdge, validation.estruturaMove])
+  }, [validation.id, validation.tipo, validation.contrato, validation.contratoId, validation.cliente, validation.clienteId, validation.operadora, validation.operadoraId, validation.produto, validation.produtoId, validation.analista, validation.estruturaEdge, validation.estruturaMove])
 
   const changedKeys = ((): string[] => {
     // Excluir 'total' da lista pois é calculado automaticamente
@@ -658,7 +670,9 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
   }, [draft.estruturaEdge, draft.estruturaMove])
 
   async function applySave() {
+    if (isSaving) return
     try {
+      setIsSaving(true)
       // Obter dados do usuário atual
       const { user: currentUser } = useAuthStore.getState()
       console.log('🔍 ValidationDetailPage: Usuário atual:', currentUser)
@@ -697,112 +711,150 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
         return
       }
 
-      const dataToSave = { ...draft, total: totalCalculado }
+      const dataToSave = {
+        ...draft,
+        total: totalCalculado,
+        cliente: relationId(draft.cliente) || undefined,
+        clienteId: relationId(draft.cliente) || undefined,
+        contrato: relationId(draft.contrato) || undefined,
+        contratoId: relationId(draft.contrato) || undefined,
+        operadora: relationId(draft.operadora) || undefined,
+        operadoraId: relationId(draft.operadora) || undefined,
+        produto: relationId(draft.produto) || undefined,
+        produtoId: relationId(draft.produto) || undefined,
+      }
       console.log('🔍 Dados que serão salvos:', dataToSave)
       
       await store.upsert(dataToSave as ValidationEntry)
-      console.log('✅ store.upsert concluído')
-      
-      // Log das mudanças
-      changedKeys.forEach((k) => {
-        // Função para converter ID em nome para logs
-        const convertIdToName = (id: string | undefined, fieldType: string) => {
-          if (!id) return 'N/A'
-          
-          switch (fieldType) {
-            case 'cliente':
-              return md.clientes.find(c => c.id === id)?.nome || id
-            case 'contrato':
-              return md.contratos.find(c => c.id === id)?.codigo || md.contratos.find(c => c.id === id)?.numero || id
-            case 'operadora':
-              return md.operadoras.find(o => o.id === id)?.nome || id
-            case 'produto':
-              return md.produtos.find(p => p.id === id)?.nome || id
-            case 'analista':
-              return md.analistas.find(a => a.id === id)?.nome || id
-            case 'solicitante':
-              return md.solicitantes.find(s => s.id === id)?.nome || id
-            default:
-              return id
-          }
-        }
-        
-        const from = k === 'status' ? String(validation.status ?? '') : 
-                    k === 'ticket' ? String(validation.ticket ?? '') : 
-                    k === 'solicitante' ? convertIdToName(validation.solicitante, 'solicitante') : 
-                  k === 'tipo' ? String(validation.tipo ?? '') : 
-                  k === 'descricao' ? String(validation.descricao ?? '') : 
-                  k === 'observacoes' ? String(validation.observacoes ?? '') :
-                  k === 'cliente' ? convertIdToName(validation.cliente, 'cliente') :
-                    k === 'contrato' ? convertIdToName(validation.contrato, 'contrato') : 
-                    k === 'operadora' ? convertIdToName(validation.operadora, 'operadora') : 
-                    k === 'produto' ? convertIdToName(validation.produto, 'produto') : 
-                    k === 'analista' ? convertIdToName(validation.analista, 'analista') : 
-                    k === 'dataInicio' ? String(validation.dataInicio ?? '') : 
-                    k === 'dataFinal' ? String(validation.dataFinal ?? '') : 
-                    k === 'vigencia' ? String(validation.vigencia ?? '') : 
-                    k === 'qtdRetornos' ? String(validation.qtdRetornos ?? '') : 
-                    k === 'qualidade' ? String(validation.qualidade ?? '') : 
-                    k === 'formalizacao' ? String(validation.formalizacao ?? '') : 
-                    k === 'itensPendentes' ? String(validation.itensPendentes ?? '') : 
-                    k === 'itensConcluidos' ? String(validation.itensConcluidos ?? '') : 
-                    String(validation.observacoes ?? '')
-                    
-        const to = k === 'status' ? String(draft.status ?? '') : 
-                  k === 'ticket' ? String(draft.ticket ?? '') : 
-                  k === 'solicitante' ? convertIdToName(draft.solicitante, 'solicitante') : 
-                  k === 'tipo' ? String(draft.tipo ?? '') : 
-                  k === 'descricao' ? String(draft.descricao ?? '') : 
-                  k === 'observacoes' ? String(draft.observacoes ?? '') :
-                  k === 'cliente' ? convertIdToName(draft.cliente, 'cliente') : 
-                  k === 'contrato' ? convertIdToName(draft.contrato, 'contrato') : 
-                  k === 'operadora' ? convertIdToName(draft.operadora, 'operadora') : 
-                  k === 'produto' ? convertIdToName(draft.produto, 'produto') : 
-                  k === 'analista' ? convertIdToName(draft.analista, 'analista') : 
-                  k === 'dataInicio' ? String(draft.dataInicio ?? '') : 
-                  k === 'dataFinal' ? String(draft.dataFinal ?? '') : 
-                  k === 'vigencia' ? String(draft.vigencia ?? '') : 
-                  k === 'qtdRetornos' ? String(draft.qtdRetornos ?? '') : 
-                  k === 'qualidade' ? String(draft.qualidade ?? '') : 
-                  k === 'formalizacao' ? String(draft.formalizacao ?? '') : 
-                  k === 'itensPendentes' ? String(draft.itensPendentes ?? '') : 
-                  k === 'itensConcluidos' ? String(draft.itensConcluidos ?? '') : 
-                  String(draft.observacoes ?? '')
-        
-        if (k === 'status') {
-          store.log({ 
-            validationId: validation.id, 
-            type: 'status_change' as const, 
-            field: 'status', 
-            from, 
-            to,
-            user: currentUser?.name
-          })
-        } else {
-          console.log('🔍 ValidationDetailPage: Criando log para campo:', {
-            campoOriginal: k,
-            valorAnterior: from,
-            valorNovo: to,
-            validationId: validation.id,
-            user: currentUser?.name
-          })
-          
-          const logData = { 
-            validationId: validation.id, 
-            type: 'field_change' as const, 
-            field: k, 
-            from, 
-            to,
-            user: currentUser?.name
-          }
-          
-          store.log(logData)
-          console.log('✅ ValidationDetailPage: Log criado com sucesso')
-        }
-      })
-      
+
       setConfirmOpen(false)
-      console.log('✅ ValidationDetailPage: Validação atualizada com sucesso')
+
+      // Histórico em background — não bloqueia o fechamento do modal
+      void Promise.all(
+        changedKeys.map((k) => {
+          const convertIdToName = (id: string | undefined, fieldType: string) => {
+            if (!id) return 'N/A'
+            switch (fieldType) {
+              case 'cliente':
+                return md.clientes.find((c) => c.id === id)?.nome || id
+              case 'contrato':
+                return md.contratos.find((c) => c.id === id)?.codigo || md.contratos.find((c) => c.id === id)?.numero || id
+              case 'operadora':
+                return md.operadoras.find((o) => o.id === id)?.nome || id
+              case 'produto':
+                return md.produtos.find((p) => p.id === id)?.nome || id
+              case 'analista':
+                return md.analistas.find((a) => a.id === id)?.nome || id
+              case 'solicitante':
+                return md.solicitantes.find((s) => s.id === id)?.nome || id
+              default:
+                return id
+            }
+          }
+
+          const from =
+            k === 'status'
+              ? String(validation.status ?? '')
+              : k === 'ticket'
+                ? String(validation.ticket ?? '')
+                : k === 'solicitante'
+                  ? convertIdToName(validation.solicitante, 'solicitante')
+                  : k === 'tipo'
+                    ? String(validation.tipo ?? '')
+                    : k === 'descricao'
+                      ? String(validation.descricao ?? '')
+                      : k === 'observacoes'
+                        ? String(validation.observacoes ?? '')
+                        : k === 'cliente'
+                          ? convertIdToName(relationId(validation.cliente, validation.clienteId), 'cliente')
+                          : k === 'contrato'
+                            ? convertIdToName(relationId(validation.contrato, validation.contratoId), 'contrato')
+                            : k === 'operadora'
+                              ? convertIdToName(relationId(validation.operadora, validation.operadoraId), 'operadora')
+                              : k === 'produto'
+                                ? convertIdToName(relationId(validation.produto, validation.produtoId), 'produto')
+                                : k === 'analista'
+                                  ? convertIdToName(relationId(validation.analista, validation.analistaId), 'analista')
+                                  : k === 'dataInicio'
+                                    ? String(validation.dataInicio ?? '')
+                                    : k === 'dataFinal'
+                                      ? String(validation.dataFinal ?? '')
+                                      : k === 'vigencia'
+                                        ? String(validation.vigencia ?? '')
+                                        : k === 'qtdRetornos'
+                                          ? String(validation.qtdRetornos ?? '')
+                                          : k === 'qualidade'
+                                            ? String(validation.qualidade ?? '')
+                                            : k === 'formalizacao'
+                                              ? String(validation.formalizacao ?? '')
+                                              : k === 'itensPendentes'
+                                                ? String(validation.itensPendentes ?? '')
+                                                : k === 'itensConcluidos'
+                                                  ? String(validation.itensConcluidos ?? '')
+                                                  : String(validation.observacoes ?? '')
+
+          const to =
+            k === 'status'
+              ? String(draft.status ?? '')
+              : k === 'ticket'
+                ? String(draft.ticket ?? '')
+                : k === 'solicitante'
+                  ? convertIdToName(draft.solicitante, 'solicitante')
+                  : k === 'tipo'
+                    ? String(draft.tipo ?? '')
+                    : k === 'descricao'
+                      ? String(draft.descricao ?? '')
+                      : k === 'observacoes'
+                        ? String(draft.observacoes ?? '')
+                        : k === 'cliente'
+                          ? convertIdToName(draft.cliente, 'cliente')
+                          : k === 'contrato'
+                            ? convertIdToName(draft.contrato, 'contrato')
+                            : k === 'operadora'
+                              ? convertIdToName(draft.operadora, 'operadora')
+                              : k === 'produto'
+                                ? convertIdToName(draft.produto, 'produto')
+                                : k === 'analista'
+                                  ? convertIdToName(draft.analista, 'analista')
+                                  : k === 'dataInicio'
+                                    ? String(draft.dataInicio ?? '')
+                                    : k === 'dataFinal'
+                                      ? String(draft.dataFinal ?? '')
+                                      : k === 'vigencia'
+                                        ? String(draft.vigencia ?? '')
+                                        : k === 'qtdRetornos'
+                                          ? String(draft.qtdRetornos ?? '')
+                                          : k === 'qualidade'
+                                            ? String(draft.qualidade ?? '')
+                                            : k === 'formalizacao'
+                                              ? String(draft.formalizacao ?? '')
+                                              : k === 'itensPendentes'
+                                                ? String(draft.itensPendentes ?? '')
+                                                : k === 'itensConcluidos'
+                                                  ? String(draft.itensConcluidos ?? '')
+                                                  : String(draft.observacoes ?? '')
+
+          if (k === 'status') {
+            return store.log({
+              validationId: validation.id,
+              type: 'status_change' as const,
+              field: 'status',
+              from,
+              to,
+              user: currentUser?.name,
+            })
+          }
+
+          return store.log({
+            validationId: validation.id,
+            type: 'field_change' as const,
+            field: k,
+            from,
+            to,
+            user: currentUser?.name,
+          })
+        })
+      )
       
     } catch (error: any) {
       console.error('❌ Erro ao salvar validação:', error)
@@ -846,6 +898,8 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
           : ''
 
       alert(`Falha ao salvar — nenhuma alteração foi aplicada.${fieldsPart} Motivo: ${reason}`)
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -957,7 +1011,9 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
             onChange={(_, newValue) => setDraft({
               ...draft,
               cliente: newValue?.id || undefined,
+              clienteId: newValue?.id || undefined,
               contrato: undefined,
+              contratoId: undefined,
             })}
             renderInput={(params) => (
               <TextField {...params} placeholder="Digite para buscar..." variant="outlined" size="small" fullWidth />
@@ -974,7 +1030,9 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
             onChange={(e) => setDraft({
               ...draft,
               operadora: e.target.value || undefined,
+              operadoraId: e.target.value || undefined,
               produto: undefined,
+              produtoId: undefined,
             })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
@@ -986,7 +1044,11 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
           <label className="block text-sm font-medium text-gray-700 mb-2">Contrato</label>
           <ContratoLocalAutocomplete
             valueId={typeof draft.contrato === 'string' ? draft.contrato : relationId(draft.contrato, validation.contratoId)}
-            onChangeId={(id) => setDraft({ ...draft, contrato: id || undefined })}
+            onChangeId={(id) => setDraft({
+              ...draft,
+              contrato: id || undefined,
+              contratoId: id || undefined,
+            })}
             contratos={contratosDoCliente}
             disabled={!clienteIdNormalized}
           />
@@ -997,7 +1059,11 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
             value={draft.produto != null && typeof draft.produto === 'object'
               ? (draft.produto as { id: string }).id
               : (draft.produto || '')}
-            onChange={(e) => setDraft({ ...draft, produto: e.target.value || undefined })}
+            onChange={(e) => setDraft({
+              ...draft,
+              produto: e.target.value || undefined,
+              produtoId: e.target.value || undefined,
+            })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="">Selecione um produto</option>
@@ -1244,15 +1310,17 @@ function EditInline({ validation }: { validation: ValidationEntry }) {
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setConfirmOpen(false)}
-                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                disabled={isSaving}
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
               >
                 Cancelar
               </button>
               <button
                 onClick={applySave}
-                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                disabled={isSaving}
+                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
               >
-                Confirmar
+                {isSaving ? 'Salvando…' : 'Confirmar'}
               </button>
             </div>
           </div>

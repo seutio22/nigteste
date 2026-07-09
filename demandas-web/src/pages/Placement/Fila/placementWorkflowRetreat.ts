@@ -11,8 +11,10 @@ export type WorkflowRetreatDiscardScope = {
 
 export function getRetreatDiscardScope(fromStatus: string): WorkflowRetreatDiscardScope {
   const key = getWorkflowStageKey(fromStatus)
-  if (key === 'kick_off') return { kickOffEstrategia: true }
-  if (key === 'em_cotacao') return { beneficiarios: true, emCotacaoSubetapa: true }
+  if (key === 'estrategia') return { kickOffEstrategia: true }
+  if (key === 'validacao' || key === 'em_cotacao') {
+    return { beneficiarios: true, emCotacaoSubetapa: true }
+  }
   return {}
 }
 
@@ -23,11 +25,14 @@ export function hasRetreatDiscardData(fromStatus: string): boolean {
 
 export function describeRetreatDiscard(fromStatus: string): string {
   const key = getWorkflowStageKey(fromStatus)
-  if (key === 'kick_off') {
-    return 'A estratégia do Kick off (premissas, condições, mercado analisado e ajustes do resumo) será apagada.'
+  if (key === 'estrategia') {
+    return 'A estratégia formalizada (premissas, condições, mercado analisado e ajustes do resumo) será apagada.'
+  }
+  if (key === 'validacao') {
+    return 'A base de beneficiários importada e o progresso da Análise serão removidos.'
   }
   if (key === 'em_cotacao') {
-    return 'A base de beneficiários importada e o progresso das subetapas de Em cotação serão removidos.'
+    return 'A base de beneficiários importada e o progresso das subetapas de Solicitação Mercado serão removidos.'
   }
   return 'Não há dados específicos desta etapa para descartar; apenas o status será alterado.'
 }
@@ -35,11 +40,17 @@ export function describeRetreatDiscard(fromStatus: string): string {
 export function describeRetreatKeep(fromStatus: string, prevStatus: PlacementCotacaoWorkflowStatus): string {
   const from = getWorkflowStageKey(fromStatus)
   const prev = getWorkflowStageKey(prevStatus)
-  if (from === 'em_cotacao' && prev === 'kick_off') {
-    return 'Beneficiários, cenário de estudo e demais dados de Em cotação permanecem salvos para quando retornar.'
+  if (from === 'em_cotacao' && prev === 'estrategia') {
+    return 'A estratégia formalizada e demais dados de Solicitação Mercado permanecem salvos para quando retornar.'
   }
-  if (from === 'kick_off' && prev === 'base_atual') {
-    return 'A estratégia do Kick off permanece salva para quando retornar a esta etapa.'
+  if (from === 'estrategia' && prev === 'kick_off') {
+    return 'A estratégia em elaboração permanece salva para quando retornar a esta etapa.'
+  }
+  if (from === 'kick_off' && prev === 'validacao') {
+    return 'Beneficiários e dados da Validação permanecem salvos para quando retornar.'
+  }
+  if (from === 'validacao' && prev === 'base_atual') {
+    return 'Beneficiários e slides validados permanecem salvos para quando retornar.'
   }
   return 'Todos os dados já cadastrados permanecem salvos.'
 }

@@ -35,7 +35,7 @@ export function validateEtapaBaseAtual(form: CotacaoFormState): string | null {
     return 'Selecione a filial em Mapeamento.'
   }
   if (!form.dataInicio?.trim()) {
-    return 'Informe a data de início (Prazos).'
+    return 'Informe a data de início (Solicitação de Estudo).'
   }
 
   const tipo = form.formularioTipo
@@ -61,7 +61,7 @@ export function validateEtapaBaseAtual(form: CotacaoFormState): string | null {
   const fin = form.dadosFinanceiros
   const temCorretor = !!form.corretorParceiroId?.trim()
   if (form.clienteTipo === 'casa' && !fin.atual.comissaoVitalicioContrato.trim()) {
-    return 'Informe a comissão vitalícia do contrato atual (cliente da casa).'
+    return 'Informe a comissão vitalícia do contrato atual (Cliente da Carteira).'
   }
   if (
     participacaoExcedeLimite(
@@ -124,12 +124,22 @@ export function validateEtapaEmCotacao(form: CotacaoFormState): string | null {
   return null
 }
 
-/** Validação para avançar de Base atual → Kick off (exige analista responsável). */
-export function validateAvancarParaKickOff(form: CotacaoFormState): string | null {
-  const baseErr = validateEtapaBaseAtual(form)
-  if (baseErr) return baseErr
+/** Validação para avançar de Base atual → Validação. */
+export function validateAvancarParaValidacao(form: CotacaoFormState): string | null {
+  return validateEtapaBaseAtual(form)
+}
+
+/** Validação para avançar de Validação → Kick off. */
+export function validateAvancarParaKickOff(
+  form: CotacaoFormState,
+  ctx?: { beneficiariosTotal?: number },
+): string | null {
   if (!form.analistaResponsavelId?.trim()) {
     return 'Designe o analista responsável (catálogo Placement) antes de avançar para Kick off.'
+  }
+  const total = ctx?.beneficiariosTotal ?? 0
+  if (total < 1) {
+    return 'Importe a base de beneficiários na Análise antes de avançar para Kick off.'
   }
   return null
 }
@@ -141,19 +151,22 @@ export function validateAvancarParaEmCotacao(form: CotacaoFormState): string | n
 
 export function validateEtapaKickOff(form: CotacaoFormState): string | null {
   if (!kickOffEstrategiaIsComplete(form.kickOffEstrategia)) {
-    return 'Preencha a estratégia do Kick off (fatores e mercado analisado) antes de avançar.'
+    return 'Preencha a estratégia (premissas, condições e mercado analisado) antes de avançar para Solicitação Mercado.'
   }
   return null
 }
 
 export function validateForWorkflowAdvance(
   status: string,
-  form: CotacaoFormState
+  form: CotacaoFormState,
+  ctx?: { beneficiariosTotal?: number },
 ): string | null {
   const idx = workflowStageIndex(status)
-  if (idx === 0) return validateAvancarParaKickOff(form)
-  if (idx === 1) return validateEtapaKickOff(form)
-  if (idx === 2) return validateEtapaEmCotacao(form)
+  if (idx === 0) return validateAvancarParaValidacao(form)
+  if (idx === 1) return validateAvancarParaKickOff(form, ctx)
+  if (idx === 2) return null
+  if (idx === 3) return validateEtapaKickOff(form)
+  if (idx === 4) return validateEtapaEmCotacao(form)
   return null
 }
 
@@ -264,17 +277,38 @@ export function buildChecklistKickOff(form: CotacaoFormState): WorkflowChecklist
   }))
 }
 
+export function buildChecklistValidacao(
+  form: CotacaoFormState,
+  beneficiariosTotal: number,
+): WorkflowChecklistItem[] {
+  return [
+    {
+      id: 'beneficiarios',
+      label: 'Base de beneficiários importada',
+      done: beneficiariosTotal >= 1,
+    },
+    {
+      id: 'analista_responsavel',
+      label: 'Analista responsável designado',
+      done: !!form.analistaResponsavelId?.trim(),
+    },
+  ]
+}
+
 export function buildWorkflowChecklist(
   status: PlacementCotacaoWorkflowStatus | string,
   form: CotacaoFormState,
   operadoras: { id: string; nome: string }[] = [],
-  operadorasById?: Record<string, { id: string; nome: string }>
+  operadorasById?: Record<string, { id: string; nome: string }>,
+  ctx?: { beneficiariosTotal?: number },
 ): WorkflowChecklistItem[] {
   const idx = workflowStageIndex(status)
   if (idx === 0) return buildChecklistBaseAtual(form)
-  if (idx === 1) return buildChecklistKickOff(form)
-  if (idx === 2) return buildChecklistEmCotacao(form, operadoras, operadorasById)
-  if (idx === 3) {
+  if (idx === 1) return buildChecklistValidacao(form, ctx?.beneficiariosTotal ?? 0)
+  if (idx === 2) return []
+  if (idx === 3) return buildChecklistKickOff(form)
+  if (idx === 4) return buildChecklistEmCotacao(form, operadoras, operadorasById)
+  if (idx === 5) {
     return [
       {
         id: 'aguardando_retornos',
@@ -283,7 +317,7 @@ export function buildWorkflowChecklist(
       },
     ]
   }
-  if (idx === 4) {
+  if (idx === 6) {
     return [{ id: 'proposta', label: 'Proposta formal enviada ao cliente', done: true }]
   }
   return []

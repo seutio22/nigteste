@@ -8,7 +8,6 @@ import {
   Card,
   CardContent,
   Chip,
-  Container,
   Divider,
   Paper,
   Tab,
@@ -23,6 +22,7 @@ import PauseCircleOutlineIcon from '@mui/icons-material/PauseCircleOutline'
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked'
 import { api } from '../lib/api'
 import { getDownloadUrlForKey, isAttachmentRef } from '../lib/uploadAttachment'
+import PageScaffold from '../components/PageScaffold'
 import { CASE_STATUS_LABEL } from '../constants/caseStatus'
 import { PRIORITY_LABEL } from '../constants/priority'
 
@@ -244,20 +244,20 @@ export default function CaseDetailPage() {
 
   if (loading) {
     return (
-      <Container sx={{ py: 4 }}>
+      <PageScaffold sx={{ py: 4 }}>
         <Typography color="text.secondary">Carregando…</Typography>
-      </Container>
+      </PageScaffold>
     )
   }
 
   if (err || !c) {
     return (
-      <Container sx={{ py: 4 }}>
+      <PageScaffold sx={{ py: 4 }}>
         <Typography color="error">{err || 'Solicitação não encontrada.'}</Typography>
         <Button component={RouterLink} to="/solicitacoes" sx={{ mt: 2 }} startIcon={<ArrowBackIcon />}>
           Voltar à lista
         </Button>
-      </Container>
+      </PageScaffold>
     )
   }
 
@@ -265,7 +265,7 @@ export default function CaseDetailPage() {
   const temSlaUi = sla?.temPerfil && sla.etapas.length > 0
 
   return (
-    <Container maxWidth="md" sx={{ py: 3 }}>
+    <PageScaffold>
       <Breadcrumbs sx={{ mb: 2 }}>
         <RouterLink to="/" style={{ color: 'inherit' }}>
           Início
@@ -306,7 +306,7 @@ export default function CaseDetailPage() {
       </Tabs>
 
       {tab === 0 && (
-        <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
+        <Paper variant="outlined" sx={{ p: 3, borderRadius: 2, width: '100%', boxSizing: 'border-box' }}>
           <Typography variant="subtitle2" color="text.secondary">
             Título
           </Typography>
@@ -375,7 +375,7 @@ export default function CaseDetailPage() {
             : 'Não foi possível carregar as etapas de SLA. Tente atualizar a página.'}
         </Alert>
       )}
-    </Container>
+    </PageScaffold>
   )
 }
 

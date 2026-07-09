@@ -5,6 +5,7 @@ import ProjectAlerts from '../../components/ProjectAlerts'
 import ProjectGantt from '../../components/ProjectGantt'
 import ShareProjectModal from '../../components/ShareProjectModal'
 import ExportProjectModal from '../../components/ExportProjectModal'
+import ProjectTemplatesDialog from '../../components/ProjectTemplatesDialog'
 
 import {
   Box,
@@ -88,7 +89,9 @@ import {
   Download as DownloadIcon,
   Notifications,
   History as HistoryIcon,
-  Refresh as RefreshIcon
+  Refresh as RefreshIcon,
+  ContentCopy,
+  UploadFile
 } from '@mui/icons-material'
 import { api } from '../../lib/api.local'
 import { useProjectStore } from '../../store/projectStore'
@@ -995,6 +998,8 @@ export default function ProjectDetailPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [shareModalOpen, setShareModalOpen] = useState(false)
   const [exportModalOpen, setExportModalOpen] = useState(false)
+  const [templateSaveOpen, setTemplateSaveOpen] = useState(false)
+  const [templateImportOpen, setTemplateImportOpen] = useState(false)
   const [activeTab, setActiveTab] = useState(0)
   const [workAuditLogs, setWorkAuditLogs] = useState<any[]>([])
   const [workAuditLoading, setWorkAuditLoading] = useState(false)
@@ -3574,6 +3579,26 @@ export default function ProjectDetailPage() {
           >
             {readOnly ? 'Ver Alertas' : 'Configurar Alertas'}
           </Button>
+          {!readOnly && (
+            <Button
+              variant="outlined"
+              startIcon={<UploadFile />}
+              size="medium"
+              onClick={() => setTemplateImportOpen(true)}
+            >
+              Importar Excel
+            </Button>
+          )}
+          {!readOnly && (
+            <Button
+              variant="outlined"
+              startIcon={<ContentCopy />}
+              size="medium"
+              onClick={() => setTemplateSaveOpen(true)}
+            >
+              Salvar como template
+            </Button>
+          )}
           {!readOnly && (
             <Button
               variant="contained"
@@ -6346,6 +6371,27 @@ export default function ProjectDetailPage() {
             project={project}
             teamInternal={teamMembers}
             teamExternal={externalMembers}
+          />
+
+          <ProjectTemplatesDialog
+            open={templateSaveOpen}
+            onClose={() => setTemplateSaveOpen(false)}
+            mode="save"
+            projectTimeline={project?.timeline}
+          />
+
+          <ProjectTemplatesDialog
+            open={templateImportOpen}
+            onClose={() => setTemplateImportOpen(false)}
+            mode="pick"
+            onApplyTimeline={(timeline) => {
+              const updatedProject = { ...project, timeline }
+              setProject(updatedProject)
+              upsertProject(updatedProject).catch((err: unknown) => {
+                console.error('Erro ao importar cronograma:', err)
+                alert('Erro ao salvar cronograma importado.')
+              })
+            }}
           />
         </Box>
     )

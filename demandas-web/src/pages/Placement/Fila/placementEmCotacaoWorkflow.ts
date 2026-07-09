@@ -1,9 +1,9 @@
-export type EmCotacaoSubetapaKey =
-  | 'beneficiarios'
-  | 'etapa2'
-  | 'etapa3'
-  | 'etapa4'
-  | 'comunicar_mercado'
+export type EmCotacaoSubetapaKey = 'beneficiarios' | 'analise_base' | 'comunicar_mercado'
+
+/** Subetapas legadas — normalizadas para `analise_base` na UI. */
+export type LegacyAnaliseSubetapaKey = 'etapa2' | 'etapa3' | 'etapa4'
+
+export type EmCotacaoSubetapaKeyWithLegacy = EmCotacaoSubetapaKey | LegacyAnaliseSubetapaKey
 
 export type EmCotacaoSubetapaMeta = {
   key: EmCotacaoSubetapaKey
@@ -11,6 +11,24 @@ export type EmCotacaoSubetapaMeta = {
   description: string
   objective: string
 }
+
+/** Subetapas antecipadas na etapa Validação (sem comunicar mercado). */
+export const VALIDACAO_SUBETAPAS: EmCotacaoSubetapaMeta[] = [
+  {
+    key: 'beneficiarios',
+    label: 'Base de beneficiários',
+    description: 'Planilha para cotação',
+    objective:
+      'Importe a base de vidas e valide CNPJ (subfaturas/estipulante), operadora, plano atual e custo per capita em relação ao formulário da abertura.',
+  },
+  {
+    key: 'analise_base',
+    label: 'Análise da base',
+    description: 'Grupo elegível, contrato e localidades',
+    objective:
+      'Visualize em uma única página o grupo elegível, o contrato atual e a distribuição por localidade com base na planilha importada.',
+  },
+]
 
 export const EM_COTACAO_SUBETAPAS: EmCotacaoSubetapaMeta[] = [
   {
@@ -21,25 +39,11 @@ export const EM_COTACAO_SUBETAPAS: EmCotacaoSubetapaMeta[] = [
       'Importe a base de vidas e valide CNPJ (subfaturas/estipulante), operadora, plano atual e custo per capita em relação ao formulário da abertura.',
   },
   {
-    key: 'etapa2',
-    label: 'Grupo elegível',
-    description: 'Slide para o cliente',
+    key: 'analise_base',
+    label: 'Análise da base',
+    description: 'Grupo elegível, contrato e localidades',
     objective:
-      'Gera o slide Grupo Elegível (totais, sexo, faixas etárias, planos e categorias) com base na planilha importada.',
-  },
-  {
-    key: 'etapa3',
-    label: 'Contrato atual',
-    description: 'Cenário vigente',
-    objective:
-      'Gera o slide Contrato Atual com operadora, planos, elegibilidade, contribuição, coparticipação, vidas e fatura estimada (dados da cotação + beneficiários).',
-  },
-  {
-    key: 'etapa4',
-    label: 'Distribuição por localidade',
-    description: 'Mapa e ranking',
-    objective:
-      'Gera o slide de distribuição geográfica (municípios e mapa do Brasil por UF) com base na cidade e UF da planilha importada.',
+      'Visualize em uma única página o grupo elegível, o contrato atual e a distribuição por localidade com base na planilha importada.',
   },
   {
     key: 'comunicar_mercado',
@@ -50,9 +54,15 @@ export const EM_COTACAO_SUBETAPAS: EmCotacaoSubetapaMeta[] = [
   },
 ]
 
+const LEGACY_ANALISE_SUBETAPAS = new Set(['etapa2', 'etapa3', 'etapa4', 'localidade'])
+
+export function isLegacyAnaliseSubetapaKey(value: string | null | undefined): boolean {
+  return LEGACY_ANALISE_SUBETAPAS.has(String(value ?? '').trim().toLowerCase())
+}
+
 export function normalizeEmCotacaoSubetapa(value: string | null | undefined): EmCotacaoSubetapaKey {
   const v = String(value ?? '').trim().toLowerCase()
-  if (v === 'localidade') return 'etapa4'
+  if (LEGACY_ANALISE_SUBETAPAS.has(v)) return 'analise_base'
   const hit = EM_COTACAO_SUBETAPAS.find((s) => s.key === v)
   return hit?.key ?? 'beneficiarios'
 }
@@ -62,7 +72,36 @@ export function emCotacaoSubetapaIndex(key: EmCotacaoSubetapaKey): number {
 }
 
 export function nextEmCotacaoSubetapa(current: EmCotacaoSubetapaKey): EmCotacaoSubetapaKey | null {
-  const idx = emCotacaoSubetapaIndex(current)
-  if (idx < 0 || idx >= EM_COTACAO_SUBETAPAS.length - 1) return null
-  return EM_COTACAO_SUBETAPAS[idx + 1].key
+  return nextSubetapaInList(current, EM_COTACAO_SUBETAPAS)
+}
+
+export function nextValidacaoSubetapa(current: EmCotacaoSubetapaKey): EmCotacaoSubetapaKey | null {
+  return nextSubetapaInList(current, VALIDACAO_SUBETAPAS)
+}
+
+function nextSubetapaInList(
+  current: EmCotacaoSubetapaKey,
+  list: EmCotacaoSubetapaMeta[],
+): EmCotacaoSubetapaKey | null {
+  const idx = list.findIndex((s) => s.key === current)
+  if (idx < 0 || idx >= list.length - 1) return null
+  return list[idx + 1].key
+}
+
+export function subetapaIndexInList(key: EmCotacaoSubetapaKey, list: EmCotacaoSubetapaMeta[]): number {
+  return list.findIndex((s) => s.key === key)
+}
+
+/** Limita subetapa ao escopo da Validação (máx. análise da base). */
+export function clampSubetapaForValidacao(value: string | null | undefined): EmCotacaoSubetapaKey {
+  const normalized = normalizeEmCotacaoSubetapa(value)
+  if (normalized === 'comunicar_mercado') return 'analise_base'
+  const idx = subetapaIndexInList(normalized, VALIDACAO_SUBETAPAS)
+  if (idx >= 0) return normalized
+  return 'beneficiarios'
+}
+
+/** Valor persistido na API ao entrar na etapa unificada de análise. */
+export function persistSubetapaForAnaliseBase(): EmCotacaoSubetapaKey {
+  return 'analise_base'
 }

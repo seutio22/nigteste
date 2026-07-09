@@ -81,6 +81,7 @@ function baseForm(): CotacaoFormState {
     multaRescisaoRegra: '',
     multaRescisaoAvisoPrevio: '60 dias',
     possuiConvencaoColetiva: '',
+    convencaoColetivaDetalhe: '',
     subfaturasDraft: [],
     kickOffEstrategia: {
       ...emptyKickOffEstrategia(),

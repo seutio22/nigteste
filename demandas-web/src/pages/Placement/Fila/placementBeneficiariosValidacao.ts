@@ -5,15 +5,42 @@ import {
   type PlanoCoberturaForm,
 } from './placementCotacaoDetalhes'
 import type { PlacementBeneficiario } from './placementBeneficiarios'
+import { isGrauParentescoConhecido, isGrauConjuge, isGrauFilho, isGrauTitular, normGrauParentesco, resolveTipoParentesco } from './placementBeneficiarioTipoParentesco'
 import { parseBRLToCents } from './utils'
 
-export type BeneficiarioValidacaoCampo = 'cnpj' | 'operadora' | 'planoAtual' | 'custoPerCapita'
+export type BeneficiarioValidacaoCampo =
+  | 'cnpj'
+  | 'operadora'
+  | 'planoAtual'
+  | 'custoPerCapita'
+  | 'grauParentesco'
+  | 'sexo'
+  | 'dataNascimento'
+  | 'cid10'
+  | 'motivoAfastamento'
+  | 'dataInicioBeneficio'
+  | 'dataFinalBeneficio'
+  | 'cidade'
+  | 'uf'
+  | 'nome'
+  | 'matricula'
 
 export const CAMPO_VALIDACAO_LABEL: Record<BeneficiarioValidacaoCampo, string> = {
   cnpj: 'CNPJ',
   operadora: 'Operadora',
   planoAtual: 'Plano atual',
   custoPerCapita: 'Custo per capita',
+  grauParentesco: 'Grau de parentesco',
+  sexo: 'Sexo',
+  dataNascimento: 'Data de nascimento',
+  cid10: 'CID 10',
+  motivoAfastamento: 'Motivo do afastamento',
+  dataInicioBeneficio: 'Data de início do benefício',
+  dataFinalBeneficio: 'Data final do benefício',
+  cidade: 'Cidade',
+  uf: 'UF',
+  nome: 'Nome',
+  matricula: 'Matrícula',
 }
 
 export type BeneficiarioApontamento = {
@@ -58,14 +85,356 @@ function normText(value: string | null | undefined): string {
 function parseIdade(dataNascimento: string | null | undefined): number | null {
   if (!dataNascimento) return null
   const raw = String(dataNascimento).trim()
-  const iso = raw.includes('T') ? raw.slice(0, 10) : raw.slice(0, 10)
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return null
+  if (!raw) return null
+
+  let year: number | null = null
+  let month: number | null = null
+  let day: number | null = null
+
+  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (iso) {
+    year = Number(iso[1])
+    month = Number(iso[2])
+    day = Number(iso[3])
+  } else {
+    const br = raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/)
+    if (br) {
+      day = Number(br[1])
+      month = Number(br[2])
+      let y = br[3]
+      if (y.length === 2) y = Number(y) > 30 ? `19${y}` : `20${y}`
+      year = Number(y)
+    }
+  }
+
+  if (year == null || month == null || day == null || !Number.isFinite(year)) return null
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null
+
+  const birth = new Date(year, month - 1, day)
+  if (Number.isNaN(birth.getTime())) return null
+  if (birth.getFullYear() !== year || birth.getMonth() !== month - 1 || birth.getDate() !== day) {
+    return null
+  }
+
   const today = new Date()
-  let age = today.getFullYear() - d.getFullYear()
-  const m = today.getMonth() - d.getMonth()
-  if (m < 0 || (m === 0 && today.getDate() < d.getDate())) age -= 1
+  let age = today.getFullYear() - birth.getFullYear()
+  const md = today.getMonth() - birth.getMonth()
+  if (md < 0 || (md === 0 && today.getDate() < birth.getDate())) age -= 1
   return age >= 0 && age < 130 ? age : null
+}
+
+function sexoPermitido(valor: string): boolean {
+  const n = normText(valor)
+  return n === 'm' || n === 'f' || n === 'masculino' || n === 'feminino'
+}
+
+function temTexto(value: string | null | undefined): boolean {
+  return String(value ?? '').trim().length > 0
+}
+
+/** CID-10 médico (ex.: F32, C50.1), distinto dos rótulos da planilha. */
+function isCid10CodigoMedico(value: string): boolean {
+  return /^[A-Z]\d{2}(\.\d{1,4})?$/i.test(value.trim())
+}
+
+function isGrauAfastadoCronicoInvalidez(grau: string): boolean {
+  return grau.includes('afast') || grau.includes('cronic') || grau.includes('invalidez')
+}
+
+function isGrauAposentadoLei(grau: string): boolean {
+  return grau.includes('aposent') && grau.includes('lei')
+}
+
+function isGrauDemitido(grau: string): boolean {
+  return grau.includes('demitid')
+}
+
+function isGrauRemido(grau: string): boolean {
+  return grau.includes('remid')
+}
+
+function normNome(value: string | null | undefined): string {
+  return normText(value)
+}
+
+function normMatricula(value: string | null | undefined): string {
+  return String(value ?? '').trim().toLowerCase()
+}
+
+function normDataNascimento(value: string | null | undefined): string {
+  if (!value) return ''
+  const raw = String(value).trim()
+  return raw.includes('T') ? raw.slice(0, 10) : raw.slice(0, 10)
+}
+
+function validarCidadeUf(row: PlacementBeneficiario): BeneficiarioApontamento[] {
+  const out: BeneficiarioApontamento[] = []
+  if (!temTexto(row.cidade)) {
+    out.push({
+      campo: 'cidade',
+      severidade: 'aviso',
+      mensagem: 'Cidade ausente na planilha.',
+    })
+  }
+  if (!temTexto(row.uf)) {
+    out.push({
+      campo: 'uf',
+      severidade: 'aviso',
+      mensagem: 'UF ausente na planilha.',
+    })
+  }
+  return out
+}
+
+/** Detecta nomes repetidos na base (análise entre linhas). */
+function validarNomesDuplicados(rows: PlacementBeneficiario[]): Map<string, BeneficiarioApontamento[]> {
+  const porNome = new Map<string, PlacementBeneficiario[]>()
+
+  for (const row of rows) {
+    const chave = normNome(row.nome)
+    if (!chave) continue
+    const grupo = porNome.get(chave) ?? []
+    grupo.push(row)
+    porNome.set(chave, grupo)
+  }
+
+  const out = new Map<string, BeneficiarioApontamento[]>()
+
+  for (const grupo of porNome.values()) {
+    if (grupo.length < 2) continue
+
+    for (const row of grupo) {
+      const outras = grupo.filter((r) => r.id !== row.id)
+      const matricula = normMatricula(row.matricula)
+      const nascimento = normDataNascimento(row.dataNascimento)
+
+      const duplicataExata = outras.some(
+        (o) => normMatricula(o.matricula) === matricula && normDataNascimento(o.dataNascimento) === nascimento
+      )
+
+      const ordensOutras = outras
+        .map((o) => o.ordem)
+        .filter((o) => o != null)
+        .join(', ')
+
+      const apontamentos: BeneficiarioApontamento[] = []
+
+      if (duplicataExata) {
+        apontamentos.push({
+          campo: 'nome',
+          severidade: 'aviso',
+          mensagem:
+            ordensOutras.length > 0
+              ? `Nome duplicado com mesma data de nascimento e matrícula (ordem ${ordensOutras}).`
+              : 'Nome duplicado com mesma data de nascimento e matrícula.',
+        })
+      } else {
+        apontamentos.push({
+          campo: 'nome',
+          severidade: 'aviso',
+          mensagem:
+            ordensOutras.length > 0
+              ? `Nome duplicado na planilha — verifique data de nascimento e matrícula (ordem ${ordensOutras}).`
+              : 'Nome duplicado na planilha — verifique data de nascimento e matrícula.',
+        })
+      }
+
+      out.set(row.id, apontamentos)
+    }
+  }
+
+  return out
+}
+
+function validarSexo(row: PlacementBeneficiario): BeneficiarioApontamento[] {
+  const valor = String(row.sexo ?? '').trim()
+  if (!valor) {
+    return [
+      {
+        campo: 'sexo',
+        severidade: 'aviso',
+        mensagem: 'Sexo ausente na planilha.',
+      },
+    ]
+  }
+  if (!sexoPermitido(valor)) {
+    return [
+      {
+        campo: 'sexo',
+        severidade: 'erro',
+        mensagem: `Sexo "${valor}" inválido. Use F, M, Feminino ou Masculino.`,
+      },
+    ]
+  }
+  return []
+}
+
+function validarDataNascimento(row: PlacementBeneficiario): BeneficiarioApontamento[] {
+  const valor = String(row.dataNascimento ?? '').trim()
+  if (!valor) {
+    return [
+      {
+        campo: 'dataNascimento',
+        severidade: 'aviso',
+        mensagem: 'Data de nascimento ausente na planilha.',
+      },
+    ]
+  }
+
+  const idade = parseIdade(valor)
+  if (idade == null) {
+    return [
+      {
+        campo: 'dataNascimento',
+        severidade: 'erro',
+        mensagem: 'Data de nascimento inválida na planilha.',
+      },
+    ]
+  }
+
+  const out: BeneficiarioApontamento[] = []
+  const grau = row.grauParentesco
+
+  if (isGrauTitular(grau)) {
+    if (idade < 18) {
+      out.push({
+        campo: 'dataNascimento',
+        severidade: 'aviso',
+        mensagem: 'Titular menor de 18 anos (exceções legais devem ser controladas).',
+      })
+    }
+    if (idade >= 70) {
+      out.push({
+        campo: 'dataNascimento',
+        severidade: 'aviso',
+        mensagem: 'Titular com 70 anos ou mais.',
+      })
+    }
+  }
+
+  if (isGrauConjuge(grau)) {
+    if (idade < 18) {
+      out.push({
+        campo: 'dataNascimento',
+        severidade: 'erro',
+        mensagem: 'Cônjuge menor de 18 anos.',
+      })
+    }
+    if (idade >= 70) {
+      out.push({
+        campo: 'dataNascimento',
+        severidade: 'aviso',
+        mensagem: 'Cônjuge com 70 anos ou mais.',
+      })
+    }
+  }
+
+  if (isGrauFilho(grau)) {
+    if (idade >= 25) {
+      out.push({
+        campo: 'dataNascimento',
+        severidade: 'aviso',
+        mensagem: 'Filho(a) com 25 anos ou mais (exige regra contratual).',
+      })
+    }
+    if (idade > 39) {
+      out.push({
+        campo: 'dataNascimento',
+        severidade: 'aviso',
+        mensagem: 'Filho(a) acima de 39 anos.',
+      })
+    }
+  }
+
+  return out
+}
+
+function validarCondicoesGrauParentesco(row: PlacementBeneficiario): BeneficiarioApontamento[] {
+  const grau = normGrauParentesco(row.grauParentesco)
+  if (!grau) return []
+
+  const out: BeneficiarioApontamento[] = []
+  const hasCid = temTexto(row.cid10)
+  const hasMotivo = temTexto(row.motivoAfastamento)
+  const hasInicio = temTexto(row.dataInicioBeneficio)
+  const hasFinal = temTexto(row.dataFinalBeneficio)
+
+  if (isGrauAfastadoCronicoInvalidez(grau) && !hasCid && !hasMotivo) {
+    out.push({
+      campo: 'grauParentesco',
+      severidade: 'aviso',
+      mensagem:
+        'Afastados, crônicos ou aposentados por invalidez sem CID 10 ou motivo do afastamento informado.',
+    })
+  }
+
+  if (grau.includes('home care') || grau.includes('homecare')) {
+    out.push({
+      campo: 'grauParentesco',
+      severidade: 'aviso',
+      mensagem: 'Home Care exige detalhamento operacional e de sinistro.',
+    })
+  }
+
+  if (hasCid && isCid10CodigoMedico(String(row.cid10))) {
+    out.push({
+      campo: 'cid10',
+      severidade: 'aviso',
+      mensagem: 'Caso com CID grave ou de alto impacto — revisar.',
+    })
+  }
+
+  if (grau.includes('liminar') && !hasMotivo) {
+    out.push({
+      campo: 'grauParentesco',
+      severidade: 'aviso',
+      mensagem: 'Liminar sem documentação ou explicação (informe motivo do afastamento).',
+    })
+  }
+
+  if (grau.includes('liberal') && !hasMotivo) {
+    out.push({
+      campo: 'grauParentesco',
+      severidade: 'aviso',
+      mensagem: 'Liberalidade sem tipo ou condição informada (informe motivo do afastamento).',
+    })
+  }
+
+  if (isGrauAposentadoLei(grau) || isGrauDemitido(grau)) {
+    if (!hasInicio) {
+      out.push({
+        campo: 'dataInicioBeneficio',
+        severidade: 'aviso',
+        mensagem: 'Aposentado (Lei) ou demitido sem data de início do benefício.',
+      })
+    }
+    if (!hasFinal) {
+      out.push({
+        campo: 'dataFinalBeneficio',
+        severidade: 'aviso',
+        mensagem: 'Aposentado (Lei) ou demitido sem data final do benefício.',
+      })
+    }
+  }
+
+  if (isGrauRemido(grau)) {
+    if (!hasInicio) {
+      out.push({
+        campo: 'dataInicioBeneficio',
+        severidade: 'aviso',
+        mensagem: 'Remido sem data de início do benefício.',
+      })
+    }
+    if (!hasFinal) {
+      out.push({
+        campo: 'dataFinalBeneficio',
+        severidade: 'aviso',
+        mensagem: 'Remido sem data de término (data final do benefício).',
+      })
+    }
+  }
+
+  return out
 }
 
 export function faixaEtariaKeyFromIdade(idade: number): FaixaEtariaKey | null {
@@ -126,15 +495,23 @@ function validarCnpj(
   ctx: BeneficiariosValidacaoContext
 ): BeneficiarioApontamento[] {
   const out: BeneficiarioApontamento[] = []
-  const digits = onlyDigitsCnpj(row.cnpj ?? '')
+  const rawCnpj = String(row.cnpj ?? '').trim()
+  if (!rawCnpj) {
+    out.push({
+      campo: 'cnpj',
+      severidade: 'aviso',
+      mensagem: 'Sem CNPJ na planilha.',
+    })
+    return out
+  }
+
+  const digits = onlyDigitsCnpj(rawCnpj)
   if (digits.length !== 14) {
-    if (String(row.cnpj ?? '').trim()) {
-      out.push({
-        campo: 'cnpj',
-        severidade: 'erro',
-        mensagem: 'CNPJ inválido ou incompleto na planilha.',
-      })
-    }
+    out.push({
+      campo: 'cnpj',
+      severidade: 'erro',
+      mensagem: 'CNPJ inválido ou incompleto na planilha.',
+    })
     return out
   }
 
@@ -166,7 +543,15 @@ function validarOperadora(
   ctx: BeneficiariosValidacaoContext
 ): BeneficiarioApontamento[] {
   const valor = String(row.operadora ?? '').trim()
-  if (!valor) return []
+  if (!valor) {
+    return [
+      {
+        campo: 'operadora',
+        severidade: 'aviso',
+        mensagem: 'Operadora ausente na planilha.',
+      },
+    ]
+  }
   if (!ctx.fornecedorNomes.length) {
     return [
       {
@@ -186,6 +571,38 @@ function validarOperadora(
     ]
   }
   return []
+}
+
+function validarGrauParentesco(row: PlacementBeneficiario): BeneficiarioApontamento[] {
+  const valor = String(row.grauParentesco ?? '').trim()
+  const out: BeneficiarioApontamento[] = []
+  if (!valor) {
+    out.push({
+      campo: 'grauParentesco',
+      severidade: 'aviso',
+      mensagem: 'Grau de parentesco ausente na planilha.',
+    })
+    return out
+  }
+  if (!isGrauParentescoConhecido(valor)) {
+    out.push({
+      campo: 'grauParentesco',
+      severidade: 'erro',
+      mensagem: `Grau de parentesco "${valor}" não consta na tabela T/D/A (ex.: Titular, Filho (C), Agregado, CRÔNICO (A)).`,
+    })
+    return out
+  }
+  const tipo = resolveTipoParentesco(valor)
+  if (!tipo) {
+    out.push({
+      campo: 'grauParentesco',
+      severidade: 'erro',
+      mensagem: 'Não foi possível classificar o grau de parentesco em T, D ou A.',
+    })
+    return out
+  }
+  out.push(...validarCondicoesGrauParentesco(row))
+  return out
 }
 
 function validarPlanoAtual(
@@ -337,17 +754,28 @@ function validarCustoPerCapita(
   return []
 }
 
+/** Vidas sem nenhuma crítica após validação. */
+export function countBeneficiariosValidados(validacao: BeneficiariosValidacaoResumo): number {
+  return Math.max(0, validacao.totalLinhas - validacao.linhasComApontamento)
+}
+
 /** Valida beneficiários importados contra subfaturas, estipulante, fornecedor, planos e custos do formulário. */
 export function validarBeneficiariosImportados(
   rows: PlacementBeneficiario[],
   ctx: BeneficiariosValidacaoContext
 ): BeneficiariosValidacaoResumo {
   const linhas: BeneficiarioValidacaoLinha[] = []
+  const duplicatasPorId = validarNomesDuplicados(rows)
 
   for (const row of rows) {
     const apontamentos: BeneficiarioApontamento[] = [
       ...validarCnpj(row, ctx),
       ...validarOperadora(row, ctx),
+      ...validarSexo(row),
+      ...validarDataNascimento(row),
+      ...validarGrauParentesco(row),
+      ...validarCidadeUf(row),
+      ...(duplicatasPorId.get(row.id) ?? []),
     ]
 
     const planoCheck = validarPlanoAtual(row, ctx)

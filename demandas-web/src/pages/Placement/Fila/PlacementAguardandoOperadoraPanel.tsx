@@ -1,12 +1,19 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Alert,
   Box,
+  Button,
   Chip,
+  CircularProgress,
   Divider,
+  FormControl,
   FormControlLabel,
   Grid,
+  InputLabel,
+  MenuItem,
   Paper,
+  Select,
   Stack,
   Switch,
   Table,
@@ -17,24 +24,35 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
+import SlideshowIcon from '@mui/icons-material/Slideshow'
 import TableChartIcon from '@mui/icons-material/TableChart'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
+import OpenInFullIcon from '@mui/icons-material/OpenInFull'
+import EditNoteIcon from '@mui/icons-material/EditNote'
 import { useMasterDataStore } from '../../../store/masterDataStore'
 import type { CotacaoFormState } from './CotacaoFormFields'
 import {
   ensureComunicarMercadoState,
-  mercadoFornecedoresFromForm,
   parseComunicarMercadoFromKickOff,
 } from './placementComunicarMercado'
 import {
   ensureAguardandoOperadoraState,
+  classificacaoPermitePropostaValores,
+  emptyPropostaFornecedor,
   parseAguardandoOperadoraFromKickOff,
   type AguardandoOperadoraFornecedorState,
   type AguardandoOperadoraState,
+  type MercadoFornecedorClassificacao,
+  type PropostaFornecedorState,
 } from './placementAguardandoOperadora'
-import { buildKickOffEstrategiaPatch, mergeSavedKickOffIntoApiCotacao } from './placementKickOffPersist'
+import { patchKickOffInForm } from './placementPatchKickOff'
+import { AguardandoFornecedorTableRow } from './AguardandoFornecedorTableRow'
+import { usePlacementKickOffAutosave } from './usePlacementKickOffAutosave'
 import { sanitizePercentInput } from './placementCotacaoFinanceiro'
-import { api } from '../../../lib/api.local'
+import { MERCADO_CLASSIFICACAO_LABELS, mercadoNomesComFornecedoresAtuais } from './placementMercadoQuadro'
+import { patchAguardandoProposta, PropostaFornecedorSection } from './PropostaFornecedorSection'
+import { isFornecedorAtualNome } from './placementPropostaCenarioAtual'
+import { PlacementDraftTextField } from './PlacementDraftTextField'
 
 type Props = {
   cotacaoId: string
@@ -42,55 +60,74 @@ type Props = {
   onChange: (next: CotacaoFormState) => void
   onPersisted?: (apiCotacao: unknown) => void
   disabled?: boolean
+  onOpenSlides?: () => void
+  /** Oculta atalhos para abrir comparativo (ex.: já dentro da tela cheia). */
+  embedded?: boolean
 }
 
 function normKey(nome: string): string {
   return nome.trim().toLowerCase()
 }
 
-export function PlacementAguardandoOperadoraPanel({
+export const PlacementAguardandoOperadoraPanel = React.memo(function PlacementAguardandoOperadoraPanel({
   cotacaoId,
   form,
   onChange,
   onPersisted,
   disabled,
+  onOpenSlides,
+  embedded = false,
 }: Props) {
+  const navigate = useNavigate()
   const operadoras = useMasterDataStore((s) => s.operadoras)
   const operadorasById = useMasterDataStore((s) => s.operadorasById)
 
+  const kickOffRaw = form.kickOffEstrategia
+
   const fornecedores = useMemo(
-    () => mercadoFornecedoresFromForm(form, operadoras, operadorasById),
-    [form, operadoras, operadorasById]
+    () => mercadoNomesComFornecedoresAtuais(form, operadoras, operadorasById),
+    [form.itens, form.operadorasSugestaoIds, kickOffRaw?.mercadoAnalisado, operadoras, operadorasById]
   )
 
   const comunicarMercado = useMemo(
     () =>
       ensureComunicarMercadoState(
-        parseComunicarMercadoFromKickOff(form.kickOffEstrategia),
+        parseComunicarMercadoFromKickOff(kickOffRaw),
         form,
         operadoras,
         operadorasById
       ),
-    [form, operadoras, operadorasById]
+    [kickOffRaw, form, operadoras, operadorasById]
   )
 
   const aguardandoOperadora = useMemo(
     () =>
       ensureAguardandoOperadoraState(
-        parseAguardandoOperadoraFromKickOff(form.kickOffEstrategia),
+        parseAguardandoOperadoraFromKickOff(kickOffRaw),
         form,
         operadoras,
         operadorasById,
         comunicarMercado
       ),
-    [form, operadoras, operadorasById, comunicarMercado]
+    [kickOffRaw, form, operadoras, operadorasById, comunicarMercado]
   )
 
   const [fornecedorAtivo, setFornecedorAtivo] = useState('')
-  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lancamentoSectionRef = useRef<HTMLDivElement>(null)
+  const propostaDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingPropostaRef = useRef<PropostaFornecedorState | null>(null)
   const formRef = useRef(form)
   formRef.current = form
+  const operadorasRef = useRef(operadoras)
+  operadorasRef.current = operadoras
+  const operadorasByIdRef = useRef(operadorasById)
+  operadorasByIdRef.current = operadorasById
+  const fornecedoresRef = useRef(fornecedores)
+  fornecedoresRef.current = fornecedores
+  const comunicarMercadoRef = useRef(comunicarMercado)
+  comunicarMercadoRef.current = comunicarMercado
+
+  const { saveState, scheduleSave } = usePlacementKickOffAutosave({ cotacaoId, onPersisted, debounceMs: 700 })
 
   useEffect(() => {
     if (!fornecedorAtivo && fornecedores.length) {
@@ -101,40 +138,26 @@ export function PlacementAguardandoOperadoraPanel({
   const fornKey = normKey(fornecedorAtivo)
   const fornAguardando = aguardandoOperadora.fornecedores[fornKey]
   const fornComunicar = comunicarMercado.fornecedores[fornKey]
+  const fornProposta = aguardandoOperadora.propostas[fornKey]
+  const permitePropostaValores = fornAguardando
+    ? classificacaoPermitePropostaValores(fornAguardando.classificacaoMercado)
+    : false
 
-  function persistAguardando(next: AguardandoOperadoraState, options?: { immediate?: boolean }) {
-    const kickOff = buildKickOffEstrategiaPatch(
-      form.kickOffEstrategia,
-      { aguardandoOperadora: next },
-      fornecedores
-    )
-    const nextForm: CotacaoFormState = {
-      ...form,
-      kickOffEstrategia: kickOff,
-    }
-    formRef.current = nextForm
-    onChange(nextForm)
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-    const runSave = async () => {
-      if (!cotacaoId) return
-      setSaveState('saving')
-      try {
-        const updated = await api.put(`/placement/cotacoes/${cotacaoId}`, {
-          kickOffEstrategia: kickOff,
-        })
-        onPersisted?.(mergeSavedKickOffIntoApiCotacao(updated, kickOff))
-        setSaveState('saved')
-      } catch {
-        setSaveState('error')
-      }
-    }
-    if (options?.immediate) void runSave()
-    else saveTimerRef.current = setTimeout(() => void runSave(), 700)
-  }
+  const persistAguardando = useCallback(
+    (next: AguardandoOperadoraState, options?: { immediate?: boolean }) => {
+      const f = formRef.current
+      const nextForm = patchKickOffInForm(f, { aguardandoOperadora: next }, fornecedoresRef.current)
+      const kickOff = nextForm.kickOffEstrategia!
+      formRef.current = nextForm
+      onChange(nextForm)
+      scheduleSave(kickOff, options?.immediate)
+    },
+    [onChange, scheduleSave]
+  )
 
   useEffect(
     () => () => {
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+      if (propostaDebounceRef.current) clearTimeout(propostaDebounceRef.current)
     },
     []
   )
@@ -143,13 +166,50 @@ export function PlacementAguardandoOperadoraPanel({
     if (!fornKey) return
     const next = ensureAguardandoOperadoraState(
       aguardandoOperadora,
-      form,
-      operadoras,
-      operadorasById,
-      comunicarMercado
+      formRef.current,
+      operadorasRef.current,
+      operadorasByIdRef.current,
+      comunicarMercadoRef.current
     )
     next.fornecedores[fornKey] = { ...next.fornecedores[fornKey], ...part }
     persistAguardando(next, { immediate: part.retornoRecebido !== undefined })
+  }
+
+  function patchProposta(
+    nextOrUpdater:
+      | PropostaFornecedorState
+      | ((prev: PropostaFornecedorState) => PropostaFornecedorState)
+  ) {
+    if (!fornKey) return
+
+    const ag = ensureAguardandoOperadoraState(
+      parseAguardandoOperadoraFromKickOff(formRef.current.kickOffEstrategia),
+      formRef.current,
+      operadorasRef.current,
+      operadorasByIdRef.current,
+      comunicarMercadoRef.current
+    )
+    const current = ag.propostas[fornKey] ?? emptyPropostaFornecedor()
+    const proposta =
+      typeof nextOrUpdater === 'function' ? nextOrUpdater(current) : nextOrUpdater
+    pendingPropostaRef.current = proposta
+
+    const nextForm = patchKickOffInForm(
+      formRef.current,
+      { aguardandoOperadora: patchAguardandoProposta(ag, fornKey, proposta) },
+      fornecedoresRef.current
+    )
+    formRef.current = nextForm
+    onChange(nextForm)
+
+    if (propostaDebounceRef.current) clearTimeout(propostaDebounceRef.current)
+    propostaDebounceRef.current = setTimeout(() => {
+      scheduleSave(formRef.current.kickOffEstrategia!)
+    }, 400)
+  }
+
+  function abrirComparativoTelaCheia() {
+    navigate(`/placement/fila/${cotacaoId}/comparativo`)
   }
 
   if (!fornecedores.length) {
@@ -163,10 +223,29 @@ export function PlacementAguardandoOperadoraPanel({
 
   return (
     <Stack gap={2}>
-      <Alert severity="info">
-        Registre o retorno de cada operadora. As datas de envio e previsão vêm da etapa «Comunicar mercado»; o
-        grupo de produção e as comissões são definidos por fornecedor abaixo. Alterações salvas automaticamente.
-      </Alert>
+      {!embedded && (
+        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap={1}>
+          <Alert severity="info" sx={{ flex: 1, minWidth: 280 }}>
+            Registre o retorno de cada operadora e lance as propostas abaixo. O comparativo abre em página dedicada,
+            com espaço amplo para analisar todas as colunas.
+          </Alert>
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            <Button
+              variant="contained"
+              startIcon={<OpenInFullIcon />}
+              onClick={abrirComparativoTelaCheia}
+              disabled={disabled}
+            >
+              Abrir comparativo em tela cheia
+            </Button>
+            {onOpenSlides && (
+              <Button variant="outlined" startIcon={<SlideshowIcon />} onClick={onOpenSlides} disabled={disabled}>
+                Slides
+              </Button>
+            )}
+          </Stack>
+        </Stack>
+      )}
 
       {saveState !== 'idle' && (
         <Chip
@@ -202,40 +281,33 @@ export function PlacementAguardandoOperadoraPanel({
               <TableCell>Previsão retorno</TableCell>
               <TableCell>Retorno efetivo</TableCell>
               <TableCell>Grupo produção</TableCell>
+              <TableCell>Comissão apresentada</TableCell>
+              <TableCell>Quadro</TableCell>
               <TableCell>Status</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {fornecedores.map((nome) => {
               const key = normKey(nome)
-              const cm = comunicarMercado.fornecedores[key]
-              const ag = aguardandoOperadora.fornecedores[key]
               return (
-                <TableRow
+                <AguardandoFornecedorTableRow
                   key={nome}
+                  nome={nome}
                   selected={fornecedorAtivo === nome}
-                  hover
-                  sx={{ cursor: 'pointer' }}
-                  onClick={() => setFornecedorAtivo(nome)}
-                >
-                  <TableCell>{nome}</TableCell>
-                  <TableCell>{cm?.dataEnvio ? cm.dataEnvio.slice(0, 10) : '—'}</TableCell>
-                  <TableCell>
-                    {cm?.dataPrevisaoRetorno?.slice(0, 10) ||
-                      comunicarMercado.prazoRetorno?.slice(0, 10) ||
-                      '—'}
-                  </TableCell>
-                  <TableCell>{ag?.dataRetornoEfetiva?.slice(0, 10) || '—'}</TableCell>
-                  <TableCell>{cm?.grupoProducao?.trim() || '—'}</TableCell>
-                  <TableCell>{ag?.retornoRecebido ? 'Retorno recebido' : 'Aguardando'}</TableCell>
-                </TableRow>
+                  cm={comunicarMercado.fornecedores[key]}
+                  ag={aguardandoOperadora.fornecedores[key]}
+                  prazoRetorno={comunicarMercado.prazoRetorno}
+                  onSelect={() => setFornecedorAtivo(nome)}
+                />
               )
             })}
           </TableBody>
         </Table>
       </Paper>
 
-      <Stack direction="row" flexWrap="wrap" gap={1}>
+      <Box ref={lancamentoSectionRef}>
+      <Stack direction="row" flexWrap="wrap" gap={1} alignItems="center" justifyContent="space-between">
+        <Stack direction="row" flexWrap="wrap" gap={1}>
         {fornecedores.map((nome) => {
           const recebido = aguardandoOperadora.fornecedores[normKey(nome)]?.retornoRecebido
           return (
@@ -250,6 +322,12 @@ export function PlacementAguardandoOperadoraPanel({
             />
           )
         })}
+        </Stack>
+        {!embedded && (
+          <Button size="small" variant="text" startIcon={<OpenInFullIcon />} onClick={abrirComparativoTelaCheia}>
+            Abrir comparativo
+          </Button>
+        )}
       </Stack>
 
       {fornecedorAtivo && fornAguardando && (
@@ -301,13 +379,18 @@ export function PlacementAguardandoOperadoraPanel({
               />
             </Grid>
             <Grid item xs={12} md={4}>
-              <TextField
+              <PlacementDraftTextField
                 label="Grupo de produção"
                 fullWidth
                 size="small"
-                value={fornComunicar?.grupoProducao ?? ''}
-                disabled
-                helperText="Sinalizado em Comunicar mercado"
+                value={fornAguardando.grupoProducao}
+                disabled={disabled}
+                onCommit={(v) => patchFornecedor({ grupoProducao: v })}
+                helperText={
+                  fornComunicar?.grupoProducao?.trim() && !fornAguardando.grupoProducao?.trim()
+                    ? `Sugerido em Comunicar mercado: ${fornComunicar.grupoProducao}`
+                    : 'Editável nesta etapa'
+                }
               />
             </Grid>
             <Grid item xs={12} md={4}>
@@ -334,8 +417,34 @@ export function PlacementAguardandoOperadoraPanel({
                 }
               />
             </Grid>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth size="small">
+                <InputLabel id="classificacao-mercado">Classificação no quadro</InputLabel>
+                <Select
+                  labelId="classificacao-mercado"
+                  label="Classificação no quadro"
+                  value={fornAguardando.classificacaoMercado}
+                  disabled={disabled}
+                  onChange={(e) => {
+                    const classificacaoMercado = e.target.value as MercadoFornecedorClassificacao
+                    patchFornecedor({ classificacaoMercado })
+                    if (!classificacaoPermitePropostaValores(classificacaoMercado)) {
+                      patchProposta((prev) => ({ ...prev, incluirNoComparativo: false }))
+                    }
+                  }}
+                >
+                  {(Object.entries(MERCADO_CLASSIFICACAO_LABELS) as [MercadoFornecedorClassificacao, string][]).map(
+                    ([value, label]) => (
+                      <MenuItem key={value} value={value}>
+                        {label}
+                      </MenuItem>
+                    )
+                  )}
+                </Select>
+              </FormControl>
+            </Grid>
             <Grid item xs={12}>
-              <TextField
+              <PlacementDraftTextField
                 label="Observações do retorno"
                 fullWidth
                 size="small"
@@ -343,7 +452,7 @@ export function PlacementAguardandoOperadoraPanel({
                 minRows={2}
                 value={fornAguardando.observacoes}
                 disabled={disabled}
-                onChange={(e) => patchFornecedor({ observacoes: e.target.value })}
+                onCommit={(v) => patchFornecedor({ observacoes: v })}
               />
             </Grid>
           </Grid>
@@ -368,8 +477,33 @@ export function PlacementAguardandoOperadoraPanel({
             }
             label="Marcar retorno da operadora como recebido"
           />
+
+          {fornProposta && permitePropostaValores && (
+            <PropostaFornecedorSection
+              fornecedorNome={fornecedorAtivo}
+              proposta={fornProposta}
+              form={form}
+              operadoras={operadoras}
+              operadorasById={operadorasById}
+              isFornecedorAtual={
+                fornAguardando?.classificacaoMercado === 'fornecedor_atual' ||
+                isFornecedorAtualNome(fornecedorAtivo, form, operadoras, operadorasById)
+              }
+              disabled={disabled}
+              onChange={patchProposta}
+            />
+          )}
+
+          {fornAguardando && !permitePropostaValores && (
+            <Alert severity="warning">
+              Fornecedor classificado como{' '}
+              <strong>{MERCADO_CLASSIFICACAO_LABELS[fornAguardando.classificacaoMercado]}</strong>. Não é necessário
+              cadastrar proposta nem custos — ele aparece apenas no quadro de mercado.
+            </Alert>
+          )}
         </>
       )}
+      </Box>
     </Stack>
   )
-}
+})

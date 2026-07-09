@@ -3,25 +3,15 @@ import {
   Alert,
   Box,
   Button,
-  Chip,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
   MenuItem,
   Stack,
   TextField,
   Typography,
 } from '@mui/material'
-import CheckCircleIcon from '@mui/icons-material/CheckCircle'
-import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked'
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
-import ArrowBackIcon from '@mui/icons-material/ArrowBack'
-import { PrimaryActionButton } from '../../../components/PrimaryActionButton'
 import type { CotacaoFormState } from './CotacaoFormFields'
 import {
   canAdvanceMainFlow,
@@ -44,15 +34,30 @@ import {
 } from './placementWorkflowRetreat'
 import { PlacementCotacaoWorkflowBar } from './PlacementCotacaoWorkflowBar'
 import { PlacementDesignarAnalistaBlock } from './PlacementDesignarAnalistaBlock'
+import { PlacementWorkflowChecklistCompact } from './PlacementWorkflowChecklistCompact'
 import { getWorkflowStageKey } from './placementCotacaoWorkflow'
 import type { PlacementCotacaoWorkflowStatus } from './placementCotacaoStatus'
 import type { PlacementAnalista } from '../../../store/placementStore'
 import { useMasterDataStore } from '../../../store/masterDataStore'
+import {
+  PlacementNavBackButton,
+  PlacementNavForwardButton,
+  PlacementNavSecondaryButton,
+  PlacementWorkflowNavActions,
+  PlacementWorkflowNavLabel,
+  PlacementWorkflowNavRow,
+  PlacementWorkflowNavShell,
+  PlacementWorkflowStageLine,
+  placementNavButtonSx,
+  placementNavForwardSx,
+} from './placementWorkflowNav'
+import TimelineIcon from '@mui/icons-material/Timeline'
 
 type Props = {
   status: string
   form: CotacaoFormState
   saving?: boolean
+  beneficiariosTotal?: number
   analistaResponsavel?: PlacementAnalista | null
   onDesignarAnalista: (analistaResponsavelId: string) => Promise<void>
   onAdvance: (nextStatus: PlacementCotacaoWorkflowStatus) => Promise<void>
@@ -63,10 +68,11 @@ type Props = {
   onEncerrar: (status: 'Perdida' | 'Cancelada' | 'Fechada') => Promise<void>
 }
 
-export function PlacementCotacaoWorkflowPanel({
+export const PlacementCotacaoWorkflowPanel = React.memo(function PlacementCotacaoWorkflowPanel({
   status,
   form,
   saving,
+  beneficiariosTotal = 0,
   analistaResponsavel,
   onDesignarAnalista,
   onAdvance,
@@ -79,21 +85,23 @@ export function PlacementCotacaoWorkflowPanel({
   const [advanceError, setAdvanceError] = useState<string | null>(null)
   const [encerrarOpen, setEncerrarOpen] = useState(false)
   const [retreatOpen, setRetreatOpen] = useState(false)
+  const [stageInfoOpen, setStageInfoOpen] = useState(false)
   const [encerrarStatus, setEncerrarStatus] = useState<'Perdida' | 'Cancelada' | 'Fechada'>('Perdida')
 
   const stage = getWorkflowStageMeta(status)
   const nextStatus = nextMainFlowStatus(status)
   const prevStatus = previousMainFlowStatus(status)
+  const prevLabel = prevStatus ? getWorkflowStageMeta(prevStatus)?.label ?? prevStatus : ''
+  const nextLabel = nextStatus ? getWorkflowStageMeta(nextStatus)?.label ?? nextStatus : ''
   const checklist = useMemo(
-    () => buildWorkflowChecklist(status, form, operadoras, operadorasById),
-    [status, form, operadoras, operadorasById]
+    () => buildWorkflowChecklist(status, form, operadoras, operadorasById, { beneficiariosTotal }),
+    [status, form, operadoras, operadorasById, beneficiariosTotal]
   )
-  const pendingCount = checklist.filter((c) => !c.done).length
   const terminal = isMainFlowTerminal(status)
 
   async function handleAdvance() {
     setAdvanceError(null)
-    const err = validateForWorkflowAdvance(status, form)
+    const err = validateForWorkflowAdvance(status, form, { beneficiariosTotal })
     if (err) {
       setAdvanceError(err)
       return
@@ -133,8 +141,53 @@ export function PlacementCotacaoWorkflowPanel({
   const retreatDiscardAvailable = hasRetreatDiscardData(status)
 
   return (
-    <Box>
-      <PlacementCotacaoWorkflowBar status={status} compact />
+    <>
+      <PlacementWorkflowNavShell>
+        <PlacementCotacaoWorkflowBar status={status} compact />
+
+        {stage && !terminal && (
+          <PlacementWorkflowStageLine
+            label={stage.label}
+            description={stage.description}
+            objective={stage.objective}
+            expanded={stageInfoOpen}
+            onToggleInfo={() => setStageInfoOpen((v) => !v)}
+            icon={<TimelineIcon fontSize="small" />}
+          />
+        )}
+
+        {!terminal && (
+          <PlacementWorkflowNavRow>
+            <PlacementWorkflowNavActions>
+              {canRetreatMainFlow(status) && prevStatus && (
+                <PlacementNavBackButton disabled={saving} onClick={() => setRetreatOpen(true)}>
+                  <PlacementWorkflowNavLabel action="Voltar" target={prevLabel} />
+                </PlacementNavBackButton>
+              )}
+              {canAdvanceMainFlow(status) && nextStatus && (
+                <PlacementNavForwardButton onClick={handleAdvance} disabled={saving}>
+                  {saving ? (
+                    'Avançando…'
+                  ) : (
+                    <PlacementWorkflowNavLabel action="Avançar" target={nextLabel} />
+                  )}
+                </PlacementNavForwardButton>
+              )}
+              <PlacementNavSecondaryButton disabled={saving} onClick={() => setEncerrarOpen(true)}>
+                Encerrar
+              </PlacementNavSecondaryButton>
+            </PlacementWorkflowNavActions>
+
+            {checklist.length > 0 && <PlacementWorkflowChecklistCompact items={checklist} />}
+          </PlacementWorkflowNavRow>
+        )}
+
+        {advanceError && (
+          <Alert severity="error" sx={{ mt: 1.5, py: 0 }} onClose={() => setAdvanceError(null)}>
+            <Typography variant="body2">{advanceError}</Typography>
+          </Alert>
+        )}
+      </PlacementWorkflowNavShell>
 
       {stageKey === 'base_atual' && (
         <PlacementDesignarAnalistaBlock
@@ -144,88 +197,20 @@ export function PlacementCotacaoWorkflowPanel({
           disabled={saving}
           saving={saving}
           onDesignar={onDesignarAnalista}
+          advanceTargetLabel="Kick off"
         />
       )}
 
-      {stage && (
-        <Alert severity="info" sx={{ mt: 2, mb: 2 }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-            {stage.label} — {stage.description}
-          </Typography>
-          <Typography variant="body2" sx={{ mt: 0.5 }}>
-            {stage.objective}
-          </Typography>
-        </Alert>
-      )}
-
-      {checklist.length > 0 && !terminal && (
-        <Box sx={{ mb: 2 }}>
-          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-              Pontos de ajuste
-            </Typography>
-            {pendingCount > 0 ? (
-              <Chip label={`${pendingCount} pendente(s)`} size="small" color="warning" />
-            ) : (
-              <Chip label="Pronto para avançar" size="small" color="success" />
-            )}
-          </Stack>
-          <List dense disablePadding>
-            {checklist.map((item) => (
-              <ListItem key={item.id} disableGutters>
-                <ListItemIcon sx={{ minWidth: 36 }}>
-                  {item.done ? (
-                    <CheckCircleIcon color="success" fontSize="small" />
-                  ) : (
-                    <RadioButtonUncheckedIcon color="disabled" fontSize="small" />
-                  )}
-                </ListItemIcon>
-                <ListItemText
-                  primary={item.label}
-                  primaryTypographyProps={{
-                    variant: 'body2',
-                    color: item.done ? 'text.primary' : 'text.secondary',
-                  }}
-                />
-              </ListItem>
-            ))}
-          </List>
-        </Box>
-      )}
-
-      {advanceError && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {advanceError}
-        </Alert>
-      )}
-
-      {!terminal && (
-        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-          {canRetreatMainFlow(status) && prevStatus && (
-            <Button
-              variant="outlined"
-              startIcon={<ArrowBackIcon />}
-              disabled={saving}
-              onClick={() => setRetreatOpen(true)}
-            >
-              Voltar para «{getWorkflowStageMeta(prevStatus)?.label ?? prevStatus}»
-            </Button>
-          )}
-          {canAdvanceMainFlow(status) && nextStatus && (
-            <PrimaryActionButton
-              startIcon={<ArrowForwardIcon />}
-              onClick={handleAdvance}
-              disabled={saving}
-            >
-              {saving
-                ? 'Avançando…'
-                : `Avançar para «${getWorkflowStageMeta(nextStatus)?.label ?? nextStatus}»`}
-            </PrimaryActionButton>
-          )}
-          <Button variant="outlined" color="inherit" disabled={saving} onClick={() => setEncerrarOpen(true)}>
-            Encerrar processo…
-          </Button>
-        </Stack>
+      {stageKey === 'validacao' && (
+        <PlacementDesignarAnalistaBlock
+          analistaCadastroId={form.analistaId}
+          analistaResponsavelId={form.analistaResponsavelId}
+          analistaResponsavel={analistaResponsavel}
+          disabled={saving}
+          saving={saving}
+          onDesignar={onDesignarAnalista}
+          advanceTargetLabel="Kick off"
+        />
       )}
 
       <Dialog open={retreatOpen} onClose={() => setRetreatOpen(false)} maxWidth="sm" fullWidth>
@@ -233,7 +218,7 @@ export function PlacementCotacaoWorkflowPanel({
         <DialogContent>
           <Typography variant="body2" sx={{ mb: 2 }}>
             Você está em <strong>{stage?.label ?? status}</strong> e pode retornar para{' '}
-            <strong>{getWorkflowStageMeta(prevStatus ?? '')?.label ?? prevStatus}</strong>.
+            <strong>{prevLabel}</strong>.
           </Typography>
           <Alert severity="info" sx={{ mb: 2 }}>
             <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
@@ -253,8 +238,10 @@ export function PlacementCotacaoWorkflowPanel({
           )}
         </DialogContent>
         <DialogActions sx={{ flexWrap: 'wrap', gap: 1, px: 2, pb: 2 }}>
-          <Button onClick={() => setRetreatOpen(false)}>Cancelar</Button>
-          <Button variant="outlined" onClick={() => handleRetreat('keep')} disabled={saving}>
+          <Button onClick={() => setRetreatOpen(false)} sx={placementNavButtonSx}>
+            Cancelar
+          </Button>
+          <Button variant="outlined" onClick={() => handleRetreat('keep')} disabled={saving} sx={placementNavButtonSx}>
             Voltar e manter dados
           </Button>
           {retreatDiscardAvailable ? (
@@ -263,6 +250,7 @@ export function PlacementCotacaoWorkflowPanel({
               color="warning"
               onClick={() => handleRetreat('discard')}
               disabled={saving}
+              sx={placementNavButtonSx}
             >
               Voltar e descartar dados
             </Button>
@@ -292,12 +280,14 @@ export function PlacementCotacaoWorkflowPanel({
           </TextField>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setEncerrarOpen(false)}>Cancelar</Button>
-          <Button variant="contained" onClick={handleEncerrar} disabled={saving}>
+          <Button onClick={() => setEncerrarOpen(false)} sx={placementNavButtonSx}>
+            Cancelar
+          </Button>
+          <Button variant="contained" onClick={handleEncerrar} disabled={saving} sx={placementNavForwardSx}>
             Confirmar
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </>
   )
-}
+})

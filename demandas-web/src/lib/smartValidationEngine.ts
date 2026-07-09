@@ -4,6 +4,7 @@ import type {
   ValidationError, 
   ImportItem, 
   ImportResult,
+  ImportMode,
   SmartImporterConfig,
   CorrectionSuggestion
 } from '../types/smartImporter'
@@ -550,157 +551,264 @@ export class SmartValidationEngine {
    */
   private getExistingDataForEntity(): any[] {
     const entityType = this.config.entityType.toLowerCase()
-    
-    // Mapear tipo de entidade para o campo correspondente no masterData
-    if (entityType.includes('cliente')) {
-      return this.masterData.clientes || []
-    } else if (entityType.includes('contrato')) {
-      return this.masterData.contratos || []
-    } else if (entityType.includes('operadora')) {
-      return this.masterData.operadoras || []
-    } else if (entityType.includes('produto')) {
-      return this.masterData.produtos || []
-    } else if (entityType.includes('sistema')) {
-      return this.masterData.sistemas || []
-    } else if (entityType.includes('analista')) {
-      return this.masterData.analistas || []
-    } else if (entityType.includes('solicitante')) {
-      return this.masterData.solicitantes || []
-    } else if (entityType.includes('área') || entityType.includes('area')) {
-      return this.masterData.areas || []
-    } else if (entityType.includes('relatório') || entityType.includes('relatorio')) {
-      return this.masterData.relatorios || []
-    } else if (entityType.includes('modelo')) {
-      return this.masterData.modelos || []
-    } else if (entityType.includes('áreas mailling') || entityType.includes('areas mailling')) {
+
+    // Mailling antes de "áreas" genérico (evita falso positivo em "Áreas Mailling")
+    if (entityType.includes('mailling')) {
+      if (entityType.includes('cargo')) return this.masterData.cargosMailling || []
+      if (entityType.includes('filial')) return this.masterData.filiaisMailling || []
       return this.masterData.areasMailling || []
-    } else if (entityType.includes('cargos mailling') || entityType.includes('cargosmailling')) {
-      return this.masterData.cargosMailling || []
-    } else if (entityType.includes('filiais mailling') || entityType.includes('filiaismailling')) {
-      return this.masterData.filiaisMailling || []
     }
-    
+
+    if (entityType.includes('cliente')) return this.masterData.clientes || []
+    if (entityType.includes('contrato')) return this.masterData.contratos || []
+    if (entityType.includes('operadora')) return this.masterData.operadoras || []
+    if (entityType.includes('produto')) return this.masterData.produtos || []
+    if (entityType.includes('sistema')) return this.masterData.sistemas || []
+    if (entityType.includes('grupo')) return this.masterData.grupos || []
+    if (entityType.includes('analista')) return this.masterData.analistas || []
+    if (entityType.includes('solicitante')) return this.masterData.solicitantes || []
+    if (entityType.includes('tipos de cadastro') || entityType.includes('tipo de cadastro')) {
+      return this.masterData.tiposCadastro || []
+    }
+    if (entityType.includes('tipos de demanda') || entityType.includes('tipo de demanda')) {
+      return this.masterData.tiposDemanda || []
+    }
+    if (entityType.includes('serviço') || entityType.includes('servico')) {
+      return this.masterData.tiposServico || []
+    }
+    if (entityType.includes('padrão') || entityType.includes('padrao')) {
+      return this.masterData.padrao || []
+    }
+    if (entityType.includes('relatório') || entityType.includes('relatorio')) {
+      return this.masterData.relatorios || []
+    }
+    if (entityType.includes('modelo')) return this.masterData.modelos || []
+    if (entityType.includes('área') || entityType.includes('area')) {
+      return this.masterData.areas || []
+    }
+
     return []
+  }
+
+  private makeDuplicateKey(item: Record<string, unknown>): string {
+    return this.config.duplicateCheckFields
+      .map((field) => String(item[field] ?? '').trim().toUpperCase())
+      .join('|')
+  }
+
+  private isUsableDuplicateKey(key: string): boolean {
+    return Boolean(key && key !== '|')
+  }
+
+  private buildExistingKeyMap(): Map<string, { id: string } & Record<string, unknown>> {
+    const map = new Map<string, { id: string } & Record<string, unknown>>()
+    const existingData = this.getExistingDataForEntity()
+
+    existingData.forEach((existingItem: Record<string, unknown>) => {
+      const key = this.makeDuplicateKey(existingItem)
+      if (this.isUsableDuplicateKey(key)) {
+        map.set(key, existingItem as { id: string } & Record<string, unknown>)
+      }
+    })
+
+    return map
   }
 
   /**
    * Processa uma lista de itens e retorna resultado completo
    */
-  processItems(items: any[]): ImportResult {
+  processItems(items: any[], importMode: ImportMode = 'insert'): ImportResult {
     const valid: ImportItem[] = []
     const invalid: ImportItem[] = []
     const duplicates: ImportItem[] = []
+    const skipped: ImportItem[] = []
     const allWarnings: ValidationError[] = []
 
-    // Verificar duplicatas primeiro
-    const seen = new Set<string>()
-    const duplicateKeys = new Set<string>()
-    
-    // Adicionar chaves dos dados existentes no banco de dados ao conjunto
-    const existingData = this.getExistingDataForEntity()
-    console.log(`🔍 DUPLICATA: Dados existentes no banco: ${existingData.length} registros`)
-    
-    existingData.forEach((existingItem: any) => {
-      const existingKey = this.config.duplicateCheckFields
-        .map(field => String(existingItem[field] || '').trim().toUpperCase())
-        .join('|')
-      
-      if (existingKey && existingKey !== '' && existingKey !== '|') {
-        seen.add(existingKey)
-      }
-    })
-    
-    console.log(`🔍 DUPLICATA: Total de chaves existentes no banco: ${seen.size}`)
+    const existingKeyMap = this.buildExistingKeyMap()
+    const fileKeyFirstIndex = new Map<string, number>()
+    const fileKeyCounts = new Map<string, number>()
+
+    for (let i = 0; i < items.length; i++) {
+      const key = this.makeDuplicateKey(items[i])
+      if (!this.isUsableDuplicateKey(key)) continue
+      fileKeyCounts.set(key, (fileKeyCounts.get(key) || 0) + 1)
+      if (!fileKeyFirstIndex.has(key)) fileKeyFirstIndex.set(key, i)
+    }
+
+    const seenInsertKeys = new Set<string>()
+    existingKeyMap.forEach((_value, key) => seenInsertKeys.add(key))
 
     for (let i = 0; i < items.length; i++) {
       const item = items[i]
-      
-      // Criar chave de duplicata baseada nos campos configurados (UPPERCASE para comparação case-insensitive)
-      const duplicateKey = this.config.duplicateCheckFields
-        .map(field => String(item[field] || '').trim().toUpperCase())
-        .join('|')
-      
-      // CORREÇÃO: Ignorar se a chave estiver vazia (todos os campos vazios)
-      // Isso previne marcar linhas sem ticket como duplicadas
-      if (!duplicateKey || duplicateKey === '' || duplicateKey === '|') {
-        console.log(`🔍 DUPLICATA: Linha ${i + 2} - Campos de verificação vazios, ignorando verificação de duplicata`)
+      const duplicateKey = this.makeDuplicateKey(item)
+      const rowNumber = i + 2
+      const duplicateInFile =
+        this.isUsableDuplicateKey(duplicateKey) &&
+        (fileKeyCounts.get(duplicateKey) || 0) > 1 &&
+        fileKeyFirstIndex.get(duplicateKey) !== i
+
+      if (duplicateInFile) {
+        duplicates.push(this.createDuplicateItem(item, rowNumber, duplicateKey))
         continue
       }
 
-      if (seen.has(duplicateKey)) {
-        console.log(`⚠️ DUPLICATA: Linha ${i + 2} - Duplicata encontrada com chave: "${duplicateKey}"`)
-        duplicateKeys.add(duplicateKey)
-      } else {
-        console.log(`✅ DUPLICATA: Linha ${i + 2} - Chave única: "${duplicateKey}"`)
-        seen.add(duplicateKey)
-      }
-    }
+      const existsInDb = this.isUsableDuplicateKey(duplicateKey) && existingKeyMap.has(duplicateKey)
+      const existingRecord = existsInDb ? existingKeyMap.get(duplicateKey)! : undefined
 
-    // Processar cada item
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i]
-      
-      // Criar chave de duplicata (UPPERCASE para comparação case-insensitive)
-      const duplicateKey = this.config.duplicateCheckFields
-        .map(field => String(item[field] || '').trim().toUpperCase())
-        .join('|')
-
-      // CORREÇÃO: Apenas marcar como duplicado se a chave não estiver vazia
-      const isDuplicate = duplicateKey && duplicateKey !== '' && duplicateKey !== '|' && duplicateKeys.has(duplicateKey)
-      
-      if (isDuplicate) {
-        console.log(`🔴 DUPLICATA DETECTADA: Linha ${i + 2}, Chave: "${duplicateKey}"`)
-        
-        // Criar mensagem detalhada mostrando os campos que formam a duplicata
-        const duplicateFieldsText = this.config.duplicateCheckFields
-          .map(field => `${field}: "${item[field] || ''}"`)
-          .join(', ')
-        
-        duplicates.push({
-          id: crypto.randomUUID(),
-          data: item,
-          originalRow: i + 2, // +2 porque a primeira linha é header
-          validation: {
-            isValid: false,
-            errors: [{
-              field: 'duplicate',
-              message: `Item duplicado (${duplicateFieldsText})`,
-              type: 'duplicate',
-              severity: 'error'
-            }],
-            warnings: [],
-            suggestions: []
-          }
+      if (importMode === 'insert') {
+        if (this.isUsableDuplicateKey(duplicateKey) && seenInsertKeys.has(duplicateKey)) {
+          duplicates.push(this.createDuplicateItem(item, rowNumber, duplicateKey))
+          continue
+        }
+        if (this.isUsableDuplicateKey(duplicateKey)) {
+          seenInsertKeys.add(duplicateKey)
+        }
+        this.classifyValidatedItem({
+          item,
+          rowNumber,
+          importAction: 'insert',
+          valid,
+          invalid,
+          allWarnings,
         })
         continue
       }
 
-      const validation = this.validateItem(item, i + 2)
-      const importItem: ImportItem = {
-        id: crypto.randomUUID(),
-        data: item,
-        originalRow: i + 2,
-        validation
+      if (importMode === 'update') {
+        if (!existsInDb) {
+          skipped.push(this.createSkippedItem(item, rowNumber, duplicateKey))
+          continue
+        }
+        this.classifyValidatedItem({
+          item,
+          rowNumber,
+          importAction: 'update',
+          existingId: existingRecord!.id,
+          valid,
+          invalid,
+          allWarnings,
+        })
+        continue
       }
 
-      allWarnings.push(...validation.warnings)
-
-      if (validation.isValid) {
-        valid.push(importItem)
+      // upsert
+      if (existsInDb) {
+        this.classifyValidatedItem({
+          item,
+          rowNumber,
+          importAction: 'update',
+          existingId: existingRecord!.id,
+          valid,
+          invalid,
+          allWarnings,
+        })
       } else {
-        invalid.push(importItem)
+        if (this.isUsableDuplicateKey(duplicateKey)) {
+          seenInsertKeys.add(duplicateKey)
+        }
+        this.classifyValidatedItem({
+          item,
+          rowNumber,
+          importAction: 'insert',
+          valid,
+          invalid,
+          allWarnings,
+        })
       }
     }
+
+    const insertCount = valid.filter((item) => item.importAction === 'insert').length
+    const updateCount = valid.filter((item) => item.importAction === 'update').length
 
     return {
       valid,
       invalid,
       duplicates,
+      skipped,
       totalRows: items.length,
       validCount: valid.length,
       invalidCount: invalid.length,
       duplicateCount: duplicates.length,
-      warnings: allWarnings
+      skippedCount: skipped.length,
+      insertCount,
+      updateCount,
+      importMode,
+      warnings: allWarnings,
+    }
+  }
+
+  private createDuplicateItem(item: any, rowNumber: number, duplicateKey: string): ImportItem {
+    const duplicateFieldsText = this.config.duplicateCheckFields
+      .map((field) => `${field}: "${item[field] ?? ''}"`)
+      .join(', ')
+
+    return {
+      id: crypto.randomUUID(),
+      data: item,
+      originalRow: rowNumber,
+      validation: {
+        isValid: false,
+        errors: [{
+          field: 'duplicate',
+          message: `Item duplicado (${duplicateFieldsText})`,
+          type: 'duplicate',
+          severity: 'error',
+        }],
+        warnings: [],
+        suggestions: [],
+      },
+    }
+  }
+
+  private createSkippedItem(item: any, rowNumber: number, duplicateKey: string): ImportItem {
+    const keyFieldsText = this.config.duplicateCheckFields
+      .map((field) => `${field}: "${item[field] ?? ''}"`)
+      .join(', ')
+
+    return {
+      id: crypto.randomUUID(),
+      data: item,
+      originalRow: rowNumber,
+      validation: {
+        isValid: false,
+        errors: [{
+          field: 'skipped',
+          message: `Registro não encontrado no cadastro (${keyFieldsText})`,
+          type: 'custom',
+          severity: 'info',
+        }],
+        warnings: [],
+        suggestions: [],
+      },
+    }
+  }
+
+  private classifyValidatedItem(params: {
+    item: any
+    rowNumber: number
+    importAction: 'insert' | 'update'
+    existingId?: string
+    valid: ImportItem[]
+    invalid: ImportItem[]
+    allWarnings: ValidationError[]
+  }): void {
+    const { item, rowNumber, importAction, existingId, valid, invalid, allWarnings } = params
+    const validation = this.validateItem(item, rowNumber)
+    const importItem: ImportItem = {
+      id: crypto.randomUUID(),
+      data: item,
+      originalRow: rowNumber,
+      validation,
+      importAction,
+      existingId,
+    }
+
+    allWarnings.push(...validation.warnings)
+
+    if (validation.isValid) {
+      valid.push(importItem)
+    } else {
+      invalid.push(importItem)
     }
   }
 

@@ -52,6 +52,15 @@ export function sanitizePercentInput(input: string): string {
   return v
 }
 
+/** Percentual com sinal opcional (ex.: reajuste/desconto no cenário). */
+export function sanitizeSignedPercentInput(input: string): string {
+  const raw = String(input)
+  const negative = raw.trimStart().startsWith('-')
+  const body = sanitizePercentInput(raw.replace(/-/g, ''))
+  if (negative) return body ? `-${body}` : '-'
+  return body
+}
+
 export function parsePercentValue(input: string): number | null {
   const t = String(input).trim().replace(',', '.')
   if (!t) return null

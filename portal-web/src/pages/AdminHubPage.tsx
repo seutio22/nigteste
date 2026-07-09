@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Navigate, useSearchParams } from 'react-router-dom'
-import { Box, Container, Tab, Tabs, Typography } from '@mui/material'
+import { Box, Tab, Tabs, Typography } from '@mui/material'
 import { useAuth } from '../context/AuthContext'
 import DatabaseHubPanel from '../components/DatabaseHubPanel'
 import AreasTypesAdminPanel from '../components/AreasTypesAdminPanel'
 import SlaAdminPanel from '../components/SlaAdminPanel'
 import PortalUsersAdminPanel from '../components/PortalUsersAdminPanel'
+import PageScaffold from '../components/PageScaffold'
 
 const TAB_KEYS = ['users', 'nexus', 'areas', 'sla'] as const
 
@@ -26,10 +27,7 @@ export default function AdminHubPage() {
   if (user?.role !== 'PORTAL_ADMIN') return <Navigate to="/" replace />
 
   return (
-    <Container
-      maxWidth={tab === 2 || tab === 3 ? false : 'lg'}
-      sx={{ py: 3, px: tab === 2 || tab === 3 ? { xs: 2, md: 3 } : undefined }}
-    >
+    <PageScaffold>
       <Typography variant="h5" fontWeight={700} gutterBottom>
         Administração do portal
       </Typography>
@@ -57,17 +55,17 @@ export default function AdminHubPage() {
       {tab === 1 && <DatabaseHubPanel />}
 
       {tab === 2 && (
-        <Box sx={{ maxWidth: 1400, mx: 'auto' }}>
+        <Box sx={{ width: '100%', maxWidth: '100%' }}>
           <AreasTypesAdminPanel />
         </Box>
       )}
 
       {tab === 3 && (
-        <Box sx={{ maxWidth: 1200, mx: 'auto' }}>
+        <Box sx={{ width: '100%', maxWidth: '100%' }}>
           <SlaAdminPanel />
         </Box>
       )}
 
-    </Container>
+    </PageScaffold>
   )
 }

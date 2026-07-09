@@ -55,6 +55,12 @@ import {
 } from './UpgradeDowngradeFields'
 import type { ReembolsoPorPlano } from './placementReembolso'
 import { SectionHeader } from './CotacaoFormSections'
+import {
+  CollapsibleFormSection,
+  CotacaoFormNavigationLayout,
+  CotacaoFormNavigationProvider,
+  listVisibleCotacaoFormSections,
+} from './CotacaoFormNavigation'
 import { OperadorasSugestaoField } from './OperadorasSugestaoField'
 import { SubfaturaModule } from './SubfaturaModule'
 import type { SubfaturaDraftItem } from './SubfaturaModule'
@@ -68,7 +74,7 @@ import {
 import { shouldShowPlanoModuleForCotacao, rowIdsNeedingPlanoForCotacao, type PlacementFormularioTipo } from './placementFormularioContrato'
 import { ContratoApoliceExtrasSection } from './ContratoApoliceExtrasSection'
 import { onlyDigitsCnpj } from '../../../lib/placementCnpjConsulta'
-import { COTACAO_STATUSES, formatCnaeDisplay } from './utils'
+import { COTACAO_STATUSES, formatCnaeDisplay, getWorkflowStatusDisplayLabel } from './utils'
 import { PLACEMENT_STATUS_RASCUNHO } from './placementCotacaoStatus'
 import {
   type AberturaSectionKey,
@@ -82,6 +88,7 @@ import {
   showSubfaturaSection,
 } from './placementCotacaoFormScope'
 import type { KickOffEstrategia } from './placementKickOffEstrategia'
+import { runWhenIdle } from './placementDeferIdle'
 
 /** Compara grupo econômico de forma tolerante (trim, caixa, espaços). */
 function grupoEconomicoCompativel(geA: string | null | undefined, geB: string | null | undefined): boolean {
@@ -173,6 +180,7 @@ export interface CotacaoFormState {
   multaRescisaoRegra: string
   multaRescisaoAvisoPrevio: string
   possuiConvencaoColetiva: SimNaoChoice
+  convencaoColetivaDetalhe: string
   /** Subfaturas em rascunho (nova cotação sem `cotacaoId` na API). */
   subfaturasDraft: SubfaturaDraftItem[]
   /** Estratégia alinhada na etapa Kick off. */
@@ -229,6 +237,7 @@ export const EMPTY_COTACAO_FORM: CotacaoFormState = {
   multaRescisaoRegra: '',
   multaRescisaoAvisoPrevio: '',
   possuiConvencaoColetiva: '',
+  convencaoColetivaDetalhe: '',
   subfaturasDraft: [],
   kickOffEstrategia: null,
 }
@@ -281,7 +290,8 @@ export function CotacaoFormFields({
 }: Props) {
   const workflowForFields =
     formScope === 'dados_abertura' ? 'base_atual' : workflowStageKey
-  const { analistas, clientes, operadoras, produtos } = useMasterDataStore()
+  const { analistas, clientes, operadoras, produtos, isSyncing: masterDataSyncing, syncFromApi: syncMasterData } =
+    useMasterDataStore()
   const prospects = usePlacementStore((s) => s.prospects)
   const condicoes = usePlacementStore((s) => s.condicoes)
   const filiais = usePlacementStore((s) => s.filiais)
@@ -317,14 +327,26 @@ export function CotacaoFormFields({
   const [condicaoModalPreset, setCondicaoModalPreset] = useState<'estipulante' | 'outroEmpresaGrupo'>('estipulante')
 
   useEffect(() => {
-    syncProspects()
-    syncCondicoes()
-    syncPlanos()
-    syncFiliais(true)
-    void syncCorretoresParceiros(true)
-    void syncProjetosPedidos(true)
-    void syncPlacementContratoCatalogos(true)
-  }, [syncProspects, syncCondicoes, syncFiliais, syncCorretoresParceiros, syncProjetosPedidos, syncPlacementContratoCatalogos])
+    runWhenIdle(() => {
+      syncProspects()
+      syncCondicoes()
+      syncPlanos()
+      syncFiliais(true)
+      void syncCorretoresParceiros(true)
+      void syncProjetosPedidos(true)
+      void syncPlacementContratoCatalogos(true)
+      void syncMasterData?.({ entities: ['operadoras', 'produtos'] })
+    })
+  }, [
+    syncProspects,
+    syncCondicoes,
+    syncPlanos,
+    syncFiliais,
+    syncCorretoresParceiros,
+    syncProjetosPedidos,
+    syncPlacementContratoCatalogos,
+    syncMasterData,
+  ])
 
   useEffect(() => {
     if (value.clienteTipo !== 'casa' || !value.condicaoId) return
@@ -453,10 +475,11 @@ export function CotacaoFormFields({
       if (value.planos.length > 0) patch({ planos: [] })
       return
     }
-    const merged = reconcilePlanosParaItens(value.planos, rowIdsPlano)
-    const a = JSON.stringify(merged)
-    const b = JSON.stringify(value.planos)
-    if (a !== b) patch({ planos: merged })
+    const needed = new Set(rowIdsPlano)
+    const orphan = value.planos.some((p) => !needed.has(p.itemRowId))
+    const missingRow = rowIdsPlano.some((rowId) => !value.planos.some((p) => p.itemRowId === rowId))
+    if (!orphan && !missingRow) return
+    patch({ planos: reconcilePlanosParaItens(value.planos, rowIdsPlano) })
   }, [value.itens, value.planos, rowIdsPlano])
 
   /** Condições: com grupo filtrado restringe ao grupo; sem grupo lista todas. Mantém a condição já vinculada na cotação. */
@@ -542,14 +565,29 @@ export function CotacaoFormFields({
     setCondicaoModalEditing(null)
   }
 
-  return (
+  const navigationEnabled = !embedSections
+  const visibleSectionIds = useMemo(
+    () => listVisibleCotacaoFormSections(formScope, aberturaSectionsOnly),
+    [formScope, aberturaSectionsOnly]
+  )
+  const formNavigationActive = navigationEnabled && visibleSectionIds.length > 1
+  const sectionEmbed = embedSections || formNavigationActive
+  const showSectionHeader = !formNavigationActive && !embedSections
+
+  const formBody = (
     <Stack gap={3}>
       {showPrazosSection(formScope, aberturaSectionsOnly) && (
-      <SectionShell embed={embedSections}>
-          {!embedSections && (
+      <CollapsibleFormSection
+        id="solicitacao_estudo"
+        title="Solicitação de Estudo"
+        icon={<CalendarMonthIcon fontSize="small" />}
+        navigationEnabled={formNavigationActive}
+      >
+      <SectionShell embed={sectionEmbed}>
+          {showSectionHeader && (
             <SectionHeader
               icon={<CalendarMonthIcon fontSize="small" />}
-              title="Prazos da cotação"
+              title="Solicitação de Estudo"
             />
           )}
           <Grid container spacing={2}>
@@ -580,7 +618,7 @@ export function CotacaoFormFields({
                   ) : (
                     COTACAO_STATUSES.map((s) => (
                       <MenuItem key={s} value={s}>
-                        {s}
+                        {getWorkflowStatusDisplayLabel(s)}
                       </MenuItem>
                     ))
                   )}
@@ -692,11 +730,18 @@ export function CotacaoFormFields({
             </Grid>
           </Grid>
       </SectionShell>
+      </CollapsibleFormSection>
       )}
 
       {showMapeamentoSection(formScope, aberturaSectionsOnly) && (
-      <SectionShell embed={embedSections}>
-          {!embedSections && (
+      <CollapsibleFormSection
+        id="mapeamento"
+        title="Mapeamento"
+        icon={<MapIcon fontSize="small" />}
+        navigationEnabled={formNavigationActive}
+      >
+      <SectionShell embed={sectionEmbed}>
+          {showSectionHeader && (
             <SectionHeader
               icon={<MapIcon fontSize="small" />}
               title="Mapeamento"
@@ -714,7 +759,7 @@ export function CotacaoFormFields({
           >
             <ToggleButton value="casa">
               <BusinessIcon fontSize="small" sx={{ mr: 0.75 }} />
-              Cliente da casa
+              Cliente da Carteira
             </ToggleButton>
             <ToggleButton value="prospect">
               <PersonSearchIcon fontSize="small" sx={{ mr: 0.75 }} />
@@ -751,7 +796,7 @@ export function CotacaoFormFields({
                 </Tooltip>
               </Stack>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                Campos independentes de Cliente da casa ou Prospect. Filial: Dados → Placement → Filial. Corretor:
+                Campos independentes de Cliente da Carteira ou Prospect. Filial: Dados → Placement → Filial. Corretor:
                 Dados → Placement → Corretor parceiro.
               </Typography>
             </Grid>
@@ -855,7 +900,7 @@ export function CotacaoFormFields({
                   renderInput={(params) => (
                     <TextField
                       {...params}
-                      label="Vincular condição (Placement)"
+                      label="CNPJ/CNAE de Estudo"
                       required
                       placeholder="Busque por CNPJ ou CNAE na lista"
                       error={!!errors?.condicaoId}
@@ -919,7 +964,7 @@ export function CotacaoFormFields({
                     disabled={disabled}
                     sx={{ minHeight: 44 }}
                   >
-                    Nova condição
+                    CADASTRO CNPJ
                   </Button>
                   <Button
                     variant="outlined"
@@ -965,7 +1010,7 @@ export function CotacaoFormFields({
                 <Grid item xs={12}>
                   <Alert severity="warning">
                     Selecione uma <strong>condição Placement</strong> (obrigatório para salvar). Cadastre ou ajuste em{' '}
-                    <strong>Dados → Placement → Condições</strong> ou use «Nova condição».
+                    <strong>Dados → Placement → Condições</strong> ou use «CADASTRO CNPJ».
                   </Alert>
                 </Grid>
               )}
@@ -1068,14 +1113,21 @@ export function CotacaoFormFields({
             </Grid>
           </Grid>
       </SectionShell>
+      </CollapsibleFormSection>
       )}
 
       {showDetalhesBaseSection(formScope, aberturaSectionsOnly) && (
-      <SectionShell embed={embedSections}>
-          {!embedSections && (
+      <CollapsibleFormSection
+        id="condicoes_contratuais"
+        title="Condições Contratuais"
+        icon={<Typography sx={{ fontWeight: 700 }}>i</Typography>}
+        navigationEnabled={formNavigationActive}
+      >
+      <SectionShell embed={sectionEmbed}>
+          {showSectionHeader && (
             <SectionHeader
               icon={<Typography sx={{ fontWeight: 700 }}>i</Typography>}
-              title="Detalhes da cotação — base atual"
+              title="Condições Contratuais"
             />
           )}
 
@@ -1103,7 +1155,7 @@ export function CotacaoFormFields({
 
             <Grid item xs={12} md={4}>
               <TextField
-                label="Vigência da apólice"
+                label="Início de vigência"
                 type="date"
                 fullWidth
                 InputLabelProps={{ shrink: true }}
@@ -1151,9 +1203,9 @@ export function CotacaoFormFields({
                 disabled={disabled}
                 onChange={(_, opt) => patch({ prazoVigenciaContratoId: opt?.id ?? '' })}
                 isOptionEqualToValue={(opt, val) => opt.id === val.id}
-                noOptionsText="Nenhum prazo cadastrado. Cadastre em Dados → Placement → Prazo vigência contrato."
+                noOptionsText="Nenhuma opção cadastrada. Cadastre em Dados → Placement → Duração contratual."
                 renderInput={(params) => (
-                  <TextField {...params} label="Prazo de vigência do contrato" placeholder="Opcional" />
+                  <TextField {...params} label="Duração Contratual" placeholder="Opcional" />
                 )}
               />
             </Grid>
@@ -1176,6 +1228,7 @@ export function CotacaoFormFields({
                 multaRescisaoRegra: value.multaRescisaoRegra,
                 multaRescisaoAvisoPrevio: value.multaRescisaoAvisoPrevio,
                 possuiConvencaoColetiva: value.possuiConvencaoColetiva,
+                convencaoColetivaDetalhe: value.convencaoColetivaDetalhe,
               }}
               disabled={disabled}
               onChange={(part) => patch(part)}
@@ -1195,6 +1248,7 @@ export function CotacaoFormFields({
                 planosCatalogo={planosCatalogo}
                 formularioTipo={value.formularioTipo}
                 disabled={disabled}
+                operadorasLoading={masterDataSyncing && operadoras.length === 0}
               />
             </Grid>
 
@@ -1283,14 +1337,35 @@ export function CotacaoFormFields({
             </Grid>
           </Grid>
       </SectionShell>
+      </CollapsibleFormSection>
       )}
 
       {showDetalhesEmCotacaoSection(formScope) && (
+      <CollapsibleFormSection
+        id="cenario_estudo"
+        title="Cenário de estudo — Solicitação Mercado"
+        icon={<Typography sx={{ fontWeight: 700 }}>i</Typography>}
+        navigationEnabled={formNavigationActive}
+      >
+      {formNavigationActive ? (
+          <Grid container spacing={2}>
+            <Grid item xs={12}>
+              <CotacaoFinanceiroSection
+                value={value.dadosFinanceiros}
+                clienteTipo={value.clienteTipo}
+                temCorretorParceiro={!!value.corretorParceiroId?.trim()}
+                disabled={disabled}
+                workflowStageKey="em_cotacao"
+                onChange={(next) => patch({ dadosFinanceiros: next })}
+              />
+            </Grid>
+          </Grid>
+      ) : (
       <Card variant="outlined">
         <CardContent>
           <SectionHeader
             icon={<Typography sx={{ fontWeight: 700 }}>i</Typography>}
-            title="Cenário de estudo — Em cotação"
+            title="Cenário de estudo — Solicitação Mercado"
           />
 
           <Grid container spacing={2}>
@@ -1308,20 +1383,33 @@ export function CotacaoFormFields({
         </CardContent>
       </Card>
       )}
+      </CollapsibleFormSection>
+      )}
 
       {showSubfaturaSection(formScope, aberturaSectionsOnly) && (
+      <CollapsibleFormSection
+        id="subfaturas"
+        title="Subfaturas"
+        navigationEnabled={formNavigationActive}
+      >
       <SubfaturaModule
         cotacaoId={cotacaoId ?? null}
         draftItems={value.subfaturasDraft}
         onDraftItemsChange={(subfaturasDraft) => patch({ subfaturasDraft })}
         disabled={disabled}
-        embedded={embedSections}
+        embedded={embedSections || formNavigationActive}
       />
+      </CollapsibleFormSection>
       )}
 
       {showObservacoesSection(formScope, aberturaSectionsOnly) && (
-      <SectionShell embed={embedSections}>
-          {!embedSections && (
+      <CollapsibleFormSection
+        id="observacoes"
+        title="Observações"
+        navigationEnabled={formNavigationActive}
+      >
+      <SectionShell embed={sectionEmbed}>
+          {showSectionHeader && (
             <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
               Observações
             </Typography>
@@ -1337,6 +1425,7 @@ export function CotacaoFormFields({
             placeholder="Opcional"
           />
       </SectionShell>
+      </CollapsibleFormSection>
       )}
 
       <ProspectFormModal
@@ -1373,6 +1462,16 @@ export function CotacaoFormFields({
         onSubmit={handleSubmitCondicaoModal}
       />
     </Stack>
+  )
+
+  if (!formNavigationActive) {
+    return formBody
+  }
+
+  return (
+    <CotacaoFormNavigationProvider sectionIds={visibleSectionIds}>
+      <CotacaoFormNavigationLayout>{formBody}</CotacaoFormNavigationLayout>
+    </CotacaoFormNavigationProvider>
   )
 }
 

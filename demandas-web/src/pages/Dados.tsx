@@ -17,6 +17,7 @@ import { useBulkDelete } from '../hooks/useBulkDelete'
 // CleanupModal removido - função de limpeza de duplicatas removida
 import { smartImporterConfigs } from '../config/smartImporterConfigs'
 import type { TabKey, FormData, DataMap } from '../types/dadosTypes'
+import { runDadosSmartImport } from '../lib/dadosSmartImport'
 import type { ImportResult } from '../types/smartImporter'
 import { formatIntegerPtBR } from '../utils/formatNumber'
 
@@ -151,193 +152,29 @@ export default function DadosPage() {
   const handleSmartImport = async (result: ImportResult) => {
     try {
       const { api } = await import('../lib/api.local')
-      let totalImported = 0
-      let totalSavedToDatabase = 0
-      const errors: string[] = []
-
-      // Processar itens válidos em lotes para evitar timeout
-      
-      const BATCH_SIZE = 50 // Processar em lotes de 50
-      const batches = []
-      
-      for (let i = 0; i < result.valid.length; i += BATCH_SIZE) {
-        batches.push(result.valid.slice(i, i + BATCH_SIZE))
-      }
-      
-      for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
-        const batch = batches[batchIndex]
-        
-        for (let i = 0; i < batch.length; i++) {
-          const item = batch[i]
-          const globalIndex = batchIndex * BATCH_SIZE + i
-          // Definir data fora do try-catch para estar acessível no catch
-          const data = item.isCorrected ? item.correctedData : item.data
-          
-          try {
-          // Determinar endpoint baseado na aba ativa
-          let endpoint = ''
-          let payload: any = {}
-
-          switch (activeTab) {
-            case 'clientes':
-              endpoint = '/clientes'
-              payload = { nome: data.nome, grupoEconomico: data.grupoEconomico }
-              break
-            case 'contratos':
-              endpoint = '/contratos'
-              payload = { 
-                codigo: data.codigo, 
-                numero: data.numero || data.codigo || `CONT-${Date.now()}`, // Garantir que numero existe
-                grupoEconomico: data.grupoEconomico, 
-                status: data.status || 'Ativo' // Garantir que status existe
-              }
-              break
-            case 'operadoras':
-              endpoint = '/operadoras'
-              payload = { nome: data.nome }
-              break
-            case 'produtos':
-              endpoint = '/produtos'
-              payload = { nome: data.nome }
-              break
-            case 'sistemas':
-              endpoint = '/sistemas'
-              payload = { nome: data.nome }
-              break
-            case 'grupos':
-              endpoint = '/grupos'
-              payload = { nome: data.nome }
-              break
-            case 'analistas':
-              endpoint = '/analistas'
-              payload = { nome: data.nome }
-              break
-            case 'areas':
-              endpoint = '/areas'
-              payload = { nome: data.nome }
-              break
-            case 'solicitantes':
-              endpoint = '/solicitantes'
-              payload = { nome: data.nome }
-              break
-            case 'relatorios':
-              endpoint = '/relatorios'
-              payload = { nome: data.nome, descricao: data.descricao || '' }
-              break
-            case 'modelos':
-              endpoint = '/modelos'
-              payload = { nome: data.nome, descricao: data.descricao || '' }
-              break
-            case 'areasMailling':
-              endpoint = '/areas-mailling'
-              payload = { nome: data.nome, descricao: data.descricao || '', ativo: data.ativo !== undefined ? data.ativo : true }
-              break
-            case 'cargosMailling':
-              endpoint = '/cargos-mailling'
-              payload = { nome: data.nome, descricao: data.descricao || '', ativo: data.ativo !== undefined ? data.ativo : true }
-              break
-            case 'filiaisMailling':
-              endpoint = '/filiais-mailling'
-              payload = { nome: data.nome, descricao: data.descricao || '', ativo: data.ativo !== undefined ? data.ativo : true }
-              break
-            default:
-              console.warn(`Endpoint não configurado para ${activeTab}`)
-              continue
-          }
-
-          if (endpoint) {
-            await api.post(endpoint, payload)
-            totalSavedToDatabase++
-            
-            // Pequeno delay para evitar sobrecarga da API
-            if (i % 10 === 0) {
-              await new Promise(resolve => setTimeout(resolve, 100))
-            }
-          }
-
-          totalImported++
-          } catch (apiError: any) {
-            console.error(`❌ Erro ao salvar item ${globalIndex + 1} no banco:`, apiError)
-            
-            // Extrair mensagem de erro específica da API
-            let errorMessage = 'Erro desconhecido'
-            if (apiError?.message) {
-              errorMessage = apiError.message
-            } else if (apiError?.data?.message) {
-              errorMessage = apiError.data.message
-            } else if (typeof apiError === 'string') {
-              errorMessage = apiError
-            }
-            
-            // Adicionar informação do item que falhou (nome ou código)
-            const itemIdentifier = data.nome || data.codigo || data.numero || `item-${globalIndex + 1}`
-            errors.push(`${itemIdentifier}: ${errorMessage}`)
-            
-            // Se há muitos erros consecutivos, pode ser um problema de timeout ou limite
-            if (errors.length > 100) {
-              console.error(`❌ Muitos erros consecutivos (${errors.length}). Parando importação.`)
-              break
-            }
-          }
-        }
-        
-        // Delay entre lotes para evitar sobrecarga
-        if (batchIndex < batches.length - 1) {
-          console.log(`⏳ Aguardando 2 segundos antes do próximo lote...`)
-          await new Promise(resolve => setTimeout(resolve, 2000))
-        }
-      }
-
-      // Atualizar store local
-      const storeKey = activeTab as keyof typeof store
-      if (storeKey in store) {
-        const newItems = result.valid.map(item => ({
-          id: crypto.randomUUID(),
-          ...(item.isCorrected ? item.correctedData : item.data),
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }))
-
-        store.upsertMany({ [storeKey]: [...(store[storeKey] as any[]), ...newItems] })
-      }
-
-      // Mostrar resultado
-      const successMessage = totalSavedToDatabase > 0 
-        ? `Importação inteligente concluída! ${totalImported} registros importados e ${totalSavedToDatabase} salvos no banco de dados.`
-        : `Importação inteligente concluída! ${totalImported} registros importados localmente.`
+      const run = await runDadosSmartImport(activeTab, result, api, store)
 
       setSnack({
         open: true,
-        message: successMessage,
-        severity: totalSavedToDatabase > 0 ? 'success' : 'warning'
+        message: run.successMessage,
+        severity: run.totalSavedToDatabase > 0 ? 'success' : 'warning',
       })
 
-      if (errors.length > 0) {
-        console.warn('⚠️ SMART IMPORT: Alguns erros ocorreram:', errors)
-        
-        // Mostrar detalhes dos erros
-        const errorDetails = errors.slice(0, 3).join('\n') // Mostrar até 3 erros
-        const moreErrors = errors.length > 3 ? `\n... e mais ${errors.length - 3} erro(s)` : ''
-        
+      if (run.errors.length > 0) {
+        const errorDetails = run.errors.slice(0, 3).join('\n')
+        const moreErrors = run.errors.length > 3 ? `\n... e mais ${run.errors.length - 3} erro(s)` : ''
         setSnack({
           open: true,
-          message: `${successMessage}\n\nErros encontrados:\n${errorDetails}${moreErrors}`,
-          severity: 'warning'
+          message: `${run.successMessage}\n\nErros encontrados:\n${errorDetails}${moreErrors}`,
+          severity: 'warning',
         })
       }
-
-      console.log(`✅ SMART IMPORT: Processamento concluído.`)
-      console.log(`📊 Total processado: ${totalImported}`)
-      console.log(`💾 Total salvo no banco: ${totalSavedToDatabase}`)
-      console.log(`❌ Total de erros: ${errors.length}`)
-      console.log(`📈 Taxa de sucesso: ${totalSavedToDatabase > 0 ? ((totalSavedToDatabase / totalImported) * 100).toFixed(1) : 0}%`)
-
     } catch (error) {
       console.error('❌ SMART IMPORT: Erro geral:', error)
       setSnack({
         open: true,
         message: 'Erro durante a importação inteligente. Tente novamente.',
-        severity: 'error'
+        severity: 'error',
       })
     }
   }
@@ -1142,14 +979,17 @@ export default function DadosPage() {
               const solicitantesData = rows.map(row => {
                 const item: any = { id: crypto.randomUUID() }
                 headers.forEach((header, index) => {
-                  if (header === 'id' && row[index]) {
+                  const h = String(header ?? '').toLowerCase().trim()
+                  if (h === 'id' && row[index]) {
                     item.id = row[index]
-                  } else if (header === 'nome') {
+                  } else if (h === 'nome') {
                     item.nome = row[index]
+                  } else if (h === 'email' || h === 'e-mail') {
+                    item.email = String(row[index] ?? '').trim().toLowerCase()
                   }
                 })
                 return item
-              }).filter(item => item.nome)
+              }).filter(item => item.nome && item.email)
               
               if (solicitantesData.length > 0) {
                 // Salvar no store local
@@ -1160,7 +1000,8 @@ export default function DadosPage() {
                 try {
                   for (const item of solicitantesData) {
                     await api.post('/solicitantes', {
-                      nome: item.nome
+                      nome: item.nome,
+                      email: item.email,
                     })
                     totalSavedToDatabase++
                   }

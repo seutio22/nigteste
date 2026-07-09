@@ -38,6 +38,20 @@ export const useDadosCRUD = () => {
       })
       return false
     }
+
+    if (activeTab === 'solicitantes') {
+      const email = String(form.email ?? '').trim()
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!emailRegex.test(email)) {
+        setSnack({
+          open: true,
+          message: 'Informe um e-mail válido.',
+          severity: 'error'
+        })
+        return false
+      }
+    }
+
     return true
   }, [])
 
@@ -248,20 +262,22 @@ export const useDadosCRUD = () => {
           break
           
         case 'solicitantes': {
-          // Validar se já existe solicitante com mesmo nome
-          const existingSolicitante = store.solicitantes.find(s =>
-            s.nome.toLowerCase().trim() === form.nome?.toLowerCase().trim()
+          const emailNorm = String(form.email ?? '').trim().toLowerCase()
+          const existingEmail = store.solicitantes.find(
+            (s) => s.email?.toLowerCase().trim() === emailNorm
           )
-          if (existingSolicitante) {
+          if (existingEmail) {
             setSnack({
               open: true,
-              message: `Solicitante "${form.nome}" já existe. Por favor, escolha um nome diferente.`,
+              message: `E-mail "${form.email}" já está cadastrado para "${existingEmail.nome}".`,
               severity: 'error'
             })
-            throw new Error(`Solicitante "${form.nome}" já existe. Por favor, escolha um nome diferente.`)
+            throw new Error(`E-mail "${form.email}" já cadastrado.`)
           }
-          // API aceita apenas { nome }; o id é gerado no servidor — usar resposta no store
-          const createdSolicitante = await api.post(config.endpoint, { nome: form.nome }) as Solicitante
+          const createdSolicitante = (await api.post(config.endpoint, {
+            nome: form.nome,
+            email: emailNorm,
+          })) as Solicitante
           console.log('✅ Solicitante salvo no banco de dados:', createdSolicitante.id)
           store.upsertMany({ solicitantes: [...store.solicitantes, createdSolicitante] })
           break
@@ -483,22 +499,26 @@ export const useDadosCRUD = () => {
           await api.put(`${config.endpoint}/${id}`, { nome: form.nome, descricao: form.descricao })
           break
           
-        case 'solicitantes':
-          // Validar se já existe outro solicitante com mesmo nome (excluindo o próprio)
-          const duplicateSolicitante = store.solicitantes.find(s => 
-            s.id !== id && 
-            s.nome.toLowerCase().trim() === form.nome?.toLowerCase().trim()
+        case 'solicitantes': {
+          const emailNorm = String(form.email ?? '').trim().toLowerCase()
+          const duplicateEmail = store.solicitantes.find(
+            (s) => s.id !== id && s.email?.toLowerCase().trim() === emailNorm
           )
-          if (duplicateSolicitante) {
-            throw new Error(`Solicitante "${form.nome}" já existe. Por favor, escolha um nome diferente.`)
+          if (duplicateEmail) {
+            throw new Error(`E-mail "${form.email}" já está cadastrado para "${duplicateEmail.nome}".`)
           }
-          
-          const updatedSolicitante = { id, nome: form.nome } as Solicitante
+
+          const updatedSolicitante = {
+            id,
+            nome: form.nome,
+            email: emailNorm,
+          } as Solicitante
           store.upsertMany({
-            solicitantes: store.solicitantes.map(s => s.id === id ? updatedSolicitante : s)
+            solicitantes: store.solicitantes.map((s) => (s.id === id ? updatedSolicitante : s)),
           })
-          await api.put(`${config.endpoint}/${id}`, { nome: form.nome })
+          await api.put(`${config.endpoint}/${id}`, { nome: form.nome, email: emailNorm })
           break
+        }
           
         case 'relatorios':
           const updatedRelatorio = { id, nome: form.nome } as Relatorio

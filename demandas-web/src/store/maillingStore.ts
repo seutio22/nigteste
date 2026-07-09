@@ -3,11 +3,21 @@ import { persist } from 'zustand/middleware'
 import type { MaillingContact, MaillingFilter, ChangeLogEntry, SavedFilter } from '../types/mailling'
 import { useAuthStore } from './authStore'
 import { useMasterDataStore } from './masterDataStore'
+import { createSafePersistStorage, removeLocalStorageByPrefix } from '../lib/safePersistStorage'
+import { shouldSkipStoreSync } from '../utils/syncCooldown'
 import * as XLSX from 'xlsx'
+
+export function clearMaillingLocalCache(): void {
+  removeLocalStorageByPrefix('mailling-v1')
+}
+
+let maillingSyncInFlight: Promise<void> | null = null
 
 interface MaillingState {
   contacts: MaillingContact[]
   savedFilters: SavedFilter[]
+  lastSync: number
+  isSyncing: boolean
   add: (contact: Omit<MaillingContact, 'id' | 'createdAt' | 'updatedAt' | 'changeLog'>) => Promise<void>
   update: (id: string, updates: Partial<MaillingContact>) => Promise<void>
   remove: (id: string) => Promise<void>
@@ -18,7 +28,7 @@ interface MaillingState {
   getEmailsFormatted: (contacts: MaillingContact[]) => string
   importFromExcel: (emails: string[], filters: Partial<MaillingFilter>) => void
   addChangeLog: (contactId: string, entry: Omit<ChangeLogEntry, 'id' | 'timestamp'>) => void
-  syncFromApi: () => Promise<void>
+  syncFromApi: (force?: boolean) => Promise<void>
   // Métodos para filtros salvos
   saveFilter: (nome: string, descricao: string, filtros: MaillingFilter) => void
   updateSavedFilter: (id: string, updates: Partial<SavedFilter>) => void
@@ -31,6 +41,8 @@ export const useMaillingStore = create<MaillingState>()(
     (set, get) => ({
       contacts: [],
       savedFilters: [],
+      lastSync: 0,
+      isSyncing: false,
       
       add: async (contact: Omit<MaillingContact, 'id' | 'createdAt' | 'updatedAt' | 'changeLog'>) => {
         const authStore = useAuthStore.getState()
@@ -102,8 +114,6 @@ export const useMaillingStore = create<MaillingState>()(
             const updatedContacts = [...state.contacts, newContact]
             
             // Salvar no localStorage
-            localStorage.setItem('mailling-v1', JSON.stringify(updatedContacts))
-            
             return { contacts: updatedContacts }
           })
           
@@ -147,8 +157,6 @@ export const useMaillingStore = create<MaillingState>()(
             const updatedContacts = [...state.contacts, newContact]
             
             // Salvar no localStorage
-            localStorage.setItem('mailling-v1', JSON.stringify(updatedContacts))
-            
             return { contacts: updatedContacts }
           })
         }
@@ -241,8 +249,6 @@ export const useMaillingStore = create<MaillingState>()(
           })
           
           // Salvar no localStorage
-          localStorage.setItem('mailling-v1', JSON.stringify(updatedContacts))
-          
           return { contacts: updatedContacts }
         })
       },
@@ -281,8 +287,6 @@ export const useMaillingStore = create<MaillingState>()(
           const updatedContacts = state.contacts.filter(contact => contact.id !== id)
           
           // Salvar no localStorage
-          localStorage.setItem('mailling-v1', JSON.stringify(updatedContacts))
-          
           return { contacts: updatedContacts }
         })
       },
@@ -327,8 +331,6 @@ export const useMaillingStore = create<MaillingState>()(
           const updatedContacts = state.contacts.filter(contact => !ids.includes(contact.id))
           
           // Salvar no localStorage
-          localStorage.setItem('mailling-v1', JSON.stringify(updatedContacts))
-          
           return { contacts: updatedContacts }
         })
       },
@@ -402,8 +404,6 @@ export const useMaillingStore = create<MaillingState>()(
           const updatedContacts = [...state.contacts, ...newContacts]
           
           // Salvar no localStorage
-          localStorage.setItem('mailling-v1', JSON.stringify(updatedContacts))
-          
           return { contacts: updatedContacts }
         })
       },
@@ -606,17 +606,21 @@ export const useMaillingStore = create<MaillingState>()(
           })
           
           // Salvar no localStorage
-          localStorage.setItem('mailling-v1', JSON.stringify(updatedContacts))
-          
           return { contacts: updatedContacts }
         })
       },
 
-      syncFromApi: async () => {
+      syncFromApi: async (force?: boolean) => {
+        if (maillingSyncInFlight) return maillingSyncInFlight
+
+        const state = get()
+        if (shouldSkipStoreSync(state.lastSync, state.contacts.length, force)) return
+
+        maillingSyncInFlight = (async () => {
         try {
+          set({ isSyncing: true })
           console.log('🔄 MaillingStore: Iniciando syncFromApi...')
           
-          // Chamar a API para buscar contatos
           const { api } = await import('../lib/api')
           const apiContacts = await api.get('/mailling')
           
@@ -710,17 +714,19 @@ export const useMaillingStore = create<MaillingState>()(
             return convertedContact
           })
           
-          // Atualizar o store
-          set({ contacts: convertedContacts })
-          
-          // Salvar no localStorage
-          localStorage.setItem('mailling-v1', JSON.stringify(convertedContacts))
+          set({ contacts: convertedContacts, lastSync: Date.now() })
           
           console.log('✅ MaillingStore: syncFromApi concluído com sucesso!')
           
         } catch (error) {
           console.error('❌ MaillingStore: Erro ao sincronizar com API:', error)
+        } finally {
+          set({ isSyncing: false })
+          maillingSyncInFlight = null
         }
+        })()
+
+        return maillingSyncInFlight
       },
       
       // Métodos para gerenciar filtros salvos
@@ -766,7 +772,32 @@ export const useMaillingStore = create<MaillingState>()(
         return savedFilters.find(filter => filter.id === id)
       }
     }),
-    { name: 'mailling-v1' }
+    {
+      name: 'mailling-v1',
+      version: 2,
+      partialize: (state) => ({
+        savedFilters: state.savedFilters,
+        lastSync: state.lastSync,
+      }),
+      storage: createSafePersistStorage<Pick<MaillingState, 'savedFilters' | 'lastSync'>>('mailling-v1', {
+        onQuotaExceeded: clearMaillingLocalCache,
+      }),
+      migrate: (persisted) => {
+        const s = persisted as Partial<MaillingState> | undefined
+        return {
+          savedFilters: s?.savedFilters ?? [],
+          lastSync: s?.lastSync ?? 0,
+        }
+      },
+      onRehydrateStorage: () => () => {
+        queueMicrotask(() => {
+          const s = useMaillingStore.getState()
+          if (s.contacts.length === 0 && !s.isSyncing) {
+            void s.syncFromApi()
+          }
+        })
+      },
+    }
   )
 )
 

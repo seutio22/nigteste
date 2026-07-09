@@ -5,10 +5,16 @@ import type { TimelineEvent } from '../types/timeline'
 import { createSafePersistStorage, removeLocalStorageByPrefix } from '../lib/safePersistStorage'
 import { useMasterDataStore } from './masterDataStore'
 import { shouldSkipStoreSync } from '../utils/syncCooldown'
+import {
+  loadManutencaoQualificacaoLocal,
+} from '../lib/manutencaoQualificacaoStorage'
+import { parseManutencaoQualificacao } from '../types/manutencaoQualificacao'
 
 export function clearManutencaoLocalCache(): void {
   removeLocalStorageByPrefix('manutencoes-v')
 }
+
+let manutencaoSyncInFlight: Promise<void> | null = null
 
 interface ManutencaoState {
   items: any[]
@@ -110,6 +116,9 @@ export const useManutencaoStore = create<ManutencaoState>()(
             tipoId: payload.tipoId,
             tipoServicoId: payload.tipoServicoId,
             analistaId: payload.analistaId,
+            qualificacaoChamado:
+              (createdManutencao as { qualificacaoChamado?: unknown }).qualificacaoChamado ??
+              payload.qualificacaoChamado,
             // Garantir que as datas sejam strings
             dataInicio: payload.dataInicio,
             dataFinal: payload.dataFinal,
@@ -343,15 +352,15 @@ export const useManutencaoStore = create<ManutencaoState>()(
         }
       },
       async syncFromApi(force?: boolean) {
+        if (manutencaoSyncInFlight) return manutencaoSyncInFlight
+
         const state = get()
-        if (state.isLoading) {
-          return
-        }
         const now = Date.now()
         if (shouldSkipStoreSync(state.lastSync, state.items.length, force)) {
           return
         }
-        
+
+        manutencaoSyncInFlight = (async () => {
         try {
           clearManutencaoLocalCache()
           set({ isLoading: true })
@@ -362,13 +371,24 @@ export const useManutencaoStore = create<ManutencaoState>()(
           const manutencoes = await api.getManutencoes()
           
           // Mapear dados da API para o formato do frontend
-          const manutencoesMapeadas: any[] = manutencoes.map((m: any) => ({
+          const manutencoesMapeadas: any[] = manutencoes.map((m: any) => {
+            const qualificacaoApi = parseManutencaoQualificacao(m.qualificacaoChamado)
+            const qualificacaoLocal = loadManutencaoQualificacaoLocal(m.id)
+            const qualificacaoChamado =
+              qualificacaoApi?.avaliadoEm
+                ? qualificacaoApi
+                : qualificacaoLocal.avaliadoEm
+                  ? qualificacaoLocal
+                  : qualificacaoApi ?? undefined
+
+            return {
             id: m.id,
             ticket: m.ticket,
             status: m.status,
             solicitante: m.solicitante,
             descricao: m.descricao,
             observacoes: m.observacoes,
+            qualificacaoChamado,
             qualidade: m.qualidade,
             periodicidade: m.periodicidade,
             qtdRetornos: m.qtdRetornos,
@@ -395,7 +415,8 @@ export const useManutencaoStore = create<ManutencaoState>()(
             // Vínculo ao analista (para filtros/pendências na Home/export)
             analistaObj: m.analista,
             analista: (m.analista?.nome || m.analista?.name || m.analistaId || '') as string,
-          }))
+          }
+          })
           
           // Se não há dados da API mas há dados locais, manter os dados locais
           if (manutencoesMapeadas.length === 0 && state.items.length > 0) {
@@ -408,7 +429,12 @@ export const useManutencaoStore = create<ManutencaoState>()(
         } catch (error) {
           console.error('❌ ManutencaoStore: Erro no syncFromApi:', error)
           set({ isLoading: false })
+        } finally {
+          manutencaoSyncInFlight = null
         }
+        })()
+
+        return manutencaoSyncInFlight
       },
       async syncTimeline(manutencaoId: string) {
         try {

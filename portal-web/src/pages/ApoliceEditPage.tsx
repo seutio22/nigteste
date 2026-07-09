@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode, type Dispatch, type SetStateAction } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode, type Dispatch, type SetStateAction } from 'react'
 import { Link as RouterLink, useParams } from 'react-router-dom'
 import AddIcon from '@mui/icons-material/Add'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
@@ -10,6 +10,7 @@ import {
   Checkbox,
   Divider,
   FormControl,
+  FormHelperText,
   FormControlLabel,
   FormLabel,
   IconButton,
@@ -33,6 +34,7 @@ import {
 } from '@mui/material'
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
+import PageScaffold from '../components/PageScaffold'
 
 const APOLICE_NUMERO_MANUAL = '__manual__'
 
@@ -112,14 +114,14 @@ function parcelasFromApi(a: number[] | null | undefined): number[] {
   return parcelasZeros12()
 }
 
+/** Mês de competência da parcela: sempre a partir da vigência início; sem vigência válida → «zerado» (—). */
 function mesReferenciaParcela(vigIniIso: string, parcelIndex: number): string {
-  let base = new Date()
-  if (vigIniIso.trim()) {
-    const d = new Date(vigIniIso)
-    if (!Number.isNaN(d.getTime())) base = d
-  }
-  const y = base.getFullYear()
-  const m = base.getMonth()
+  const t = vigIniIso.trim()
+  if (!t) return '—'
+  const d = new Date(t)
+  if (Number.isNaN(d.getTime())) return '—'
+  const y = d.getFullYear()
+  const m = d.getMonth()
   const tm = m + parcelIndex
   const dt = new Date(y + Math.floor(tm / 12), tm % 12, 1)
   return dt.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })
@@ -217,7 +219,7 @@ function faturasDeApi(rows: FaturaMesApi[]): FaturaFormRow[] {
 
 function TabPanel({ children, value, index }: { children: ReactNode; value: number; index: number }) {
   if (value !== index) return null
-  return <Box sx={{ pt: 2 }}>{children}</Box>
+  return <Box sx={{ pt: 2.5, width: '100%', maxWidth: '100%' }}>{children}</Box>
 }
 
 type LinhaForm = {
@@ -369,6 +371,7 @@ export default function ApoliceEditPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  const [operadorasLoadWarn, setOperadorasLoadWarn] = useState<string | null>(null)
 
   const [cab, setCab] = useState<ApoliceDetalhe | null>(null)
   const [contratosNexus, setContratosNexus] = useState<NexusContratoOpcao[]>([])
@@ -387,6 +390,7 @@ export default function ApoliceEditPage() {
   const [vigIni, setVigIni] = useState('')
   const [vigFim, setVigFim] = useState('')
   const [obsAp, setObsAp] = useState('')
+  const [situacaoApolice, setSituacaoApolice] = useState<'ativa' | 'cancelada'>('ativa')
 
   const [modelo, setModelo] = useState<ModeloDados>('PLANO')
   const [linhas, setLinhas] = useState<LinhaForm[]>([linhaFormVazia()])
@@ -394,8 +398,7 @@ export default function ApoliceEditPage() {
   const [tab, setTab] = useState(0)
   const [operadoras, setOperadoras] = useState<OperadoraOpt[]>([])
   const [operadoraId, setOperadoraId] = useState('')
-  const [novaOperadoraNome, setNovaOperadoraNome] = useState('')
-  const [salvandoOperadora, setSalvandoOperadora] = useState(false)
+  const [needsOperadorasSync, setNeedsOperadorasSync] = useState(false)
 
   const [tipoFinanceiro, setTipoFinanceiro] = useState<TipoFinanceiro>('comissionamento')
   const [temCorretorParceiroFin, setTemCorretorParceiroFin] = useState(false)
@@ -420,6 +423,15 @@ export default function ApoliceEditPage() {
 
   const showPlano = produto === 'SAUDE' || produto === 'ODONTO'
   const showCoberturas = produto === 'VIDA_GRUPO'
+
+  /** Inclui valor atual da apólice se ainda não estiver no catálogo (ex.: migração ou id antigo). */
+  const operadorasSelectOptions = useMemo(() => {
+    const id = operadoraId.trim()
+    if (!id || operadoras.some((o) => o.id === id)) return operadoras
+    const nome = cab?.fornecedor?.trim()
+    const label = nome ? `${nome} (valor atual)` : `${id.slice(0, 8)}… (valor atual)`
+    return [{ id, nome: label }, ...operadoras]
+  }, [operadoras, operadoraId, cab?.fornecedor])
 
   const contratoSelectValue = nexusContratoId.trim() || APOLICE_NUMERO_MANUAL
   const numeroOk = nexusContratoId.trim().length > 0 || numeroApolice.trim().length > 0
@@ -472,9 +484,10 @@ export default function ApoliceEditPage() {
     }
     setLoading(true)
     setErr(null)
+    setOperadorasLoadWarn(null)
     const [r, rOp] = await Promise.all([
       api<{ apolice: ApoliceDetalhe }>(`/seguros/apolices/${encodeURIComponent(apoliceId)}`),
-      api<{ operadoras: OperadoraOpt[] }>('/seguros/operadoras'),
+      api<{ operadoras: OperadoraOpt[]; needsSync?: boolean }>('/seguros/operadoras'),
     ])
     if (!r.ok) {
       setLoading(false)
@@ -483,10 +496,15 @@ export default function ApoliceEditPage() {
       return
     }
     if (rOp.ok) {
-      setOperadoras(rOp.data?.operadoras ?? [])
+      const dOp = rOp.data
+      const raw = dOp?.operadoras
+      setOperadoras(Array.isArray(raw) ? raw : [])
+      setNeedsOperadorasSync(!!dOp?.needsSync)
+      setOperadorasLoadWarn(null)
     } else {
       setOperadoras([])
-      setErr(rOp.error || 'Não foi possível carregar o catálogo de operadoras.')
+      setNeedsOperadorasSync(true)
+      setOperadorasLoadWarn(rOp.error || 'Não foi possível carregar o catálogo de operadoras. A ficha carregou; pode usar a operadora já gravada ou tentar atualizar a página.')
     }
     const ap = r.data!.apolice
     setCab(ap)
@@ -547,6 +565,7 @@ export default function ApoliceEditPage() {
     setVigIni(ap.vigenciaInicio ? String(ap.vigenciaInicio).slice(0, 10) : '')
     setVigFim(ap.vigenciaFim ? String(ap.vigenciaFim).slice(0, 10) : '')
     setObsAp(ap.observacoes ?? '')
+    setSituacaoApolice(ap.active ? 'ativa' : 'cancelada')
 
     setSubRows(subsDeApi(ap.subestipulantes ?? []))
 
@@ -573,27 +592,6 @@ export default function ApoliceEditPage() {
     if (loading || !estipulanteIdEdit) return
     void loadContratos(estipulanteIdEdit, grupoNomeForEdit)
   }, [estipulanteIdEdit, grupoNomeForEdit, loading, loadContratos])
-
-  async function criarOperadora() {
-    if (!isAdmin || !novaOperadoraNome.trim()) return
-    setSalvandoOperadora(true)
-    setErr(null)
-    const r = await api<{ operadora: { id: string; nome: string; sortOrder?: number } }>('/seguros/operadoras', {
-      method: 'POST',
-      body: JSON.stringify({ nome: novaOperadoraNome.trim() }),
-    })
-    setSalvandoOperadora(false)
-    if (!r.ok) {
-      setErr(r.error || 'Não foi possível criar a operadora.')
-      return
-    }
-    const created = r.data?.operadora
-    if (created) {
-      setOperadoras((prev) => [...prev, created].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')))
-      setOperadoraId(created.id)
-      setNovaOperadoraNome('')
-    }
-  }
 
   function buildSubPayload(): { ok: true; rows: SubRowForm[] } | { ok: false; msg: string } {
     const meaningful = subRows.filter(
@@ -752,6 +750,7 @@ export default function ApoliceEditPage() {
       trExecutivoConsultor: trExecutivoConsultor.trim() || null,
       trAnalista: trAnalista.trim() || null,
       operadoraId: operadoraId.trim(),
+      active: situacaoApolice === 'ativa',
     }
     setSaving(true)
     const rPatch = await api(`/seguros/apolices/${encodeURIComponent(apoliceId)}`, {
@@ -819,14 +818,14 @@ export default function ApoliceEditPage() {
 
   if (!apoliceId) {
     return (
-      <Box sx={{ p: 2 }}>
+      <PageScaffold>
         <Alert severity="error">ID da apólice em falta.</Alert>
-      </Box>
+      </PageScaffold>
     )
   }
 
   return (
-    <Box sx={{ p: { xs: 1.5, sm: 2 }, maxWidth: 960, mx: 'auto' }}>
+    <PageScaffold>
       <Button component={RouterLink} to="/apolice" startIcon={<ArrowBackIcon />} sx={{ mb: 2 }}>
         Voltar aos cadastros de seguros
       </Button>
@@ -846,6 +845,11 @@ export default function ApoliceEditPage() {
           {err}
         </Alert>
       ) : null}
+      {operadorasLoadWarn && !err ? (
+        <Alert severity="warning" sx={{ mb: 2 }} onClose={() => setOperadorasLoadWarn(null)}>
+          {operadorasLoadWarn}
+        </Alert>
+      ) : null}
 
       {loading ? (
         <Typography color="text.secondary">A carregar…</Typography>
@@ -863,7 +867,7 @@ export default function ApoliceEditPage() {
             variant="scrollable"
             scrollButtons="auto"
             allowScrollButtonsMobile
-            sx={{ borderBottom: 1, borderColor: 'divider', mb: 0 }}
+          sx={{ borderBottom: 1, borderColor: 'divider', mb: 0, width: '100%' }}
           >
             <Tab label="Geral e subestipulantes" />
             <Tab label="Plano / coberturas" />
@@ -873,20 +877,26 @@ export default function ApoliceEditPage() {
           </Tabs>
 
           <TabPanel value={tab} index={0}>
-          <Paper sx={{ p: 2, mb: 2 }}>
+          <Paper sx={{ p: { xs: 2, md: 2.5 }, mb: 2.5, width: '100%', boxSizing: 'border-box' }}>
             <Stack spacing={2}>
               {needsContratosSync ? (
                 <Alert severity="info">
-                  Contratos Nexus podem estar indisponíveis. Pode editar o número livremente ou sincronizar contratos em Banco
-                  de dados.
+                  A lista de contratos da base administrativa pode estar indisponível. Pode editar o número livremente ou
+                  sincronizar contratos em Banco de dados.
                 </Alert>
               ) : null}
-              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', lg: 'repeat(3, minmax(0, 1fr))' },
+                  gap: { xs: 2, md: 2.5 },
+                }}
+              >
                 <FormControl fullWidth size="small" disabled={!isAdmin}>
-                  <InputLabel id="grupo-ap-edit">Grupo económico (Nexus)</InputLabel>
+                  <InputLabel id="grupo-ap-edit">Grupo económico</InputLabel>
                   <Select
                     labelId="grupo-ap-edit"
-                    label="Grupo económico (Nexus)"
+                    label="Grupo económico"
                     value={grupoNomeForEdit}
                     onChange={(e: SelectChangeEvent) => {
                       const v = e.target.value
@@ -924,10 +934,10 @@ export default function ApoliceEditPage() {
                   </Select>
                 </FormControl>
                 <FormControl fullWidth size="small" disabled={!isAdmin}>
-                  <InputLabel id="ctr-nx-edit">Número / contrato (Nexus)</InputLabel>
+                  <InputLabel id="ctr-nx-edit">Número / contrato (referência)</InputLabel>
                   <Select
                     labelId="ctr-nx-edit"
-                    label="Número / contrato (Nexus)"
+                    label="Número / contrato (referência)"
                     value={contratoSelectValue}
                     onChange={(e: SelectChangeEvent) => onContratoSelect(e.target.value)}
                   >
@@ -950,7 +960,7 @@ export default function ApoliceEditPage() {
                   fullWidth
                   disabled={!isAdmin}
                   size="small"
-                  helperText="Editável mesmo com contrato Nexus vinculado; o valor enviado ao servidor é o deste campo."
+                  helperText="Editável mesmo com contrato de referência vinculado; o valor enviado ao servidor é o deste campo."
                 />
                 <FormControl fullWidth required size="small" disabled={!isAdmin}>
                   <InputLabel>Produto</InputLabel>
@@ -972,27 +982,33 @@ export default function ApoliceEditPage() {
                     <MenuItem value="">
                       <em>Selecione…</em>
                     </MenuItem>
-                    {operadoras.map((o) => (
+                    {operadorasSelectOptions.map((o) => (
                       <MenuItem key={o.id} value={o.id}>
                         {o.nome}
                       </MenuItem>
                     ))}
                   </Select>
+                  <FormHelperText>
+                    {needsOperadorasSync && operadoras.length === 0
+                      ? 'Sem lista de operadoras: verifique a sincronização em «Banco de dados» ou peça suporte técnico. Com a base atualizada, a lista volta a carregar.'
+                      : 'Lista de seguradoras / operadoras mantida pela corretora (sincronização periódica).'}
+                  </FormHelperText>
                 </FormControl>
-                {isAdmin ? (
-                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }} sx={{ gridColumn: { sm: 'span 2' } }}>
-                    <TextField
-                      size="small"
-                      label="Nome para nova operadora"
-                      value={novaOperadoraNome}
-                      onChange={(e) => setNovaOperadoraNome(e.target.value)}
-                      sx={{ flex: 1 }}
-                    />
-                    <Button variant="outlined" disabled={!novaOperadoraNome.trim() || salvandoOperadora} onClick={() => void criarOperadora()}>
-                      Adicionar ao catálogo
-                    </Button>
-                  </Stack>
-                ) : null}
+                <FormControl fullWidth size="small" disabled={!isAdmin}>
+                  <InputLabel id="sit-ap">Situação da apólice</InputLabel>
+                  <Select
+                    labelId="sit-ap"
+                    label="Situação da apólice"
+                    value={situacaoApolice}
+                    onChange={(e: SelectChangeEvent) =>
+                      setSituacaoApolice(e.target.value as 'ativa' | 'cancelada')
+                    }
+                  >
+                    <MenuItem value="ativa">Ativa</MenuItem>
+                    <MenuItem value="cancelada">Cancelada</MenuItem>
+                  </Select>
+                  <FormHelperText>«Cancelada» grava o indicador de apólice inativa na base (não renovada, rescindida, etc.).</FormHelperText>
+                </FormControl>
                 {showPlano ? (
                   <TextField
                     label="Plano (texto livre)"
@@ -1001,7 +1017,7 @@ export default function ApoliceEditPage() {
                     disabled={!isAdmin}
                     fullWidth
                     size="small"
-                    sx={{ gridColumn: { sm: 'span 2' } }}
+                    sx={{ gridColumn: { sm: 'span 2', lg: 'span 3' } }}
                     helperText="Complemento opcional; os planos estruturados ficam na secção abaixo."
                   />
                 ) : null}
@@ -1016,7 +1032,7 @@ export default function ApoliceEditPage() {
                     multiline
                     minRows={2}
                     size="small"
-                    sx={{ gridColumn: { sm: 'span 2' } }}
+                    sx={{ gridColumn: { sm: 'span 2', lg: 'span 3' } }}
                   />
                 ) : null}
                 <TextField
@@ -1057,7 +1073,7 @@ export default function ApoliceEditPage() {
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
             Empresas subestipulantes (guarda-chuva)
           </Typography>
-          <Paper sx={{ p: 2, mb: 2 }}>
+          <Paper sx={{ p: { xs: 2, md: 2.5 }, mb: 2.5, width: '100%', boxSizing: 'border-box' }}>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               Vinculadas à apólice. Remova linhas vazias ou adicione mais empresas com o botão abaixo.
             </Typography>
@@ -1140,7 +1156,7 @@ export default function ApoliceEditPage() {
             Modelo do seguro (plano estruturado ou coberturas)
           </Typography>
 
-          <Paper sx={{ p: 2, mb: 2 }}>
+          <Paper sx={{ p: { xs: 2, md: 2.5 }, mb: 2.5, width: '100%', boxSizing: 'border-box' }}>
             <FormControl component="fieldset" variant="standard" sx={{ width: '100%' }}>
               <FormLabel component="legend">Modelo de cadastro</FormLabel>
               <RadioGroup
@@ -1164,7 +1180,7 @@ export default function ApoliceEditPage() {
           </Paper>
 
           {modelo === 'COBERTURA' ? (
-            <Paper sx={{ p: 2, mb: 2 }}>
+            <Paper sx={{ p: { xs: 2, md: 2.5 }, mb: 2.5, width: '100%', boxSizing: 'border-box' }}>
               <Alert severity="info">
                 O cadastro estruturado de coberturas será definido mais tarde. Use o campo «Coberturas» acima (Vida em grupo),
                 o separador Itens ou observações.
@@ -1280,16 +1296,20 @@ export default function ApoliceEditPage() {
           </TabPanel>
 
           <TabPanel value={tab} index={2}>
-            <Paper sx={{ p: 2, mb: 2 }} variant="outlined">
+            <Paper
+              sx={{ p: { xs: 2, md: 2.5 }, mb: 2.5, width: '100%', boxSizing: 'border-box' }}
+              variant="outlined"
+            >
               <Stack spacing={2}>
                 <Typography variant="subtitle2" fontWeight={600}>
                   Financeiro — comissionamento (12 parcelas) e fee
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  O mês da 1.ª parcela segue a <strong>vigência início</strong> (aba Geral); se estiver vazio, usa a data atual.
-                  Os percentuais por parcela aplicam-se sobre o contrato. Use «Guardar alterações» para persistir.
+                  O mês de competência da <strong>1.ª parcela</strong> é sempre o mês da <strong>vigência início</strong> (aba Geral); as
+                  seguintes avançam mês a mês. Se a vigência não estiver preenchida (ou for inválida), o mês de competência fica em branco
+                  (—). Os percentuais aplicam-se sobre o contrato. Use «Guardar tudo» para persistir.
                 </Typography>
-                <FormControl fullWidth size="small" disabled={!isAdmin} sx={{ maxWidth: 440 }}>
+                <FormControl fullWidth size="small" disabled={!isAdmin}>
                   <InputLabel id="tipo-fin">O que pretende tratar nesta apólice</InputLabel>
                   <Select
                     labelId="tipo-fin"
@@ -1403,12 +1423,15 @@ export default function ApoliceEditPage() {
           </TabPanel>
 
           <TabPanel value={tab} index={3}>
-            <Paper sx={{ p: 2, mb: 2 }} variant="outlined">
+            <Paper
+              sx={{ p: { xs: 2, md: 2.5 }, mb: 2.5, width: '100%', boxSizing: 'border-box' }}
+              variant="outlined"
+            >
               <Stack spacing={2}>
                 <Typography variant="subtitle2" fontWeight={600}>
                   Time de relacionamento
                 </Typography>
-                <FormControl size="small" disabled={!isAdmin} sx={{ maxWidth: 280 }}>
+                <FormControl fullWidth size="small" disabled={!isAdmin}>
                   <InputLabel>Cone</InputLabel>
                   <Select label="Cone" value={trCone} onChange={(e) => setTrCone(e.target.value as typeof trCone)}>
                     <MenuItem value="">
@@ -1440,7 +1463,10 @@ export default function ApoliceEditPage() {
           </TabPanel>
 
           <TabPanel value={tab} index={4}>
-            <Paper sx={{ p: 2, mb: 2 }} variant="outlined">
+            <Paper
+              sx={{ p: { xs: 2, md: 2.5 }, mb: 2.5, width: '100%', boxSizing: 'border-box' }}
+              variant="outlined"
+            >
               <Typography variant="subtitle2" fontWeight={600} gutterBottom>
                 Vidas e fatura por competência (mensal)
               </Typography>
@@ -1534,6 +1560,6 @@ export default function ApoliceEditPage() {
           ) : null}
         </>
       )}
-    </Box>
+    </PageScaffold>
   )
 }

@@ -14,6 +14,7 @@ import { Save as SaveIcon } from '@mui/icons-material'
 import { PrimaryActionButton } from '../../components/PrimaryActionButton'
 import { createPerfLogger } from '../../utils/perf'
 import { qualidadeFromQtdRetornos } from '../../utils/qualidadeRetornos'
+import { QualificacaoChamadoPanel } from '../../components/cadastro/QualificacaoChamadoPanel'
 
 const EmailComunicacaoCadastroEdgeModal = lazy(async () => {
   const m = await import('../../components/EmailComunicacaoCadastroEdgeModal')
@@ -347,7 +348,7 @@ export default function DemandDetailPage() {
             </div>
           </div>
 
-          {/* Edição da Demanda */}
+          {/* Edição do cadastro */}
           <div className="bg-white p-6 rounded-lg border shadow-sm">
             <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
               <Edit3 className="w-5 h-5 text-blue-600" />
@@ -357,7 +358,7 @@ export default function DemandDetailPage() {
           </div>
         </div>
 
-        {/* Coluna Lateral - Indicadores e Timeline */}
+        {/* Coluna Lateral — indicadores, qualificação e histórico */}
         <div className="space-y-6">
           {/* Indicadores */}
           <div className="bg-white p-6 rounded-lg border shadow-sm">
@@ -378,6 +379,10 @@ export default function DemandDetailPage() {
                 </div>
               </div>
             </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg border shadow-sm">
+            <QualificacaoChamadoPanel demandId={d.id} ticket={d.ticket} embedded />
           </div>
 
           {/* Timeline */}

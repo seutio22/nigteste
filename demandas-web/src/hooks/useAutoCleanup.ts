@@ -123,6 +123,8 @@ export function useAutoCleanup(options: UseAutoCleanupOptions = {}) {
  */
 export function useSimpleAutoCleanup(intervalMinutes: number = 5) {
   useEffect(() => {
+    if (import.meta.env.DEV) return
+
     const intervalMs = intervalMinutes * 60 * 1000
     
     const cleanup = () => {

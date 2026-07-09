@@ -36,6 +36,7 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import html2canvas from 'html2canvas';
 import ProjectGantt from './ProjectGantt';
+import { timelineToFlatSheetAoa } from '../utils/projectTimelineSpreadsheet';
 
 // Paleta institucional (NIG/Nexus) — tuplas mutáveis para compatibilidade com jsPDF Color
 const PDF_COLORS: Record<string, [number, number, number]> = {
@@ -640,20 +641,13 @@ const ExportProjectModal: React.FC<ExportProjectModalProps> = ({
 
     // Planilha 2: Cronograma
     if (exportOptions.includeTimeline && project.timeline?.phases) {
-      const timelineData: (string | number)[][] =
-        exportOptions.timelineDetail === 'phases_only'
-          ? [
-              ['CRONOGRAMA DO PROJETO'],
-              [''],
-              ['Fase', 'Tarefas', 'Status', 'Progresso', 'Data Início', 'Data Fim']
-            ]
-          : [
-              ['CRONOGRAMA DO PROJETO (Fases, tarefas e subtarefas)'],
-              [''],
-              ['Nível', 'Descrição', 'Status', 'Início', 'Fim prev.', 'Responsável', 'Progresso %']
-            ];
-
       if (exportOptions.timelineDetail === 'phases_only') {
+        const timelineData: (string | number)[][] = [
+          ['CRONOGRAMA DO PROJETO'],
+          [''],
+          ['Fase', 'Tarefas', 'Status', 'Progresso', 'Data Início', 'Data Fim']
+        ];
+
         project.timeline.phases.forEach((phase: any) => {
           const taskCount = phase.tasks?.length || 0;
           const completedTasks = phase.tasks?.filter((t: any) => taskCompleted(t)).length || 0;
@@ -668,54 +662,14 @@ const ExportProjectModal: React.FC<ExportProjectModalProps> = ({
             formatDate(phase.endDate)
           ]);
         });
+
+        const timelineSheet = XLSX.utils.aoa_to_sheet(timelineData);
+        XLSX.utils.book_append_sheet(workbook, timelineSheet, 'Cronograma');
       } else {
-        project.timeline.phases.forEach((phase: any) => {
-          const taskCount = phase.tasks?.length || 0;
-          const completedTasks = phase.tasks?.filter((t: any) => taskCompleted(t)).length || 0;
-          const phaseProgress =
-            typeof phase.progress === 'number'
-              ? phase.progress
-              : taskCount > 0
-                ? Math.round((completedTasks / taskCount) * 100)
-                : '';
-
-          timelineData.push([
-            'Fase',
-            phase.name || '—',
-            getPhaseStatusLabel(phase.status),
-            formatDate(phase.startDate),
-            formatDate(phase.endDate),
-            '—',
-            phaseProgress === '' ? '—' : phaseProgress
-          ]);
-
-          (phase.tasks || []).forEach((task: any) => {
-            timelineData.push([
-              'Tarefa',
-              taskName(task),
-              getTaskStatusLabel(task.status),
-              formatDate(task.startDate),
-              formatDate(task.plannedEndDate || task.dueDate),
-              task.responsible || task.assignee || '—',
-              typeof task.progress === 'number' ? task.progress : '—'
-            ]);
-            (task.subtasks || []).forEach((sub: any) => {
-              timelineData.push([
-                'Subtarefa',
-                subtaskName(sub),
-                getTaskStatusLabel(sub.status),
-                formatDate(sub.startDate),
-                formatDate(sub.dueDate || sub.plannedEndDate),
-                sub.assignee || sub.responsible || '—',
-                typeof sub.progress === 'number' ? sub.progress : '—'
-              ]);
-            });
-          });
-        });
+        const timelineData = timelineToFlatSheetAoa(project.timeline);
+        const timelineSheet = XLSX.utils.aoa_to_sheet(timelineData);
+        XLSX.utils.book_append_sheet(workbook, timelineSheet, 'Cronograma');
       }
-
-      const timelineSheet = XLSX.utils.aoa_to_sheet(timelineData);
-      XLSX.utils.book_append_sheet(workbook, timelineSheet, 'Cronograma');
     }
 
     // Planilha 3: Equipe
@@ -1040,7 +994,11 @@ const ExportProjectModal: React.FC<ExportProjectModalProps> = ({
                       <FormControlLabel
                         value="with_tasks_and_subtasks"
                         control={<Radio size="small" />}
-                        label="Fases, tarefas e subtarefas (linha a linha)"
+                        label={
+                          exportOptions.format === 'excel'
+                            ? 'Fases, tarefas e subtarefas (formato importação Excel)'
+                            : 'Fases, tarefas e subtarefas (linha a linha)'
+                        }
                       />
                     </RadioGroup>
                   </Box>
@@ -1124,7 +1082,9 @@ const ExportProjectModal: React.FC<ExportProjectModalProps> = ({
                 label={
                   exportOptions.timelineDetail === 'phases_only'
                     ? 'Cronograma: só fases'
-                    : 'Cronograma: fases + tarefas'
+                    : exportOptions.format === 'excel'
+                      ? 'Cronograma: formato importação'
+                      : 'Cronograma: fases + tarefas'
                 }
                 color="success"
               />

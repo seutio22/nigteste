@@ -179,6 +179,24 @@ export const DadosForm: React.FC<DadosFormProps> = ({
         )
 
       case 'solicitantes':
+        return (
+          <Stack gap={2} mt={1}>
+            <TextField
+              label="Nome"
+              value={form.nome ?? ''}
+              onChange={(e) => handleFieldChange('nome', e.target.value)}
+              required
+            />
+            <TextField
+              label="E-mail"
+              type="email"
+              value={form.email ?? ''}
+              onChange={(e) => handleFieldChange('email', e.target.value)}
+              required
+            />
+          </Stack>
+        )
+
       case 'relatorios':
       case 'modelos':
         return (

@@ -684,6 +684,21 @@ model Project {
   workAuditLogs   ProjectWorkAuditLog[]
 }
 
+/// Template reutilizável de cronograma (etapas, tarefas e subtarefas) para novos projetos.
+model ProjectTemplate {
+  id          String   @id @default(uuid())
+  name        String
+  description String   @default("")
+  timeline    String   @default("{}")
+  ownerId     String?
+  isGlobal    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  owner       User?    @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+
+  @@index([ownerId])
+}
+
 /// Histórico de alterações em etapas (fases), tarefas e subtarefas — base para indicadores e auditoria.
 model ProjectWorkAuditLog {
   id          String   @id @default(uuid())
@@ -1021,6 +1036,8 @@ model PlacementCotacao {
   multaRescisaoAvisoPrevio     String?
   /// Possui convenção coletiva?
   possuiConvencaoColetiva      Boolean?
+  /// Detalhes quando em acordo coletivo (Sim).
+  convencaoColetivaDetalhe     String?
   /// Permite upgrade de plano (independente do downgrade).
   permiteUpgrade               Boolean?
   regraUpgrade                 String?
@@ -1326,6 +1343,7 @@ model User {
   validacoesManutencao ValidacaoManutencao[]
   timelineEvents       TimelineEvent[]
   projectWorkAuditLogs ProjectWorkAuditLog[]
+  projectTemplates     ProjectTemplate[]
   userActivities       UserActivity[]
   userSessions         UserSession[]
   userMonitoring       UserMonitoring[]

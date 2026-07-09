@@ -1,8 +1,9 @@
 // Configuração de API para desenvolvimento local
 import { useAuthStore } from '../store/authStore'
+import { getBaseUrl } from '../config/api'
 
 export const API_CONFIG = {
-  BASE_URL: 'https://nigteste-production.up.railway.app',
+  BASE_URL: getBaseUrl(),
   TIMEOUT: 10000,
   ENDPOINTS: {
     AUTH: '/auth',
@@ -140,6 +141,10 @@ export const api = {
   }),
   put: (endpoint: string, data: unknown) => apiRequest(endpoint, {
     method: 'PUT',
+    body: JSON.stringify(data),
+  }),
+  patch: (endpoint: string, data: unknown) => apiRequest(endpoint, {
+    method: 'PATCH',
     body: JSON.stringify(data),
   }),
   delete: (endpoint: string) => apiRequest(endpoint, {

@@ -18,7 +18,12 @@ import {
   matchesByIdOrName,
   parseDateForFilter,
   resolveIdFromValue,
-  resolveNameFromValue
+  resolveNameFromValue,
+  buildAnalistaAggregationKey,
+  isAnalistaKnownInMaster,
+  resolveAnalistaDisplayName,
+  resolveProjectAnalistaValue,
+  UNASSIGNED_ANALISTA_KEY
 } from '../utils/dashboardFilters'
 import { isItemConcluidoProducao } from '../types/dashboardIndicators'
 
@@ -57,6 +62,7 @@ export interface AnalistaMetrics {
     reajustes: number
     manutencoes: number
     analytics: number
+    projetos: number
   }
   /** Distribuição de itens concluídos no período por página (independente da data de criação). */
   concluidosNoPeriodoPorPagina: {
@@ -66,6 +72,7 @@ export interface AnalistaMetrics {
     reajustes: number
     manutencoes: number
     analytics: number
+    projetos: number
   }
 }
 
@@ -77,6 +84,8 @@ export interface UnassignedPerformanceItem {
   createdAt?: string
   completedAt?: string
   rawAnalista?: any
+  /** Criado e/ou concluído no período filtrado. */
+  kind?: 'created' | 'completed' | 'both'
 }
 
 export interface TempoExecucaoMetrics {
@@ -98,6 +107,8 @@ export const useAdvancedIndicators = (
     fromDate?: string
     toDate?: string
     userScopePending?: boolean
+    /** Enquanto true, aguarda cadastro de analistas antes de agrupar métricas. */
+    masterDataPending?: boolean
   }
 ) => {
   // Stores
@@ -124,28 +135,20 @@ export const useAdvancedIndicators = (
   // Função para aplicar filtros
   const applyFilters = (items: any[], page: string, opts?: { skipDate?: boolean }) => {
     if (!filters) return items
-    if (filters.userScopePending) return []
+    if (filters.userScopePending || filters.masterDataPending) return []
 
     const getAnalistaValue = (item: any) => {
       if (page === 'reajustes') return item.responsavelAnalista
       if (page === 'manutencoes') return item.analistaId || item.analista
-      if (page === 'projetos') {
-        return (
-          item.managerId ||
-          item.ownerId ||
-          item.manager ||
-          item.owner ||
-          item.responsavel ||
-          item.analistaId ||
-          item.analista
-        )
-      }
+      if (page === 'projetos') return resolveProjectAnalistaValue(item, masterDataStore.analistas)
       if (page === 'validacoes') {
         return item.analistaId
           || item.analistaObj?.id
           || (typeof item.analista === 'object' ? item.analista?.id : item.analista)
+          || item.analistaObj
+          || item.analista
       }
-      return item.analistaId || item.analista
+      return item.analistaId || item.analistaObj || item.analista
     }
 
     return items.filter(item => {
@@ -340,6 +343,10 @@ export const useAdvancedIndicators = (
     analistaMetrics: AnalistaMetrics[]
     unassignedPerformanceItems: UnassignedPerformanceItem[]
   } => {
+    if (filters?.userScopePending || filters?.masterDataPending) {
+      return { analistaMetrics: [], unassignedPerformanceItems: [] }
+    }
+
     const analistasMap = new Map<string, AnalistaMetrics>()
     const tempoCounts = new Map<string, number>()
     const unassigned: UnassignedPerformanceItem[] = []
@@ -353,9 +360,6 @@ export const useAdvancedIndicators = (
     }
 
     const getItemLabel = (page: string, item: any): string => {
-      const parts: string[] = []
-      const id = getItemId(page, item)
-      if (id) parts.push(id)
       const title =
         item?.titulo ||
         item?.title ||
@@ -363,13 +367,18 @@ export const useAdvancedIndicators = (
         item?.name ||
         item?.descricao ||
         item?.descricaoCurta
+      if (page === 'projetos' && title) return String(title)
+
+      const parts: string[] = []
+      const id = getItemId(page, item)
+      if (id) parts.push(id)
       if (title) parts.push(String(title))
       return parts.length ? parts.join(' • ') : `${page} • ${id ?? '(sem id)'}`
     }
 
     // Debug: verificar se dados mestres estão carregados
-    if (masterDataStore.analistas.length === 0) {
-      console.warn('⚠️ useAdvancedIndicators: masterDataStore.analistas está vazio. Os nomes dos analistas podem não ser encontrados.')
+    if (masterDataStore.analistas.length === 0 && import.meta.env.DEV) {
+      console.warn('⚠️ useAdvancedIndicators: masterDataStore.analistas está vazio.')
     }
 
     // Processar todas as páginas
@@ -385,51 +394,41 @@ export const useAdvancedIndicators = (
 
     allPages.forEach(page => {
       page.items.forEach(item => {
-        // Determinar o campo de analista baseado no tipo de página
+        // Preferir IDs/objetos canônicos antes de strings soltas (evita duplicar analista por id vs nome).
         let analistaRaw: any = null
-        
+
         if (page.name === 'reajustes') {
-          // `responsavelAnalista` pode ser id, objeto ou string (nome)
           analistaRaw = item.responsavelAnalista
         } else if (page.name === 'manutencoes') {
-          // Preferir nome/objeto se existir, para não cair no fallback de ID.
-          analistaRaw = item.analista || item.analistaId
+          analistaRaw = item.analistaId || item.analista
         } else if (page.name === 'projetos') {
-          analistaRaw =
-            item.manager ||
-            item.owner ||
-            item.responsavel ||
-            item.analistaId ||
-            item.analista
+          analistaRaw = resolveProjectAnalistaValue(item, masterDataStore.analistas)
         } else if (page.name === 'validacoes') {
-          // Preferir objeto/nome quando disponível
-          analistaRaw = item.analistaObj || item.analista || item.analistaId
+          analistaRaw = item.analistaId || item.analistaObj || item.analista
         } else {
-          // Demandas/Atendimentos/Analytics: preferir nome/objeto se existir
-          analistaRaw = item.analista || item.analistaObj || item.analistaId
-        }
-        
-        const resolvedId = resolveIdFromValue(analistaRaw, masterDataStore.analistas)
-        const nameFromMaster = resolvedId
-          ? masterDataStore.analistas.find(a => String(a.id) === String(resolvedId))?.nome
-          : undefined
-        const fallbackName = resolveNameFromValue(analistaRaw)
-        let analistaNome =
-          nameFromMaster
-          || fallbackName
-          || 'Analista não encontrado'
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-        if (uuidRegex.test(analistaNome)) {
-          analistaNome = 'Analista não encontrado'
+          analistaRaw = item.analistaId || item.analistaObj || item.analista
         }
 
-        const analistaIdFinal = resolvedId ? String(resolvedId) : analistaNome
-        const keyParaMap = analistaIdFinal || analistaNome
-        
+        const resolvedId = resolveIdFromValue(analistaRaw, masterDataStore.analistas)
+        const analistaNome = resolveAnalistaDisplayName(
+          analistaRaw,
+          resolvedId,
+          masterDataStore.analistas
+        )
+
+        const unknownInMaster = !isAnalistaKnownInMaster(resolvedId, masterDataStore.analistas)
+
+        const { key: keyParaMap, canonicalId, canonicalNome } = buildAnalistaAggregationKey(
+          resolvedId,
+          analistaNome,
+          masterDataStore.analistas
+        )
+        const displayNome = canonicalNome
+
         if (!analistasMap.has(keyParaMap)) {
           analistasMap.set(keyParaMap, {
-            analistaId: analistaIdFinal || analistaNome,
-            analistaNome,
+            analistaId: canonicalId,
+            analistaNome: displayNome,
             itensCriadosNoPeriodo: 0,
             itensConcluidosNoPeriodoCriadosNoPeriodo: 0,
             itensConcluidosNoPeriodoCriadosFora: 0,
@@ -442,7 +441,8 @@ export const useAdvancedIndicators = (
               validacoes: 0,
               reajustes: 0,
               manutencoes: 0,
-              analytics: 0
+              analytics: 0,
+              projetos: 0
             },
             concluidosNoPeriodoPorPagina: {
               demandas: 0,
@@ -450,7 +450,8 @@ export const useAdvancedIndicators = (
               validacoes: 0,
               reajustes: 0,
               manutencoes: 0,
-              analytics: 0
+              analytics: 0,
+              projetos: 0
             }
           })
         }
@@ -465,13 +466,17 @@ export const useAdvancedIndicators = (
         const createdInPeriod = inRange(createdIso)
         const completedInPeriod = completedIso ? inRange(completedIso) : false
 
-        // Se concluiu no período, mas não conseguimos resolver para um analista do master data,
-        // armazenar para diagnóstico (página + id/ticket + motivo).
-        if (completedInPeriod && !resolvedId) {
+        // Diagnóstico: itens no período sem analista reconhecido no cadastro.
+        if ((createdInPeriod || completedInPeriod) && unknownInMaster) {
+          const rawLabel = resolveNameFromValue(analistaRaw)
           const reason =
             !analistaRaw
-              ? 'Sem campo de analista preenchido no item'
-              : 'Valor de analista não bate com o cadastro de analistas (master data)'
+              ? 'Sem responsável/analista preenchido'
+              : rawLabel && rawLabel !== String(resolvedId)
+                ? `Responsável "${rawLabel}" não está no cadastro de analistas`
+                : resolvedId
+                  ? `ID ${resolvedId} não está no cadastro de analistas`
+                  : 'Responsável não reconhecido no cadastro'
           unassigned.push({
             page: page.name,
             id: getItemId(page.name, item),
@@ -479,16 +484,20 @@ export const useAdvancedIndicators = (
             reason,
             createdAt: createdIso,
             completedAt: completedIso,
-            rawAnalista: analistaRaw
+            rawAnalista: analistaRaw,
+            kind:
+              createdInPeriod && completedInPeriod
+                ? 'both'
+                : createdInPeriod
+                  ? 'created'
+                  : 'completed'
           })
         }
 
         if (createdInPeriod) {
           analista.itensCriadosNoPeriodo++
           analista.totalItens = analista.itensCriadosNoPeriodo
-          if (page.name !== 'projetos') {
-            analista.itensPorPagina[page.name as keyof typeof analista.itensPorPagina]++
-          }
+          analista.itensPorPagina[page.name as keyof typeof analista.itensPorPagina]++
         }
         if (completedInPeriod) {
           if (createdInPeriod) {
@@ -496,11 +505,9 @@ export const useAdvancedIndicators = (
           } else {
             analista.itensConcluidosNoPeriodoCriadosFora++
           }
-          if (page.name !== 'projetos') {
-            analista.concluidosNoPeriodoPorPagina[
-              page.name as keyof typeof analista.concluidosNoPeriodoPorPagina
-            ]++
-          }
+          analista.concluidosNoPeriodoPorPagina[
+            page.name as keyof typeof analista.concluidosNoPeriodoPorPagina
+          ]++
         }
 
         analista.totalNoPeriodo =
@@ -528,12 +535,17 @@ export const useAdvancedIndicators = (
     const concluidoNoPeriodo = (a: AnalistaMetrics) =>
       a.itensConcluidosNoPeriodoCriadosNoPeriodo + a.itensConcluidosNoPeriodoCriadosFora
 
-    const sorted = Array.from(analistasMap.values()).sort((a, b) => {
-      // Ordena por “movimentação” no período: criados + concluídos no período
-      const aScore = a.itensCriadosNoPeriodo + concluidoNoPeriodo(a)
-      const bScore = b.itensCriadosNoPeriodo + concluidoNoPeriodo(b)
-      return bScore - aScore
-    })
+    const sorted = Array.from(analistasMap.values())
+      .filter((a) => {
+        if (a.analistaId === UNASSIGNED_ANALISTA_KEY && a.totalNoPeriodo === 0) return false
+        return true
+      })
+      .sort((a, b) => {
+        // Ordena por “movimentação” no período: criados + concluídos no período
+        const aScore = a.itensCriadosNoPeriodo + concluidoNoPeriodo(a)
+        const bScore = b.itensCriadosNoPeriodo + concluidoNoPeriodo(b)
+        return bScore - aScore
+      })
     return {
       analistaMetrics: sorted,
       unassignedPerformanceItems: unassigned
@@ -552,6 +564,7 @@ export const useAdvancedIndicators = (
     filters?.areaId,
     filters?.analistaId,
     filters?.userScopePending,
+    filters?.masterDataPending,
     user?.id
   ])
   const analistaMetrics = analistaAggregation.analistaMetrics

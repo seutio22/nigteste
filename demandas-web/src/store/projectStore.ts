@@ -103,6 +103,15 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         color: '#009FDF', // Cor padrão
         isPrivate: (payload as any).isPrivate ?? false
       }
+
+      const timeline = (payload as any).timeline
+      if (timeline && typeof timeline === 'object') {
+        try {
+          apiData.timeline = JSON.parse(JSON.stringify(timeline))
+        } catch {
+          // ignora timeline inválido no create
+        }
+      }
       
       // Não enviar managerId - campo opcional
       if ((payload as any).managerId) {

@@ -17,6 +17,7 @@ export type ContratoApoliceExtrasValue = {
   multaRescisaoRegra: string
   multaRescisaoAvisoPrevio: string
   possuiConvencaoColetiva: SimNaoChoice
+  convencaoColetivaDetalhe: string
 }
 
 type Props = {
@@ -68,6 +69,13 @@ export function ContratoApoliceExtrasSection({ value, disabled, onChange }: Prop
             multaRescisaoAvisoPrevio: '',
           }
         : {}),
+    })
+  }
+
+  const setConvencao = (next: SimNaoChoice) => {
+    onChange({
+      possuiConvencaoColetiva: next,
+      ...(next !== 'sim' ? { convencaoColetivaDetalhe: '' } : {}),
     })
   }
 
@@ -126,13 +134,29 @@ export function ContratoApoliceExtrasSection({ value, disabled, onChange }: Prop
       <Grid item xs={12}>
         <Box sx={{ mt: value.multaRescisaoContratual === 'sim' ? 0 : 1 }}>
           <SimNaoField
-            label="Possui convenção coletiva?"
+            label="Em acordo coletivo?"
             value={value.possuiConvencaoColetiva}
             disabled={disabled}
-            onChange={(next) => onChange({ possuiConvencaoColetiva: next })}
+            onChange={setConvencao}
           />
         </Box>
       </Grid>
+
+      {value.possuiConvencaoColetiva === 'sim' && (
+        <Grid item xs={12}>
+          <TextField
+            label="Detalhes do acordo coletivo"
+            fullWidth
+            multiline
+            minRows={2}
+            maxRows={12}
+            value={value.convencaoColetivaDetalhe}
+            disabled={disabled}
+            onChange={(e) => onChange({ convencaoColetivaDetalhe: e.target.value })}
+            placeholder="Informe convenção, sindicato, cláusulas ou observações relevantes"
+          />
+        </Grid>
+      )}
     </>
   )
 }

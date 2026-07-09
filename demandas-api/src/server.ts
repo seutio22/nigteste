@@ -10,6 +10,7 @@ import { userAlertsRoutes } from './routes/userAlerts'
 import comunicadosRoutes from './routes/comunicados'
 import projectTeamRoutes from './routes/projectTeam'
 import projectWorkAuditRoutes from './routes/projectWorkAudit'
+import projectTemplatesRoutes from './routes/projectTemplates'
 import projectStatsSummaryRoutes from './routes/projectStatsSummary'
 import shareRoutes from './routes/share'
 import placementRoutes from './routes/placement'
@@ -5909,6 +5910,9 @@ app.register(projectStatsSummaryRoutes, { prisma })
 
 // Auditoria de etapas / tarefas / subtarefas (aba LOG admin)
 app.register(projectWorkAuditRoutes, { prisma })
+
+// Templates de cronograma de projetos
+app.register(projectTemplatesRoutes, { prisma })
 
 // Rotas de compartilhamento (DEVEM vir ANTES das rotas genéricas)
 app.register(shareRoutes, { prisma })

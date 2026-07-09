@@ -20,7 +20,11 @@ import {
   IconButton,
   Tooltip,
   Stack,
-  Divider
+  FormControl,
+  FormLabel,
+  RadioGroup,
+  FormControlLabel,
+  Radio
 } from '@mui/material'
 import {
   Upload as UploadIcon,
@@ -39,8 +43,34 @@ import type {
   SmartImporterProps, 
   ImportResult, 
   ImportItem, 
+  ImportMode,
   SmartImporterConfig 
 } from '../types/smartImporter'
+
+const IMPORT_MODE_LABELS: Record<ImportMode, string> = {
+  insert: 'Incluir novos',
+  update: 'Atualizar existentes',
+  upsert: 'Incluir + atualizar',
+}
+
+function duplicateKeyLabel(config: SmartImporterConfig): string {
+  const fields = config.duplicateCheckFields
+  if (!fields.length) return 'chave'
+  if (fields.length === 1) return fields[0]
+  return fields.join(' + ')
+}
+
+function getImportModeDescription(mode: ImportMode, config: SmartImporterConfig): string {
+  const key = duplicateKeyLabel(config)
+  switch (mode) {
+    case 'insert':
+      return `Cadastra apenas registros cujo ${key} ainda não existe. Duplicatas são ignoradas.`
+    case 'update':
+      return `Atualiza registros existentes identificados por ${key}. Não encontrados no cadastro são ignorados.`
+    case 'upsert':
+      return `Cadastra novos e atualiza existentes conforme ${key} da planilha.`
+  }
+}
 
 export const SmartImporter: React.FC<SmartImporterProps> = ({
   open,
@@ -60,11 +90,26 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
   const [startTime, setStartTime] = useState<number | null>(null)
   const [elapsedTime, setElapsedTime] = useState(0)
   const [isCancelled, setIsCancelled] = useState(false)
+  const [lastRawItems, setLastRawItems] = useState<any[] | null>(null)
+  const supportsImportModes = Boolean(config.importModes?.length)
+  const [importMode, setImportMode] = useState<ImportMode>(
+    config.importModes?.[0] ?? 'insert'
+  )
 
   const validationEngine = useMemo(() => 
     new SmartValidationEngine(config, masterData), 
     [config, masterData]
   )
+
+  const runValidation = (items: any[], mode: ImportMode): ImportResult =>
+    validationEngine.processItems(items, mode)
+
+  const handleImportModeChange = (mode: ImportMode) => {
+    setImportMode(mode)
+    if (lastRawItems) {
+      setImportResult(runValidation(lastRawItems, mode))
+    }
+  }
 
   // Atualizar tempo decorrido durante o processamento
   React.useEffect(() => {
@@ -97,6 +142,7 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
     if (selectedFile) {
       setFile(selectedFile)
       setImportResult(null)
+      setLastRawItems(null)
     }
   }
 
@@ -813,7 +859,8 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
       })
 
       // Validar dados
-      const result = validationEngine.processItems(itemsWithIds)
+      setLastRawItems(itemsWithIds)
+      const result = runValidation(itemsWithIds, importMode)
 
       console.log('🔍 SMART IMPORTER: Resultado da validação:', {
         valid: result.valid.length,
@@ -1059,6 +1106,17 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
           descricao: 'Serviço de manutenção',
           ativo: 'true'
         }
+      ]
+    } else if (config.entityType.toLowerCase() === 'solicitantes') {
+      templateData = [
+        {
+          nome: 'Maria Santos',
+          email: 'maria.santos@empresa.com',
+        },
+        {
+          nome: 'João Silva',
+          email: 'joao.silva@empresa.com',
+        },
       ]
     } else if (config.entityType.toLowerCase().includes('padrão') || config.entityType.toLowerCase().includes('padrao')) {
       templateData = [
@@ -1317,13 +1375,75 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
     )
   }
 
+  const renderImportModeSelector = () => {
+    if (!supportsImportModes || !config.importModes?.length) return null
+
+    return (
+      <FormControl component="fieldset" sx={{ mb: 2, width: '100%' }}>
+        <FormLabel component="legend">Modo de importação</FormLabel>
+        <RadioGroup
+          row
+          value={importMode}
+          onChange={(event) => handleImportModeChange(event.target.value as ImportMode)}
+        >
+          {config.importModes.map((mode) => (
+            <FormControlLabel
+              key={mode}
+              value={mode}
+              control={<Radio size="small" />}
+              label={IMPORT_MODE_LABELS[mode]}
+            />
+          ))}
+        </RadioGroup>
+        <Typography variant="caption" color="text.secondary">
+          {getImportModeDescription(importMode, config)}
+        </Typography>
+      </FormControl>
+    )
+  }
+
+  const buildImportPayload = (result: ImportResult): ImportResult => ({
+    ...result,
+    invalid: [],
+    duplicates: [],
+    skipped: [],
+    invalidCount: 0,
+    duplicateCount: 0,
+    skippedCount: 0,
+  })
+
+  const getImportButtonLabel = (result: ImportResult): string => {
+    const { validCount, insertCount = 0, updateCount = 0, importMode: mode = importMode } = result
+
+    if (mode === 'update') {
+      return `Atualizar ${validCount} registro${validCount === 1 ? '' : 's'}`
+    }
+    if (mode === 'upsert' && (insertCount > 0 || updateCount > 0)) {
+      return `Importar ${validCount} (${insertCount} novo${insertCount === 1 ? '' : 's'} + ${updateCount} atualiza${updateCount === 1 ? 'ção' : 'ções'})`
+    }
+    return `Importar ${validCount} válido${validCount === 1 ? '' : 's'}`
+  }
+
   const renderImportResult = () => {
     if (!importResult) {
       console.log('🔍 SMART IMPORTER: importResult é null')
       return null
     }
 
-    const { valid, invalid, duplicates, totalRows, validCount, invalidCount, duplicateCount } = importResult
+    const {
+      valid,
+      invalid,
+      duplicates,
+      skipped = [],
+      totalRows,
+      validCount,
+      invalidCount,
+      duplicateCount,
+      skippedCount = 0,
+      insertCount = 0,
+      updateCount = 0,
+      importMode: resultMode = importMode,
+    } = importResult
 
     console.log('🔍 SMART IMPORTER: Resultado da validação:', {
       validCount,
@@ -1339,13 +1459,23 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
           Resultado da Validação
         </Typography>
 
-        <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
+        <Stack direction="row" spacing={2} sx={{ mb: 2 }} flexWrap="wrap" useFlexGap>
           <Chip
             icon={<CheckCircleIcon />}
             label={`${validCount} Válidos`}
             color="success"
             variant="outlined"
           />
+          {(resultMode === 'upsert' || resultMode === 'update') && validCount > 0 && (
+            <>
+              {insertCount > 0 && (
+                <Chip label={`${insertCount} novos`} color="success" size="small" variant="filled" />
+              )}
+              {updateCount > 0 && (
+                <Chip label={`${updateCount} atualizações`} color="info" size="small" variant="filled" />
+              )}
+            </>
+          )}
           <Chip
             icon={<ErrorIcon />}
             label={`${invalidCount} Inválidos`}
@@ -1358,6 +1488,14 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
             color="warning"
             variant="outlined"
           />
+          {skippedCount > 0 && (
+            <Chip
+              icon={<InfoIcon />}
+              label={`${skippedCount} Ignorados`}
+              color="default"
+              variant="outlined"
+            />
+          )}
         </Stack>
 
         <TableContainer component={Paper} sx={{ mt: 2 }}>
@@ -1393,8 +1531,22 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
                 </TableCell>
                 <TableCell>{duplicateCount}</TableCell>
                 <TableCell>{((duplicateCount / totalRows) * 100).toFixed(1)}%</TableCell>
-                <TableCell>Serão ignorados</TableCell>
+                <TableCell>
+                  {resultMode === 'insert'
+                    ? 'Já existem no cadastro ou repetidos na planilha'
+                    : 'Repetidos na planilha'}
+                </TableCell>
               </TableRow>
+              {skippedCount > 0 && (
+                <TableRow>
+                  <TableCell>
+                    <Chip label="Ignorados" size="small" />
+                  </TableCell>
+                  <TableCell>{skippedCount}</TableCell>
+                  <TableCell>{((skippedCount / totalRows) * 100).toFixed(1)}%</TableCell>
+                  <TableCell>E-mail/chave não encontrada no cadastro (modo atualizar)</TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </TableContainer>
@@ -1437,7 +1589,8 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
             }
           >
             <Typography variant="body2">
-              {duplicateCount} itens duplicados serão ignorados durante a importação.
+              {duplicateCount} itens duplicados serão ignorados durante a importação
+              {resultMode === 'insert' ? ' (já cadastrados ou repetidos na planilha).' : ' (repetidos na planilha).'}
             </Typography>
           </Alert>
         )}
@@ -1512,6 +1665,7 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
           onClick={() => {
             setFile(null)
             setImportResult(null)
+            setLastRawItems(null)
           }}
           startIcon={<RefreshIcon />}
         >
@@ -1531,20 +1685,12 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
             variant="contained"
             color="success"
             onClick={() => {
-              // Importar apenas itens válidos (ignorar inválidos e duplicatas)
-              const validOnlyResult: ImportResult = {
-                ...importResult,
-                invalid: [],
-                duplicates: [],
-                invalidCount: 0,
-                duplicateCount: 0
-              }
-              onImport(validOnlyResult)
+              onImport(buildImportPayload(importResult))
               onClose()
             }}
             startIcon={<CheckCircleIcon />}
           >
-            Importar {validCount} Válidos
+            {getImportButtonLabel(importResult)}
           </Button>
         )}
         {validCount === 0 && invalidCount === 0 && duplicateCount === 0 && (
@@ -1585,6 +1731,8 @@ export const SmartImporter: React.FC<SmartImporterProps> = ({
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             Selecione um arquivo Excel para importar dados com validação inteligente e correção automática de inconsistências.
           </Typography>
+
+          {renderImportModeSelector()}
 
           {!file && (
             <Box sx={{ mb: 2 }}>

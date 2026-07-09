@@ -3,7 +3,6 @@ import { Link as RouterLink } from 'react-router-dom'
 import {
   Box,
   Chip,
-  Container,
   FormControl,
   InputLabel,
   MenuItem,
@@ -19,6 +18,7 @@ import {
 import { api } from '../lib/api'
 import { CASE_STATUS_LABEL } from '../constants/caseStatus'
 import { PRIORITY_LABEL } from '../constants/priority'
+import PageScaffold from '../components/PageScaffold'
 
 type CaseRow = {
   id: string
@@ -54,7 +54,7 @@ export default function CasesListPage() {
   const statusOptions = ['ALL', ...Object.keys(CASE_STATUS_LABEL)]
 
   return (
-    <Container maxWidth="lg" sx={{ py: 3 }}>
+    <PageScaffold>
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center', mb: 3 }}>
         <Typography variant="h5" fontWeight={700} sx={{ flexGrow: 1 }}>
           Minhas solicitações
@@ -76,8 +76,8 @@ export default function CasesListPage() {
         </FormControl>
       </Box>
 
-      <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden' }}>
-        <Table size="small">
+      <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden', width: '100%', boxSizing: 'border-box' }}>
+        <Table size="small" sx={{ '& .MuiTableCell-root': { py: 1.125, px: 1.5 } }}>
           <TableHead>
             <TableRow sx={{ bgcolor: 'action.hover' }}>
               <TableCell>Protocolo</TableCell>
@@ -143,6 +143,6 @@ export default function CasesListPage() {
           </TableBody>
         </Table>
       </Paper>
-    </Container>
+    </PageScaffold>
   )
 }

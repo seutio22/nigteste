@@ -176,6 +176,19 @@ export default function DashboardPage() {
 
   const userScopePending = restrictAnalistaFilter && !userScopeReady
 
+  /** Cadastro de analistas precisa carregar antes de agrupar métricas (cache não persiste mais a lista). */
+  const masterDataReady = useMemo(() => {
+    if (masterDataStore.analistas.length > 0) return true
+    if (masterDataStore.isSyncing || dashboardSyncing) return false
+    return false
+  }, [
+    masterDataStore.analistas.length,
+    masterDataStore.isSyncing,
+    dashboardSyncing,
+  ])
+
+  const masterDataPending = !masterDataReady
+
   useEffect(() => {
     if (restrictAnalistaFilter && linkedAnalistaId && analistaId !== linkedAnalistaId) {
       setAnalistaId(linkedAnalistaId)
@@ -294,10 +307,11 @@ export default function DashboardPage() {
       return nigIds.length > 0 ? nigIds : undefined
     })(),
     userScopePending,
+    masterDataPending,
     // Sempre usar as datas do período atual (ou manual, se aplicado)
     fromDate: fromDate || undefined,
     toDate: toDate || undefined
-  }), [areaId, effectiveAnalistaId, userScopePending, fromDate, toDate, masterDataStore.areas, masterDataStore.analistas])
+  }), [areaId, effectiveAnalistaId, userScopePending, masterDataPending, fromDate, toDate, masterDataStore.areas, masterDataStore.analistas])
 
   const { advancedIndicators, tempoExecucaoMetrics, analistaMetrics, unassignedPerformanceItems } =
     useAdvancedIndicators(advancedFilters)
@@ -368,7 +382,8 @@ export default function DashboardPage() {
       // Master primeiro: lista de analistas/áreas necessária para resolver o escopo do usuário antes dos totais.
       if (syncMasterData) {
         try {
-          await syncMasterData()
+          const analistasVazios = useMasterDataStore.getState().analistas.length === 0
+          await syncMasterData(analistasVazios ? { force: true } : undefined)
         } catch (error) {
           console.error('❌ Dashboard: Erro ao carregar masterData:', error)
         }
@@ -737,6 +752,7 @@ export default function DashboardPage() {
             tempoExecucaoMetrics={tempoExecucaoMetrics}
             analistaMetrics={analistaMetrics}
             unassignedPerformanceItems={unassignedPerformanceItems}
+            loading={masterDataPending || dashboardSyncing}
           />
         </Box>
 
@@ -765,6 +781,8 @@ export default function DashboardPage() {
 
       {typeof generalStats?.completed === 'number' &&
       typeof concluidoAdvancedTotal === 'number' &&
+      !masterDataPending &&
+      !dashboardSyncing &&
       generalStats.completed !== concluidoAdvancedTotal ? (
         <Card sx={{ mt: 3, borderRadius: 2, border: '1px solid', borderColor: 'warning.light' }}>
           <CardContent>

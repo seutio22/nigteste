@@ -1,35 +1,51 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import {
   Alert,
   Box,
-  Button,
-  Step,
-  StepLabel,
-  Stepper,
   Typography,
 } from '@mui/material'
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
-import ArrowBackIcon from '@mui/icons-material/ArrowBack'
-import { PrimaryActionButton } from '../../../components/PrimaryActionButton'
+import AnalyticsOutlinedIcon from '@mui/icons-material/AnalyticsOutlined'
+import CampaignOutlinedIcon from '@mui/icons-material/CampaignOutlined'
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import { api } from '../../../lib/api.local'
 import { BeneficiariosBaseModule } from './BeneficiariosBaseModule'
-import { BeneficiariosResumoDashboard } from './BeneficiariosResumoDashboard'
-import { ContratoAtualDashboard } from './ContratoAtualDashboard'
-import { BeneficiariosLocalidadeDashboard } from './BeneficiariosLocalidadeDashboard'
 import { PlacementComunicarMercadoPanel } from './PlacementComunicarMercadoPanel'
 import type { CotacaoFormState } from './CotacaoFormFields'
 import { useBeneficiariosValidacaoContext } from './useBeneficiariosValidacaoContext'
+import { PlacementAnaliseBasePanel } from './PlacementAnaliseBasePanel'
+import {
+  analiseSectionFromLegacySubetapa,
+} from './placementAnaliseBase'
 import {
   EM_COTACAO_SUBETAPAS,
-  emCotacaoSubetapaIndex,
+  VALIDACAO_SUBETAPAS,
+  clampSubetapaForValidacao,
   nextEmCotacaoSubetapa,
+  nextValidacaoSubetapa,
   normalizeEmCotacaoSubetapa,
+  persistSubetapaForAnaliseBase,
+  subetapaIndexInList,
   type EmCotacaoSubetapaKey,
+  type EmCotacaoSubetapaMeta,
 } from './placementEmCotacaoWorkflow'
+import {
+  PlacementNavBackButton,
+  PlacementNavForwardButton,
+  PlacementWorkflowNavActions,
+  PlacementWorkflowNavLabel,
+  PlacementWorkflowNavRow,
+  PlacementWorkflowNavShell,
+  PlacementWorkflowNavStatus,
+  PlacementWorkflowStageLine,
+} from './placementWorkflowNav'
+import { PlacementWorkflowStepsRail } from './PlacementWorkflowStepsRail'
+
+export type SubetapasPanelVariant = 'validacao' | 'em_cotacao'
 
 type Props = {
   cotacaoId: string
   form: CotacaoFormState
+  variant?: SubetapasPanelVariant
   subetapaInicial?: string | null
   disabled?: boolean
   onChange?: (next: CotacaoFormState) => void
@@ -42,6 +58,7 @@ type Props = {
 export function PlacementEmCotacaoPanel({
   cotacaoId,
   form,
+  variant = 'em_cotacao',
   subetapaInicial,
   disabled,
   onChange,
@@ -50,18 +67,27 @@ export function PlacementEmCotacaoPanel({
   onBeneficiariosTotalChange,
   onPersisted,
 }: Props) {
-  const [subetapa, setSubetapa] = useState<EmCotacaoSubetapaKey>(() =>
-    normalizeEmCotacaoSubetapa(subetapaInicial)
-  )
+  const subetapas: EmCotacaoSubetapaMeta[] =
+    variant === 'validacao' ? VALIDACAO_SUBETAPAS : EM_COTACAO_SUBETAPAS
+  const normalizeInitial = (value: string | null | undefined) =>
+    variant === 'validacao' ? clampSubetapaForValidacao(value) : normalizeEmCotacaoSubetapa(value)
+  const nextSubetapa =
+    variant === 'validacao' ? nextValidacaoSubetapa : nextEmCotacaoSubetapa
+
+  const [subetapa, setSubetapa] = useState<EmCotacaoSubetapaKey>(() => normalizeInitial(subetapaInicial))
   const [beneficiariosTotal, setBeneficiariosTotal] = useState(0)
   const [saving, setSaving] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const { context: validationContext, loading: validationContextLoading } =
     useBeneficiariosValidacaoContext(form, cotacaoId)
 
+  const analiseInitialSection = useMemo(
+    () => analiseSectionFromLegacySubetapa(subetapaInicial),
+    [subetapaInicial]
+  )
   useEffect(() => {
-    setSubetapa(normalizeEmCotacaoSubetapa(subetapaInicial))
-  }, [subetapaInicial])
+    setSubetapa(normalizeInitial(subetapaInicial))
+  }, [subetapaInicial, variant])
 
   useEffect(() => {
     if (!cotacaoId) return
@@ -85,18 +111,44 @@ export function PlacementEmCotacaoPanel({
     }
   }, [cotacaoId, onBeneficiariosTotalChange])
 
-  const meta = EM_COTACAO_SUBETAPAS.find((s) => s.key === subetapa)!
-  const activeStep = emCotacaoSubetapaIndex(subetapa)
-  const nextKey = nextEmCotacaoSubetapa(subetapa)
+  const meta = subetapas.find((s) => s.key === subetapa)!
+  const activeStep = subetapaIndexInList(subetapa, subetapas)
+  const nextKey = nextSubetapa(subetapa)
+  const nextLabel = nextKey ? subetapas.find((s) => s.key === nextKey)?.label : null
+  const panelTitle = variant === 'validacao' ? 'Análise' : 'Solicitação Mercado'
+  const panelIcon =
+    variant === 'validacao' ? (
+      <AnalyticsOutlinedIcon fontSize="small" />
+    ) : (
+      <CampaignOutlinedIcon fontSize="small" />
+    )
+  const subetapasHeading =
+    variant === 'validacao' ? 'Subetapas da Análise' : 'Subetapas da Solicitação Mercado'
+
+  const subetapaSteps = subetapas.map((s, index) => ({
+    id: s.key,
+    label: s.label,
+    description: s.description,
+    stepNumber: index + 1,
+    state:
+      index < activeStep
+        ? ('completed' as const)
+        : s.key === subetapa
+          ? ('active' as const)
+          : ('upcoming' as const),
+  }))
 
   async function persistSubetapa(key: EmCotacaoSubetapaKey) {
+    const prev = subetapa
+    setSubetapa(key)
+    onSubetapaChange?.(key)
     setSaving(true)
     setErrorMsg(null)
     try {
       await api.put(`/placement/cotacoes/${cotacaoId}/em-cotacao-subetapa`, { subetapa: key })
-      setSubetapa(key)
-      onSubetapaChange?.(key)
     } catch (err: any) {
+      setSubetapa(prev)
+      onSubetapaChange?.(prev)
       setErrorMsg(err?.message ?? 'Erro ao mudar etapa.')
       throw err
     } finally {
@@ -106,16 +158,13 @@ export function PlacementEmCotacaoPanel({
 
   async function handleNext() {
     if (
-      (subetapa === 'beneficiarios' ||
-        subetapa === 'etapa2' ||
-        subetapa === 'etapa3' ||
-        subetapa === 'etapa4') &&
+      (subetapa === 'beneficiarios' || subetapa === 'analise_base') &&
       beneficiariosTotal < 1
     ) {
       setErrorMsg(
         subetapa === 'beneficiarios'
           ? 'Importe a planilha de beneficiários antes de avançar.'
-          : 'É necessário ter beneficiários importados para gerar os slides de apresentação.'
+          : 'É necessário ter beneficiários importados para visualizar a análise da base.'
       )
       return
     }
@@ -123,43 +172,96 @@ export function PlacementEmCotacaoPanel({
     await persistSubetapa(nextKey)
   }
 
+  async function handleGoToStep(key: EmCotacaoSubetapaKey) {
+    if (key === subetapa || disabled || saving) return
+    if (key === 'analise_base' && beneficiariosTotal < 1) {
+      setErrorMsg('Importe a planilha de beneficiários antes de abrir a análise da base.')
+      return
+    }
+    setErrorMsg(null)
+    await persistSubetapa(key === 'analise_base' ? persistSubetapaForAnaliseBase() : key)
+  }
+
   async function handleBack() {
-    const prev = EM_COTACAO_SUBETAPAS[activeStep - 1]
+    const prev = subetapas[activeStep - 1]
     if (!prev) return
     await persistSubetapa(prev.key)
   }
 
+  const prevLabel = activeStep > 0 ? subetapas[activeStep - 1]?.label : undefined
+
   return (
     <Box>
-      <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>
-        Em cotação — etapas do processo
-      </Typography>
-      <Stepper activeStep={activeStep} alternativeLabel sx={{ mb: 2 }}>
-        {EM_COTACAO_SUBETAPAS.map((s) => (
-          <Step key={s.key} completed={emCotacaoSubetapaIndex(s.key) < activeStep}>
-            <StepLabel
-              optional={
-                <Typography variant="caption" color="text.secondary">
-                  {s.description}
-                </Typography>
-              }
+      <PlacementWorkflowNavShell nested>
+        <PlacementWorkflowStageLine
+          label={panelTitle}
+          description={
+            variant === 'validacao'
+              ? 'Valide beneficiários e análise da base antes do Kick off'
+              : 'Comunique o mercado e finalize o cenário de estudo'
+          }
+          icon={panelIcon}
+        />
+
+        <Box sx={{ mb: 2.5 }}>
+          <PlacementWorkflowStepsRail
+            steps={subetapaSteps}
+            heading={subetapasHeading}
+            onStepClick={
+              disabled || saving
+                ? undefined
+                : (id) => void handleGoToStep(id as EmCotacaoSubetapaKey)
+            }
+          />
+        </Box>
+
+        <PlacementWorkflowNavRow>
+          <PlacementWorkflowNavActions>
+            <PlacementNavBackButton
+              disabled={disabled || saving || activeStep === 0}
+              onClick={() => void handleBack()}
             >
-              {s.label}
-            </StepLabel>
-          </Step>
-        ))}
-      </Stepper>
+              <PlacementWorkflowNavLabel action="Anterior" target={prevLabel} />
+            </PlacementNavBackButton>
+            {nextKey ? (
+              <PlacementNavForwardButton
+                disabled={disabled || saving}
+                onClick={() => void handleNext()}
+              >
+                {saving ? (
+                  'Salvando…'
+                ) : (
+                  <PlacementWorkflowNavLabel action="Próxima" target={nextLabel ?? undefined} />
+                )}
+              </PlacementNavForwardButton>
+            ) : null}
+          </PlacementWorkflowNavActions>
 
-      <Alert severity="info" sx={{ mb: 2 }}>
-        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-          {meta.label}
+          <PlacementWorkflowNavStatus icon={<InfoOutlinedIcon sx={{ fontSize: 18 }} />}>
+            Subetapa {activeStep + 1} de {subetapas.length} — <strong>{meta.label}</strong>
+            <br />
+            {meta.objective}
+          </PlacementWorkflowNavStatus>
+        </PlacementWorkflowNavRow>
+
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{ display: { xs: 'block', md: 'none' }, mt: 1.5, lineHeight: 1.5 }}
+        >
+          Subetapa {activeStep + 1} de {subetapas.length} — <strong>{meta.label}</strong> — {meta.objective}
         </Typography>
-        <Typography variant="body2">{meta.objective}</Typography>
-      </Alert>
 
-      {errorMsg && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {errorMsg}
+        {errorMsg && (
+          <Alert severity="error" sx={{ mt: 2 }} onClose={() => setErrorMsg(null)}>
+            {errorMsg}
+          </Alert>
+        )}
+      </PlacementWorkflowNavShell>
+
+      {variant === 'validacao' && subetapa === 'analise_base' && !nextKey && (
+        <Alert severity="success" sx={{ mb: 2 }}>
+          Análise concluída. Use «Avançar» na barra superior para ir a Kick off.
         </Alert>
       )}
 
@@ -176,16 +278,12 @@ export function PlacementEmCotacaoPanel({
         />
       )}
 
-      {subetapa === 'etapa2' && (
-        <BeneficiariosResumoDashboard cotacaoId={cotacaoId} disabled={disabled || saving} />
-      )}
-
-      {subetapa === 'etapa3' && (
-        <ContratoAtualDashboard cotacaoId={cotacaoId} disabled={disabled || saving} />
-      )}
-
-      {subetapa === 'etapa4' && (
-        <BeneficiariosLocalidadeDashboard cotacaoId={cotacaoId} disabled={disabled || saving} />
+      {subetapa === 'analise_base' && (
+        <PlacementAnaliseBasePanel
+          cotacaoId={cotacaoId}
+          disabled={disabled || saving}
+          initialSection={analiseInitialSection}
+        />
       )}
 
       {subetapa === 'comunicar_mercado' && onChange && (
@@ -202,27 +300,6 @@ export function PlacementEmCotacaoPanel({
       {subetapa === 'comunicar_mercado' && !onChange && (
         <Alert severity="warning">Salve a cotação para habilitar a comunicação ao mercado.</Alert>
       )}
-
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2, flexWrap: 'wrap', gap: 1 }}>
-        <Button
-          startIcon={<ArrowBackIcon />}
-          disabled={disabled || saving || activeStep === 0}
-          onClick={() => void handleBack()}
-        >
-          Etapa anterior
-        </Button>
-        {nextKey && (
-          <PrimaryActionButton
-            endIcon={<ArrowForwardIcon />}
-            disabled={disabled || saving}
-            onClick={() => void handleNext()}
-          >
-            {saving
-              ? 'Salvando…'
-              : `Próxima: ${EM_COTACAO_SUBETAPAS.find((s) => s.key === nextKey)?.label}`}
-          </PrimaryActionButton>
-        )}
-      </Box>
     </Box>
   )
 }

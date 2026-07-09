@@ -47,6 +47,7 @@ import { useNotificationStore } from '../../store/notificationStore'
 import { getDismissedAlertIds } from '../../utils/dismissedAlerts'
 import { formatIntegerPtBR } from '../../utils/formatNumber'
 import { getUserPermissions, checkPermission } from '../../utils/defaultPermissions'
+import { waitForHomeStoresReady } from '../../utils/homeStoreSync'
 import type { SystemPermissions, ModulePermission } from '../../types/permissions'
 import type { Project } from '../../types/project'
 import type { MaillingContact } from '../../types/mailling'
@@ -555,7 +556,7 @@ export default function HomeNigPage() {
       if (checkPermission(userPerms, 'analytics', 'view'))
         tasks.push(syncReportFn(force).catch(() => {}))
       if (checkPermission(userPerms, 'mailling', 'view'))
-        tasks.push(syncMaillingFn().catch(() => {}))
+        tasks.push(syncMaillingFn(force).catch(() => {}))
       if (checkPermission(userPerms, 'projetos', 'view'))
         tasks.push(syncProjectFn(force).catch(() => {}))
       return tasks
@@ -574,37 +575,44 @@ export default function HomeNigPage() {
     ]
   )
 
-  // Sincronizar dados ao abrir a Home (stores têm throttle interno ~2 min para não sobrecarregar a API)
+  const runHomeSync = useCallback(
+    async (force: boolean, blockUi = false) => {
+      if (!user?.id) return
+      if (blockUi) setIsLoading(true)
+      try {
+        await Promise.allSettled(collectHomeSyncTasks(force))
+        await waitForHomeStoresReady(userPerms)
+      } catch {
+        /* stores já logam erro */
+      } finally {
+        if (blockUi) setIsLoading(false)
+      }
+    },
+    [user?.id, collectHomeSyncTasks, userPerms]
+  )
+
+  // Sincronizar dados ao abrir a Home — force na 1ª carga para não usar cache stale nos KPIs
   useEffect(() => {
     if (!user?.id) {
       setIsLoading(false)
       return
     }
-
-    const loadData = async () => {
-      setIsLoading(true)
-      try {
-        await Promise.allSettled(collectHomeSyncTasks(false))
-      } catch (error) {
-        console.error('❌ Home: Erro ao carregar dados:', error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    loadData()
-  }, [user?.id, collectHomeSyncTasks])
+    void runHomeSync(true, true)
+  }, [user?.id, runHomeSync])
 
   const refreshHomeData = useCallback(() => {
     if (!user?.id) return
-    Promise.allSettled(collectHomeSyncTasks(false)).catch(() => {})
-  }, [user?.id, collectHomeSyncTasks])
+    void runHomeSync(false, false)
+  }, [user?.id, runHomeSync])
 
-  /** Ignora throttle de 2 min — atualiza “Sua produção” ao voltar à aba/página. */
-  const refreshHomeDataForce = useCallback(() => {
-    if (!user?.id) return
-    Promise.allSettled(collectHomeSyncTasks(true)).catch(() => {})
-  }, [user?.id, collectHomeSyncTasks])
+  /** Ignora throttle de 2 min — atualiza KPIs ao voltar à Home ou à aba do navegador. */
+  const refreshHomeDataForce = useCallback(
+    (blockUi = true) => {
+      if (!user?.id) return
+      void runHomeSync(true, blockUi)
+    },
+    [user?.id, runHomeSync]
+  )
 
   const prevPathForHomeRef = useRef<string | undefined>(undefined)
   const filaPendenciasRef = useRef<HTMLElement>(null)
@@ -621,14 +629,14 @@ export default function HomeNigPage() {
       return
     }
     if (prevPathForHomeRef.current !== undefined && prevPathForHomeRef.current !== '/') {
-      refreshHomeDataForce()
+      refreshHomeDataForce(true)
     }
     prevPathForHomeRef.current = '/'
   }, [location.pathname, user?.id, refreshHomeDataForce])
 
   useEffect(() => {
     const onVisible = () => {
-      if (document.visibilityState === 'visible') refreshHomeDataForce()
+      if (document.visibilityState === 'visible') refreshHomeDataForce(false)
     }
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)

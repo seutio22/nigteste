@@ -27,6 +27,8 @@ type Props = {
   minVidas: number
   total: number
   highlightUf?: string
+  /** Altura do painel. Padrão 100% (requer pai com altura definida). */
+  height?: number | string
 }
 
 function ratio(vidas: number, min: number, max: number): number {
@@ -72,7 +74,14 @@ function IntensityLegend({ minVidas, maxVidas }: { minVidas: number; maxVidas: n
   )
 }
 
-export function BrazilDistributionViz({ porUf, maxVidas, minVidas, total, highlightUf }: Props) {
+export function BrazilDistributionViz({
+  porUf,
+  maxVidas,
+  minVidas,
+  total,
+  highlightUf,
+  height = '100%',
+}: Props) {
   const ufByCode = useMemo(() => {
     const m = new Map<string, UfVidasRow>()
     for (const u of porUf) m.set(u.uf, u)
@@ -115,7 +124,9 @@ export function BrazilDistributionViz({ porUf, maxVidas, minVidas, total, highli
   return (
     <Box
       sx={{
-        height: '100%',
+        height,
+        minHeight: typeof height === 'number' ? height : 360,
+        width: '100%',
         position: 'relative',
         borderRadius: 2.5,
         overflow: 'hidden',

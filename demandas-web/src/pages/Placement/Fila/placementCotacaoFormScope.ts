@@ -1,7 +1,7 @@
 import type { WorkflowStageKey } from './placementCotacaoWorkflow'
 
 /** Escopo do formulário na página de detalhe (evita repetir todos os blocos). */
-export type CotacaoFormScope = 'all' | 'base_atual' | 'kick_off' | 'em_cotacao' | 'observacoes_only' | 'dados_abertura'
+export type CotacaoFormScope = 'all' | 'base_atual' | 'kick_off' | 'estrategia' | 'em_cotacao' | 'observacoes_only' | 'dados_abertura'
 
 /** Blocos do formulário de abertura (consulta/edição na aba «Dados da abertura»). */
 export type AberturaSectionKey =
@@ -27,7 +27,9 @@ export function formScopeForWorkflow(
 ): CotacaoFormScope {
   if (isDraft) return 'all'
   if (workflowStageKey === 'base_atual') return 'base_atual'
+  if (workflowStageKey === 'validacao') return 'observacoes_only'
   if (workflowStageKey === 'kick_off') return 'kick_off'
+  if (workflowStageKey === 'estrategia') return 'estrategia'
   if (workflowStageKey === 'em_cotacao') return 'em_cotacao'
   if (
     workflowStageKey === 'aguardando_operadora' ||
@@ -63,7 +65,7 @@ export function showDetalhesBaseSection(
 }
 
 export function showDetalhesEmCotacaoSection(scope: CotacaoFormScope): boolean {
-  return scope === 'all' || scope === 'em_cotacao'
+  return scope === 'all' || scope === 'base_atual' || scope === 'em_cotacao'
 }
 
 /** Upgrade/downgrade, reembolso atual e coberturas especiais (preenchidos na abertura, junto aos planos). */

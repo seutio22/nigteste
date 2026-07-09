@@ -101,6 +101,7 @@ export const DadosGrid: React.FC<DadosGridProps> = ({
       ],
       solicitantes: [
         { field: 'nome', headerName: 'Nome', flex: 1 },
+        { field: 'email', headerName: 'E-mail', flex: 1 },
       ],
       relatorios: [
         { field: 'nome', headerName: 'Nome', flex: 1 },

@@ -478,7 +478,7 @@ export function buildComunicarMercadoTopicos(input: BuildComunicarMercadoInput):
     'Aniversário da apólice',
     monthNameApolice(form.vigenciaApolice)
   )
-  pushTopico(out, 'Dados gerais', 'prazo-vigencia', 'Prazo de vigência do contrato (em meses)', labels.prazoVigencia)
+  pushTopico(out, 'Dados gerais', 'prazo-vigencia', 'Duração Contratual', labels.prazoVigencia)
   pushTopico(
     out,
     'Dados gerais',
@@ -507,7 +507,7 @@ export function buildComunicarMercadoTopicos(input: BuildComunicarMercadoInput):
     out,
     'Dados gerais',
     'convencao',
-    'Convenção coletiva',
+    'Em acordo coletivo',
     labels.convencaoColetiva || resumoValor(form, labels, 'convencao-coletiva', linhas)
   )
   pushTopico(out, 'Dados gerais', 'upgrade-downgrade', 'Upgrade / Downgrade', labels.upgradeDowngrade)

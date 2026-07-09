@@ -1,9 +1,10 @@
 import { Link as RouterLink } from 'react-router-dom'
-import { Button, Container, Typography } from '@mui/material'
+import { Button, Typography } from '@mui/material'
+import PageScaffold from '../components/PageScaffold'
 
 export default function NotFoundPage() {
   return (
-    <Container sx={{ py: 6, textAlign: 'center' }}>
+    <PageScaffold sx={{ py: 6, textAlign: 'center' }}>
       <Typography variant="h5" gutterBottom>
         Página não encontrada
       </Typography>
@@ -13,6 +14,6 @@ export default function NotFoundPage() {
       <Button component={RouterLink} to="/" variant="contained">
         Voltar ao início
       </Button>
-    </Container>
+    </PageScaffold>
   )
 }

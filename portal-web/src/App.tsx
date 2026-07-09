@@ -25,7 +25,7 @@ function PrivateLayout() {
   const { user, loading } = useAuth()
   if (loading) {
     return (
-      <Box sx={{ p: 4, textAlign: 'center' }}>
+      <Box sx={{ minHeight: '100vh', bgcolor: 'grey.50', p: 4, textAlign: 'center' }}>
         <Typography color="text.secondary">Carregando…</Typography>
       </Box>
     )

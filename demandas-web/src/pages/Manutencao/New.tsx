@@ -19,6 +19,22 @@ import {
   emptyContratoVinculoRow,
   type ContratoVinculoRow,
 } from '../../utils/manutencaoContratos'
+import { QualificacaoManutencaoFields } from '../../components/manutencao/QualificacaoManutencaoFields'
+import {
+  EMPTY_MANUTENCAO_QUALIFICACAO,
+  type ManutencaoQualificacao,
+} from '../../types/manutencaoQualificacao'
+import { saveManutencaoQualificacaoLocal } from '../../lib/manutencaoQualificacaoStorage'
+
+const qualificacaoChamadoSchema = z.object({
+  semFormalizacao: z.boolean(),
+  semLayout: z.boolean(),
+  formularioIncorreto: z.boolean(),
+  dadosIncorretos: z.boolean(),
+  dadosIncompletos: z.boolean(),
+  semRetorno: z.boolean(),
+  observacao: z.string().optional(),
+})
 
 const schema = z.object({
   // Campos obrigatórios - igual à página de cadastro
@@ -41,6 +57,7 @@ const schema = z.object({
   qualidade: z.string().optional(),
   total: z.coerce.number().min(0, 'Deve ser um número positivo').optional(),
   observacoes: z.string().optional(),
+  qualificacaoChamado: qualificacaoChamadoSchema,
 })
 
 type FormValues = z.infer<typeof schema>
@@ -81,6 +98,7 @@ export default function ManutencaoNewPage() {
       qualidade: '',
       total: 0,
       observacoes: '',
+      qualificacaoChamado: { ...EMPTY_MANUTENCAO_QUALIFICACAO },
     }
   })
   const perfRef = useRef(createPerfLogger('Manutencao/Novo'))
@@ -302,6 +320,13 @@ export default function ManutencaoNewPage() {
         return acc + n
       }, 0)
 
+      const qualificacaoChamado: ManutencaoQualificacao = {
+        ...data.qualificacaoChamado,
+        observacao: data.qualificacaoChamado.observacao?.trim() ?? '',
+        avaliadoEm: new Date().toISOString(),
+        avaliadoPor: user?.name || user?.email || 'Analista',
+      }
+
       // Payload para o store - apenas campos obrigatórios e válidos
       const storePayload: any = {
         status: data.status,
@@ -317,6 +342,7 @@ export default function ManutencaoNewPage() {
         sistemasIds: sanitizedData.sistemasIds.length ? sanitizedData.sistemasIds : null,
         sistemasTotais: Object.keys(sanitizedData.sistemasTotais as any).length ? sanitizedData.sistemasTotais : null,
         observacoes: emptyToNull(data.observacoes),
+        qualificacaoChamado,
       }
 
       // Adicionar apenas IDs válidos (não vazios)
@@ -337,7 +363,8 @@ export default function ManutencaoNewPage() {
       
       try {
         // Criar manutenção através do store (já adiciona ao store local - sem sync para resposta imediata)
-        await manutencaoStore.add(storePayload)
+        const created = await manutencaoStore.add(storePayload)
+        saveManutencaoQualificacaoLocal(created.id, qualificacaoChamado)
         navigate('/manutencao')
         
       } catch (error) {
@@ -749,6 +776,26 @@ export default function ManutencaoNewPage() {
                   )} />
                 </Grid>
               </Grid>
+            </CardContent>
+          </Card>
+
+          <Card elevation={0} sx={{ ...cardSx, mb: 0 }}>
+            <CardContent sx={{ py: 3, px: { xs: 2.25, sm: 3 }, '&:last-child': { pb: 3 } }}>
+              <SectionTitle>Qualificação do chamado</SectionTitle>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5, maxWidth: 720 }}>
+                Por último, avalie a qualidade dos dados recepcionados antes de salvar a manutenção.
+              </Typography>
+              <Controller
+                name="qualificacaoChamado"
+                control={control}
+                render={({ field }) => (
+                  <QualificacaoManutencaoFields
+                    value={field.value}
+                    onChange={field.onChange}
+                    showHelper={false}
+                  />
+                )}
+              />
             </CardContent>
           </Card>
 

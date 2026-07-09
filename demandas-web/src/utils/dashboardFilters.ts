@@ -8,13 +8,96 @@ type MasterItem = {
 
 const normalize = (value?: string): string => (value || '').trim().toLowerCase()
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+export const isUuid = (value?: string | null): boolean =>
+  Boolean(value && UUID_REGEX.test(String(value)))
+
+const findAnalistaById = (id: string, list?: MasterItem[]) =>
+  list?.find((item) => String(item.id) === String(id))
+
+const findAnalistasByName = (name: string, list?: MasterItem[]) =>
+  list?.filter((item) => normalize(item.nome || item.name) === normalize(name)) ?? []
+
+/** Agrupa registros operacionais sem analista resolvido no master em um único card. */
+export const UNASSIGNED_ANALISTA_KEY = '__unassigned__'
+
+type AnalistaMaster = MasterItem & { email?: string }
+
+/** Projetos usam owner/manager como usuário do sistema — mapeia para analista por e-mail/nome. */
+export const resolveProjectAnalistaValue = (
+  project: Record<string, unknown>,
+  analistas?: AnalistaMaster[]
+): unknown => {
+  const matchByUserProfile = (user?: { email?: string; name?: string; nome?: string }) => {
+    if (!user || !analistas?.length) return undefined
+    const email = (user.email || '').trim().toLowerCase()
+    const name = (user.name || user.nome || '').trim()
+    return analistas.find((a) => {
+      const aEmail = (a.email || '').trim().toLowerCase()
+      const aNome = (a.nome || a.name || '').trim()
+      if (email && aEmail && email === aEmail) return true
+      if (name && aNome && normalize(name) === normalize(aNome)) return true
+      return false
+    })?.id
+  }
+
+  const manager = project.manager
+  const owner = project.owner
+
+  if (manager && typeof manager === 'object') {
+    const byProfile = matchByUserProfile(manager as { email?: string; name?: string; nome?: string })
+    if (byProfile) return byProfile
+  }
+  if (owner && typeof owner === 'object') {
+    const byProfile = matchByUserProfile(owner as { email?: string; name?: string; nome?: string })
+    if (byProfile) return byProfile
+  }
+
+  const candidates = [
+    project.managerId,
+    typeof manager === 'string' ? manager : (manager as { id?: string } | undefined)?.id,
+    project.ownerId,
+    typeof owner === 'object' ? (owner as { id?: string }).id : owner,
+    manager,
+    owner,
+  ]
+
+  for (const candidate of candidates) {
+    if (candidate == null || candidate === '') continue
+    const resolved = resolveIdFromValue(candidate, analistas)
+    if (resolved && isAnalistaKnownInMaster(resolved, analistas)) return resolved
+  }
+
+  return project.managerId || project.ownerId || manager || owner
+}
+
+export const isAnalistaKnownInMaster = (
+  resolvedId: string | undefined,
+  list?: MasterItem[]
+): boolean => {
+  if (!resolvedId || !list?.length) return false
+  if (isUuid(resolvedId)) return Boolean(findAnalistaById(resolvedId, list))
+  return findAnalistasByName(resolvedId, list).length > 0
+}
+
 export const resolveIdFromValue = (value: unknown, list?: MasterItem[]): string | undefined => {
   if (value === null || value === undefined) return undefined
 
   if (typeof value === 'object') {
     const obj = value as { id?: string; nome?: string; name?: string; value?: string }
-    if (obj.id) return obj.id
-    if (obj.value) return obj.value
+    if (obj.id) {
+      const byId = findAnalistaById(String(obj.id), list)
+      return byId?.id || obj.id
+    }
+    if (obj.value) {
+      if (isUuid(obj.value)) {
+        const byId = findAnalistaById(obj.value, list)
+        return byId?.id || obj.value
+      }
+      const match = list?.find((item) => normalize(item.nome || item.name) === normalize(obj.value))
+      return match?.id || obj.value
+    }
     if (obj.nome || obj.name) {
       const name = obj.nome || obj.name
       const match = list?.find((item) => normalize(item.nome || item.name) === normalize(name))
@@ -24,11 +107,72 @@ export const resolveIdFromValue = (value: unknown, list?: MasterItem[]): string 
   }
 
   if (typeof value === 'string') {
+    if (isUuid(value)) {
+      const byId = findAnalistaById(value, list)
+      return byId?.id || value
+    }
     const match = list?.find((item) => normalize(item.nome || item.name) === normalize(value))
     return match?.id || value
   }
 
   return String(value)
+}
+
+/** Chave única para agrupar métricas de analista (evita duplicar por id vs nome). */
+export const buildAnalistaAggregationKey = (
+  resolvedId: string | undefined,
+  analistaNome: string,
+  list?: MasterItem[]
+): { key: string; canonicalId: string; canonicalNome: string } => {
+  const nomeNorm = normalize(analistaNome)
+
+  if (resolvedId && isUuid(resolvedId)) {
+    const byId = findAnalistaById(resolvedId, list)
+    if (byId?.id) {
+      return {
+        key: String(byId.id),
+        canonicalId: String(byId.id),
+        canonicalNome: byId.nome || byId.name || analistaNome
+      }
+    }
+    return {
+      key: UNASSIGNED_ANALISTA_KEY,
+      canonicalId: UNASSIGNED_ANALISTA_KEY,
+      canonicalNome: 'Analista não encontrado'
+    }
+  }
+
+  const lookupName = resolvedId && !isUuid(resolvedId) ? String(resolvedId) : analistaNome
+  const byName = findAnalistasByName(lookupName, list)
+  if (byName.length === 1 && byName[0]?.id) {
+    return {
+      key: String(byName[0].id),
+      canonicalId: String(byName[0].id),
+      canonicalNome: byName[0].nome || byName[0].name || analistaNome
+    }
+  }
+  if (byName.length > 1) {
+    const canonicalNome = byName[0].nome || byName[0].name || analistaNome
+    return {
+      key: `name:${normalize(canonicalNome)}`,
+      canonicalId: String(byName[0].id ?? canonicalNome),
+      canonicalNome
+    }
+  }
+
+  if (nomeNorm === 'analista não encontrado' || !nomeNorm) {
+    return {
+      key: UNASSIGNED_ANALISTA_KEY,
+      canonicalId: UNASSIGNED_ANALISTA_KEY,
+      canonicalNome: 'Analista não encontrado'
+    }
+  }
+
+  return {
+    key: `name:${nomeNorm}`,
+    canonicalId: resolvedId || analistaNome,
+    canonicalNome: analistaNome
+  }
 }
 
 export const resolveNameFromValue = (value: unknown): string | undefined => {
@@ -38,6 +182,24 @@ export const resolveNameFromValue = (value: unknown): string | undefined => {
     return obj.nome || obj.name || obj.titulo
   }
   return String(value)
+}
+
+export const resolveAnalistaDisplayName = (
+  analistaRaw: unknown,
+  resolvedId: string | undefined,
+  list?: MasterItem[]
+): string => {
+  const embedded = resolveNameFromValue(analistaRaw)
+  if (embedded && !isUuid(embedded)) return embedded
+
+  if (resolvedId && isUuid(resolvedId)) {
+    const byId = findAnalistaById(resolvedId, list)
+    const masterName = byId?.nome || byId?.name
+    if (masterName) return masterName
+  }
+
+  if (resolvedId && !isUuid(resolvedId)) return resolvedId
+  return 'Analista não encontrado'
 }
 
 export const matchesByIdOrName = (

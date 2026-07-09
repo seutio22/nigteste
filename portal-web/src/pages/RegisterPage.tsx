@@ -36,7 +36,18 @@ export default function RegisterPage() {
   }
 
   return (
-    <Container maxWidth="sm" sx={{ py: 6 }}>
+    <Box
+      sx={{
+        minHeight: '100vh',
+        bgcolor: 'grey.50',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        py: 3,
+        px: 2,
+      }}
+    >
+      <Container maxWidth="sm" sx={{ py: 0, width: '100%' }}>
       <Paper elevation={0} sx={{ p: 4, borderRadius: 3, boxShadow: '0 8px 32px rgba(5,0,50,0.08)' }}>
         <Typography variant="h5" gutterBottom>
           Criar conta
@@ -97,6 +108,7 @@ export default function RegisterPage() {
           </Link>
         </Typography>
       </Paper>
-    </Container>
+      </Container>
+    </Box>
   )
 }

@@ -9,7 +9,9 @@ export { PLACEMENT_STATUS_RASCUNHO }
 
 export type WorkflowStageKey =
   | 'base_atual'
+  | 'validacao'
   | 'kick_off'
+  | 'estrategia'
   | 'em_cotacao'
   | 'aguardando_operadora'
   | 'proposta_enviada'
@@ -33,29 +35,47 @@ export const PLACEMENT_WORKFLOW_MAIN_STAGES: WorkflowStageMeta[] = [
   {
     status: 'Aberta',
     key: 'base_atual',
-    label: 'Base atual',
-    description: 'O que o cliente tem hoje',
+    label: 'Premissa',
+    description: 'Premissas e situação atual do cliente',
     objective:
       'Documente a situação atual do cliente: estipulante, produtos, fornecedores, planos vigentes e quesito financeiro do contrato em vigor. Esta é a base para montar a proposta.',
     mainFlowIndex: 0,
   },
   {
+    status: 'Validação',
+    key: 'validacao',
+    label: 'Análise',
+    description: 'Beneficiários e slides iniciais',
+    objective:
+      'Antecipe a análise da base de beneficiários, grupo elegível, contrato atual e distribuição por localidade — antes do Kick off e da cotação formal.',
+    mainFlowIndex: 1,
+  },
+  {
     status: 'Kick off',
     key: 'kick_off',
     label: 'Kick off',
-    description: 'Alinhamento de estratégia',
+    description: 'Reunião de alinhamento',
     objective:
-      'Alinhe a estratégia do processo de cotação: premissas, condições a cotar e mercado analisado, com base no resumo da abertura do chamado.',
-    mainFlowIndex: 1,
+      'Conduza a reunião de kick off: apresente o resumo da abertura e a análise da base importada para alinhar premissas e direcionamento da cotação.',
+    mainFlowIndex: 2,
+  },
+  {
+    status: 'Estratégia',
+    key: 'estrategia',
+    label: 'Estratégia',
+    description: 'Formalização da estratégia',
+    objective:
+      'Formalize a estratégia acordada na reunião (premissas, condições e mercado analisado) e valide antes de iniciar a Solicitação Mercado.',
+    mainFlowIndex: 3,
   },
   {
     status: 'Em cotação',
     key: 'em_cotacao',
-    label: 'Em cotação',
-    description: 'Cenário de estudo e operadoras',
+    label: 'Solicitação Mercado',
+    description: 'Cenário de estudo e comunicação',
     objective:
-      'Cinco etapas internas: base de beneficiários, slides de apresentação (grupo elegível, contrato atual, localidade) e comunicação ao mercado antes de aguardar retorno das operadoras.',
-    mainFlowIndex: 2,
+      'Monte o cenário de estudo financeiro, revise as bases validadas e comunique as operadoras do mercado analisado antes de aguardar retorno.',
+    mainFlowIndex: 4,
   },
   {
     status: 'Aguardando operadora',
@@ -63,7 +83,7 @@ export const PLACEMENT_WORKFLOW_MAIN_STAGES: WorkflowStageMeta[] = [
     label: 'Aguardando operadora',
     description: 'Retorno das operadoras',
     objective: 'Aguarde e registre retornos, documentação e condições das operadoras.',
-    mainFlowIndex: 3,
+    mainFlowIndex: 5,
   },
   {
     status: 'Proposta enviada',
@@ -71,7 +91,7 @@ export const PLACEMENT_WORKFLOW_MAIN_STAGES: WorkflowStageMeta[] = [
     label: 'Proposta enviada',
     description: 'Proposta ao cliente',
     objective: 'Proposta formal enviada ao cliente para análise e negociação.',
-    mainFlowIndex: 4,
+    mainFlowIndex: 6,
   },
   {
     status: 'Fechada',
@@ -79,7 +99,7 @@ export const PLACEMENT_WORKFLOW_MAIN_STAGES: WorkflowStageMeta[] = [
     label: 'Fechada',
     description: 'Negócio concluído',
     objective: 'Oportunidade concluída com sucesso.',
-    mainFlowIndex: 5,
+    mainFlowIndex: 7,
   },
 ]
 

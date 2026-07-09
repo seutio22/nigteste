@@ -2,6 +2,14 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { api } from '../lib/api.local'
 import type { TimelineEvent } from '../types/timeline'
+import { createSafePersistStorage, removeLocalStorageByPrefix } from '../lib/safePersistStorage'
+import { shouldSkipStoreSync } from '../utils/syncCooldown'
+
+export function clearAtendimentoLocalCache(): void {
+  removeLocalStorageByPrefix('atendimentoStore')
+}
+
+let atendimentoSyncInFlight: Promise<void> | null = null
 
 export interface AtendimentoEntry {
   id: string
@@ -380,11 +388,13 @@ export const useAtendimentoStore = create<AtendimentoState>()(
       },
       
       syncFromApi: async (force?: boolean) => {
-        const state = get()
-        if (state.isLoading) return
-        const now = Date.now()
-        if (!force && now - state.lastSync < 2 * 60 * 1000) return
+        if (atendimentoSyncInFlight) return atendimentoSyncInFlight
 
+        const state = get()
+        const now = Date.now()
+        if (shouldSkipStoreSync(state.lastSync, state.items.length, force)) return
+
+        atendimentoSyncInFlight = (async () => {
         try {
           set({ isLoading: true })
           const atendimentos = await api.getAtendimentos()
@@ -393,7 +403,12 @@ export const useAtendimentoStore = create<AtendimentoState>()(
         } catch (error) {
           console.error('❌ AtendimentoStore: Erro no syncFromApi:', error)
           set({ isLoading: false })
+        } finally {
+          atendimentoSyncInFlight = null
         }
+        })()
+
+        return atendimentoSyncInFlight
       },
       async syncTimeline(atendimentoId: string) {
         try {
@@ -440,10 +455,19 @@ export const useAtendimentoStore = create<AtendimentoState>()(
     }),
     {
       name: 'atendimentoStore',
-      partialize: (state) => ({ 
-        items: state.items, 
-        timeline: state.timeline 
-      })
+      version: 2,
+      partialize: (state) => ({ lastSync: state.lastSync }),
+      storage: createSafePersistStorage<Pick<AtendimentoState, 'lastSync'>>('atendimentoStore', {
+        onQuotaExceeded: clearAtendimentoLocalCache,
+      }),
+      onRehydrateStorage: () => () => {
+        queueMicrotask(() => {
+          const s = useAtendimentoStore.getState()
+          if (s.items.length === 0 && !s.isLoading) {
+            void s.syncFromApi()
+          }
+        })
+      },
     }
   )
 )

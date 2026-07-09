@@ -15,6 +15,7 @@ import { PrimaryActionButton } from '../../components/PrimaryActionButton'
 import { formatIntegerPtBR } from '../../utils/formatNumber'
 import { formatGridDatePtBR, gridCellToDate } from '../../utils/gridDate'
 import { useHomePanoramaListFilters } from '../../utils/homePanoramaListFilters'
+import { generateUniqueValidationTicket } from '../../utils/validationTicket'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
@@ -74,73 +75,30 @@ function ActionCell({ id, status }: { id: string, status: string }) {
   const doDuplicate = async () => {
     const v = store.items.find((x) => x.id === id)
     if (!v) return
-    
+
     try {
-      // Função para gerar ticket único com sufixo numérico
-      const generateUniqueTicket = async (originalTicket: string | undefined): Promise<string | undefined> => {
-        if (!originalTicket || originalTicket.trim() === '') {
-          return undefined // Se não tinha ticket, retornar undefined
-        }
-        
-        // Verificar se o ticket original já tem sufixo numérico (ex: "SR-1346706-1")
-        // IMPORTANTE: Não aceitar números longos como sufixo (mais de 3 dígitos)
-        const ticketMatch = originalTicket.match(/^(.+)-(\d{1,3})$/)
-        let baseTicket = originalTicket
-        let startSuffix = 1
-        
-        if (ticketMatch) {
-          // Se já tem sufixo, usar o base e incrementar
-          baseTicket = ticketMatch[1]
-          startSuffix = parseInt(ticketMatch[2]) + 1
-        }
-        
-        // Buscar ticket disponível incrementando sufixo
-        const { api } = await import('../../lib/api.local')
-        let suffix = startSuffix
-        let newTicket = `${baseTicket}-${suffix}`
-        
-        // Verificar até encontrar um ticket disponível (máximo 10 tentativas)
-        for (let i = 0; i < 10; i++) {
-          const existing = await api.getValidacoes(`?ticket=${encodeURIComponent(newTicket)}`)
-          if (!Array.isArray(existing) || existing.length === 0) {
-            // Ticket disponível encontrado
-            return newTicket
-          }
-          // Ticket já existe, tentar próximo sufixo
-          suffix++
-          newTicket = `${baseTicket}-${suffix}`
-        }
-        
-        // Se não encontrou após 10 tentativas, gerar com timestamp
-        const timestamp = Date.now().toString().slice(-4)
-        return `${baseTicket}-${timestamp}`
-      }
-      
-      // Gerar novo ticket único
-      const newTicket = await generateUniqueTicket(v.ticket)
-      
+      const newTicket = generateUniqueValidationTicket(
+        v.ticket,
+        store.items.map((item) => item.ticket)
+      )
+
       const { id: _omit, createdAt: _c, updatedAt: _u, ticket: _ticket, ...rest } = v
-      const duplicated = await store.add({ 
-        ...rest, 
-        ticket: newTicket, // Usar novo ticket com sufixo
-        status: 'Em validação', 
-        updatedAt: new Date().toISOString() 
+      const duplicated = await store.add({
+        ...rest,
+        ticket: newTicket,
+        status: 'Em validação',
+        updatedAt: new Date().toISOString(),
       })
-      // Garantir navegação usando o ID real do backend
-      let navigateId = duplicated?.id
+
+      const navigateId = duplicated?.id
+      if (!navigateId) throw new Error('Duplicação não retornou ID')
+
       try {
-        const { api } = await import('../../lib/api.local')
-        const found = await api.getValidacoes(`?ticket=${encodeURIComponent(String(newTicket || ''))}`)
-        if (Array.isArray(found) && found.length > 0 && found[0]?.id) {
-          navigateId = found[0].id
-        }
-      } catch (e) {
-        console.warn('Não foi possível confirmar ID pelo ticket; usando ID retornado localmente', e)
-      }
-      try {
-        sessionStorage.setItem('lastValidationId', String(navigateId || ''))
+        sessionStorage.setItem('lastValidationId', String(navigateId))
         if (newTicket) sessionStorage.setItem('lastValidationTicket', String(newTicket))
-      } catch {}
+      } catch {
+        /* ignore */
+      }
       navigate(`/validacao/${navigateId}`)
     } catch (error) {
       console.error('Erro ao duplicar validação:', error)

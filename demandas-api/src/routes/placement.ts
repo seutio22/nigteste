@@ -37,7 +37,9 @@ const PLACEMENT_STATUS_RASCUNHO = 'Rascunho';
 
 const COTACAO_WORKFLOW_STATUSES = [
   'Aberta',
+  'Validação',
   'Kick off',
+  'Estratégia',
   'Em cotação',
   'Aguardando operadora',
   'Proposta enviada',
@@ -93,7 +95,22 @@ async function generateCotacaoTicket(prisma: PrismaClient): Promise<string> {
 function toDateOrNull(value: unknown): Date | null | undefined {
   if (value === undefined) return undefined;
   if (value === null || value === '') return null;
-  const d = new Date(String(value));
+  if (typeof value === 'number') {
+    const utc = (value - 25569) * 86400 * 1000;
+    const d = new Date(utc);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  const s = String(value).trim();
+  const br = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if (br) {
+    const dd = br[1].padStart(2, '0');
+    const mm = br[2].padStart(2, '0');
+    let yyyy = br[3];
+    if (yyyy.length === 2) yyyy = `20${yyyy}`;
+    const d = new Date(`${yyyy}-${mm}-${dd}T12:00:00.000Z`);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  const d = new Date(s);
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
@@ -112,15 +129,52 @@ function strFieldOrNull(value: unknown): string | null {
 
 const EM_COTACAO_SUBETAPAS = [
   'beneficiarios',
+  'analise_base',
   'etapa2',
   'etapa3',
   'etapa4',
   'comunicar_mercado',
 ] as const;
 const MAX_BENEFICIARIOS_POR_COTACAO = 25_000;
+/** Evita estourar o limite de parâmetros do PostgreSQL em createMany. */
+const BENEFICIARIOS_INSERT_BATCH_SIZE = 400;
+
+type BeneficiarioRowParsed = ReturnType<typeof parseBeneficiarioRowInput>;
+
+function prismaErrorDetail(error: unknown): string | undefined {
+  if (!error || typeof error !== 'object') {
+    return error instanceof Error ? error.message : undefined;
+  }
+  const e = error as { code?: string; message?: string };
+  if (e.code === 'P2021') {
+    return 'Tabela de beneficiários não encontrada no banco. Verifique se as migrations foram aplicadas no servidor.';
+  }
+  if (e.code === 'P2028') {
+    return 'Importação demorou mais que o limite da transação. Tente novamente; se persistir, reduza o tamanho da planilha.';
+  }
+  return e.message;
+}
+
+async function insertBeneficiariosBatched(
+  db: Pick<PrismaClient, 'placementCotacaoBeneficiario'>,
+  cotacaoId: string,
+  rows: BeneficiarioRowParsed[]
+) {
+  for (let i = 0; i < rows.length; i += BENEFICIARIOS_INSERT_BATCH_SIZE) {
+    const chunk = rows.slice(i, i + BENEFICIARIOS_INSERT_BATCH_SIZE);
+    await db.placementCotacaoBeneficiario.createMany({
+      data: chunk.map((p) => ({
+        id: randomUUID(),
+        ...p,
+        cotacaoId,
+      })),
+    });
+  }
+}
 
 function normalizeEmCotacaoSubetapa(value: unknown): string {
   const v = String(value ?? '').trim().toLowerCase();
+  if (v === 'localidade' || v === 'etapa2' || v === 'etapa3' || v === 'etapa4') return 'analise_base';
   const hit = EM_COTACAO_SUBETAPAS.find((s) => s === v);
   return hit ?? 'beneficiarios';
 }
@@ -342,6 +396,127 @@ function kickOffEstrategiaIsComplete(payload: KickOffEstrategiaPayload | null | 
   const temMercado = payload.mercadoAnalisado.length > 0;
   return temValor && temMercado;
 }
+
+function normMercadoKeyApi(nome: string): string {
+  return nome.trim().toLowerCase();
+}
+
+function comunicarMercadoIsCompleteFromKickOff(
+  kickOff: KickOffEstrategiaPayload | null | undefined
+): boolean {
+  if (!kickOff?.mercadoAnalisado?.length) return false;
+  const cm = kickOff.comunicarMercado;
+  if (!cm || typeof cm !== 'object' || Array.isArray(cm)) return false;
+  const fornecedores = (cm as Record<string, unknown>).fornecedores;
+  if (!fornecedores || typeof fornecedores !== 'object' || Array.isArray(fornecedores)) {
+    return false;
+  }
+  const map = fornecedores as Record<string, { enviado?: boolean }>;
+  return kickOff.mercadoAnalisado.every((nome) => map[normMercadoKeyApi(nome)]?.enviado === true);
+}
+
+type WorkflowStatusValidationResult =
+  | { ok: true }
+  | { ok: false; status: number; error: string; message: string };
+
+async function validateWorkflowStatusTransition(
+  prisma: PrismaClient,
+  existing: {
+    id: string;
+    status: string;
+    analistaResponsavelId: string | null;
+    kickOffEstrategia: unknown;
+    emCotacaoSubetapa: string | null;
+  },
+  nextStatus: CotacaoStatus
+): Promise<WorkflowStatusValidationResult> {
+  const curStatus = normalizeCotacaoStatus(existing.status);
+
+  if (curStatus.toLowerCase() === 'validação' && nextStatus.toLowerCase() === 'kick off') {
+    if (!existing.analistaResponsavelId) {
+      return {
+        ok: false,
+        status: 400,
+        error: 'Analista responsável obrigatório',
+        message:
+          'Designe o analista responsável (Dados → Placement → Analista) antes de avançar para Kick off.',
+      };
+    }
+    const totalBenef = await prisma.placementCotacaoBeneficiario.count({
+      where: { cotacaoId: existing.id },
+    });
+    if (totalBenef < 1) {
+      return {
+        ok: false,
+        status: 400,
+        error: 'Base de beneficiários obrigatória',
+        message:
+          'Importe a base de beneficiários na Validação antes de avançar para Kick off.',
+      };
+    }
+  }
+
+  if (curStatus.toLowerCase() === 'kick off' && nextStatus.toLowerCase() === 'estratégia') {
+    return { ok: true };
+  }
+
+  if (curStatus.toLowerCase() === 'estratégia' && nextStatus.toLowerCase() === 'em cotação') {
+    const effKick = parseKickOffEstrategiaBody(existing.kickOffEstrategia);
+    if (!kickOffEstrategiaIsComplete(effKick)) {
+      return {
+        ok: false,
+        status: 400,
+        error: 'Estratégia incompleta',
+        message:
+          'Preencha a estratégia (itens e mercado analisado) antes de avançar para Solicitação Mercado.',
+      };
+    }
+  }
+
+  if (curStatus.toLowerCase() === 'em cotação' && nextStatus.toLowerCase() === 'aguardando operadora') {
+    if (normalizeEmCotacaoSubetapa(existing.emCotacaoSubetapa) !== 'comunicar_mercado') {
+      return {
+        ok: false,
+        status: 400,
+        error: 'Subetapa incompleta',
+        message:
+          'Conclua a subetapa «Comunicar mercado» (última de Solicitação Mercado) antes de avançar para Aguardando operadora.',
+      };
+    }
+    const total = await prisma.placementCotacaoBeneficiario.count({ where: { cotacaoId: existing.id } });
+    if (total < 1) {
+      return {
+        ok: false,
+        status: 400,
+        error: 'Base de beneficiários obrigatória',
+        message:
+          'Importe a base de beneficiários (subetapa 1 de Solicitação Mercado) antes de avançar para Aguardando operadora.',
+      };
+    }
+    const effKick = parseKickOffEstrategiaBody(existing.kickOffEstrategia);
+    if (!comunicarMercadoIsCompleteFromKickOff(effKick)) {
+      return {
+        ok: false,
+        status: 400,
+        error: 'Comunicação incompleta',
+        message:
+          'Marque todos os fornecedores do mercado analisado como «comunicado ao mercado» antes de avançar.',
+      };
+    }
+  }
+
+  return { ok: true };
+}
+
+const cotacaoLightSelect = {
+  id: true,
+  status: true,
+  emCotacaoSubetapa: true,
+  updatedAt: true,
+  kickOffEstrategia: true,
+  vidas: true,
+  valorEstimadoCents: true,
+} as const;
 
 function deriveRamoFromItens(itens: ItemMapeamentoInput[]): string | null {
   const nomes = [...new Set(itens.map((i) => i.produtoNome).filter(Boolean))];
@@ -1885,6 +2060,37 @@ export default async function placementRoutes(
     _count: { select: { beneficiarios: true } },
   } as const;
 
+  /** Payload enxuto para a grade da Fila — evita JSON grande (kickOff, mapeamento, planos). */
+  const cotacaoFilaListSelect = {
+    id: true,
+    ticket: true,
+    status: true,
+    analistaId: true,
+    clienteId: true,
+    prospectId: true,
+    condicaoId: true,
+    filialId: true,
+    corretorParceiroId: true,
+    ramo: true,
+    operadorasIds: true,
+    vidas: true,
+    valorEstimadoCents: true,
+    dataLimite: true,
+    updatedAt: true,
+    createdAt: true,
+    emCotacaoSubetapa: true,
+    analista: { select: { id: true, nome: true } },
+    cliente: { select: { id: true, nome: true, cnpj: true, grupoEconomico: true } },
+    prospect: {
+      select: { id: true, razaoSocial: true, cnpj: true, grupoEconomico: true, cnae: true },
+    },
+    condicao: {
+      select: { id: true, grupoEconomico: true, razaoSocial: true, cnae: true, cnpj: true },
+    },
+    filial: { select: { id: true, razaoSocial: true, cnpj: true, status: true } },
+    corretorParceiro: { select: { id: true, nome: true } },
+  } as const;
+
   // ---- Beneficiários (Em cotação — etapa 1) ---------------------------
 
   fastify.get('/placement/cotacoes/:cotacaoId/beneficiarios', async (request, reply) => {
@@ -1938,15 +2144,16 @@ export default async function placementRoutes(
 
       const replace = body.replace !== false;
 
-      const count = await prisma.$transaction(async (tx) => {
-        if (replace) {
-          await tx.placementCotacaoBeneficiario.deleteMany({ where: { cotacaoId } });
-        }
-        await tx.placementCotacaoBeneficiario.createMany({
-          data: parsed.map((p) => ({ ...p, cotacaoId })),
-        });
-        return tx.placementCotacaoBeneficiario.count({ where: { cotacaoId } });
-      });
+      const count = await prisma.$transaction(
+        async (tx) => {
+          if (replace) {
+            await tx.placementCotacaoBeneficiario.deleteMany({ where: { cotacaoId } });
+          }
+          await insertBeneficiariosBatched(tx, cotacaoId, parsed);
+          return tx.placementCotacaoBeneficiario.count({ where: { cotacaoId } });
+        },
+        { timeout: 120_000, maxWait: 15_000 }
+      );
 
       await prisma.placementCotacao.update({
         where: { id: cotacaoId },
@@ -1956,7 +2163,10 @@ export default async function placementRoutes(
       return { total: count, imported: parsed.length, replace };
     } catch (error) {
       console.error('❌ POST beneficiarios/bulk:', error);
-      return reply.status(500).send({ error: 'Erro interno do servidor' });
+      return reply.status(500).send({
+        error: 'Erro interno do servidor',
+        message: prismaErrorDetail(error) ?? 'Falha ao importar beneficiários.',
+      });
     }
   });
 
@@ -1982,12 +2192,12 @@ export default async function placementRoutes(
       const existing = await prisma.placementCotacao.findUnique({ where: { id: cotacaoId } });
       if (!existing) return reply.status(404).send({ error: 'Cotação não encontrada' });
 
-      if (subetapa === 'etapa2' || subetapa === 'etapa3') {
+      if (subetapa === 'analise_base' || subetapa === 'etapa2' || subetapa === 'etapa3') {
         const total = await prisma.placementCotacaoBeneficiario.count({ where: { cotacaoId } });
-        if (subetapa === 'etapa2' && total < 1) {
+        if (total < 1) {
           return reply.status(400).send({
             error: 'Base de beneficiários obrigatória',
-            message: 'Importe a planilha de beneficiários antes de avançar para a etapa 2.',
+            message: 'Importe a planilha de beneficiários antes de abrir a análise da base.',
           });
         }
       }
@@ -1995,7 +2205,7 @@ export default async function placementRoutes(
       const updated = await prisma.placementCotacao.update({
         where: { id: cotacaoId },
         data: { emCotacaoSubetapa: subetapa },
-        include: cotacaoInclude,
+        select: cotacaoLightSelect,
       });
       return updated;
     } catch (error) {
@@ -2264,7 +2474,7 @@ export default async function placementRoutes(
       }
       const cotacoes = await prisma.placementCotacao.findMany({
         where: Object.keys(where).length ? where : undefined,
-        include: cotacaoInclude,
+        select: cotacaoFilaListSelect,
         orderBy: { updatedAt: 'desc' },
       });
       return { cotacoes };
@@ -2460,6 +2670,10 @@ export default async function placementRoutes(
         body.possuiConvencaoColetiva !== undefined
           ? parsePermiteUpgradeDowngrade(body.possuiConvencaoColetiva) ?? null
           : null;
+      const convencaoColetivaDetalheBody =
+        possuiConvencaoColetivaBody === true
+          ? String(body.convencaoColetivaDetalhe ?? '').trim() || null
+          : null;
       const permiteUpgradeBody = parsePermiteUpgradeDowngrade(body.permiteUpgrade);
       const permiteDowngradeBody = parsePermiteUpgradeDowngrade(body.permiteDowngrade);
       const regraUpgradeBody =
@@ -2551,6 +2765,7 @@ export default async function placementRoutes(
           multaRescisaoRegra: multaRescisaoRegraBody,
           multaRescisaoAvisoPrevio: multaRescisaoAvisoPrevioBody,
           possuiConvencaoColetiva: possuiConvencaoColetivaBody,
+          convencaoColetivaDetalhe: convencaoColetivaDetalheBody,
           permiteUpgrade:
             permiteUpgradeBody ?? (legadoPermite !== undefined ? legadoPermite : null),
           regraUpgrade:
@@ -2725,6 +2940,53 @@ export default async function placementRoutes(
     }
   });
 
+  fastify.patch('/placement/cotacoes/:id/workflow-status', async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string };
+      const body = (request.body ?? {}) as {
+        status?: string;
+        discard?: { kickOffEstrategia?: boolean; emCotacaoSubetapa?: boolean };
+      };
+
+      const existing = await prisma.placementCotacao.findUnique({ where: { id } });
+      if (!existing) return reply.status(404).send({ error: 'Cotação não encontrada' });
+
+      const nextStatus = resolveCotacaoStatusUpdate(body.status);
+      if (!nextStatus) {
+        return reply.status(400).send({
+          error: 'Status inválido',
+          message: `O status «${String(body.status ?? '').trim()}» não é reconhecido pela API.`,
+        });
+      }
+
+      const validation = await validateWorkflowStatusTransition(prisma, existing, nextStatus);
+      if (validation.ok === false) {
+        return reply.status(validation.status).send({
+          error: validation.error,
+          message: validation.message,
+        });
+      }
+
+      const data: Record<string, unknown> = { status: nextStatus };
+      if (body.discard?.kickOffEstrategia) {
+        data.kickOffEstrategia = null;
+      }
+      if (body.discard?.emCotacaoSubetapa) {
+        data.emCotacaoSubetapa = 'beneficiarios';
+      }
+
+      const updated = await prisma.placementCotacao.update({
+        where: { id },
+        data,
+        select: cotacaoLightSelect,
+      });
+      return updated;
+    } catch (error) {
+      console.error('❌ PATCH workflow-status:', error);
+      return reply.status(500).send({ error: 'Erro interno do servidor' });
+    }
+  });
+
   fastify.put('/placement/cotacoes/:id', async (request, reply) => {
     try {
       const { id } = request.params as { id: string };
@@ -2782,7 +3044,7 @@ export default async function placementRoutes(
           }
         }
         if (
-          curStatus.toLowerCase() === 'kick off' &&
+          curStatus.toLowerCase() === 'estratégia' &&
           nextStatus.toLowerCase() === 'em cotação'
         ) {
           const effKick =
@@ -2793,7 +3055,7 @@ export default async function placementRoutes(
             return reply.status(400).send({
               error: 'Estratégia incompleta',
               message:
-                'Preencha a estratégia do Kick off (itens e mercado analisado) antes de avançar para Em cotação.',
+                'Preencha a estratégia (itens e mercado analisado) antes de avançar para Solicitação Mercado.',
             });
           }
         }
@@ -3027,8 +3289,17 @@ export default async function placementRoutes(
         }
       }
       if (body.possuiConvencaoColetiva !== undefined) {
-        data.possuiConvencaoColetiva =
-          parsePermiteUpgradeDowngrade(body.possuiConvencaoColetiva) ?? null;
+        const parsed = parsePermiteUpgradeDowngrade(body.possuiConvencaoColetiva);
+        data.possuiConvencaoColetiva = parsed ?? null;
+        if (parsed !== true) {
+          data.convencaoColetivaDetalhe = null;
+        } else if (body.convencaoColetivaDetalhe !== undefined) {
+          data.convencaoColetivaDetalhe =
+            String(body.convencaoColetivaDetalhe ?? '').trim() || null;
+        }
+      } else if (body.convencaoColetivaDetalhe !== undefined) {
+        data.convencaoColetivaDetalhe =
+          String(body.convencaoColetivaDetalhe ?? '').trim() || null;
       }
       if (body.permiteUpgrade !== undefined) {
         const parsed = parsePermiteUpgradeDowngrade(body.permiteUpgrade);
@@ -3124,9 +3395,108 @@ export default async function placementRoutes(
         data,
         include: cotacaoInclude,
       });
+      const light = String((request.query as { light?: string })?.light ?? '') === '1';
+      if (light) {
+        return {
+          id: updated.id,
+          status: updated.status,
+          emCotacaoSubetapa: updated.emCotacaoSubetapa,
+          updatedAt: updated.updatedAt,
+          kickOffEstrategia: updated.kickOffEstrategia,
+          vidas: updated.vidas,
+          valorEstimadoCents: updated.valorEstimadoCents,
+        };
+      }
       return updated;
     } catch (error) {
       console.error('❌ PUT /placement/cotacoes/:id:', error);
+      return reply.status(500).send({ error: 'Erro interno do servidor' });
+    }
+  });
+
+  fastify.post('/placement/cotacoes/:id/duplicate', async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string };
+      const body = (request.body ?? {}) as Record<string, unknown>;
+      const source = await prisma.placementCotacao.findUnique({ where: { id } });
+      if (!source) return reply.status(404).send({ error: 'Cotação não encontrada' });
+
+      const isDraft = isRascunhoStatusApi(source.status);
+      const requestUserId = body.userId ? String(body.userId) : null;
+      if (isDraft && requestUserId && source.userId && requestUserId !== source.userId) {
+        return reply.status(403).send({
+          error: 'Rascunho de outro usuário',
+          message: 'Este rascunho pertence a outro usuário.',
+        });
+      }
+
+      const ticket = await generateCotacaoTicket(prisma);
+      const created = await prisma.placementCotacao.create({
+        data: {
+          ticket,
+          status: isDraft ? PLACEMENT_STATUS_RASCUNHO : 'Aberta',
+          analistaId: source.analistaId,
+          analistaResponsavelId: isDraft ? source.analistaResponsavelId : null,
+          userId: requestUserId ?? source.userId,
+          clienteId: source.clienteId,
+          prospectId: source.prospectId,
+          condicaoId: source.condicaoId,
+          filialId: source.filialId,
+          corretorParceiroId: source.corretorParceiroId,
+          projetoId: source.projetoId,
+          pedidoId: source.pedidoId,
+          solicitante: source.solicitante,
+          temperaturaId: source.temperaturaId,
+          vigenciaApolice: source.vigenciaApolice,
+          tipoContratacaoId: source.tipoContratacaoId,
+          modalidadeContratoId: source.modalidadeContratoId,
+          prazoVigenciaContratoId: source.prazoVigenciaContratoId,
+          breakEven: source.breakEven,
+          formularioTipo: source.formularioTipo,
+          multaRescisaoContratual: source.multaRescisaoContratual,
+          multaRescisaoValor: source.multaRescisaoValor,
+          multaRescisaoRegra: source.multaRescisaoRegra,
+          multaRescisaoAvisoPrevio: source.multaRescisaoAvisoPrevio,
+          possuiConvencaoColetiva: source.possuiConvencaoColetiva,
+          convencaoColetivaDetalhe: source.convencaoColetivaDetalhe,
+          permiteUpgrade: source.permiteUpgrade,
+          regraUpgrade: source.regraUpgrade,
+          permiteDowngrade: source.permiteDowngrade,
+          regraDowngrade: source.regraDowngrade,
+          permiteUpgradeDowngrade: null,
+          regraUpgradeDowngrade: null,
+          ramo: source.ramo,
+          operadorasIds: source.operadorasIds ?? undefined,
+          operadorasSugestaoIds: source.operadorasSugestaoIds ?? undefined,
+          itensMapeamento: source.itensMapeamento ?? undefined,
+          planosCobertura: source.planosCobertura ?? undefined,
+          vidas: source.vidas,
+          valorEstimadoCents: source.valorEstimadoCents,
+          dataInicio: source.dataInicio,
+          dataLimite: source.dataLimite,
+          descricao: source.descricao,
+          observacoes: source.observacoes,
+          emCotacaoSubetapa: isDraft ? source.emCotacaoSubetapa : 'beneficiarios',
+          kickOffEstrategia: isDraft ? (source.kickOffEstrategia ?? undefined) : undefined,
+        },
+        include: cotacaoInclude,
+      });
+
+      const beneficiarios = await prisma.placementCotacaoBeneficiario.findMany({
+        where: { cotacaoId: id },
+        orderBy: [{ ordem: 'asc' }, { createdAt: 'asc' }],
+      });
+      if (beneficiarios.length > 0) {
+        await insertBeneficiariosBatched(
+          prisma,
+          created.id,
+          beneficiarios.map(({ id: _bid, cotacaoId: _cid, createdAt: _ca, updatedAt: _ua, ...row }) => row)
+        );
+      }
+
+      return reply.status(201).send(created);
+    } catch (error) {
+      console.error('❌ POST /placement/cotacoes/:id/duplicate:', error);
       return reply.status(500).send({ error: 'Erro interno do servidor' });
     }
   });

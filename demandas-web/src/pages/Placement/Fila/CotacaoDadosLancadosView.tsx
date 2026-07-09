@@ -25,7 +25,7 @@ type Props = {
 const ABERTURA_SECTIONS: { key: AberturaSectionKey; title: string; description: string }[] = [
   {
     key: 'prazos',
-    title: 'Prazos da cotação',
+    title: 'Solicitação de Estudo',
     description:
       'Ticket, analista, datas, projeto, pedido/conta, temperatura e solicitante.',
   },
@@ -37,7 +37,7 @@ const ABERTURA_SECTIONS: { key: AberturaSectionKey; title: string; description: 
   },
   {
     key: 'detalhes_base',
-    title: 'Detalhes da cotação — base atual',
+    title: 'Condições Contratuais',
     description:
       'Contrato vigente, itens, comissões do contrato atual, planos (com coparticipação), upgrade/downgrade, reembolso atual, coberturas especiais e descrição.',
   },

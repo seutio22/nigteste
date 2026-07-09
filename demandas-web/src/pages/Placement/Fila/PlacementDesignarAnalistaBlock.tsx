@@ -14,6 +14,8 @@ import PersonAddIcon from '@mui/icons-material/PersonAdd'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import { useMasterDataStore } from '../../../store/masterDataStore'
 import { usePlacementStore, type PlacementAnalista } from '../../../store/placementStore'
+import { PlacementNavForwardButton } from './placementWorkflowNav'
+import { placementWorkflowCardSx } from './placementWorkflowTheme'
 
 type Props = {
   analistaCadastroId: string
@@ -22,6 +24,8 @@ type Props = {
   disabled?: boolean
   saving?: boolean
   onDesignar: (analistaResponsavelId: string) => Promise<void>
+  /** Etapa de destino exibida no texto de obrigatoriedade (padrão: Kick off). */
+  advanceTargetLabel?: string
 }
 
 export function PlacementDesignarAnalistaBlock({
@@ -31,6 +35,7 @@ export function PlacementDesignarAnalistaBlock({
   disabled,
   saving,
   onDesignar,
+  advanceTargetLabel = 'Kick off',
 }: Props) {
   const { analistas: analistasCadastro } = useMasterDataStore()
   const placementAnalistas = usePlacementStore((s) => s.analistas)
@@ -77,7 +82,16 @@ export function PlacementDesignarAnalistaBlock({
   }
 
   return (
-    <Paper variant="outlined" sx={{ p: 2, mb: 2, bgcolor: 'grey.50' }}>
+    <Paper
+      variant="outlined"
+      sx={{
+        ...placementWorkflowCardSx,
+        p: { xs: 2, md: 2.5 },
+        mb: 3,
+        borderLeft: '4px solid',
+        borderLeftColor: 'primary.main',
+      }}
+    >
       <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
         <PersonAddIcon fontSize="small" color="primary" />
         <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
@@ -85,7 +99,7 @@ export function PlacementDesignarAnalistaBlock({
         </Typography>
       </Stack>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Obrigatório antes de avançar para «Kick off». O analista de cadastro é quem abriu o
+        Obrigatório antes de avançar para «{advanceTargetLabel}». O analista de cadastro é quem abriu o
         processo; o responsável vem do catálogo Dados → Placement → Analista.
       </Typography>
 
@@ -150,13 +164,13 @@ export function PlacementDesignarAnalistaBlock({
         )}
 
         <Grid item xs={12}>
-          <Button
-            variant="contained"
+          <PlacementNavForwardButton
             onClick={() => void handleConfirmar()}
             disabled={disabled || saving || !selected}
+            endIcon={null}
           >
             {saving ? 'Salvando…' : analistaResponsavelId ? 'Atualizar designação' : 'Confirmar designação'}
-          </Button>
+          </PlacementNavForwardButton>
         </Grid>
       </Grid>
     </Paper>

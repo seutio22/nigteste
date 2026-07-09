@@ -7,16 +7,25 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
   const { prisma } = options
 
   // Schema de validação para Solicitante
+  const solicitanteEmailSchema = z
+    .string()
+    .trim()
+    .toLowerCase()
+    .min(1, 'E-mail é obrigatório')
+    .email('E-mail inválido')
+
   const solicitanteCreateSchema = z.object({
     nome: z.string()
       .transform((s) => s.trim().replace(/\s+/g, ' '))
-      .refine((s) => s.length > 0, 'Nome é obrigatório')
+      .refine((s) => s.length > 0, 'Nome é obrigatório'),
+    email: solicitanteEmailSchema,
   })
 
   const solicitanteUpdateSchema = z.object({
     nome: z.string()
       .transform((s) => s.trim().replace(/\s+/g, ' '))
-      .refine((s) => s.length > 0, 'Nome é obrigatório')
+      .refine((s) => s.length > 0, 'Nome é obrigatório'),
+    email: solicitanteEmailSchema,
   })
 
   // Schema de validação para Relatório
@@ -61,7 +70,7 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
       const { id } = request.params as { id: string }
       const solicitante = await prisma.solicitante.findUnique({
         where: { id },
-        select: { id: true, nome: true }
+        select: { id: true, nome: true, email: true }
       })
       if (!solicitante) {
         return reply.status(404).send({ error: 'Solicitante não encontrado', id })
@@ -78,25 +87,25 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
     try {
       const body: z.infer<typeof solicitanteCreateSchema> = solicitanteCreateSchema.parse(request.body)
       
-      // Verificar se já existe solicitante com mesmo nome (case insensitive)
-      const existingSolicitante = await prisma.solicitante.findFirst({
+      // Verificar e-mail duplicado (case insensitive)
+      const existingEmail = await prisma.solicitante.findFirst({
         where: {
-          nome: {
-            equals: body.nome,
-            mode: 'insensitive'
-          }
-        }
+          email: {
+            equals: body.email,
+            mode: 'insensitive',
+          },
+        },
       })
-      
-      if (existingSolicitante) {
-        return reply.status(400).send({ 
-          error: 'Solicitante duplicado', 
-          message: `Solicitante "${body.nome}" já existe. Por favor, escolha um nome diferente.` 
+
+      if (existingEmail) {
+        return reply.status(400).send({
+          error: 'Solicitante duplicado',
+          message: `E-mail "${body.email}" já está cadastrado para "${existingEmail.nome}".`,
         })
       }
-      
+
       const solicitante = await prisma.solicitante.create({
-        data: { nome: body.nome }
+        data: { nome: body.nome, email: body.email },
       })
       // Invalidar cache ao criar
       masterDataCache.delete('solicitantes')
@@ -116,29 +125,29 @@ export async function masterDataRoutes(app: FastifyInstance, options: { prisma: 
       const { id } = request.params as { id: string }
       const body: z.infer<typeof solicitanteUpdateSchema> = solicitanteUpdateSchema.parse(request.body)
       
-      // Verificar se já existe outro solicitante com mesmo nome (excluindo o próprio)
-      const duplicateSolicitante = await prisma.solicitante.findFirst({
+      // Verificar e-mail duplicado (excluindo o próprio registro)
+      const duplicateEmail = await prisma.solicitante.findFirst({
         where: {
-          nome: {
-            equals: body.nome,
-            mode: 'insensitive'
+          email: {
+            equals: body.email,
+            mode: 'insensitive',
           },
           id: {
-            not: id
-          }
-        }
+            not: id,
+          },
+        },
       })
-      
-      if (duplicateSolicitante) {
-        return reply.status(400).send({ 
-          error: 'Solicitante duplicado', 
-          message: `Solicitante "${body.nome}" já existe. Por favor, escolha um nome diferente.` 
+
+      if (duplicateEmail) {
+        return reply.status(400).send({
+          error: 'Solicitante duplicado',
+          message: `E-mail "${body.email}" já está cadastrado para "${duplicateEmail.nome}".`,
         })
       }
-      
+
       const solicitante = await prisma.solicitante.update({
         where: { id },
-        data: { nome: body.nome }
+        data: { nome: body.nome, email: body.email },
       })
       // Invalidar cache ao atualizar
       masterDataCache.delete('solicitantes')

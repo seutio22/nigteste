@@ -4,7 +4,6 @@ import {
   Alert,
   Box,
   Button,
-  Container,
   Paper,
   TextField,
   Typography,
@@ -26,6 +25,7 @@ import { parseAttachmentRefString } from '../lib/uploadAttachment'
 import DynamicFormFields from '../components/DynamicFormFields'
 import NewRequestCatalog from '../components/NewRequestCatalog'
 import { injectFormBlocks } from '../lib/formInjection'
+import PageScaffold from '../components/PageScaffold'
 
 type TypeRow = {
   id: string
@@ -249,13 +249,7 @@ export default function NewCasePage() {
     (!selectedArea || !selectedType || selectedArea.id !== preArea || selectedType.id !== preType)
 
   return (
-    <Container
-      maxWidth="lg"
-      sx={{
-        py: 3,
-        px: { xs: 2, md: 3 },
-      }}
-    >
+    <PageScaffold>
       <Typography variant="h5" fontWeight={700} gutterBottom>
         Nova solicitação
       </Typography>
@@ -276,7 +270,7 @@ export default function NewCasePage() {
           </Button>
         </Alert>
       ) : (
-        <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
+        <Paper variant="outlined" sx={{ p: 3, borderRadius: 2, width: '100%', boxSizing: 'border-box' }}>
           {selectedArea && selectedType && (
             <Box sx={{ mb: 2 }}>
               <Typography variant="subtitle2" color="text.secondary">
@@ -350,6 +344,6 @@ export default function NewCasePage() {
           </Box>
         </Paper>
       )}
-    </Container>
+    </PageScaffold>
   )
 }

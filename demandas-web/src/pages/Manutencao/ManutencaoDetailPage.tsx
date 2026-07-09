@@ -19,6 +19,7 @@ import {
   ManutencaoContratosVinculosResumo,
   ManutencaoContratosVinculosSection,
 } from '../../components/ManutencaoContratosVinculosSection'
+import { QualificacaoManutencaoPanel } from '../../components/manutencao/QualificacaoManutencaoPanel'
 import {
   contratosVinculosToApi,
   deriveContratosIds,
@@ -332,6 +333,10 @@ export default function ManutencaoDetailPage() {
                 </div>
               </div>
             </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg border shadow-sm">
+            <QualificacaoManutencaoPanel manutencaoId={d.id} ticket={d.ticket} embedded />
           </div>
 
           {/* Timeline */}

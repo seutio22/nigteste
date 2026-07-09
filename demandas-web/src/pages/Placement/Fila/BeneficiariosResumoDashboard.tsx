@@ -22,9 +22,12 @@ import {
   computeBeneficiariosResumo,
   type BeneficiariosResumoApresentacao,
 } from './placementBeneficiariosResumo'
+import type { PlacementPresentationMode } from './placementAnaliseBase'
 
-const SLIDE_W = 1280
-const SLIDE_H = 720
+export const GRUPO_ELEGIVEL_SLIDE_W = 1280
+export const GRUPO_ELEGIVEL_SLIDE_H = 720
+const SLIDE_W = GRUPO_ELEGIVEL_SLIDE_W
+const SLIDE_H = GRUPO_ELEGIVEL_SLIDE_H
 const FONT = '"Geometria", sans-serif'
 
 /** Paleta institucional NIG (theme.ts) */
@@ -45,6 +48,7 @@ const slideText = {
 type Props = {
   cotacaoId: string
   disabled?: boolean
+  presentationMode?: PlacementPresentationMode
 }
 
 function IconSquare({
@@ -136,12 +140,24 @@ function MetricPill({
   )
 }
 
-function TitularidadeDonut({ titulares, dependentes }: { titulares: number; dependentes: number }) {
+export function TitularidadeDonut({
+  titulares,
+  dependentes,
+  agregados,
+}: {
+  titulares: number
+  dependentes: number
+  agregados: number
+}) {
+  const AGREGADO_COLOR = '#ed6c02'
   const data = [
-    { name: 'Titulares', value: titulares, fill: PRIMARY },
-    { name: 'Dependentes', value: dependentes, fill: INFO_LIGHT },
-  ]
-  const total = titulares + dependentes
+    { name: 'Titulares (T)', value: titulares, fill: PRIMARY },
+    { name: 'Dependentes (D)', value: dependentes, fill: INFO_LIGHT },
+    ...(agregados > 0
+      ? [{ name: 'Agregados (A)', value: agregados, fill: AGREGADO_COLOR }]
+      : []),
+  ].filter((d) => d.value > 0)
+  const total = titulares + dependentes + agregados
 
   return (
     <Paper
@@ -194,7 +210,7 @@ function TitularidadeDonut({ titulares, dependentes }: { titulares: number; depe
           </PieChart>
         </ResponsiveContainer>
       </Box>
-      <Box sx={{ display: 'flex', gap: 2, mt: 0.5 }}>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, justifyContent: 'center', mt: 0.5 }}>
         <Typography sx={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, color: PRIMARY }}>
           T {titulares}
           <Typography component="span" sx={{ fontSize: 9, color: TEXT_SECONDARY, ml: 0.5 }}>
@@ -207,12 +223,18 @@ function TitularidadeDonut({ titulares, dependentes }: { titulares: number; depe
             ({total > 0 ? Math.round((dependentes / total) * 100) : 0}%)
           </Typography>
         </Typography>
+        <Typography sx={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, color: AGREGADO_COLOR }}>
+          A {agregados}
+          <Typography component="span" sx={{ fontSize: 9, color: TEXT_SECONDARY, ml: 0.5 }}>
+            ({total > 0 ? Math.round((agregados / total) * 100) : 0}%)
+          </Typography>
+        </Typography>
       </Box>
     </Paper>
   )
 }
 
-function CategoriasStrip({
+export function CategoriasStrip({
   categorias,
 }: {
   categorias: BeneficiariosResumoApresentacao['categorias']
@@ -264,7 +286,7 @@ function CategoriasStrip({
   )
 }
 
-function FaixasEtariasChart({
+export function FaixasEtariasChart({
   faixas,
   maxVal,
 }: {
@@ -312,7 +334,7 @@ function FaixasEtariasChart({
   )
 }
 
-function PlanosChart({
+export function PlanosChart({
   planos,
   total,
 }: {
@@ -360,22 +382,31 @@ function PlanosChart({
   )
 }
 
-function BeneficiariosSlide({ resumo }: { resumo: BeneficiariosResumoApresentacao }) {
+export function GrupoElegivelSlide({
+  resumo,
+  presentationMode = 'slide',
+}: {
+  resumo: BeneficiariosResumoApresentacao
+  presentationMode?: PlacementPresentationMode
+}) {
+  const isPage = presentationMode === 'page'
   const maxPyramid = Math.max(...resumo.faixasEtarias.flatMap((f) => [f.masculino, f.feminino]), 1)
 
   return (
     <Box
-      data-slide-inner
+      data-slide-inner={isPage ? undefined : true}
       sx={{
         ...slideText,
         width: '100%',
-        maxWidth: SLIDE_W,
-        height: SLIDE_H,
-        maxHeight: SLIDE_H,
-        mx: 'auto',
-        overflow: 'hidden',
+        maxWidth: isPage ? 'none' : SLIDE_W,
+        height: isPage ? 'auto' : SLIDE_H,
+        maxHeight: isPage ? 'none' : SLIDE_H,
+        minHeight: isPage ? 420 : undefined,
+        mx: isPage ? 0 : 'auto',
+        overflow: isPage ? 'visible' : 'hidden',
         borderRadius: 2,
-        boxShadow: '0 12px 36px rgba(0,37,97,0.14)',
+        boxShadow: isPage ? 'none' : '0 12px 36px rgba(0,37,97,0.14)',
+        border: isPage ? `1px solid ${BORDER}` : 'none',
         display: 'flex',
         flexDirection: 'column',
         bgcolor: SURFACE,
@@ -440,8 +471,17 @@ function BeneficiariosSlide({ resumo }: { resumo: BeneficiariosResumoApresentaca
         </Paper>
       </Box>
 
-      <Box sx={{ flex: 1, minHeight: 0, p: 1.75, display: 'flex', flexDirection: 'column', gap: 1.25 }}>
-        <Box sx={{ display: 'flex', gap: 1, flexShrink: 0 }}>
+      <Box
+        sx={{
+          flex: isPage ? 'none' : 1,
+          minHeight: isPage ? undefined : 0,
+          p: isPage ? { xs: 2, md: 2.5 } : 1.75,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: isPage ? 2 : 1.25,
+        }}
+      >
+        <Box sx={{ display: 'flex', gap: 1, flexShrink: 0, flexWrap: isPage ? 'wrap' : 'nowrap' }}>
           <MetricPill
             accent={PRIMARY}
             icon={<MaleIcon />}
@@ -489,9 +529,21 @@ function BeneficiariosSlide({ resumo }: { resumo: BeneficiariosResumoApresentaca
         </Paper>
 
         {/* Gráficos + titularidade */}
-        <Box sx={{ display: 'flex', gap: 1.25, flex: 1, minHeight: 0 }}>
-          <Box sx={{ width: 168, flexShrink: 0 }}>
-            <TitularidadeDonut titulares={resumo.titulares} dependentes={resumo.dependentes} />
+        <Box
+          sx={{
+            display: 'flex',
+            gap: isPage ? 2 : 1.25,
+            flex: isPage ? 'none' : 1,
+            minHeight: isPage ? 320 : 0,
+            flexDirection: isPage ? { xs: 'column', lg: 'row' } : 'row',
+          }}
+        >
+          <Box sx={{ width: isPage ? { xs: '100%', lg: 200 } : 168, flexShrink: 0 }}>
+            <TitularidadeDonut
+              titulares={resumo.titulares}
+              dependentes={resumo.dependentes}
+              agregados={resumo.agregados}
+            />
           </Box>
           <Paper
             elevation={0}
@@ -541,7 +593,11 @@ function BeneficiariosSlide({ resumo }: { resumo: BeneficiariosResumoApresentaca
   )
 }
 
-export function BeneficiariosResumoDashboard({ cotacaoId, disabled }: Props) {
+export function BeneficiariosResumoDashboard({
+  cotacaoId,
+  disabled,
+  presentationMode = 'slide',
+}: Props) {
   const exportRef = useRef<HTMLDivElement>(null)
   const [loading, setLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
@@ -630,6 +686,8 @@ export function BeneficiariosResumoDashboard({ cotacaoId, disabled }: Props) {
     }
   }
 
+  const isPage = presentationMode === 'page'
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
@@ -644,33 +702,35 @@ export function BeneficiariosResumoDashboard({ cotacaoId, disabled }: Props) {
 
   return (
     <Box sx={{ fontFamily: FONT }}>
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          mb: 2,
-          flexWrap: 'wrap',
-          gap: 1,
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <SlideshowIcon sx={{ color: INFO, fontSize: 20 }} />
-          <Typography variant="body2" color="text.secondary" sx={{ fontFamily: FONT }}>
-            Slide 16:9 · Grupo Elegível — exporte em PNG para o PowerPoint.
-          </Typography>
-        </Box>
-        <Button
-          size="small"
-          variant="contained"
-          startIcon={exporting ? <CircularProgress size={16} color="inherit" /> : <DownloadIcon />}
-          disabled={disabled || exporting || !slideReady}
-          onClick={() => void handleExportPng()}
-          sx={{ bgcolor: INFO, fontFamily: FONT, '&:hover': { bgcolor: PRIMARY } }}
+      {!isPage && (
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            mb: 2,
+            flexWrap: 'wrap',
+            gap: 1,
+          }}
         >
-          {exporting ? 'Gerando slide…' : slideReady ? 'Baixar slide (PNG)' : 'Preparando…'}
-        </Button>
-      </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <SlideshowIcon sx={{ color: INFO, fontSize: 20 }} />
+            <Typography variant="body2" color="text.secondary" sx={{ fontFamily: FONT }}>
+              Slide 16:9 · Grupo Elegível — exporte em PNG para o PowerPoint.
+            </Typography>
+          </Box>
+          <Button
+            size="small"
+            variant="contained"
+            startIcon={exporting ? <CircularProgress size={16} color="inherit" /> : <DownloadIcon />}
+            disabled={disabled || exporting || !slideReady}
+            onClick={() => void handleExportPng()}
+            sx={{ bgcolor: INFO, fontFamily: FONT, '&:hover': { bgcolor: PRIMARY } }}
+          >
+            {exporting ? 'Gerando slide…' : slideReady ? 'Baixar slide (PNG)' : 'Preparando…'}
+          </Button>
+        </Box>
+      )}
 
       {errorMsg && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setErrorMsg(null)}>
@@ -678,9 +738,9 @@ export function BeneficiariosResumoDashboard({ cotacaoId, disabled }: Props) {
         </Alert>
       )}
 
-      <Box sx={{ overflowX: 'auto', pb: 1, display: 'flex', justifyContent: 'center' }}>
-        <Box ref={exportRef} data-export-root sx={{ width: '100%', maxWidth: SLIDE_W, flexShrink: 0 }}>
-          <BeneficiariosSlide resumo={resumo} />
+      <Box sx={{ overflowX: isPage ? 'visible' : 'auto', pb: isPage ? 0 : 1, display: 'flex', justifyContent: isPage ? 'stretch' : 'center' }}>
+        <Box ref={exportRef} data-export-root sx={{ width: '100%', maxWidth: isPage ? 'none' : SLIDE_W, flexShrink: 0 }}>
+          <GrupoElegivelSlide resumo={resumo} presentationMode={presentationMode} />
         </Box>
       </Box>
     </Box>

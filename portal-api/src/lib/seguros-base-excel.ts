@@ -443,7 +443,7 @@ export async function segurosSnapshotToExcelBuffer(snapshot: SegurosBaseSnapshot
     [
       '• Colunas agenciamento*/vitalicio* (consultoria/corretor): texto JSON com exatamente 12 percentuais, ex. [0,0,8.33,8.33,…].',
     ],
-    ['• apolices.operadoraId: UUID obrigatório (catálogo). O nome da operadora é derivado na gravação; não use coluna «fornecedor» (legada).'],
+    ['• apolices.operadoraId: id da operadora no Nexus (snapshot «operadoras»). O nome é derivado na gravação; não use coluna «fornecedor» (legada).'],
     [
       '• apolice_planos: várias linhas por apólice; tipoCusto CUSTO_MEDIO ou FAIXA_ETARIA; valoresPorFaixa = objeto JSON (exportado como texto).',
     ],

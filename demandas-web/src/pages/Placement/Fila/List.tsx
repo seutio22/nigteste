@@ -4,7 +4,11 @@ import {
   Box,
   Button,
   Chip,
-  Container,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   IconButton,
   Paper,
   Stack,
@@ -18,18 +22,19 @@ import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import EditIcon from '@mui/icons-material/Edit'
+import ContentCopyIcon from '@mui/icons-material/ContentCopy'
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import ViewListIcon from '@mui/icons-material/ViewList'
 import ViewKanbanIcon from '@mui/icons-material/ViewKanban'
 import { PrimaryActionButton } from '../../../components/PrimaryActionButton'
-import { useMasterDataStore } from '../../../store/masterDataStore'
 import { usePlacementCotacaoStore, COTACAO_STATUSES, type PlacementCotacao } from '../../../store/placementCotacaoStore'
-import { usePlacementStore } from '../../../store/placementStore'
 import { useAuthStore } from '../../../store/authStore'
-import { formatCentsToBRL, formatCnaeDisplay, getStatusColor } from './utils'
+import { formatCentsToBRL, formatCnaeDisplay, getStatusColor, getWorkflowStatusDisplayLabel } from './utils'
 import { PLACEMENT_STATUS_RASCUNHO } from './placementCotacaoStatus'
 import { formatGridDatePtBR, gridCellToDate } from '../../../utils/gridDate'
 import { FormularioTipoPickerDialog } from './FormularioTipoPicker'
 import type { PlacementFormularioTipo } from './placementFormularioContrato'
+import { PlacementFilaPageShell } from './PlacementFilaPageShell'
 
 type ViewMode = 'lista' | 'kanban'
 
@@ -38,9 +43,6 @@ export default function PlacementFilaListPage() {
   const { user } = useAuthStore()
   const { cotacoes, rascunhos, isLoading, isLoadingRascunhos, syncCotacoes, syncRascunhos } =
     usePlacementCotacaoStore()
-  const { analistasById, clientesById, syncFromApi } = useMasterDataStore()
-  const prospects = usePlacementStore((s) => s.prospects)
-  const syncProspects = usePlacementStore((s) => s.syncProspects)
 
   const [viewMode, setViewMode] = useState<ViewMode>('lista')
   const [formularioPickerOpen, setFormularioPickerOpen] = useState(false)
@@ -50,82 +52,57 @@ export default function PlacementFilaListPage() {
   }
 
   useEffect(() => {
-    syncFromApi?.()
-    syncCotacoes()
-    syncProspects()
-    if (user?.id) syncRascunhos(user.id)
-  }, [syncFromApi, syncCotacoes, syncProspects, syncRascunhos, user?.id])
-
-  const prospectsById = useMemo(() => {
-    const map: Record<string, (typeof prospects)[number]> = {}
-    prospects.forEach((p) => {
-      map[p.id] = p
-    })
-    return map
-  }, [prospects])
+    void syncCotacoes()
+    if (user?.id) void syncRascunhos(user.id)
+  }, [syncCotacoes, syncRascunhos, user?.id])
 
   const rows = useMemo(
     () =>
       cotacoes.map((c) => {
-        const prospect = c.prospect ?? (c.prospectId ? prospectsById[c.prospectId] : null)
-        const cliente = c.cliente ?? (c.clienteId ? clientesById[c.clienteId] : null)
         const clienteNome =
           c.condicao?.razaoSocial?.trim() ||
-          cliente?.nome ||
-          prospect?.razaoSocial ||
+          c.cliente?.nome ||
+          c.prospect?.razaoSocial ||
           ''
-        const isProspect = !!prospect
         return {
           ...c,
-          analistaNome:
-            c.analista?.nome ?? (c.analistaId ? analistasById[c.analistaId]?.nome : '') ?? '',
+          analistaNome: c.analista?.nome ?? '',
           clienteNome,
-          isProspect,
+          isProspect: !!c.prospectId || !!c.prospect,
         }
       }),
-    [cotacoes, analistasById, clientesById, prospectsById]
+    [cotacoes]
   )
 
   const rascunhoRows = useMemo(
     () =>
       rascunhos.map((c) => {
-        const prospect = c.prospect ?? (c.prospectId ? prospectsById[c.prospectId] : null)
-        const cliente = c.cliente ?? (c.clienteId ? clientesById[c.clienteId] : null)
         const clienteNome =
           c.condicao?.razaoSocial?.trim() ||
-          cliente?.nome ||
-          prospect?.razaoSocial ||
+          c.cliente?.nome ||
+          c.prospect?.razaoSocial ||
           '(sem estipulante)'
         return {
           ...c,
-          analistaNome:
-            c.analista?.nome ?? (c.analistaId ? analistasById[c.analistaId]?.nome : '') ?? '',
+          analistaNome: c.analista?.nome ?? '',
           clienteNome,
         }
       }),
-    [rascunhos, analistasById, clientesById, prospectsById]
+    [rascunhos]
   )
 
   const columns: GridColDef[] = [
     {
       field: 'acoes',
       headerName: 'Ações',
-      width: 100,
+      width: 168,
       sortable: false,
       filterable: false,
       renderCell: (params) => (
-        <Stack direction="row" spacing={0.5}>
-          <Tooltip title="Abrir">
-            <IconButton size="small" onClick={() => navigate(`/placement/fila/${params.row.id}`)}>
-              <VisibilityIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Editar">
-            <IconButton size="small" onClick={() => navigate(`/placement/fila/${params.row.id}/edit`)}>
-              <EditIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        </Stack>
+        <FilaAcoesCell
+          id={String(params.row.id)}
+          ticket={String(params.row.ticket ?? '')}
+        />
       ),
     },
     { field: 'ticket', headerName: 'Nº Cotação', width: 160 },
@@ -134,10 +111,12 @@ export default function PlacementFilaListPage() {
       headerName: 'Status',
       width: 180,
       renderCell: (p) => {
-        const cfg = getStatusColor(String(p.value ?? ''))
+        const status = String(p.value ?? '')
+        const cfg = getStatusColor(status)
+        const label = getWorkflowStatusDisplayLabel(status)
         return (
           <Chip
-            label={String(p.value ?? '—')}
+            label={label || '—'}
             size="small"
             sx={{ bgcolor: cfg.bg, color: cfg.text, fontWeight: 600 }}
           />
@@ -147,11 +126,27 @@ export default function PlacementFilaListPage() {
     {
       field: 'clienteNome',
       headerName: 'Estipulante / Cliente',
-      flex: 1,
-      minWidth: 220,
+      width: 220,
+      sortable: false,
+      valueGetter: (_: unknown, row: PlacementCotacao & { clienteNome?: string }) =>
+        row.clienteNome?.trim() || '',
       renderCell: (p) => (
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ width: '100%' }}>
-          <Typography variant="body2" noWrap title={String(p.value ?? '')}>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 0.75,
+            width: '100%',
+            minWidth: 0,
+            overflow: 'hidden',
+          }}
+        >
+          <Typography
+            variant="body2"
+            noWrap
+            sx={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}
+            title={String(p.value ?? '')}
+          >
             {String(p.value ?? '—')}
           </Typography>
           {p.row.isProspect && (
@@ -160,10 +155,10 @@ export default function PlacementFilaListPage() {
               size="small"
               color="warning"
               variant="outlined"
-              sx={{ height: 20, fontSize: 11 }}
+              sx={{ height: 20, fontSize: 11, flexShrink: 0 }}
             />
           )}
-        </Stack>
+        </Box>
       ),
     },
     {
@@ -243,7 +238,7 @@ export default function PlacementFilaListPage() {
   ]
 
   return (
-    <Container maxWidth="xl" sx={{ py: 3 }}>
+    <PlacementFilaPageShell>
       <Paper sx={{ p: 3, mb: 2 }}>
         <Stack
           direction={{ xs: 'column', md: 'row' }}
@@ -324,7 +319,7 @@ export default function PlacementFilaListPage() {
       )}
 
       {viewMode === 'lista' ? (
-        <Paper sx={{ height: 'calc(100vh - 280px)', minHeight: 480, p: 1 }}>
+        <Paper sx={{ height: 'calc(100vh - 240px)', minHeight: 520, p: 1 }}>
           <DataGrid
             rows={rows}
             columns={columns}
@@ -349,7 +344,7 @@ export default function PlacementFilaListPage() {
         onClose={() => setFormularioPickerOpen(false)}
         onSelect={iniciarNovaCotacao}
       />
-    </Container>
+    </PlacementFilaPageShell>
   )
 }
 
@@ -417,7 +412,7 @@ function KanbanBoard({ cotacoes }: KanbanBoardProps) {
           >
             <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
               <Chip
-                label={status}
+                label={getWorkflowStatusDisplayLabel(status)}
                 size="small"
                 sx={{ bgcolor: cfg.bg, color: cfg.text, fontWeight: 700 }}
               />
@@ -469,5 +464,113 @@ function KanbanBoard({ cotacoes }: KanbanBoardProps) {
         )
       })}
     </Box>
+  )
+}
+
+function FilaAcoesCell({
+  id,
+  ticket,
+}: {
+  id: string
+  ticket: string
+}) {
+  const navigate = useNavigate()
+  const { user } = useAuthStore()
+  const duplicateCotacao = usePlacementCotacaoStore((s) => s.duplicateCotacao)
+  const removeCotacao = usePlacementCotacaoStore((s) => s.removeCotacao)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [busy, setBusy] = useState<'duplicate' | 'delete' | null>(null)
+
+  const stop = (e: React.MouseEvent) => {
+    e.stopPropagation()
+  }
+
+  async function handleDuplicate() {
+    setBusy('duplicate')
+    try {
+      const created = await duplicateCotacao(id, user?.id ?? null)
+      navigate(`/placement/fila/${created.id}`)
+    } catch (err) {
+      console.error('❌ duplicateCotacao:', err)
+      alert('Erro ao duplicar cotação. Tente novamente.')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  async function handleDelete() {
+    setBusy('delete')
+    try {
+      await removeCotacao(id)
+      setConfirmDelete(false)
+    } catch (err) {
+      console.error('❌ removeCotacao:', err)
+      alert('Erro ao excluir cotação. Tente novamente.')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  return (
+    <>
+      <Stack direction="row" spacing={0.25} onClick={stop}>
+        <Tooltip title="Abrir">
+          <IconButton size="small" onClick={() => navigate(`/placement/fila/${id}`)}>
+            <VisibilityIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Editar">
+          <IconButton size="small" onClick={() => navigate(`/placement/fila/${id}/edit`)}>
+            <EditIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Duplicar">
+          <span>
+            <IconButton
+              size="small"
+              disabled={busy !== null}
+              onClick={() => void handleDuplicate()}
+            >
+              <ContentCopyIcon fontSize="small" />
+            </IconButton>
+          </span>
+        </Tooltip>
+        <Tooltip title="Excluir">
+          <span>
+            <IconButton
+              size="small"
+              color="error"
+              disabled={busy !== null}
+              onClick={() => setConfirmDelete(true)}
+            >
+              <DeleteOutlineIcon fontSize="small" />
+            </IconButton>
+          </span>
+        </Tooltip>
+      </Stack>
+
+      <Dialog open={confirmDelete} onClose={() => !busy && setConfirmDelete(false)}>
+        <DialogTitle>Excluir cotação?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Esta ação não pode ser desfeita. Deseja excluir a cotação{' '}
+            <strong>{ticket || id}</strong>?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmDelete(false)} disabled={busy === 'delete'}>
+            Cancelar
+          </Button>
+          <Button
+            color="error"
+            variant="contained"
+            disabled={busy === 'delete'}
+            onClick={() => void handleDelete()}
+          >
+            {busy === 'delete' ? 'Excluindo…' : 'Excluir'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
   )
 }

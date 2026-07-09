@@ -169,7 +169,7 @@ export default function CondicoesTab() {
       </Stack>
 
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Cadastre o CNAE vinculado ao grupo econômico e à razão social do cliente da casa.
+        Cadastre o CNAE vinculado ao grupo econômico e à razão social do Cliente da Carteira.
         Na cotação, será obrigatório selecionar uma condição compatível.
       </Typography>
 

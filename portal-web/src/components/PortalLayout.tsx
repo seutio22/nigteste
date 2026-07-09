@@ -69,7 +69,7 @@ export default function PortalLayout() {
     {
       id: 'cad',
       title: 'Cadastros',
-      items: [{ to: '/apolice', label: 'Apólice (seguros)', icon: <PolicyIcon fontSize="small" /> }],
+      items: [{ to: '/apolice', label: 'Carteira de seguros', icon: <PolicyIcon fontSize="small" /> }],
     },
     {
       id: 'gestao',
@@ -242,7 +242,16 @@ export default function PortalLayout() {
           flexDirection: 'column',
         }}
       >
-        <Box sx={{ flex: 1, width: '100%' }}>
+        <Box
+          sx={{
+            flex: 1,
+            width: '100%',
+            minWidth: 0,
+            bgcolor: 'grey.50',
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
           <Outlet />
         </Box>
         <PortalFooter />

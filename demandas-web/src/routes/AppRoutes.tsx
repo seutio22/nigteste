@@ -35,6 +35,9 @@ import DadosPlacementPage from '../pages/DadosPlacement'
 import PlacementFilaListPage from '../pages/Placement/Fila/List'
 import PlacementFilaNewPage from '../pages/Placement/Fila/New'
 import PlacementFilaDetailPage from '../pages/Placement/Fila/Detail'
+import PlacementComparativoDetailPage from '../pages/Placement/Fila/PlacementComparativoDetailPage'
+import PlacementSlidesDetailPage from '../pages/Placement/Fila/PlacementSlidesDetailPage'
+import PlacementEtapaDetailPage from '../pages/Placement/Fila/PlacementEtapaDetailPage'
 import AdminUsersPage from '../pages/Admin/Users'
 import KanbanPage from '../pages/Kanban'
 import ProjectListPage from '../pages/Projetos/ListSimple'
@@ -228,6 +231,21 @@ export function AppRoutes() {
               <Route path="nova" element={
                 <ProtectedRoute module="placementFila" action="create">
                   <PlacementFilaNewPage />
+                </ProtectedRoute>
+              } />
+              <Route path=":id/comparativo" element={
+                <ProtectedRoute module="placementFila">
+                  <PlacementComparativoDetailPage />
+                </ProtectedRoute>
+              } />
+              <Route path=":id/slides" element={
+                <ProtectedRoute module="placementFila">
+                  <PlacementSlidesDetailPage />
+                </ProtectedRoute>
+              } />
+              <Route path=":id/etapa" element={
+                <ProtectedRoute module="placementFila">
+                  <PlacementEtapaDetailPage />
                 </ProtectedRoute>
               } />
               <Route path=":id" element={

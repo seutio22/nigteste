@@ -20,8 +20,32 @@ import {
   findContratoById,
   parseContratosSnapshot,
 } from '../lib/nexus-seguros-contratos.js'
+import {
+  loadNexusOperadorasFromSnapshot,
+  operadoraNomePorId,
+  operadoraViewFromCatalogo,
+} from '../lib/nexus-operadoras.js'
 
 const uuid = z.string().uuid()
+const nexusOperadoraIdSchema = z.string().min(1).max(200)
+
+async function assertOperadoraNexusId(operadoraId: string): Promise<{ ok: true; nome: string } | { ok: false; error: string }> {
+  const id = operadoraId.trim()
+  if (!id) return { ok: false, error: 'Operadora é obrigatória.' }
+  const cat = await loadNexusOperadorasFromSnapshot()
+  if (cat.operadoras.length === 0) {
+    return {
+      ok: false,
+      error:
+        'Catálogo de operadoras Nexus indisponível ou vazio. Sincronize a entidade «operadoras» em Banco de dados (painel administrativo).',
+    }
+  }
+  const nome = operadoraNomePorId(cat.operadoras, id)
+  if (!nome) {
+    return { ok: false, error: 'Operadora inválida ou inativa no Nexus. Verifique o id e a sincronização.' }
+  }
+  return { ok: true, nome }
+}
 
 const grupoClassificacaoSchema = z.nativeEnum(PortalGrupoEconomicoClassificacao)
 
@@ -180,8 +204,8 @@ const createApoliceSchema = z
     numeroApolice: z.string().max(120).optional().nullable(),
     nexusContratoId: z.string().max(120).optional().nullable(),
     produto: produtoSchema,
-    /** Obrigatório: catálogo PortalSeguroOperadora; o nome gravado em `fornecedor` copia o catálogo. */
-    operadoraId: uuid,
+    /** Obrigatório: id da operadora no Nexus (snapshot sincronizado em Banco de dados). */
+    operadoraId: nexusOperadoraIdSchema,
     subestipulante: z.string().max(500).optional().nullable(),
     subestipulantes: z.array(subestipulanteRowInputSchema).max(200).optional(),
     plano: z.string().max(2000).optional().nullable(),
@@ -224,7 +248,7 @@ const patchApoliceSchema = z
     numeroApolice: z.string().min(1).max(120).optional(),
     nexusContratoId: z.string().max(120).optional().nullable(),
     produto: produtoSchema.optional(),
-    operadoraId: uuid.optional(),
+    operadoraId: nexusOperadoraIdSchema.optional(),
     subestipulante: z.string().max(500).optional().nullable(),
     subestipulantes: z.array(subestipulanteRowInputSchema).max(200).optional(),
     faturasMensais: z.array(faturaMesInputSchema).max(500).optional(),
@@ -529,35 +553,28 @@ async function estipulanteSiblingIds(estipulanteId: string, grupoNexusNome?: str
 }
 
 export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
-  /** Catálogo de operadoras (seguradoras) — opções persistidas no portal. */
+  /** Catálogo de operadoras (Nexus) — lido de `PortalNexusEntitySnapshot` após sincronização no painel admin. */
   app.get('/seguros/operadoras', async (req, reply) => {
     const u = await requirePortalUser(req, reply)
     if (!u) return
-    const operadoras = await prisma.portalSeguroOperadora.findMany({
-      where: { active: true },
-      orderBy: [{ sortOrder: 'asc' }, { nome: 'asc' }],
-      select: { id: true, nome: true, sortOrder: true },
+    const cat = await loadNexusOperadorasFromSnapshot()
+    const operadoras = cat.operadoras.map((o) => ({ id: o.id, nome: o.nome }))
+    return reply.send({
+      operadoras,
+      needsSync: cat.needsSync,
+      syncedAt: cat.syncedAt,
+      lastError: cat.lastError,
     })
-    return reply.send({ operadoras })
   })
 
-  app.post('/seguros/operadoras', async (req, reply) => {
-    const u = await requirePortalUser(req, reply)
+  app.post('/seguros/operadoras', async (_req, reply) => {
+    const u = await requirePortalUser(_req, reply)
     if (!u) return
     if (!assertRole(u, [PortalUserRole.PORTAL_ADMIN], reply)) return
-    let body: { nome: string; sortOrder?: number }
-    try {
-      body = z
-        .object({ nome: z.string().min(1).max(500), sortOrder: z.number().int().optional() })
-        .parse(req.body)
-    } catch (e) {
-      if (e instanceof z.ZodError) return reply.code(400).send({ error: e.issues[0]?.message || 'Dados inválidos' })
-      return reply.code(400).send({ error: 'Dados inválidos' })
-    }
-    const row = await prisma.portalSeguroOperadora.create({
-      data: { nome: body.nome.trim(), sortOrder: body.sortOrder ?? 0 },
+    return reply.code(400).send({
+      error:
+        'Operadoras são mantidas no Nexus. Sincronize a entidade «operadoras» em Banco de dados (painel administrativo); não é possível criar linhas apenas no portal.',
     })
-    return reply.code(201).send({ operadora: row })
   })
 
   /**
@@ -1026,7 +1043,6 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
       numeroApolice: true,
       produto: true,
       operadoraId: true,
-      operadora: { select: { id: true, nome: true } },
       fornecedor: true,
       subestipulante: true,
       plano: true,
@@ -1068,6 +1084,9 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
     } as const
 
     try {
+      const { operadoras: nexusOpsCatalog } = await loadNexusOperadorasFromSnapshot()
+      const opNomePorId = new Map(nexusOpsCatalog.map((o) => [o.id, o.nome]))
+
       const [gruposEconomicosCount, estipulantesCount, apolicesTotalCount] = await Promise.all([
         prisma.portalGrupoEconomico.count({ where: { active: true } }),
         prisma.portalSeguroEstipulante.count(),
@@ -1214,7 +1233,10 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
         gruposEconomicosCount,
         estipulantesCount,
         apolicesTotalCount,
-        apolices,
+        apolices: apolices.map((a) => ({
+          ...a,
+          operadora: operadoraViewFromCatalogo(opNomePorId, a.operadoraId, a.fornecedor),
+        })),
         ...(estipulantes != null ? { estipulantes } : {}),
         visaoMeta: {
           carga: q.carga,
@@ -1267,7 +1289,6 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
           grupo: { select: { id: true, nome: true } },
         },
       },
-      operadora: { select: { id: true, nome: true } },
       subestipulantes: {
         orderBy: [{ sortOrder: 'asc' }],
         take: 12,
@@ -1328,7 +1349,14 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
       }
     }
 
-    return reply.send({ apolices: list })
+    const { operadoras: opsList } = await loadNexusOperadorasFromSnapshot()
+    const opMapLista = new Map(opsList.map((o) => [o.id, o.nome]))
+    const listOut = list.map((row) => ({
+      ...row,
+      operadora: operadoraViewFromCatalogo(opMapLista, row.operadoraId, row.fornecedor),
+    }))
+
+    return reply.send({ apolices: listOut })
   })
 
   /** Lista plana para seletores (ex.: itens da apólice). */
@@ -1483,11 +1511,9 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
 
     let fornecedorStr: string
     const operadoraIdCreate = body.operadoraId.trim()
-    const op = await prisma.portalSeguroOperadora.findFirst({
-      where: { id: operadoraIdCreate, active: true },
-    })
-    if (!op) return reply.code(400).send({ error: 'Operadora não encontrada ou inativa.' })
-    fornecedorStr = op.nome
+    const opRes = await assertOperadoraNexusId(operadoraIdCreate)
+    if (!opRes.ok) return reply.code(400).send({ error: opRes.error })
+    fornecedorStr = opRes.nome
 
     const subRows =
       body.subestipulantes && body.subestipulantes.length > 0
@@ -1557,7 +1583,6 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
             grupo: { select: { id: true, nome: true } },
           },
         },
-        operadora: { select: { id: true, nome: true } },
         planoLinhas: { orderBy: [{ sortOrder: 'asc' }, { codigoPlano: 'asc' }] },
         subestipulantes: { orderBy: [{ sortOrder: 'asc' }] },
         faturasMensais: { orderBy: [{ competenciaAno: 'asc' }, { competenciaMes: 'asc' }] },
@@ -1566,6 +1591,9 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
       },
     })
     if (!ap) return reply.code(404).send({ error: 'Apólice não encontrada' })
+
+    const { operadoras: opsDet } = await loadNexusOperadorasFromSnapshot()
+    const opMapDet = new Map(opsDet.map((o) => [o.id, o.nome]))
 
     const planoLinhas = ap.planoLinhas.map((r) => ({
       id: r.id,
@@ -1603,7 +1631,7 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
         numeroApolice: ap.numeroApolice,
         produto: ap.produto,
         operadoraId: ap.operadoraId,
-        operadora: ap.operadora ? { id: ap.operadora.id, nome: ap.operadora.nome } : null,
+        operadora: operadoraViewFromCatalogo(opMapDet, ap.operadoraId, ap.fornecedor),
         fornecedor: ap.fornecedor,
         subestipulante: ap.subestipulante,
         plano: ap.plano,
@@ -1830,12 +1858,10 @@ export async function registerSeguroCadastroRoutes(app: FastifyInstance) {
       if (!oid) {
         return reply.code(400).send({ error: 'Operadora é obrigatória. Selecione uma opção no catálogo.' })
       }
-      const op = await prisma.portalSeguroOperadora.findFirst({
-        where: { id: oid, active: true },
-      })
-      if (!op) return reply.code(400).send({ error: 'Operadora não encontrada ou inativa.' })
-      data.operadora = { connect: { id: op.id } }
-      data.fornecedor = op.nome
+      const opRes = await assertOperadoraNexusId(oid)
+      if (!opRes.ok) return reply.code(400).send({ error: opRes.error })
+      data.operadoraId = oid
+      data.fornecedor = opRes.nome
     }
 
     if (body.trCone !== undefined) data.trCone = body.trCone

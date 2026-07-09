@@ -47,12 +47,12 @@ const META: Record<
     modalEdit: 'Editar modalidade de contrato',
   },
   prazoVigenciaContrato: {
-    title: 'Prazo de vigência do contrato',
+    title: 'Duração Contratual',
     description: 'Opções exibidas na cotação (Detalhes), antes do mapeamento de plano. Apenas o nome.',
-    novoLabel: 'Novo prazo',
-    deleteWarn: 'Excluir este prazo? Cotações que o utilizavam ficarão sem prazo selecionado.',
-    modalNew: 'Novo prazo de vigência do contrato',
-    modalEdit: 'Editar prazo de vigência do contrato',
+    novoLabel: 'Nova duração',
+    deleteWarn: 'Excluir esta duração? Cotações que a utilizavam ficarão sem duração selecionada.',
+    modalNew: 'Nova Duração Contratual',
+    modalEdit: 'Editar Duração Contratual',
   },
   projeto: {
     title: 'Projetos',

@@ -57,7 +57,11 @@ const ROUTE_SYNC_CONFIG = {
   '/analytics/novo': {
     entities: ['analistas', 'tiposServico', 'sistemas', 'clientes', 'contratos'],
     priority: 'high'
-  }
+  },
+  '/placement': {
+    entities: ['operadoras', 'produtos', 'analistas', 'clientes'],
+    priority: 'high'
+  },
 }
 
 // Cache de sincronização por rota

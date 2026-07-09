@@ -1,8 +1,8 @@
 /**
  * Linha de contrato no snapshot Nexus `contratos` (entidade sincronizada `contratos`).
- * O número exibido como “Nº apólice” no portal usa `numero`; no Nexus costuma vir em `codigo`
+ * O número exibido como «Nº apólice» no portal usa `numero`; no Nexus costuma vir em `codigo`
  * quando `numero`/`numeroApolice` vêm vazios — o parse replica isso em `numero`.
- * O filtro principal no portal é pelo **grupo económico** do contrato.
+ * O filtro principal no portal é pelo grupo económico do contrato.
  */
 
 export type NexusContratoOpcao = {
@@ -38,7 +38,6 @@ export function parseContratosSnapshot(rows: unknown[]): NexusContratoOpcao[] {
     const id = pickStr(o, ['id', 'idContrato', 'id_contrato'])
     const codigo = pickStr(o, ['codigo', 'codigoContrato', 'codigo_contrato'])
     const numeroExplicit = pickStr(o, ['numero', 'numeroApolice', 'numero_apolice', 'nApolice', 'numeroContrato'])
-    /** No Nexus o identificador útil para apólice muitas vezes é só `codigo`. */
     const numero = numeroExplicit || codigo
     if (!id || !numero) continue
     out.push({
@@ -68,7 +67,6 @@ export function filterContratosForEstipulante(
     if (!norm(c.grupoEconomico) || norm(c.grupoEconomico) !== gEst) return false
     const estCli = est.nexusClienteId?.trim()
     const cCli = c.clienteId?.trim()
-    /** Vínculo principal: grupo económico. Cliente só restringe se ambos os lados têm id. */
     if (estCli && cCli) return norm(cCli) === norm(estCli)
     return true
   })

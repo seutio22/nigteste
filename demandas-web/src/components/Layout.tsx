@@ -36,6 +36,7 @@ import { motion } from 'framer-motion'
 import { SidebarTrigger } from './SidebarTrigger'
 import { useAuthStore } from '../store/authStore'
 import { useMasterDataStore } from '../store/masterDataStore'
+import { NEXUS_APP_TITLE } from '../lib/appVersion'
 
 const drawerWidth = 240
 
@@ -75,7 +76,7 @@ export function Layout() {
   const drawer = (
     <div>
       <Toolbar>
-        <Typography variant="h6">Nexus - v0.8.5</Typography>
+        <Typography variant="h6">{NEXUS_APP_TITLE}</Typography>
       </Toolbar>
       <Divider />
       <List>
@@ -103,7 +104,7 @@ export function Layout() {
           <IconButton color="inherit" edge="start" onClick={handleDrawerToggle} sx={{ mr: 2, display: { sm: 'none' } }}>
             <MenuIcon />
           </IconButton>
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>Nexus - v0.8.5</Typography>
+          <Typography variant="h6" sx={{ flexGrow: 1 }}>{NEXUS_APP_TITLE}</Typography>
           {auth.user ? (
             <Typography 
               variant="body2" 

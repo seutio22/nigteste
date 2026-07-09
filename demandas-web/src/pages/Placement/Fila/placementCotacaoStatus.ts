@@ -4,7 +4,9 @@ export const PLACEMENT_STATUS_RASCUNHO = 'Rascunho' as const
 /** Etapas do workflow após «Iniciar processo» (geração de proposta ao cliente). */
 export const PLACEMENT_COTACAO_WORKFLOW_STATUSES = [
   'Aberta',
+  'Validação',
   'Kick off',
+  'Estratégia',
   'Em cotação',
   'Aguardando operadora',
   'Proposta enviada',

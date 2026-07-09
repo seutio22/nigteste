@@ -36,6 +36,8 @@ export interface Demand {
   qtdClientesVinculados?: number  // QTD CLIENTES VINCULADOS - EDGE
   usuariosEmpresa?: number        // USUÁRIOS EMPRESA - MOVE
   observacoes?: string
+  /** Qualificação da recepção do chamado (analista) */
+  qualificacaoChamado?: import('./chamadoQualificacao').ChamadoQualificacao
   /** Opcional — enviado na criação quando a API exige vínculo com o usuário */
   userId?: string
   createdAt: string

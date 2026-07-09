@@ -3,6 +3,7 @@ import type { usePlacementStore } from '../../../store/placementStore'
 import type { CotacaoFormState } from './CotacaoFormFields'
 import {
   formatMultaRescisaoResumo,
+  formatConvencaoColetivaResumo,
   labelFormularioTipo,
   labelSimNaoChoice,
 } from './placementFormularioContrato'
@@ -277,7 +278,7 @@ export function resolveKickOffAberturaLabels(
     breakEven: form.breakEven?.trim() || undefined,
     formularioTipo: labelFormularioTipo(form.formularioTipo) || undefined,
     multaRescisao: formatMultaRescisaoResumo(form) || undefined,
-    convencaoColetiva: labelSimNaoChoice(form.possuiConvencaoColetiva) || undefined,
+    convencaoColetiva: formatConvencaoColetivaResumo(form) || undefined,
     coparticipacao: form.coparticipacaoDetalhePorPlanos.trim() || undefined,
     comissaoAtual,
     contribuicao: formatContribuicaoKickOff(form),

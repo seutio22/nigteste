@@ -71,6 +71,25 @@ export function resumoCriticasPorCampo(
     }))
 }
 
+export type InconsistenciaResumoItem = { descricao: string; total: number }
+
+/** Agrupa apontamentos pela descrição (mensagem) — resumo sintético para Kick off. */
+export function resumoInconsistenciasPorMensagem(
+  validacao: BeneficiariosValidacaoResumo
+): InconsistenciaResumoItem[] {
+  const map = new Map<string, number>()
+  for (const linha of validacao.linhas) {
+    for (const a of linha.apontamentos) {
+      const key = a.mensagem.trim()
+      if (!key) continue
+      map.set(key, (map.get(key) ?? 0) + 1)
+    }
+  }
+  return [...map.entries()]
+    .map(([descricao, total]) => ({ descricao, total }))
+    .sort((a, b) => b.total - a.total || a.descricao.localeCompare(b.descricao, 'pt-BR'))
+}
+
 export async function downloadCriticasValidacaoXlsx(
   cotacaoId: string,
   beneficiarios: PlacementBeneficiario[],

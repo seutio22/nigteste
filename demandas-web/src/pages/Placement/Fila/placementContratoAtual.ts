@@ -13,6 +13,7 @@ import type { DadosFinanceirosCotacao } from './placementCotacaoFinanceiro'
 import { COPART_PROCEDIMENTOS, type CoparticipacaoForm } from './placementCoparticipacao'
 import { formatCentsToBRL, parseBRLToCents } from './utils'
 import { CONTRATO_ATUAL_MAX_PLANOS_POR_SLIDE } from './placementContratoAtualLayout'
+import type { ColunaVariacaoComparativo } from './placementComparativoVariacao'
 
 export const PLANOS_POR_PAGINA = 3
 
@@ -103,6 +104,10 @@ export type ContratoPlanoColuna = {
   faixas: FaixaEtariaLinha[]
   faturaEstimada: string
   tabColor: string
+  /** Metadados do comparativo de propostas (opcional). */
+  grupo?: 'atual' | 'mercado'
+  planoReferenciaId?: string
+  variacao?: ColunaVariacaoComparativo
 }
 
 export type ContratoAtualPagina = {
@@ -113,6 +118,8 @@ export type ContratoAtualPagina = {
   coparticipacaoUnica: string | null
   totalVidas: number
   totalFatura: string
+  /** Plano de referência (comparativo de propostas). */
+  grupoLabel?: string
 }
 
 export type ContratoAtualResumo = {
@@ -291,7 +298,7 @@ function vidasPlano(p: PlanoCoberturaForm, beneficiarios: PlacementBeneficiario[
   return n
 }
 
-function buildColuna(
+export function buildContratoPlanoColuna(
   p: PlanoCoberturaForm,
   itens: MapeamentoItemForm[],
   operadoraNomeById: Map<string, string>,
@@ -405,36 +412,46 @@ function paginateColunas(
   return pages
 }
 
+export function contratoPageFromColunas(
+  cols: ContratoPlanoColuna[],
+  pageIndex: number,
+  totalPages: number,
+  grupoLabel?: string
+): ContratoAtualPagina {
+  const contribs = uniq(cols.map((c) => c.contribuicao))
+  const coparts = uniq(cols.map((c) => c.coparticipacao))
+  let pv = 0
+  let pf = 0
+  let af = false
+  for (const c of cols) {
+    pv += c.vidas
+    const f = parseBRLToCents(c.faturaEstimada)
+    if (f != null) {
+      pf += f
+      af = true
+    }
+  }
+  return {
+    pageIndex,
+    totalPages,
+    colunas: cols,
+    contribuicaoUnica: contribs.length === 1 ? contribs[0] : null,
+    coparticipacaoUnica: coparts.length === 1 ? coparts[0] : null,
+    totalVidas: pv,
+    totalFatura: af ? formatCentsToBRL(pf) : '—',
+    grupoLabel,
+  }
+}
+
 /** Repagina colunas já montadas (troca de layout no dashboard). */
 export function buildContratoAtualPages(
   colunas: ContratoPlanoColuna[],
   planosPorPagina: number = PLANOS_POR_PAGINA
 ): ContratoAtualPagina[] {
   const pageChunks = paginateColunas(colunas, planosPorPagina)
-  return pageChunks.map((cols, pageIndex) => {
-    const contribs = uniq(cols.map((c) => c.contribuicao))
-    const coparts = uniq(cols.map((c) => c.coparticipacao))
-    let pv = 0
-    let pf = 0
-    let af = false
-    for (const c of cols) {
-      pv += c.vidas
-      const f = parseBRLToCents(c.faturaEstimada)
-      if (f != null) {
-        pf += f
-        af = true
-      }
-    }
-    return {
-      pageIndex,
-      totalPages: pageChunks.length,
-      colunas: cols,
-      contribuicaoUnica: contribs.length === 1 ? contribs[0] : null,
-      coparticipacaoUnica: coparts.length === 1 ? coparts[0] : null,
-      totalVidas: pv,
-      totalFatura: af ? formatCentsToBRL(pf) : '—',
-    }
-  })
+  return pageChunks.map((cols, pageIndex) =>
+    contratoPageFromColunas(cols, pageIndex, pageChunks.length)
+  )
 }
 
 function uniq<T>(arr: T[]): T[] {
@@ -460,7 +477,15 @@ export function computeContratoAtualResumo(
         p.tipoCusto === 'faixa_etaria'
     )
     .map((p, i) =>
-      buildColuna(p, itens, operadoraNomeById, beneficiarios, contribuicao, copartGlobal, TAB_COLORS[i % TAB_COLORS.length])
+      buildContratoPlanoColuna(
+        p,
+        itens,
+        operadoraNomeById,
+        beneficiarios,
+        contribuicao,
+        copartGlobal,
+        TAB_COLORS[i % TAB_COLORS.length]
+      )
     )
 
   if (colunas.length === 0) {

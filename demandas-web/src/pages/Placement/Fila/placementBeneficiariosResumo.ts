@@ -1,4 +1,5 @@
 import type { PlacementBeneficiario } from './placementBeneficiarios'
+import { resolveTipoParentesco } from './placementBeneficiarioTipoParentesco'
 
 /** Faixas etárias do painel de apresentação (pirâmide). */
 export const BENEFICIARIO_FAIXAS_APRESENTACAO = [
@@ -88,11 +89,6 @@ function parseIdade(dataNascimento: string | null | undefined): number | null {
   return age >= 0 && age < 130 ? age : null
 }
 
-function isTitular(grauParentesco: string | null | undefined): boolean {
-  const g = norm(grauParentesco)
-  return g.includes('titular')
-}
-
 function classifyCategoria(b: PlacementBeneficiario): BeneficiarioCategoriaApresentacao {
   const status = norm(b.statusBeneficiario)
   const cid = norm(b.cid10)
@@ -133,6 +129,7 @@ export type BeneficiariosResumoApresentacao = {
   mediaIdade: number | null
   titulares: number
   dependentes: number
+  agregados: number
   categorias: Record<BeneficiarioCategoriaApresentacao, number>
   faixasEtarias: {
     key: string
@@ -163,6 +160,7 @@ export function computeBeneficiariosResumo(
   let acima59 = 0
   let titulares = 0
   let dependentes = 0
+  let agregados = 0
   let somaIdade = 0
   let countIdade = 0
   const planoCount = new Map<string, number>()
@@ -189,8 +187,10 @@ export function computeBeneficiariosResumo(
       }
     }
 
-    if (isTitular(b.grauParentesco)) titulares += 1
-    else dependentes += 1
+    const tipo = resolveTipoParentesco(b.grauParentesco)
+    if (tipo === 'T') titulares += 1
+    else if (tipo === 'D') dependentes += 1
+    else if (tipo === 'A') agregados += 1
 
     const cat = classifyCategoria(b)
     categorias[cat] += 1
@@ -219,6 +219,7 @@ export function computeBeneficiariosResumo(
     mediaIdade,
     titulares,
     dependentes,
+    agregados,
     categorias,
     faixasEtarias: BENEFICIARIO_FAIXAS_APRESENTACAO.map((f) => faixaMap.get(f.key)!),
     planos,

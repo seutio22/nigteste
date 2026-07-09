@@ -24,6 +24,35 @@ export async function captureElementAsPngDataUri(
   return canvas.toDataURL('image/png')
 }
 
+/** Captura o elemento inteiro (altura conforme scroll) — painéis unificados. */
+export async function captureElementFullAsPngDataUri(
+  element: HTMLElement,
+  width?: number,
+  onClone?: (doc: Document) => void
+): Promise<{ dataUri: string; width: number; height: number }> {
+  await new Promise((r) => setTimeout(r, 500))
+  const w = width ?? element.scrollWidth
+  const h = element.scrollHeight
+  const html2canvas = (await import('html2canvas')).default
+  const canvas = await html2canvas(element, {
+    scale: 2,
+    backgroundColor: '#ffffff',
+    useCORS: true,
+    logging: false,
+    width: w,
+    height: h,
+    windowWidth: w,
+    windowHeight: h,
+    onclone: (doc) => {
+      onClone?.(doc)
+      doc.querySelectorAll('svg').forEach((svg) => {
+        svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+      })
+    },
+  })
+  return { dataUri: canvas.toDataURL('image/png'), width: canvas.width, height: canvas.height }
+}
+
 export async function readImageFileAsDataUri(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()

@@ -69,8 +69,8 @@ export const ENTITY_CONFIGS: EntityConfigs = {
   },
   solicitantes: {
     endpoint: '/solicitantes',
-    fields: ['nome'],
-    requiredFields: ['nome'],
+    fields: ['nome', 'email'],
+    requiredFields: ['nome', 'email'],
     displayName: 'Solicitante'
   },
   relatorios: {

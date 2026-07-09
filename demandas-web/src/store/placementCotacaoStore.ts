@@ -47,6 +47,7 @@ export interface PlacementCotacao {
   multaRescisaoRegra?: string | null
   multaRescisaoAvisoPrevio?: string | null
   possuiConvencaoColetiva?: boolean | null
+  convencaoColetivaDetalhe?: string | null
   descricao?: string | null
   observacoes?: string | null
   emCotacaoSubetapa?: string | null

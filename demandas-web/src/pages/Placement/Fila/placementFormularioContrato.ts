@@ -92,6 +92,16 @@ export function formatMultaRescisaoResumo(form: {
   return partes.join(' · ')
 }
 
+export function formatConvencaoColetivaResumo(form: {
+  possuiConvencaoColetiva: SimNaoChoice
+  convencaoColetivaDetalhe: string
+}): string {
+  if (form.possuiConvencaoColetiva === 'nao') return 'Não'
+  if (form.possuiConvencaoColetiva !== 'sim') return ''
+  const det = form.convencaoColetivaDetalhe.trim()
+  return det ? `Sim · ${det}` : 'Sim'
+}
+
 export function validateContratoApoliceExtras(
   form: Pick<
     CotacaoFormState,
@@ -121,13 +131,14 @@ export function validateContratoApoliceExtras(
     }
   }
   if (form.possuiConvencaoColetiva === '') {
-    return 'Informe se possui convenção coletiva (Sim ou Não).'
+    return 'Informe se está em acordo coletivo (Sim ou Não).'
   }
   return null
 }
 
 export function buildContratoApoliceApiFields(form: CotacaoFormState) {
   const multa = simNaoToApi(form.multaRescisaoContratual)
+  const conv = simNaoToApi(form.possuiConvencaoColetiva)
   return {
     formularioTipo: form.formularioTipo?.trim() || null,
     multaRescisaoContratual: multa,
@@ -135,7 +146,8 @@ export function buildContratoApoliceApiFields(form: CotacaoFormState) {
     multaRescisaoRegra: multa === true ? form.multaRescisaoRegra.trim() || null : null,
     multaRescisaoAvisoPrevio:
       multa === true ? form.multaRescisaoAvisoPrevio.trim() || null : null,
-    possuiConvencaoColetiva: simNaoToApi(form.possuiConvencaoColetiva),
+    possuiConvencaoColetiva: conv,
+    convencaoColetivaDetalhe: conv === true ? form.convencaoColetivaDetalhe.trim() || null : null,
   }
 }
 

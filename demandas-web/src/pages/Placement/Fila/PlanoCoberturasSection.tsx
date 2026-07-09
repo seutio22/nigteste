@@ -39,7 +39,7 @@ import {
   type PlanoCoberturaForm,
 } from './placementCotacaoDetalhes'
 import { formatCentsToBRL } from './utils'
-import { emptyCoparticipacao } from './placementCoparticipacao'
+import { emptyCoparticipacao, cloneCoparticipacao, type CoparticipacaoForm } from './placementCoparticipacao'
 import { SectionHeader } from './CotacaoFormSections'
 import { CoparticipacaoPlanoBlock } from './CoparticipacaoPlanoBlock'
 import { FaixaEtariaUploadBar } from './FaixaEtariaUploadBar'
@@ -81,6 +81,8 @@ export function PlanoCoberturasSection({
     message: string
     severity: 'success' | 'error'
   } | null>(null)
+  const [copartReplicarSourcePlanoId, setCopartReplicarSourcePlanoId] = useState<string | null>(null)
+  const [copartReplicarTemplate, setCopartReplicarTemplate] = useState<CoparticipacaoForm | null>(null)
 
   const neededRowIds = useMemo(() => {
     if (formularioTipo) {
@@ -123,8 +125,42 @@ export function PlanoCoberturasSection({
     })
   }
 
+  function clearCopartReplicar(planoId?: string) {
+    if (planoId && copartReplicarSourcePlanoId !== planoId) return
+    setCopartReplicarSourcePlanoId(null)
+    setCopartReplicarTemplate(null)
+  }
+
+  function handleCopartChange(planoId: string, copart: CoparticipacaoForm) {
+    patchPlanoById(planoId, { coparticipacao: copart })
+    if (copartReplicarSourcePlanoId === planoId) {
+      if (copart.possui) {
+        setCopartReplicarTemplate(cloneCoparticipacao(copart))
+      } else {
+        clearCopartReplicar(planoId)
+      }
+    }
+  }
+
+  function handleReplicarCopartChange(
+    planoId: string,
+    copart: CoparticipacaoForm,
+    enabled: boolean
+  ) {
+    if (enabled && copart.possui) {
+      setCopartReplicarSourcePlanoId(planoId)
+      setCopartReplicarTemplate(cloneCoparticipacao(copart))
+      return
+    }
+    clearCopartReplicar(planoId)
+  }
+
   function addPlano(rowId: string) {
-    onChangePlanos([...planos, emptyPlanoCobertura(rowId)])
+    const novo = emptyPlanoCobertura(rowId)
+    if (copartReplicarTemplate?.possui) {
+      novo.coparticipacao = cloneCoparticipacao(copartReplicarTemplate)
+    }
+    onChangePlanos([...planos, novo])
   }
 
   function removePlano(planoId: string) {
@@ -132,6 +168,7 @@ export function PlanoCoberturasSection({
     if (!alvo) return
     const naLinha = planosDaLinha(alvo.itemRowId)
     if (naLinha.length <= 1) return
+    clearCopartReplicar(planoId)
     onChangePlanos(planos.filter((p) => p.id !== planoId))
   }
 
@@ -490,8 +527,14 @@ export function PlanoCoberturasSection({
                           <CoparticipacaoPlanoBlock
                             coparticipacao={plano.coparticipacao ?? emptyCoparticipacao()}
                             disabled={disabled}
-                            onChange={(copart) =>
-                              patchPlanoById(plano.id, { coparticipacao: copart })
+                            onChange={(copart) => handleCopartChange(plano.id, copart)}
+                            replicarParaOutrosPlanos={copartReplicarSourcePlanoId === plano.id}
+                            onReplicarParaOutrosPlanosChange={(enabled) =>
+                              handleReplicarCopartChange(
+                                plano.id,
+                                plano.coparticipacao ?? emptyCoparticipacao(),
+                                enabled
+                              )
                             }
                           />
                         </Grid>

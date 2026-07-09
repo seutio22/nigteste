@@ -76,7 +76,7 @@ enum PortalSeguroConeRegiao {
   SUL
 }
 
-/// Catálogo de operadoras / seguradoras (opções persistidas no portal).
+/// Catálogo legado no portal (não utilizado para vínculo de apólices; operadoras oficiais vêm do snapshot Nexus).
 model PortalSeguroOperadora {
   id        String   @id @default(uuid())
   nome      String
@@ -84,7 +84,6 @@ model PortalSeguroOperadora {
   sortOrder Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  apolices  PortalSeguroApolice[]
 
   @@index([active, sortOrder, nome])
 }
@@ -147,10 +146,10 @@ model PortalSeguroApolice {
   nexusContratoId String?
   numeroApolice   String
   produto         PortalApoliceProduto
-  /// Nome da operadora (denormalizado; alinhar com `operadora.nome` quando houver FK).
+  /// Nome da operadora (denormalizado; copiado do catálogo Nexus ao gravar).
   fornecedor      String
+  /// Identificador da operadora no Nexus (`/operadoras`), sincronizado em Banco de dados.
   operadoraId     String?
-  operadora       PortalSeguroOperadora? @relation(fields: [operadoraId], references: [id], onDelete: SetNull)
   /// Resumo legado (ex.: primeira razão social); detalhe em `subestipulantes`.
   subestipulante  String?
   plano           String?

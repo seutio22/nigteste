@@ -1,6 +1,7 @@
 import React from 'react'
 import {
   Box,
+  Checkbox,
   FormControlLabel,
   Grid,
   MenuItem,
@@ -24,6 +25,8 @@ interface Props {
   coparticipacao: CoparticipacaoForm
   disabled?: boolean
   onChange: (next: CoparticipacaoForm) => void
+  replicarParaOutrosPlanos?: boolean
+  onReplicarParaOutrosPlanosChange?: (next: boolean) => void
 }
 
 function patchLinha(
@@ -40,7 +43,13 @@ function patchLinha(
   }
 }
 
-export function CoparticipacaoPlanoBlock({ coparticipacao, disabled, onChange }: Props) {
+export function CoparticipacaoPlanoBlock({
+  coparticipacao,
+  disabled,
+  onChange,
+  replicarParaOutrosPlanos = false,
+  onReplicarParaOutrosPlanosChange,
+}: Props) {
   const c = coparticipacao
   const forma = c.formaCobranca
   const phValor = placeholderValorCopart(forma)
@@ -270,6 +279,25 @@ export function CoparticipacaoPlanoBlock({ coparticipacao, disabled, onChange }:
               Informe coparticipação e limitador por procedimento. O limitador pode ser teto em R$ ou em %,
               conforme a forma de cobrança. Em internação, use «Limitador de desconto» quando aplicável.
             </Typography>
+
+            {onReplicarParaOutrosPlanosChange && (
+              <Box sx={{ mt: 2, pt: 1.5, borderTop: 1, borderColor: 'divider' }}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      size="small"
+                      checked={replicarParaOutrosPlanos}
+                      disabled={disabled}
+                      onChange={(e) => onReplicarParaOutrosPlanosChange(e.target.checked)}
+                    />
+                  }
+                  label="Replicar para outros planos"
+                />
+                <Typography variant="caption" color="text.secondary" display="block" sx={{ ml: 3.5 }}>
+                  Novos planos cadastrados receberão automaticamente esta coparticipação.
+                </Typography>
+              </Box>
+            )}
           </Box>
         </Paper>
       )}

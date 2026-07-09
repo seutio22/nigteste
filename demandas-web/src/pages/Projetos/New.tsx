@@ -21,11 +21,16 @@ import { ArrowBack, Save, Cancel } from '@mui/icons-material'
 import { PrimaryActionButton } from '../../components/PrimaryActionButton'
 import { useProjectStore } from '../../store/projectStore'
 import { useAuthStore } from '../../store/authStore'
+import ProjectTemplatesDialog from '../../components/ProjectTemplatesDialog'
+import { summarizeTimeline, type ProjectTimelineShape } from '../../utils/projectTimelineSpreadsheet'
 
 export default function ProjectNewPage() {
   const navigate = useNavigate()
-  const { add } = useProjectStore()
+  const { add, upsert } = useProjectStore()
   const { user } = useAuthStore()
+  
+  const [selectedTimeline, setSelectedTimeline] = useState<ProjectTimelineShape | null>(null)
+  const [templatesDialogOpen, setTemplatesDialogOpen] = useState(false)
   
   const [formData, setFormData] = useState({
     name: '',
@@ -131,6 +136,13 @@ export default function ProjectNewPage() {
       // }
       
       const novoProjeto = await add(projectData)
+
+      if (selectedTimeline?.phases?.length) {
+        await upsert({
+          ...novoProjeto,
+          timeline: selectedTimeline,
+        } as any)
+      }
       
       alert('Projeto criado com sucesso!')
       navigate('/projetos')
@@ -167,6 +179,31 @@ export default function ProjectNewPage() {
         <Alert severity="info" sx={{ mb: 3 }}>
           Preencha os dados do novo projeto. Os campos marcados com * são obrigatórios.
         </Alert>
+
+        <Paper variant="outlined" sx={{ p: 2, mb: 3, bgcolor: '#f8fafc' }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }} justifyContent="space-between">
+            <Box>
+              <Typography variant="subtitle1" fontWeight={600}>
+                Cronograma inicial (opcional)
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {selectedTimeline?.phases?.length
+                  ? `Template aplicado: ${summarizeTimeline(selectedTimeline).phases} etapas, ${summarizeTimeline(selectedTimeline).tasks} tarefas, ${summarizeTimeline(selectedTimeline).subtasks} subtarefas`
+                  : 'Use um template salvo ou importe um arquivo Excel com etapas, tarefas e subtarefas.'}
+              </Typography>
+            </Box>
+            <Stack direction="row" spacing={1}>
+              <Button variant="outlined" onClick={() => setTemplatesDialogOpen(true)}>
+                Escolher template / Excel
+              </Button>
+              {selectedTimeline ? (
+                <Button color="inherit" onClick={() => setSelectedTimeline(null)}>
+                  Limpar
+                </Button>
+              ) : null}
+            </Stack>
+          </Stack>
+        </Paper>
 
         <form onSubmit={handleSubmit}>
           <Grid container spacing={3}>
@@ -336,6 +373,13 @@ export default function ProjectNewPage() {
           </Stack>
         </form>
       </Paper>
+
+      <ProjectTemplatesDialog
+        open={templatesDialogOpen}
+        onClose={() => setTemplatesDialogOpen(false)}
+        mode="pick"
+        onApplyTimeline={(timeline) => setSelectedTimeline(timeline)}
+      />
     </Box>
   )
 }

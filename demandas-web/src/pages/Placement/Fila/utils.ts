@@ -1,9 +1,12 @@
 import { COTACAO_FILA_STATUSES, PLACEMENT_STATUS_RASCUNHO, type CotacaoStatus } from './placementCotacaoStatus'
+import { getWorkflowStageMeta } from './placementCotacaoWorkflow'
 
 export const STATUS_COLORS: Record<CotacaoStatus, { bg: string; text: string; chip: 'default' | 'primary' | 'info' | 'warning' | 'success' | 'error' }> = {
   [PLACEMENT_STATUS_RASCUNHO]: { bg: '#F3F4F6', text: '#4B5563', chip: 'default' },
   'Aberta':                  { bg: '#E0F2FE', text: '#075985', chip: 'info' },
+  'Validação':               { bg: '#E0E7FF', text: '#3730A3', chip: 'primary' },
   'Kick off':                { bg: '#EDE9FE', text: '#5B21B6', chip: 'primary' },
+  'Estratégia':              { bg: '#DDD6FE', text: '#6D28D9', chip: 'primary' },
   'Em cotação':              { bg: '#FEF3C7', text: '#92400E', chip: 'warning' },
   'Aguardando operadora':    { bg: '#FCE7F3', text: '#9D174D', chip: 'warning' },
   'Proposta enviada':        { bg: '#DBEAFE', text: '#1E40AF', chip: 'primary' },
@@ -14,6 +17,13 @@ export const STATUS_COLORS: Record<CotacaoStatus, { bg: string; text: string; ch
 
 export function getStatusColor(status: string) {
   return STATUS_COLORS[status as CotacaoStatus] ?? STATUS_COLORS['Aberta']
+}
+
+/** Nome exibido da etapa do workflow (ex.: Aberta → Premissa, Validação → Análise). */
+export function getWorkflowStatusDisplayLabel(status: string | null | undefined): string {
+  const raw = String(status ?? '').trim()
+  if (!raw) return '—'
+  return getWorkflowStageMeta(raw)?.label ?? raw
 }
 
 export function formatCentsToBRL(cents: number | null | undefined): string {

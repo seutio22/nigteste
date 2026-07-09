@@ -29,12 +29,19 @@ import {
 } from './placementKickOffAberturaResumo'
 import { exportKickOffResumoPdf } from './placementKickOffResumoPdf'
 import type { KickOffEstrategia } from './placementKickOffEstrategia'
+import type { CotacaoFormState } from './CotacaoFormFields'
+import { PlacementKickOffApresentacaoPdfButton } from './PlacementKickOffApresentacaoPdfButton'
+import { KickOffInconsistenciasResumoTable } from './KickOffInconsistenciasResumoTable'
+import { useKickOffValidacaoResumo } from './useKickOffValidacaoResumo'
+import ViewAgendaIcon from '@mui/icons-material/ViewAgenda'
 
 type Props = {
   ticket: string
   linhas: AberturaResumoLinha[]
   estrategia?: KickOffEstrategia | null
   disabled?: boolean
+  cotacaoId?: string
+  form?: CotacaoFormState
   temperaturaId?: string
   temperaturas?: { id: string; nome: string }[]
   onTemperaturaChange?: (temperaturaId: string) => void
@@ -45,6 +52,8 @@ export function KickOffAberturaResumoSection({
   linhas,
   estrategia,
   disabled,
+  cotacaoId,
+  form,
   temperaturaId,
   temperaturas = [],
   onTemperaturaChange,
@@ -57,6 +66,8 @@ export function KickOffAberturaResumoSection({
 
   const grupos = useMemo(() => groupAberturaResumoLinhas(linhas), [linhas])
   const visiveisCount = linhas.filter((l) => !ocultos.has(l.id)).length
+  const { loading: loadingValidacao, validacao, itens: itensInconsistencia, totalLinhas } =
+    useKickOffValidacaoResumo(cotacaoId, form)
 
   function toggleOculto(id: string) {
     setOcultos((prev) => {
@@ -160,8 +171,31 @@ export function KickOffAberturaResumoSection({
           >
             PDF completo
           </Button>
+          {cotacaoId && form && (
+            <PlacementKickOffApresentacaoPdfButton
+              cotacaoId={cotacaoId}
+              form={form}
+              ticket={ticket}
+              disabled={disabled}
+              size="small"
+              variant="outlined"
+              label="Apresentação"
+              startIcon={<ViewAgendaIcon />}
+            />
+          )}
         </Stack>
       </Stack>
+
+      {cotacaoId && form && (
+        <Box sx={{ mb: 2 }}>
+          <KickOffInconsistenciasResumoTable
+            loading={loadingValidacao}
+            itens={itensInconsistencia}
+            totalLinhas={totalLinhas}
+            totalOcorrencias={validacao?.totalApontamentos ?? 0}
+          />
+        </Box>
+      )}
 
       <Stack spacing={2}>
         {grupos.map((grupo) => {

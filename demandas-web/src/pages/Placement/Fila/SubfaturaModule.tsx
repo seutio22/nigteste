@@ -375,7 +375,7 @@ function SubfaturaPersistedPanel({
           <SectionHeader
             icon={<ReceiptLongIcon fontSize="small" />}
             title="Subfatura"
-            description="Etapa da solicitação após «Detalhes da cotação»: CNPJs das empresas participantes. Consulta à Receita pelo CNPJ e anexos quando necessário."
+            description="Etapa da solicitação após «Condições Contratuais»: CNPJs das empresas participantes. Consulta à Receita pelo CNPJ e anexos quando necessário."
           />
         )}
         <PrimaryActionButton startIcon={<AddIcon />} onClick={openCreate} disabled={disabled}>

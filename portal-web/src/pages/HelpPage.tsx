@@ -3,16 +3,16 @@ import {
   Accordion,
   AccordionDetails,
   AccordionSummary,
-  Container,
   Link,
   Paper,
   Typography,
 } from '@mui/material'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import PageScaffold from '../components/PageScaffold'
 
 export default function HelpPage() {
   return (
-    <Container maxWidth="md" sx={{ py: 3, pb: 6 }}>
+    <PageScaffold sx={{ pb: 6 }}>
       <Typography variant="h5" fontWeight={700} gutterBottom>
         Ajuda
       </Typography>
@@ -105,6 +105,6 @@ export default function HelpPage() {
           Voltar ao início
         </Link>
       </Typography>
-    </Container>
+    </PageScaffold>
   )
 }

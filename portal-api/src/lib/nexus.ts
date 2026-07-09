@@ -47,8 +47,12 @@ export async function fetchNexusEntityList(baseUrl: string, path: string, token:
   }
   const data: unknown = await res.json()
   if (Array.isArray(data)) return data
-  if (data && typeof data === 'object' && Array.isArray((data as { data?: unknown }).data)) {
-    return (data as { data: unknown[] }).data
+  if (data && typeof data === 'object') {
+    const o = data as Record<string, unknown>
+    for (const k of ['data', 'rows', 'items', 'results', 'operadoras', 'records', 'list']) {
+      const v = o[k]
+      if (Array.isArray(v)) return v
+    }
   }
   return []
 }

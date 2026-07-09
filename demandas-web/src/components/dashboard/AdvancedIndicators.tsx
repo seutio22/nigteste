@@ -7,6 +7,7 @@ import {
   Grid,
   Chip,
   LinearProgress,
+  CircularProgress,
   useTheme,
   alpha
 } from '@mui/material'
@@ -19,6 +20,7 @@ import {
   Assessment as AssessmentIcon
 } from '@mui/icons-material'
 import type { AdvancedIndicator, TempoExecucaoMetrics, AnalistaMetrics, UnassignedPerformanceItem } from '../../hooks/useAdvancedIndicators'
+import { UNASSIGNED_ANALISTA_KEY } from '../../utils/dashboardFilters'
 import { formatDecimalPtBR, formatIntegerPtBR, formatNumberPtBR } from '../../utils/formatNumber'
 
 interface AdvancedIndicatorsProps {
@@ -26,6 +28,7 @@ interface AdvancedIndicatorsProps {
   tempoExecucaoMetrics: TempoExecucaoMetrics[]
   analistaMetrics: AnalistaMetrics[]
   unassignedPerformanceItems?: UnassignedPerformanceItem[]
+  loading?: boolean
 }
 
 const iconMap = {
@@ -44,14 +47,16 @@ const paginaNomeMap: Record<string, string> = {
   validacoes: 'Validações',
   reajustes: 'Reajustes',
   manutencoes: 'Manutenções',
-  analytics: 'Analytics'
+  analytics: 'Analytics',
+  projetos: 'Projetos'
 }
 
 export const AdvancedIndicators: React.FC<AdvancedIndicatorsProps> = ({
   indicators,
   tempoExecucaoMetrics,
   analistaMetrics,
-  unassignedPerformanceItems = []
+  unassignedPerformanceItems = [],
+  loading = false
 }) => {
   const theme = useTheme()
 
@@ -194,24 +199,31 @@ export const AdvancedIndicators: React.FC<AdvancedIndicatorsProps> = ({
           👥 Performance por Analista
         </Typography>
 
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+            <CircularProgress size={32} />
+          </Box>
+        ) : (
+        <>
         {unassignedPerformanceItems.length > 0 ? (
           <Card sx={{ borderRadius: 3, mb: 3, border: `1px solid ${alpha(theme.palette.warning.main, 0.35)}` }}>
             <CardContent sx={{ p: 2.5 }}>
               <Typography variant="body2" sx={{ fontWeight: 700, color: theme.palette.warning.main, mb: 1 }}>
-                Itens concluídos no período não atribuídos a um analista ({formatIntegerPtBR(unassignedPerformanceItems.length)})
+                Itens no período sem analista cadastrado ({formatIntegerPtBR(unassignedPerformanceItems.length)})
               </Typography>
               <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1.5 }}>
-                Lista para diagnóstico (página + id/ticket). Isso explica diferenças entre “Resumo Geral” e a soma por analista.
+                Lista para diagnóstico (página + id/título + responsável informado no registro).
               </Typography>
               <Grid container spacing={1}>
                 {unassignedPerformanceItems.slice(0, 12).map((it, idx) => (
                   <Grid item xs={12} md={6} key={`${it.page}-${it.id ?? it.label}-${idx}`}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
                       <Typography variant="caption" sx={{ fontWeight: 700 }}>
-                        {it.page}: {it.label}
+                        {paginaNomeMap[it.page] || it.page}: {it.label}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
                         {it.reason}
+                        {it.kind === 'created' ? ' · criado no período' : it.kind === 'completed' ? ' · concluído no período' : it.kind === 'both' ? ' · criado e concluído' : ''}
                       </Typography>
                     </Box>
                   </Grid>
@@ -228,7 +240,7 @@ export const AdvancedIndicators: React.FC<AdvancedIndicatorsProps> = ({
 
         <Grid container spacing={3}>
           {analistaMetrics.map((analista) => (
-            <Grid item xs={12} sm={6} md={4} key={analista.analistaId}>
+            <Grid item xs={12} sm={6} md={4} key={`${analista.analistaId}-${analista.analistaNome}`}>
               <Card sx={{ borderRadius: 3, height: '100%' }}>
                 <CardContent sx={{ p: 3 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
@@ -279,6 +291,7 @@ export const AdvancedIndicators: React.FC<AdvancedIndicatorsProps> = ({
                           Criados por página (no período)
                         </Typography>
                         {Object.entries(analista.itensPorPagina)
+                          .filter(([, qtd]) => Number(qtd) > 0)
                           .sort(([, a], [, b]) => Number(b) - Number(a))
                           .map(([pagina, quantidade]) => {
                             const nomePagina = paginaNomeMap[pagina] || pagina
@@ -299,6 +312,7 @@ export const AdvancedIndicators: React.FC<AdvancedIndicatorsProps> = ({
                           Concluídos por página (no período)
                         </Typography>
                         {Object.entries(analista.concluidosNoPeriodoPorPagina)
+                          .filter(([, qtd]) => Number(qtd) > 0)
                           .sort(([, a], [, b]) => Number(b) - Number(a))
                           .map(([pagina, quantidade]) => {
                             const nomePagina = paginaNomeMap[pagina] || pagina
@@ -316,11 +330,31 @@ export const AdvancedIndicators: React.FC<AdvancedIndicatorsProps> = ({
                       </Grid>
                     </Grid>
                   </Box>
+
+                  {analista.analistaId === UNASSIGNED_ANALISTA_KEY && unassignedPerformanceItems.length > 0 ? (
+                    <Box sx={{ mt: 2, pt: 2, borderTop: `1px solid ${alpha(theme.palette.divider, 0.6)}` }}>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontWeight: 600 }}>
+                        Detalhe dos registros
+                      </Typography>
+                      {unassignedPerformanceItems.slice(0, 8).map((it, idx) => (
+                        <Box key={`unassigned-${it.page}-${it.id ?? idx}`} sx={{ mb: 1 }}>
+                          <Typography variant="caption" sx={{ fontWeight: 700, display: 'block' }}>
+                            {paginaNomeMap[it.page] || it.page}: {it.label}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                            {it.reason}
+                          </Typography>
+                        </Box>
+                      ))}
+                    </Box>
+                  ) : null}
                 </CardContent>
               </Card>
             </Grid>
           ))}
         </Grid>
+        </>
+        )}
       </Box>
     </Box>
   )

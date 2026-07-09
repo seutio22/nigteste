@@ -118,7 +118,7 @@ export default function DadosPlacementPage() {
         <Tab value="temperatura" label="Temperatura" />
         <Tab value="tipoContratacao" label="Tipo contratação" />
         <Tab value="modalidadeContrato" label="Modalidade contrato" />
-        <Tab value="prazoVigenciaContrato" label="Prazo vigência contrato" />
+        <Tab value="prazoVigenciaContrato" label="Duração contratual" />
         <Tab value="logosOperadora" label="Logos operadoras" />
       </Tabs>
 

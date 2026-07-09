@@ -1,4 +1,7 @@
-import type { SmartImporterConfig } from '../types/smartImporter'
+import type { ImportMode, SmartImporterConfig } from '../types/smartImporter'
+
+/** Modos de importação disponíveis nas abas de Dados (NIG). */
+export const NIG_DADOS_IMPORT_MODES: ImportMode[] = ['insert', 'update', 'upsert']
 
 export const smartImporterConfigs: { [key: string]: SmartImporterConfig } = {
   clientes: {
@@ -228,14 +231,24 @@ export const smartImporterConfigs: { [key: string]: SmartImporterConfig } = {
 
   solicitantes: {
     entityType: 'Solicitantes',
-    requiredFields: ['nome'],
+    requiredFields: ['nome', 'email'],
     optionalFields: [],
-    duplicateCheckFields: ['nome'],
+    duplicateCheckFields: ['email'],
     validationRules: [
       {
         field: 'nome',
         type: 'required',
         message: 'Nome é obrigatório'
+      },
+      {
+        field: 'email',
+        type: 'required',
+        message: 'E-mail é obrigatório'
+      },
+      {
+        field: 'email',
+        type: 'email',
+        message: 'E-mail deve ter formato válido'
       }
     ],
     referenceFields: []
@@ -915,5 +928,34 @@ export const smartImporterConfigs: { [key: string]: SmartImporterConfig } = {
         valueField: 'id'
       }
     ]
+  }
+}
+
+/** Habilita insert / update / upsert no importador inteligente das abas Dados (NIG). */
+const NIG_DADOS_CONFIG_KEYS = [
+  'clientes',
+  'contratos',
+  'operadoras',
+  'produtos',
+  'sistemas',
+  'grupos',
+  'analistas',
+  'areas',
+  'tipos',
+  'tipos-cadastro',
+  'servicos',
+  'padrao',
+  'solicitantes',
+  'relatorios',
+  'modelos',
+  'areasMailling',
+  'cargosMailling',
+  'filiaisMailling',
+] as const
+
+for (const key of NIG_DADOS_CONFIG_KEYS) {
+  const config = smartImporterConfigs[key]
+  if (config) {
+    config.importModes = NIG_DADOS_IMPORT_MODES
   }
 }

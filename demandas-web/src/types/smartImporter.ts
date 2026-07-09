@@ -23,6 +23,8 @@ export interface ValidationResult {
   suggestions: ValidationError[]
 }
 
+export type ImportMode = 'insert' | 'update' | 'upsert'
+
 export interface ImportItem {
   id: string
   data: any
@@ -30,16 +32,26 @@ export interface ImportItem {
   validation: ValidationResult
   isCorrected?: boolean
   correctedData?: any
+  /** Ação na importação (quando a entidade suporta upsert) */
+  importAction?: 'insert' | 'update'
+  /** ID do registro existente (modos update/upsert) */
+  existingId?: string
 }
 
 export interface ImportResult {
   valid: ImportItem[]
   invalid: ImportItem[]
   duplicates: ImportItem[]
+  /** Linhas ignoradas (ex.: e-mail não encontrado no modo "atualizar") */
+  skipped?: ImportItem[]
   totalRows: number
   validCount: number
   invalidCount: number
   duplicateCount: number
+  skippedCount?: number
+  insertCount?: number
+  updateCount?: number
+  importMode?: ImportMode
   warnings: ValidationError[]
 }
 
@@ -50,6 +62,8 @@ export interface SmartImporterConfig {
   validationRules: ValidationRule[]
   duplicateCheckFields: string[]
   referenceFields: ReferenceField[]
+  /** Modos disponíveis; padrão = só inclusão */
+  importModes?: ImportMode[]
 }
 
 export interface ValidationRule {

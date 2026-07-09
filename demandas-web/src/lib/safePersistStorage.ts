@@ -78,3 +78,42 @@ export function removeLocalStorageByPrefix(prefix: string): void {
     /* ignore */
   }
 }
+
+/** Chaves que antes persistiam listas grandes; remove entradas antigas > limite. */
+const LEGACY_HEAVY_STORE_KEYS = [
+  'comunicado-storage',
+  'master-data-store',
+  'placement-cotacao-v1',
+  'reports-v1',
+  'validation-storage',
+  'atendimentoStore',
+  'mailling-v1',
+  'comunicados-v1',
+  'demands-v1',
+  'validations-v1',
+  'manutencoes-v1',
+  'projects-v1',
+] as const
+
+const LEGACY_HEAVY_MAX_BYTES = 200 * 1024
+
+/**
+ * Remove caches locais obsoletos que ainda ocupam megabytes (formato antigo).
+ * Chamado uma vez ao abrir o app — stores leves passam a persistir só metadados.
+ */
+export function purgeOversizedPersistEntries(): void {
+  for (const key of LEGACY_HEAVY_STORE_KEYS) {
+    try {
+      const raw = localStorage.getItem(key)
+      if (!raw) continue
+      if (byteSize(raw) > LEGACY_HEAVY_MAX_BYTES) {
+        localStorage.removeItem(key)
+        if (import.meta.env.DEV) {
+          console.info(`🧹 Removido cache local grande: ${key} (${Math.round(byteSize(raw) / 1024)}KB)`)
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+}

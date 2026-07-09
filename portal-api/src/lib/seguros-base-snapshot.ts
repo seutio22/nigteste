@@ -13,6 +13,7 @@ import {
 } from '@prisma/client'
 import { z } from 'zod'
 import { normalizarValoresPorFaixa } from './apolice-planos-faixas.js'
+import { operadoraNomePorId, parseOperadorasFromSnapshotRows } from './nexus-operadoras.js'
 import { prisma } from './prisma.js'
 
 export const SEGUROS_BASE_SNAPSHOT_VERSION = 2 as const
@@ -115,7 +116,7 @@ const coneSnap = z.nativeEnum(PortalSeguroConeRegiao)
 const parcelas12Snap = z.array(z.number()).length(12).nullable().optional()
 
 const operadoraRowSchema = z.object({
-  id: uuid,
+  id: z.string().min(1).max(200),
   nome: z.string().min(1).max(500),
   active: z.boolean().optional().default(true),
   sortOrder: z.number().int().min(0).max(99999).optional().default(0),
@@ -143,7 +144,7 @@ const apoliceRowSchema = z.object({
   nexusContratoId: z.string().max(120).nullable().optional(),
   numeroApolice: z.string().max(120),
   produto: produtoSchema,
-  operadoraId: uuid.nullable().optional(),
+  operadoraId: z.string().min(1).max(200).nullable().optional(),
   /** Mantido para compatibilidade de export; em novas linhas use operadoraId (catálogo). */
   fornecedor: z.string().max(500).optional().default(''),
   subestipulante: z.string().max(500).nullable().optional(),
@@ -270,7 +271,7 @@ export async function buildSegurosBaseSnapshot(): Promise<SegurosBaseSnapshotPar
   const [
     grupos,
     estipulantes,
-    operadoras,
+    snapshotOperadoras,
     apolices,
     apoliceSubestipulantes,
     apoliceFaturasMensais,
@@ -281,7 +282,7 @@ export async function buildSegurosBaseSnapshot(): Promise<SegurosBaseSnapshotPar
   ] = await Promise.all([
     prisma.portalGrupoEconomico.findMany({ orderBy: { nome: 'asc' } }),
     prisma.portalSeguroEstipulante.findMany({ orderBy: [{ grupoEconomicoNome: 'asc' }, { razaoSocial: 'asc' }] }),
-    prisma.portalSeguroOperadora.findMany({ orderBy: [{ sortOrder: 'asc' }, { nome: 'asc' }] }),
+    prisma.portalNexusEntitySnapshot.findUnique({ where: { entityKey: 'operadoras' } }),
     prisma.portalSeguroApolice.findMany({ orderBy: [{ estipulanteId: 'asc' }, { numeroApolice: 'asc' }] }),
     prisma.portalSeguroApoliceSubestipulante.findMany({
       orderBy: [{ apoliceId: 'asc' }, { sortOrder: 'asc' }],
@@ -325,14 +326,16 @@ export async function buildSegurosBaseSnapshot(): Promise<SegurosBaseSnapshotPar
       createdAt: e.createdAt,
       updatedAt: e.updatedAt,
     })),
-    operadoras: operadoras.map((o) => ({
-      id: o.id,
-      nome: o.nome,
-      active: o.active,
-      sortOrder: o.sortOrder,
-      createdAt: o.createdAt,
-      updatedAt: o.updatedAt,
-    })),
+    operadoras: (() => {
+      const rows = snapshotOperadoras?.rows
+      const parsed = rows ? parseOperadorasFromSnapshotRows(rows) : []
+      return parsed.map((o, i) => ({
+        id: o.id,
+        nome: o.nome,
+        active: true,
+        sortOrder: i,
+      }))
+    })(),
     apolices: apolices.map((a) => ({
       id: a.id,
       estipulanteId: a.estipulanteId,
@@ -495,6 +498,13 @@ export async function analyzeSegurosBaseSnapshot(data: SegurosBaseSnapshotParsed
   }
 
   const opIds = new Set(data.operadoras.map((o) => o.id))
+  const nexusOpSnap = await prisma.portalNexusEntitySnapshot.findUnique({
+    where: { entityKey: 'operadoras' },
+    select: { rows: true },
+  })
+  const nexusOperadoraIds = new Set(
+    nexusOpSnap?.rows ? parseOperadorasFromSnapshotRows(nexusOpSnap.rows).map((x) => x.id) : [],
+  )
   const seenOp = new Map<string, string>()
   for (const o of data.operadoras) {
     if (seenOp.has(o.id)) {
@@ -618,32 +628,27 @@ export async function analyzeSegurosBaseSnapshot(data: SegurosBaseSnapshotParsed
       )
     }
 
-    if (!(a.operadoraId ?? '').toString().trim()) {
+    const opIdNorm = (a.operadoraId ?? '').toString().trim()
+    if (!opIdNorm) {
       push(
         issues,
         'error',
         'apolice_sem_operadora',
-        `Apólice «${num || a.id}» sem operadoraId — preencha com um UUID do catálogo (folha operadoras + coluna operadoraId em apolices).`,
+        `Apólice «${num || a.id}» sem operadoraId — use o id da operadora no Nexus (snapshot sincronizado em Banco de dados) ou inclua a linha na folha «operadoras».`,
         `apolices[${i}].operadoraId`,
         [a.id],
       )
     }
 
-    if (a.operadoraId && !opIds.has(a.operadoraId)) {
-      const inDb = await prisma.portalSeguroOperadora.findUnique({
-        where: { id: a.operadoraId },
-        select: { id: true },
-      })
-      if (!inDb) {
-        push(
-          issues,
-          'error',
-          'fk_operadora_snapshot',
-          `Apólice «${num || a.id}» referencia operadoraId ausente no ficheiro e na base — inclua a operadora na folha «operadoras» ou use um ID existente.`,
-          `apolices[${i}].operadoraId`,
-          [a.id, a.operadoraId],
-        )
-      }
+    if (opIdNorm && !opIds.has(opIdNorm) && !nexusOperadoraIds.has(opIdNorm)) {
+      push(
+        issues,
+        'error',
+        'fk_operadora_snapshot',
+        `Apólice «${num || a.id}» referencia operadoraId que não existe no snapshot Nexus «operadoras» nem na folha «operadoras» do ficheiro — sincronize o Nexus ou corrija o id.`,
+        `apolices[${i}].operadoraId`,
+        [a.id, opIdNorm],
+      )
     }
 
     if (num && estIds.has(a.estipulanteId)) {
@@ -1074,13 +1079,6 @@ export async function analyzeSegurosBaseSnapshot(data: SegurosBaseSnapshotParsed
     else statsIfApplied.grupos.create++
   }
 
-  const existingOp = await prisma.portalSeguroOperadora.findMany({ select: { id: true } })
-  const existingOpSet = new Set(existingOp.map((x) => x.id))
-  for (const o of data.operadoras) {
-    if (existingOpSet.has(o.id)) statsIfApplied.operadoras.update++
-    else statsIfApplied.operadoras.create++
-  }
-
   for (const e of data.estipulantes) {
     if (existingEstIdSet.has(e.id)) statsIfApplied.estipulantes.update++
     else statsIfApplied.estipulantes.create++
@@ -1137,8 +1135,13 @@ async function fornecedorNomeParaApolice(
 ): Promise<string> {
   const id = operadoraId?.trim()
   if (id) {
-    const op = await tx.portalSeguroOperadora.findUnique({ where: { id }, select: { nome: true } })
-    return (op?.nome ?? '').trim() || '—'
+    const snap = await tx.portalNexusEntitySnapshot.findUnique({
+      where: { entityKey: 'operadoras' },
+      select: { rows: true },
+    })
+    const list = snap?.rows ? parseOperadorasFromSnapshotRows(snap.rows) : []
+    const nome = operadoraNomePorId(list, id)
+    if ((nome ?? '').trim()) return nome!.trim()
   }
   return mergeImportFornecedor(snapFornecedor, exFornecedor)
 }
@@ -1199,32 +1202,6 @@ export async function applySegurosBaseSnapshot(data: SegurosBaseSnapshotParsed):
             },
           })
           stats.grupos.create++
-        }
-      }
-
-      for (const o of data.operadoras) {
-        const ex = await tx.portalSeguroOperadora.findUnique({ where: { id: o.id } })
-        const base = {
-          id: o.id,
-          nome: o.nome.trim(),
-          active: o.active,
-          sortOrder: o.sortOrder ?? 0,
-        }
-        if (ex) {
-          await tx.portalSeguroOperadora.update({
-            where: { id: o.id },
-            data: { nome: base.nome, active: base.active, sortOrder: base.sortOrder },
-          })
-          stats.operadoras.update++
-        } else {
-          await tx.portalSeguroOperadora.create({
-            data: {
-              ...base,
-              createdAt: o.createdAt ?? undefined,
-              updatedAt: o.updatedAt ?? undefined,
-            },
-          })
-          stats.operadoras.create++
         }
       }
 

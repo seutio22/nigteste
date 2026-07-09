@@ -43,7 +43,7 @@ export function validatePlacementCotacaoDetalhes(form: CotacaoFormState): string
   const temCorretor = !!form.corretorParceiroId?.trim()
   const fin = form.dadosFinanceiros
   if (form.clienteTipo === 'casa' && !fin.atual.comissaoVitalicioContrato.trim()) {
-    return 'Informe a comissão atual (vitalício) do contrato — obrigatória para cliente da casa.'
+    return 'Informe a comissão atual (vitalício) do contrato — obrigatória para Cliente da Carteira.'
   }
   if (
     participacaoExcedeLimite(
@@ -109,7 +109,7 @@ export function validatePlacementCotacaoDetalhes(form: CotacaoFormState): string
 /** Mínimo para abrir na fila (etapa Base atual pode ser completada depois). */
 export function validateIniciarProcessoNaFila(form: CotacaoFormState): string | null {
   if (form.clienteTipo === 'casa' && !form.condicaoId) {
-    return 'Cliente da casa: vincule uma condição em Mapeamento → Estipulante (Dados → Placement → Condições).'
+    return 'Cliente da Carteira: vincule uma condição em Mapeamento → Estipulante (Dados → Placement → Condições).'
   }
   if (form.clienteTipo === 'prospect' && !form.prospectId) {
     return 'Selecione o prospect no Mapeamento (ou cadastre um novo).'
@@ -118,7 +118,7 @@ export function validateIniciarProcessoNaFila(form: CotacaoFormState): string | 
     return 'Selecione a filial em Mapeamento (Dados → Placement → Filiais).'
   }
   if (!form.dataInicio?.trim()) {
-    return 'Informe a data de início (Prazos da cotação).'
+    return 'Informe a data de início (Solicitação de Estudo).'
   }
   if (form.dataLimite?.trim() && form.dataInicio?.trim() && form.dataLimite < form.dataInicio) {
     return 'A data limite deve ser igual ou posterior à data de início.'

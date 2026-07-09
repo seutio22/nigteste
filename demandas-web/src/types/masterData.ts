@@ -50,6 +50,7 @@ export type TipoServico = SimpleEntity
 export interface Solicitante {
   id: Id
   nome: string
+  email?: string | null
 }
 
 export interface Relatorio {

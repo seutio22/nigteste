@@ -1,6 +1,7 @@
-import { Box, Button, Container, Paper, Typography } from '@mui/material'
+import { Box, Button, Paper, Typography } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import PageScaffold from '../components/PageScaffold'
 
 const roleLabel: Record<string, string> = {
   COLLABORATOR: 'Colaborador',
@@ -14,11 +15,11 @@ export default function AccountPage() {
   const navigate = useNavigate()
 
   return (
-    <Container maxWidth="sm" sx={{ py: 3 }}>
+    <PageScaffold>
       <Typography variant="h5" fontWeight={700} gutterBottom>
         Minha conta
       </Typography>
-      <Paper variant="outlined" sx={{ p: 3, borderRadius: 2, mt: 2 }}>
+      <Paper variant="outlined" sx={{ p: 3, borderRadius: 2, mt: 2, maxWidth: 560 }}>
         <Typography variant="subtitle2" color="text.secondary">
           Nome
         </Typography>
@@ -42,6 +43,6 @@ export default function AccountPage() {
           Sair da conta
         </Button>
       </Paper>
-    </Container>
+    </PageScaffold>
   )
 }

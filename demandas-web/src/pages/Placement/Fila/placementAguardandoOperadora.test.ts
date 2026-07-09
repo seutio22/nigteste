@@ -2,9 +2,12 @@ import { describe, expect, it } from 'vitest'
 import type { CotacaoFormState } from './CotacaoFormFields'
 import {
   aguardandoOperadoraIsComplete,
+  classificacaoPermitePropostaValores,
   ensureAguardandoOperadoraState,
   parseAguardandoOperadoraFromKickOff,
 } from './placementAguardandoOperadora'
+import { buildMercadoQuadroBuckets } from './placementMercadoQuadro'
+import { computePropostaComparativoResumo } from './placementPropostaComparativo'
 import { emptyKickOffEstrategia } from './placementKickOffEstrategia'
 
 const operadoras = [{ id: 'op1', nome: 'KOVR SEGURADORA' }]
@@ -70,6 +73,7 @@ function baseForm(): CotacaoFormState {
     multaRescisaoRegra: '',
     multaRescisaoAvisoPrevio: '',
     possuiConvencaoColetiva: '',
+    convencaoColetivaDetalhe: '',
     subfaturasDraft: [],
     kickOffEstrategia: {
       ...emptyKickOffEstrategia(),
@@ -115,6 +119,9 @@ describe('placementAguardandoOperadora', () => {
     const state = ensureAguardandoOperadoraState(null, form, operadoras)
     expect(state.fornecedores['kovr seguradora'].comissaoAgenciamento).toBe('10')
     expect(state.fornecedores['kovr seguradora'].comissaoVitalicio).toBe('5')
+    expect(state.fornecedores['kovr seguradora'].grupoProducao).toBe('Produção SP')
+    expect(state.fornecedores['kovr seguradora'].classificacaoMercado).toBe('mercado_consultado')
+    expect(state.propostas['kovr seguradora'].planos.length).toBeGreaterThan(0)
   })
 
   it('migra retorno efetivo legado do comunicar mercado', () => {
@@ -135,14 +142,137 @@ describe('placementAguardandoOperadora', () => {
           'kovr seguradora': {
             dataRetornoEfetiva: '2026-04-20',
             retornoRecebido: true,
+            grupoProducao: 'Produção SP',
             comissaoAgenciamento: '10',
             comissaoVitalicio: '5',
+            classificacaoMercado: 'mercado_consultado',
             observacoes: '',
           },
+        },
+        quadroMercado: {
+          showFornecedorAtual: true,
+          showMercadoConsultado: true,
+          showForaPerfilDeclinado: true,
+          showNaoApresentada: true,
+        },
+        propostas: {},
+        comparativoConfig: {
+          modoSlide: 'faixa_etaria',
+          colunasPorSlide: 5,
+          incluirColunaAtual: true,
+          notasRodape: '',
         },
       },
     }
     expect(aguardandoOperadoraIsComplete(form, operadoras)).toBe(true)
     expect(parseAguardandoOperadoraFromKickOff(form.kickOffEstrategia)?.fornecedores['kovr seguradora'].retornoRecebido).toBe(true)
+  })
+
+  it('classifica fornecedores nos quadros do slide mercado', () => {
+    const form = baseForm()
+    const state = ensureAguardandoOperadoraState(null, form, operadoras)
+    state.fornecedores['kovr seguradora'].classificacaoMercado = 'fora_perfil_declinado'
+    const buckets = buildMercadoQuadroBuckets(form, state, operadoras)
+    expect(buckets.foraPerfilDeclinado).toContain('KOVR SEGURADORA')
+    expect(buckets.mercadoConsultado).not.toContain('KOVR SEGURADORA')
+  })
+
+  it('monta comparativo de propostas a partir dos planos cadastrados', () => {
+    const form = baseForm()
+    form.kickOffEstrategia = {
+      ...form.kickOffEstrategia!,
+      aguardandoOperadora: {
+        fornecedores: {},
+        quadroMercado: {
+          showFornecedorAtual: true,
+          showMercadoConsultado: true,
+          showForaPerfilDeclinado: true,
+          showNaoApresentada: true,
+        },
+        propostas: {
+          'kovr seguradora': {
+            incluirNoComparativo: true,
+            planos: [
+              {
+                id: 'p1',
+                nomePlano: 'Essencial',
+                tipoCusto: 'per_capita',
+                numeroVidas: '120',
+                custoPerCapitaBRL: '450,00',
+                vidasFaixa: {},
+                custosFaixa: {},
+                reembolsoConsulta: 'R$ 90,00',
+                acomodacao: 'Enfermaria',
+                eventosReembolsaveis: 'PS',
+                abrangencia: 'Nacional',
+                contribuicao: '30%',
+                coparticipacao: 'Sim',
+              },
+            ],
+          },
+        },
+      },
+    }
+    const resumo = computePropostaComparativoResumo(form, operadoras)
+    expect(resumo.allColunas.length).toBe(1)
+    expect(resumo.allColunas[0].operadora).toBe('KOVR SEGURADORA')
+    expect(resumo.allColunas[0].planoLabel).toBe('Essencial')
+    expect(resumo.totalVidas).toBe(120)
+  })
+
+  it('declinado e nao apresentada nao entram no comparativo', () => {
+    expect(classificacaoPermitePropostaValores('mercado_consultado')).toBe(true)
+    expect(classificacaoPermitePropostaValores('fora_perfil_declinado')).toBe(false)
+    expect(classificacaoPermitePropostaValores('nao_apresentada')).toBe(false)
+
+    const form = baseForm()
+    form.kickOffEstrategia = {
+      ...form.kickOffEstrategia!,
+      aguardandoOperadora: {
+        fornecedores: {
+          'kovr seguradora': {
+            dataRetornoEfetiva: '',
+            retornoRecebido: false,
+            grupoProducao: '',
+            comissaoAgenciamento: '',
+            comissaoVitalicio: '',
+            classificacaoMercado: 'nao_apresentada',
+            observacoes: '',
+          },
+        },
+        quadroMercado: {
+          showFornecedorAtual: true,
+          showMercadoConsultado: true,
+          showForaPerfilDeclinado: true,
+          showNaoApresentada: true,
+        },
+        propostas: {
+          'kovr seguradora': {
+            incluirNoComparativo: true,
+            cenarios: [],
+            planos: [
+              {
+                id: 'p1',
+                planoReferenciaId: '',
+                nomePlano: 'Essencial',
+                tipoCusto: 'per_capita',
+                numeroVidas: '120',
+                custoPerCapitaBRL: '500,00',
+                vidasFaixa: {},
+                custosFaixa: {},
+                reembolsoConsulta: '',
+                acomodacao: '',
+                eventosReembolsaveis: '',
+                abrangencia: '',
+                contribuicao: '',
+                coparticipacao: '',
+              },
+            ],
+          },
+        },
+      },
+    }
+    const resumo = computePropostaComparativoResumo(form, operadoras)
+    expect(resumo.allColunas.length).toBe(0)
   })
 })

@@ -23,6 +23,7 @@ import {
 } from './placementBeneficiariosLocalidade'
 import { BrazilDistributionViz } from './BrazilDistributionViz'
 import { SLIDE_COLORS, SLIDE_FONT } from './placementSlideTheme'
+import type { PlacementPresentationMode } from './placementAnaliseBase'
 
 const SLIDE_W = 1280
 const SLIDE_H = 720
@@ -42,6 +43,7 @@ const RANK_COLORS = ['#E87B35', '#009FDF', '#5B4FCF', '#3DAA86', '#6b7a80']
 type Props = {
   cotacaoId: string
   disabled?: boolean
+  presentationMode?: PlacementPresentationMode
 }
 
 function IconSquare({ children, bgcolor }: { children: React.ReactNode; bgcolor: string }) {
@@ -254,9 +256,17 @@ function MunicipioRankCard({
   )
 }
 
-function MunicipioRankingPanel({ resumo }: { resumo: LocalidadeResumoApresentacao }) {
+function MunicipioRankingPanel({
+  resumo,
+  presentationMode = 'slide',
+}: {
+  resumo: LocalidadeResumoApresentacao
+  presentationMode?: PlacementPresentationMode
+}) {
+  const isPage = presentationMode === 'page'
   const maxPct = Math.max(...resumo.topMunicipios.map((m) => m.percentual), 1)
   const topUf = resumo.porUf[0]
+  const municipios = isPage ? resumo.topMunicipios.slice(0, 10) : resumo.topMunicipios.slice(0, 8)
 
   return (
     <Paper
@@ -305,7 +315,7 @@ function MunicipioRankingPanel({ resumo }: { resumo: LocalidadeResumoApresentaca
           gap: 0.65,
         }}
       >
-        {resumo.topMunicipios.slice(0, 8).map((row) => (
+        {municipios.map((row) => (
           <MunicipioRankCard key={`${row.uf}-${row.municipio}`} row={row} maxPct={maxPct} />
         ))}
         <MunicipioRankCard
@@ -338,24 +348,33 @@ function MunicipioRankingPanel({ resumo }: { resumo: LocalidadeResumoApresentaca
   )
 }
 
-export function LocalidadeSlide({ resumo }: { resumo: LocalidadeResumoApresentacao }) {
+export function LocalidadeSlide({
+  resumo,
+  presentationMode = 'slide',
+}: {
+  resumo: LocalidadeResumoApresentacao
+  presentationMode?: PlacementPresentationMode
+}) {
+  const isPage = presentationMode === 'page'
   const topMun = resumo.topMunicipios[0]
   const topUf = resumo.porUf[0]
   const ufsAtivos = resumo.porUf.filter((u) => u.vidas > 0).length
 
   return (
     <Box
-      data-slide-inner
+      data-slide-inner={isPage ? undefined : true}
       sx={{
         fontFamily: FONT,
         width: '100%',
-        maxWidth: SLIDE_W,
-        height: SLIDE_H,
-        maxHeight: SLIDE_H,
-        mx: 'auto',
-        overflow: 'hidden',
+        maxWidth: isPage ? 'none' : SLIDE_W,
+        height: isPage ? 'auto' : SLIDE_H,
+        maxHeight: isPage ? 'none' : SLIDE_H,
+        minHeight: isPage ? 520 : undefined,
+        mx: isPage ? 0 : 'auto',
+        overflow: isPage ? 'visible' : 'hidden',
         borderRadius: 2,
-        boxShadow: '0 12px 36px rgba(0,37,97,0.14)',
+        boxShadow: isPage ? 'none' : '0 12px 36px rgba(0,37,97,0.14)',
+        border: isPage ? `1px solid ${BORDER}` : 'none',
         display: 'flex',
         flexDirection: 'column',
         bgcolor: WHITE,
@@ -399,8 +418,17 @@ export function LocalidadeSlide({ resumo }: { resumo: LocalidadeResumoApresentac
         </Box>
       </Box>
 
-      <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', p: 1.5, gap: 1.25 }}>
-        <Box sx={{ display: 'flex', gap: 1, flexShrink: 0 }}>
+      <Box
+        sx={{
+          flex: isPage ? 'none' : 1,
+          minHeight: isPage ? undefined : 0,
+          display: 'flex',
+          flexDirection: 'column',
+          p: isPage ? { xs: 2, md: 2.5 } : 1.5,
+          gap: isPage ? 2 : 1.25,
+        }}
+      >
+        <Box sx={{ display: 'flex', gap: 1, flexShrink: 0, flexWrap: isPage ? 'wrap' : 'nowrap' }}>
           <MetricCard
             icon={<GroupsIcon />}
             label="Beneficiários"
@@ -430,11 +458,19 @@ export function LocalidadeSlide({ resumo }: { resumo: LocalidadeResumoApresentac
           />
         </Box>
 
-        <Box sx={{ flex: 1, minHeight: 0, display: 'flex', gap: 1.25 }}>
-          <Box sx={{ width: '38%', minWidth: 0, minHeight: 0 }}>
-            <MunicipioRankingPanel resumo={resumo} />
+        <Box
+          sx={{
+            flex: isPage ? 'none' : 1,
+            minHeight: isPage ? 440 : 0,
+            display: 'flex',
+            gap: isPage ? 2 : 1.25,
+            flexDirection: isPage ? { xs: 'column', md: 'row' } : 'row',
+          }}
+        >
+          <Box sx={{ width: isPage ? { xs: '100%', md: '36%' } : '38%', minWidth: 0, minHeight: isPage ? 360 : 0 }}>
+            <MunicipioRankingPanel resumo={resumo} presentationMode={presentationMode} />
           </Box>
-          <Box sx={{ flex: 1, minWidth: 0, minHeight: 0 }}>
+          <Box sx={{ flex: 1, minWidth: 0, minHeight: isPage ? 400 : 0 }}>
             <BrazilDistributionViz
               porUf={resumo.porUf}
               maxVidas={resumo.maxUfVidas}
@@ -449,7 +485,11 @@ export function LocalidadeSlide({ resumo }: { resumo: LocalidadeResumoApresentac
   )
 }
 
-export function BeneficiariosLocalidadeDashboard({ cotacaoId, disabled }: Props) {
+export function BeneficiariosLocalidadeDashboard({
+  cotacaoId,
+  disabled,
+  presentationMode = 'slide',
+}: Props) {
   const exportRef = useRef<HTMLDivElement>(null)
   const [loading, setLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
@@ -537,6 +577,8 @@ export function BeneficiariosLocalidadeDashboard({ cotacaoId, disabled }: Props)
     }
   }
 
+  const isPage = presentationMode === 'page'
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
@@ -551,33 +593,35 @@ export function BeneficiariosLocalidadeDashboard({ cotacaoId, disabled }: Props)
 
   return (
     <Box sx={{ fontFamily: FONT }}>
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          mb: 2,
-          flexWrap: 'wrap',
-          gap: 1,
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <SlideshowIcon sx={{ color: INFO, fontSize: 20 }} />
-          <Typography variant="body2" color="text.secondary">
-            Slide 16:9 · mapa dinâmico, ranking de municípios e métricas geográficas.
-          </Typography>
-        </Box>
-        <Button
-          size="small"
-          variant="contained"
-          startIcon={exporting ? <CircularProgress size={16} color="inherit" /> : <DownloadIcon />}
-          disabled={disabled || exporting || !slideReady}
-          onClick={() => void handleExportPng()}
-          sx={{ bgcolor: INFO, fontFamily: FONT, '&:hover': { bgcolor: PRIMARY } }}
+      {!isPage && (
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            mb: 2,
+            flexWrap: 'wrap',
+            gap: 1,
+          }}
         >
-          {exporting ? 'Gerando slide…' : slideReady ? 'Baixar slide (PNG)' : 'Preparando…'}
-        </Button>
-      </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <SlideshowIcon sx={{ color: INFO, fontSize: 20 }} />
+            <Typography variant="body2" color="text.secondary">
+              Slide 16:9 · mapa dinâmico, ranking de municípios e métricas geográficas.
+            </Typography>
+          </Box>
+          <Button
+            size="small"
+            variant="contained"
+            startIcon={exporting ? <CircularProgress size={16} color="inherit" /> : <DownloadIcon />}
+            disabled={disabled || exporting || !slideReady}
+            onClick={() => void handleExportPng()}
+            sx={{ bgcolor: INFO, fontFamily: FONT, '&:hover': { bgcolor: PRIMARY } }}
+          >
+            {exporting ? 'Gerando slide…' : slideReady ? 'Baixar slide (PNG)' : 'Preparando…'}
+          </Button>
+        </Box>
+      )}
 
       {errorMsg && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setErrorMsg(null)}>
@@ -585,9 +629,9 @@ export function BeneficiariosLocalidadeDashboard({ cotacaoId, disabled }: Props)
         </Alert>
       )}
 
-      <Box sx={{ overflowX: 'auto', display: 'flex', justifyContent: 'center' }}>
-        <Box ref={exportRef} data-export-root sx={{ width: '100%', maxWidth: SLIDE_W, flexShrink: 0 }}>
-          <LocalidadeSlide resumo={resumo} />
+      <Box sx={{ overflowX: isPage ? 'visible' : 'auto', display: 'flex', justifyContent: isPage ? 'stretch' : 'center' }}>
+        <Box ref={exportRef} data-export-root sx={{ width: '100%', maxWidth: isPage ? 'none' : SLIDE_W, flexShrink: 0 }}>
+          <LocalidadeSlide resumo={resumo} presentationMode={presentationMode} />
         </Box>
       </Box>
     </Box>

@@ -27,6 +27,7 @@ interface Props {
   /** Quando 'saude', exibe Categoria (catálogo Planos) em vez de Produto. */
   formularioTipo?: string
   disabled?: boolean
+  operadorasLoading?: boolean
 }
 
 export function MapeamentoItensSection({
@@ -37,6 +38,7 @@ export function MapeamentoItensSection({
   planosCatalogo = [],
   formularioTipo,
   disabled,
+  operadorasLoading,
 }: Props) {
   const usaCategoria = formularioTipo === 'saude'
 
@@ -55,20 +57,12 @@ export function MapeamentoItensSection({
 
   return (
     <Stack gap={2}>
-      <Typography variant="body2" color="text.secondary">
-        {usaCategoria ? (
-          <>
-            Cada linha associa uma <strong>categoria</strong> ao <strong>fornecedor atual</strong>{' '}
-            (operadora). Selecione o fornecedor primeiro; as categorias vêm de Dados → Placement →
-            Planos.
-          </>
-        ) : (
-          <>
-            Cada linha associa um <strong>produto</strong> ao <strong>fornecedor atual</strong>{' '}
-            (operadora). Com dois ou mais produtos na cotação, informe o fornecedor de cada um.
-          </>
-        )}
-      </Typography>
+      {!usaCategoria && (
+        <Typography variant="body2" color="text.secondary">
+          Cada linha associa um <strong>produto</strong> ao <strong>fornecedor atual</strong>{' '}
+          (operadora). Com dois ou mais produtos na cotação, informe o fornecedor de cada um.
+        </Typography>
+      )}
 
       {itens.map((item, idx) => {
         const produtoSel = produtos.find((p) => p.id === item.produtoId) ?? null
@@ -80,6 +74,7 @@ export function MapeamentoItensSection({
             <Grid item xs={12} md={5}>
               <Autocomplete
                 options={operadoras}
+                loading={operadorasLoading}
                 getOptionLabel={(o) => o.nome}
                 value={fornSel}
                 disabled={disabled}
@@ -90,6 +85,13 @@ export function MapeamentoItensSection({
                   })
                 }
                 isOptionEqualToValue={(a, b) => a.id === b.id}
+                noOptionsText={
+                  operadorasLoading
+                    ? 'Carregando operadoras…'
+                    : operadoras.length
+                      ? 'Nenhuma operadora encontrada'
+                      : 'Nenhuma operadora cadastrada. Cadastre em Dados → NIG → Operadoras.'
+                }
                 renderInput={(params) => (
                   <TextField
                     {...params}
