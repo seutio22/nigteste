@@ -53,6 +53,65 @@ function tituloColuna(col: ContratoPlanoColuna): string {
   return `${col.operadora} · ${col.planoLabel}`
 }
 
+/** Variação global: coluna ATUAL agregada como referência para todas as operadoras de mercado. */
+export function enrichColunasOperadoraGlobal(colunas: ContratoPlanoColuna[]): ContratoPlanoColuna[] {
+  const ref = colunas.find((c) => c.grupo === 'atual')
+  if (!ref) return enrichColunasComVariacao(colunas)
+
+  const refTitulo = tituloColuna(ref)
+  const refCents = faturaCents(ref)
+
+  return colunas.map((col) => {
+    if (col.grupo === 'atual') {
+      return {
+        ...col,
+        variacao: {
+          isReferencia: true,
+          referenciaTitulo: refTitulo,
+          referenciaFatura: col.faturaEstimada,
+          comparacaoResumo: null,
+          variacaoPct: null,
+          variacaoPctValue: null,
+          impactoMensal: null,
+          impactoAnual: null,
+          economia: false,
+          neutro: true,
+        } satisfies ColunaVariacaoComparativo,
+      }
+    }
+
+    const colCents = faturaCents(col)
+    if (refCents == null || colCents == null) {
+      return {
+        ...col,
+        variacao: {
+          isReferencia: false,
+          referenciaTitulo: refTitulo,
+          referenciaFatura: ref.faturaEstimada,
+          comparacaoResumo: `vs ${refTitulo}`,
+          variacaoPct: null,
+          variacaoPctValue: null,
+          impactoMensal: null,
+          impactoAnual: null,
+          economia: false,
+          neutro: true,
+        },
+      }
+    }
+
+    return {
+      ...col,
+      variacao: {
+        isReferencia: false,
+        referenciaTitulo: refTitulo,
+        referenciaFatura: ref.faturaEstimada,
+        comparacaoResumo: `Fatura mensal vs ${refTitulo} (${ref.faturaEstimada})`,
+        ...computeVariacao(refCents, colCents),
+      },
+    }
+  })
+}
+
 /** Referência = 1ª coluna ATUAL do mesmo plano; senão 1ª coluna do grupo. */
 export function enrichColunasComVariacao(colunas: ContratoPlanoColuna[]): ContratoPlanoColuna[] {
   const groups = new Map<string, ContratoPlanoColuna[]>()

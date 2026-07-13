@@ -9,6 +9,9 @@ import {
   buildComparativoUnificadoPages,
   computeComparativoEstudo,
   gruposColunasFaixa,
+  aggregateColunasPorOperadora,
+  buildComparativoOperadoraConsolidadoPage,
+  type ComparativoColunaEstudo,
 } from './placementComparativoEstudo'
 import { computeComparativoPlanosResumo } from './placementPropostaComparativo'
 import { parseBRLToCents } from './utils'
@@ -208,5 +211,51 @@ describe('placementComparativoEstudo', () => {
     const pages = buildComparativoConsolidadoPages(estudo.colunas, 3)
     const mensal = pages[0].linhas.find((l) => l.id === 'mensal')
     expect(parseBRLToCents(mensal?.valores[0] ?? '')).toBe(475000)
+  })
+})
+
+describe('aggregateColunasPorOperadora', () => {
+  const baseCol = (overrides: Partial<ComparativoColunaEstudo>): ComparativoColunaEstudo => ({
+    id: 'c1',
+    grupo: 'mercado',
+    operadora: 'SULAMERICA',
+    planoLabel: 'Plano A',
+    subtitulo: '',
+    reembolsoConsulta: '—',
+    acomodacao: '—',
+    eventosReembolsaveis: '—',
+    abrangencia: '—',
+    coparticipacao: '—',
+    tipoCusto: 'per_capita',
+    vidas: 10,
+    totalMensalCents: 100000,
+    totalAnualCents: 1200000,
+    faixas: [],
+    tabColor: '#000',
+    planoReferenciaId: 'ref-1',
+    planoReferenciaLabel: 'Ref 1',
+    ...overrides,
+  })
+
+  it('soma vidas e custos de colunas da mesma operadora', () => {
+    const agg = aggregateColunasPorOperadora([
+      baseCol({ id: 'c1', planoReferenciaId: 'ref-1', totalMensalCents: 100000, vidas: 10 }),
+      baseCol({ id: 'c2', planoReferenciaId: 'ref-2', totalMensalCents: 250000, vidas: 5 }),
+    ])
+    expect(agg).toHaveLength(1)
+    expect(agg[0].vidas).toBe(15)
+    expect(agg[0].totalMensalCents).toBe(350000)
+  })
+
+  it('mantém colunas separadas para atual e mercado', () => {
+    const agg = aggregateColunasPorOperadora([
+      baseCol({ id: 'atual', grupo: 'atual', operadora: 'ATUAL OP', totalMensalCents: 500000 }),
+      baseCol({ id: 'm1', grupo: 'mercado', operadora: 'SULAMERICA', totalMensalCents: 400000 }),
+    ])
+    expect(agg).toHaveLength(2)
+    const page = buildComparativoOperadoraConsolidadoPage(agg)
+    expect(page?.colunas).toHaveLength(2)
+    const mensal = page?.linhas.find((l) => l.id === 'mensal')
+    expect(mensal?.valores).toHaveLength(2)
   })
 })

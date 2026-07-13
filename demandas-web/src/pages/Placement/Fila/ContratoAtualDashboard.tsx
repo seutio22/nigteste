@@ -38,6 +38,8 @@ import {
   buildFaixaMatrixForPage,
   buildContratoAtualPages,
   computeContratoAtualResumo,
+  contratoPageFromColunas,
+  custoMedioColuna,
   type ContratoAtualPagina,
   type ContratoAtualResumo,
   type ContratoPlanoColuna,
@@ -64,9 +66,14 @@ import type { ComparativoLinhaChave } from './placementComparativoVisibilidade'
 import { linhasOcultasSet } from './placementComparativoVisibilidade'
 import {
   buildConsolidadoForContratoPage,
+  buildComparativoOperadoraConsolidadoPage,
+  aggregateContratoColunasPorOperadora,
+  buildOperadoraSlotsFromColunas,
+  alignPageToOperadoraSlots,
   type ComparativoColunaEstudo,
   type ComparativoConsolidadoLinha,
 } from './placementComparativoEstudo'
+import { enrichColunasOperadoraGlobal } from './placementComparativoVariacao'
 
 const SLIDE_W = CONTRATO_SLIDE_W
 const SLIDE_H = CONTRATO_SLIDE_H
@@ -134,6 +141,8 @@ type Props = {
   notasConsolidado?: string
   /** consolidado_financeiro: só cabeçalho das colunas + fatura + consolidado (padrão). plano_completo: grid detalhado. */
   exibicaoComparativo?: ComparativoExibicao
+  /** Em visão expandida, exibe o cabeçalho gradiente apenas no primeiro bloco. */
+  showHeaderOnce?: boolean
 }
 
 type GridSpec = {
@@ -1122,6 +1131,10 @@ function ComparativoGrid({
   colunasEstudo,
   notasConsolidado,
   exibicaoComparativo = 'plano_completo',
+  embeddedInStack = false,
+  omitFinanceiro = false,
+  sectionLabel,
+  stackPosition = 'only',
 }: {
   page: ContratoAtualPagina
   logoUrls: Map<string, string>
@@ -1132,6 +1145,11 @@ function ComparativoGrid({
   colunasEstudo?: ComparativoColunaEstudo[]
   notasConsolidado?: string
   exibicaoComparativo?: ComparativoExibicao
+  /** Seção empilhada no mesmo quadro — sem Paper próprio. */
+  embeddedInStack?: boolean
+  omitFinanceiro?: boolean
+  sectionLabel?: string
+  stackPosition?: 'first' | 'middle' | 'last' | 'only'
 }) {
   const ocultas = linhasOcultas ?? new Set<ComparativoLinhaChave>()
   const cols = page.colunas
@@ -1187,11 +1205,12 @@ function ComparativoGrid({
   }
 
   const specBase = gridSpec(page)
+  const ocultarFaixas = ocultas.has('faixas_etarias')
   const spec = {
     ...specBase,
     showContrib: specBase.showContrib && !ocultas.has('contribuicao'),
     showCopart: specBase.showCopart && !ocultas.has('coparticipacao'),
-    useFaixa: specBase.useFaixa && !ocultas.has('faixas_etarias'),
+    useFaixa: specBase.useFaixa && !ocultarFaixas,
     metaLine: (() => {
       const parts: string[] = []
       if (page.contribuicaoUnica && !ocultas.has('contribuicao')) parts.push(page.contribuicaoUnica)
@@ -1199,6 +1218,8 @@ function ComparativoGrid({
       return parts.length ? parts.join('  ·  ') : null
     })(),
   }
+  const exibirCustoMedio = !spec.useFaixa && specBase.useFaixa
+  const premioRowLabel = exibirCustoMedio ? 'Custo médio' : 'Prêmio per capita'
   const matrix = buildFaixaMatrixForPage(page)
   const visibleCols = cols.length
   const showElegibilidade = !modoComparativoPropostas
@@ -1211,7 +1232,7 @@ function ComparativoGrid({
   const tabRowH = layout.tabH + layout.logoWellH
   const heightSpec = {
     useFaixa: spec.useFaixa,
-    faixaRowCount: spec.faixaRowCount,
+    faixaRowCount: spec.useFaixa ? spec.faixaRowCount : 0,
     showContrib: spec.showContrib,
     showCopart: spec.showCopart,
     hasPerCapita: spec.useFaixa && spec.hasPerCapita,
@@ -1249,6 +1270,9 @@ function ComparativoGrid({
     : `${layout.legendW}px repeat(${visibleCols}, minmax(0, 1fr))`
   const gridMinWidth = unrestrictedLayout ? layout.legendW + visibleCols * minColW : undefined
 
+  const stackTopOpen = embeddedInStack && (stackPosition === 'middle' || stackPosition === 'last')
+  const stackGridRadius = embeddedInStack ? 0 : modoComparativoPropostas ? '8px 8px 0 0' : 2
+
   let row = 1
   const tabRow = row++
   const elegRow = showElegibilidade ? row++ : 0
@@ -1277,23 +1301,46 @@ function ComparativoGrid({
     if (faturaNoGrid) rowHeights.push(`${ROW_FATURA}px`)
   }
 
-  return (
-    <Paper
-      elevation={0}
-      sx={{
-        flexShrink: 0,
-        width: '100%',
-        bgcolor: WHITE,
-        borderRadius: 3,
-        p: 1.25,
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'flex-start',
-        overflow: 'visible',
-        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.9), 0 4px 24px rgba(0,37,97,0.06)',
-      }}
-    >
-      {spec.metaLine && (
+  const financeiroBloco =
+    !omitFinanceiro &&
+    modoComparativoPropostas &&
+    (() => {
+      const consolidado = colunasEstudo?.length
+        ? buildConsolidadoForContratoPage(
+            colunasEstudo,
+            page.colunas.map((c) => c.id)
+          )
+        : null
+      const mostrarVariacao =
+        !ocultas.has('variacao_financeira') && page.colunas.some((c) => c.variacao)
+      const mostrarConsolidado = !!consolidado?.linhas.length
+
+      return (
+        <>
+          {mostrarVariacao && (
+            <VariacaoComparativoPanel
+              page={page}
+              layout={layout}
+              anexarConsolidado={mostrarConsolidado}
+            />
+          )}
+          {mostrarConsolidado && consolidado && (
+            <ConsolidadoFinanceiroIntegradoPanel
+              page={page}
+              layout={layout}
+              linhas={consolidado.linhas}
+              linhasOcultas={ocultas}
+              notas={notasConsolidado}
+              anexadoAoGrid={!mostrarVariacao}
+            />
+          )}
+        </>
+      )
+    })()
+
+  const gridBody = (
+    <>
+      {spec.metaLine && !embeddedInStack && (
         <Box
           sx={{
             mb: 1,
@@ -1312,6 +1359,35 @@ function ComparativoGrid({
           <Typography sx={{ fontFamily: FONT, fontSize: typo.metaLine, fontWeight: 600, color: INFO }}>
             {spec.metaLine}
           </Typography>
+        </Box>
+      )}
+
+      {sectionLabel && (
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: gridCols,
+            minWidth: gridMinWidth,
+            width: '100%',
+            borderLeft: `1px solid ${BORDER}`,
+            borderRight: `1px solid ${BORDER}`,
+            borderTop: stackTopOpen ? 'none' : undefined,
+          }}
+        >
+          <Box
+            sx={{
+              gridColumn: '1 / -1',
+              px: 1.25,
+              py: 0.6,
+              bgcolor: `${PRIMARY}08`,
+              borderBottom: `1px solid ${BORDER}`,
+              borderTop: stackTopOpen ? `1px solid ${BORDER}` : undefined,
+            }}
+          >
+            <Typography sx={{ fontFamily: FONT, fontSize: 11, fontWeight: 800, color: PRIMARY }}>
+              {sectionLabel}
+            </Typography>
+          </Box>
         </Box>
       )}
 
@@ -1338,7 +1414,8 @@ function ComparativoGrid({
             columnGap: 0,
             bgcolor: SURFACE,
             border: `1px solid ${BORDER}`,
-            borderRadius: modoComparativoPropostas ? '8px 8px 0 0' : 2,
+            borderTop: stackTopOpen ? 'none' : `1px solid ${BORDER}`,
+            borderRadius: stackGridRadius,
             transform: effectiveGridScale < 1 ? `scale(${effectiveGridScale})` : undefined,
             transformOrigin: 'top left',
             boxSizing: 'border-box',
@@ -1475,7 +1552,8 @@ function ComparativoGrid({
         )}
 
         {/* Linhas de faixa — mesma linha entre planos */}
-        {matrix?.rows.map((fxRow, idx) => {
+        {spec.useFaixa &&
+          matrix?.rows.map((fxRow, idx) => {
           const gridRow = faixaStartRow + idx
           return (
             <React.Fragment key={fxRow.key}>
@@ -1506,17 +1584,17 @@ function ComparativoGrid({
           )
         })}
 
-        {/* Per capita clássico (sem faixa) */}
+        {/* Per capita / custo médio (quando faixas etárias estão ocultas) */}
         {!spec.useFaixa && (
           <>
             <Box sx={{ gridColumn: 1, gridRow: premioRow, display: 'flex', alignSelf: 'stretch' }}>
-              <LegendCell icon={<MonetizationOnIcon />} label="Prêmio per capita" accent={INFO} typo={typo} />
+              <LegendCell icon={<MonetizationOnIcon />} label={premioRowLabel} accent={INFO} typo={typo} />
             </Box>
             {cols.map((col, i) => (
               <Box key={`pr-${col.id}`} sx={{ gridColumn: i + 2, gridRow: premioRow, minWidth: 0 }}>
                 <DataCell h={40} compact={cellCompact}>
                   <Typography sx={{ fontFamily: FONT, fontSize: typo.premio, fontWeight: 800, color: INFO }}>
-                    {col.premioPerCapita ?? '—'}
+                    {custoMedioColuna(col) ?? '—'}
                   </Typography>
                 </DataCell>
               </Box>
@@ -1538,40 +1616,131 @@ function ComparativoGrid({
         </Box>
       </Box>
 
-      {!modoComparativoPropostas && <TotalConsolidadoBar page={page} layout={layout} />}
-      {modoComparativoPropostas && (() => {
-        const consolidado = colunasEstudo?.length
-          ? buildConsolidadoForContratoPage(
-              colunasEstudo,
-              page.colunas.map((c) => c.id)
-            )
-          : null
-        const mostrarVariacao =
-          !ocultas.has('variacao_financeira') && page.colunas.some((c) => c.variacao)
-        const mostrarConsolidado = !!consolidado?.linhas.length
+      {!modoComparativoPropostas && !embeddedInStack && <TotalConsolidadoBar page={page} layout={layout} />}
+      {!embeddedInStack && financeiroBloco}
+    </>
+  )
+
+  if (embeddedInStack) return gridBody
+
+  return (
+    <Paper
+      elevation={0}
+      sx={{
+        flexShrink: 0,
+        width: '100%',
+        bgcolor: WHITE,
+        borderRadius: 3,
+        p: 1.25,
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'flex-start',
+        overflow: 'visible',
+        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.9), 0 4px 24px rgba(0,37,97,0.06)',
+      }}
+    >
+      {gridBody}
+    </Paper>
+  )
+}
+
+export function ComparativoPlanosEmpilhadosUnificado({
+  resumo,
+  colunasEstudo,
+  logoUrls,
+  layout,
+  linhasOcultas,
+  notasConsolidado,
+}: {
+  resumo: ContratoAtualResumo
+  colunasEstudo: ComparativoColunaEstudo[]
+  logoUrls: Map<string, string>
+  layout: ContratoAtualLayoutSpec
+  linhasOcultas?: ComparativoLinhaChave[]
+  notasConsolidado?: string
+}) {
+  const ocultas = useMemo(() => linhasOcultasSet(linhasOcultas), [linhasOcultas])
+
+  const slots = useMemo(
+    () => buildOperadoraSlotsFromColunas(resumo.allColunas),
+    [resumo.allColunas]
+  )
+
+  const alignedPages = useMemo(
+    () => resumo.pages.map((p) => alignPageToOperadoraSlots(p, slots)),
+    [resumo.pages, slots]
+  )
+
+  const financeiroPage = useMemo(() => {
+    const aggCols = enrichColunasOperadoraGlobal(
+      aggregateContratoColunasPorOperadora(resumo.allColunas)
+    )
+    return contratoPageFromColunas(aggCols, 0, 1, 'Total por operadora')
+  }, [resumo.allColunas])
+
+  const consolidadoOperadora = useMemo(
+    () => buildComparativoOperadoraConsolidadoPage(colunasEstudo),
+    [colunasEstudo]
+  )
+
+  const mostrarVariacao =
+    !ocultas.has('variacao_financeira') && financeiroPage.colunas.some((c) => c.variacao)
+  const mostrarConsolidado = !!consolidadoOperadora?.linhas.length
+  const totalSecoes = alignedPages.length
+
+  return (
+    <Paper
+      elevation={0}
+      sx={{
+        flexShrink: 0,
+        width: '100%',
+        bgcolor: WHITE,
+        borderRadius: 3,
+        p: 1.25,
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'visible',
+        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.9), 0 4px 24px rgba(0,37,97,0.06)',
+      }}
+    >
+      {alignedPages.map((page, idx) => {
+        const stackPosition: 'first' | 'middle' | 'last' | 'only' =
+          totalSecoes <= 1 ? 'only' : idx === 0 ? 'first' : idx === totalSecoes - 1 ? 'last' : 'middle'
 
         return (
-          <>
-            {mostrarVariacao && (
-              <VariacaoComparativoPanel
-                page={page}
-                layout={layout}
-                anexarConsolidado={mostrarConsolidado}
-              />
-            )}
-            {mostrarConsolidado && consolidado && (
-              <ConsolidadoFinanceiroIntegradoPanel
-                page={page}
-                layout={layout}
-                linhas={consolidado.linhas}
-                linhasOcultas={ocultas}
-                notas={notasConsolidado}
-                anexadoAoGrid={!mostrarVariacao}
-              />
-            )}
-          </>
+          <ComparativoGrid
+            key={`emp-unif-${idx}-${page.grupoLabel ?? idx}`}
+            page={page}
+            logoUrls={logoUrls}
+            layout={layout}
+            modoComparativoPropostas
+            linhasOcultas={ocultas}
+            unrestrictedLayout
+            colunasEstudo={colunasEstudo}
+            embeddedInStack
+            omitFinanceiro
+            stackPosition={stackPosition}
+          />
         )
-      })()}
+      })}
+
+      {mostrarVariacao && (
+        <VariacaoComparativoPanel
+          page={financeiroPage}
+          layout={layout}
+          anexarConsolidado={mostrarConsolidado}
+        />
+      )}
+      {mostrarConsolidado && consolidadoOperadora && (
+        <ConsolidadoFinanceiroIntegradoPanel
+          page={financeiroPage}
+          layout={layout}
+          linhas={consolidadoOperadora.linhas}
+          linhasOcultas={ocultas}
+          notas={notasConsolidado}
+          anexadoAoGrid={!mostrarVariacao}
+        />
+      )}
     </Paper>
   )
 }
@@ -1589,6 +1758,9 @@ export function ContratoAtualSlide({
   colunasEstudo,
   notasConsolidado,
   exibicaoComparativo = 'plano_completo',
+  hideSlideHeader = false,
+  sectionLabel,
+  hidePageFooter = false,
 }: {
   resumo: ContratoAtualResumo
   pageIndex: number
@@ -1602,6 +1774,11 @@ export function ContratoAtualSlide({
   colunasEstudo?: ComparativoColunaEstudo[]
   notasConsolidado?: string
   exibicaoComparativo?: ComparativoExibicao
+  /** Oculta o cabeçalho gradiente (uso em blocos empilhados). */
+  hideSlideHeader?: boolean
+  /** Rótulo compacto quando o cabeçalho principal fica no topo da página. */
+  sectionLabel?: string
+  hidePageFooter?: boolean
 }) {
   const isPage = presentationMode === 'page'
   const isWorkspace = presentationMode === 'workspace'
@@ -1612,9 +1789,11 @@ export function ContratoAtualSlide({
   if (!page) return null
 
   const subtitleLine =
-    modoComparativoPropostas && page.grupoLabel
+    modoComparativoPropostas && page.grupoLabel && !hideSlideHeader
       ? `${page.grupoLabel} · todos os fornecedores · ${slideSubtitle}`
       : slideSubtitle
+
+  const compactLabel = sectionLabel ?? (hideSlideHeader && page.grupoLabel ? page.grupoLabel : undefined)
 
   return (
     <Box
@@ -1642,42 +1821,58 @@ export function ContratoAtualSlide({
         mb: isWorkspace ? 0 : undefined,
       }}
     >
-      <Box
-        sx={{
-          px: 2.5,
-          py: 1.25,
-          flexShrink: 0,
-          minHeight: 60,
-          maxHeight: 60,
-          background: `linear-gradient(90deg, ${PRIMARY} 0%, ${INFO} 50%, ${SLIDE_COLORS.infoLight} 100%)`,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1.25,
-        }}
-      >
+      {!hideSlideHeader ? (
         <Box
           sx={{
-            width: 40,
-            height: 40,
-            borderRadius: 1.5,
-            bgcolor: 'rgba(255,255,255,0.18)',
+            px: 2.5,
+            py: 1.25,
+            flexShrink: 0,
+            minHeight: 60,
+            maxHeight: 60,
+            background: `linear-gradient(90deg, ${PRIMARY} 0%, ${INFO} 50%, ${SLIDE_COLORS.infoLight} 100%)`,
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
+            gap: 1.25,
           }}
         >
-          <DescriptionIcon sx={{ fontSize: 22, color: WHITE }} />
+          <Box
+            sx={{
+              width: 40,
+              height: 40,
+              borderRadius: 1.5,
+              bgcolor: 'rgba(255,255,255,0.18)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <DescriptionIcon sx={{ fontSize: 22, color: WHITE }} />
+          </Box>
+          <Box>
+            <Typography sx={{ fontFamily: FONT, fontSize: 22, fontWeight: 800, color: WHITE, lineHeight: 1.05 }}>
+              {slideTitle}
+            </Typography>
+            <Typography sx={{ fontFamily: FONT, fontSize: 10, color: 'rgba(255,255,255,0.88)' }}>
+              {subtitleLine}
+            </Typography>
+          </Box>
         </Box>
-        <Box>
-          <Typography sx={{ fontFamily: FONT, fontSize: 22, fontWeight: 800, color: WHITE, lineHeight: 1.05 }}>
-            {slideTitle}
-          </Typography>
-          <Typography sx={{ fontFamily: FONT, fontSize: 10, color: 'rgba(255,255,255,0.88)' }}>
-            {subtitleLine}
+      ) : compactLabel ? (
+        <Box
+          sx={{
+            px: 2,
+            py: 0.75,
+            flexShrink: 0,
+            bgcolor: `${PRIMARY}08`,
+            borderBottom: `1px solid ${BORDER}`,
+          }}
+        >
+          <Typography sx={{ fontFamily: FONT, fontSize: 11, fontWeight: 800, color: PRIMARY }}>
+            {compactLabel}
           </Typography>
         </Box>
-      </Box>
+      ) : null}
 
       <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', px: isWorkspace ? 2 : 1.5, pt: isWorkspace ? 1.5 : 1, pb: isWorkspace ? 1.5 : 0.5, overflow: isExpanded ? 'visible' : 'hidden' }}>
         <ComparativoGrid
@@ -1693,7 +1888,7 @@ export function ContratoAtualSlide({
         />
       </Box>
 
-      {page.totalPages > 1 && (
+      {page.totalPages > 1 && !hidePageFooter && (
         <Box
           sx={{
             flexShrink: 0,
@@ -1730,6 +1925,7 @@ export function ContratoAtualDashboard({
   colunasEstudo,
   notasConsolidado,
   exibicaoComparativo = 'plano_completo',
+  showHeaderOnce = false,
 }: Props) {
   const isPage = presentationMode === 'page'
   const isWorkspace = presentationMode === 'workspace'
@@ -2129,6 +2325,15 @@ export function ContratoAtualDashboard({
                 colunasEstudo={colunasEstudo}
                 notasConsolidado={notasConsolidado}
                 exibicaoComparativo={exibicaoComparativo}
+                hideSlideHeader={showHeaderOnce && idx > 0}
+                hidePageFooter={showHeaderOnce}
+                sectionLabel={
+                  showHeaderOnce && idx > 0
+                    ? pagesExibidas[idx]?.grupoLabel
+                      ? `${pagesExibidas[idx]!.grupoLabel} · todos os fornecedores`
+                      : undefined
+                    : undefined
+                }
               />
             )
           })}

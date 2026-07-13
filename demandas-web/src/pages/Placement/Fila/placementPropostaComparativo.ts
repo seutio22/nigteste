@@ -11,6 +11,7 @@ import {
 } from './placementContratoAtual'
 import {
   FAIXAS_ETARIAS,
+  emptyCustosFaixa,
   subtotalFaixaCents,
   type FaixaEtariaKey,
   type PlanoCoberturaForm,
@@ -53,6 +54,14 @@ export type PropostaColunaEntrada = {
   reajustePercent: string
   planoReferenciaId: string
   plano: PropostaPlanoLinha
+}
+
+/** Oferta de mercado no comparativo exige dados da proposta — não basta vidas/acomodação copiadas da abertura. */
+export function propostaMercadoTemOfertaParaComparativo(plano: PropostaPlanoLinha): boolean {
+  if (plano.nomePlano.trim()) return true
+  if (plano.custoPerCapitaBRL.trim()) return true
+  if (plano.reembolsoConsulta.trim() || plano.coparticipacao.trim()) return true
+  return FAIXAS_ETARIAS.some((fx) => parseBRLToCents(plano.custosFaixa[fx.key] ?? '') != null)
 }
 
 function parseVidasInt(input: string): number {
@@ -138,20 +147,20 @@ function propostaToPlanoCobertura(
   if (tipoCusto === 'per_capita') {
     return {
       ...refPlano,
-      nomePlano: plano.nomePlano.trim() || refPlano.nomePlano,
+      nomePlano: plano.nomePlano.trim() || 'Proposta',
       tipoCusto: 'per_capita',
       numeroVidas: plano.numeroVidas.trim() || refPlano.numeroVidas,
-      custoPerCapitaBRL: plano.custoPerCapitaBRL.trim() || refPlano.custoPerCapitaBRL,
+      custoPerCapitaBRL: plano.custoPerCapitaBRL.trim(),
       acomodacao: plano.acomodacao.trim() || refPlano.acomodacao,
     }
   }
 
   return {
     ...refPlano,
-    nomePlano: plano.nomePlano.trim() || refPlano.nomePlano,
+    nomePlano: plano.nomePlano.trim() || 'Proposta',
     tipoCusto: 'faixa_etaria',
     vidasFaixa: mergeFaixaCampoComFallback(refPlano.vidasFaixa, plano.vidasFaixa),
-    custosFaixa: mergeFaixaCampoComFallback(refPlano.custosFaixa, plano.custosFaixa),
+    custosFaixa: mergeFaixaCampoComFallback(emptyCustosFaixa(), plano.custosFaixa),
     acomodacao: plano.acomodacao.trim() || refPlano.acomodacao,
   }
 }
@@ -168,7 +177,7 @@ function patchColunaLabels(
   if (tituloCenario && entrada.grupo === 'atual') {
     planoLabel = `${refLabel !== '—' ? refLabel : col.planoLabel} · ${tituloCenario}`
   } else if (entrada.grupo === 'mercado') {
-    const nomeOferta = entrada.plano.nomePlano.trim() || col.planoLabel
+    const nomeOferta = entrada.plano.nomePlano.trim() || 'Proposta'
     planoLabel = refLabel !== '—' ? `${nomeOferta} (≈ ${refLabel})` : nomeOferta
   }
 
@@ -201,13 +210,7 @@ function buildColunaMercadoFromAbertura(
   const tipoCusto = resolveTipoCustoEfetivo(entrada.plano, ref)
   const planoAjustado = applyReajusteToPlano({ ...entrada.plano, tipoCusto }, entrada.reajustePercent)
 
-  const hasData =
-    planoAjustado.nomePlano.trim() ||
-    planoAjustado.numeroVidas.trim() ||
-    planoAjustado.custoPerCapitaBRL.trim() ||
-    FAIXAS_ETARIAS.some(
-      (fx) => planoAjustado.vidasFaixa[fx.key]?.trim() || planoAjustado.custosFaixa[fx.key]?.trim()
-    )
+  const hasData = propostaMercadoTemOfertaParaComparativo(planoAjustado)
   if (!hasData) return null
 
   if (refPlano) {

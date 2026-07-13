@@ -15,7 +15,14 @@ import {
   TAB_COLORS,
 } from './placementContratoAtual'
 import { formatCentsToBRL, parseBRLToCents } from './utils'
-import { computeComparativoPlanosResumo, comparativoColunaId, type PropostaColunaEntrada } from './placementPropostaComparativo'
+import {
+  coletarEntradasComparativo,
+  comparativoColunaId,
+  computeComparativoPlanosResumo,
+  ordenarEntradasPorEquivalencia,
+  propostaMercadoTemOfertaParaComparativo,
+  type PropostaColunaEntrada,
+} from './placementPropostaComparativo'
 import {
   ensureAguardandoOperadoraState,
   type ComparativoEstudoConfig,
@@ -25,10 +32,6 @@ import {
 } from './placementAguardandoOperadora'
 import { labelPlanoReferencia, planosReferenciaAbertura, type PlanoReferenciaAbertura } from './placementPropostaEquivalencia'
 import { normMercadoKey } from './placementMercadoQuadro'
-import {
-  coletarEntradasComparativo,
-  ordenarEntradasPorEquivalencia,
-} from './placementPropostaComparativo'
 import type { Operadora } from '../../../types/masterData'
 
 export type ComparativoColunaEstudo = {
@@ -181,12 +184,7 @@ function colunaFromProposta(
   planoReferenciaId?: string,
   referencias?: ReturnType<typeof planosReferenciaAbertura>
 ): ComparativoColunaEstudo | null {
-  if (!plano.nomePlano.trim() && vidasProposta(plano) === 0 && !plano.custoPerCapitaBRL.trim()) {
-    const hasFaixa = FAIXAS_ETARIAS.some(
-      (fx) => plano.vidasFaixa[fx.key]?.trim() || plano.custosFaixa[fx.key]?.trim()
-    )
-    if (!hasFaixa) return null
-  }
+  if (!propostaMercadoTemOfertaParaComparativo(plano)) return null
   const mensal = totalMensalProposta(plano)
   const ref = referencias?.find((r) => r.id === planoReferenciaId)
   const hasFaixa = FAIXAS_ETARIAS.some((fx) => {
@@ -658,6 +656,165 @@ export function buildConsolidadoForContratoPage(
     colunas: slice,
     linhas: buildConsolidadoLinhas(slice, referencia),
   }
+}
+
+export function custoMedioEstudoColuna(col: ComparativoColunaEstudo): string {
+  if (col.vidas > 0 && col.totalMensalCents != null && col.totalMensalCents > 0) {
+    return formatCentsToBRL(Math.round(col.totalMensalCents / col.vidas))
+  }
+  return '—'
+}
+
+function operadoraAggKey(grupo: 'atual' | 'mercado', operadora: string): string {
+  return `${grupo}::${operadora.trim().toUpperCase()}`
+}
+
+function sortPorOperadora<T extends { grupo: 'atual' | 'mercado'; operadora: string }>(items: T[]): T[] {
+  return [...items].sort((a, b) => {
+    if (a.grupo !== b.grupo) return a.grupo === 'atual' ? -1 : 1
+    return a.operadora.localeCompare(b.operadora, 'pt-BR')
+  })
+}
+
+export type OperadoraSlot = {
+  key: string
+  grupo: 'atual' | 'mercado'
+  operadora: string
+  operadoraId: string
+}
+
+/** Colunas canônicas (operadora) para alinhar todos os planos na horizontal. */
+export function buildOperadoraSlotsFromColunas(colunas: ContratoPlanoColuna[]): OperadoraSlot[] {
+  const map = new Map<string, OperadoraSlot>()
+  for (const col of colunas) {
+    const grupo = col.grupo ?? 'mercado'
+    const key = operadoraAggKey(grupo, col.operadora)
+    if (!map.has(key)) {
+      map.set(key, { key, grupo, operadora: col.operadora, operadoraId: col.operadoraId })
+    }
+  }
+  return sortPorOperadora([...map.values()])
+}
+
+function placeholderContratoColuna(slot: OperadoraSlot): ContratoPlanoColuna {
+  return {
+    id: `empty-${slot.key}`,
+    operadoraId: slot.operadoraId,
+    operadora: slot.operadora,
+    produto: '—',
+    planoLabel: '—',
+    acomodacao: '',
+    elegibilidade: '',
+    elegibilidadeLinhas: [],
+    contribuicao: '—',
+    coparticipacao: '—',
+    temCoparticipacao: false,
+    vidas: 0,
+    tipoCusto: 'per_capita',
+    premioPerCapita: '—',
+    faixas: [],
+    faturaEstimada: '—',
+    tabColor: '#9e9e9e',
+    grupo: slot.grupo,
+  }
+}
+
+/** Alinha as colunas de uma página ao conjunto canônico de operadoras. */
+export function alignPageToOperadoraSlots(
+  page: ContratoAtualPagina,
+  slots: OperadoraSlot[]
+): ContratoAtualPagina {
+  const byKey = new Map<string, ContratoPlanoColuna>()
+  for (const col of page.colunas) {
+    const grupo = col.grupo ?? 'mercado'
+    byKey.set(operadoraAggKey(grupo, col.operadora), col)
+  }
+  return {
+    ...page,
+    colunas: slots.map((slot) => byKey.get(slot.key) ?? placeholderContratoColuna(slot)),
+  }
+}
+
+/** Soma vidas e custos de todas as colunas do estudo por operadora (sem divisão por plano). */
+export function aggregateColunasPorOperadora(
+  colunas: ComparativoColunaEstudo[]
+): ComparativoColunaEstudo[] {
+  const order: string[] = []
+  const map = new Map<string, ComparativoColunaEstudo>()
+
+  for (const col of colunas) {
+    const key = operadoraAggKey(col.grupo, col.operadora)
+    const existing = map.get(key)
+    if (!existing) {
+      order.push(key)
+      map.set(key, {
+        ...col,
+        id: `agg-${key}`,
+        planoLabel: col.grupo === 'atual' ? 'Contrato vigente (todos os planos)' : 'Total da proposta',
+        subtitulo: 'Soma de todos os planos equivalentes',
+      })
+      continue
+    }
+    existing.vidas += col.vidas
+    if (col.totalMensalCents != null) {
+      existing.totalMensalCents = (existing.totalMensalCents ?? 0) + col.totalMensalCents
+    }
+    if (col.totalAnualCents != null) {
+      existing.totalAnualCents = (existing.totalAnualCents ?? 0) + col.totalAnualCents
+    }
+  }
+
+  return sortPorOperadora(order.map((key) => map.get(key)!))
+}
+
+/** Consolidado financeiro horizontal com fatura/custos somados por operadora. */
+export function buildComparativoOperadoraConsolidadoPage(
+  colunas: ComparativoColunaEstudo[]
+): ComparativoConsolidadoPagina | null {
+  const agg = aggregateColunasPorOperadora(colunas)
+  if (!agg.length) return null
+  const referencia = agg.find((c) => c.grupo === 'atual')
+  return {
+    pageIndex: 0,
+    totalPages: 1,
+    colunas: agg,
+    linhas: buildConsolidadoLinhas(agg, referencia),
+  }
+}
+
+/** Soma fatura e vidas das colunas do comparativo por plano, agrupadas por operadora. */
+export function aggregateContratoColunasPorOperadora(
+  colunas: ContratoPlanoColuna[]
+): ContratoPlanoColuna[] {
+  const order: string[] = []
+  const map = new Map<string, ContratoPlanoColuna>()
+
+  for (const col of colunas) {
+    const grupo = col.grupo ?? 'mercado'
+    const key = operadoraAggKey(grupo, col.operadora)
+    const faturaCents = parseBRLToCents(col.faturaEstimada)
+    const existing = map.get(key)
+    if (!existing) {
+      order.push(key)
+      map.set(key, {
+        ...col,
+        id: `agg-${key}`,
+        planoLabel: grupo === 'atual' ? 'Contrato vigente (todos os planos)' : 'Total da proposta',
+        produto: 'Soma de todos os planos',
+        vidas: col.vidas,
+        faturaEstimada: faturaCents != null ? formatCentsToBRL(faturaCents) : '—',
+        variacao: undefined,
+      })
+      continue
+    }
+    existing.vidas += col.vidas
+    if (faturaCents != null) {
+      const prev = parseBRLToCents(existing.faturaEstimada) ?? 0
+      existing.faturaEstimada = formatCentsToBRL(prev + faturaCents)
+    }
+  }
+
+  return sortPorOperadora(order.map((key) => map.get(key)!))
 }
 
 export function buildComparativoConsolidadoPages(

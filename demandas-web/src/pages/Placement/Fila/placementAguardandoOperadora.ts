@@ -86,6 +86,7 @@ export type ComparativoEstudoModo =
   | 'detalhe_plano'
   | 'unificado'
   | 'faixa_etaria'
+  | 'planos_empilhados'
 
 /** Como exibir valores nas linhas de faixa etária. */
 export type ComparativoFaixaCelula = 'unitario' | 'unitario_e_subtotal' | 'subtotal'
@@ -383,7 +384,8 @@ function parseComparativoConfig(raw: unknown): ComparativoEstudoConfig {
       modo === 'consolidado' ||
       modo === 'detalhe_plano' ||
       modo === 'unificado' ||
-      modo === 'faixa_etaria'
+      modo === 'faixa_etaria' ||
+      modo === 'planos_empilhados'
         ? modo
         : base.modoSlide,
     colunasPorSlide:

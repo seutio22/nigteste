@@ -110,6 +110,18 @@ export type ContratoPlanoColuna = {
   variacao?: ColunaVariacaoComparativo
 }
 
+/** Custo unitário médio — per capita informado ou fatura ÷ vidas (faixa etária). */
+export function custoMedioColuna(col: ContratoPlanoColuna): string | null {
+  if (col.premioPerCapita?.trim() && col.premioPerCapita !== '—') {
+    return col.premioPerCapita
+  }
+  const fatura = parseBRLToCents(col.faturaEstimada)
+  if (fatura != null && col.vidas > 0) {
+    return formatCentsToBRL(Math.round(fatura / col.vidas))
+  }
+  return null
+}
+
 export type ContratoAtualPagina = {
   pageIndex: number
   totalPages: number

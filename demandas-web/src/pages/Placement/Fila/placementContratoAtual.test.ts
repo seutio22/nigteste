@@ -3,6 +3,7 @@ import {
   buildContratoAtualPages,
   buildFaixaMatrixForPage,
   computeContratoAtualResumo,
+  custoMedioColuna,
   elegibilidadeDaBase,
   faixaLabelDisplay,
   formatContribuicaoResumo,
@@ -80,6 +81,7 @@ describe('computeContratoAtualResumo', () => {
     const matrix = buildFaixaMatrixForPage(page)
     expect(matrix?.rows.some((row) => row.key === '00-18')).toBe(true)
     expect(matrix?.getCell(col.id, '00-18')?.custo).toContain('200')
+    expect(custoMedioColuna(col)).toContain('233')
   })
 
   it('formata rótulo de faixa para exibição', () => {
