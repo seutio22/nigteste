@@ -22,8 +22,7 @@ import GroupsIcon from '@mui/icons-material/Groups'
 import PaymentsIcon from '@mui/icons-material/Payments'
 import HealthAndSafetyIcon from '@mui/icons-material/HealthAndSafety'
 import MonetizationOnIcon from '@mui/icons-material/MonetizationOn'
-import CheckCircleIcon from '@mui/icons-material/CheckCircle'
-import CancelIcon from '@mui/icons-material/Cancel'
+import { CoparticipacaoSelo } from './CoparticipacaoSelo'
 import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined'
 import SummarizeOutlinedIcon from '@mui/icons-material/SummarizeOutlined'
 import { api } from '../../../lib/api.local'
@@ -339,15 +338,12 @@ function ElegibilidadeCell({ col, typo }: { col: ContratoPlanoColuna; typo: Cont
 
 function CopartCell({ col, typo }: { col: ContratoPlanoColuna; typo: ContratoGridTypography }) {
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.25 }}>
-      {col.temCoparticipacao ? (
-        <CheckCircleIcon sx={{ color: '#3DAA86', fontSize: 18 }} />
-      ) : (
-        <CancelIcon sx={{ color: '#cbd5e1', fontSize: 18 }} />
-      )}
-      <Typography sx={{ fontFamily: FONT, fontSize: typo.copart, fontWeight: 600, color: PRIMARY, lineHeight: 1.2, textAlign: 'center' }}>
-        {col.coparticipacao}
-      </Typography>
+    <Box sx={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
+      <CoparticipacaoSelo
+        valor={col.coparticipacao}
+        temCoparticipacao={col.temCoparticipacao}
+        fontSize={typo.copart}
+      />
     </Box>
   )
 }
@@ -1073,6 +1069,58 @@ function ConsolidadoFinanceiroIntegradoPanel({
 }
 
 /** Cabeçalho das colunas (operadora / plano) — usado no modo consolidado financeiro. */
+function ComparativoCoparticipacaoRow({
+  page,
+  layout,
+  unrestrictedLayout = false,
+  ocultas,
+}: {
+  page: ContratoAtualPagina
+  layout: ContratoAtualLayoutSpec
+  unrestrictedLayout?: boolean
+  ocultas: Set<ComparativoLinhaChave>
+}) {
+  if (ocultas.has('coparticipacao')) return null
+  const cols = page.colunas
+  const minColW = layout.minColWidth ?? 200
+  const gridCols = unrestrictedLayout
+    ? `${layout.legendW}px repeat(${cols.length}, minmax(${minColW}px, 1fr))`
+    : `${layout.legendW}px repeat(${cols.length}, minmax(0, 1fr))`
+  const typo = getContratoTypography(layout)
+
+  return (
+    <Box
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: gridCols,
+        gridTemplateRows: `${ROW_COPART}px`,
+        columnGap: 0,
+        bgcolor: SURFACE,
+        borderLeft: `1px solid ${BORDER}`,
+        borderRight: `1px solid ${BORDER}`,
+        borderBottom: `1px solid ${BORDER}`,
+        width: '100%',
+        minWidth: unrestrictedLayout ? layout.legendW + cols.length * minColW : undefined,
+      }}
+    >
+      <Box sx={{ gridColumn: 1, display: 'flex', alignSelf: 'stretch' }}>
+        <LegendCell icon={<HealthAndSafetyIcon />} label="Coparticipação" typo={typo} />
+      </Box>
+      {cols.map((col, i) => (
+        <Box key={`copart-bar-${col.id}`} sx={{ gridColumn: i + 2, minWidth: 0 }}>
+          <DataCell h={ROW_COPART}>
+            <CoparticipacaoSelo
+              valor={col.coparticipacao}
+              temCoparticipacao={col.temCoparticipacao}
+              fontSize={typo.copart}
+            />
+          </DataCell>
+        </Box>
+      ))}
+    </Box>
+  )
+}
+
 function ComparativoColunasHeader({
   page,
   logoUrls,
@@ -1183,6 +1231,12 @@ function ComparativoGrid({
           layout={layout}
           unrestrictedLayout={unrestrictedLayout}
         />
+        <ComparativoCoparticipacaoRow
+          page={page}
+          layout={layout}
+          unrestrictedLayout={unrestrictedLayout}
+          ocultas={ocultas}
+        />
         {mostrarVariacao && (
           <VariacaoComparativoPanel
             page={page}
@@ -1209,12 +1263,20 @@ function ComparativoGrid({
   const spec = {
     ...specBase,
     showContrib: specBase.showContrib && !ocultas.has('contribuicao'),
-    showCopart: specBase.showCopart && !ocultas.has('coparticipacao'),
+    showCopart: modoComparativoPropostas
+      ? !ocultas.has('coparticipacao')
+      : specBase.showCopart && !ocultas.has('coparticipacao'),
     useFaixa: specBase.useFaixa && !ocultarFaixas,
     metaLine: (() => {
       const parts: string[] = []
       if (page.contribuicaoUnica && !ocultas.has('contribuicao')) parts.push(page.contribuicaoUnica)
-      if (page.coparticipacaoUnica && !ocultas.has('coparticipacao')) parts.push(page.coparticipacaoUnica)
+      if (
+        !modoComparativoPropostas &&
+        page.coparticipacaoUnica &&
+        !ocultas.has('coparticipacao')
+      ) {
+        parts.push(page.coparticipacaoUnica)
+      }
       return parts.length ? parts.join('  ·  ') : null
     })(),
   }

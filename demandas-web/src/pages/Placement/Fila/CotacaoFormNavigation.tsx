@@ -54,7 +54,7 @@ export function listVisibleCotacaoFormSections(
   if (showPrazosSection(formScope, aberturaSectionsOnly)) ids.push('solicitacao_estudo')
   if (showMapeamentoSection(formScope, aberturaSectionsOnly)) ids.push('mapeamento')
   if (showDetalhesBaseSection(formScope, aberturaSectionsOnly)) ids.push('condicoes_contratuais')
-  if (showDetalhesEmCotacaoSection(formScope)) ids.push('cenario_estudo')
+  if (showDetalhesEmCotacaoSection(formScope, aberturaSectionsOnly)) ids.push('cenario_estudo')
   if (showSubfaturaSection(formScope, aberturaSectionsOnly)) ids.push('subfaturas')
   if (showObservacoesSection(formScope, aberturaSectionsOnly)) ids.push('observacoes')
   return ids

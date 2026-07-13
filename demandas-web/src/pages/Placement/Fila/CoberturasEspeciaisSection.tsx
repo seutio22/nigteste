@@ -11,6 +11,7 @@ import {
   Paper,
   Radio,
   RadioGroup,
+  Stack,
   TextField,
   Tooltip,
   Typography,
@@ -21,6 +22,7 @@ import type { Operadora } from '../../../types/masterData'
 import type { MapeamentoItemForm, PlanoCoberturaForm } from './placementCotacaoDetalhes'
 import {
   EMPTY_COBERTURAS_ESPECIAIS,
+  marcarTodasCoberturasEspeciaisNao,
   newCoberturaEspecialId,
   pruneCoberturasEspeciaisItens,
   type CoberturaEspecialItem,
@@ -241,20 +243,37 @@ export function CoberturasEspeciaisSection({
     onChange({ itens: synced.itens.filter((i) => i.id !== id) })
   }
 
+  const todasMarcadasNao =
+    synced.itens.length > 0 && synced.itens.every((item) => item.possui === 'nao')
+
+  const marcarTodasNao = () => {
+    onChange(marcarTodasCoberturasEspeciaisNao(synced))
+  }
+
   return (
     <Paper variant="outlined" sx={{ p: 2, mt: 2, bgcolor: 'grey.50' }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1, mb: 1 }}>
         <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
           Coberturas especiais
         </Typography>
-        <Button
-          size="small"
-          startIcon={<AddIcon />}
-          disabled={disabled || customCount >= MAX_CUSTOM}
-          onClick={addCustom}
-        >
-          Adicionar cobertura
-        </Button>
+        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+          <Button
+            size="small"
+            variant="outlined"
+            disabled={disabled || todasMarcadasNao}
+            onClick={marcarTodasNao}
+          >
+            Marcar todas como Não
+          </Button>
+          <Button
+            size="small"
+            startIcon={<AddIcon />}
+            disabled={disabled || customCount >= MAX_CUSTOM}
+            onClick={addCustom}
+          >
+            Adicionar cobertura
+          </Button>
+        </Stack>
       </Box>
 
       <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 2 }}>

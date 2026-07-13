@@ -94,6 +94,17 @@ export function buildAberturaResumoLinhas(input: BuildAberturaResumoInput): Aber
     pushLinha(linhas, g('Mapeamento'), `map-forn-${idx}`, `Fornecedor atual ${idx + 1}`, forn)
   })
 
+  const sugestaoNomes = form.operadorasSugestaoIds
+    .map((id) => opNome(id))
+    .filter(Boolean)
+  pushLinha(
+    linhas,
+    g('Cenário de estudo'),
+    'operadoras-sugestao',
+    'Sugestão de fornecedores a consultar',
+    sugestaoNomes.length > 0 ? sugestaoNomes.join(', ') : undefined
+  )
+
   pushLinha(linhas, g('Contrato'), 'tipo-contratacao', 'Tipo de contratação', labels.tipoContratacao)
   pushLinha(linhas, g('Contrato'), 'modalidade', 'Modalidade de contrato', labels.modalidadeContrato)
   pushLinha(linhas, g('Contrato'), 'prazo-vigencia', 'Duração Contratual', labels.prazoVigencia)

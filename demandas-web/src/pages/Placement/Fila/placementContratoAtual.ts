@@ -212,6 +212,39 @@ export function formatCoparticipacaoResumo(
   return 'Com coparticipação'
 }
 
+export type CoparticipacaoSimNao = 'Sim' | 'Não' | '—'
+
+/** Normaliza valor de coparticipação (proposta ou legado) para exibição Sim/Não no comparativo. */
+export function coparticipacaoSimNaoLabel(valor: string | undefined | null): CoparticipacaoSimNao {
+  const v = String(valor ?? '').trim()
+  if (!v || v === '—') return '—'
+  const lower = v.toLowerCase()
+  if (
+    lower === 'não' ||
+    lower === 'nao' ||
+    lower === 'sem coparticipação' ||
+    lower === 'sem coparticipacao'
+  ) {
+    return 'Não'
+  }
+  if (lower === 'sim' || lower === 'com coparticipação' || lower === 'com coparticipacao') {
+    return 'Sim'
+  }
+  return 'Sim'
+}
+
+export function temCoparticipacaoFromValor(valor: string | undefined | null): boolean {
+  return coparticipacaoSimNaoLabel(valor) === 'Sim'
+}
+
+export function coparticipacaoFromCopartForm(
+  copart: CoparticipacaoForm,
+  detalheGlobal: string
+): CoparticipacaoSimNao {
+  if (detalheGlobal.trim() || copart.possui) return 'Sim'
+  return 'Não'
+}
+
 export function labelPlano(p: PlanoCoberturaForm): string {
   const nome = p.nomePlano.trim() || 'Plano'
   if (!p.acomodacao) return nome

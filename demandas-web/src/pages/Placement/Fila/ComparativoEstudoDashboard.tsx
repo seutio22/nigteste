@@ -23,7 +23,9 @@ import RefreshIcon from '@mui/icons-material/Refresh'
 import EditNoteIcon from '@mui/icons-material/EditNote'
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
+import HealthAndSafetyIcon from '@mui/icons-material/HealthAndSafety'
 import TableChartIcon from '@mui/icons-material/TableChart'
+import { CoparticipacaoSelo } from './CoparticipacaoSelo'
 import ViewSidebarOutlinedIcon from '@mui/icons-material/ViewSidebarOutlined'
 import { useMasterDataStore } from '../../../store/masterDataStore'
 import { api } from '../../../lib/api.local'
@@ -121,6 +123,7 @@ type Props = {
   /** Quando definido pelo hub de slides, força slide compacto ou visão detalhada. */
   slidesViewMode?: PlacementSlideViewMode
   onNavigateToLancamento?: () => void
+  onNavigateToCoparticipacao?: () => void
   onOpenSlides?: () => void
   /** Se a etapa permite lançamento de propostas na tela cheia. */
   lancamentoDisponivel?: boolean
@@ -667,7 +670,11 @@ function DetalhePlanoSlide({
                 </Td>
                 {page.colunas.map((c) => (
                   <Td key={`${row.key}-${c.id}`} expanded={expanded}>
-                    {c[row.key]}
+                    {row.key === 'coparticipacao' ? (
+                      <CoparticipacaoSelo valor={c.coparticipacao} fontSize={expanded ? 11 : 9} />
+                    ) : (
+                      c[row.key]
+                    )}
                   </Td>
                 ))}
               </tr>
@@ -883,6 +890,7 @@ export function ComparativoEstudoDashboard({
   variant = 'embed',
   slidesViewMode,
   onNavigateToLancamento,
+  onNavigateToCoparticipacao,
   onOpenSlides,
   lancamentoDisponivel = true,
 }: Props) {
@@ -1660,6 +1668,17 @@ export function ComparativoEstudoDashboard({
             >
               Atualizar
             </Button>
+            {onNavigateToCoparticipacao && (
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<HealthAndSafetyIcon />}
+                disabled={disabled}
+                onClick={onNavigateToCoparticipacao}
+              >
+                Comparativo coparticipação
+              </Button>
+            )}
             {onNavigateToLancamento && lancamentoDisponivel && (
               <Button
                 variant="contained"

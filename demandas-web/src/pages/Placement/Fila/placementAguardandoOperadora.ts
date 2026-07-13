@@ -5,6 +5,11 @@ import {
   type FaixaEtariaKey,
 } from './placementCotacaoDetalhes'
 import {
+  emptyCoparticipacao,
+  parseCoparticipacaoFromApi,
+  type CoparticipacaoForm,
+} from './placementCoparticipacao'
+import {
   ensureComunicarMercadoState,
   mercadoFornecedoresFromForm,
   parseComunicarMercadoFromKickOff,
@@ -77,7 +82,10 @@ export type PropostaPlanoLinha = {
   eventosReembolsaveis: string
   abrangencia: string
   contribuicao: string
+  /** Sim/Não — resumo no comparativo financeiro. */
   coparticipacao: string
+  /** Detalhamento por procedimento (comparativo de coparticipação). */
+  coparticipacaoDetalhe: CoparticipacaoForm
 }
 
 export type ComparativoEstudoModo =
@@ -173,6 +181,7 @@ export function emptyPropostaPlanoLinha(): PropostaPlanoLinha {
     abrangencia: '',
     contribuicao: '',
     coparticipacao: '',
+    coparticipacaoDetalhe: emptyCoparticipacao(),
   }
 }
 
@@ -367,6 +376,7 @@ function parsePropostaPlano(raw: unknown): PropostaPlanoLinha | null {
     abrangencia: String(o.abrangencia ?? ''),
     contribuicao: String(o.contribuicao ?? ''),
     coparticipacao: String(o.coparticipacao ?? ''),
+    coparticipacaoDetalhe: parseCoparticipacaoFromApi(o.coparticipacaoDetalhe),
   }
 }
 

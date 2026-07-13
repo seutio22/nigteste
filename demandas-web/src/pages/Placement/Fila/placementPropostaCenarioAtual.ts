@@ -5,9 +5,10 @@ import {
   emptyVidasFaixa,
   type PlanoCoberturaForm,
 } from './placementCotacaoDetalhes'
+import { cloneCoparticipacao } from './placementCoparticipacao'
 import {
   formatContribuicaoResumo,
-  formatCoparticipacaoResumo,
+  coparticipacaoFromCopartForm,
   labelPlano,
 } from './placementContratoAtual'
 import { parsePercentValue } from './placementCotacaoFinanceiro'
@@ -46,7 +47,8 @@ function planoToPropostaLinha(
     acomodacao: p.acomodacao || '',
     abrangencia: p.abrangencia || '',
     contribuicao: contribuicao || '',
-    coparticipacao: formatCoparticipacaoResumo(p.coparticipacao, copartGlobal),
+    coparticipacao: coparticipacaoFromCopartForm(p.coparticipacao, copartGlobal),
+    coparticipacaoDetalhe: cloneCoparticipacao(p.coparticipacao),
     reembolsoConsulta: '',
     eventosReembolsaveis: '',
   }

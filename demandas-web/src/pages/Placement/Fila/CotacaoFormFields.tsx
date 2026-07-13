@@ -1102,15 +1102,6 @@ export function CotacaoFormFields({
               </>
             )}
 
-            <Grid item xs={12}>
-              <Divider sx={{ my: 1 }} />
-              <OperadorasSugestaoField
-                operadoras={operadoras}
-                selectedIds={value.operadorasSugestaoIds}
-                disabled={disabled}
-                onChange={(operadorasSugestaoIds) => patch({ operadorasSugestaoIds })}
-              />
-            </Grid>
           </Grid>
       </SectionShell>
       </CollapsibleFormSection>
@@ -1340,7 +1331,7 @@ export function CotacaoFormFields({
       </CollapsibleFormSection>
       )}
 
-      {showDetalhesEmCotacaoSection(formScope) && (
+      {showDetalhesEmCotacaoSection(formScope, aberturaSectionsOnly) && (
       <CollapsibleFormSection
         id="cenario_estudo"
         title="Cenário de estudo — Solicitação Mercado"
@@ -1349,14 +1340,24 @@ export function CotacaoFormFields({
       >
       {formNavigationActive ? (
           <Grid container spacing={2}>
+            {formScope !== 'dados_abertura' && (
+              <Grid item xs={12}>
+                <CotacaoFinanceiroSection
+                  value={value.dadosFinanceiros}
+                  clienteTipo={value.clienteTipo}
+                  temCorretorParceiro={!!value.corretorParceiroId?.trim()}
+                  disabled={disabled}
+                  workflowStageKey="em_cotacao"
+                  onChange={(next) => patch({ dadosFinanceiros: next })}
+                />
+              </Grid>
+            )}
             <Grid item xs={12}>
-              <CotacaoFinanceiroSection
-                value={value.dadosFinanceiros}
-                clienteTipo={value.clienteTipo}
-                temCorretorParceiro={!!value.corretorParceiroId?.trim()}
+              <OperadorasSugestaoField
+                operadoras={operadoras}
+                selectedIds={value.operadorasSugestaoIds}
                 disabled={disabled}
-                workflowStageKey="em_cotacao"
-                onChange={(next) => patch({ dadosFinanceiros: next })}
+                onChange={(operadorasSugestaoIds) => patch({ operadorasSugestaoIds })}
               />
             </Grid>
           </Grid>
@@ -1369,14 +1370,24 @@ export function CotacaoFormFields({
           />
 
           <Grid container spacing={2}>
+            {formScope !== 'dados_abertura' && (
+              <Grid item xs={12}>
+                <CotacaoFinanceiroSection
+                  value={value.dadosFinanceiros}
+                  clienteTipo={value.clienteTipo}
+                  temCorretorParceiro={!!value.corretorParceiroId?.trim()}
+                  disabled={disabled}
+                  workflowStageKey="em_cotacao"
+                  onChange={(next) => patch({ dadosFinanceiros: next })}
+                />
+              </Grid>
+            )}
             <Grid item xs={12}>
-              <CotacaoFinanceiroSection
-                value={value.dadosFinanceiros}
-                clienteTipo={value.clienteTipo}
-                temCorretorParceiro={!!value.corretorParceiroId?.trim()}
+              <OperadorasSugestaoField
+                operadoras={operadoras}
+                selectedIds={value.operadorasSugestaoIds}
                 disabled={disabled}
-                workflowStageKey="em_cotacao"
-                onChange={(next) => patch({ dadosFinanceiros: next })}
+                onChange={(operadorasSugestaoIds) => patch({ operadorasSugestaoIds })}
               />
             </Grid>
           </Grid>

@@ -8,6 +8,7 @@ export type AberturaSectionKey =
   | 'prazos'
   | 'mapeamento'
   | 'detalhes_base'
+  | 'cenario_estudo'
   | 'subfaturas'
   | 'observacoes'
 
@@ -64,7 +65,11 @@ export function showDetalhesBaseSection(
   return scope === 'all' || scope === 'base_atual'
 }
 
-export function showDetalhesEmCotacaoSection(scope: CotacaoFormScope): boolean {
+export function showDetalhesEmCotacaoSection(
+  scope: CotacaoFormScope,
+  sectionsOnly?: AberturaSectionKey[]
+): boolean {
+  if (aberturaSectionVisible(scope, 'cenario_estudo', sectionsOnly)) return true
   return scope === 'all' || scope === 'base_atual' || scope === 'em_cotacao'
 }
 

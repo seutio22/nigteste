@@ -123,3 +123,49 @@ export function placeholderLimitadorCopart(forma: FormaCobrancaCopart): string {
 export function procedimentosPorColuna(col: 0 | 1 | 2) {
   return COPART_PROCEDIMENTOS.filter((p) => p.col === col)
 }
+
+export function formatCopartProcedimentoCelula(
+  copart: CoparticipacaoForm,
+  key: CopartProcedimentoKey
+): string {
+  if (!copart.possui) return 'Sem copay'
+  const linha = copart.linhas[key]
+  const valor = linha.valor.trim()
+  const limitador = linha.limitador.trim()
+  if (!valor && !limitador) return '—'
+  const suffix = copart.formaCobranca === 'valor' ? '' : '%'
+  const parts: string[] = []
+  if (valor) parts.push(`${valor}${suffix}`)
+  if (limitador) parts.push(`lim. ${limitador}`)
+  return parts.join(' · ')
+}
+
+export function formatCopartInternacaoCelula(copart: CoparticipacaoForm): string {
+  if (!copart.possui) return 'Sem copay'
+  const { internacao } = copart
+  const valor = internacao.valor.trim()
+  const limitador = internacao.limitador.trim()
+  if (!valor && !limitador && !internacao.tipoCobranca) return '—'
+  const suffix =
+    internacao.tipoCobranca === 'valor'
+      ? ''
+      : internacao.tipoCobranca === 'percentual' || internacao.tipoCobranca === 'desconto'
+        ? '%'
+        : copart.formaCobranca === 'valor'
+          ? ''
+          : '%'
+  const tipo =
+    internacao.tipoCobranca === 'desconto'
+      ? 'desc.'
+      : internacao.tipoCobranca === 'valor'
+        ? 'R$'
+        : ''
+  const parts: string[] = []
+  if (valor) parts.push(tipo ? `${valor}${suffix} (${tipo})` : `${valor}${suffix}`)
+  if (limitador) parts.push(`lim. ${limitador}`)
+  return parts.join(' · ')
+}
+
+export function labelFormaCobrancaCopart(forma: FormaCobrancaCopart): string {
+  return forma === 'valor' ? 'Valor (R$)' : 'Percentual (%)'
+}

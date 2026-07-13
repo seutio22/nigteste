@@ -32,14 +32,18 @@ const ABERTURA_SECTIONS: { key: AberturaSectionKey; title: string; description: 
   {
     key: 'mapeamento',
     title: 'Mapeamento',
-    description:
-      'Estipulante, filial, corretor e sugestão de fornecedores (operadoras) a consultar.',
+    description: 'Estipulante, filial e corretor parceiro.',
   },
   {
     key: 'detalhes_base',
     title: 'Condições Contratuais',
     description:
       'Contrato vigente, itens, comissões do contrato atual, planos (com coparticipação), upgrade/downgrade, reembolso atual, coberturas especiais e descrição.',
+  },
+  {
+    key: 'cenario_estudo',
+    title: 'Cenário de estudo — Solicitação Mercado',
+    description: 'Sugestão de fornecedores (operadoras) a consultar no mercado.',
   },
   {
     key: 'subfaturas',

@@ -23,6 +23,9 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import RequestQuoteIcon from '@mui/icons-material/RequestQuote'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
+import { CoparticipacaoSimNaoField } from './CoparticipacaoSimNaoField'
+import { CoparticipacaoPlanoBlock } from './CoparticipacaoPlanoBlock'
+import { cloneCoparticipacao, emptyCoparticipacao } from './placementCoparticipacao'
 import type { CotacaoFormState } from './CotacaoFormFields'
 import {
   FAIXAS_ETARIAS,
@@ -529,15 +532,35 @@ function PropostaMercadoEditor({
               </TextField>
             </Grid>
             <Grid item xs={12} md={3}>
-              <TextField
-                label="Coparticipação"
-                fullWidth
-                size="small"
+              <CoparticipacaoSimNaoField
                 value={plano.coparticipacao}
                 disabled={disabled}
-                onChange={(e) => patchPlano(index, { coparticipacao: e.target.value })}
+                onChange={(coparticipacao) => {
+                  const patch: Partial<typeof plano> = { coparticipacao }
+                  if (coparticipacao === 'Sim') {
+                    const base = plano.coparticipacaoDetalhe ?? emptyCoparticipacao()
+                    patch.coparticipacaoDetalhe = { ...cloneCoparticipacao(base), possui: true }
+                  } else if (coparticipacao === 'Não') {
+                    patch.coparticipacaoDetalhe = emptyCoparticipacao()
+                  }
+                  patchPlano(index, patch)
+                }}
               />
             </Grid>
+            {plano.coparticipacao === 'Sim' && (
+              <Grid item xs={12}>
+                <CoparticipacaoPlanoBlock
+                  coparticipacao={plano.coparticipacaoDetalhe ?? emptyCoparticipacao()}
+                  disabled={disabled}
+                  onChange={(coparticipacaoDetalhe) =>
+                    patchPlano(index, {
+                      coparticipacaoDetalhe,
+                      coparticipacao: coparticipacaoDetalhe.possui ? 'Sim' : 'Não',
+                    })
+                  }
+                />
+              </Grid>
+            )}
           </Grid>
           {plano.tipoCusto === 'faixa_etaria' && (
             <Box sx={{ mt: 2 }}>

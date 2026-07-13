@@ -4,8 +4,10 @@ import {
   buildContratoAtualPages,
   buildContratoPlanoColuna,
   contratoPageFromColunas,
+  coparticipacaoSimNaoLabel,
   formatContribuicaoResumo,
   TAB_COLORS,
+  temCoparticipacaoFromValor,
   type ContratoAtualResumo,
   type ContratoPlanoColuna,
 } from './placementContratoAtual'
@@ -191,8 +193,12 @@ function patchColunaLabels(
     grupo: entrada.grupo,
     planoReferenciaId: entrada.planoReferenciaId,
     contribuicao: entrada.plano.contribuicao.trim() || col.contribuicao,
-    coparticipacao: entrada.plano.coparticipacao.trim() || col.coparticipacao,
-    temCoparticipacao: !!entrada.plano.coparticipacao.trim() || col.temCoparticipacao,
+    coparticipacao: coparticipacaoSimNaoLabel(
+      entrada.plano.coparticipacao.trim() || col.coparticipacao
+    ),
+    temCoparticipacao: temCoparticipacaoFromValor(
+      entrada.plano.coparticipacao.trim() || col.coparticipacao
+    ),
     acomodacao: entrada.plano.acomodacao.trim() || col.acomodacao,
   }
 }
@@ -275,8 +281,8 @@ function buildColunaMercadoFromAbertura(
       elegibilidade: '—',
       elegibilidadeLinhas: [],
       contribuicao: planoAjustado.contribuicao.trim() || '—',
-      coparticipacao: planoAjustado.coparticipacao.trim() || '—',
-      temCoparticipacao: !!planoAjustado.coparticipacao.trim(),
+      coparticipacao: coparticipacaoSimNaoLabel(planoAjustado.coparticipacao),
+      temCoparticipacao: temCoparticipacaoFromValor(planoAjustado.coparticipacao),
       vidas,
       tipoCusto,
       premioPerCapita: tipoCusto === 'per_capita' ? formatBRLInput(planoAjustado.custoPerCapitaBRL) : null,

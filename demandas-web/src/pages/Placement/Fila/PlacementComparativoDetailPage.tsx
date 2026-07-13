@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   Alert,
   Box,
@@ -19,6 +19,7 @@ import { useMasterDataStore } from '../../../store/masterDataStore'
 import { usePlacementCotacaoStore } from '../../../store/placementCotacaoStore'
 import type { CotacaoFormState } from './CotacaoFormFields'
 import { ComparativoEstudoDashboard } from './ComparativoEstudoDashboard'
+import { ComparativoCoparticipacaoDashboard } from './ComparativoCoparticipacaoDashboard'
 import { PlacementAguardandoOperadoraPanel } from './PlacementAguardandoOperadoraPanel'
 import { toFormState } from './Detail'
 import { getStatusColor, getWorkflowStatusDisplayLabel } from './utils'
@@ -28,18 +29,23 @@ import {
 } from './placementKickOffPersist'
 import { getWorkflowStageKey } from './placementCotacaoWorkflow'
 
-type FullscreenPane = 'comparativo' | 'lancamento'
+type FullscreenPane = 'comparativo' | 'lancamento' | 'coparticipacao'
 
 export default function PlacementComparativoDetailPage() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
+  const [searchParams] = useSearchParams()
   const cotacaoFromStore = usePlacementCotacaoStore((s) => s.getById(id ?? ''))
   const syncMasterData = useMasterDataStore((s) => s.syncFromApi)
 
   const [form, setForm] = useState<CotacaoFormState | null>(null)
   const [loading, setLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
-  const [activePane, setActivePane] = useState<FullscreenPane>('comparativo')
+  const [activePane, setActivePane] = useState<FullscreenPane>(() => {
+    const pane = searchParams.get('pane')
+    if (pane === 'coparticipacao' || pane === 'lancamento' || pane === 'comparativo') return pane
+    return 'comparativo'
+  })
 
   useEffect(() => {
     void syncMasterData?.({ entities: ['operadoras', 'produtos', 'analistas', 'clientes'] })
@@ -176,7 +182,8 @@ export default function PlacementComparativoDetailPage() {
             value={activePane}
             onChange={(_, v: FullscreenPane | null) => v && setActivePane(v)}
           >
-            <ToggleButton value="comparativo">Comparativo</ToggleButton>
+            <ToggleButton value="comparativo">Comparativo financeiro</ToggleButton>
+            <ToggleButton value="coparticipacao">Coparticipação</ToggleButton>
             <ToggleButton value="lancamento" disabled={!podeLancarPropostas}>
               Lançar propostas
             </ToggleButton>
@@ -214,7 +221,15 @@ export default function PlacementComparativoDetailPage() {
             onChange={handleChange}
             onPersisted={handlePersisted}
             onNavigateToLancamento={() => setActivePane('lancamento')}
+            onNavigateToCoparticipacao={() => setActivePane('coparticipacao')}
             onOpenSlides={() => navigate(`/placement/fila/${id}/slides?slide=comparativo_propostas`)}
+            lancamentoDisponivel={podeLancarPropostas}
+          />
+        ) : activePane === 'coparticipacao' ? (
+          <ComparativoCoparticipacaoDashboard
+            cotacaoId={id}
+            form={form}
+            onNavigateToLancamento={() => setActivePane('lancamento')}
             lancamentoDisponivel={podeLancarPropostas}
           />
         ) : (

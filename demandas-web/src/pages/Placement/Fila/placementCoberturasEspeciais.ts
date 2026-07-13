@@ -221,6 +221,18 @@ export function pruneCoberturasEspeciaisItens(
   })
 }
 
+/** Marca «Não» em todos os itens do catálogo e coberturas adicionais. */
+export function marcarTodasCoberturasEspeciaisNao(state: CoberturasEspeciais): CoberturasEspeciais {
+  return {
+    itens: state.itens.map((item) => ({
+      ...item,
+      possui: 'nao',
+      planosIds: [],
+      detalhe: '',
+    })),
+  }
+}
+
 export function coberturasEspeciaisFromApi(
   raw: unknown,
   planos: PlanoCoberturaForm[]
