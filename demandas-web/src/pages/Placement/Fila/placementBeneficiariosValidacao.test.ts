@@ -79,6 +79,21 @@ describe('validarBeneficiariosImportados', () => {
     expect(r.linhasComApontamento).toBe(0)
   })
 
+  it('aceita data de nascimento em DD/MM/AA sem erro de formato', () => {
+    const r = validarBeneficiariosImportados(
+      [
+        rowOk({ dataNascimento: '15/05/90' }),
+        rowOk({ id: 'b2', dataNascimento: '10/08/12', grauParentesco: 'Filho (a)' }),
+        rowOk({ id: 'b3', dataNascimento: '01/01/30' }),
+      ],
+      ctxBase()
+    )
+    const errosData = r.linhas.flatMap((l) =>
+      l.apontamentos.filter((a) => a.campo === 'dataNascimento' && a.severidade === 'erro')
+    )
+    expect(errosData).toHaveLength(0)
+  })
+
   it('alerta CNPJ vazio', () => {
     const r = validarBeneficiariosImportados([rowOk({ cnpj: '' })], ctxBase())
     expect(r.linhas[0].apontamentos.some((a) => a.campo === 'cnpj' && a.severidade === 'aviso')).toBe(
@@ -155,6 +170,11 @@ describe('validarBeneficiariosImportados', () => {
       ctxBase()
     )
     expect(bad.linhas[0].apontamentos.some((a) => a.campo === 'custoPerCapita')).toBe(true)
+    const msg = bad.linhas[0].apontamentos.find((a) => a.campo === 'custoPerCapita')?.mensagem ?? ''
+    expect(msg).toContain('Planilha:')
+    expect(msg).toContain('Formulário:')
+    expect(msg).toMatch(/400/)
+    expect(msg).toMatch(/350/)
   })
 
   it('valida custo por faixa etária', () => {
@@ -179,6 +199,22 @@ describe('validarBeneficiariosImportados', () => {
       ctx
     )
     expect(ok.linhasComApontamento).toBe(0)
+
+    const bad = validarBeneficiariosImportados(
+      [
+        rowOk({
+          planoAtual: 'Plano Ouro',
+          dataNascimento: '2003-05-10',
+          custoPerCapita: '300,00',
+        }),
+      ],
+      ctx
+    )
+    const msg = bad.linhas[0].apontamentos.find((a) => a.campo === 'custoPerCapita')?.mensagem ?? ''
+    expect(msg).toContain('Planilha:')
+    expect(msg).toContain('Formulário:')
+    expect(msg).toMatch(/300/)
+    expect(msg).toMatch(/280/)
   })
 
   it('conta vidas validadas sem crítica', () => {

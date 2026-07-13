@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { computeBeneficiariosResumo } from './placementBeneficiariosResumo'
+import { computeBeneficiariosResumo, formatTitularidadeResumo } from './placementBeneficiariosResumo'
 import type { PlacementBeneficiario } from './placementBeneficiarios'
 
 function row(partial: Partial<PlacementBeneficiario>): PlacementBeneficiario {
@@ -37,6 +37,7 @@ describe('computeBeneficiariosResumo', () => {
     expect(r.titulares).toBe(2)
     expect(r.dependentes).toBe(1)
     expect(r.agregados).toBe(0)
+    expect(r.titularidadeNaoClassificada).toBe(0)
   })
 
   it('conta agregados (tipo A) separado de titulares e dependentes', () => {
@@ -50,6 +51,23 @@ describe('computeBeneficiariosResumo', () => {
     expect(r.titulares).toBe(1)
     expect(r.dependentes).toBe(1)
     expect(r.agregados).toBe(2)
+  })
+
+  it('cruza STATUS com titularidade em afastados', () => {
+    const rows = [
+      row({ statusBeneficiario: 'Afastado', grauParentesco: 'Titular' }),
+      row({ statusBeneficiario: 'Afastado', grauParentesco: 'Filho (a)' }),
+      row({ statusBeneficiario: 'Afastado', grauParentesco: 'Esposa' }),
+    ]
+    const r = computeBeneficiariosResumo(rows)
+    expect(r.categorias.afastados).toBe(3)
+    expect(r.categoriasPorTitularidade.afastados).toEqual({
+      titulares: 1,
+      dependentes: 2,
+      agregados: 0,
+      naoClassificada: 0,
+    })
+    expect(formatTitularidadeResumo(r.categoriasPorTitularidade.afastados)).toBe('T1 · D2')
   })
 
   it('classifica afastados e agrupa planos', () => {

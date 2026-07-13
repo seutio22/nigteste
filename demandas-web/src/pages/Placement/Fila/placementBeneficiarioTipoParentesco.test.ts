@@ -6,6 +6,8 @@ describe('resolveTipoParentesco', () => {
     expect(resolveTipoParentesco('TITULAR')).toBe('T')
     expect(resolveTipoParentesco('CONJUGE')).toBe('D')
     expect(resolveTipoParentesco('AGREGADO')).toBe('A')
+    expect(resolveTipoParentesco('Dependente')).toBe('D')
+    expect(resolveTipoParentesco('FILHA')).toBe('D')
     expect(resolveTipoParentesco('Filho (a)')).toBe('D')
     expect(resolveTipoParentesco('Filho(a)')).toBe('D')
   })

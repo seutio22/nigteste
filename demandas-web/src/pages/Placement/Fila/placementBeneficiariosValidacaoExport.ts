@@ -1,4 +1,5 @@
 import type { PlacementBeneficiario } from './placementBeneficiarios'
+import { formatBeneficiarioCustoDisplay } from './placementBeneficiariosParse'
 import {
   CAMPO_VALIDACAO_LABEL,
   type BeneficiarioValidacaoCampo,
@@ -32,12 +33,12 @@ export function flattenCriticasParaExport(
       out.push({
         id: `${linha.beneficiarioId}-${a.campo}-${idx}`,
         ordem: linha.ordem != null ? String(linha.ordem) : b?.ordem != null ? String(b.ordem) : '',
-        matricula: b?.matricula ?? '',
+        matricula: linha.matricula ?? b?.matricula ?? '',
         nome: linha.nome ?? b?.nome ?? '',
-        cnpj: b?.cnpj ?? '',
-        operadora: b?.operadora ?? '',
-        planoAtual: b?.planoAtual ?? '',
-        custoPerCapita: b?.custoPerCapita ?? '',
+        cnpj: linha.cnpj ?? b?.cnpj ?? '',
+        operadora: linha.operadora ?? b?.operadora ?? '',
+        planoAtual: linha.planoAtual ?? b?.planoAtual ?? '',
+        custoPerCapita: formatBeneficiarioCustoDisplay(linha.custoPerCapita ?? b?.custoPerCapita),
         campo: CAMPO_VALIDACAO_LABEL[a.campo],
         severidade: a.severidade === 'erro' ? 'Erro' : 'Aviso',
         critica: a.mensagem,

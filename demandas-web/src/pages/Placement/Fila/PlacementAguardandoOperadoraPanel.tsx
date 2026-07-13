@@ -331,8 +331,13 @@ export const PlacementAguardandoOperadoraPanel = React.memo(function PlacementAg
       </Stack>
 
       {fornecedorAtivo && fornAguardando && (
-        <>
+        <Paper variant="outlined" sx={{ mt: 2, p: 2 }}>
           <Grid container spacing={2}>
+            <Grid item xs={12}>
+              <Typography variant="caption" color="text.secondary" display="block">
+                Datas de envio e previsão de retorno vêm de <strong>Comunicar mercado</strong> (somente leitura).
+              </Typography>
+            </Grid>
             <Grid item xs={12} md={4}>
               <TextField
                 label="Data de envio"
@@ -342,7 +347,6 @@ export const PlacementAguardandoOperadoraPanel = React.memo(function PlacementAg
                 InputLabelProps={{ shrink: true }}
                 value={fornComunicar?.dataEnvio?.slice(0, 10) ?? ''}
                 disabled
-                helperText="Registrada em Comunicar mercado"
               />
             </Grid>
             <Grid item xs={12} md={4}>
@@ -358,7 +362,6 @@ export const PlacementAguardandoOperadoraPanel = React.memo(function PlacementAg
                   ''
                 }
                 disabled
-                helperText="Registrada em Comunicar mercado"
               />
             </Grid>
             <Grid item xs={12} md={4}>
@@ -386,12 +389,12 @@ export const PlacementAguardandoOperadoraPanel = React.memo(function PlacementAg
                 value={fornAguardando.grupoProducao}
                 disabled={disabled}
                 onCommit={(v) => patchFornecedor({ grupoProducao: v })}
-                helperText={
-                  fornComunicar?.grupoProducao?.trim() && !fornAguardando.grupoProducao?.trim()
-                    ? `Sugerido em Comunicar mercado: ${fornComunicar.grupoProducao}`
-                    : 'Editável nesta etapa'
-                }
               />
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5, px: 1.75 }}>
+                {fornComunicar?.grupoProducao?.trim() && !fornAguardando.grupoProducao?.trim()
+                  ? `Sugerido em Comunicar mercado: ${fornComunicar.grupoProducao}`
+                  : 'Editável nesta etapa'}
+              </Typography>
             </Grid>
             <Grid item xs={12} md={4}>
               <TextField
@@ -457,7 +460,7 @@ export const PlacementAguardandoOperadoraPanel = React.memo(function PlacementAg
             </Grid>
           </Grid>
 
-          <Divider />
+          <Divider sx={{ my: 2 }} />
 
           <FormControlLabel
             control={
@@ -501,7 +504,7 @@ export const PlacementAguardandoOperadoraPanel = React.memo(function PlacementAg
               cadastrar proposta nem custos — ele aparece apenas no quadro de mercado.
             </Alert>
           )}
-        </>
+        </Paper>
       )}
       </Box>
     </Stack>

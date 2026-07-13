@@ -20,6 +20,7 @@ import type { PlacementBeneficiario } from './placementBeneficiarios'
 import {
   CATEGORIAS_APRESENTACAO,
   computeBeneficiariosResumo,
+  formatTitularidadeResumo,
   type BeneficiariosResumoApresentacao,
 } from './placementBeneficiariosResumo'
 import type { PlacementPresentationMode } from './placementAnaliseBase'
@@ -140,39 +141,286 @@ function MetricPill({
   )
 }
 
+type TitularidadeLegendaItem = {
+  code: string
+  label: string
+  value: number
+  color: string
+}
+
+type TitularidadePieLabelProps = {
+  cx?: number
+  cy?: number
+  midAngle?: number
+  innerRadius?: number
+  outerRadius?: number
+  percent?: number
+  fill?: string
+}
+
+/** Percentual discreto no anel — pílula mint + texto institucional. */
+function titularidadePieLabelSoft(props: TitularidadePieLabelProps) {
+  const { cx = 0, cy = 0, midAngle = 0, innerRadius = 0, outerRadius = 0, percent = 0, fill = PRIMARY } = props
+  if (percent < 0.04) return null
+
+  const RADIAN = Math.PI / 180
+  const radius = innerRadius + (outerRadius - innerRadius) * 0.5
+  const x = cx + radius * Math.cos(-midAngle * RADIAN)
+  const y = cy + radius * Math.sin(-midAngle * RADIAN)
+  const text = `${Math.round(percent * 100)}%`
+  const w = 28
+  const h = 15
+
+  return (
+    <g pointerEvents="none">
+      <rect
+        x={x - w / 2}
+        y={y - h / 2}
+        width={w}
+        height={h}
+        rx={5}
+        fill={MINT}
+        fillOpacity={0.96}
+        stroke={fill}
+        strokeOpacity={0.28}
+        strokeWidth={0.8}
+      />
+      <text
+        x={x}
+        y={y + 0.5}
+        fill={INFO}
+        textAnchor="middle"
+        dominantBaseline="central"
+        style={{ fontFamily: FONT, fontSize: 8, fontWeight: 700 }}
+      >
+        {text}
+      </text>
+    </g>
+  )
+}
+
+function TitularidadeLegendaRow({ item }: { item: TitularidadeLegendaItem }) {
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 0.6,
+        px: 0.75,
+        py: 0.55,
+        borderRadius: 1.5,
+        bgcolor: MINT,
+        border: `1px solid ${item.color}20`,
+        minWidth: 0,
+        overflow: 'hidden',
+        boxSizing: 'border-box',
+      }}
+    >
+      <Box
+        sx={{
+          width: 24,
+          height: 24,
+          borderRadius: '7px',
+          bgcolor: item.color,
+          color: WHITE,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontFamily: FONT,
+          fontSize: 10,
+          fontWeight: 800,
+          flexShrink: 0,
+          boxShadow: `0 2px 6px ${item.color}33`,
+        }}
+      >
+        {item.code}
+      </Box>
+      <Typography
+        noWrap
+        sx={{
+          fontFamily: FONT,
+          fontSize: 8,
+          fontWeight: 700,
+          color: TEXT_PRIMARY,
+          textTransform: 'uppercase',
+          lineHeight: 1.2,
+          flex: 1,
+          minWidth: 0,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+        }}
+      >
+        {item.label}
+      </Typography>
+      <Box sx={{ flexShrink: 0, textAlign: 'right', lineHeight: 1 }}>
+        <Typography sx={{ fontFamily: FONT, fontSize: 14, fontWeight: 800, color: item.color }}>
+          {item.value}
+        </Typography>
+      </Box>
+    </Box>
+  )
+}
+
+function TitularidadeBreakdownChips({ resumo }: { resumo: string }) {
+  const chips = resumo.split(' · ').filter(Boolean)
+  const chipColor = (token: string) => {
+    if (token.startsWith('T')) return PRIMARY
+    if (token.startsWith('D')) return INFO
+    if (token.startsWith('A')) return '#ed6c02'
+    return TEXT_SECONDARY
+  }
+
+  return (
+    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.35 }}>
+      {chips.map((chip) => (
+        <Box
+          key={chip}
+          sx={{
+            px: 0.55,
+            py: 0.15,
+            borderRadius: 0.75,
+            bgcolor: `${chipColor(chip)}14`,
+            border: `1px solid ${chipColor(chip)}33`,
+            lineHeight: 1,
+          }}
+        >
+          <Typography sx={{ fontFamily: FONT, fontSize: 7.5, fontWeight: 800, color: chipColor(chip), lineHeight: 1.2 }}>
+            {chip}
+          </Typography>
+        </Box>
+      ))}
+    </Box>
+  )
+}
+
+function TitularidadeStatusRow({
+  label,
+  total,
+  resumo,
+}: {
+  label: string
+  total: number
+  resumo: string | null
+}) {
+  return (
+    <Box
+      sx={{
+        px: 0.75,
+        py: 0.75,
+        borderRadius: 1.5,
+        bgcolor: SURFACE,
+        border: `1px solid ${BORDER}`,
+        overflow: 'hidden',
+        boxSizing: 'border-box',
+      }}
+    >
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 0.5, minWidth: 0 }}>
+        <Typography
+          noWrap
+          sx={{
+            fontFamily: FONT,
+            fontSize: 7.5,
+            fontWeight: 700,
+            color: INFO,
+            lineHeight: 1.2,
+            flex: 1,
+            minWidth: 0,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}
+        >
+          {label}
+        </Typography>
+        <Typography
+          sx={{
+            fontFamily: FONT,
+            fontSize: 11,
+            fontWeight: 800,
+            color: PRIMARY,
+            flexShrink: 0,
+            lineHeight: 1,
+          }}
+        >
+          {total}
+        </Typography>
+      </Box>
+      {resumo ? (
+        <Box sx={{ mt: 0.5 }}>
+          <TitularidadeBreakdownChips resumo={resumo} />
+        </Box>
+      ) : null}
+    </Box>
+  )
+}
+
 export function TitularidadeDonut({
   titulares,
   dependentes,
   agregados,
+  naoClassificados = 0,
+  categoriasPorTitularidade,
 }: {
   titulares: number
   dependentes: number
   agregados: number
+  naoClassificados?: number
+  categoriasPorTitularidade?: BeneficiariosResumoApresentacao['categoriasPorTitularidade']
 }) {
   const AGREGADO_COLOR = '#ed6c02'
+  const NAO_CLASS_COLOR = '#9aa5ab'
   const data = [
     { name: 'Titulares (T)', value: titulares, fill: PRIMARY },
     { name: 'Dependentes (D)', value: dependentes, fill: INFO_LIGHT },
     ...(agregados > 0
       ? [{ name: 'Agregados (A)', value: agregados, fill: AGREGADO_COLOR }]
       : []),
+    ...(naoClassificados > 0
+      ? [{ name: 'Não classificado', value: naoClassificados, fill: NAO_CLASS_COLOR }]
+      : []),
   ].filter((d) => d.value > 0)
-  const total = titulares + dependentes + agregados
+  const total = titulares + dependentes + agregados + naoClassificados
+  const temGrafico = data.length > 0
+  const statusComTitularidade = CATEGORIAS_APRESENTACAO.filter(
+    (cat) => cat.key !== 'demais' && categoriasPorTitularidade?.[cat.key] != null
+  )
+    .map((cat) => ({
+      key: cat.key,
+      label: cat.label.replace(/¹|²/g, '').trim(),
+      total:
+        categoriasPorTitularidade![cat.key].titulares +
+        categoriasPorTitularidade![cat.key].dependentes +
+        categoriasPorTitularidade![cat.key].agregados +
+        categoriasPorTitularidade![cat.key].naoClassificada,
+      resumo: formatTitularidadeResumo(categoriasPorTitularidade![cat.key]),
+    }))
+    .filter((item) => item.total > 0)
+
+  const legendaItens: TitularidadeLegendaItem[] = [
+    { code: 'T', label: 'Titular', value: titulares, color: PRIMARY },
+    { code: 'D', label: 'Dependente', value: dependentes, color: INFO_LIGHT },
+    { code: 'A', label: 'Agregado', value: agregados, color: AGREGADO_COLOR },
+    ...(naoClassificados > 0
+      ? [{ code: '?', label: 'Não classificado', value: naoClassificados, color: NAO_CLASS_COLOR }]
+      : []),
+  ]
 
   return (
     <Paper
       elevation={0}
       sx={{
         ...slideText,
-        p: 1.5,
+        p: 1.25,
         borderRadius: 2,
         border: `1px solid ${BORDER}`,
         bgcolor: WHITE,
         height: '100%',
+        width: '100%',
+        minWidth: 0,
         display: 'flex',
         flexDirection: 'column',
-        alignItems: 'center',
+        alignItems: 'stretch',
         boxSizing: 'border-box',
+        overflow: 'visible',
       }}
     >
       <Typography
@@ -181,55 +429,106 @@ export function TitularidadeDonut({
           fontSize: 10,
           fontWeight: 700,
           color: PRIMARY,
-          letterSpacing: 0.6,
+          letterSpacing: 0.5,
           mb: 0.5,
+          textAlign: 'center',
+          flexShrink: 0,
         }}
       >
         TITULARIDADE
       </Typography>
-      <Box sx={{ width: '100%', height: 100, flexShrink: 0 }} data-chart="titularidade">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie
-              data={data}
-              dataKey="value"
-              cx="50%"
-              cy="50%"
-              innerRadius={32}
-              outerRadius={46}
-              paddingAngle={2}
-              isAnimationActive={false}
-              stroke={WHITE}
-              strokeWidth={2}
-            >
-              {data.map((entry, i) => (
-                <Cell key={i} fill={entry.fill} />
-              ))}
-            </Pie>
-            <Tooltip formatter={(v: number) => [v, 'vidas']} />
-          </PieChart>
-        </ResponsiveContainer>
+      <Box sx={{ width: '100%', height: 104, flexShrink: 0, position: 'relative' }} data-chart="titularidade">
+        {temGrafico ? (
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart margin={{ top: 2, right: 2, bottom: 2, left: 2 }}>
+              <Pie
+                data={data}
+                dataKey="value"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                innerRadius={30}
+                outerRadius={44}
+                paddingAngle={2}
+                isAnimationActive={false}
+                stroke={WHITE}
+                strokeWidth={2}
+                label={titularidadePieLabelSoft}
+                labelLine={false}
+              >
+                {data.map((entry, i) => (
+                  <Cell key={i} fill={entry.fill} />
+                ))}
+              </Pie>
+              <Tooltip
+                formatter={(v: number, _name: string, entry: { payload?: { name?: string } }) => {
+                  const pct = total > 0 ? Math.round((Number(v) / total) * 100) : 0
+                  return [`${v} (${pct}%)`, entry?.payload?.name ?? 'vidas']
+                }}
+              />
+            </PieChart>
+          </ResponsiveContainer>
+        ) : (
+          <Box
+            sx={{
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              bgcolor: SURFACE,
+              borderRadius: 1,
+            }}
+          >
+            <Typography sx={{ fontFamily: FONT, fontSize: 10, color: TEXT_SECONDARY, textAlign: 'center', px: 1 }}>
+              Sem titularidade classificada na base
+            </Typography>
+          </Box>
+        )}
       </Box>
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, justifyContent: 'center', mt: 0.5 }}>
-        <Typography sx={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, color: PRIMARY }}>
-          T {titulares}
-          <Typography component="span" sx={{ fontSize: 9, color: TEXT_SECONDARY, ml: 0.5 }}>
-            ({total > 0 ? Math.round((titulares / total) * 100) : 0}%)
-          </Typography>
-        </Typography>
-        <Typography sx={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, color: INFO }}>
-          D {dependentes}
-          <Typography component="span" sx={{ fontSize: 9, color: TEXT_SECONDARY, ml: 0.5 }}>
-            ({total > 0 ? Math.round((dependentes / total) * 100) : 0}%)
-          </Typography>
-        </Typography>
-        <Typography sx={{ fontFamily: FONT, fontSize: 11, fontWeight: 700, color: AGREGADO_COLOR }}>
-          A {agregados}
-          <Typography component="span" sx={{ fontSize: 9, color: TEXT_SECONDARY, ml: 0.5 }}>
-            ({total > 0 ? Math.round((agregados / total) * 100) : 0}%)
-          </Typography>
-        </Typography>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.45, width: '100%', mt: 0.65, minWidth: 0 }}>
+        {legendaItens.map((item) => (
+          <TitularidadeLegendaRow key={item.code} item={item} />
+        ))}
       </Box>
+      {statusComTitularidade.length > 0 && (
+        <Box
+          sx={{
+            mt: 1,
+            pt: 1,
+            borderTop: `1px solid ${BORDER}`,
+            width: '100%',
+            minWidth: 0,
+            flexShrink: 0,
+          }}
+        >
+          <Typography
+            noWrap
+            sx={{
+              fontFamily: FONT,
+              fontSize: 7.5,
+              fontWeight: 700,
+              color: PRIMARY,
+              mb: 0.6,
+              textAlign: 'center',
+              textTransform: 'uppercase',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            Status × Titularidade
+          </Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.45 }}>
+            {statusComTitularidade.map((item) => (
+              <TitularidadeStatusRow
+                key={item.key}
+                label={item.label}
+                total={item.total}
+                resumo={item.resumo}
+              />
+            ))}
+          </Box>
+        </Box>
+      )}
     </Paper>
   )
 }
@@ -294,6 +593,7 @@ export function FaixasEtariasChart({
   maxVal: number
 }) {
   const barPct = (n: number) => (maxVal > 0 && n > 0 ? (n / maxVal) * 100 : 0)
+  const faixaTotal = (f: (typeof faixas)[number]) => f.masculino + f.feminino + f.semSexo
 
   return (
     <Box data-chart="pyramid" sx={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: 0.35 }}>
@@ -301,7 +601,9 @@ export function FaixasEtariasChart({
         <Typography sx={{ fontFamily: FONT, fontSize: 9, fontWeight: 700, color: PRIMARY }}>♂ Masculino</Typography>
         <Typography sx={{ fontFamily: FONT, fontSize: 9, fontWeight: 700, color: INFO }}>Feminino ♀</Typography>
       </Box>
-      {faixas.map((f) => (
+      {faixas.map((f) => {
+        const total = faixaTotal(f)
+        return (
         <Box
           key={f.key}
           sx={{
@@ -314,22 +616,30 @@ export function FaixasEtariasChart({
           }}
         >
           <Typography sx={{ fontFamily: FONT, fontSize: 9, fontWeight: 700, color: PRIMARY, textAlign: 'right' }}>
-            {f.masculino > 0 ? f.masculino : ''}
+            {f.masculino > 0 ? f.masculino : f.semSexo > 0 && f.feminino === 0 ? total : ''}
           </Typography>
           <Box sx={{ height: 10, bgcolor: '#eef2f6', borderRadius: '3px 0 0 3px', overflow: 'hidden', display: 'flex', justifyContent: 'flex-end', minWidth: 0 }}>
             <Box sx={{ height: '100%', width: `${barPct(f.masculino)}%`, maxWidth: '100%', bgcolor: PRIMARY, borderRadius: '3px 0 0 3px' }} />
+            {f.semSexo > 0 && f.masculino === 0 && f.feminino === 0 ? (
+              <Box sx={{ height: '100%', width: `${barPct(f.semSexo)}%`, maxWidth: '100%', bgcolor: TEXT_SECONDARY, borderRadius: '3px 0 0 3px' }} />
+            ) : null}
           </Box>
           <Typography sx={{ fontFamily: FONT, fontSize: 8, fontWeight: 600, color: TEXT_PRIMARY, textAlign: 'center', bgcolor: SURFACE, borderRadius: 0.5, py: 0.2 }}>
             {f.label}
+            {total > 0 ? ` · ${total}` : ''}
           </Typography>
-          <Box sx={{ height: 10, bgcolor: '#eef2f6', borderRadius: '0 3px 3px 0', overflow: 'hidden', minWidth: 0 }}>
+          <Box sx={{ height: 10, bgcolor: '#eef2f6', borderRadius: '0 3px 3px 0', overflow: 'hidden', minWidth: 0, display: 'flex' }}>
             <Box sx={{ height: '100%', width: `${barPct(f.feminino)}%`, maxWidth: '100%', bgcolor: INFO_LIGHT, borderRadius: '0 3px 3px 0' }} />
+            {f.semSexo > 0 && (f.masculino > 0 || f.feminino > 0) ? (
+              <Box sx={{ height: '100%', width: `${barPct(f.semSexo)}%`, maxWidth: '100%', bgcolor: TEXT_SECONDARY, opacity: 0.55 }} />
+            ) : null}
           </Box>
           <Typography sx={{ fontFamily: FONT, fontSize: 9, fontWeight: 700, color: INFO }}>
             {f.feminino > 0 ? f.feminino : ''}
           </Typography>
         </Box>
-      ))}
+        )
+      })}
     </Box>
   )
 }
@@ -390,7 +700,7 @@ export function GrupoElegivelSlide({
   presentationMode?: PlacementPresentationMode
 }) {
   const isPage = presentationMode === 'page'
-  const maxPyramid = Math.max(...resumo.faixasEtarias.flatMap((f) => [f.masculino, f.feminino]), 1)
+  const maxPyramid = Math.max(...resumo.faixasEtarias.flatMap((f) => [f.masculino, f.feminino, f.semSexo]), 1)
 
   return (
     <Box
@@ -543,6 +853,8 @@ export function GrupoElegivelSlide({
               titulares={resumo.titulares}
               dependentes={resumo.dependentes}
               agregados={resumo.agregados}
+              naoClassificados={resumo.titularidadeNaoClassificada}
+              categoriasPorTitularidade={resumo.categoriasPorTitularidade}
             />
           </Box>
           <Paper

@@ -514,13 +514,19 @@ function PropostaMercadoEditor({
             </Grid>
             <Grid item xs={12} md={3}>
               <TextField
+                select
                 label="Acomodação"
                 fullWidth
                 size="small"
+                SelectProps={{ native: true }}
                 value={plano.acomodacao}
                 disabled={disabled}
                 onChange={(e) => patchPlano(index, { acomodacao: e.target.value })}
-              />
+              >
+                <option value="">Selecione</option>
+                <option value="Apartamento">Apartamento</option>
+                <option value="Enfermaria">Enfermaria</option>
+              </TextField>
             </Grid>
             <Grid item xs={12} md={3}>
               <TextField

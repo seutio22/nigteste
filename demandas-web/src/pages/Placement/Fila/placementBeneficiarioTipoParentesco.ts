@@ -34,8 +34,11 @@ const SUFIXO_TIPO: Record<string, BeneficiarioTipoParentesco> = {
 const GRAU_EXATO: Record<string, BeneficiarioTipoParentesco> = {
   titular: 'T',
   conjuge: 'D',
+  dependente: 'D',
+  dependentes: 'D',
   enteado: 'D',
   filho: 'D',
+  filha: 'D',
   'filho (a)': 'D',
   'filho (a) tutelados': 'D',
   'filho (a) maior de 24 anos': 'D',
@@ -83,11 +86,22 @@ export function resolveTipoParentesco(
 
   if (n.includes('agregad')) return 'A'
   if (n.includes('titular')) return 'T'
+  if (n.includes('dependente')) return 'D'
   if (
     n.includes('conjuge') ||
+    n.includes('esposa') ||
+    n.includes('marido') ||
+    n.includes('companheir') ||
     n.includes('entead') ||
     n.includes('filho') ||
-    n.includes('tutel')
+    n.includes('filha') ||
+    n.includes('tutel') ||
+    n.includes('neto') ||
+    n.includes('neta') ||
+    n.includes('irmao') ||
+    n.includes('irma') ||
+    n.includes('mae') ||
+    n.includes('pai')
   ) {
     return 'D'
   }

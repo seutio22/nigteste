@@ -7,7 +7,12 @@ import {
   type PropostaFornecedorState,
   type PropostaPlanoLinha,
 } from './placementAguardandoOperadora'
-import { emptyCustosFaixa, emptyVidasFaixa, FAIXAS_ETARIAS } from './placementCotacaoDetalhes'
+import {
+  emptyCustosFaixa,
+  emptyVidasFaixa,
+  FAIXAS_ETARIAS,
+  type FaixaEtariaKey,
+} from './placementCotacaoDetalhes'
 
 export type PlanoReferenciaAbertura = {
   id: string
@@ -15,6 +20,57 @@ export type PlanoReferenciaAbertura = {
   operadoraNome: string
   tipoCusto: PropostaPlanoLinha['tipoCusto']
   numeroVidas: string
+  acomodacao: string
+  vidasFaixa: Record<FaixaEtariaKey, string>
+}
+
+function vidasFaixaIsEmpty(vidas: Record<FaixaEtariaKey, string> | undefined): boolean {
+  return FAIXAS_ETARIAS.every((fx) => !String(vidas?.[fx.key] ?? '').trim())
+}
+
+function vidasFaixaFromReferencia(
+  ref: PlanoReferenciaAbertura,
+  tipoCusto: PropostaPlanoLinha['tipoCusto']
+): Record<FaixaEtariaKey, string> {
+  if (tipoCusto !== 'faixa_etaria') return emptyVidasFaixa()
+  return { ...emptyVidasFaixa(), ...ref.vidasFaixa }
+}
+
+function enriquecerPlanoLinhaComReferencia(
+  p: PropostaPlanoLinha,
+  ref: PlanoReferenciaAbertura
+): PropostaPlanoLinha {
+  const tipoCusto = ref.tipoCusto || p.tipoCusto
+  return {
+    ...p,
+    planoReferenciaId: ref.id,
+    tipoCusto,
+    numeroVidas:
+      tipoCusto === 'per_capita' && !p.numeroVidas.trim() ? ref.numeroVidas : p.numeroVidas,
+    vidasFaixa:
+      tipoCusto === 'per_capita'
+        ? emptyVidasFaixa()
+        : vidasFaixaIsEmpty(p.vidasFaixa)
+          ? vidasFaixaFromReferencia(ref, tipoCusto)
+          : p.vidasFaixa,
+    custosFaixa: tipoCusto === 'per_capita' ? emptyCustosFaixa() : p.custosFaixa,
+    acomodacao: p.acomodacao.trim() ? p.acomodacao : ref.acomodacao,
+  }
+}
+
+function enriquecerPropostaComReferencia(
+  proposta: PropostaFornecedorState,
+  referencias: PlanoReferenciaAbertura[]
+): PropostaFornecedorState {
+  const refById = new Map(referencias.map((r) => [r.id, r]))
+  return {
+    ...proposta,
+    planos: (proposta.planos ?? []).map((p) => {
+      const ref = refById.get(p.planoReferenciaId)
+      if (!ref) return p
+      return enriquecerPlanoLinhaComReferencia(p, ref)
+    }),
+  }
 }
 
 /** Catálogo de planos do contrato (abertura) para equivalência no comparativo. */
@@ -38,6 +94,8 @@ export function planosReferenciaAbertura(
       operadoraNome: itemOp.get(p.itemRowId) ?? '—',
       tipoCusto: p.tipoCusto,
       numeroVidas: p.numeroVidas,
+      acomodacao: p.acomodacao || '',
+      vidasFaixa: { ...emptyVidasFaixa(), ...p.vidasFaixa },
     }))
 }
 
@@ -56,6 +114,7 @@ export function propostaPatchFromReferencia(
   const src = (planosAbertura ?? []).find((p) => p.id === ref.id)
   const tipoCusto = src?.tipoCusto ?? ref.tipoCusto
   const base = emptyPropostaPlanoLinha()
+  const acomodacao = src?.acomodacao || ref.acomodacao || ''
 
   if (tipoCusto === 'faixa_etaria') {
     return {
@@ -63,9 +122,10 @@ export function propostaPatchFromReferencia(
       tipoCusto,
       numeroVidas: '',
       custoPerCapitaBRL: '',
+      acomodacao,
       vidasFaixa: src
         ? { ...base.vidasFaixa, ...src.vidasFaixa }
-        : emptyVidasFaixa(),
+        : vidasFaixaFromReferencia(ref, tipoCusto),
       custosFaixa: emptyCustosFaixa(),
     }
   }
@@ -75,6 +135,7 @@ export function propostaPatchFromReferencia(
     tipoCusto: 'per_capita',
     numeroVidas: src?.numeroVidas ?? ref.numeroVidas,
     custoPerCapitaBRL: '',
+    acomodacao,
     vidasFaixa: emptyVidasFaixa(),
     custosFaixa: emptyCustosFaixa(),
   }
@@ -95,24 +156,15 @@ export function alinharPropostaPorEquivalencia(
 
   const planos = referencias.map((ref) => {
     const prev = byRef.get(ref.id)
-    if (prev) {
-      const tipoCusto = ref.tipoCusto || prev.tipoCusto
-      return {
-        ...prev,
-        planoReferenciaId: ref.id,
-        tipoCusto,
-        numeroVidas: prev.numeroVidas.trim() ? prev.numeroVidas : ref.numeroVidas,
-        vidasFaixa: tipoCusto === 'per_capita' ? emptyVidasFaixa() : prev.vidasFaixa,
-        custosFaixa: tipoCusto === 'per_capita' ? emptyCustosFaixa() : prev.custosFaixa,
-      }
-    }
+    if (prev) return enriquecerPlanoLinhaComReferencia(prev, ref)
     return {
       ...emptyPropostaPlanoLinha(),
       planoReferenciaId: ref.id,
       tipoCusto: ref.tipoCusto,
-      numeroVidas: ref.numeroVidas,
-      vidasFaixa: ref.tipoCusto === 'faixa_etaria' ? emptyVidasFaixa() : emptyVidasFaixa(),
-      custosFaixa: ref.tipoCusto === 'faixa_etaria' ? emptyCustosFaixa() : emptyCustosFaixa(),
+      numeroVidas: ref.tipoCusto === 'per_capita' ? ref.numeroVidas : '',
+      vidasFaixa: vidasFaixaFromReferencia(ref, ref.tipoCusto),
+      custosFaixa: emptyCustosFaixa(),
+      acomodacao: ref.acomodacao,
       nomePlano: '',
     }
   })
@@ -145,14 +197,20 @@ export function ensurePropostaMercadoEquivalencia(
   const onlyEmpty = proposta.planos?.length === 1 && propostaPlanoLinhaIsPristine(proposta.planos[0])
 
   if (!hasRefLink && (onlyEmpty || proposta.planos.length < referencias.length)) {
-    return alinharPropostaPorEquivalencia(proposta, referencias)
+    return enriquecerPropostaComReferencia(
+      alinharPropostaPorEquivalencia(proposta, referencias),
+      referencias
+    )
   }
 
-  return {
-    ...proposta,
-    planos: (proposta.planos ?? []).map((p) => ({
-      ...p,
-      planoReferenciaId: p.planoReferenciaId || p.id,
-    })),
-  }
+  return enriquecerPropostaComReferencia(
+    {
+      ...proposta,
+      planos: (proposta.planos ?? []).map((p) => ({
+        ...p,
+        planoReferenciaId: p.planoReferenciaId || p.id,
+      })),
+    },
+    referencias
+  )
 }

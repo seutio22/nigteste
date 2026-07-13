@@ -103,4 +103,14 @@ describe('auditBeneficiariosSpreadsheetHeaders', () => {
     expect(mapped[0].grauParentesco).toBe('Titular')
     expect(manualAudit.columnMappings.find((m) => m.field === 'nome')?.manual).toBe(true)
   })
+
+  it('ignora linhas vazias ou só com ordem zero', () => {
+    const rows = [
+      { ORDEM: 0, NOME: '', CNPJ: '', MATRICULA: '' },
+      { ORDEM: 1, NOME: 'Ana', CNPJ: '123', OPERADORA: 'Op', SEXO: 'F', 'DATA DE NASCIMENTO': '1990-01-01', 'GRAU DE PARENTESCO': 'Titular' },
+    ]
+    const mapped = mapSpreadsheetRowsToBeneficiarios(rows)
+    expect(mapped).toHaveLength(1)
+    expect(mapped[0].nome).toBe('Ana')
+  })
 })

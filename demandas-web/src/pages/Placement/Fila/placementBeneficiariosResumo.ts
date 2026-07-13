@@ -1,5 +1,7 @@
 import type { PlacementBeneficiario } from './placementBeneficiarios'
 import { resolveTipoParentesco } from './placementBeneficiarioTipoParentesco'
+import { faixaEtariaKeyFromIdade } from './placementBeneficiariosValidacao'
+import { parseBeneficiarioIdadeFromValue, parseBeneficiarioSexo } from './placementBeneficiariosParse'
 
 /** Faixas etárias do painel de apresentação (pirâmide). */
 export const BENEFICIARIO_FAIXAS_APRESENTACAO = [
@@ -68,27 +70,6 @@ function norm(s: string | null | undefined): string {
     .replace(/[\u0300-\u036f]/g, '')
 }
 
-function parseSexo(sexo: string | null | undefined): 'M' | 'F' | null {
-  const s = norm(sexo)
-  if (!s) return null
-  if (s === 'm' || s.startsWith('masc') || s === 'homem') return 'M'
-  if (s === 'f' || s.startsWith('fem') || s === 'mulher') return 'F'
-  return null
-}
-
-function parseIdade(dataNascimento: string | null | undefined): number | null {
-  if (!dataNascimento) return null
-  const raw = String(dataNascimento).trim()
-  const iso = raw.includes('T') ? raw.slice(0, 10) : raw.slice(0, 10)
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return null
-  const today = new Date()
-  let age = today.getFullYear() - d.getFullYear()
-  const m = today.getMonth() - d.getMonth()
-  if (m < 0 || (m === 0 && today.getDate() < d.getDate())) age -= 1
-  return age >= 0 && age < 130 ? age : null
-}
-
 function classifyCategoria(b: PlacementBeneficiario): BeneficiarioCategoriaApresentacao {
   const status = norm(b.statusBeneficiario)
   const cid = norm(b.cid10)
@@ -118,6 +99,34 @@ function classifyCategoria(b: PlacementBeneficiario): BeneficiarioCategoriaApres
   return 'demais'
 }
 
+function emptyTitularidadeBucket(): TitularidadeBucket {
+  return { titulares: 0, dependentes: 0, agregados: 0, naoClassificada: 0 }
+}
+
+function addTitularidade(bucket: TitularidadeBucket, tipo: ReturnType<typeof resolveTipoParentesco>) {
+  if (tipo === 'T') bucket.titulares += 1
+  else if (tipo === 'D') bucket.dependentes += 1
+  else if (tipo === 'A') bucket.agregados += 1
+  else bucket.naoClassificada += 1
+}
+
+/** Resumo T/D/A para exibir no painel de titularidade (cruzamento com STATUS). */
+export function formatTitularidadeResumo(bucket: TitularidadeBucket): string | null {
+  const parts: string[] = []
+  if (bucket.titulares > 0) parts.push(`T${bucket.titulares}`)
+  if (bucket.dependentes > 0) parts.push(`D${bucket.dependentes}`)
+  if (bucket.agregados > 0) parts.push(`A${bucket.agregados}`)
+  if (bucket.naoClassificada > 0) parts.push(`?${bucket.naoClassificada}`)
+  return parts.length ? parts.join(' · ') : null
+}
+
+export type TitularidadeBucket = {
+  titulares: number
+  dependentes: number
+  agregados: number
+  naoClassificada: number
+}
+
 export type BeneficiariosResumoApresentacao = {
   total: number
   sexoM: number
@@ -130,12 +139,16 @@ export type BeneficiariosResumoApresentacao = {
   titulares: number
   dependentes: number
   agregados: number
+  titularidadeNaoClassificada: number
   categorias: Record<BeneficiarioCategoriaApresentacao, number>
+  /** STATUS (categoria) cruzado com titularidade (grau de parentesco). */
+  categoriasPorTitularidade: Record<BeneficiarioCategoriaApresentacao, TitularidadeBucket>
   faixasEtarias: {
     key: string
     label: string
     masculino: number
     feminino: number
+    semSexo: number
   }[]
   planos: { plano: string; quantidade: number }[]
 }
@@ -147,10 +160,14 @@ export function computeBeneficiariosResumo(
     CATEGORIAS_APRESENTACAO.map((c) => [c.key, 0])
   ) as Record<BeneficiarioCategoriaApresentacao, number>
 
+  const categoriasPorTitularidade = Object.fromEntries(
+    CATEGORIAS_APRESENTACAO.map((c) => [c.key, emptyTitularidadeBucket()])
+  ) as Record<BeneficiarioCategoriaApresentacao, TitularidadeBucket>
+
   const faixaMap = new Map(
     BENEFICIARIO_FAIXAS_APRESENTACAO.map((f) => [
       f.key,
-      { key: f.key, label: f.label, masculino: 0, feminino: 0 },
+      { key: f.key, label: f.label, masculino: 0, feminino: 0, semSexo: 0 },
     ])
   )
 
@@ -161,29 +178,29 @@ export function computeBeneficiariosResumo(
   let titulares = 0
   let dependentes = 0
   let agregados = 0
+  let titularidadeNaoClassificada = 0
   let somaIdade = 0
   let countIdade = 0
   const planoCount = new Map<string, number>()
 
   for (const b of rows) {
-    const sex = parseSexo(b.sexo)
+    const sex = parseBeneficiarioSexo(b.sexo)
     if (sex === 'M') sexoM += 1
     else if (sex === 'F') sexoF += 1
 
-    const idade = parseIdade(b.dataNascimento)
+    const idade = parseBeneficiarioIdadeFromValue(b.dataNascimento)
     if (idade != null) {
       somaIdade += idade
       countIdade += 1
       if (idade >= 59) acima59 += 1
       if (sex === 'F' && idade >= 19 && idade <= 38) potencialGestacional += 1
 
-      const faixa = BENEFICIARIO_FAIXAS_APRESENTACAO.find(
-        (f) => idade >= f.min && idade <= f.max
-      )
-      if (faixa) {
-        const cell = faixaMap.get(faixa.key)!
+      const faixaKey = faixaEtariaKeyFromIdade(idade)
+      if (faixaKey) {
+        const cell = faixaMap.get(faixaKey)!
         if (sex === 'M') cell.masculino += 1
         else if (sex === 'F') cell.feminino += 1
+        else cell.semSexo += 1
       }
     }
 
@@ -191,9 +208,11 @@ export function computeBeneficiariosResumo(
     if (tipo === 'T') titulares += 1
     else if (tipo === 'D') dependentes += 1
     else if (tipo === 'A') agregados += 1
+    else titularidadeNaoClassificada += 1
 
     const cat = classifyCategoria(b)
     categorias[cat] += 1
+    addTitularidade(categoriasPorTitularidade[cat], tipo)
 
     const plano = String(b.planoAtual ?? '').trim() || 'Sem plano informado'
     planoCount.set(plano, (planoCount.get(plano) ?? 0) + 1)
@@ -220,7 +239,9 @@ export function computeBeneficiariosResumo(
     titulares,
     dependentes,
     agregados,
+    titularidadeNaoClassificada,
     categorias,
+    categoriasPorTitularidade,
     faixasEtarias: BENEFICIARIO_FAIXAS_APRESENTACAO.map((f) => faixaMap.get(f.key)!),
     planos,
   }

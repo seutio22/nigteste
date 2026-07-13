@@ -218,7 +218,7 @@ export function PlacementAnaliseBaseUnifiedPage({ cotacaoId, disabled, focusSect
     return <Alert severity="warning">{errorMsg ?? 'Nenhum beneficiário na base.'}</Alert>
   }
 
-  const maxPyramid = Math.max(...grupo.faixasEtarias.flatMap((f) => [f.masculino, f.feminino]), 1)
+  const maxPyramid = Math.max(...grupo.faixasEtarias.flatMap((f) => [f.masculino, f.feminino, f.semSexo]), 1)
   const topMun = localidade.topMunicipios[0]
   const topUf = localidade.porUf[0]
   const ufsAtivos = localidade.porUf.filter((u) => u.vidas > 0).length
@@ -301,6 +301,8 @@ export function PlacementAnaliseBaseUnifiedPage({ cotacaoId, disabled, focusSect
                 titulares={grupo.titulares}
                 dependentes={grupo.dependentes}
                 agregados={grupo.agregados}
+                naoClassificados={grupo.titularidadeNaoClassificada}
+                categoriasPorTitularidade={grupo.categoriasPorTitularidade}
               />
             </Grid>
             <Grid item xs={12} md={5}>

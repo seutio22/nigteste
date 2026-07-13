@@ -1,4 +1,9 @@
 /** Colunas da base de beneficiários (etapa 1 — Em cotação). */
+import {
+  normalizeSpreadsheetCustoCell,
+  parseBeneficiarioDataToIso,
+} from './placementBeneficiariosParse'
+
 export const BENEFICIARIO_COLUMN_LABELS = [
   'ORDEM',
   'EMPRESA',
@@ -295,32 +300,8 @@ export function spreadsheetAuditHasIssues(audit: BeneficiariosSpreadsheetAudit):
   return audit.missingRequiredHeaders.length > 0 || audit.unrecognizedHeaders.length > 0
 }
 
-function excelSerialToIso(n: number): string | null {
-  if (!Number.isFinite(n) || n < 1) return null
-  const utc = (n - 25569) * 86400 * 1000
-  const d = new Date(utc)
-  if (Number.isNaN(d.getTime())) return null
-  return d.toISOString().slice(0, 10)
-}
-
 function parseDateCell(value: unknown): string | null {
-  if (value == null || value === '') return null
-  if (typeof value === 'number') return excelSerialToIso(value)
-  const s = String(value).trim()
-  if (!s) return null
-  const br = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/)
-  if (br) {
-    const dd = br[1].padStart(2, '0')
-    const mm = br[2].padStart(2, '0')
-    let yyyy = br[3]
-    if (yyyy.length === 2) yyyy = `20${yyyy}`
-    return `${yyyy}-${mm}-${dd}`
-  }
-  const iso = s.slice(0, 10)
-  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso
-  const d = new Date(s)
-  if (!Number.isNaN(d.getTime())) return d.toISOString().slice(0, 10)
-  return null
+  return parseBeneficiarioDataToIso(value)
 }
 
 function cellToFieldValue(field: keyof BeneficiarioUploadRow, raw: unknown): unknown {
@@ -335,8 +316,20 @@ function cellToFieldValue(field: keyof BeneficiarioUploadRow, raw: unknown): unk
   ) {
     return parseDateCell(raw)
   }
+  if (field === 'custoPerCapita') {
+    return normalizeSpreadsheetCustoCell(raw)
+  }
   const s = String(raw ?? '').trim()
   return s || null
+}
+
+/** Linha da planilha precisa de identificação mínima (nome, matrícula ou CNPJ). */
+export function beneficiarioRowHasMeaningfulData(rec: BeneficiarioUploadRow): boolean {
+  return (
+    String(rec.nome ?? '').trim().length > 0 ||
+    String(rec.matricula ?? '').trim().length > 0 ||
+    String(rec.cnpj ?? '').trim().length > 0
+  )
 }
 
 /** Converte linhas da planilha (objeto header→valor) para payload da API. */
@@ -352,13 +345,11 @@ export function mapSpreadsheetRowsToBeneficiarios(
   const out: BeneficiarioUploadRow[] = []
   for (const row of sheetRows) {
     const rec: BeneficiarioUploadRow = {}
-    let hasData = false
     for (const [field, header] of fieldToUploadedHeader.entries()) {
       const val = cellToFieldValue(field, row[header])
-      if (val != null && val !== '') hasData = true
       ;(rec as Record<string, unknown>)[field] = val
     }
-    if (hasData) out.push(rec)
+    if (beneficiarioRowHasMeaningfulData(rec)) out.push(rec)
   }
   return out
 }

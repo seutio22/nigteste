@@ -144,14 +144,39 @@ describe('placementPropostaEquivalencia', () => {
     expect(propostaPlanoLinhaIsPristine(linha)).toBe(false)
   })
 
-  it('propostaPatchFromReferencia copia apenas vidas da abertura, sem valores', () => {
+  it('propostaPatchFromReferencia copia vidas e acomodação da abertura, sem valores de custo', () => {
     const form = formBase()
     const refs = planosReferenciaAbertura(form, operadoras)
     const patch = propostaPatchFromReferencia(refs[0], form.planos)
     expect(patch.numeroVidas).toBe('50')
     expect(patch.planoReferenciaId).toBe('plano-ref')
+    expect(patch.acomodacao).toBe('Apartamento')
     expect(patch.custoPerCapitaBRL).toBe('')
     expect(patch.nomePlano).toBeUndefined()
+  })
+
+  it('alinhar proposta mercado copia vidas por faixa etária e acomodação da abertura', () => {
+    const form = formBase()
+    form.planos = [
+      {
+        ...form.planos[0],
+        tipoCusto: 'faixa_etaria',
+        numeroVidas: '',
+        custoPerCapitaBRL: '',
+        acomodacao: 'Enfermaria',
+        vidasFaixa: { ...emptyVidasFaixa(), '19-23': '12', '24-28': '8' },
+        custosFaixa: { ...emptyCustosFaixa(), '19-23': '280,00' },
+      },
+    ]
+    const refs = planosReferenciaAbertura(form, operadoras)
+    const aligned = alinharPropostaPorEquivalencia(
+      { incluirNoComparativo: true, planos: [emptyPropostaPlanoLinha()] },
+      refs
+    )
+    expect(aligned.planos[0].vidasFaixa['19-23']).toBe('12')
+    expect(aligned.planos[0].vidasFaixa['24-28']).toBe('8')
+    expect(aligned.planos[0].acomodacao).toBe('Enfermaria')
+    expect(aligned.planos[0].custosFaixa['19-23']).toBe('')
   })
 
   it('ordena colunas: plano ref → cenário atual → mercado', () => {

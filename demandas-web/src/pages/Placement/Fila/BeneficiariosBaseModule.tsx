@@ -56,6 +56,7 @@ import {
   type BeneficiariosMappingSnapshot,
 } from './placementBeneficiariosMappingStore'
 import { formatGridDatePtBR, gridCellToDate } from '../../../utils/gridDate'
+import { formatBeneficiarioCustoDisplay } from './placementBeneficiariosParse'
 
 type Props = {
   cotacaoId: string
@@ -368,7 +369,12 @@ export function BeneficiariosBaseModule({
       { field: 'operadora', headerName: 'Operadora', width: 120 },
       { field: 'planoAtual', headerName: 'Plano atual', width: 140 },
       { field: 'acomodacao', headerName: 'Acomodação', width: 110 },
-      { field: 'custoPerCapita', headerName: 'Custo per capita', width: 120 },
+      {
+        field: 'custoPerCapita',
+        headerName: 'Custo per capita',
+        width: 130,
+        valueFormatter: (value) => formatBeneficiarioCustoDisplay(value != null ? String(value) : ''),
+      },
     ],
     [apontamentosPorId, validacao]
   )

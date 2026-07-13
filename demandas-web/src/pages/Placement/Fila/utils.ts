@@ -34,8 +34,31 @@ export function formatCentsToBRL(cents: number | null | undefined): string {
 
 export function parseBRLToCents(input: string): number | null {
   if (!input) return null
-  const cleaned = String(input).replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.')
-  const n = Number(cleaned)
+  const cleaned = String(input).replace(/[^\d,.-]/g, '').trim()
+  if (!cleaned) return null
+
+  const hasComma = cleaned.includes(',')
+  const hasDot = cleaned.includes('.')
+
+  let normalized: string
+  if (hasComma) {
+    // BR: vírgula decimal; pontos são milhar (ex.: 1.134,16 ou 1134,16)
+    normalized = cleaned.replace(/\./g, '').replace(',', '.')
+  } else if (hasDot) {
+    const parts = cleaned.split('.')
+    const last = parts[parts.length - 1] ?? ''
+    if (parts.length === 2 && last.length <= 2) {
+      // Excel/US: 1134.16 — ponto único com até 2 casas decimais
+      normalized = cleaned
+    } else {
+      // Milhar sem centavos: 1.134
+      normalized = cleaned.replace(/\./g, '')
+    }
+  } else {
+    normalized = cleaned
+  }
+
+  const n = Number(normalized)
   if (!Number.isFinite(n)) return null
   return Math.round(n * 100)
 }

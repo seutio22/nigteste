@@ -6,7 +6,11 @@ import {
 } from './placementCotacaoDetalhes'
 import type { PlacementBeneficiario } from './placementBeneficiarios'
 import { isGrauParentescoConhecido, isGrauConjuge, isGrauFilho, isGrauTitular, normGrauParentesco, resolveTipoParentesco } from './placementBeneficiarioTipoParentesco'
-import { parseBRLToCents } from './utils'
+import {
+  parseBeneficiarioCustoToCents,
+  parseBeneficiarioIdadeFromValue,
+} from './placementBeneficiariosParse'
+import { formatCentsToBRL, parseBRLToCents } from './utils'
 
 export type BeneficiarioValidacaoCampo =
   | 'cnpj'
@@ -63,6 +67,11 @@ export type BeneficiarioValidacaoLinha = {
   beneficiarioId: string
   ordem?: number | null
   nome?: string | null
+  matricula?: string | null
+  cnpj?: string | null
+  operadora?: string | null
+  planoAtual?: string | null
+  custoPerCapita?: string | null
   apontamentos: BeneficiarioApontamento[]
 }
 
@@ -83,44 +92,7 @@ function normText(value: string | null | undefined): string {
 }
 
 function parseIdade(dataNascimento: string | null | undefined): number | null {
-  if (!dataNascimento) return null
-  const raw = String(dataNascimento).trim()
-  if (!raw) return null
-
-  let year: number | null = null
-  let month: number | null = null
-  let day: number | null = null
-
-  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/)
-  if (iso) {
-    year = Number(iso[1])
-    month = Number(iso[2])
-    day = Number(iso[3])
-  } else {
-    const br = raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/)
-    if (br) {
-      day = Number(br[1])
-      month = Number(br[2])
-      let y = br[3]
-      if (y.length === 2) y = Number(y) > 30 ? `19${y}` : `20${y}`
-      year = Number(y)
-    }
-  }
-
-  if (year == null || month == null || day == null || !Number.isFinite(year)) return null
-  if (month < 1 || month > 12 || day < 1 || day > 31) return null
-
-  const birth = new Date(year, month - 1, day)
-  if (Number.isNaN(birth.getTime())) return null
-  if (birth.getFullYear() !== year || birth.getMonth() !== month - 1 || birth.getDate() !== day) {
-    return null
-  }
-
-  const today = new Date()
-  let age = today.getFullYear() - birth.getFullYear()
-  const md = today.getMonth() - birth.getMonth()
-  if (md < 0 || (md === 0 && today.getDate() < birth.getDate())) age -= 1
-  return age >= 0 && age < 130 ? age : null
+  return parseBeneficiarioIdadeFromValue(dataNascimento)
 }
 
 function sexoPermitido(valor: string): boolean {
@@ -451,17 +423,13 @@ export function faixaEtariaKeyFromIdade(idade: number): FaixaEtariaKey | null {
   return null
 }
 
-function parseCustoCell(value: string | null | undefined): number | null {
-  const raw = String(value ?? '').trim()
-  if (!raw) return null
-  const asNumber = Number(raw.replace(/\./g, '').replace(',', '.'))
-  if (Number.isFinite(asNumber)) return Math.round(asNumber * 100)
-  return parseBRLToCents(raw)
-}
-
 function custosIguais(a: number | null, b: number | null, toleranciaCents = 1): boolean {
   if (a == null || b == null) return false
   return Math.abs(a - b) <= toleranciaCents
+}
+
+function mensagemCustoDivergente(planilha: number, formulario: number): string {
+  return `Planilha: ${formatCentsToBRL(planilha)} · Formulário: ${formatCentsToBRL(formulario)}`
 }
 
 function nomeCompativel(a: string, b: string): boolean {
@@ -644,7 +612,7 @@ function validarCustoPerCapita(
   row: PlacementBeneficiario,
   plano: PlanoCoberturaForm | null
 ): BeneficiarioApontamento[] {
-  const custoPlanilha = parseCustoCell(row.custoPerCapita)
+  const custoPlanilha = parseBeneficiarioCustoToCents(row.custoPerCapita)
   const temCustoPlanilha = custoPlanilha != null
 
   if (!plano) {
@@ -653,7 +621,7 @@ function validarCustoPerCapita(
         {
           campo: 'custoPerCapita',
           severidade: 'aviso',
-          mensagem: 'Custo per capita na planilha sem plano correspondente no formulário para conferência.',
+          mensagem: `Custo per capita na planilha (${formatCentsToBRL(custoPlanilha)}) sem plano correspondente no formulário para conferência.`,
         },
       ]
     }
@@ -667,7 +635,7 @@ function validarCustoPerCapita(
         {
           campo: 'custoPerCapita',
           severidade: 'aviso',
-          mensagem: 'Custo per capita ausente na planilha; o formulário informa valor per capita para este plano.',
+          mensagem: `Custo per capita ausente na planilha; formulário: ${formatCentsToBRL(esperado)} para o plano "${plano.nomePlano}".`,
         },
       ]
     }
@@ -676,7 +644,7 @@ function validarCustoPerCapita(
         {
           campo: 'custoPerCapita',
           severidade: 'aviso',
-          mensagem: 'Custo per capita na planilha, mas o plano no formulário não tem valor per capita informado.',
+          mensagem: `Custo per capita na planilha (${formatCentsToBRL(custoPlanilha)}); o plano "${plano.nomePlano}" não tem valor per capita no formulário.`,
         },
       ]
     }
@@ -685,7 +653,7 @@ function validarCustoPerCapita(
         {
           campo: 'custoPerCapita',
           severidade: 'erro',
-          mensagem: `Custo per capita diverge do informado no formulário para o plano "${plano.nomePlano}".`,
+          mensagem: `Custo per capita diverge do plano "${plano.nomePlano}". ${mensagemCustoDivergente(custoPlanilha, esperado)}.`,
         },
       ]
     }
@@ -726,7 +694,7 @@ function validarCustoPerCapita(
       {
         campo: 'custoPerCapita',
         severidade: 'aviso',
-        mensagem: `Custo ausente na planilha; faixa ${faixaLabel} (idade ${idade}) tem valor no formulário.`,
+        mensagem: `Custo ausente na planilha; faixa ${faixaLabel} (idade ${idade}): ${formatCentsToBRL(esperado)} no formulário.`,
       },
     ]
   }
@@ -736,7 +704,7 @@ function validarCustoPerCapita(
       {
         campo: 'custoPerCapita',
         severidade: 'aviso',
-        mensagem: `Custo na planilha, mas faixa ${faixaLabel} (idade ${idade}) sem valor no formulário.`,
+        mensagem: `Custo na planilha (${formatCentsToBRL(custoPlanilha)}); faixa ${faixaLabel} (idade ${idade}) sem valor no formulário.`,
       },
     ]
   }
@@ -746,7 +714,7 @@ function validarCustoPerCapita(
       {
         campo: 'custoPerCapita',
         severidade: 'erro',
-        mensagem: `Custo diverge da faixa ${faixaLabel} (idade ${idade}) informada no formulário para "${plano.nomePlano}".`,
+        mensagem: `Custo diverge da faixa ${faixaLabel} (idade ${idade}) no plano "${plano.nomePlano}". ${mensagemCustoDivergente(custoPlanilha, esperado)}.`,
       },
     ]
   }
@@ -787,6 +755,11 @@ export function validarBeneficiariosImportados(
         beneficiarioId: row.id,
         ordem: row.ordem,
         nome: row.nome,
+        matricula: row.matricula,
+        cnpj: row.cnpj,
+        operadora: row.operadora,
+        planoAtual: row.planoAtual,
+        custoPerCapita: row.custoPerCapita,
         apontamentos,
       })
     }

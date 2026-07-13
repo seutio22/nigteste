@@ -92,22 +92,56 @@ async function generateCotacaoTicket(prisma: PrismaClient): Promise<string> {
   return `${prefix}${String(nextSeq).padStart(4, '0')}`;
 }
 
+function normalizeTwoDigitYear(yy: number): number {
+  const y2000 = 2000 + yy
+  const y1900 = 1900 + yy
+  const todayYear = new Date().getFullYear()
+  const ok2000 = todayYear - y2000 >= 0 && todayYear - y2000 < 120
+  const ok1900 = todayYear - y1900 >= 0 && todayYear - y1900 < 120
+  if (ok2000 && ok1900) return yy <= 29 ? y2000 : y1900
+  if (ok2000) return y2000
+  if (ok1900) return y1900
+  return yy <= 29 ? y2000 : y1900
+}
+
 function toDateOrNull(value: unknown): Date | null | undefined {
   if (value === undefined) return undefined;
   if (value === null || value === '') return null;
-  if (typeof value === 'number') {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    if (Number.isInteger(value) && value >= 1900 && value <= 2035) {
+      return new Date(`${value}-07-01T12:00:00.000Z`);
+    }
     const utc = (value - 25569) * 86400 * 1000;
     const d = new Date(utc);
     return Number.isNaN(d.getTime()) ? null : d;
   }
-  const s = String(value).trim();
-  const br = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  const s = String(value).trim().replace(/\s+/g, '');
+  if (/^\d{4}$/.test(s)) {
+    const d = new Date(`${s}-07-01T12:00:00.000Z`);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  const br = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{1,4})$/);
   if (br) {
-    const dd = br[1].padStart(2, '0');
-    const mm = br[2].padStart(2, '0');
-    let yyyy = br[3];
-    if (yyyy.length === 2) yyyy = `20${yyyy}`;
-    const d = new Date(`${yyyy}-${mm}-${dd}T12:00:00.000Z`);
+    const p1 = Number(br[1]);
+    const p2 = Number(br[2]);
+    const yyRaw = br[3];
+    let yyyy: number;
+    if (yyRaw.length === 4) yyyy = Number(yyRaw);
+    else if (yyRaw.length === 2) yyyy = normalizeTwoDigitYear(Number(yyRaw));
+    else yyyy = normalizeTwoDigitYear(Number(yyRaw.padStart(2, '0')));
+    let day: number;
+    let month: number;
+    if (p1 > 12) {
+      day = p1;
+      month = p2;
+    } else if (p2 > 12) {
+      month = p1;
+      day = p2;
+    } else {
+      day = p1;
+      month = p2;
+    }
+    const d = new Date(`${yyyy}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T12:00:00.000Z`);
     return Number.isNaN(d.getTime()) ? null : d;
   }
   const d = new Date(s);
