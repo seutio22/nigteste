@@ -62,7 +62,7 @@ export type PropostaColunaEntrada = {
 export function propostaMercadoTemOfertaParaComparativo(plano: PropostaPlanoLinha): boolean {
   if (plano.nomePlano.trim()) return true
   if (plano.custoPerCapitaBRL.trim()) return true
-  if (plano.reembolsoConsulta.trim() || plano.coparticipacao.trim()) return true
+  if (plano.reembolso.trim() || plano.reembolsoConsulta.trim() || plano.coparticipacao.trim()) return true
   return FAIXAS_ETARIAS.some((fx) => parseBRLToCents(plano.custosFaixa[fx.key] ?? '') != null)
 }
 

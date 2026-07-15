@@ -47,6 +47,11 @@ import type { FaixaEtariaUploadResult } from './placementFaixaEtariaUpload'
 import { PlanoNomeCatalogField } from './PlanoNomeCatalogField'
 import { rowIdsNeedingPlanoForCotacao } from './placementFormularioContrato'
 import { parseAcomodacaoFromCatalog } from './placementPlanos'
+import {
+  parseVidasCount,
+  sxCampoValorPorVidas,
+  sxTableRowFaixaPorVidas,
+} from './placementCampoValorVidasHighlight'
 
 interface Props {
   itens: MapeamentoItemForm[]
@@ -403,11 +408,15 @@ export function PlanoCoberturasSection({
                                 fullWidth
                                 size="small"
                                 value={plano.custoPerCapitaBRL}
-                                disabled={disabled}
+                                disabled={disabled || parseVidasCount(plano.numeroVidas) === 0}
                                 onChange={(e) =>
                                   patchPlanoById(plano.id, { custoPerCapitaBRL: e.target.value })
                                 }
                                 placeholder="0,00"
+                                sx={sxCampoValorPorVidas(
+                                  parseVidasCount(plano.numeroVidas) > 0,
+                                  !!plano.custoPerCapitaBRL.trim()
+                                )}
                               />
                             </Grid>
                             <Grid item xs={12} md={4}>
@@ -442,6 +451,10 @@ export function PlanoCoberturasSection({
                             <Typography variant="body2" sx={{ mb: 1, fontWeight: 600 }}>
                               Vidas e custo por faixa etária
                             </Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                              Faixas com vidas em destaque (amarelo = falta valor · verde = preenchido). Sem vidas, o
+                              custo fica bloqueado.
+                            </Typography>
                             <FaixaEtariaUploadBar
                               disabled={disabled}
                               onImported={(result) => applyFaixaUpload(plano.id, result)}
@@ -457,14 +470,18 @@ export function PlanoCoberturasSection({
                               </TableHead>
                               <TableBody>
                                 {FAIXAS_ETARIAS.map((fx) => {
+                                  const vidasStr = plano.vidasFaixa[fx.key] ?? ''
+                                  const custoStr = plano.custosFaixa[fx.key] ?? ''
+                                  const temVidas = parseVidasCount(vidasStr) > 0
+                                  const temValor = !!custoStr.trim()
                                   const sub = formatCentsToBRL(
-                                    subtotalFaixaCents(
-                                      plano.vidasFaixa[fx.key] ?? '',
-                                      plano.custosFaixa[fx.key] ?? ''
-                                    )
+                                    subtotalFaixaCents(vidasStr, custoStr)
                                   )
                                   return (
-                                    <TableRow key={fx.key}>
+                                    <TableRow
+                                      key={fx.key}
+                                      sx={sxTableRowFaixaPorVidas(temVidas, temValor)}
+                                    >
                                       <TableCell>{fx.label}</TableCell>
                                       <TableCell>
                                         <TextField
@@ -472,7 +489,7 @@ export function PlanoCoberturasSection({
                                           fullWidth
                                           type="number"
                                           inputProps={{ min: 0 }}
-                                          value={plano.vidasFaixa[fx.key] ?? ''}
+                                          value={vidasStr}
                                           disabled={disabled}
                                           onChange={(e) =>
                                             patchVidasFaixa(plano.id, fx.key, e.target.value)
@@ -484,12 +501,13 @@ export function PlanoCoberturasSection({
                                         <TextField
                                           size="small"
                                           fullWidth
-                                          value={plano.custosFaixa[fx.key] ?? ''}
-                                          disabled={disabled}
+                                          value={custoStr}
+                                          disabled={disabled || !temVidas}
                                           onChange={(e) =>
                                             patchFaixa(plano.id, fx.key, e.target.value)
                                           }
                                           placeholder="0,00"
+                                          sx={sxCampoValorPorVidas(temVidas, temValor)}
                                         />
                                       </TableCell>
                                       <TableCell>

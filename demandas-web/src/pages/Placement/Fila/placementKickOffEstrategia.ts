@@ -9,6 +9,7 @@ import { formatMultaRescisaoResumo, formatConvencaoColetivaResumo } from './plac
 import type { Operadora } from '../../../types/masterData'
 import type { ComunicarMercadoState } from './placementComunicarMercado'
 import type { AguardandoOperadoraState } from './placementAguardandoOperadora'
+import type { ConsolidandoDadosState } from './placementConsolidandoDados'
 
 export type KickOffEstrategiaItem = {
   id: string
@@ -32,6 +33,8 @@ export type KickOffEstrategia = {
   comunicarMercado?: ComunicarMercadoState
   /** Estado da etapa Aguardando operadora. */
   aguardandoOperadora?: AguardandoOperadoraState
+  /** Estado da etapa Consolidando dados. */
+  consolidandoDados?: ConsolidandoDadosState
 }
 
 export type KickOffAberturaLabels = {
@@ -258,6 +261,11 @@ export function parseKickOffEstrategiaFromApi(raw: unknown): KickOffEstrategia {
     typeof o.aguardandoOperadora === 'object' &&
     !Array.isArray(o.aguardandoOperadora)
       ? { aguardandoOperadora: o.aguardandoOperadora as KickOffEstrategia['aguardandoOperadora'] }
+      : {}),
+    ...(o.consolidandoDados &&
+    typeof o.consolidandoDados === 'object' &&
+    !Array.isArray(o.consolidandoDados)
+      ? { consolidandoDados: o.consolidandoDados as KickOffEstrategia['consolidandoDados'] }
       : {}),
   }
 }

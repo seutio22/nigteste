@@ -7,6 +7,7 @@ import { PlacementEmCotacaoPanel } from './PlacementEmCotacaoPanel'
 import { PlacementKickOffPanel } from './PlacementKickOffPanel'
 import { PlacementEstrategiaPanel } from './PlacementEstrategiaPanel'
 import { PlacementAguardandoOperadoraPanel } from './PlacementAguardandoOperadoraPanel'
+import { PlacementConsolidandoDadosPanel } from './PlacementConsolidandoDadosPanel'
 import { formScopeForWorkflow } from './placementCotacaoFormScope'
 import { getWorkflowStageMeta, type WorkflowStageKey } from './placementCotacaoWorkflow'
 import { isRascunhoStatus } from './placementCotacaoStatus'
@@ -209,9 +210,22 @@ function StackEtapaAtual({
         </Box>
       )}
 
+      {workflowStageKey === 'consolidando_dados' && !isDraft && (
+        <Box sx={{ mb: 2 }}>
+          <PlacementConsolidandoDadosPanel
+            cotacaoId={cotacaoId}
+            form={form}
+            onChange={onChange}
+            onPersisted={onPersisted}
+            disabled={disabled}
+          />
+        </Box>
+      )}
+
       {workflowStageKey !== 'kick_off' &&
         workflowStageKey !== 'estrategia' &&
-        workflowStageKey !== 'validacao' && (
+        workflowStageKey !== 'validacao' &&
+        workflowStageKey !== 'consolidando_dados' && (
         <>
           {workflowStageKey === 'em_cotacao' && !isDraft && (
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>

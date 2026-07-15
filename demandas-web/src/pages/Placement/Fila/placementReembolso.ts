@@ -355,3 +355,105 @@ export function reembolsoPorPlanoToApi(r: ReembolsoPorPlano) {
     valores: valoresOut,
   }
 }
+
+/** Detalhamento de reembolso por plano na proposta (comparativo de reembolso). */
+export type ReembolsoPlanoDetalhe = {
+  valores: Record<string, string>
+  consultaDias: string
+  procedimentosDias: string
+  procedimentosCustomizados: ReembolsoProcedimentoCustom[]
+}
+
+export function emptyReembolsoPlanoDetalhe(): ReembolsoPlanoDetalhe {
+  return {
+    valores: {},
+    consultaDias: '',
+    procedimentosDias: '',
+    procedimentosCustomizados: [],
+  }
+}
+
+export function cloneReembolsoPlanoDetalhe(d: ReembolsoPlanoDetalhe): ReembolsoPlanoDetalhe {
+  return {
+    valores: { ...d.valores },
+    consultaDias: d.consultaDias,
+    procedimentosDias: d.procedimentosDias,
+    procedimentosCustomizados: d.procedimentosCustomizados.map((p) => ({ ...p })),
+  }
+}
+
+export function parseReembolsoPlanoDetalheFromApi(raw: unknown): ReembolsoPlanoDetalhe {
+  const base = emptyReembolsoPlanoDetalhe()
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return base
+  const o = raw as Record<string, unknown>
+
+  if (o.valores && typeof o.valores === 'object' && !Array.isArray(o.valores)) {
+    for (const [k, v] of Object.entries(o.valores as Record<string, unknown>)) {
+      if (v != null && String(v).trim()) base.valores[k] = String(v)
+    }
+  }
+
+  base.consultaDias = sanitizeReembolsoDias(String(o.consultaDias ?? ''))
+  base.procedimentosDias = sanitizeReembolsoDias(String(o.procedimentosDias ?? ''))
+
+  if (Array.isArray(o.procedimentosCustomizados)) {
+    base.procedimentosCustomizados = o.procedimentosCustomizados
+      .filter((x) => x && typeof x === 'object')
+      .map((x) => {
+        const item = x as Record<string, unknown>
+        return {
+          id: String(item.id ?? newReembolsoProcedimentoId()),
+          nome: item.nome != null ? String(item.nome) : '',
+        }
+      })
+  }
+
+  return base
+}
+
+export function reembolsoDetalheFromAbertura(
+  planoId: string,
+  reembolsoPorPlano: ReembolsoPorPlano
+): ReembolsoPlanoDetalhe {
+  const custom = reembolsoPorPlano.procedimentosCustomizados
+  const valores: Record<string, string> = {}
+  for (const key of allReembolsoValorKeys(custom)) {
+    const v = getReembolsoCell(reembolsoPorPlano.valores, key, planoId)
+    if (v.trim()) valores[key] = v
+  }
+  const prazos = reembolsoPorPlano.prazosPorPlano[planoId] ?? emptyReembolsoPrazosPlano()
+  const customFiltered = custom.filter((p) => p.nome.trim() || valores[p.id]?.trim())
+  return {
+    valores,
+    consultaDias: prazos.consultaDias,
+    procedimentosDias: prazos.procedimentosDias,
+    procedimentosCustomizados: customFiltered.map((p) => ({ ...p })),
+  }
+}
+
+export function temReembolsoDetalhePreenchido(
+  det: ReembolsoPlanoDetalhe,
+  reembolsoFlag?: string,
+  reembolsoConsulta?: string
+): boolean {
+  if (reembolsoFlag === 'Sim') return true
+  if (reembolsoConsulta?.trim()) return true
+  if (det.consultaDias.trim() || det.procedimentosDias.trim()) return true
+  return Object.values(det.valores).some((v) => v.trim())
+}
+
+export function formatReembolsoProcedimentoCelula(
+  det: ReembolsoPlanoDetalhe,
+  procKey: string
+): string {
+  const v = det.valores[procKey]?.trim()
+  if (!v) return '—'
+  const display = formatReembolsoMoedaDisplay(v)
+  return display ? `R$ ${display}` : v
+}
+
+export function formatReembolsoPrazoDias(dias: string): string {
+  const d = sanitizeReembolsoDias(dias)
+  if (!d) return '—'
+  return `${d} dias`
+}

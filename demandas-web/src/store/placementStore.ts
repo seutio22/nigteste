@@ -63,6 +63,18 @@ export interface PlacementPlano {
   operadora?: { id: string; nome: string }
 }
 
+export interface PlacementDiferencial {
+  id: string
+  operadoraId: string
+  placementPlanoId: string
+  itemKey: string
+  texto: string
+  createdAt?: string
+  updatedAt?: string
+  operadora?: { id: string; nome: string }
+  placementPlano?: { id: string; plano: string; categoria: string; operadoraId: string }
+}
+
 /** Cadastros nome único (tipo contratação, modalidade, prazo vigência). */
 export interface PlacementNomeCadastro {
   id: string
@@ -84,9 +96,11 @@ interface PlacementState {
   temperaturas: PlacementNomeCadastro[]
   analistas: PlacementAnalista[]
   planos: PlacementPlano[]
+  diferenciais: PlacementDiferencial[]
   isLoading: boolean
   isLoadingAnalistas: boolean
   isLoadingPlanos: boolean
+  isLoadingDiferenciais: boolean
   isLoadingCorretores: boolean
   isLoadingProspects: boolean
   isLoadingCondicoes: boolean
@@ -100,6 +114,7 @@ interface PlacementState {
   lastSyncProjetosPedidos: number
   lastSyncAnalistas: number
   lastSyncPlanos: number
+  lastSyncDiferenciais: number
 
   syncFiliais: (force?: boolean) => Promise<void>
   addFilial: (input: { razaoSocial: string; cnpj: string; status?: PlacementFilialStatus }) => Promise<PlacementFilial>
@@ -191,6 +206,27 @@ interface PlacementState {
     >
   ) => Promise<PlacementPlano>
   removePlano: (id: string) => Promise<void>
+
+  syncDiferenciais: (force?: boolean) => Promise<void>
+  addDiferencial: (input: {
+    operadoraId: string
+    placementPlanoId: string
+    itemKey: string
+    texto: string
+  }) => Promise<PlacementDiferencial>
+  updateDiferencial: (
+    id: string,
+    input: Partial<Pick<PlacementDiferencial, 'operadoraId' | 'placementPlanoId' | 'itemKey' | 'texto'>>
+  ) => Promise<PlacementDiferencial>
+  removeDiferencial: (id: string) => Promise<void>
+  upsertDiferenciaisBatch: (
+    items: Array<{
+      operadoraId: string
+      placementPlanoId: string
+      itemKey: string
+      texto: string
+    }>
+  ) => Promise<{ synced: number; skipped: number; diferenciais: PlacementDiferencial[] }>
 }
 
 const FIVE_MINUTES_MS = 5 * 60 * 1000
@@ -210,9 +246,11 @@ export const usePlacementStore = create<PlacementState>()(
       temperaturas: [],
       analistas: [],
       planos: [],
+      diferenciais: [],
       isLoading: false,
       isLoadingAnalistas: false,
       isLoadingPlanos: false,
+      isLoadingDiferenciais: false,
       isLoadingCorretores: false,
       isLoadingProspects: false,
       isLoadingCondicoes: false,
@@ -226,6 +264,7 @@ export const usePlacementStore = create<PlacementState>()(
       lastSyncProjetosPedidos: 0,
       lastSyncAnalistas: 0,
       lastSyncPlanos: 0,
+      lastSyncDiferenciais: 0,
 
       async syncFiliais(force?: boolean) {
         const state = get()
@@ -643,6 +682,75 @@ export const usePlacementStore = create<PlacementState>()(
         await api.delete(`/placement/planos/${id}`)
         set((s) => ({ planos: s.planos.filter((p) => p.id !== id) }))
       },
+
+      async syncDiferenciais(force?: boolean) {
+        const state = get()
+        if (state.isLoadingDiferenciais) return
+        const now = Date.now()
+        if (!force && state.diferenciais.length > 0 && now - state.lastSyncDiferenciais < FIVE_MINUTES_MS) return
+
+        try {
+          set({ isLoadingDiferenciais: true })
+          const resp = (await api.get('/placement/diferenciais')) as
+            | { diferenciais?: PlacementDiferencial[] }
+            | PlacementDiferencial[]
+          const diferenciais = Array.isArray(resp) ? resp : resp?.diferenciais ?? []
+          set({ diferenciais, isLoadingDiferenciais: false, lastSyncDiferenciais: now })
+        } catch (err) {
+          console.error('❌ placementStore.syncDiferenciais:', err)
+          set({ isLoadingDiferenciais: false })
+        }
+      },
+
+      async addDiferencial(input) {
+        const created = (await api.post('/placement/diferenciais', input)) as PlacementDiferencial
+        set((s) => ({ diferenciais: [created, ...s.diferenciais] }))
+        return created
+      },
+
+      async updateDiferencial(id, input) {
+        const updated = (await api.put(`/placement/diferenciais/${id}`, input)) as PlacementDiferencial
+        set((s) => ({
+          diferenciais: s.diferenciais.map((d) => (d.id === id ? { ...d, ...updated } : d)),
+        }))
+        return updated
+      },
+
+      async removeDiferencial(id) {
+        await api.delete(`/placement/diferenciais/${id}`)
+        set((s) => ({ diferenciais: s.diferenciais.filter((d) => d.id !== id) }))
+      },
+
+      async upsertDiferenciaisBatch(items) {
+        if (!items.length) return { synced: 0, skipped: 0, diferenciais: [] }
+        const resp = (await api.post('/placement/diferenciais/upsert-batch', { items })) as {
+          synced?: number
+          skipped?: number
+          diferenciais?: PlacementDiferencial[]
+        }
+        const upserted = resp?.diferenciais ?? []
+        if (upserted.length) {
+          set((s) => {
+            const byKey = new Map(
+              s.diferenciais.map((d) => [`${d.operadoraId}|${d.placementPlanoId}|${d.itemKey}`, d])
+            )
+            for (const row of upserted) {
+              byKey.set(`${row.operadoraId}|${row.placementPlanoId}|${row.itemKey}`, row)
+            }
+            return {
+              diferenciais: Array.from(byKey.values()).sort((a, b) =>
+                a.operadoraId.localeCompare(b.operadoraId)
+              ),
+              lastSyncDiferenciais: Date.now(),
+            }
+          })
+        }
+        return {
+          synced: resp?.synced ?? upserted.length,
+          skipped: resp?.skipped ?? 0,
+          diferenciais: upserted,
+        }
+      },
     }),
     {
       name: 'placement-v1',
@@ -667,6 +775,8 @@ export const usePlacementStore = create<PlacementState>()(
         lastSyncAnalistas: state.lastSyncAnalistas,
         planos: state.planos,
         lastSyncPlanos: state.lastSyncPlanos,
+        diferenciais: state.diferenciais,
+        lastSyncDiferenciais: state.lastSyncDiferenciais,
       }),
     }
   )

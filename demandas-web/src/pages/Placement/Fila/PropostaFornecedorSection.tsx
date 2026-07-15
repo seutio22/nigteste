@@ -25,7 +25,9 @@ import RefreshIcon from '@mui/icons-material/Refresh'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import { CoparticipacaoSimNaoField } from './CoparticipacaoSimNaoField'
 import { CoparticipacaoPlanoBlock } from './CoparticipacaoPlanoBlock'
+import { ReembolsoPlanoBlock } from './ReembolsoPlanoBlock'
 import { cloneCoparticipacao, emptyCoparticipacao } from './placementCoparticipacao'
+import { cloneReembolsoPlanoDetalhe, emptyReembolsoPlanoDetalhe } from './placementReembolso'
 import type { CotacaoFormState } from './CotacaoFormFields'
 import {
   FAIXAS_ETARIAS,
@@ -33,6 +35,11 @@ import {
   emptyVidasFaixa,
 } from './placementCotacaoDetalhes'
 import { sanitizeSignedPercentInput } from './placementCotacaoFinanceiro'
+import {
+  parseVidasCount,
+  sxCampoValorPorVidas,
+  sxCardFaixaPorVidas,
+} from './placementCampoValorVidasHighlight'
 import {
   emptyPropostaPlanoLinha,
   type AguardandoOperadoraState,
@@ -481,8 +488,30 @@ function PropostaMercadoEditor({
                 <option value="per_capita">Per capita</option>
               </TextField>
             </Grid>
+            <Grid item xs={12} md={3}>
+              <TextField
+                select
+                label="Acomodação"
+                fullWidth
+                size="small"
+                SelectProps={{ native: true }}
+                value={plano.acomodacao}
+                disabled={disabled}
+                onChange={(e) => patchPlano(index, { acomodacao: e.target.value })}
+              >
+                <option value="">Selecione</option>
+                <option value="Apartamento">Apartamento</option>
+                <option value="Enfermaria">Enfermaria</option>
+              </TextField>
+            </Grid>
+
             {plano.tipoCusto === 'per_capita' && (
               <>
+                <Grid item xs={12}>
+                  <Typography variant="caption" sx={{ fontWeight: 800, color: 'text.secondary', letterSpacing: 0.4 }}>
+                    Dados financeiros
+                  </Typography>
+                </Grid>
                 <Grid item xs={6} md={2}>
                   <TextField
                     label="Nº vidas"
@@ -499,37 +528,70 @@ function PropostaMercadoEditor({
                     fullWidth
                     size="small"
                     value={plano.custoPerCapitaBRL}
-                    disabled={disabled}
+                    disabled={disabled || parseVidasCount(plano.numeroVidas) === 0}
                     onChange={(e) => patchPlano(index, { custoPerCapitaBRL: e.target.value })}
+                    sx={sxCampoValorPorVidas(
+                      parseVidasCount(plano.numeroVidas) > 0,
+                      !!plano.custoPerCapitaBRL.trim()
+                    )}
                   />
                 </Grid>
               </>
             )}
-            <Grid item xs={12} md={3}>
-              <TextField
-                label="Reembolso consulta"
-                fullWidth
-                size="small"
-                value={plano.reembolsoConsulta}
-                disabled={disabled}
-                onChange={(e) => patchPlano(index, { reembolsoConsulta: e.target.value })}
-              />
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <TextField
-                select
-                label="Acomodação"
-                fullWidth
-                size="small"
-                SelectProps={{ native: true }}
-                value={plano.acomodacao}
-                disabled={disabled}
-                onChange={(e) => patchPlano(index, { acomodacao: e.target.value })}
-              >
-                <option value="">Selecione</option>
-                <option value="Apartamento">Apartamento</option>
-                <option value="Enfermaria">Enfermaria</option>
-              </TextField>
+
+            {plano.tipoCusto === 'faixa_etaria' && (
+              <Grid item xs={12}>
+                <Typography variant="caption" sx={{ fontWeight: 800, color: 'text.secondary', letterSpacing: 0.4, display: 'block', mb: 0.5 }}>
+                  Dados financeiros — faixa etária
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                  Faixas com vidas em destaque (amarelo = falta valor · verde = preenchido). Sem vidas, R$/vida bloqueado.
+                </Typography>
+                <Grid container spacing={1}>
+                  {FAIXAS_ETARIAS.map((fx) => {
+                    const vidasStr = plano.vidasFaixa?.[fx.key] ?? ''
+                    const custoStr = plano.custosFaixa?.[fx.key] ?? ''
+                    const temVidas = parseVidasCount(vidasStr) > 0
+                    const temValor = !!custoStr.trim()
+                    return (
+                      <Grid item xs={12} sm={6} md={4} lg={3} key={fx.key}>
+                        <Paper variant="outlined" sx={sxCardFaixaPorVidas(temVidas, temValor)}>
+                          <Typography variant="caption" sx={{ fontWeight: 700, fontSize: 10 }}>
+                            {fx.label}
+                          </Typography>
+                          <Stack direction="row" gap={0.5} sx={{ mt: 0.5 }}>
+                            <TextField
+                              label="Vidas"
+                              size="small"
+                              value={vidasStr}
+                              disabled={disabled}
+                              onChange={(e) =>
+                                patchFaixa(index, fx.key, 'vidasFaixa', e.target.value.replace(/\D/g, ''))
+                              }
+                              sx={{ flex: 1 }}
+                            />
+                            <TextField
+                              label="R$/vida"
+                              size="small"
+                              value={custoStr}
+                              disabled={disabled || !temVidas}
+                              onChange={(e) => patchFaixa(index, fx.key, 'custosFaixa', e.target.value)}
+                              sx={{ flex: 1, ...sxCampoValorPorVidas(temVidas, temValor) }}
+                            />
+                          </Stack>
+                        </Paper>
+                      </Grid>
+                    )
+                  })}
+                </Grid>
+              </Grid>
+            )}
+
+            <Grid item xs={12}>
+              <Divider sx={{ my: 0.5 }} />
+              <Typography variant="caption" sx={{ fontWeight: 800, color: 'text.secondary', letterSpacing: 0.4 }}>
+                Coparticipação
+              </Typography>
             </Grid>
             <Grid item xs={12} md={3}>
               <CoparticipacaoSimNaoField
@@ -561,40 +623,50 @@ function PropostaMercadoEditor({
                 />
               </Grid>
             )}
-          </Grid>
-          {plano.tipoCusto === 'faixa_etaria' && (
-            <Box sx={{ mt: 2 }}>
-              <Grid container spacing={1}>
-                {FAIXAS_ETARIAS.map((fx) => (
-                  <Grid item xs={12} sm={6} md={4} key={fx.key}>
-                    <Paper variant="outlined" sx={{ p: 1 }}>
-                      <Typography variant="caption" sx={{ fontWeight: 700, fontSize: 10 }}>
-                        {fx.label}
-                      </Typography>
-                      <Stack direction="row" gap={0.5} sx={{ mt: 0.5 }}>
-                        <TextField
-                          label="Vidas"
-                          size="small"
-                          value={plano.vidasFaixa?.[fx.key] ?? ''}
-                          disabled={disabled}
-                          onChange={(e) => patchFaixa(index, fx.key, 'vidasFaixa', e.target.value.replace(/\D/g, ''))}
-                          sx={{ flex: 1 }}
-                        />
-                        <TextField
-                          label="R$/vida"
-                          size="small"
-                          value={plano.custosFaixa?.[fx.key] ?? ''}
-                          disabled={disabled}
-                          onChange={(e) => patchFaixa(index, fx.key, 'custosFaixa', e.target.value)}
-                          sx={{ flex: 1 }}
-                        />
-                      </Stack>
-                    </Paper>
-                  </Grid>
-                ))}
+
+            <Grid item xs={12}>
+              <Divider sx={{ my: 0.5 }} />
+              <Typography variant="caption" sx={{ fontWeight: 800, color: 'text.secondary', letterSpacing: 0.4 }}>
+                Reembolso
+              </Typography>
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <CoparticipacaoSimNaoField
+                label="Reembolso consulta"
+                value={plano.reembolso}
+                disabled={disabled}
+                onChange={(reembolso) => {
+                  const patch: Partial<typeof plano> = { reembolso }
+                  if (reembolso === 'Não') {
+                    patch.reembolsoConsulta = ''
+                    patch.reembolsoDetalhe = emptyReembolsoPlanoDetalhe()
+                  } else if (reembolso === 'Sim') {
+                    const base = plano.reembolsoDetalhe ?? emptyReembolsoPlanoDetalhe()
+                    const det = cloneReembolsoPlanoDetalhe(base)
+                    if (plano.reembolsoConsulta.trim() && !det.valores.consultas?.trim()) {
+                      det.valores = { ...det.valores, consultas: plano.reembolsoConsulta.trim() }
+                    }
+                    patch.reembolsoDetalhe = det
+                  }
+                  patchPlano(index, patch)
+                }}
+              />
+            </Grid>
+            {plano.reembolso === 'Sim' && (
+              <Grid item xs={12}>
+                <ReembolsoPlanoBlock
+                  detalhe={plano.reembolsoDetalhe ?? emptyReembolsoPlanoDetalhe()}
+                  disabled={disabled}
+                  onChange={(reembolsoDetalhe) => {
+                    const patch: Partial<typeof plano> = { reembolsoDetalhe }
+                    const consulta = reembolsoDetalhe.valores.consultas?.trim()
+                    patch.reembolsoConsulta = consulta ?? ''
+                    patchPlano(index, patch)
+                  }}
+                />
               </Grid>
-            </Box>
-          )}
+            )}
+          </Grid>
         </Box>
       ))}
       <Button startIcon={<AddIcon />} size="small" disabled={disabled} onClick={addPlano}>

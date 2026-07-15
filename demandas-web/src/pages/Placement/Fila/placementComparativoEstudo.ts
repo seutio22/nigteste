@@ -33,6 +33,7 @@ import {
 } from './placementAguardandoOperadora'
 import { labelPlanoReferencia, planosReferenciaAbertura, type PlanoReferenciaAbertura } from './placementPropostaEquivalencia'
 import { normMercadoKey } from './placementMercadoQuadro'
+import { resolveReembolsoConsultaComparativo } from './placementReembolsoConsulta'
 import type { Operadora } from '../../../types/masterData'
 
 export type ComparativoColunaEstudo = {
@@ -42,6 +43,9 @@ export type ComparativoColunaEstudo = {
   planoLabel: string
   subtitulo: string
   reembolsoConsulta: string
+  /** Sim/Não no comparativo detalhado. */
+  reembolso: string
+  temReembolsoConsulta: boolean
   acomodacao: string
   eventosReembolsaveis: string
   abrangencia: string
@@ -109,6 +113,15 @@ function formatBRLInput(input: string): string {
   return t || '—'
 }
 
+function reembolsoFromPlano(plano?: Pick<PropostaPlanoLinha, 'reembolso' | 'reembolsoConsulta'>) {
+  const resolved = resolveReembolsoConsultaComparativo(plano?.reembolso, plano?.reembolsoConsulta)
+  return {
+    reembolso: resolved.flag,
+    temReembolsoConsulta: resolved.temReembolso,
+    reembolsoConsulta: resolved.valorDisplay,
+  }
+}
+
 function colunaFromContrato(c: ContratoPlanoColuna): ComparativoColunaEstudo {
   const mensal = parseBRLToCents(c.faturaEstimada)
   return {
@@ -117,6 +130,8 @@ function colunaFromContrato(c: ContratoPlanoColuna): ComparativoColunaEstudo {
     operadora: c.operadora,
     planoLabel: c.planoLabel,
     subtitulo: c.produto,
+    reembolso: '—',
+    temReembolsoConsulta: false,
     reembolsoConsulta: '—',
     acomodacao: c.acomodacao || '—',
     eventosReembolsaveis: '—',
@@ -219,7 +234,7 @@ function colunaFromProposta(
     operadora: fornecedorNome.toUpperCase(),
     planoLabel,
     subtitulo: tituloCenario ? plano.nomePlano.trim() || 'Plano' : grupo === 'atual' ? 'Contrato vigente' : 'Proposta',
-    reembolsoConsulta: plano.reembolsoConsulta.trim() || '—',
+    ...reembolsoFromPlano(plano),
     acomodacao: plano.acomodacao.trim() || '—',
     eventosReembolsaveis: plano.eventosReembolsaveis.trim() || '—',
     abrangencia: plano.abrangencia.trim() || '—',
@@ -269,7 +284,7 @@ function colunaEstudoFromContratoPlano(
     operadora: contrato.operadora,
     planoLabel: contrato.planoLabel,
     subtitulo: contrato.produto,
-    reembolsoConsulta: plano?.reembolsoConsulta.trim() || '—',
+    ...reembolsoFromPlano(plano),
     acomodacao: plano?.acomodacao.trim() || contrato.acomodacao || '—',
     eventosReembolsaveis: plano?.eventosReembolsaveis.trim() || '—',
     abrangencia: plano?.abrangencia.trim() || '—',

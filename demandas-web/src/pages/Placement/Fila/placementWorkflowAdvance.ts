@@ -16,6 +16,7 @@ import { workflowStageIndex } from './placementCotacaoWorkflow'
 import { kickOffEstrategiaIsComplete, buildKickOffEstrategiaPendencias } from './placementKickOffEstrategia'
 import { comunicarMercadoIsComplete } from './placementComunicarMercado'
 import { aguardandoOperadoraIsComplete } from './placementAguardandoOperadora'
+import { consolidandoDadosIsComplete } from './placementConsolidandoDados'
 
 export type WorkflowChecklistItem = {
   id: string
@@ -318,9 +319,34 @@ export function buildWorkflowChecklist(
     ]
   }
   if (idx === 6) {
+    return [
+      {
+        id: 'consolidando_resumo',
+        label: 'Resumo de coberturas preenchido',
+        done: !!parseConsolidandoResumo(form)?.resumoCoberturas.trim(),
+      },
+      {
+        id: 'consolidando_condicoes',
+        label: 'Condições contratuais preenchidas',
+        done: !!parseConsolidandoResumo(form)?.condicoesContratuais.trim(),
+      },
+      {
+        id: 'consolidando_diferenciais',
+        label: 'Diferenciais registrados',
+        done: consolidandoDadosIsComplete(form),
+      },
+    ]
+  }
+  if (idx === 7) {
     return [{ id: 'proposta', label: 'Proposta formal enviada ao cliente', done: true }]
   }
   return []
+}
+
+function parseConsolidandoResumo(form: CotacaoFormState) {
+  const raw = form.kickOffEstrategia?.consolidandoDados
+  if (!raw) return null
+  return raw
 }
 
 export function isMainFlowTerminal(status: string): boolean {

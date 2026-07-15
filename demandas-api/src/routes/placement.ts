@@ -42,6 +42,7 @@ const COTACAO_WORKFLOW_STATUSES = [
   'Estratégia',
   'Em cotação',
   'Aguardando operadora',
+  'Consolidando dados',
   'Proposta enviada',
   'Fechada',
   'Perdida',
@@ -535,6 +536,33 @@ async function validateWorkflowStatusTransition(
         error: 'Comunicação incompleta',
         message:
           'Marque todos os fornecedores do mercado analisado como «comunicado ao mercado» antes de avançar.',
+      };
+    }
+  }
+
+  if (
+    curStatus.toLowerCase() === 'aguardando operadora' &&
+    nextStatus.toLowerCase() === 'consolidando dados'
+  ) {
+    return { ok: true };
+  }
+
+  if (
+    curStatus.toLowerCase() === 'consolidando dados' &&
+    nextStatus.toLowerCase() === 'proposta enviada'
+  ) {
+    const effKick = parseKickOffEstrategiaBody(existing.kickOffEstrategia);
+    const cd = (effKick as { consolidandoDados?: { resumoCoberturas?: string; condicoesContratuais?: string } })
+      ?.consolidandoDados;
+    const resumo = String(cd?.resumoCoberturas ?? '').trim();
+    const condicoes = String(cd?.condicoesContratuais ?? '').trim();
+    if (!resumo || !condicoes) {
+      return {
+        ok: false,
+        status: 400,
+        error: 'Consolidação incompleta',
+        message:
+          'Preencha o resumo de coberturas e as condições contratuais antes de avançar para Proposta enviada.',
       };
     }
   }
@@ -1231,6 +1259,283 @@ export default async function placementRoutes(
       return reply.status(500).send({ error: 'Erro interno do servidor' });
     }
   });
+
+  // ---- Diferenciais (fornecedor + plano + item) ------------------------
+
+  const DIFERENCIAL_ITEM_KEYS = new Set([
+    'telemedicina',
+    'telepsicologia',
+    'assistencia_viagem',
+    'coleta_domiciliar',
+    'vacinas_calendario',
+    'retaguarda',
+    'check_up',
+    'resgate_domiciliar',
+    'resgate_saude',
+  ]);
+
+  fastify.get('/placement/diferenciais', async (_request, reply) => {
+    try {
+      const diferenciais = await prisma.placementDiferencial.findMany({
+        orderBy: [
+          { operadoraId: 'asc' },
+          { placementPlanoId: 'asc' },
+          { itemKey: 'asc' },
+        ],
+        include: {
+          operadora: { select: { id: true, nome: true } },
+          placementPlano: {
+            select: { id: true, plano: true, categoria: true, operadoraId: true },
+          },
+        },
+      });
+      return { diferenciais };
+    } catch (error) {
+      console.error('❌ GET /placement/diferenciais:', error);
+      return reply.status(500).send({ error: 'Erro interno do servidor' });
+    }
+  });
+
+  fastify.get('/placement/diferenciais/:id', async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string };
+      const row = await prisma.placementDiferencial.findUnique({
+        where: { id },
+        include: {
+          operadora: { select: { id: true, nome: true } },
+          placementPlano: {
+            select: { id: true, plano: true, categoria: true, operadoraId: true },
+          },
+        },
+      });
+      if (!row) return reply.status(404).send({ error: 'Diferencial não encontrado' });
+      return row;
+    } catch (error) {
+      console.error('❌ GET /placement/diferenciais/:id:', error);
+      return reply.status(500).send({ error: 'Erro interno do servidor' });
+    }
+  });
+
+  fastify.post('/placement/diferenciais', async (request, reply) => {
+    try {
+      const body = (request.body ?? {}) as {
+        operadoraId?: string;
+        placementPlanoId?: string;
+        itemKey?: string;
+        texto?: string;
+      };
+
+      const operadoraId = String(body.operadoraId ?? '').trim();
+      const placementPlanoId = String(body.placementPlanoId ?? '').trim();
+      const itemKey = String(body.itemKey ?? '').trim();
+      const texto = String(body.texto ?? '').trim();
+
+      if (!operadoraId) {
+        return reply.status(400).send({ error: 'Fornecedor (operadora) é obrigatório' });
+      }
+      if (!placementPlanoId) {
+        return reply.status(400).send({ error: 'Plano é obrigatório' });
+      }
+      if (!itemKey || !DIFERENCIAL_ITEM_KEYS.has(itemKey)) {
+        return reply.status(400).send({ error: 'Item de diferencial inválido' });
+      }
+      if (!texto) {
+        return reply.status(400).send({ error: 'Texto é obrigatório' });
+      }
+
+      const operadora = await prisma.operadora.findUnique({ where: { id: operadoraId } });
+      if (!operadora) {
+        return reply.status(400).send({ error: 'Operadora (fornecedor) não encontrada' });
+      }
+
+      const plano = await prisma.placementPlano.findUnique({ where: { id: placementPlanoId } });
+      if (!plano) {
+        return reply.status(400).send({ error: 'Plano não encontrado' });
+      }
+      if (plano.operadoraId !== operadoraId) {
+        return reply.status(400).send({ error: 'O plano selecionado não pertence ao fornecedor informado' });
+      }
+
+      const created = await prisma.placementDiferencial.create({
+        data: { operadoraId, placementPlanoId, itemKey, texto },
+        include: {
+          operadora: { select: { id: true, nome: true } },
+          placementPlano: {
+            select: { id: true, plano: true, categoria: true, operadoraId: true },
+          },
+        },
+      });
+      return reply.status(201).send(created);
+    } catch (error: unknown) {
+      const prismaError = error as { code?: string };
+      if (prismaError?.code === 'P2002') {
+        return reply.status(409).send({
+          error: 'Já existe um diferencial para este fornecedor, plano e item',
+        });
+      }
+      console.error('❌ POST /placement/diferenciais:', error);
+      return reply.status(500).send({ error: 'Erro interno do servidor' });
+    }
+  });
+
+  fastify.post('/placement/diferenciais/upsert-batch', async (request, reply) => {
+    try {
+      const body = (request.body ?? {}) as {
+        items?: Array<{
+          operadoraId?: string;
+          placementPlanoId?: string;
+          itemKey?: string;
+          texto?: string;
+        }>;
+      };
+
+      const rawItems = Array.isArray(body.items) ? body.items : [];
+      if (!rawItems.length) {
+        return { synced: 0, skipped: 0, diferenciais: [] };
+      }
+
+      const diferenciais: Awaited<ReturnType<typeof prisma.placementDiferencial.upsert>>[] = [];
+      let skipped = 0;
+
+      for (const raw of rawItems) {
+        const operadoraId = String(raw.operadoraId ?? '').trim();
+        const placementPlanoId = String(raw.placementPlanoId ?? '').trim();
+        const itemKey = String(raw.itemKey ?? '').trim();
+        const texto = String(raw.texto ?? '').trim();
+
+        if (!operadoraId || !placementPlanoId || !itemKey || !texto) {
+          skipped += 1;
+          continue;
+        }
+        if (!DIFERENCIAL_ITEM_KEYS.has(itemKey)) {
+          skipped += 1;
+          continue;
+        }
+
+        const operadora = await prisma.operadora.findUnique({ where: { id: operadoraId } });
+        if (!operadora) {
+          skipped += 1;
+          continue;
+        }
+
+        const plano = await prisma.placementPlano.findUnique({ where: { id: placementPlanoId } });
+        if (!plano || plano.operadoraId !== operadoraId) {
+          skipped += 1;
+          continue;
+        }
+
+        const row = await prisma.placementDiferencial.upsert({
+          where: {
+            operadoraId_placementPlanoId_itemKey: {
+              operadoraId,
+              placementPlanoId,
+              itemKey,
+            },
+          },
+          create: { operadoraId, placementPlanoId, itemKey, texto },
+          update: { texto },
+          include: {
+            operadora: { select: { id: true, nome: true } },
+            placementPlano: {
+              select: { id: true, plano: true, categoria: true, operadoraId: true },
+            },
+          },
+        });
+        diferenciais.push(row);
+      }
+
+      return { synced: diferenciais.length, skipped, diferenciais };
+    } catch (error) {
+      console.error('❌ POST /placement/diferenciais/upsert-batch:', error);
+      return reply.status(500).send({ error: 'Erro interno do servidor' });
+    }
+  });
+
+  fastify.put('/placement/diferenciais/:id', async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string };
+      const body = (request.body ?? {}) as {
+        operadoraId?: string;
+        placementPlanoId?: string;
+        itemKey?: string;
+        texto?: string;
+      };
+
+      const existing = await prisma.placementDiferencial.findUnique({ where: { id } });
+      if (!existing) return reply.status(404).send({ error: 'Diferencial não encontrado' });
+
+      const operadoraId =
+        body.operadoraId !== undefined ? String(body.operadoraId).trim() : existing.operadoraId;
+      const placementPlanoId =
+        body.placementPlanoId !== undefined
+          ? String(body.placementPlanoId).trim()
+          : existing.placementPlanoId;
+      const itemKey = body.itemKey !== undefined ? String(body.itemKey).trim() : existing.itemKey;
+      const texto = body.texto !== undefined ? String(body.texto).trim() : existing.texto;
+
+      if (!operadoraId) {
+        return reply.status(400).send({ error: 'Fornecedor (operadora) é obrigatório' });
+      }
+      if (!placementPlanoId) {
+        return reply.status(400).send({ error: 'Plano é obrigatório' });
+      }
+      if (!itemKey || !DIFERENCIAL_ITEM_KEYS.has(itemKey)) {
+        return reply.status(400).send({ error: 'Item de diferencial inválido' });
+      }
+      if (!texto) {
+        return reply.status(400).send({ error: 'Texto é obrigatório' });
+      }
+
+      const operadora = await prisma.operadora.findUnique({ where: { id: operadoraId } });
+      if (!operadora) {
+        return reply.status(400).send({ error: 'Operadora (fornecedor) não encontrada' });
+      }
+
+      const plano = await prisma.placementPlano.findUnique({ where: { id: placementPlanoId } });
+      if (!plano) {
+        return reply.status(400).send({ error: 'Plano não encontrado' });
+      }
+      if (plano.operadoraId !== operadoraId) {
+        return reply.status(400).send({ error: 'O plano selecionado não pertence ao fornecedor informado' });
+      }
+
+      const updated = await prisma.placementDiferencial.update({
+        where: { id },
+        data: { operadoraId, placementPlanoId, itemKey, texto },
+        include: {
+          operadora: { select: { id: true, nome: true } },
+          placementPlano: {
+            select: { id: true, plano: true, categoria: true, operadoraId: true },
+          },
+        },
+      });
+      return updated;
+    } catch (error: unknown) {
+      const prismaError = error as { code?: string };
+      if (prismaError?.code === 'P2002') {
+        return reply.status(409).send({
+          error: 'Já existe um diferencial para este fornecedor, plano e item',
+        });
+      }
+      console.error('❌ PUT /placement/diferenciais/:id:', error);
+      return reply.status(500).send({ error: 'Erro interno do servidor' });
+    }
+  });
+
+  fastify.delete('/placement/diferenciais/:id', async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string };
+      const existing = await prisma.placementDiferencial.findUnique({ where: { id } });
+      if (!existing) return reply.status(404).send({ error: 'Diferencial não encontrado' });
+      await prisma.placementDiferencial.delete({ where: { id } });
+      return { success: true };
+    } catch (error) {
+      console.error('❌ DELETE /placement/diferenciais/:id:', error);
+      return reply.status(500).send({ error: 'Erro interno do servidor' });
+    }
+  });
+
+  // ---- (continua abaixo) ------------------------------------------------
 
   // ---- Corretores parceiros ---------------------------------------------
 

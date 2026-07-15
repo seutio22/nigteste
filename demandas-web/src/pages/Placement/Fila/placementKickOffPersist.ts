@@ -62,6 +62,7 @@ export function preferRicherKickOffWhenApplyingApi(
     ...apiKickOff,
     ...(localKickOff.comunicarMercado ? { comunicarMercado: localKickOff.comunicarMercado } : {}),
     ...(localKickOff.aguardandoOperadora ? { aguardandoOperadora: localKickOff.aguardandoOperadora } : {}),
+    ...(localKickOff.consolidandoDados ? { consolidandoDados: localKickOff.consolidandoDados } : {}),
   }
 }
 
@@ -88,5 +89,6 @@ export function buildKickOffEstrategiaPatch(
     resumoEdicoes: patch.resumoEdicoes ?? base.resumoEdicoes,
     comunicarMercado: patch.comunicarMercado ?? base.comunicarMercado,
     aguardandoOperadora: patch.aguardandoOperadora ?? base.aguardandoOperadora,
+    consolidandoDados: patch.consolidandoDados ?? base.consolidandoDados,
   }
 }

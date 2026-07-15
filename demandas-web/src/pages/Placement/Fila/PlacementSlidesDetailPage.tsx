@@ -31,6 +31,7 @@ const SLIDE_QUERY_KEYS: PlacementSlideId[] = [
   'localidades',
   'mercado_quadro',
   'comparativo_propostas',
+  'comparativo_diferenciais',
 ]
 
 function parseSlideFromQuery(raw: string | null): PlacementSlideId | undefined {

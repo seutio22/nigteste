@@ -20,7 +20,9 @@ import { usePlacementCotacaoStore } from '../../../store/placementCotacaoStore'
 import type { CotacaoFormState } from './CotacaoFormFields'
 import { ComparativoEstudoDashboard } from './ComparativoEstudoDashboard'
 import { ComparativoCoparticipacaoDashboard } from './ComparativoCoparticipacaoDashboard'
+import { ComparativoReembolsoDashboard } from './ComparativoReembolsoDashboard'
 import { PlacementAguardandoOperadoraPanel } from './PlacementAguardandoOperadoraPanel'
+import { PlacementConsolidandoDadosPanel } from './PlacementConsolidandoDadosPanel'
 import { toFormState } from './Detail'
 import { getStatusColor, getWorkflowStatusDisplayLabel } from './utils'
 import {
@@ -29,7 +31,7 @@ import {
 } from './placementKickOffPersist'
 import { getWorkflowStageKey } from './placementCotacaoWorkflow'
 
-type FullscreenPane = 'comparativo' | 'lancamento' | 'coparticipacao'
+type FullscreenPane = 'comparativo' | 'lancamento' | 'coparticipacao' | 'reembolso' | 'consolidando'
 
 export default function PlacementComparativoDetailPage() {
   const navigate = useNavigate()
@@ -43,7 +45,7 @@ export default function PlacementComparativoDetailPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [activePane, setActivePane] = useState<FullscreenPane>(() => {
     const pane = searchParams.get('pane')
-    if (pane === 'coparticipacao' || pane === 'lancamento' || pane === 'comparativo') return pane
+    if (pane === 'coparticipacao' || pane === 'lancamento' || pane === 'comparativo' || pane === 'reembolso' || pane === 'consolidando') return pane
     return 'comparativo'
   })
 
@@ -121,6 +123,7 @@ export default function PlacementComparativoDetailPage() {
   const statusColor = getStatusColor(form.status)
   const workflowStage = getWorkflowStageKey(form.status)
   const podeLancarPropostas = workflowStage === 'aguardando_operadora'
+  const podeConsolidar = workflowStage === 'consolidando_dados' || workflowStage === 'aguardando_operadora'
 
   return (
     <Box
@@ -184,6 +187,10 @@ export default function PlacementComparativoDetailPage() {
           >
             <ToggleButton value="comparativo">Comparativo financeiro</ToggleButton>
             <ToggleButton value="coparticipacao">Coparticipação</ToggleButton>
+            <ToggleButton value="reembolso">Reembolso</ToggleButton>
+            <ToggleButton value="consolidando" disabled={!podeConsolidar}>
+              Diferenciais
+            </ToggleButton>
             <ToggleButton value="lancamento" disabled={!podeLancarPropostas}>
               Lançar propostas
             </ToggleButton>
@@ -199,7 +206,13 @@ export default function PlacementComparativoDetailPage() {
             variant="outlined"
             size="small"
             startIcon={<SlideshowIcon />}
-            onClick={() => navigate(`/placement/fila/${id}/slides?slide=comparativo_propostas`)}
+            onClick={() =>
+              navigate(
+                `/placement/fila/${id}/slides?slide=${
+                  activePane === 'consolidando' ? 'comparativo_diferenciais' : 'comparativo_propostas'
+                }`
+              )
+            }
           >
             Slides
           </Button>
@@ -222,6 +235,7 @@ export default function PlacementComparativoDetailPage() {
             onPersisted={handlePersisted}
             onNavigateToLancamento={() => setActivePane('lancamento')}
             onNavigateToCoparticipacao={() => setActivePane('coparticipacao')}
+            onNavigateToReembolso={() => setActivePane('reembolso')}
             onOpenSlides={() => navigate(`/placement/fila/${id}/slides?slide=comparativo_propostas`)}
             lancamentoDisponivel={podeLancarPropostas}
           />
@@ -229,9 +243,32 @@ export default function PlacementComparativoDetailPage() {
           <ComparativoCoparticipacaoDashboard
             cotacaoId={id}
             form={form}
+            onChange={handleChange}
+            onPersisted={handlePersisted}
             onNavigateToLancamento={() => setActivePane('lancamento')}
+            onNavigateToReembolso={() => setActivePane('reembolso')}
             lancamentoDisponivel={podeLancarPropostas}
           />
+        ) : activePane === 'reembolso' ? (
+          <ComparativoReembolsoDashboard
+            cotacaoId={id}
+            form={form}
+            onChange={handleChange}
+            onPersisted={handlePersisted}
+            onNavigateToLancamento={() => setActivePane('lancamento')}
+            onNavigateToCoparticipacao={() => setActivePane('coparticipacao')}
+            lancamentoDisponivel={podeLancarPropostas}
+          />
+        ) : activePane === 'consolidando' ? (
+          <Box sx={{ height: '100%', overflow: 'auto', p: { xs: 2, md: 3 } }}>
+            <PlacementConsolidandoDadosPanel
+              embedded
+              cotacaoId={id}
+              form={form}
+              onChange={handleChange}
+              onPersisted={handlePersisted}
+            />
+          </Box>
         ) : (
           <Box sx={{ height: '100%', overflow: 'auto', p: { xs: 2, md: 3 } }}>
             <PlacementAguardandoOperadoraPanel

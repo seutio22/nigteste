@@ -37,6 +37,11 @@ const BeneficiariosLocalidadeDashboard = lazy(() =>
 const MercadoConsultadoSlideDashboard = lazy(() =>
   import('./MercadoConsultadoSlideDashboard').then((m) => ({ default: m.MercadoConsultadoSlideDashboard }))
 )
+const ComparativoDiferenciaisSlideDashboard = lazy(() =>
+  import('./ComparativoDiferenciaisSlideDashboard').then((m) => ({
+    default: m.ComparativoDiferenciaisSlideDashboard,
+  }))
+)
 
 function SlideLoading() {
   return (
@@ -168,6 +173,15 @@ export function PlacementSlidesHub({
             disabled={disabled}
             onChange={onChange}
             onPersisted={onPersisted}
+          />
+        )
+      case 'comparativo_diferenciais':
+        return (
+          <ComparativoDiferenciaisSlideDashboard
+            cotacaoId={cotacaoId}
+            form={form}
+            disabled={disabled}
+            presentationMode={presentationMode}
           />
         )
       default:

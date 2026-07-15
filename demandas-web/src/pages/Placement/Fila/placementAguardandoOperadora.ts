@@ -10,6 +10,11 @@ import {
   type CoparticipacaoForm,
 } from './placementCoparticipacao'
 import {
+  emptyReembolsoPlanoDetalhe,
+  parseReembolsoPlanoDetalheFromApi,
+  type ReembolsoPlanoDetalhe,
+} from './placementReembolso'
+import {
   ensureComunicarMercadoState,
   mercadoFornecedoresFromForm,
   parseComunicarMercadoFromKickOff,
@@ -23,6 +28,7 @@ import {
   isFornecedorAtualNome,
 } from './placementPropostaCenarioAtual'
 import { ensurePropostaMercadoEquivalencia, planosReferenciaAbertura } from './placementPropostaEquivalencia'
+import { parseReembolsoPropostaFields } from './placementReembolsoConsulta'
 import type { Operadora } from '../../../types/masterData'
 import type { KickOffEstrategia } from './placementKickOffEstrategia'
 import {
@@ -78,6 +84,8 @@ export type PropostaPlanoLinha = {
   vidasFaixa: Record<FaixaEtariaKey, string>
   custosFaixa: Record<FaixaEtariaKey, string>
   reembolsoConsulta: string
+  /** Sim/Não — possui reembolso de consulta. */
+  reembolso: string
   acomodacao: string
   eventosReembolsaveis: string
   abrangencia: string
@@ -86,6 +94,8 @@ export type PropostaPlanoLinha = {
   coparticipacao: string
   /** Detalhamento por procedimento (comparativo de coparticipação). */
   coparticipacaoDetalhe: CoparticipacaoForm
+  /** Detalhamento por procedimento (comparativo de reembolso). */
+  reembolsoDetalhe: ReembolsoPlanoDetalhe
 }
 
 export type ComparativoEstudoModo =
@@ -176,12 +186,14 @@ export function emptyPropostaPlanoLinha(): PropostaPlanoLinha {
     vidasFaixa: emptyVidasFaixa(),
     custosFaixa: emptyCustosFaixa(),
     reembolsoConsulta: '',
+    reembolso: '',
     acomodacao: '',
     eventosReembolsaveis: '',
     abrangencia: '',
     contribuicao: '',
     coparticipacao: '',
     coparticipacaoDetalhe: emptyCoparticipacao(),
+    reembolsoDetalhe: emptyReembolsoPlanoDetalhe(),
   }
 }
 
@@ -361,6 +373,7 @@ function parsePropostaPlano(raw: unknown): PropostaPlanoLinha | null {
   const o = raw as Record<string, unknown>
   const base = emptyPropostaPlanoLinha()
   const tipo = o.tipoCusto === 'per_capita' ? 'per_capita' : 'faixa_etaria'
+  const reemb = parseReembolsoPropostaFields(o.reembolso, o.reembolsoConsulta)
   return {
     id: String(o.id ?? base.id),
     planoReferenciaId: String(o.planoReferenciaId ?? o.id ?? base.id),
@@ -370,13 +383,15 @@ function parsePropostaPlano(raw: unknown): PropostaPlanoLinha | null {
     custoPerCapitaBRL: String(o.custoPerCapitaBRL ?? ''),
     vidasFaixa: parseFaixaRecord(o.vidasFaixa, base.vidasFaixa),
     custosFaixa: parseFaixaRecord(o.custosFaixa, base.custosFaixa),
-    reembolsoConsulta: String(o.reembolsoConsulta ?? ''),
+    reembolso: reemb.reembolso,
+    reembolsoConsulta: reemb.reembolsoConsulta,
     acomodacao: String(o.acomodacao ?? ''),
     eventosReembolsaveis: String(o.eventosReembolsaveis ?? ''),
     abrangencia: String(o.abrangencia ?? ''),
     contribuicao: String(o.contribuicao ?? ''),
     coparticipacao: String(o.coparticipacao ?? ''),
     coparticipacaoDetalhe: parseCoparticipacaoFromApi(o.coparticipacaoDetalhe),
+    reembolsoDetalhe: parseReembolsoPlanoDetalheFromApi(o.reembolsoDetalhe),
   }
 }
 

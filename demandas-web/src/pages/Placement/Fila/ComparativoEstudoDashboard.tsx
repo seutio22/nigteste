@@ -14,6 +14,7 @@ import {
   Stack,
   Switch,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material'
 import DownloadIcon from '@mui/icons-material/Download'
@@ -24,8 +25,10 @@ import EditNoteIcon from '@mui/icons-material/EditNote'
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import HealthAndSafetyIcon from '@mui/icons-material/HealthAndSafety'
+import PaymentsIcon from '@mui/icons-material/Payments'
 import TableChartIcon from '@mui/icons-material/TableChart'
 import { CoparticipacaoSelo } from './CoparticipacaoSelo'
+import { ReembolsoSelo } from './ReembolsoSelo'
 import ViewSidebarOutlinedIcon from '@mui/icons-material/ViewSidebarOutlined'
 import { useMasterDataStore } from '../../../store/masterDataStore'
 import { api } from '../../../lib/api.local'
@@ -124,6 +127,7 @@ type Props = {
   slidesViewMode?: PlacementSlideViewMode
   onNavigateToLancamento?: () => void
   onNavigateToCoparticipacao?: () => void
+  onNavigateToReembolso?: () => void
   onOpenSlides?: () => void
   /** Se a etapa permite lançamento de propostas na tela cheia. */
   lancamentoDisponivel?: boolean
@@ -672,6 +676,28 @@ function DetalhePlanoSlide({
                   <Td key={`${row.key}-${c.id}`} expanded={expanded}>
                     {row.key === 'coparticipacao' ? (
                       <CoparticipacaoSelo valor={c.coparticipacao} fontSize={expanded ? 11 : 9} />
+                    ) : row.key === 'reembolsoConsulta' ? (
+                      <Stack alignItems="center" spacing={0.35}>
+                        <ReembolsoSelo
+                          valor={c.reembolso}
+                          temReembolso={c.temReembolsoConsulta}
+                          fontSize={expanded ? 11 : 9}
+                        />
+                        {c.temReembolsoConsulta && c.reembolsoConsulta !== '—' ? (
+                          <Typography
+                            sx={{
+                              fontFamily: SLIDE_FONT_FAMILY,
+                              fontSize: expanded ? 10 : 8.5,
+                              fontWeight: 700,
+                              color: '#004F75',
+                              lineHeight: 1.2,
+                              textAlign: 'center',
+                            }}
+                          >
+                            {c.reembolsoConsulta}
+                          </Typography>
+                        ) : null}
+                      </Stack>
                     ) : (
                       c[row.key]
                     )}
@@ -891,6 +917,7 @@ export function ComparativoEstudoDashboard({
   slidesViewMode,
   onNavigateToLancamento,
   onNavigateToCoparticipacao,
+  onNavigateToReembolso,
   onOpenSlides,
   lancamentoDisponivel = true,
 }: Props) {
@@ -1640,13 +1667,16 @@ export function ComparativoEstudoDashboard({
           }}
         >
           <Stack direction="row" alignItems="center" spacing={1} sx={{ minWidth: 0 }}>
-            <IconButton
-              size="small"
-              onClick={() => setSidebarOpen((v) => !v)}
-              aria-label={sidebarOpen ? 'Ocultar filtros' : 'Mostrar filtros'}
-            >
-              <ViewSidebarOutlinedIcon />
-            </IconButton>
+            <Tooltip title={sidebarOpen ? 'Ocultar painel lateral' : 'Mostrar painel lateral'}>
+              <IconButton
+                size="small"
+                color={sidebarOpen ? 'primary' : 'default'}
+                onClick={() => setSidebarOpen((v) => !v)}
+                aria-label={sidebarOpen ? 'Ocultar painel lateral' : 'Mostrar painel lateral'}
+              >
+                <ViewSidebarOutlinedIcon />
+              </IconButton>
+            </Tooltip>
             <Box sx={{ minWidth: 0 }}>
               {!isFullscreen && (
                 <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
@@ -1677,6 +1707,17 @@ export function ComparativoEstudoDashboard({
                 onClick={onNavigateToCoparticipacao}
               >
                 Comparativo coparticipação
+              </Button>
+            )}
+            {onNavigateToReembolso && (
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<PaymentsIcon />}
+                disabled={disabled}
+                onClick={onNavigateToReembolso}
+              >
+                Comparativo reembolso
               </Button>
             )}
             {onNavigateToLancamento && lancamentoDisponivel && (

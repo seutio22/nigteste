@@ -15,14 +15,14 @@ import PaymentsIcon from '@mui/icons-material/Payments'
 import EditNoteIcon from '@mui/icons-material/EditNote'
 import type { CotacaoFormState } from './CotacaoFormFields'
 import {
-  buildComparativoCoparticipacaoColunas,
-  buildComparativoCoparticipacaoPages,
-  valorCopartLinha,
-  type ComparativoCopartColuna,
-  type ComparativoCoparticipacaoPagina,
-} from './placementComparativoCoparticipacao'
-import { CoparticipacaoSelo } from './CoparticipacaoSelo'
-import { ComparativoCoparticipacaoInfografico } from './ComparativoCoparticipacaoInfografico'
+  buildComparativoReembolsoColunas,
+  buildComparativoReembolsoPages,
+  valorReembolsoLinha,
+  type ComparativoReembColuna,
+  type ComparativoReembolsoPagina,
+} from './placementComparativoReembolso'
+import { ReembolsoSelo } from './ReembolsoSelo'
+import { ComparativoReembolsoInfografico } from './ComparativoReembolsoInfografico'
 import { ComparativoDetalheOpcoesPanel } from './ComparativoDetalheOpcoesPanel'
 import { ComparativoDetalheSidebarLayout } from './ComparativoDetalheSidebarLayout'
 import { useComparativoConfigPersist } from './useComparativoConfigPersist'
@@ -41,7 +41,7 @@ import {
 import { SLIDE_COLORS } from './placementSlideTheme'
 
 const FONT = SLIDE_FONT_FAMILY
-const TABLE_HEADER_BG = SLIDE_COLORS.mint
+const TABLE_HEADER_BG = '#E8F4FC'
 
 type Props = {
   cotacaoId: string
@@ -49,7 +49,7 @@ type Props = {
   onChange?: (next: CotacaoFormState) => void
   onPersisted?: (apiCotacao: unknown) => void
   onNavigateToLancamento?: () => void
-  onNavigateToReembolso?: () => void
+  onNavigateToCoparticipacao?: () => void
   lancamentoDisponivel?: boolean
 }
 
@@ -104,7 +104,7 @@ function Td({
   )
 }
 
-function CopartHeaders({ colunas }: { colunas: ComparativoCopartColuna[] }) {
+function ReembHeaders({ colunas }: { colunas: ComparativoReembColuna[] }) {
   return (
     <>
       <tr>
@@ -129,19 +129,19 @@ function CopartHeaders({ colunas }: { colunas: ComparativoCopartColuna[] }) {
   )
 }
 
-function CoparticipacaoSlide({
+function ReembolsoSlide({
   page,
   ticket,
 }: {
-  page: ComparativoCoparticipacaoPagina
+  page: ComparativoReembolsoPagina
   ticket: string
 }) {
   return (
     <Paper variant="outlined" sx={{ overflow: 'auto' }}>
       <PlacementSlideHeader
-        title="Comparativo de Coparticipação"
+        title="Comparativo de Reembolso"
         subtitle={`Detalhamento por procedimento · ${ticket}`}
-        icon={<HealthAndSafetyIcon sx={{ fontSize: 22, color: '#fff' }} />}
+        icon={<PaymentsIcon sx={{ fontSize: 22, color: '#fff' }} />}
       />
       <Box sx={{ px: 2, py: 1.5 }}>
         <Box
@@ -149,7 +149,7 @@ function CoparticipacaoSlide({
           sx={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'auto' }}
         >
           <thead>
-            <CopartHeaders colunas={page.colunas} />
+            <ReembHeaders colunas={page.colunas} />
           </thead>
           <tbody>
             {page.linhas.map((linha) => (
@@ -160,13 +160,13 @@ function CoparticipacaoSlide({
                 {page.colunas.map((col) => (
                   <Td key={`${linha.id}-${col.id}`}>
                     {linha.tipo === 'selo' ? (
-                      <CoparticipacaoSelo
-                        valor={valorCopartLinha(col, linha)}
-                        temCoparticipacao={col.copart.possui}
+                      <ReembolsoSelo
+                        valor={valorReembolsoLinha(col, linha)}
+                        temReembolso={col.temReembolso}
                         fontSize={10}
                       />
                     ) : (
-                      valorCopartLinha(col, linha)
+                      valorReembolsoLinha(col, linha)
                     )}
                   </Td>
                 ))}
@@ -180,22 +180,22 @@ function CoparticipacaoSlide({
   )
 }
 
-type ModoVisualizacaoCopart = 'infografico' | 'tabela'
+type ModoVisualizacaoReemb = 'infografico' | 'tabela'
 
-export function ComparativoCoparticipacaoDashboard({
+export function ComparativoReembolsoDashboard({
   cotacaoId,
   form,
   onChange,
   onPersisted,
   onNavigateToLancamento,
-  onNavigateToReembolso,
+  onNavigateToCoparticipacao,
   lancamentoDisponivel,
 }: Props) {
   const operadoras = useMasterDataStore((s) => s.operadoras)
   const operadorasById = useMasterDataStore((s) => s.operadorasById)
   const [pageIndex, setPageIndex] = useState(0)
   const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [modoVisualizacao, setModoVisualizacao] = useState<ModoVisualizacaoCopart>('infografico')
+  const [modoVisualizacao, setModoVisualizacao] = useState<ModoVisualizacaoReemb>('infografico')
   const [exibirTodasPaginas, setExibirTodasPaginas] = useState(
     () => form.kickOffEstrategia?.aguardandoOperadora?.comparativoConfig?.visualizacao !== 'slide'
   )
@@ -211,7 +211,7 @@ export function ComparativoCoparticipacaoDashboard({
 
   const colunasTodas = useMemo(
     () =>
-      buildComparativoCoparticipacaoColunas(
+      buildComparativoReembolsoColunas(
         form,
         operadoras,
         operadorasById,
@@ -231,7 +231,7 @@ export function ComparativoCoparticipacaoDashboard({
   )
 
   const pages = useMemo(
-    () => buildComparativoCoparticipacaoPages(colunas, config.colunasPorSlide),
+    () => buildComparativoReembolsoPages(colunas, config.colunasPorSlide),
     [colunas, config.colunasPorSlide]
   )
 
@@ -243,7 +243,7 @@ export function ComparativoCoparticipacaoDashboard({
     return (
       <Box sx={{ p: 3 }}>
         <Alert severity="info">
-          Cadastre propostas por fornecedor e informe a coparticipação (Sim/Não e detalhes) em{' '}
+          Cadastre propostas por fornecedor e informe o reembolso (Sim/Não e detalhes) em{' '}
           <strong>Lançar propostas</strong> para gerar o comparativo.
         </Alert>
         {lancamentoDisponivel && onNavigateToLancamento && (
@@ -275,20 +275,20 @@ export function ComparativoCoparticipacaoDashboard({
       paginaCompleta ? (
         <Stack spacing={3}>
           {pages.map((page, i) => (
-            <ComparativoCoparticipacaoInfografico key={`copart-info-${i}`} page={page} ticket={ticket} />
+            <ComparativoReembolsoInfografico key={`reemb-info-${i}`} page={page} ticket={ticket} />
           ))}
         </Stack>
       ) : (
-        currentPage && <ComparativoCoparticipacaoInfografico page={currentPage} ticket={ticket} />
+        currentPage && <ComparativoReembolsoInfografico page={currentPage} ticket={ticket} />
       )
     ) : paginaCompleta ? (
       <Stack spacing={3}>
         {pages.map((page, i) => (
-          <CoparticipacaoSlide key={`copart-page-${i}`} page={page} ticket={ticket} />
+          <ReembolsoSlide key={`reemb-page-${i}`} page={page} ticket={ticket} />
         ))}
       </Stack>
     ) : (
-      currentPage && <CoparticipacaoSlide page={currentPage} ticket={ticket} />
+      currentPage && <ReembolsoSlide page={currentPage} ticket={ticket} />
     )
 
   return (
@@ -318,7 +318,7 @@ export function ComparativoCoparticipacaoDashboard({
         >
           <Box sx={{ minWidth: 0 }}>
             <Typography variant="subtitle1" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
-              Comparativo de coparticipação
+              Comparativo de reembolso
             </Typography>
             <Typography variant="body2" color="text.secondary">
               {colunas.length} coluna(s) · {pages.length} bloco(s)
@@ -328,12 +328,17 @@ export function ComparativoCoparticipacaoDashboard({
           <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
             {lancamentoDisponivel && onNavigateToLancamento && (
               <Button size="small" variant="outlined" startIcon={<EditNoteIcon />} onClick={onNavigateToLancamento}>
-                Editar coparticipação
+                Editar reembolso
               </Button>
             )}
-            {onNavigateToReembolso && (
-              <Button size="small" variant="outlined" startIcon={<PaymentsIcon />} onClick={onNavigateToReembolso}>
-                Comparativo reembolso
+            {onNavigateToCoparticipacao && (
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<HealthAndSafetyIcon />}
+                onClick={onNavigateToCoparticipacao}
+              >
+                Comparativo coparticipação
               </Button>
             )}
             {!paginaCompleta && pages.length > 1 && (

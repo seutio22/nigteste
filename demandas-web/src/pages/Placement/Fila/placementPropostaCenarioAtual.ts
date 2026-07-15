@@ -12,6 +12,13 @@ import {
   labelPlano,
 } from './placementContratoAtual'
 import { parsePercentValue } from './placementCotacaoFinanceiro'
+import {
+  cloneReembolsoPlanoDetalhe,
+  emptyReembolsoPlanoDetalhe,
+  reembolsoDetalheFromAbertura,
+  temReembolsoDetalhePreenchido,
+  type ReembolsoPorPlano,
+} from './placementReembolso'
 import { resolveOperadoraNome } from './placementKickOffFormatters'
 import { normMercadoKey } from './placementMercadoQuadro'
 import type { Operadora } from '../../../types/masterData'
@@ -31,9 +38,15 @@ function normKey(s: string): string {
 function planoToPropostaLinha(
   p: PlanoCoberturaForm,
   copartGlobal: string,
-  contribuicao: string
+  contribuicao: string,
+  reembolsoPorPlano?: ReembolsoPorPlano
 ): PropostaPlanoLinha {
   const base = emptyPropostaPlanoLinha()
+  const reembDet = reembolsoPorPlano
+    ? reembolsoDetalheFromAbertura(p.id, reembolsoPorPlano)
+    : emptyReembolsoPlanoDetalhe()
+  const consultaValor = reembDet.valores.consultas?.trim() ?? ''
+  const temReemb = temReembolsoDetalhePreenchido(reembDet)
   return {
     ...base,
     id: p.id,
@@ -49,7 +62,9 @@ function planoToPropostaLinha(
     contribuicao: contribuicao || '',
     coparticipacao: coparticipacaoFromCopartForm(p.coparticipacao, copartGlobal),
     coparticipacaoDetalhe: cloneCoparticipacao(p.coparticipacao),
-    reembolsoConsulta: '',
+    reembolso: temReemb ? 'Sim' : '',
+    reembolsoConsulta: consultaValor,
+    reembolsoDetalhe: cloneReembolsoPlanoDetalhe(reembDet),
     eventosReembolsaveis: '',
   }
 }
@@ -76,11 +91,12 @@ export function planosAberturaForFornecedor(
 
   const contribuicao = formatContribuicaoResumo(form.dadosFinanceiros)
   const copartGlobal = form.coparticipacaoDetalhePorPlanos ?? ''
+  const reembolsoPorPlano = form.reembolsoPorPlano
 
   return (form.planos ?? [])
     .filter((p) => rowIds.has(p.itemRowId))
     .filter((p) => p.nomePlano.trim() || p.numeroVidas.trim() || p.custoPerCapitaBRL.trim())
-    .map((p) => planoToPropostaLinha(p, copartGlobal, contribuicao))
+    .map((p) => planoToPropostaLinha(p, copartGlobal, contribuicao, reembolsoPorPlano))
 }
 
 export function defaultResumoCenarioAtual(form: CotacaoFormState): PropostaCenarioResumoLinha[] {

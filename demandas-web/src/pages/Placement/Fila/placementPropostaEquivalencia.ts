@@ -177,6 +177,7 @@ export function propostaPlanoLinhaIsPristine(p: PropostaPlanoLinha): boolean {
   if (p.nomePlano) return false
   if (p.numeroVidas.trim()) return false
   if (p.custoPerCapitaBRL.trim()) return false
+  if (p.reembolso.trim()) return false
   if (p.reembolsoConsulta.trim()) return false
   if (p.acomodacao.trim()) return false
   if (p.coparticipacao.trim()) return false

@@ -6,7 +6,10 @@ import {
   readSpreadsheetRows,
   type SpreadsheetImportResult,
 } from './dadosSpreadsheet'
-import type { usePlacementStore } from '../store/placementStore'
+import type { usePlacementStore, PlacementPlano } from '../store/placementStore'
+import {
+  resolveDiferencialItemKey,
+} from '../pages/Placement/Fila/placementDiferenciaisCatalogo'
 
 export type PlacementDadosTabKey =
   | 'filiais'
@@ -15,6 +18,7 @@ export type PlacementDadosTabKey =
   | 'prospects'
   | 'condicoes'
   | 'planos'
+  | 'diferenciais'
   | 'projetos'
   | 'pedido'
   | 'temperatura'
@@ -30,6 +34,9 @@ type PlacementStoreApi = Pick<
   | 'addProspect'
   | 'addCondicao'
   | 'addPlano'
+  | 'upsertDiferenciaisBatch'
+  | 'syncPlanos'
+  | 'planos'
   | 'addProjeto'
   | 'addPedido'
   | 'addTemperatura'
@@ -67,11 +74,38 @@ async function importNomeRows(
   return { imported, errors }
 }
 
+function resolvePlacementPlanoId(
+  operadoraId: string,
+  categoria: string,
+  plano: string,
+  planos: PlacementPlano[]
+): string {
+  const pl = plano.trim().toLowerCase()
+  const cat = categoria.trim().toLowerCase()
+  if (!pl) return ''
+
+  if (cat) {
+    const exact = planos.find(
+      (p) =>
+        p.operadoraId === operadoraId &&
+        p.categoria.trim().toLowerCase() === cat &&
+        p.plano.trim().toLowerCase() === pl
+    )
+    if (exact) return exact.id
+  }
+
+  const matches = planos.filter(
+    (p) => p.operadoraId === operadoraId && p.plano.trim().toLowerCase() === pl
+  )
+  return matches.length === 1 ? matches[0].id : matches.find((p) => !cat || p.categoria.trim().toLowerCase() === cat)?.id ?? ''
+}
+
 export async function importPlacementSpreadsheet(
   tab: PlacementDadosTabKey,
   file: File,
   store: PlacementStoreApi,
-  operadoras: Operadora[]
+  operadoras: Operadora[],
+  planos: PlacementPlano[] = []
 ): Promise<SpreadsheetImportResult> {
   const rows = await readSpreadsheetRows(file)
   if (!rows.length) throw new Error('Nenhuma linha encontrada na planilha.')
@@ -218,6 +252,73 @@ export async function importPlacementSpreadsheet(
       return { imported, errors }
     }
 
+    case 'diferenciais': {
+      let imported = 0
+      const errors: string[] = []
+      const batchItems: Array<{
+        operadoraId: string
+        placementPlanoId: string
+        itemKey: string
+        texto: string
+      }> = []
+
+      for (let i = 0; i < rows.length; i++) {
+        const fornecedor = pickCell(rows[i], ['Fornecedor', 'Operadora', 'fornecedor'])
+        const operadoraId = resolveOperadoraId(fornecedor, operadoras)
+        const categoria = pickCell(rows[i], ['Categoria', 'categoria'])
+        const plano = pickCell(rows[i], ['Plano', 'plano'])
+        const itemRaw = pickCell(rows[i], ['Item', 'Item diferencial', 'item', 'itemKey'])
+        const texto = pickCell(rows[i], ['Descrição', 'Descricao', 'Texto', 'texto'])
+
+        if (!operadoraId) {
+          errors.push(
+            `Linha ${i + 2}: fornecedor "${fornecedor || '—'}" não encontrado em Dados → NIG → Operadoras.`
+          )
+          continue
+        }
+        if (!plano) {
+          errors.push(`Linha ${i + 2}: plano é obrigatório (cadastre antes em Dados → Planos).`)
+          continue
+        }
+
+        const placementPlanoId = resolvePlacementPlanoId(operadoraId, categoria, plano, planos)
+        if (!placementPlanoId) {
+          errors.push(
+            `Linha ${i + 2}: plano "${plano}"${categoria ? ` (${categoria})` : ''} não encontrado em Dados → Planos para ${fornecedor}.`
+          )
+          continue
+        }
+
+        const itemKey = resolveDiferencialItemKey(itemRaw)
+        if (!itemKey) {
+          errors.push(
+            `Linha ${i + 2}: item "${itemRaw || '—'}" inválido. Use o rótulo (ex.: TELEMEDICINA) ou a chave (ex.: telemedicina).`
+          )
+          continue
+        }
+        if (!texto) {
+          errors.push(`Linha ${i + 2}: descrição é obrigatória.`)
+          continue
+        }
+
+        batchItems.push({ operadoraId, placementPlanoId, itemKey, texto })
+      }
+
+      if (batchItems.length) {
+        try {
+          const result = await store.upsertDiferenciaisBatch(batchItems)
+          imported = result.synced
+          if (result.skipped > 0) {
+            errors.push(`${result.skipped} linha(s) ignorada(s) pela API (dados inválidos).`)
+          }
+        } catch (err: unknown) {
+          errors.push(err instanceof Error ? err.message : 'Erro ao gravar diferenciais importados.')
+        }
+      }
+
+      return { imported, errors }
+    }
+
     case 'projetos':
       return importNomeRows(rows, store.addProjeto)
     case 'pedido':
@@ -313,6 +414,27 @@ const PLACEMENT_TEMPLATE_META: Record<
       },
     ],
   },
+  diferenciais: {
+    label: 'Diferenciais',
+    filename: 'placement-diferenciais-modelo.xlsx',
+    headers: ['Fornecedor', 'Categoria', 'Plano', 'Item', 'Descrição'],
+    exampleRows: [
+      {
+        Fornecedor: 'Amil',
+        Categoria: 'Empresarial',
+        Plano: 'S6500',
+        Item: 'TELEMEDICINA',
+        Descrição: 'Possui atendimento 24h',
+      },
+      {
+        Fornecedor: 'Bradesco',
+        Categoria: 'Premium',
+        Plano: 'TN3',
+        Item: 'retaguarda',
+        Descrição: 'Retaguarda full back-up Einstein e Sírio-Libanês',
+      },
+    ],
+  },
   projetos: {
     label: 'Projetos',
     filename: 'placement-projetos-modelo.xlsx',
@@ -363,6 +485,13 @@ export function getPlacementUploadConfig(
     filename: meta.filename,
     headers: meta.headers,
     exampleRows: meta.exampleRows,
-    importFile: (file) => importPlacementSpreadsheet(tab, file, store, operadoras),
+    importFile: async (file) => {
+      let planosCatalogo: PlacementPlano[] = []
+      if (tab === 'diferenciais') {
+        await store.syncPlanos(true)
+        planosCatalogo = store.planos ?? []
+      }
+      return importPlacementSpreadsheet(tab, file, store, operadoras, planosCatalogo)
+    },
   }
 }

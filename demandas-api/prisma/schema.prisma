@@ -58,6 +58,7 @@ model Operadora {
   validacoes   Validacao[]
   placementLogo PlacementOperadoraLogo?
   placementPlanos PlacementPlano[]
+  placementDiferenciais PlacementDiferencial[]
 }
 
 /// Logo da operadora (fornecedor) para apresentações Placement — cadastro em Dados → Placement.
@@ -880,10 +881,30 @@ model PlacementPlano {
   updatedAt            DateTime @updatedAt
 
   operadora Operadora @relation(fields: [operadoraId], references: [id], onDelete: Cascade)
+  diferenciais PlacementDiferencial[]
 
   @@index([operadoraId])
   @@index([categoria])
   @@index([plano])
+}
+
+/// Diferenciais por fornecedor e plano (Dados → Placement).
+model PlacementDiferencial {
+  id               String   @id @default(uuid())
+  operadoraId      String
+  placementPlanoId String
+  itemKey          String
+  texto            String   @db.Text
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  operadora      Operadora      @relation(fields: [operadoraId], references: [id], onDelete: Cascade)
+  placementPlano PlacementPlano @relation(fields: [placementPlanoId], references: [id], onDelete: Cascade)
+
+  @@unique([operadoraId, placementPlanoId, itemKey])
+  @@index([operadoraId])
+  @@index([placementPlanoId])
+  @@map("diferenciais")
 }
 
 /// Corretor parceiro (Dados → Placement). Apenas nome; usado na Fila ao lado da filial.

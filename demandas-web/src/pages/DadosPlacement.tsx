@@ -7,6 +7,7 @@ import CondicoesTab from './Placement/CondicoesTab'
 import { PlacementContratoCatalogoTab } from './Placement/PlacementContratoCatalogoTab'
 import AnalistasTab from './Placement/AnalistasTab'
 import PlanosTab from './Placement/PlanosTab'
+import DiferenciaisTab from './Placement/DiferenciaisTab'
 import OperadoraLogosTab from './Placement/OperadoraLogosTab'
 import { DadosTableUploadBar } from '../components/DadosTableUploadBar'
 import { useMasterDataStore } from '../store/masterDataStore'
@@ -22,6 +23,7 @@ type PlacementTabKey =
   | 'prospects'
   | 'condicoes'
   | 'planos'
+  | 'diferenciais'
   | 'projetos'
   | 'pedido'
   | 'temperatura'
@@ -62,6 +64,10 @@ export default function DadosPlacementPage() {
         void s.syncCondicoes(true)
         break
       case 'planos':
+        void s.syncPlanos(true)
+        break
+      case 'diferenciais':
+        void s.syncDiferenciais(true)
         void s.syncPlanos(true)
         break
       case 'projetos':
@@ -113,6 +119,7 @@ export default function DadosPlacementPage() {
         <Tab value="prospects" label="Prospect" />
         <Tab value="condicoes" label="Condições" />
         <Tab value="planos" label="Planos" />
+        <Tab value="diferenciais" label="Diferenciais" />
         <Tab value="projetos" label="Projetos" />
         <Tab value="pedido" label="Pedido/conta" />
         <Tab value="temperatura" label="Temperatura" />
@@ -130,6 +137,7 @@ export default function DadosPlacementPage() {
         {activeTab === 'prospects' && <ProspectsTab />}
         {activeTab === 'condicoes' && <CondicoesTab />}
         {activeTab === 'planos' && <PlanosTab />}
+        {activeTab === 'diferenciais' && <DiferenciaisTab />}
         {activeTab === 'projetos' && <PlacementContratoCatalogoTab kind="projeto" />}
         {activeTab === 'pedido' && <PlacementContratoCatalogoTab kind="pedido" />}
         {activeTab === 'temperatura' && <PlacementContratoCatalogoTab kind="temperatura" />}

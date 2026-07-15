@@ -2,23 +2,25 @@ import { describe, expect, it } from 'vitest'
 import type { CotacaoFormState } from './CotacaoFormFields'
 import { emptyCustosFaixa, emptyVidasFaixa } from './placementCotacaoDetalhes'
 import { emptyCoparticipacao } from './placementCoparticipacao'
+import { emptyReembolsoPlanoDetalhe } from './placementReembolso'
 import {
-  buildComparativoCoparticipacaoColunas,
-  buildComparativoCoparticipacaoPages,
-  valorCopartLinha,
-  COMPARATIVO_COPART_LINHAS,
-} from './placementComparativoCoparticipacao'
+  buildComparativoReembolsoColunas,
+  buildComparativoReembolsoPages,
+  valorReembolsoLinha,
+  COMPARATIVO_REEMB_LINHAS_FIXAS,
+} from './placementComparativoReembolso'
 import { emptyKickOffEstrategia } from './placementKickOffEstrategia'
 
 const operadoras = [{ id: 'op1', nome: 'KOVR SEGURADORA' }]
 
-function formComCopartDetalhe(): CotacaoFormState {
-  const copartMercado = emptyCoparticipacao()
-  copartMercado.possui = true
-  copartMercado.linhas.consultas_eletivas = { valor: '15', limitador: '' }
+function formComReembolsoDetalhe(): CotacaoFormState {
+  const reembDet = emptyReembolsoPlanoDetalhe()
+  reembDet.valores.consultas = '350,00'
+  reembDet.consultaDias = '30'
+  reembDet.procedimentosDias = '60'
 
   return {
-    ticket: 'TK-COP',
+    ticket: 'TK-REEMB',
     status: 'Aguardando operadora',
     analistaId: '',
     analistaResponsavelId: '',
@@ -98,14 +100,15 @@ function formComCopartDetalhe(): CotacaoFormState {
                 custoPerCapitaBRL: '',
                 vidasFaixa: { ...emptyVidasFaixa(), '00-18': '10' },
                 custosFaixa: { ...emptyCustosFaixa(), '00-18': '280,00' },
-                reembolsoConsulta: '',
-                reembolso: '',
+                reembolsoConsulta: '350,00',
+                reembolso: 'Sim',
+                reembolsoDetalhe: reembDet,
                 acomodacao: 'Enfermaria',
                 eventosReembolsaveis: '',
                 abrangencia: '',
                 contribuicao: '',
-                coparticipacao: 'Sim',
-                coparticipacaoDetalhe: copartMercado,
+                coparticipacao: '',
+                coparticipacaoDetalhe: emptyCoparticipacao(),
               },
             ],
           },
@@ -123,26 +126,29 @@ function formComCopartDetalhe(): CotacaoFormState {
   }
 }
 
-describe('placementComparativoCoparticipacao', () => {
-  it('monta colunas de coparticipação a partir das propostas', () => {
-    const colunas = buildComparativoCoparticipacaoColunas(formComCopartDetalhe(), operadoras, undefined, false)
+describe('placementComparativoReembolso', () => {
+  it('monta colunas de reembolso a partir das propostas', () => {
+    const colunas = buildComparativoReembolsoColunas(formComReembolsoDetalhe(), operadoras, undefined, false)
     expect(colunas.length).toBe(1)
     expect(colunas[0].operadora).toContain('KOVR')
-    expect(colunas[0].copart.linhas.consultas_eletivas.valor).toBe('15')
+    expect(colunas[0].temReembolso).toBe(true)
+    expect(colunas[0].detalhe.valores.consultas).toBe('350,00')
   })
 
-  it('formata células de procedimento e selo', () => {
-    const colunas = buildComparativoCoparticipacaoColunas(formComCopartDetalhe(), operadoras, undefined, false)
+  it('formata células de procedimento, prazo e selo', () => {
+    const colunas = buildComparativoReembolsoColunas(formComReembolsoDetalhe(), operadoras, undefined, false)
     const col = colunas[0]
-    const selo = COMPARATIVO_COPART_LINHAS.find((l) => l.tipo === 'selo')!
-    const proc = COMPARATIVO_COPART_LINHAS.find((l) => l.procedimentoKey === 'consultas_eletivas')!
-    expect(valorCopartLinha(col, selo)).toBe('Sim')
-    expect(valorCopartLinha(col, proc)).toContain('15%')
+    const selo = COMPARATIVO_REEMB_LINHAS_FIXAS.find((l) => l.tipo === 'selo')!
+    const consulta = COMPARATIVO_REEMB_LINHAS_FIXAS.find((l) => l.procedimentoKey === 'consultas')!
+    const prazo = COMPARATIVO_REEMB_LINHAS_FIXAS.find((l) => l.tipo === 'prazo_consulta')!
+    expect(valorReembolsoLinha(col, selo)).toBe('Sim')
+    expect(valorReembolsoLinha(col, consulta)).toContain('350')
+    expect(valorReembolsoLinha(col, prazo)).toBe('30 dias')
   })
 
-  it('pagina comparativo de coparticipação', () => {
-    const colunas = buildComparativoCoparticipacaoColunas(formComCopartDetalhe(), operadoras, undefined, false)
-    const pages = buildComparativoCoparticipacaoPages(colunas, 3)
+  it('pagina comparativo de reembolso', () => {
+    const colunas = buildComparativoReembolsoColunas(formComReembolsoDetalhe(), operadoras, undefined, false)
+    const pages = buildComparativoReembolsoPages(colunas, 3)
     expect(pages.length).toBe(1)
     expect(pages[0].linhas.length).toBeGreaterThan(5)
   })

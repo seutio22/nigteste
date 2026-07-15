@@ -34,6 +34,7 @@ export function formScopeForWorkflow(
   if (workflowStageKey === 'em_cotacao') return 'em_cotacao'
   if (
     workflowStageKey === 'aguardando_operadora' ||
+    workflowStageKey === 'consolidando_dados' ||
     workflowStageKey === 'proposta_enviada'
   ) {
     return 'observacoes_only'

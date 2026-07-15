@@ -14,6 +14,7 @@ export type WorkflowStageKey =
   | 'estrategia'
   | 'em_cotacao'
   | 'aguardando_operadora'
+  | 'consolidando_dados'
   | 'proposta_enviada'
   | 'fechada'
   | 'perdida'
@@ -86,12 +87,21 @@ export const PLACEMENT_WORKFLOW_MAIN_STAGES: WorkflowStageMeta[] = [
     mainFlowIndex: 5,
   },
   {
+    status: 'Consolidando dados',
+    key: 'consolidando_dados',
+    label: 'Consolidando dados',
+    description: 'Diferenciais, coberturas e condições',
+    objective:
+      'Consolide diferenciais por fornecedor, resumo de coberturas e condições contratuais para a proposta.',
+    mainFlowIndex: 6,
+  },
+  {
     status: 'Proposta enviada',
     key: 'proposta_enviada',
     label: 'Proposta enviada',
     description: 'Proposta ao cliente',
     objective: 'Proposta formal enviada ao cliente para análise e negociação.',
-    mainFlowIndex: 6,
+    mainFlowIndex: 7,
   },
   {
     status: 'Fechada',
@@ -99,7 +109,7 @@ export const PLACEMENT_WORKFLOW_MAIN_STAGES: WorkflowStageMeta[] = [
     label: 'Fechada',
     description: 'Negócio concluído',
     objective: 'Oportunidade concluída com sucesso.',
-    mainFlowIndex: 7,
+    mainFlowIndex: 8,
   },
 ]
 

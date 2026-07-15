@@ -6,6 +6,7 @@ export type PlacementSlideId =
   | 'localidades'
   | 'mercado_quadro'
   | 'comparativo_propostas'
+  | 'comparativo_diferenciais'
 
 export type PlacementSlideViewMode = 'compacto' | 'detalhado'
 
@@ -42,6 +43,12 @@ export const PLACEMENT_SLIDES_CATALOG: PlacementSlideMeta[] = [
     description:
       'Tabelas comparativas ATUAL × mercado: consolidado financeiro, detalhe por plano ou faixa etária (multi-slide).',
   },
+  {
+    id: 'comparativo_diferenciais',
+    label: 'Comparativo de diferenciais',
+    description:
+      'Infográfico com todos os diferenciais por fornecedor (telemedicina, retaguarda, resgate, etc.).',
+  },
 ]
 
 /** Mapeia densidade do hub de slides para o modo de apresentação de cada dashboard. */
@@ -55,6 +62,7 @@ export function presentationModeForSlide(
 }
 
 export function defaultPlacementSlideId(workflowStageKey: string): PlacementSlideId {
+  if (workflowStageKey === 'consolidando_dados') return 'comparativo_diferenciais'
   if (workflowStageKey === 'aguardando_operadora') return 'comparativo_propostas'
   if (workflowStageKey === 'em_cotacao') return 'contrato_atual'
   return 'contrato_atual'
