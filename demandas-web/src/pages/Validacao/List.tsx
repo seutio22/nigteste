@@ -26,6 +26,7 @@ import GroupIcon from '@mui/icons-material/Group'
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline'
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
 import TableChartIcon from '@mui/icons-material/TableChart'
+import { formatContratoLabel } from '../../utils/validationRelations'
 
 function ActionCell({ id, status }: { id: string, status: string }) {
   const navigate = useNavigate()
@@ -690,7 +691,6 @@ export default function ValidationListPage() {
   const normalizeText = (value?: string) => (value || '').trim().toLowerCase()
   const analistasByName = useMemo(() => new Map(md.analistas.map(a => [normalizeText(a.nome), a.id])), [md.analistas])
   const clientesByName = useMemo(() => new Map(md.clientes.map(c => [normalizeText(c.nome), c.id])), [md.clientes])
-  const contratosByName = useMemo(() => new Map(md.contratos.map(c => [normalizeText(c.numero || c.codigo || ''), c.id])), [md.contratos])
   const operadorasByName = useMemo(() => new Map(md.operadoras.map(o => [normalizeText(o.nome), o.id])), [md.operadoras])
   const solicitantesByName = useMemo(() => new Map(md.solicitantes.map(s => [normalizeText(s.nome), s.id])), [md.solicitantes])
 
@@ -719,27 +719,14 @@ export default function ValidationListPage() {
       }
       return String(value || '')
     }
-    const getContratoNumero = (value: any) => {
-      if (!value) return ''
-      if (typeof value === 'object') {
-        return value.numero || value.codigo || ''
-      }
-      if (typeof value === 'string') {
-        const byIdMatch = contratosById[value]
-        if (byIdMatch) return byIdMatch.numero || byIdMatch.codigo || value
-        const mappedId = contratosByName.get(normalizeText(value))
-        if (mappedId) {
-          const contract = contratosById[mappedId]
-          return contract?.numero || contract?.codigo || value
-        }
-        return value
-      }
-      return String(value || '')
+    const getContratoNumero = (value: unknown, contratoId?: string | null) => {
+      const label = formatContratoLabel(value, contratoId, md.contratos)
+      return label === '-' ? '' : label
     }
 
     const analistaNome = getNomeFromValue(v.analista, analistasById, analistasByName)
     const clienteNome = getNomeFromValue(v.cliente || v.clienteId || v.clienteObj, clientesById, clientesByName)
-    const contratoNumero = getContratoNumero(v.contrato || v.contratoId || v.contratoObj)
+    const contratoNumero = getContratoNumero(v.contrato ?? v.contratoObj, v.contratoId)
     const operadoraNome = getNomeFromValue(v.operadora || v.operadoraId || v.operadoraObj, operadorasById, operadorasByName)
     const solicitanteNome = getNomeFromValue(v.solicitante, solicitantesById, solicitantesByName)
     
@@ -763,12 +750,11 @@ export default function ValidationListPage() {
     sortedItems,
     analistasById,
     clientesById,
-    contratosById,
+    md.contratos,
     operadorasById,
     solicitantesById,
     analistasByName,
     clientesByName,
-    contratosByName,
     operadorasByName,
     solicitantesByName
   ])
@@ -1083,9 +1069,12 @@ export default function ValidationListPage() {
         }}
         data={itemsForGrid.map(v => {
           const clienteId = (v as any).cliente ?? (v as any).clienteId
-          const contratoId = (v as any).contrato ?? (v as any).contratoId
           const clienteResolved = typeof clienteId === 'object' ? (clienteId?.nome ?? 'N/A') : (clientesById[clienteId || '']?.nome ?? clienteId ?? 'N/A')
-          const contratoResolved = typeof contratoId === 'object' ? (contratoId?.numero || contratoId?.codigo || 'N/A') : ((contratosById[contratoId || '']?.numero || contratosById[contratoId || '']?.codigo || contratoId) ?? 'N/A')
+          const contratoResolved = formatContratoLabel(
+            (v as any).contrato ?? (v as any).contratoObj,
+            (v as any).contratoId,
+            md.contratos
+          )
           const operadoraId = (v as any).operadora ?? (v as any).operadoraId
           const operadoraResolved = typeof operadoraId === 'object' ? (operadoraId?.nome ?? 'N/A') : (operadorasById[operadoraId || '']?.nome ?? operadoraId ?? 'N/A')
           const analistaId = typeof (v as any).analista === 'object' ? (v as any).analista?.id : ((v as any).analistaId ?? (v as any).analista)

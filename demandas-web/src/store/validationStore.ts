@@ -78,6 +78,15 @@ export function mapApiValidacaoToEntry(validacao: any): ValidationEntry {
     formalizacao: validacao.formalizacao,
     itensPendentes: validacao.itensPendentes,
     itensConcluidos: validacao.itensConcluidos,
+    itensConcluidosDetalhe: (() => {
+      try {
+        if (!validacao.itensConcluidosDetalhe) return undefined
+        if (typeof validacao.itensConcluidosDetalhe === 'object') return validacao.itensConcluidosDetalhe
+        return JSON.parse(validacao.itensConcluidosDetalhe)
+      } catch {
+        return undefined
+      }
+    })(),
     createdAt: validacao.createdAt,
     updatedAt: validacao.updatedAt
   }
@@ -186,6 +195,7 @@ export const useValidationStore = create<ValidationState>()(
             formalizacao: validation.formalizacao,
             itensPendentes: parseNumber(validation.itensPendentes),
             itensConcluidos: parseNumber(validation.itensConcluidos),
+            itensConcluidosDetalhe: validation.itensConcluidosDetalhe ?? null,
             total: parseNumber(validation.total),
             ticket: cleanTicket(validation.ticket), // Limpar ticket para evitar strings vazias
             solicitante: validation.solicitante,
@@ -260,6 +270,7 @@ export const useValidationStore = create<ValidationState>()(
             formalizacao: validation.formalizacao,
             itensPendentes: parseNumber(validation.itensPendentes),
             itensConcluidos: parseNumber(validation.itensConcluidos),
+            itensConcluidosDetalhe: validation.itensConcluidosDetalhe ?? null,
             total: parseNumber(validation.total),
             ticket: validation.ticket,
             solicitante: validation.solicitante,

@@ -22,7 +22,7 @@ export default defineConfig(({ mode }) => ({
     copyPublicDir: true, // Garantir que arquivos públicos sejam copiados
     rollupOptions: {
       output: {
-        // Force new hash generation - v0.8.6 (alinha versão com package.json / UI)
+        // Force new hash generation - v0.8.7 (alinha versão com package.json / UI)
         entryFileNames: `assets/[name]-[hash]-v0638.js`,
         chunkFileNames: `assets/[name]-[hash]-v0638.js`,
         assetFileNames: (assetInfo) => {

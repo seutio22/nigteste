@@ -41,6 +41,7 @@ export interface ValidationEntry {
   // Novos campos para itens
   itensPendentes?: number
   itensConcluidos?: number
+  itensConcluidosDetalhe?: { contrato?: number; subs?: number }
   // Campos adicionais
   qualidade?: string
   qtdRetornos?: number

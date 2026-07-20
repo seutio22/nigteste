@@ -1712,6 +1712,18 @@ async function executeValidacaoUpdate(id: string, body: any) {
       cleanedData.estruturaMove = null
     }
   }
+  if (cleanedData.itensConcluidosDetalhe !== undefined) {
+    if (typeof cleanedData.itensConcluidosDetalhe === 'object' && cleanedData.itensConcluidosDetalhe !== null) {
+      const hasValue =
+        cleanedData.itensConcluidosDetalhe.contrato != null ||
+        cleanedData.itensConcluidosDetalhe.subs != null
+      cleanedData.itensConcluidosDetalhe = hasValue
+        ? JSON.stringify(cleanedData.itensConcluidosDetalhe)
+        : null
+    } else if (cleanedData.itensConcluidosDetalhe === '' || cleanedData.itensConcluidosDetalhe === '{}') {
+      cleanedData.itensConcluidosDetalhe = null
+    }
+  }
 
   if (cleanedData.dataInicio) cleanedData.dataInicio = new Date(cleanedData.dataInicio)
   if (cleanedData.dataFim) cleanedData.dataFim = new Date(cleanedData.dataFim)
@@ -1721,7 +1733,7 @@ async function executeValidacaoUpdate(id: string, body: any) {
     'observacoes', 'clienteId', 'contratoId', 'operadoraId', 'produtoId',
     'ticket', 'solicitante', 'tipo', 'descricao', 'qualidade', 'qtdRetornos', 'vigencia',
     'estruturaEdge', 'estruturaMove', 'formalizacao',
-    'itensPendentes', 'itensConcluidos', 'total', 'createdAt', 'updatedAt'
+    'itensPendentes', 'itensConcluidos', 'itensConcluidosDetalhe', 'total', 'createdAt', 'updatedAt'
   ]
 
   const filteredData = Object.keys(cleanedData)
@@ -4967,6 +4979,18 @@ for (const [path, repo] of Object.entries(resources)) {
             cleanedData.estruturaMove = null
           }
         }
+        if (cleanedData.itensConcluidosDetalhe !== undefined) {
+          if (typeof cleanedData.itensConcluidosDetalhe === 'object' && cleanedData.itensConcluidosDetalhe !== null) {
+            const hasValue =
+              cleanedData.itensConcluidosDetalhe.contrato != null ||
+              cleanedData.itensConcluidosDetalhe.subs != null
+            cleanedData.itensConcluidosDetalhe = hasValue
+              ? JSON.stringify(cleanedData.itensConcluidosDetalhe)
+              : null
+          } else if (cleanedData.itensConcluidosDetalhe === '' || cleanedData.itensConcluidosDetalhe === '{}') {
+            cleanedData.itensConcluidosDetalhe = null
+          }
+        }
         
         // CORREÇÃO: Remover campos de texto que causam erro no Prisma
         // O Prisma espera apenas IDs para relacionamentos, não os nomes/textos
@@ -5039,7 +5063,7 @@ for (const [path, repo] of Object.entries(resources)) {
           'observacoes', 'clienteId', 'contratoId', 'operadoraId', 'produtoId',
           'ticket', 'solicitante', 'tipo', 'descricao', 'qualidade', 'qtdRetornos', 'vigencia',
           'estruturaEdge', 'estruturaMove', 'formalizacao', 
-          'itensPendentes', 'itensConcluidos', 'total', 'createdAt', 'updatedAt'
+          'itensPendentes', 'itensConcluidos', 'itensConcluidosDetalhe', 'total', 'createdAt', 'updatedAt'
         ]
         
         const filteredData = Object.keys(dataWithoutAnalistaId)

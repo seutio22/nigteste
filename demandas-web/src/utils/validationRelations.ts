@@ -62,7 +62,7 @@ export function validateContratoParaCliente(
   return null
 }
 
-/** Rótulo legível do contrato para listagem e detalhe. */
+/** Rótulo legível do contrato (apólice/código antes do número interno). */
 export function formatContratoLabel(
   contrato: unknown,
   contratoId?: string | null,

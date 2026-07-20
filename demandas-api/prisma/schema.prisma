@@ -540,7 +540,8 @@ model Validacao {
   formalizacao    String? // Status de formalização
   // Novos campos para itens
   itensPendentes  Int? // Quantidade de itens pendentes
-  itensConcluidos Int? // Quantidade de itens concluídos
+  itensConcluidos Int? // Quantidade de itens concluídos (soma Contrato + SUB's)
+  itensConcluidosDetalhe String? // JSON: { contrato?: number, subs?: number }
   total           Float? // Total calculado automaticamente
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt

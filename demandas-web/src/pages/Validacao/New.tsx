@@ -13,6 +13,20 @@ import { ContratoLocalAutocomplete } from '../../components/ContratoLocalAutocom
 import { filterContratosDoCliente } from '../../utils/manutencaoContratos'
 import { validateContratoParaCliente } from '../../utils/validationRelations'
 import { PrimaryActionButton } from '../../components/PrimaryActionButton'
+import { VALIDACAO_CHAMADO_STATUS_OPTIONS } from './validacaoStatusOptions'
+import { EstruturaMultiSelectPanel } from './EstruturaMultiSelectPanel'
+import {
+  ESTRUTURA_EDGE_OPTIONS,
+  ESTRUTURA_MOVE_OPTIONS,
+  calcTotalFromEstrutura,
+  countEstruturaSelections,
+} from './validacaoEstruturaOptions'
+import { ValidacaoFormCard, ValidacaoFormShell } from './validacaoFormUi'
+import { ItensConcluidosPanel } from './ItensConcluidosPanel'
+import {
+  type ItensConcluidosDetalhe,
+  sumItensConcluidosDetalhe,
+} from './validacaoItensConcluidos'
 
 const schema = z.object({
   analista: z.string().min(1, 'Obrigatório'),
@@ -39,7 +53,12 @@ const schema = z.object({
   formalizacao: z.string().optional(),
   // Novos campos para itens
   itensPendentes: z.coerce.number().min(0).optional(),
-  itensConcluidos: z.coerce.number().min(0).optional(),
+  itensConcluidosDetalhe: z
+    .object({
+      contrato: z.coerce.number().min(0).optional(),
+      subs: z.coerce.number().min(0).optional(),
+    })
+    .optional(),
 })
 
 type FormValues = z.infer<typeof schema>
@@ -89,7 +108,7 @@ export default function ValidationNewPage() {
       estruturaEdge: [],
       estruturaMove: [],
       itensPendentes: 0,
-      itensConcluidos: 0
+      itensConcluidosDetalhe: { contrato: undefined, subs: undefined },
     }
   })
 
@@ -166,35 +185,10 @@ export default function ValidationNewPage() {
     }
   }, [user, md.analistas, setValue])
 
-  // Função para calcular o total baseado nos campos EDGE e MOVE
-  const calcularTotal = React.useCallback(() => {
-    let total = 0
-    
-    // Somar todos os valores selecionados no EDGE
-    if (estruturaEdge && Array.isArray(estruturaEdge)) {
-      estruturaEdge.forEach(valor => {
-        const numeroEdge = parseInt(valor.split('-')[0])
-        if (!isNaN(numeroEdge)) {
-          total += numeroEdge
-        }
-      })
-    }
-    
-    // Somar todos os valores selecionados no MOVE
-    if (estruturaMove && Array.isArray(estruturaMove)) {
-      estruturaMove.forEach(valor => {
-        const numeroMove = parseInt(valor.split('-')[0])
-        if (!isNaN(numeroMove)) {
-          total += numeroMove
-        }
-      })
-    }
-    
-    return total
-  }, [estruturaEdge, estruturaMove])
-
-  // Calcular total automaticamente
-  const totalCalculado = calcularTotal()
+  const totalCalculado =
+    calcTotalFromEstrutura(estruturaEdge) + calcTotalFromEstrutura(estruturaMove)
+  const edgeSelections = countEstruturaSelections(estruturaEdge, ESTRUTURA_EDGE_OPTIONS)
+  const moveSelections = countEstruturaSelections(estruturaMove, ESTRUTURA_MOVE_OPTIONS)
 
   // Função para verificar se o ticket já existe no banco
   const checkTicketExists = async (ticket: string): Promise<boolean> => {
@@ -285,6 +279,8 @@ export default function ValidationNewPage() {
         operadoraId: data.operadora || undefined,
         produtoId: data.produto || undefined,
         ticket: data.ticket && data.ticket.trim() !== '' ? data.ticket.trim() : null,
+        itensConcluidosDetalhe: data.itensConcluidosDetalhe,
+        itensConcluidos: sumItensConcluidosDetalhe(data.itensConcluidosDetalhe),
         total: totalCalculado,
         updatedAt: new Date().toISOString(),
       }
@@ -300,17 +296,14 @@ export default function ValidationNewPage() {
   }
 
   return (
-    <Paper sx={{ p: 3 }}>
-      <Typography variant="h5" gutterBottom>Novo Lançamento (Validação)</Typography>
-      <Box component="form" key={formKey} onSubmit={handleSubmit(onSubmit)}>
-        <Grid container spacing={3}>
-          {/* Primeiro Tópico: Analista e Datas */}
-          <Grid item xs={12}>
-            <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', borderBottom: '2px solid', borderColor: 'primary.main', pb: 1 }}>
-              1. Informações do Analista e Datas
-            </Typography>
-          </Grid>
-          
+    <Container maxWidth={false} disableGutters sx={{ py: 0, px: 0, width: '100%' }}>
+      <ValidacaoFormShell
+        title="Nova validação"
+        subtitle="Identificação, cliente, estruturas EDGE/MOVE com quantidades, qualidade e descrição do chamado."
+      >
+        <Box component="form" key={formKey} onSubmit={handleSubmit(onSubmit)}>
+          <ValidacaoFormCard title="Identificação">
+            <Grid container spacing={2.25}>
           <Grid item xs={12} sm={6} md={4}>
             <Controller 
               name="analista" 
@@ -362,7 +355,7 @@ export default function ValidationNewPage() {
                 <MenuItem value="">
                   <em>Selecione o status</em>
                 </MenuItem>
-                {['Em andamento','Transf. Analista','Aguardando validação','Com erros','Em reajuste','Concluído Parcialmente','Concluída','Cancelada'].map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                {VALIDACAO_CHAMADO_STATUS_OPTIONS.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
               </TextField>
             )} />
           </Grid>
@@ -413,14 +406,11 @@ export default function ValidationNewPage() {
               )}
             />
           </Grid>
+            </Grid>
+          </ValidacaoFormCard>
 
-          {/* Segundo Tópico: Cliente, Contrato, Produto, Operadora */}
-          <Grid item xs={12}>
-            <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', borderBottom: '2px solid', borderColor: 'primary.main', pb: 1, mt: 2 }}>
-              2. Informações do Cliente e Contrato
-            </Typography>
-          </Grid>
-          
+          <ValidacaoFormCard title="Cliente e contrato">
+            <Grid container spacing={2.25}>
           <Grid item xs={12} sm={6} md={4}>
             <Controller name="cliente" control={control} render={({ field }) => (
               <AsyncClienteAutocomplete
@@ -503,14 +493,11 @@ export default function ValidationNewPage() {
               </TextField>
             )} />
           </Grid>
+            </Grid>
+          </ValidacaoFormCard>
 
-          {/* Terceiro Tópico: Qualidade e Retornos */}
-          <Grid item xs={12}>
-            <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', borderBottom: '2px solid', borderColor: 'primary.main', pb: 1, mt: 2 }}>
-              3. Qualidade e Retornos
-            </Typography>
-          </Grid>
-          
+          <ValidacaoFormCard title="Qualidade, estruturas e formalização">
+            <Grid container spacing={2.25}>
           <Grid item xs={12} sm={6} md={4}>
             <Controller name="qtdRetornos" control={control} render={({ field }) => (
               <TextField {...field} type="number" label="Qtd de retornos" fullWidth inputProps={{ min: 0 }} />
@@ -538,7 +525,7 @@ export default function ValidationNewPage() {
                 placeholder="Total"
                 fullWidth 
                 error={!!(errors as any).total} 
-                helperText={`Calculado automaticamente: EDGE (${estruturaEdge?.length || 0} seleções) + MOVE (${estruturaMove?.length || 0} seleções) = ${totalCalculado}`}
+                helperText={`Calculado automaticamente: EDGE (${edgeSelections} itens, ${calcTotalFromEstrutura(estruturaEdge)} pts) + MOVE (${moveSelections} itens, ${calcTotalFromEstrutura(estruturaMove)} pts) = ${totalCalculado}`}
                 InputProps={{
                   readOnly: true
                 }}
@@ -554,62 +541,33 @@ export default function ValidationNewPage() {
             )} />
           </Grid>
 
-          {/* Novos campos para estruturas EDGE, MOVE e formalização */}
-          <Grid item xs={12} sm={6} md={4}>
-            <Controller name="estruturaEdge" control={control} render={({ field }) => (
-              <TextField 
-                {...field} 
-                select 
-                SelectProps={{
-                  multiple: true,
-                  value: field.value || [],
-                  onChange: (e) => field.onChange(e.target.value)
-                }}
-                label="Estrutura EDGE (Multi-seleção)" 
-                fullWidth
-                helperText={`${field.value?.length || 0} item(s) selecionado(s)`}
-              >
-                <MenuItem value="0">0- Sem erros</MenuItem>
-                <MenuItem value="1-CODIGO_CONTRATO">1-ERRO CODIGO CONTRATO</MenuItem>
-                <MenuItem value="1-CNPJ">1-ERRO CNPJ</MenuItem>
-                <MenuItem value="1-CODIGO_SUB">1-ERRO CODIGO SUB</MenuItem>
-                <MenuItem value="1-VIGENCIA">1-ERRO VIGENCIA</MenuItem>
-                <MenuItem value="1-ASSOCIACAO_MOVE">1-ERRO ASSOCIAÇÃO NO MOVE</MenuItem>
-                <MenuItem value="1-RAZAO_SOCIAL">1-ERRO RAZÃO SOCIAL</MenuItem>
-                <MenuItem value="1-PLANO_COBERTURAS">1-ERRO Plano; Cadastrado/Coberturas</MenuItem>
-                <MenuItem value="1-FINANCEIRO">1-ERRO Financeiro</MenuItem>
-                <MenuItem value="1-LIMITE_TECNICO">1-ERRO Limite Técnico</MenuItem>
-                <MenuItem value="1-COPARTICIPACAO">1-ERRO Coparticipação</MenuItem>
-                <MenuItem value="1-CONTRIBUICAO">1-ERRO Contribuição</MenuItem>
-                <MenuItem value="1-DADOS_GERAIS">1-ERRO Dados Gerais</MenuItem>
-                <MenuItem value="1-ACESSOS">1-ERRO ACESSOS</MenuItem>
-                <MenuItem value="1-ERRO_EQUIPE_ATENDIMENTO_MDS">1-ERRO EQUIPE ATENDIMENTO MDS</MenuItem>
-              </TextField>
-            )} />
+          <Grid item xs={12}>
+            <Controller
+              name="estruturaEdge"
+              control={control}
+              render={({ field }) => (
+                <EstruturaMultiSelectPanel
+                  title="Estrutura EDGE"
+                  options={ESTRUTURA_EDGE_OPTIONS}
+                  value={field.value || []}
+                  onChange={field.onChange}
+                />
+              )}
+            />
           </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <Controller name="estruturaMove" control={control} render={({ field }) => (
-              <TextField 
-                {...field} 
-                select 
-                SelectProps={{
-                  multiple: true,
-                  value: field.value || [],
-                  onChange: (e) => field.onChange(e.target.value)
-                }}
-                label="Estrutura MOVE (Multi-seleção)" 
-                fullWidth
-                helperText={`${field.value?.length || 0} item(s) selecionado(s)`}
-              >
-                <MenuItem value="0">0- Sem erros</MenuItem>
-                <MenuItem value="1-CODIGO_CONTRATO">1-ERRO CODIGO CONTRATO</MenuItem>
-                <MenuItem value="1-CNPJ">1-ERRO CNPJ</MenuItem>
-                <MenuItem value="1-CODIGO_SUB">1-ERRO CODIGO SUB</MenuItem>
-                <MenuItem value="1-VIGENCIA">1-ERRO VIGENCIA</MenuItem>
-                <MenuItem value="1-ASSOCIACAO_MOVE">1-ERRO ASSOCIAÇÃO NO MOVE</MenuItem>
-                <MenuItem value="1-RAZAO_SOCIAL">1-ERRO RAZÃO SOCIAL</MenuItem>
-              </TextField>
-            )} />
+          <Grid item xs={12}>
+            <Controller
+              name="estruturaMove"
+              control={control}
+              render={({ field }) => (
+                <EstruturaMultiSelectPanel
+                  title="Estrutura MOVE"
+                  options={ESTRUTURA_MOVE_OPTIONS}
+                  value={field.value || []}
+                  onChange={field.onChange}
+                />
+              )}
+            />
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
             <Controller name="formalizacao" control={control} render={({ field }) => (
@@ -638,40 +596,40 @@ export default function ValidationNewPage() {
               />
             )} />
           </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <Controller name="itensConcluidos" control={control} render={({ field }) => (
-              <TextField 
-                {...field} 
-                type="number" 
-                label="Itens Concluídos" 
-                fullWidth 
-                inputProps={{ min: 0 }}
-                placeholder="0"
-                helperText="Quantidade de itens concluídos"
-              />
-            )} />
+          <Grid item xs={12} sm={6} md={8}>
+            <Controller
+              name="itensConcluidosDetalhe"
+              control={control}
+              render={({ field }) => (
+                <ItensConcluidosPanel
+                  value={(field.value ?? {}) as ItensConcluidosDetalhe}
+                  onChange={field.onChange}
+                />
+              )}
+            />
           </Grid>
+            </Grid>
+          </ValidacaoFormCard>
 
-          {/* Campos Adicionais */}
-          <Grid item xs={12}>
-            <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', borderBottom: '2px solid', borderColor: 'primary.main', pb: 1, mt: 2 }}>
-              4. Informações Adicionais
-            </Typography>
-          </Grid>
+          <ValidacaoFormCard title="Informações adicionais">
+            <Grid container spacing={2.25}>
           <Grid item xs={12}>
             <Controller name="descricao" control={control} render={({ field }) => (
               <TextField {...field} label="Descrição do chamado" fullWidth multiline minRows={2} error={!!errors.descricao} helperText={errors.descricao?.message} />
             )} />
           </Grid>
-        </Grid>
-        <Box mt={2} display="flex" gap={2}>
-          <PrimaryActionButton type="button" disabled={!isValid} onClick={handleSubmit(onSubmit)}>
-            Salvar
-          </PrimaryActionButton>
-          <Button variant="outlined" onClick={() => navigate('/validacao')}>Cancelar</Button>
+            </Grid>
+          </ValidacaoFormCard>
+
+          <Box mt={1} display="flex" gap={2}>
+            <PrimaryActionButton type="button" disabled={!isValid} onClick={handleSubmit(onSubmit)}>
+              Salvar
+            </PrimaryActionButton>
+            <Button variant="outlined" onClick={() => navigate('/validacao')}>Cancelar</Button>
+          </Box>
         </Box>
-      </Box>
-    </Paper>
+      </ValidacaoFormShell>
+    </Container>
   )
 }
 

@@ -80,8 +80,6 @@ export const placementNavSecondarySx = {
   },
 }
 
-export const PLACEMENT_WORKFLOW_STICKY_TOP = 72
-
 type ShellProps = {
   children: React.ReactNode
   nested?: boolean
@@ -93,9 +91,6 @@ export function PlacementWorkflowNavShell({ children, nested }: ShellProps) {
       elevation={0}
       sx={{
         ...placementWorkflowCardSx,
-        position: 'sticky',
-        top: nested ? 188 : PLACEMENT_WORKFLOW_STICKY_TOP,
-        zIndex: nested ? (theme) => theme.zIndex.appBar - 2 : (theme) => theme.zIndex.appBar - 1,
         mb: 3,
       }}
     >

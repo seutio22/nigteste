@@ -9,6 +9,7 @@ import { useTimelineStore } from '../store/timelineStore'
 import { useReportStore } from '../store/reportStore'
 import { useMasterDataStore } from '../store/masterDataStore'
 import { fmt } from '../lib/utils'
+import { VALIDACAO_TIMELINE_FIELD_LABELS } from '../pages/Validacao/validacaoTimelineFormat'
 
 interface TimelineProps {
   entityId: string
@@ -64,6 +65,9 @@ export function Timeline({ entityId, entityType }: TimelineProps) {
 
   // Função para converter nome do campo em label amigável
   const getFieldLabel = (fieldName: string) => {
+    if (entityType === 'validacao' && VALIDACAO_TIMELINE_FIELD_LABELS[fieldName]) {
+      return VALIDACAO_TIMELINE_FIELD_LABELS[fieldName]
+    }
     const fieldLabels: { [key: string]: string } = {
       'area': 'Área',
       'cliente': 'Cliente',
@@ -172,7 +176,7 @@ export function Timeline({ entityId, entityType }: TimelineProps) {
         } else if (event.field === 'analista') {
           fromValue = getLabel(event.from, masterDataStore.analistas)
           toValue = getLabel(event.to, masterDataStore.analistas)
-        } else if (event.field === 'tipo') {
+        } else if (event.field === 'tipo' && entityType !== 'validacao') {
           fromValue = getLabel(event.from, masterDataStore.tiposDemanda)
           toValue = getLabel(event.to, masterDataStore.tiposDemanda)
         } else if (event.field === 'tipoServico') {
