@@ -35,6 +35,11 @@ const MOVE_CODES = new Set([
   'RAZAO_SOCIAL',
 ])
 
+/** Opções exclusivas da estrutura MOVE (não aparecem no EDGE). */
+const MOVE_ONLY_ITEMS: Omit<EstruturaOption, 'legacyValues'>[] = [
+  { code: 'PLANOS', label: 'PLANOS' },
+]
+
 function withLegacyValues(item: Omit<EstruturaOption, 'legacyValues'>): EstruturaOption {
   if (item.code === ESTRUTURA_SEM_ERROS_CODE) {
     return { ...item, legacyValues: ['0'] }
@@ -48,9 +53,10 @@ function withLegacyValues(item: Omit<EstruturaOption, 'legacyValues'>): Estrutur
 
 export const ESTRUTURA_EDGE_OPTIONS: EstruturaOption[] = EDGE_ITEMS.map(withLegacyValues)
 
-export const ESTRUTURA_MOVE_OPTIONS: EstruturaOption[] = ESTRUTURA_EDGE_OPTIONS.filter((o) =>
-  MOVE_CODES.has(o.code)
-)
+export const ESTRUTURA_MOVE_OPTIONS: EstruturaOption[] = [
+  ...ESTRUTURA_EDGE_OPTIONS.filter((o) => MOVE_CODES.has(o.code)),
+  ...MOVE_ONLY_ITEMS.map(withLegacyValues),
+]
 
 export function getEstruturaOptionLabel(option: EstruturaOption): string {
   if (option.code === ESTRUTURA_SEM_ERROS_CODE) return '0 - Sem erros'

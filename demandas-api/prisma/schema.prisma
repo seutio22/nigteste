@@ -1388,6 +1388,14 @@ model KanbanTicket {
   updatedAt   DateTime  @updatedAt
 }
 
+model KanbanColumnPref {
+  id             String   @id @default(uuid())
+  userId         String   @unique // Mesmo padrão do assignee: string sem FK
+  enabledColumns String   @default("[]") // JSON array com ids das colunas opcionais ativas
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
 model TimelineEvent {
   id         String   @id @default(uuid())
   entityId   String // ID da entidade (demanda, reajuste, etc.)

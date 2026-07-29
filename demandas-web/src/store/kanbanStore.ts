@@ -30,11 +30,15 @@ function normalizeTagsFromApi(tags: unknown): string[] {
   return []
 }
 
+export type KanbanBaseStatus = 'backlog' | 'todo' | 'in-progress' | 'done'
+export type KanbanOptionalStatus = 'analise' | 'homologacao' | 'aguardando-retorno'
+export type KanbanStatus = KanbanBaseStatus | KanbanOptionalStatus
+
 export interface KanbanTicket {
   id: string
   title: string
   description: string
-  status: 'backlog' | 'todo' | 'in-progress' | 'done'
+  status: KanbanStatus
   priority: 'low' | 'medium' | 'high'
   assignee: string // Campo obrigatório para controle de acesso
   startDate?: string
@@ -45,19 +49,31 @@ export interface KanbanTicket {
 }
 
 export interface KanbanColumn {
-  id: string
+  id: KanbanStatus
   title: string
   tickets: KanbanTicket[]
   color: string
+  optional?: boolean
 }
 
-/** Cores do Kanban (dashboard): #C0B66D, #C7C8CA, #EA983E, #49B7C4, #A4C854, #68A79D */
-export const KANBAN_COLUMNS: KanbanColumn[] = [
+/**
+ * Cores do Kanban (dashboard): #C0B66D, #C7C8CA, #EA983E, #49B7C4, #A4C854, #68A79D
+ * Ordem completa do fluxo. Colunas com `optional: true` só aparecem quando o
+ * usuário as ativa; as demais são a matriz fixa do sistema.
+ */
+export const KANBAN_ALL_COLUMNS: KanbanColumn[] = [
   {
     id: 'backlog',
     title: 'Backlog',
     tickets: [],
     color: '#C7C8CA'
+  },
+  {
+    id: 'analise',
+    title: 'Análise',
+    tickets: [],
+    color: '#C0B66D',
+    optional: true
   },
   {
     id: 'todo',
@@ -66,10 +82,24 @@ export const KANBAN_COLUMNS: KanbanColumn[] = [
     color: '#EA983E'
   },
   {
+    id: 'homologacao',
+    title: 'Homologação',
+    tickets: [],
+    color: '#68A79D',
+    optional: true
+  },
+  {
     id: 'in-progress',
     title: 'Em Andamento',
     tickets: [],
     color: '#49B7C4'
+  },
+  {
+    id: 'aguardando-retorno',
+    title: 'Aguardando Retorno',
+    tickets: [],
+    color: '#9A7FB8',
+    optional: true
   },
   {
     id: 'done',
@@ -79,9 +109,20 @@ export const KANBAN_COLUMNS: KanbanColumn[] = [
   }
 ]
 
+/** Colunas matriz (sempre visíveis). Mantido para compatibilidade. */
+export const KANBAN_COLUMNS: KanbanColumn[] = KANBAN_ALL_COLUMNS.filter((c) => !c.optional)
+
+export const KANBAN_OPTIONAL_COLUMNS: KanbanColumn[] = KANBAN_ALL_COLUMNS.filter((c) => c.optional)
+
+/** Colunas ativas na ordem do fluxo (matriz + opcionais ativadas pelo usuário). */
+export function getActiveKanbanColumns(enabledOptional: string[]): KanbanColumn[] {
+  return KANBAN_ALL_COLUMNS.filter((c) => !c.optional || enabledOptional.includes(c.id))
+}
+
 interface KanbanState {
   tickets: KanbanTicket[]
   columns: KanbanColumn[]
+  enabledOptionalColumns: string[]
   loading: boolean
   error: string | null
   
@@ -91,6 +132,10 @@ interface KanbanState {
   moveTicket: (ticketId: string, newStatus: KanbanTicket['status']) => Promise<void>
   deleteTicket: (id: string) => Promise<void>
   deleteAllTickets: () => Promise<void>
+  
+  // Colunas opcionais
+  loadColumnPrefs: () => Promise<void>
+  setOptionalColumnEnabled: (columnId: KanbanOptionalStatus, enabled: boolean) => Promise<void>
   
   // Utilitários
   getTicketsByStatus: (status: KanbanTicket['status']) => KanbanTicket[]
@@ -114,8 +159,39 @@ export const useKanbanStore = create<KanbanState>()((set, get) => {
       return {
         tickets: [],
         columns: KANBAN_COLUMNS,
+        enabledOptionalColumns: [],
         loading: false,
         error: null,
+        
+        loadColumnPrefs: async () => {
+          try {
+            const { getApi } = await import('../lib/apiConfig')
+            const api = getApi()
+            const res = await api.get('/kanban/column-prefs')
+            const enabled = Array.isArray(res?.enabledColumns) ? res.enabledColumns.map(String) : []
+            set({ enabledOptionalColumns: enabled })
+          } catch (error) {
+            console.error('❌ Erro ao carregar preferências de colunas:', error)
+          }
+        },
+        
+        setOptionalColumnEnabled: async (columnId: KanbanOptionalStatus, enabled: boolean) => {
+          const current = get().enabledOptionalColumns
+          const next = enabled
+            ? [...new Set([...current, columnId])]
+            : current.filter((c) => c !== columnId)
+
+          try {
+            const { getApi } = await import('../lib/apiConfig')
+            const api = getApi()
+            const res = await api.put('/kanban/column-prefs', { enabledColumns: next })
+            const confirmed = Array.isArray(res?.enabledColumns) ? res.enabledColumns.map(String) : next
+            set({ enabledOptionalColumns: confirmed })
+          } catch (error) {
+            console.error('❌ Erro ao salvar preferências de colunas:', error)
+            throw error
+          }
+        },
         
         addTicket: async (ticketData: Omit<KanbanTicket, 'id' | 'createdAt' | 'updatedAt'>) => {
           try {
@@ -201,10 +277,21 @@ export const useKanbanStore = create<KanbanState>()((set, get) => {
         },
         
         moveTicket: async (ticketId: string, newStatus: KanbanTicket['status']) => {
+          const previousTickets = get().tickets
+          const current = previousTickets.find((t) => t.id === ticketId)
+          if (!current || current.status === newStatus) return
+
+          // Atualização otimista: o card muda de coluna imediatamente; rollback se a API falhar
+          set({
+            tickets: previousTickets.map((ticket) =>
+              ticket.id === ticketId
+                ? { ...ticket, status: newStatus, updatedAt: new Date().toISOString() }
+                : ticket
+            ),
+            error: null,
+          })
+
           try {
-            set({ loading: true, error: null })
-            
-            // Atualizar na API
             const { getApi } = await import('../lib/apiConfig')
             const api = getApi()
             
@@ -218,12 +305,11 @@ export const useKanbanStore = create<KanbanState>()((set, get) => {
 
             set((state) => ({
               tickets: state.tickets.map((ticket) => (ticket.id === ticketId ? normalizedTicket : ticket)),
-              loading: false,
             }))
             
           } catch (error) {
             console.error('❌ Erro ao mover ticket:', error)
-            set({ error: 'Erro ao mover ticket', loading: false })
+            set({ tickets: previousTickets, error: 'Erro ao mover ticket' })
             throw error
           }
         },
@@ -282,8 +368,8 @@ export const useKanbanStore = create<KanbanState>()((set, get) => {
         },
         
         getColumnsWithTickets: () => {
-          const { tickets } = get()
-          return KANBAN_COLUMNS.map(col => ({
+          const { tickets, enabledOptionalColumns } = get()
+          return getActiveKanbanColumns(enabledOptionalColumns).map(col => ({
             ...col,
             tickets: tickets.filter(ticket => ticket.status === col.id)
           }))
@@ -307,7 +393,7 @@ export const useKanbanStore = create<KanbanState>()((set, get) => {
           // Filtrar tickets por usuário logado
           const filteredTickets = get().getFilteredTickets(userRole, userId, viewOwnDataOnly)
           
-          const result = KANBAN_COLUMNS.map(col => ({
+          const result = getActiveKanbanColumns(get().enabledOptionalColumns).map(col => ({
             ...col,
             tickets: filteredTickets.filter(ticket => ticket.status === col.id)
           }))

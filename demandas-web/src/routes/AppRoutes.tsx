@@ -6,6 +6,7 @@ import { ProtectedRoute } from '../components/ProtectedRoute'
 import LoginPage from '../pages/Login'
 import HomePage from '../pages/Home'
 import DashboardPage from '../pages/Dashboard'
+import DashboardProjetosPage from '../pages/DashboardProjetos'
 import DemandListPage from '../pages/Demandas/List'
 import DemandNewPage from '../pages/Demandas/New'
 import DemandDetailPage from '../pages/Demandas/Detail'
@@ -57,11 +58,18 @@ export function AppRoutes() {
             </ProtectedRoute>
           } />
           
-          <Route path="dashboard" element={
-            <ProtectedRoute module="dashboard">
-              <DashboardPage />
-            </ProtectedRoute>
-          } />
+          <Route path="dashboard">
+            <Route index element={
+              <ProtectedRoute module="dashboard">
+                <DashboardPage />
+              </ProtectedRoute>
+            } />
+            <Route path="projetos" element={
+              <ProtectedRoute module="dashboard">
+                <DashboardProjetosPage />
+              </ProtectedRoute>
+            } />
+          </Route>
           <Route path="notificacoes" element={
             <ProtectedRoute module="home">
               <NotificationsPage />

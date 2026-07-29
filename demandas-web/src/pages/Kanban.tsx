@@ -1,18 +1,45 @@
-import React, { useEffect, useMemo } from 'react'
-import { Box, Typography, Chip, IconButton, Tooltip, Button } from '@mui/material'
-import { Refresh as RefreshIcon, FilterList as FilterIcon, DeleteSweep as DeleteSweepIcon } from '@mui/icons-material'
+import React, { useEffect, useMemo, useState } from 'react'
+import {
+  Box,
+  Typography,
+  Chip,
+  IconButton,
+  Tooltip,
+  Button,
+  Menu,
+  MenuItem,
+  Checkbox,
+  ListItemText,
+  Snackbar,
+  Alert,
+} from '@mui/material'
+import {
+  Refresh as RefreshIcon,
+  DeleteSweep as DeleteSweepIcon,
+  OpenInFull as OpenInFullIcon,
+  CloseFullscreen as CloseFullscreenIcon,
+  ViewWeek as ViewWeekIcon,
+} from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
-import { clearKanbanLocalCache, useKanbanStore } from '../store/kanbanStore'
-import { useMasterDataStore } from '../store/masterDataStore'
+import {
+  clearKanbanLocalCache,
+  useKanbanStore,
+  KANBAN_OPTIONAL_COLUMNS,
+  type KanbanOptionalStatus,
+} from '../store/kanbanStore'
 import { useAuthStore } from '../store/authStore'
 import { KanbanBoard } from '../components/KanbanBoard'
 import { formatIntegerPtBR } from '../utils/formatNumber'
 
 export default function KanbanPage() {
   const kanbanStore = useKanbanStore()
-  const masterDataStore = useMasterDataStore()
   const { user, token } = useAuthStore()
   const navigate = useNavigate()
+
+  const [fullscreen, setFullscreen] = useState(false)
+  const [columnsMenuAnchor, setColumnsMenuAnchor] = useState<null | HTMLElement>(null)
+  const [columnsError, setColumnsError] = useState<string | null>(null)
+  const [savingColumn, setSavingColumn] = useState<string | null>(null)
 
   // Verificar autenticação e carregar dados
   useEffect(() => {
@@ -26,13 +53,24 @@ export default function KanbanPage() {
     console.log('✅ Kanban: Usuário autenticado, carregando dados...')
     clearKanbanLocalCache()
 
-    // Sincronizar dados com API
+    // Sincronizar dados e preferências de colunas com API
+    kanbanStore.loadColumnPrefs()
     kanbanStore.syncFromApi().then(() => {
       console.log('✅ Kanban: Dados sincronizados com sucesso')
     }).catch(error => {
       console.error('❌ Kanban: Erro na sincronização:', error)
     })
   }, [token, user?.id, navigate])
+
+  // Sair da tela cheia com Esc
+  useEffect(() => {
+    if (!fullscreen) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setFullscreen(false)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [fullscreen])
 
   // Estatísticas dos tickets do kanban - APENAS tickets do usuário logado
   const kanbanStats = useMemo(() => {
@@ -65,8 +103,43 @@ export default function KanbanPage() {
     if (ok) kanbanStore.deleteAllTickets()
   }
 
+  const handleToggleColumn = async (columnId: KanbanOptionalStatus) => {
+    const enabled = kanbanStore.enabledOptionalColumns.includes(columnId)
+    setSavingColumn(columnId)
+    try {
+      await kanbanStore.setOptionalColumnEnabled(columnId, !enabled)
+    } catch (error: unknown) {
+      const msg =
+        error && typeof error === 'object' && 'message' in error
+          ? String((error as { message: string }).message)
+          : 'Não foi possível salvar a preferência de colunas.'
+      setColumnsError(
+        msg.includes('Mova as tarefas')
+          ? msg
+          : 'Não foi possível salvar. Se a coluna tiver tarefas, mova-as antes de desativá-la.'
+      )
+    } finally {
+      setSavingColumn(null)
+    }
+  }
+
   return (
-    <Box sx={{ height: '100vh', width: '100%', display: 'flex', flexDirection: 'column' }}>
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        ...(fullscreen
+          ? {
+              position: 'fixed',
+              inset: 0,
+              zIndex: 1300,
+              height: '100vh',
+              overflow: 'hidden',
+              bgcolor: 'background.default',
+            }
+          : { height: '100vh', width: '100%' }),
+      }}
+    >
       {/* Header */}
       <div className="bg-white/80 backdrop-blur-sm border-b border-white/20 shadow-sm sticky top-0 z-10">
         <div className="px-4 py-2">
@@ -119,6 +192,14 @@ export default function KanbanPage() {
               </div>
               
               {/* Botões de ação */}
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<ViewWeekIcon />}
+                onClick={(e) => setColumnsMenuAnchor(e.currentTarget)}
+              >
+                Colunas
+              </Button>
               {kanbanStats.total > 0 && (
                 <Button
                   variant="outlined"
@@ -135,15 +216,67 @@ export default function KanbanPage() {
                   <RefreshIcon className="w-4 h-4" />
                 </IconButton>
               </Tooltip>
+              <Tooltip title={fullscreen ? 'Sair da tela cheia (Esc)' : 'Tela cheia'}>
+                <IconButton onClick={() => setFullscreen((v) => !v)} size="small">
+                  {fullscreen ? (
+                    <CloseFullscreenIcon className="w-4 h-4" />
+                  ) : (
+                    <OpenInFullIcon className="w-4 h-4" />
+                  )}
+                </IconButton>
+              </Tooltip>
             </div>
           </div>
         </div>
       </div>
 
+      {/* Menu de colunas opcionais */}
+      <Menu
+        anchorEl={columnsMenuAnchor}
+        open={Boolean(columnsMenuAnchor)}
+        onClose={() => setColumnsMenuAnchor(null)}
+      >
+        <Typography variant="caption" sx={{ px: 2, py: 0.5, display: 'block', color: 'text.secondary' }}>
+          Colunas adicionais do fluxo
+        </Typography>
+        {KANBAN_OPTIONAL_COLUMNS.map((col) => {
+          const enabled = kanbanStore.enabledOptionalColumns.includes(col.id)
+          return (
+            <MenuItem
+              key={col.id}
+              dense
+              disabled={savingColumn === col.id}
+              onClick={() => handleToggleColumn(col.id as KanbanOptionalStatus)}
+            >
+              <Checkbox size="small" checked={enabled} sx={{ p: 0.5, mr: 1 }} />
+              <ListItemText
+                primary={col.title}
+                primaryTypographyProps={{ fontSize: '0.85rem' }}
+              />
+              <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: col.color, ml: 1.5 }} />
+            </MenuItem>
+          )
+        })}
+        <Typography variant="caption" sx={{ px: 2, py: 0.5, display: 'block', color: 'text.secondary', maxWidth: 260 }}>
+          Para desativar uma coluna, mova antes as tarefas que estão nela.
+        </Typography>
+      </Menu>
+
       {/* Conteúdo */}
-      <Box sx={{ flex: 1, p: 1, pt: 0.75 }}>
+      <Box sx={{ flex: 1, p: 1, pt: 0.75, minHeight: 0, overflow: 'auto' }}>
         <KanbanBoard />
       </Box>
+
+      <Snackbar
+        open={Boolean(columnsError)}
+        autoHideDuration={7000}
+        onClose={() => setColumnsError(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity="warning" variant="filled" onClose={() => setColumnsError(null)} sx={{ width: '100%' }}>
+          {columnsError}
+        </Alert>
+      </Snackbar>
     </Box>
   )
 }

@@ -22,7 +22,9 @@ import {
 import {
   Refresh as RefreshIcon,
   FilterList as FilterIcon,
+  FolderOpen as ProjectsDashboardIcon,
 } from '@mui/icons-material'
+import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { useMasterDataStore } from '../store/masterDataStore'
 import { useDemandStore } from '../store/demandStore'
@@ -41,7 +43,6 @@ import { useDashboardIndicators } from '../hooks/useDashboardIndicators'
 import { useAdvancedIndicators } from '../hooks/useAdvancedIndicators'
 import { AdvancedIndicators } from '../components/dashboard/AdvancedIndicators'
 import { StatusDetails } from '../components/dashboard/StatusDetails'
-import { DashboardProjectIndicators } from '../components/dashboard/DashboardProjectIndicators'
 import type { PeriodType } from '../types/dashboardIndicators'
 import type { DashboardPdfMeta } from '../utils/dashboardPdfExport'
 
@@ -138,16 +139,7 @@ export default function DashboardPage() {
   const [dashboardSyncing, setDashboardSyncing] = useState(false)
   const prevDashboardSyncing = useRef(false)
   const [dashboardSyncFinishedOnce, setDashboardSyncFinishedOnce] = useState(false)
-  const [projectStatsRefreshTick, setProjectStatsRefreshTick] = useState(0)
-  const projectStatsBumpSkipRef = useRef(true)
-
-  // Intervalo efetivo para o painel "Projetos e cronograma":
-  // - Com filtro manual: usa from/to escolhidos.
-  // - Sem filtro manual: deriva do período selecionado (daily/monthly/quarterly).
-  const projectPanelRange = useMemo(() => {
-    if (isManualDateFilter && fromDate && toDate) return { fromDate, toDate }
-    return getPeriodDates(indicatorPeriod)
-  }, [isManualDateFilter, fromDate, toDate, indicatorPeriod])
+  const navigate = useNavigate()
 
   useEffect(() => {
     if (prevDashboardSyncing.current && !dashboardSyncing) {
@@ -439,11 +431,6 @@ export default function DashboardPage() {
     } finally {
       isRefreshingRef.current = false
       setDashboardSyncing(false)
-      if (!projectStatsBumpSkipRef.current) {
-        setProjectStatsRefreshTick((t) => t + 1)
-      } else {
-        projectStatsBumpSkipRef.current = false
-      }
     }
   }, [
     syncMasterData,
@@ -592,29 +579,52 @@ export default function DashboardPage() {
             </Typography>
           </Box>
 
-          <Button
-            variant="outlined"
-            onClick={limparFiltros}
-            size="medium"
-            className="text-primary-600 border-primary-300 hover:text-primary-700 hover:border-primary-400 hover:bg-primary-50 transition-all duration-300 font-medium"
-            sx={{
-              borderRadius: '14px',
-              padding: '10px 18px',
-              textTransform: 'none',
-              fontWeight: 500,
-              fontSize: '0.9rem',
-              height: '40px',
-              borderWidth: '2px',
-              minWidth: 120,
-              '&:hover': {
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+            <Button
+              variant="contained"
+              size="medium"
+              startIcon={<ProjectsDashboardIcon />}
+              onClick={() => navigate('/dashboard/projetos')}
+              sx={{
+                borderRadius: '14px',
+                padding: '10px 18px',
+                textTransform: 'none',
+                fontWeight: 600,
+                fontSize: '0.9rem',
+                height: '40px',
+                boxShadow: 'none',
+                '&:hover': {
+                  boxShadow: '0 4px 12px 0 rgba(0, 37, 97, 0.18)',
+                  transform: 'translateY(-1px)',
+                },
+              }}
+            >
+              Dashboard de projetos
+            </Button>
+            <Button
+              variant="outlined"
+              onClick={limparFiltros}
+              size="medium"
+              className="text-primary-600 border-primary-300 hover:text-primary-700 hover:border-primary-400 hover:bg-primary-50 transition-all duration-300 font-medium"
+              sx={{
+                borderRadius: '14px',
+                padding: '10px 18px',
+                textTransform: 'none',
+                fontWeight: 500,
+                fontSize: '0.9rem',
+                height: '40px',
                 borderWidth: '2px',
-                transform: 'translateY(-2px)',
-                boxShadow: '0 4px 12px 0 rgba(0, 37, 97, 0.15)'
-              }
-            }}
-          >
-            Limpar
-          </Button>
+                minWidth: 120,
+                '&:hover': {
+                  borderWidth: '2px',
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 4px 12px 0 rgba(0, 37, 97, 0.15)'
+                }
+              }}
+            >
+              Limpar
+            </Button>
+          </Box>
         </Box>
         
         {/* Seletor de Período para Indicadores */}
@@ -734,14 +744,6 @@ export default function DashboardPage() {
             indicatorsByCategory={indicatorsByCategory}
             generalStats={generalStats}
             showCategories={true}
-            projectsPanel={
-              <DashboardProjectIndicators
-                refreshTick={projectStatsRefreshTick}
-                analistaId={projectStatsAnalistaId}
-                fromDate={projectPanelRange.fromDate}
-                toDate={projectPanelRange.toDate}
-              />
-            }
           />
         </Box>
 

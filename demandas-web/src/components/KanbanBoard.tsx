@@ -12,7 +12,6 @@ import {
   DialogContent, 
   DialogActions,
   Paper,
-  Grid,
   Fab,
   IconButton,
   Menu,
@@ -38,7 +37,11 @@ import {
   ChevronRight as ChevronRightIcon,
   DragIndicator as DragIndicatorIcon
 } from '@mui/icons-material'
-import { useKanbanStore, KanbanTicket, KANBAN_COLUMNS } from '../store/kanbanStore'
+import {
+  useKanbanStore,
+  KanbanTicket,
+  getActiveKanbanColumns,
+} from '../store/kanbanStore'
 import { useAuthStore } from '../store/authStore'
 import { canViewAllData } from '../lib/utils'
 import { tagsForApi, tagsFromFormCsv } from '../utils/tagHelpers'
@@ -64,6 +67,7 @@ export const KanbanBoard: React.FC = () => {
     dueDate: '',
     tags: ''
   })
+  const [dragOverColumn, setDragOverColumn] = useState<string | null>(null)
   const [overdueNotifications, setOverdueNotifications] = useState<string[]>([])
   const [showOverdueAlert, setShowOverdueAlert] = useState(false)
   const [overdueMessage, setOverdueMessage] = useState('')
@@ -79,6 +83,7 @@ export const KanbanBoard: React.FC = () => {
 
   // Usar o store Zustand
   const tickets = useKanbanStore((state) => state.tickets)
+  const enabledOptionalColumns = useKanbanStore((state) => state.enabledOptionalColumns)
   const { addTicket, updateTicket, moveTicket, deleteTicket, deleteAllTickets } = useKanbanStore()
 
   // Função para obter nome do usuário pelo ID
@@ -105,11 +110,11 @@ export const KanbanBoard: React.FC = () => {
 
   const columns = useMemo(
     () =>
-      KANBAN_COLUMNS.map((col) => ({
+      getActiveKanbanColumns(enabledOptionalColumns).map((col) => ({
         ...col,
         tickets: userTickets.filter((ticket) => ticket.status === col.id),
       })),
-    [userTickets]
+    [userTickets, enabledOptionalColumns]
   )
 
   // Verificar tarefas vencidas e próximas do vencimento (lógica central em kanbanDeadlineNotify)
@@ -309,7 +314,13 @@ export const KanbanBoard: React.FC = () => {
   }
 
   const handleMoveTicket = (ticketId: string, newStatus: string) => {
-    moveTicket(ticketId, newStatus as KanbanTicket['status'])
+    moveTicket(ticketId, newStatus as KanbanTicket['status']).catch(() => {
+      setSaveFeedback({
+        open: true,
+        message: 'Não foi possível mover a tarefa. Verifique a conexão e tente novamente.',
+        severity: 'error',
+      })
+    })
   }
 
   const handleDeleteTicket = (ticket: KanbanTicket) => {
@@ -327,14 +338,46 @@ export const KanbanBoard: React.FC = () => {
 
   return (
     <Box sx={{ p: 0 }}>
-      <Grid container spacing={1.5} sx={{ mt: 0.25 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          gap: 1.5,
+          mt: 0.25,
+          overflowX: 'auto',
+          pb: 0.5,
+          alignItems: 'stretch',
+        }}
+      >
         {columns.map((column) => (
-          <Grid item key={column.id} xs={12} sm={6} md={3}>
-            <Paper sx={{ 
+          <Box key={column.id} sx={{ flex: '1 1 0', minWidth: 250 }}>
+            <Paper
+              onDragOver={(e) => {
+                e.preventDefault()
+                e.dataTransfer.dropEffect = 'move'
+                if (dragOverColumn !== column.id) setDragOverColumn(column.id)
+              }}
+              onDragLeave={(e) => {
+                // Só limpa quando o cursor sai da coluna inteira (não ao passar sobre filhos)
+                if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                  setDragOverColumn((prev) => (prev === column.id ? null : prev))
+                }
+              }}
+              onDrop={(e) => {
+                e.preventDefault()
+                setDragOverColumn(null)
+                const ticketId = e.dataTransfer.getData('text/plain')
+                if (ticketId) handleMoveTicket(ticketId, column.id)
+              }}
+              sx={{ 
               p: 1.5, 
               minHeight: 'calc(100vh - 200px)', 
               maxHeight: 'calc(100vh - 200px)', 
               overflow: 'hidden',
+              ...(dragOverColumn === column.id && {
+                outline: `2px dashed ${column.color}`,
+                outlineOffset: '-2px',
+                backgroundColor: 'rgba(0,159,223,0.04)'
+              }),
               '&:hover': {
                 boxShadow: 3,
                 transform: 'translateY(-1px)',
@@ -383,19 +426,8 @@ export const KanbanBoard: React.FC = () => {
                 </Button>
               </Box>
               
-              {/* Lista de tickets - Área com scroll + arrastar/soltar */}
-              <Box
-                sx={{ overflowY: 'auto', maxHeight: 'calc(100vh - 300px)' }}
-                onDragOver={(e) => {
-                  e.preventDefault()
-                  e.dataTransfer.dropEffect = 'move'
-                }}
-                onDrop={(e) => {
-                  e.preventDefault()
-                  const ticketId = e.dataTransfer.getData('text/plain')
-                  if (ticketId) handleMoveTicket(ticketId, column.id)
-                }}
-              >
+              {/* Lista de tickets - Área com scroll (drop tratado na coluna inteira) */}
+              <Box sx={{ overflowY: 'auto', minHeight: 'calc(100vh - 300px)', maxHeight: 'calc(100vh - 300px)' }}>
                 {column.tickets.length > 0 ? (
                   column.tickets.map((ticket) => (
                     <Card 
@@ -406,6 +438,7 @@ export const KanbanBoard: React.FC = () => {
                         e.dataTransfer.setData('text/plain', ticket.id)
                         e.dataTransfer.effectAllowed = 'move'
                       }}
+                      onDragEnd={() => setDragOverColumn(null)}
                       sx={{ 
                         mb: 1.25,
                         position: 'relative',
@@ -498,6 +531,7 @@ export const KanbanBoard: React.FC = () => {
                           <TicketActions 
                             ticket={ticket}
                             currentStatus={column.id}
+                            columns={columns}
                             onEdit={() => handleEditTicket(ticket)}
                             onMove={handleMoveTicket}
                             onDelete={() => handleDeleteTicket(ticket)}
@@ -580,7 +614,12 @@ export const KanbanBoard: React.FC = () => {
                           {ticket.dueDate && <DueDateChip dueDate={ticket.dueDate} />}
 
                           {/* Botões de movimento rápido */}
-                          <QuickMoveButtons ticket={ticket} currentStatus={column.id} onMove={handleMoveTicket} />
+                          <QuickMoveButtons
+                            ticket={ticket}
+                            currentStatus={column.id}
+                            columns={columns}
+                            onMove={handleMoveTicket}
+                          />
                         </Box>
 
                         {/* Assignee + criado em (compacto, sem emojis) */}
@@ -636,9 +675,9 @@ export const KanbanBoard: React.FC = () => {
                 )}
               </Box>
             </Paper>
-          </Grid>
+          </Box>
         ))}
-      </Grid>
+      </Box>
 
       {/* Botão flutuante */}
       <Fab
@@ -755,9 +794,9 @@ export const KanbanBoard: React.FC = () => {
                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                   <Typography variant="body2" color="text.secondary">Status:</Typography>
                   <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-                    {viewDescriptionTicket?.status === 'backlog' ? 'Backlog' :
-                     viewDescriptionTicket?.status === 'todo' ? 'A Fazer' :
-                     viewDescriptionTicket?.status === 'in-progress' ? 'Em Andamento' : 'Concluída'}
+                    {columns.find((col) => col.id === viewDescriptionTicket?.status)?.title ||
+                      viewDescriptionTicket?.status ||
+                      '—'}
                   </Typography>
                 </Box>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -889,14 +928,17 @@ export const KanbanBoard: React.FC = () => {
   )
 }
 
+type KanbanColumnLike = { id: string; title: string }
+
 // Componente para ações do ticket
 const TicketActions: React.FC<{
   ticket: KanbanTicket
   currentStatus: string
+  columns: KanbanColumnLike[]
   onEdit: () => void
   onMove: (ticketId: string, newStatus: string) => void
   onDelete: () => void
-}> = ({ ticket, currentStatus, onEdit, onMove, onDelete }) => {
+}> = ({ ticket, currentStatus, columns, onEdit, onMove, onDelete }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
 
   const handleClick = (event: React.MouseEvent<HTMLElement>) => {
@@ -931,18 +973,11 @@ const TicketActions: React.FC<{
           <EditIcon fontSize="small" sx={{ mr: 1 }} />
           Editar
         </MenuItem>
-        <MenuItem onClick={() => handleMove('backlog')} disabled={currentStatus === 'backlog'}>
-          Mover para Backlog
-        </MenuItem>
-        <MenuItem onClick={() => handleMove('todo')} disabled={currentStatus === 'done'}>
-          Mover para A Fazer
-        </MenuItem>
-        <MenuItem onClick={() => handleMove('in-progress')} disabled={currentStatus === 'in-progress'}>
-          Mover para Em Andamento
-        </MenuItem>
-        <MenuItem onClick={() => handleMove('done')} disabled={currentStatus === 'done'}>
-          Mover para Concluído
-        </MenuItem>
+        {columns.map((col) => (
+          <MenuItem key={col.id} onClick={() => handleMove(col.id)} disabled={currentStatus === col.id}>
+            Mover para {col.title}
+          </MenuItem>
+        ))}
         <MenuItem onClick={onDelete} sx={{ color: 'error.main' }}>
           <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
           Excluir
@@ -952,47 +987,25 @@ const TicketActions: React.FC<{
   )
 }
 
-// Componente para movimento rápido
+// Componente para movimento rápido (segue a ordem das colunas ativas)
 const QuickMoveButtons: React.FC<{
   ticket: KanbanTicket
   currentStatus: string
+  columns: KanbanColumnLike[]
   onMove: (ticketId: string, newStatus: string) => void
-}> = ({ ticket, currentStatus, onMove }) => {
-  const getNextStatus = () => {
-    switch (currentStatus) {
-      case 'backlog': return 'todo'
-      case 'todo': return 'in-progress'
-      case 'in-progress': return 'done'
-      default: return null
-    }
-  }
-
-  const getPrevStatus = () => {
-    switch (currentStatus) {
-      case 'done': return 'in-progress'
-      case 'in-progress': return 'todo'
-      case 'todo': return 'backlog'
-      default: return null
-    }
-  }
-
-  const nextStatus = getNextStatus()
-  const prevStatus = getPrevStatus()
-
-  const statusLabel: Record<string, string> = {
-    backlog: 'Backlog',
-    todo: 'A Fazer',
-    'in-progress': 'Em Andamento',
-    done: 'Concluído'
-  }
+}> = ({ ticket, currentStatus, columns, onMove }) => {
+  const currentIndex = columns.findIndex((col) => col.id === currentStatus)
+  const prevColumn = currentIndex > 0 ? columns[currentIndex - 1] : null
+  const nextColumn =
+    currentIndex >= 0 && currentIndex < columns.length - 1 ? columns[currentIndex + 1] : null
 
   return (
     <Box sx={{ display: 'flex', gap: 0.25 }}>
-      {prevStatus && (
-        <Tooltip title={`Mover para ${statusLabel[prevStatus] ?? prevStatus}`}>
+      {prevColumn && (
+        <Tooltip title={`Mover para ${prevColumn.title}`}>
           <IconButton
             size="small"
-            onClick={() => onMove(ticket.id, prevStatus)}
+            onClick={() => onMove(ticket.id, prevColumn.id)}
             sx={{
               width: 26,
               height: 26,
@@ -1004,11 +1017,11 @@ const QuickMoveButtons: React.FC<{
           </IconButton>
         </Tooltip>
       )}
-      {nextStatus && (
-        <Tooltip title={`Mover para ${statusLabel[nextStatus] ?? nextStatus}`}>
+      {nextColumn && (
+        <Tooltip title={`Mover para ${nextColumn.title}`}>
           <IconButton
             size="small"
-            onClick={() => onMove(ticket.id, nextStatus)}
+            onClick={() => onMove(ticket.id, nextColumn.id)}
             sx={{
               width: 26,
               height: 26,

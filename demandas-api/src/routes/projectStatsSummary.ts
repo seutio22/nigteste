@@ -22,18 +22,30 @@ async function resolveUserIdFromAnalistaId(
   const email = (a.email || '').trim()
   if (email) {
     const u = await prisma.user.findFirst({
-      where: { email: { equals: email, mode: 'insensitive' } }
+      where: { email: { equals: email, mode: 'insensitive' } },
+      select: { id: true }
     })
     if (u) return u.id
   }
   const nome = (a.nome || '').trim()
   if (!nome) return null
+  const exact = await prisma.user.findFirst({
+    where: { name: { equals: nome, mode: 'insensitive' } },
+    select: { id: true }
+  })
+  if (exact) return exact.id
+
+  // Evita carregar todos os users: busca parcial limitada
+  const candidates = await prisma.user.findMany({
+    where: { name: { contains: nome, mode: 'insensitive' } },
+    select: { id: true, name: true },
+    take: 40
+  })
   const nn = normName(nome)
-  const users = await prisma.user.findMany({ select: { id: true, name: true } })
-  for (const u of users) {
+  for (const u of candidates) {
     if (normName(u.name) === nn) return u.id
   }
-  for (const u of users) {
+  for (const u of candidates) {
     const un = normName(u.name)
     if (un.includes(nn) || nn.includes(un)) return u.id
   }
@@ -204,33 +216,41 @@ async function getResponsibleAliasesForTarget(
   targetUserId: string,
   analistaIdParam: string | null
 ): Promise<string[]> {
+  const set = new Set<string>()
+  if (analistaIdParam) {
+    const [user, a] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: targetUserId },
+        select: { name: true }
+      }),
+      prisma.analista.findUnique({
+        where: { id: analistaIdParam },
+        select: { nome: true }
+      })
+    ])
+    if (user?.name?.trim()) set.add(user.name.trim())
+    if (a?.nome?.trim()) set.add(a.nome.trim())
+    return [...set].filter(Boolean)
+  }
+
   const user = await prisma.user.findUnique({
     where: { id: targetUserId },
     select: { name: true, email: true }
   })
-  const set = new Set<string>()
   if (user?.name?.trim()) set.add(user.name.trim())
-  if (analistaIdParam) {
-    const a = await prisma.analista.findUnique({
-      where: { id: analistaIdParam },
+  if (user?.email) {
+    const byEmail = await prisma.analista.findFirst({
+      where: { email: { equals: user.email, mode: 'insensitive' } },
       select: { nome: true }
     })
-    if (a?.nome?.trim()) set.add(a.nome.trim())
-  } else {
-    if (user?.email) {
-      const byEmail = await prisma.analista.findFirst({
-        where: { email: { equals: user.email, mode: 'insensitive' } },
-        select: { nome: true }
-      })
-      if (byEmail?.nome?.trim()) set.add(byEmail.nome.trim())
-    }
-    if (user?.name) {
-      const nn = normName(user.name)
-      const rows = await prisma.analista.findMany({ select: { nome: true } })
-      for (const row of rows) {
-        if (row.nome && normName(row.nome) === nn) set.add(row.nome.trim())
-      }
-    }
+    if (byEmail?.nome?.trim()) set.add(byEmail.nome.trim())
+  }
+  if (user?.name) {
+    const byName = await prisma.analista.findFirst({
+      where: { nome: { equals: user.name, mode: 'insensitive' } },
+      select: { nome: true }
+    })
+    if (byName?.nome?.trim()) set.add(byName.nome.trim())
   }
   return [...set].filter(Boolean)
 }
@@ -308,21 +328,37 @@ export default async function projectStatsSummaryRoutes(
       }
 
       let targetUserId = userId
+      let resolvedFromAnalista = false
       if (analistaIdParam) {
         const resolved = await resolveUserIdFromAnalistaId(prisma, analistaIdParam)
-        if (!resolved) {
-          return reply.status(400).send({
-            error: 'Analista sem utilizador vinculado (email/nome). Ajuste o cadastro ou o utilizador.'
+        if (resolved) {
+          targetUserId = resolved
+          resolvedFromAnalista = true
+        } else {
+          const exists = await prisma.analista.findUnique({
+            where: { id: analistaIdParam },
+            select: { id: true, nome: true }
           })
+          if (!exists) {
+            return reply.status(400).send({ error: 'Analista não encontrado no cadastro.' })
+          }
+          // Sem User vinculado: admin/gerente ainda filtram pela responsabilidade no cronograma (nome).
+          if (!canFilterByAnalista) {
+            return reply.status(400).send({
+              error: 'Analista sem utilizador vinculado (email/nome). Ajuste o cadastro ou o utilizador.'
+            })
+          }
         }
-        targetUserId = resolved
       }
 
       /** Visão global só para admin sem filtro de analista no Dashboard. */
       const isGlobalAdminView = isAdmin && !analistaIdParam
+      /** Admin/gerente filtrando analista sem User: usa todos os projetos e mede pelo nome no cronograma. */
+      const isAliasOnlyFilter = Boolean(analistaIdParam) && !resolvedFromAnalista && canFilterByAnalista
 
       /**
        * Visão global (admin, sem analista): todos os projetos.
+       * Alias-only: todos os projetos (métricas de atuação usam o nome do analista).
        * Caso contrário: projetos em que o utilizador alvo participa.
        */
       const whereScoped: any = {
@@ -335,11 +371,13 @@ export default async function projectStatsSummaryRoutes(
       }
 
       const projects = await prisma.project.findMany({
-        where: isGlobalAdminView ? {} : whereScoped,
+        where: isGlobalAdminView || isAliasOnlyFilter ? {} : whereScoped,
         select: {
           id: true,
           name: true,
           status: true,
+          priority: true,
+          progress: true,
           createdAt: true,
           startDate: true,
           endDate: true,
@@ -350,7 +388,15 @@ export default async function projectStatsSummaryRoutes(
 
       const shouldComputeResponsible = !isGlobalAdminView || !!analistaIdParam
       const responsibleAliases = shouldComputeResponsible
-        ? await getResponsibleAliasesForTarget(prisma, targetUserId, analistaIdParam)
+        ? isAliasOnlyFilter
+          ? await (async () => {
+              const a = await prisma.analista.findUnique({
+                where: { id: analistaIdParam! },
+                select: { nome: true }
+              })
+              return a?.nome?.trim() ? [a.nome.trim()] : []
+            })()
+          : await getResponsibleAliasesForTarget(prisma, targetUserId, analistaIdParam)
         : []
 
       const todayStart = new Date()
@@ -384,6 +430,14 @@ export default async function projectStatsSummaryRoutes(
       let subtasksCompletedInPeriod = 0
       let projectsCompletedInPeriod = 0
 
+      // Produtividade / desvio
+      let slippageSumDays = 0
+      let slippageCount = 0
+      let estimatedHoursSum = 0
+      let actualHoursSum = 0
+      let deadlineEvaluated = 0
+      let deadlineMetCount = 0
+
       type CompletedTimelineItem = {
         type: 'projeto' | 'etapa' | 'tarefa' | 'subtarefa'
         projectId: string
@@ -396,6 +450,76 @@ export default async function projectStatsSummaryRoutes(
         // evita lista enorme no painel (UX) e no payload
         if (completedItemsInPeriod.length >= 15) return
         completedItemsInPeriod.push(it)
+      }
+
+      type OverdueItem = {
+        type: 'tarefa' | 'subtarefa'
+        projectId: string
+        projectName: string
+        label: string
+        dueDate: string
+        responsible: string
+        daysOverdue: number
+      }
+      const overdueItems: OverdueItem[] = []
+
+      type ProjectBreakdown = {
+        id: string
+        name: string
+        status: string
+        priority: string | null
+        progress: number
+        endDate: string | null
+        endOverdue: boolean
+        phasesTotal: number
+        phasesOverdue: number
+        tasksTotal: number
+        tasksCompleted: number
+        tasksOverdue: number
+        subtasksTotal: number
+        subtasksCompleted: number
+        subtasksOverdue: number
+        myTasksTotal: number
+        myTasksCompleted: number
+        myTasksOverdue: number
+        mySubtasksTotal: number
+        mySubtasksCompleted: number
+        mySubtasksOverdue: number
+        completedInPeriod: number
+        riskScore: number
+      }
+      const projectsBreakdown: ProjectBreakdown[] = []
+
+      const pushOverdue = (it: OverdueItem) => {
+        if (overdueItems.length >= 40) return
+        overdueItems.push(it)
+      }
+
+      const daysBetween = (a: Date, b: Date) =>
+        Math.round((b.getTime() - a.getTime()) / (24 * 60 * 60 * 1000))
+
+      const noteSlippage = (planned: Date | null, actual: Date | null) => {
+        if (!planned || !actual) return
+        slippageSumDays += daysBetween(planned, actual)
+        slippageCount++
+      }
+
+      const noteHours = (item: Record<string, unknown>) => {
+        const est = Number(item.estimatedHours)
+        const act = Number(item.actualHours)
+        if (Number.isFinite(est) && est > 0) estimatedHoursSum += est
+        if (Number.isFinite(act) && act > 0) actualHoursSum += act
+      }
+
+      const noteDeadline = (planned: Date | null, actual: Date | null, done: boolean) => {
+        if (!done) return
+        deadlineEvaluated++
+        if (!planned) {
+          deadlineMetCount++
+          return
+        }
+        if (actual && actual.getTime() <= planned.getTime()) deadlineMetCount++
+        else if (!actual) deadlineMetCount++
       }
 
       let respTasksTotal = 0
@@ -426,6 +550,32 @@ export default async function projectStatsSummaryRoutes(
         else if (st.includes('cancel')) cancelledProjectCount++
         else activeProjectCount++
 
+        const pb: ProjectBreakdown = {
+          id: p.id,
+          name: p.name,
+          status: String(p.status || ''),
+          priority: p.priority != null ? String(p.priority) : null,
+          progress: typeof p.progress === 'number' ? p.progress : Number(p.progress) || 0,
+          endDate: p.endDate ? new Date(p.endDate).toISOString() : null,
+          endOverdue: false,
+          phasesTotal: 0,
+          phasesOverdue: 0,
+          tasksTotal: 0,
+          tasksCompleted: 0,
+          tasksOverdue: 0,
+          subtasksTotal: 0,
+          subtasksCompleted: 0,
+          subtasksOverdue: 0,
+          myTasksTotal: 0,
+          myTasksCompleted: 0,
+          myTasksOverdue: 0,
+          mySubtasksTotal: 0,
+          mySubtasksCompleted: 0,
+          mySubtasksOverdue: 0,
+          completedInPeriod: 0,
+          riskScore: 0
+        }
+
         // Conclusões de PROJETOS no período (o "Resumo Geral" considera o projeto como item concluído).
         // Nem todo projeto concluído tem tarefa/subtarefa/etapa com `actualEndDate`, então também listamos aqui.
         if (periodRange && projectCompleted) {
@@ -448,6 +598,7 @@ export default async function projectStatsSummaryRoutes(
 
           if (inCompletion || inCreationDailyFallback) {
             projectsCompletedInPeriod++
+            pb.completedInPeriod++
             pushCompleted({
               type: 'projeto',
               projectId: p.id,
@@ -464,11 +615,15 @@ export default async function projectStatsSummaryRoutes(
           st.includes('conclu') ||
           st === 'completed' ||
           st.includes('cancel')
-        if (!projDone && pendDay.getTime() < todayStart.getTime()) projectEndOverdue++
+        if (!projDone && pendDay.getTime() < todayStart.getTime()) {
+          projectEndOverdue++
+          pb.endOverdue = true
+        }
 
         const phases = parsePhasesFromTimeline(p.timeline)
         for (const phase of phases) {
           totalPhases++
+          pb.phasesTotal++
           const phEnd = ymd(phase?.endDate)
           const phDone = isDoneStatus(phase?.status, phase?.completed)
           const phCreatedAt = parseAnyDateTime((phase as Record<string, unknown>)?.createdAt)
@@ -478,8 +633,13 @@ export default async function projectStatsSummaryRoutes(
           if (phDone) {
             phasesCompleted++
             const phActual = parseAnyDateTime((phase as Record<string, unknown>)?.actualEndDate)
-            if (periodRange && phActual && inDateRange(phActual, periodRange)) phasesCompletedInPeriod++
-            else if (periodRange && !phActual && phEnd && inDateRange(phEnd, periodRange)) phasesCompletedInPeriod++
+            if (periodRange && phActual && inDateRange(phActual, periodRange)) {
+              phasesCompletedInPeriod++
+              pb.completedInPeriod++
+            } else if (periodRange && !phActual && phEnd && inDateRange(phEnd, periodRange)) {
+              phasesCompletedInPeriod++
+              pb.completedInPeriod++
+            }
             if (periodRange) {
               const dt = phActual || (phEnd ? new Date(phEnd) : null)
               if (dt && inDateRange(dt, periodRange)) {
@@ -494,13 +654,18 @@ export default async function projectStatsSummaryRoutes(
                 })
               }
             }
-          } else if (phEnd && phEnd.getTime() < todayStart.getTime()) phasesOverdue++
-          else phasesOpenOnTrack++
+            noteSlippage(phEnd, phActual ? ymd((phase as any)?.actualEndDate) : null)
+          } else if (phEnd && phEnd.getTime() < todayStart.getTime()) {
+            phasesOverdue++
+            pb.phasesOverdue++
+          } else phasesOpenOnTrack++
 
           const tasks = Array.isArray(phase?.tasks) ? phase.tasks : []
           for (const task of tasks) {
             const t = task as Record<string, unknown>
             totalTasksInTimeline++
+            pb.tasksTotal++
+            noteHours(t)
             const tCreatedAt = parseAnyDateTime(t?.createdAt)
             const tRef = tCreatedAt || referenceDateForItemCreation(t as Record<string, unknown>)
             if (periodRange && tRef && inDateRange(tRef, periodRange)) tasksCreatedInPeriod++
@@ -515,22 +680,30 @@ export default async function projectStatsSummaryRoutes(
             const taskSegs = extractResponsibleSegmentsFromItem(t)
             const taskMatch =
               responsibleAliases.length > 0 && responsibleMatches(taskSegs, responsibleAliases)
+            const taskTitle = (t as any)?.title || (t as any)?.name || (t as any)?.nome || 'Tarefa'
+            const phName = (phase as any)?.name || (phase as any)?.title || (phase as any)?.nome
+            const responsibleLabel = taskSegs.join(', ') || '—'
 
             if (taskMatch) {
               respTasksTotal++
+              pb.myTasksTotal++
               if (tDone) {
                 respTasksCompleted++
+                pb.myTasksCompleted++
                 if (periodRange && completionRef && inDateRange(completionRef, periodRange)) respTasksCompletedInPeriod++
-              } else if (tEnd && tEnd.getTime() < todayStart.getTime()) respTasksOverdue++
+              } else if (tEnd && tEnd.getTime() < todayStart.getTime()) {
+                respTasksOverdue++
+                pb.myTasksOverdue++
+              }
               if (periodRange && tRef && inDateRange(tRef, periodRange)) respTasksCreatedInPeriod++
             }
 
             if (tDone) {
               tasksCompleted++
-              if (periodRange && completionRef && inDateRange(completionRef, periodRange)) tasksCompletedInPeriod++
+              pb.tasksCompleted++
               if (periodRange && completionRef && inDateRange(completionRef, periodRange)) {
-                const taskTitle = (t as any)?.title || (t as any)?.name || (t as any)?.nome || 'Tarefa'
-                const phName = (phase as any)?.name || (phase as any)?.title || (phase as any)?.nome
+                tasksCompletedInPeriod++
+                pb.completedInPeriod++
                 pushCompleted({
                   type: 'tarefa',
                   projectId: p.id,
@@ -542,15 +715,31 @@ export default async function projectStatsSummaryRoutes(
 
               const planned = ymd(t?.plannedEndDate ?? t?.dueDate)
               const actual = ymd(t?.actualEndDate)
+              noteDeadline(planned, actual, true)
+              noteSlippage(planned, actual)
               if (!planned) tasksDeadlineMet++
               else if (actual && actual.getTime() <= planned.getTime()) tasksDeadlineMet++
               else if (!actual) tasksDeadlineMet++
-            } else if (tEnd && tEnd.getTime() < todayStart.getTime()) tasksOverdue++
+            } else if (tEnd && tEnd.getTime() < todayStart.getTime()) {
+              tasksOverdue++
+              pb.tasksOverdue++
+              pushOverdue({
+                type: 'tarefa',
+                projectId: p.id,
+                projectName: p.name,
+                label: `${p.name}${phName ? ` • ${String(phName)}` : ''} • ${String(taskTitle)}`,
+                dueDate: tEnd.toISOString(),
+                responsible: responsibleLabel,
+                daysOverdue: daysBetween(tEnd, todayStart)
+              })
+            }
 
             const subs = Array.isArray(t?.subtasks) ? t.subtasks : []
             for (const sub of subs) {
               const s = sub as Record<string, unknown>
               totalSubtasksInTimeline++
+              pb.subtasksTotal++
+              noteHours(s)
               const sCreatedAt = parseAnyDateTime(s?.createdAt)
               const sRef = sCreatedAt || referenceDateForItemCreation(s as Record<string, unknown>)
               if (periodRange && sRef && inDateRange(sRef, periodRange)) subtasksCreatedInPeriod++
@@ -564,23 +753,29 @@ export default async function projectStatsSummaryRoutes(
               if (subSegs.length === 0) subSegs = taskSegs
               const subMatch =
                 responsibleAliases.length > 0 && responsibleMatches(subSegs, responsibleAliases)
+              const subTitle = (s as any)?.title || (s as any)?.name || (s as any)?.nome || 'Subtarefa'
+              const subResponsibleLabel = subSegs.join(', ') || responsibleLabel
 
               if (subMatch) {
                 respSubtasksTotal++
+                pb.mySubtasksTotal++
                 if (sDone) {
                   respSubtasksCompleted++
+                  pb.mySubtasksCompleted++
                   if (periodRange && subCompletionRef && inDateRange(subCompletionRef, periodRange)) respSubtasksCompletedInPeriod++
-                } else if (sEnd && sEnd.getTime() < todayStart.getTime()) respSubtasksOverdue++
+                } else if (sEnd && sEnd.getTime() < todayStart.getTime()) {
+                  respSubtasksOverdue++
+                  pb.mySubtasksOverdue++
+                }
                 if (periodRange && sRef && inDateRange(sRef, periodRange)) respSubtasksCreatedInPeriod++
               }
 
               if (sDone) {
                 subtasksCompleted++
-                if (periodRange && subCompletionRef && inDateRange(subCompletionRef, periodRange)) subtasksCompletedInPeriod++
+                pb.subtasksCompleted++
                 if (periodRange && subCompletionRef && inDateRange(subCompletionRef, periodRange)) {
-                  const subTitle = (s as any)?.title || (s as any)?.name || (s as any)?.nome || 'Subtarefa'
-                  const taskTitle = (t as any)?.title || (t as any)?.name || (t as any)?.nome
-                  const phName = (phase as any)?.name || (phase as any)?.title || (phase as any)?.nome
+                  subtasksCompletedInPeriod++
+                  pb.completedInPeriod++
                   pushCompleted({
                     type: 'subtarefa',
                     projectId: p.id,
@@ -592,13 +787,36 @@ export default async function projectStatsSummaryRoutes(
 
                 const pd = ymd(s?.dueDate ?? s?.plannedEndDate)
                 const adY = ymd(s?.actualEndDate)
+                noteDeadline(pd, adY, true)
+                noteSlippage(pd, adY)
                 if (!pd) subtasksDeadlineMet++
                 else if (adY && adY.getTime() <= pd.getTime()) subtasksDeadlineMet++
                 else if (!adY) subtasksDeadlineMet++
-              } else if (sEnd && sEnd.getTime() < todayStart.getTime()) subtasksOverdue++
+              } else if (sEnd && sEnd.getTime() < todayStart.getTime()) {
+                subtasksOverdue++
+                pb.subtasksOverdue++
+                pushOverdue({
+                  type: 'subtarefa',
+                  projectId: p.id,
+                  projectName: p.name,
+                  label: `${p.name}${phName ? ` • ${String(phName)}` : ''} • ${String(taskTitle)} › ${String(subTitle)}`,
+                  dueDate: sEnd.toISOString(),
+                  responsible: subResponsibleLabel,
+                  daysOverdue: daysBetween(sEnd, todayStart)
+                })
+              }
             }
           }
         }
+
+        pb.riskScore =
+          (pb.endOverdue ? 40 : 0) +
+          pb.phasesOverdue * 8 +
+          pb.tasksOverdue * 5 +
+          pb.subtasksOverdue * 3 +
+          pb.myTasksOverdue * 6 +
+          pb.mySubtasksOverdue * 4
+        projectsBreakdown.push(pb)
       }
 
       const projectIds = projects.map((x) => x.id)
@@ -607,48 +825,118 @@ export default async function projectStatsSummaryRoutes(
       let auditTeamInPeriod = 0
       const byEntity: Record<string, number> = {}
       const byAction: Record<string, number> = {}
-
-      /** Visão global: todos os eventos nos projetos. Caso contrário: só ações do utilizador alvo (filtro analista ou próprio login). */
-      const auditWhereBase = isGlobalAdminView
-        ? { projectId: { in: projectIds } }
-        : { projectId: { in: projectIds }, actorUserId: targetUserId }
-
-      const auditWhereForAgg = periodRange
-        ? { ...auditWhereBase, createdAt: { gte: periodRange.start, lte: periodRange.end } }
-        : auditWhereBase
+      type RecentAudit = {
+        id: string
+        projectId: string
+        projectName: string
+        entityType: string
+        action: string
+        targetLabel: string | null
+        actorName: string | null
+        createdAt: string
+      }
+      let recentAudit: RecentAudit[] = []
 
       if (projectIds.length > 0) {
-        auditTotal = await prisma.projectWorkAuditLog.count({
-          where: auditWhereForAgg
-        })
         const since = new Date()
         since.setDate(since.getDate() - 30)
         since.setHours(0, 0, 0, 0)
-        auditLast30 = await prisma.projectWorkAuditLog.count({
-          where: { ...auditWhereBase, createdAt: { gte: since } }
-        })
 
-        if (periodRange && !isGlobalAdminView) {
-          auditTeamInPeriod = await prisma.projectWorkAuditLog.count({
-            where: {
-              projectId: { in: projectIds },
-              createdAt: { gte: periodRange.start, lte: periodRange.end }
+        // Visão global: não usa `projectId in (...)` com lista enorme (muito lento).
+        const auditWhereBase = isGlobalAdminView
+          ? {}
+          : isAliasOnlyFilter
+            ? { projectId: { in: projectIds } }
+            : { projectId: { in: projectIds }, actorUserId: targetUserId }
+
+        const auditWhereForAgg = periodRange
+          ? { ...auditWhereBase, createdAt: { gte: periodRange.start, lte: periodRange.end } }
+          : auditWhereBase
+
+        const teamPeriodPromise =
+          periodRange && !isGlobalAdminView
+            ? prisma.projectWorkAuditLog.count({
+                where: {
+                  projectId: { in: projectIds },
+                  createdAt: { gte: periodRange.start, lte: periodRange.end }
+                }
+              })
+            : Promise.resolve(0)
+
+        const [total, last30, teamInPeriod, grouped, recentRows] = await Promise.all([
+          prisma.projectWorkAuditLog.count({ where: auditWhereForAgg }),
+          prisma.projectWorkAuditLog.count({
+            where: { ...auditWhereBase, createdAt: { gte: since } }
+          }),
+          teamPeriodPromise,
+          prisma.projectWorkAuditLog.groupBy({
+            by: ['entityType', 'action'],
+            where: auditWhereForAgg,
+            _count: { _all: true }
+          }),
+          prisma.projectWorkAuditLog.findMany({
+            where: auditWhereForAgg,
+            orderBy: { createdAt: 'desc' },
+            take: 25,
+            select: {
+              id: true,
+              projectId: true,
+              entityType: true,
+              action: true,
+              targetLabel: true,
+              createdAt: true,
+              actor: { select: { name: true } },
+              project: { select: { name: true } }
             }
           })
-        }
+        ])
 
-        const grouped = await prisma.projectWorkAuditLog.groupBy({
-          by: ['entityType', 'action'],
-          where: auditWhereForAgg,
-          _count: { _all: true }
-        })
+        auditTotal = total
+        auditLast30 = last30
+        auditTeamInPeriod = teamInPeriod
+
         for (const row of grouped) {
           const et = String(row.entityType || 'outro')
           const ac = String(row.action || '')
           byEntity[et] = (byEntity[et] || 0) + row._count._all
           byAction[ac] = (byAction[ac] || 0) + row._count._all
         }
+
+        recentAudit = recentRows.map((r) => ({
+          id: r.id,
+          projectId: r.projectId,
+          projectName: r.project?.name || 'Projeto',
+          entityType: String(r.entityType || ''),
+          action: String(r.action || ''),
+          targetLabel: r.targetLabel ?? null,
+          actorName: r.actor?.name ?? null,
+          createdAt: r.createdAt.toISOString()
+        }))
       }
+
+      const createdInPeriod =
+        (periodRange
+          ? phasesCreatedInPeriod + tasksCreatedInPeriod + subtasksCreatedInPeriod
+          : 0)
+      const completedInPeriod =
+        (periodRange
+          ? projectsCompletedInPeriod +
+            phasesCompletedInPeriod +
+            tasksCompletedInPeriod +
+            subtasksCompletedInPeriod
+          : 0)
+
+      const onTimeRate =
+        deadlineEvaluated > 0 ? Math.round((deadlineMetCount / deadlineEvaluated) * 1000) / 10 : null
+      const avgSlippageDays =
+        slippageCount > 0 ? Math.round((slippageSumDays / slippageCount) * 10) / 10 : null
+      const effortVariancePct =
+        estimatedHoursSum > 0
+          ? Math.round(((actualHoursSum - estimatedHoursSum) / estimatedHoursSum) * 1000) / 10
+          : null
+
+      projectsBreakdown.sort((a, b) => b.riskScore - a.riskScore || b.tasksOverdue - a.tasksOverdue)
+      overdueItems.sort((a, b) => b.daysOverdue - a.daysOverdue)
 
       return reply.send({
         projectCount: projects.length,
@@ -683,7 +971,7 @@ export default async function projectStatsSummaryRoutes(
                 subtasksCompleted: subtasksCompletedInPeriod,
                 completedItems: completedItemsInPeriod
                   .sort((a, b) => b.completedAt.localeCompare(a.completedAt))
-                  .slice(0, 10),
+                  .slice(0, 15),
                 responsibleTasksCreated: respTasksCreatedInPeriod,
                 responsibleTasksCompleted: respTasksCompletedInPeriod,
                 responsibleSubtasksCreated: respSubtasksCreatedInPeriod,
@@ -705,6 +993,21 @@ export default async function projectStatsSummaryRoutes(
               }
             }
           : null,
+        productivity: {
+          onTimeRate,
+          deadlineEvaluated,
+          deadlineMet: deadlineMetCount,
+          avgSlippageDays,
+          estimatedHours: Math.round(estimatedHoursSum * 10) / 10,
+          actualHours: Math.round(actualHoursSum * 10) / 10,
+          effortVariancePct,
+          createdInPeriod,
+          completedInPeriod,
+          projectsAtRisk: projectsBreakdown.filter((x) => x.riskScore > 0 || x.endOverdue).length
+        },
+        projectsBreakdown: projectsBreakdown.slice(0, 40),
+        overdueItems: overdueItems.slice(0, 25),
+        recentAudit,
         audit: {
           totalEvents: auditTotal,
           last30Days: auditLast30,

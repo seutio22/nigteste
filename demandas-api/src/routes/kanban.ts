@@ -5,11 +5,16 @@ import { z } from 'zod'
 export async function kanbanRoutes(app: FastifyInstance, options: { prisma: PrismaClient }) {
   const { prisma } = options
 
+  // Colunas base (matriz) + colunas opcionais ativáveis pelo usuário
+  const KANBAN_BASE_STATUSES = ['backlog', 'todo', 'in-progress', 'done'] as const
+  const KANBAN_OPTIONAL_STATUSES = ['analise', 'homologacao', 'aguardando-retorno'] as const
+  const KANBAN_ALL_STATUSES = [...KANBAN_BASE_STATUSES, ...KANBAN_OPTIONAL_STATUSES] as const
+
   // Schema de validação para tickets
   const ticketCreateSchema = z.object({
     title: z.string().min(1, 'Título é obrigatório'),
     description: z.string().optional(),
-    status: z.enum(['backlog', 'todo', 'in-progress', 'done']),
+    status: z.enum(KANBAN_ALL_STATUSES),
     priority: z.enum(['low', 'medium', 'high']),
     assignee: z.string().optional(), // Será definido pelo backend baseado no userId
     startDate: z.string().optional().nullable(),
@@ -20,11 +25,93 @@ export async function kanbanRoutes(app: FastifyInstance, options: { prisma: Pris
   const ticketUpdateSchema = z.object({
     title: z.string().min(1).optional(),
     description: z.string().optional(),
-    status: z.enum(['backlog', 'todo', 'in-progress', 'done']).optional(),
+    status: z.enum(KANBAN_ALL_STATUSES).optional(),
     priority: z.enum(['low', 'medium', 'high']).optional(),
     startDate: z.string().optional().nullable(),
     dueDate: z.string().optional().nullable(),
     tags: z.string().optional()
+  })
+
+  const columnPrefsSchema = z.object({
+    enabledColumns: z.array(z.enum(KANBAN_OPTIONAL_STATUSES)).max(KANBAN_OPTIONAL_STATUSES.length)
+  })
+
+  // GET /kanban/column-prefs - Colunas opcionais ativas do usuário
+  app.get('/kanban/column-prefs', async (request: any, reply: any) => {
+    try {
+      try {
+        await request.jwtVerify()
+      } catch (err) {
+        return reply.code(401).send({ error: 'Unauthorized', message: 'Token inválido ou ausente' })
+      }
+
+      const userId = request.user.sub
+      const pref = await prisma.kanbanColumnPref.findUnique({ where: { userId } })
+
+      let enabledColumns: string[] = []
+      if (pref?.enabledColumns) {
+        try {
+          const parsed = JSON.parse(pref.enabledColumns)
+          if (Array.isArray(parsed)) {
+            enabledColumns = parsed.filter((c) => (KANBAN_OPTIONAL_STATUSES as readonly string[]).includes(String(c)))
+          }
+        } catch {
+          enabledColumns = []
+        }
+      }
+
+      return reply.code(200).send({ enabledColumns })
+    } catch (error: any) {
+      console.error('❌ Erro ao buscar preferências de colunas:', error)
+      return reply.code(500).send({ error: 'Erro ao buscar preferências', message: error.message })
+    }
+  })
+
+  // PUT /kanban/column-prefs - Ativar/desativar colunas opcionais
+  app.put('/kanban/column-prefs', async (request: any, reply: any) => {
+    try {
+      try {
+        await request.jwtVerify()
+      } catch (err) {
+        return reply.code(401).send({ error: 'Unauthorized', message: 'Token inválido ou ausente' })
+      }
+
+      const userId = request.user.sub
+      const data = columnPrefsSchema.parse(request.body)
+      const enabledColumns = [...new Set(data.enabledColumns)]
+
+      // Bloquear desativação de coluna que ainda tem tarefas
+      const disabledWithTickets = await prisma.kanbanTicket.findFirst({
+        where: {
+          assignee: userId,
+          status: { in: KANBAN_OPTIONAL_STATUSES.filter((s) => !enabledColumns.includes(s)) }
+        }
+      })
+      if (disabledWithTickets) {
+        return reply.code(409).send({
+          error: 'Coluna com tarefas',
+          message: 'Mova as tarefas da coluna antes de desativá-la.',
+          ticketStatus: disabledWithTickets.status
+        })
+      }
+
+      await prisma.kanbanColumnPref.upsert({
+        where: { userId },
+        update: { enabledColumns: JSON.stringify(enabledColumns) },
+        create: { userId, enabledColumns: JSON.stringify(enabledColumns) }
+      })
+
+      console.log('✅ Kanban API: Preferências de colunas atualizadas:', userId, enabledColumns)
+      return reply.code(200).send({ enabledColumns })
+    } catch (error: any) {
+      console.error('❌ Erro ao salvar preferências de colunas:', error)
+
+      if (error instanceof z.ZodError) {
+        return reply.code(400).send({ error: 'Dados inválidos', details: error.issues })
+      }
+
+      return reply.code(500).send({ error: 'Erro ao salvar preferências', message: error.message })
+    }
   })
 
   // GET /kanban/tickets - Listar tickets do usuário autenticado

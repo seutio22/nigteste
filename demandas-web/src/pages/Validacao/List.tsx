@@ -27,6 +27,7 @@ import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline'
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
 import TableChartIcon from '@mui/icons-material/TableChart'
 import { formatContratoLabel } from '../../utils/validationRelations'
+import { formatItensConcluidosDisplay } from './validacaoItensConcluidos'
 
 function ActionCell({ id, status }: { id: string, status: string }) {
   const navigate = useNavigate()
@@ -1100,7 +1101,11 @@ export default function ValidationListPage() {
             qtdRetornos: (v as any).qtdRetornos != null ? String((v as any).qtdRetornos) : '',
             formalizacao: (v as any).formalizacao ?? '',
             itensPendentes: (v as any).itensPendentes != null ? String((v as any).itensPendentes) : '',
-            itensConcluidos: (v as any).itensConcluidos != null ? String((v as any).itensConcluidos) : '',
+            itensConcluidos: formatItensConcluidosDisplay(
+              (v as any).itensConcluidos,
+              (v as any).itensConcluidosDetalhe,
+              (v as any).tipo
+            ),
             estruturaEdge: Array.isArray((v as any).estruturaEdge) ? (v as any).estruturaEdge.join('; ') : ((v as any).estruturaEdge ?? ''),
             estruturaMove: Array.isArray((v as any).estruturaMove) ? (v as any).estruturaMove.join('; ') : ((v as any).estruturaMove ?? ''),
             _dataInicioRaw: v.dataInicio ?? '',

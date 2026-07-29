@@ -71,6 +71,62 @@ export type ProjectStatsSummary = {
     tasks: { total: number; completed: number; overdue: number }
     subtasks: { total: number; completed: number; overdue: number }
   }
+  productivity?: {
+    onTimeRate: number | null
+    deadlineEvaluated: number
+    deadlineMet: number
+    avgSlippageDays: number | null
+    estimatedHours: number
+    actualHours: number
+    effortVariancePct: number | null
+    createdInPeriod: number
+    completedInPeriod: number
+    projectsAtRisk: number
+  }
+  projectsBreakdown?: Array<{
+    id: string
+    name: string
+    status: string
+    priority: string | null
+    progress: number
+    endDate: string | null
+    endOverdue: boolean
+    phasesTotal: number
+    phasesOverdue: number
+    tasksTotal: number
+    tasksCompleted: number
+    tasksOverdue: number
+    subtasksTotal: number
+    subtasksCompleted: number
+    subtasksOverdue: number
+    myTasksTotal: number
+    myTasksCompleted: number
+    myTasksOverdue: number
+    mySubtasksTotal: number
+    mySubtasksCompleted: number
+    mySubtasksOverdue: number
+    completedInPeriod: number
+    riskScore: number
+  }>
+  overdueItems?: Array<{
+    type: 'tarefa' | 'subtarefa'
+    projectId: string
+    projectName: string
+    label: string
+    dueDate: string
+    responsible: string
+    daysOverdue: number
+  }>
+  recentAudit?: Array<{
+    id: string
+    projectId: string
+    projectName: string
+    entityType: string
+    action: string
+    targetLabel: string | null
+    actorName: string | null
+    createdAt: string
+  }>
   audit: {
     totalEvents: number
     last30Days: number
@@ -213,9 +269,9 @@ export function DashboardProjectIndicators({ refreshTick, analistaId, fromDate, 
           variant="outlined"
           size="small"
           endIcon={<OpenIcon />}
-          onClick={() => navigate('/projetos')}
+          onClick={() => navigate('/dashboard/projetos')}
         >
-          Abrir projetos
+          Dashboard de projetos
         </Button>
       </Box>
 

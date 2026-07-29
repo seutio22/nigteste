@@ -408,7 +408,7 @@ export default function ValidationDetailPage() {
               </div>
               <div>
                 <p className="text-sm text-apoio-400">Itens Concluídos</p>
-                <p className="font-medium">
+                <p className="font-medium whitespace-pre-line">
                   {formatItensConcluidosDisplay(
                     validation.itensConcluidos,
                     validation.itensConcluidosDetalhe,
