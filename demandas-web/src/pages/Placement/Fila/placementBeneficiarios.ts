@@ -332,6 +332,29 @@ export function beneficiarioRowHasMeaningfulData(rec: BeneficiarioUploadRow): bo
   )
 }
 
+/** Chave estável para cruzar linha da planilha ↔ beneficiário importado ↔ críticas. */
+export function beneficiarioMatchKey(parts: {
+  ordem?: number | null
+  matricula?: string | null
+  nome?: string | null
+  cnpj?: string | null
+}): string {
+  const norm = (s: string) =>
+    s
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, ' ')
+  const cnpjDigits = String(parts.cnpj ?? '').replace(/\D/g, '')
+  return [
+    parts.ordem != null && Number.isFinite(Number(parts.ordem)) ? String(Number(parts.ordem)) : '',
+    norm(String(parts.matricula ?? '')),
+    norm(String(parts.nome ?? '')),
+    cnpjDigits,
+  ].join('|')
+}
+
 /** Converte linhas da planilha (objeto header→valor) para payload da API. */
 export function mapSpreadsheetRowsToBeneficiarios(
   sheetRows: Record<string, unknown>[],

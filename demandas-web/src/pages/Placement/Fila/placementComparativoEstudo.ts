@@ -58,6 +58,10 @@ export type ComparativoColunaEstudo = {
   tabColor: string
   planoReferenciaId: string
   planoReferenciaLabel: string
+  /** Cenário da proposta — totais do rodapé somam planos dentro do cenário, não entre cenários. */
+  cenarioId?: string
+  cenarioTitulo?: string
+  cenarioOrdem?: number
 }
 
 export type ComparativoImpacto = {
@@ -224,8 +228,18 @@ function colunaFromProposta(
   let planoLabel = tituloCenario || plano.nomePlano.trim() || refLabel || 'Plano'
   if (tituloCenario && grupo === 'atual') {
     planoLabel = `${refLabel !== '—' ? refLabel : plano.nomePlano.trim() || 'Plano'} · ${tituloCenario}`
-  } else if (grupo === 'mercado' && refLabel !== '—') {
-    planoLabel = `${plano.nomePlano.trim() || 'Proposta'} (≈ ${refLabel})`
+  } else if (grupo === 'mercado') {
+    const nomeOferta = plano.nomePlano.trim() || 'Proposta'
+    if (tituloCenario) {
+      planoLabel =
+        refLabel !== '—'
+          ? `${nomeOferta} · ${tituloCenario} (≈ ${refLabel})`
+          : `${nomeOferta} · ${tituloCenario}`
+    } else if (refLabel !== '—') {
+      planoLabel = `${nomeOferta} (≈ ${refLabel})`
+    } else {
+      planoLabel = nomeOferta
+    }
   }
 
   return {
@@ -247,6 +261,8 @@ function colunaFromProposta(
     tabColor,
     planoReferenciaId: planoReferenciaId || plano.id,
     planoReferenciaLabel: refLabel !== '—' ? refLabel : planoLabel,
+    cenarioId,
+    cenarioTitulo: tituloCenario || undefined,
   }
 }
 
@@ -297,6 +313,9 @@ function colunaEstudoFromContratoPlano(
     tabColor: contrato.tabColor,
     planoReferenciaId: contrato.planoReferenciaId ?? contrato.id,
     planoReferenciaLabel: refLabel !== '—' ? refLabel : contrato.planoLabel,
+    cenarioId: contrato.cenarioId,
+    cenarioTitulo: contrato.cenarioTitulo,
+    cenarioOrdem: contrato.cenarioOrdem,
   }
 }
 
@@ -685,10 +704,31 @@ function operadoraAggKey(grupo: 'atual' | 'mercado', operadora: string): string 
   return `${grupo}::${operadora.trim().toUpperCase()}`
 }
 
-function sortPorOperadora<T extends { grupo: 'atual' | 'mercado'; operadora: string }>(items: T[]): T[] {
+/** Slot horizontal: operadora + cenário (ex.: AMIL · Com COPay e AMIL · Sem COPAY). */
+export function colunaSlotKey(col: {
+  grupo?: 'atual' | 'mercado'
+  operadora: string
+  cenarioId?: string
+}): string {
+  const grupo = col.grupo ?? 'mercado'
+  const cenario = String(col.cenarioId ?? 'default').trim() || 'default'
+  return `${operadoraAggKey(grupo, col.operadora)}::${cenario}`
+}
+
+function sortPorOperadora<T extends { grupo: 'atual' | 'mercado'; operadora: string; cenarioOrdem?: number; cenarioTitulo?: string; key?: string }>(
+  items: T[]
+): T[] {
   return [...items].sort((a, b) => {
     if (a.grupo !== b.grupo) return a.grupo === 'atual' ? -1 : 1
-    return a.operadora.localeCompare(b.operadora, 'pt-BR')
+    const op = a.operadora.localeCompare(b.operadora, 'pt-BR')
+    if (op !== 0) return op
+    const oa = a.cenarioOrdem ?? 0
+    const ob = b.cenarioOrdem ?? 0
+    if (oa !== ob) return oa - ob
+    const ta = a.cenarioTitulo ?? ''
+    const tb = b.cenarioTitulo ?? ''
+    if (ta !== tb) return ta.localeCompare(tb, 'pt-BR')
+    return String(a.key ?? '').localeCompare(String(b.key ?? ''), 'pt-BR')
   })
 }
 
@@ -697,28 +737,40 @@ export type OperadoraSlot = {
   grupo: 'atual' | 'mercado'
   operadora: string
   operadoraId: string
+  cenarioId?: string
+  cenarioTitulo?: string
+  cenarioOrdem?: number
 }
 
-/** Colunas canônicas (operadora) para alinhar todos os planos na horizontal. */
+/** Colunas canônicas (operadora × cenário) para alinhar todos os planos na horizontal. */
 export function buildOperadoraSlotsFromColunas(colunas: ContratoPlanoColuna[]): OperadoraSlot[] {
   const map = new Map<string, OperadoraSlot>()
   for (const col of colunas) {
     const grupo = col.grupo ?? 'mercado'
-    const key = operadoraAggKey(grupo, col.operadora)
+    const key = colunaSlotKey(col)
     if (!map.has(key)) {
-      map.set(key, { key, grupo, operadora: col.operadora, operadoraId: col.operadoraId })
+      map.set(key, {
+        key,
+        grupo,
+        operadora: col.operadora,
+        operadoraId: col.operadoraId,
+        cenarioId: col.cenarioId,
+        cenarioTitulo: col.cenarioTitulo,
+        cenarioOrdem: col.cenarioOrdem,
+      })
     }
   }
   return sortPorOperadora([...map.values()])
 }
 
 function placeholderContratoColuna(slot: OperadoraSlot): ContratoPlanoColuna {
+  const titulo = slot.cenarioTitulo?.trim()
   return {
     id: `empty-${slot.key}`,
     operadoraId: slot.operadoraId,
     operadora: slot.operadora,
-    produto: '—',
-    planoLabel: '—',
+    produto: titulo || '—',
+    planoLabel: titulo || '—',
     acomodacao: '',
     elegibilidade: '',
     elegibilidadeLinhas: [],
@@ -732,18 +784,20 @@ function placeholderContratoColuna(slot: OperadoraSlot): ContratoPlanoColuna {
     faturaEstimada: '—',
     tabColor: '#9e9e9e',
     grupo: slot.grupo,
+    cenarioId: slot.cenarioId,
+    cenarioTitulo: slot.cenarioTitulo,
+    cenarioOrdem: slot.cenarioOrdem,
   }
 }
 
-/** Alinha as colunas de uma página ao conjunto canônico de operadoras. */
+/** Alinha as colunas de uma página ao conjunto canônico de operadora × cenário. */
 export function alignPageToOperadoraSlots(
   page: ContratoAtualPagina,
   slots: OperadoraSlot[]
 ): ContratoAtualPagina {
   const byKey = new Map<string, ContratoPlanoColuna>()
   for (const col of page.colunas) {
-    const grupo = col.grupo ?? 'mercado'
-    byKey.set(operadoraAggKey(grupo, col.operadora), col)
+    byKey.set(colunaSlotKey(col), col)
   }
   return {
     ...page,
@@ -751,23 +805,31 @@ export function alignPageToOperadoraSlots(
   }
 }
 
-/** Soma vidas e custos de todas as colunas do estudo por operadora (sem divisão por plano). */
-export function aggregateColunasPorOperadora(
+/**
+ * Soma vidas/custos dos planos equivalentes dentro de cada cenário.
+ * Cenários da mesma operadora (ex.: AMIL Sem/Com COPAY) permanecem separados.
+ */
+export function aggregateColunasPorCenario(
   colunas: ComparativoColunaEstudo[]
 ): ComparativoColunaEstudo[] {
   const order: string[] = []
   const map = new Map<string, ComparativoColunaEstudo>()
 
   for (const col of colunas) {
-    const key = operadoraAggKey(col.grupo, col.operadora)
+    const key = colunaSlotKey(col)
     const existing = map.get(key)
     if (!existing) {
       order.push(key)
+      const titulo = col.cenarioTitulo?.trim()
       map.set(key, {
         ...col,
         id: `agg-${key}`,
-        planoLabel: col.grupo === 'atual' ? 'Contrato vigente (todos os planos)' : 'Total da proposta',
-        subtitulo: 'Soma de todos os planos equivalentes',
+        planoLabel: titulo
+          ? `${titulo} (todos os planos)`
+          : col.grupo === 'atual'
+            ? 'Contrato vigente (todos os planos)'
+            : 'Total do cenário',
+        subtitulo: 'Soma dos planos equivalentes deste cenário',
       })
       continue
     }
@@ -783,11 +845,18 @@ export function aggregateColunasPorOperadora(
   return sortPorOperadora(order.map((key) => map.get(key)!))
 }
 
-/** Consolidado financeiro horizontal com fatura/custos somados por operadora. */
+/** @deprecated Preferir aggregateColunasPorCenario — mantido para testes/legado. */
+export function aggregateColunasPorOperadora(
+  colunas: ComparativoColunaEstudo[]
+): ComparativoColunaEstudo[] {
+  return aggregateColunasPorCenario(colunas)
+}
+
+/** Consolidado financeiro horizontal com fatura/custos somados por cenário. */
 export function buildComparativoOperadoraConsolidadoPage(
   colunas: ComparativoColunaEstudo[]
 ): ComparativoConsolidadoPagina | null {
-  const agg = aggregateColunasPorOperadora(colunas)
+  const agg = aggregateColunasPorCenario(colunas)
   if (!agg.length) return null
   const referencia = agg.find((c) => c.grupo === 'atual')
   return {
@@ -798,8 +867,11 @@ export function buildComparativoOperadoraConsolidadoPage(
   }
 }
 
-/** Soma fatura e vidas das colunas do comparativo por plano, agrupadas por operadora. */
-export function aggregateContratoColunasPorOperadora(
+/**
+ * Soma fatura e vidas por cenário (operadora × cenarioId).
+ * Não mistura Cenário 1 e Cenário 2 da mesma operadora.
+ */
+export function aggregateContratoColunasPorCenario(
   colunas: ContratoPlanoColuna[]
 ): ContratoPlanoColuna[] {
   const order: string[] = []
@@ -807,16 +879,21 @@ export function aggregateContratoColunasPorOperadora(
 
   for (const col of colunas) {
     const grupo = col.grupo ?? 'mercado'
-    const key = operadoraAggKey(grupo, col.operadora)
+    const key = colunaSlotKey(col)
     const faturaCents = parseBRLToCents(col.faturaEstimada)
     const existing = map.get(key)
     if (!existing) {
       order.push(key)
+      const titulo = col.cenarioTitulo?.trim()
       map.set(key, {
         ...col,
         id: `agg-${key}`,
-        planoLabel: grupo === 'atual' ? 'Contrato vigente (todos os planos)' : 'Total da proposta',
-        produto: 'Soma de todos os planos',
+        planoLabel: titulo
+          ? `${titulo} (todos os planos)`
+          : grupo === 'atual'
+            ? 'Contrato vigente (todos os planos)'
+            : 'Total do cenário',
+        produto: titulo || 'Soma dos planos do cenário',
         vidas: col.vidas,
         faturaEstimada: faturaCents != null ? formatCentsToBRL(faturaCents) : '—',
         variacao: undefined,
@@ -831,6 +908,13 @@ export function aggregateContratoColunasPorOperadora(
   }
 
   return sortPorOperadora(order.map((key) => map.get(key)!))
+}
+
+/** @deprecated Preferir aggregateContratoColunasPorCenario. */
+export function aggregateContratoColunasPorOperadora(
+  colunas: ContratoPlanoColuna[]
+): ContratoPlanoColuna[] {
+  return aggregateContratoColunasPorCenario(colunas)
 }
 
 export function buildComparativoConsolidadoPages(

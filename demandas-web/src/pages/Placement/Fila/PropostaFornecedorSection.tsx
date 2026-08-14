@@ -42,16 +42,18 @@ import {
 } from './placementCampoValorVidasHighlight'
 import {
   emptyPropostaPlanoLinha,
+  ensureComparativosEstudos,
   type AguardandoOperadoraState,
   type PropostaCenarioVariante,
   type PropostaFornecedorState,
 } from './placementAguardandoOperadora'
 import {
-  applyReajusteToPlanos,
   buildCenarioFromAbertura,
   cenarioPlanosAjustados,
+  duplicateCenarioVariante,
   emptyCenarioResumoLinha,
   emptyCenarioVariante,
+  ensurePropostaCenariosMercado,
   refreshCenarioPlanosFromAbertura,
 } from './placementPropostaCenarioAtual'
 import {
@@ -104,7 +106,7 @@ function totalMensalPreview(planos: PropostaFornecedorState['planos']): string {
   return any ? formatCentsToBRL(total) : '—'
 }
 
-function CenarioAtualEditor({
+const CenarioAtualEditor = React.memo(function CenarioAtualEditor({
   cenarios,
   form,
   fornecedorNome,
@@ -174,25 +176,27 @@ function CenarioAtualEditor({
                 />
               </Grid>
               <Grid item xs={12} md={3}>
-                <TextField
+                <PlacementDraftTextField
                   label="Reajuste / desconto (%)"
                   fullWidth
                   size="small"
                   value={cenario.reajustePercent}
                   disabled={disabled}
-                  onChange={(e) => patchCenario(cIdx, { reajustePercent: sanitizeSignedPercentInput(e.target.value) })}
+                  transform={sanitizeSignedPercentInput}
+                  onCommit={(v) => patchCenario(cIdx, { reajustePercent: v })}
                   placeholder="Ex.: -10 ou 15"
                   helperText="Negativo = desconto · positivo = reajuste"
                 />
               </Grid>
               <Grid item xs={12} md={4}>
-                <TextField
+                <PlacementDraftTextField
                   label="Vigência (meses)"
                   fullWidth
                   size="small"
                   value={cenario.vigenciaMeses}
                   disabled={disabled}
-                  onChange={(e) => patchCenario(cIdx, { vigenciaMeses: e.target.value.replace(/\D/g, '') })}
+                  transform={(v) => v.replace(/\D/g, '')}
+                  onCommit={(v) => patchCenario(cIdx, { vigenciaMeses: v })}
                   placeholder="Ex.: 12"
                 />
               </Grid>
@@ -342,9 +346,9 @@ function CenarioAtualEditor({
       </Stack>
     </Stack>
   )
-}
+})
 
-function PropostaMercadoEditor({
+const PropostaMercadoEditor = React.memo(function PropostaMercadoEditor({
   proposta,
   form,
   operadoras,
@@ -357,51 +361,120 @@ function PropostaMercadoEditor({
   operadoras: Operadora[]
   operadorasById?: Record<string, Operadora>
   disabled?: boolean
-  onChange: (next: PropostaFornecedorState) => void
+  onChange: (
+    next:
+      | PropostaFornecedorState
+      | ((prev: PropostaFornecedorState) => PropostaFornecedorState)
+  ) => void
 }) {
   const referencias = planosReferenciaAbertura(form, operadoras, operadorasById)
+  const cenarios = ensurePropostaCenariosMercado(proposta)
 
-  function patchPlano(index: number, part: Partial<PropostaFornecedorState['planos'][number]>) {
-    onChange((prev) => ({
-      ...prev,
-      planos: prev.planos.map((p, i) => (i === index ? { ...p, ...part } : p)),
-    }))
+  function commitCenarios(
+    updater: (cenarios: PropostaCenarioVariante[]) => PropostaCenarioVariante[]
+  ) {
+    onChange((prev) => {
+      const nextCenarios = updater(ensurePropostaCenariosMercado(prev))
+      return {
+        ...prev,
+        cenarios: nextCenarios,
+        planos: nextCenarios[0]?.planos?.length
+          ? nextCenarios[0].planos
+          : [emptyPropostaPlanoLinha()],
+      }
+    })
+  }
+
+  function patchCenario(cIdx: number, part: Partial<PropostaCenarioVariante>) {
+    commitCenarios((list) => list.map((c, i) => (i === cIdx ? { ...c, ...part } : c)))
+  }
+
+  function patchPlano(
+    cIdx: number,
+    index: number,
+    part: Partial<PropostaFornecedorState['planos'][number]>
+  ) {
+    commitCenarios((list) =>
+      list.map((c, i) =>
+        i === cIdx
+          ? { ...c, planos: c.planos.map((p, pi) => (pi === index ? { ...p, ...part } : p)) }
+          : c
+      )
+    )
   }
 
   function patchFaixa(
+    cIdx: number,
     index: number,
     key: keyof PropostaFornecedorState['planos'][number]['vidasFaixa'],
     field: 'vidasFaixa' | 'custosFaixa',
     value: string
   ) {
-    onChange((prev) => ({
-      ...prev,
-      planos: prev.planos.map((p, i) =>
-        i === index ? { ...p, [field]: { ...p[field], [key]: value } } : p
-      ),
-    }))
+    commitCenarios((list) =>
+      list.map((c, i) =>
+        i === cIdx
+          ? {
+              ...c,
+              planos: c.planos.map((p, pi) =>
+                pi === index ? { ...p, [field]: { ...p[field], [key]: value } } : p
+              ),
+            }
+          : c
+      )
+    )
   }
 
-  function addPlano() {
-    onChange((prev) => ({ ...prev, planos: [...prev.planos, emptyPropostaPlanoLinha()] }))
+  function addPlano(cIdx: number) {
+    commitCenarios((list) =>
+      list.map((c, i) =>
+        i === cIdx ? { ...c, planos: [...c.planos, emptyPropostaPlanoLinha()] } : c
+      )
+    )
   }
 
-  function removePlano(index: number) {
-    onChange((prev) => {
-      const planos = prev.planos.filter((_, i) => i !== index)
-      return { ...prev, planos: planos.length ? planos : [emptyPropostaPlanoLinha()] }
-    })
+  function removePlano(cIdx: number, index: number) {
+    commitCenarios((list) =>
+      list.map((c, i) => {
+        if (i !== cIdx) return c
+        const planos = c.planos.filter((_, pi) => pi !== index)
+        return { ...c, planos: planos.length ? planos : [emptyPropostaPlanoLinha()] }
+      })
+    )
   }
 
   return (
     <Stack gap={2}>
+      <Alert severity="info">
+        Use <strong>Adicionar cenário</strong> quando a operadora enviar mais de uma proposta (ex.: Cenário 1 e
+        Cenário 2). Cada cenário × plano vira coluna no comparativo, ao lado do fornecedor atual.
+      </Alert>
+
       {referencias.length > 0 && (
         <Alert severity="info" action={
           <Button
             size="small"
             color="inherit"
             disabled={disabled}
-            onClick={() => onChange((prev) => alinharPropostaPorEquivalencia(prev, referencias))}
+            onClick={() =>
+              onChange((prev) => {
+                const aligned = alinharPropostaPorEquivalencia(
+                  {
+                    ...prev,
+                    planos: ensurePropostaCenariosMercado(prev)[0]?.planos ?? prev.planos,
+                  },
+                  referencias
+                )
+                const base = ensurePropostaCenariosMercado(prev)
+                const nextCenarios = base.map((c, i) =>
+                  i === 0 ? { ...c, planos: aligned.planos } : c
+                )
+                return {
+                  ...aligned,
+                  cenarios: nextCenarios,
+                  planos: nextCenarios[0]?.planos ?? aligned.planos,
+                }
+              })
+            }
           >
             Alinhar por equivalência
           </Button>
@@ -411,7 +484,64 @@ function PropostaMercadoEditor({
         </Alert>
       )}
 
-      {proposta.planos.map((plano, index) => (
+      {cenarios.map((cenario, cIdx) => (
+        <Paper key={cenario.id} variant="outlined" sx={{ p: 2, bgcolor: 'grey.50' }}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+              Cenário {cIdx + 1}
+            </Typography>
+            {cenarios.length > 1 && (
+              <IconButton
+                size="small"
+                disabled={disabled}
+                aria-label="Remover cenário"
+                onClick={() => commitCenarios((list) => list.filter((_, i) => i !== cIdx))}
+              >
+                <DeleteOutlineIcon fontSize="small" />
+              </IconButton>
+            )}
+          </Stack>
+
+          <Grid container spacing={2} sx={{ mb: 2 }}>
+            <Grid item xs={12} md={5}>
+              <PlacementDraftTextField
+                label="Título do cenário"
+                fullWidth
+                size="small"
+                value={cenario.titulo}
+                disabled={disabled}
+                onCommit={(v) => patchCenario(cIdx, { titulo: v })}
+                placeholder="Ex.: Cenário 1 · coparticipação / Cenário 2 · sem copart"
+              />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <PlacementDraftTextField
+                label="Reajuste / desconto (%)"
+                fullWidth
+                size="small"
+                value={cenario.reajustePercent}
+                disabled={disabled}
+                transform={sanitizeSignedPercentInput}
+                onCommit={(v) => patchCenario(cIdx, { reajustePercent: v })}
+                placeholder="Ex.: -10 ou 15"
+                helperText="Opcional · aplica sobre os custos no comparativo"
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <PlacementDraftTextField
+                label="Vigência (meses)"
+                fullWidth
+                size="small"
+                value={cenario.vigenciaMeses}
+                disabled={disabled}
+                transform={(v) => v.replace(/\D/g, '')}
+                onCommit={(v) => patchCenario(cIdx, { vigenciaMeses: v })}
+                placeholder="Ex.: 12"
+              />
+            </Grid>
+          </Grid>
+
+          {cenario.planos.map((plano, index) => (
         <Box key={plano.id}>
           {index > 0 && <Divider sx={{ mb: 2 }} />}
           <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
@@ -420,8 +550,8 @@ function PropostaMercadoEditor({
                 ? `Oferta ${index + 1} · equivale a: ${labelPlanoReferencia(plano.planoReferenciaId, referencias)}`
                 : `Plano ${index + 1}`}
             </Typography>
-            {proposta.planos.length > 1 && (
-              <IconButton size="small" disabled={disabled} onClick={() => removePlano(index)}>
+            {cenario.planos.length > 1 && (
+              <IconButton size="small" disabled={disabled} onClick={() => removePlano(cIdx, index)}>
                 <DeleteOutlineIcon fontSize="small" />
               </IconButton>
             )}
@@ -440,8 +570,7 @@ function PropostaMercadoEditor({
                   onChange={(e) => {
                     const refId = e.target.value
                     const ref = referencias.find((r) => r.id === refId)
-                    patchPlano(
-                      index,
+                    patchPlano(cIdx, index,
                       ref
                         ? propostaPatchFromReferencia(ref, form.planos)
                         : { planoReferenciaId: refId }
@@ -458,13 +587,13 @@ function PropostaMercadoEditor({
               </Grid>
             )}
             <Grid item xs={12} md={4}>
-              <TextField
+              <PlacementDraftTextField
                 label="Nome do plano"
                 fullWidth
                 size="small"
                 value={plano.nomePlano}
                 disabled={disabled}
-                onChange={(e) => patchPlano(index, { nomePlano: e.target.value })}
+                onCommit={(v) => patchPlano(cIdx, index, { nomePlano: v })}
               />
             </Grid>
             <Grid item xs={12} md={3}>
@@ -477,7 +606,7 @@ function PropostaMercadoEditor({
                 value={plano.tipoCusto}
                 disabled={disabled}
                 onChange={(e) =>
-                  patchPlano(index, {
+                  patchPlano(cIdx, index, {
                     tipoCusto: e.target.value as 'per_capita' | 'faixa_etaria',
                     vidasFaixa: plano.vidasFaixa ?? emptyVidasFaixa(),
                     custosFaixa: plano.custosFaixa ?? emptyCustosFaixa(),
@@ -497,7 +626,7 @@ function PropostaMercadoEditor({
                 SelectProps={{ native: true }}
                 value={plano.acomodacao}
                 disabled={disabled}
-                onChange={(e) => patchPlano(index, { acomodacao: e.target.value })}
+                onChange={(e) => patchPlano(cIdx, index, { acomodacao: e.target.value })}
               >
                 <option value="">Selecione</option>
                 <option value="Apartamento">Apartamento</option>
@@ -513,23 +642,24 @@ function PropostaMercadoEditor({
                   </Typography>
                 </Grid>
                 <Grid item xs={6} md={2}>
-                  <TextField
+                  <PlacementDraftTextField
                     label="Nº vidas"
                     fullWidth
                     size="small"
                     value={plano.numeroVidas}
                     disabled={disabled}
-                    onChange={(e) => patchPlano(index, { numeroVidas: e.target.value.replace(/\D/g, '') })}
+                    transform={(v) => v.replace(/\D/g, '')}
+                    onCommit={(v) => patchPlano(cIdx, index, { numeroVidas: v })}
                   />
                 </Grid>
                 <Grid item xs={6} md={3}>
-                  <TextField
+                  <PlacementDraftTextField
                     label="Custo per capita (R$)"
                     fullWidth
                     size="small"
                     value={plano.custoPerCapitaBRL}
                     disabled={disabled || parseVidasCount(plano.numeroVidas) === 0}
-                    onChange={(e) => patchPlano(index, { custoPerCapitaBRL: e.target.value })}
+                    onCommit={(v) => patchPlano(cIdx, index, { custoPerCapitaBRL: v })}
                     sx={sxCampoValorPorVidas(
                       parseVidasCount(plano.numeroVidas) > 0,
                       !!plano.custoPerCapitaBRL.trim()
@@ -560,22 +690,21 @@ function PropostaMercadoEditor({
                             {fx.label}
                           </Typography>
                           <Stack direction="row" gap={0.5} sx={{ mt: 0.5 }}>
-                            <TextField
+                            <PlacementDraftTextField
                               label="Vidas"
                               size="small"
                               value={vidasStr}
                               disabled={disabled}
-                              onChange={(e) =>
-                                patchFaixa(index, fx.key, 'vidasFaixa', e.target.value.replace(/\D/g, ''))
-                              }
+                              transform={(v) => v.replace(/\D/g, '')}
+                              onCommit={(v) => patchFaixa(cIdx, index, fx.key, 'vidasFaixa', v)}
                               sx={{ flex: 1 }}
                             />
-                            <TextField
+                            <PlacementDraftTextField
                               label="R$/vida"
                               size="small"
                               value={custoStr}
                               disabled={disabled || !temVidas}
-                              onChange={(e) => patchFaixa(index, fx.key, 'custosFaixa', e.target.value)}
+                              onCommit={(v) => patchFaixa(cIdx, index, fx.key, 'custosFaixa', v)}
                               sx={{ flex: 1, ...sxCampoValorPorVidas(temVidas, temValor) }}
                             />
                           </Stack>
@@ -605,7 +734,7 @@ function PropostaMercadoEditor({
                   } else if (coparticipacao === 'Não') {
                     patch.coparticipacaoDetalhe = emptyCoparticipacao()
                   }
-                  patchPlano(index, patch)
+                  patchPlano(cIdx, index, patch)
                 }}
               />
             </Grid>
@@ -615,7 +744,7 @@ function PropostaMercadoEditor({
                   coparticipacao={plano.coparticipacaoDetalhe ?? emptyCoparticipacao()}
                   disabled={disabled}
                   onChange={(coparticipacaoDetalhe) =>
-                    patchPlano(index, {
+                    patchPlano(cIdx, index, {
                       coparticipacaoDetalhe,
                       coparticipacao: coparticipacaoDetalhe.possui ? 'Sim' : 'Não',
                     })
@@ -648,7 +777,7 @@ function PropostaMercadoEditor({
                     }
                     patch.reembolsoDetalhe = det
                   }
-                  patchPlano(index, patch)
+                  patchPlano(cIdx, index, patch)
                 }}
               />
             </Grid>
@@ -661,7 +790,7 @@ function PropostaMercadoEditor({
                     const patch: Partial<typeof plano> = { reembolsoDetalhe }
                     const consulta = reembolsoDetalhe.valores.consultas?.trim()
                     patch.reembolsoConsulta = consulta ?? ''
-                    patchPlano(index, patch)
+                    patchPlano(cIdx, index, patch)
                   }}
                 />
               </Grid>
@@ -669,12 +798,72 @@ function PropostaMercadoEditor({
           </Grid>
         </Box>
       ))}
-      <Button startIcon={<AddIcon />} size="small" disabled={disabled} onClick={addPlano}>
-        Adicionar plano
-      </Button>
+          <Button
+            startIcon={<AddIcon />}
+            size="small"
+            disabled={disabled}
+            onClick={() => addPlano(cIdx)}
+            sx={{ mt: 1 }}
+          >
+            Adicionar plano neste cenário
+          </Button>
+        </Paper>
+      ))}
+
+      <Stack direction="row" flexWrap="wrap" gap={1}>
+        <Button
+          size="small"
+          startIcon={<AddIcon />}
+          disabled={disabled}
+          onClick={() =>
+            commitCenarios((list) => [
+              ...list,
+              {
+                ...emptyCenarioVariante(`Cenário ${list.length + 1}`),
+                reajustePercent: '',
+                planos: [emptyPropostaPlanoLinha()],
+              },
+            ])
+          }
+        >
+          Adicionar cenário
+        </Button>
+        {cenarios.length > 0 && (
+          <Button
+            size="small"
+            startIcon={<ContentCopyIcon />}
+            disabled={disabled}
+            onClick={() =>
+              commitCenarios((list) => [...list, duplicateCenarioVariante(list[list.length - 1])])
+            }
+          >
+            Duplicar último cenário
+          </Button>
+        )}
+        {cenarios.length === 1 && cenarios[0].planos.length > 1 && (
+          <Button
+            size="small"
+            disabled={disabled}
+            onClick={() =>
+              commitCenarios((list) => {
+                const planos = list[0]?.planos ?? []
+                return planos.map((p, i) => ({
+                  ...emptyCenarioVariante(`Cenário ${i + 1}`),
+                  reajustePercent: list[0]?.reajustePercent ?? '',
+                  vigenciaMeses: list[0]?.vigenciaMeses ?? '',
+                  resumoLinhas: [],
+                  planos: [{ ...p }],
+                }))
+              })
+            }
+          >
+            Separar cada plano em um cenário
+          </Button>
+        )}
+      </Stack>
     </Stack>
   )
-}
+})
 
 export const PropostaFornecedorSection = React.memo(function PropostaFornecedorSection({
   fornecedorNome,
@@ -690,7 +879,7 @@ export const PropostaFornecedorSection = React.memo(function PropostaFornecedorS
 
   const descricao = isFornecedorAtual
     ? 'Cenários carregados da abertura do formulário. Ajuste reajuste/desconto, vigência e o resumo editável; cada cenário × plano vira coluna no comparativo (layout Contrato Atual).'
-    : 'Cadastre a oferta por plano e indique a equivalência com os planos do contrato para alinhar as colunas no comparativo.'
+    : 'Cadastre um ou mais cenários de proposta (ex.: AMIL Cenário 1 e Cenário 2). Cada cenário × plano aparece como coluna no comparativo, comparado ao fornecedor atual.'
 
   return (
     <Paper variant="outlined" sx={{ p: 2 }}>
@@ -759,8 +948,39 @@ export function patchAguardandoProposta(
   fornKey: string,
   proposta: PropostaFornecedorState
 ): AguardandoOperadoraState {
-  return {
+  const next: AguardandoOperadoraState = {
     ...state,
     propostas: { ...state.propostas, [fornKey]: proposta },
+  }
+  return { ...next, ...ensureComparativosEstudos(next) }
+}
+
+/**
+ * Hot path de digitação: atualiza só o fornecedor e o espelho do estudo ativo,
+ * sem deep clone / ensureComparativosEstudos completo.
+ * Se a estrutura de estudos ainda não existir, cai no path completo.
+ */
+export function patchAguardandoPropostaHot(
+  state: AguardandoOperadoraState,
+  fornKey: string,
+  proposta: PropostaFornecedorState
+): AguardandoOperadoraState {
+  const estudos = state.comparativosEstudos
+  const ativoId = state.comparativoAtivoId?.trim()
+  if (!estudos?.length || !ativoId || !estudos.some((e) => e.id === ativoId)) {
+    return patchAguardandoProposta(state, fornKey, proposta)
+  }
+
+  const propostas = { ...state.propostas, [fornKey]: proposta }
+  const comparativosEstudos = estudos.map((e) =>
+    e.id === ativoId
+      ? { ...e, propostas: { ...e.propostas, [fornKey]: proposta } }
+      : e
+  )
+  return {
+    ...state,
+    propostas,
+    comparativosEstudos,
+    comparativoAtivoId: ativoId,
   }
 }

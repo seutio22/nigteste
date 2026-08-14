@@ -9,6 +9,7 @@ import {
 } from '@mui/material'
 import VisibilityOffOutlinedIcon from '@mui/icons-material/VisibilityOffOutlined'
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined'
+import BusinessOutlinedIcon from '@mui/icons-material/BusinessOutlined'
 import type { ComparativoEstudoConfig } from './placementAguardandoOperadora'
 import type { ColunaVisibilidadeItem } from './placementComparativoVisibilidade'
 
@@ -17,6 +18,17 @@ type Props = {
   config: ComparativoEstudoConfig
   disabled?: boolean
   onChange?: (next: ComparativoEstudoConfig) => void
+}
+
+function groupByOperadora(itens: ColunaVisibilidadeItem[]) {
+  const map = new Map<string, ColunaVisibilidadeItem[]>()
+  for (const c of itens) {
+    const key = c.operadora.trim() || '—'
+    const list = map.get(key) ?? []
+    list.push(c)
+    map.set(key, list)
+  }
+  return Array.from(map.entries())
 }
 
 export function ComparativoDetalheColunasPanel({ colunas, config, disabled, onChange }: Props) {
@@ -41,6 +53,16 @@ export function ComparativoDetalheColunasPanel({ colunas, config, disabled, onCh
     onChange({ ...config, colunasOcultas: Array.from(next) })
   }
 
+  function toggleFornecedor(itens: ColunaVisibilidadeItem[]) {
+    if (!onChange) return
+    const ids = itens.map((c) => c.id)
+    const allHidden = ids.every((id) => ocultas.has(id))
+    const next = new Set(config.colunasOcultas ?? [])
+    if (allHidden) ids.forEach((id) => next.delete(id))
+    else ids.forEach((id) => next.add(id))
+    onChange({ ...config, colunasOcultas: Array.from(next) })
+  }
+
   return (
     <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'grey.50' }}>
       <Stack direction="row" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1} sx={{ mb: 1 }}>
@@ -49,7 +71,7 @@ export function ComparativoDetalheColunasPanel({ colunas, config, disabled, onCh
             Colunas visíveis
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            {visiveisCount} de {colunas.length} exibida(s)
+            {visiveisCount} de {colunas.length} exibida(s) · fornecedor oculta a coluna inteira
           </Typography>
         </Box>
         <Stack direction="row" spacing={0.5}>
@@ -83,21 +105,41 @@ export function ComparativoDetalheColunasPanel({ colunas, config, disabled, onCh
             <Typography variant="caption" sx={{ fontWeight: 700, color: 'primary.main', display: 'block', mb: 0.5 }}>
               {grupo}
             </Typography>
-            <Stack direction="row" flexWrap="wrap" gap={0.5} useFlexGap>
-              {itens.map((c) => {
-                const hidden = ocultas.has(c.id)
+            <Stack spacing={1}>
+              {groupByOperadora(itens).map(([operadora, planos]) => {
+                const allHidden = planos.every((c) => ocultas.has(c.id))
+                const someHidden = planos.some((c) => ocultas.has(c.id))
                 return (
-                  <Chip
-                    key={c.id}
-                    label={c.label}
-                    size="small"
-                    clickable={!disabled && Boolean(onChange)}
-                    onClick={() => !disabled && toggleColuna(c.id)}
-                    icon={hidden ? <VisibilityOffOutlinedIcon /> : <VisibilityOutlinedIcon />}
-                    color={hidden ? 'default' : 'primary'}
-                    variant={hidden ? 'outlined' : 'filled'}
-                    sx={{ opacity: hidden ? 0.65 : 1, maxWidth: '100%' }}
-                  />
+                  <Box key={`${grupo}-${operadora}`}>
+                    <Chip
+                      label={operadora}
+                      size="small"
+                      clickable={!disabled && Boolean(onChange)}
+                      onClick={() => !disabled && toggleFornecedor(planos)}
+                      icon={allHidden ? <VisibilityOffOutlinedIcon /> : <BusinessOutlinedIcon />}
+                      color={allHidden ? 'default' : 'secondary'}
+                      variant={allHidden ? 'outlined' : someHidden ? 'outlined' : 'filled'}
+                      sx={{ mb: 0.5, fontWeight: 800, opacity: allHidden ? 0.65 : 1, maxWidth: '100%' }}
+                    />
+                    <Stack direction="row" flexWrap="wrap" gap={0.5} useFlexGap sx={{ pl: 0.5 }}>
+                      {planos.map((c) => {
+                        const hidden = ocultas.has(c.id)
+                        return (
+                          <Chip
+                            key={c.id}
+                            label={c.planoLabel || c.label}
+                            size="small"
+                            clickable={!disabled && Boolean(onChange)}
+                            onClick={() => !disabled && toggleColuna(c.id)}
+                            icon={hidden ? <VisibilityOffOutlinedIcon /> : <VisibilityOutlinedIcon />}
+                            color={hidden ? 'default' : 'primary'}
+                            variant={hidden ? 'outlined' : 'filled'}
+                            sx={{ opacity: hidden ? 0.65 : 1, maxWidth: '100%' }}
+                          />
+                        )
+                      })}
+                    </Stack>
+                  </Box>
                 )
               })}
             </Stack>

@@ -7,6 +7,7 @@ import LoginPage from '../pages/Login'
 import HomePage from '../pages/Home'
 import DashboardPage from '../pages/Dashboard'
 import DashboardProjetosPage from '../pages/DashboardProjetos'
+import DashboardProdutividadePage from '../pages/DashboardProdutividade'
 import DemandListPage from '../pages/Demandas/List'
 import DemandNewPage from '../pages/Demandas/New'
 import DemandDetailPage from '../pages/Demandas/Detail'
@@ -37,6 +38,7 @@ import PlacementFilaListPage from '../pages/Placement/Fila/List'
 import PlacementFilaNewPage from '../pages/Placement/Fila/New'
 import PlacementFilaDetailPage from '../pages/Placement/Fila/Detail'
 import PlacementComparativoDetailPage from '../pages/Placement/Fila/PlacementComparativoDetailPage'
+import PlacementPropostaDetailPage from '../pages/Placement/Fila/PlacementPropostaDetailPage'
 import PlacementSlidesDetailPage from '../pages/Placement/Fila/PlacementSlidesDetailPage'
 import PlacementEtapaDetailPage from '../pages/Placement/Fila/PlacementEtapaDetailPage'
 import AdminUsersPage from '../pages/Admin/Users'
@@ -45,6 +47,7 @@ import ProjectListPage from '../pages/Projetos/ListSimple'
 import ProjectNewPage from '../pages/Projetos/New'
 import ProjectDetailPage from '../pages/Projetos/Detail'
 import ShareProjectPage from '../pages/ShareProject'
+import SharePlacementPresentationPage from '../pages/Placement/Fila/SharePlacementPresentationPage'
 import NotificationsPage from '../pages/NotificationsPage'
 
 export function AppRoutes() {
@@ -67,6 +70,11 @@ export function AppRoutes() {
             <Route path="projetos" element={
               <ProtectedRoute module="dashboard">
                 <DashboardProjetosPage />
+              </ProtectedRoute>
+            } />
+            <Route path="produtividade" element={
+              <ProtectedRoute module="dashboard">
+                <DashboardProdutividadePage />
               </ProtectedRoute>
             } />
           </Route>
@@ -246,6 +254,11 @@ export function AppRoutes() {
                   <PlacementComparativoDetailPage />
                 </ProtectedRoute>
               } />
+              <Route path=":id/proposta" element={
+                <ProtectedRoute module="placementFila">
+                  <PlacementPropostaDetailPage />
+                </ProtectedRoute>
+              } />
               <Route path=":id/slides" element={
                 <ProtectedRoute module="placementFila">
                   <PlacementSlidesDetailPage />
@@ -312,7 +325,8 @@ export function AppRoutes() {
           </Route>
         </Route>
         
-        {/* Rota pública para compartilhamento */}
+        {/* Rotas públicas para compartilhamento */}
+        <Route path="/share/placement/:token" element={<SharePlacementPresentationPage />} />
         <Route path="/share/:token" element={<ShareProjectPage />} />
         
         <Route path="*" element={<Navigate to="/" replace />} />

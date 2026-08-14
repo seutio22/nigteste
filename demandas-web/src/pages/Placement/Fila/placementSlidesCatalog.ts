@@ -45,9 +45,9 @@ export const PLACEMENT_SLIDES_CATALOG: PlacementSlideMeta[] = [
   },
   {
     id: 'comparativo_diferenciais',
-    label: 'Comparativo de diferenciais',
+    label: 'Comparativo (diferenciais, condições e indicadores)',
     description:
-      'Infográfico com todos os diferenciais por fornecedor (telemedicina, retaguarda, resgate, etc.).',
+      'Infográfico com diferenciais, condições contratuais e indicadores das operadoras por fornecedor.',
   },
 ]
 

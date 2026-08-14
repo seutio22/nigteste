@@ -8,6 +8,8 @@ import { PlacementContratoCatalogoTab } from './Placement/PlacementContratoCatal
 import AnalistasTab from './Placement/AnalistasTab'
 import PlanosTab from './Placement/PlanosTab'
 import DiferenciaisTab from './Placement/DiferenciaisTab'
+import CondicoesContratuaisTab from './Placement/CondicoesContratuaisTab'
+import IndicadoresOperadorasTab from './Placement/IndicadoresOperadorasTab'
 import OperadoraLogosTab from './Placement/OperadoraLogosTab'
 import { DadosTableUploadBar } from '../components/DadosTableUploadBar'
 import { useMasterDataStore } from '../store/masterDataStore'
@@ -24,6 +26,8 @@ type PlacementTabKey =
   | 'condicoes'
   | 'planos'
   | 'diferenciais'
+  | 'condicoesContratuais'
+  | 'indicadoresOperadoras'
   | 'projetos'
   | 'pedido'
   | 'temperatura'
@@ -37,7 +41,8 @@ export default function DadosPlacementPage() {
   const operadoras = useMasterDataStore((s) => s.operadoras)
 
   const uploadConfig = useMemo(() => {
-    if (activeTab === 'logosOperadora') return null
+    if (activeTab === 'logosOperadora' || activeTab === 'condicoesContratuais' || activeTab === 'indicadoresOperadoras')
+      return null
     return getPlacementUploadConfig(
       activeTab as PlacementDadosTabKey,
       usePlacementStore.getState(),
@@ -69,6 +74,13 @@ export default function DadosPlacementPage() {
       case 'diferenciais':
         void s.syncDiferenciais(true)
         void s.syncPlanos(true)
+        break
+      case 'condicoesContratuais':
+        void s.syncCondicoesContratuais(true)
+        void s.syncPlanos(true)
+        break
+      case 'indicadoresOperadoras':
+        void s.syncIndicadoresOperadoras(true)
         break
       case 'projetos':
       case 'pedido':
@@ -120,6 +132,8 @@ export default function DadosPlacementPage() {
         <Tab value="condicoes" label="Condições" />
         <Tab value="planos" label="Planos" />
         <Tab value="diferenciais" label="Diferenciais" />
+        <Tab value="condicoesContratuais" label="Condições contratuais" />
+        <Tab value="indicadoresOperadoras" label="Indicadores operadoras" />
         <Tab value="projetos" label="Projetos" />
         <Tab value="pedido" label="Pedido/conta" />
         <Tab value="temperatura" label="Temperatura" />
@@ -138,6 +152,8 @@ export default function DadosPlacementPage() {
         {activeTab === 'condicoes' && <CondicoesTab />}
         {activeTab === 'planos' && <PlanosTab />}
         {activeTab === 'diferenciais' && <DiferenciaisTab />}
+        {activeTab === 'condicoesContratuais' && <CondicoesContratuaisTab />}
+        {activeTab === 'indicadoresOperadoras' && <IndicadoresOperadorasTab />}
         {activeTab === 'projetos' && <PlacementContratoCatalogoTab kind="projeto" />}
         {activeTab === 'pedido' && <PlacementContratoCatalogoTab kind="pedido" />}
         {activeTab === 'temperatura' && <PlacementContratoCatalogoTab kind="temperatura" />}

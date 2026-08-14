@@ -107,6 +107,10 @@ export type ContratoPlanoColuna = {
   /** Metadados do comparativo de propostas (opcional). */
   grupo?: 'atual' | 'mercado'
   planoReferenciaId?: string
+  /** Cenário da proposta (ex.: AMIL Cenário 1 / 2) — usado para colunas separadas no empilhado. */
+  cenarioId?: string
+  cenarioTitulo?: string
+  cenarioOrdem?: number
   variacao?: ColunaVariacaoComparativo
 }
 

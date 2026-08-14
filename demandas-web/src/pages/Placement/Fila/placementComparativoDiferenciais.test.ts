@@ -92,9 +92,9 @@ function baseForm(): CotacaoFormState {
 }
 
 describe('placementComparativoDiferenciais', () => {
-  it('monta slide único com todos os diferenciais e colunas por fornecedor', () => {
+  it('monta slides de diferenciais e condições contratuais por fornecedor', () => {
     const pages = buildComparativoDiferencialPages(baseForm(), operadoras)
-    expect(pages).toHaveLength(1)
+    expect(pages).toHaveLength(3)
     expect(pages[0].colunas).toHaveLength(2)
     expect(pages[0].linhas).toHaveLength(9)
     expect(pages[0].titulo).toBe('Diferenciais')
@@ -102,6 +102,28 @@ describe('placementComparativoDiferenciais', () => {
       'Possui atendimento'
     )
     expect(pages[0].linhas.find((l) => l.itemKey === 'retaguarda')).toBeDefined()
+    expect(pages[1].titulo).toBe('Condições contratuais')
+    expect(pages[1].secao).toBe('condicoes')
+    expect(pages[1].linhas.length).toBeGreaterThan(0)
+    expect(pages[2].titulo).toBe('Comparativo de Indicadores das Operadoras')
+    expect(pages[2].secao).toBe('indicadores')
+    expect(pages[2].linhas.length).toBe(8)
+  })
+
+  it('omite itens marcados como ocultos na proposta', () => {
+    const form = baseForm()
+    form.kickOffEstrategia!.consolidandoDados = {
+      ...form.kickOffEstrategia!.consolidandoDados!,
+      itensOcultos: {
+        diferenciais: ['telemedicina', 'retaguarda'],
+        condicoes: ['iof', 'break_even'],
+      },
+    }
+    const pages = buildComparativoDiferencialPages(form, operadoras)
+    expect(pages[0].linhas).toHaveLength(7)
+    expect(pages[0].linhas.find((l) => l.itemKey === 'telemedicina')).toBeUndefined()
+    expect(pages[1].linhas.find((l) => l.itemKey === 'iof')).toBeUndefined()
+    expect(pages[1].linhas.find((l) => l.itemKey === 'aviso_previo')).toBeDefined()
   })
 
   it('formata células com rótulo de plano', () => {

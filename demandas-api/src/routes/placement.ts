@@ -43,6 +43,7 @@ const COTACAO_WORKFLOW_STATUSES = [
   'Em cotação',
   'Aguardando operadora',
   'Consolidando dados',
+  'Validação proposta',
   'Proposta enviada',
   'Fechada',
   'Perdida',
@@ -319,6 +320,8 @@ type KickOffEstrategiaPayload = {
   resumoEdicoes?: Record<string, string> | null;
   comunicarMercado?: unknown;
   aguardandoOperadora?: unknown;
+  consolidandoDados?: unknown;
+  validacaoProposta?: unknown;
 };
 
 function newKickOffItemId(): string {
@@ -379,7 +382,11 @@ function parseKickOffEstrategiaBody(value: unknown): KickOffEstrategiaPayload | 
 
   const extra: Pick<
     KickOffEstrategiaPayload,
-    'resumoEdicoes' | 'comunicarMercado' | 'aguardandoOperadora'
+    | 'resumoEdicoes'
+    | 'comunicarMercado'
+    | 'aguardandoOperadora'
+    | 'consolidandoDados'
+    | 'validacaoProposta'
   > = {};
   if (resumoEdicoes && Object.keys(resumoEdicoes).length) extra.resumoEdicoes = resumoEdicoes;
   if (raw.comunicarMercado && typeof raw.comunicarMercado === 'object' && !Array.isArray(raw.comunicarMercado)) {
@@ -391,6 +398,20 @@ function parseKickOffEstrategiaBody(value: unknown): KickOffEstrategiaPayload | 
     !Array.isArray(raw.aguardandoOperadora)
   ) {
     extra.aguardandoOperadora = raw.aguardandoOperadora;
+  }
+  if (
+    raw.consolidandoDados &&
+    typeof raw.consolidandoDados === 'object' &&
+    !Array.isArray(raw.consolidandoDados)
+  ) {
+    extra.consolidandoDados = raw.consolidandoDados;
+  }
+  if (
+    raw.validacaoProposta &&
+    typeof raw.validacaoProposta === 'object' &&
+    !Array.isArray(raw.validacaoProposta)
+  ) {
+    extra.validacaoProposta = raw.validacaoProposta;
   }
 
   return { secoes, mercadoAnalisado, notas, ...extra };
@@ -421,6 +442,23 @@ function mergeKickOffEstrategiaPayload(
 
   const aguardandoOperadora = incoming.aguardandoOperadora ?? existing.aguardandoOperadora;
   if (aguardandoOperadora) merged.aguardandoOperadora = aguardandoOperadora;
+
+  // Cliente envia o bloco completo ao autosave; sem isto o PUT apagava diferenciais/condições.
+  const consolidandoDados =
+    incoming.consolidandoDados !== undefined
+      ? incoming.consolidandoDados
+      : existing.consolidandoDados;
+  if (consolidandoDados !== undefined && consolidandoDados !== null) {
+    merged.consolidandoDados = consolidandoDados;
+  }
+
+  const validacaoProposta =
+    incoming.validacaoProposta !== undefined
+      ? incoming.validacaoProposta
+      : existing.validacaoProposta;
+  if (validacaoProposta !== undefined && validacaoProposta !== null) {
+    merged.validacaoProposta = validacaoProposta;
+  }
 
   return merged;
 }
@@ -549,22 +587,171 @@ async function validateWorkflowStatusTransition(
 
   if (
     curStatus.toLowerCase() === 'consolidando dados' &&
-    nextStatus.toLowerCase() === 'proposta enviada'
+    nextStatus.toLowerCase() === 'validação proposta'
   ) {
     const effKick = parseKickOffEstrategiaBody(existing.kickOffEstrategia);
-    const cd = (effKick as { consolidandoDados?: { resumoCoberturas?: string; condicoesContratuais?: string } })
-      ?.consolidandoDados;
-    const resumo = String(cd?.resumoCoberturas ?? '').trim();
-    const condicoes = String(cd?.condicoesContratuais ?? '').trim();
-    if (!resumo || !condicoes) {
+    const cd = (effKick as {
+      consolidandoDados?: {
+        condicoesContratuais?: string
+        condicoes?: Record<string, Record<string, Array<{ texto?: string }>>>
+        diferenciais?: Record<string, Record<string, Array<{ texto?: string }>>>
+      }
+      validacaoProposta?: { analistaValidadorId?: string }
+    })?.consolidandoDados;
+    const condicoesLivres = String(cd?.condicoesContratuais ?? '').trim();
+    const mapTemTexto = (
+      map: Record<string, Record<string, Array<{ texto?: string }>>> | undefined
+    ) => {
+      if (!map || typeof map !== 'object') return false
+      for (const porColuna of Object.values(map)) {
+        if (!porColuna || typeof porColuna !== 'object') continue
+        for (const celulas of Object.values(porColuna)) {
+          if (Array.isArray(celulas) && celulas.some((c) => String(c?.texto ?? '').trim())) {
+            return true
+          }
+        }
+      }
+      return false
+    }
+    const temCondicoes = condicoesLivres.length > 0 || mapTemTexto(cd?.condicoes)
+    const temDiferenciais = mapTemTexto(cd?.diferenciais)
+    if (!temCondicoes || !temDiferenciais) {
       return {
         ok: false,
         status: 400,
         error: 'Consolidação incompleta',
         message:
-          'Preencha o resumo de coberturas e as condições contratuais antes de avançar para Proposta enviada.',
+          'Preencha as condições contratuais e os diferenciais antes de avançar para Validação.',
       };
     }
+    const validador = String(
+      (effKick as { validacaoProposta?: { analistaValidadorId?: string } })?.validacaoProposta
+        ?.analistaValidadorId ?? ''
+    ).trim()
+    if (!validador) {
+      return {
+        ok: false,
+        status: 400,
+        error: 'Analista validador obrigatório',
+        message:
+          'Designe o analista validador (catálogo Placement) antes de avançar para a etapa Validação.',
+      };
+    }
+    const validadorExiste = await prisma.placementAnalista.findUnique({
+      where: { id: validador },
+      select: { id: true },
+    });
+    if (!validadorExiste) {
+      return {
+        ok: false,
+        status: 400,
+        error: 'Analista validador inválido',
+        message:
+          'O analista validador deve existir no catálogo Dados → Placement → Analista.',
+      };
+    }
+    const responsavelId = String(existing.analistaResponsavelId ?? '').trim();
+    if (responsavelId && validador === responsavelId) {
+      return {
+        ok: false,
+        status: 400,
+        error: 'Analista validador inválido',
+        message: 'O validador deve ser diferente do analista responsável.',
+      };
+    }
+  }
+
+  if (
+    curStatus.toLowerCase() === 'validação proposta' &&
+    nextStatus.toLowerCase() === 'proposta enviada'
+  ) {
+    const effKick = parseKickOffEstrategiaBody(existing.kickOffEstrategia) as {
+      validacaoProposta?: {
+        analistaValidadorId?: string
+        itens?: Array<{ status?: string; comentario?: string }>
+      }
+    }
+    const vp = effKick?.validacaoProposta
+    if (!String(vp?.analistaValidadorId ?? '').trim()) {
+      return {
+        ok: false,
+        status: 400,
+        error: 'Analista validador obrigatório',
+        message: 'Designe o analista validador antes de enviar a proposta.',
+      }
+    }
+    const itens = Array.isArray(vp?.itens) ? vp!.itens! : []
+    if (!itens.length) {
+      return {
+        ok: false,
+        status: 400,
+        error: 'Validação incompleta',
+        message: 'Avalie os itens consolidados antes de avançar para Proposta enviada.',
+      }
+    }
+    if (itens.some((i) => String(i?.status ?? '') === 'pendente')) {
+      return {
+        ok: false,
+        status: 400,
+        error: 'Itens pendentes',
+        message: 'Ainda há itens pendentes de avaliação na Validação.',
+      }
+    }
+    if (itens.some((i) => String(i?.status ?? '') === 'ajuste')) {
+      return {
+        ok: false,
+        status: 400,
+        error: 'Ajustes pendentes',
+        message:
+          'Há ajustes registrados. Devolva para Consolidando dados ou resolva os ajustes antes de enviar a proposta.',
+      }
+    }
+  }
+
+  if (
+    curStatus.toLowerCase() === 'validação proposta' &&
+    nextStatus.toLowerCase() === 'consolidando dados'
+  ) {
+    const effKick = parseKickOffEstrategiaBody(existing.kickOffEstrategia) as {
+      validacaoProposta?: {
+        itens?: Array<{ status?: string; comentario?: string }>
+      }
+    }
+    const itens = Array.isArray(effKick?.validacaoProposta?.itens)
+      ? effKick!.validacaoProposta!.itens!
+      : []
+    const ajustes = itens.filter((i) => String(i?.status ?? '') === 'ajuste')
+    if (!ajustes.length) {
+      return {
+        ok: false,
+        status: 400,
+        error: 'Sem ajustes',
+        message:
+          'Para devolver a Consolidando dados, marque ao menos um item como ajuste com comentário.',
+      }
+    }
+    if (ajustes.some((a) => !String(a?.comentario ?? '').trim())) {
+      return {
+        ok: false,
+        status: 400,
+        error: 'Comentário obrigatório',
+        message: 'Todo item marcado como ajuste precisa de um comentário descrevendo a correção.',
+      }
+    }
+  }
+
+  // Bloqueia pular a Validação proposta (legado consolidando → proposta)
+  if (
+    curStatus.toLowerCase() === 'consolidando dados' &&
+    nextStatus.toLowerCase() === 'proposta enviada'
+  ) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'Etapa obrigatória',
+      message:
+        'Avance primeiro para a etapa Validação (revisão por outro analista) antes de Proposta enviada.',
+    };
   }
 
   return { ok: true };
@@ -1260,7 +1447,7 @@ export default async function placementRoutes(
     }
   });
 
-  // ---- Diferenciais (fornecedor + plano + item) ------------------------
+  // ---- Diferenciais + Condições contratuais ------------------------
 
   const DIFERENCIAL_ITEM_KEYS = new Set([
     'telemedicina',
@@ -1273,6 +1460,513 @@ export default async function placementRoutes(
     'resgate_domiciliar',
     'resgate_saude',
   ]);
+
+  const CONDICAO_CONTRATUAL_ITEM_KEYS = new Set([
+    'vigencia_contratual',
+    'tipo_contratacao',
+    'modalidade_contrato',
+    'regra_contribuicao',
+    'aviso_previo',
+    'clausula_cancelamento',
+    'meritocracia_parto',
+    'prazo_inclusao',
+    'remissao',
+    'taxa_inscricao',
+    'iof',
+    'break_even',
+    'reajuste_financeiro',
+    'reajuste_tecnico',
+    'validade_proposta',
+  ]);
+
+  const condicaoInclude = {
+    operadora: { select: { id: true, nome: true } },
+    placementPlano: {
+      select: { id: true, plano: true, categoria: true, operadoraId: true },
+    },
+  } as const;
+
+  function normalizeCondicaoBody(body: {
+    operadoraId?: string
+    porPlano?: boolean
+    placementPlanoId?: string | null
+    itemKey?: string
+    texto?: string
+  }) {
+    const operadoraId = String(body.operadoraId ?? '').trim()
+    const porPlano = body.porPlano === true
+    const placementPlanoId = porPlano ? String(body.placementPlanoId ?? '').trim() : ''
+    const itemKey = String(body.itemKey ?? '').trim()
+    const texto = String(body.texto ?? '').trim()
+    return { operadoraId, porPlano, placementPlanoId, itemKey, texto }
+  }
+
+  async function validateCondicaoRefs(reply: any, input: {
+    operadoraId: string
+    porPlano: boolean
+    placementPlanoId: string
+    itemKey: string
+    texto: string
+  }) {
+    if (!input.operadoraId) {
+      return reply.status(400).send({ error: 'Fornecedor (operadora) é obrigatório' })
+    }
+    if (!input.itemKey || !CONDICAO_CONTRATUAL_ITEM_KEYS.has(input.itemKey)) {
+      return reply.status(400).send({ error: 'Item de condição contratual inválido' })
+    }
+    if (!input.texto) {
+      return reply.status(400).send({ error: 'Texto é obrigatório' })
+    }
+    if (input.porPlano && !input.placementPlanoId) {
+      return reply.status(400).send({ error: 'Plano é obrigatório quando a condição é por plano' })
+    }
+    const operadora = await prisma.operadora.findUnique({ where: { id: input.operadoraId } })
+    if (!operadora) {
+      return reply.status(400).send({ error: 'Operadora (fornecedor) não encontrada' })
+    }
+    if (input.porPlano) {
+      const plano = await prisma.placementPlano.findUnique({ where: { id: input.placementPlanoId } })
+      if (!plano) {
+        return reply.status(400).send({ error: 'Plano não encontrado' })
+      }
+      if (plano.operadoraId !== input.operadoraId) {
+        return reply.status(400).send({ error: 'O plano selecionado não pertence ao fornecedor informado' })
+      }
+    }
+    return null
+  }
+
+  fastify.get('/placement/condicoes-contratuais', async (_request, reply) => {
+    try {
+      const condicoes = await prisma.placementCondicaoContratual.findMany({
+        orderBy: [{ operadoraId: 'asc' }, { itemKey: 'asc' }, { porPlano: 'asc' }],
+        include: condicaoInclude,
+      })
+      return { condicoes }
+    } catch (error) {
+      console.error('❌ GET /placement/condicoes-contratuais:', error)
+      return reply.status(500).send({ error: 'Erro interno do servidor' })
+    }
+  })
+
+  fastify.get('/placement/condicoes-contratuais/:id', async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string }
+      const row = await prisma.placementCondicaoContratual.findUnique({
+        where: { id },
+        include: condicaoInclude,
+      })
+      if (!row) return reply.status(404).send({ error: 'Condição contratual não encontrada' })
+      return row
+    } catch (error) {
+      console.error('❌ GET /placement/condicoes-contratuais/:id:', error)
+      return reply.status(500).send({ error: 'Erro interno do servidor' })
+    }
+  })
+
+  fastify.post('/placement/condicoes-contratuais', async (request, reply) => {
+    try {
+      const body = (request.body ?? {}) as {
+        operadoraId?: string
+        porPlano?: boolean
+        placementPlanoId?: string | null
+        itemKey?: string
+        texto?: string
+      }
+      const input = normalizeCondicaoBody(body)
+      const invalid = await validateCondicaoRefs(reply, input)
+      if (invalid) return invalid
+
+      const created = await prisma.placementCondicaoContratual.create({
+        data: {
+          operadoraId: input.operadoraId,
+          porPlano: input.porPlano,
+          placementPlanoId: input.porPlano ? input.placementPlanoId : null,
+          itemKey: input.itemKey,
+          texto: input.texto,
+        },
+        include: condicaoInclude,
+      })
+      return reply.status(201).send(created)
+    } catch (error: any) {
+      if (error?.code === 'P2002') {
+        return reply.status(409).send({
+          error: 'Já existe condição contratual para este fornecedor/item (e plano, se aplicável).',
+        })
+      }
+      console.error('❌ POST /placement/condicoes-contratuais:', error)
+      return reply.status(500).send({ error: 'Erro interno do servidor' })
+    }
+  })
+
+  fastify.post('/placement/condicoes-contratuais/upsert-batch', async (request, reply) => {
+    try {
+      const body = (request.body ?? {}) as {
+        items?: Array<{
+          operadoraId?: string
+          porPlano?: boolean
+          placementPlanoId?: string | null
+          itemKey?: string
+          texto?: string
+        }>
+      }
+      const items = Array.isArray(body.items) ? body.items : []
+      if (!items.length) {
+        return reply.status(400).send({ error: 'Informe items[] para sincronizar.' })
+      }
+
+      let synced = 0
+      let skipped = 0
+      const upserted: any[] = []
+
+      for (const raw of items) {
+        const input = normalizeCondicaoBody(raw)
+        if (
+          !input.operadoraId ||
+          !input.itemKey ||
+          !CONDICAO_CONTRATUAL_ITEM_KEYS.has(input.itemKey) ||
+          !input.texto ||
+          (input.porPlano && !input.placementPlanoId)
+        ) {
+          skipped += 1
+          continue
+        }
+
+        const operadora = await prisma.operadora.findUnique({ where: { id: input.operadoraId } })
+        if (!operadora) {
+          skipped += 1
+          continue
+        }
+        if (input.porPlano) {
+          const plano = await prisma.placementPlano.findUnique({ where: { id: input.placementPlanoId } })
+          if (!plano || plano.operadoraId !== input.operadoraId) {
+            skipped += 1
+            continue
+          }
+        }
+
+        const existing = await prisma.placementCondicaoContratual.findFirst({
+          where: input.porPlano
+            ? {
+                operadoraId: input.operadoraId,
+                itemKey: input.itemKey,
+                porPlano: true,
+                placementPlanoId: input.placementPlanoId,
+              }
+            : {
+                operadoraId: input.operadoraId,
+                itemKey: input.itemKey,
+                porPlano: false,
+              },
+        })
+
+        const row = existing
+          ? await prisma.placementCondicaoContratual.update({
+              where: { id: existing.id },
+              data: {
+                texto: input.texto,
+                porPlano: input.porPlano,
+                placementPlanoId: input.porPlano ? input.placementPlanoId : null,
+              },
+              include: condicaoInclude,
+            })
+          : await prisma.placementCondicaoContratual.create({
+              data: {
+                operadoraId: input.operadoraId,
+                porPlano: input.porPlano,
+                placementPlanoId: input.porPlano ? input.placementPlanoId : null,
+                itemKey: input.itemKey,
+                texto: input.texto,
+              },
+              include: condicaoInclude,
+            })
+
+        upserted.push(row)
+        synced += 1
+      }
+
+      return { synced, skipped, condicoes: upserted }
+    } catch (error) {
+      console.error('❌ POST /placement/condicoes-contratuais/upsert-batch:', error)
+      return reply.status(500).send({ error: 'Erro interno do servidor' })
+    }
+  })
+
+  fastify.put('/placement/condicoes-contratuais/:id', async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string }
+      const body = (request.body ?? {}) as {
+        operadoraId?: string
+        porPlano?: boolean
+        placementPlanoId?: string | null
+        itemKey?: string
+        texto?: string
+      }
+      const existing = await prisma.placementCondicaoContratual.findUnique({ where: { id } })
+      if (!existing) return reply.status(404).send({ error: 'Condição contratual não encontrada' })
+
+      const input = normalizeCondicaoBody({
+        operadoraId: body.operadoraId ?? existing.operadoraId,
+        porPlano: body.porPlano ?? existing.porPlano,
+        placementPlanoId:
+          body.placementPlanoId !== undefined ? body.placementPlanoId : existing.placementPlanoId,
+        itemKey: body.itemKey ?? existing.itemKey,
+        texto: body.texto ?? existing.texto,
+      })
+      const invalid = await validateCondicaoRefs(reply, input)
+      if (invalid) return invalid
+
+      const updated = await prisma.placementCondicaoContratual.update({
+        where: { id },
+        data: {
+          operadoraId: input.operadoraId,
+          porPlano: input.porPlano,
+          placementPlanoId: input.porPlano ? input.placementPlanoId : null,
+          itemKey: input.itemKey,
+          texto: input.texto,
+        },
+        include: condicaoInclude,
+      })
+      return updated
+    } catch (error: any) {
+      if (error?.code === 'P2002') {
+        return reply.status(409).send({
+          error: 'Já existe condição contratual para este fornecedor/item (e plano, se aplicável).',
+        })
+      }
+      console.error('❌ PUT /placement/condicoes-contratuais/:id:', error)
+      return reply.status(500).send({ error: 'Erro interno do servidor' })
+    }
+  })
+
+  fastify.delete('/placement/condicoes-contratuais/:id', async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string }
+      await prisma.placementCondicaoContratual.delete({ where: { id } })
+      return reply.status(204).send()
+    } catch (error) {
+      console.error('❌ DELETE /placement/condicoes-contratuais/:id:', error)
+      return reply.status(500).send({ error: 'Erro interno do servidor' })
+    }
+  })
+
+  const INDICADOR_OPERADORA_ITEM_KEYS = new Set([
+    'idss',
+    'endiv',
+    'lg',
+    'impacto_endiv_lg',
+    'porte_operadora',
+    'tempo_registro_ans',
+    'segmento',
+    'vidas_administradas',
+  ])
+
+  const indicadorInclude = {
+    operadora: { select: { id: true, nome: true } },
+  } as const
+
+  function normalizeIndicadorBody(body: {
+    operadoraId?: string
+    itemKey?: string
+    texto?: string
+  }) {
+    return {
+      operadoraId: String(body.operadoraId ?? '').trim(),
+      itemKey: String(body.itemKey ?? '').trim(),
+      texto: String(body.texto ?? '').trim(),
+    }
+  }
+
+  async function validateIndicadorRefs(
+    reply: any,
+    input: { operadoraId: string; itemKey: string; texto: string }
+  ) {
+    if (!input.operadoraId) {
+      return reply.status(400).send({ error: 'Fornecedor (operadora) é obrigatório' })
+    }
+    if (!input.itemKey || !INDICADOR_OPERADORA_ITEM_KEYS.has(input.itemKey)) {
+      return reply.status(400).send({ error: 'Item de indicador inválido' })
+    }
+    if (!input.texto) {
+      return reply.status(400).send({ error: 'Texto/valor é obrigatório' })
+    }
+    const operadora = await prisma.operadora.findUnique({ where: { id: input.operadoraId } })
+    if (!operadora) {
+      return reply.status(400).send({ error: 'Operadora (fornecedor) não encontrada' })
+    }
+    return null
+  }
+
+  fastify.get('/placement/indicadores-operadoras', async (_request, reply) => {
+    try {
+      const indicadores = await prisma.placementIndicadorOperadora.findMany({
+        orderBy: [{ operadoraId: 'asc' }, { itemKey: 'asc' }],
+        include: indicadorInclude,
+      })
+      return { indicadores }
+    } catch (error) {
+      console.error('❌ GET /placement/indicadores-operadoras:', error)
+      return reply.status(500).send({ error: 'Erro interno do servidor' })
+    }
+  })
+
+  fastify.get('/placement/indicadores-operadoras/:id', async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string }
+      const row = await prisma.placementIndicadorOperadora.findUnique({
+        where: { id },
+        include: indicadorInclude,
+      })
+      if (!row) return reply.status(404).send({ error: 'Indicador não encontrado' })
+      return row
+    } catch (error) {
+      console.error('❌ GET /placement/indicadores-operadoras/:id:', error)
+      return reply.status(500).send({ error: 'Erro interno do servidor' })
+    }
+  })
+
+  fastify.post('/placement/indicadores-operadoras', async (request, reply) => {
+    try {
+      const body = (request.body ?? {}) as {
+        operadoraId?: string
+        itemKey?: string
+        texto?: string
+      }
+      const input = normalizeIndicadorBody(body)
+      const invalid = await validateIndicadorRefs(reply, input)
+      if (invalid) return invalid
+
+      const created = await prisma.placementIndicadorOperadora.create({
+        data: {
+          operadoraId: input.operadoraId,
+          itemKey: input.itemKey,
+          texto: input.texto,
+        },
+        include: indicadorInclude,
+      })
+      return reply.status(201).send(created)
+    } catch (error: any) {
+      if (error?.code === 'P2002') {
+        return reply.status(409).send({
+          error: 'Já existe indicador para este fornecedor/item.',
+        })
+      }
+      console.error('❌ POST /placement/indicadores-operadoras:', error)
+      return reply.status(500).send({ error: 'Erro interno do servidor' })
+    }
+  })
+
+  fastify.post('/placement/indicadores-operadoras/upsert-batch', async (request, reply) => {
+    try {
+      const body = (request.body ?? {}) as {
+        items?: Array<{ operadoraId?: string; itemKey?: string; texto?: string }>
+      }
+      const items = Array.isArray(body.items) ? body.items : []
+      if (!items.length) {
+        return reply.status(400).send({ error: 'Informe items[] para sincronizar.' })
+      }
+
+      let synced = 0
+      let skipped = 0
+      const upserted: any[] = []
+
+      for (const raw of items) {
+        const input = normalizeIndicadorBody(raw)
+        if (
+          !input.operadoraId ||
+          !input.itemKey ||
+          !INDICADOR_OPERADORA_ITEM_KEYS.has(input.itemKey) ||
+          !input.texto
+        ) {
+          skipped += 1
+          continue
+        }
+        const operadora = await prisma.operadora.findUnique({ where: { id: input.operadoraId } })
+        if (!operadora) {
+          skipped += 1
+          continue
+        }
+
+        const existing = await prisma.placementIndicadorOperadora.findFirst({
+          where: { operadoraId: input.operadoraId, itemKey: input.itemKey },
+        })
+
+        const row = existing
+          ? await prisma.placementIndicadorOperadora.update({
+              where: { id: existing.id },
+              data: { texto: input.texto },
+              include: indicadorInclude,
+            })
+          : await prisma.placementIndicadorOperadora.create({
+              data: {
+                operadoraId: input.operadoraId,
+                itemKey: input.itemKey,
+                texto: input.texto,
+              },
+              include: indicadorInclude,
+            })
+
+        upserted.push(row)
+        synced += 1
+      }
+
+      return { synced, skipped, indicadores: upserted }
+    } catch (error) {
+      console.error('❌ POST /placement/indicadores-operadoras/upsert-batch:', error)
+      return reply.status(500).send({ error: 'Erro interno do servidor' })
+    }
+  })
+
+  fastify.put('/placement/indicadores-operadoras/:id', async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string }
+      const body = (request.body ?? {}) as {
+        operadoraId?: string
+        itemKey?: string
+        texto?: string
+      }
+      const existing = await prisma.placementIndicadorOperadora.findUnique({ where: { id } })
+      if (!existing) return reply.status(404).send({ error: 'Indicador não encontrado' })
+
+      const input = normalizeIndicadorBody({
+        operadoraId: body.operadoraId ?? existing.operadoraId,
+        itemKey: body.itemKey ?? existing.itemKey,
+        texto: body.texto ?? existing.texto,
+      })
+      const invalid = await validateIndicadorRefs(reply, input)
+      if (invalid) return invalid
+
+      const updated = await prisma.placementIndicadorOperadora.update({
+        where: { id },
+        data: {
+          operadoraId: input.operadoraId,
+          itemKey: input.itemKey,
+          texto: input.texto,
+        },
+        include: indicadorInclude,
+      })
+      return updated
+    } catch (error: any) {
+      if (error?.code === 'P2002') {
+        return reply.status(409).send({
+          error: 'Já existe indicador para este fornecedor/item.',
+        })
+      }
+      console.error('❌ PUT /placement/indicadores-operadoras/:id:', error)
+      return reply.status(500).send({ error: 'Erro interno do servidor' })
+    }
+  })
+
+  fastify.delete('/placement/indicadores-operadoras/:id', async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string }
+      await prisma.placementIndicadorOperadora.delete({ where: { id } })
+      return reply.status(204).send()
+    } catch (error) {
+      console.error('❌ DELETE /placement/indicadores-operadoras/:id:', error)
+      return reply.status(500).send({ error: 'Erro interno do servidor' })
+    }
+  })
 
   fastify.get('/placement/diferenciais', async (_request, reply) => {
     try {

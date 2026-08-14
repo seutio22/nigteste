@@ -35,6 +35,7 @@ export function formScopeForWorkflow(
   if (
     workflowStageKey === 'aguardando_operadora' ||
     workflowStageKey === 'consolidando_dados' ||
+    workflowStageKey === 'validacao_proposta' ||
     workflowStageKey === 'proposta_enviada'
   ) {
     return 'observacoes_only'

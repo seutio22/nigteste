@@ -246,3 +246,131 @@ export function computeBeneficiariosResumo(
     planos,
   }
 }
+
+/** Dimensões clicáveis no painel Grupo elegível (filtros cruzados). */
+export type BeneficiariosResumoFiltro = {
+  titularidade?: 'T' | 'D' | 'A' | '?' | null
+  faixaKey?: string | null
+  plano?: string | null
+  categoria?: BeneficiarioCategoriaApresentacao | null
+  sexo?: 'M' | 'F' | null
+  potencialGestacional?: boolean
+  acima59?: boolean
+}
+
+export function emptyBeneficiariosResumoFiltro(): BeneficiariosResumoFiltro {
+  return {}
+}
+
+export function beneficiariosResumoFiltroAtivo(filtro: BeneficiariosResumoFiltro | null | undefined): boolean {
+  if (!filtro) return false
+  return Boolean(
+    filtro.titularidade ||
+      filtro.faixaKey ||
+      filtro.plano ||
+      filtro.categoria ||
+      filtro.sexo ||
+      filtro.potencialGestacional ||
+      filtro.acima59
+  )
+}
+
+function planoLabel(b: PlacementBeneficiario): string {
+  return String(b.planoAtual ?? '').trim() || 'Sem plano informado'
+}
+
+function matchesFiltro(b: PlacementBeneficiario, filtro: BeneficiariosResumoFiltro): boolean {
+  if (filtro.titularidade) {
+    const tipo = resolveTipoParentesco(b.grauParentesco)
+    const code = tipo ?? '?'
+    if (code !== filtro.titularidade) return false
+  }
+  if (filtro.categoria && classifyCategoria(b) !== filtro.categoria) return false
+  if (filtro.plano && planoLabel(b) !== filtro.plano) return false
+  if (filtro.sexo) {
+    const sex = parseBeneficiarioSexo(b.sexo)
+    if (sex !== filtro.sexo) return false
+  }
+
+  const idade = parseBeneficiarioIdadeFromValue(b.dataNascimento)
+  if (filtro.faixaKey) {
+    if (idade == null) return false
+    if (faixaEtariaKeyFromIdade(idade) !== filtro.faixaKey) return false
+  }
+  if (filtro.acima59) {
+    if (idade == null || idade < 59) return false
+  }
+  if (filtro.potencialGestacional) {
+    const sex = parseBeneficiarioSexo(b.sexo)
+    if (sex !== 'F' || idade == null || idade < 19 || idade > 38) return false
+  }
+  return true
+}
+
+/** Filtra a base antes de recomputar o resumo (titularidade → faixas/planos/métricas). */
+export function filterBeneficiariosForResumo(
+  rows: PlacementBeneficiario[],
+  filtro: BeneficiariosResumoFiltro | null | undefined
+): PlacementBeneficiario[] {
+  if (!beneficiariosResumoFiltroAtivo(filtro)) return rows
+  return rows.filter((b) => matchesFiltro(b, filtro!))
+}
+
+export function toggleBeneficiariosFiltroValor<K extends keyof BeneficiariosResumoFiltro>(
+  filtro: BeneficiariosResumoFiltro,
+  key: K,
+  value: BeneficiariosResumoFiltro[K]
+): BeneficiariosResumoFiltro {
+  const current = filtro[key]
+  const same =
+    current === value ||
+    (current == null && (value == null || value === false)) ||
+    (value === true && current === true)
+  if (same) {
+    const next = { ...filtro }
+    delete next[key]
+    return next
+  }
+  return { ...filtro, [key]: value }
+}
+
+export function describeBeneficiariosFiltro(filtro: BeneficiariosResumoFiltro): string[] {
+  const parts: string[] = []
+  if (filtro.titularidade === 'T') parts.push('Titulares')
+  else if (filtro.titularidade === 'D') parts.push('Dependentes')
+  else if (filtro.titularidade === 'A') parts.push('Agregados')
+  else if (filtro.titularidade === '?') parts.push('Não classificados')
+  if (filtro.sexo === 'M') parts.push('Masculino')
+  if (filtro.sexo === 'F') parts.push('Feminino')
+  if (filtro.faixaKey) {
+    const label = BENEFICIARIO_FAIXAS_APRESENTACAO.find((f) => f.key === filtro.faixaKey)?.label
+    parts.push(label ? `Faixa ${label}` : `Faixa ${filtro.faixaKey}`)
+  }
+  if (filtro.plano) parts.push(`Plano: ${filtro.plano}`)
+  if (filtro.categoria) {
+    const label = CATEGORIAS_APRESENTACAO.find((c) => c.key === filtro.categoria)?.label
+    parts.push(label ? label.replace(/¹|²/g, '').trim() : filtro.categoria)
+  }
+  if (filtro.potencialGestacional) parts.push('Pot. gestacional (F 19–38)')
+  if (filtro.acima59) parts.push('59+ anos')
+  return parts
+}
+
+/** Frase curta de inteligência sobre o recorte filtrado. */
+export function insightBeneficiariosResumo(
+  resumo: BeneficiariosResumoApresentacao,
+  totalBase: number
+): string {
+  const pctBase = totalBase > 0 ? Math.round((resumo.total / totalBase) * 100) : 0
+  const parts: string[] = [`${resumo.total} de ${totalBase} vidas (${pctBase}%)`]
+  if (resumo.mediaIdade != null) parts.push(`média ${resumo.mediaIdade} anos`)
+  if (resumo.planos[0]) {
+    const top = resumo.planos[0]
+    const pctPlano = resumo.total > 0 ? Math.round((top.quantidade / resumo.total) * 100) : 0
+    parts.push(`plano líder: ${top.plano} (${pctPlano}%)`)
+  }
+  if (resumo.total > 0) {
+    parts.push(`${resumo.pctFeminino}% ♀ · ${resumo.pctMasculino}% ♂`)
+  }
+  return parts.join(' · ')
+}

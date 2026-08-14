@@ -180,7 +180,14 @@ function patchColunaLabels(
     planoLabel = `${refLabel !== '—' ? refLabel : col.planoLabel} · ${tituloCenario}`
   } else if (entrada.grupo === 'mercado') {
     const nomeOferta = entrada.plano.nomePlano.trim() || 'Proposta'
-    planoLabel = refLabel !== '—' ? `${nomeOferta} (≈ ${refLabel})` : nomeOferta
+    if (tituloCenario) {
+      planoLabel =
+        refLabel !== '—'
+          ? `${nomeOferta} · ${tituloCenario} (≈ ${refLabel})`
+          : `${nomeOferta} · ${tituloCenario}`
+    } else {
+      planoLabel = refLabel !== '—' ? `${nomeOferta} (≈ ${refLabel})` : nomeOferta
+    }
   }
 
   return {
@@ -192,6 +199,9 @@ function patchColunaLabels(
     planoLabel,
     grupo: entrada.grupo,
     planoReferenciaId: entrada.planoReferenciaId,
+    cenarioId: entrada.cenarioId,
+    cenarioTitulo: entrada.cenarioTitulo,
+    cenarioOrdem: entrada.cenarioOrdem,
     contribuicao: entrada.plano.contribuicao.trim() || col.contribuicao,
     coparticipacao: coparticipacaoSimNaoLabel(
       entrada.plano.coparticipacao.trim() || col.coparticipacao

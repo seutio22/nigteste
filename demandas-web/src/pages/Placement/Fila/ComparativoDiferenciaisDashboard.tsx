@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import {
   Alert,
   Box,
@@ -25,6 +25,7 @@ import {
   type ComparativoDiferencialColuna,
   type ComparativoDiferencialPagina,
 } from './placementComparativoDiferenciais'
+import { getIndicadorOperadoraItem } from './placementIndicadoresOperadorasCatalogo'
 import { ComparativoDiferenciaisInfografico } from './ComparativoDiferenciaisInfografico'
 import { ComparativoDetalheOpcoesPanel } from './ComparativoDetalheOpcoesPanel'
 import { ComparativoDetalheSidebarLayout } from './ComparativoDetalheSidebarLayout'
@@ -52,12 +53,15 @@ type Props = {
   onPersisted?: (apiCotacao: unknown) => void
   embedded?: boolean
   onNavigateToLancamento?: () => void
+  /** Exibe apenas diferenciais, condições ou indicadores no comparativo. */
+  secaoFiltro?: 'diferenciais' | 'condicoes' | 'indicadores'
 }
 
-function Th({ children }: { children: React.ReactNode }) {
+function Th({ children, colSpan }: { children: React.ReactNode; colSpan?: number }) {
   return (
     <Box
       component="th"
+      colSpan={colSpan}
       sx={{
         bgcolor: TABLE_HEADER_BG,
         color: TABLE_NAVY,
@@ -81,15 +85,20 @@ function Td({
   bold,
   align = 'center',
   accentTop,
+  colSpan,
+  zebra,
 }: {
   children: React.ReactNode
   bold?: boolean
   align?: 'left' | 'center'
   accentTop?: string
+  colSpan?: number
+  zebra?: boolean
 }) {
   return (
     <Box
       component="td"
+      colSpan={colSpan}
       sx={{
         fontFamily: FONT,
         fontSize: 10,
@@ -98,7 +107,7 @@ function Td({
         px: 0.65,
         py: 0.55,
         border: `1px solid ${SLIDE_COLORS.border}`,
-        bgcolor: TABLE_GRAY,
+        bgcolor: zebra ? TABLE_GRAY : SLIDE_COLORS.white,
         color: TABLE_NAVY,
         verticalAlign: 'top',
         borderTop: accentTop ? `3px solid ${accentTop}` : undefined,
@@ -109,11 +118,17 @@ function Td({
   )
 }
 
-function DiferencialHeaders({ colunas }: { colunas: ComparativoDiferencialColuna[] }) {
+function DiferencialHeaders({
+  colunas,
+  matrizLabel,
+}: {
+  colunas: ComparativoDiferencialColuna[]
+  matrizLabel: string
+}) {
   return (
     <>
       <tr>
-        <Th>DIFERENCIAIS</Th>
+        <Th>{matrizLabel}</Th>
         {colunas.map((c) => (
           <Th key={`g-${c.id}`}>{c.grupo === 'atual' ? 'ATUAL' : 'MERCADO CONSUL.'}</Th>
         ))}
@@ -128,6 +143,62 @@ function DiferencialHeaders({ colunas }: { colunas: ComparativoDiferencialColuna
   )
 }
 
+function IndicadoresHeaders({ colunas }: { colunas: ComparativoDiferencialColuna[] }) {
+  return (
+    <>
+      <tr>
+        <Th>ÍNDICE</Th>
+        <Th>NOMENCLATURA DO ÍNDICE</Th>
+        <Th>DESCRIÇÃO DO ÍNDICE</Th>
+        {colunas.map((c) => (
+          <Box
+            component="th"
+            key={`g-${c.id}`}
+            sx={{
+              bgcolor: TABLE_HEADER_BG,
+              color: c.tabColor,
+              fontFamily: FONT,
+              fontSize: 10,
+              fontWeight: 800,
+              textAlign: 'center',
+              px: 0.5,
+              py: 0.45,
+              border: `1px solid ${SLIDE_COLORS.border}`,
+              verticalAlign: 'middle',
+              borderTop: `3px solid ${c.tabColor}`,
+            }}
+          >
+            {c.grupo === 'atual' ? 'ATUAL' : 'MERCADO CONSUL.'}
+          </Box>
+        ))}
+      </tr>
+      <tr>
+        <Th colSpan={3}> </Th>
+        {colunas.map((c) => (
+          <Box
+            component="th"
+            key={`o-${c.id}`}
+            sx={{
+              bgcolor: TABLE_HEADER_BG,
+              color: TABLE_NAVY,
+              fontFamily: FONT,
+              fontSize: 10,
+              fontWeight: 800,
+              textAlign: 'center',
+              px: 0.5,
+              py: 0.45,
+              border: `1px solid ${SLIDE_COLORS.border}`,
+              verticalAlign: 'middle',
+            }}
+          >
+            {c.operadora}
+          </Box>
+        ))}
+      </tr>
+    </>
+  )
+}
+
 function DiferenciaisTabelaSlide({
   page,
   ticket,
@@ -135,39 +206,97 @@ function DiferenciaisTabelaSlide({
   page: ComparativoDiferencialPagina
   ticket: string
 }) {
+  const isIndicadores = page.secao === 'indicadores'
+
   return (
     <PlacementExpandedFrame>
       <PlacementSlideHeader
         title={page.titulo}
-        subtitle={`Comparativo de diferenciais · ${ticket}`}
+        subtitle={`Comparativo · ${ticket}`}
         icon={<AutoAwesomeIcon sx={{ fontSize: 22, color: '#fff' }} />}
         badge={page.totalPages > 1 ? `${page.pageIndex + 1}/${page.totalPages}` : undefined}
       />
       <Box sx={{ px: 2, py: 1.5 }}>
         <Box
           component="table"
-          sx={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'auto' }}
+          sx={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}
         >
           <thead>
-            <DiferencialHeaders colunas={page.colunas} />
+            {isIndicadores ? (
+              <IndicadoresHeaders colunas={page.colunas} />
+            ) : (
+              <DiferencialHeaders colunas={page.colunas} matrizLabel={page.matrizLabel} />
+            )}
           </thead>
           <tbody>
-            {page.linhas.map((linha) => (
-              <tr key={linha.itemKey}>
-                <Td bold align="left">
-                  {linha.label}
-                </Td>
-                {page.colunas.map((col) => (
-                  <Td key={`${linha.itemKey}-${col.id}`} align="left" accentTop={col.tabColor}>
-                    <DiferencialCelulaContent
-                      celulas={linha.celulasPorColuna[col.id]}
-                      tabColor={col.tabColor}
-                      variant="table"
-                    />
-                  </Td>
-                ))}
-              </tr>
-            ))}
+            {page.linhas.map((linha, rowIdx) => {
+              if (!isIndicadores) {
+                return (
+                  <tr key={linha.itemKey}>
+                    <Td bold align="left">
+                      {linha.label}
+                    </Td>
+                    {page.colunas.map((col) => (
+                      <Td key={`${linha.itemKey}-${col.id}`} align="left" accentTop={col.tabColor}>
+                        <DiferencialCelulaContent
+                          celulas={linha.celulasPorColuna[col.id]}
+                          tabColor={col.tabColor}
+                          variant="table"
+                        />
+                      </Td>
+                    ))}
+                  </tr>
+                )
+              }
+
+              const meta = getIndicadorOperadoraItem(linha.itemKey)
+              const detalhado = meta?.layout === 'detalhado'
+              const zebra = rowIdx % 2 === 1
+              return (
+                <tr key={linha.itemKey}>
+                  {detalhado ? (
+                    <>
+                      <Td bold align="left" zebra={zebra}>
+                        {meta?.indice ?? linha.label}
+                      </Td>
+                      <Td align="left" zebra={zebra}>
+                        {meta?.nomenclatura ?? ''}
+                      </Td>
+                      <Td align="left" zebra={zebra}>
+                        <Typography
+                          sx={{
+                            fontFamily: FONT,
+                            fontSize: 8,
+                            lineHeight: 1.35,
+                            color: TABLE_NAVY,
+                          }}
+                        >
+                          {meta?.descricao ?? ''}
+                        </Typography>
+                      </Td>
+                    </>
+                  ) : (
+                    <Td bold align="left" colSpan={3} zebra={zebra}>
+                      {linha.label}
+                    </Td>
+                  )}
+                  {page.colunas.map((col) => (
+                    <Td
+                      key={`${linha.itemKey}-${col.id}`}
+                      align="center"
+                      accentTop={col.tabColor}
+                      zebra={zebra}
+                    >
+                      <DiferencialCelulaContent
+                        celulas={linha.celulasPorColuna[col.id]}
+                        tabColor={col.tabColor}
+                        variant="table"
+                      />
+                    </Td>
+                  ))}
+                </tr>
+              )
+            })}
           </tbody>
         </Box>
         <Typography
@@ -195,6 +324,7 @@ export function ComparativoDiferenciaisDashboard({
   form,
   embedded,
   onNavigateToLancamento,
+  secaoFiltro,
 }: Props) {
   const operadoras = useMasterDataStore((s) => s.operadoras)
   const operadorasById = useMasterDataStore((s) => s.operadorasById)
@@ -218,18 +348,40 @@ export function ComparativoDiferenciaisDashboard({
 
   const pages = useMemo(() => {
     const raw = buildComparativoDiferencialPages(form, operadoras, operadorasById, config.incluirColunaAtual)
-    return filterDiferencialPages(raw, colunas)
-  }, [form, operadoras, operadorasById, config.incluirColunaAtual, colunas])
+    const filtered = filterDiferencialPages(raw, colunas)
+    if (!secaoFiltro) return filtered
+    const only = filtered.filter((p) => p.secao === secaoFiltro)
+    const totalPages = only.length
+    return only.map((p, pageIndex) => ({ ...p, pageIndex, totalPages }))
+  }, [form, operadoras, operadorasById, config.incluirColunaAtual, colunas, secaoFiltro])
+
+  useEffect(() => {
+    setPageIndex(0)
+  }, [secaoFiltro])
 
   const currentPage = pages[pageIndex] ?? pages[0]
   const ticket = form.ticket || cotacaoId
   const paginaCompleta = exibirTodasPaginas
+  const tituloSecao =
+    secaoFiltro === 'condicoes'
+      ? 'Comparativo de condições contratuais'
+      : secaoFiltro === 'indicadores'
+        ? 'Comparativo de Indicadores das Operadoras'
+        : secaoFiltro === 'diferenciais'
+          ? 'Comparativo de diferenciais'
+          : 'Comparativo (diferenciais, condições e indicadores)'
+  const editLabel =
+    secaoFiltro === 'condicoes'
+      ? 'Editar condições'
+      : secaoFiltro === 'indicadores'
+        ? 'Editar indicadores'
+        : 'Editar lançamento'
 
   if (!colunasTodas.length) {
     return (
       <Box sx={{ p: embedded ? 0 : 3 }}>
         <Alert severity="info">
-          Cadastre propostas por fornecedor na etapa Aguardando operadora e preencha os diferenciais em{' '}
+          Cadastre propostas por fornecedor na etapa Aguardando operadora e preencha diferenciais e condições em{' '}
           <strong>Lançamento</strong>.
         </Alert>
         {onNavigateToLancamento && (
@@ -251,26 +403,43 @@ export function ComparativoDiferenciaisDashboard({
     )
   }
 
-  const preview =
-    modoVisualizacao === 'infografico' ? (
-      paginaCompleta ? (
-        <Stack spacing={2.5}>
-          {pages.map((page, i) => (
-            <ComparativoDiferenciaisInfografico key={`diff-info-${i}`} page={page} ticket={ticket} />
-          ))}
-        </Stack>
-      ) : (
-        currentPage && <ComparativoDiferenciaisInfografico page={currentPage} ticket={ticket} />
-      )
-    ) : paginaCompleta ? (
-      <Stack spacing={2.5}>
-        {pages.map((page, i) => (
-          <DiferenciaisTabelaSlide key={`diff-tab-${i}`} page={page} ticket={ticket} />
-        ))}
-      </Stack>
-    ) : (
-      currentPage && <DiferenciaisTabelaSlide page={currentPage} ticket={ticket} />
+  if (!pages.length) {
+    return (
+      <Box sx={{ p: embedded ? 0 : 3 }}>
+        <Alert severity="info">
+          {secaoFiltro === 'condicoes'
+            ? 'Nenhuma condição contratual visível na proposta. Preencha o lançamento ou reative itens ocultos.'
+            : secaoFiltro === 'indicadores'
+              ? 'Nenhum indicador visível na proposta. Preencha o lançamento ou reative itens ocultos.'
+              : secaoFiltro === 'diferenciais'
+                ? 'Nenhum diferencial visível na proposta. Preencha o lançamento ou reative itens ocultos.'
+                : 'Nenhum item visível no comparativo.'}
+        </Alert>
+        {onNavigateToLancamento && (
+          <Button sx={{ mt: 2 }} variant="contained" startIcon={<EditNoteIcon />} onClick={onNavigateToLancamento}>
+            {editLabel}
+          </Button>
+        )}
+      </Box>
     )
+  }
+
+  const renderPage = (page: ComparativoDiferencialPagina, i: number) =>
+    // Indicadores: infográfico do sistema (logos + cores) já inclui Índice/Nomenclatura/Descrição.
+    // Demais seções respeitam o toggle infográfico/tabela.
+    modoVisualizacao === 'tabela' && page.secao !== 'indicadores' ? (
+      <DiferenciaisTabelaSlide key={`diff-tab-${page.secao}-${i}`} page={page} ticket={ticket} />
+    ) : page.secao === 'indicadores' || modoVisualizacao === 'infografico' ? (
+      <ComparativoDiferenciaisInfografico key={`diff-info-${page.secao}-${i}`} page={page} ticket={ticket} />
+    ) : (
+      <DiferenciaisTabelaSlide key={`diff-tab-${page.secao}-${i}`} page={page} ticket={ticket} />
+    )
+
+  const preview = paginaCompleta ? (
+    <Stack spacing={2.5}>{pages.map((page, i) => renderPage(page, i))}</Stack>
+  ) : (
+    currentPage && renderPage(currentPage, pageIndex)
+  )
 
   const inner = (
     <>
@@ -318,7 +487,7 @@ export function ComparativoDiferenciaisDashboard({
             )}
             {onNavigateToLancamento && (
               <Button size="small" variant="outlined" startIcon={<EditNoteIcon />} onClick={onNavigateToLancamento}>
-                Editar
+                {editLabel}
               </Button>
             )}
           </Stack>
@@ -354,7 +523,7 @@ export function ComparativoDiferenciaisDashboard({
         >
           <Box sx={{ minWidth: 0 }}>
             <Typography variant="subtitle1" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
-              Comparativo de diferenciais
+              {tituloSecao}
             </Typography>
             <Typography variant="body2" color="text.secondary">
               {colunas.length} fornecedor(es) · {pages.length} slide(s)
@@ -364,7 +533,7 @@ export function ComparativoDiferenciaisDashboard({
           <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
             {onNavigateToLancamento && (
               <Button size="small" variant="outlined" startIcon={<EditNoteIcon />} onClick={onNavigateToLancamento}>
-                Editar diferenciais
+                {editLabel}
               </Button>
             )}
             {!paginaCompleta && pages.length > 1 && (

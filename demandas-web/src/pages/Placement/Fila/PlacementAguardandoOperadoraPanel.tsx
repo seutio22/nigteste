@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Alert,
@@ -50,9 +50,14 @@ import { AguardandoFornecedorTableRow } from './AguardandoFornecedorTableRow'
 import { usePlacementKickOffAutosave } from './usePlacementKickOffAutosave'
 import { sanitizePercentInput } from './placementCotacaoFinanceiro'
 import { MERCADO_CLASSIFICACAO_LABELS, mercadoNomesComFornecedoresAtuais } from './placementMercadoQuadro'
-import { patchAguardandoProposta, PropostaFornecedorSection } from './PropostaFornecedorSection'
+import {
+  patchAguardandoPropostaHot,
+  PropostaFornecedorSection,
+} from './PropostaFornecedorSection'
 import { isFornecedorAtualNome } from './placementPropostaCenarioAtual'
 import { PlacementDraftTextField } from './PlacementDraftTextField'
+import { ComparativoEstudosSwitcher } from './ComparativoEstudosSwitcher'
+import { useComparativoConfigPersist } from './useComparativoConfigPersist'
 
 type Props = {
   cotacaoId: string
@@ -129,6 +134,23 @@ export const PlacementAguardandoOperadoraPanel = React.memo(function PlacementAg
 
   const { saveState, scheduleSave } = usePlacementKickOffAutosave({ cotacaoId, onPersisted, debounceMs: 700 })
 
+  const {
+    estudos,
+    ativoId,
+    selectEstudo,
+    createEstudo,
+    duplicateEstudo,
+    renameEstudo,
+    removeEstudo,
+  } = useComparativoConfigPersist({
+    cotacaoId,
+    form,
+    operadoras,
+    operadorasById,
+    onChange,
+    onPersisted,
+  })
+
   useEffect(() => {
     if (!fornecedorAtivo && fornecedores.length) {
       setFornecedorAtivo(fornecedores[0])
@@ -175,38 +197,49 @@ export const PlacementAguardandoOperadoraPanel = React.memo(function PlacementAg
     persistAguardando(next, { immediate: part.retornoRecebido !== undefined })
   }
 
-  function patchProposta(
-    nextOrUpdater:
-      | PropostaFornecedorState
-      | ((prev: PropostaFornecedorState) => PropostaFornecedorState)
-  ) {
-    if (!fornKey) return
+  const patchProposta = useCallback(
+    (
+      nextOrUpdater:
+        | PropostaFornecedorState
+        | ((prev: PropostaFornecedorState) => PropostaFornecedorState)
+    ) => {
+      if (!fornKey) return
 
-    const ag = ensureAguardandoOperadoraState(
-      parseAguardandoOperadoraFromKickOff(formRef.current.kickOffEstrategia),
-      formRef.current,
-      operadorasRef.current,
-      operadorasByIdRef.current,
-      comunicarMercadoRef.current
-    )
-    const current = ag.propostas[fornKey] ?? emptyPropostaFornecedor()
-    const proposta =
-      typeof nextOrUpdater === 'function' ? nextOrUpdater(current) : nextOrUpdater
-    pendingPropostaRef.current = proposta
+      const parsed = parseAguardandoOperadoraFromKickOff(formRef.current.kickOffEstrategia)
+      // Hot path: usa estado já no form. Ensure completo só se estrutura ainda não existir.
+      const ag =
+        parsed?.propostas && Object.keys(parsed.propostas).length > 0
+          ? parsed
+          : ensureAguardandoOperadoraState(
+              parsed,
+              formRef.current,
+              operadorasRef.current,
+              operadorasByIdRef.current,
+              comunicarMercadoRef.current
+            )
+      const current = ag.propostas[fornKey] ?? emptyPropostaFornecedor()
+      const proposta =
+        typeof nextOrUpdater === 'function' ? nextOrUpdater(current) : nextOrUpdater
+      pendingPropostaRef.current = proposta
 
-    const nextForm = patchKickOffInForm(
-      formRef.current,
-      { aguardandoOperadora: patchAguardandoProposta(ag, fornKey, proposta) },
-      fornecedoresRef.current
-    )
-    formRef.current = nextForm
-    onChange(nextForm)
+      const nextAg = patchAguardandoPropostaHot(ag, fornKey, proposta)
+      const nextForm = patchKickOffInForm(
+        formRef.current,
+        { aguardandoOperadora: nextAg },
+        fornecedoresRef.current
+      )
+      formRef.current = nextForm
+      startTransition(() => {
+        onChange(nextForm)
+      })
 
-    if (propostaDebounceRef.current) clearTimeout(propostaDebounceRef.current)
-    propostaDebounceRef.current = setTimeout(() => {
-      scheduleSave(formRef.current.kickOffEstrategia!)
-    }, 400)
-  }
+      if (propostaDebounceRef.current) clearTimeout(propostaDebounceRef.current)
+      propostaDebounceRef.current = setTimeout(() => {
+        scheduleSave(formRef.current.kickOffEstrategia!)
+      }, 400)
+    },
+    [fornKey, onChange, scheduleSave]
+  )
 
   function abrirComparativoTelaCheia() {
     navigate(`/placement/fila/${cotacaoId}/comparativo`)
@@ -265,6 +298,18 @@ export const PlacementAguardandoOperadoraPanel = React.memo(function PlacementAg
           }
         />
       )}
+
+      <ComparativoEstudosSwitcher
+        mode="manage"
+        estudos={estudos}
+        ativoId={ativoId}
+        disabled={disabled}
+        onSelect={selectEstudo}
+        onCreate={createEstudo}
+        onDuplicate={duplicateEstudo}
+        onRename={renameEstudo}
+        onRemove={removeEstudo}
+      />
 
       <Paper variant="outlined" sx={{ overflow: 'auto' }}>
         <Box sx={{ px: 2, py: 1, display: 'flex', alignItems: 'center', gap: 1 }}>

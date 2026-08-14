@@ -112,6 +112,16 @@ export type ComparativoFaixaCelula = 'unitario' | 'unitario_e_subtotal' | 'subto
 /** Horizontal (pagina colunas) ou uma seção por plano equivalente (empilhado). */
 export type ComparativoFaixaAgrupamento = 'horizontal' | 'por_plano_equivalente'
 
+/** Linha de custo do plano: unitário médio ou total (fatura) do plano. */
+export type ComparativoCustoPlanoExibicao = 'medio' | 'total'
+
+/**
+ * Orientação do modelo Contrato atual (ATUAL × mercado):
+ * - horizontal: colunas lado a lado (visão clássica)
+ * - vertical: planos empilhados (quadro alinhado por operadora)
+ */
+export type ComparativoContratoOrientacao = 'horizontal' | 'vertical'
+
 export type ComparativoEstudoConfig = {
   modoSlide: ComparativoEstudoModo
   colunasPorSlide: 3 | 4 | 5 | 6 | 7
@@ -125,6 +135,19 @@ export type ComparativoEstudoConfig = {
   colunasOcultas: string[]
   /** Linhas do quadro ocultas (contribuição, coparticipação, faixas, variação). */
   linhasOcultas: ComparativoLinhaChave[]
+  /**
+   * Em planos empilhados: não repetir logo/nome do fornecedor nas seções abaixo da primeira.
+   * Default: true.
+   */
+  omitirOperadoraNasSecoesEmpilhadas: boolean
+  /**
+   * Compacta vidas: remove a linha do quadro e mostra o total na legenda do custo.
+   */
+  vidasColunaUnica: boolean
+  /** Custo médio (per capita) ou custo total do plano na linha de custo. */
+  custoPlanoExibicao: ComparativoCustoPlanoExibicao
+  /** Horizontal (colunas) ou vertical (planos empilhados) no modelo Contrato atual. */
+  contratoOrientacao: ComparativoContratoOrientacao
 }
 
 export type PropostaFornecedorState = {
@@ -133,6 +156,20 @@ export type PropostaFornecedorState = {
   cenarios: PropostaCenarioVariante[]
   planos: PropostaPlanoLinha[]
 }
+
+/**
+ * Pacote de comparativo nomeado: config de exibição + propostas lançadas.
+ * Ex.: «Comparativo 1» e «Comparativo 2» com valores/cenários diferentes.
+ */
+export type ComparativoEstudoNomeado = ComparativoEstudoConfig & {
+  id: string
+  nome: string
+  /** Propostas lançadas deste comparativo (chave = fornecedor normalizado). */
+  propostas: Record<string, PropostaFornecedorState>
+}
+
+/** Como popular propostas ao criar/duplicar um comparativo. */
+export type ComparativoCriacaoModo = 'completo' | 'matriz'
 
 export type AguardandoOperadoraFornecedorState = {
   dataRetornoEfetiva: string
@@ -147,13 +184,24 @@ export type AguardandoOperadoraFornecedorState = {
 export type AguardandoOperadoraState = {
   fornecedores: Record<string, AguardandoOperadoraFornecedorState>
   quadroMercado: QuadroMercadoVisibilidade
+  /** Espelho das propostas do comparativo ativo. */
   propostas: Record<string, PropostaFornecedorState>
+  /** Espelho da config do comparativo ativo. */
   comparativoConfig: ComparativoEstudoConfig
+  /** Comparativos registrados (cada um com seus lançamentos). */
+  comparativosEstudos?: ComparativoEstudoNomeado[]
+  comparativoAtivoId?: string
+  /**
+   * Abas ocultas no viewer da proposta (Proposta enviada / link público).
+   * Valores: ids de `PropostaViewerPane` (ex.: grupo_elegivel, comparativo…).
+   */
+  apresentacaoPanesOcultas?: string[]
 }
 
 export function emptyComparativoEstudoConfig(): ComparativoEstudoConfig {
   return {
-    modoSlide: 'consolidado',
+    /** Mesmo grid do Contrato atual interno (ATUAL × propostas). */
+    modoSlide: 'contrato_plano',
     colunasPorSlide: 5,
     incluirColunaAtual: true,
     notasRodape:
@@ -163,6 +211,301 @@ export function emptyComparativoEstudoConfig(): ComparativoEstudoConfig {
     visualizacao: 'pagina_completa',
     colunasOcultas: [],
     linhasOcultas: [],
+    omitirOperadoraNasSecoesEmpilhadas: true,
+    vidasColunaUnica: false,
+    custoPlanoExibicao: 'medio',
+    contratoOrientacao: 'horizontal',
+  }
+}
+
+/** Zera filtros de visibilidade (colunas/linhas) sem alterar o modo de exibição. */
+export function clearComparativoFiltrosVisibilidade(
+  cfg: ComparativoEstudoConfig
+): ComparativoEstudoConfig {
+  return {
+    ...cfg,
+    colunasOcultas: [],
+    linhasOcultas: [],
+    vidasColunaUnica: false,
+  }
+}
+
+export function clearAguardandoOperadoraFiltrosVisibilidade(
+  ag: AguardandoOperadoraState
+): AguardandoOperadoraState {
+  const comparativoConfig = clearComparativoFiltrosVisibilidade(ag.comparativoConfig)
+  return {
+    ...ag,
+    comparativoConfig,
+    comparativosEstudos: (ag.comparativosEstudos ?? []).map((estudo) => ({
+      ...estudo,
+      ...clearComparativoFiltrosVisibilidade(configFromNomeado(estudo)),
+    })),
+  }
+}
+
+function newComparativoEstudoId(): string {
+  return `ce-${Math.random().toString(36).slice(2, 10)}`
+}
+
+export function emptyComparativoEstudoNomeado(nome = 'Comparativo 1'): ComparativoEstudoNomeado {
+  return {
+    id: newComparativoEstudoId(),
+    nome,
+    ...emptyComparativoEstudoConfig(),
+    propostas: {},
+  }
+}
+
+function clonePropostas(
+  src: Record<string, PropostaFornecedorState>
+): Record<string, PropostaFornecedorState> {
+  return JSON.parse(JSON.stringify(src ?? {})) as Record<string, PropostaFornecedorState>
+}
+
+function stripPlanoToMatriz(p: PropostaPlanoLinha): PropostaPlanoLinha {
+  return {
+    ...p,
+    numeroVidas: '',
+    custoPerCapitaBRL: '',
+    custosFaixa: emptyCustosFaixa(),
+    reembolsoConsulta: '',
+    coparticipacaoDetalhe: emptyCoparticipacao(),
+    reembolsoDetalhe: emptyReembolsoPlanoDetalhe(),
+  }
+}
+
+/** Mantém estrutura (fornecedores/planos/cenários) sem valores de custo preenchidos. */
+export function stripPropostasToMatriz(
+  src: Record<string, PropostaFornecedorState>
+): Record<string, PropostaFornecedorState> {
+  const out: Record<string, PropostaFornecedorState> = {}
+  for (const [key, prop] of Object.entries(src ?? {})) {
+    out[key] = {
+      incluirNoComparativo: prop.incluirNoComparativo !== false,
+      cenarios: (prop.cenarios ?? []).map((c) => ({
+        ...c,
+        reajustePercent: '0',
+        vigenciaMeses: c.vigenciaMeses ?? '',
+        resumoLinhas: (c.resumoLinhas ?? []).map((r) => ({ ...r, valor: '' })),
+        planos: (c.planos ?? []).map(stripPlanoToMatriz),
+      })),
+      planos: (prop.planos ?? []).map(stripPlanoToMatriz),
+    }
+  }
+  return out
+}
+
+function propostasParaModo(
+  src: Record<string, PropostaFornecedorState>,
+  modo: ComparativoCriacaoModo
+): Record<string, PropostaFornecedorState> {
+  return modo === 'completo' ? clonePropostas(src) : stripPropostasToMatriz(src)
+}
+
+function configFromNomeado(estudo: ComparativoEstudoNomeado): ComparativoEstudoConfig {
+  const { id: _id, nome: _nome, propostas: _propostas, ...cfg } = estudo
+  return cfg
+}
+
+function withNomeadoConfig(
+  estudo: ComparativoEstudoNomeado,
+  cfg: ComparativoEstudoConfig
+): ComparativoEstudoNomeado {
+  return { ...estudo, ...cfg, id: estudo.id, nome: estudo.nome, propostas: estudo.propostas }
+}
+
+function normalizeEstudoNomeado(estudo: ComparativoEstudoNomeado): ComparativoEstudoNomeado {
+  const cfg = configFromNomeado(estudo)
+  return {
+    id: estudo.id,
+    nome: estudo.nome?.trim() || 'Comparativo',
+    ...cfg,
+    colunasOcultas: [...(cfg.colunasOcultas ?? [])],
+    linhasOcultas: [...(cfg.linhasOcultas ?? [])],
+    propostas: clonePropostas(estudo.propostas ?? {}),
+  }
+}
+
+function mirrorFromAtivo(
+  estudos: ComparativoEstudoNomeado[],
+  ativoId: string
+): {
+  comparativosEstudos: ComparativoEstudoNomeado[]
+  comparativoAtivoId: string
+  comparativoConfig: ComparativoEstudoConfig
+  propostas: Record<string, PropostaFornecedorState>
+} {
+  const ativo = estudos.find((e) => e.id === ativoId) ?? estudos[0]
+  return {
+    comparativosEstudos: estudos,
+    comparativoAtivoId: ativo.id,
+    comparativoConfig: configFromNomeado(ativo),
+    propostas: clonePropostas(ativo.propostas),
+  }
+}
+
+/**
+ * Garante lista de comparativos + ativo; sincroniza espelho `propostas`/`comparativoConfig`.
+ * Migra legado: `comparativoConfig` + `propostas` no root → Comparativo 1.
+ */
+export function ensureComparativosEstudos(state: AguardandoOperadoraState): {
+  comparativosEstudos: ComparativoEstudoNomeado[]
+  comparativoAtivoId: string
+  comparativoConfig: ComparativoEstudoConfig
+  propostas: Record<string, PropostaFornecedorState>
+} {
+  let estudos = (state.comparativosEstudos ?? []).map(normalizeEstudoNomeado)
+  const mirrorPropostas = clonePropostas(state.propostas ?? {})
+
+  if (!estudos.length) {
+    const legado = state.comparativoConfig ?? emptyComparativoEstudoConfig()
+    estudos = [
+      {
+        id: newComparativoEstudoId(),
+        nome: 'Comparativo 1',
+        ...legado,
+        colunasOcultas: [...(legado.colunasOcultas ?? [])],
+        linhasOcultas: [...(legado.linhasOcultas ?? [])],
+        propostas: mirrorPropostas,
+      },
+    ]
+  } else {
+    const algumComPropostas = estudos.some((e) => Object.keys(e.propostas).length > 0)
+    if (!algumComPropostas && Object.keys(mirrorPropostas).length > 0) {
+      let seedId = state.comparativoAtivoId?.trim() || ''
+      if (!seedId || !estudos.some((e) => e.id === seedId)) seedId = estudos[0].id
+      estudos = estudos.map((e) =>
+        e.id === seedId ? { ...e, propostas: mirrorPropostas } : e
+      )
+    }
+  }
+
+  let ativoId = state.comparativoAtivoId?.trim() || ''
+  if (!ativoId || !estudos.some((e) => e.id === ativoId)) {
+    ativoId = estudos[0].id
+  }
+
+  const ativoAtual = estudos.find((e) => e.id === ativoId) ?? estudos[0]
+  // Espelho root é a fonte de verdade ao editar; se vier vazio no load (só estudos[]), preserva o ativo.
+  const mirrorVazio = Object.keys(mirrorPropostas).length === 0
+  const ativoComDados = Object.keys(ativoAtual.propostas).length > 0
+  const propostasFlush =
+    mirrorVazio && ativoComDados ? ativoAtual.propostas : mirrorPropostas
+
+  estudos = estudos.map((e) =>
+    e.id === ativoId ? { ...e, propostas: propostasFlush } : e
+  )
+
+  return mirrorFromAtivo(estudos, ativoId)
+}
+
+export function patchComparativoAtivoConfig(
+  state: AguardandoOperadoraState,
+  nextConfig: ComparativoEstudoConfig
+): AguardandoOperadoraState {
+  const ensured = ensureComparativosEstudos(state)
+  const estudos = ensured.comparativosEstudos.map((e) =>
+    e.id === ensured.comparativoAtivoId ? withNomeadoConfig(e, nextConfig) : e
+  )
+  return {
+    ...state,
+    ...mirrorFromAtivo(estudos, ensured.comparativoAtivoId),
+  }
+}
+
+export function setComparativoAtivoId(
+  state: AguardandoOperadoraState,
+  ativoId: string
+): AguardandoOperadoraState {
+  const ensured = ensureComparativosEstudos(state)
+  const hit = ensured.comparativosEstudos.find((e) => e.id === ativoId)
+  if (!hit) return { ...state, ...ensured }
+  return {
+    ...state,
+    ...mirrorFromAtivo(ensured.comparativosEstudos, hit.id),
+  }
+}
+
+export function createComparativoEstudo(
+  state: AguardandoOperadoraState,
+  nomeOrOpts?: string | { nome?: string; modo?: ComparativoCriacaoModo },
+  modoArg?: ComparativoCriacaoModo
+): AguardandoOperadoraState {
+  const opts =
+    typeof nomeOrOpts === 'object' && nomeOrOpts
+      ? nomeOrOpts
+      : { nome: typeof nomeOrOpts === 'string' ? nomeOrOpts : undefined, modo: modoArg }
+  const modo: ComparativoCriacaoModo = opts.modo ?? 'matriz'
+  const ensured = ensureComparativosEstudos(state)
+  const src =
+    ensured.comparativosEstudos.find((e) => e.id === ensured.comparativoAtivoId) ??
+    ensured.comparativosEstudos[0]
+  const n = ensured.comparativosEstudos.length + 1
+  const novo: ComparativoEstudoNomeado = {
+    ...emptyComparativoEstudoNomeado(opts.nome?.trim() || `Comparativo ${n}`),
+    ...(modo === 'completo' ? configFromNomeado(src) : emptyComparativoEstudoConfig()),
+    colunasOcultas: modo === 'completo' ? [...(src.colunasOcultas ?? [])] : [],
+    linhasOcultas: modo === 'completo' ? [...(src.linhasOcultas ?? [])] : [],
+    propostas: propostasParaModo(src.propostas, modo),
+  }
+  const estudos = [...ensured.comparativosEstudos, novo]
+  return {
+    ...state,
+    ...mirrorFromAtivo(estudos, novo.id),
+  }
+}
+
+export function duplicateComparativoEstudo(
+  state: AguardandoOperadoraState,
+  modo: ComparativoCriacaoModo = 'completo'
+): AguardandoOperadoraState {
+  const ensured = ensureComparativosEstudos(state)
+  const src =
+    ensured.comparativosEstudos.find((e) => e.id === ensured.comparativoAtivoId) ??
+    ensured.comparativosEstudos[0]
+  const copia: ComparativoEstudoNomeado = {
+    ...src,
+    id: newComparativoEstudoId(),
+    nome: `${src.nome.trim() || 'Comparativo'} (cópia)`,
+    colunasOcultas: [...(src.colunasOcultas ?? [])],
+    linhasOcultas: [...(src.linhasOcultas ?? [])],
+    propostas: propostasParaModo(src.propostas, modo),
+  }
+  return {
+    ...state,
+    ...mirrorFromAtivo([...ensured.comparativosEstudos, copia], copia.id),
+  }
+}
+
+export function renameComparativoEstudo(
+  state: AguardandoOperadoraState,
+  estudoId: string,
+  nome: string
+): AguardandoOperadoraState {
+  const ensured = ensureComparativosEstudos(state)
+  const nomeOk = nome.trim() || 'Comparativo'
+  const estudos = ensured.comparativosEstudos.map((e) =>
+    e.id === estudoId ? { ...e, nome: nomeOk } : e
+  )
+  return {
+    ...state,
+    ...mirrorFromAtivo(estudos, ensured.comparativoAtivoId),
+  }
+}
+
+export function removeComparativoEstudo(
+  state: AguardandoOperadoraState,
+  estudoId: string
+): AguardandoOperadoraState {
+  const ensured = ensureComparativosEstudos(state)
+  if (ensured.comparativosEstudos.length <= 1) return { ...state, ...ensured }
+  const estudos = ensured.comparativosEstudos.filter((e) => e.id !== estudoId)
+  const ativoId =
+    ensured.comparativoAtivoId === estudoId ? estudos[0].id : ensured.comparativoAtivoId
+  return {
+    ...state,
+    ...mirrorFromAtivo(estudos, ativoId),
   }
 }
 
@@ -325,12 +668,16 @@ export function ensureAguardandoOperadoraState(
     }
   }
 
-  return {
+  const base: AguardandoOperadoraState = {
     fornecedores,
     propostas,
     quadroMercado: current?.quadroMercado ?? emptyQuadroMercadoVisibilidade(),
     comparativoConfig: current?.comparativoConfig ?? emptyComparativoEstudoConfig(),
+    comparativosEstudos: current?.comparativosEstudos,
+    comparativoAtivoId: current?.comparativoAtivoId,
+    apresentacaoPanesOcultas: current?.apresentacaoPanesOcultas,
   }
+  return { ...base, ...ensureComparativosEstudos(base) }
 }
 
 function parseClassificacao(raw: unknown): MercadoFornecedorClassificacao {
@@ -405,14 +752,14 @@ function parseComparativoConfig(raw: unknown): ComparativoEstudoConfig {
   const faixaAgrupamento = o.faixaAgrupamento
   return {
     modoSlide:
-      modo === 'contrato_plano' ||
-      modo === 'consolidado' ||
-      modo === 'detalhe_plano' ||
-      modo === 'unificado' ||
-      modo === 'faixa_etaria' ||
-      modo === 'planos_empilhados'
-        ? modo
-        : base.modoSlide,
+      modo === 'detalhe_plano' || modo === 'unificado'
+        ? 'contrato_plano'
+        : modo === 'contrato_plano' ||
+            modo === 'consolidado' ||
+            modo === 'faixa_etaria' ||
+            modo === 'planos_empilhados'
+          ? modo
+          : base.modoSlide,
     colunasPorSlide:
       col === 3 || col === 4 || col === 5 || col === 6 || col === 7 ? col : base.colunasPorSlide,
     incluirColunaAtual: o.incluirColunaAtual !== false,
@@ -439,7 +786,39 @@ function parseComparativoConfig(raw: unknown): ComparativoEstudoConfig {
           COMPARATIVO_LINHA_CHAVES.includes(chave as ComparativoLinhaChave)
         )
       : base.linhasOcultas,
+    omitirOperadoraNasSecoesEmpilhadas: o.omitirOperadoraNasSecoesEmpilhadas !== false,
+    vidasColunaUnica: o.vidasColunaUnica === true,
+    custoPlanoExibicao: o.custoPlanoExibicao === 'total' ? 'total' : 'medio',
+    contratoOrientacao:
+      o.contratoOrientacao === 'vertical' || o.contratoOrientacao === 'horizontal'
+        ? o.contratoOrientacao
+        : base.contratoOrientacao,
   }
+}
+
+function parsePropostasMap(raw: unknown): Record<string, PropostaFornecedorState> {
+  const propostas: Record<string, PropostaFornecedorState> = {}
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return propostas
+  for (const [key, val] of Object.entries(raw as Record<string, unknown>)) {
+    propostas[key] = parsePropostaFornecedor(val)
+  }
+  return propostas
+}
+
+function parseComparativoEstudoNomeado(raw: unknown, index: number): ComparativoEstudoNomeado | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const o = raw as Record<string, unknown>
+  const cfg = parseComparativoConfig(o)
+  const id = String(o.id ?? '').trim() || newComparativoEstudoId()
+  const nome = String(o.nome ?? '').trim() || `Comparativo ${index + 1}`
+  return { id, nome, ...cfg, propostas: parsePropostasMap(o.propostas) }
+}
+
+function parseComparativosEstudos(raw: unknown): ComparativoEstudoNomeado[] {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .map((item, i) => parseComparativoEstudoNomeado(item, i))
+    .filter(Boolean) as ComparativoEstudoNomeado[]
 }
 
 function parseCenarioResumoLinha(raw: unknown): PropostaCenarioResumoLinha {
@@ -514,12 +893,21 @@ export function parseAguardandoOperadoraFromKickOff(
     }
   }
 
-  return {
+  const panesRaw = o.apresentacaoPanesOcultas
+  const apresentacaoPanesOcultas = Array.isArray(panesRaw)
+    ? panesRaw.map((id) => String(id).trim()).filter(Boolean)
+    : undefined
+
+  const parsed: AguardandoOperadoraState = {
     fornecedores,
     propostas,
     quadroMercado: parseQuadroMercado(o.quadroMercado),
     comparativoConfig: parseComparativoConfig(o.comparativoConfig),
+    comparativosEstudos: parseComparativosEstudos(o.comparativosEstudos),
+    comparativoAtivoId: o.comparativoAtivoId != null ? String(o.comparativoAtivoId) : undefined,
+    apresentacaoPanesOcultas,
   }
+  return { ...parsed, ...ensureComparativosEstudos(parsed) }
 }
 
 export function aguardandoOperadoraIsComplete(

@@ -43,7 +43,17 @@ export function usePlacementKickOffAutosave({
         })
         if (seq !== saveSeqRef.current) return
         lastSavedKeyRef.current = saveKey
-        onPersistedRef.current?.(mergeSavedKickOffIntoApiCotacao(updated, kickOff))
+        // Preferir o pending mais recente (ex.: diferenciais editados enquanto o PUT antigo terminava).
+        const latest = pendingKickOffRef.current ?? kickOff
+        if (
+          updated &&
+          typeof updated === 'object' &&
+          (updated as { __placementShareLocalNoop?: boolean }).__placementShareLocalNoop
+        ) {
+          setSaveState('saved')
+          return
+        }
+        onPersistedRef.current?.(mergeSavedKickOffIntoApiCotacao(updated, latest))
         setSaveState('saved')
       } catch {
         if (seq === saveSeqRef.current) setSaveState('error')
@@ -86,9 +96,9 @@ export function usePlacementKickOffAutosave({
 
   useEffect(
     () => () => {
-      cancelPendingSave()
+      void flushPendingSave()
     },
-    [cancelPendingSave]
+    [flushPendingSave]
   )
 
   useEffect(() => registerPlacementPendingSaveFlush(flushPendingSave), [flushPendingSave])

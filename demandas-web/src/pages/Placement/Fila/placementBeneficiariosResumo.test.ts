@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { computeBeneficiariosResumo, formatTitularidadeResumo } from './placementBeneficiariosResumo'
+import {
+  computeBeneficiariosResumo,
+  filterBeneficiariosForResumo,
+  formatTitularidadeResumo,
+  insightBeneficiariosResumo,
+  toggleBeneficiariosFiltroValor,
+} from './placementBeneficiariosResumo'
 import type { PlacementBeneficiario } from './placementBeneficiarios'
 
 function row(partial: Partial<PlacementBeneficiario>): PlacementBeneficiario {
@@ -92,5 +98,45 @@ describe('computeBeneficiariosResumo', () => {
     expect(r.categorias.demais).toBe(1)
     expect(r.planos).toHaveLength(1)
     expect(r.planos[0].quantidade).toBe(2)
+  })
+})
+
+describe('filterBeneficiariosForResumo', () => {
+  it('ao filtrar titulares, recalcula faixas e planos só desse recorte', () => {
+    const rows = [
+      row({
+        grauParentesco: 'Titular',
+        planoAtual: 'Plano A',
+        sexo: 'M',
+        dataNascimento: '1980-01-01',
+      }),
+      row({
+        grauParentesco: 'Titular',
+        planoAtual: 'Plano B',
+        sexo: 'F',
+        dataNascimento: '1995-01-01',
+      }),
+      row({
+        grauParentesco: 'Filho(a)',
+        planoAtual: 'Plano A',
+        sexo: 'M',
+        dataNascimento: '2015-01-01',
+      }),
+    ]
+    const filtered = filterBeneficiariosForResumo(rows, { titularidade: 'T' })
+    const r = computeBeneficiariosResumo(filtered)
+    expect(r.total).toBe(2)
+    expect(r.titulares).toBe(2)
+    expect(r.dependentes).toBe(0)
+    expect(r.planos).toEqual([
+      { plano: 'Plano A', quantidade: 1 },
+      { plano: 'Plano B', quantidade: 1 },
+    ])
+    expect(insightBeneficiariosResumo(r, rows.length)).toContain('2 de 3 vidas')
+  })
+
+  it('toggle limpa a mesma dimensão ao clicar de novo', () => {
+    const next = toggleBeneficiariosFiltroValor({ titularidade: 'T' }, 'titularidade', 'T')
+    expect(next.titularidade).toBeUndefined()
   })
 })

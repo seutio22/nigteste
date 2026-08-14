@@ -24,6 +24,7 @@ import {
 import { getWorkflowStageKey } from './placementCotacaoWorkflow'
 import { PlacementSlidesHub } from './PlacementSlidesHub'
 import type { PlacementSlideId } from './placementSlidesCatalog'
+import { PROPOSTA_DECK_ORDER } from './placementPropostaDeck'
 
 const SLIDE_QUERY_KEYS: PlacementSlideId[] = [
   'grupo_elegivel',
@@ -50,7 +51,10 @@ export default function PlacementSlidesDetailPage() {
   const [loading, setLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
-  const initialSlideId = parseSlideFromQuery(searchParams.get('slide'))
+  const isPropostaDeck = searchParams.get('deck') === 'proposta'
+  const initialSlideId =
+    parseSlideFromQuery(searchParams.get('slide')) ??
+    (isPropostaDeck ? PROPOSTA_DECK_ORDER[0] : undefined)
 
   useEffect(() => {
     void syncMasterData?.({ entities: ['operadoras', 'produtos', 'analistas', 'clientes'] })
@@ -166,7 +170,7 @@ export default function PlacementSlidesDetailPage() {
           <Box sx={{ minWidth: 0 }}>
             <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap" useFlexGap>
               <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
-                Slides Placement
+                {isPropostaDeck ? 'Apresentação da proposta' : 'Slides Placement'}
               </Typography>
               <Chip
                 size="small"
@@ -175,7 +179,10 @@ export default function PlacementSlidesDetailPage() {
               />
             </Stack>
             <Typography variant="body2" color="text.secondary" noWrap>
-              {form.ticket || id} · visualização em tela cheia
+              {form.ticket || id} ·{' '}
+              {isPropostaDeck
+                ? 'deck comercial em formato apresentação'
+                : 'visualização em tela cheia'}
             </Typography>
           </Box>
         </Stack>
@@ -208,10 +215,13 @@ export default function PlacementSlidesDetailPage() {
           cotacaoId={id}
           form={form}
           workflowStageKey={workflowStageKey}
-          disabled={false}
-          onChange={handleChange}
-          onPersisted={handlePersisted}
+          disabled={isPropostaDeck}
+          onChange={isPropostaDeck ? undefined : handleChange}
+          onPersisted={isPropostaDeck ? undefined : handlePersisted}
           initialSlideId={initialSlideId}
+          deckMode={isPropostaDeck ? 'proposta' : 'default'}
+          slideOrder={isPropostaDeck ? PROPOSTA_DECK_ORDER : undefined}
+          forceCompactSlide={isPropostaDeck}
         />
       </Box>
     </Box>

@@ -4,6 +4,8 @@ import { emptyCustosFaixa, emptyVidasFaixa } from './placementCotacaoDetalhes'
 import {
   applyReajusteToPlano,
   buildCenarioFromAbertura,
+  emptyCenarioVariante,
+  ensurePropostaCenariosMercado,
   expandPropostaParaComparativo,
   planosAberturaForFornecedor,
 } from './placementPropostaCenarioAtual'
@@ -153,5 +155,38 @@ describe('placementPropostaCenarioAtual', () => {
     expect(blocks[0].reajustePercent).toBe('-10')
     const ajustado = applyReajusteToPlano(blocks[0].plano, blocks[0].reajustePercent)
     expect(parseBRLToCents(ajustado.custoPerCapitaBRL)).toBe(36000)
+  })
+
+  it('ensurePropostaCenariosMercado migra planos legados e expande N cenários', () => {
+    const p1 = emptyPropostaPlanoLinha()
+    p1.nomePlano = 'Oferta A'
+    p1.custoPerCapitaBRL = '100,00'
+    p1.numeroVidas = '10'
+    const p2 = emptyPropostaPlanoLinha()
+    p2.nomePlano = 'Oferta B'
+    p2.custoPerCapitaBRL = '120,00'
+    p2.numeroVidas = '10'
+    const migrated = ensurePropostaCenariosMercado({
+      incluirNoComparativo: true,
+      cenarios: [],
+      planos: [p1, p2],
+    })
+    expect(migrated).toHaveLength(1)
+    expect(migrated[0].planos).toHaveLength(2)
+
+    const doisCenarios = [
+      { ...migrated[0], titulo: 'Cenário 1', planos: [p1] },
+      {
+        ...emptyCenarioVariante('Cenário 2'),
+        planos: [p2],
+      },
+    ]
+    const blocks = expandPropostaParaComparativo({
+      incluirNoComparativo: true,
+      cenarios: doisCenarios,
+      planos: [p1],
+    })
+    expect(blocks).toHaveLength(2)
+    expect(blocks.map((b) => b.cenarioTitulo)).toEqual(['Cenário 1', 'Cenário 2'])
   })
 })

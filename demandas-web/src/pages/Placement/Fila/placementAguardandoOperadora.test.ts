@@ -177,6 +177,44 @@ describe('placementAguardandoOperadora', () => {
     expect(buckets.mercadoConsultado).not.toContain('KOVR SEGURADORA')
   })
 
+  it('parseia contratoOrientacao sem alterar o modo de exibição', () => {
+    const horizontal = parseAguardandoOperadoraFromKickOff({
+      aguardandoOperadora: {
+        fornecedores: {},
+        quadroMercado: {
+          showFornecedorAtual: true,
+          showMercadoConsultado: true,
+          showForaPerfilDeclinado: true,
+          showNaoApresentada: true,
+        },
+        propostas: {},
+        comparativoConfig: {
+          modoSlide: 'contrato_plano',
+          contratoOrientacao: 'horizontal',
+        },
+      },
+    } as any)
+    expect(horizontal?.comparativoConfig.contratoOrientacao).toBe('horizontal')
+
+    const legadoEmpilhado = parseAguardandoOperadoraFromKickOff({
+      aguardandoOperadora: {
+        fornecedores: {},
+        quadroMercado: {
+          showFornecedorAtual: true,
+          showMercadoConsultado: true,
+          showForaPerfilDeclinado: true,
+          showNaoApresentada: true,
+        },
+        propostas: {},
+        comparativoConfig: {
+          modoSlide: 'planos_empilhados',
+        },
+      },
+    } as any)
+    expect(legadoEmpilhado?.comparativoConfig.modoSlide).toBe('planos_empilhados')
+    expect(legadoEmpilhado?.comparativoConfig.contratoOrientacao).toBe('horizontal')
+  })
+
   it('monta comparativo de propostas a partir dos planos cadastrados', () => {
     const form = baseForm()
     form.kickOffEstrategia = {

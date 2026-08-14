@@ -15,6 +15,7 @@ export type WorkflowStageKey =
   | 'em_cotacao'
   | 'aguardando_operadora'
   | 'consolidando_dados'
+  | 'validacao_proposta'
   | 'proposta_enviada'
   | 'fechada'
   | 'perdida'
@@ -29,6 +30,8 @@ export type WorkflowStageMeta = {
   objective: string
   /** Índice no fluxo principal (null = etapa terminal/lateral). */
   mainFlowIndex: number | null
+  /** Etapa com trilha interna de subetapas (ex.: Análise, Solicitação Mercado). */
+  hasSubetapas?: boolean
 }
 
 /** Etapas do fluxo principal (avanço sequencial). */
@@ -50,6 +53,7 @@ export const PLACEMENT_WORKFLOW_MAIN_STAGES: WorkflowStageMeta[] = [
     objective:
       'Antecipe a análise da base de beneficiários, grupo elegível, contrato atual e distribuição por localidade — antes do Kick off e da cotação formal.',
     mainFlowIndex: 1,
+    hasSubetapas: true,
   },
   {
     status: 'Kick off',
@@ -77,6 +81,7 @@ export const PLACEMENT_WORKFLOW_MAIN_STAGES: WorkflowStageMeta[] = [
     objective:
       'Monte o cenário de estudo financeiro, revise as bases validadas e comunique as operadoras do mercado analisado antes de aguardar retorno.',
     mainFlowIndex: 4,
+    hasSubetapas: true,
   },
   {
     status: 'Aguardando operadora',
@@ -96,12 +101,21 @@ export const PLACEMENT_WORKFLOW_MAIN_STAGES: WorkflowStageMeta[] = [
     mainFlowIndex: 6,
   },
   {
+    status: 'Validação proposta',
+    key: 'validacao_proposta',
+    label: 'Validação',
+    description: 'Revisão do consolidado da proposta',
+    objective:
+      'Valide apenas os dados consolidados para a proposta (resumo, condições, diferenciais, indicadores) e itens adicionais. Não é revisão da abertura do processo. Com ajustes, devolva para Consolidando dados.',
+    mainFlowIndex: 7,
+  },
+  {
     status: 'Proposta enviada',
     key: 'proposta_enviada',
     label: 'Proposta enviada',
     description: 'Proposta ao cliente',
     objective: 'Proposta formal enviada ao cliente para análise e negociação.',
-    mainFlowIndex: 7,
+    mainFlowIndex: 8,
   },
   {
     status: 'Fechada',
@@ -109,7 +123,7 @@ export const PLACEMENT_WORKFLOW_MAIN_STAGES: WorkflowStageMeta[] = [
     label: 'Fechada',
     description: 'Negócio concluído',
     objective: 'Oportunidade concluída com sucesso.',
-    mainFlowIndex: 8,
+    mainFlowIndex: 9,
   },
 ]
 

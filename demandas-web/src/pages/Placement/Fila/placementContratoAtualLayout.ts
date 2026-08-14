@@ -200,9 +200,9 @@ export const CONTRATO_ATUAL_PLANOS_POR_SLIDE_OPCOES: { value: ContratoAtualPlano
   { value: 7, label: '7 planos' },
 ]
 
-/** Layout legível em painel amplo (sem escala para caber no slide 16:9). */
+/** Layout legível em painel amplo (sem escala para caber no slide 16:9). Mostra todos os planos. */
 export function getContratoAtualWorkspaceLayoutSpec(count: number): ContratoAtualLayoutSpec {
-  const slots = Math.max(2, Math.min(count, CONTRATO_ATUAL_MAX_PLANOS_POR_SLIDE))
+  const slots = Math.max(1, count)
   if (slots <= 3) {
     return {
       colSlots: slots,
@@ -233,18 +233,33 @@ export function getContratoAtualWorkspaceLayoutSpec(count: number): ContratoAtua
       minColWidth: 220,
     }
   }
+  if (slots <= 8) {
+    return {
+      colSlots: slots,
+      legendW: 140,
+      tabH: 68,
+      logoWellH: 40,
+      faixaRowH: 32,
+      faixaCustoFont: 11,
+      faixaVidasFont: 9.5,
+      faixaVidasLabelFont: 7.5,
+      compact: false,
+      bodyMaxHeight: 12000,
+      minColWidth: 180,
+    }
+  }
   return {
     colSlots: slots,
-    legendW: 140,
-    tabH: 68,
-    logoWellH: 40,
-    faixaRowH: 32,
-    faixaCustoFont: 11,
-    faixaVidasFont: 9.5,
-    faixaVidasLabelFont: 7.5,
-    compact: false,
+    legendW: 120,
+    tabH: 64,
+    logoWellH: 36,
+    faixaRowH: 30,
+    faixaCustoFont: 10.5,
+    faixaVidasFont: 9,
+    faixaVidasLabelFont: 7,
+    compact: true,
     bodyMaxHeight: 12000,
-    minColWidth: 200,
+    minColWidth: 160,
   }
 }
 

@@ -45,24 +45,22 @@ export function ComparativoDiferenciaisSlideDashboard({
   const isSlide = presentationMode === 'slide'
   const ticket = form.ticket || cotacaoId
 
-  const page = useMemo(() => {
-    const pages = buildComparativoDiferencialPages(
+  const pages = useMemo(() => {
+    const rawPages = buildComparativoDiferencialPages(
       form,
       operadoras,
       operadorasById,
       config.incluirColunaAtual
     )
-    const raw = pages[0]
-    if (!raw) return null
-    const colunasVisiveis = filterComparativoColunas(raw.colunas, config.colunasOcultas)
-    const filtered = filterDiferencialPages([raw], colunasVisiveis)
-    return filtered[0] ?? null
+    if (!rawPages.length) return []
+    const colunasVisiveis = filterComparativoColunas(rawPages[0].colunas, config.colunasOcultas)
+    return filterDiferencialPages(rawPages, colunasVisiveis)
   }, [form, operadoras, operadorasById, config.incluirColunaAtual, config.colunasOcultas])
 
   useEffect(() => {
     const t = window.setTimeout(() => setSlideReady(true), 500)
     return () => window.clearTimeout(t)
-  }, [page])
+  }, [pages])
 
   async function handleExport() {
     const slide = exportRef.current?.querySelector('[data-slide-inner]') as HTMLElement | null
@@ -72,24 +70,28 @@ export function ComparativoDiferenciaisSlideDashboard({
       await new Promise((r) => setTimeout(r, slideReady ? 400 : 800))
       await exportSlidePng(
         slide,
-        `diferenciais-${ticket.replace(/\s+/g, '-').slice(0, 24)}.png`
+        `comparativo-${ticket.replace(/\s+/g, '-').slice(0, 24)}.png`
       )
     } finally {
       setExporting(false)
     }
   }
 
-  if (!page?.colunas.length) {
+  if (!pages.length || !pages[0]?.colunas.length) {
     return (
       <Alert severity="info">
-        Cadastre propostas por fornecedor na etapa Aguardando operadora e preencha os diferenciais em
-        Consolidando dados para gerar este slide.
+        Cadastre propostas por fornecedor na etapa Aguardando operadora e preencha diferenciais e condições
+        contratuais em Consolidando dados para gerar este slide.
       </Alert>
     )
   }
 
   const slideBody = (
-    <ComparativoDiferenciaisInfografico page={page} ticket={ticket} />
+    <Stack spacing={2.5}>
+      {pages.map((page, i) => (
+        <ComparativoDiferenciaisInfografico key={`slide-${page.secao}-${i}`} page={page} ticket={ticket} />
+      ))}
+    </Stack>
   )
 
   return (
@@ -99,7 +101,7 @@ export function ComparativoDiferenciaisSlideDashboard({
           <Stack direction="row" alignItems="center" gap={1}>
             <SlideshowIcon sx={{ color: SLIDE_COLORS.info, fontSize: 20 }} />
             <Typography variant="body2" color="text.secondary">
-              Comparativo de diferenciais · {page.colunas.length} fornecedor(es) · exporte em PNG para apresentação.
+              Comparativo · {pages[0].colunas.length} fornecedor(es) · {pages.length} slide(s) · exporte em PNG.
             </Typography>
           </Stack>
           <Button
@@ -119,7 +121,7 @@ export function ComparativoDiferenciaisSlideDashboard({
         <Stack direction="row" alignItems="center" gap={1}>
           <AutoAwesomeIcon sx={{ color: SLIDE_COLORS.info, fontSize: 20 }} />
           <Typography variant="body2" color="text.secondary">
-            Visão detalhada do comparativo de diferenciais.
+            Visão detalhada do comparativo (diferenciais e condições contratuais).
           </Typography>
         </Stack>
       )}

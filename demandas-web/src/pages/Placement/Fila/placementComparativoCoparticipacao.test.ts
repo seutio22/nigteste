@@ -5,9 +5,11 @@ import { emptyCoparticipacao } from './placementCoparticipacao'
 import {
   buildComparativoCoparticipacaoColunas,
   buildComparativoCoparticipacaoPages,
+  buildComparativoCoparticipacaoPagesAlinhadas,
   valorCopartLinha,
   COMPARATIVO_COPART_LINHAS,
 } from './placementComparativoCoparticipacao'
+import { planosReferenciaAbertura } from './placementPropostaEquivalencia'
 import { emptyKickOffEstrategia } from './placementKickOffEstrategia'
 
 const operadoras = [{ id: 'op1', nome: 'KOVR SEGURADORA' }]
@@ -145,5 +147,14 @@ describe('placementComparativoCoparticipacao', () => {
     const pages = buildComparativoCoparticipacaoPages(colunas, 3)
     expect(pages.length).toBe(1)
     expect(pages[0].linhas.length).toBeGreaterThan(5)
+  })
+
+  it('pagina alinhada por plano equivalente ao ocultar coluna', () => {
+    const form = formComCopartDetalhe()
+    const colunas = buildComparativoCoparticipacaoColunas(form, operadoras, undefined, false)
+    const refs = planosReferenciaAbertura(form, operadoras)
+    const pages = buildComparativoCoparticipacaoPagesAlinhadas(colunas, [], refs)
+    expect(pages.length).toBe(1)
+    expect(pages[0].colunas.some((c) => !c.placeholder)).toBe(true)
   })
 })

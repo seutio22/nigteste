@@ -5,10 +5,13 @@ import LocalHospitalIcon from '@mui/icons-material/LocalHospital'
 import HealthAndSafetyIcon from '@mui/icons-material/HealthAndSafety'
 import DescriptionIcon from '@mui/icons-material/Description'
 import { ReembolsoSelo } from './ReembolsoSelo'
+import { ReembolsoComparacaoIcon, ReembolsoComparacaoLegenda } from './ReembolsoComparacaoIcon'
 import { REEMBOLSO_PROCEDIMENTOS_FIXOS } from './placementReembolso'
 import {
   COMPARATIVO_REEMB_LINHAS_FIXAS,
+  comparacaoReembolsoCelula,
   valorReembolsoLinha,
+  type ComparacaoReembolsoVsAtual,
   type ComparativoReembColuna,
   type ComparativoReembolsoPagina,
 } from './placementComparativoReembolso'
@@ -282,7 +285,13 @@ function PlanoTabHeader({
   )
 }
 
-function ReembValorBadge({ texto, col, destaque }: { texto: string; col: ComparativoReembColuna; destaque?: boolean }) {
+function ReembValorBadge({
+  texto,
+  comparacao,
+}: {
+  texto: string
+  comparacao?: ComparacaoReembolsoVsAtual | null
+}) {
   if (!texto || texto === '—') {
     return (
       <ReembSlideText sx={{ fontSize: 9, fontWeight: 600, color: MUTED, textAlign: 'center' }}>
@@ -291,27 +300,32 @@ function ReembValorBadge({ texto, col, destaque }: { texto: string; col: Compara
     )
   }
 
-  const bg = destaque ? `${REEMB_ACCENT}20` : `${col.tabColor}12`
-  const border = destaque ? `${REEMB_ACCENT}55` : `${col.tabColor}55`
-
   return (
     <Box
       sx={{
         display: 'inline-flex',
-        flexDirection: 'column',
+        flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        px: 1,
-        py: 0.5,
-        borderRadius: 1.5,
-        bgcolor: bg,
-        border: `1px solid ${border}`,
+        gap: 0.5,
         width: '100%',
         maxWidth: '100%',
         boxSizing: 'border-box',
+        px: 0.35,
       }}
     >
-      <ReembSlideText sx={{ fontSize: destaque ? 10 : 9, fontWeight: 800, color: PRIMARY, textAlign: 'center', lineHeight: 1.3, wordBreak: 'break-word', width: '100%' }}>
+      <ReembolsoComparacaoIcon comparacao={comparacao} size={14} />
+      <ReembSlideText
+        sx={{
+          fontSize: 9.5,
+          fontWeight: 800,
+          color: PRIMARY,
+          textAlign: 'center',
+          lineHeight: 1.3,
+          wordBreak: 'break-word',
+          minWidth: 0,
+        }}
+      >
         {texto}
       </ReembSlideText>
     </Box>
@@ -409,6 +423,7 @@ function ReembInfograficoGrid({
   linhas: ComparativoReembolsoPagina['linhas']
 }) {
   const typo = getContratoTypography(layout)
+  const colAtual = colunas.find((c) => c.grupo === 'atual' && !c.placeholder)
   const prazoLinhas = linhas.filter((l) => l.tipo === 'prazo_consulta' || l.tipo === 'prazo_procedimentos')
   const procLinhas = linhas.filter((l) => l.tipo === 'procedimento' || l.tipo === 'custom')
   const gridCols = `${layout.legendW}px repeat(${colunas.length}, minmax(0, 1fr))`
@@ -473,7 +488,7 @@ function ReembInfograficoGrid({
               {colunas.map((col, i) => (
                 <Box key={`${linha.id}-${col.id}`} sx={{ gridColumn: i + 2, gridRow: row, minWidth: 0 }}>
                   <DataCell minH={ROW_PRAZO_MIN} zebra={idx}>
-                    <ReembValorBadge texto={valorReembolsoLinha(col, linha)} col={col} />
+                    <ReembValorBadge texto={valorReembolsoLinha(col, linha)} />
                   </DataCell>
                 </Box>
               ))}
@@ -509,8 +524,7 @@ function ReembInfograficoGrid({
                   <DataCell minH={ROW_PROC_MIN} zebra={idx} accentTop={linha.procedimentoKey === 'consultas' ? col.tabColor : undefined}>
                     <ReembValorBadge
                       texto={valorReembolsoLinha(col, linha)}
-                      col={col}
-                      destaque={linha.procedimentoKey === 'consultas'}
+                      comparacao={comparacaoReembolsoCelula(col, linha, colAtual)}
                     />
                   </DataCell>
                 </Box>
@@ -524,10 +538,19 @@ function ReembInfograficoGrid({
         <Box sx={{ borderLeft: `1px solid ${BORDER}`, borderRight: `1px solid ${BORDER}`, borderBottom: `1px solid ${BORDER}`, borderRadius: '0 0 8px 8px', height: 0 }} />
       )}
 
-      <Box sx={{ mt: 1, px: 0.5 }}>
+      <Box sx={{ mt: 1, px: 0.5, display: 'flex', flexDirection: 'column', gap: 0.35 }}>
         <Typography sx={{ fontFamily: FONT, fontSize: 8, color: MUTED, fontWeight: 600 }}>
           Valores conforme lançamento em propostas · prazos em dias úteis/corridos conforme operadora
         </Typography>
+        {colAtual ? (
+          <Typography
+            component="div"
+            sx={{ fontFamily: FONT, fontSize: 8, color: MUTED, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 0.75 }}
+          >
+            Comparação vs cenário atual:
+            <ReembolsoComparacaoLegenda fontSize={8} />
+          </Typography>
+        ) : null}
       </Box>
     </Paper>
   )
@@ -539,7 +562,7 @@ export function ComparativoReembolsoInfografico({ page, ticket }: Props) {
   const layout = useMemo(() => getReembInfograficoLayout(colunas.length), [colunas.length])
 
   useEffect(() => {
-    const ids = colunas.map((c) => c.operadoraId).filter(Boolean)
+    const ids = colunas.filter((c) => !c.placeholder).map((c) => c.operadoraId).filter(Boolean)
     if (!ids.length) return
     let cancelled = false
     void fetchOperadoraIdsComLogo().then((idsComLogo) => {
@@ -557,6 +580,20 @@ export function ComparativoReembolsoInfografico({ page, ticket }: Props) {
 
   return (
     <Box sx={{ width: '100%' }}>
+      {page.grupoLabel ? (
+        <Typography
+          sx={{
+            fontFamily: FONT,
+            fontSize: 12,
+            fontWeight: 800,
+            color: PRIMARY,
+            mb: 0.75,
+            letterSpacing: 0.2,
+          }}
+        >
+          Plano equivalente · {page.grupoLabel}
+        </Typography>
+      ) : null}
       <ReembInfograficoGrid colunas={colunas} layout={layout} logoUrls={logoUrls} linhas={page.linhas} />
       {page.totalPages > 1 && (
         <Typography sx={{ fontFamily: FONT, fontSize: 9, color: MUTED, fontWeight: 700, textAlign: 'right', mt: 1 }}>

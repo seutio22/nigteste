@@ -22,6 +22,7 @@ import {
   type BeneficiariosValidacaoResumo,
 } from './placementBeneficiariosValidacao'
 import {
+  downloadBaseComCriticasPreferindoOriginal,
   downloadCriticasValidacaoCsv,
   downloadCriticasValidacaoXlsx,
   flattenCriticasParaExport,
@@ -117,7 +118,8 @@ export function BeneficiariosValidacaoCriticasPanel({
             Críticas da validação
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            {validacao.linhasComApontamento} vida(s) · {validacao.totalApontamentos} apontamento(s)
+            {validacao.linhasComApontamento} vida(s) · {validacao.totalApontamentos} apontamento(s). O download
+            devolve o arquivo original do upload com a coluna CRITICA.
           </Typography>
           <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
             {resumoCampos.map((r) => (
@@ -137,22 +139,30 @@ export function BeneficiariosValidacaoCriticasPanel({
         </Box>
         <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
           <Button
-            variant="outlined"
+            variant="contained"
+            size="small"
+            startIcon={<DownloadIcon />}
+            disabled={disabled || beneficiarios.length === 0}
+            onClick={() => void downloadBaseComCriticasPreferindoOriginal(cotacaoId, beneficiarios, validacao)}
+          >
+            Original + críticas
+          </Button>
+          <Button
+            variant="text"
             size="small"
             startIcon={<DownloadIcon />}
             disabled={disabled || criticasRows.length === 0}
             onClick={() => void downloadCriticasValidacaoXlsx(cotacaoId, beneficiarios, validacao)}
           >
-            Baixar Excel
+            Detalhado
           </Button>
           <Button
-            variant="outlined"
+            variant="text"
             size="small"
-            startIcon={<DownloadIcon />}
             disabled={disabled || criticasRows.length === 0}
             onClick={() => downloadCriticasValidacaoCsv(cotacaoId, beneficiarios, validacao)}
           >
-            Baixar CSV
+            Detalhado CSV
           </Button>
         </Stack>
       </Stack>

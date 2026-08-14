@@ -287,6 +287,57 @@ export function ensurePropostaFornecedorAtual(
   return buildPropostaFornecedorAtualInicial(form, fornecedorNome, operadoras, operadorasById)
 }
 
+/** Clona plano de proposta com novo id (duplicar cenário / oferta). */
+export function clonePropostaPlanoLinha(plano: PropostaPlanoLinha): PropostaPlanoLinha {
+  return {
+    ...plano,
+    id: emptyPropostaPlanoLinha().id,
+    vidasFaixa: { ...(plano.vidasFaixa ?? emptyVidasFaixa()) },
+    custosFaixa: { ...(plano.custosFaixa ?? emptyCustosFaixa()) },
+    coparticipacaoDetalhe: plano.coparticipacaoDetalhe
+      ? cloneCoparticipacao(plano.coparticipacaoDetalhe)
+      : plano.coparticipacaoDetalhe,
+    reembolsoDetalhe: plano.reembolsoDetalhe
+      ? cloneReembolsoPlanoDetalhe(plano.reembolsoDetalhe)
+      : plano.reembolsoDetalhe,
+  }
+}
+
+/**
+ * Mercado legado guarda só `planos[]`. Garante ao menos um cenário nomeado
+ * para o comparativo expandir cenário × plano (ex.: AMIL Cenário 1 / 2).
+ */
+export function ensurePropostaCenariosMercado(
+  proposta: PropostaFornecedorState
+): PropostaCenarioVariante[] {
+  if (proposta.cenarios?.length) return proposta.cenarios
+  const planos =
+    proposta.planos?.length > 0 ? proposta.planos : [emptyPropostaPlanoLinha()]
+  return [
+    {
+      ...emptyCenarioVariante('Cenário 1'),
+      reajustePercent: '',
+      planos: planos.map((p) => ({ ...p })),
+    },
+  ]
+}
+
+export function duplicateCenarioVariante(
+  src: PropostaCenarioVariante,
+  tituloSuffix = ' (cópia)'
+): PropostaCenarioVariante {
+  return {
+    ...src,
+    id: emptyCenarioVariante().id,
+    titulo: `${src.titulo.trim() || 'Cenário'}${tituloSuffix}`,
+    resumoLinhas: (src.resumoLinhas ?? []).map((r) => ({
+      ...r,
+      id: emptyCenarioResumoLinha().id,
+    })),
+    planos: (src.planos?.length ? src.planos : [emptyPropostaPlanoLinha()]).map(clonePropostaPlanoLinha),
+  }
+}
+
 /** Expande proposta: uma coluna de comparativo por plano (cenário × plano). */
 export function expandPropostaParaComparativo(proposta: PropostaFornecedorState): {
   cenarioId: string

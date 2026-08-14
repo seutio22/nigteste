@@ -34,6 +34,7 @@ import {
 } from './placementWorkflowRetreat'
 import { PlacementCotacaoWorkflowBar } from './PlacementCotacaoWorkflowBar'
 import { PlacementDesignarAnalistaBlock } from './PlacementDesignarAnalistaBlock'
+import { PlacementDesignarValidadorBlock } from './PlacementDesignarValidadorBlock'
 import { PlacementWorkflowChecklistCompact } from './PlacementWorkflowChecklistCompact'
 import { getWorkflowStageKey } from './placementCotacaoWorkflow'
 import type { PlacementCotacaoWorkflowStatus } from './placementCotacaoStatus'
@@ -52,14 +53,19 @@ import {
   placementNavForwardSx,
 } from './placementWorkflowNav'
 import TimelineIcon from '@mui/icons-material/Timeline'
+import { flushAllPlacementPendingSaves } from './placementFlushRegistry'
 
 type Props = {
   status: string
   form: CotacaoFormState
+  /** Lê o form mais recente (após flush de drafts), evitando validação com estado stale. */
+  getLatestForm?: () => CotacaoFormState
   saving?: boolean
   beneficiariosTotal?: number
   analistaResponsavel?: PlacementAnalista | null
+  analistaValidadorId?: string
   onDesignarAnalista: (analistaResponsavelId: string) => Promise<void>
+  onDesignarValidador?: (analistaValidadorId: string) => Promise<void>
   onAdvance: (nextStatus: PlacementCotacaoWorkflowStatus) => Promise<void>
   onRetreat: (
     prevStatus: PlacementCotacaoWorkflowStatus,
@@ -71,10 +77,13 @@ type Props = {
 export const PlacementCotacaoWorkflowPanel = React.memo(function PlacementCotacaoWorkflowPanel({
   status,
   form,
+  getLatestForm,
   saving,
   beneficiariosTotal = 0,
   analistaResponsavel,
+  analistaValidadorId = '',
   onDesignarAnalista,
+  onDesignarValidador,
   onAdvance,
   onRetreat,
   onEncerrar,
@@ -101,7 +110,10 @@ export const PlacementCotacaoWorkflowPanel = React.memo(function PlacementCotaca
 
   async function handleAdvance() {
     setAdvanceError(null)
-    const err = validateForWorkflowAdvance(status, form, { beneficiariosTotal })
+    // Drafts (resumo, condições, células) commitam com debounce — flush antes de validar.
+    await flushAllPlacementPendingSaves()
+    const latest = getLatestForm?.() ?? form
+    const err = validateForWorkflowAdvance(status, latest, { beneficiariosTotal })
     if (err) {
       setAdvanceError(err)
       return
@@ -210,6 +222,16 @@ export const PlacementCotacaoWorkflowPanel = React.memo(function PlacementCotaca
           saving={saving}
           onDesignar={onDesignarAnalista}
           advanceTargetLabel="Kick off"
+        />
+      )}
+
+      {stageKey === 'consolidando_dados' && onDesignarValidador && (
+        <PlacementDesignarValidadorBlock
+          analistaResponsavelId={form.analistaResponsavelId}
+          analistaValidadorId={analistaValidadorId}
+          disabled={saving}
+          saving={saving}
+          onDesignar={onDesignarValidador}
         />
       )}
 

@@ -59,6 +59,8 @@ model Operadora {
   placementLogo PlacementOperadoraLogo?
   placementPlanos PlacementPlano[]
   placementDiferenciais PlacementDiferencial[]
+  placementCondicoesContratuais PlacementCondicaoContratual[]
+  placementIndicadoresOperadora PlacementIndicadorOperadora[]
 }
 
 /// Logo da operadora (fornecedor) para apresentações Placement — cadastro em Dados → Placement.
@@ -883,6 +885,7 @@ model PlacementPlano {
 
   operadora Operadora @relation(fields: [operadoraId], references: [id], onDelete: Cascade)
   diferenciais PlacementDiferencial[]
+  condicoesContratuais PlacementCondicaoContratual[]
 
   @@index([operadoraId])
   @@index([categoria])
@@ -906,6 +909,45 @@ model PlacementDiferencial {
   @@index([operadoraId])
   @@index([placementPlanoId])
   @@map("diferenciais")
+}
+
+/// Condições contratuais por fornecedor (Dados → Placement).
+/// Matriz principal = fornecedor; opcionalmente por plano (`porPlano` + `placementPlanoId`).
+model PlacementCondicaoContratual {
+  id               String   @id @default(uuid())
+  operadoraId      String
+  /// Quando true, a condição vale para um plano específico (placementPlanoId obrigatório).
+  porPlano         Boolean  @default(false)
+  placementPlanoId String?
+  itemKey          String
+  texto            String   @db.Text
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  operadora      Operadora       @relation(fields: [operadoraId], references: [id], onDelete: Cascade)
+  placementPlano PlacementPlano? @relation(fields: [placementPlanoId], references: [id], onDelete: Cascade)
+
+  @@index([operadoraId])
+  @@index([placementPlanoId])
+  @@index([operadoraId, itemKey])
+  @@map("condicoes_contratuais")
+}
+
+/// Indicadores das operadoras (Dados → Placement). Matriz por fornecedor (IDSS, ENDIV, porte, etc.).
+model PlacementIndicadorOperadora {
+  id          String   @id @default(uuid())
+  operadoraId String
+  itemKey     String
+  texto       String   @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  operadora Operadora @relation(fields: [operadoraId], references: [id], onDelete: Cascade)
+
+  @@unique([operadoraId, itemKey])
+  @@index([operadoraId])
+  @@index([operadoraId, itemKey])
+  @@map("indicadores_operadoras")
 }
 
 /// Corretor parceiro (Dados → Placement). Apenas nome; usado na Fila ao lado da filial.
@@ -1114,6 +1156,8 @@ model PlacementCotacao {
   subfaturas PlacementSubfatura[]
   /// Base de beneficiários para cotação (upload planilha).
   beneficiarios PlacementCotacaoBeneficiario[]
+  /// Links públicos da apresentação da proposta.
+  shareTokens PlacementCotacaoShareToken[]
 
   @@index([status, updatedAt])
   @@index([analistaId])
@@ -1129,6 +1173,39 @@ model PlacementCotacao {
   @@index([tipoContratacaoId])
   @@index([modalidadeContratoId])
   @@index([prazoVigenciaContratoId])
+}
+
+/// Token de compartilhamento público da apresentação Placement (espelha ProjectShareToken).
+model PlacementCotacaoShareToken {
+  id           String                         @id @default(uuid())
+  cotacaoId    String
+  token        String                         @unique
+  name         String?
+  description  String?
+  isActive     Boolean                        @default(true)
+  /// CSV de PlacementSlideId (deck da proposta).
+  allowedViews String                         @default("grupo_elegivel,localidades,mercado_quadro,contrato_atual,comparativo_propostas,comparativo_diferenciais")
+  expiresAt    DateTime?
+  viewCount    Int                            @default(0)
+  lastViewAt   DateTime?
+  createdBy    String
+  createdAt    DateTime                       @default(now())
+  updatedAt    DateTime                       @updatedAt
+  cotacao      PlacementCotacao               @relation(fields: [cotacaoId], references: [id], onDelete: Cascade)
+  accessLogs   PlacementCotacaoShareAccessLog[]
+
+  @@index([cotacaoId, isActive])
+}
+
+model PlacementCotacaoShareAccessLog {
+  id           String                     @id @default(uuid())
+  shareTokenId String
+  ipAddress    String
+  userAgent    String?
+  accessedAt   DateTime                   @default(now())
+  shareToken   PlacementCotacaoShareToken @relation(fields: [shareTokenId], references: [id], onDelete: Cascade)
+
+  @@index([shareTokenId, accessedAt])
 }
 
 /// Beneficiário da base para cotação (planilha «Em cotação» — etapa 1).
@@ -1492,4 +1569,61 @@ model DeletionLog {
 
   @@index([entityType, deletedAt])
   @@index([deletedBy])
+}
+
+/**
+ * Matriz de tempo previsto (Dados → Produtividade).
+ * Por métrica de quantidade: tempo base (1 unidade) + adicional (cada unidade além da 1ª).
+ * Fórmula da linha: base + max(0, qtd - 1) * adicional
+ * tempoPrevistoSeconds = soma das linhas (jornada ref. 8h = 28800s).
+ */
+model ProdutividadeRegra {
+  id                   String   @id @default(uuid())
+  pageKey              String
+  tipo1Id              String?
+  tipo2Id              String?
+
+  qtdSistemas          Int?
+  tempoSistemasSeconds Int?
+  tempoSistemasAdicionalSeconds Int?
+  /// Adicional por unidade do Total nos sistemas "demais" (sem linha específica/padrão)
+  tempoSistemasAdicionalPorTotalSeconds Int?
+  /// Linhas: [{ sistemaId?: string|null, tempoSeconds, tempoAdicionalPorTotalSeconds? }]
+  /// sistemaId null = padrão (qualquer sistema)
+  sistemasDetalhe      Json?
+
+  qtdUsuarios          Int?
+  tempoUsuariosSeconds Int?
+  tempoUsuariosAdicionalSeconds Int?
+
+  qtdClientes          Int?
+  tempoClientesSeconds Int?
+  tempoClientesAdicionalSeconds Int?
+
+  qtdRetornos          Int?
+  tempoRetornosSeconds Int?
+  tempoRetornosAdicionalSeconds Int?
+
+  qtdItens             Int?
+  tempoItensSeconds    Int?
+  tempoItensAdicionalSeconds Int?
+
+  qtdContratos         Int?
+  tempoContratosSeconds Int?
+  tempoContratosAdicionalSeconds Int?
+
+  qtdSubs              Int?
+  tempoSubsSeconds     Int?
+  tempoSubsAdicionalSeconds Int?
+
+  /// Soma calculada das linhas de quantidade (ou tempo fixo em páginas sem qtd).
+  tempoPrevistoSeconds Int?
+  pesoPontos           Float?
+  ativo                Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([pageKey])
+  @@index([pageKey, ativo])
+  @@map("produtividade_regras")
 }

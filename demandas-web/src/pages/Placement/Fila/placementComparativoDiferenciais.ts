@@ -8,8 +8,16 @@ import {
 import {
   DIFERENCIAL_ITENS,
   labelDiferencialItem,
-  type DiferencialItemKey,
 } from './placementDiferenciaisCatalogo'
+import {
+  CONDICAO_CONTRATUAL_ITENS,
+  labelCondicaoContratualItem,
+} from './placementCondicoesContratuaisCatalogo'
+import {
+  INDICADOR_OPERADORA_ITENS,
+  INDICADORES_NOTAS_RODAPE_DEFAULT,
+  labelIndicadorOperadoraItem,
+} from './placementIndicadoresOperadorasCatalogo'
 import {
   ensureConsolidandoDadosState,
   formatDiferencialCelulasTexto,
@@ -28,9 +36,12 @@ export type ComparativoDiferencialColuna = {
   tabColor: string
 }
 
+export type ComparativoMatrizSecao = 'diferenciais' | 'condicoes' | 'indicadores'
+
 export type ComparativoDiferencialLinha = {
-  itemKey: DiferencialItemKey
+  itemKey: string
   label: string
+  secao: ComparativoMatrizSecao
   valores: Record<string, string>
   celulasPorColuna: Record<string, DiferencialCelulaCotacao[]>
 }
@@ -39,6 +50,9 @@ export type ComparativoDiferencialPagina = {
   pageIndex: number
   totalPages: number
   titulo: string
+  /** Rótulo do canto esquerdo do cabeçalho da matriz (ex.: DIFERENCIAIS). */
+  matrizLabel: string
+  secao: ComparativoMatrizSecao
   colunas: ComparativoDiferencialColuna[]
   linhas: ComparativoDiferencialLinha[]
   notasRodape: string
@@ -105,6 +119,35 @@ export function buildComparativoDiferencialColunas(
   return colunas
 }
 
+function buildLinhasSecao(args: {
+  secao: ComparativoMatrizSecao
+  itens: { key: string; label: string }[]
+  mapa: Record<string, Record<string, DiferencialCelulaCotacao[]>>
+  ocultos: string[]
+  colunas: ComparativoDiferencialColuna[]
+}): ComparativoDiferencialLinha[] {
+  const ocultos = new Set(args.ocultos)
+  return args.itens
+    .filter((item) => !ocultos.has(item.key))
+    .map((item) => {
+      const porColuna = args.mapa[item.key] ?? {}
+      const valores: Record<string, string> = {}
+      const celulasPorColuna: Record<string, DiferencialCelulaCotacao[]> = {}
+      for (const col of args.colunas) {
+        const celulas = porColuna[col.id] ?? []
+        celulasPorColuna[col.id] = celulas
+        valores[col.id] = formatDiferencialCelulasTexto(celulas)
+      }
+      return {
+        itemKey: item.key,
+        label: item.label,
+        secao: args.secao,
+        valores,
+        celulasPorColuna,
+      }
+    })
+}
+
 export function buildComparativoDiferencialPages(
   form: CotacaoFormState,
   operadoras: Operadora[],
@@ -112,42 +155,87 @@ export function buildComparativoDiferencialPages(
   incluirAtual = true
 ): ComparativoDiferencialPagina[] {
   const colunas = buildComparativoDiferencialColunas(form, operadoras, operadorasById, incluirAtual)
-  const cd = ensureConsolidandoDadosState(parseConsolidandoDadosFromKickOff(form.kickOffEstrategia))
-
-  const linhas: ComparativoDiferencialLinha[] = DIFERENCIAL_ITENS.map((item) => {
-    const porColuna = cd.diferenciais[item.key] ?? {}
-    const valores: Record<string, string> = {}
-    const celulasPorColuna: Record<string, DiferencialCelulaCotacao[]> = {}
-    for (const col of colunas) {
-      const celulas = porColuna[col.id] ?? []
-      celulasPorColuna[col.id] = celulas
-      valores[col.id] = formatDiferencialCelulasTexto(celulas)
-    }
-    return {
-      itemKey: item.key,
-      label: labelDiferencialItem(item.key),
-      valores,
-      celulasPorColuna,
-    }
-  })
-
   if (!colunas.length) return []
 
-  return [
-    {
-      pageIndex: 0,
-      totalPages: 1,
+  const cd = ensureConsolidandoDadosState(parseConsolidandoDadosFromKickOff(form.kickOffEstrategia))
+  const notasRodape =
+    cd.notasRodape?.trim() ||
+    'Informações sujeitas a limites e critérios contratuais. Podem ser revisadas a qualquer momento, sem aviso prévio.'
+
+  const linhasDiff = buildLinhasSecao({
+    secao: 'diferenciais',
+    itens: DIFERENCIAL_ITENS.map((i) => ({
+      key: i.key,
+      label: labelDiferencialItem(i.key),
+    })),
+    mapa: cd.diferenciais,
+    ocultos: cd.itensOcultos?.diferenciais ?? [],
+    colunas,
+  })
+
+  const linhasCond = buildLinhasSecao({
+    secao: 'condicoes',
+    itens: CONDICAO_CONTRATUAL_ITENS.map((i) => ({
+      key: i.key,
+      label: labelCondicaoContratualItem(i.key),
+    })),
+    mapa: cd.condicoes,
+    ocultos: cd.itensOcultos?.condicoes ?? [],
+    colunas,
+  })
+
+  const linhasInd = buildLinhasSecao({
+    secao: 'indicadores',
+    itens: INDICADOR_OPERADORA_ITENS.map((i) => ({
+      key: i.key,
+      label: labelIndicadorOperadoraItem(i.key),
+    })),
+    mapa: cd.indicadores,
+    ocultos: cd.itensOcultos?.indicadores ?? [],
+    colunas,
+  })
+
+  const pagesRaw: Omit<ComparativoDiferencialPagina, 'pageIndex' | 'totalPages'>[] = []
+  if (linhasDiff.length) {
+    pagesRaw.push({
       titulo: 'Diferenciais',
+      matrizLabel: 'DIFERENCIAIS',
+      secao: 'diferenciais',
       colunas,
-      linhas,
-      notasRodape:
-        cd.notasRodape?.trim() ||
-        'Informações sujeitas a limites e critérios contratuais. Podem ser revisadas a qualquer momento, sem aviso prévio.',
-    },
-  ]
+      linhas: linhasDiff,
+      notasRodape,
+    })
+  }
+  if (linhasCond.length) {
+    pagesRaw.push({
+      titulo: 'Condições contratuais',
+      matrizLabel: 'CONDIÇÕES CONTRATUAIS',
+      secao: 'condicoes',
+      colunas,
+      linhas: linhasCond,
+      notasRodape,
+    })
+  }
+  if (linhasInd.length) {
+    pagesRaw.push({
+      titulo: 'Comparativo de Indicadores das Operadoras',
+      matrizLabel: 'INDICADORES DAS OPERADORAS',
+      secao: 'indicadores',
+      colunas,
+      linhas: linhasInd,
+      notasRodape: INDICADORES_NOTAS_RODAPE_DEFAULT,
+    })
+  }
+
+  const totalPages = pagesRaw.length
+  return pagesRaw.map((p, pageIndex) => ({
+    ...p,
+    pageIndex,
+    totalPages,
+  }))
 }
 
-export function buildComparativoDiferencialLinhasResumo(): { key: DiferencialItemKey; label: string }[] {
+export function buildComparativoDiferencialLinhasResumo(): { key: string; label: string }[] {
   return DIFERENCIAL_ITENS.map((i) => ({ key: i.key, label: i.label }))
 }
 
@@ -168,17 +256,20 @@ export function filterDiferencialPages(
   colunasVisiveis: ComparativoDiferencialColuna[]
 ): ComparativoDiferencialPagina[] {
   const ids = new Set(colunasVisiveis.map((c) => c.id))
-  return pages.map((p) => ({
-    ...p,
-    colunas: p.colunas.filter((c) => ids.has(c.id)),
-    linhas: p.linhas.map((l) => ({
-      ...l,
-      valores: Object.fromEntries(
-        Object.entries(l.valores).filter(([id]) => ids.has(id))
-      ),
-      celulasPorColuna: Object.fromEntries(
-        Object.entries(l.celulasPorColuna).filter(([id]) => ids.has(id))
-      ),
-    })),
-  }))
+  const filtered = pages
+    .map((p) => ({
+      ...p,
+      colunas: p.colunas.filter((c) => ids.has(c.id)),
+      linhas: p.linhas.map((l) => ({
+        ...l,
+        valores: Object.fromEntries(Object.entries(l.valores).filter(([id]) => ids.has(id))),
+        celulasPorColuna: Object.fromEntries(
+          Object.entries(l.celulasPorColuna).filter(([id]) => ids.has(id))
+        ),
+      })),
+    }))
+    .filter((p) => p.colunas.length > 0 && p.linhas.length > 0)
+
+  const totalPages = filtered.length
+  return filtered.map((p, pageIndex) => ({ ...p, pageIndex, totalPages }))
 }

@@ -16,20 +16,24 @@ import EditNoteIcon from '@mui/icons-material/EditNote'
 import type { CotacaoFormState } from './CotacaoFormFields'
 import {
   buildComparativoReembolsoColunas,
-  buildComparativoReembolsoPages,
+  buildComparativoReembolsoPagesAlinhadas,
+  comparacaoReembolsoCelula,
   valorReembolsoLinha,
   type ComparativoReembColuna,
   type ComparativoReembolsoPagina,
 } from './placementComparativoReembolso'
 import { ReembolsoSelo } from './ReembolsoSelo'
+import { ReembolsoComparacaoIcon } from './ReembolsoComparacaoIcon'
 import { ComparativoReembolsoInfografico } from './ComparativoReembolsoInfografico'
 import { ComparativoDetalheOpcoesPanel } from './ComparativoDetalheOpcoesPanel'
 import { ComparativoDetalheSidebarLayout } from './ComparativoDetalheSidebarLayout'
 import { useComparativoConfigPersist } from './useComparativoConfigPersist'
+import { ComparativoEstudosSwitcher } from './ComparativoEstudosSwitcher'
 import {
   filterComparativoColunas,
   listarColunasContratoPlano,
 } from './placementComparativoVisibilidade'
+import { planosReferenciaAbertura } from './placementPropostaEquivalencia'
 import { useMasterDataStore } from '../../../store/masterDataStore'
 import {
   PlacementSlideHeader,
@@ -110,19 +114,21 @@ function ReembHeaders({ colunas }: { colunas: ComparativoReembColuna[] }) {
       <tr>
         <Th>SAÚDE</Th>
         {colunas.map((c) => (
-          <Th key={`g-${c.id}`}>{c.grupo === 'atual' ? 'ATUAL' : 'MERCADO CONSUL.'}</Th>
+          <Th key={`g-${c.id}`}>
+            {c.placeholder ? '—' : c.grupo === 'atual' ? 'ATUAL' : 'MERCADO CONSUL.'}
+          </Th>
         ))}
       </tr>
       <tr>
         <Th>Operadoras</Th>
         {colunas.map((c) => (
-          <Th key={`o-${c.id}`}>{c.operadora}</Th>
+          <Th key={`o-${c.id}`}>{c.placeholder ? '—' : c.operadora}</Th>
         ))}
       </tr>
       <tr>
         <Th>Planos &gt;</Th>
         {colunas.map((c) => (
-          <Th key={`p-${c.id}`}>{c.planoLabel}</Th>
+          <Th key={`p-${c.id}`}>{c.placeholder ? '—' : c.planoLabel}</Th>
         ))}
       </tr>
     </>
@@ -136,11 +142,17 @@ function ReembolsoSlide({
   page: ComparativoReembolsoPagina
   ticket: string
 }) {
+  const colAtual = page.colunas.find((c) => c.grupo === 'atual' && !c.placeholder)
+
   return (
     <Paper variant="outlined" sx={{ overflow: 'auto' }}>
       <PlacementSlideHeader
         title="Comparativo de Reembolso"
-        subtitle={`Detalhamento por procedimento · ${ticket}`}
+        subtitle={
+          page.grupoLabel
+            ? `${page.grupoLabel} · detalhamento por procedimento · ${ticket}`
+            : `Detalhamento por procedimento · ${ticket}`
+        }
         icon={<PaymentsIcon sx={{ fontSize: 22, color: '#fff' }} />}
       />
       <Box sx={{ px: 2, py: 1.5 }}>
@@ -157,19 +169,36 @@ function ReembolsoSlide({
                 <Td bold align="left">
                   {linha.label}
                 </Td>
-                {page.colunas.map((col) => (
-                  <Td key={`${linha.id}-${col.id}`}>
-                    {linha.tipo === 'selo' ? (
-                      <ReembolsoSelo
-                        valor={valorReembolsoLinha(col, linha)}
-                        temReembolso={col.temReembolso}
-                        fontSize={10}
-                      />
-                    ) : (
-                      valorReembolsoLinha(col, linha)
-                    )}
-                  </Td>
-                ))}
+                {page.colunas.map((col) => {
+                  const texto = valorReembolsoLinha(col, linha)
+                  const comparacao = comparacaoReembolsoCelula(col, linha, colAtual)
+                  if (!col.placeholder && linha.tipo === 'selo') {
+                    return (
+                      <Td key={`${linha.id}-${col.id}`}>
+                        <ReembolsoSelo
+                          valor={texto}
+                          temReembolso={col.temReembolso}
+                          fontSize={10}
+                        />
+                      </Td>
+                    )
+                  }
+                  return (
+                    <Td key={`${linha.id}-${col.id}`}>
+                      <Box
+                        sx={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: 0.4,
+                        }}
+                      >
+                        <ReembolsoComparacaoIcon comparacao={comparacao} size={14} />
+                        <span>{texto}</span>
+                      </Box>
+                    </Td>
+                  )
+                })}
               </tr>
             ))}
           </tbody>
@@ -200,7 +229,14 @@ export function ComparativoReembolsoDashboard({
     () => form.kickOffEstrategia?.aguardandoOperadora?.comparativoConfig?.visualizacao !== 'slide'
   )
 
-  const { config, persistConfig, canPersist } = useComparativoConfigPersist({
+  const {
+    config,
+    persistConfig,
+    canPersist,
+    estudos,
+    ativoId,
+    selectEstudo,
+  } = useComparativoConfigPersist({
     cotacaoId,
     form,
     operadoras,
@@ -225,14 +261,24 @@ export function ComparativoReembolsoDashboard({
     [colunasTodas, config.colunasOcultas]
   )
 
+  const referencias = useMemo(
+    () => planosReferenciaAbertura(form, operadoras, operadorasById),
+    [form, operadoras, operadorasById]
+  )
+
   const colunasParaPainel = useMemo(
     () => listarColunasContratoPlano(colunasTodas),
     [colunasTodas]
   )
 
   const pages = useMemo(
-    () => buildComparativoReembolsoPages(colunas, config.colunasPorSlide),
-    [colunas, config.colunasPorSlide]
+    () =>
+      buildComparativoReembolsoPagesAlinhadas(
+        colunasTodas,
+        config.colunasOcultas,
+        referencias
+      ),
+    [colunasTodas, config.colunasOcultas, referencias]
   )
 
   const currentPage = pages[pageIndex] ?? pages[0]
@@ -296,16 +342,25 @@ export function ComparativoReembolsoDashboard({
       sidebarOpen={sidebarOpen}
       onSidebarOpenChange={setSidebarOpen}
       sidebar={
-        <ComparativoDetalheOpcoesPanel
-          colunas={colunasParaPainel}
-          config={config}
-          disabled={!canPersist}
-          onConfigChange={canPersist ? persistConfig : undefined}
-          modoVisualizacao={modoVisualizacao}
-          onModoVisualizacaoChange={setModoVisualizacao}
-          exibirTodasPaginas={paginaCompleta}
-          onExibirTodasPaginasChange={setExibirTodasPaginas}
-        />
+        <Stack spacing={1.5}>
+          <ComparativoEstudosSwitcher
+            mode="present"
+            estudos={estudos}
+            ativoId={ativoId}
+            disabled={!canPersist}
+            onSelect={selectEstudo}
+          />
+          <ComparativoDetalheOpcoesPanel
+            colunas={colunasParaPainel}
+            config={config}
+            disabled={!canPersist}
+            onConfigChange={canPersist ? persistConfig : undefined}
+            modoVisualizacao={modoVisualizacao}
+            onModoVisualizacaoChange={setModoVisualizacao}
+            exibirTodasPaginas={paginaCompleta}
+            onExibirTodasPaginasChange={setExibirTodasPaginas}
+          />
+        </Stack>
       }
       toolbar={
         <Stack
@@ -321,7 +376,7 @@ export function ComparativoReembolsoDashboard({
               Comparativo de reembolso
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              {colunas.length} coluna(s) · {pages.length} bloco(s)
+              {colunas.length} coluna(s) · {pages.length} plano(s) equivalente(s)
               {modoVisualizacao === 'infografico' ? ' · infográfico' : ' · tabela'}
             </Typography>
           </Box>

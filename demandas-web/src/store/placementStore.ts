@@ -75,6 +75,31 @@ export interface PlacementDiferencial {
   placementPlano?: { id: string; plano: string; categoria: string; operadoraId: string }
 }
 
+/** Condição contratual (Dados → Placement). Matriz por fornecedor; opcionalmente por plano. */
+export interface PlacementCondicaoContratual {
+  id: string
+  operadoraId: string
+  porPlano: boolean
+  placementPlanoId?: string | null
+  itemKey: string
+  texto: string
+  createdAt?: string
+  updatedAt?: string
+  operadora?: { id: string; nome: string }
+  placementPlano?: { id: string; plano: string; categoria: string; operadoraId: string } | null
+}
+
+/** Indicador da operadora (Dados → Placement). Matriz por fornecedor. */
+export interface PlacementIndicadorOperadora {
+  id: string
+  operadoraId: string
+  itemKey: string
+  texto: string
+  createdAt?: string
+  updatedAt?: string
+  operadora?: { id: string; nome: string }
+}
+
 /** Cadastros nome único (tipo contratação, modalidade, prazo vigência). */
 export interface PlacementNomeCadastro {
   id: string
@@ -97,10 +122,14 @@ interface PlacementState {
   analistas: PlacementAnalista[]
   planos: PlacementPlano[]
   diferenciais: PlacementDiferencial[]
+  condicoesContratuais: PlacementCondicaoContratual[]
+  indicadoresOperadoras: PlacementIndicadorOperadora[]
   isLoading: boolean
   isLoadingAnalistas: boolean
   isLoadingPlanos: boolean
   isLoadingDiferenciais: boolean
+  isLoadingCondicoesContratuais: boolean
+  isLoadingIndicadoresOperadoras: boolean
   isLoadingCorretores: boolean
   isLoadingProspects: boolean
   isLoadingCondicoes: boolean
@@ -115,6 +144,8 @@ interface PlacementState {
   lastSyncAnalistas: number
   lastSyncPlanos: number
   lastSyncDiferenciais: number
+  lastSyncCondicoesContratuais: number
+  lastSyncIndicadoresOperadoras: number
 
   syncFiliais: (force?: boolean) => Promise<void>
   addFilial: (input: { razaoSocial: string; cnpj: string; status?: PlacementFilialStatus }) => Promise<PlacementFilial>
@@ -227,6 +258,46 @@ interface PlacementState {
       texto: string
     }>
   ) => Promise<{ synced: number; skipped: number; diferenciais: PlacementDiferencial[] }>
+
+  syncCondicoesContratuais: (force?: boolean) => Promise<void>
+  addCondicaoContratual: (input: {
+    operadoraId: string
+    porPlano: boolean
+    placementPlanoId?: string | null
+    itemKey: string
+    texto: string
+  }) => Promise<PlacementCondicaoContratual>
+  updateCondicaoContratual: (
+    id: string,
+    input: Partial<
+      Pick<PlacementCondicaoContratual, 'operadoraId' | 'porPlano' | 'placementPlanoId' | 'itemKey' | 'texto'>
+    >
+  ) => Promise<PlacementCondicaoContratual>
+  removeCondicaoContratual: (id: string) => Promise<void>
+  upsertCondicoesContratuaisBatch: (
+    items: Array<{
+      operadoraId: string
+      porPlano: boolean
+      placementPlanoId?: string | null
+      itemKey: string
+      texto: string
+    }>
+  ) => Promise<{ synced: number; skipped: number; condicoes: PlacementCondicaoContratual[] }>
+
+  syncIndicadoresOperadoras: (force?: boolean) => Promise<void>
+  addIndicadorOperadora: (input: {
+    operadoraId: string
+    itemKey: string
+    texto: string
+  }) => Promise<PlacementIndicadorOperadora>
+  updateIndicadorOperadora: (
+    id: string,
+    input: Partial<Pick<PlacementIndicadorOperadora, 'operadoraId' | 'itemKey' | 'texto'>>
+  ) => Promise<PlacementIndicadorOperadora>
+  removeIndicadorOperadora: (id: string) => Promise<void>
+  upsertIndicadoresOperadorasBatch: (
+    items: Array<{ operadoraId: string; itemKey: string; texto: string }>
+  ) => Promise<{ synced: number; skipped: number; indicadores: PlacementIndicadorOperadora[] }>
 }
 
 const FIVE_MINUTES_MS = 5 * 60 * 1000
@@ -247,10 +318,14 @@ export const usePlacementStore = create<PlacementState>()(
       analistas: [],
       planos: [],
       diferenciais: [],
+      condicoesContratuais: [],
+      indicadoresOperadoras: [],
       isLoading: false,
       isLoadingAnalistas: false,
       isLoadingPlanos: false,
       isLoadingDiferenciais: false,
+      isLoadingCondicoesContratuais: false,
+      isLoadingIndicadoresOperadoras: false,
       isLoadingCorretores: false,
       isLoadingProspects: false,
       isLoadingCondicoes: false,
@@ -265,6 +340,8 @@ export const usePlacementStore = create<PlacementState>()(
       lastSyncAnalistas: 0,
       lastSyncPlanos: 0,
       lastSyncDiferenciais: 0,
+      lastSyncCondicoesContratuais: 0,
+      lastSyncIndicadoresOperadoras: 0,
 
       async syncFiliais(force?: boolean) {
         const state = get()
@@ -751,6 +828,177 @@ export const usePlacementStore = create<PlacementState>()(
           diferenciais: upserted,
         }
       },
+
+      async syncCondicoesContratuais(force?: boolean) {
+        const state = get()
+        if (state.isLoadingCondicoesContratuais) return
+        const now = Date.now()
+        if (
+          !force &&
+          state.condicoesContratuais.length > 0 &&
+          now - state.lastSyncCondicoesContratuais < FIVE_MINUTES_MS
+        ) {
+          return
+        }
+        try {
+          set({ isLoadingCondicoesContratuais: true })
+          const resp = (await api.get('/placement/condicoes-contratuais')) as
+            | { condicoes?: PlacementCondicaoContratual[] }
+            | PlacementCondicaoContratual[]
+          const condicoesContratuais = Array.isArray(resp) ? resp : resp?.condicoes ?? []
+          set({
+            condicoesContratuais,
+            isLoadingCondicoesContratuais: false,
+            lastSyncCondicoesContratuais: now,
+          })
+        } catch (err) {
+          console.error('❌ placementStore.syncCondicoesContratuais:', err)
+          set({ isLoadingCondicoesContratuais: false })
+        }
+      },
+
+      async addCondicaoContratual(input) {
+        const created = (await api.post(
+          '/placement/condicoes-contratuais',
+          input
+        )) as PlacementCondicaoContratual
+        set((s) => ({ condicoesContratuais: [created, ...s.condicoesContratuais] }))
+        return created
+      },
+
+      async updateCondicaoContratual(id, input) {
+        const updated = (await api.put(
+          `/placement/condicoes-contratuais/${id}`,
+          input
+        )) as PlacementCondicaoContratual
+        set((s) => ({
+          condicoesContratuais: s.condicoesContratuais.map((d) =>
+            d.id === id ? { ...d, ...updated } : d
+          ),
+        }))
+        return updated
+      },
+
+      async removeCondicaoContratual(id) {
+        await api.delete(`/placement/condicoes-contratuais/${id}`)
+        set((s) => ({
+          condicoesContratuais: s.condicoesContratuais.filter((d) => d.id !== id),
+        }))
+      },
+
+      async upsertCondicoesContratuaisBatch(items) {
+        if (!items.length) return { synced: 0, skipped: 0, condicoes: [] }
+        const resp = (await api.post('/placement/condicoes-contratuais/upsert-batch', { items })) as {
+          synced?: number
+          skipped?: number
+          condicoes?: PlacementCondicaoContratual[]
+        }
+        const upserted = resp?.condicoes ?? []
+        if (upserted.length) {
+          set((s) => {
+            const keyOf = (d: PlacementCondicaoContratual) =>
+              `${d.operadoraId}|${d.porPlano ? d.placementPlanoId ?? '' : ''}|${d.itemKey}|${d.porPlano ? '1' : '0'}`
+            const byKey = new Map(s.condicoesContratuais.map((d) => [keyOf(d), d]))
+            for (const row of upserted) byKey.set(keyOf(row), row)
+            return {
+              condicoesContratuais: Array.from(byKey.values()).sort((a, b) =>
+                a.operadoraId.localeCompare(b.operadoraId)
+              ),
+              lastSyncCondicoesContratuais: Date.now(),
+            }
+          })
+        }
+        return {
+          synced: resp?.synced ?? upserted.length,
+          skipped: resp?.skipped ?? 0,
+          condicoes: upserted,
+        }
+      },
+
+      async syncIndicadoresOperadoras(force?: boolean) {
+        const state = get()
+        if (state.isLoadingIndicadoresOperadoras) return
+        const now = Date.now()
+        if (
+          !force &&
+          state.indicadoresOperadoras.length > 0 &&
+          now - state.lastSyncIndicadoresOperadoras < FIVE_MINUTES_MS
+        ) {
+          return
+        }
+        try {
+          set({ isLoadingIndicadoresOperadoras: true })
+          const resp = (await api.get('/placement/indicadores-operadoras')) as
+            | { indicadores?: PlacementIndicadorOperadora[] }
+            | PlacementIndicadorOperadora[]
+          const indicadoresOperadoras = Array.isArray(resp) ? resp : resp?.indicadores ?? []
+          set({
+            indicadoresOperadoras,
+            isLoadingIndicadoresOperadoras: false,
+            lastSyncIndicadoresOperadoras: now,
+          })
+        } catch (err) {
+          console.error('❌ placementStore.syncIndicadoresOperadoras:', err)
+          set({ isLoadingIndicadoresOperadoras: false })
+        }
+      },
+
+      async addIndicadorOperadora(input) {
+        const created = (await api.post(
+          '/placement/indicadores-operadoras',
+          input
+        )) as PlacementIndicadorOperadora
+        set((s) => ({ indicadoresOperadoras: [created, ...s.indicadoresOperadoras] }))
+        return created
+      },
+
+      async updateIndicadorOperadora(id, input) {
+        const updated = (await api.put(
+          `/placement/indicadores-operadoras/${id}`,
+          input
+        )) as PlacementIndicadorOperadora
+        set((s) => ({
+          indicadoresOperadoras: s.indicadoresOperadoras.map((d) =>
+            d.id === id ? { ...d, ...updated } : d
+          ),
+        }))
+        return updated
+      },
+
+      async removeIndicadorOperadora(id) {
+        await api.delete(`/placement/indicadores-operadoras/${id}`)
+        set((s) => ({
+          indicadoresOperadoras: s.indicadoresOperadoras.filter((d) => d.id !== id),
+        }))
+      },
+
+      async upsertIndicadoresOperadorasBatch(items) {
+        if (!items.length) return { synced: 0, skipped: 0, indicadores: [] }
+        const resp = (await api.post('/placement/indicadores-operadoras/upsert-batch', { items })) as {
+          synced?: number
+          skipped?: number
+          indicadores?: PlacementIndicadorOperadora[]
+        }
+        const upserted = resp?.indicadores ?? []
+        if (upserted.length) {
+          set((s) => {
+            const keyOf = (d: PlacementIndicadorOperadora) => `${d.operadoraId}|${d.itemKey}`
+            const byKey = new Map(s.indicadoresOperadoras.map((d) => [keyOf(d), d]))
+            for (const row of upserted) byKey.set(keyOf(row), row)
+            return {
+              indicadoresOperadoras: Array.from(byKey.values()).sort((a, b) =>
+                a.operadoraId.localeCompare(b.operadoraId)
+              ),
+              lastSyncIndicadoresOperadoras: Date.now(),
+            }
+          })
+        }
+        return {
+          synced: resp?.synced ?? upserted.length,
+          skipped: resp?.skipped ?? 0,
+          indicadores: upserted,
+        }
+      },
     }),
     {
       name: 'placement-v1',
@@ -777,6 +1025,10 @@ export const usePlacementStore = create<PlacementState>()(
         lastSyncPlanos: state.lastSyncPlanos,
         diferenciais: state.diferenciais,
         lastSyncDiferenciais: state.lastSyncDiferenciais,
+        condicoesContratuais: state.condicoesContratuais,
+        lastSyncCondicoesContratuais: state.lastSyncCondicoesContratuais,
+        indicadoresOperadoras: state.indicadoresOperadoras,
+        lastSyncIndicadoresOperadoras: state.lastSyncIndicadoresOperadoras,
       }),
     }
   )

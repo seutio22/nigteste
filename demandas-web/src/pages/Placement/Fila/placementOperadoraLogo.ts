@@ -21,15 +21,18 @@ export async function fetchOperadoraIdsComLogo(): Promise<Set<string>> {
 
 /** Carrega logos como object URLs (autenticado) para uso em &lt;img&gt; e export PNG. */
 export async function loadOperadoraLogoObjectUrls(
-  operadoraIds: string[],
+  operadoraIds: Iterable<string> | null | undefined,
   idsComLogo: Set<string>
 ): Promise<Map<string, string>> {
   const map = new Map<string, string>()
+  const list = Array.isArray(operadoraIds)
+    ? operadoraIds
+    : operadoraIds
+      ? [...operadoraIds]
+      : []
   const unique = [
     ...new Set(
-      operadoraIds.filter(
-        (id) => id && idsComLogo.has(id) && !failedOperadoraLogoIds.has(id)
-      )
+      list.filter((id) => id && idsComLogo.has(id) && !failedOperadoraLogoIds.has(id))
     ),
   ]
   await Promise.all(

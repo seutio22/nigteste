@@ -4,6 +4,7 @@ import {
   kickOffWorkflowScore,
   mergeSavedKickOffIntoApiCotacao,
   preferRicherKickOffWhenApplyingApi,
+  propostasContentScore,
 } from './placementKickOffPersist'
 
 describe('placementKickOffPersist', () => {
@@ -98,32 +99,174 @@ describe('placementKickOffPersist', () => {
     expect(merged.comunicarMercado?.fornecedores.amil?.dataEnvio).toBe('2026-06-02')
   })
 
-  it('injeta kickOff salvo na resposta da API', () => {
-    const kickOff = buildKickOffEstrategiaPatch(
-      { secoes: [], mercadoAnalisado: ['X'], notas: '' },
+  it('preserva consolidandoDados local quando a API omite o bloco', () => {
+    const local = buildKickOffEstrategiaPatch(
+      { secoes: [], mercadoAnalisado: ['BRADESCO'], notas: '' },
       {
-        comunicarMercado: {
-          prazoRetorno: '',
-          conteudoCompartilhado: {
-            topicosOverrides: {},
-            sinistralidade: {
-              sinistralidadePeriodo: '',
-              estimativaReajuste: '',
-              indiceReajusteFinanceiro: '',
-              justificativaPicos: '',
-              maioresUsuarios: '',
-              maioresUsuariosMesAMes: '',
-              imagemDataUri: '',
+        consolidandoDados: {
+          diferenciais: {
+            telemedicina: {
+              bradesco: [
+                {
+                  id: 'dc1',
+                  placementPlanoId: '',
+                  planoLabel: 'Nacional',
+                  texto: 'App 24h',
+                },
+              ],
             },
-            localidades: { incluirNoEmail: false, imagemDataUri: '' },
           },
-          fornecedores: {},
+          condicoes: {},
+          indicadores: {},
+          resumoCoberturas: 'Resumo',
+          condicoesContratuais: '',
         },
       }
     )
-    const merged = mergeSavedKickOffIntoApiCotacao({ id: 'c1', kickOffEstrategia: null }, kickOff) as {
-      kickOffEstrategia: typeof kickOff
+    const apiKickOff = { secoes: [], mercadoAnalisado: ['BRADESCO'], notas: '' }
+    const merged = preferRicherKickOffWhenApplyingApi(apiKickOff, local)
+    expect(merged.consolidandoDados?.diferenciais?.telemedicina?.bradesco?.[0]?.texto).toBe('App 24h')
+    expect(merged.consolidandoDados?.resumoCoberturas).toBe('Resumo')
+  })
+
+  it('não troca texto local por mapa da API só com células vazias', () => {
+    const local = buildKickOffEstrategiaPatch(
+      { secoes: [], mercadoAnalisado: ['BRADESCO'], notas: '' },
+      {
+        consolidandoDados: {
+          diferenciais: {
+            telemedicina: {
+              bradesco: [
+                { id: 'dc1', placementPlanoId: '', planoLabel: '', texto: 'Preenchido' },
+              ],
+            },
+          },
+          condicoes: {},
+          indicadores: {},
+          resumoCoberturas: '',
+          condicoesContratuais: '',
+        },
+      }
+    )
+    const apiKickOff = {
+      secoes: [],
+      mercadoAnalisado: ['BRADESCO'],
+      notas: '',
+      consolidandoDados: {
+        diferenciais: {
+          telemedicina: {
+            bradesco: [{ id: 'x', placementPlanoId: '', planoLabel: '', texto: '' }],
+          },
+          telepsicologia: {
+            bradesco: [{ id: 'y', placementPlanoId: '', planoLabel: '', texto: '' }],
+          },
+        },
+        condicoes: {},
+        indicadores: {},
+        resumoCoberturas: '',
+        condicoesContratuais: '',
+      },
     }
-    expect(merged.kickOffEstrategia).toBe(kickOff)
+    const merged = preferRicherKickOffWhenApplyingApi(apiKickOff as typeof local, local)
+    expect(merged.consolidandoDados?.diferenciais?.telemedicina?.bradesco?.[0]?.texto).toBe(
+      'Preenchido'
+    )
+  })
+
+  it('preserva propostas locais quando a API devolve versão mais pobre', () => {
+    const local = buildKickOffEstrategiaPatch(
+      { secoes: [], mercadoAnalisado: ['AMIL'], notas: '' },
+      {
+        aguardandoOperadora: {
+          fornecedores: {},
+          quadroMercado: {
+            showFornecedorAtual: true,
+            showMercadoConsultado: true,
+            showForaPerfilDeclinado: true,
+            showNaoApresentada: true,
+          },
+          propostas: {
+            amil: {
+              incluirNoComparativo: true,
+              planos: [
+                {
+                  id: 'p1',
+                  nomePlano: 'S2500',
+                  tipoCusto: 'per_capita',
+                  numeroVidas: '100',
+                  custoPerCapitaBRL: '450,00',
+                  vidasFaixa: {},
+                  custosFaixa: {},
+                  reembolsoConsulta: '',
+                  reembolso: 'Sim',
+                  acomodacao: 'Apartamento',
+                  eventosReembolsaveis: '',
+                  abrangencia: '',
+                  contribuicao: '',
+                  coparticipacao: 'Sim',
+                  coparticipacaoDetalhe: {
+                    possui: true,
+                    formaCobranca: 'percentual',
+                    linhas: {
+                      consultas_eletivas: { valor: '30', limitador: '' },
+                      consultas_ps: { valor: '', limitador: '' },
+                      terapias: { valor: '', limitador: '' },
+                      exames_simples: { valor: '', limitador: '' },
+                      exames_especiais: { valor: '', limitador: '' },
+                      procedimentos_simples: { valor: '', limitador: '' },
+                      proced_especiais: { valor: '', limitador: '' },
+                    },
+                    internacao: { tipoCobranca: '', valor: '', limitador: '' },
+                  },
+                },
+              ],
+            },
+          },
+        },
+      }
+    )
+    const apiKickOff = {
+      secoes: [],
+      mercadoAnalisado: ['AMIL'],
+      notas: '',
+      aguardandoOperadora: {
+        fornecedores: {},
+        quadroMercado: {
+          showFornecedorAtual: true,
+          showMercadoConsultado: true,
+          showForaPerfilDeclinado: true,
+          showNaoApresentada: true,
+        },
+        propostas: {
+          amil: {
+            incluirNoComparativo: true,
+            planos: [
+              {
+                id: 'p1',
+                nomePlano: '',
+                tipoCusto: 'per_capita',
+                numeroVidas: '',
+                custoPerCapitaBRL: '',
+                vidasFaixa: {},
+                custosFaixa: {},
+                reembolsoConsulta: '',
+                reembolso: '',
+                acomodacao: '',
+                eventosReembolsaveis: '',
+                abrangencia: '',
+                contribuicao: '',
+                coparticipacao: '',
+              },
+            ],
+          },
+        },
+      },
+    }
+    expect(propostasContentScore(local.aguardandoOperadora)).toBeGreaterThan(
+      propostasContentScore(apiKickOff.aguardandoOperadora as typeof local.aguardandoOperadora)
+    )
+    const merged = preferRicherKickOffWhenApplyingApi(apiKickOff as typeof local, local)
+    expect(merged.aguardandoOperadora?.propostas?.amil?.planos?.[0]?.custoPerCapitaBRL).toBe('450,00')
+    expect(merged.aguardandoOperadora?.propostas?.amil?.planos?.[0]?.nomePlano).toBe('S2500')
   })
 })

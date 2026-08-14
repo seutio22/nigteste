@@ -16,7 +16,18 @@ import { workflowStageIndex } from './placementCotacaoWorkflow'
 import { kickOffEstrategiaIsComplete, buildKickOffEstrategiaPendencias } from './placementKickOffEstrategia'
 import { comunicarMercadoIsComplete } from './placementComunicarMercado'
 import { aguardandoOperadoraIsComplete } from './placementAguardandoOperadora'
-import { consolidandoDadosIsComplete } from './placementConsolidandoDados'
+import {
+  consolidandoHasCondicoes,
+  consolidandoHasDiferenciais,
+  consolidandoHasIndicadores,
+} from './placementConsolidandoDados'
+import {
+  parseValidacaoPropostaFromKickOff,
+  validacaoPropostaHasValidador,
+  validacaoPropostaItensComAjuste,
+  validacaoPropostaItensPendentes,
+  validacaoPropostaPodeAprovar,
+} from './placementValidacaoProposta'
 
 export type WorkflowChecklistItem = {
   id: string
@@ -168,6 +179,27 @@ export function validateForWorkflowAdvance(
   if (idx === 2) return null
   if (idx === 3) return validateEtapaKickOff(form)
   if (idx === 4) return validateEtapaEmCotacao(form)
+  if (idx === 6) {
+    const faltando: string[] = []
+    if (!consolidandoHasCondicoes(form)) {
+      faltando.push('condições contratuais (matriz ou observações na aba Condições)')
+    }
+    if (!consolidandoHasDiferenciais(form)) {
+      faltando.push('diferenciais (matriz na aba Diferenciais)')
+    }
+    if (faltando.length) {
+      return `Preencha antes de avançar para Validação: ${faltando.join('; ')}.`
+    }
+    const vp = parseValidacaoPropostaFromKickOff(form.kickOffEstrategia)
+    if (!validacaoPropostaHasValidador(vp)) {
+      return 'Designe o analista validador (catálogo Placement) antes de avançar para Validação.'
+    }
+    return null
+  }
+  if (idx === 7) {
+    const check = validacaoPropostaPodeAprovar(parseValidacaoPropostaFromKickOff(form.kickOffEstrategia))
+    return check.ok ? null : check.message ?? 'Conclua a validação antes de enviar a proposta.'
+  }
   return null
 }
 
@@ -319,34 +351,60 @@ export function buildWorkflowChecklist(
     ]
   }
   if (idx === 6) {
+    const vp = parseValidacaoPropostaFromKickOff(form.kickOffEstrategia)
     return [
       {
-        id: 'consolidando_resumo',
-        label: 'Resumo de coberturas preenchido',
-        done: !!parseConsolidandoResumo(form)?.resumoCoberturas.trim(),
-      },
-      {
         id: 'consolidando_condicoes',
-        label: 'Condições contratuais preenchidas',
-        done: !!parseConsolidandoResumo(form)?.condicoesContratuais.trim(),
+        label: 'Condições contratuais (aba Condições)',
+        done: consolidandoHasCondicoes(form),
       },
       {
         id: 'consolidando_diferenciais',
-        label: 'Diferenciais registrados',
-        done: consolidandoDadosIsComplete(form),
+        label: 'Diferenciais (matriz na aba Diferenciais)',
+        done: consolidandoHasDiferenciais(form),
+      },
+      {
+        id: 'consolidando_indicadores',
+        label: 'Indicadores das operadoras preenchidos',
+        done: consolidandoHasIndicadores(form),
+      },
+      {
+        id: 'consolidando_validador',
+        label: 'Analista validador designado (Placement)',
+        done: validacaoPropostaHasValidador(vp),
       },
     ]
   }
   if (idx === 7) {
+    const vp = parseValidacaoPropostaFromKickOff(form.kickOffEstrategia)
+    const pendentes = validacaoPropostaItensPendentes(vp).length
+    const ajustes = validacaoPropostaItensComAjuste(vp).length
+    return [
+      {
+        id: 'vp_validador',
+        label: 'Analista validador designado',
+        done: validacaoPropostaHasValidador(vp),
+      },
+      {
+        id: 'vp_itens',
+        label: pendentes
+          ? `Itens avaliados (${pendentes} pendente(s))`
+          : 'Todos os itens avaliados',
+        done: pendentes === 0 && (vp.itens?.length ?? 0) > 0,
+      },
+      {
+        id: 'vp_sem_ajuste',
+        label: ajustes
+          ? `${ajustes} ajuste(s) — devolver ou corrigir`
+          : 'Sem ajustes pendentes',
+        done: ajustes === 0,
+      },
+    ]
+  }
+  if (idx === 8) {
     return [{ id: 'proposta', label: 'Proposta formal enviada ao cliente', done: true }]
   }
   return []
-}
-
-function parseConsolidandoResumo(form: CotacaoFormState) {
-  const raw = form.kickOffEstrategia?.consolidandoDados
-  if (!raw) return null
-  return raw
 }
 
 export function isMainFlowTerminal(status: string): boolean {

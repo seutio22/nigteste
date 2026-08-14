@@ -10,6 +10,7 @@ export const PLACEMENT_COTACAO_WORKFLOW_STATUSES = [
   'Em cotação',
   'Aguardando operadora',
   'Consolidando dados',
+  'Validação proposta',
   'Proposta enviada',
   'Fechada',
   'Perdida',

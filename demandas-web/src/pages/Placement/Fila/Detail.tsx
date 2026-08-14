@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   Alert,
@@ -48,12 +48,19 @@ import { PlacementCotacaoWorkflowPanel } from './PlacementCotacaoWorkflowPanel'
 import { PlacementCotacaoDetailTabs } from './PlacementCotacaoDetailTabs'
 import { PlacementFilaPageShell } from './PlacementFilaPageShell'
 import { getWorkflowStageKey, getWorkflowStageMeta } from './placementCotacaoWorkflow'
+import { patchKickOffInForm } from './placementPatchKickOff'
+import { mercadoNomesComFornecedoresAtuais } from './placementMercadoQuadro'
+import {
+  appendValidacaoHistorico,
+  ensureValidacaoPropostaState,
+  parseValidacaoPropostaFromKickOff,
+} from './placementValidacaoProposta'
 import { formScopeForWorkflow } from './placementCotacaoFormScope'
 import { isRascunhoStatus } from './placementCotacaoStatus'
 import type { PlacementCotacaoWorkflowStatus } from './placementCotacaoStatus'
 import { useAuthStore } from '../../../store/authStore'
 import { parseKickOffEstrategiaFromApi } from './placementKickOffEstrategia'
-import { preferRicherKickOffWhenApplyingApi } from './placementKickOffPersist'
+import { preferRicherKickOffWhenApplyingApi, mergeSavedKickOffIntoApiCotacao } from './placementKickOffPersist'
 import { getRetreatDiscardScope, type WorkflowRetreatMode } from './placementWorkflowRetreat'
 import { comunicarMercadoIsComplete } from './placementComunicarMercado'
 import { normalizeEmCotacaoSubetapa } from './placementEmCotacaoWorkflow'
@@ -80,6 +87,9 @@ export default function PlacementFilaDetailPage({ fullscreen = false }: { fullsc
   const removeCotacao = usePlacementCotacaoStore((s) => s.removeCotacao)
 
   const [form, setForm] = useState<CotacaoFormState | null>(null)
+  /** Sempre o form mais recente (inclui patches sync antes do re-render) — usado na validação de avanço. */
+  const formRef = useRef<CotacaoFormState | null>(null)
+  formRef.current = form
   const [loading, setLoading] = useState(true)
   const [formSaving, setFormSaving] = useState(false)
   const [workflowSaving, setWorkflowSaving] = useState(false)
@@ -165,7 +175,17 @@ export default function PlacementFilaDetailPage({ fullscreen = false }: { fullsc
       .get(`/placement/cotacoes/${id}`)
       .then((data: any) => {
         if (cancelled) return
-        setForm(toFormState(data))
+        setForm((prev) => {
+          const next = toFormState(data)
+          if (!prev) return next
+          return {
+            ...next,
+            kickOffEstrategia: preferRicherKickOffWhenApplyingApi(
+              next.kickOffEstrategia,
+              prev.kickOffEstrategia
+            ),
+          }
+        })
         setAnalistaResponsavelMeta(data?.analistaResponsavel ?? null)
         setMetricasCabecalho(metricasResumoDeApi(data))
         setEmCotacaoSubetapa(String(data?.emCotacaoSubetapa ?? 'beneficiarios'))
@@ -194,8 +214,21 @@ export default function PlacementFilaDetailPage({ fullscreen = false }: { fullsc
   )
 
   const patchForm = useCallback((next: CotacaoFormState | ((prev: CotacaoFormState | null) => CotacaoFormState | null)) => {
+    if (typeof next === 'function') {
+      setForm((prev) => {
+        const resolved = next(prev)
+        formRef.current = resolved
+        return resolved
+      })
+      return
+    }
+    formRef.current = next
     setForm(next)
   }, [])
+
+  const getLatestForm = useCallback((): CotacaoFormState => {
+    return formRef.current ?? form!
+  }, [form])
 
   const isDraft = isRascunhoStatus(form?.status)
 
@@ -264,6 +297,45 @@ export default function PlacementFilaDetailPage({ fullscreen = false }: { fullsc
     } catch (err: any) {
       console.error('❌ designar analista:', err)
       setErrorMsg(err?.message ?? 'Erro ao designar analista.')
+      throw err
+    } finally {
+      setFormSaving(false)
+    }
+  }
+
+  async function handleDesignarValidador(analistaValidadorId: string) {
+    if (!id || !form) return
+    setFormSaving(true)
+    setErrorMsg(null)
+    try {
+      await flushAllPlacementPendingSaves()
+      const baseForm = formRef.current ?? form
+      const fornecedores = mercadoNomesComFornecedoresAtuais(baseForm, operadoras, operadorasById)
+      const vp = ensureValidacaoPropostaState(
+        parseValidacaoPropostaFromKickOff(baseForm.kickOffEstrategia),
+        baseForm
+      )
+      const nextVp = appendValidacaoHistorico(
+        { ...vp, analistaValidadorId },
+        {
+          acao: 'designar',
+          detalhe: `Validador designado na consolidação`,
+        }
+      )
+      const nextForm = patchKickOffInForm(baseForm, { validacaoProposta: nextVp }, fornecedores)
+      formRef.current = nextForm
+      setForm(nextForm)
+      const updated = await updateCotacao(
+        id,
+        { kickOffEstrategia: nextForm.kickOffEstrategia } as any,
+        { light: true }
+      )
+      applyLightCotacaoPatch(
+        mergeSavedKickOffIntoApiCotacao(updated, nextForm.kickOffEstrategia!)
+      )
+    } catch (err: any) {
+      console.error('❌ designar validador:', err)
+      setErrorMsg(err?.message ?? 'Erro ao designar validador.')
       throw err
     } finally {
       setFormSaving(false)
@@ -393,6 +465,19 @@ export default function PlacementFilaDetailPage({ fullscreen = false }: { fullsc
       return
     }
 
+    // Ao entrar na Validação proposta, garante itens seedados a partir do consolidado
+    let formToAdvance = formRef.current ?? form
+    if (workflowStageKey === 'consolidando_dados' && nextStatus === 'Validação proposta') {
+      const fornecedores = mercadoNomesComFornecedoresAtuais(formToAdvance, operadoras, operadorasById)
+      const vp = ensureValidacaoPropostaState(
+        parseValidacaoPropostaFromKickOff(formToAdvance.kickOffEstrategia),
+        formToAdvance
+      )
+      formToAdvance = patchKickOffInForm(formToAdvance, { validacaoProposta: vp }, fornecedores)
+      formRef.current = formToAdvance
+      setForm(formToAdvance)
+    }
+
     const prevStatus = form.status
     setForm((prev) => (prev ? { ...prev, status: nextStatus } : prev))
     setWorkflowSaving(true)
@@ -400,8 +485,31 @@ export default function PlacementFilaDetailPage({ fullscreen = false }: { fullsc
     try {
       await flushAllPlacementPendingSaves()
       if (workflowStageKey === 'estrategia') {
-        const payload = buildScopedSavePayload(form, { scope: 'estrategia', isDraft: false })
+        const payload = buildScopedSavePayload(formToAdvance, { scope: 'estrategia', isDraft: false })
         await updateCotacao(id, payload, { light: true })
+      }
+      if (
+        workflowStageKey === 'consolidando_dados' &&
+        nextStatus === 'Validação proposta' &&
+        formToAdvance.kickOffEstrategia
+      ) {
+        await updateCotacao(
+          id,
+          { kickOffEstrategia: formToAdvance.kickOffEstrategia } as any,
+          { light: true }
+        )
+      }
+      // Persiste avaliações OK/ajuste antes do PATCH (evita API ler itens ainda «pendente»).
+      if (
+        workflowStageKey === 'validacao_proposta' &&
+        nextStatus === 'Proposta enviada' &&
+        formToAdvance.kickOffEstrategia
+      ) {
+        await updateCotacao(
+          id,
+          { kickOffEstrategia: formToAdvance.kickOffEstrategia } as any,
+          { light: true }
+        )
       }
       const updated = await patchWorkflowStatus(id, { status: nextStatus })
       const returnedStatus = String(updated.status ?? '').trim().toLowerCase()
@@ -561,10 +669,15 @@ export default function PlacementFilaDetailPage({ fullscreen = false }: { fullsc
           <PlacementCotacaoWorkflowPanel
             status={form.status}
             form={form}
+            getLatestForm={getLatestForm}
             saving={workflowSaving}
             beneficiariosTotal={beneficiariosTotal}
             analistaResponsavel={analistaResponsavelMeta}
+            analistaValidadorId={
+              parseValidacaoPropostaFromKickOff(form.kickOffEstrategia).analistaValidadorId
+            }
             onDesignarAnalista={handleDesignarAnalista}
+            onDesignarValidador={handleDesignarValidador}
             onAdvance={handleAvancarEtapa}
             onRetreat={handleVoltarEtapa}
             onEncerrar={handleEncerrarProcesso}

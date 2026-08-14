@@ -20,6 +20,11 @@ import {
   type PlacementSlideId,
   type PlacementSlideViewMode,
 } from './placementSlidesCatalog'
+import {
+  propostaDeckCatalog,
+  propostaDeckNavLabel,
+  propostaDeckNavSecondary,
+} from './placementPropostaDeck'
 import { useMasterDataStore } from '../../../store/masterDataStore'
 import { api } from '../../../lib/api.local'
 import { ComparativoEstudoDashboard } from './ComparativoEstudoDashboard'
@@ -59,6 +64,12 @@ type Props = {
   onChange?: (next: CotacaoFormState) => void
   onPersisted?: (apiCotacao: unknown) => void
   initialSlideId?: PlacementSlideId
+  /** Ordem customizada (ex.: deck da proposta). */
+  slideOrder?: PlacementSlideId[]
+  /** Oculta toolbar compacto/detalhado (força modo apresentação). */
+  forceCompactSlide?: boolean
+  /** Título/contexto na lista lateral. */
+  deckMode?: 'default' | 'proposta'
 }
 
 export function PlacementSlidesHub({
@@ -69,19 +80,34 @@ export function PlacementSlidesHub({
   onChange,
   onPersisted,
   initialSlideId,
+  slideOrder,
+  forceCompactSlide,
+  deckMode = 'default',
 }: Props) {
   const operadoras = useMasterDataStore((s) => s.operadoras)
   const operadorasById = useMasterDataStore((s) => s.operadorasById)
+
+  const catalog = useMemo(() => {
+    if (deckMode === 'proposta' || slideOrder?.length) {
+      return propostaDeckCatalog(slideOrder)
+    }
+    return PLACEMENT_SLIDES_CATALOG
+  }, [deckMode, slideOrder])
+
   const [slideId, setSlideId] = useState<PlacementSlideId>(
-    () => initialSlideId ?? defaultPlacementSlideId(workflowStageKey)
+    () => initialSlideId ?? catalog[0]?.id ?? defaultPlacementSlideId(workflowStageKey)
   )
   const [viewBySlide, setViewBySlide] = useState<Partial<Record<PlacementSlideId, PlacementSlideViewMode>>>({})
 
   useEffect(() => {
-    setSlideId(initialSlideId ?? defaultPlacementSlideId(workflowStageKey))
-  }, [workflowStageKey, initialSlideId])
+    const fallback = catalog[0]?.id ?? defaultPlacementSlideId(workflowStageKey)
+    const next = initialSlideId && catalog.some((s) => s.id === initialSlideId) ? initialSlideId : fallback
+    setSlideId(next)
+  }, [workflowStageKey, initialSlideId, catalog])
 
-  const viewMode = viewBySlide[slideId] ?? 'compacto'
+  const viewMode: PlacementSlideViewMode = forceCompactSlide
+    ? 'compacto'
+    : viewBySlide[slideId] ?? 'compacto'
   const presentationMode = presentationModeForSlide(slideId, viewMode)
 
   const kickOffRaw = form.kickOffEstrategia
@@ -209,15 +235,21 @@ export function PlacementSlidesHub({
         }}
       >
         <List dense disablePadding>
-          {PLACEMENT_SLIDES_CATALOG.map((slide) => (
+          {catalog.map((slide) => (
             <ListItemButton
               key={slide.id}
               selected={slideId === slide.id}
               onClick={() => setSlideId(slide.id)}
             >
               <ListItemText
-                primary={slide.label}
-                secondary={slide.description}
+                primary={
+                  deckMode === 'proposta' ? propostaDeckNavLabel(slide.id) : slide.label
+                }
+                secondary={
+                  deckMode === 'proposta'
+                    ? propostaDeckNavSecondary(slide.id)
+                    : slide.description
+                }
                 primaryTypographyProps={{
                   fontWeight: slideId === slide.id ? 700 : 500,
                   fontSize: 15,
@@ -239,11 +271,13 @@ export function PlacementSlidesHub({
           bgcolor: 'background.default',
         }}
       >
-        <PlacementSlideViewToolbar
-          value={viewMode}
-          disabled={disabled}
-          onChange={(next) => setViewBySlide((prev) => ({ ...prev, [slideId]: next }))}
-        />
+        {!forceCompactSlide && (
+          <PlacementSlideViewToolbar
+            value={viewMode}
+            disabled={disabled}
+            onChange={(next) => setViewBySlide((prev) => ({ ...prev, [slideId]: next }))}
+          />
+        )}
         <Box
           sx={{
             flex: 1,

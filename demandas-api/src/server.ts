@@ -13,6 +13,7 @@ import projectWorkAuditRoutes from './routes/projectWorkAudit'
 import projectTemplatesRoutes from './routes/projectTemplates'
 import projectStatsSummaryRoutes from './routes/projectStatsSummary'
 import shareRoutes from './routes/share'
+import placementShareRoutes from './routes/placementShare'
 import placementRoutes from './routes/placement'
 import { masterDataRoutes } from './routes/masterData'
 import { kanbanRoutes } from './routes/kanban'
@@ -3654,7 +3655,8 @@ const resources = {
   projectMilestones: crud('projectMilestone'),
   projectTimelines: crud('projectTimeline'),
   projectShareTokens: crud('projectShareToken'),
-  padroes: crud('padrao')
+  padroes: crud('padrao'),
+  'produtividade-regras': crud('produtividadeRegra'),
 }
 
 // Rotas de alertas de projetos - registrar ANTES do CRUD para evitar conflito
@@ -5942,6 +5944,7 @@ app.register(projectTemplatesRoutes, { prisma })
 
 // Rotas de compartilhamento (DEVEM vir ANTES das rotas genéricas)
 app.register(shareRoutes, { prisma })
+app.register(placementShareRoutes, { prisma })
 app.register(placementRoutes, { prisma })
 
 // Rotas de dados mestres

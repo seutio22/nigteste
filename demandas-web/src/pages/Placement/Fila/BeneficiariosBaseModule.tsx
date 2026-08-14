@@ -44,7 +44,11 @@ import {
   filtrarBeneficiariosPorValidacao,
   type FiltroVidasValidacao,
 } from './BeneficiariosValidacaoCriticasPanel'
-import { downloadCriticasValidacaoXlsx } from './placementBeneficiariosValidacaoExport'
+import { downloadBaseComCriticasPreferindoOriginal } from './placementBeneficiariosValidacaoExport'
+import {
+  clearBeneficiariosOriginalFile,
+  saveBeneficiariosOriginalFile,
+} from './placementBeneficiariosOriginalStore'
 import { BeneficiariosTemplateMappingPanel } from './BeneficiariosTemplateMappingPanel'
 import {
   clearBeneficiariosMappingSnapshot,
@@ -387,6 +391,12 @@ export function BeneficiariosBaseModule({
     lastUploadedFileNameRef.current = file.name
     try {
       const buf = await file.arrayBuffer()
+      // Guarda o arquivo original para devolver com coluna CRITICA após a validação.
+      await saveBeneficiariosOriginalFile(cotacaoId, {
+        fileName: file.name,
+        mimeType: file.type || 'application/octet-stream',
+        buffer: buf.slice(0),
+      })
       const wb = XLSX.read(buf, { type: 'array', cellDates: true })
       const sheet = wb.Sheets[wb.SheetNames[0]]
       if (!sheet) throw new Error('Planilha vazia.')
@@ -448,12 +458,35 @@ export function BeneficiariosBaseModule({
     }
   }
 
+  async function handleDownloadBaseComCriticas() {
+    if (!validacao) return
+    try {
+      const modo = await downloadBaseComCriticasPreferindoOriginal(
+        cotacaoId,
+        rows,
+        validacao,
+        fieldHeaderMap
+      )
+      if (modo === 'reconstruido') {
+        setSuccessMsg(
+          'Arquivo original desta sessão não encontrado — baixamos a base reconstruída com a coluna CRITICA. Para obter o arquivo original, importe a planilha novamente e baixe as críticas.'
+        )
+      } else {
+        setSuccessMsg('Download do arquivo original com a coluna CRITICA.')
+      }
+    } catch (err: any) {
+      console.error('❌ download base com críticas:', err)
+      setErrorMsg(err?.message ?? 'Erro ao baixar planilha com críticas.')
+    }
+  }
+
   async function handleClear() {
     if (!window.confirm('Remover todos os beneficiários desta cotação?')) return
     setUploading(true)
     setErrorMsg(null)
     try {
       await api.delete(`/placement/cotacoes/${cotacaoId}/beneficiarios`)
+      await clearBeneficiariosOriginalFile(cotacaoId)
       setSuccessMsg(null)
       resetValidacaoFiltros()
       resetTemplateMapping()
@@ -538,9 +571,9 @@ export function BeneficiariosBaseModule({
             variant="outlined"
             startIcon={<DownloadIcon />}
             disabled={disabled || uploading}
-            onClick={() => void downloadCriticasValidacaoXlsx(cotacaoId, rows, validacao)}
+            onClick={() => void handleDownloadBaseComCriticas()}
           >
-            Baixar críticas
+            Baixar base com críticas
           </Button>
         )}
         <Button
@@ -569,7 +602,7 @@ export function BeneficiariosBaseModule({
       {validacao && (
         <Alert severity={validacao.linhasComApontamento > 0 ? 'warning' : 'success'} sx={{ mb: 2 }}>
           {validacao.linhasComApontamento > 0
-            ? `${vidasValidadas} vida(s) validada(s) · ${validacao.linhasComApontamento} com ${validacao.totalApontamentos} crítica(s) em ${validacao.totalLinhas} vidas. Linhas validadas aparecem em verde; use os filtros ou baixe o relatório.`
+            ? `${vidasValidadas} vida(s) validada(s) · ${validacao.linhasComApontamento} com ${validacao.totalApontamentos} crítica(s) em ${validacao.totalLinhas} vidas. Linhas validadas aparecem em verde; baixe o arquivo original com a coluna CRITICA.`
             : `Todas as ${validacao.totalLinhas} vidas foram validadas em relação à abertura e ao Kick off.`}
         </Alert>
       )}

@@ -16,7 +16,7 @@ import EditNoteIcon from '@mui/icons-material/EditNote'
 import type { CotacaoFormState } from './CotacaoFormFields'
 import {
   buildComparativoCoparticipacaoColunas,
-  buildComparativoCoparticipacaoPages,
+  buildComparativoCoparticipacaoPagesAlinhadas,
   valorCopartLinha,
   type ComparativoCopartColuna,
   type ComparativoCoparticipacaoPagina,
@@ -26,10 +26,12 @@ import { ComparativoCoparticipacaoInfografico } from './ComparativoCoparticipaca
 import { ComparativoDetalheOpcoesPanel } from './ComparativoDetalheOpcoesPanel'
 import { ComparativoDetalheSidebarLayout } from './ComparativoDetalheSidebarLayout'
 import { useComparativoConfigPersist } from './useComparativoConfigPersist'
+import { ComparativoEstudosSwitcher } from './ComparativoEstudosSwitcher'
 import {
   filterComparativoColunas,
   listarColunasContratoPlano,
 } from './placementComparativoVisibilidade'
+import { planosReferenciaAbertura } from './placementPropostaEquivalencia'
 import { useMasterDataStore } from '../../../store/masterDataStore'
 import {
   PlacementSlideHeader,
@@ -110,19 +112,21 @@ function CopartHeaders({ colunas }: { colunas: ComparativoCopartColuna[] }) {
       <tr>
         <Th>SAÚDE</Th>
         {colunas.map((c) => (
-          <Th key={`g-${c.id}`}>{c.grupo === 'atual' ? 'ATUAL' : 'MERCADO CONSUL.'}</Th>
+          <Th key={`g-${c.id}`}>
+            {c.placeholder ? '—' : c.grupo === 'atual' ? 'ATUAL' : 'MERCADO CONSUL.'}
+          </Th>
         ))}
       </tr>
       <tr>
         <Th>Operadoras</Th>
         {colunas.map((c) => (
-          <Th key={`o-${c.id}`}>{c.operadora}</Th>
+          <Th key={`o-${c.id}`}>{c.placeholder ? '—' : c.operadora}</Th>
         ))}
       </tr>
       <tr>
         <Th>Planos &gt;</Th>
         {colunas.map((c) => (
-          <Th key={`p-${c.id}`}>{c.planoLabel}</Th>
+          <Th key={`p-${c.id}`}>{c.placeholder ? '—' : c.planoLabel}</Th>
         ))}
       </tr>
     </>
@@ -140,7 +144,11 @@ function CoparticipacaoSlide({
     <Paper variant="outlined" sx={{ overflow: 'auto' }}>
       <PlacementSlideHeader
         title="Comparativo de Coparticipação"
-        subtitle={`Detalhamento por procedimento · ${ticket}`}
+        subtitle={
+          page.grupoLabel
+            ? `${page.grupoLabel} · detalhamento por procedimento · ${ticket}`
+            : `Detalhamento por procedimento · ${ticket}`
+        }
         icon={<HealthAndSafetyIcon sx={{ fontSize: 22, color: '#fff' }} />}
       />
       <Box sx={{ px: 2, py: 1.5 }}>
@@ -159,14 +167,14 @@ function CoparticipacaoSlide({
                 </Td>
                 {page.colunas.map((col) => (
                   <Td key={`${linha.id}-${col.id}`}>
-                    {linha.tipo === 'selo' ? (
+                    {col.placeholder || linha.tipo !== 'selo' ? (
+                      valorCopartLinha(col, linha)
+                    ) : (
                       <CoparticipacaoSelo
                         valor={valorCopartLinha(col, linha)}
                         temCoparticipacao={col.copart.possui}
                         fontSize={10}
                       />
-                    ) : (
-                      valorCopartLinha(col, linha)
                     )}
                   </Td>
                 ))}
@@ -200,7 +208,14 @@ export function ComparativoCoparticipacaoDashboard({
     () => form.kickOffEstrategia?.aguardandoOperadora?.comparativoConfig?.visualizacao !== 'slide'
   )
 
-  const { config, persistConfig, canPersist } = useComparativoConfigPersist({
+  const {
+    config,
+    persistConfig,
+    canPersist,
+    estudos,
+    ativoId,
+    selectEstudo,
+  } = useComparativoConfigPersist({
     cotacaoId,
     form,
     operadoras,
@@ -225,14 +240,24 @@ export function ComparativoCoparticipacaoDashboard({
     [colunasTodas, config.colunasOcultas]
   )
 
+  const referencias = useMemo(
+    () => planosReferenciaAbertura(form, operadoras, operadorasById),
+    [form, operadoras, operadorasById]
+  )
+
   const colunasParaPainel = useMemo(
     () => listarColunasContratoPlano(colunasTodas),
     [colunasTodas]
   )
 
   const pages = useMemo(
-    () => buildComparativoCoparticipacaoPages(colunas, config.colunasPorSlide),
-    [colunas, config.colunasPorSlide]
+    () =>
+      buildComparativoCoparticipacaoPagesAlinhadas(
+        colunasTodas,
+        config.colunasOcultas,
+        referencias
+      ),
+    [colunasTodas, config.colunasOcultas, referencias]
   )
 
   const currentPage = pages[pageIndex] ?? pages[0]
@@ -296,16 +321,25 @@ export function ComparativoCoparticipacaoDashboard({
       sidebarOpen={sidebarOpen}
       onSidebarOpenChange={setSidebarOpen}
       sidebar={
-        <ComparativoDetalheOpcoesPanel
-          colunas={colunasParaPainel}
-          config={config}
-          disabled={!canPersist}
-          onConfigChange={canPersist ? persistConfig : undefined}
-          modoVisualizacao={modoVisualizacao}
-          onModoVisualizacaoChange={setModoVisualizacao}
-          exibirTodasPaginas={paginaCompleta}
-          onExibirTodasPaginasChange={setExibirTodasPaginas}
-        />
+        <Stack spacing={1.5}>
+          <ComparativoEstudosSwitcher
+            mode="present"
+            estudos={estudos}
+            ativoId={ativoId}
+            disabled={!canPersist}
+            onSelect={selectEstudo}
+          />
+          <ComparativoDetalheOpcoesPanel
+            colunas={colunasParaPainel}
+            config={config}
+            disabled={!canPersist}
+            onConfigChange={canPersist ? persistConfig : undefined}
+            modoVisualizacao={modoVisualizacao}
+            onModoVisualizacaoChange={setModoVisualizacao}
+            exibirTodasPaginas={paginaCompleta}
+            onExibirTodasPaginasChange={setExibirTodasPaginas}
+          />
+        </Stack>
       }
       toolbar={
         <Stack
@@ -321,7 +355,7 @@ export function ComparativoCoparticipacaoDashboard({
               Comparativo de coparticipação
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              {colunas.length} coluna(s) · {pages.length} bloco(s)
+              {colunas.length} coluna(s) · {pages.length} plano(s) equivalente(s)
               {modoVisualizacao === 'infografico' ? ' · infográfico' : ' · tabela'}
             </Typography>
           </Box>

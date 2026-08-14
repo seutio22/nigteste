@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { memo, useRef } from 'react'
 import {
   Box,
   Checkbox,
@@ -18,6 +18,7 @@ import {
   placeholderValorCopart,
   procedimentosPorColuna,
 } from './placementCoparticipacao'
+import { PlacementDraftTextField } from './PlacementDraftTextField'
 
 const HEADER_BG = '#1e3a5f'
 
@@ -43,7 +44,7 @@ function patchLinha(
   }
 }
 
-export function CoparticipacaoPlanoBlock({
+export const CoparticipacaoPlanoBlock = memo(function CoparticipacaoPlanoBlock({
   coparticipacao,
   disabled,
   onChange,
@@ -51,9 +52,17 @@ export function CoparticipacaoPlanoBlock({
   onReplicarParaOutrosPlanosChange,
 }: Props) {
   const c = coparticipacao
+  const cRef = useRef(c)
+  cRef.current = c
   const forma = c.formaCobranca
   const phValor = placeholderValorCopart(forma)
   const phLimitador = placeholderLimitadorCopart(forma)
+
+  const commit = (next: CoparticipacaoForm) => onChange(next)
+  const commitLinha = (
+    key: keyof CoparticipacaoForm['linhas'],
+    part: Partial<CoparticipacaoForm['linhas'][typeof key]>
+  ) => onChange(patchLinha(cRef.current, key, part))
 
   return (
     <Box sx={{ mt: 2 }}>
@@ -160,30 +169,26 @@ export function CoparticipacaoPlanoBlock({
                             </Typography>
                           </Grid>
                           <Grid item xs={3}>
-                            <TextField
+                            <PlacementDraftTextField
                               size="small"
                               fullWidth
                               hiddenLabel
                               disabled={disabled}
                               value={linha.valor}
                               placeholder={phValor}
-                              onChange={(e) =>
-                                onChange(patchLinha(c, proc.key, { valor: e.target.value }))
-                              }
+                              onCommit={(v) => commitLinha(proc.key, { valor: v })}
                               inputProps={{ 'aria-label': `${proc.label} valor` }}
                             />
                           </Grid>
                           <Grid item xs={3}>
-                            <TextField
+                            <PlacementDraftTextField
                               size="small"
                               fullWidth
                               hiddenLabel
                               disabled={disabled}
                               value={linha.limitador}
                               placeholder={phLimitador}
-                              onChange={(e) =>
-                                onChange(patchLinha(c, proc.key, { limitador: e.target.value }))
-                              }
+                              onCommit={(v) => commitLinha(proc.key, { limitador: v })}
                               inputProps={{ 'aria-label': `${proc.label} limitador` }}
                             />
                           </Grid>
@@ -235,7 +240,7 @@ export function CoparticipacaoPlanoBlock({
                   </TextField>
                 </Grid>
                 <Grid item xs={6} sm={2} md={2}>
-                  <TextField
+                  <PlacementDraftTextField
                     size="small"
                     fullWidth
                     label="Valor"
@@ -248,26 +253,26 @@ export function CoparticipacaoPlanoBlock({
                           ? '% desc.'
                           : '%'
                     }
-                    onChange={(e) =>
-                      onChange({
-                        ...c,
-                        internacao: { ...c.internacao, valor: e.target.value },
+                    onCommit={(v) =>
+                      commit({
+                        ...cRef.current,
+                        internacao: { ...cRef.current.internacao, valor: v },
                       })
                     }
                   />
                 </Grid>
                 <Grid item xs={12} sm={4} md={6}>
-                  <TextField
+                  <PlacementDraftTextField
                     size="small"
                     fullWidth
                     label="Limitador"
                     disabled={disabled}
                     value={c.internacao.limitador}
                     placeholder="Limite (R$, % ou teto de desconto)"
-                    onChange={(e) =>
-                      onChange({
-                        ...c,
-                        internacao: { ...c.internacao, limitador: e.target.value },
+                    onCommit={(v) =>
+                      commit({
+                        ...cRef.current,
+                        internacao: { ...cRef.current.internacao, limitador: v },
                       })
                     }
                   />
@@ -303,4 +308,4 @@ export function CoparticipacaoPlanoBlock({
       )}
     </Box>
   )
-}
+})

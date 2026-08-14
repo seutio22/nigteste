@@ -1,11 +1,10 @@
-import React from 'react'
+import React, { memo, useRef } from 'react'
 import {
   Box,
   Button,
   Grid,
   IconButton,
   Stack,
-  TextField,
   Typography,
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
@@ -18,6 +17,7 @@ import {
   sanitizeReembolsoMoedaInput,
   type ReembolsoPlanoDetalhe,
 } from './placementReembolso'
+import { PlacementDraftTextField } from './PlacementDraftTextField'
 
 const MAX_CUSTOM = 8
 
@@ -43,24 +43,22 @@ function patchValor(d: ReembolsoPlanoDetalhe, key: string, value: string): Reemb
 function MoedaField({
   value,
   disabled,
-  onChange,
+  onCommit,
 }: {
   value: string
   disabled?: boolean
-  onChange: (v: string) => void
+  onCommit: (v: string) => void
 }) {
   return (
-    <TextField
+    <PlacementDraftTextField
       size="small"
       disabled={disabled}
       value={value}
       placeholder="0,00"
       sx={inputCompactSx}
-      onBlur={() => {
-        const formatted = formatReembolsoMoedaDisplay(value)
-        if (formatted !== value) onChange(formatted)
-      }}
-      onChange={(e) => onChange(sanitizeReembolsoMoedaInput(e.target.value))}
+      transform={sanitizeReembolsoMoedaInput}
+      formatOnBlur={formatReembolsoMoedaDisplay}
+      onCommit={onCommit}
       inputProps={{ inputMode: 'decimal' }}
     />
   )
@@ -70,13 +68,13 @@ function ProcLinha({
   label,
   value,
   disabled,
-  onChange,
+  onCommit,
   onRemove,
 }: {
   label: React.ReactNode
   value: string
   disabled?: boolean
-  onChange: (v: string) => void
+  onCommit: (v: string) => void
   onRemove?: () => void
 }) {
   return (
@@ -93,7 +91,7 @@ function ProcLinha({
           label
         )}
       </Box>
-      <MoedaField value={value} disabled={disabled} onChange={onChange} />
+      <MoedaField value={value} disabled={disabled} onCommit={onCommit} />
       {onRemove ? (
         <IconButton size="small" disabled={disabled} onClick={onRemove} sx={{ p: 0.35 }}>
           <DeleteOutlineIcon sx={{ fontSize: 16 }} />
@@ -105,25 +103,32 @@ function ProcLinha({
   )
 }
 
-export function ReembolsoPlanoBlock({ detalhe, disabled, onChange }: Props) {
+export const ReembolsoPlanoBlock = memo(function ReembolsoPlanoBlock({
+  detalhe,
+  disabled,
+  onChange,
+}: Props) {
   const d = detalhe
+  const dRef = useRef(d)
+  dRef.current = d
 
   const addCustom = () => {
-    if (d.procedimentosCustomizados.length >= MAX_CUSTOM) return
+    if (dRef.current.procedimentosCustomizados.length >= MAX_CUSTOM) return
     const id = newReembolsoProcedimentoId()
     onChange({
-      ...d,
-      procedimentosCustomizados: [...d.procedimentosCustomizados, { id, nome: '' }],
+      ...dRef.current,
+      procedimentosCustomizados: [...dRef.current.procedimentosCustomizados, { id, nome: '' }],
     })
   }
 
   const removeCustom = (id: string) => {
-    const nextValores = { ...d.valores }
+    const cur = dRef.current
+    const nextValores = { ...cur.valores }
     delete nextValores[id]
     onChange({
-      ...d,
+      ...cur,
       valores: nextValores,
-      procedimentosCustomizados: d.procedimentosCustomizados.filter((p) => p.id !== id),
+      procedimentosCustomizados: cur.procedimentosCustomizados.filter((p) => p.id !== id),
     })
   }
 
@@ -134,20 +139,22 @@ export function ReembolsoPlanoBlock({ detalhe, disabled, onChange }: Props) {
       </Typography>
 
       <Stack direction="row" flexWrap="wrap" gap={1} sx={{ mb: 1.25 }}>
-        <TextField
+        <PlacementDraftTextField
           label="Prazo consulta (dias)"
           size="small"
           value={d.consultaDias}
           disabled={disabled}
-          onChange={(e) => onChange({ ...d, consultaDias: sanitizeReembolsoDias(e.target.value) })}
+          transform={sanitizeReembolsoDias}
+          onCommit={(v) => onChange({ ...dRef.current, consultaDias: v })}
           sx={{ width: 148, '& .MuiInputBase-root': { height: 34 } }}
         />
-        <TextField
+        <PlacementDraftTextField
           label="Prazo procedimentos (dias)"
           size="small"
           value={d.procedimentosDias}
           disabled={disabled}
-          onChange={(e) => onChange({ ...d, procedimentosDias: sanitizeReembolsoDias(e.target.value) })}
+          transform={sanitizeReembolsoDias}
+          onCommit={(v) => onChange({ ...dRef.current, procedimentosDias: v })}
           sx={{ width: 168, '& .MuiInputBase-root': { height: 34 } }}
         />
       </Stack>
@@ -159,7 +166,7 @@ export function ReembolsoPlanoBlock({ detalhe, disabled, onChange }: Props) {
               label={proc.label}
               value={d.valores[proc.key] ?? ''}
               disabled={disabled}
-              onChange={(v) => onChange(patchValor(d, proc.key, v))}
+              onCommit={(v) => onChange(patchValor(dRef.current, proc.key, v))}
             />
           </Grid>
         ))}
@@ -167,17 +174,17 @@ export function ReembolsoPlanoBlock({ detalhe, disabled, onChange }: Props) {
           <Grid item xs={12} sm={6} key={proc.id}>
             <ProcLinha
               label={
-                <TextField
+                <PlacementDraftTextField
                   size="small"
                   fullWidth
                   disabled={disabled}
                   placeholder="Procedimento"
                   value={proc.nome}
-                  onChange={(e) =>
+                  onCommit={(nome) =>
                     onChange({
-                      ...d,
-                      procedimentosCustomizados: d.procedimentosCustomizados.map((p) =>
-                        p.id === proc.id ? { ...p, nome: e.target.value } : p
+                      ...dRef.current,
+                      procedimentosCustomizados: dRef.current.procedimentosCustomizados.map((p) =>
+                        p.id === proc.id ? { ...p, nome } : p
                       ),
                     })
                   }
@@ -189,7 +196,7 @@ export function ReembolsoPlanoBlock({ detalhe, disabled, onChange }: Props) {
               }
               value={d.valores[proc.id] ?? ''}
               disabled={disabled}
-              onChange={(v) => onChange(patchValor(d, proc.id, v))}
+              onCommit={(v) => onChange(patchValor(dRef.current, proc.id, v))}
               onRemove={() => removeCustom(proc.id)}
             />
           </Grid>
@@ -207,4 +214,4 @@ export function ReembolsoPlanoBlock({ detalhe, disabled, onChange }: Props) {
       </Button>
     </Box>
   )
-}
+})

@@ -236,8 +236,64 @@ function PlanoTabHeader({
   layout: ContratoAtualLayoutSpec
 }) {
   const [logoFailed, setLogoFailed] = useState(false)
-  const showLogo = Boolean(logoUrl) && !logoFailed
+  const showLogo = Boolean(logoUrl) && !logoFailed && !col.placeholder
   const typo = getContratoTypography(layout)
+
+  if (col.placeholder) {
+    return (
+      <Box
+        sx={{
+          borderRadius: '14px 14px 0 0',
+          overflow: 'hidden',
+          borderRight: `1px solid ${BORDER}`,
+          borderTop: `1px solid ${BORDER}`,
+          borderLeft: `1px solid ${BORDER}`,
+          minHeight: layout.tabH + layout.logoWellH,
+          display: 'flex',
+          flexDirection: 'column',
+          boxSizing: 'border-box',
+          bgcolor: SURFACE,
+          opacity: 0.55,
+        }}
+      >
+        <Box
+          sx={{
+            minHeight: layout.logoWellH,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderBottom: `1px solid ${BORDER}`,
+          }}
+        >
+          <Typography
+            sx={{
+              fontFamily: FONT,
+              fontSize: typo.tabOperadora,
+              fontWeight: 700,
+              color: MUTED,
+              textAlign: 'center',
+            }}
+          >
+            {col.operadora}
+          </Typography>
+        </Box>
+        <Box
+          sx={{
+            flex: 1,
+            minHeight: layout.tabH,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderTop: `3px solid ${BORDER}`,
+          }}
+        >
+          <Typography sx={{ fontFamily: FONT, fontSize: typo.tabPlano, fontWeight: 700, color: MUTED }}>
+            —
+          </Typography>
+        </Box>
+      </Box>
+    )
+  }
 
   return (
     <Box
@@ -494,6 +550,30 @@ function ResumoCopartPanel({
         </Box>
       </Box>
       {colunas.map((col) => {
+        if (col.placeholder) {
+          return (
+            <Box
+              key={`resumo-${col.id}`}
+              sx={{
+                minHeight: ROW_SUMMARY,
+                py: 1,
+                px: 0.65,
+                borderRight: `1px solid ${BORDER}`,
+                borderTop: `3px solid ${BORDER}`,
+                bgcolor: SURFACE,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity: 0.55,
+                boxSizing: 'border-box',
+              }}
+            >
+              <Typography sx={{ fontFamily: FONT, fontSize: typo.faturaMicro, fontWeight: 700, color: MUTED }}>
+                —
+              </Typography>
+            </Box>
+          )
+        }
         const tem = col.copart.possui
         const forma = valorCopartLinha(col, formaLinha)
         const isRef = col.grupo === 'atual'
@@ -704,7 +784,7 @@ export function ComparativoCoparticipacaoInfografico({ page, ticket }: Props) {
   const layout = useMemo(() => getCopartInfograficoLayout(colunas.length), [colunas.length])
 
   useEffect(() => {
-    const ids = colunas.map((c) => c.operadoraId).filter(Boolean)
+    const ids = colunas.filter((c) => !c.placeholder).map((c) => c.operadoraId).filter(Boolean)
     if (!ids.length) return
     let cancelled = false
     void fetchOperadoraIdsComLogo().then((idsComLogo) => {
@@ -722,6 +802,20 @@ export function ComparativoCoparticipacaoInfografico({ page, ticket }: Props) {
 
   return (
     <Box sx={{ width: '100%' }}>
+      {page.grupoLabel ? (
+        <Typography
+          sx={{
+            fontFamily: FONT,
+            fontSize: 12,
+            fontWeight: 800,
+            color: PRIMARY,
+            mb: 0.75,
+            letterSpacing: 0.2,
+          }}
+        >
+          Plano equivalente · {page.grupoLabel}
+        </Typography>
+      ) : null}
       <CopartInfograficoGrid colunas={colunas} layout={layout} logoUrls={logoUrls} />
       {page.totalPages > 1 && (
         <Typography sx={{ fontFamily: FONT, fontSize: 9, color: MUTED, fontWeight: 700, textAlign: 'right', mt: 1 }}>

@@ -10,6 +10,7 @@ export const STATUS_COLORS: Record<CotacaoStatus, { bg: string; text: string; ch
   'Em cotação':              { bg: '#FEF3C7', text: '#92400E', chip: 'warning' },
   'Aguardando operadora':    { bg: '#FCE7F3', text: '#9D174D', chip: 'warning' },
   'Consolidando dados':      { bg: '#E0F2FE', text: '#0C4A6E', chip: 'info' },
+  'Validação proposta':      { bg: '#FEF3C7', text: '#854D0E', chip: 'warning' },
   'Proposta enviada':        { bg: '#DBEAFE', text: '#1E40AF', chip: 'primary' },
   'Fechada':                 { bg: '#DCFCE7', text: '#166534', chip: 'success' },
   'Perdida':                 { bg: '#FEE2E2', text: '#991B1B', chip: 'error' },

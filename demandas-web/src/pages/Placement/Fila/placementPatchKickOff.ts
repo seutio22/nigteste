@@ -3,11 +3,13 @@ import { buildKickOffEstrategiaPatch } from './placementKickOffPersist'
 import type { AguardandoOperadoraState } from './placementAguardandoOperadora'
 import type { ComunicarMercadoState } from './placementComunicarMercado'
 import type { ConsolidandoDadosState } from './placementConsolidandoDados'
+import type { ValidacaoPropostaState } from './placementValidacaoProposta'
 
 type KickOffPatch = {
   comunicarMercado?: ComunicarMercadoState
   aguardandoOperadora?: AguardandoOperadoraState
   consolidandoDados?: ConsolidandoDadosState
+  validacaoProposta?: ValidacaoPropostaState
 }
 
 /** Aplica patch parcial no kickOff sem espalhar `{ ...form, kickOffEstrategia }` manualmente. */

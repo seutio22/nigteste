@@ -1,6 +1,7 @@
 // Configuração de API para desenvolvimento local
 import { useAuthStore } from '../store/authStore'
 import { getBaseUrl } from '../config/api'
+import { rewritePlacementShareEndpoint } from './placementShareSession'
 
 export const API_CONFIG = {
   BASE_URL: getBaseUrl(),
@@ -54,7 +55,14 @@ export async function apiRequest<T = any>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const url = `${API_CONFIG.BASE_URL}${endpoint}`
+  const method = String(options.method || 'GET').toUpperCase()
+  const resolved = rewritePlacementShareEndpoint(endpoint, method)
+  if (typeof resolved === 'object' && resolved.localNoop) {
+    // Modo share: mutações ficam só no React. Nunca devolver o body do PUT como se fosse a cotação
+    // (toFormState nisso apaga planos/itens e o fornecedor ATUAL some do comparativo).
+    return { __placementShareLocalNoop: true } as T
+  }
+  const url = `${API_CONFIG.BASE_URL}${resolved}`
   
   // Obter credenciais de autenticação do store
   const authState = useAuthStore.getState()

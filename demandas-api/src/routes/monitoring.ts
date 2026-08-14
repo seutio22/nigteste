@@ -573,6 +573,241 @@ export default async function monitoringRoutes(fastify: FastifyInstance) {
     }
   )
 
+  /**
+   * Presença no período (capacidade real): apenas usuários do departamento informado
+   * (padrão: NIG). Logins/sessões em dias úteis, cruzados com Analista (email/nome).
+   */
+  fastify.get(
+    '/presence-range',
+    { preHandler: [verifyJWT, requirePermission('usuarios', 'view')] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      try {
+        const q = request.query as Record<string, string | undefined>
+        const from = String(q.from || '').slice(0, 10)
+        const to = String(q.to || '').slice(0, 10)
+        const departmentQuery = String(q.department || 'NIG').trim() || 'NIG'
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to) || to < from) {
+          return reply.status(400).send({ error: 'Informe from e to no formato YYYY-MM-DD' })
+        }
+
+        const rangeStart = new Date(`${from}T00:00:00`)
+        const rangeEnd = new Date(`${to}T23:59:59.999`)
+        if (Number.isNaN(rangeStart.getTime()) || Number.isNaN(rangeEnd.getTime())) {
+          return reply.status(400).send({ error: 'Datas inválidas' })
+        }
+
+        const businessDaySet = new Set<string>()
+        const cur = new Date(rangeStart)
+        cur.setHours(12, 0, 0, 0)
+        const endProbe = new Date(rangeEnd)
+        endProbe.setHours(12, 0, 0, 0)
+        while (cur <= endProbe) {
+          const wd = cur.getDay()
+          if (wd !== 0 && wd !== 6) {
+            const y = cur.getFullYear()
+            const m = String(cur.getMonth() + 1).padStart(2, '0')
+            const d = String(cur.getDate()).padStart(2, '0')
+            businessDaySet.add(`${y}-${m}-${d}`)
+          }
+          cur.setDate(cur.getDate() + 1)
+        }
+        const businessDays = Math.max(businessDaySet.size, 1)
+
+        const norm = (s: string) =>
+          s
+            .trim()
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+
+        const areas = await prisma.area.findMany({ select: { id: true, nome: true } })
+        const deptNeedle = norm(departmentQuery)
+        const matchedAreas = areas.filter((a) => norm(a.nome || '').includes(deptNeedle))
+        if (!matchedAreas.length) {
+          return reply.send({
+            from,
+            to,
+            businessDays,
+            department: departmentQuery,
+            departmentIds: [],
+            equipePrevista: 0,
+            pessoasComPresenca: 0,
+            pessoaDiasPresentes: 0,
+            pessoaDiasPrevistos: 0,
+            users: [],
+            warning: `Nenhuma área/departamento encontrada para "${departmentQuery}"`
+          })
+        }
+        const departmentIds = matchedAreas.map((a) => a.id)
+
+        const [users, analistas, monitoringRows, sessions, loginActs] = await Promise.all([
+          prisma.user.findMany({
+            where: {
+              active: true,
+              departmentId: { in: departmentIds }
+            },
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              departmentId: true,
+              department: { select: { id: true, nome: true } }
+            },
+            orderBy: { name: 'asc' }
+          }),
+          prisma.analista.findMany({
+            select: { id: true, nome: true, email: true }
+          }),
+          prisma.userMonitoring.findMany({
+            where: { date: { gte: rangeStart, lte: rangeEnd } },
+            select: {
+              userId: true,
+              date: true,
+              loginCount: true,
+              sessionCount: true,
+              pageDwellSeconds: true,
+              pageViewCount: true
+            }
+          }),
+          prisma.userSession.findMany({
+            where: {
+              OR: [
+                { loginTime: { gte: rangeStart, lte: rangeEnd } },
+                {
+                  AND: [
+                    { loginTime: { lte: rangeEnd } },
+                    {
+                      OR: [{ logoutTime: null }, { logoutTime: { gte: rangeStart } }]
+                    }
+                  ]
+                }
+              ]
+            },
+            select: { userId: true, loginTime: true, logoutTime: true, lastActivity: true }
+          }),
+          prisma.userActivity.findMany({
+            where: {
+              action: 'login',
+              createdAt: { gte: rangeStart, lte: rangeEnd }
+            },
+            select: { userId: true, createdAt: true }
+          })
+        ])
+
+        const nigUserIds = new Set(users.map((u) => u.id))
+
+        // Mapa userId → analista (só equipe do departamento)
+        const userToAnalista = new Map<string, { analistaId: string; analistaNome: string }>()
+        const emailToUser = new Map<string, (typeof users)[number]>()
+        const nameToUser = new Map<string, (typeof users)[number]>()
+        for (const u of users) {
+          if (u.email) emailToUser.set(norm(u.email), u)
+          if (u.name) nameToUser.set(norm(u.name), u)
+        }
+        for (const a of analistas) {
+          let u: (typeof users)[number] | undefined
+          const em = (a.email || '').trim()
+          if (em) u = emailToUser.get(norm(em))
+          if (!u && a.nome) u = nameToUser.get(norm(a.nome))
+          if (u && !userToAnalista.has(u.id)) {
+            userToAnalista.set(u.id, { analistaId: a.id, analistaNome: a.nome })
+          }
+        }
+
+        const daysByUser = new Map<string, Set<string>>()
+        const touch = (userId: string, dayKey: string) => {
+          if (!nigUserIds.has(userId)) return
+          if (!businessDaySet.has(dayKey)) return
+          if (!daysByUser.has(userId)) daysByUser.set(userId, new Set())
+          daysByUser.get(userId)!.add(dayKey)
+        }
+        const dayKeyOf = (dt: Date) => {
+          const y = dt.getFullYear()
+          const m = String(dt.getMonth() + 1).padStart(2, '0')
+          const d = String(dt.getDate()).padStart(2, '0')
+          return `${y}-${m}-${d}`
+        }
+
+        for (const row of monitoringRows) {
+          const hasPresence =
+            (row.loginCount || 0) > 0 ||
+            (row.sessionCount || 0) > 0 ||
+            (row.pageDwellSeconds || 0) > 0 ||
+            (row.pageViewCount || 0) > 0
+          if (!hasPresence) continue
+          touch(row.userId, dayKeyOf(row.date))
+        }
+
+        for (const s of sessions) {
+          const start = new Date(Math.max(s.loginTime.getTime(), rangeStart.getTime()))
+          const endRaw = s.logoutTime || s.lastActivity || s.loginTime
+          const end = new Date(Math.min(endRaw.getTime(), rangeEnd.getTime()))
+          const walker = new Date(start)
+          walker.setHours(12, 0, 0, 0)
+          const endWalk = new Date(end)
+          endWalk.setHours(12, 0, 0, 0)
+          let guard = 0
+          while (walker <= endWalk && guard < 400) {
+            touch(s.userId, dayKeyOf(walker))
+            walker.setDate(walker.getDate() + 1)
+            guard += 1
+          }
+        }
+
+        for (const act of loginActs) {
+          touch(act.userId, dayKeyOf(act.createdAt))
+        }
+
+        const equipePrevista = users.length
+        const presentUsers = users
+          .map((u) => {
+            const days = [...(daysByUser.get(u.id) || [])].sort()
+            if (!days.length) return null
+            const link = userToAnalista.get(u.id)
+            return {
+              userId: u.id,
+              userName: u.name,
+              userEmail: u.email,
+              departmentId: u.departmentId,
+              departmentNome: u.department?.nome ?? null,
+              daysPresent: days.length,
+              dates: days,
+              analistaId: link?.analistaId ?? null,
+              analistaNome: link?.analistaNome ?? null
+            }
+          })
+          .filter((u): u is NonNullable<typeof u> => u != null)
+
+        const pessoasComPresenca = presentUsers.length
+        const pessoaDiasPresentes = presentUsers.reduce((s, u) => s + u.daysPresent, 0)
+        const pessoaDiasPrevistos = Math.max(equipePrevista, 0) * businessDays
+
+        return reply.send({
+          from,
+          to,
+          businessDays,
+          department: departmentQuery,
+          departmentIds,
+          departmentNomes: matchedAreas.map((a) => a.nome),
+          equipePrevista,
+          pessoasComPresenca,
+          pessoaDiasPresentes,
+          pessoaDiasPrevistos,
+          users: presentUsers,
+          roster: users.map((u) => ({
+            userId: u.id,
+            userName: u.name,
+            userEmail: u.email,
+            analistaId: userToAnalista.get(u.id)?.analistaId ?? null
+          }))
+        })
+      } catch (error) {
+        console.error('Erro no presence-range:', error)
+        return reply.status(500).send({ error: 'Erro interno do servidor' })
+      }
+    }
+  )
+
   // Endpoint para buscar atividades de um usuário específico
   fastify.get('/user/:userId/activities', async (request: FastifyRequest, reply: FastifyReply) => {
     try {

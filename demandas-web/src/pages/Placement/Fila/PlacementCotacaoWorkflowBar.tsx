@@ -26,6 +26,7 @@ export function PlacementCotacaoWorkflowBar({ status, compact }: Props) {
     label: stage.label,
     description: compact ? stage.description : undefined,
     stepNumber: (stage.mainFlowIndex ?? index) + 1,
+    hasSubetapas: !!stage.hasSubetapas,
     state:
       index < activeStep
         ? ('completed' as const)
@@ -39,7 +40,10 @@ export function PlacementCotacaoWorkflowBar({ status, compact }: Props) {
       {compact && (
         <PlacementWorkflowSectionTitle title="Etapas do processo" icon={<RouteIcon fontSize="small" />} />
       )}
-      <PlacementWorkflowStepsRail steps={steps} heading={compact ? undefined : 'Etapas principais'} />
+      <PlacementWorkflowStepsRail
+        steps={steps}
+        heading={compact ? undefined : 'Etapas principais'}
+      />
     </Box>
   )
 }

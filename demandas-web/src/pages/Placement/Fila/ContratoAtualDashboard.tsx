@@ -66,9 +66,11 @@ import { linhasOcultasSet } from './placementComparativoVisibilidade'
 import {
   buildConsolidadoForContratoPage,
   buildComparativoOperadoraConsolidadoPage,
-  aggregateContratoColunasPorOperadora,
+  aggregateContratoColunasPorCenario,
+  buildConsolidadoLinhas,
   buildOperadoraSlotsFromColunas,
   alignPageToOperadoraSlots,
+  colunaSlotKey,
   type ComparativoColunaEstudo,
   type ComparativoConsolidadoLinha,
 } from './placementComparativoEstudo'
@@ -120,6 +122,8 @@ function SlideText({
 
 export type ComparativoExibicao = 'plano_completo' | 'consolidado_financeiro'
 
+export type ContratoAtualLayoutOrientacao = 'horizontal' | 'vertical'
+
 type Props = {
   cotacaoId: string
   disabled?: boolean
@@ -140,8 +144,15 @@ type Props = {
   notasConsolidado?: string
   /** consolidado_financeiro: só cabeçalho das colunas + fatura + consolidado (padrão). plano_completo: grid detalhado. */
   exibicaoComparativo?: ComparativoExibicao
-  /** Em visão expandida, exibe o cabeçalho gradiente apenas no primeiro bloco. */
-  showHeaderOnce?: boolean
+  /** Compacta a linha de vidas na legenda do custo. */
+  vidasColunaUnica?: boolean
+  /** Custo médio ou custo total do plano na linha de custo. */
+  custoPlanoExibicao?: 'medio' | 'total'
+  /**
+   * Orientação controlada (ex.: comparativo). Sem valor, o dashboard gerencia localmente.
+   * horizontal = colunas lado a lado; vertical = blocos empilhados por grupo/página.
+   */
+  layoutOrientacao?: ContratoAtualLayoutOrientacao
 }
 
 type GridSpec = {
@@ -173,11 +184,14 @@ function gridSpec(page: ContratoAtualPagina): GridSpec {
 function LegendCell({
   icon,
   label,
+  detail,
   accent,
   typo,
 }: {
   icon: React.ReactNode
   label: string
+  /** Linha auxiliar (ex.: «105 vidas» quando a linha de vidas foi omitida). */
+  detail?: string
   accent?: string
   typo?: ContratoGridTypography
 }) {
@@ -217,9 +231,24 @@ function LegendCell({
       >
         {icon}
       </Box>
-      <Typography sx={{ fontFamily: FONT, fontSize: legendSize, fontWeight: 700, color: PRIMARY, lineHeight: 1.15 }}>
-        {label}
-      </Typography>
+      <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.1 }}>
+        <Typography sx={{ fontFamily: FONT, fontSize: legendSize, fontWeight: 700, color: PRIMARY, lineHeight: 1.15 }}>
+          {label}
+        </Typography>
+        {detail ? (
+          <Typography
+            sx={{
+              fontFamily: FONT,
+              fontSize: Math.max(8, legendSize - 0.5),
+              fontWeight: 700,
+              color: MUTED,
+              lineHeight: 1.1,
+            }}
+          >
+            {detail}
+          </Typography>
+        ) : null}
+      </Box>
     </Box>
   )
 }
@@ -474,73 +503,79 @@ function PlanoTab({
   col,
   logoUrl,
   layout,
+  omitOperadora = false,
 }: {
   col: ContratoPlanoColuna
   logoUrl?: string | null
   layout: ContratoAtualLayoutSpec
+  /** Em seções empilhadas: só plano, sem logo/nome do fornecedor. */
+  omitOperadora?: boolean
 }) {
   const [logoFailed, setLogoFailed] = useState(false)
-  const showLogo = Boolean(logoUrl) && !logoFailed
+  const showLogo = !omitOperadora && Boolean(logoUrl) && !logoFailed
   const typo = getContratoTypography(layout)
+  const tabH = omitOperadora ? layout.tabH : layout.tabH + layout.logoWellH
 
   return (
     <Box
       sx={{
-        borderRadius: '14px 14px 0 0',
+        borderRadius: omitOperadora ? 0 : '14px 14px 0 0',
         overflow: 'hidden',
         borderRight: `1px solid ${BORDER}`,
         borderTop: `1px solid ${BORDER}`,
         borderLeft: `1px solid ${BORDER}`,
         borderBottom: 'none',
-        minHeight: layout.tabH + layout.logoWellH,
-        height: layout.tabH + layout.logoWellH,
+        minHeight: tabH,
+        height: tabH,
         display: 'flex',
         flexDirection: 'column',
         boxSizing: 'border-box',
       }}
     >
-      <Box
-        sx={{
-          minHeight: layout.logoWellH,
-          maxHeight: layout.logoWellH,
-          bgcolor: WHITE,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          px: 0.75,
-          borderBottom: `1px solid ${BORDER}`,
-        }}
-      >
-        {showLogo ? (
-          <Box
-            component="img"
-            src={logoUrl!}
-            alt={col.operadora}
-            onError={() => setLogoFailed(true)}
-            sx={{
-              maxHeight: layout.logoWellH - 10,
-              maxWidth: '92%',
-              width: 'auto',
-              objectFit: 'contain',
-              display: 'block',
-            }}
-          />
-        ) : (
-          <Typography
-            sx={{
-              fontFamily: FONT,
-              fontSize: typo.tabOperadora,
-              fontWeight: 800,
-              color: PRIMARY,
-              letterSpacing: 0.3,
-              lineHeight: 1.1,
-              textAlign: 'center',
-            }}
-          >
-            {col.operadora}
-          </Typography>
-        )}
-      </Box>
+      {!omitOperadora && (
+        <Box
+          sx={{
+            minHeight: layout.logoWellH,
+            maxHeight: layout.logoWellH,
+            bgcolor: WHITE,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            px: 0.75,
+            borderBottom: `1px solid ${BORDER}`,
+          }}
+        >
+          {showLogo ? (
+            <Box
+              component="img"
+              src={logoUrl!}
+              alt={col.operadora}
+              onError={() => setLogoFailed(true)}
+              sx={{
+                maxHeight: layout.logoWellH - 10,
+                maxWidth: '92%',
+                width: 'auto',
+                objectFit: 'contain',
+                display: 'block',
+              }}
+            />
+          ) : (
+            <Typography
+              sx={{
+                fontFamily: FONT,
+                fontSize: typo.tabOperadora,
+                fontWeight: 800,
+                color: PRIMARY,
+                letterSpacing: 0.3,
+                lineHeight: 1.1,
+                textAlign: 'center',
+              }}
+            >
+              {col.operadora}
+            </Typography>
+          )}
+        </Box>
+      )}
       <Box
         sx={{
           flex: 1,
@@ -568,19 +603,21 @@ function PlanoTab({
           },
         }}
       >
-        <Typography
-          sx={{
-            fontFamily: FONT,
-            fontSize: typo.tabProduto,
-            fontWeight: 600,
-            color: INFO,
-            letterSpacing: 0.4,
-            position: 'relative',
-          }}
-        >
-          {col.produto.toUpperCase()}
-        </Typography>
-        {col.grupo && (
+        {!omitOperadora && (
+          <Typography
+            sx={{
+              fontFamily: FONT,
+              fontSize: typo.tabProduto,
+              fontWeight: 600,
+              color: INFO,
+              letterSpacing: 0.4,
+              position: 'relative',
+            }}
+          >
+            {col.produto.toUpperCase()}
+          </Typography>
+        )}
+        {!omitOperadora && col.grupo && (
           <Typography
             sx={{
               fontFamily: FONT,
@@ -777,6 +814,8 @@ function VariacaoComparativoPanel({
   page: ContratoAtualPagina
   layout: ContratoAtualLayoutSpec
   anexarConsolidado?: boolean
+  /** @deprecated mantido só por compatibilidade nas chamadas. */
+  vidasColunaUnica?: boolean
 }) {
   const cols = page.colunas
   const typo = getContratoTypography(layout)
@@ -927,6 +966,7 @@ function ConsolidadoFinanceiroIntegradoPanel({
   linhasOcultas,
   notas,
   anexadoAoGrid = false,
+  vidasColunaUnica = false,
 }: {
   page: ContratoAtualPagina
   layout: ContratoAtualLayoutSpec
@@ -934,11 +974,13 @@ function ConsolidadoFinanceiroIntegradoPanel({
   linhasOcultas?: Set<ComparativoLinhaChave>
   notas?: string
   anexadoAoGrid?: boolean
+  vidasColunaUnica?: boolean
 }) {
   const cols = page.colunas
   const typo = getContratoTypography(layout)
   const ocultas = linhasOcultas ?? new Set<ComparativoLinhaChave>()
   const linhasVisiveis = linhas.filter((linha) => {
+    if (vidasColunaUnica && linha.id === 'vidas') return false
     if (!ocultas.has('variacao_financeira')) return true
     return linha.tipo !== 'resultado' && linha.id !== 'sec-res'
   })
@@ -1183,6 +1225,9 @@ function ComparativoGrid({
   omitFinanceiro = false,
   sectionLabel,
   stackPosition = 'only',
+  vidasColunaUnica = false,
+  omitirOperadoraNasSecoesEmpilhadas = false,
+  custoPlanoExibicao = 'medio',
 }: {
   page: ContratoAtualPagina
   logoUrls: Map<string, string>
@@ -1198,9 +1243,21 @@ function ComparativoGrid({
   omitFinanceiro?: boolean
   sectionLabel?: string
   stackPosition?: 'first' | 'middle' | 'last' | 'only'
+  vidasColunaUnica?: boolean
+  omitirOperadoraNasSecoesEmpilhadas?: boolean
+  custoPlanoExibicao?: 'medio' | 'total'
 }) {
   const ocultas = linhasOcultas ?? new Set<ComparativoLinhaChave>()
   const cols = page.colunas
+  const omitOperadoraHeader =
+    omitirOperadoraNasSecoesEmpilhadas &&
+    embeddedInStack &&
+    (stackPosition === 'middle' || stackPosition === 'last')
+  /** Valor de vidas da seção (planos empilhados: cada bloco tem o seu). */
+  const vidasUnicasValor = cols[0]?.vidas ?? 0
+  /** Omite a linha de vidas e embute o número na legenda do custo (reduz linhas, sem buraco). */
+  const compactarVidas = vidasColunaUnica
+  const vidasLegendDetail = compactarVidas ? `${vidasUnicasValor} vidas` : undefined
 
   if (modoComparativoPropostas && exibicaoComparativo === 'consolidado_financeiro') {
     const consolidado = colunasEstudo?.length
@@ -1242,6 +1299,7 @@ function ComparativoGrid({
             page={page}
             layout={layout}
             anexarConsolidado={mostrarConsolidado}
+            vidasColunaUnica={vidasColunaUnica}
           />
         )}
         {mostrarConsolidado && consolidado && (
@@ -1252,6 +1310,7 @@ function ComparativoGrid({
             linhasOcultas={ocultas}
             notas={notasConsolidado}
             anexadoAoGrid={!mostrarVariacao}
+            vidasColunaUnica={vidasColunaUnica}
           />
         )}
       </Paper>
@@ -1260,28 +1319,33 @@ function ComparativoGrid({
 
   const specBase = gridSpec(page)
   const ocultarFaixas = ocultas.has('faixas_etarias')
+  const showCopartRow =
+    !page.coparticipacaoUnica &&
+    (modoComparativoPropostas
+      ? !ocultas.has('coparticipacao')
+      : specBase.showCopart && !ocultas.has('coparticipacao'))
   const spec = {
     ...specBase,
     showContrib: specBase.showContrib && !ocultas.has('contribuicao'),
-    showCopart: modoComparativoPropostas
-      ? !ocultas.has('coparticipacao')
-      : specBase.showCopart && !ocultas.has('coparticipacao'),
+    showCopart: showCopartRow,
     useFaixa: specBase.useFaixa && !ocultarFaixas,
     metaLine: (() => {
       const parts: string[] = []
       if (page.contribuicaoUnica && !ocultas.has('contribuicao')) parts.push(page.contribuicaoUnica)
-      if (
-        !modoComparativoPropostas &&
-        page.coparticipacaoUnica &&
-        !ocultas.has('coparticipacao')
-      ) {
+      if (page.coparticipacaoUnica && !ocultas.has('coparticipacao')) {
+        // Faixa do topo: resumo único (ex.: «Sem coparticipação»), alinhado ao contrato atual.
         parts.push(page.coparticipacaoUnica)
       }
       return parts.length ? parts.join('  ·  ') : null
     })(),
   }
   const exibirCustoMedio = !spec.useFaixa && specBase.useFaixa
-  const premioRowLabel = exibirCustoMedio ? 'Custo médio' : 'Prêmio per capita'
+  const exibirCustoTotal = !spec.useFaixa && custoPlanoExibicao === 'total'
+  const premioRowLabel = exibirCustoTotal
+    ? 'Custo total'
+    : exibirCustoMedio
+      ? 'Custo médio'
+      : 'Prêmio per capita'
   const matrix = buildFaixaMatrixForPage(page)
   const visibleCols = cols.length
   const showElegibilidade = !modoComparativoPropostas
@@ -1291,7 +1355,7 @@ function ComparativoGrid({
         Math.max(...cols.map((c) => (c.elegibilidadeLinhas.length > 2 ? 58 : ROW_ELEG_MIN)), ROW_ELEG_MIN)
       )
     : 0
-  const tabRowH = layout.tabH + layout.logoWellH
+  const tabRowH = omitOperadoraHeader ? layout.tabH : layout.tabH + layout.logoWellH
   const heightSpec = {
     useFaixa: spec.useFaixa,
     faixaRowCount: spec.useFaixa ? spec.faixaRowCount : 0,
@@ -1318,7 +1382,9 @@ function ComparativoGrid({
       ? 1
       : gridScale
   const faturaNoGrid = !modoComparativoPropostas
-  const gridHeight = faturaNoGrid ? gridHeightFull : gridHeightFull - ROW_FATURA
+  const vidasHeightAdjust = compactarVidas ? ROW_VIDAS : 0
+  const gridHeight =
+    (faturaNoGrid ? gridHeightFull : gridHeightFull - ROW_FATURA) - vidasHeightAdjust
   const scaledGridHeight = unrestrictedLayout ? gridHeight : Math.ceil(gridHeight * effectiveGridScale)
   const cellCompact =
     unrestrictedLayout || (modoComparativoPropostas && exibicaoComparativo === 'plano_completo')
@@ -1340,7 +1406,7 @@ function ComparativoGrid({
   const elegRow = showElegibilidade ? row++ : 0
   const contribRow = spec.showContrib ? row++ : 0
   const copartRow = spec.showCopart ? row++ : 0
-  const vidasRow = row++
+  const vidasRow = compactarVidas ? 0 : row++
   const perCapitaRow = spec.useFaixa && spec.hasPerCapita ? row++ : 0
   const faixaSectionRow = spec.useFaixa ? row++ : 0
   const faixaStartRow = spec.useFaixa ? row : 0
@@ -1352,7 +1418,7 @@ function ComparativoGrid({
   if (showElegibilidade) rowHeights.push(`${elegH}px`)
   if (spec.showContrib) rowHeights.push(`${ROW_CONTRIB}px`)
   if (spec.showCopart) rowHeights.push(`${ROW_COPART}px`)
-  rowHeights.push(`${ROW_VIDAS}px`)
+  if (!compactarVidas) rowHeights.push(`${ROW_VIDAS}px`)
   if (perCapitaRow) rowHeights.push(`${faixaRowH}px`)
   if (faixaSectionRow) rowHeights.push(`${FAIXA_SECTION_H}px`)
   if (spec.useFaixa) {
@@ -1384,6 +1450,7 @@ function ComparativoGrid({
               page={page}
               layout={layout}
               anexarConsolidado={mostrarConsolidado}
+              vidasColunaUnica={vidasColunaUnica}
             />
           )}
           {mostrarConsolidado && consolidado && (
@@ -1394,6 +1461,7 @@ function ComparativoGrid({
               linhasOcultas={ocultas}
               notas={notasConsolidado}
               anexadoAoGrid={!mostrarVariacao}
+              vidasColunaUnica={vidasColunaUnica}
             />
           )}
         </>
@@ -1421,35 +1489,6 @@ function ComparativoGrid({
           <Typography sx={{ fontFamily: FONT, fontSize: typo.metaLine, fontWeight: 600, color: INFO }}>
             {spec.metaLine}
           </Typography>
-        </Box>
-      )}
-
-      {sectionLabel && (
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: gridCols,
-            minWidth: gridMinWidth,
-            width: '100%',
-            borderLeft: `1px solid ${BORDER}`,
-            borderRight: `1px solid ${BORDER}`,
-            borderTop: stackTopOpen ? 'none' : undefined,
-          }}
-        >
-          <Box
-            sx={{
-              gridColumn: '1 / -1',
-              px: 1.25,
-              py: 0.6,
-              bgcolor: `${PRIMARY}08`,
-              borderBottom: `1px solid ${BORDER}`,
-              borderTop: stackTopOpen ? `1px solid ${BORDER}` : undefined,
-            }}
-          >
-            <Typography sx={{ fontFamily: FONT, fontSize: 11, fontWeight: 800, color: PRIMARY }}>
-              {sectionLabel}
-            </Typography>
-          </Box>
         </Box>
       )}
 
@@ -1484,7 +1523,36 @@ function ComparativoGrid({
           }}
         >
         {/* Abas coloridas */}
-        <Box sx={{ gridColumn: 1, gridRow: tabRow, alignSelf: 'stretch', bgcolor: SURFACE }} />
+        <Box
+          sx={{
+            gridColumn: 1,
+            gridRow: tabRow,
+            alignSelf: 'stretch',
+            bgcolor: SURFACE,
+            borderRight: `1px solid ${BORDER}`,
+            borderBottom: `1px solid ${BORDER}`,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            px: 1.25,
+            boxSizing: 'border-box',
+            minWidth: 0,
+          }}
+        >
+          {sectionLabel ? (
+            <Typography
+              sx={{
+                fontFamily: FONT,
+                fontSize: typo.tabPlano,
+                fontWeight: 800,
+                color: PRIMARY,
+                lineHeight: 1.2,
+              }}
+            >
+              {sectionLabel}
+            </Typography>
+          ) : null}
+        </Box>
         {cols.map((col, i) => (
           <Box key={col.id} sx={{ gridColumn: i + 2, gridRow: tabRow, minWidth: 0, alignSelf: 'stretch' }}>
             <PlanoTab
@@ -1492,6 +1560,7 @@ function ComparativoGrid({
               col={col}
               logoUrl={col.operadoraId ? logoUrls.get(col.operadoraId) : null}
               layout={layout}
+              omitOperadora={omitOperadoraHeader}
             />
           </Box>
         ))}
@@ -1527,7 +1596,6 @@ function ComparativoGrid({
                 </DataCell>
               </Box>
             ))}
-
           </>
         )}
 
@@ -1544,26 +1612,29 @@ function ComparativoGrid({
                 </DataCell>
               </Box>
             ))}
-
           </>
         )}
 
-        {/* Vidas */}
-        <Box sx={{ gridColumn: 1, gridRow: vidasRow, display: 'flex', alignSelf: 'stretch' }}>
-          <LegendCell icon={<GroupsIcon />} label="Vidas ativas" typo={typo} />
-        </Box>
-        {cols.map((col, i) => (
-          <Box key={`vd-${col.id}`} sx={{ gridColumn: i + 2, gridRow: vidasRow, minWidth: 0 }}>
-            <DataCell h={ROW_VIDAS} compact={cellCompact}>
-              <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5, justifyContent: 'center', width: '100%' }}>
-                <SlideText sx={{ fontSize: typo.vidasNum, fontWeight: 800, color: col.tabColor }}>
-                  {col.vidas}
-                </SlideText>
-                <SlideText sx={{ fontSize: typo.vidasSuffix, color: MUTED }}>ativos</SlideText>
+        {/* Vidas por coluna — omitida quando compactarVidas (número vai na legenda do custo) */}
+        {vidasRow > 0 && (
+          <>
+            <Box sx={{ gridColumn: 1, gridRow: vidasRow, display: 'flex', alignSelf: 'stretch' }}>
+              <LegendCell icon={<GroupsIcon />} label="Vidas ativas" typo={typo} />
+            </Box>
+            {cols.map((col, i) => (
+              <Box key={`vd-${col.id}`} sx={{ gridColumn: i + 2, gridRow: vidasRow, minWidth: 0 }}>
+                <DataCell h={ROW_VIDAS} compact={cellCompact}>
+                  <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5, justifyContent: 'center', width: '100%' }}>
+                    <SlideText sx={{ fontSize: typo.vidasNum, fontWeight: 800, color: col.tabColor }}>
+                      {col.vidas}
+                    </SlideText>
+                    <SlideText sx={{ fontSize: typo.vidasSuffix, color: MUTED }}>ativos</SlideText>
+                  </Box>
+                </DataCell>
               </Box>
-            </DataCell>
-          </Box>
-        ))}
+            ))}
+          </>
+        )}
 
         {/* Per capita (quando há mistura com faixa) */}
         {perCapitaRow > 0 && (
@@ -1587,7 +1658,13 @@ function ComparativoGrid({
         {faixaSectionRow > 0 && (
           <>
             <Box sx={{ gridColumn: 1, gridRow: faixaSectionRow, display: 'flex', alignSelf: 'stretch' }}>
-              <LegendCell icon={<MonetizationOnIcon />} label="Faixas etárias" accent={INFO} typo={typo} />
+              <LegendCell
+                icon={<MonetizationOnIcon />}
+                label="Faixas etárias"
+                detail={vidasLegendDetail}
+                accent={INFO}
+                typo={typo}
+              />
             </Box>
             {cols.map((col, i) => (
               <Box
@@ -1650,13 +1727,21 @@ function ComparativoGrid({
         {!spec.useFaixa && (
           <>
             <Box sx={{ gridColumn: 1, gridRow: premioRow, display: 'flex', alignSelf: 'stretch' }}>
-              <LegendCell icon={<MonetizationOnIcon />} label={premioRowLabel} accent={INFO} typo={typo} />
+              <LegendCell
+                icon={<MonetizationOnIcon />}
+                label={premioRowLabel}
+                detail={vidasLegendDetail}
+                accent={INFO}
+                typo={typo}
+              />
             </Box>
             {cols.map((col, i) => (
               <Box key={`pr-${col.id}`} sx={{ gridColumn: i + 2, gridRow: premioRow, minWidth: 0 }}>
                 <DataCell h={40} compact={cellCompact}>
                   <Typography sx={{ fontFamily: FONT, fontSize: typo.premio, fontWeight: 800, color: INFO }}>
-                    {custoMedioColuna(col) ?? '—'}
+                    {exibirCustoTotal
+                      ? col.faturaEstimada?.trim() || '—'
+                      : custoMedioColuna(col) ?? '—'}
                   </Typography>
                 </DataCell>
               </Box>
@@ -1683,7 +1768,7 @@ function ComparativoGrid({
     </>
   )
 
-  if (embeddedInStack) return gridBody
+  if (embeddedInStack || unrestrictedLayout) return gridBody
 
   return (
     <Paper
@@ -1713,6 +1798,9 @@ export function ComparativoPlanosEmpilhadosUnificado({
   layout,
   linhasOcultas,
   notasConsolidado,
+  vidasColunaUnica = false,
+  omitirOperadoraNasSecoesEmpilhadas = true,
+  custoPlanoExibicao = 'medio',
 }: {
   resumo: ContratoAtualResumo
   colunasEstudo: ComparativoColunaEstudo[]
@@ -1720,6 +1808,9 @@ export function ComparativoPlanosEmpilhadosUnificado({
   layout: ContratoAtualLayoutSpec
   linhasOcultas?: ComparativoLinhaChave[]
   notasConsolidado?: string
+  vidasColunaUnica?: boolean
+  omitirOperadoraNasSecoesEmpilhadas?: boolean
+  custoPlanoExibicao?: 'medio' | 'total'
 }) {
   const ocultas = useMemo(() => linhasOcultasSet(linhasOcultas), [linhasOcultas])
 
@@ -1734,16 +1825,60 @@ export function ComparativoPlanosEmpilhadosUnificado({
   )
 
   const financeiroPage = useMemo(() => {
+    // Totais por cenário (não soma Sem COPAY + Com COPAY da mesma operadora).
     const aggCols = enrichColunasOperadoraGlobal(
-      aggregateContratoColunasPorOperadora(resumo.allColunas)
+      aggregateContratoColunasPorCenario(resumo.allColunas)
     )
-    return contratoPageFromColunas(aggCols, 0, 1, 'Total por operadora')
-  }, [resumo.allColunas])
+    // Mesma ordem das colunas do quadro empilhado.
+    const aligned = alignPageToOperadoraSlots(
+      contratoPageFromColunas(aggCols, 0, 1, 'Total por cenário'),
+      slots
+    )
+    return aligned
+  }, [resumo.allColunas, slots])
 
-  const consolidadoOperadora = useMemo(
-    () => buildComparativoOperadoraConsolidadoPage(colunasEstudo),
-    [colunasEstudo]
-  )
+  const consolidadoOperadora = useMemo(() => {
+    const page = buildComparativoOperadoraConsolidadoPage(colunasEstudo)
+    if (!page) return null
+    // Alinha valores do consolidado à ordem das colunas do rodapé (slots / cenários).
+    const byKey = new Map(page.colunas.map((c) => [colunaSlotKey(c), c]))
+    const colunasAlinhadas: ComparativoColunaEstudo[] = financeiroPage.colunas.map((slotCol) => {
+      const key = colunaSlotKey(slotCol)
+      return (
+        byKey.get(key) ?? {
+          id: `empty-est-${key}`,
+          grupo: slotCol.grupo ?? 'mercado',
+          operadora: slotCol.operadora,
+          planoLabel: slotCol.planoLabel,
+          subtitulo: '—',
+          reembolsoConsulta: '—',
+          reembolso: '—',
+          temReembolsoConsulta: false,
+          acomodacao: '—',
+          eventosReembolsaveis: '—',
+          abrangencia: '—',
+          coparticipacao: '—',
+          tipoCusto: 'per_capita',
+          vidas: 0,
+          totalMensalCents: null,
+          totalAnualCents: null,
+          faixas: [],
+          tabColor: slotCol.tabColor,
+          planoReferenciaId: slotCol.id,
+          planoReferenciaLabel: '—',
+          cenarioId: slotCol.cenarioId,
+          cenarioTitulo: slotCol.cenarioTitulo,
+          cenarioOrdem: slotCol.cenarioOrdem,
+        }
+      )
+    })
+    const referencia = colunasAlinhadas.find((c) => c.grupo === 'atual')
+    return {
+      ...page,
+      colunas: colunasAlinhadas,
+      linhas: buildConsolidadoLinhas(colunasAlinhadas, referencia),
+    }
+  }, [colunasEstudo, financeiroPage.colunas])
 
   const mostrarVariacao =
     !ocultas.has('variacao_financeira') && financeiroPage.colunas.some((c) => c.variacao)
@@ -1782,6 +1917,9 @@ export function ComparativoPlanosEmpilhadosUnificado({
             embeddedInStack
             omitFinanceiro
             stackPosition={stackPosition}
+            vidasColunaUnica={vidasColunaUnica}
+            omitirOperadoraNasSecoesEmpilhadas={omitirOperadoraNasSecoesEmpilhadas}
+            custoPlanoExibicao={custoPlanoExibicao}
           />
         )
       })}
@@ -1791,6 +1929,7 @@ export function ComparativoPlanosEmpilhadosUnificado({
           page={financeiroPage}
           layout={layout}
           anexarConsolidado={mostrarConsolidado}
+          vidasColunaUnica={vidasColunaUnica}
         />
       )}
       {mostrarConsolidado && consolidadoOperadora && (
@@ -1801,9 +1940,125 @@ export function ComparativoPlanosEmpilhadosUnificado({
           linhasOcultas={ocultas}
           notas={notasConsolidado}
           anexadoAoGrid={!mostrarVariacao}
+          vidasColunaUnica={vidasColunaUnica}
         />
       )}
     </Paper>
+  )
+}
+
+function ResumoFinanceiroTodosPlanos({
+  resumo,
+  colunasEstudo,
+  logoUrls,
+  linhasOcultas,
+  notasConsolidado,
+  vidasColunaUnica = false,
+}: {
+  resumo: ContratoAtualResumo
+  colunasEstudo: ComparativoColunaEstudo[]
+  logoUrls: Map<string, string>
+  linhasOcultas?: ComparativoLinhaChave[]
+  notasConsolidado?: string
+  vidasColunaUnica?: boolean
+}) {
+  const ocultas = useMemo(() => linhasOcultasSet(linhasOcultas), [linhasOcultas])
+
+  const slots = useMemo(
+    () => buildOperadoraSlotsFromColunas(resumo.allColunas),
+    [resumo.allColunas]
+  )
+
+  const financeiroPage = useMemo(() => {
+    const aggCols = enrichColunasOperadoraGlobal(
+      aggregateContratoColunasPorCenario(resumo.allColunas)
+    )
+    return alignPageToOperadoraSlots(
+      contratoPageFromColunas(aggCols, 0, 1, 'Todos os planos'),
+      slots
+    )
+  }, [resumo.allColunas, slots])
+
+  const consolidadoOperadora = useMemo(() => {
+    const page = buildComparativoOperadoraConsolidadoPage(colunasEstudo)
+    if (!page) return null
+    const byKey = new Map(page.colunas.map((c) => [colunaSlotKey(c), c]))
+    const colunasAlinhadas: ComparativoColunaEstudo[] = financeiroPage.colunas.map((slotCol) => {
+      const key = colunaSlotKey(slotCol)
+      return (
+        byKey.get(key) ?? {
+          id: `empty-est-${key}`,
+          grupo: slotCol.grupo ?? 'mercado',
+          operadora: slotCol.operadora,
+          planoLabel: slotCol.planoLabel,
+          subtitulo: '—',
+          reembolsoConsulta: '—',
+          reembolso: '—',
+          temReembolsoConsulta: false,
+          acomodacao: '—',
+          eventosReembolsaveis: '—',
+          abrangencia: '—',
+          coparticipacao: '—',
+          tipoCusto: 'per_capita',
+          vidas: 0,
+          totalMensalCents: null,
+          totalAnualCents: null,
+          faixas: [],
+          tabColor: slotCol.tabColor,
+          planoReferenciaId: slotCol.id,
+          planoReferenciaLabel: '—',
+          cenarioId: slotCol.cenarioId,
+          cenarioTitulo: slotCol.cenarioTitulo,
+          cenarioOrdem: slotCol.cenarioOrdem,
+        }
+      )
+    })
+    const referencia = colunasAlinhadas.find((c) => c.grupo === 'atual')
+    return {
+      ...page,
+      colunas: colunasAlinhadas,
+      linhas: buildConsolidadoLinhas(colunasAlinhadas, referencia),
+    }
+  }, [colunasEstudo, financeiroPage.colunas])
+
+  const layout = useMemo(
+    () => getContratoAtualWorkspaceLayoutSpec(Math.max(financeiroPage.colunas.length, 1)),
+    [financeiroPage.colunas.length]
+  )
+
+  const mostrarVariacao =
+    !ocultas.has('variacao_financeira') && financeiroPage.colunas.some((c) => c.variacao)
+  const mostrarConsolidado = !!consolidadoOperadora?.linhas.length
+  if (!mostrarVariacao && !mostrarConsolidado) return null
+
+  return (
+    <Box sx={{ width: '100%', mt: 0.5 }}>
+      <ComparativoColunasHeader
+        page={financeiroPage}
+        logoUrls={logoUrls}
+        layout={layout}
+        unrestrictedLayout
+      />
+      {mostrarVariacao && (
+        <VariacaoComparativoPanel
+          page={financeiroPage}
+          layout={layout}
+          anexarConsolidado={mostrarConsolidado}
+          vidasColunaUnica={vidasColunaUnica}
+        />
+      )}
+      {mostrarConsolidado && consolidadoOperadora && (
+        <ConsolidadoFinanceiroIntegradoPanel
+          page={financeiroPage}
+          layout={layout}
+          linhas={consolidadoOperadora.linhas}
+          linhasOcultas={ocultas}
+          notas={notasConsolidado}
+          anexadoAoGrid={!mostrarVariacao}
+          vidasColunaUnica={vidasColunaUnica}
+        />
+      )}
+    </Box>
   )
 }
 
@@ -1823,6 +2078,9 @@ export function ContratoAtualSlide({
   hideSlideHeader = false,
   sectionLabel,
   hidePageFooter = false,
+  vidasColunaUnica = false,
+  custoPlanoExibicao = 'medio',
+  omitFinanceiro = false,
 }: {
   resumo: ContratoAtualResumo
   pageIndex: number
@@ -1841,6 +2099,9 @@ export function ContratoAtualSlide({
   /** Rótulo compacto quando o cabeçalho principal fica no topo da página. */
   sectionLabel?: string
   hidePageFooter?: boolean
+  vidasColunaUnica?: boolean
+  custoPlanoExibicao?: 'medio' | 'total'
+  omitFinanceiro?: boolean
 }) {
   const isPage = presentationMode === 'page'
   const isWorkspace = presentationMode === 'workspace'
@@ -1855,7 +2116,7 @@ export function ContratoAtualSlide({
       ? `${page.grupoLabel} · todos os fornecedores · ${slideSubtitle}`
       : slideSubtitle
 
-  const compactLabel = sectionLabel ?? (hideSlideHeader && page.grupoLabel ? page.grupoLabel : undefined)
+  const planoNoGrid = sectionLabel ?? page.grupoLabel
 
   return (
     <Box
@@ -1870,17 +2131,16 @@ export function ContratoAtualSlide({
           : undefined,
         height: isExpanded || somenteConsolidado ? 'auto' : SLIDE_H,
         maxHeight: isExpanded || somenteConsolidado ? 'none' : SLIDE_H,
-        minHeight: isExpanded ? undefined : undefined,
         mx: isExpanded ? 0 : 'auto',
         overflow: isExpanded ? 'visible' : 'hidden',
-        borderRadius: isWorkspace ? 2 : isPage ? 2 : 2,
-        boxShadow: isExpanded ? (isWorkspace ? '0 2px 12px rgba(0,37,97,0.08)' : 'none') : '0 12px 36px rgba(0,37,97,0.14)',
-        border: isExpanded ? `1px solid ${BORDER}` : 'none',
+        borderRadius: isExpanded ? 0 : 2,
+        boxShadow: isExpanded ? 'none' : '0 12px 36px rgba(0,37,97,0.14)',
+        border: 'none',
         display: 'flex',
         flexDirection: 'column',
-        bgcolor: WHITE,
+        bgcolor: 'transparent',
         boxSizing: 'border-box',
-        mb: isWorkspace ? 0 : undefined,
+        mb: 0,
       }}
     >
       {!hideSlideHeader ? (
@@ -1920,23 +2180,9 @@ export function ContratoAtualSlide({
             </Typography>
           </Box>
         </Box>
-      ) : compactLabel ? (
-        <Box
-          sx={{
-            px: 2,
-            py: 0.75,
-            flexShrink: 0,
-            bgcolor: `${PRIMARY}08`,
-            borderBottom: `1px solid ${BORDER}`,
-          }}
-        >
-          <Typography sx={{ fontFamily: FONT, fontSize: 11, fontWeight: 800, color: PRIMARY }}>
-            {compactLabel}
-          </Typography>
-        </Box>
       ) : null}
 
-      <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', px: isWorkspace ? 2 : 1.5, pt: isWorkspace ? 1.5 : 1, pb: isWorkspace ? 1.5 : 0.5, overflow: isExpanded ? 'visible' : 'hidden' }}>
+      <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', px: isExpanded ? 0 : 1.5, pt: isExpanded ? 0 : 1, pb: isExpanded ? 0 : 0.5, overflow: isExpanded ? 'visible' : 'hidden' }}>
         <ComparativoGrid
           page={page}
           logoUrls={logoUrls}
@@ -1947,6 +2193,10 @@ export function ContratoAtualSlide({
           colunasEstudo={colunasEstudo}
           notasConsolidado={notasConsolidado}
           exibicaoComparativo={exibicaoComparativo}
+          vidasColunaUnica={vidasColunaUnica}
+          custoPlanoExibicao={custoPlanoExibicao}
+          sectionLabel={planoNoGrid}
+          omitFinanceiro={omitFinanceiro}
         />
       </Box>
 
@@ -1987,7 +2237,9 @@ export function ContratoAtualDashboard({
   colunasEstudo,
   notasConsolidado,
   exibicaoComparativo = 'plano_completo',
-  showHeaderOnce = false,
+  vidasColunaUnica = false,
+  custoPlanoExibicao = 'medio',
+  layoutOrientacao: layoutOrientacaoProp,
 }: Props) {
   const isPage = presentationMode === 'page'
   const isWorkspace = presentationMode === 'workspace'
@@ -2003,6 +2255,9 @@ export function ContratoAtualDashboard({
   const [planosPorSlide, setPlanosPorSlide] = useState<ContratoAtualPlanosPorSlide>(
     initialPlanosPorSlide ?? (isPage ? 5 : 3),
   )
+  const [orientacaoLocal, setOrientacaoLocal] = useState<ContratoAtualLayoutOrientacao>('horizontal')
+  const layoutOrientacao = layoutOrientacaoProp ?? orientacaoLocal
+  const isVertical = layoutOrientacao === 'vertical'
   const [pageIndex, setPageIndex] = useState(0)
   const [slideReady, setSlideReady] = useState(false)
   const [exporting, setExporting] = useState(false)
@@ -2013,27 +2268,63 @@ export function ContratoAtualDashboard({
     if (initialPlanosPorSlide != null) setPlanosPorSlide(initialPlanosPorSlide)
   }, [initialPlanosPorSlide])
 
+  useEffect(() => {
+    if (layoutOrientacaoProp != null) setOrientacaoLocal(layoutOrientacaoProp)
+  }, [layoutOrientacaoProp])
+
+  /**
+   * Vertical: um plano por bloco, empilhados com scroll.
+   * - Comparativo (override): cada página já é um plano equivalente (ATUAL × mercado) — empilha essas páginas.
+   * - Contrato atual: cada coluna é um plano — um bloco por coluna.
+   * Horizontal expandido: todos os planos lado a lado num único bloco.
+   */
   const pagesExibidas = useMemo(() => {
     if (!resumo?.allColunas.length) return []
+    if (isVertical) {
+      if (usesOverride && resumo.pages.length) return resumo.pages
+      return resumo.allColunas.map((col, i) =>
+        contratoPageFromColunas([col], i, resumo.allColunas.length, col.planoLabel)
+      )
+    }
+    if (isExpanded) {
+      return [contratoPageFromColunas(resumo.allColunas, 0, 1)]
+    }
     if (usesOverride && resumo.pages.length) return resumo.pages
     return buildContratoAtualPages(resumo.allColunas, planosPorSlide)
-  }, [resumo?.allColunas, resumo?.pages, planosPorSlide, usesOverride])
+  }, [resumo?.allColunas, resumo?.pages, planosPorSlide, usesOverride, isExpanded, isVertical])
 
   const layout = useMemo(() => {
-    if (usesOverride && (isWorkspace || isPage)) {
-      const page = pagesExibidas[pageIndex] ?? pagesExibidas[0]
-      return getContratoAtualWorkspaceLayoutSpec(page?.colunas.length ?? 3)
+    if (isVertical) {
+      const maxCols = Math.max(...pagesExibidas.map((p) => p.colunas.length), 2)
+      return isExpanded
+        ? getContratoAtualWorkspaceLayoutSpec(maxCols)
+        : getContratoAtualLayoutSpec(planosPorSlideFromCount(maxCols))
+    }
+    if (isExpanded) {
+      const all =
+        resumo?.allColunas.length ??
+        pagesExibidas[0]?.colunas.length ??
+        1
+      return getContratoAtualWorkspaceLayoutSpec(all)
     }
     if (usesOverride) {
       const page = pagesExibidas[pageIndex] ?? pagesExibidas[0]
       return getContratoAtualLayoutSpec(planosPorSlideFromCount(page?.colunas.length ?? 3))
     }
     return getContratoAtualLayoutSpec(planosPorSlide)
-  }, [usesOverride, pagesExibidas, pageIndex, planosPorSlide, isWorkspace, isPage])
+  }, [
+    usesOverride,
+    pagesExibidas,
+    pageIndex,
+    planosPorSlide,
+    isExpanded,
+    isVertical,
+    resumo?.allColunas.length,
+  ])
 
   useEffect(() => {
     setPageIndex(0)
-  }, [planosPorSlide, resumo?.allColunas.length])
+  }, [planosPorSlide, resumo?.allColunas.length, layoutOrientacao])
 
   useEffect(() => {
     if (pageIndex >= pagesExibidas.length && pagesExibidas.length > 0) {
@@ -2108,9 +2399,19 @@ export function ContratoAtualDashboard({
 
   useEffect(() => {
     if (!pagesExibidas.length) return
+    if (isVertical || isExpanded) {
+      const ids = pagesExibidas.flatMap((p) => p.colunas.map((c) => c.operadoraId).filter(Boolean))
+      void loadOperadoraLogoObjectUrls(ids, idsComLogo).then((urls) => {
+        setLogoUrls((prev) => {
+          revokeOperadoraLogoUrls(prev)
+          return urls
+        })
+      })
+      return
+    }
     const page = pagesExibidas[pageIndex]
     void loadLogosForPage(page, idsComLogo)
-  }, [pagesExibidas, pageIndex, idsComLogo, loadLogosForPage])
+  }, [pagesExibidas, pageIndex, idsComLogo, loadLogosForPage, isVertical, isExpanded])
 
   useEffect(() => {
     return () => revokeOperadoraLogoUrls(logoUrls)
@@ -2240,13 +2541,16 @@ export function ContratoAtualDashboard({
   }
 
   const totalPages = pagesExibidas.length
-  const pageIndicesToRender = isExpanded
-    ? pagesExibidas.map((_, index) => index)
-    : [pageIndex]
+  const indicesRender = isVertical
+    ? pagesExibidas.map((_, i) => i)
+    : isExpanded
+      ? [0]
+      : [pageIndex]
+  const showSlideToolbar = !isExpanded && !isVertical
 
   return (
     <Box sx={{ fontFamily: FONT }}>
-      {!isExpanded && (
+      {showSlideToolbar && (
         <Box
           sx={{
             display: 'flex',
@@ -2338,40 +2642,35 @@ export function ContratoAtualDashboard({
         </Box>
       )}
 
-      {isPage && !isWorkspace && resumo && totalPages > 1 && (
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5, fontFamily: FONT }}>
-          {resumo.allColunas.length} planos no contrato · exibindo {totalPages} blocos comparativos em sequência
-        </Typography>
-      )}
-
       {errorMsg && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setErrorMsg(null)}>
           {errorMsg}
         </Alert>
       )}
 
-      <Box sx={{ overflowX: isExpanded ? 'auto' : 'auto', display: 'flex', justifyContent: isExpanded ? 'flex-start' : 'center', width: '100%' }}>
+      <Box sx={{ overflowX: 'auto', display: 'flex', justifyContent: isExpanded || isVertical ? 'flex-start' : 'center', width: '100%' }}>
         <Box
           ref={exportRef}
           data-export-root
           sx={{
-            width: isExpanded ? 'max-content' : SLIDE_W,
-            minWidth: isExpanded ? '100%' : undefined,
+            width: isExpanded || isVertical ? '100%' : SLIDE_W,
+            minWidth: isExpanded || isVertical ? '100%' : undefined,
             maxWidth: '100%',
             flexShrink: 0,
             display: 'flex',
             flexDirection: 'column',
-            gap: isExpanded ? 3 : 0,
+            gap: isVertical ? 1.5 : 0,
           }}
         >
-          {pageIndicesToRender.map((idx) => {
-            const pageLayout = usesOverride
-              ? isWorkspace || isPage
-                ? getContratoAtualWorkspaceLayoutSpec(pagesExibidas[idx]?.colunas.length ?? planosPorSlide)
-                : getContratoAtualLayoutSpec(
-                    planosPorSlideFromCount(pagesExibidas[idx]?.colunas.length ?? planosPorSlide),
-                  )
-              : layout
+          {indicesRender.map((idx) => {
+            const colCount = pagesExibidas[idx]?.colunas.length ?? planosPorSlide
+            const pageLayout = isVertical
+              ? getContratoAtualWorkspaceLayoutSpec(Math.max(colCount, 1))
+              : isExpanded
+                ? layout
+                : usesOverride
+                  ? getContratoAtualLayoutSpec(planosPorSlideFromCount(colCount))
+                  : layout
             return (
               <ContratoAtualSlide
                 key={idx}
@@ -2382,23 +2681,34 @@ export function ContratoAtualDashboard({
                 slideTitle={slideTitle}
                 slideSubtitle={slideSubtitle}
                 modoComparativoPropostas={usesOverride}
-                presentationMode={presentationMode}
+                presentationMode={isVertical ? 'workspace' : presentationMode}
                 linhasOcultas={linhasOcultas}
                 colunasEstudo={colunasEstudo}
                 notasConsolidado={notasConsolidado}
                 exibicaoComparativo={exibicaoComparativo}
-                hideSlideHeader={showHeaderOnce && idx > 0}
-                hidePageFooter={showHeaderOnce}
-                sectionLabel={
-                  showHeaderOnce && idx > 0
-                    ? pagesExibidas[idx]?.grupoLabel
-                      ? `${pagesExibidas[idx]!.grupoLabel} · todos os fornecedores`
-                      : undefined
-                    : undefined
+                hideSlideHeader={isExpanded}
+                hidePageFooter={isExpanded}
+                vidasColunaUnica={vidasColunaUnica}
+                custoPlanoExibicao={custoPlanoExibicao}
+                omitFinanceiro={
+                  usesOverride && exibicaoComparativo === 'plano_completo' && !!colunasEstudo?.length
                 }
               />
             )
           })}
+          {usesOverride &&
+            exibicaoComparativo === 'plano_completo' &&
+            colunasEstudo?.length &&
+            resumo && (
+              <ResumoFinanceiroTodosPlanos
+                resumo={resumo}
+                colunasEstudo={colunasEstudo}
+                logoUrls={logoUrls}
+                linhasOcultas={linhasOcultas}
+                notasConsolidado={notasConsolidado}
+                vidasColunaUnica={vidasColunaUnica}
+              />
+            )}
         </Box>
       </Box>
     </Box>

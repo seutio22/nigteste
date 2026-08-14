@@ -1,8 +1,9 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Alert,
   Box,
   Button,
+  Chip,
   CircularProgress,
   Paper,
   Typography,
@@ -14,14 +15,23 @@ import MaleIcon from '@mui/icons-material/Male'
 import FemaleIcon from '@mui/icons-material/Female'
 import PregnantWomanIcon from '@mui/icons-material/PregnantWoman'
 import ElderlyIcon from '@mui/icons-material/Elderly'
+import FilterAltOffIcon from '@mui/icons-material/FilterAltOff'
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
 import { api } from '../../../lib/api.local'
 import type { PlacementBeneficiario } from './placementBeneficiarios'
 import {
   CATEGORIAS_APRESENTACAO,
+  beneficiariosResumoFiltroAtivo,
   computeBeneficiariosResumo,
+  describeBeneficiariosFiltro,
+  emptyBeneficiariosResumoFiltro,
+  filterBeneficiariosForResumo,
   formatTitularidadeResumo,
+  insightBeneficiariosResumo,
+  toggleBeneficiariosFiltroValor,
+  type BeneficiarioCategoriaApresentacao,
   type BeneficiariosResumoApresentacao,
+  type BeneficiariosResumoFiltro,
 } from './placementBeneficiariosResumo'
 import type { PlacementPresentationMode } from './placementAnaliseBase'
 
@@ -88,29 +98,41 @@ function MetricPill({
   value,
   sub,
   accent,
+  selected,
+  onClick,
 }: {
   icon: React.ReactNode
   label: string
   value: string
   sub?: string
   accent: string
+  selected?: boolean
+  onClick?: () => void
 }) {
+  const interactive = Boolean(onClick)
   return (
     <Paper
       elevation={0}
+      role={interactive ? 'button' : undefined}
+      onClick={onClick}
       sx={{
         ...slideText,
         flex: 1,
         minWidth: 0,
         p: 1.5,
         borderRadius: 2,
-        bgcolor: WHITE,
-        border: `1px solid ${BORDER}`,
-        boxShadow: '0 2px 10px rgba(0,37,97,0.06)',
+        bgcolor: selected ? MINT : WHITE,
+        border: `1.5px solid ${selected ? accent : BORDER}`,
+        boxShadow: selected ? `0 2px 12px ${accent}22` : '0 2px 10px rgba(0,37,97,0.06)',
         display: 'flex',
         alignItems: 'center',
         gap: 1.25,
         overflow: 'hidden',
+        cursor: interactive ? 'pointer' : 'default',
+        transition: 'border-color 0.15s, box-shadow 0.15s, background-color 0.15s',
+        '&:hover': interactive
+          ? { borderColor: accent, boxShadow: `0 2px 14px ${accent}28` }
+          : undefined,
       }}
     >
       <IconSquare bgcolor={accent}>{icon}</IconSquare>
@@ -199,9 +221,20 @@ function titularidadePieLabelSoft(props: TitularidadePieLabelProps) {
   )
 }
 
-function TitularidadeLegendaRow({ item }: { item: TitularidadeLegendaItem }) {
+function TitularidadeLegendaRow({
+  item,
+  selected,
+  onClick,
+}: {
+  item: TitularidadeLegendaItem
+  selected?: boolean
+  onClick?: () => void
+}) {
+  const interactive = Boolean(onClick)
   return (
     <Box
+      role={interactive ? 'button' : undefined}
+      onClick={onClick}
       sx={{
         display: 'flex',
         alignItems: 'center',
@@ -209,11 +242,14 @@ function TitularidadeLegendaRow({ item }: { item: TitularidadeLegendaItem }) {
         px: 0.75,
         py: 0.55,
         borderRadius: 1.5,
-        bgcolor: MINT,
-        border: `1px solid ${item.color}20`,
+        bgcolor: selected ? `${item.color}18` : MINT,
+        border: `1.5px solid ${selected ? item.color : `${item.color}20`}`,
         minWidth: 0,
         overflow: 'hidden',
         boxSizing: 'border-box',
+        cursor: interactive ? 'pointer' : 'default',
+        transition: 'border-color 0.15s, background-color 0.15s',
+        '&:hover': interactive ? { borderColor: item.color, bgcolor: `${item.color}14` } : undefined,
       }}
     >
       <Box
@@ -359,23 +395,27 @@ export function TitularidadeDonut({
   agregados,
   naoClassificados = 0,
   categoriasPorTitularidade,
+  selectedTitularidade,
+  onSelectTitularidade,
 }: {
   titulares: number
   dependentes: number
   agregados: number
   naoClassificados?: number
   categoriasPorTitularidade?: BeneficiariosResumoApresentacao['categoriasPorTitularidade']
+  selectedTitularidade?: 'T' | 'D' | 'A' | '?' | null
+  onSelectTitularidade?: (code: 'T' | 'D' | 'A' | '?') => void
 }) {
   const AGREGADO_COLOR = '#ed6c02'
   const NAO_CLASS_COLOR = '#9aa5ab'
   const data = [
-    { name: 'Titulares (T)', value: titulares, fill: PRIMARY },
-    { name: 'Dependentes (D)', value: dependentes, fill: INFO_LIGHT },
+    { name: 'Titulares (T)', value: titulares, fill: PRIMARY, code: 'T' as const },
+    { name: 'Dependentes (D)', value: dependentes, fill: INFO_LIGHT, code: 'D' as const },
     ...(agregados > 0
-      ? [{ name: 'Agregados (A)', value: agregados, fill: AGREGADO_COLOR }]
+      ? [{ name: 'Agregados (A)', value: agregados, fill: AGREGADO_COLOR, code: 'A' as const }]
       : []),
     ...(naoClassificados > 0
-      ? [{ name: 'Não classificado', value: naoClassificados, fill: NAO_CLASS_COLOR }]
+      ? [{ name: 'Não classificado', value: naoClassificados, fill: NAO_CLASS_COLOR, code: '?' as const }]
       : []),
   ].filter((d) => d.value > 0)
   const total = titulares + dependentes + agregados + naoClassificados
@@ -430,13 +470,27 @@ export function TitularidadeDonut({
           fontWeight: 700,
           color: PRIMARY,
           letterSpacing: 0.5,
-          mb: 0.5,
+          mb: 0.25,
           textAlign: 'center',
           flexShrink: 0,
         }}
       >
         TITULARIDADE
       </Typography>
+      {onSelectTitularidade ? (
+        <Typography
+          sx={{
+            fontFamily: FONT,
+            fontSize: 7.5,
+            color: TEXT_SECONDARY,
+            textAlign: 'center',
+            mb: 0.35,
+            flexShrink: 0,
+          }}
+        >
+          Clique para filtrar faixas e planos
+        </Typography>
+      ) : null}
       <Box sx={{ width: '100%', height: 104, flexShrink: 0, position: 'relative' }} data-chart="titularidade">
         {temGrafico ? (
           <ResponsiveContainer width="100%" height="100%">
@@ -455,9 +509,22 @@ export function TitularidadeDonut({
                 strokeWidth={2}
                 label={titularidadePieLabelSoft}
                 labelLine={false}
+                cursor={onSelectTitularidade ? 'pointer' : undefined}
+                onClick={(_, index) => {
+                  const entry = data[index]
+                  if (entry && onSelectTitularidade) onSelectTitularidade(entry.code)
+                }}
               >
                 {data.map((entry, i) => (
-                  <Cell key={i} fill={entry.fill} />
+                  <Cell
+                    key={i}
+                    fill={entry.fill}
+                    stroke={selectedTitularidade === entry.code ? entry.fill : WHITE}
+                    strokeWidth={selectedTitularidade === entry.code ? 3 : 2}
+                    opacity={
+                      selectedTitularidade && selectedTitularidade !== entry.code ? 0.35 : 1
+                    }
+                  />
                 ))}
               </Pie>
               <Tooltip
@@ -487,7 +554,16 @@ export function TitularidadeDonut({
       </Box>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.45, width: '100%', mt: 0.65, minWidth: 0 }}>
         {legendaItens.map((item) => (
-          <TitularidadeLegendaRow key={item.code} item={item} />
+          <TitularidadeLegendaRow
+            key={item.code}
+            item={item}
+            selected={selectedTitularidade === item.code}
+            onClick={
+              onSelectTitularidade
+                ? () => onSelectTitularidade(item.code as 'T' | 'D' | 'A' | '?')
+                : undefined
+            }
+          />
         ))}
       </Box>
       {statusComTitularidade.length > 0 && (
@@ -535,8 +611,12 @@ export function TitularidadeDonut({
 
 export function CategoriasStrip({
   categorias,
+  selectedCategoria,
+  onSelectCategoria,
 }: {
   categorias: BeneficiariosResumoApresentacao['categorias']
+  selectedCategoria?: BeneficiarioCategoriaApresentacao | null
+  onSelectCategoria?: (key: BeneficiarioCategoriaApresentacao) => void
 }) {
   const comDados = CATEGORIAS_APRESENTACAO.filter((c) => categorias[c.key] > 0)
 
@@ -553,30 +633,43 @@ export function CategoriasStrip({
         }}
       >
         DESCRIÇÃO DOS BENEFICIÁRIOS
+        {onSelectCategoria ? (
+          <Typography component="span" sx={{ fontFamily: FONT, fontSize: 8, fontWeight: 500, color: TEXT_SECONDARY, ml: 1 }}>
+            · clique para filtrar
+          </Typography>
+        ) : null}
       </Typography>
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
-        {comDados.map((cat) => (
-          <Box
-            key={cat.key}
-            sx={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 0.75,
-              px: 1.5,
-              py: 0.75,
-              borderRadius: 2,
-              bgcolor: MINT,
-              border: `1px solid ${INFO}33`,
-            }}
-          >
-            <Typography sx={{ fontFamily: FONT, fontSize: 18, fontWeight: 800, color: PRIMARY }}>
-              {categorias[cat.key]}
-            </Typography>
-            <Typography sx={{ fontFamily: FONT, fontSize: 9, fontWeight: 600, color: INFO, lineHeight: 1.2 }}>
-              {cat.label.replace(/¹|²/g, '').trim()}
-            </Typography>
-          </Box>
-        ))}
+        {comDados.map((cat) => {
+          const selected = selectedCategoria === cat.key
+          return (
+            <Box
+              key={cat.key}
+              role={onSelectCategoria ? 'button' : undefined}
+              onClick={onSelectCategoria ? () => onSelectCategoria(cat.key) : undefined}
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 0.75,
+                px: 1.5,
+                py: 0.75,
+                borderRadius: 2,
+                bgcolor: selected ? `${INFO}18` : MINT,
+                border: `1.5px solid ${selected ? INFO : `${INFO}33`}`,
+                cursor: onSelectCategoria ? 'pointer' : 'default',
+                transition: 'border-color 0.15s, background-color 0.15s',
+                '&:hover': onSelectCategoria ? { borderColor: INFO } : undefined,
+              }}
+            >
+              <Typography sx={{ fontFamily: FONT, fontSize: 18, fontWeight: 800, color: PRIMARY }}>
+                {categorias[cat.key]}
+              </Typography>
+              <Typography sx={{ fontFamily: FONT, fontSize: 9, fontWeight: 600, color: INFO, lineHeight: 1.2 }}>
+                {cat.label.replace(/¹|²/g, '').trim()}
+              </Typography>
+            </Box>
+          )
+        })}
       </Box>
       <Typography sx={{ fontFamily: FONT, fontSize: 8, color: TEXT_SECONDARY, mt: 0.75 }}>
         ¹ Titulares e/ou dependentes · ² Transtorno do Espectro Autista
@@ -588,9 +681,13 @@ export function CategoriasStrip({
 export function FaixasEtariasChart({
   faixas,
   maxVal,
+  selectedFaixaKey,
+  onSelectFaixa,
 }: {
   faixas: BeneficiariosResumoApresentacao['faixasEtarias']
   maxVal: number
+  selectedFaixaKey?: string | null
+  onSelectFaixa?: (key: string) => void
 }) {
   const barPct = (n: number) => (maxVal > 0 && n > 0 ? (n / maxVal) * 100 : 0)
   const faixaTotal = (f: (typeof faixas)[number]) => f.masculino + f.feminino + f.semSexo
@@ -603,9 +700,13 @@ export function FaixasEtariasChart({
       </Box>
       {faixas.map((f) => {
         const total = faixaTotal(f)
+        const selected = selectedFaixaKey === f.key
+        const dimmed = Boolean(selectedFaixaKey && !selected)
         return (
         <Box
           key={f.key}
+          role={onSelectFaixa ? 'button' : undefined}
+          onClick={onSelectFaixa ? () => onSelectFaixa(f.key) : undefined}
           sx={{
             display: 'grid',
             gridTemplateColumns: '22px 1fr 54px 1fr 22px',
@@ -613,6 +714,12 @@ export function FaixasEtariasChart({
             gap: 0.5,
             height: 17,
             flexShrink: 0,
+            opacity: dimmed ? 0.35 : 1,
+            cursor: onSelectFaixa ? 'pointer' : 'default',
+            borderRadius: 0.75,
+            outline: selected ? `1.5px solid ${INFO}` : 'none',
+            outlineOffset: 1,
+            '&:hover': onSelectFaixa ? { bgcolor: `${MINT}` } : undefined,
           }}
         >
           <Typography sx={{ fontFamily: FONT, fontSize: 9, fontWeight: 700, color: PRIMARY, textAlign: 'right' }}>
@@ -647,9 +754,13 @@ export function FaixasEtariasChart({
 export function PlanosChart({
   planos,
   total,
+  selectedPlano,
+  onSelectPlano,
 }: {
   planos: BeneficiariosResumoApresentacao['planos']
   total: number
+  selectedPlano?: string | null
+  onSelectPlano?: (plano: string) => void
 }) {
   const accents = [INFO, PRIMARY, INFO_LIGHT, '#4a6fa5', '#5a7fa8']
 
@@ -657,8 +768,25 @@ export function PlanosChart({
     <Box data-chart="planos" sx={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: 0.9 }}>
       {planos.slice(0, 5).map((p, i) => {
         const pct = total > 0 ? Math.round((p.quantidade / total) * 100) : 0
+        const selected = selectedPlano === p.plano
+        const dimmed = Boolean(selectedPlano && !selected)
         return (
-          <Box key={p.plano} sx={{ flexShrink: 0 }}>
+          <Box
+            key={p.plano}
+            role={onSelectPlano ? 'button' : undefined}
+            onClick={onSelectPlano ? () => onSelectPlano(p.plano) : undefined}
+            sx={{
+              flexShrink: 0,
+              opacity: dimmed ? 0.4 : 1,
+              cursor: onSelectPlano ? 'pointer' : 'default',
+              p: 0.5,
+              mx: -0.5,
+              borderRadius: 1,
+              border: selected ? `1.5px solid ${accents[i % accents.length]}` : '1.5px solid transparent',
+              bgcolor: selected ? MINT : 'transparent',
+              '&:hover': onSelectPlano ? { bgcolor: MINT } : undefined,
+            }}
+          >
             <Box sx={{ display: 'flex', gap: 1, mb: 0.25 }}>
               <Typography
                 sx={{
@@ -694,13 +822,35 @@ export function PlanosChart({
 
 export function GrupoElegivelSlide({
   resumo,
+  totalBase,
+  filtro,
+  onFiltroChange,
   presentationMode = 'slide',
+  interactive = false,
 }: {
   resumo: BeneficiariosResumoApresentacao
+  totalBase?: number
+  filtro?: BeneficiariosResumoFiltro
+  onFiltroChange?: (next: BeneficiariosResumoFiltro) => void
   presentationMode?: PlacementPresentationMode
+  interactive?: boolean
 }) {
   const isPage = presentationMode === 'page'
   const maxPyramid = Math.max(...resumo.faixasEtarias.flatMap((f) => [f.masculino, f.feminino, f.semSexo]), 1)
+  const baseTotal = totalBase ?? resumo.total
+  const filtroAtivo = interactive && beneficiariosResumoFiltroAtivo(filtro)
+  const filtroLabels = filtro ? describeBeneficiariosFiltro(filtro) : []
+  const insight =
+    interactive && filtroAtivo ? insightBeneficiariosResumo(resumo, baseTotal) : null
+
+  const setFiltro = (next: BeneficiariosResumoFiltro) => onFiltroChange?.(next)
+  const toggle = <K extends keyof BeneficiariosResumoFiltro>(
+    key: K,
+    value: BeneficiariosResumoFiltro[K]
+  ) => {
+    if (!filtro || !onFiltroChange) return
+    onFiltroChange(toggleBeneficiariosFiltroValor(filtro, key, value))
+  }
 
   return (
     <Box
@@ -776,7 +926,9 @@ export function GrupoElegivelSlide({
           }}
         >
           <Typography sx={{ fontFamily: FONT, fontSize: 13, fontWeight: 700, color: WHITE }}>
-            {resumo.total} beneficiários
+            {filtroAtivo
+              ? `${resumo.total} de ${baseTotal} beneficiários`
+              : `${resumo.total} beneficiários`}
           </Typography>
         </Paper>
       </Box>
@@ -791,6 +943,72 @@ export function GrupoElegivelSlide({
           gap: isPage ? 2 : 1.25,
         }}
       >
+        {interactive && (
+          <Box
+            sx={{
+              flexShrink: 0,
+              px: 1.25,
+              py: 0.85,
+              borderRadius: 2,
+              bgcolor: WHITE,
+              border: `1px solid ${BORDER}`,
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              gap: 0.75,
+            }}
+          >
+            {filtroAtivo ? (
+              <>
+                <Typography sx={{ fontFamily: FONT, fontSize: 10, fontWeight: 700, color: PRIMARY }}>
+                  Recorte ativo:
+                </Typography>
+                {filtroLabels.map((label) => (
+                  <Chip
+                    key={label}
+                    size="small"
+                    label={label}
+                    sx={{
+                      height: 22,
+                      fontFamily: FONT,
+                      fontSize: 10,
+                      fontWeight: 700,
+                      bgcolor: MINT,
+                      color: INFO,
+                    }}
+                  />
+                ))}
+                <Button
+                  size="small"
+                  startIcon={<FilterAltOffIcon sx={{ fontSize: 14 }} />}
+                  onClick={() => setFiltro(emptyBeneficiariosResumoFiltro())}
+                  sx={{ textTransform: 'none', fontFamily: FONT, fontWeight: 700, ml: 'auto' }}
+                >
+                  Limpar filtros
+                </Button>
+              </>
+            ) : (
+              <Typography sx={{ fontFamily: FONT, fontSize: 10, color: TEXT_SECONDARY }}>
+                Clique em titularidade, faixa etária, plano, categoria ou métrica para cruzar os dados.
+              </Typography>
+            )}
+            {insight ? (
+              <Typography
+                sx={{
+                  fontFamily: FONT,
+                  fontSize: 10,
+                  fontWeight: 600,
+                  color: INFO,
+                  width: '100%',
+                  mt: 0.25,
+                }}
+              >
+                {insight}
+              </Typography>
+            ) : null}
+          </Box>
+        )}
+
         <Box sx={{ display: 'flex', gap: 1, flexShrink: 0, flexWrap: isPage ? 'wrap' : 'nowrap' }}>
           <MetricPill
             accent={PRIMARY}
@@ -798,6 +1016,8 @@ export function GrupoElegivelSlide({
             label="Masculino"
             value={`${resumo.pctMasculino}%`}
             sub={`${resumo.sexoM} vidas`}
+            selected={filtro?.sexo === 'M'}
+            onClick={interactive ? () => toggle('sexo', 'M') : undefined}
           />
           <MetricPill
             accent={INFO}
@@ -805,6 +1025,8 @@ export function GrupoElegivelSlide({
             label="Feminino"
             value={`${resumo.pctFeminino}%`}
             sub={`${resumo.sexoF} vidas`}
+            selected={filtro?.sexo === 'F'}
+            onClick={interactive ? () => toggle('sexo', 'F') : undefined}
           />
           <MetricPill
             accent="#3d6b9e"
@@ -821,12 +1043,16 @@ export function GrupoElegivelSlide({
             label="Pot. gestacional"
             value={String(resumo.potencialGestacional)}
             sub="F · 19–38 anos"
+            selected={Boolean(filtro?.potencialGestacional)}
+            onClick={interactive ? () => toggle('potencialGestacional', true) : undefined}
           />
           <MetricPill
             accent="#b45309"
             icon={<ElderlyIcon />}
             label="59+ anos"
             value={String(resumo.acima59)}
+            selected={Boolean(filtro?.acima59)}
+            onClick={interactive ? () => toggle('acima59', true) : undefined}
           />
         </Box>
 
@@ -835,7 +1061,11 @@ export function GrupoElegivelSlide({
           elevation={0}
           sx={{ flexShrink: 0, p: 1.5, borderRadius: 2, border: `1px solid ${BORDER}`, bgcolor: WHITE }}
         >
-          <CategoriasStrip categorias={resumo.categorias} />
+          <CategoriasStrip
+            categorias={resumo.categorias}
+            selectedCategoria={filtro?.categoria}
+            onSelectCategoria={interactive ? (key) => toggle('categoria', key) : undefined}
+          />
         </Paper>
 
         {/* Gráficos + titularidade */}
@@ -855,6 +1085,8 @@ export function GrupoElegivelSlide({
               agregados={resumo.agregados}
               naoClassificados={resumo.titularidadeNaoClassificada}
               categoriasPorTitularidade={resumo.categoriasPorTitularidade}
+              selectedTitularidade={filtro?.titularidade}
+              onSelectTitularidade={interactive ? (code) => toggle('titularidade', code) : undefined}
             />
           </Box>
           <Paper
@@ -873,8 +1105,18 @@ export function GrupoElegivelSlide({
           >
             <Typography sx={{ fontFamily: FONT, fontSize: 10, fontWeight: 700, color: PRIMARY, mb: 0.75, flexShrink: 0 }}>
               FAIXAS ETÁRIAS · QUANTIDADE
+              {interactive ? (
+                <Typography component="span" sx={{ fontFamily: FONT, fontSize: 8, fontWeight: 500, color: TEXT_SECONDARY, ml: 0.75 }}>
+                  · clique na faixa
+                </Typography>
+              ) : null}
             </Typography>
-            <FaixasEtariasChart faixas={resumo.faixasEtarias} maxVal={maxPyramid} />
+            <FaixasEtariasChart
+              faixas={resumo.faixasEtarias}
+              maxVal={maxPyramid}
+              selectedFaixaKey={filtro?.faixaKey}
+              onSelectFaixa={interactive ? (key) => toggle('faixaKey', key) : undefined}
+            />
           </Paper>
           <Paper
             elevation={0}
@@ -892,11 +1134,21 @@ export function GrupoElegivelSlide({
           >
             <Typography sx={{ fontFamily: FONT, fontSize: 10, fontWeight: 700, color: PRIMARY, mb: 0.75, flexShrink: 0 }}>
               PLANOS
+              {interactive ? (
+                <Typography component="span" sx={{ fontFamily: FONT, fontSize: 8, fontWeight: 500, color: TEXT_SECONDARY, ml: 0.75 }}>
+                  · clique no plano
+                </Typography>
+              ) : null}
             </Typography>
             {resumo.planos.length === 0 ? (
               <Typography sx={{ fontFamily: FONT, fontSize: 10, color: TEXT_SECONDARY }}>Sem plano na base</Typography>
             ) : (
-              <PlanosChart planos={resumo.planos} total={resumo.total} />
+              <PlanosChart
+                planos={resumo.planos}
+                total={resumo.total}
+                selectedPlano={filtro?.plano}
+                onSelectPlano={interactive ? (plano) => toggle('plano', plano) : undefined}
+              />
             )}
           </Paper>
         </Box>
@@ -913,9 +1165,23 @@ export function BeneficiariosResumoDashboard({
   const exportRef = useRef<HTMLDivElement>(null)
   const [loading, setLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
-  const [resumo, setResumo] = useState<BeneficiariosResumoApresentacao | null>(null)
+  const [rows, setRows] = useState<PlacementBeneficiario[]>([])
+  const [filtro, setFiltro] = useState<BeneficiariosResumoFiltro>(emptyBeneficiariosResumoFiltro())
   const [slideReady, setSlideReady] = useState(false)
   const [exporting, setExporting] = useState(false)
+
+  const isPage = presentationMode === 'page'
+  const interactive = isPage
+
+  const resumoBase = useMemo(
+    () => (rows.length ? computeBeneficiariosResumo(rows) : null),
+    [rows]
+  )
+  const resumo = useMemo(() => {
+    if (!rows.length) return null
+    const filtered = filterBeneficiariosForResumo(rows, filtro)
+    return computeBeneficiariosResumo(filtered)
+  }, [rows, filtro])
 
   const load = useCallback(async () => {
     if (!cotacaoId) return
@@ -928,14 +1194,15 @@ export function BeneficiariosResumoDashboard({
       }
       const list = resp?.beneficiarios ?? []
       if (list.length === 0) {
-        setResumo(null)
+        setRows([])
         setErrorMsg('Importe a base de beneficiários na etapa anterior para gerar a apresentação.')
         return
       }
-      setResumo(computeBeneficiariosResumo(list))
+      setRows(list)
+      setFiltro(emptyBeneficiariosResumoFiltro())
     } catch (err: unknown) {
       setErrorMsg(err instanceof Error ? err.message : 'Erro ao carregar beneficiários.')
-      setResumo(null)
+      setRows([])
     } finally {
       setLoading(false)
     }
@@ -998,8 +1265,6 @@ export function BeneficiariosResumoDashboard({
     }
   }
 
-  const isPage = presentationMode === 'page'
-
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
@@ -1008,7 +1273,7 @@ export function BeneficiariosResumoDashboard({
     )
   }
 
-  if (!resumo) {
+  if (!resumo || !resumoBase) {
     return <Alert severity="warning">{errorMsg ?? 'Nenhum beneficiário na base.'}</Alert>
   }
 
@@ -1052,7 +1317,14 @@ export function BeneficiariosResumoDashboard({
 
       <Box sx={{ overflowX: isPage ? 'visible' : 'auto', pb: isPage ? 0 : 1, display: 'flex', justifyContent: isPage ? 'stretch' : 'center' }}>
         <Box ref={exportRef} data-export-root sx={{ width: '100%', maxWidth: isPage ? 'none' : SLIDE_W, flexShrink: 0 }}>
-          <GrupoElegivelSlide resumo={resumo} presentationMode={presentationMode} />
+          <GrupoElegivelSlide
+            resumo={resumo}
+            totalBase={resumoBase.total}
+            filtro={filtro}
+            onFiltroChange={setFiltro}
+            presentationMode={presentationMode}
+            interactive={interactive}
+          />
         </Box>
       </Box>
     </Box>

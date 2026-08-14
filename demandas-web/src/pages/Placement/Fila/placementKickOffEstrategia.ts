@@ -10,6 +10,7 @@ import type { Operadora } from '../../../types/masterData'
 import type { ComunicarMercadoState } from './placementComunicarMercado'
 import type { AguardandoOperadoraState } from './placementAguardandoOperadora'
 import type { ConsolidandoDadosState } from './placementConsolidandoDados'
+import type { ValidacaoPropostaState } from './placementValidacaoProposta'
 
 export type KickOffEstrategiaItem = {
   id: string
@@ -35,6 +36,8 @@ export type KickOffEstrategia = {
   aguardandoOperadora?: AguardandoOperadoraState
   /** Estado da etapa Consolidando dados. */
   consolidandoDados?: ConsolidandoDadosState
+  /** Estado da etapa Validação proposta (antes de Proposta enviada). */
+  validacaoProposta?: ValidacaoPropostaState
 }
 
 export type KickOffAberturaLabels = {
@@ -266,6 +269,11 @@ export function parseKickOffEstrategiaFromApi(raw: unknown): KickOffEstrategia {
     typeof o.consolidandoDados === 'object' &&
     !Array.isArray(o.consolidandoDados)
       ? { consolidandoDados: o.consolidandoDados as KickOffEstrategia['consolidandoDados'] }
+      : {}),
+    ...(o.validacaoProposta &&
+    typeof o.validacaoProposta === 'object' &&
+    !Array.isArray(o.validacaoProposta)
+      ? { validacaoProposta: o.validacaoProposta as KickOffEstrategia['validacaoProposta'] }
       : {}),
   }
 }

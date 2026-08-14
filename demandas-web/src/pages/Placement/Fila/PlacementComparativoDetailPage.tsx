@@ -21,6 +21,7 @@ import type { CotacaoFormState } from './CotacaoFormFields'
 import { ComparativoEstudoDashboard } from './ComparativoEstudoDashboard'
 import { ComparativoCoparticipacaoDashboard } from './ComparativoCoparticipacaoDashboard'
 import { ComparativoReembolsoDashboard } from './ComparativoReembolsoDashboard'
+import { ComparativoDiferenciaisDashboard } from './ComparativoDiferenciaisDashboard'
 import { PlacementAguardandoOperadoraPanel } from './PlacementAguardandoOperadoraPanel'
 import { PlacementConsolidandoDadosPanel } from './PlacementConsolidandoDadosPanel'
 import { toFormState } from './Detail'
@@ -31,7 +32,15 @@ import {
 } from './placementKickOffPersist'
 import { getWorkflowStageKey } from './placementCotacaoWorkflow'
 
-type FullscreenPane = 'comparativo' | 'lancamento' | 'coparticipacao' | 'reembolso' | 'consolidando'
+type FullscreenPane =
+  | 'comparativo'
+  | 'lancamento'
+  | 'coparticipacao'
+  | 'reembolso'
+  | 'consolidando'
+  | 'condicoes'
+  | 'indicadores'
+  | 'editar_consolidando'
 
 export default function PlacementComparativoDetailPage() {
   const navigate = useNavigate()
@@ -43,9 +52,21 @@ export default function PlacementComparativoDetailPage() {
   const [form, setForm] = useState<CotacaoFormState | null>(null)
   const [loading, setLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [editSecao, setEditSecao] = useState<'diferenciais' | 'condicoes' | 'indicadores'>('diferenciais')
   const [activePane, setActivePane] = useState<FullscreenPane>(() => {
     const pane = searchParams.get('pane')
-    if (pane === 'coparticipacao' || pane === 'lancamento' || pane === 'comparativo' || pane === 'reembolso' || pane === 'consolidando') return pane
+    if (
+      pane === 'coparticipacao' ||
+      pane === 'lancamento' ||
+      pane === 'comparativo' ||
+      pane === 'reembolso' ||
+      pane === 'consolidando' ||
+      pane === 'condicoes' ||
+      pane === 'indicadores' ||
+      pane === 'editar_consolidando'
+    ) {
+      return pane
+    }
     return 'comparativo'
   })
 
@@ -69,7 +90,13 @@ export default function PlacementComparativoDetailPage() {
       .get(`/placement/cotacoes/${id}`)
       .then((data: unknown) => {
         if (cancelled) return
-        setForm(toFormState(data))
+        setForm((prev) => {
+          const next = toFormState(data)
+          if (!prev) return next
+          let kickOff = preferRicherKickOffWhenApplyingApi(next.kickOffEstrategia, prev.kickOffEstrategia)
+          kickOff = preferLocalComparativoConfigInKickOff(kickOff, prev.kickOffEstrategia) ?? kickOff
+          return { ...next, kickOffEstrategia: kickOff }
+        })
         setLoading(false)
       })
       .catch((err: unknown) => {
@@ -182,7 +209,15 @@ export default function PlacementComparativoDetailPage() {
           <ToggleButtonGroup
             size="small"
             exclusive
-            value={activePane}
+            value={
+              activePane === 'editar_consolidando'
+                ? editSecao === 'condicoes'
+                  ? 'condicoes'
+                  : editSecao === 'indicadores'
+                    ? 'indicadores'
+                    : 'consolidando'
+                : activePane
+            }
             onChange={(_, v: FullscreenPane | null) => v && setActivePane(v)}
           >
             <ToggleButton value="comparativo">Comparativo financeiro</ToggleButton>
@@ -190,6 +225,12 @@ export default function PlacementComparativoDetailPage() {
             <ToggleButton value="reembolso">Reembolso</ToggleButton>
             <ToggleButton value="consolidando" disabled={!podeConsolidar}>
               Diferenciais
+            </ToggleButton>
+            <ToggleButton value="condicoes" disabled={!podeConsolidar}>
+              Condições contratuais
+            </ToggleButton>
+            <ToggleButton value="indicadores" disabled={!podeConsolidar}>
+              Indicadores operadoras
             </ToggleButton>
             <ToggleButton value="lancamento" disabled={!podeLancarPropostas}>
               Lançar propostas
@@ -209,7 +250,11 @@ export default function PlacementComparativoDetailPage() {
             onClick={() =>
               navigate(
                 `/placement/fila/${id}/slides?slide=${
-                  activePane === 'consolidando' ? 'comparativo_diferenciais' : 'comparativo_propostas'
+                  activePane === 'consolidando' ||
+                  activePane === 'condicoes' ||
+                  activePane === 'indicadores'
+                    ? 'comparativo_diferenciais'
+                    : 'comparativo_propostas'
                 }`
               )
             }
@@ -259,7 +304,37 @@ export default function PlacementComparativoDetailPage() {
             onNavigateToCoparticipacao={() => setActivePane('coparticipacao')}
             lancamentoDisponivel={podeLancarPropostas}
           />
-        ) : activePane === 'consolidando' ? (
+        ) : activePane === 'consolidando' ||
+          activePane === 'condicoes' ||
+          activePane === 'indicadores' ? (
+          <ComparativoDiferenciaisDashboard
+            cotacaoId={id}
+            form={form}
+            onChange={handleChange}
+            onPersisted={handlePersisted}
+            secaoFiltro={
+              activePane === 'condicoes'
+                ? 'condicoes'
+                : activePane === 'indicadores'
+                  ? 'indicadores'
+                  : 'diferenciais'
+            }
+            onNavigateToLancamento={
+              podeConsolidar
+                ? () => {
+                    setEditSecao(
+                      activePane === 'condicoes'
+                        ? 'condicoes'
+                        : activePane === 'indicadores'
+                          ? 'indicadores'
+                          : 'diferenciais'
+                    )
+                    setActivePane('editar_consolidando')
+                  }
+                : undefined
+            }
+          />
+        ) : activePane === 'editar_consolidando' ? (
           <Box sx={{ height: '100%', overflow: 'auto', p: { xs: 2, md: 3 } }}>
             <PlacementConsolidandoDadosPanel
               embedded
@@ -267,6 +342,8 @@ export default function PlacementComparativoDetailPage() {
               form={form}
               onChange={handleChange}
               onPersisted={handlePersisted}
+              initialSubTab={editSecao}
+              focusSecao={editSecao}
             />
           </Box>
         ) : (

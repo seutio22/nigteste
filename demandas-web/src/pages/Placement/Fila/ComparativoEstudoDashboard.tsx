@@ -35,14 +35,14 @@ import { api } from '../../../lib/api.local'
 import type { CotacaoFormState } from './CotacaoFormFields'
 import type { PlacementBeneficiario } from './placementBeneficiarios'
 import {
-  ensureAguardandoOperadoraState,
-  parseAguardandoOperadoraFromKickOff,
   type ComparativoEstudoConfig,
   type ComparativoEstudoModo,
   type ComparativoFaixaAgrupamento,
   type ComparativoFaixaCelula,
   type ComparativoVisualizacao,
 } from './placementAguardandoOperadora'
+import { useComparativoConfigPersist } from './useComparativoConfigPersist'
+import { ComparativoEstudosSwitcher } from './ComparativoEstudosSwitcher'
 import {
   computeComparativoEstudo,
   buildComparativoConsolidadoPages,
@@ -70,8 +70,6 @@ import {
   type ComparativoLinhaChave,
 } from './placementComparativoVisibilidade'
 import { ComparativoPropostasVisibilidadePanel } from './ComparativoPropostasVisibilidadePanel'
-import { buildKickOffEstrategiaPatch, mergeSavedKickOffIntoApiCotacao } from './placementKickOffPersist'
-import { mercadoFornecedoresFromForm } from './placementComunicarMercado'
 import {
   exportSlidePng,
   PlacementExpandedFrame,
@@ -134,13 +132,21 @@ type Props = {
 }
 
 const MODO_LABELS: Record<ComparativoEstudoModo, string> = {
-  contrato_plano: 'Comparativo por plano (detalhado)',
-  consolidado: 'Consolidado financeiro (recomendado)',
-  detalhe_plano: 'Detalhe por plano',
+  contrato_plano: 'Modelo Contrato atual (ATUAL × mercado)',
+  consolidado: 'Consolidado financeiro (resumo)',
+  detalhe_plano: 'Comparativo por plano (detalhado)', // legado — não listado no select
   unificado: 'Completo (plano + consolidado + detalhe)',
   faixa_etaria: 'Faixa etária (horizontal)',
   planos_empilhados: 'Todos os planos empilhados (fatura por operadora)',
 }
+
+/** Modos oferecidos em Filtros e opções (sem «Detalhe por plano» nem «Completo»). */
+const MODOS_SELECTIVEIS: ComparativoEstudoModo[] = [
+  'contrato_plano',
+  'consolidado',
+  'planos_empilhados',
+  'faixa_etaria',
+]
 
 const FAIXA_CELULA_LABELS: Record<ComparativoFaixaCelula, string> = {
   unitario: 'Valor unitário',
@@ -343,6 +349,8 @@ function ComparativoUnificadoBloco({
   colunasEstudo,
   hideSlideHeader = false,
   sectionLabel,
+  vidasColunaUnica,
+  custoPlanoExibicao,
 }: {
   page: ComparativoUnificadoPagina
   ticket: string
@@ -355,6 +363,8 @@ function ComparativoUnificadoBloco({
   colunasEstudo: ComparativoColunaEstudo[]
   hideSlideHeader?: boolean
   sectionLabel?: string
+  vidasColunaUnica?: boolean
+  custoPlanoExibicao?: 'medio' | 'total'
 }) {
   const resumoSlice = useMemo<ContratoAtualResumo>(
     () => ({
@@ -384,6 +394,8 @@ function ComparativoUnificadoBloco({
         hideSlideHeader={hideSlideHeader}
         hidePageFooter={hideSlideHeader}
         sectionLabel={sectionLabel}
+        vidasColunaUnica={vidasColunaUnica}
+        custoPlanoExibicao={custoPlanoExibicao}
       />
       <DetalhePlanoSlide
         page={page.detalhe}
@@ -403,6 +415,9 @@ function PlanosEmpilhadosStack({
   linhasOcultas,
   expanded,
   logoUrls,
+  vidasColunaUnica,
+  omitirOperadoraNasSecoesEmpilhadas,
+  custoPlanoExibicao,
 }: {
   resumo: ContratoAtualResumo
   colunasEstudo: ComparativoColunaEstudo[]
@@ -411,6 +426,9 @@ function PlanosEmpilhadosStack({
   linhasOcultas?: ComparativoLinhaChave[]
   expanded?: boolean
   logoUrls: Map<string, string>
+  vidasColunaUnica?: boolean
+  omitirOperadoraNasSecoesEmpilhadas?: boolean
+  custoPlanoExibicao?: 'medio' | 'total'
 }) {
   const layout = useMemo(() => {
     const maxCols = Math.max(
@@ -427,7 +445,7 @@ function PlanosEmpilhadosStack({
     <Stack gap={expanded ? 2 : 1.5} sx={{ width: '100%' }}>
       <PlacementSlideHeader
         title="Comparativo de Propostas"
-        subtitle={`Todos os planos · comparativo horizontal · ${ticket}`}
+        subtitle={`Todos os planos · comparativo vertical · ${ticket}`}
         icon={<TableChartIcon sx={{ fontSize: 22, color: '#fff' }} />}
       />
       <ComparativoPlanosEmpilhadosUnificado
@@ -437,6 +455,9 @@ function PlanosEmpilhadosStack({
         layout={layout}
         linhasOcultas={linhasOcultas}
         notasConsolidado={notas}
+        vidasColunaUnica={vidasColunaUnica}
+        omitirOperadoraNasSecoesEmpilhadas={omitirOperadoraNasSecoesEmpilhadas}
+        custoPlanoExibicao={custoPlanoExibicao}
       />
     </Stack>
   )
@@ -927,7 +948,6 @@ export function ComparativoEstudoDashboard({
   const isWorkspace = resolvedVariant === 'workspace'
   const isExpandedLayout = isFullscreen || isWorkspace
   const [sidebarOpen, setSidebarOpen] = useState(true)
-  const configSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const operadoras = useMasterDataStore((s) => s.operadoras)
   const operadorasById = useMasterDataStore((s) => s.operadorasById)
   const exportRef = useRef<HTMLDivElement>(null)
@@ -940,18 +960,20 @@ export function ComparativoEstudoDashboard({
   const [logoUrls, setLogoUrls] = useState<Map<string, string>>(new Map())
   const [idsComLogo, setIdsComLogo] = useState<Set<string>>(new Set())
 
-  const agState = useMemo(
-    () =>
-      ensureAguardandoOperadoraState(
-        parseAguardandoOperadoraFromKickOff(form.kickOffEstrategia),
-        form,
-        operadoras,
-        operadorasById
-      ),
-    [form, operadoras, operadorasById]
-  )
-
-  const config = agState.comparativoConfig
+  const {
+    config,
+    persistConfig,
+    estudos,
+    ativoId,
+    selectEstudo,
+  } = useComparativoConfigPersist({
+    cotacaoId,
+    form,
+    operadoras,
+    operadorasById,
+    onChange,
+    onPersisted,
+  })
   const visualizacaoEfetiva: ComparativoVisualizacao =
     slidesViewMode === 'compacto'
       ? 'slide'
@@ -1026,11 +1048,16 @@ export function ComparativoEstudoDashboard({
   )
 
   const modoEfetivo: ComparativoEstudoModo = useMemo(() => {
+    if (config.modoSlide === 'detalhe_plano' || config.modoSlide === 'unificado') return 'contrato_plano'
     if (config.modoSlide === 'faixa_etaria' && (!temFaixaReal || !estudoVisivel.faixaPages.length)) {
       return 'contrato_plano'
     }
     return config.modoSlide
-  }, [config.modoSlide, temFaixaReal, estudoVisivel.faixaPages.length])
+  }, [
+    config.modoSlide,
+    temFaixaReal,
+    estudoVisivel.faixaPages.length,
+  ])
 
   const pages = useMemo(() => {
     if (modoEfetivo === 'contrato_plano' || modoEfetivo === 'planos_empilhados') {
@@ -1124,47 +1151,18 @@ export function ComparativoEstudoDashboard({
   }, [pages, pageIndex, config])
 
   useEffect(() => {
-    return () => {
-      if (configSaveTimerRef.current) clearTimeout(configSaveTimerRef.current)
-    }
-  }, [])
-
-  const persistConfig = useCallback(
-    (next: ComparativoEstudoConfig) => {
-      if (!onChange) return
-      const fornecedores = mercadoFornecedoresFromForm(form, operadoras, operadorasById)
-      const agAtual = ensureAguardandoOperadoraState(
-        parseAguardandoOperadoraFromKickOff(form.kickOffEstrategia),
-        form,
-        operadoras,
-        operadorasById
-      )
-      const nextAg = { ...agAtual, comparativoConfig: next }
-      const kickOff = buildKickOffEstrategiaPatch(form.kickOffEstrategia, { aguardandoOperadora: nextAg }, fornecedores)
-      onChange({ ...form, kickOffEstrategia: kickOff })
-      if (!cotacaoId) return
-      if (configSaveTimerRef.current) clearTimeout(configSaveTimerRef.current)
-      configSaveTimerRef.current = setTimeout(() => {
-        void (async () => {
-          try {
-            const updated = await api.put(`/placement/cotacoes/${cotacaoId}`, { kickOffEstrategia: kickOff })
-            onPersisted?.(mergeSavedKickOffIntoApiCotacao(updated, kickOff))
-          } catch {
-            /* ignore */
-          }
-        })()
-      }, 450)
-    },
-    [onChange, form, operadoras, operadorasById, cotacaoId, onPersisted]
-  )
-
-  useEffect(() => {
     if (!onChange || config.modoSlide !== 'faixa_etaria') return
     if (!temFaixaReal || !estudoVisivel.faixaPages.length) {
       persistConfig({ ...config, modoSlide: 'contrato_plano' })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config.modoSlide, temFaixaReal, estudoVisivel.faixaPages.length, onChange])
+
+  useEffect(() => {
+    if (!onChange || (config.modoSlide !== 'detalhe_plano' && config.modoSlide !== 'unificado')) return
+    persistConfig({ ...config, modoSlide: 'contrato_plano' })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config.modoSlide, onChange])
 
   const unificadoLayoutForPage = useCallback(
     (colCount: number) =>
@@ -1304,7 +1302,7 @@ export function ComparativoEstudoDashboard({
         display: 'flex',
         justifyContent: isExpandedView ? 'flex-start' : 'center',
         width: '100%',
-        minWidth: isExpandedView ? 'max-content' : undefined,
+        minWidth: modoEfetivo === 'contrato_plano' ? '100%' : isExpandedView ? 'max-content' : undefined,
       }}
     >
       {modoEfetivo === 'contrato_plano' ? (
@@ -1317,13 +1315,15 @@ export function ComparativoEstudoDashboard({
           exibicaoComparativo="plano_completo"
           initialPlanosPorSlide={config.colunasPorSlide as ContratoAtualPlanosPorSlide}
           hideLayoutControls
-          presentationMode={contratoPresentationMode}
+          layoutOrientacao={config.contratoOrientacao === 'vertical' ? 'vertical' : 'horizontal'}
+          presentationMode="workspace"
           linhasOcultas={config.linhasOcultas}
+          vidasColunaUnica={config.vidasColunaUnica}
+          custoPlanoExibicao={config.custoPlanoExibicao}
           slideTitle="Comparativo de Propostas"
           slideSubtitle={`Plano equivalente · todos os fornecedores · ${ticketLabel}`}
           exportFilePrefix={`comparativo-propostas-${cotacaoId.slice(0, 8)}`}
           emptyMessage="Cadastre propostas por fornecedor e vincule equivalências aos planos do contrato."
-          showHeaderOnce={empilharPaginas}
         />
       ) : modoEfetivo === 'planos_empilhados' ? (
         <Box
@@ -1344,6 +1344,9 @@ export function ComparativoEstudoDashboard({
             linhasOcultas={config.linhasOcultas}
             expanded={isExpandedView}
             logoUrls={logoUrls}
+            vidasColunaUnica={config.vidasColunaUnica}
+            omitirOperadoraNasSecoesEmpilhadas={config.omitirOperadoraNasSecoesEmpilhadas}
+            custoPlanoExibicao={config.custoPlanoExibicao}
           />
         </Box>
       ) : modoEfetivo === 'unificado' ? (
@@ -1377,6 +1380,8 @@ export function ComparativoEstudoDashboard({
                   slideSubtitle={`Mesmas colunas · ${ticketLabel}`}
                   colunasEstudo={estudoVisivel.colunas}
                   hideSlideHeader
+                  vidasColunaUnica={config.vidasColunaUnica}
+                  custoPlanoExibicao={config.custoPlanoExibicao}
                   sectionLabel={
                     unificadoPages.length > 1
                       ? `Bloco ${i + 1}/${unificadoPages.length}`
@@ -1399,6 +1404,8 @@ export function ComparativoEstudoDashboard({
                 )}
                 slideSubtitle={`Mesmas colunas · ${ticketLabel} · bloco ${pageIndex + 1}/${pages.length}`}
                 colunasEstudo={estudoVisivel.colunas}
+                vidasColunaUnica={config.vidasColunaUnica}
+                custoPlanoExibicao={config.custoPlanoExibicao}
               />
             )
           )}
@@ -1432,29 +1439,6 @@ export function ComparativoEstudoDashboard({
               emptyMessage="Cadastre propostas por fornecedor e vincule equivalências aos planos do contrato."
             />
           )}
-          {modoEfetivo === 'detalhe_plano' &&
-            (empilharPaginas ? (
-              <Stack gap={isExpandedView ? 3 : 2} sx={{ width: '100%' }}>
-                {pages.map((page, i) => (
-                  <DetalhePlanoSlide
-                    key={`det-${i}`}
-                    page={page as ComparativoDetalhePagina}
-                    ticket={form.ticket || cotacaoId}
-                    linhasOcultas={config.linhasOcultas}
-                    expanded={isExpandedView}
-                  />
-                ))}
-              </Stack>
-            ) : (
-              currentPage && (
-                <DetalhePlanoSlide
-                  page={currentPage as ComparativoDetalhePagina}
-                  ticket={form.ticket || cotacaoId}
-                  linhasOcultas={config.linhasOcultas}
-                  expanded={isExpandedView}
-                />
-              )
-            ))}
           {modoEfetivo === 'faixa_etaria' &&
             (empilharPaginas ? (
               <Stack gap={isExpandedView ? 3 : 2} sx={{ width: '100%' }}>
@@ -1485,8 +1469,19 @@ export function ComparativoEstudoDashboard({
 
   const comparativoPreview = comparativoCanvas
 
+  const estudosSwitcher = (
+    <ComparativoEstudosSwitcher
+      mode="present"
+      estudos={estudos}
+      ativoId={ativoId}
+      disabled={disabled || !onChange}
+      onSelect={selectEstudo}
+    />
+  )
+
   const configPanel = (
     <Paper variant="outlined" sx={{ p: 2 }}>
+      {estudosSwitcher}
       <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>
         {isWorkspace ? 'Opções do comparativo' : isFullscreen ? 'Filtros e opções' : 'Configuração do comparativo'}
       </Typography>
@@ -1495,15 +1490,19 @@ export function ComparativoEstudoDashboard({
           <InputLabel>{isWorkspace ? 'Modo de exibição' : 'Modo de slide'}</InputLabel>
           <Select
             label={isWorkspace ? 'Modo de exibição' : 'Modo de slide'}
-            value={config.modoSlide}
+            value={
+              modoEfetivo === 'detalhe_plano' || modoEfetivo === 'unificado'
+                ? 'contrato_plano'
+                : modoEfetivo
+            }
             disabled={disabled || !onChange}
             onChange={(e) =>
               persistConfig({ ...config, modoSlide: e.target.value as ComparativoEstudoModo })
             }
           >
-            {(Object.entries(MODO_LABELS) as [ComparativoEstudoModo, string][]).map(([v, l]) => (
+            {MODOS_SELECTIVEIS.map((v) => (
               <MenuItem key={v} value={v} disabled={v === 'faixa_etaria' && !temFaixaReal}>
-                {l}
+                {MODO_LABELS[v]}
                 {v === 'faixa_etaria' && !temFaixaReal ? ' — indisponível' : ''}
               </MenuItem>
             ))}
@@ -1631,6 +1630,8 @@ export function ComparativoEstudoDashboard({
           config={config}
           disabled={disabled || !onChange}
           onChange={persistConfig}
+          showOrientacao={modoEfetivo === 'contrato_plano'}
+          orientacao={config.contratoOrientacao === 'vertical' ? 'vertical' : 'horizontal'}
         />
         {configPanel}
       </Stack>
@@ -1791,7 +1792,7 @@ export function ComparativoEstudoDashboard({
       {modoEfetivo === 'unificado' && (
         <Alert severity="info" icon={<TableChartIcon fontSize="inherit" />}>
           Modo <strong>completo</strong>: cada bloco exibe as <strong>mesmas colunas</strong> no comparativo por
-          plano (com consolidado financeiro logo abaixo da fatura mensal estimada) e no detalhe por plano. Ajuste
+          plano (com consolidado financeiro logo abaixo da fatura mensal estimada). Ajuste
           «Colunas por bloco» para controlar quantas colunas aparecem juntas.
         </Alert>
       )}
@@ -1826,6 +1827,8 @@ export function ComparativoEstudoDashboard({
         config={config}
         disabled={disabled || !onChange}
         onChange={persistConfig}
+        showOrientacao={modoEfetivo === 'contrato_plano'}
+        orientacao={config.contratoOrientacao === 'vertical' ? 'vertical' : 'horizontal'}
       />
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>

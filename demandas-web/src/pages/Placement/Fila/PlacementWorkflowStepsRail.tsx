@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react'
 import { Box, Stack, Typography } from '@mui/material'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
+import AccountTreeIcon from '@mui/icons-material/AccountTree'
 
 export type WorkflowStepState = 'completed' | 'active' | 'upcoming'
 
@@ -10,6 +11,8 @@ export type WorkflowStepItem = {
   description?: string
   stepNumber: number
   state: WorkflowStepState
+  /** Etapa com subetapas internas — destaque visual na trilha. */
+  hasSubetapas?: boolean
 }
 
 type Props = {
@@ -19,7 +22,49 @@ type Props = {
   heading?: string
 }
 
-function stepStyles(state: WorkflowStepState) {
+/** Tom distinto (cian/teal NIG) para etapas com subetapas — não compete com primary/success. */
+const SUB_TONE = {
+  border: '#009FDF',
+  bgUpcoming: 'rgba(0, 159, 223, 0.10)',
+  bgCompleted: 'rgba(0, 159, 223, 0.16)',
+  bgActive: '#0077A8',
+  text: '#004F75',
+  badgeBg: 'rgba(0, 159, 223, 0.22)',
+  chipBg: 'rgba(0, 159, 223, 0.18)',
+} as const
+
+function stepStyles(state: WorkflowStepState, hasSubetapas?: boolean) {
+  if (hasSubetapas) {
+    if (state === 'active') {
+      return {
+        borderColor: SUB_TONE.border,
+        bgcolor: SUB_TONE.bgActive,
+        color: '#fff',
+        badgeBg: 'rgba(255,255,255,0.22)',
+        badgeColor: '#fff',
+        shadow: '0 4px 14px rgba(0, 119, 168, 0.32)',
+      }
+    }
+    if (state === 'completed') {
+      return {
+        borderColor: SUB_TONE.border,
+        bgcolor: SUB_TONE.bgCompleted,
+        color: SUB_TONE.text,
+        badgeBg: SUB_TONE.border,
+        badgeColor: '#fff',
+        shadow: 'none',
+      }
+    }
+    return {
+      borderColor: SUB_TONE.border,
+      bgcolor: SUB_TONE.bgUpcoming,
+      color: SUB_TONE.text,
+      badgeBg: SUB_TONE.badgeBg,
+      badgeColor: SUB_TONE.text,
+      shadow: 'none',
+    }
+  }
+
   if (state === 'active') {
     return {
       borderColor: 'primary.main',
@@ -50,7 +95,11 @@ function stepStyles(state: WorkflowStepState) {
   }
 }
 
-export function PlacementWorkflowStepsRail({ steps, onStepClick, heading }: Props) {
+export function PlacementWorkflowStepsRail({
+  steps,
+  onStepClick,
+  heading,
+}: Props) {
   const clickable = !!onStepClick
   const railRef = useRef<HTMLDivElement>(null)
   const activeId = steps.find((s) => s.state === 'active')?.id
@@ -94,7 +143,8 @@ export function PlacementWorkflowStepsRail({ steps, onStepClick, heading }: Prop
         }}
       >
         {steps.map((step) => {
-          const styles = stepStyles(step.state)
+          const hasSub = !!step.hasSubetapas
+          const styles = stepStyles(step.state, hasSub)
           const isActive = step.state === 'active'
           const isCompleted = step.state === 'completed'
 
@@ -120,6 +170,13 @@ export function PlacementWorkflowStepsRail({ steps, onStepClick, heading }: Prop
                 textAlign: 'left',
                 cursor: clickable ? 'pointer' : 'default',
                 transition: 'all 0.2s ease',
+                position: 'relative',
+                ...(hasSub && {
+                  borderStyle: 'solid',
+                  borderWidth: 2,
+                  outline: `1px dashed ${SUB_TONE.border}`,
+                  outlineOffset: 2,
+                }),
                 ...(clickable && {
                   '&:hover': {
                     transform: 'translateY(-1px)',
@@ -135,7 +192,11 @@ export function PlacementWorkflowStepsRail({ steps, onStepClick, heading }: Prop
                     height: 28,
                     borderRadius: '50%',
                     bgcolor: isActive ? 'rgba(255,255,255,0.22)' : styles.badgeBg,
-                    color: isActive ? 'primary.contrastText' : styles.badgeColor,
+                    color: isActive
+                      ? hasSub
+                        ? '#fff'
+                        : 'primary.contrastText'
+                      : styles.badgeColor,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -145,23 +206,54 @@ export function PlacementWorkflowStepsRail({ steps, onStepClick, heading }: Prop
                   }}
                 >
                   {isCompleted ? (
-                    <CheckCircleIcon sx={{ fontSize: 18, color: 'success.main' }} />
+                    <CheckCircleIcon
+                      sx={{
+                        fontSize: 18,
+                        color: hasSub ? SUB_TONE.border : 'success.main',
+                      }}
+                    />
                   ) : (
                     step.stepNumber
                   )}
                 </Box>
                 <Box sx={{ minWidth: 0, flex: 1 }}>
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      fontWeight: isActive ? 800 : 600,
-                      lineHeight: 1.25,
-                      color: 'inherit',
-                      fontSize: isActive ? '0.84rem' : '0.8rem',
-                    }}
-                  >
-                    {step.label}
-                  </Typography>
+                  <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mb: 0.15 }}>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        fontWeight: isActive ? 800 : 600,
+                        lineHeight: 1.25,
+                        color: 'inherit',
+                        fontSize: isActive ? '0.84rem' : '0.8rem',
+                      }}
+                    >
+                      {step.label}
+                    </Typography>
+                    {hasSub && (
+                      <Box
+                        component="span"
+                        title="Esta etapa possui subetapas"
+                        sx={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 0.25,
+                          px: 0.5,
+                          py: 0.1,
+                          borderRadius: 1,
+                          bgcolor: isActive ? 'rgba(255,255,255,0.2)' : SUB_TONE.chipBg,
+                          color: isActive ? '#fff' : SUB_TONE.text,
+                          fontSize: '0.62rem',
+                          fontWeight: 800,
+                          letterSpacing: '0.02em',
+                          textTransform: 'uppercase',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <AccountTreeIcon sx={{ fontSize: 10 }} />
+                        sub
+                      </Box>
+                    )}
+                  </Stack>
                   {step.description && (
                     <Typography
                       variant="caption"

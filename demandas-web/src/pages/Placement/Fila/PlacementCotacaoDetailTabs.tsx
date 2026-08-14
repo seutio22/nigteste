@@ -8,6 +8,8 @@ import { PlacementKickOffPanel } from './PlacementKickOffPanel'
 import { PlacementEstrategiaPanel } from './PlacementEstrategiaPanel'
 import { PlacementAguardandoOperadoraPanel } from './PlacementAguardandoOperadoraPanel'
 import { PlacementConsolidandoDadosPanel } from './PlacementConsolidandoDadosPanel'
+import { PlacementValidacaoPropostaPanel } from './PlacementValidacaoPropostaPanel'
+import { PlacementPropostaEnviadaPanel } from './PlacementPropostaEnviadaPanel'
 import { formScopeForWorkflow } from './placementCotacaoFormScope'
 import { getWorkflowStageMeta, type WorkflowStageKey } from './placementCotacaoWorkflow'
 import { isRascunhoStatus } from './placementCotacaoStatus'
@@ -57,6 +59,12 @@ export function PlacementCotacaoDetailTabs({
     if (workflowStageKey === 'validacao') {
       return [{ id: 'etapa_atual' as DetailTabId, label: `Etapa: ${stageLabel}` }]
     }
+    if (workflowStageKey === 'validacao_proposta') {
+      return [{ id: 'etapa_atual' as DetailTabId, label: `Etapa: ${stageLabel}` }]
+    }
+    if (workflowStageKey === 'proposta_enviada') {
+      return [{ id: 'etapa_atual' as DetailTabId, label: `Etapa: ${stageLabel}` }]
+    }
     return [
       { id: 'etapa_atual' as DetailTabId, label: `Etapa: ${stageLabel}` },
       { id: 'dados_lancados' as DetailTabId, label: 'Dados da abertura' },
@@ -69,6 +77,8 @@ export function PlacementCotacaoDetailTabs({
     !isDraft &&
     workflowStageKey !== 'base_atual' &&
     workflowStageKey !== 'validacao' &&
+    workflowStageKey !== 'validacao_proposta' &&
+    workflowStageKey !== 'proposta_enviada' &&
     tab === 'dados_lancados'
 
   return (
@@ -222,10 +232,37 @@ function StackEtapaAtual({
         </Box>
       )}
 
+      {workflowStageKey === 'validacao_proposta' && !isDraft && (
+        <Box sx={{ mb: 2 }}>
+          <PlacementValidacaoPropostaPanel
+            cotacaoId={cotacaoId}
+            form={form}
+            onChange={onChange}
+            onPersisted={onPersisted}
+            disabled={disabled}
+          />
+        </Box>
+      )}
+
+      {workflowStageKey === 'proposta_enviada' && !isDraft && (
+        <Box sx={{ mb: 2 }}>
+          <PlacementPropostaEnviadaPanel
+            cotacaoId={cotacaoId}
+            form={form}
+            onChange={onChange}
+            onPersisted={onPersisted}
+            ticket={form.ticket}
+            disabled={disabled}
+          />
+        </Box>
+      )}
+
       {workflowStageKey !== 'kick_off' &&
         workflowStageKey !== 'estrategia' &&
         workflowStageKey !== 'validacao' &&
-        workflowStageKey !== 'consolidando_dados' && (
+        workflowStageKey !== 'consolidando_dados' &&
+        workflowStageKey !== 'validacao_proposta' &&
+        workflowStageKey !== 'proposta_enviada' && (
         <>
           {workflowStageKey === 'em_cotacao' && !isDraft && (
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>

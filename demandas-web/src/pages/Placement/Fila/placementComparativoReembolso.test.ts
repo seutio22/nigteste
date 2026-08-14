@@ -6,6 +6,7 @@ import { emptyReembolsoPlanoDetalhe } from './placementReembolso'
 import {
   buildComparativoReembolsoColunas,
   buildComparativoReembolsoPages,
+  compararValorReembolsoVsAtual,
   valorReembolsoLinha,
   COMPARATIVO_REEMB_LINHAS_FIXAS,
 } from './placementComparativoReembolso'
@@ -151,5 +152,12 @@ describe('placementComparativoReembolso', () => {
     const pages = buildComparativoReembolsoPages(colunas, 3)
     expect(pages.length).toBe(1)
     expect(pages[0].linhas.length).toBeGreaterThan(5)
+  })
+
+  it('compara valor de reembolso vs cenário atual', () => {
+    expect(compararValorReembolsoVsAtual('R$ 400,00', 'R$ 350,00')).toBe('acima')
+    expect(compararValorReembolsoVsAtual('R$ 300,00', 'R$ 350,00')).toBe('abaixo')
+    expect(compararValorReembolsoVsAtual('R$ 350,00', '350,00')).toBe('igual')
+    expect(compararValorReembolsoVsAtual('—', 'R$ 350,00')).toBeNull()
   })
 })

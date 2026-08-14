@@ -5,7 +5,21 @@ import {
   labelDiferencialItem,
   type DiferencialItemKey,
 } from './placementDiferenciaisCatalogo'
-import type { PlacementDiferencial, PlacementPlano } from '../../../store/placementStore'
+import {
+  CONDICAO_CONTRATUAL_ITEM_KEYS,
+  labelCondicaoContratualItem,
+} from './placementCondicoesContratuaisCatalogo'
+import {
+  INDICADOR_OPERADORA_ITEM_KEYS,
+  INDICADORES_NOTAS_RODAPE_DEFAULT,
+  labelIndicadorOperadoraItem,
+} from './placementIndicadoresOperadorasCatalogo'
+import type {
+  PlacementDiferencial,
+  PlacementPlano,
+  PlacementCondicaoContratual,
+  PlacementIndicadorOperadora,
+} from '../../../store/placementStore'
 import type { PropostaPlanoLinha, AguardandoOperadoraState } from './placementAguardandoOperadora'
 import { normMercadoKey } from './placementMercadoQuadro'
 import { isFornecedorAtualNome } from './placementPropostaCenarioAtual'
@@ -31,9 +45,23 @@ export type DiferencialPlanoOpcao = {
 export type ConsolidandoDadosState = {
   /** itemKey → colunaId (fornecedor) → células */
   diferenciais: Record<string, Record<string, DiferencialCelulaCotacao[]>>
+  /** itemKey → colunaId (fornecedor) → células (matriz por fornecedor; plano opcional) */
+  condicoes: Record<string, Record<string, DiferencialCelulaCotacao[]>>
+  /** itemKey → colunaId (fornecedor) → células (indicadores por operadora) */
+  indicadores: Record<string, Record<string, DiferencialCelulaCotacao[]>>
   resumoCoberturas: string
+  /** Observações livres (legado / complementar às condições estruturadas). */
   condicoesContratuais: string
   notasRodape?: string
+  /**
+   * Itens ocultos da proposta/comparativo (não saem no slide).
+   * Chaves = itemKey do catálogo correspondente.
+   */
+  itensOcultos?: {
+    diferenciais?: string[]
+    condicoes?: string[]
+    indicadores?: string[]
+  }
 }
 
 function uid(prefix: string): string {
@@ -43,10 +71,13 @@ function uid(prefix: string): string {
 export function emptyConsolidandoDadosState(): ConsolidandoDadosState {
   return {
     diferenciais: {},
+    condicoes: {},
+    indicadores: {},
     resumoCoberturas: '',
     condicoesContratuais: '',
     notasRodape:
       'Informações sujeitas a limites e critérios contratuais. Podem ser revisadas a qualquer momento, sem aviso prévio.',
+    itensOcultos: { diferenciais: [], condicoes: [], indicadores: [] },
   }
 }
 
@@ -58,6 +89,73 @@ function emptyDiferenciaisMap(): Record<string, Record<string, DiferencialCelula
   return map
 }
 
+function emptyCondicoesMap(): Record<string, Record<string, DiferencialCelulaCotacao[]>> {
+  const map: Record<string, Record<string, DiferencialCelulaCotacao[]>> = {}
+  for (const key of CONDICAO_CONTRATUAL_ITEM_KEYS) {
+    map[key] = {}
+  }
+  return map
+}
+
+function emptyIndicadoresMap(): Record<string, Record<string, DiferencialCelulaCotacao[]>> {
+  const map: Record<string, Record<string, DiferencialCelulaCotacao[]>> = {}
+  for (const key of INDICADOR_OPERADORA_ITEM_KEYS) {
+    map[key] = {}
+  }
+  return map
+}
+
+function parseCelulasMap(
+  rawDiff: unknown,
+  keys: readonly string[]
+): Record<string, Record<string, DiferencialCelulaCotacao[]>> {
+  const map: Record<string, Record<string, DiferencialCelulaCotacao[]>> = {}
+  for (const key of keys) map[key] = {}
+  if (!rawDiff || typeof rawDiff !== 'object' || Array.isArray(rawDiff)) return map
+  for (const itemKey of keys) {
+    const porColunaRaw = (rawDiff as Record<string, unknown>)[itemKey]
+    if (!porColunaRaw || typeof porColunaRaw !== 'object' || Array.isArray(porColunaRaw)) continue
+    for (const [colunaId, celulasRaw] of Object.entries(porColunaRaw as Record<string, unknown>)) {
+      if (!Array.isArray(celulasRaw)) continue
+      map[itemKey][colunaId] = celulasRaw
+        .map((c) => {
+          if (!c || typeof c !== 'object') return null
+          const cell = c as Record<string, unknown>
+          const texto = String(cell.texto ?? '')
+          return {
+            id: String(cell.id ?? uid('cc')),
+            placementPlanoId: String(cell.placementPlanoId ?? ''),
+            planoLabel: String(cell.planoLabel ?? ''),
+            texto,
+            fromMaster: cell.fromMaster === true,
+          } satisfies DiferencialCelulaCotacao
+        })
+        .filter(Boolean) as DiferencialCelulaCotacao[]
+    }
+  }
+  return map
+}
+
+function parseItensOcultos(raw: unknown): {
+  diferenciais: string[]
+  condicoes: string[]
+  indicadores: string[]
+} {
+  const empty = { diferenciais: [] as string[], condicoes: [] as string[], indicadores: [] as string[] }
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return empty
+  const o = raw as Record<string, unknown>
+  const asKeys = (v: unknown, allowed: readonly string[]) => {
+    if (!Array.isArray(v)) return [] as string[]
+    const allow = new Set(allowed)
+    return v.map((x) => String(x ?? '').trim()).filter((k) => k && allow.has(k))
+  }
+  return {
+    diferenciais: asKeys(o.diferenciais, DIFERENCIAL_ITEM_KEYS),
+    condicoes: asKeys(o.condicoes, CONDICAO_CONTRATUAL_ITEM_KEYS),
+    indicadores: asKeys(o.indicadores, INDICADOR_OPERADORA_ITEM_KEYS),
+  }
+}
+
 export function parseConsolidandoDadosFromKickOff(
   estrategia: KickOffEstrategia | null | undefined
 ): ConsolidandoDadosState | null {
@@ -65,37 +163,14 @@ export function parseConsolidandoDadosFromKickOff(
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
   const o = raw as Record<string, unknown>
 
-  const diferenciais = emptyDiferenciaisMap()
-  const rawDiff = o.diferenciais
-  if (rawDiff && typeof rawDiff === 'object' && !Array.isArray(rawDiff)) {
-    for (const itemKey of DIFERENCIAL_ITEM_KEYS) {
-      const porColunaRaw = (rawDiff as Record<string, unknown>)[itemKey]
-      if (!porColunaRaw || typeof porColunaRaw !== 'object' || Array.isArray(porColunaRaw)) continue
-      for (const [colunaId, celulasRaw] of Object.entries(porColunaRaw as Record<string, unknown>)) {
-        if (!Array.isArray(celulasRaw)) continue
-        diferenciais[itemKey][colunaId] = celulasRaw
-          .map((c) => {
-            if (!c || typeof c !== 'object') return null
-            const cell = c as Record<string, unknown>
-            const texto = String(cell.texto ?? '')
-            return {
-              id: String(cell.id ?? uid('dc')),
-              placementPlanoId: String(cell.placementPlanoId ?? ''),
-              planoLabel: String(cell.planoLabel ?? ''),
-              texto,
-              fromMaster: cell.fromMaster === true,
-            } satisfies DiferencialCelulaCotacao
-          })
-          .filter(Boolean) as DiferencialCelulaCotacao[]
-      }
-    }
-  }
-
   return {
-    diferenciais,
+    diferenciais: parseCelulasMap(o.diferenciais, DIFERENCIAL_ITEM_KEYS),
+    condicoes: parseCelulasMap(o.condicoes, CONDICAO_CONTRATUAL_ITEM_KEYS),
+    indicadores: parseCelulasMap(o.indicadores, INDICADOR_OPERADORA_ITEM_KEYS),
     resumoCoberturas: String(o.resumoCoberturas ?? ''),
     condicoesContratuais: String(o.condicoesContratuais ?? ''),
     notasRodape: o.notasRodape != null ? String(o.notasRodape) : undefined,
+    itensOcultos: parseItensOcultos(o.itensOcultos),
   }
 }
 
@@ -108,12 +183,53 @@ export function ensureConsolidandoDadosState(
   for (const itemKey of DIFERENCIAL_ITEM_KEYS) {
     mergedDiff[itemKey] = { ...(current.diferenciais?.[itemKey] ?? {}) }
   }
+  const mergedCond = emptyCondicoesMap()
+  for (const itemKey of CONDICAO_CONTRATUAL_ITEM_KEYS) {
+    mergedCond[itemKey] = { ...(current.condicoes?.[itemKey] ?? {}) }
+  }
+  const mergedInd = emptyIndicadoresMap()
+  for (const itemKey of INDICADOR_OPERADORA_ITEM_KEYS) {
+    mergedInd[itemKey] = { ...(current.indicadores?.[itemKey] ?? {}) }
+  }
+  const ocultos = parseItensOcultos(current.itensOcultos)
   return {
     ...base,
     ...current,
     diferenciais: mergedDiff,
+    condicoes: mergedCond,
+    indicadores: mergedInd,
     resumoCoberturas: current.resumoCoberturas ?? '',
     condicoesContratuais: current.condicoesContratuais ?? '',
+    itensOcultos: ocultos,
+  }
+}
+
+export function isConsolidandoItemOculto(
+  state: ConsolidandoDadosState,
+  secao: 'diferenciais' | 'condicoes' | 'indicadores',
+  itemKey: string
+): boolean {
+  const list = state.itensOcultos?.[secao] ?? []
+  return list.includes(itemKey)
+}
+
+export function toggleConsolidandoItemOculto(
+  state: ConsolidandoDadosState,
+  secao: 'diferenciais' | 'condicoes' | 'indicadores',
+  itemKey: string
+): ConsolidandoDadosState {
+  const current = new Set(state.itensOcultos?.[secao] ?? [])
+  if (current.has(itemKey)) current.delete(itemKey)
+  else current.add(itemKey)
+  return {
+    ...state,
+    itensOcultos: {
+      diferenciais:
+        secao === 'diferenciais' ? Array.from(current) : [...(state.itensOcultos?.diferenciais ?? [])],
+      condicoes: secao === 'condicoes' ? Array.from(current) : [...(state.itensOcultos?.condicoes ?? [])],
+      indicadores:
+        secao === 'indicadores' ? Array.from(current) : [...(state.itensOcultos?.indicadores ?? [])],
+    },
   }
 }
 
@@ -233,27 +349,110 @@ export function patchDiferencialCelulas(
   }
 }
 
+export function patchCondicaoCelulas(
+  state: ConsolidandoDadosState,
+  itemKey: string,
+  colunaId: string,
+  celulas: DiferencialCelulaCotacao[]
+): ConsolidandoDadosState {
+  return {
+    ...state,
+    condicoes: {
+      ...state.condicoes,
+      [itemKey]: {
+        ...(state.condicoes[itemKey] ?? {}),
+        [colunaId]: celulas,
+      },
+    },
+  }
+}
+
+export function patchIndicadorCelulas(
+  state: ConsolidandoDadosState,
+  itemKey: string,
+  colunaId: string,
+  celulas: DiferencialCelulaCotacao[]
+): ConsolidandoDadosState {
+  return {
+    ...state,
+    indicadores: {
+      ...state.indicadores,
+      [itemKey]: {
+        ...(state.indicadores[itemKey] ?? {}),
+        [colunaId]: celulas,
+      },
+    },
+  }
+}
+
+function mapTemTextoPreenchido(
+  map: Record<string, Record<string, DiferencialCelulaCotacao[]>>,
+  keys: readonly string[]
+): boolean {
+  for (const itemKey of keys) {
+    const porColuna = map[itemKey] ?? {}
+    for (const celulas of Object.values(porColuna)) {
+      if (celulas.some((c) => c.texto.trim())) return true
+    }
+  }
+  return false
+}
+
+function consolidandoFromForm(
+  form: CotacaoFormState,
+  estrategia?: KickOffEstrategia | null
+): ConsolidandoDadosState {
+  return ensureConsolidandoDadosState(
+    parseConsolidandoDadosFromKickOff(estrategia ?? form.kickOffEstrategia)
+  )
+}
+
+export function consolidandoHasResumoCoberturas(
+  form: CotacaoFormState,
+  estrategia?: KickOffEstrategia | null
+): boolean {
+  return consolidandoFromForm(form, estrategia).resumoCoberturas.trim().length > 0
+}
+
+export function consolidandoHasCondicoes(
+  form: CotacaoFormState,
+  estrategia?: KickOffEstrategia | null
+): boolean {
+  const cd = consolidandoFromForm(form, estrategia)
+  return (
+    mapTemTextoPreenchido(cd.condicoes, CONDICAO_CONTRATUAL_ITEM_KEYS) ||
+    cd.condicoesContratuais.trim().length > 0
+  )
+}
+
+export function consolidandoHasDiferenciais(
+  form: CotacaoFormState,
+  estrategia?: KickOffEstrategia | null
+): boolean {
+  return mapTemTextoPreenchido(
+    consolidandoFromForm(form, estrategia).diferenciais,
+    DIFERENCIAL_ITEM_KEYS
+  )
+}
+
+export function consolidandoHasIndicadores(
+  form: CotacaoFormState,
+  estrategia?: KickOffEstrategia | null
+): boolean {
+  return mapTemTextoPreenchido(
+    consolidandoFromForm(form, estrategia).indicadores,
+    INDICADOR_OPERADORA_ITEM_KEYS
+  )
+}
+
 export function consolidandoDadosIsComplete(
   form: CotacaoFormState,
   estrategia?: KickOffEstrategia | null
 ): boolean {
-  const cd = ensureConsolidandoDadosState(
-    parseConsolidandoDadosFromKickOff(estrategia ?? form.kickOffEstrategia)
+  return (
+    consolidandoHasCondicoes(form, estrategia) &&
+    consolidandoHasDiferenciais(form, estrategia)
   )
-  if (!cd.resumoCoberturas.trim() || !cd.condicoesContratuais.trim()) return false
-
-  let temAlgumDiferencial = false
-  for (const itemKey of DIFERENCIAL_ITEM_KEYS) {
-    const porColuna = cd.diferenciais[itemKey] ?? {}
-    for (const celulas of Object.values(porColuna)) {
-      if (celulas.some((c) => c.texto.trim())) {
-        temAlgumDiferencial = true
-        break
-      }
-    }
-    if (temAlgumDiferencial) break
-  }
-  return temAlgumDiferencial
 }
 
 export function fornecedorColunaId(nome: string): string {
@@ -530,3 +729,291 @@ export function previewImportDiferenciaisFromMaster(args: {
     rows: buildImportPreviewRows(imported, args.placementPlanos),
   }
 }
+
+export function importCondicoesFromMaster(args: {
+  operadoraId: string
+  masterCondicoes: PlacementCondicaoContratual[]
+  placementPlanos: PlacementPlano[]
+  propostaPlanos?: PropostaPlanoLinha[]
+}): Record<string, DiferencialCelulaCotacao[]> {
+  const { operadoraId, masterCondicoes, placementPlanos, propostaPlanos } = args
+  const nomesProposta = new Set(planosPropostaFornecedor(propostaPlanos).map(normPlanoNome))
+  const planosOperadora = placementPlanos.filter((p) => p.operadoraId === operadoraId)
+  const planosRelevantes =
+    nomesProposta.size > 0
+      ? planosOperadora.filter((p) => nomesProposta.has(normPlanoNome(p.plano)))
+      : planosOperadora
+  const planoIds = new Set(planosRelevantes.map((p) => p.id))
+
+  const out: Record<string, DiferencialCelulaCotacao[]> = {}
+  for (const itemKey of CONDICAO_CONTRATUAL_ITEM_KEYS) {
+    const hits = masterCondicoes.filter((d) => {
+      if (d.operadoraId !== operadoraId || d.itemKey !== itemKey) return false
+      if (!d.porPlano) return true
+      return !!d.placementPlanoId && planoIds.has(d.placementPlanoId)
+    })
+    if (!hits.length) continue
+    out[itemKey] = hits.map((d) => {
+      const plano = d.placementPlanoId
+        ? planosRelevantes.find((p) => p.id === d.placementPlanoId) ??
+          placementPlanos.find((p) => p.id === d.placementPlanoId)
+        : undefined
+      return {
+        id: uid('cc'),
+        placementPlanoId: d.porPlano ? d.placementPlanoId ?? '' : '',
+        planoLabel: d.porPlano ? plano?.plano ?? d.placementPlano?.plano ?? '' : '',
+        texto: d.texto.trim(),
+        fromMaster: true,
+      }
+    })
+  }
+  return out
+}
+
+export function mergeCondicoesColuna(
+  state: ConsolidandoDadosState,
+  colunaId: string,
+  imported: Record<string, DiferencialCelulaCotacao[]>,
+  replace = false
+): ConsolidandoDadosState {
+  const condicoes = { ...state.condicoes }
+  for (const [itemKey, celulas] of Object.entries(imported)) {
+    if (!celulas.length) continue
+    const porColuna = { ...(condicoes[itemKey] ?? {}) }
+    porColuna[colunaId] = replace ? celulas : [...(porColuna[colunaId] ?? []), ...celulas]
+    condicoes[itemKey] = porColuna
+  }
+  return { ...state, condicoes }
+}
+
+export type CondicaoMasterUpsertItem = {
+  operadoraId: string
+  porPlano: boolean
+  placementPlanoId?: string | null
+  itemKey: string
+  texto: string
+}
+
+export function buildCondicoesMasterUpsertItems(
+  consolidando: ConsolidandoDadosState,
+  args: {
+    fornecedores: string[]
+    resolveOperadoraId: (nome: string) => string
+    placementPlanos: PlacementPlano[]
+    propostasByColuna: Record<string, { planos?: PropostaPlanoLinha[] } | undefined>
+  }
+): { items: CondicaoMasterUpsertItem[]; skipped: number } {
+  const items: CondicaoMasterUpsertItem[] = []
+  let skipped = 0
+  const seen = new Set<string>()
+
+  for (const itemKey of CONDICAO_CONTRATUAL_ITEM_KEYS) {
+    const porColuna = consolidando.condicoes[itemKey] ?? {}
+    for (const [colunaId, celulas] of Object.entries(porColuna)) {
+      const operadoraId = operadoraIdFromColunaId(colunaId, args.fornecedores, args.resolveOperadoraId)
+      if (!operadoraId) {
+        skipped += celulas.filter((c) => c.texto.trim()).length
+        continue
+      }
+      const propostaPlanos = args.propostasByColuna[colunaId]?.planos
+
+      for (const celula of celulas) {
+        const texto = celula.texto.trim()
+        if (!texto) continue
+
+        const placementPlanoId = resolvePlacementPlanoIdForCelula(
+          celula,
+          operadoraId,
+          args.placementPlanos,
+          propostaPlanos
+        )
+        const temPlanoLabel = celula.planoLabel.trim().length > 0 || !!celula.placementPlanoId
+
+        if (temPlanoLabel && !placementPlanoId) {
+          skipped += 1
+          continue
+        }
+
+        const porPlano = !!placementPlanoId
+        const dedupeKey = `${operadoraId}|${porPlano ? placementPlanoId : ''}|${itemKey}|${porPlano ? '1' : '0'}`
+        if (seen.has(dedupeKey)) continue
+        seen.add(dedupeKey)
+
+        items.push({
+          operadoraId,
+          porPlano,
+          placementPlanoId: porPlano ? placementPlanoId : null,
+          itemKey,
+          texto,
+        })
+      }
+    }
+  }
+
+  return { items, skipped }
+}
+
+export function buildImportCondicoesPreviewRows(
+  imported: Record<string, DiferencialCelulaCotacao[]>,
+  placementPlanos: PlacementPlano[]
+): DiferencialPreviewRow[] {
+  const rows: DiferencialPreviewRow[] = []
+  for (const itemKey of CONDICAO_CONTRATUAL_ITEM_KEYS) {
+    const celulas = imported[itemKey] ?? []
+    for (const c of celulas) {
+      const plano = placementPlanos.find((p) => p.id === c.placementPlanoId)
+      rows.push({
+        itemKey,
+        itemLabel: labelCondicaoContratualItem(itemKey),
+        planoLabel: c.planoLabel.trim() || plano?.plano || 'Fornecedor (geral)',
+        texto: c.texto.trim(),
+      })
+    }
+  }
+  return rows
+}
+
+export function buildSaveCondicoesPreviewRows(
+  items: CondicaoMasterUpsertItem[],
+  placementPlanos: PlacementPlano[]
+): DiferencialPreviewRow[] {
+  return items.map((item) => {
+    const plano = item.placementPlanoId
+      ? placementPlanos.find((p) => p.id === item.placementPlanoId)
+      : undefined
+    return {
+      itemKey: item.itemKey,
+      itemLabel: labelCondicaoContratualItem(item.itemKey),
+      planoLabel: item.porPlano ? plano?.plano ?? '—' : 'Fornecedor (geral)',
+      texto: item.texto,
+    }
+  })
+}
+
+export function previewImportCondicoesFromMaster(args: {
+  operadoraId: string
+  masterCondicoes: PlacementCondicaoContratual[]
+  placementPlanos: PlacementPlano[]
+  propostaPlanos?: PropostaPlanoLinha[]
+}): { imported: Record<string, DiferencialCelulaCotacao[]>; rows: DiferencialPreviewRow[] } {
+  const imported = importCondicoesFromMaster(args)
+  return {
+    imported,
+    rows: buildImportCondicoesPreviewRows(imported, args.placementPlanos),
+  }
+}
+
+export function importIndicadoresFromMaster(args: {
+  operadoraId: string
+  masterIndicadores: PlacementIndicadorOperadora[]
+}): Record<string, DiferencialCelulaCotacao[]> {
+  const { operadoraId, masterIndicadores } = args
+  const out: Record<string, DiferencialCelulaCotacao[]> = {}
+  for (const itemKey of INDICADOR_OPERADORA_ITEM_KEYS) {
+    const hits = masterIndicadores.filter(
+      (d) => d.operadoraId === operadoraId && d.itemKey === itemKey && d.texto.trim()
+    )
+    if (!hits.length) continue
+    out[itemKey] = hits.map((d) => ({
+      id: uid('io'),
+      placementPlanoId: '',
+      planoLabel: '',
+      texto: d.texto.trim(),
+      fromMaster: true,
+    }))
+  }
+  return out
+}
+
+export function mergeIndicadoresColuna(
+  state: ConsolidandoDadosState,
+  colunaId: string,
+  imported: Record<string, DiferencialCelulaCotacao[]>,
+  replace = false
+): ConsolidandoDadosState {
+  const indicadores = { ...state.indicadores }
+  for (const [itemKey, celulas] of Object.entries(imported)) {
+    if (!celulas.length) continue
+    const porColuna = { ...(indicadores[itemKey] ?? {}) }
+    porColuna[colunaId] = replace ? celulas : [...(porColuna[colunaId] ?? []), ...celulas]
+    indicadores[itemKey] = porColuna
+  }
+  return { ...state, indicadores }
+}
+
+export type IndicadorMasterUpsertItem = {
+  operadoraId: string
+  itemKey: string
+  texto: string
+}
+
+export function buildIndicadoresMasterUpsertItems(
+  consolidando: ConsolidandoDadosState,
+  args: {
+    fornecedores: string[]
+    resolveOperadoraId: (nome: string) => string
+  }
+): { items: IndicadorMasterUpsertItem[]; skipped: number } {
+  const items: IndicadorMasterUpsertItem[] = []
+  let skipped = 0
+  const seen = new Set<string>()
+
+  for (const itemKey of INDICADOR_OPERADORA_ITEM_KEYS) {
+    const porColuna = consolidando.indicadores[itemKey] ?? {}
+    for (const [colunaId, celulas] of Object.entries(porColuna)) {
+      const operadoraId = operadoraIdFromColunaId(colunaId, args.fornecedores, args.resolveOperadoraId)
+      if (!operadoraId) {
+        skipped += celulas.filter((c) => c.texto.trim()).length
+        continue
+      }
+      for (const celula of celulas) {
+        const texto = celula.texto.trim()
+        if (!texto) continue
+        const dedupeKey = `${operadoraId}|${itemKey}`
+        if (seen.has(dedupeKey)) continue
+        seen.add(dedupeKey)
+        items.push({ operadoraId, itemKey, texto })
+      }
+    }
+  }
+
+  return { items, skipped }
+}
+
+export function buildImportIndicadoresPreviewRows(
+  imported: Record<string, DiferencialCelulaCotacao[]>
+): DiferencialPreviewRow[] {
+  const rows: DiferencialPreviewRow[] = []
+  for (const itemKey of INDICADOR_OPERADORA_ITEM_KEYS) {
+    for (const c of imported[itemKey] ?? []) {
+      rows.push({
+        itemKey,
+        itemLabel: labelIndicadorOperadoraItem(itemKey),
+        planoLabel: 'Fornecedor',
+        texto: c.texto.trim(),
+      })
+    }
+  }
+  return rows
+}
+
+export function buildSaveIndicadoresPreviewRows(
+  items: IndicadorMasterUpsertItem[]
+): DiferencialPreviewRow[] {
+  return items.map((item) => ({
+    itemKey: item.itemKey,
+    itemLabel: labelIndicadorOperadoraItem(item.itemKey),
+    planoLabel: 'Fornecedor',
+    texto: item.texto,
+  }))
+}
+
+export function previewImportIndicadoresFromMaster(args: {
+  operadoraId: string
+  masterIndicadores: PlacementIndicadorOperadora[]
+}): { imported: Record<string, DiferencialCelulaCotacao[]>; rows: DiferencialPreviewRow[] } {
+  const imported = importIndicadoresFromMaster(args)
+  return { imported, rows: buildImportIndicadoresPreviewRows(imported) }
+}
+
+export { INDICADORES_NOTAS_RODAPE_DEFAULT }

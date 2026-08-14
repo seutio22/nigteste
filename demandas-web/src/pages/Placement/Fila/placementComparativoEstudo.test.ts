@@ -261,4 +261,30 @@ describe('aggregateColunasPorOperadora', () => {
     const mensal = page?.linhas.find((l) => l.id === 'mensal')
     expect(mensal?.valores).toHaveLength(2)
   })
+
+  it('não soma cenários distintos da mesma operadora', () => {
+    const agg = aggregateColunasPorOperadora([
+      baseCol({
+        id: 'amil-1',
+        operadora: 'AMIL',
+        cenarioId: 'cv-sem',
+        cenarioTitulo: 'Sem COPAY',
+        cenarioOrdem: 0,
+        vidas: 131,
+        totalMensalCents: 20000000,
+      }),
+      baseCol({
+        id: 'amil-2',
+        operadora: 'AMIL',
+        cenarioId: 'cv-com',
+        cenarioTitulo: 'Com COPay',
+        cenarioOrdem: 1,
+        vidas: 131,
+        totalMensalCents: 21000000,
+      }),
+    ])
+    expect(agg).toHaveLength(2)
+    expect(agg.map((c) => c.vidas)).toEqual([131, 131])
+    expect(agg.map((c) => c.cenarioTitulo)).toEqual(['Sem COPAY', 'Com COPay'])
+  })
 })
