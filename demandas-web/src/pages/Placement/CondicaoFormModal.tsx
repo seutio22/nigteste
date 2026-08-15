@@ -13,7 +13,7 @@ import SearchIcon from '@mui/icons-material/Search'
 import { PrimaryActionButton } from '../../components/PrimaryActionButton'
 import { usePlacementStore, type PlacementCondicao } from '../../store/placementStore'
 import { useMasterDataStore } from '../../store/masterDataStore'
-import { consultarCnpjPlacement, onlyDigitsCnpj } from '../../lib/placementCnpjConsulta'
+import { consultarCnpjPlacement, formatCnpjMask, isCnpjShape, onlyDigitsCnpj } from '../../lib/placementCnpjConsulta'
 import { formatCnaeDisplay, isValidCnaeLen, normalizeCnaeDigits } from './Fila/utils'
 
 interface CondicaoFormModalProps {
@@ -35,13 +35,7 @@ interface CondicaoFormModalProps {
 }
 
 function formatCnpjInput(value: string): string {
-  const d = onlyDigitsCnpj(value)
-  if (d.length <= 2) return d
-  if (d.length <= 5) return `${d.slice(0, 2)}.${d.slice(2)}`
-  if (d.length <= 8) return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5)}`
-  if (d.length <= 12)
-    return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8)}`
-  return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12, 14)}`
+  return formatCnpjMask(value)
 }
 
 export const CondicaoFormModal: React.FC<CondicaoFormModalProps> = ({
@@ -97,7 +91,7 @@ export const CondicaoFormModal: React.FC<CondicaoFormModalProps> = ({
     setError(null)
     const digits = onlyDigitsCnpj(cnpj)
     if (digits.length !== 14) {
-      setError('Informe o CNPJ com 14 dígitos para consultar.')
+      setError('Informe o CNPJ com 14 caracteres (A–Z e 0–9) para consultar.')
       return
     }
     try {
@@ -126,12 +120,12 @@ export const CondicaoFormModal: React.FC<CondicaoFormModalProps> = ({
     const cnaeDigits = normalizeCnaeDigits(cnae)
     const razao = razaoSocial.trim()
 
-    if (!isEditing && cnpjDigits.length !== 14) {
-      setError('Informe o CNPJ com 14 dígitos.')
+    if (!isEditing && !isCnpjShape(cnpjDigits)) {
+      setError('Informe o CNPJ com 14 caracteres (A–Z e 0–9).')
       return
     }
-    if (isEditing && cnpjDigits.length > 0 && cnpjDigits.length !== 14) {
-      setError('CNPJ deve ter 14 dígitos ou fique em branco.')
+    if (isEditing && cnpjDigits.length > 0 && !isCnpjShape(cnpjDigits)) {
+      setError('CNPJ deve ter 14 caracteres (A–Z e 0–9) ou fique em branco.')
       return
     }
     if (!isValidCnaeLen(cnaeDigits)) {
@@ -172,17 +166,17 @@ export const CondicaoFormModal: React.FC<CondicaoFormModalProps> = ({
             label="CNPJ"
             value={cnpj}
             onChange={(e) => setCnpj(formatCnpjInput(e.target.value))}
-            placeholder="00.000.000/0000-00"
+            placeholder="00.000.000/0000-00 ou 12.ABC.345/01DE-35"
             required
             fullWidth
-            inputProps={{ inputMode: 'numeric', maxLength: 18 }}
-            helperText="Informe o CNPJ e use “Consultar CNPJ” para preencher CNAE e razão social (Receita via BrasilAPI)."
+            inputProps={{ maxLength: 18 }}
+            helperText="CNPJ numérico ou alfanumérico (14 caracteres). Use “Consultar CNPJ” para preencher CNAE e razão social."
           />
           <Button
             variant="outlined"
             startIcon={<SearchIcon />}
             onClick={handleConsultarCnpj}
-            disabled={consulting || onlyDigitsCnpj(cnpj).length !== 14}
+            disabled={consulting || !isCnpjShape(cnpj)}
           >
             {consulting ? 'Consultando…' : 'Consultar CNPJ'}
           </Button>

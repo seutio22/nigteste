@@ -82,6 +82,7 @@ export function BeneficiariosBaseModule({
   const [rows, setRows] = useState<PlacementBeneficiario[]>([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState<string | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
   const [sheetRows, setSheetRows] = useState<Record<string, unknown>[]>([])
@@ -237,10 +238,19 @@ export function BeneficiariosBaseModule({
       fileName?: string | null
     }
   ) {
-    const resp = (await api.post(`/placement/cotacoes/${cotacaoId}/beneficiarios/bulk`, {
-      rows: mapped,
-      replace: true,
-    })) as { imported?: number; total?: number }
+    const CHUNK = 800
+    let lastResp: { imported?: number; total?: number } = {}
+    for (let i = 0; i < mapped.length; i += CHUNK) {
+      const chunk = mapped.slice(i, i + CHUNK)
+      const done = Math.min(i + chunk.length, mapped.length)
+      setUploadProgress(`Enviando ${done} de ${mapped.length}…`)
+      lastResp = (await api.post(`/placement/cotacoes/${cotacaoId}/beneficiarios/bulk`, {
+        rows: chunk,
+        replace: i === 0,
+      })) as { imported?: number; total?: number }
+    }
+    setUploadProgress(null)
+    const resp = lastResp
 
     const mapToSave = options?.fieldHeaderMap ?? fieldHeaderMap
     const headersToSave =
@@ -292,6 +302,7 @@ export function BeneficiariosBaseModule({
       setErrorMsg(err?.message ?? 'Erro ao aplicar mapeamento.')
     } finally {
       setUploading(false)
+      setUploadProgress(null)
     }
   }
 
@@ -454,6 +465,7 @@ export function BeneficiariosBaseModule({
       setErrorMsg(err?.message ?? 'Erro ao importar planilha.')
     } finally {
       setUploading(false)
+      setUploadProgress(null)
       if (fileRef.current) fileRef.current.value = ''
     }
   }
@@ -556,7 +568,7 @@ export function BeneficiariosBaseModule({
           disabled={disabled || uploading}
           onClick={() => fileRef.current?.click()}
         >
-          {uploading ? 'Importando…' : 'Importar planilha'}
+          {uploading ? uploadProgress || 'Importando…' : 'Importar planilha'}
         </Button>
         <Button
           variant="outlined"

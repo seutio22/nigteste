@@ -51,6 +51,7 @@ import {
   isTopicoCabecalhoFornecedor,
   type ComunicarMercadoSinistralidade,
 } from './placementComunicarMercado'
+import { formatCnpjMask } from '../../../lib/cnpjAlfanumerico'
 import { ComunicarMercadoLocalidadeCapture } from './ComunicarMercadoLocalidadeCapture'
 import { readImageFileAsDataUri } from './placementSlideCapture'
 import { patchKickOffInForm } from './placementPatchKickOff'
@@ -630,7 +631,7 @@ export const PlacementComunicarMercadoPanel = React.memo(function PlacementComun
                 size="small"
                 value={fornState.cnpj}
                 disabled={disabled}
-                onCommit={(v) => patchFornecedor({ cnpj: v })}
+                onCommit={(v) => patchFornecedor({ cnpj: formatCnpjMask(v) })}
               />
             </Grid>
             <Grid item xs={12} md={6}>

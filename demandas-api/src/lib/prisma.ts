@@ -22,21 +22,33 @@ if (!databaseUrl) {
   console.warn('⚠️ DATABASE_URL não configurada!')
 }
 
+function withPrismaPoolParams(url: string): string {
+  if (!url) return url
+  if (process.env.PRISMA_SKIP_POOL_PARAMS === '1') return url
+  if (/connection_limit=/i.test(url) || /pgbouncer=/i.test(url)) return url
+  const sep = url.includes('?') ? '&' : '?'
+  const limit = String(process.env.PRISMA_CONNECTION_LIMIT || '10').replace(/[^\d]/g, '') || '10'
+  const poolTimeout = String(process.env.PRISMA_POOL_TIMEOUT || '20').replace(/[^\d]/g, '') || '20'
+  return `${url}${sep}connection_limit=${limit}&pool_timeout=${poolTimeout}&connect_timeout=10`
+}
+
+const pooledDatabaseUrl = withPrismaPoolParams(databaseUrl)
+
 // Log da URL (sem senha) para debug
-if (databaseUrl) {
-  const maskedUrl = databaseUrl.replace(/:[^:@]+@/, ':***@')
+if (pooledDatabaseUrl) {
+  const maskedUrl = pooledDatabaseUrl.replace(/:[^:@]+@/, ':***@')
   console.log('🔗 DATABASE_URL configurada:', maskedUrl)
 }
 
 // Configuração do PrismaClient
-// Prisma gerencia o pool automaticamente - não precisa modificar a URL
 const prismaConfig: Prisma.PrismaClientOptions = {
   log: process.env.NODE_ENV === 'development' 
     ? (['query', 'error', 'warn'] as Prisma.LogLevel[])
     : (['error'] as Prisma.LogLevel[]),
-  // Não especificar datasources.url aqui - Prisma usa DATABASE_URL do schema.prisma automaticamente
-  // Configurações adicionais para estabilidade de conexão
-  errorFormat: 'pretty'
+  errorFormat: 'pretty',
+  ...(pooledDatabaseUrl
+    ? { datasources: { db: { url: pooledDatabaseUrl } } }
+    : {}),
 }
 
 // Criar instância única - esta é a chave para evitar múltiplas conexões

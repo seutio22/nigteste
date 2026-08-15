@@ -10,6 +10,7 @@ import {
   TextField,
 } from '@mui/material'
 import { PrimaryActionButton } from '../../components/PrimaryActionButton'
+import { formatCnpjMask, isCnpjShape, onlyDigitsCnpj } from '../../lib/placementCnpjConsulta'
 import type {
   PlacementFilial,
   PlacementFilialStatus,
@@ -26,18 +27,8 @@ interface FilialFormModalProps {
   }) => Promise<void>
 }
 
-function onlyDigits(value: string): string {
-  return (value || '').replace(/\D+/g, '')
-}
-
 function formatCnpj(value: string): string {
-  const d = onlyDigits(value).slice(0, 14)
-  if (d.length <= 2) return d
-  if (d.length <= 5) return `${d.slice(0, 2)}.${d.slice(2)}`
-  if (d.length <= 8) return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5)}`
-  if (d.length <= 12)
-    return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8)}`
-  return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12, 14)}`
+  return formatCnpjMask(value)
 }
 
 export const FilialFormModal: React.FC<FilialFormModalProps> = ({
@@ -76,14 +67,14 @@ export const FilialFormModal: React.FC<FilialFormModalProps> = ({
   const handleSubmit = async () => {
     setError(null)
     const razao = razaoSocial.trim()
-    const cnpjDigits = onlyDigits(cnpj)
+    const cnpjDigits = onlyDigitsCnpj(cnpj)
 
     if (!razao) {
       setError('Informe a razão social.')
       return
     }
-    if (cnpjDigits.length !== 14) {
-      setError('CNPJ deve ter 14 dígitos.')
+    if (!isCnpjShape(cnpjDigits)) {
+      setError('CNPJ deve ter 14 caracteres (A–Z e 0–9; DV numérico).')
       return
     }
 
@@ -119,11 +110,11 @@ export const FilialFormModal: React.FC<FilialFormModalProps> = ({
             label="CNPJ"
             value={cnpj}
             onChange={(e) => setCnpj(formatCnpj(e.target.value))}
-            placeholder="00.000.000/0000-00"
+            placeholder="00.000.000/0000-00 ou 12.ABC.345/01DE-35"
             required
             fullWidth
-            inputProps={{ inputMode: 'numeric', maxLength: 18 }}
-            helperText="Informe os 14 dígitos do CNPJ."
+            inputProps={{ maxLength: 18 }}
+            helperText="CNPJ numérico ou alfanumérico (14 caracteres; DV numérico)."
           />
           <TextField
             select

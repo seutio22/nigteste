@@ -25,7 +25,7 @@ import UploadFileIcon from '@mui/icons-material/UploadFile'
 import { DataGrid, type GridColDef } from '@mui/x-data-grid'
 import { PrimaryActionButton } from '../../../components/PrimaryActionButton'
 import { api } from '../../../lib/api.local'
-import { consultarCnpjPlacement, onlyDigitsCnpj } from '../../../lib/placementCnpjConsulta'
+import { consultarCnpjPlacement, formatCnpj14, formatCnpjMask, isCnpjShape, onlyDigitsCnpj } from '../../../lib/placementCnpjConsulta'
 import { SectionHeader } from './CotacaoFormSections'
 
 export type PlacementSubfaturaAnexo = {
@@ -64,10 +64,8 @@ export type SubfaturaDraftItem = {
   pendingAnexos: SubfaturaDraftAnexo[]
 }
 
-function formatCnpj14(value: string | null | undefined): string {
-  const d = String(value ?? '').replace(/\D/g, '').slice(0, 14)
-  if (d.length !== 14) return d
-  return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12, 14)}`
+function formatCnpj14Local(value: string | null | undefined): string {
+  return formatCnpj14(value) || formatCnpjMask(value)
 }
 
 function parseAnexos(raw: unknown): PlacementSubfaturaAnexo[] {
@@ -169,7 +167,7 @@ function SubfaturaPersistedPanel({
     setModal({
       open: true,
       editing: row,
-      cnpj: formatCnpj14(row.cnpj),
+      cnpj: formatCnpj14Local(row.cnpj),
       razaoSocial: row.razaoSocial ?? '',
       cidade: row.cidade ?? '',
       uf: row.uf ?? '',
@@ -201,8 +199,8 @@ function SubfaturaPersistedPanel({
   async function handleSaveModal() {
     const digits = onlyDigitsCnpj(modal.cnpj)
     const razaoSocial = modal.razaoSocial.trim()
-    if (digits.length !== 14) {
-      setModal((m) => ({ ...m, error: 'Informe o CNPJ com 14 dígitos.' }))
+    if (!isCnpjShape(digits)) {
+      setModal((m) => ({ ...m, error: 'Informe o CNPJ com 14 caracteres (letras e números; DV numérico).' }))
       return
     }
     if (!razaoSocial) {
@@ -311,7 +309,7 @@ function SubfaturaPersistedPanel({
       field: 'cnpj',
       headerName: 'CNPJ',
       width: 160,
-      valueGetter: (_v, row) => formatCnpj14(row.cnpj),
+      valueGetter: (_v, row) => formatCnpj14Local(row.cnpj),
     },
     { field: 'razaoSocial', headerName: 'Razão social', flex: 1, minWidth: 200 },
     { field: 'cidade', headerName: 'Cidade', width: 160, valueGetter: (_v, row) => row.cidade ?? '—' },
@@ -439,14 +437,14 @@ function SubfaturaPersistedPanel({
                 fullWidth
                 value={modal.cnpj}
                 disabled={modal.saving || !!disabled}
-                onChange={(e) => setModal((m) => ({ ...m, cnpj: e.target.value }))}
-                placeholder="00.000.000/0000-00"
+                onChange={(e) => setModal((m) => ({ ...m, cnpj: formatCnpjMask(e.target.value) }))}
+                placeholder="00.000.000/0000-00 ou 12.ABC.345/01DE-35"
               />
               <Button
                 variant="outlined"
                 startIcon={modal.consultando ? <CircularProgress size={16} /> : <SearchIcon />}
                 disabled={
-                  modal.saving || modal.consultando || onlyDigitsCnpj(modal.cnpj).length !== 14 || !!disabled
+                  modal.saving || modal.consultando || !isCnpjShape(modal.cnpj) || !!disabled
                 }
                 onClick={() => void handleConsultarCnpj()}
                 sx={{ mt: 0.5, flexShrink: 0 }}
@@ -641,7 +639,7 @@ function SubfaturaDraftPanel({
     setModal({
       open: true,
       editingClientId: it.clientId,
-      cnpj: formatCnpj14(it.cnpj),
+      cnpj: formatCnpj14Local(it.cnpj),
       razaoSocial: it.razaoSocial ?? '',
       cidade: it.cidade ?? '',
       uf: it.uf ?? '',
@@ -673,8 +671,8 @@ function SubfaturaDraftPanel({
   function handleSaveModal() {
     const digits = onlyDigitsCnpj(modal.cnpj)
     const razaoSocial = modal.razaoSocial.trim()
-    if (digits.length !== 14) {
-      setModal((m) => ({ ...m, error: 'Informe o CNPJ com 14 dígitos.' }))
+    if (!isCnpjShape(digits)) {
+      setModal((m) => ({ ...m, error: 'Informe o CNPJ com 14 caracteres (letras e números; DV numérico).' }))
       return
     }
     if (!razaoSocial) {
@@ -741,7 +739,7 @@ function SubfaturaDraftPanel({
       field: 'cnpj',
       headerName: 'CNPJ',
       width: 160,
-      valueGetter: (_v, row) => formatCnpj14(row.cnpj),
+      valueGetter: (_v, row) => formatCnpj14Local(row.cnpj),
     },
     { field: 'razaoSocial', headerName: 'Razão social', flex: 1, minWidth: 200 },
     { field: 'cidade', headerName: 'Cidade', width: 160, valueGetter: (_v, row) => row.cidade ?? '—' },
@@ -847,14 +845,14 @@ function SubfaturaDraftPanel({
                 fullWidth
                 value={modal.cnpj}
                 disabled={modal.saving || !!disabled}
-                onChange={(e) => setModal((m) => ({ ...m, cnpj: e.target.value }))}
-                placeholder="00.000.000/0000-00"
+                onChange={(e) => setModal((m) => ({ ...m, cnpj: formatCnpjMask(e.target.value) }))}
+                placeholder="00.000.000/0000-00 ou 12.ABC.345/01DE-35"
               />
               <Button
                 variant="outlined"
                 startIcon={modal.consultando ? <CircularProgress size={16} /> : <SearchIcon />}
                 disabled={
-                  modal.saving || modal.consultando || onlyDigitsCnpj(modal.cnpj).length !== 14 || !!disabled
+                  modal.saving || modal.consultando || !isCnpjShape(modal.cnpj) || !!disabled
                 }
                 onClick={() => void handleConsultarCnpj()}
                 sx={{ mt: 0.5, flexShrink: 0 }}

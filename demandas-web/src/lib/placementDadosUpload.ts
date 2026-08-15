@@ -1,5 +1,6 @@
 import type { Operadora } from '../types/masterData'
 import type { DadosTableUploadConfig } from '../components/DadosTableUploadBar'
+import { normalizeCnpj, isCnpjShape } from './cnpjAlfanumerico'
 import {
   onlyDigits,
   pickCell,
@@ -116,11 +117,11 @@ export async function importPlacementSpreadsheet(
       const errors: string[] = []
       for (let i = 0; i < rows.length; i++) {
         const razaoSocial = pickCell(rows[i], ['Razão social', 'Razao social', 'razaoSocial'])
-        const cnpj = onlyDigits(pickCell(rows[i], ['CNPJ', 'cnpj']), 14)
+        const cnpj = normalizeCnpj(pickCell(rows[i], ['CNPJ', 'cnpj']))
         const statusRaw = pickCell(rows[i], ['Status', 'status'])
         const status = statusRaw.toLowerCase().startsWith('in') ? 'Inativo' : 'Ativo'
-        if (!razaoSocial || cnpj.length !== 14) {
-          errors.push(`Linha ${i + 2}: informe razão social e CNPJ (14 dígitos).`)
+        if (!razaoSocial || !isCnpjShape(cnpj)) {
+          errors.push(`Linha ${i + 2}: informe razão social e CNPJ (14 caracteres, numérico ou alfanumérico).`)
           continue
         }
         try {
@@ -166,11 +167,11 @@ export async function importPlacementSpreadsheet(
       const errors: string[] = []
       for (let i = 0; i < rows.length; i++) {
         const razaoSocial = pickCell(rows[i], ['Razão social', 'Razao social'])
-        const cnpj = onlyDigits(pickCell(rows[i], ['CNPJ']), 14)
+        const cnpj = normalizeCnpj(pickCell(rows[i], ['CNPJ']))
         const grupoEconomico = pickCell(rows[i], ['Grupo econômico', 'Grupo economico']) || null
         const cnae = onlyDigits(pickCell(rows[i], ['CNAE', 'cnae']), 8)
-        if (!razaoSocial || cnpj.length !== 14) {
-          errors.push(`Linha ${i + 2}: razão social e CNPJ (14 dígitos) são obrigatórios.`)
+        if (!razaoSocial || !isCnpjShape(cnpj)) {
+          errors.push(`Linha ${i + 2}: razão social e CNPJ (14 caracteres, numérico ou alfanumérico) são obrigatórios.`)
           continue
         }
         try {
@@ -189,21 +190,21 @@ export async function importPlacementSpreadsheet(
       for (let i = 0; i < rows.length; i++) {
         const razaoSocial = pickCell(rows[i], ['Razão social', 'Razao social'])
         const cnpjRaw = pickCell(rows[i], ['CNPJ'])
-        const cnpj = cnpjRaw ? onlyDigits(cnpjRaw, 14) : null
+        const cnpj = cnpjRaw ? normalizeCnpj(cnpjRaw) : null
         const grupoEconomico = pickCell(rows[i], ['Grupo econômico', 'Grupo economico']) || null
         const cnae = onlyDigits(pickCell(rows[i], ['CNAE']), 8)
         if (!razaoSocial || !cnae) {
           errors.push(`Linha ${i + 2}: razão social e CNAE são obrigatórios.`)
           continue
         }
-        if (cnpj && cnpj.length !== 14) {
-          errors.push(`Linha ${i + 2}: CNPJ deve ter 14 dígitos ou ficar em branco.`)
+        if (cnpj && !isCnpjShape(cnpj)) {
+          errors.push(`Linha ${i + 2}: CNPJ deve ter 14 caracteres (numérico ou alfanumérico) ou ficar em branco.`)
           continue
         }
         try {
           await store.addCondicao({
             razaoSocial,
-            cnpj: cnpj && cnpj.length === 14 ? cnpj : null,
+            cnpj: cnpj && isCnpjShape(cnpj) ? cnpj : null,
             grupoEconomico,
             cnae,
           })

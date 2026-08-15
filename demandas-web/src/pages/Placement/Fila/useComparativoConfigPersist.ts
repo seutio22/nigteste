@@ -16,7 +16,7 @@ import {
 } from './placementAguardandoOperadora'
 import { mercadoFornecedoresFromForm } from './placementComunicarMercado'
 import { buildKickOffEstrategiaPatch, mergeSavedKickOffIntoApiCotacao } from './placementKickOffPersist'
-import { api } from '../../../lib/api.local'
+import { persistKickOffSlim } from './placementKickOffSlimPersist'
 import type { Operadora } from '../../../types/masterData'
 
 type Args = {
@@ -149,9 +149,7 @@ export function useComparativoConfigPersist({
                 )
               : baseKickOff
           try {
-            const updated = await api.put(`/placement/cotacoes/${cotacaoId}`, {
-              kickOffEstrategia: payloadKickOff,
-            })
+            const updated = await persistKickOffSlim(cotacaoId, payloadKickOff)
             // Share público: PUT é no-op local — não chamar onPersisted (evita toFormState parcial).
             if (
               updated &&
@@ -165,7 +163,7 @@ export function useComparativoConfigPersist({
             /* ignore */
           }
         })()
-      }, 450)
+      }, 2000)
     },
     [onChange, cotacaoId, onPersisted]
   )

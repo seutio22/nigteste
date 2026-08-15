@@ -22,6 +22,7 @@ import {
 } from './placementFormularioContrato'
 import { sumCustoEstimadoPlanosCents } from './placementCotacaoDetalhes'
 import { formatCentsToBRL } from './utils'
+import { formatCnpj14, formatCnpjMask } from '../../../lib/cnpjAlfanumerico'
 import { buildComunicarMercadoMdsEmailHtml, sortTopicosForEmail } from './placementComunicarMercadoEmailHtml'
 
 export type ComunicarMercadoSinistralidade = {
@@ -119,10 +120,8 @@ function normKey(nome: string): string {
   return nome.trim().toLowerCase()
 }
 
-function formatCnpj14(value: string | null | undefined): string {
-  const d = String(value ?? '').replace(/\D/g, '').slice(0, 14)
-  if (d.length !== 14) return String(value ?? '').trim()
-  return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12, 14)}`
+function formatCnpjDisplay(value: string | null | undefined): string {
+  return formatCnpj14(value) || formatCnpjMask(value) || String(value ?? '').trim()
 }
 
 function formatDateBR(value: string | null | undefined): string {
@@ -195,7 +194,7 @@ function resumoValor(
 
 function formatCorretoraLinha(filial?: PlacementFilial | null): string {
   if (!filial) return '—'
-  const cnpj = formatCnpj14(filial.cnpj)
+  const cnpj = formatCnpjDisplay(filial.cnpj)
   return [filial.razaoSocial, cnpj].filter(Boolean).join(' - ')
 }
 
@@ -208,7 +207,7 @@ function formatCorretagemEstudo(
   const mds = form.dadosFinanceiros.estudo.participacao.mds.trim()
   const cor = form.dadosFinanceiros.estudo.participacao.corretorParceiro.trim()
   if (filial && mds) {
-    parts.push(`${mds}% ${filial.razaoSocial}${filial.cnpj ? ` - ${formatCnpj14(filial.cnpj)}` : ''}`)
+    parts.push(`${mds}% ${filial.razaoSocial}${filial.cnpj ? ` - ${formatCnpjDisplay(filial.cnpj)}` : ''}`)
   }
   if (corretorNome && cor) {
     parts.push(`${cor}% ${corretorNome}`)
@@ -222,7 +221,7 @@ function formatSubfaturas(
   if (!subfaturas?.length) return '—'
   return subfaturas
     .map((s) => {
-      const parts = [s.razaoSocial, formatCnpj14(s.cnpj), s.cidade && s.uf ? `${s.cidade}/${s.uf}` : '']
+      const parts = [s.razaoSocial, formatCnpjDisplay(s.cnpj), s.cidade && s.uf ? `${s.cidade}/${s.uf}` : '']
         .filter(Boolean)
         .join(' · ')
       return parts || '—'
@@ -599,7 +598,7 @@ export function buildComunicarMercadoTopicos(input: BuildComunicarMercadoInput):
   if (condicao?.razaoSocial) {
     pushTopico(out, 'Estipulante', 'estipulante', 'Estipulante', condicao.razaoSocial)
     if (condicao.cnpj) {
-      pushTopico(out, 'Estipulante', 'estipulante-cnpj', 'CNPJ estipulante', formatCnpj14(condicao.cnpj))
+      pushTopico(out, 'Estipulante', 'estipulante-cnpj', 'CNPJ estipulante', formatCnpjDisplay(condicao.cnpj))
     }
   }
 

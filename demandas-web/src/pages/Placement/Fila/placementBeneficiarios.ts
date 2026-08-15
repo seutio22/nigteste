@@ -1,4 +1,5 @@
 /** Colunas da base de beneficiários (etapa 1 — Em cotação). */
+import { normalizeCnpj } from '../../../lib/cnpjAlfanumerico'
 import {
   normalizeSpreadsheetCustoCell,
   parseBeneficiarioDataToIso,
@@ -346,7 +347,7 @@ export function beneficiarioMatchKey(parts: {
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
       .replace(/\s+/g, ' ')
-  const cnpjDigits = String(parts.cnpj ?? '').replace(/\D/g, '')
+  const cnpjDigits = normalizeCnpj(parts.cnpj)
   return [
     parts.ordem != null && Number.isFinite(Number(parts.ordem)) ? String(Number(parts.ordem)) : '',
     norm(String(parts.matricula ?? '')),

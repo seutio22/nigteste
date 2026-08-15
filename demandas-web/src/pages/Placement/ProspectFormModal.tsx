@@ -13,7 +13,7 @@ import SearchIcon from '@mui/icons-material/Search'
 import { PrimaryActionButton } from '../../components/PrimaryActionButton'
 import { usePlacementStore, type PlacementProspect } from '../../store/placementStore'
 import { useMasterDataStore } from '../../store/masterDataStore'
-import { consultarCnpjPlacement, onlyDigitsCnpj } from '../../lib/placementCnpjConsulta'
+import { consultarCnpjPlacement, formatCnpjMask, isCnpjShape, onlyDigitsCnpj } from '../../lib/placementCnpjConsulta'
 import { formatCnaeDisplay, isValidCnaeLen, normalizeCnaeDigits } from './Fila/utils'
 
 interface ProspectFormModalProps {
@@ -35,13 +35,7 @@ interface ProspectFormModalProps {
 }
 
 function formatCnpjInput(value: string): string {
-  const d = onlyDigitsCnpj(value)
-  if (d.length <= 2) return d
-  if (d.length <= 5) return `${d.slice(0, 2)}.${d.slice(2)}`
-  if (d.length <= 8) return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5)}`
-  if (d.length <= 12)
-    return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8)}`
-  return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12, 14)}`
+  return formatCnpjMask(value)
 }
 
 export const ProspectFormModal: React.FC<ProspectFormModalProps> = ({
@@ -96,7 +90,7 @@ export const ProspectFormModal: React.FC<ProspectFormModalProps> = ({
     setError(null)
     const digits = onlyDigitsCnpj(cnpj)
     if (digits.length !== 14) {
-      setError('Informe o CNPJ com 14 dígitos para consultar.')
+      setError('Informe o CNPJ com 14 caracteres (A–Z e 0–9) para consultar.')
       return
     }
     try {
@@ -125,8 +119,8 @@ export const ProspectFormModal: React.FC<ProspectFormModalProps> = ({
     const grupo = grupoEconomico.trim()
     const cnaeDigits = normalizeCnaeDigits(cnae)
 
-    if (cnpjDigits.length !== 14) {
-      setError('CNPJ deve ter 14 dígitos.')
+    if (cnpjDigits.length !== 14 || !isCnpjShape(cnpjDigits)) {
+      setError('CNPJ deve ter 14 caracteres (A–Z e 0–9; DV numérico).')
       return
     }
     if (!razao) {
@@ -167,18 +161,18 @@ export const ProspectFormModal: React.FC<ProspectFormModalProps> = ({
             label="CNPJ"
             value={cnpj}
             onChange={(e) => setCnpj(formatCnpjInput(e.target.value))}
-            placeholder="00.000.000/0000-00"
+            placeholder="00.000.000/0000-00 ou 12.ABC.345/01DE-35"
             required
             autoFocus={!isEditing}
             fullWidth
-            inputProps={{ inputMode: 'numeric', maxLength: 18 }}
-            helperText="Informe o CNPJ e use “Consultar CNPJ” para preencher razão social e CNAE (Receita via BrasilAPI)."
+            inputProps={{ maxLength: 18 }}
+            helperText="CNPJ numérico ou alfanumérico (14 caracteres; DV numérico). Use “Consultar CNPJ” para preencher razão social e CNAE."
           />
           <Button
             variant="outlined"
             startIcon={<SearchIcon />}
             onClick={handleConsultarCnpj}
-            disabled={consulting || onlyDigitsCnpj(cnpj).length !== 14}
+            disabled={consulting || !isCnpjShape(cnpj)}
           >
             {consulting ? 'Consultando…' : 'Consultar CNPJ'}
           </Button>

@@ -7,6 +7,14 @@ import { useNotificationStore } from '../store/notificationStore'
 import { useKanbanStore } from '../store/kanbanStore'
 import { api } from '../lib/api.local'
 import { applyThemeMode, getStoredTheme, THEME_CHANGE_EVENT, type ThemeMode } from '../lib/themeMode'
+import {
+  ALERT_DELIVERY_EVENT,
+  ALERT_DELIVERY_OPTIONS,
+  getAlertDeliveryMode,
+  playAlertSound,
+  setAlertDeliveryMode,
+  type AlertDeliveryMode,
+} from '../lib/alertDeliveryPrefs'
 import { getUserDepartmentDisplay } from '../utils/userDepartmentDisplay'
 
 export function SettingsDropdown() {
@@ -16,6 +24,7 @@ export function SettingsDropdown() {
   )
   const [language, setLanguage] = useState<'pt-BR' | 'en'>('pt-BR')
   const [notificationsEnabled, setNotificationsEnabled] = useState(true)
+  const [alertDeliveryMode, setAlertDeliveryModeState] = useState<AlertDeliveryMode>('padrao')
   const [autoSave, setAutoSave] = useState(true)
   const [activeSection, setActiveSection] = useState<'general' | 'appearance' | 'data' | 'account'>('general')
   
@@ -71,6 +80,7 @@ export function SettingsDropdown() {
     setTheme(getStoredTheme())
     if (savedLanguage) setLanguage(savedLanguage)
     if (savedNotifications !== null) setNotificationsEnabled(savedNotifications === 'true')
+    setAlertDeliveryModeState(getAlertDeliveryMode())
     if (savedAutoSave !== null) setAutoSave(savedAutoSave === 'true')
   }, [])
 
@@ -305,6 +315,56 @@ export function SettingsDropdown() {
                 <span className="text-sm font-medium text-secondary-500">Ativar notificações</span>
                 {notificationsEnabled ? <Check className="w-4 h-4 text-success" /> : <EyeOff className="w-4 h-4 text-apoio-300" />}
               </label>
+              <div className="mt-3 space-y-2">
+                <p className="text-xs font-medium text-apoio-400 px-1">Como receber alertas novos</p>
+                {ALERT_DELIVERY_OPTIONS.map((opt) => (
+                  <label
+                    key={opt.id}
+                    className={`flex items-start gap-3 p-3 bg-white rounded-lg border cursor-pointer transition-colors ${
+                      alertDeliveryMode === opt.id
+                        ? 'border-primary-300 bg-primary-50/60'
+                        : 'border-apoio-100 hover:bg-primary-50/40'
+                    } ${!notificationsEnabled ? 'opacity-50 pointer-events-none' : ''}`}
+                  >
+                    <input
+                      type="radio"
+                      name="alert-delivery-mode"
+                      checked={alertDeliveryMode === opt.id}
+                      disabled={!notificationsEnabled}
+                      onChange={() => {
+                        setAlertDeliveryModeState(opt.id)
+                        setAlertDeliveryMode(opt.id)
+                      }}
+                      className="mt-1 w-4 h-4 border-apoio-200 text-primary-900 focus:ring-primary-500"
+                    />
+                    <span>
+                      <span className="block text-sm font-medium text-secondary-500">{opt.label}</span>
+                      <span className="block text-xs text-apoio-400">{opt.hint}</span>
+                    </span>
+                  </label>
+                ))}
+                <button
+                  type="button"
+                  disabled={!notificationsEnabled || alertDeliveryMode === 'padrao'}
+                  onClick={() => {
+                    if (alertDeliveryMode === 'som' || alertDeliveryMode === 'som_e_tela') playAlertSound()
+                    if (alertDeliveryMode === 'tela_cheia' || alertDeliveryMode === 'som_e_tela') {
+                      window.dispatchEvent(
+                        new CustomEvent(ALERT_DELIVERY_EVENT, {
+                          detail: {
+                            id: 'preview',
+                            titulo: 'Exemplo de alerta',
+                            mensagem: 'Assim o aviso aparece em uma janela quando chegar uma notificação nova.',
+                          },
+                        })
+                      )
+                    }
+                  }}
+                  className="text-xs font-medium text-primary-700 hover:underline disabled:opacity-40 disabled:no-underline px-1"
+                >
+                  Testar este modo
+                </button>
+              </div>
             </div>
 
             {/* Auto-save — success */}

@@ -26,7 +26,7 @@ import {
   propostaDeckNavSecondary,
 } from './placementPropostaDeck'
 import { useMasterDataStore } from '../../../store/masterDataStore'
-import { api } from '../../../lib/api.local'
+import { persistKickOffSlim } from './placementKickOffSlimPersist'
 import { ComparativoEstudoDashboard } from './ComparativoEstudoDashboard'
 import { PlacementSlideViewToolbar } from './PlacementSlideViewToolbar'
 
@@ -142,7 +142,7 @@ export function PlacementSlidesHub({
     const kickOff = nextForm.kickOffEstrategia!
     void (async () => {
       try {
-        const updated = await api.put(`/placement/cotacoes/${cotacaoId}`, { kickOffEstrategia: kickOff })
+        const updated = await persistKickOffSlim(cotacaoId, kickOff)
         onPersisted?.(mergeSavedKickOffIntoApiCotacao(updated, kickOff))
       } catch {
         /* panel principal já trata erro */

@@ -1,4 +1,15 @@
 import { api } from './api.local'
+import { normalizeCnpj } from './cnpjAlfanumerico'
+
+export {
+  formatCnpj14,
+  formatCnpjMask,
+  isCnpjShape,
+  isValidCnpj,
+  normalizeCnpj,
+  onlyDigitsCnpj,
+  cnpjProntoParaConsulta,
+} from './cnpjAlfanumerico'
 
 export type ConsultaCnpjResponse = {
   razaoSocial: string | null
@@ -8,15 +19,11 @@ export type ConsultaCnpjResponse = {
   uf?: string | null
 }
 
-export function onlyDigitsCnpj(value: string): string {
-  return (value || '').replace(/\D+/g, '').slice(0, 14)
-}
-
 /** Consulta CNPJ na API do backend (proxy BrasilAPI). */
 export async function consultarCnpjPlacement(cnpj: string): Promise<ConsultaCnpjResponse> {
-  const digits = onlyDigitsCnpj(cnpj)
-  if (digits.length !== 14) {
-    throw new Error('Informe o CNPJ com 14 dígitos.')
+  const id = normalizeCnpj(cnpj)
+  if (id.length !== 14) {
+    throw new Error('Informe o CNPJ com 14 caracteres (letras e números).')
   }
-  return api.get(`/placement/consulta-cnpj/${digits}`) as Promise<ConsultaCnpjResponse>
+  return api.get(`/placement/consulta-cnpj/${encodeURIComponent(id)}`) as Promise<ConsultaCnpjResponse>
 }

@@ -12,12 +12,7 @@ import {
 } from '../../store/placementStore'
 import { SnackNotification } from '../../components/SnackNotification'
 import { FilialFormModal } from './FilialFormModal'
-
-function formatCnpjDisplay(value: string): string {
-  const d = (value || '').replace(/\D+/g, '').slice(0, 14)
-  if (d.length !== 14) return value || ''
-  return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12, 14)}`
-}
+import { formatCnpj14 } from '../../lib/cnpjAlfanumerico'
 
 export default function FiliaisTab() {
   const { filiais, isLoading, syncFiliais, addFilial, updateFilial, removeFilial } =
@@ -98,7 +93,7 @@ export default function FiliaisTab() {
         field: 'cnpj',
         headerName: 'CNPJ',
         width: 200,
-        renderCell: (params) => formatCnpjDisplay(String(params.value ?? '')),
+        renderCell: (params) => formatCnpj14(String(params.value ?? '')) || String(params.value ?? ''),
       },
       {
         field: 'status',

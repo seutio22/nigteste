@@ -84,8 +84,16 @@ class SimpleCache {
 // Singleton do cache
 export const masterDataCache = new SimpleCache()
 
+/** Listagem da fila Placement — TTL curto, inválido em qualquer escrita de cotação. */
+export const placementFilaListCache = new SimpleCache()
+
+export function invalidatePlacementFilaListCache() {
+  placementFilaListCache.invalidatePrefix('placement-fila:')
+}
+
 // Limpar cache expirado a cada 30 minutos (menos CPU sem impacto funcional)
 setInterval(() => {
   masterDataCache.cleanExpired()
+  placementFilaListCache.cleanExpired()
 }, 30 * 60 * 1000)
 

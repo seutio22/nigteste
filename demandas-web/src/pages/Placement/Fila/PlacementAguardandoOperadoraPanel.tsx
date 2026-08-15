@@ -132,7 +132,7 @@ export const PlacementAguardandoOperadoraPanel = React.memo(function PlacementAg
   const comunicarMercadoRef = useRef(comunicarMercado)
   comunicarMercadoRef.current = comunicarMercado
 
-  const { saveState, scheduleSave } = usePlacementKickOffAutosave({ cotacaoId, onPersisted, debounceMs: 700 })
+  const { saveState, scheduleSave } = usePlacementKickOffAutosave({ cotacaoId, onPersisted, debounceMs: 2500 })
 
   const {
     estudos,

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { api } from '../../../lib/api.local'
+import { persistKickOffSlim } from './placementKickOffSlimPersist'
 import type { CotacaoFormState } from './CotacaoFormFields'
 import { mergeSavedKickOffIntoApiCotacao } from './placementKickOffPersist'
 import { kickOffStableKey } from './usePlacementFieldDraft'
@@ -17,7 +17,7 @@ type Options = {
 export function usePlacementKickOffAutosave({
   cotacaoId,
   onPersisted,
-  debounceMs = 700,
+  debounceMs = 2500,
 }: Options) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastSavedKeyRef = useRef('')
@@ -38,9 +38,7 @@ export function usePlacementKickOffAutosave({
       const seq = ++saveSeqRef.current
       setSaveState('saving')
       try {
-        const updated = await api.put(`/placement/cotacoes/${cotacaoId}`, {
-          kickOffEstrategia: kickOff,
-        })
+        const updated = await persistKickOffSlim(cotacaoId, kickOff)
         if (seq !== saveSeqRef.current) return
         lastSavedKeyRef.current = saveKey
         // Preferir o pending mais recente (ex.: diferenciais editados enquanto o PUT antigo terminava).

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { ALERT_DELIVERY_EVENT } from '../lib/alertDeliveryPrefs'
 
 export interface Notification {
   id: string
@@ -137,6 +138,19 @@ export const useNotificationStore = create<NotificationState>()(
             icon: '/favicon.ico',
             tag: newNotification.id
           })
+        }
+
+        if (!newNotification.lida) {
+          window.dispatchEvent(
+            new CustomEvent(ALERT_DELIVERY_EVENT, {
+              detail: {
+                id: newNotification.id,
+                titulo: newNotification.titulo,
+                mensagem: newNotification.mensagem,
+                prioridade: newNotification.prioridade,
+              },
+            })
+          )
         }
       },
       

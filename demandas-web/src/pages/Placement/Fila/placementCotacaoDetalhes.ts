@@ -11,6 +11,7 @@ import {
   emptyCoberturasEspeciaisItens,
   type CoberturasEspeciais,
 } from './placementCoberturasEspeciais'
+import { onlyDigitsCnpj } from '../../../lib/placementCnpjConsulta'
 import {
   dadosFinanceirosFromApi,
   dadosFinanceirosToApi,
@@ -63,7 +64,7 @@ export function emptyVidasFaixa(): Record<FaixaEtariaKey, string> {
 }
 
 function onlyDigitsCnpjLocal(value: string | null | undefined): string {
-  return String(value ?? '').replace(/\D/g, '').slice(0, 14)
+  return onlyDigitsCnpj(String(value ?? ''))
 }
 
 /** Vincula cliente master pelo CNPJ da condição Placement (quando existir em Clientes). */

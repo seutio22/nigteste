@@ -7,7 +7,10 @@ import {
   Typography, 
   Box, 
   Button,
-  Chip
+  Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
 } from '@mui/material'
 import { 
   Bell, 
@@ -30,6 +33,14 @@ import { ManagedAlertsModal } from './ManagedAlertsModal'
 import { NotificationDetailModal } from './NotificationDetailModal'
 import { addDismissedAlert, getDismissedAlertIds } from '../utils/dismissedAlerts'
 import { createKanbanTicketFromNotification } from '../utils/notificationToKanban'
+import {
+  ALERT_DELIVERY_EVENT,
+  ALERT_DELIVERY_OPTIONS,
+  getAlertDeliveryMode,
+  playAlertSound,
+  setAlertDeliveryMode,
+  type AlertDeliveryMode,
+} from '../lib/alertDeliveryPrefs'
 
 export function NotificationDropdown() {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
@@ -37,6 +48,8 @@ export function NotificationDropdown() {
   const [createAlertOpen, setCreateAlertOpen] = useState(false)
   const [managedAlertsOpen, setManagedAlertsOpen] = useState(false)
   const [detailNotification, setDetailNotification] = useState<any>(null)
+  const [prefsOpen, setPrefsOpen] = useState(false)
+  const [alertDeliveryMode, setAlertDeliveryModeState] = useState<AlertDeliveryMode>(() => getAlertDeliveryMode())
   const navigate = useNavigate()
   const { user } = useAuthStore()
   const canCreateAlerts = ['admin', 'gerente'].includes(user?.role || '')
@@ -253,9 +266,21 @@ export function NotificationDropdown() {
                   Marcar todas como lidas
                 </Button>
               )}
-              <IconButton
-                size="small"
-                onClick={clearRead}
+                  <IconButton
+                    size="small"
+                    onClick={() => {
+                      setAlertDeliveryModeState(getAlertDeliveryMode())
+                      setPrefsOpen(true)
+                      handleClose()
+                    }}
+                    className="text-apoio-400 hover:text-primary-700"
+                    title="Como receber alertas"
+                  >
+                    <Settings className="w-4 h-4" />
+                  </IconButton>
+                  <IconButton
+                    size="small"
+                    onClick={clearRead}
                 className="text-apoio-400 hover:text-apoio-500"
               >
                 <Trash2 className="w-4 h-4" />
@@ -446,6 +471,69 @@ export function NotificationDropdown() {
         )}
       </Menu>
 
+      <Dialog open={prefsOpen} onClose={() => setPrefsOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Como receber alertas</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Vale para alertas novos no sino. O modo padrão continua igual ao de hoje.
+          </Typography>
+          {ALERT_DELIVERY_OPTIONS.map((opt) => (
+            <Box
+              key={opt.id}
+              component="label"
+              sx={{
+                display: 'flex',
+                gap: 1.5,
+                alignItems: 'flex-start',
+                p: 1.5,
+                mb: 1,
+                borderRadius: 1,
+                border: '1px solid',
+                borderColor: alertDeliveryMode === opt.id ? 'primary.light' : 'divider',
+                cursor: 'pointer',
+              }}
+            >
+              <input
+                type="radio"
+                name="bell-alert-delivery"
+                checked={alertDeliveryMode === opt.id}
+                onChange={() => {
+                  setAlertDeliveryModeState(opt.id)
+                  setAlertDeliveryMode(opt.id)
+                }}
+              />
+              <Box>
+                <Typography variant="subtitle2">{opt.label}</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {opt.hint}
+                </Typography>
+              </Box>
+            </Box>
+          ))}
+          <Button
+            size="small"
+            sx={{ mt: 1 }}
+            disabled={alertDeliveryMode === 'padrao'}
+            onClick={() => {
+              if (alertDeliveryMode === 'som' || alertDeliveryMode === 'som_e_tela') playAlertSound()
+              if (alertDeliveryMode === 'tela_cheia' || alertDeliveryMode === 'som_e_tela') {
+                setPrefsOpen(false)
+                window.dispatchEvent(
+                  new CustomEvent(ALERT_DELIVERY_EVENT, {
+                    detail: {
+                      id: 'preview',
+                      titulo: 'Exemplo de alerta',
+                      mensagem: 'Assim o aviso aparece em uma janela quando chegar uma notificação nova.',
+                    },
+                  })
+                )
+              }
+            }}
+          >
+            Testar este modo
+          </Button>
+        </DialogContent>
+      </Dialog>
       <CreateAlertModal
         open={createAlertOpen}
         onClose={() => setCreateAlertOpen(false)}

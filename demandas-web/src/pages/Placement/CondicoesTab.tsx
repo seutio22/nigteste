@@ -13,6 +13,7 @@ import {
 import { SnackNotification } from '../../components/SnackNotification'
 import { CondicaoFormModal } from './CondicaoFormModal'
 import { formatCnaeDisplay } from './Fila/utils'
+import { formatCnpj14 } from '../../lib/cnpjAlfanumerico'
 
 export default function CondicoesTab() {
   const {
@@ -107,11 +108,7 @@ export default function CondicoesTab() {
         field: 'cnpj',
         headerName: 'CNPJ',
         width: 150,
-        valueFormatter: (v) => {
-          const d = String(v ?? '').replace(/\D/g, '').slice(0, 14)
-          if (d.length !== 14) return v ? String(v) : '—'
-          return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12, 14)}`
-        },
+        valueFormatter: (v) => formatCnpj14(String(v ?? '')) || (v ? String(v) : '—'),
       },
       {
         field: 'cnae',

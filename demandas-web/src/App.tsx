@@ -9,6 +9,7 @@ import { useUserAlerts } from './hooks/useUserAlerts'
 import { FullScreenLoading } from './components/BeautifulLoading'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { AppActivityBridge } from './components/AppActivityBridge'
+import { AlertDeliveryHost } from './components/AlertDeliveryHost'
 import { useEffect } from 'react'
 import './utils/force-cache-bust' // Force cache bust
 import './utils/smart-cache-cleaner' // Sistema inteligente de limpeza
@@ -49,6 +50,7 @@ function App() {
     <ErrorBoundary>
       <SidebarProvider>
         <AppActivityBridge />
+        <AlertDeliveryHost />
         <AppRoutes />
       </SidebarProvider>
     </ErrorBoundary>

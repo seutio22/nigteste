@@ -1,10 +1,14 @@
 import { FastifyInstance } from 'fastify';
 import multipart from '@fastify/multipart';
 import { randomUUID } from 'crypto';
-import { createReadStream } from 'fs';
+import { createReadStream, createWriteStream } from 'fs';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { pipeline } from 'stream/promises';
 import { PrismaClient } from '@prisma/client';
+import { isCnpjShape, normalizeCnpj } from '../lib/cnpjAlfanumerico';
+import { invalidatePlacementFilaListCache, placementFilaListCache } from '../lib/cache';
+import { runPlacementHeavy } from '../lib/placementHeavyQueue';
 
 /**
  * Rotas do módulo Placement.
@@ -807,9 +811,9 @@ function brasilApiCnpjTimeoutMs(): number {
 async function fetchBrasilCnpjEnrichment(
   cnpjDigits: string
 ): Promise<BrasilCnpjEnrichmentOk | BrasilCnpjEnrichmentFail> {
-  if (cnpjDigits.length !== 14) return { ok: false, notFound: false };
+  if (!isCnpjShape(cnpjDigits)) return { ok: false, notFound: false };
   try {
-    const url = `${brasilApiCnpjBaseUrl()}/${cnpjDigits}`;
+    const url = `${brasilApiCnpjBaseUrl()}/${encodeURIComponent(cnpjDigits)}`;
     const r = await fetch(url, {
       headers: {
         Accept: 'application/json',
@@ -932,14 +936,14 @@ export default async function placementRoutes(
       select: { cnpj: true },
     });
     if (!cond?.cnpj) return null;
-    const digits = onlyDigits(cond.cnpj);
+    const digits = normalizeCnpj(cond.cnpj);
     if (digits.length !== 14) return null;
     const clientes = await prisma.cliente.findMany({
       where: { cnpj: { not: null } },
       select: { id: true, cnpj: true },
     });
     for (const c of clientes) {
-      if (c.cnpj && onlyDigits(c.cnpj) === digits) return c.id;
+      if (c.cnpj && normalizeCnpj(c.cnpj) === digits) return c.id;
     }
     return null;
   }
@@ -1124,9 +1128,9 @@ export default async function placementRoutes(
   fastify.get('/placement/consulta-cnpj/:cnpj', async (request, reply) => {
     try {
       const { cnpj } = request.params as { cnpj: string };
-      const digits = onlyDigits(cnpj);
-      if (digits.length !== 14) {
-        return reply.status(400).send({ error: 'CNPJ deve ter 14 dígitos' });
+      const digits = normalizeCnpj(cnpj);
+      if (!isCnpjShape(digits)) {
+        return reply.status(400).send({ error: 'CNPJ deve ter 14 caracteres (A–Z e 0–9; DV numérico)' });
       }
       const res = await fetchBrasilCnpjEnrichment(digits);
       if (res.ok === false) {
@@ -1189,16 +1193,16 @@ export default async function placementRoutes(
       };
 
       const razaoSocial = String(body.razaoSocial ?? '').trim();
-      const cnpjDigits = onlyDigits(String(body.cnpj ?? ''));
+      const cnpjDigits = normalizeCnpj(String(body.cnpj ?? ''));
       const status = normalizeStatus(body.status);
 
       if (!razaoSocial) {
         return reply.status(400).send({ error: 'Razão social é obrigatória' });
       }
-      if (cnpjDigits.length !== 14) {
+      if (!isCnpjShape(cnpjDigits)) {
         return reply
           .status(400)
-          .send({ error: 'CNPJ inválido — informe os 14 dígitos' });
+          .send({ error: 'CNPJ inválido — 14 caracteres (A–Z e 0–9; DV numérico)' });
       }
 
       const exists = await prisma.placementFilial.findUnique({ where: { cnpj: cnpjDigits } });
@@ -1242,11 +1246,11 @@ export default async function placementRoutes(
       }
 
       if (body.cnpj !== undefined) {
-        const cnpjDigits = onlyDigits(String(body.cnpj));
-        if (cnpjDigits.length !== 14) {
+        const cnpjDigits = normalizeCnpj(String(body.cnpj));
+        if (!isCnpjShape(cnpjDigits)) {
           return reply
             .status(400)
-            .send({ error: 'CNPJ inválido — informe os 14 dígitos' });
+            .send({ error: 'CNPJ inválido — 14 caracteres (A–Z e 0–9; DV numérico)' });
         }
         if (cnpjDigits !== existing.cnpj) {
           const dup = await prisma.placementFilial.findUnique({ where: { cnpj: cnpjDigits } });
@@ -2757,17 +2761,17 @@ export default async function placementRoutes(
       };
 
       const razaoSocial = String(body.razaoSocial ?? '').trim();
-      const cnpjDigits = onlyDigits(String(body.cnpj ?? ''));
+      const cnpjDigits = normalizeCnpj(String(body.cnpj ?? ''));
       const grupoEconomico = body.grupoEconomico ? String(body.grupoEconomico).trim() : null;
       const cnaeDigits = normalizeCnae(body.cnae);
 
       if (!razaoSocial) {
         return reply.status(400).send({ error: 'Razão social é obrigatória' });
       }
-      if (cnpjDigits.length !== 14) {
+      if (!isCnpjShape(cnpjDigits)) {
         return reply
           .status(400)
-          .send({ error: 'CNPJ inválido — informe os 14 dígitos' });
+          .send({ error: 'CNPJ inválido — 14 caracteres (A–Z e 0–9; DV numérico)' });
       }
       if (!isValidCnaeDigits(cnaeDigits)) {
         return reply.status(400).send({
@@ -2818,9 +2822,9 @@ export default async function placementRoutes(
       }
 
       if (body.cnpj !== undefined) {
-        const cnpjDigits = onlyDigits(String(body.cnpj));
-        if (cnpjDigits.length !== 14) {
-          return reply.status(400).send({ error: 'CNPJ inválido — informe os 14 dígitos' });
+        const cnpjDigits = normalizeCnpj(String(body.cnpj));
+        if (!isCnpjShape(cnpjDigits)) {
+          return reply.status(400).send({ error: 'CNPJ inválido — 14 caracteres (A–Z e 0–9; DV numérico)' });
         }
         if (cnpjDigits !== existing.cnpj) {
           const dup = await prisma.placementProspect.findUnique({ where: { cnpj: cnpjDigits } });
@@ -2918,12 +2922,12 @@ export default async function placementRoutes(
 
       const grupoEconomico = body.grupoEconomico ? String(body.grupoEconomico).trim() : null;
       const cnaeDigits = normalizeCnae(body.cnae);
-      const cnpjDigits = onlyDigits(String(body.cnpj ?? ''));
+      const cnpjDigits = normalizeCnpj(String(body.cnpj ?? ''));
 
-      if (!cnpjDigits || cnpjDigits.length !== 14) {
+      if (!isCnpjShape(cnpjDigits)) {
         return reply.status(400).send({
           error: 'CNPJ obrigatório',
-          message: 'Informe o CNPJ com 14 dígitos.',
+          message: 'Informe o CNPJ com 14 caracteres (A–Z e 0–9).',
         });
       }
       if (!isValidCnaeDigits(cnaeDigits)) {
@@ -3011,11 +3015,11 @@ export default async function placementRoutes(
       }
 
       if (body.cnpj !== undefined) {
-        const raw = body.cnpj === null || body.cnpj === '' ? '' : onlyDigits(String(body.cnpj));
-        if (raw && raw.length !== 14) {
+        const raw = body.cnpj === null || body.cnpj === '' ? '' : normalizeCnpj(String(body.cnpj));
+        if (raw && !isCnpjShape(raw)) {
           return reply.status(400).send({
             error: 'CNPJ inválido',
-            message: 'Informe 14 dígitos ou deixe o CNPJ em branco.',
+            message: 'Informe 14 caracteres (A–Z e 0–9) ou deixe o CNPJ em branco.',
           });
         }
         const nextCnpj = raw.length === 14 ? raw : null;
@@ -3177,21 +3181,19 @@ export default async function placementRoutes(
 
       const replace = body.replace !== false;
 
-      const count = await prisma.$transaction(
-        async (tx) => {
-          if (replace) {
-            await tx.placementCotacaoBeneficiario.deleteMany({ where: { cotacaoId } });
-          }
-          await insertBeneficiariosBatched(tx, cotacaoId, parsed);
-          return tx.placementCotacaoBeneficiario.count({ where: { cotacaoId } });
-        },
-        { timeout: 120_000, maxWait: 15_000 }
-      );
+      const count = await runPlacementHeavy(async () => {
+        if (replace) {
+          await prisma.placementCotacaoBeneficiario.deleteMany({ where: { cotacaoId } });
+        }
+        await insertBeneficiariosBatched(prisma, cotacaoId, parsed);
+        return prisma.placementCotacaoBeneficiario.count({ where: { cotacaoId } });
+      });
 
       await prisma.placementCotacao.update({
         where: { id: cotacaoId },
         data: { emCotacaoSubetapa: 'beneficiarios' },
       });
+      invalidatePlacementFilaListCache();
 
       return { total: count, imported: parsed.length, replace };
     } catch (error) {
@@ -3273,7 +3275,7 @@ export default async function placementRoutes(
     try {
       const { cotacaoId } = request.params as { cotacaoId: string };
       const body = (request.body ?? {}) as Record<string, unknown>;
-      const cnpjDigits = onlyDigits(String(body.cnpj ?? ''));
+      const cnpjDigits = normalizeCnpj(String(body.cnpj ?? ''));
       const razaoSocial = String(body.razaoSocial ?? '').trim();
       const cidade = body.cidade !== undefined ? String(body.cidade ?? '').trim() || null : null;
       const ufRaw = String(body.uf ?? '')
@@ -3284,8 +3286,8 @@ export default async function placementRoutes(
       const uf = ufRaw.length === 2 ? ufRaw : null;
       const vidas = toIntOrNull(body.vidas) ?? null;
 
-      if (cnpjDigits.length !== 14) {
-        return reply.status(400).send({ error: 'CNPJ inválido — informe os 14 dígitos' });
+      if (!isCnpjShape(cnpjDigits)) {
+        return reply.status(400).send({ error: 'CNPJ inválido — 14 caracteres (A–Z e 0–9; DV numérico)' });
       }
       if (!razaoSocial) {
         return reply.status(400).send({ error: 'Razão social é obrigatória' });
@@ -3335,9 +3337,9 @@ export default async function placementRoutes(
 
       const data: Record<string, unknown> = {};
       if (body.cnpj !== undefined) {
-        const d = onlyDigits(String(body.cnpj));
-        if (d.length !== 14) {
-          return reply.status(400).send({ error: 'CNPJ inválido — informe os 14 dígitos' });
+        const d = normalizeCnpj(String(body.cnpj));
+        if (!isCnpjShape(d)) {
+          return reply.status(400).send({ error: 'CNPJ inválido — 14 caracteres (A–Z e 0–9; DV numérico)' });
         }
         data.cnpj = d;
       }
@@ -3416,23 +3418,30 @@ export default async function placementRoutes(
           message: 'Envie multipart/form-data com o campo de arquivo nomeado "file".',
         });
       }
-      const buf = await file.toBuffer();
       const original = (file.filename || 'documento')
         .replace(/[/\\?%*:|"<>]/g, '_')
         .slice(0, 180);
       const storedName = `${randomUUID()}_${original || 'documento'}`;
       const dir = subfaturaUploadDir(id);
       await fs.mkdir(dir, { recursive: true });
-      await fs.writeFile(path.join(dir, storedName), buf);
-
-      const anexos = parseSubfaturaAnexos(sub.anexos);
-      const novo: SubfaturaAnexo = {
+      const destPath = path.join(dir, storedName);
+      await pipeline(file.file, createWriteStream(destPath));
+      let size = 0;
+      try {
+        const st = await fs.stat(destPath);
+        size = st.size;
+      } catch {
+        size = 0;
+      }
+      const novo = {
         id: randomUUID(),
         nomeOriginal: original || 'documento',
         storedName,
         mimeType: file.mimetype || 'application/octet-stream',
-        size: buf.length,
+        size,
       };
+
+      const anexos = parseSubfaturaAnexos(sub.anexos);
       const next = [...anexos, novo];
       const updated = await prisma.placementSubfatura.update({
         where: { id },
@@ -3496,21 +3505,29 @@ export default async function placementRoutes(
 
   fastify.get('/placement/cotacoes', async (request, reply) => {
     try {
-      const q = (request.query ?? {}) as { scope?: string; userId?: string };
+      const q = (request.query ?? {}) as { scope?: string; userId?: string; nocache?: string };
       const scope = String(q.scope ?? 'fila').trim().toLowerCase();
-      const where: Record<string, unknown> = {};
-      if (scope === 'fila' || scope === '') {
-        where.status = { not: PLACEMENT_STATUS_RASCUNHO };
-      } else if (scope === 'rascunhos') {
-        where.status = PLACEMENT_STATUS_RASCUNHO;
-        if (q.userId) where.userId = String(q.userId);
-      }
-      const cotacoes = await prisma.placementCotacao.findMany({
-        where: Object.keys(where).length ? where : undefined,
-        select: cotacaoFilaListSelect,
-        orderBy: { updatedAt: 'desc' },
-      });
-      return { cotacoes };
+      const cacheKey = `placement-fila:${scope}:${q.userId ? String(q.userId) : ''}`;
+      const skipCache = String(q.nocache ?? '') === '1';
+
+      const load = async () => {
+        const where: Record<string, unknown> = {};
+        if (scope === 'fila' || scope === '') {
+          where.status = { not: PLACEMENT_STATUS_RASCUNHO };
+        } else if (scope === 'rascunhos') {
+          where.status = PLACEMENT_STATUS_RASCUNHO;
+          if (q.userId) where.userId = String(q.userId);
+        }
+        const cotacoes = await prisma.placementCotacao.findMany({
+          where: Object.keys(where).length ? where : undefined,
+          select: cotacaoFilaListSelect,
+          orderBy: { updatedAt: 'desc' },
+        });
+        return { cotacoes };
+      };
+
+      if (skipCache) return await load();
+      return await placementFilaListCache.get(cacheKey, load, 8_000);
     } catch (error) {
       console.error('❌ GET /placement/cotacoes:', error);
       return reply.status(500).send({ error: 'Erro interno do servidor' });
@@ -3829,6 +3846,7 @@ export default async function placementRoutes(
         },
         include: cotacaoInclude,
       });
+      invalidatePlacementFilaListCache();
       return reply.status(201).send(created);
     } catch (error) {
       console.error('❌ POST /placement/cotacoes:', error);
@@ -3966,6 +3984,7 @@ export default async function placementRoutes(
         data: updatePayload,
         include: cotacaoInclude,
       });
+      invalidatePlacementFilaListCache();
       return updated;
     } catch (error) {
       console.error('❌ POST /placement/cotacoes/:id/iniciar-processo:', error);
@@ -4013,9 +4032,34 @@ export default async function placementRoutes(
         data,
         select: cotacaoLightSelect,
       });
+      invalidatePlacementFilaListCache();
       return updated;
     } catch (error) {
       console.error('❌ PATCH workflow-status:', error);
+      return reply.status(500).send({ error: 'Erro interno do servidor' });
+    }
+  });
+
+  fastify.put('/placement/cotacoes/:id/kick-off', async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string };
+      const body = (request.body ?? {}) as { kickOffEstrategia?: unknown };
+      const existing = await prisma.placementCotacao.findUnique({
+        where: { id },
+        select: { id: true, kickOffEstrategia: true },
+      });
+      if (!existing) return reply.status(404).send({ error: 'Cotação não encontrada' });
+      const parsed = parseKickOffEstrategiaBody(body.kickOffEstrategia);
+      const merged = mergeKickOffEstrategiaPayload(existing.kickOffEstrategia, parsed);
+      const updated = await prisma.placementCotacao.update({
+        where: { id },
+        data: { kickOffEstrategia: merged === null ? null : (merged as any) },
+        select: { id: true, updatedAt: true },
+      });
+      invalidatePlacementFilaListCache();
+      return { id: updated.id, updatedAt: updated.updatedAt };
+    } catch (error) {
+      console.error('❌ PUT /placement/cotacoes/:id/kick-off:', error);
       return reply.status(500).send({ error: 'Erro interno do servidor' });
     }
   });
@@ -4423,23 +4467,13 @@ export default async function placementRoutes(
         });
       }
 
+      const light = String((request.query as { light?: string })?.light ?? '') === '1';
       const updated = await prisma.placementCotacao.update({
         where: { id },
         data,
-        include: cotacaoInclude,
-      });
-      const light = String((request.query as { light?: string })?.light ?? '') === '1';
-      if (light) {
-        return {
-          id: updated.id,
-          status: updated.status,
-          emCotacaoSubetapa: updated.emCotacaoSubetapa,
-          updatedAt: updated.updatedAt,
-          kickOffEstrategia: updated.kickOffEstrategia,
-          vidas: updated.vidas,
-          valorEstimadoCents: updated.valorEstimadoCents,
-        };
-      }
+        ...(light ? { select: cotacaoLightSelect } : { include: cotacaoInclude }),
+      } as any);
+      invalidatePlacementFilaListCache();
       return updated;
     } catch (error) {
       console.error('❌ PUT /placement/cotacoes/:id:', error);
@@ -4527,6 +4561,7 @@ export default async function placementRoutes(
         );
       }
 
+      invalidatePlacementFilaListCache();
       return reply.status(201).send(created);
     } catch (error) {
       console.error('❌ POST /placement/cotacoes/:id/duplicate:', error);
@@ -4540,6 +4575,7 @@ export default async function placementRoutes(
       const existing = await prisma.placementCotacao.findUnique({ where: { id } });
       if (!existing) return reply.status(404).send({ error: 'Cotação não encontrada' });
       await prisma.placementCotacao.delete({ where: { id } });
+      invalidatePlacementFilaListCache();
       return { success: true };
     } catch (error) {
       console.error('❌ DELETE /placement/cotacoes/:id:', error);

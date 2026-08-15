@@ -54,7 +54,7 @@ export type BeneficiarioApontamento = {
 }
 
 export type BeneficiariosValidacaoContext = {
-  /** CNPJs das subfaturas (14 dígitos). */
+  /** CNPJs das subfaturas (14 caracteres, numérico ou alfanumérico). */
   subfaturaCnpjs: string[]
   /** CNPJ do estipulante (condição casa ou prospect). */
   estipulanteCnpj: string | null

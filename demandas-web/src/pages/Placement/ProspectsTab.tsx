@@ -13,13 +13,8 @@ import {
 import { SnackNotification } from '../../components/SnackNotification'
 import { ProspectFormModal } from './ProspectFormModal'
 import { CondicaoFormModal } from './CondicaoFormModal'
+import { formatCnpj14 } from '../../lib/cnpjAlfanumerico'
 import { formatCnaeDisplay, normalizeCnaeDigits } from './Fila/utils'
-
-function formatCnpjDisplay(value: string): string {
-  const d = (value || '').replace(/\D+/g, '').slice(0, 14)
-  if (d.length !== 14) return value || ''
-  return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12, 14)}`
-}
 
 export default function ProspectsTab() {
   const {
@@ -121,7 +116,7 @@ export default function ProspectsTab() {
         field: 'cnpj',
         headerName: 'CNPJ',
         width: 200,
-        renderCell: (params) => formatCnpjDisplay(String(params.value ?? '')),
+        renderCell: (params) => formatCnpj14(String(params.value ?? '')) || String(params.value ?? ''),
       },
       {
         field: 'acoes',

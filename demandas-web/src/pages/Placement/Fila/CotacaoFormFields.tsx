@@ -73,7 +73,7 @@ import {
 } from './placementCotacaoDetalhes'
 import { shouldShowPlanoModuleForCotacao, rowIdsNeedingPlanoForCotacao, type PlacementFormularioTipo } from './placementFormularioContrato'
 import { ContratoApoliceExtrasSection } from './ContratoApoliceExtrasSection'
-import { onlyDigitsCnpj } from '../../../lib/placementCnpjConsulta'
+import { formatCnpj14, formatCnpjMask, onlyDigitsCnpj } from '../../../lib/placementCnpjConsulta'
 import { COTACAO_STATUSES, formatCnaeDisplay, getWorkflowStatusDisplayLabel } from './utils'
 import { PLACEMENT_STATUS_RASCUNHO } from './placementCotacaoStatus'
 import {
@@ -102,12 +102,6 @@ function grupoEconomicoCompativel(geA: string | null | undefined, geB: string | 
   if (!b) return true
   if (!a) return true
   return a === b
-}
-
-function formatCnpj14(value: string | null | undefined): string {
-  const d = String(value ?? '').replace(/\D/g, '').slice(0, 14)
-  if (d.length !== 14) return ''
-  return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12, 14)}`
 }
 
 /** Rótulo da condição na lista: CNPJ + CNAE (sem misturar razão social no mesmo campo). */
@@ -1487,7 +1481,5 @@ export function CotacaoFormFields({
 }
 
 function formatCnpj(value: string): string {
-  const d = (value || '').replace(/\D+/g, '').slice(0, 14)
-  if (d.length !== 14) return value || ''
-  return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12, 14)}`
+  return formatCnpj14(value) || formatCnpjMask(value) || value || ''
 }
