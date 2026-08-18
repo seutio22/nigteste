@@ -158,7 +158,7 @@ export default async function placementShareRoutes(
           lastViewAt: new Date(),
         },
       })
-      await prisma.placementCotacaoShareAccessLog.create({
+      const accessLog = await prisma.placementCotacaoShareAccessLog.create({
         data: {
           shareTokenId: shareToken.id,
           ipAddress: getClientIp(request) || 'unknown',
@@ -182,12 +182,131 @@ export default async function placementShareRoutes(
             .filter(Boolean),
           viewCount: shareToken.viewCount + 1,
           expiresAt: shareToken.expiresAt,
+          accessLogId: accessLog.id,
         },
         cotacao: shareToken.cotacao,
         operadoras,
       }
     } catch (error) {
       console.error('Erro ao abrir share Placement:', error)
+      return reply.status(500).send({ error: 'Erro interno do servidor' })
+    }
+  })
+
+  fastify.post('/share/placement/:token/access/end', async (request, reply) => {
+    try {
+      const { token } = request.params as { token: string }
+      const body = (request.body ?? {}) as { accessLogId?: string; durationSeconds?: number }
+
+      const accessLogId = String(body.accessLogId || '').trim()
+      const durationSeconds =
+        typeof body.durationSeconds === 'number' && Number.isFinite(body.durationSeconds)
+          ? Math.floor(body.durationSeconds)
+          : NaN
+
+      if (!accessLogId || !Number.isFinite(durationSeconds) || durationSeconds < 0) {
+        return reply.status(400).send({ error: 'accessLogId e durationSeconds são obrigatórios' })
+      }
+
+      const shareToken = await prisma.placementCotacaoShareToken.findFirst({
+        where: { token, isActive: true },
+        select: { id: true, expiresAt: true },
+      })
+      if (!shareToken) {
+        return reply.status(404).send({ error: 'Link inválido ou desativado' })
+      }
+      if (shareToken.expiresAt && shareToken.expiresAt.getTime() < Date.now()) {
+        return reply.status(410).send({ error: 'Link expirado' })
+      }
+
+      const log = await prisma.placementCotacaoShareAccessLog.findFirst({
+        where: { id: accessLogId, shareTokenId: shareToken.id },
+      })
+      if (!log) {
+        return reply.status(404).send({ error: 'Registro de acesso não encontrado' })
+      }
+
+      const nextDuration = Math.max(log.durationSeconds ?? 0, durationSeconds)
+      await prisma.placementCotacaoShareAccessLog.update({
+        where: { id: log.id },
+        data: { durationSeconds: nextDuration },
+      })
+
+      return { success: true, durationSeconds: nextDuration }
+    } catch (error) {
+      console.error('Erro ao encerrar acesso share Placement:', error)
+      return reply.status(500).send({ error: 'Erro interno do servidor' })
+    }
+  })
+
+  fastify.post('/share/placement/:token/access/events', async (request, reply) => {
+    try {
+      const { token } = request.params as { token: string }
+      const body = (request.body ?? {}) as {
+        accessLogId?: string
+        events?: Array<{
+          at?: string
+          t?: number
+          kind?: string
+          label?: string
+          pane?: string
+        }>
+      }
+
+      const accessLogId = String(body.accessLogId || '').trim()
+      const incoming = Array.isArray(body.events) ? body.events : []
+      if (!accessLogId || incoming.length === 0) {
+        return reply.status(400).send({ error: 'accessLogId e events são obrigatórios' })
+      }
+
+      const shareToken = await prisma.placementCotacaoShareToken.findFirst({
+        where: { token, isActive: true },
+        select: { id: true, expiresAt: true },
+      })
+      if (!shareToken) {
+        return reply.status(404).send({ error: 'Link inválido ou desativado' })
+      }
+      if (shareToken.expiresAt && shareToken.expiresAt.getTime() < Date.now()) {
+        return reply.status(410).send({ error: 'Link expirado' })
+      }
+
+      const log = await prisma.placementCotacaoShareAccessLog.findFirst({
+        where: { id: accessLogId, shareTokenId: shareToken.id },
+        select: { id: true, clickEvents: true },
+      })
+      if (!log) {
+        return reply.status(404).send({ error: 'Registro de acesso não encontrado' })
+      }
+
+      const existing = Array.isArray(log.clickEvents) ? log.clickEvents : []
+      const sanitized = incoming
+        .slice(0, 80)
+        .map((ev) => {
+          const kind = ev.kind === 'pane' ? 'pane' : 'click'
+          const label = String(ev.label || '').trim().slice(0, 160)
+          if (!label) return null
+          const t =
+            typeof ev.t === 'number' && Number.isFinite(ev.t) ? Math.max(0, Math.floor(ev.t)) : 0
+          const pane = ev.pane ? String(ev.pane).trim().slice(0, 64) : undefined
+          return {
+            at: typeof ev.at === 'string' ? ev.at : new Date().toISOString(),
+            t,
+            kind,
+            label,
+            ...(pane ? { pane } : {}),
+          }
+        })
+        .filter((ev): ev is NonNullable<typeof ev> => ev != null)
+
+      const merged = [...existing, ...sanitized].slice(-200)
+      await prisma.placementCotacaoShareAccessLog.update({
+        where: { id: log.id },
+        data: { clickEvents: merged },
+      })
+
+      return { success: true, count: merged.length }
+    } catch (error) {
+      console.error('Erro ao registrar cliques share Placement:', error)
       return reply.status(500).send({ error: 'Erro interno do servidor' })
     }
   })

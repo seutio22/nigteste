@@ -27,7 +27,7 @@ export type AnalistaProdutividadeRow = {
    * Com presença: usa dias presentes × 8h; senão dias úteis × 8h.
    */
   pctMesCapacidade: number | null
-  /** Dias úteis com login/atividade no período (quando há dados de presença). */
+  /** Dias úteis com login real no período (quando há dados de presença). */
   diasPresentes: number | null
   capacidadeRealSeconds: number | null
   capacidadeRealLabel: string | null
@@ -42,7 +42,7 @@ export type IndiceProducaoHighlight = {
   tempoPrevistoLabel: string
 }
 
-/** Presença viva (login/sessão) usada para capacidade real — escopo departamento NIG. */
+/** Presença viva (dia do login) usada para capacidade real — escopo departamento NIG. */
 export type ProdutividadePresencaInput = {
   /** Analistas/usuários ativos do departamento NIG (ex.: 6). */
   equipePrevista: number

@@ -36,7 +36,7 @@ export function PlacementCotacaoWorkflowBar({ status, compact }: Props) {
   }))
 
   return (
-    <Box sx={{ mb: compact ? 2.5 : 1 }}>
+    <Box sx={{ mb: 1 }}>
       {compact && (
         <PlacementWorkflowSectionTitle title="Etapas do processo" icon={<RouteIcon fontSize="small" />} />
       )}

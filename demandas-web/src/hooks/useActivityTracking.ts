@@ -134,11 +134,24 @@ export function useActivityTracking() {
     }
   }, [user, token, startSession])
 
-  // Heartbeat: mantém "última atividade" e sessão atualizadas no servidor (presença / online)
+  // Heartbeat só com aba visível e uso recente (não mantém sessão aberta à toa).
   useEffect(() => {
     if (!user || !token) return
 
+    const IDLE_MS = 5 * 60 * 1000
+    let lastUserInteraction = Date.now()
+
+    const markInteraction = () => {
+      lastUserInteraction = Date.now()
+    }
+    const interactionEvents = ['mousedown', 'mousemove', 'keydown', 'keypress', 'scroll', 'touchstart', 'click']
+    interactionEvents.forEach((e) =>
+      document.addEventListener(e, markInteraction, { capture: true, passive: true })
+    )
+
     const send = () => {
+      if (typeof document !== 'undefined' && document.hidden) return
+      if (Date.now() - lastUserInteraction > IDLE_MS) return
       trackActivity({
         action: 'heartbeat',
         page: typeof window !== 'undefined' ? window.location.pathname : undefined,
@@ -149,7 +162,10 @@ export function useActivityTracking() {
     send()
     const intervalMs = 2 * 60 * 1000
     const id = window.setInterval(send, intervalMs)
-    return () => window.clearInterval(id)
+    return () => {
+      window.clearInterval(id)
+      interactionEvents.forEach((e) => document.removeEventListener(e, markInteraction, true))
+    }
   }, [user, token, trackActivity])
 
   // Finalizar sessão quando a página for fechada

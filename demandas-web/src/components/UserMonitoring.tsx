@@ -511,10 +511,12 @@ export default function UserMonitoring() {
               Sistema de monitoramento ativo - Coletando dados reais de atividade dos usuários
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1, lineHeight: 1.6 }}>
-              <strong>Online</strong>: atividade ou heartbeat nos últimos 5 minutos.{' '}
+              <strong>Online</strong>: uso real ou heartbeat nos últimos 5 minutos.{' '}
               <strong>Ausente</strong>: entre 5 e 15 minutos sem sinal.{' '}
               <strong>Offline</strong>: mais de 15 minutos ou sem histórico.{' '}
-              Com usuário logado, o app envia heartbeat a cada 2 minutos.{' '}
+              Heartbeat a cada 2 minutos só se a aba estiver visível e houver uso recente.{' '}
+              Aviso de inatividade aos 25 minutos; logout automático aos 30 minutos sem uso.{' '}
+              No fim do dia (meia-noite) a sessão é encerrada por completo.{' '}
               <strong>Tempo por página</strong>: cada rota é uma sessão de tela; ao trocar de página ou sair, o tempo naquela rota é enviado ao servidor.
             </Typography>
           </Box>

@@ -60,6 +60,7 @@ type Props = {
   headerRight?: React.ReactNode
   publicMode?: boolean
   initialPane?: PropostaViewerPane
+  onPublicPaneChange?: (paneId: PropostaViewerPane, paneLabel: string) => void
 }
 
 function PaneLoading() {
@@ -83,6 +84,7 @@ export function PlacementPropostaViewer({
   headerRight,
   publicMode,
   initialPane,
+  onPublicPaneChange,
 }: Props) {
   const startPane: PropostaViewerPane = initialPane ?? (publicMode ? 'grupo_elegivel' : 'comparativo')
   const operadoras = useMasterDataStore((s) => s.operadoras)
@@ -132,6 +134,12 @@ export function PlacementPropostaViewer({
       setPane(panesVisiveis[0]?.id ?? 'comparativo')
     }
   }, [panesVisiveis, pane])
+
+  useEffect(() => {
+    if (!publicMode || !onPublicPaneChange) return
+    const label = panesVisiveis.find((p) => p.id === pane)?.label ?? pane
+    onPublicPaneChange(pane, label)
+  }, [publicMode, pane, panesVisiveis, onPublicPaneChange])
 
   return (
     <Box

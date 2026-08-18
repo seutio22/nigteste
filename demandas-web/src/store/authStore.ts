@@ -36,18 +36,17 @@ interface AuthState {
   checkLoginExpiration: () => boolean
 }
 
-// Função para verificar se passou 1 dia desde o login
-function hasPassedOneDay(loginDate: string | null): boolean {
+/** Logout total ao virar o dia civil (meia-noite local) — não basta renovar a sessão. */
+function hasLoginDayEnded(loginDate: string | null): boolean {
   if (!loginDate) return true
-  
+
   const login = new Date(loginDate)
   const now = new Date()
-  
-  // Calcular diferença em horas
-  const diffInHours = (now.getTime() - login.getTime()) / (1000 * 60 * 60)
-  
-  // Se passou mais de 12 horas, considera expirado
-  return diffInHours > 12
+  return (
+    now.getFullYear() !== login.getFullYear() ||
+    now.getMonth() !== login.getMonth() ||
+    now.getDate() !== login.getDate()
+  )
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -100,15 +99,15 @@ export const useAuthStore = create<AuthState>()(
         return user?.role === 'admin'
       },
       
-      // Verificar se o login expirou (mais de 12 horas)
+      // Verificar se o dia do login já acabou (meia-noite)
       checkLoginExpiration: () => {
         const { loginDate, token, user } = get()
         
         if (!token || !user) return false
         
-        if (hasPassedOneDay(loginDate)) {
-          logDev('⏰ Login expirado (passou mais de 12 horas)')
-          logDev('🔒 Fazendo logout automático...')
+        if (hasLoginDayEnded(loginDate)) {
+          logDev('⏰ Login expirado (fim do dia)')
+          logDev('🔒 Fazendo logout total...')
           get().logout()
           return true
         }
@@ -128,8 +127,8 @@ export const useAuthStore = create<AuthState>()(
           
           // Se tem token e usuário, verificar se expirou
           if (token && user) {
-            if (hasPassedOneDay(loginDate)) {
-              logDev('⏰ Login expirado ao inicializar')
+            if (hasLoginDayEnded(loginDate)) {
+              logDev('⏰ Login expirado ao inicializar (fim do dia)')
               logDev('🔒 Limpando dados antigos...')
               get().logout()
               set({ loading: false })

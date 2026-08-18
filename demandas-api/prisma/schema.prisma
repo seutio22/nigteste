@@ -1198,12 +1198,16 @@ model PlacementCotacaoShareToken {
 }
 
 model PlacementCotacaoShareAccessLog {
-  id           String                     @id @default(uuid())
-  shareTokenId String
-  ipAddress    String
-  userAgent    String?
-  accessedAt   DateTime                   @default(now())
-  shareToken   PlacementCotacaoShareToken @relation(fields: [shareTokenId], references: [id], onDelete: Cascade)
+  id              String                     @id @default(uuid())
+  shareTokenId    String
+  ipAddress       String
+  userAgent       String?
+  accessedAt      DateTime                   @default(now())
+  /// Tempo total na apresentação (segundos), atualizado ao sair ou periodicamente.
+  durationSeconds Int?
+  /// Cliques e trocas de aba durante este acesso (JSON: [{ at, t, kind, label, pane? }]).
+  clickEvents     Json?
+  shareToken      PlacementCotacaoShareToken @relation(fields: [shareTokenId], references: [id], onDelete: Cascade)
 
   @@index([shareTokenId, accessedAt])
 }

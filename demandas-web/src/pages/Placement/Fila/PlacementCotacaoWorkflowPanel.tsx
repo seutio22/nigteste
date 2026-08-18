@@ -72,6 +72,8 @@ type Props = {
     mode: WorkflowRetreatMode
   ) => Promise<void>
   onEncerrar: (status: 'Perdida' | 'Cancelada' | 'Fechada') => Promise<void>
+  /** Sem card próprio: o header da cotação já envolve etapas + ações. */
+  embedded?: boolean
 }
 
 export const PlacementCotacaoWorkflowPanel = React.memo(function PlacementCotacaoWorkflowPanel({
@@ -87,6 +89,7 @@ export const PlacementCotacaoWorkflowPanel = React.memo(function PlacementCotaca
   onAdvance,
   onRetreat,
   onEncerrar,
+  embedded = false,
 }: Props) {
   const operadoras = useMasterDataStore((s) => s.operadoras)
   const operadorasById = useMasterDataStore((s) => s.operadorasById)
@@ -154,7 +157,7 @@ export const PlacementCotacaoWorkflowPanel = React.memo(function PlacementCotaca
 
   return (
     <>
-      <PlacementWorkflowNavShell>
+      <PlacementWorkflowNavShell plain={embedded} nested={embedded}>
         <PlacementCotacaoWorkflowBar status={status} compact />
 
         {stage && !terminal && (

@@ -621,7 +621,7 @@ export default function DashboardProdutividadePage() {
             subtitle={
               summary.capacidadeRealLabel
                 ? `Previsto ÷ capacidade real ${summary.capacidadeRealLabel}`
-                : 'Sem dados de login/presença no período'
+                : 'Sem dados de login no período'
             }
             icon={<CompareIcon fontSize="small" />}
             color="#0f766e"
@@ -708,7 +708,7 @@ export default function DashboardProdutividadePage() {
                     summary.pessoasPresentes != null
                       ? `${summary.pessoasPresentes} de ${summary.pessoasCapacidade} do NIG com login no período`
                       : null,
-                    `soma ${summary.pessoaDiasPresentes} dia(s) de presença × 08:00:00`,
+                    `soma ${summary.pessoaDiasPresentes} dia(s) com login × 08:00:00`,
                     summary.pctPresencaCapacidade != null
                       ? `${String(summary.pctPresencaCapacidade).replace('.', ',')}% da prevista`
                       : null,
@@ -870,7 +870,7 @@ function AnalistaBlock({
             : '—'}
           {row.diasPresentes != null ? (
             <Typography variant="caption" color="text.secondary" display="block">
-              {row.diasPresentes} dia(s) presente
+              {row.diasPresentes} dia(s) com login
             </Typography>
           ) : null}
         </TableCell>

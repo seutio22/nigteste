@@ -83,18 +83,14 @@ export const placementNavSecondarySx = {
 type ShellProps = {
   children: React.ReactNode
   nested?: boolean
+  /** Sem card próprio — o cabeçalho da cotação já envolve o bloco. */
+  plain?: boolean
 }
 
-export function PlacementWorkflowNavShell({ children, nested }: ShellProps) {
-  return (
-    <Paper
-      elevation={0}
-      sx={{
-        ...placementWorkflowCardSx,
-        mb: 3,
-      }}
-    >
-      {!nested && (
+export function PlacementWorkflowNavShell({ children, nested, plain }: ShellProps) {
+  const inner = (
+    <>
+      {!nested && !plain && (
         <Box
           sx={{
             height: 4,
@@ -103,7 +99,19 @@ export function PlacementWorkflowNavShell({ children, nested }: ShellProps) {
           }}
         />
       )}
-      <Box sx={{ px: { xs: 2, md: 2.5 }, py: { xs: 2, md: 2.5 } }}>{children}</Box>
+      <Box sx={{ px: { xs: 1.5, md: 2 }, py: plain ? 1 : { xs: 1.25, md: 1.5 } }}>{children}</Box>
+    </>
+  )
+  if (plain) return inner
+  return (
+    <Paper
+      elevation={0}
+      sx={{
+        ...placementWorkflowCardSx,
+        mb: nested ? 0 : 1.5,
+      }}
+    >
+      {inner}
     </Paper>
   )
 }
@@ -362,7 +370,7 @@ export function PlacementWorkflowSectionTitle({
   icon?: React.ReactNode
 }) {
   return (
-    <Stack direction="row" spacing={1.25} alignItems="center" sx={{ mb: 2 }}>
+    <Stack direction="row" spacing={1.25} alignItems="center" sx={{ mb: 1 }}>
       {icon && (
         <Box sx={{ ...placementWorkflowIconBoxSx, width: 36, height: 36 }}>{icon}</Box>
       )}

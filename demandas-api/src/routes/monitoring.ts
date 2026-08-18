@@ -4,8 +4,54 @@ import { createRequirePermission } from '../middleware/requirePermission'
 
 const requirePermission = createRequirePermission(prisma)
 
+/** Sessão inativa após este intervalo sem uso real (alinhado ao logout do front). */
+const SESSION_IDLE_MS = 5 * 60 * 1000
+
 async function verifyJWT(req: any) {
   await req.jwtVerify()
+}
+
+/** Fecha sessões ociosas; se `refresh` e ainda dentro da janela, atualiza lastActivity. */
+async function refreshOrCloseActiveSessions(userId: string, now: Date, refresh: boolean) {
+  const sessions = await prisma.userSession.findMany({
+    where: { userId, isActive: true },
+    select: { id: true, loginTime: true, lastActivity: true }
+  })
+  for (const s of sessions) {
+    const last = (s.lastActivity || s.loginTime).getTime()
+    if (now.getTime() - last > SESSION_IDLE_MS) {
+      const logoutTime = new Date(Math.min(now.getTime(), last + SESSION_IDLE_MS))
+      const duration = Math.max(0, Math.floor((logoutTime.getTime() - s.loginTime.getTime()) / 1000))
+      await prisma.userSession.update({
+        where: { id: s.id },
+        data: { isActive: false, logoutTime, duration }
+      })
+    } else if (refresh) {
+      await prisma.userSession.update({
+        where: { id: s.id },
+        data: { lastActivity: now }
+      })
+    }
+  }
+}
+
+/** Encerra sessões ativas cujo lastActivity já passou da janela de 5 minutos. */
+async function closeAllIdleSessions(now = new Date()) {
+  const cutoff = new Date(now.getTime() - SESSION_IDLE_MS)
+  const stale = await prisma.userSession.findMany({
+    where: { isActive: true, lastActivity: { lt: cutoff } },
+    select: { id: true, loginTime: true, lastActivity: true }
+  })
+  await Promise.all(
+    stale.map((s) => {
+      const logoutTime = s.lastActivity
+      const duration = Math.max(0, Math.floor((logoutTime.getTime() - s.loginTime.getTime()) / 1000))
+      return prisma.userSession.update({
+        where: { id: s.id },
+        data: { isActive: false, logoutTime, duration }
+      })
+    })
+  )
 }
 
 /** Início do dia local do servidor (alinhado aos registros UserMonitoring.date). */
@@ -129,6 +175,19 @@ export default async function monitoringRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ error: 'Usuário não encontrado' })
       }
 
+      const now = new Date()
+      const isHeartbeat = action === 'heartbeat'
+
+      // Heartbeat não grava histórico: só pinga sessão se ainda houver uso recente.
+      if (isHeartbeat) {
+        setImmediate(() => {
+          void refreshOrCloseActiveSessions(user.id, now, true).catch((e) => {
+            console.error('monitoring/activity heartbeat follow-up:', e)
+          })
+        })
+        return reply.send({ success: true, heartbeat: true })
+      }
+
       // Registrar atividade
       const activity = await prisma.userActivity.create({
         data: {
@@ -150,11 +209,8 @@ export default async function monitoringRoutes(fastify: FastifyInstance) {
       setImmediate(() => {
         void (async () => {
           try {
-            await prisma.userSession.updateMany({
-              where: { userId: user.id, isActive: true },
-              data: { lastActivity: new Date() }
-            })
-            await upsertUserMonitoringDaily(user.id, action, duration, new Date())
+            await refreshOrCloseActiveSessions(user.id, now, true)
+            await upsertUserMonitoringDaily(user.id, action, duration, now)
           } catch (e) {
             console.error('monitoring/activity async follow-up:', e)
           }
@@ -171,6 +227,12 @@ export default async function monitoringRoutes(fastify: FastifyInstance) {
   // Endpoint para buscar dados de monitoramento
   fastify.get('/users', async (request: FastifyRequest, reply: FastifyReply) => {
     try {
+      setImmediate(() => {
+        void closeAllIdleSessions().catch((e) => {
+          console.error('monitoring/users idle session cleanup:', e)
+        })
+      })
+
       const startOfDay = new Date()
       startOfDay.setHours(0, 0, 0, 0)
       const nowDate = new Date()
@@ -575,7 +637,8 @@ export default async function monitoringRoutes(fastify: FastifyInstance) {
 
   /**
    * Presença no período (capacidade real): apenas usuários do departamento informado
-   * (padrão: NIG). Logins/sessões em dias úteis, cruzados com Analista (email/nome).
+   * (padrão: NIG). Conta somente o dia do login real — não estende pelos dias em que
+   * a sessão ficou aberta (heartbeat / lastActivity).
    */
   fastify.get(
     '/presence-range',
@@ -659,31 +722,19 @@ export default async function monitoringRoutes(fastify: FastifyInstance) {
             select: { id: true, nome: true, email: true }
           }),
           prisma.userMonitoring.findMany({
-            where: { date: { gte: rangeStart, lte: rangeEnd } },
+            where: {
+              date: { gte: rangeStart, lte: rangeEnd },
+              loginCount: { gt: 0 }
+            },
             select: {
               userId: true,
               date: true,
-              loginCount: true,
-              sessionCount: true,
-              pageDwellSeconds: true,
-              pageViewCount: true
+              loginCount: true
             }
           }),
           prisma.userSession.findMany({
-            where: {
-              OR: [
-                { loginTime: { gte: rangeStart, lte: rangeEnd } },
-                {
-                  AND: [
-                    { loginTime: { lte: rangeEnd } },
-                    {
-                      OR: [{ logoutTime: null }, { logoutTime: { gte: rangeStart } }]
-                    }
-                  ]
-                }
-              ]
-            },
-            select: { userId: true, loginTime: true, logoutTime: true, lastActivity: true }
+            where: { loginTime: { gte: rangeStart, lte: rangeEnd } },
+            select: { userId: true, loginTime: true }
           }),
           prisma.userActivity.findMany({
             where: {
@@ -729,29 +780,13 @@ export default async function monitoringRoutes(fastify: FastifyInstance) {
         }
 
         for (const row of monitoringRows) {
-          const hasPresence =
-            (row.loginCount || 0) > 0 ||
-            (row.sessionCount || 0) > 0 ||
-            (row.pageDwellSeconds || 0) > 0 ||
-            (row.pageViewCount || 0) > 0
-          if (!hasPresence) continue
+          if ((row.loginCount || 0) <= 0) continue
           touch(row.userId, dayKeyOf(row.date))
         }
 
+        // Só o dia em que a pessoa entrou — não os dias em que a aba ficou aberta.
         for (const s of sessions) {
-          const start = new Date(Math.max(s.loginTime.getTime(), rangeStart.getTime()))
-          const endRaw = s.logoutTime || s.lastActivity || s.loginTime
-          const end = new Date(Math.min(endRaw.getTime(), rangeEnd.getTime()))
-          const walker = new Date(start)
-          walker.setHours(12, 0, 0, 0)
-          const endWalk = new Date(end)
-          endWalk.setHours(12, 0, 0, 0)
-          let guard = 0
-          while (walker <= endWalk && guard < 400) {
-            touch(s.userId, dayKeyOf(walker))
-            walker.setDate(walker.getDate() + 1)
-            guard += 1
-          }
+          touch(s.userId, dayKeyOf(s.loginTime))
         }
 
         for (const act of loginActs) {

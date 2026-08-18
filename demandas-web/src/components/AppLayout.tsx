@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Outlet, useNavigate } from 'react-router-dom'
+import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
 import { TimeoutWarning } from './TimeoutWarning'
@@ -22,6 +22,8 @@ const globalSyncInFlight = new Set<string>()
 export function AppLayout() {
   const { isCollapsed, isMobile } = useSidebar()
   const navigate = useNavigate()
+  const location = useLocation()
+  const compactMain = location.pathname.startsWith('/placement')
   const { logout, checkLoginExpiration } = useAuthStore()
   const [showTimeoutWarning, setShowTimeoutWarning] = useState(false)
   const isDev = import.meta.env.DEV
@@ -58,32 +60,48 @@ export function AppLayout() {
   const syncProjetos = useProjectStore((s) => s.syncFromApi)
   const comunicadoCount = useComunicadoStore((s) => s.items.length)
 
-  // Verificar expiração do login a cada 5 minutos
+  // Fim do dia: logout total à meia-noite (não é adiado ao renovar a sessão)
   useEffect(() => {
     const checkExpiration = () => {
       const expired = checkLoginExpiration()
       if (expired) {
-        logDev('⏰ Login expirado detectado - redirecionando para login')
+        logDev('⏰ Fim do dia — logout total e redirecionamento para login')
         navigate('/login')
       }
     }
 
-    // Verificar imediatamente ao montar
     checkExpiration()
 
-    // Verificar a cada 5 minutos
-    const interval = setInterval(() => {
-      if (typeof document !== 'undefined' && document.hidden) return
-      checkExpiration()
-    }, 5 * 60 * 1000)
+    let midnightTimer: ReturnType<typeof setTimeout> | undefined
+    const scheduleMidnightLogout = () => {
+      const now = new Date()
+      const nextMidnight = new Date(now)
+      nextMidnight.setHours(24, 0, 0, 0)
+      const ms = Math.max(1000, nextMidnight.getTime() - now.getTime())
+      midnightTimer = setTimeout(() => {
+        checkExpiration()
+        scheduleMidnightLogout()
+      }, ms)
+    }
+    scheduleMidnightLogout()
 
-    return () => clearInterval(interval)
+    const interval = setInterval(checkExpiration, 60 * 1000)
+    const onVisibility = () => {
+      if (!document.hidden) checkExpiration()
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+
+    return () => {
+      if (midnightTimer) clearTimeout(midnightTimer)
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
   }, [checkLoginExpiration, navigate])
 
   // Sistema de timeout por inatividade
   const { resetTimeout } = useInactivityTimeout({
-    timeout: 30 * 60 * 1000, // 30 minutos
-    warningTime: 5 * 60 * 1000, // 5 minutos de aviso
+    timeout: 30 * 60 * 1000,
+    warningTime: 5 * 60 * 1000,
     onWarning: () => {
       logDev('⚠️ Aviso: Sessão expirando em 5 minutos')
       setShowTimeoutWarning(true)
@@ -161,11 +179,11 @@ export function AppLayout() {
       >
         <Header />
         
-        <main className="p-6">
+        <main className={compactMain ? 'px-3 pt-2 pb-3' : 'p-6'}>
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 1, y: compactMain ? 0 : 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
+            transition={{ duration: compactMain ? 0 : 0.3 }}
           >
             <Outlet />
           </motion.div>
@@ -177,7 +195,7 @@ export function AppLayout() {
         open={showTimeoutWarning}
         onExtend={handleExtendSession}
         onLogout={handleLogout}
-        timeRemaining={5 * 60} // 5 minutos em segundos
+        timeRemaining={5 * 60}
       />
     </div>
   )

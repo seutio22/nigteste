@@ -15,9 +15,13 @@ import {
   clearAguardandoOperadoraFiltrosVisibilidade,
   parseAguardandoOperadoraFromKickOff,
 } from './placementAguardandoOperadora'
+import {
+  clearPlacementShareAccessSession,
+  usePlacementShareAccessTracking,
+} from './usePlacementShareAccessTracking'
 
 type SharePayload = {
-  shareInfo?: { name?: string }
+  shareInfo?: { name?: string; accessLogId?: string }
   cotacao?: unknown
   operadoras?: Array<{ id: string; nome: string }>
 }
@@ -46,6 +50,9 @@ export default function SharePlacementPresentationPage() {
   const [cotacaoId, setCotacaoId] = useState('')
   const [title, setTitle] = useState('Apresentação da proposta')
   const [sessionNonce, setSessionNonce] = useState(0)
+  const [accessLogId, setAccessLogId] = useState<string | undefined>()
+
+  const { trackPane } = usePlacementShareAccessTracking(token, accessLogId)
 
   useEffect(() => {
     const onPageShow = (event: PageTransitionEvent) => {
@@ -78,6 +85,7 @@ export default function SharePlacementPresentationPage() {
         setForm(nextForm)
         setCotacaoId(String((data.cotacao as { id?: string }).id ?? ''))
         setTitle(data.shareInfo?.name || `Proposta ${nextForm.ticket}`)
+        setAccessLogId(data.shareInfo?.accessLogId)
         if (Array.isArray(data.operadoras)) {
           useMasterDataStore.setState((s) => {
             const byId = { ...s.operadorasById } as Record<string, any>
@@ -101,6 +109,7 @@ export default function SharePlacementPresentationPage() {
     return () => {
       cancelled = true
       setPlacementShareToken(null)
+      clearPlacementShareAccessSession()
     }
   }, [token])
 
@@ -164,6 +173,7 @@ export default function SharePlacementPresentationPage() {
       onPersisted={handlePersisted}
       publicMode
       initialPane="grupo_elegivel"
+      onPublicPaneChange={trackPane}
       headerLeft={
         <Stack spacing={0.25} sx={{ minWidth: 0 }}>
           <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1.2 }} noWrap>

@@ -14,6 +14,8 @@ import {
   DialogContent,
   DialogContentText,
   DialogActions,
+  IconButton,
+  Tooltip,
 } from '@mui/material'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import SaveIcon from '@mui/icons-material/Save'
@@ -26,6 +28,7 @@ import {
   placementNavBackSx,
   placementNavButtonSx,
 } from './placementWorkflowNav'
+import { placementWorkflowCardSx } from './placementWorkflowTheme'
 import { useMasterDataStore } from '../../../store/masterDataStore'
 import { usePlacementStore } from '../../../store/placementStore'
 import { usePlacementCotacaoStore } from '../../../store/placementCotacaoStore'
@@ -652,6 +655,27 @@ export default function PlacementFilaDetailPage({ fullscreen = false }: { fullsc
     </Stack>
   )
 
+  const painelWorkflow =
+    !isDraft && form ? (
+      <PlacementCotacaoWorkflowPanel
+        embedded={!fullscreen}
+        status={form.status}
+        form={form}
+        getLatestForm={getLatestForm}
+        saving={workflowSaving}
+        beneficiariosTotal={beneficiariosTotal}
+        analistaResponsavel={analistaResponsavelMeta}
+        analistaValidadorId={
+          parseValidacaoPropostaFromKickOff(form.kickOffEstrategia).analistaValidadorId
+        }
+        onDesignarAnalista={handleDesignarAnalista}
+        onDesignarValidador={handleDesignarValidador}
+        onAdvance={handleAvancarEtapa}
+        onRetreat={handleVoltarEtapa}
+        onEncerrar={handleEncerrarProcesso}
+      />
+    ) : null
+
   const corpoEtapa =
     loading || !form ? (
       <Box sx={{ display: 'flex', justifyContent: 'center', py: fullscreen ? 8 : 6 }}>
@@ -659,24 +683,7 @@ export default function PlacementFilaDetailPage({ fullscreen = false }: { fullsc
       </Box>
     ) : (
       <>
-        {!isDraft && (
-          <PlacementCotacaoWorkflowPanel
-            status={form.status}
-            form={form}
-            getLatestForm={getLatestForm}
-            saving={workflowSaving}
-            beneficiariosTotal={beneficiariosTotal}
-            analistaResponsavel={analistaResponsavelMeta}
-            analistaValidadorId={
-              parseValidacaoPropostaFromKickOff(form.kickOffEstrategia).analistaValidadorId
-            }
-            onDesignarAnalista={handleDesignarAnalista}
-            onDesignarValidador={handleDesignarValidador}
-            onAdvance={handleAvancarEtapa}
-            onRetreat={handleVoltarEtapa}
-            onEncerrar={handleEncerrarProcesso}
-          />
-        )}
+        {fullscreen ? painelWorkflow : null}
 
         {id && (
           <PlacementCotacaoDetailTabs
@@ -841,47 +848,72 @@ export default function PlacementFilaDetailPage({ fullscreen = false }: { fullsc
 
   return (
     <PlacementFilaPageShell>
-      <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 2 }}>
-        <Button
-          startIcon={<ArrowBackIcon />}
-          variant="text"
-          onClick={voltarParaFila}
-        >
-          Voltar para Fila
-        </Button>
-      </Stack>
-
-      <Paper sx={{ p: 3, mb: 2 }}>
-        <Stack direction="row" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={2}>
-          <Box>
-            <Typography variant="h5" sx={{ fontWeight: 700 }}>
-              {form?.ticket || '—'}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Cotação placement · {form ? summarizeItensNomes(form.itens) || 'sem produto' : '—'} ·{' '}
-              {form
-                ? new Set(form.itens.map((i) => i.fornecedorId).filter(Boolean)).size
-                : 0}{' '}
-              fornecedor(es)
-              {metricasCabecalho.vidas != null && (
-                <> · {metricasCabecalho.vidas} vidas (total registrado)</>
-              )}
-            </Typography>
-          </Box>
-          <Stack direction="row" spacing={1} alignItems="center">
-            {atalhosTelaCheia}
-            <Chip
-              label={getWorkflowStatusDisplayLabel(form?.status) || '—'}
-              color={headerStatusColor.chip}
-              sx={{ fontWeight: 600 }}
-            />
-            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-              {metricasCabecalho.valorCents != null
-                ? formatCentsToBRL(metricasCabecalho.valorCents)
-                : '—'}
-            </Typography>
+      <Paper
+        elevation={0}
+        sx={{
+          ...placementWorkflowCardSx,
+          mb: 1.5,
+        }}
+      >
+        <Box
+          sx={{
+            height: 4,
+            background: (theme) =>
+              `linear-gradient(90deg, ${theme.palette.secondary.main} 0%, ${theme.palette.primary.main} 55%, ${theme.palette.primary.light} 100%)`,
+          }}
+        />
+        <Box sx={{ px: { xs: 1.5, md: 2 }, py: 1, borderBottom: 1, borderColor: 'divider' }}>
+          <Stack direction="row" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1}>
+            <Stack direction="row" alignItems="center" spacing={1.25} sx={{ minWidth: 0 }}>
+              <Tooltip title="Voltar para a fila">
+                <IconButton
+                  onClick={voltarParaFila}
+                  aria-label="Voltar para a fila"
+                  sx={{
+                    width: 36,
+                    height: 36,
+                    flexShrink: 0,
+                    bgcolor: 'primary.main',
+                    color: '#fff',
+                    boxShadow: '0 2px 8px rgba(0, 37, 97, 0.28)',
+                    '&:hover': { bgcolor: 'primary.dark' },
+                  }}
+                >
+                  <ArrowBackIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Box sx={{ minWidth: 0 }}>
+                <Typography variant="h5" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
+                  {form?.ticket || '—'}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Cotação placement · {form ? summarizeItensNomes(form.itens) || 'sem produto' : '—'} ·{' '}
+                  {form
+                    ? new Set(form.itens.map((i) => i.fornecedorId).filter(Boolean)).size
+                    : 0}{' '}
+                  fornecedor(es)
+                  {metricasCabecalho.vidas != null && (
+                    <> · {metricasCabecalho.vidas} vidas (total registrado)</>
+                  )}
+                </Typography>
+              </Box>
+            </Stack>
+            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+              {atalhosTelaCheia}
+              <Chip
+                label={getWorkflowStatusDisplayLabel(form?.status) || '—'}
+                color={headerStatusColor.chip}
+                sx={{ fontWeight: 600 }}
+              />
+              <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                {metricasCabecalho.valorCents != null
+                  ? formatCentsToBRL(metricasCabecalho.valorCents)
+                  : '—'}
+              </Typography>
+            </Stack>
           </Stack>
-        </Stack>
+        </Box>
+        {!loading && painelWorkflow}
       </Paper>
 
       {isDraft && (

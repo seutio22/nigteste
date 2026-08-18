@@ -13,7 +13,7 @@ export function PlacementFilaPageShell({ children }: Props) {
         maxWidth: '100%',
         minWidth: 0,
         mx: 0,
-        py: { xs: 0.5, md: 1 },
+        py: 0,
         px: 0,
       }}
     >
