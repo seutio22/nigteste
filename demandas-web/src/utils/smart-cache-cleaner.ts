@@ -20,7 +20,10 @@ const PRESERVED_KEYS = [
   'user-preferences',
   'theme-settings',
   'language-settings',
-  'notifications-enabled'
+  'notifications-enabled',
+  'alert-delivery-mode',
+  'alert-window-duration-ms',
+  'alert-repeat-interval-ms',
 ];
 
 // Padrões de chaves do sistema que devem ser limpos

@@ -1,6 +1,6 @@
 import React from 'react'
 import { Box, Typography } from '@mui/material'
-import type { DiferencialCelulaCotacao } from './placementConsolidandoDados'
+import { formatCelulaPlanoLabel, type DiferencialCelulaCotacao } from './placementConsolidandoDados'
 import { SLIDE_COLORS, SLIDE_FONT } from './placementSlideTheme'
 
 const FONT = SLIDE_FONT
@@ -43,7 +43,7 @@ export function DiferencialCelulaContent({ celulas, tabColor, variant = 'table' 
       }}
     >
       {celulas.map((c) => {
-        const plano = c.planoLabel.trim()
+        const plano = formatCelulaPlanoLabel(c)
         const texto = c.texto.trim()
         if (!texto) return null
         return (

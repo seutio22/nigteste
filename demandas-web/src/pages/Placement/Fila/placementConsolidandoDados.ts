@@ -2,7 +2,11 @@ import type { CotacaoFormState } from './CotacaoFormFields'
 import type { KickOffEstrategia } from './placementKickOffEstrategia'
 import {
   DIFERENCIAL_ITEM_KEYS,
+  isCatalogDiferencialKey,
   labelDiferencialItem,
+  listDiferencialItens,
+  slugifyDiferencialLabel,
+  type DiferencialItemExtra,
   type DiferencialItemKey,
 } from './placementDiferenciaisCatalogo'
 import {
@@ -31,6 +35,9 @@ export type DiferencialCelulaCotacao = {
   /** Plano cadastrado em Dados → Placement (opcional para texto geral do fornecedor). */
   placementPlanoId: string
   planoLabel: string
+  /** Vários planos com a mesma descrição (compatível com o campo único acima). */
+  placementPlanoIds?: string[]
+  planoLabels?: string[]
   texto: string
   fromMaster?: boolean
 }
@@ -62,6 +69,10 @@ export type ConsolidandoDadosState = {
     condicoes?: string[]
     indicadores?: string[]
   }
+  /** Diferenciais extras desta cotação (além do catálogo fixo). */
+  itensExtras?: {
+    diferenciais?: DiferencialItemExtra[]
+  }
 }
 
 function uid(prefix: string): string {
@@ -78,6 +89,7 @@ export function emptyConsolidandoDadosState(): ConsolidandoDadosState {
     notasRodape:
       'Informações sujeitas a limites e critérios contratuais. Podem ser revisadas a qualquer momento, sem aviso prévio.',
     itensOcultos: { diferenciais: [], condicoes: [], indicadores: [] },
+    itensExtras: { diferenciais: [] },
   }
 }
 
@@ -105,6 +117,35 @@ function emptyIndicadoresMap(): Record<string, Record<string, DiferencialCelulaC
   return map
 }
 
+function parseStringList(raw: unknown): string[] | undefined {
+  if (!Array.isArray(raw)) return undefined
+  return raw.map((v) => String(v ?? '').trim()).filter(Boolean)
+}
+
+function parseCelulaList(celulasRaw: unknown): DiferencialCelulaCotacao[] {
+  if (!Array.isArray(celulasRaw)) return []
+  return celulasRaw
+    .map((c) => {
+      if (!c || typeof c !== 'object') return null
+      const cell = c as Record<string, unknown>
+      const texto = String(cell.texto ?? '')
+      const placementPlanoId = String(cell.placementPlanoId ?? '')
+      const planoLabel = String(cell.planoLabel ?? '')
+      const placementPlanoIds = parseStringList(cell.placementPlanoIds)
+      const planoLabels = parseStringList(cell.planoLabels)
+      return {
+        id: String(cell.id ?? uid('cc')),
+        placementPlanoId,
+        planoLabel,
+        ...(placementPlanoIds ? { placementPlanoIds } : {}),
+        ...(planoLabels ? { planoLabels } : {}),
+        texto,
+        fromMaster: cell.fromMaster === true,
+      } satisfies DiferencialCelulaCotacao
+    })
+    .filter(Boolean) as DiferencialCelulaCotacao[]
+}
+
 function parseCelulasMap(
   rawDiff: unknown,
   keys: readonly string[]
@@ -112,31 +153,51 @@ function parseCelulasMap(
   const map: Record<string, Record<string, DiferencialCelulaCotacao[]>> = {}
   for (const key of keys) map[key] = {}
   if (!rawDiff || typeof rawDiff !== 'object' || Array.isArray(rawDiff)) return map
-  for (const itemKey of keys) {
-    const porColunaRaw = (rawDiff as Record<string, unknown>)[itemKey]
+  const raw = rawDiff as Record<string, unknown>
+  const allKeys = [...keys]
+  for (const extraKey of Object.keys(raw)) {
+    if (!allKeys.includes(extraKey)) allKeys.push(extraKey)
+  }
+  for (const itemKey of allKeys) {
+    const porColunaRaw = raw[itemKey]
     if (!porColunaRaw || typeof porColunaRaw !== 'object' || Array.isArray(porColunaRaw)) continue
+    if (!map[itemKey]) map[itemKey] = {}
     for (const [colunaId, celulasRaw] of Object.entries(porColunaRaw as Record<string, unknown>)) {
-      if (!Array.isArray(celulasRaw)) continue
-      map[itemKey][colunaId] = celulasRaw
-        .map((c) => {
-          if (!c || typeof c !== 'object') return null
-          const cell = c as Record<string, unknown>
-          const texto = String(cell.texto ?? '')
-          return {
-            id: String(cell.id ?? uid('cc')),
-            placementPlanoId: String(cell.placementPlanoId ?? ''),
-            planoLabel: String(cell.planoLabel ?? ''),
-            texto,
-            fromMaster: cell.fromMaster === true,
-          } satisfies DiferencialCelulaCotacao
-        })
-        .filter(Boolean) as DiferencialCelulaCotacao[]
+      map[itemKey][colunaId] = parseCelulaList(celulasRaw)
     }
   }
   return map
 }
 
-function parseItensOcultos(raw: unknown): {
+function parseDiferenciaisExtras(
+  raw: unknown,
+  diferenciaisMap?: Record<string, Record<string, DiferencialCelulaCotacao[]>>
+): DiferencialItemExtra[] {
+  const listed: DiferencialItemExtra[] = []
+  const seen = new Set<string>(DIFERENCIAL_ITEM_KEYS)
+  if (Array.isArray(raw)) {
+    for (const item of raw) {
+      if (!item || typeof item !== 'object') continue
+      const rec = item as Record<string, unknown>
+      const key = String(rec.key ?? '').trim()
+      const label = String(rec.label ?? '').trim()
+      if (!key || !label || seen.has(key) || isCatalogDiferencialKey(key)) continue
+      seen.add(key)
+      listed.push({ key, label })
+    }
+  }
+  for (const key of Object.keys(diferenciaisMap ?? {})) {
+    if (seen.has(key) || isCatalogDiferencialKey(key)) continue
+    seen.add(key)
+    listed.push({ key, label: labelDiferencialItem(key) })
+  }
+  return listed
+}
+
+function parseItensOcultos(
+  raw: unknown,
+  extraDiferencialKeys: readonly string[] = []
+): {
   diferenciais: string[]
   condicoes: string[]
   indicadores: string[]
@@ -150,7 +211,7 @@ function parseItensOcultos(raw: unknown): {
     return v.map((x) => String(x ?? '').trim()).filter((k) => k && allow.has(k))
   }
   return {
-    diferenciais: asKeys(o.diferenciais, DIFERENCIAL_ITEM_KEYS),
+    diferenciais: asKeys(o.diferenciais, [...DIFERENCIAL_ITEM_KEYS, ...extraDiferencialKeys]),
     condicoes: asKeys(o.condicoes, CONDICAO_CONTRATUAL_ITEM_KEYS),
     indicadores: asKeys(o.indicadores, INDICADOR_OPERADORA_ITEM_KEYS),
   }
@@ -163,14 +224,27 @@ export function parseConsolidandoDadosFromKickOff(
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
   const o = raw as Record<string, unknown>
 
+  const extrasRaw =
+    o.itensExtras && typeof o.itensExtras === 'object' && !Array.isArray(o.itensExtras)
+      ? (o.itensExtras as Record<string, unknown>).diferenciais
+      : undefined
+  const extrasDraft = parseDiferenciaisExtras(extrasRaw)
+  const extraKeys = extrasDraft.map((e) => e.key)
+  const diferenciais = parseCelulasMap(o.diferenciais, [...DIFERENCIAL_ITEM_KEYS, ...extraKeys])
+  const extras = parseDiferenciaisExtras(extrasRaw, diferenciais)
+
   return {
-    diferenciais: parseCelulasMap(o.diferenciais, DIFERENCIAL_ITEM_KEYS),
+    diferenciais,
     condicoes: parseCelulasMap(o.condicoes, CONDICAO_CONTRATUAL_ITEM_KEYS),
     indicadores: parseCelulasMap(o.indicadores, INDICADOR_OPERADORA_ITEM_KEYS),
     resumoCoberturas: String(o.resumoCoberturas ?? ''),
     condicoesContratuais: String(o.condicoesContratuais ?? ''),
     notasRodape: o.notasRodape != null ? String(o.notasRodape) : undefined,
-    itensOcultos: parseItensOcultos(o.itensOcultos),
+    itensOcultos: parseItensOcultos(
+      o.itensOcultos,
+      extras.map((e) => e.key)
+    ),
+    itensExtras: { diferenciais: extras },
   }
 }
 
@@ -179,9 +253,14 @@ export function ensureConsolidandoDadosState(
 ): ConsolidandoDadosState {
   const base = emptyConsolidandoDadosState()
   if (!current) return base
+  const extras = parseDiferenciaisExtras(current.itensExtras?.diferenciais, current.diferenciais)
+  const extraKeys = extras.map((e) => e.key)
   const mergedDiff = emptyDiferenciaisMap()
-  for (const itemKey of DIFERENCIAL_ITEM_KEYS) {
+  for (const itemKey of [...DIFERENCIAL_ITEM_KEYS, ...extraKeys]) {
     mergedDiff[itemKey] = { ...(current.diferenciais?.[itemKey] ?? {}) }
+  }
+  for (const [itemKey, porColuna] of Object.entries(current.diferenciais ?? {})) {
+    if (!mergedDiff[itemKey]) mergedDiff[itemKey] = { ...porColuna }
   }
   const mergedCond = emptyCondicoesMap()
   for (const itemKey of CONDICAO_CONTRATUAL_ITEM_KEYS) {
@@ -191,7 +270,7 @@ export function ensureConsolidandoDadosState(
   for (const itemKey of INDICADOR_OPERADORA_ITEM_KEYS) {
     mergedInd[itemKey] = { ...(current.indicadores?.[itemKey] ?? {}) }
   }
-  const ocultos = parseItensOcultos(current.itensOcultos)
+  const ocultos = parseItensOcultos(current.itensOcultos, extraKeys)
   return {
     ...base,
     ...current,
@@ -201,6 +280,7 @@ export function ensureConsolidandoDadosState(
     resumoCoberturas: current.resumoCoberturas ?? '',
     condicoesContratuais: current.condicoesContratuais ?? '',
     itensOcultos: ocultos,
+    itensExtras: { diferenciais: extras },
   }
 }
 
@@ -233,11 +313,30 @@ export function toggleConsolidandoItemOculto(
   }
 }
 
+export function celulaPlanoLabels(celula: DiferencialCelulaCotacao): string[] {
+  if (Array.isArray(celula.planoLabels)) {
+    return celula.planoLabels.map((s) => s.trim()).filter(Boolean)
+  }
+  const label = celula.planoLabel.trim()
+  return label ? [label] : []
+}
+
+export function celulaPlanoIds(celula: DiferencialCelulaCotacao): string[] {
+  if (Array.isArray(celula.placementPlanoIds)) {
+    return celula.placementPlanoIds.map((s) => String(s ?? '').trim())
+  }
+  return celula.placementPlanoId ? [celula.placementPlanoId] : []
+}
+
+export function formatCelulaPlanoLabel(celula: DiferencialCelulaCotacao): string {
+  return celulaPlanoLabels(celula).join(', ')
+}
+
 export function formatDiferencialCelulasTexto(celulas: DiferencialCelulaCotacao[] | undefined): string {
   if (!celulas?.length) return '—'
   return celulas
     .map((c) => {
-      const label = c.planoLabel.trim()
+      const label = formatCelulaPlanoLabel(c)
       const prefix = label ? `${label}: ` : ''
       return `${prefix}${c.texto.trim()}`
     })
@@ -245,11 +344,137 @@ export function formatDiferencialCelulasTexto(celulas: DiferencialCelulaCotacao[
 }
 
 export function emptyDiferencialCelula(planoLabel = ''): DiferencialCelulaCotacao {
+  const label = planoLabel.trim()
   return {
     id: uid('dc'),
     placementPlanoId: '',
-    planoLabel,
+    planoLabel: label,
+    placementPlanoIds: [],
+    planoLabels: label ? [label] : [],
     texto: '',
+  }
+}
+
+export function cloneDiferencialCelulas(
+  celulas: DiferencialCelulaCotacao[] | undefined
+): DiferencialCelulaCotacao[] {
+  return (celulas ?? []).map((c) => {
+    const labels = celulaPlanoLabels(c)
+    return {
+      ...c,
+      id: uid('dc'),
+      placementPlanoId: '',
+      placementPlanoIds: labels.map(() => ''),
+      planoLabels: labels,
+      planoLabel: labels.join(', '),
+      fromMaster: false,
+    }
+  })
+}
+
+export function diferencialCelulasTemConteudo(celulas: DiferencialCelulaCotacao[] | undefined): boolean {
+  return (celulas ?? []).some((c) => c.texto.trim() || celulaPlanoLabels(c).length > 0)
+}
+
+export function replicarDiferencialParaColunas(
+  state: ConsolidandoDadosState,
+  itemKey: string,
+  fromColunaId: string,
+  toColunaIds: string[],
+  opts?: { onlyEmpty?: boolean }
+): ConsolidandoDadosState {
+  const source = state.diferenciais[itemKey]?.[fromColunaId] ?? []
+  const toCopy = diferencialCelulasTemConteudo(source)
+    ? source.filter((c) => c.texto.trim() || celulaPlanoLabels(c).length > 0)
+    : source
+  let next = state
+  for (const toId of toColunaIds) {
+    if (!toId || toId === fromColunaId) continue
+    const dest = next.diferenciais[itemKey]?.[toId] ?? []
+    if (opts?.onlyEmpty && diferencialCelulasTemConteudo(dest)) continue
+    next = patchDiferencialCelulas(next, itemKey, toId, cloneDiferencialCelulas(toCopy))
+  }
+  return next
+}
+
+export function replicarCondicaoParaColunas(
+  state: ConsolidandoDadosState,
+  itemKey: string,
+  fromColunaId: string,
+  toColunaIds: string[],
+  opts?: { onlyEmpty?: boolean }
+): ConsolidandoDadosState {
+  const source = state.condicoes[itemKey]?.[fromColunaId] ?? []
+  const toCopy = diferencialCelulasTemConteudo(source)
+    ? source.filter((c) => c.texto.trim() || celulaPlanoLabels(c).length > 0)
+    : source
+  let next = state
+  for (const toId of toColunaIds) {
+    if (!toId || toId === fromColunaId) continue
+    const dest = next.condicoes[itemKey]?.[toId] ?? []
+    if (opts?.onlyEmpty && diferencialCelulasTemConteudo(dest)) continue
+    next = patchCondicaoCelulas(next, itemKey, toId, cloneDiferencialCelulas(toCopy))
+  }
+  return next
+}
+
+export function addCustomDiferencialItem(
+  state: ConsolidandoDadosState,
+  labelRaw: string
+): { ok: true; state: ConsolidandoDadosState; key: string } | { ok: false; error: string } {
+  const label = String(labelRaw ?? '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toUpperCase()
+  if (!label) return { ok: false, error: 'Informe o nome do diferencial.' }
+  const existing = listDiferencialItens(state.itensExtras?.diferenciais)
+  if (existing.some((i) => i.label.toLowerCase() === label.toLowerCase())) {
+    return { ok: false, error: 'Já existe um diferencial com esse nome.' }
+  }
+  let slug = slugifyDiferencialLabel(label)
+  if (!slug) slug = 'item'
+  let key = `custom_${slug}`
+  const used = new Set(existing.map((i) => i.key))
+  if (used.has(key)) {
+    let n = 2
+    while (used.has(`${key}_${n}`)) n += 1
+    key = `${key}_${n}`
+  }
+  return {
+    ok: true,
+    key,
+    state: {
+      ...state,
+      itensExtras: {
+        ...state.itensExtras,
+        diferenciais: [...(state.itensExtras?.diferenciais ?? []), { key, label }],
+      },
+      diferenciais: {
+        ...state.diferenciais,
+        [key]: {},
+      },
+    },
+  }
+}
+
+export function removeCustomDiferencialItem(
+  state: ConsolidandoDadosState,
+  itemKey: string
+): ConsolidandoDadosState {
+  if (!itemKey.startsWith('custom_')) return state
+  const { [itemKey]: _removed, ...restDiff } = state.diferenciais
+  return {
+    ...state,
+    diferenciais: restDiff,
+    itensExtras: {
+      ...state.itensExtras,
+      diferenciais: (state.itensExtras?.diferenciais ?? []).filter((i) => i.key !== itemKey),
+    },
+    itensOcultos: {
+      diferenciais: (state.itensOcultos?.diferenciais ?? []).filter((k) => k !== itemKey),
+      condicoes: [...(state.itensOcultos?.condicoes ?? [])],
+      indicadores: [...(state.itensOcultos?.indicadores ?? [])],
+    },
   }
 }
 
@@ -387,9 +612,10 @@ export function patchIndicadorCelulas(
 
 function mapTemTextoPreenchido(
   map: Record<string, Record<string, DiferencialCelulaCotacao[]>>,
-  keys: readonly string[]
+  keys?: readonly string[]
 ): boolean {
-  for (const itemKey of keys) {
+  const list = keys ?? Object.keys(map)
+  for (const itemKey of list) {
     const porColuna = map[itemKey] ?? {}
     for (const celulas of Object.values(porColuna)) {
       if (celulas.some((c) => c.texto.trim())) return true
@@ -429,10 +655,9 @@ export function consolidandoHasDiferenciais(
   form: CotacaoFormState,
   estrategia?: KickOffEstrategia | null
 ): boolean {
-  return mapTemTextoPreenchido(
-    consolidandoFromForm(form, estrategia).diferenciais,
-    DIFERENCIAL_ITEM_KEYS
-  )
+  const cd = consolidandoFromForm(form, estrategia)
+  const keys = listDiferencialItens(cd.itensExtras?.diferenciais).map((i) => i.key)
+  return mapTemTextoPreenchido(cd.diferenciais, keys)
 }
 
 export function consolidandoHasIndicadores(
@@ -568,6 +793,70 @@ export function matchDiferencialPlanoOpcao(
   return options.find((o) => normPlanoNome(o.planoLabel) === norm) ?? null
 }
 
+export function celulaPlanosSelecionados(
+  celula: DiferencialCelulaCotacao,
+  options: DiferencialPlanoOpcao[]
+): DiferencialPlanoOpcao[] {
+  const labels = celulaPlanoLabels(celula)
+  const ids = celulaPlanoIds(celula)
+  const n = Math.max(labels.length, ids.length)
+  if (!n) return []
+  const selected: DiferencialPlanoOpcao[] = []
+  const seen = new Set<string>()
+  for (let i = 0; i < n; i++) {
+    const slice: DiferencialCelulaCotacao = {
+      ...celula,
+      placementPlanoId: ids[i] ?? '',
+      planoLabel: labels[i] ?? '',
+      placementPlanoIds: undefined,
+      planoLabels: undefined,
+    }
+    const hit = matchDiferencialPlanoOpcao(slice, options)
+    const opt =
+      hit ??
+      (slice.planoLabel.trim()
+        ? {
+            key: `celula-${celula.id}-${i}-${normPlanoNome(slice.planoLabel)}`,
+            planoLabel: slice.planoLabel.trim(),
+            placementPlanoId: slice.placementPlanoId,
+            grupo: 'Digitado',
+          }
+        : null)
+    if (!opt) continue
+    const dedupe = `${normPlanoNome(opt.planoLabel)}|${opt.placementPlanoId}`
+    if (seen.has(dedupe)) continue
+    seen.add(dedupe)
+    selected.push(opt)
+  }
+  return selected
+}
+
+export function applyPlanosToCelula(
+  celula: DiferencialCelulaCotacao,
+  selected: (DiferencialPlanoOpcao | string)[]
+): DiferencialCelulaCotacao {
+  const planos = selected
+    .map((p) =>
+      typeof p === 'string'
+        ? { planoLabel: p.trim(), placementPlanoId: '' }
+        : {
+            planoLabel: p.planoLabel.trim(),
+            placementPlanoId: p.placementPlanoId ?? '',
+          }
+    )
+    .filter((p) => p.planoLabel)
+  const labels = planos.map((p) => p.planoLabel)
+  const ids = planos.map((p) => p.placementPlanoId)
+  return {
+    ...celula,
+    planoLabels: labels,
+    placementPlanoIds: ids,
+    planoLabel: labels.join(', '),
+    placementPlanoId: ids.find((id) => id) ?? '',
+    fromMaster: false,
+  }
+}
+
 export type DiferencialMasterUpsertItem = {
   operadoraId: string
   placementPlanoId: string
@@ -611,6 +900,39 @@ export function resolvePlacementPlanoIdForCelula(
   return ''
 }
 
+export function resolvePlacementPlanoIdsForCelula(
+  celula: DiferencialCelulaCotacao,
+  operadoraId: string,
+  placementPlanos: PlacementPlano[],
+  propostaPlanos?: PropostaPlanoLinha[]
+): string[] {
+  const labels = celulaPlanoLabels(celula)
+  const ids = celulaPlanoIds(celula)
+  const n = Math.max(labels.length, ids.length)
+  if (!n) return []
+  const resolved: string[] = []
+  const seen = new Set<string>()
+  for (let i = 0; i < n; i++) {
+    const slice: DiferencialCelulaCotacao = {
+      ...celula,
+      placementPlanoId: ids[i] ?? '',
+      planoLabel: labels[i] ?? '',
+      placementPlanoIds: undefined,
+      planoLabels: undefined,
+    }
+    const id = resolvePlacementPlanoIdForCelula(
+      slice,
+      operadoraId,
+      placementPlanos,
+      propostaPlanos
+    )
+    if (!id || seen.has(id)) continue
+    seen.add(id)
+    resolved.push(id)
+  }
+  return resolved
+}
+
 export function operadoraIdFromColunaId(
   colunaId: string,
   fornecedores: string[],
@@ -634,7 +956,8 @@ export function buildDiferenciaisMasterUpsertItems(
   let skipped = 0
   const seen = new Set<string>()
 
-  for (const itemKey of DIFERENCIAL_ITEM_KEYS) {
+  for (const item of listDiferencialItens(consolidando.itensExtras?.diferenciais)) {
+    const itemKey = item.key
     const porColuna = consolidando.diferenciais[itemKey] ?? {}
     for (const [colunaId, celulas] of Object.entries(porColuna)) {
       const operadoraId = operadoraIdFromColunaId(colunaId, args.fornecedores, args.resolveOperadoraId)
@@ -648,22 +971,23 @@ export function buildDiferenciaisMasterUpsertItems(
         const texto = celula.texto.trim()
         if (!texto) continue
 
-        const placementPlanoId = resolvePlacementPlanoIdForCelula(
+        const placementPlanoIds = resolvePlacementPlanoIdsForCelula(
           celula,
           operadoraId,
           args.placementPlanos,
           propostaPlanos
         )
-        if (!placementPlanoId) {
+        if (!placementPlanoIds.length) {
           skipped += 1
           continue
         }
 
-        const dedupeKey = `${operadoraId}|${placementPlanoId}|${itemKey}`
-        if (seen.has(dedupeKey)) continue
-        seen.add(dedupeKey)
-
-        items.push({ operadoraId, placementPlanoId, itemKey, texto })
+        for (const placementPlanoId of placementPlanoIds) {
+          const dedupeKey = `${operadoraId}|${placementPlanoId}|${itemKey}`
+          if (seen.has(dedupeKey)) continue
+          seen.add(dedupeKey)
+          items.push({ operadoraId, placementPlanoId, itemKey, texto })
+        }
       }
     }
   }
@@ -682,15 +1006,17 @@ export function buildImportPreviewRows(
   imported: Record<string, DiferencialCelulaCotacao[]>,
   placementPlanos: PlacementPlano[]
 ): DiferencialPreviewRow[] {
+  const extraKeys = Object.keys(imported).filter((k) => !isCatalogDiferencialKey(k))
+  const extras = extraKeys.map((key) => ({ key, label: labelDiferencialItem(key) }))
   const rows: DiferencialPreviewRow[] = []
-  for (const itemKey of DIFERENCIAL_ITEM_KEYS) {
-    const celulas = imported[itemKey] ?? []
+  for (const item of listDiferencialItens(extras)) {
+    const celulas = imported[item.key] ?? []
     for (const c of celulas) {
       const plano = placementPlanos.find((p) => p.id === c.placementPlanoId)
       rows.push({
-        itemKey,
-        itemLabel: labelDiferencialItem(itemKey),
-        planoLabel: c.planoLabel.trim() || plano?.plano || '—',
+        itemKey: item.key,
+        itemLabel: item.label,
+        planoLabel: formatCelulaPlanoLabel(c) || plano?.plano || '—',
         texto: c.texto.trim(),
       })
     }
@@ -821,31 +1147,46 @@ export function buildCondicoesMasterUpsertItems(
         const texto = celula.texto.trim()
         if (!texto) continue
 
-        const placementPlanoId = resolvePlacementPlanoIdForCelula(
+        const placementPlanoIds = resolvePlacementPlanoIdsForCelula(
           celula,
           operadoraId,
           args.placementPlanos,
           propostaPlanos
         )
-        const temPlanoLabel = celula.planoLabel.trim().length > 0 || !!celula.placementPlanoId
+        const temPlanoLabel =
+          celulaPlanoLabels(celula).length > 0 || celulaPlanoIds(celula).some(Boolean)
 
-        if (temPlanoLabel && !placementPlanoId) {
+        if (temPlanoLabel && !placementPlanoIds.length) {
           skipped += 1
           continue
         }
 
-        const porPlano = !!placementPlanoId
-        const dedupeKey = `${operadoraId}|${porPlano ? placementPlanoId : ''}|${itemKey}|${porPlano ? '1' : '0'}`
-        if (seen.has(dedupeKey)) continue
-        seen.add(dedupeKey)
+        if (!temPlanoLabel) {
+          const dedupeKey = `${operadoraId}||${itemKey}|0`
+          if (seen.has(dedupeKey)) continue
+          seen.add(dedupeKey)
+          items.push({
+            operadoraId,
+            porPlano: false,
+            placementPlanoId: null,
+            itemKey,
+            texto,
+          })
+          continue
+        }
 
-        items.push({
-          operadoraId,
-          porPlano,
-          placementPlanoId: porPlano ? placementPlanoId : null,
-          itemKey,
-          texto,
-        })
+        for (const placementPlanoId of placementPlanoIds) {
+          const dedupeKey = `${operadoraId}|${placementPlanoId}|${itemKey}|1`
+          if (seen.has(dedupeKey)) continue
+          seen.add(dedupeKey)
+          items.push({
+            operadoraId,
+            porPlano: true,
+            placementPlanoId,
+            itemKey,
+            texto,
+          })
+        }
       }
     }
   }
@@ -865,7 +1206,7 @@ export function buildImportCondicoesPreviewRows(
       rows.push({
         itemKey,
         itemLabel: labelCondicaoContratualItem(itemKey),
-        planoLabel: c.planoLabel.trim() || plano?.plano || 'Fornecedor (geral)',
+        planoLabel: formatCelulaPlanoLabel(c) || plano?.plano || 'Fornecedor (geral)',
         texto: c.texto.trim(),
       })
     }

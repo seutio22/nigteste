@@ -5,10 +5,7 @@ import {
   classificacaoPermitePropostaValores,
   parseAguardandoOperadoraFromKickOff,
 } from './placementAguardandoOperadora'
-import {
-  DIFERENCIAL_ITENS,
-  labelDiferencialItem,
-} from './placementDiferenciaisCatalogo'
+import { listDiferencialItens } from './placementDiferenciaisCatalogo'
 import {
   CONDICAO_CONTRATUAL_ITENS,
   labelCondicaoContratualItem,
@@ -164,9 +161,9 @@ export function buildComparativoDiferencialPages(
 
   const linhasDiff = buildLinhasSecao({
     secao: 'diferenciais',
-    itens: DIFERENCIAL_ITENS.map((i) => ({
+    itens: listDiferencialItens(cd.itensExtras?.diferenciais).map((i) => ({
       key: i.key,
-      label: labelDiferencialItem(i.key),
+      label: i.label,
     })),
     mapa: cd.diferenciais,
     ocultos: cd.itensOcultos?.diferenciais ?? [],
@@ -236,7 +233,7 @@ export function buildComparativoDiferencialPages(
 }
 
 export function buildComparativoDiferencialLinhasResumo(): { key: string; label: string }[] {
-  return DIFERENCIAL_ITENS.map((i) => ({ key: i.key, label: i.label }))
+  return listDiferencialItens().map((i) => ({ key: i.key, label: i.label }))
 }
 
 export function listarColunasDiferenciais(

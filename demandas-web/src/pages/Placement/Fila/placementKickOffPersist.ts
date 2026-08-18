@@ -1,4 +1,5 @@
 import type { KickOffEstrategia } from './placementKickOffEstrategia'
+import type { CotacaoFormState } from './CotacaoFormFields'
 
 /** Pontua blocos de workflow no kickOff (comunicar / aguardando) para detectar resposta API incompleta. */
 export function kickOffWorkflowScore(kickOff?: KickOffEstrategia | null): number {
@@ -260,4 +261,27 @@ export function buildKickOffEstrategiaPatch(
     consolidandoDados: patch.consolidandoDados ?? base.consolidandoDados,
     validacaoProposta: patch.validacaoProposta ?? base.validacaoProposta,
   }
+}
+
+/**
+ * PUT /kick-off devolve só `{ id, updatedAt }`. Sem isso o toFormState zera
+ * planos/itens da abertura e o contrato atual some ~2–5s depois do autosave.
+ */
+export function cotacaoPayloadTemCorpoFormulario(data: unknown): boolean {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return false
+  const d = data as Record<string, unknown>
+  return d.planosCobertura !== undefined || d.itensMapeamento !== undefined
+}
+
+export function mergeApiCotacaoIntoForm(
+  prev: CotacaoFormState,
+  next: CotacaoFormState,
+  raw: unknown
+): CotacaoFormState {
+  let kickOff = preferRicherKickOffWhenApplyingApi(next.kickOffEstrategia, prev.kickOffEstrategia)
+  kickOff = preferLocalComparativoConfigInKickOff(kickOff, prev.kickOffEstrategia) ?? kickOff
+  if (!cotacaoPayloadTemCorpoFormulario(raw)) {
+    return { ...prev, kickOffEstrategia: kickOff }
+  }
+  return { ...next, kickOffEstrategia: kickOff }
 }

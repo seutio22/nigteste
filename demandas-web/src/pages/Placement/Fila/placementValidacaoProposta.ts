@@ -5,7 +5,7 @@ import {
   parseConsolidandoDadosFromKickOff,
   type ConsolidandoDadosState,
 } from './placementConsolidandoDados'
-import { DIFERENCIAL_ITEM_KEYS, labelDiferencialItem } from './placementDiferenciaisCatalogo'
+import { listDiferencialItens } from './placementDiferenciaisCatalogo'
 import {
   CONDICAO_CONTRATUAL_ITEM_KEYS,
   labelCondicaoContratualItem,
@@ -120,13 +120,13 @@ export function buildValidacaoItensFromConsolidando(
     })
   }
 
-  for (const key of DIFERENCIAL_ITEM_KEYS) {
-    if (!mapTemTexto(state.diferenciais, key)) continue
+  for (const item of listDiferencialItens(state.itensExtras?.diferenciais)) {
+    if (!mapTemTexto(state.diferenciais, item.key)) continue
     itens.push({
-      id: uid(`vp-dif-${key}`),
+      id: uid(`vp-dif-${item.key}`),
       secao: 'diferenciais',
-      itemKey: key,
-      label: labelDiferencialItem(key),
+      itemKey: item.key,
+      label: item.label,
       status: 'pendente',
       comentario: '',
       updatedAt: now,

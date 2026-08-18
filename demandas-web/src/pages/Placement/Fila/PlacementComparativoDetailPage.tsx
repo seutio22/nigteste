@@ -26,10 +26,7 @@ import { PlacementAguardandoOperadoraPanel } from './PlacementAguardandoOperador
 import { PlacementConsolidandoDadosPanel } from './PlacementConsolidandoDadosPanel'
 import { toFormState } from './Detail'
 import { getStatusColor, getWorkflowStatusDisplayLabel } from './utils'
-import {
-  preferLocalComparativoConfigInKickOff,
-  preferRicherKickOffWhenApplyingApi,
-} from './placementKickOffPersist'
+import { mergeApiCotacaoIntoForm } from './placementKickOffPersist'
 import { getWorkflowStageKey } from './placementCotacaoWorkflow'
 
 type FullscreenPane =
@@ -93,9 +90,7 @@ export default function PlacementComparativoDetailPage() {
         setForm((prev) => {
           const next = toFormState(data)
           if (!prev) return next
-          let kickOff = preferRicherKickOffWhenApplyingApi(next.kickOffEstrategia, prev.kickOffEstrategia)
-          kickOff = preferLocalComparativoConfigInKickOff(kickOff, prev.kickOffEstrategia) ?? kickOff
-          return { ...next, kickOffEstrategia: kickOff }
+          return mergeApiCotacaoIntoForm(prev, next, data)
         })
         setLoading(false)
       })
@@ -118,13 +113,9 @@ export default function PlacementComparativoDetailPage() {
   }, [])
 
   const handlePersisted = useCallback((apiCotacao: unknown) => {
-    const data = apiCotacao as Record<string, unknown>
     setForm((prev) => {
       if (!prev) return prev
-      const next = toFormState(data)
-      let kickOff = preferRicherKickOffWhenApplyingApi(next.kickOffEstrategia, prev.kickOffEstrategia)
-      kickOff = preferLocalComparativoConfigInKickOff(kickOff, prev.kickOffEstrategia) ?? kickOff
-      return { ...next, kickOffEstrategia: kickOff }
+      return mergeApiCotacaoIntoForm(prev, toFormState(apiCotacao), apiCotacao)
     })
   }, [])
 
@@ -218,7 +209,34 @@ export default function PlacementComparativoDetailPage() {
                     : 'consolidando'
                 : activePane
             }
-            onChange={(_, v: FullscreenPane | null) => v && setActivePane(v)}
+            onChange={(_, v: FullscreenPane | null) => {
+              const paneToSecao = (
+                pane: FullscreenPane
+              ): 'diferenciais' | 'condicoes' | 'indicadores' | null => {
+                if (pane === 'consolidando') return 'diferenciais'
+                if (pane === 'condicoes') return 'condicoes'
+                if (pane === 'indicadores') return 'indicadores'
+                return null
+              }
+              if (activePane === 'editar_consolidando') {
+                if (!v) {
+                  setActivePane(
+                    editSecao === 'condicoes'
+                      ? 'condicoes'
+                      : editSecao === 'indicadores'
+                        ? 'indicadores'
+                        : 'consolidando'
+                  )
+                  return
+                }
+                const secao = paneToSecao(v)
+                if (secao) {
+                  setEditSecao(secao)
+                  return
+                }
+              }
+              if (v) setActivePane(v)
+            }}
           >
             <ToggleButton value="comparativo">Comparativo financeiro</ToggleButton>
             <ToggleButton value="coparticipacao">Coparticipação</ToggleButton>
@@ -278,10 +296,6 @@ export default function PlacementComparativoDetailPage() {
             form={form}
             onChange={handleChange}
             onPersisted={handlePersisted}
-            onNavigateToLancamento={() => setActivePane('lancamento')}
-            onNavigateToCoparticipacao={() => setActivePane('coparticipacao')}
-            onNavigateToReembolso={() => setActivePane('reembolso')}
-            onOpenSlides={() => navigate(`/placement/fila/${id}/slides?slide=comparativo_propostas`)}
             lancamentoDisponivel={podeLancarPropostas}
           />
         ) : activePane === 'coparticipacao' ? (
@@ -290,8 +304,7 @@ export default function PlacementComparativoDetailPage() {
             form={form}
             onChange={handleChange}
             onPersisted={handlePersisted}
-            onNavigateToLancamento={() => setActivePane('lancamento')}
-            onNavigateToReembolso={() => setActivePane('reembolso')}
+            hideToolbarActions
             lancamentoDisponivel={podeLancarPropostas}
           />
         ) : activePane === 'reembolso' ? (
@@ -300,8 +313,7 @@ export default function PlacementComparativoDetailPage() {
             form={form}
             onChange={handleChange}
             onPersisted={handlePersisted}
-            onNavigateToLancamento={() => setActivePane('lancamento')}
-            onNavigateToCoparticipacao={() => setActivePane('coparticipacao')}
+            hideToolbarActions
             lancamentoDisponivel={podeLancarPropostas}
           />
         ) : activePane === 'consolidando' ||
@@ -335,7 +347,7 @@ export default function PlacementComparativoDetailPage() {
             }
           />
         ) : activePane === 'editar_consolidando' ? (
-          <Box sx={{ height: '100%', overflow: 'auto', p: { xs: 2, md: 3 } }}>
+          <Box sx={{ height: '100%', overflow: 'auto', p: { xs: 1.25, md: 1.75 } }}>
             <PlacementConsolidandoDadosPanel
               embedded
               cotacaoId={id}

@@ -4,6 +4,7 @@ import {
   alignPageToOperadoraSlots,
   buildOperadoraSlotsFromColunas,
   colunaSlotKey,
+  pagesComparativoContratoAlinhadas,
 } from './placementComparativoEstudo'
 
 function col(
@@ -108,5 +109,96 @@ describe('colunaSlotKey / alignPageToOperadoraSlots', () => {
       'Sem COPAY',
       'Com COPay',
     ])
+  })
+
+  it('na página só de mercado, mantém as propostas e reserva o slot do contrato atual', () => {
+    const atual = col({
+      id: 'atual-1',
+      operadora: 'ATUAL SA',
+      operadoraId: 'op-atual',
+      planoLabel: 'Plano A',
+      grupo: 'atual',
+      planoReferenciaId: 'ref-1',
+    })
+    const mercado = col({
+      id: 'm-b',
+      operadora: 'AMIL',
+      operadoraId: 'op-amil',
+      planoLabel: 'Plano B',
+      grupo: 'mercado',
+      planoReferenciaId: 'ref-2',
+    })
+    const slots = buildOperadoraSlotsFromColunas([atual, mercado])
+    const aligned = alignPageToOperadoraSlots(
+      {
+        pageIndex: 1,
+        totalPages: 2,
+        colunas: [mercado],
+        contribuicaoUnica: null,
+        coparticipacaoUnica: null,
+        totalVidas: 1,
+        totalFatura: '—',
+      },
+      slots
+    )
+    expect(aligned.colunas.some((c) => c.grupo === 'atual')).toBe(true)
+    expect(aligned.colunas.some((c) => c.id === 'm-b')).toBe(true)
+    expect(aligned.colunas.filter((c) => c.grupo === 'mercado')).toHaveLength(1)
+  })
+
+  it('modelo Contrato atual mantém o slot ATUAL em cada plano equivalente sem dropar mercado', () => {
+    const atual = col({
+      id: 'atual-1',
+      operadora: 'ATUAL SA',
+      operadoraId: 'op-atual',
+      planoLabel: 'Plano A',
+      grupo: 'atual',
+      planoReferenciaId: 'ref-1',
+    })
+    const mA = col({
+      id: 'm-a',
+      operadora: 'AMIL',
+      operadoraId: 'op-amil',
+      planoLabel: 'Plano A',
+      grupo: 'mercado',
+      planoReferenciaId: 'ref-1',
+    })
+    const mB = col({
+      id: 'm-b',
+      operadora: 'SULAMERICA',
+      operadoraId: 'op-sul',
+      planoLabel: 'Plano B',
+      grupo: 'mercado',
+      planoReferenciaId: 'ref-2',
+    })
+    const pages = pagesComparativoContratoAlinhadas({
+      allColunas: [atual, mA, mB],
+      pages: [
+        {
+          pageIndex: 0,
+          totalPages: 2,
+          colunas: [atual, mA],
+          contribuicaoUnica: null,
+          coparticipacaoUnica: null,
+          totalVidas: 2,
+          totalFatura: '—',
+          grupoLabel: 'Plano A',
+        },
+        {
+          pageIndex: 1,
+          totalPages: 2,
+          colunas: [mB],
+          contribuicaoUnica: null,
+          coparticipacaoUnica: null,
+          totalVidas: 1,
+          totalFatura: '—',
+          grupoLabel: 'Plano B',
+        },
+      ],
+    })
+    expect(pages).toHaveLength(2)
+    expect(pages.every((p) => p.colunas.some((c) => c.grupo === 'atual'))).toBe(true)
+    expect(pages[0].colunas.some((c) => c.id === 'm-a')).toBe(true)
+    expect(pages[1].colunas.some((c) => c.id === 'm-b')).toBe(true)
   })
 })

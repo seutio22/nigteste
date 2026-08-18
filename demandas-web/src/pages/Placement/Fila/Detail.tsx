@@ -60,7 +60,7 @@ import { isRascunhoStatus } from './placementCotacaoStatus'
 import type { PlacementCotacaoWorkflowStatus } from './placementCotacaoStatus'
 import { useAuthStore } from '../../../store/authStore'
 import { parseKickOffEstrategiaFromApi } from './placementKickOffEstrategia'
-import { preferRicherKickOffWhenApplyingApi, mergeSavedKickOffIntoApiCotacao } from './placementKickOffPersist'
+import { preferRicherKickOffWhenApplyingApi, mergeSavedKickOffIntoApiCotacao, mergeApiCotacaoIntoForm } from './placementKickOffPersist'
 import { getRetreatDiscardScope, type WorkflowRetreatMode } from './placementWorkflowRetreat'
 import { comunicarMercadoIsComplete } from './placementComunicarMercado'
 import { normalizeEmCotacaoSubetapa } from './placementEmCotacaoWorkflow'
@@ -259,14 +259,8 @@ export default function PlacementFilaDetailPage({ fullscreen = false }: { fullsc
   function applyCotacaoFromApi(data: any) {
     setForm((prev) => {
       const next = toFormState(data)
-      if (!prev?.kickOffEstrategia) return next
-      return {
-        ...next,
-        kickOffEstrategia: preferRicherKickOffWhenApplyingApi(
-          next.kickOffEstrategia,
-          prev.kickOffEstrategia
-        ),
-      }
+      if (!prev) return next
+      return mergeApiCotacaoIntoForm(prev, next, data)
     })
     setAnalistaResponsavelMeta(data?.analistaResponsavel ?? null)
     setMetricasCabecalho(metricasResumoDeApi(data))

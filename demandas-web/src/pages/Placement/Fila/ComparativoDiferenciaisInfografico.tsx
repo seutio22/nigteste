@@ -33,6 +33,11 @@ import BusinessIcon from '@mui/icons-material/Business'
 import HistoryIcon from '@mui/icons-material/History'
 import CategoryOutlinedIcon from '@mui/icons-material/CategoryOutlined'
 import GroupsIcon from '@mui/icons-material/Groups'
+import MeetingRoomIcon from '@mui/icons-material/MeetingRoom'
+import RoomServiceIcon from '@mui/icons-material/RoomService'
+import MedicalServicesIcon from '@mui/icons-material/MedicalServices'
+import WorkIcon from '@mui/icons-material/Work'
+import FavoriteIcon from '@mui/icons-material/Favorite'
 import {
   getContratoAtualLayoutSpec,
   getContratoTypography,
@@ -100,6 +105,16 @@ function itemIcon(key: string): React.ReactNode {
       return <LocalHospitalIcon />
     case 'resgate_saude':
       return <HealthAndSafetyIcon />
+    case 'sala_vip':
+      return <MeetingRoomIcon />
+    case 'servicos_especiais_concierge':
+      return <RoomServiceIcon />
+    case 'medicos_exclusivos':
+      return <MedicalServicesIcon />
+    case 'cobertura_ocupacional':
+      return <WorkIcon />
+    case 'programa_acoes_saude':
+      return <FavoriteIcon />
     case 'vigencia_contratual':
       return <EventAvailableIcon />
     case 'tipo_contratacao':

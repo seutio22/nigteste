@@ -41,6 +41,7 @@ import {
   setAlertDeliveryMode,
   type AlertDeliveryMode,
 } from '../lib/alertDeliveryPrefs'
+import { AlertDeliveryTimingFields } from './AlertDeliveryTimingFields'
 
 export function NotificationDropdown() {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
@@ -475,7 +476,8 @@ export function NotificationDropdown() {
         <DialogTitle>Como receber alertas</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Vale para alertas novos no sino. O modo padrão continua igual ao de hoje.
+            Vale para alertas novos no sino. Em Som e janela você define quanto tempo o aviso fica
+            e de quanto em quanto tempo ele volta, enquanto não for lido.
           </Typography>
           {ALERT_DELIVERY_OPTIONS.map((opt) => (
             <Box
@@ -510,6 +512,7 @@ export function NotificationDropdown() {
               </Box>
             </Box>
           ))}
+          <AlertDeliveryTimingFields mode={alertDeliveryMode} />
           <Button
             size="small"
             sx={{ mt: 1 }}

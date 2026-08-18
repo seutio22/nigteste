@@ -5,7 +5,10 @@ import {
   mergeSavedKickOffIntoApiCotacao,
   preferRicherKickOffWhenApplyingApi,
   propostasContentScore,
+  cotacaoPayloadTemCorpoFormulario,
+  mergeApiCotacaoIntoForm,
 } from './placementKickOffPersist'
+import { EMPTY_COTACAO_FORM, type CotacaoFormState } from './CotacaoFormFields'
 
 describe('placementKickOffPersist', () => {
   it('preserva seções ao salvar apenas comunicarMercado', () => {
@@ -270,3 +273,58 @@ describe('placementKickOffPersist', () => {
     expect(merged.aguardandoOperadora?.propostas?.amil?.planos?.[0]?.nomePlano).toBe('S2500')
   })
 })
+
+describe('mergeApiCotacaoIntoForm (PUT kick-off slim)', () => {
+  it('não trata { id, updatedAt } como cotação completa', () => {
+    expect(cotacaoPayloadTemCorpoFormulario({ id: 'c1', updatedAt: '2026-08-18' })).toBe(false)
+    expect(
+      cotacaoPayloadTemCorpoFormulario({
+        id: 'c1',
+        updatedAt: '2026-08-18',
+        kickOffEstrategia: { secoes: [], mercadoAnalisado: [], notas: '' },
+      })
+    ).toBe(false)
+    expect(cotacaoPayloadTemCorpoFormulario({ planosCobertura: { planos: [] } })).toBe(true)
+    expect(cotacaoPayloadTemCorpoFormulario({ itensMapeamento: [] })).toBe(true)
+  })
+
+  it('preserva planos/itens da abertura depois do autosave do kick-off', () => {
+    const prev = {
+      ...EMPTY_COTACAO_FORM,
+      ticket: 'TK-1',
+      itens: [
+        {
+          ...EMPTY_COTACAO_FORM.itens[0],
+          id: 'item-1',
+          fornecedorId: 'op-bra',
+          fornecedorNome: 'BRADESCO',
+        },
+      ],
+      planos: [
+        {
+          id: 'plano-tnp4',
+          itemRowId: 'item-1',
+          nomePlano: 'TNP4 Apt',
+        } as CotacaoFormState['planos'][number],
+      ],
+    }
+    const slim = {
+      id: 'cot-1',
+      updatedAt: '2026-08-18T12:00:00.000Z',
+      kickOffEstrategia: { secoes: [], mercadoAnalisado: ['AMIL'], notas: '' },
+    }
+    const next = {
+      ...EMPTY_COTACAO_FORM,
+      ticket: '',
+      planos: [],
+      kickOffEstrategia: slim.kickOffEstrategia,
+    }
+    const merged = mergeApiCotacaoIntoForm(prev, next, slim)
+    expect(merged.ticket).toBe('TK-1')
+    expect(merged.planos).toHaveLength(1)
+    expect(merged.planos[0].nomePlano).toBe('TNP4 Apt')
+    expect(merged.itens[0].fornecedorId).toBe('op-bra')
+    expect(merged.kickOffEstrategia?.mercadoAnalisado).toEqual(['AMIL'])
+  })
+})
+

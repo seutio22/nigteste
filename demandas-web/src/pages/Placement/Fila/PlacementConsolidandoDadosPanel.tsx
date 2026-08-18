@@ -1,11 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Alert,
-  Autocomplete,
   Box,
   Button,
+  Checkbox,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
+  FormControlLabel,
   IconButton,
   Paper,
   Snackbar,
@@ -23,9 +28,11 @@ import {
   Typography,
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
+import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import DeleteIcon from '@mui/icons-material/Delete'
 import SearchIcon from '@mui/icons-material/Search'
 import SaveAltIcon from '@mui/icons-material/SaveAlt'
+import SaveIcon from '@mui/icons-material/Save'
 import SlideshowIcon from '@mui/icons-material/Slideshow'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
@@ -41,10 +48,11 @@ import {
   ensureComunicarMercadoState,
   parseComunicarMercadoFromKickOff,
 } from './placementComunicarMercado'
-import { DIFERENCIAL_ITENS } from './placementDiferenciaisCatalogo'
+import { listDiferencialItens } from './placementDiferenciaisCatalogo'
 import { CONDICAO_CONTRATUAL_ITENS } from './placementCondicoesContratuaisCatalogo'
 import { INDICADOR_OPERADORA_ITENS } from './placementIndicadoresOperadorasCatalogo'
 import {
+  addCustomDiferencialItem,
   buildDiferenciaisMasterUpsertItems,
   buildSavePreviewRows,
   buildDiferencialPlanoOpcoes,
@@ -55,7 +63,6 @@ import {
   emptyDiferencialCelula,
   ensureConsolidandoDadosState,
   fornecedorColunaId,
-  matchDiferencialPlanoOpcao,
   mergeDiferenciaisColuna,
   mergeCondicoesColuna,
   mergeIndicadoresColuna,
@@ -66,13 +73,17 @@ import {
   previewImportDiferenciaisFromMaster,
   previewImportCondicoesFromMaster,
   previewImportIndicadoresFromMaster,
+  removeCustomDiferencialItem,
+  replicarDiferencialParaColunas,
+  replicarCondicaoParaColunas,
+  diferencialCelulasTemConteudo,
   isConsolidandoItemOculto,
   toggleConsolidandoItemOculto,
   type ConsolidandoDadosState,
   type DiferencialCelulaCotacao,
-  type DiferencialPlanoOpcao,
   type DiferencialPreviewRow,
 } from './placementConsolidandoDados'
+import { DiferencialPlanoMultiSelect } from './DiferencialPlanoMultiSelect'
 import { DiferenciaisCatalogoPreviewDialog } from './DiferenciaisCatalogoPreviewDialog'
 import { patchKickOffInForm } from './placementPatchKickOff'
 import { flushAllRegisteredPlacementDrafts } from './placementFlushRegistry'
@@ -179,6 +190,26 @@ export const PlacementConsolidandoDadosPanel = React.memo(function PlacementCons
   const pendingCellIdsRef = React.useRef<Record<string, string>>({})
   const pendingCondicaoCellIdsRef = React.useRef<Record<string, string>>({})
   const pendingIndicadorCellIdsRef = React.useRef<Record<string, string>>({})
+  const [addDiffOpen, setAddDiffOpen] = useState(false)
+  const [addDiffLabel, setAddDiffLabel] = useState('')
+  const [addDiffError, setAddDiffError] = useState('')
+  const [replicarItem, setReplicarItem] = useState<{
+    key: string
+    label: string
+    secao: 'diferenciais' | 'condicoes'
+  } | null>(null)
+  const [replicarTargets, setReplicarTargets] = useState<string[]>([])
+  const [replicarOnlyEmpty, setReplicarOnlyEmpty] = useState(false)
+
+  useEffect(() => {
+    if (
+      initialSubTab === 'diferenciais' ||
+      initialSubTab === 'condicoes' ||
+      initialSubTab === 'indicadores'
+    ) {
+      setSubTab(initialSubTab)
+    }
+  }, [initialSubTab])
 
   useEffect(() => {
     void syncDiferenciais(true)
@@ -270,6 +301,16 @@ export const PlacementConsolidandoDadosPanel = React.memo(function PlacementCons
       void flushPendingSave()
     },
     [flushPendingSave]
+  )
+
+  const diferencialItens = useMemo(
+    () => listDiferencialItens(consolidando.itensExtras?.diferenciais),
+    [consolidando.itensExtras]
+  )
+
+  const outrosFornecedores = useMemo(
+    () => fornecedoresVisiveis.filter((nome) => nome !== fornecedorAtivo),
+    [fornecedoresVisiveis, fornecedorAtivo]
   )
 
   const resolveOperadoraIdCb = useCallback(
@@ -563,6 +604,60 @@ export const PlacementConsolidandoDadosPanel = React.memo(function PlacementCons
     applyConsolidando((cd) => toggleConsolidandoItemOculto(cd, secao, itemKey), true)
   }
 
+  const openReplicar = (
+    item: { key: string; label: string },
+    secao: 'diferenciais' | 'condicoes'
+  ) => {
+    setReplicarItem({ ...item, secao })
+    setReplicarTargets(outrosFornecedores)
+    setReplicarOnlyEmpty(false)
+  }
+
+  const confirmReplicar = () => {
+    if (!replicarItem || !colunaId) return
+    const destinos = replicarTargets.map((nome) => fornecedorColunaId(nome)).filter(Boolean)
+    applyConsolidando((cd) => {
+      if (replicarItem.secao === 'condicoes') {
+        return replicarCondicaoParaColunas(cd, replicarItem.key, colunaId, destinos, {
+          onlyEmpty: replicarOnlyEmpty,
+        })
+      }
+      return replicarDiferencialParaColunas(cd, replicarItem.key, colunaId, destinos, {
+        onlyEmpty: replicarOnlyEmpty,
+      })
+    }, true)
+    const n = destinos.filter((id) => id !== colunaId).length
+    setSnackMsg(
+      n === 1
+        ? `${replicarItem.label} replicado para 1 fornecedor.`
+        : `${replicarItem.label} replicado para ${n} fornecedores.`
+    )
+    setReplicarItem(null)
+  }
+
+  const confirmAddDiferencial = () => {
+    const current = ensureConsolidandoDadosState(
+      parseConsolidandoDadosFromKickOff(formRef.current.kickOffEstrategia)
+    )
+    const result = addCustomDiferencialItem(current, addDiffLabel)
+    if (!result.ok) {
+      setAddDiffError(result.error)
+      return
+    }
+    applyConsolidando(() => result.state, true)
+    setAddDiffOpen(false)
+    setAddDiffLabel('')
+    setAddDiffError('')
+    setSnackMsg(
+      'Diferencial adicionado. Preencha a descrição e, se quiser, replique para os outros fornecedores.'
+    )
+  }
+
+  const removeDiferencialCustom = (itemKey: string, label: string) => {
+    if (!window.confirm(`Remover o diferencial "${label}" desta cotação?`)) return
+    applyConsolidando((cd) => removeCustomDiferencialItem(cd, itemKey), true)
+  }
+
   const goToSubTab = (next: typeof subTab) => {
     if (next === 'comparativo') {
       flushAllRegisteredPlacementDrafts()
@@ -571,25 +666,90 @@ export const PlacementConsolidandoDadosPanel = React.memo(function PlacementCons
     setSubTab(next)
   }
 
-  return (
-    <Box>
-      <Stack
-        direction="row"
-        justifyContent="space-between"
-        alignItems="center"
-        flexWrap="wrap"
-        gap={1.5}
-        sx={{ mb: 2 }}
-      >
-        <Typography variant="subtitle1" fontWeight={700}>
-          Consolidando dados
+  const handleSalvarConteudo = async () => {
+    flushAllRegisteredPlacementDrafts()
+    await flushPendingSave()
+    setSnackMsg('Conteúdo salvo.')
+  }
+
+  const salvarConteudoBar = (
+    <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0 }}>
+      {saveState === 'saving' && (
+        <Typography variant="caption" color="text.secondary">
+          Salvando…
         </Typography>
-        {saveState === 'saving' && (
-          <Typography variant="caption" color="text.secondary">
-            Salvando…
+      )}
+      {saveState === 'saved' && (
+        <Typography variant="caption" color="success.main">
+          Salvo
+        </Typography>
+      )}
+      {saveState === 'error' && (
+        <Typography variant="caption" color="error">
+          Erro ao salvar
+        </Typography>
+      )}
+      <Button
+        size="small"
+        variant="contained"
+        startIcon={<SaveIcon />}
+        disabled={disabled || saveState === 'saving'}
+        onClick={() => void handleSalvarConteudo()}
+      >
+        {saveState === 'saving' ? 'Salvando…' : 'Salvar conteúdo'}
+      </Button>
+    </Stack>
+  )
+
+  return (
+    <Box sx={{ minHeight: 0 }}>
+      {!embedded && (
+        <Stack
+          direction="row"
+          alignItems="center"
+          justifyContent="space-between"
+          flexWrap="wrap"
+          useFlexGap
+          gap={1}
+          sx={{ mb: 1, alignContent: 'flex-start' }}
+        >
+          <Typography variant="subtitle1" fontWeight={700} sx={{ mr: 1, whiteSpace: 'nowrap' }}>
+            Consolidando dados
           </Typography>
-        )}
-      </Stack>
+          <Tabs
+            value={subTab}
+            onChange={(_, v) => goToSubTab(v)}
+            variant="scrollable"
+            scrollButtons="auto"
+            sx={{
+              minHeight: 36,
+              height: 36,
+              flex: '1 1 auto',
+              minWidth: 0,
+              '& .MuiTabs-scroller': { height: 36 },
+              '& .MuiTab-root': {
+                minHeight: 36,
+                py: 0.5,
+                px: 1.25,
+                textTransform: 'none',
+                fontWeight: 700,
+              },
+              '& .MuiTab-iconWrapper': { mb: '0 !important', mr: 0.5 },
+            }}
+          >
+            <Tab value="diferenciais" label="Diferenciais" />
+            <Tab value="condicoes" label="Condições contratuais" />
+            <Tab value="indicadores" label="Indicadores operadoras" />
+            <Tab
+              value="comparativo"
+              icon={<SlideshowIcon fontSize="small" />}
+              iconPosition="start"
+              label="Comparativo"
+            />
+          </Tabs>
+          {salvarConteudoBar}
+        </Stack>
+      )}
 
       {(() => {
         const ajustes = validacaoPropostaItensComAjuste(
@@ -597,7 +757,7 @@ export const PlacementConsolidandoDadosPanel = React.memo(function PlacementCons
         )
         if (!ajustes.length) return null
         return (
-          <Alert severity="warning" sx={{ mb: 2 }}>
+          <Alert severity="warning" sx={{ mb: 1, py: 0.5 }}>
             <Typography variant="body2" sx={{ fontWeight: 700, mb: 0.5 }}>
               Ajustes solicitados na Validação do consolidado
             </Typography>
@@ -611,18 +771,6 @@ export const PlacementConsolidandoDadosPanel = React.memo(function PlacementCons
           </Alert>
         )
       })()}
-
-      <Tabs value={subTab} onChange={(_, v) => goToSubTab(v)} sx={{ mb: 2 }}>
-        <Tab value="diferenciais" label="Diferenciais" />
-        <Tab value="condicoes" label="Condições contratuais" />
-        <Tab value="indicadores" label="Indicadores operadoras" />
-        <Tab
-          value="comparativo"
-          icon={<SlideshowIcon fontSize="small" />}
-          iconPosition="start"
-          label="Comparativo"
-        />
-      </Tabs>
 
       {subTab === 'comparativo' ? (
         <ComparativoDiferenciaisDashboard
@@ -644,22 +792,22 @@ export const PlacementConsolidandoDadosPanel = React.memo(function PlacementCons
         />
       ) : (
         <>
-          <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+          <Paper variant="outlined" sx={{ px: 1.5, py: 1, mb: 1.5 }}>
             <Stack
               direction={{ xs: 'column', sm: 'row' }}
               justifyContent="space-between"
               alignItems={{ xs: 'stretch', sm: 'center' }}
-              gap={1.5}
-              sx={{ mb: fornecedorAtivo ? 1.5 : 0 }}
+              gap={1}
             >
               <Box>
-                <Typography variant="subtitle2" sx={{ mb: 0.75 }}>
-                  Fornecedor
-                </Typography>
-                <Stack direction="row" flexWrap="wrap" gap={1}>
+                <Stack direction="row" flexWrap="wrap" gap={0.75} alignItems="center">
+                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, mr: 0.5 }}>
+                    Fornecedor
+                  </Typography>
                   {fornecedoresVisiveis.map((nome) => (
                     <Chip
                       key={nome}
+                      size="small"
                       label={nome}
                       color={fornecedorAtivo === nome ? 'primary' : 'default'}
                       variant={fornecedorAtivo === nome ? 'filled' : 'outlined'}
@@ -704,9 +852,8 @@ export const PlacementConsolidandoDadosPanel = React.memo(function PlacementCons
 
           {fornecedorAtivo && subTab === 'diferenciais' && (
             <TableContainer component={Paper} variant="outlined" sx={{ mb: 2 }}>
-              <Alert severity="info" sx={{ borderRadius: 0, borderBottom: 1, borderColor: 'divider' }}>
-                Use o ícone de olho para ocultar um item na proposta/comparativo. Itens ocultos continuam
-                editáveis aqui.
+              <Alert severity="info" sx={{ borderRadius: 0, borderBottom: 1, borderColor: 'divider', py: 0.5 }}>
+                Olho oculta na proposta. Copiar replica para outros fornecedores.
               </Alert>
               <Table size="small" sx={{ minWidth: 720 }}>
                 <TableHead>
@@ -715,15 +862,20 @@ export const PlacementConsolidandoDadosPanel = React.memo(function PlacementCons
                       Proposta
                     </TableCell>
                     <TableCell sx={{ fontWeight: 700, width: '22%' }}>Diferencial</TableCell>
-                    <TableCell sx={{ fontWeight: 700, width: '24%' }}>Plano</TableCell>
+                    <TableCell sx={{ fontWeight: 700, width: '24%' }}>
+                      Plano
+                      <Typography component="span" variant="caption" color="text.secondary" display="block">
+                        Um ou mais planos com a mesma descrição
+                      </Typography>
+                    </TableCell>
                     <TableCell sx={{ fontWeight: 700 }}>Descrição</TableCell>
-                    <TableCell sx={{ width: 72 }} align="center">
+                    <TableCell sx={{ width: 132 }} align="center">
                       Ações
                     </TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {DIFERENCIAL_ITENS.map((item) => {
+                  {diferencialItens.map((item) => {
                     const stored = consolidando.diferenciais[item.key]?.[colunaId] ?? []
                     const pendingKey = `${colunaId}:${item.key}`
                     const rows = getEditableCelulas(stored, pendingCellIdsRef.current, pendingKey)
@@ -770,66 +922,17 @@ export const PlacementConsolidandoDadosPanel = React.memo(function PlacementCons
                           {idx === 0 ? item.label : ''}
                         </TableCell>
                         <TableCell sx={{ verticalAlign: 'top' }}>
-                          <Autocomplete<DiferencialPlanoOpcao, false, false, true>
-                            size="small"
-                            freeSolo
+                          <DiferencialPlanoMultiSelect
+                            celula={celula}
                             options={planoOpcoes}
-                            groupBy={(opt) => (typeof opt === 'string' ? '' : opt.grupo)}
-                            getOptionLabel={(opt) =>
-                              typeof opt === 'string' ? opt : opt.planoLabel
-                            }
-                            isOptionEqualToValue={(a, b) =>
-                              typeof a !== 'string' &&
-                              typeof b !== 'string' &&
-                              a.key === b.key
-                            }
-                            value={matchDiferencialPlanoOpcao(celula, planoOpcoes) ?? celula.planoLabel}
-                            onChange={(_, plano) => {
-                              const label =
-                                typeof plano === 'string'
-                                  ? plano
-                                  : plano?.planoLabel ?? ''
-                              const placementPlanoId =
-                                typeof plano === 'string'
-                                  ? ''
-                                  : plano?.placementPlanoId ?? ''
-                              updateCelulas(item.key, (base) =>
-                                base.map((c, i) =>
-                                  i === idx
-                                    ? {
-                                        ...c,
-                                        placementPlanoId,
-                                        planoLabel: label,
-                                        fromMaster: false,
-                                      }
-                                    : c
-                                )
-                              )
-                            }}
-                            onInputChange={(_, value, reason) => {
-                              if (reason !== 'input') return
-                              updateCelulas(item.key, (base) =>
-                                base.map((c, i) =>
-                                  i === idx
-                                    ? {
-                                        ...c,
-                                        planoLabel: value,
-                                        placementPlanoId: '',
-                                        fromMaster: false,
-                                      }
-                                    : c
-                                )
-                              )
-                            }}
                             disabled={disabled || !operadoraId}
-                            renderInput={(params) => (
-                              <TextField
-                                {...params}
-                                placeholder="Selecione ou digite o plano"
-                                helperText="Entrada, propostas do comparativo ou catálogo"
-                                FormHelperTextProps={{ sx: { mx: 0, mt: 0.5 } }}
-                              />
-                            )}
+                            placeholder="Selecione um ou mais planos"
+                            helperText="A descrição vale para todos os planos marcados"
+                            onChange={(next) => {
+                              updateCelulas(item.key, (base) =>
+                                base.map((c, i) => (i === idx ? next : c))
+                              )
+                            }}
                           />
                         </TableCell>
                         <TableCell sx={{ verticalAlign: 'top' }}>
@@ -854,6 +957,25 @@ export const PlacementConsolidandoDadosPanel = React.memo(function PlacementCons
                         </TableCell>
                         <TableCell sx={{ verticalAlign: 'top' }} align="center">
                           <Stack direction="row" spacing={0.25} justifyContent="center">
+                            {idx === 0 && (
+                              <Tooltip title="Replicar este diferencial para outros fornecedores">
+                                <span>
+                                  <IconButton
+                                    size="small"
+                                    color="primary"
+                                    aria-label="Replicar para outros fornecedores"
+                                    disabled={
+                                      disabled ||
+                                      outrosFornecedores.length === 0 ||
+                                      !diferencialCelulasTemConteudo(rows)
+                                    }
+                                    onClick={() => openReplicar(item, 'diferenciais')}
+                                  >
+                                    <ContentCopyIcon fontSize="small" />
+                                  </IconButton>
+                                </span>
+                              </Tooltip>
+                            )}
                             <IconButton
                               size="small"
                               color="error"
@@ -878,6 +1000,19 @@ export const PlacementConsolidandoDadosPanel = React.memo(function PlacementCons
                                 <AddIcon fontSize="small" />
                               </IconButton>
                             )}
+                            {idx === 0 && item.custom && (
+                              <Tooltip title="Remover este diferencial da cotação">
+                                <IconButton
+                                  size="small"
+                                  color="error"
+                                  aria-label="Remover diferencial"
+                                  disabled={disabled}
+                                  onClick={() => removeDiferencialCustom(item.key, item.label)}
+                                >
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
                           </Stack>
                         </TableCell>
                       </TableRow>
@@ -888,10 +1023,28 @@ export const PlacementConsolidandoDadosPanel = React.memo(function PlacementCons
             </TableContainer>
           )}
 
+          {fornecedorAtivo && subTab === 'diferenciais' && (
+            <Box sx={{ mb: 2 }}>
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<AddIcon />}
+                disabled={disabled}
+                onClick={() => {
+                  setAddDiffLabel('')
+                  setAddDiffError('')
+                  setAddDiffOpen(true)
+                }}
+              >
+                Adicionar diferencial
+              </Button>
+            </Box>
+          )}
+
           {fornecedorAtivo && subTab === 'condicoes' && (
             <TableContainer component={Paper} variant="outlined" sx={{ mb: 2 }}>
-              <Alert severity="info" sx={{ borderRadius: 0, borderBottom: 1, borderColor: 'divider' }}>
-                Use o ícone de olho para ocultar uma condição na proposta/comparativo.
+              <Alert severity="info" sx={{ borderRadius: 0, borderBottom: 1, borderColor: 'divider', py: 0.5 }}>
+                Olho oculta a condição na proposta. Copiar replica para outros fornecedores.
               </Alert>
               <Table size="small" sx={{ minWidth: 720 }}>
                 <TableHead>
@@ -903,11 +1056,11 @@ export const PlacementConsolidandoDadosPanel = React.memo(function PlacementCons
                     <TableCell sx={{ fontWeight: 700, width: '22%' }}>
                       Plano
                       <Typography component="span" variant="caption" color="text.secondary" display="block">
-                        Opcional — em branco = geral do fornecedor
+                        Opcional — vazio = geral; vários = mesma condição
                       </Typography>
                     </TableCell>
                     <TableCell sx={{ fontWeight: 700 }}>Descrição</TableCell>
-                    <TableCell sx={{ width: 72 }} align="center">
+                    <TableCell sx={{ width: 132 }} align="center">
                       Ações
                     </TableCell>
                   </TableRow>
@@ -964,62 +1117,17 @@ export const PlacementConsolidandoDadosPanel = React.memo(function PlacementCons
                           {idx === 0 ? item.label : ''}
                         </TableCell>
                         <TableCell sx={{ verticalAlign: 'top' }}>
-                          <Autocomplete<DiferencialPlanoOpcao, false, false, true>
-                            size="small"
-                            freeSolo
+                          <DiferencialPlanoMultiSelect
+                            celula={celula}
                             options={planoOpcoes}
-                            groupBy={(opt) => (typeof opt === 'string' ? '' : opt.grupo)}
-                            getOptionLabel={(opt) =>
-                              typeof opt === 'string' ? opt : opt.planoLabel
-                            }
-                            isOptionEqualToValue={(a, b) =>
-                              typeof a !== 'string' &&
-                              typeof b !== 'string' &&
-                              a.key === b.key
-                            }
-                            value={matchDiferencialPlanoOpcao(celula, planoOpcoes) ?? celula.planoLabel}
-                            onChange={(_, plano) => {
-                              const label =
-                                typeof plano === 'string' ? plano : plano?.planoLabel ?? ''
-                              const placementPlanoId =
-                                typeof plano === 'string' ? '' : plano?.placementPlanoId ?? ''
-                              updateCondicaoCelulas(item.key, (base) =>
-                                base.map((c, i) =>
-                                  i === idx
-                                    ? {
-                                        ...c,
-                                        placementPlanoId,
-                                        planoLabel: label,
-                                        fromMaster: false,
-                                      }
-                                    : c
-                                )
-                              )
-                            }}
-                            onInputChange={(_, value, reason) => {
-                              if (reason !== 'input') return
-                              updateCondicaoCelulas(item.key, (base) =>
-                                base.map((c, i) =>
-                                  i === idx
-                                    ? {
-                                        ...c,
-                                        planoLabel: value,
-                                        placementPlanoId: '',
-                                        fromMaster: false,
-                                      }
-                                    : c
-                                )
-                              )
-                            }}
                             disabled={disabled || !operadoraId}
-                            renderInput={(params) => (
-                              <TextField
-                                {...params}
-                                placeholder="Geral ou por plano"
-                                helperText="Deixe vazio para vigorar em todo o fornecedor"
-                                FormHelperTextProps={{ sx: { mx: 0, mt: 0.5 } }}
-                              />
-                            )}
+                            placeholder="Geral ou um/mais planos"
+                            helperText="Vazio = todo o fornecedor; vários planos compartilham a descrição"
+                            onChange={(next) => {
+                              updateCondicaoCelulas(item.key, (base) =>
+                                base.map((c, i) => (i === idx ? next : c))
+                              )
+                            }}
                           />
                         </TableCell>
                         <TableCell sx={{ verticalAlign: 'top' }}>
@@ -1044,6 +1152,25 @@ export const PlacementConsolidandoDadosPanel = React.memo(function PlacementCons
                         </TableCell>
                         <TableCell sx={{ verticalAlign: 'top' }} align="center">
                           <Stack direction="row" spacing={0.25} justifyContent="center">
+                            {idx === 0 && (
+                              <Tooltip title="Replicar esta condição para outros fornecedores">
+                                <span>
+                                  <IconButton
+                                    size="small"
+                                    color="primary"
+                                    aria-label="Replicar para outros fornecedores"
+                                    disabled={
+                                      disabled ||
+                                      outrosFornecedores.length === 0 ||
+                                      !diferencialCelulasTemConteudo(rows)
+                                    }
+                                    onClick={() => openReplicar(item, 'condicoes')}
+                                  >
+                                    <ContentCopyIcon fontSize="small" />
+                                  </IconButton>
+                                </span>
+                              </Tooltip>
+                            )}
                             <IconButton
                               size="small"
                               color="error"
@@ -1080,8 +1207,8 @@ export const PlacementConsolidandoDadosPanel = React.memo(function PlacementCons
 
           {fornecedorAtivo && subTab === 'indicadores' && (
             <TableContainer component={Paper} variant="outlined" sx={{ mb: 2 }}>
-              <Alert severity="info" sx={{ borderRadius: 0, borderBottom: 1, borderColor: 'divider' }}>
-                Use o ícone de olho para ocultar um indicador na proposta/comparativo.
+              <Alert severity="info" sx={{ borderRadius: 0, borderBottom: 1, borderColor: 'divider', py: 0.5 }}>
+                Olho oculta o indicador na proposta.
               </Alert>
               <Table size="small" sx={{ minWidth: 640 }}>
                 <TableHead>
@@ -1238,6 +1365,12 @@ export const PlacementConsolidandoDadosPanel = React.memo(function PlacementCons
               />
             </>
           )}
+
+          {embedded && (
+            <Stack direction="row" justifyContent="flex-end" sx={{ mt: 2.5, mb: 1 }}>
+              {salvarConteudoBar}
+            </Stack>
+          )}
         </>
       )}
 
@@ -1258,6 +1391,98 @@ export const PlacementConsolidandoDadosPanel = React.memo(function PlacementCons
         onClose={() => setCatalogDialogOpen(false)}
         onConfirm={() => void handleCatalogConfirm()}
       />
+
+      <Dialog open={addDiffOpen} onClose={() => setAddDiffOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Adicionar diferencial</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+            O item entra nesta cotação para todos os fornecedores. Depois de preencher, use copiar
+            para replicar a mesma resposta.
+          </Typography>
+          <TextField
+            autoFocus
+            fullWidth
+            label="Nome do diferencial"
+            placeholder="Ex.: REEMBOLSO INTERNACIONAL"
+            value={addDiffLabel}
+            onChange={(e) => {
+              setAddDiffLabel(e.target.value)
+              if (addDiffError) setAddDiffError('')
+            }}
+            error={Boolean(addDiffError)}
+            helperText={addDiffError || 'Use um nome curto, no mesmo estilo dos itens da lista.'}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                confirmAddDiferencial()
+              }
+            }}
+            sx={{ mt: 0.5 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAddDiffOpen(false)}>Cancelar</Button>
+          <Button variant="contained" onClick={confirmAddDiferencial} disabled={!addDiffLabel.trim()}>
+            Adicionar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(replicarItem)}
+        onClose={() => setReplicarItem(null)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Replicar {replicarItem?.label}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+            Copia plano e descrição de <strong>{fornecedorAtivo}</strong> para os fornecedores
+            selecionados.
+          </Typography>
+          <Stack>
+            {outrosFornecedores.map((nome) => (
+              <FormControlLabel
+                key={nome}
+                control={
+                  <Checkbox
+                    checked={replicarTargets.includes(nome)}
+                    onChange={(e) => {
+                      setReplicarTargets((curr) =>
+                        e.target.checked ? [...curr, nome] : curr.filter((n) => n !== nome)
+                      )
+                    }}
+                  />
+                }
+                label={nome}
+              />
+            ))}
+          </Stack>
+          {!outrosFornecedores.length && (
+            <Alert severity="info">Não há outro fornecedor no comparativo para receber a cópia.</Alert>
+          )}
+          <FormControlLabel
+            sx={{ mt: 1 }}
+            control={
+              <Checkbox
+                checked={replicarOnlyEmpty}
+                onChange={(e) => setReplicarOnlyEmpty(e.target.checked)}
+              />
+            }
+            label="Só preencher destino vazio (não substituir o que já foi lançado)"
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setReplicarItem(null)}>Cancelar</Button>
+          <Button
+            variant="contained"
+            onClick={confirmReplicar}
+            disabled={!replicarTargets.length}
+          >
+            Replicar
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Snackbar
         open={!!snackMsg}

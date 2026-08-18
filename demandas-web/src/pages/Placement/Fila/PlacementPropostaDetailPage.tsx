@@ -17,10 +17,7 @@ import { usePlacementCotacaoStore } from '../../../store/placementCotacaoStore'
 import type { CotacaoFormState } from './CotacaoFormFields'
 import { toFormState } from './Detail'
 import { getStatusColor, getWorkflowStatusDisplayLabel } from './utils'
-import {
-  preferLocalComparativoConfigInKickOff,
-  preferRicherKickOffWhenApplyingApi,
-} from './placementKickOffPersist'
+import { mergeApiCotacaoIntoForm } from './placementKickOffPersist'
 import { PlacementPropostaViewer } from './PlacementPropostaViewer'
 
 /** Apresentação interna robusta (mesmo visual do comparativo) — Proposta enviada. */
@@ -57,9 +54,7 @@ export default function PlacementPropostaDetailPage() {
         setForm((prev) => {
           const next = toFormState(data)
           if (!prev) return next
-          let kickOff = preferRicherKickOffWhenApplyingApi(next.kickOffEstrategia, prev.kickOffEstrategia)
-          kickOff = preferLocalComparativoConfigInKickOff(kickOff, prev.kickOffEstrategia) ?? kickOff
-          return { ...next, kickOffEstrategia: kickOff }
+          return mergeApiCotacaoIntoForm(prev, next, data)
         })
         setLoading(false)
       })
@@ -81,13 +76,9 @@ export default function PlacementPropostaDetailPage() {
   }, [])
 
   const handlePersisted = useCallback((apiCotacao: unknown) => {
-    const data = apiCotacao as Record<string, unknown>
     setForm((prev) => {
       if (!prev) return prev
-      const next = toFormState(data)
-      let kickOff = preferRicherKickOffWhenApplyingApi(next.kickOffEstrategia, prev.kickOffEstrategia)
-      kickOff = preferLocalComparativoConfigInKickOff(kickOff, prev.kickOffEstrategia) ?? kickOff
-      return { ...next, kickOffEstrategia: kickOff }
+      return mergeApiCotacaoIntoForm(prev, toFormState(apiCotacao), apiCotacao)
     })
   }, [])
 

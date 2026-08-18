@@ -1463,7 +1463,17 @@ export default async function placementRoutes(
     'check_up',
     'resgate_domiciliar',
     'resgate_saude',
+    'sala_vip',
+    'servicos_especiais_concierge',
+    'medicos_exclusivos',
+    'cobertura_ocupacional',
+    'programa_acoes_saude',
   ]);
+
+  function isAllowedDiferencialItemKey(key: string): boolean {
+    if (DIFERENCIAL_ITEM_KEYS.has(key)) return true;
+    return /^custom_[a-z0-9_]{1,80}$/.test(key);
+  }
 
   const CONDICAO_CONTRATUAL_ITEM_KEYS = new Set([
     'vigencia_contratual',
@@ -2034,7 +2044,7 @@ export default async function placementRoutes(
       if (!placementPlanoId) {
         return reply.status(400).send({ error: 'Plano é obrigatório' });
       }
-      if (!itemKey || !DIFERENCIAL_ITEM_KEYS.has(itemKey)) {
+      if (!itemKey || !isAllowedDiferencialItemKey(itemKey)) {
         return reply.status(400).send({ error: 'Item de diferencial inválido' });
       }
       if (!texto) {
@@ -2105,7 +2115,7 @@ export default async function placementRoutes(
           skipped += 1;
           continue;
         }
-        if (!DIFERENCIAL_ITEM_KEYS.has(itemKey)) {
+        if (!isAllowedDiferencialItemKey(itemKey)) {
           skipped += 1;
           continue;
         }
@@ -2177,7 +2187,7 @@ export default async function placementRoutes(
       if (!placementPlanoId) {
         return reply.status(400).send({ error: 'Plano é obrigatório' });
       }
-      if (!itemKey || !DIFERENCIAL_ITEM_KEYS.has(itemKey)) {
+      if (!itemKey || !isAllowedDiferencialItemKey(itemKey)) {
         return reply.status(400).send({ error: 'Item de diferencial inválido' });
       }
       if (!texto) {

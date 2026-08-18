@@ -69,7 +69,6 @@ function procIcon(key: CopartProcedimentoKey): React.ReactNode {
 
 type Props = {
   page: ComparativoCoparticipacaoPagina
-  ticket: string
 }
 
 function CopartSlideText({
@@ -777,7 +776,7 @@ function CopartInfograficoGrid({
   )
 }
 
-export function ComparativoCoparticipacaoInfografico({ page, ticket }: Props) {
+export function ComparativoCoparticipacaoInfografico({ page }: Props) {
   const colunas = page.colunas
   const [logoUrls, setLogoUrls] = useState<Map<string, string>>(new Map())
 
@@ -802,26 +801,7 @@ export function ComparativoCoparticipacaoInfografico({ page, ticket }: Props) {
 
   return (
     <Box sx={{ width: '100%' }}>
-      {page.grupoLabel ? (
-        <Typography
-          sx={{
-            fontFamily: FONT,
-            fontSize: 12,
-            fontWeight: 800,
-            color: PRIMARY,
-            mb: 0.75,
-            letterSpacing: 0.2,
-          }}
-        >
-          Plano equivalente · {page.grupoLabel}
-        </Typography>
-      ) : null}
       <CopartInfograficoGrid colunas={colunas} layout={layout} logoUrls={logoUrls} />
-      {page.totalPages > 1 && (
-        <Typography sx={{ fontFamily: FONT, fontSize: 9, color: MUTED, fontWeight: 700, textAlign: 'right', mt: 1 }}>
-          Página {page.pageIndex + 1} de {page.totalPages} · {ticket}
-        </Typography>
-      )}
     </Box>
   )
 }

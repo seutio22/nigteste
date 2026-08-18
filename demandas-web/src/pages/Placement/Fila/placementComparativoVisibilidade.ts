@@ -37,57 +37,31 @@ export function filterContratoResumoPorVisibilidade(
   const ocultas = colunasOcultasSet(colunasOcultas)
   if (!ocultas.size) return resumo
 
+  const keep = (c: { id: string; grupo?: string }) => c.grupo === 'atual' || !ocultas.has(c.id)
+
   // Contrato atual nunca some por filtro de visibilidade (referência do comparativo).
-  const allColunas = resumo.allColunas.filter(
-    (c) => c.grupo === 'atual' || !ocultas.has(c.id)
-  )
+  const allColunas = resumo.allColunas.filter(keep)
   if (!allColunas.length) return resumo
 
-  const byRef = new Map<string, typeof allColunas>()
-  for (const c of allColunas) {
-    const key = c.planoReferenciaId?.trim() || c.id
-    const list = byRef.get(key) ?? []
-    list.push(c)
-    byRef.set(key, list)
-  }
-
-  const orderedKeys: string[] = []
-  const seen = new Set<string>()
-  for (const page of resumo.pages) {
-    for (const c of page.colunas) {
-      const key = c.planoReferenciaId?.trim() || c.id
-      if (byRef.has(key) && !seen.has(key)) {
-        orderedKeys.push(key)
-        seen.add(key)
+  // Não remonta blocos por id solto: isso troca TNP4 por S2500 e some com o ATUAL.
+  const pages = resumo.pages
+    .map((p, pageIndex) => {
+      const cols = p.colunas.filter(keep)
+      if (!cols.length) return null
+      return {
+        ...contratoPageFromColunas(cols, pageIndex, resumo.pages.length, p.grupoLabel),
+        grupoLabel: p.grupoLabel,
       }
-    }
-  }
-  for (const key of byRef.keys()) {
-    if (!seen.has(key)) orderedKeys.push(key)
-  }
-
-  const groups = orderedKeys
-    .map((key) => ({
-      key,
-      cols: byRef.get(key)!,
-      label:
-        resumo.pages.find((p) =>
-          p.colunas.some((c) => (c.planoReferenciaId?.trim() || c.id) === key)
-        )?.grupoLabel || byRef.get(key)?.[0]?.planoLabel,
-    }))
-    .filter((g) => g.cols.length > 0)
-
-  const total = groups.length
-  const pages = groups.map((g, pageIndex) =>
-    contratoPageFromColunas(g.cols, pageIndex, total, g.label || undefined)
-  )
+    })
+    .filter((p): p is NonNullable<typeof p> => p != null)
+    .map((p, pageIndex, arr) => ({ ...p, pageIndex, totalPages: arr.length }))
 
   const totalVidas = allColunas.reduce((s, c) => s + (c.vidas || 0), 0)
 
   return {
     ...resumo,
     allColunas,
-    pages,
+    pages: pages.length ? pages : resumo.pages,
     totalVidas,
   }
 }

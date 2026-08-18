@@ -1659,7 +1659,7 @@ export function ComparativoEstudoDashboard({
             borderBottom: 1,
             borderColor: 'divider',
             bgcolor: 'background.paper',
-            display: 'flex',
+            display: isFullscreen ? 'none' : 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             flexWrap: 'wrap',
@@ -1776,10 +1776,32 @@ export function ComparativoEstudoDashboard({
               minWidth: 0,
               minHeight: isFullscreen ? 0 : { xs: 480, md: '72vh' },
               overflow: 'auto',
-              p: { xs: 1.5, md: 2.5 },
+              p: { xs: 1, md: 1.25 },
               bgcolor: 'grey.50',
+              position: 'relative',
             }}
           >
+            {isFullscreen && (
+              <Tooltip title={sidebarOpen ? 'Ocultar painel lateral' : 'Mostrar painel lateral'}>
+                <IconButton
+                  size="small"
+                  color={sidebarOpen ? 'primary' : 'default'}
+                  onClick={() => setSidebarOpen((v) => !v)}
+                  aria-label={sidebarOpen ? 'Ocultar painel lateral' : 'Mostrar painel lateral'}
+                  sx={{
+                    position: 'absolute',
+                    top: 8,
+                    left: 8,
+                    zIndex: 5,
+                    bgcolor: 'background.paper',
+                    boxShadow: 1,
+                    '&:hover': { bgcolor: 'background.paper' },
+                  }}
+                >
+                  <ViewSidebarOutlinedIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
             <Box sx={{ width: 'max-content', minWidth: '100%' }}>{comparativoPreview}</Box>
           </Box>
         </Box>

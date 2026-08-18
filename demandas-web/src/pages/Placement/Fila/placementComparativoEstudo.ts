@@ -11,6 +11,7 @@ import {
   coparticipacaoSimNaoLabel,
   faixaLabelDisplay,
   type ContratoAtualPagina,
+  type ContratoAtualResumo,
   type ContratoPlanoColuna,
   type FaixaEtariaLinha,
   TAB_COLORS,
@@ -803,6 +804,24 @@ export function alignPageToOperadoraSlots(
     ...page,
     colunas: slots.map((slot) => byKey.get(slot.key) ?? placeholderContratoColuna(slot)),
   }
+}
+
+/**
+ * Modelo Contrato atual (ATUAL × mercado): um bloco por plano equivalente,
+ * com as mesmas colunas de operadora/cenário em todos os blocos.
+ * Não achatar allColunas numa linha só — isso esconde o slot ATUAL no meio do mercado.
+ */
+export function pagesComparativoContratoAlinhadas(
+  resumo: Pick<ContratoAtualResumo, 'allColunas' | 'pages'>
+): ContratoAtualPagina[] {
+  if (!resumo.allColunas.length) return []
+  // Slots vêm de allColunas — se usar só as páginas, o ATUAL some quando o bloco
+  // ficou só com mercado (S2500) e o vigente ficou em outro id.
+  const slots = buildOperadoraSlotsFromColunas(resumo.allColunas)
+  if (!resumo.pages.length) {
+    return [alignPageToOperadoraSlots(contratoPageFromColunas(resumo.allColunas, 0, 1), slots)]
+  }
+  return resumo.pages.map((p) => alignPageToOperadoraSlots(p, slots))
 }
 
 /**

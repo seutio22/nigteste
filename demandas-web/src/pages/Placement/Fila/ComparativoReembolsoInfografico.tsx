@@ -65,7 +65,6 @@ function procIcon(key: string): React.ReactNode {
 
 type Props = {
   page: ComparativoReembolsoPagina
-  ticket: string
 }
 
 function ReembSlideText({
@@ -556,7 +555,7 @@ function ReembInfograficoGrid({
   )
 }
 
-export function ComparativoReembolsoInfografico({ page, ticket }: Props) {
+export function ComparativoReembolsoInfografico({ page }: Props) {
   const colunas = page.colunas
   const [logoUrls, setLogoUrls] = useState<Map<string, string>>(new Map())
   const layout = useMemo(() => getReembInfograficoLayout(colunas.length), [colunas.length])
@@ -580,26 +579,7 @@ export function ComparativoReembolsoInfografico({ page, ticket }: Props) {
 
   return (
     <Box sx={{ width: '100%' }}>
-      {page.grupoLabel ? (
-        <Typography
-          sx={{
-            fontFamily: FONT,
-            fontSize: 12,
-            fontWeight: 800,
-            color: PRIMARY,
-            mb: 0.75,
-            letterSpacing: 0.2,
-          }}
-        >
-          Plano equivalente · {page.grupoLabel}
-        </Typography>
-      ) : null}
       <ReembInfograficoGrid colunas={colunas} layout={layout} logoUrls={logoUrls} linhas={page.linhas} />
-      {page.totalPages > 1 && (
-        <Typography sx={{ fontFamily: FONT, fontSize: 9, color: MUTED, fontWeight: 700, textAlign: 'right', mt: 1 }}>
-          Página {page.pageIndex + 1} de {page.totalPages} · {ticket}
-        </Typography>
-      )}
     </Box>
   )
 }

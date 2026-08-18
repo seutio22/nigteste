@@ -3,15 +3,9 @@ import {
   Alert,
   Box,
   Button,
-  IconButton,
   Paper,
   Stack,
-  Typography,
 } from '@mui/material'
-import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
-import ChevronRightIcon from '@mui/icons-material/ChevronRight'
-import HealthAndSafetyIcon from '@mui/icons-material/HealthAndSafety'
-import PaymentsIcon from '@mui/icons-material/Payments'
 import EditNoteIcon from '@mui/icons-material/EditNote'
 import type { CotacaoFormState } from './CotacaoFormFields'
 import {
@@ -36,9 +30,7 @@ import {
 import { planosReferenciaAbertura } from './placementPropostaEquivalencia'
 import { useMasterDataStore } from '../../../store/masterDataStore'
 import {
-  PlacementSlideHeader,
   SLIDE_FONT_FAMILY,
-  SlidePageFooter,
   TABLE_GRAY,
   TABLE_NAVY,
 } from './placementSlideShell'
@@ -55,6 +47,8 @@ type Props = {
   onNavigateToLancamento?: () => void
   onNavigateToCoparticipacao?: () => void
   lancamentoDisponivel?: boolean
+  /** Oculta atalhos de navegação duplicados (ex.: tela cheia com menu superior). */
+  hideToolbarActions?: boolean
 }
 
 function Th({ children }: { children: React.ReactNode }) {
@@ -135,27 +129,16 @@ function ReembHeaders({ colunas }: { colunas: ComparativoReembColuna[] }) {
   )
 }
 
-function ReembolsoSlide({
+function ReembolsoTabela({
   page,
-  ticket,
 }: {
   page: ComparativoReembolsoPagina
-  ticket: string
 }) {
   const colAtual = page.colunas.find((c) => c.grupo === 'atual' && !c.placeholder)
 
   return (
     <Paper variant="outlined" sx={{ overflow: 'auto' }}>
-      <PlacementSlideHeader
-        title="Comparativo de Reembolso"
-        subtitle={
-          page.grupoLabel
-            ? `${page.grupoLabel} · detalhamento por procedimento · ${ticket}`
-            : `Detalhamento por procedimento · ${ticket}`
-        }
-        icon={<PaymentsIcon sx={{ fontSize: 22, color: '#fff' }} />}
-      />
-      <Box sx={{ px: 2, py: 1.5 }}>
+      <Box sx={{ px: 1.5, py: 1 }}>
         <Box
           component="table"
           sx={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'auto' }}
@@ -204,7 +187,6 @@ function ReembolsoSlide({
           </tbody>
         </Box>
       </Box>
-      <SlidePageFooter pageIndex={page.pageIndex} totalPages={page.totalPages} />
     </Paper>
   )
 }
@@ -219,15 +201,12 @@ export function ComparativoReembolsoDashboard({
   onNavigateToLancamento,
   onNavigateToCoparticipacao,
   lancamentoDisponivel,
+  hideToolbarActions: _hideToolbarActions = false,
 }: Props) {
   const operadoras = useMasterDataStore((s) => s.operadoras)
   const operadorasById = useMasterDataStore((s) => s.operadorasById)
-  const [pageIndex, setPageIndex] = useState(0)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [modoVisualizacao, setModoVisualizacao] = useState<ModoVisualizacaoReemb>('infografico')
-  const [exibirTodasPaginas, setExibirTodasPaginas] = useState(
-    () => form.kickOffEstrategia?.aguardandoOperadora?.comparativoConfig?.visualizacao !== 'slide'
-  )
 
   const {
     config,
@@ -281,10 +260,6 @@ export function ComparativoReembolsoDashboard({
     [colunasTodas, config.colunasOcultas, referencias]
   )
 
-  const currentPage = pages[pageIndex] ?? pages[0]
-  const ticket = form.ticket || cotacaoId
-  const paginaCompleta = exibirTodasPaginas || config.visualizacao === 'pagina_completa'
-
   if (!colunasTodas.length) {
     return (
       <Box sx={{ p: 3 }}>
@@ -318,23 +293,17 @@ export function ComparativoReembolsoDashboard({
 
   const preview =
     modoVisualizacao === 'infografico' ? (
-      paginaCompleta ? (
-        <Stack spacing={3}>
-          {pages.map((page, i) => (
-            <ComparativoReembolsoInfografico key={`reemb-info-${i}`} page={page} ticket={ticket} />
-          ))}
-        </Stack>
-      ) : (
-        currentPage && <ComparativoReembolsoInfografico page={currentPage} ticket={ticket} />
-      )
-    ) : paginaCompleta ? (
-      <Stack spacing={3}>
+      <Stack spacing={1.5}>
         {pages.map((page, i) => (
-          <ReembolsoSlide key={`reemb-page-${i}`} page={page} ticket={ticket} />
+          <ComparativoReembolsoInfografico key={`reemb-info-${i}`} page={page} />
         ))}
       </Stack>
     ) : (
-      currentPage && <ReembolsoSlide page={currentPage} ticket={ticket} />
+      <Stack spacing={1.5}>
+        {pages.map((page, i) => (
+          <ReembolsoTabela key={`reemb-page-${i}`} page={page} />
+        ))}
+      </Stack>
     )
 
   return (
@@ -357,67 +326,10 @@ export function ComparativoReembolsoDashboard({
             onConfigChange={canPersist ? persistConfig : undefined}
             modoVisualizacao={modoVisualizacao}
             onModoVisualizacaoChange={setModoVisualizacao}
-            exibirTodasPaginas={paginaCompleta}
-            onExibirTodasPaginasChange={setExibirTodasPaginas}
+            exibirTodasPaginas
+            onExibirTodasPaginasChange={() => undefined}
+            showSlideOptions={false}
           />
-        </Stack>
-      }
-      toolbar={
-        <Stack
-          direction="row"
-          alignItems="center"
-          justifyContent="space-between"
-          flexWrap="wrap"
-          gap={1.5}
-          sx={{ flex: 1, minWidth: 0 }}
-        >
-          <Box sx={{ minWidth: 0 }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
-              Comparativo de reembolso
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {colunas.length} coluna(s) · {pages.length} plano(s) equivalente(s)
-              {modoVisualizacao === 'infografico' ? ' · infográfico' : ' · tabela'}
-            </Typography>
-          </Box>
-          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-            {lancamentoDisponivel && onNavigateToLancamento && (
-              <Button size="small" variant="outlined" startIcon={<EditNoteIcon />} onClick={onNavigateToLancamento}>
-                Editar reembolso
-              </Button>
-            )}
-            {onNavigateToCoparticipacao && (
-              <Button
-                size="small"
-                variant="outlined"
-                startIcon={<HealthAndSafetyIcon />}
-                onClick={onNavigateToCoparticipacao}
-              >
-                Comparativo coparticipação
-              </Button>
-            )}
-            {!paginaCompleta && pages.length > 1 && (
-              <Stack direction="row" alignItems="center" spacing={0.5}>
-                <IconButton
-                  size="small"
-                  disabled={pageIndex <= 0}
-                  onClick={() => setPageIndex((i) => Math.max(0, i - 1))}
-                >
-                  <ChevronLeftIcon />
-                </IconButton>
-                <Typography variant="caption" sx={{ fontWeight: 700, minWidth: 48, textAlign: 'center' }}>
-                  {pageIndex + 1}/{pages.length}
-                </Typography>
-                <IconButton
-                  size="small"
-                  disabled={pageIndex >= pages.length - 1}
-                  onClick={() => setPageIndex((i) => Math.min(pages.length - 1, i + 1))}
-                >
-                  <ChevronRightIcon />
-                </IconButton>
-              </Stack>
-            )}
-          </Stack>
         </Stack>
       }
     >

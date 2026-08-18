@@ -15,6 +15,7 @@ import {
   setAlertDeliveryMode,
   type AlertDeliveryMode,
 } from '../lib/alertDeliveryPrefs'
+import { AlertDeliveryTimingFields } from './AlertDeliveryTimingFields'
 import { getUserDepartmentDisplay } from '../utils/userDepartmentDisplay'
 
 export function SettingsDropdown() {
@@ -343,6 +344,10 @@ export function SettingsDropdown() {
                     </span>
                   </label>
                 ))}
+                <AlertDeliveryTimingFields
+                  mode={alertDeliveryMode}
+                  disabled={!notificationsEnabled}
+                />
                 <button
                   type="button"
                   disabled={!notificationsEnabled || alertDeliveryMode === 'padrao'}

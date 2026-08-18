@@ -513,24 +513,13 @@ export function ComparativoDiferenciaisDashboard({
         />
       }
       toolbar={
-        <Stack
-          direction="row"
-          alignItems="center"
-          justifyContent="space-between"
-          flexWrap="wrap"
-          gap={1.5}
-          sx={{ flex: 1, minWidth: 0 }}
-        >
-          <Box sx={{ minWidth: 0 }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
-              {tituloSecao}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {colunas.length} fornecedor(es) · {pages.length} slide(s)
-              {modoVisualizacao === 'infografico' ? ' · infográfico' : ' · tabela'}
-            </Typography>
-          </Box>
-          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+        onNavigateToLancamento || (!paginaCompleta && pages.length > 1) ? (
+          <Stack
+            direction="row"
+            spacing={1}
+            alignItems="center"
+            sx={{ bgcolor: 'background.paper', boxShadow: 1, borderRadius: 1, px: 0.75, py: 0.25 }}
+          >
             {onNavigateToLancamento && (
               <Button size="small" variant="outlined" startIcon={<EditNoteIcon />} onClick={onNavigateToLancamento}>
                 {editLabel}
@@ -558,7 +547,7 @@ export function ComparativoDiferenciaisDashboard({
               </Stack>
             )}
           </Stack>
-        </Stack>
+        ) : undefined
       }
     >
       {inner}

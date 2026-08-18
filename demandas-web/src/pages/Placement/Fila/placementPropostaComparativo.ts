@@ -22,11 +22,12 @@ import { formatCentsToBRL, parseBRLToCents } from './utils'
 import {
   ensureAguardandoOperadoraState,
   classificacaoPermitePropostaValores,
+  emptyPropostaPlanoLinha,
   parseAguardandoOperadoraFromKickOff,
   type PropostaPlanoLinha,
 } from './placementAguardandoOperadora'
 import { mercadoFornecedoresFromForm } from './placementComunicarMercado'
-import { mercadoNomesComFornecedoresAtuais, normMercadoKey } from './placementMercadoQuadro'
+import { mercadoNomesComFornecedoresAtuais, fornecedoresAtuaisFromForm, normMercadoKey } from './placementMercadoQuadro'
 import {
   applyReajusteToPlano,
   applyReajusteToPlanoCobertura,
@@ -348,6 +349,49 @@ function resolveOperadoraIdByNome(
   return ''
 }
 
+/**
+ * Cenário estável do contrato vigente (abertura).
+ * Usa os mesmos IDs de `planosReferenciaAbertura` — nunca a base importada de beneficiários
+ * (`ben-0`, produto «Base importada»), que gera blocos órfãos e desalinha ATUAL × mercado.
+ */
+export const CENARIO_CONTRATO_VIGENTE_ID = 'contrato-vigente'
+
+function entradasContratoVigenteDaAbertura(
+  form: CotacaoFormState,
+  operadoras: Operadora[],
+  operadorasById?: Record<string, Operadora>
+): PropostaColunaEntrada[] {
+  const refs = planosReferenciaAbertura(form, operadoras, operadorasById)
+  if (!refs.length) return []
+
+  const nomesAtuais = fornecedoresAtuaisFromForm(form, operadoras, operadorasById)
+  const saida: PropostaColunaEntrada[] = []
+
+  for (const ref of refs) {
+    const nome =
+      ref.operadoraNome.trim() && ref.operadoraNome !== '—'
+        ? ref.operadoraNome
+        : nomesAtuais[0] || 'Contrato vigente'
+    saida.push({
+      fornecedorNome: nome,
+      operadoraId: resolveOperadoraIdByNome(nome, operadoras, operadorasById),
+      grupo: 'atual',
+      cenarioId: CENARIO_CONTRATO_VIGENTE_ID,
+      cenarioTitulo: 'Contrato vigente',
+      cenarioOrdem: -1,
+      reajustePercent: '0',
+      planoReferenciaId: ref.id,
+      plano: {
+        ...emptyPropostaPlanoLinha(),
+        id: ref.id,
+        planoReferenciaId: ref.id,
+        nomePlano: ref.label,
+      },
+    })
+  }
+  return saida
+}
+
 export function coletarEntradasComparativo(
   form: CotacaoFormState,
   operadoras: Operadora[],
@@ -392,7 +436,74 @@ export function coletarEntradasComparativo(
     }
   }
 
+  const referencias = planosReferenciaAbertura(form, operadoras, operadorasById)
+  remapEntradasParaReferencias(entradas, referencias)
+
+  if (incluirAtual) {
+    const cobertos = new Set(
+      entradas.filter((e) => e.grupo === 'atual').map((e) => e.planoReferenciaId.trim())
+    )
+    for (const extra of entradasContratoVigenteDaAbertura(form, operadoras, operadorasById)) {
+      if (cobertos.has(extra.planoReferenciaId)) continue
+      entradas.push(extra)
+      cobertos.add(extra.planoReferenciaId)
+    }
+  }
+
   return entradas
+}
+
+function normRefLabel(s: string): string {
+  return s.trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
+/** Liga o vigente aos IDs da abertura. Sem isso o ATUAL cai fora da matriz (S2500 vira o bloco). */
+export function resolverPlanoReferenciaId(
+  rawId: string,
+  planoNome: string,
+  refs: PlanoReferenciaAbertura[],
+  indexInCenario: number,
+  totalNoCenario: number
+): string {
+  const id = String(rawId ?? '').trim()
+  if (id && refs.some((r) => r.id === id)) return id
+  const nome = normRefLabel(planoNome)
+  if (nome) {
+    const hit = refs.find((r) => {
+      const lab = normRefLabel(r.label)
+      return lab === nome || lab.startsWith(nome) || nome.startsWith(lab)
+    })
+    if (hit) return hit.id
+  }
+  if (refs.length && totalNoCenario === refs.length && refs[indexInCenario]) {
+    return refs[indexInCenario].id
+  }
+  return id
+}
+
+function remapEntradasParaReferencias(
+  entradas: PropostaColunaEntrada[],
+  refs: PlanoReferenciaAbertura[]
+): void {
+  if (!refs.length) return
+  const byCenario = new Map<string, PropostaColunaEntrada[]>()
+  for (const e of entradas) {
+    const key = `${e.grupo}::${e.fornecedorNome}::${e.cenarioId}`
+    const list = byCenario.get(key) ?? []
+    list.push(e)
+    byCenario.set(key, list)
+  }
+  for (const grupo of byCenario.values()) {
+    grupo.forEach((e, idx) => {
+      e.planoReferenciaId = resolverPlanoReferenciaId(
+        e.planoReferenciaId,
+        e.plano.nomePlano,
+        refs,
+        idx,
+        grupo.length
+      )
+    })
+  }
 }
 
 export function ordenarEntradasPorEquivalencia(
@@ -440,12 +551,17 @@ export function buildComparativoPlanosPages(
     seen.add(ref.id)
   }
 
-  for (const [key, cols] of byRef) {
-    if (seen.has(key)) continue
-    groups.push({
-      label: cols[0]?.planoLabel || 'Outros planos',
-      cols,
-    })
+  // Sem catálogo da abertura, mantém agrupamento por id solto.
+  // Com catálogo, NÃO cria bloco extra (S2500, base importada, etc.): isso vira
+  // 9 blocos com ATUAL numa linha e mercado em outra — o formato quebrado.
+  if (!referencias.length) {
+    for (const [key, cols] of byRef) {
+      if (seen.has(key)) continue
+      groups.push({
+        label: cols[0]?.planoLabel || 'Outros planos',
+        cols,
+      })
+    }
   }
 
   if (!groups.length) {

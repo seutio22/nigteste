@@ -70,6 +70,7 @@ import {
   buildConsolidadoLinhas,
   buildOperadoraSlotsFromColunas,
   alignPageToOperadoraSlots,
+  pagesComparativoContratoAlinhadas,
   colunaSlotKey,
   type ComparativoColunaEstudo,
   type ComparativoConsolidadoLinha,
@@ -2276,12 +2277,15 @@ export function ContratoAtualDashboard({
    * Vertical: um plano por bloco, empilhados com scroll.
    * - Comparativo (override): cada página já é um plano equivalente (ATUAL × mercado) — empilha essas páginas.
    * - Contrato atual: cada coluna é um plano — um bloco por coluna.
-   * Horizontal expandido: todos os planos lado a lado num único bloco.
+   * Horizontal expandido (só contrato interno): todos os planos lado a lado num único bloco.
+   * Horizontal no comparativo: NÃO achatar — mantém ATUAL × mercado por plano, como o empilhado.
    */
   const pagesExibidas = useMemo(() => {
     if (!resumo?.allColunas.length) return []
+    if (usesOverride) {
+      return pagesComparativoContratoAlinhadas(resumo)
+    }
     if (isVertical) {
-      if (usesOverride && resumo.pages.length) return resumo.pages
       return resumo.allColunas.map((col, i) =>
         contratoPageFromColunas([col], i, resumo.allColunas.length, col.planoLabel)
       )
@@ -2289,12 +2293,11 @@ export function ContratoAtualDashboard({
     if (isExpanded) {
       return [contratoPageFromColunas(resumo.allColunas, 0, 1)]
     }
-    if (usesOverride && resumo.pages.length) return resumo.pages
     return buildContratoAtualPages(resumo.allColunas, planosPorSlide)
   }, [resumo?.allColunas, resumo?.pages, planosPorSlide, usesOverride, isExpanded, isVertical])
 
   const layout = useMemo(() => {
-    if (isVertical) {
+    if (usesOverride || isVertical) {
       const maxCols = Math.max(...pagesExibidas.map((p) => p.colunas.length), 2)
       return isExpanded
         ? getContratoAtualWorkspaceLayoutSpec(maxCols)
@@ -2307,15 +2310,10 @@ export function ContratoAtualDashboard({
         1
       return getContratoAtualWorkspaceLayoutSpec(all)
     }
-    if (usesOverride) {
-      const page = pagesExibidas[pageIndex] ?? pagesExibidas[0]
-      return getContratoAtualLayoutSpec(planosPorSlideFromCount(page?.colunas.length ?? 3))
-    }
     return getContratoAtualLayoutSpec(planosPorSlide)
   }, [
     usesOverride,
     pagesExibidas,
-    pageIndex,
     planosPorSlide,
     isExpanded,
     isVertical,
@@ -2541,11 +2539,12 @@ export function ContratoAtualDashboard({
   }
 
   const totalPages = pagesExibidas.length
-  const indicesRender = isVertical
-    ? pagesExibidas.map((_, i) => i)
-    : isExpanded
-      ? [0]
-      : [pageIndex]
+  const indicesRender =
+    isVertical || (usesOverride && isExpanded)
+      ? pagesExibidas.map((_, i) => i)
+      : isExpanded
+        ? [0]
+        : [pageIndex]
   const showSlideToolbar = !isExpanded && !isVertical
 
   return (
@@ -2664,13 +2663,13 @@ export function ContratoAtualDashboard({
         >
           {indicesRender.map((idx) => {
             const colCount = pagesExibidas[idx]?.colunas.length ?? planosPorSlide
-            const pageLayout = isVertical
-              ? getContratoAtualWorkspaceLayoutSpec(Math.max(colCount, 1))
-              : isExpanded
-                ? layout
-                : usesOverride
-                  ? getContratoAtualLayoutSpec(planosPorSlideFromCount(colCount))
-                  : layout
+            const pageLayout = usesOverride
+              ? isExpanded
+                ? getContratoAtualWorkspaceLayoutSpec(Math.max(colCount, 1))
+                : getContratoAtualLayoutSpec(planosPorSlideFromCount(colCount))
+              : isVertical
+                ? getContratoAtualWorkspaceLayoutSpec(Math.max(colCount, 1))
+                : layout
             return (
               <ContratoAtualSlide
                 key={idx}

@@ -29,6 +29,8 @@ type Props = {
   onModoVisualizacaoChange: (v: ModoVisualizacaoDetalhe) => void
   exibirTodasPaginas: boolean
   onExibirTodasPaginasChange: (v: boolean) => void
+  /** Opções de paginação/slide (ocultar em coparticipação e reembolso). */
+  showSlideOptions?: boolean
 }
 
 export function ComparativoDetalheOpcoesPanel({
@@ -40,6 +42,7 @@ export function ComparativoDetalheOpcoesPanel({
   onModoVisualizacaoChange,
   exibirTodasPaginas,
   onExibirTodasPaginasChange,
+  showSlideOptions = true,
 }: Props) {
   return (
     <Stack spacing={1.5}>
@@ -72,40 +75,44 @@ export function ComparativoDetalheOpcoesPanel({
             </ToggleButton>
           </ToggleButtonGroup>
 
-          <FormControlLabel
-            control={
-              <Switch
-                size="small"
-                checked={exibirTodasPaginas}
-                onChange={(e) => onExibirTodasPaginasChange(e.target.checked)}
+          {showSlideOptions && (
+            <>
+              <FormControlLabel
+                control={
+                  <Switch
+                    size="small"
+                    checked={exibirTodasPaginas}
+                    onChange={(e) => onExibirTodasPaginasChange(e.target.checked)}
+                  />
+                }
+                label={
+                  <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
+                    Mostrar todas as páginas na tela
+                  </Typography>
+                }
               />
-            }
-            label={
-              <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
-                Mostrar todas as páginas na tela
-              </Typography>
-            }
-          />
 
-          <FormControl size="small" fullWidth disabled={disabled || !onConfigChange}>
-            <InputLabel>Colunas por slide</InputLabel>
-            <Select
-              label="Colunas por slide"
-              value={config.colunasPorSlide}
-              onChange={(e) =>
-                onConfigChange?.({
-                  ...config,
-                  colunasPorSlide: Number(e.target.value) as ComparativoEstudoConfig['colunasPorSlide'],
-                })
-              }
-            >
-              {[3, 4, 5, 6, 7].map((n) => (
-                <MenuItem key={n} value={n}>
-                  {n} colunas
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+              <FormControl size="small" fullWidth disabled={disabled || !onConfigChange}>
+                <InputLabel>Colunas por slide</InputLabel>
+                <Select
+                  label="Colunas por slide"
+                  value={config.colunasPorSlide}
+                  onChange={(e) =>
+                    onConfigChange?.({
+                      ...config,
+                      colunasPorSlide: Number(e.target.value) as ComparativoEstudoConfig['colunasPorSlide'],
+                    })
+                  }
+                >
+                  {[3, 4, 5, 6, 7].map((n) => (
+                    <MenuItem key={n} value={n}>
+                      {n} colunas
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </>
+          )}
 
           <FormControlLabel
             control={

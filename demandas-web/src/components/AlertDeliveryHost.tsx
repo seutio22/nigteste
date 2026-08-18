@@ -1,12 +1,16 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Box, Button, Dialog, IconButton, Slide, Typography } from '@mui/material'
 import type { TransitionProps } from '@mui/material/transitions'
 import { Bell, X } from 'lucide-react'
+import { useNotificationStore } from '../store/notificationStore'
 import {
   ALERT_DELIVERY_EVENT,
   ALERT_DELIVERY_PREF_EVENT,
   getAlertDeliveryMode,
+  getAlertRepeatIntervalMs,
+  getAlertWindowDurationMs,
   notificationsAreEnabled,
+  pickUnreadAlertForReminder,
   playAlertSound,
   stripAlertHtml,
   type AlertDeliveryMode,
@@ -30,18 +34,25 @@ function priorityMeta(prioridade?: string) {
 
 export function AlertDeliveryHost() {
   const [mode, setMode] = useState<AlertDeliveryMode>(() => getAlertDeliveryMode())
+  const [durationMs, setDurationMs] = useState(() => getAlertWindowDurationMs())
+  const [repeatMs, setRepeatMs] = useState(() => getAlertRepeatIntervalMs())
   const [alert, setAlert] = useState<AlertReceivedDetail | null>(null)
+  const alertRef = useRef<AlertReceivedDetail | null>(null)
+  alertRef.current = alert
 
   useEffect(() => {
-    const onPref = () => setMode(getAlertDeliveryMode())
+    const onPref = () => {
+      setMode(getAlertDeliveryMode())
+      setDurationMs(getAlertWindowDurationMs())
+      setRepeatMs(getAlertRepeatIntervalMs())
+    }
     window.addEventListener(ALERT_DELIVERY_PREF_EVENT, onPref)
     return () => window.removeEventListener(ALERT_DELIVERY_PREF_EVENT, onPref)
   }, [])
 
-  const onAlert = useCallback(
-    (e: Event) => {
+  const deliver = useCallback(
+    (detail: AlertReceivedDetail) => {
       if (!notificationsAreEnabled()) return
-      const detail = (e as CustomEvent<AlertReceivedDetail>).detail
       if (!detail?.titulo) return
       if (mode === 'som' || mode === 'som_e_tela') playAlertSound()
       if (mode === 'tela_cheia' || mode === 'som_e_tela') setAlert(detail)
@@ -49,10 +60,43 @@ export function AlertDeliveryHost() {
     [mode]
   )
 
+  const onAlert = useCallback(
+    (e: Event) => {
+      const detail = (e as CustomEvent<AlertReceivedDetail>).detail
+      if (!detail) return
+      deliver(detail)
+    },
+    [deliver]
+  )
+
   useEffect(() => {
     window.addEventListener(ALERT_DELIVERY_EVENT, onAlert)
     return () => window.removeEventListener(ALERT_DELIVERY_EVENT, onAlert)
   }, [onAlert])
+
+  useEffect(() => {
+    if (!alert) return
+    if (durationMs <= 0) return
+    const t = window.setTimeout(() => setAlert(null), durationMs)
+    return () => window.clearTimeout(t)
+  }, [alert, durationMs])
+
+  useEffect(() => {
+    if (mode === 'padrao' || repeatMs <= 0) return
+    const tick = () => {
+      if (!notificationsAreEnabled()) return
+      if (typeof document !== 'undefined' && document.hidden) return
+      if (alertRef.current) return
+      const unread = useNotificationStore
+        .getState()
+        .notifications.filter((n) => !n.snoozedUntil || new Date(n.snoozedUntil) <= new Date())
+      const next = pickUnreadAlertForReminder(unread)
+      if (!next) return
+      deliver(next)
+    }
+    const id = window.setInterval(tick, repeatMs)
+    return () => window.clearInterval(id)
+  }, [mode, repeatMs, deliver])
 
   const close = () => setAlert(null)
   const body = alert ? stripAlertHtml(alert.mensagem) : ''
