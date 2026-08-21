@@ -4,6 +4,7 @@ import cors from '@fastify/cors'
 import compress from '@fastify/compress'
 import jwt from '@fastify/jwt'
 import authPlugin from './plugins/auth'
+import jwtGatePlugin from './plugins/jwtGate'
 import { authRoutes } from './routes/auth'
 import { userRoutes } from './routes/users'
 import { userAlertsRoutes } from './routes/userAlerts'
@@ -233,79 +234,14 @@ app.get('/teste-versao-v212', async (request, reply) => {
   }
 })
 
-// Endpoint para tentar conectar ao banco antigo e exportar dados
-app.post('/export-old-data', async (request, reply) => {
-  try {
-    console.log('📊 Tentando conectar ao banco antigo para exportar dados...')
-    
-    // Usar pg diretamente para conectar ao banco antigo
-    const { Client } = require('pg')
-    
-    const client = new Client({
-      connectionString: 'postgresql://postgres:bmMmEyxMQtWnuUNpCHurVgavceYvAaeR@caboose.proxy.rlwy.net:14005/railway'
-    })
-    
-    await client.connect()
-    console.log('✅ Conectado ao banco antigo!')
-    
-    // Tentar listar tabelas
-    const tablesResult = await client.query(`
-      SELECT table_name 
-      FROM information_schema.tables 
-      WHERE table_schema = 'public' 
-      AND table_type = 'BASE TABLE'
-      ORDER BY table_name
-    `)
-    
-    const tables = tablesResult.rows
-    console.log('📋 Tabelas encontradas:', tables)
-    
-    // Tentar exportar dados de cada tabela
-    const exportedData: any = {}
-    let totalRecords = 0
-    
-    for (const table of tables) {
-      try {
-        const tableName = table.table_name
-        console.log(`📤 Exportando tabela: ${tableName}`)
-        
-        const dataResult = await client.query(`SELECT * FROM "${tableName}"`)
-        const data = dataResult.rows
-        const recordCount = data.length
-        
-        exportedData[tableName] = data
-        totalRecords += recordCount
-        
-        console.log(`✅ Dados exportados da tabela ${tableName}: ${recordCount} registros`)
-      } catch (tableError: any) {
-        console.log(`⚠️ Erro ao exportar tabela ${table.table_name}:`, tableError.message)
-        exportedData[table.table_name] = { error: tableError.message }
-      }
-    }
-    
-    await client.end()
-    
-    return { 
-      message: 'Dados exportados com sucesso!', 
-      success: true, 
-      totalTables: tables.length,
-      totalRecords: totalRecords,
-      tables: tables.map(t => t.table_name),
-      data: exportedData 
-    }
-    
-  } catch (error: any) {
-    console.error('❌ Erro ao conectar ao banco antigo:', error.message)
-    return { 
-      message: 'Erro ao conectar ao banco antigo', 
-      error: error.message, 
-      success: false 
-    }
-  }
+// Endpoint para tentar conectar ao banco antigo e exportar dados — DESATIVADO (credencial hardcoded / dump)
+app.post('/export-old-data', async (_request, reply) => {
+  return reply.code(410).send({ error: 'Endpoint desativado por segurança' })
 })
-
 // Endpoint para aplicar schema do banco
 app.post('/setup-schema', async (request, reply) => {
+  return reply.code(410).send({ error: 'Endpoint desativado por segurança' })
+
   try {
     console.log('📊 Aplicando schema do banco usando Prisma...')
     
@@ -377,6 +313,8 @@ app.get('/check-tables', async (request, reply) => {
 
 // Endpoint de login temporário (sem banco) - EMERGÊNCIA
 app.post('/auth/login-temp', async (request, reply) => {
+  return reply.code(410).send({ error: 'Endpoint desativado por segurança' })
+
   try {
     console.log('🚨 LOGIN TEMPORÁRIO - SEM BANCO')
     
@@ -435,6 +373,8 @@ app.post('/auth/login-temp', async (request, reply) => {
 
 // Endpoint para criar admin temporário (sem banco)
 app.post('/create-admin-temp', async (request, reply) => {
+  return reply.code(410).send({ error: 'Endpoint desativado por segurança' })
+
   try {
     console.log('🔧 POST /create-admin-temp: Criando admin temporário')
     
@@ -493,6 +433,8 @@ app.post('/create-admin-temp', async (request, reply) => {
 
 // Endpoint público para listar usuários (sem autenticação)
 app.get('/usuarios-publicos', async (request, reply) => {
+  return reply.code(410).send({ error: 'Endpoint desativado por segurança' })
+
   try {
     console.log('🔍 GET /usuarios-publicos: Listando usuários sem autenticação')
     
@@ -518,6 +460,8 @@ app.get('/usuarios-publicos', async (request, reply) => {
 
 // Endpoint para criar usuário admin inicial (apenas para setup)
 app.post('/setup-admin', async (request, reply) => {
+  return reply.code(410).send({ error: 'Endpoint desativado por segurança' })
+
   try {
     console.log('🔧 POST /setup-admin: Configurando usuário admin')
     
@@ -646,6 +590,8 @@ app.post('/setup-admin', async (request, reply) => {
 
 // Endpoint para criar usuário completamente novo
 app.post('/create-new-user', async (request, reply) => {
+  return reply.code(410).send({ error: 'Endpoint desativado por segurança' })
+
   try {
     console.log('🔧 POST /create-new-user: Criando usuário completamente novo')
     
@@ -729,6 +675,8 @@ app.post('/create-new-user', async (request, reply) => {
 
 // Endpoint adicional para criar usuário admin específico
 app.post('/create-admin', async (request, reply) => {
+  return reply.code(410).send({ error: 'Endpoint desativado por segurança' })
+
   try {
     console.log('🔧 POST /create-admin: Criando usuário admin específico')
     
@@ -1252,6 +1200,8 @@ app.post('/fix-permissions-reajuste', async (request, reply) => {
 
 // Endpoint para obter dados do usuário atual (com autenticação)
 app.get('/usuario-edicao/me', async (request, reply) => {
+  return reply.code(410).send({ error: 'Endpoint desativado por segurança' })
+
   try {
     console.log('🔍 GET /usuario-edicao/me: Buscando dados do usuário atual')
     
@@ -1345,6 +1295,8 @@ app.get('/usuario-edicao/me', async (request, reply) => {
 
 // Endpoint público para obter dados do usuário para edição (sem autenticação)
 app.get('/usuario-edicao/:id', async (request, reply) => {
+  return reply.code(410).send({ error: 'Endpoint desativado por segurança' })
+
   try {
     const { id } = request.params as { id: string }
     console.log(`🔍 GET /usuario-edicao/${id}: Buscando dados do usuário para edição`)
@@ -1509,13 +1461,19 @@ app.addContentTypeParser('application/json', { parseAs: 'string' }, function (re
   }
 })
 
-const jwtSecret = process.env.JWT_SECRET || 'default-secret-key-for-development-only';
-if (!process.env.JWT_SECRET) {
-  console.warn('⚠️ JWT_SECRET não configurado. Usando chave padrão (NÃO SEGURO PARA PRODUÇÃO)');
+const jwtSecretEnv = process.env.JWT_SECRET
+if (!jwtSecretEnv || jwtSecretEnv === 'default-secret-key-for-development-only') {
+  if (process.env.NODE_ENV === 'production' || process.env.RAILWAY_ENVIRONMENT) {
+    console.error('❌ JWT_SECRET obrigatório e seguro em produção. Abortando.')
+    process.exit(1)
+  }
+  console.warn('⚠️ JWT_SECRET ausente — usando chave de desenvolvimento (NÃO usar em produção)')
 }
-app.register(jwt, { secret: jwtSecret })
+const jwtSecretResolved = jwtSecretEnv || 'default-secret-key-for-development-only'
+app.register(jwt, { secret: jwtSecretResolved })
 
 app.register(authPlugin)
+app.register(jwtGatePlugin)
 
 // Tracking em segundo plano: não await — evita somar latência de DB em toda requisição autenticada.
 app.addHook('preHandler', (request, reply, done) => {
@@ -1544,6 +1502,8 @@ app.get('/health', async () => ({ status: 'ok' }))
 
 // Endpoint de debug para testar tracking
 app.get('/debug/tracking', async (request: any, reply: any) => {
+  return reply.code(410).send({ error: 'Endpoint desativado por segurança' })
+
   try {
     const user = request.authenticatedUser
     if (!user) {
@@ -1593,6 +1553,8 @@ app.get('/debug/tracking', async (request: any, reply: any) => {
 
 // Rota para zerar dados de monitoramento
 app.post('/monitoring/clear', async (req: any, reply: any) => {
+  return reply.code(410).send({ error: 'Endpoint desativado por segurança' })
+
   try {
     console.log('🧹 Iniciando limpeza dos dados de monitoramento...')
     
@@ -1628,7 +1590,9 @@ app.post('/monitoring/clear', async (req: any, reply: any) => {
 // (Rota /monitoring/test movida para o final do arquivo)
 
 // Endpoint público para validação de IDs de usuários (sem autenticação)
-app.get('/users/validate/:id', async (req: any) => {
+app.get('/users/validate/:id', async (req: any, reply: any) => {
+  return reply.code(410).send({ error: 'Endpoint desativado por segurança' })
+
   try {
     const user = await prisma.user.findUnique({ 
       where: { id: req.params.id },
@@ -3768,21 +3732,10 @@ app.get('/notifications/project-deadlines', async (req: any, reply: any) => {
     let userId: string | null = null
     try {
       await (req as any).jwtVerify?.()
-      userId = (req as any).user?.id ?? (req as any).user?.sub ?? null
+      userId = (req as any).authUser?.id ?? (req as any).user?.id ?? (req as any).user?.sub ?? null
     } catch {
-      const auth = req?.headers?.authorization
-      if (auth?.startsWith?.('Bearer ')) {
-        const token = auth.slice(7)
-        const parts = token.split('.')
-        if (parts.length >= 2) {
-          try {
-            const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString())
-            userId = payload?.id ?? payload?.userId ?? payload?.sub ?? null
-          } catch {}
-        }
-      }
+      userId = null
     }
-    if (!userId) userId = (req?.headers?.['x-user-id'] || req?.headers?.['X-User-Id']) as string || null
     if (!userId) return reply.status(401).send({ error: 'Não autenticado' })
 
     const alerts = await prisma.projectAlert.findMany({
@@ -3925,21 +3878,10 @@ app.get('/notifications/kanban-deadlines', async (req: any, reply: any) => {
     let userId: string | null = null
     try {
       await req.jwtVerify?.()
-      userId = req.user?.id ?? req.user?.sub ?? null
+      userId = req.authUser?.id ?? req.user?.id ?? req.user?.sub ?? null
     } catch {
-      const auth = req?.headers?.authorization
-      if (auth?.startsWith?.('Bearer ')) {
-        const token = auth.slice(7)
-        const parts = token.split('.')
-        if (parts.length >= 2) {
-          try {
-            const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString())
-            userId = payload?.id ?? payload?.userId ?? payload?.sub ?? null
-          } catch {}
-        }
-      }
+      userId = null
     }
-    if (!userId) userId = req?.headers?.['x-user-id'] || req?.headers?.['X-User-Id'] || null
     if (!userId) return reply.status(401).send({ error: 'Não autenticado' })
 
     const today = new Date()
@@ -3967,44 +3909,11 @@ for (const [path, repo] of Object.entries(resources)) {
   // Regras específicas de privacidade para Projetos: sobrescreve list/get/create
   if (path === 'projetos' || path === 'projects') {
     // Fallback: extrair userId/role do Authorization header sem depender do plugin jwt
-    const extractUserFromAuthHeader = (req: any): { id: string | null, role: string | null } => {
-      try {
-        const auth = req?.headers?.authorization || req?.headers?.Authorization
-        let token: string | null = null
-        if (auth && typeof auth === 'string') {
-          const parts = auth.split(' ')
-          if (parts.length === 2 && parts[0] === 'Bearer') token = parts[1]
-        }
-        // Fallback: cookie "token=<jwt>"
-        if (!token && typeof req?.headers?.cookie === 'string') {
-          const m = req.headers.cookie.split(';').map((s: string) => s.trim()).find((c: string) => c.startsWith('token='))
-          if (m) token = m.substring('token='.length)
-        }
-        // Fallback: query ?token=<jwt>
-        if (!token && req?.query?.token && typeof req.query.token === 'string') {
-          token = req.query.token
-        }
-        if (!token) {
-          // Último fallback: cabeçalhos x-user-id / x-user-role enviados pelo cliente
-          const hdrId = (req?.headers?.['x-user-id'] || req?.headers?.['X-User-Id']) as string | undefined
-          const hdrRole = (req?.headers?.['x-user-role'] || req?.headers?.['X-User-Role']) as string | undefined
-          if (hdrId && typeof hdrId === 'string') return { id: hdrId, role: typeof hdrRole === 'string' ? hdrRole : null }
-          return { id: null, role: null }
-        }
-        const segs = token.split('.')
-        if (segs.length < 2) return { id: null, role: null }
-        const payloadB64 = segs[1].replace(/-/g, '+').replace(/_/g, '/')
-        const pad = payloadB64.length % 4
-        const payloadFixed = payloadB64 + (pad ? '='.repeat(4 - pad) : '')
-        const json = Buffer.from(payloadFixed, 'base64').toString('utf8')
-        const payload = JSON.parse(json)
-        const extractedId = payload?.id || payload?.userId || payload?.user?.id || payload?.sub || null
-        const extractedRole = payload?.role || payload?.user?.role || payload?.userRole || null
-        return { id: extractedId, role: extractedRole }
-      } catch {
-        return { id: null, role: null }
-      }
+    const extractUserFromAuthHeader = (_req: any): { id: string | null, role: string | null } => {
+      // Nunca confiar em decode sem verify nem em x-user-* (spoof). Só jwtVerify.
+      return { id: null, role: null }
     }
+
     app.get(`/${path}`, async (req: any, reply) => {
       try {
         let userId: string | null = null
@@ -4021,12 +3930,8 @@ for (const [path, repo] of Object.entries(resources)) {
         }
         // Fallback: ler do header se ainda não capturado
         if (!userId) {
-          const hdrId = (req?.headers?.['x-user-id'] || req?.headers?.['X-User-Id']) as string | undefined
-          if (hdrId && typeof hdrId === 'string') userId = hdrId
         }
         if (!userRole) {
-          const hdrRole = (req?.headers?.['x-user-role'] || req?.headers?.['X-User-Role']) as string | undefined
-          if (hdrRole && typeof hdrRole === 'string') userRole = hdrRole
         }
 
         console.log('🔍 GET /projetos: userId =', userId, 'userRole =', userRole)
@@ -4103,10 +4008,6 @@ for (const [path, repo] of Object.entries(resources)) {
         const { id } = req.params as { id: string }
         let userId: string | null = null
         let userRole: string | null = null
-        const hdrId = (req?.headers?.['x-user-id'] || req?.headers?.['X-User-Id']) as string | undefined
-        const hdrRole = (req?.headers?.['x-user-role'] || req?.headers?.['X-User-Role']) as string | undefined
-        if (hdrId && typeof hdrId === 'string') userId = hdrId
-        if (hdrRole && typeof hdrRole === 'string') userRole = hdrRole
         if (!userId || !userRole) {
           try {
             await (req as any).jwtVerify?.()
@@ -4157,10 +4058,6 @@ for (const [path, repo] of Object.entries(resources)) {
         let userRole: string | null = null
         
         // PRIORIDADE 1: Ler diretamente dos headers (mais confiável)
-        const hdrId = (req?.headers?.['x-user-id'] || req?.headers?.['X-User-Id']) as string | undefined
-        const hdrRole = (req?.headers?.['x-user-role'] || req?.headers?.['X-User-Role']) as string | undefined
-        if (hdrId && typeof hdrId === 'string') userId = hdrId
-        if (hdrRole && typeof hdrRole === 'string') userRole = hdrRole
         
         // PRIORIDADE 2: Tentar validar JWT (fallback). JWT do login usa "sub" como id do usuário, não "id".
         if (!userId || !userRole) {
@@ -4266,19 +4163,13 @@ for (const [path, repo] of Object.entries(resources)) {
         }
         // Reforço: ler diretamente dos headers se ainda não detectado
         if (!userId) {
-          const hdrId = (req?.headers?.['x-user-id'] || req?.headers?.['X-User-Id']) as string | undefined
-          if (hdrId && typeof hdrId === 'string') userId = hdrId
         }
 
         const body = req.body || {}
         const data: any = { ...body }
         // Remover campos virtuais que não existem no schema
         delete data.ownerName
-        // Nunca aceitar ownerId do cliente, exceto se coincidir com o x-user-id enviado
-        if ('ownerId' in data) {
-          const hdrId = (req?.headers?.['x-user-id'] || req?.headers?.['X-User-Id']) as string | undefined
-          if (!hdrId || data.ownerId !== hdrId) delete data.ownerId
-        }
+        // ownerId sempre do JWT verificado (authUser / user)
         console.log('🔍 POST /projetos: userId detectado =', userId)
         console.log('🔍 POST /projetos: payload recebido.isPrivate =', (body as any)?.isPrivate)
         // Normalizar flag isPrivate
@@ -4351,13 +4242,11 @@ for (const [path, repo] of Object.entries(resources)) {
         }
         // Reforço: ler diretamente dos headers se ainda não detectado
         if (!userId) {
-          const hdrId = (req?.headers?.['x-user-id'] || req?.headers?.['X-User-Id']) as string | undefined
-          if (hdrId && typeof hdrId === 'string') userId = hdrId
         }
 
         // Verificar permissões antes de atualizar
         const u = (req as any).user
-        const userRole = u?.role ?? (req.headers?.['x-user-role'] as string) ?? null
+        const userRole = u?.role ?? null
         
         console.log('🔍 PUT /projetos: userId capturado:', userId, 'userRole:', userRole)
         const project = await prisma.project.findUnique({
@@ -4553,10 +4442,6 @@ for (const [path, repo] of Object.entries(resources)) {
         let userRole: string | null = null
         
         // PRIORIDADE 1: Ler diretamente dos headers
-        const hdrId = (req?.headers?.['x-user-id'] || req?.headers?.['X-User-Id']) as string | undefined
-        const hdrRole = (req?.headers?.['x-user-role'] || req?.headers?.['X-User-Role']) as string | undefined
-        if (hdrId && typeof hdrId === 'string') userId = hdrId
-        if (hdrRole && typeof hdrRole === 'string') userRole = hdrRole
         
         // PRIORIDADE 2: Tentar validar JWT (fallback). JWT usa "sub" como id do usuário.
         if (!userId || !userRole) {

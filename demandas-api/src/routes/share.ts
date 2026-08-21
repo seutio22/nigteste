@@ -49,7 +49,9 @@ export default async function shareRoutes(fastify: FastifyInstance, options: { p
           description,
           allowedViews: allowedViews || 'overview,timeline,team,resources',
           expiresAt: expiresAt ? new Date(expiresAt) : null,
-          createdBy: 'system' // TODO: Pegar do usuário logado
+          createdBy:
+            String((request as any).authUser?.id || (request as any).user?.sub || '').trim() ||
+            'system'
         }
       });
 

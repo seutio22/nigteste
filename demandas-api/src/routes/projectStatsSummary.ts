@@ -52,46 +52,12 @@ async function resolveUserIdFromAnalistaId(
   return null
 }
 
-function extractUserFromAuthHeader(req: {
+function extractUserFromAuthHeader(_req: {
   headers: Record<string, string | string[] | undefined>
   query?: Record<string, unknown>
 }): { id: string | null; role: string | null } {
-  try {
-    const auth = req?.headers?.authorization || req?.headers?.Authorization
-    let token: string | null = null
-    if (auth && typeof auth === 'string') {
-      const parts = auth.split(' ')
-      if (parts.length === 2 && parts[0] === 'Bearer') token = parts[1] ?? null
-    }
-    if (!token && typeof req?.headers?.cookie === 'string') {
-      const m = req.headers.cookie
-        .split(';')
-        .map((s: string) => s.trim())
-        .find((c: string) => c.startsWith('token='))
-      if (m) token = m.substring('token='.length)
-    }
-    if (!token && req.query && typeof req.query.token === 'string') {
-      token = req.query.token
-    }
-    if (!token) {
-      const hdrId = (req?.headers?.['x-user-id'] || req?.headers?.['X-User-Id']) as string | undefined
-      const hdrRole = (req?.headers?.['x-user-role'] || req?.headers?.['X-User-Role']) as string | undefined
-      if (hdrId && typeof hdrId === 'string') return { id: hdrId, role: typeof hdrRole === 'string' ? hdrRole : null }
-      return { id: null, role: null }
-    }
-    const segs = token.split('.')
-    if (segs.length < 2) return { id: null, role: null }
-    const payloadB64 = segs[1]!.replace(/-/g, '+').replace(/_/g, '/')
-    const pad = payloadB64.length % 4
-    const payloadFixed = payloadB64 + (pad ? '='.repeat(4 - pad) : '')
-    const json = Buffer.from(payloadFixed, 'base64').toString('utf8')
-    const payload = JSON.parse(json)
-    const extractedId = payload?.id || payload?.userId || payload?.user?.id || payload?.sub || null
-    const extractedRole = payload?.role || payload?.user?.role || payload?.userRole || null
-    return { id: extractedId, role: extractedRole }
-  } catch {
-    return { id: null, role: null }
-  }
+  // Identidade só via jwtVerify + authUser; sem decode unsigned / x-user-*
+  return { id: null, role: null }
 }
 
 function parsePhasesFromTimeline(timeline: unknown): any[] {
@@ -288,14 +254,6 @@ export default async function projectStatsSummaryRoutes(
         const f = extractUserFromAuthHeader(req)
         userId = f.id
         userRole = f.role
-      }
-      if (!userId) {
-        const hdrId = (req?.headers?.['x-user-id'] || req?.headers?.['X-User-Id']) as string | undefined
-        if (hdrId && typeof hdrId === 'string') userId = hdrId
-      }
-      if (!userRole) {
-        const hdrRole = (req?.headers?.['x-user-role'] || req?.headers?.['X-User-Role']) as string | undefined
-        if (hdrRole && typeof hdrRole === 'string') userRole = hdrRole
       }
 
       /** Apenas projetos vinculados ao utilizador (não incluir públicos só visíveis). */

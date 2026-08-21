@@ -76,7 +76,8 @@ export default async function placementShareRoutes(
 
       const token = crypto.randomBytes(32).toString('hex')
       const createdBy =
-        (request.headers['x-user-id'] as string | undefined)?.trim() || 'system'
+        String((request as any).authUser?.id || (request as any).user?.sub || '').trim() ||
+        'system'
 
       const shareToken = await prisma.placementCotacaoShareToken.create({
         data: {

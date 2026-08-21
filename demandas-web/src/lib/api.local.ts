@@ -93,6 +93,17 @@ export async function apiRequest<T = any>(
 
   try {
     const response = await fetch(url, defaultOptions)
+
+    if (response.status === 401) {
+      try {
+        const { useAuthStore } = await import('../store/authStore')
+        useAuthStore.getState().logout()
+      } catch {}
+      if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
+        window.location.href = '/login'
+      }
+      throw new Error('Sessão expirada ou não autenticado')
+    }
     
     // Para métodos DELETE, aceitar qualquer status HTTP 200+ e deixar o frontend interpretar
     if (options.method === 'DELETE') {
@@ -175,6 +186,15 @@ export const api = {
       },
       body: formData,
     })
+    if (response.status === 401) {
+      try {
+        useAuthStore.getState().logout()
+      } catch {}
+      if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
+        window.location.href = '/login'
+      }
+      throw new Error('Sessão expirada ou não autenticado')
+    }
     if (!response.ok) {
       const errorText = await response.text()
       console.error('Erro HTTP (formData):', response.status, errorText)
@@ -205,6 +225,15 @@ export const api = {
         ...(userRole && { 'x-user-role': userRole }),
       },
     })
+    if (response.status === 401) {
+      try {
+        useAuthStore.getState().logout()
+      } catch {}
+      if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
+        window.location.href = '/login'
+      }
+      throw new Error('Sessão expirada ou não autenticado')
+    }
     if (!response.ok) {
       const t = await response.text()
       throw new Error(t || `HTTP ${response.status}`)

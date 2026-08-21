@@ -2,42 +2,24 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import { PrismaClient } from '@prisma/client'
 
 function getUserId(req: FastifyRequest): string | null {
+  const r = req as any
+  if (r.authUser?.id) return r.authUser.id
   try {
-    const user = (req as any).user
+    const user = r.user
     if (user?.id) return user.id
     if (user?.sub) return user.sub
   } catch {}
-  const auth = (req as any).headers?.authorization
-  if (auth?.startsWith?.('Bearer ')) {
-    const token = auth.slice(7)
-    const parts = token.split('.')
-    if (parts.length >= 2) {
-      try {
-        const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString())
-        return payload?.id ?? payload?.userId ?? payload?.sub ?? null
-      } catch {}
-    }
-  }
-  return ((req as any).headers?.['x-user-id'] || (req as any).headers?.['X-User-Id']) as string || null
+  return null
 }
 
 function getUserRole(req: FastifyRequest): string | null {
+  const r = req as any
+  if (r.authUser?.role) return r.authUser.role
   try {
-    const user = (req as any).user
+    const user = r.user
     if (user?.role) return user.role
   } catch {}
-  const auth = (req as any).headers?.authorization
-  if (auth?.startsWith?.('Bearer ')) {
-    const token = auth.slice(7)
-    const parts = token.split('.')
-    if (parts.length >= 2) {
-      try {
-        const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString())
-        return payload?.role ?? null
-      } catch {}
-    }
-  }
-  return ((req as any).headers?.['x-user-role'] || (req as any).headers?.['X-User-Role']) as string || null
+  return null
 }
 
 export async function userAlertsRoutes(app: FastifyInstance, options: { prisma: PrismaClient }) {

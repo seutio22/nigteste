@@ -1,18 +1,17 @@
 import type { FastifyInstance } from 'fastify'
 import type { PrismaClient } from '@prisma/client'
 
-function getActorUserId(request: { headers: Record<string, string | string[] | undefined> }): string | null {
-  const h = request.headers
-  const raw = h['x-user-id'] ?? h['X-User-Id']
-  const v = Array.isArray(raw) ? raw[0] : raw
-  return typeof v === 'string' && v.trim() ? v.trim() : null
+function getActorUserId(request: any): string | null {
+  const fromAuth = request?.authUser?.id
+  if (typeof fromAuth === 'string' && fromAuth.trim()) return fromAuth.trim()
+  const u = request?.user
+  const id = u?.sub ?? u?.id ?? u?.userId
+  return typeof id === 'string' && id.trim() ? id.trim() : null
 }
 
-function isAdminRoleHeader(request: { headers: Record<string, string | string[] | undefined> }): boolean {
-  const h = request.headers
-  const raw = h['x-user-role'] ?? h['X-User-Role']
-  const v = Array.isArray(raw) ? raw[0] : raw
-  return String(v || '').trim().toLowerCase() === 'admin'
+function isAdminRoleHeader(request: any): boolean {
+  const role = request?.authUser?.role ?? request?.user?.role
+  return String(role || '').trim().toLowerCase() === 'admin'
 }
 
 function parseTimelineInput(raw: unknown): string {

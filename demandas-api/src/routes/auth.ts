@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client'
 import { z } from 'zod'
 import bcrypt from 'bcryptjs'
 import { prisma as prismaSingleton } from '../lib/prisma'
+import { checkLoginRateLimit, clearLoginRateLimit } from '../lib/loginRateLimit'
 
 const PASSWORD_EXPIRATION_DAYS = 60
 const PASSWORD_EXPIRATION_MS = PASSWORD_EXPIRATION_DAYS * 24 * 60 * 60 * 1000
@@ -29,6 +30,20 @@ export async function authRoutes(app: FastifyInstance, options?: { prisma?: Pris
       })
       const body = bodySchema.parse(req.body)
       const emailNorm = normalizeEmail(body.email)
+
+      const ip =
+        (typeof (req as any).ip === 'string' && (req as any).ip) ||
+        String((req as any).headers?.['x-forwarded-for'] || '')
+          .split(',')[0]
+          .trim() ||
+        'unknown'
+      const rate = checkLoginRateLimit(ip, emailNorm)
+      if (rate.ok === false) {
+        return res.code(429).send({
+          message: 'Muitas tentativas de login. Tente novamente mais tarde.',
+          retryAfterSec: rate.retryAfterSec,
+        })
+      }
 
       console.log('🔐 Tentando login para:', emailNorm)
 
@@ -82,15 +97,12 @@ export async function authRoutes(app: FastifyInstance, options?: { prisma?: Pris
       }
 
       // Verificar senha
-      if (user.password) {
-        const isValidPassword = await bcrypt.compare(body.password, user.password)
-        if (!isValidPassword) {
-          return res.code(401).send({ message: 'Credenciais inválidas' })
-        }
-      } else {
-        // Para desenvolvimento: aceitar qualquer senha se não houver hash
-        // Em produção, remover esta condição
-        console.warn('Usuário sem senha hash - aceitando qualquer senha (desenvolvimento)')
+      if (!user.password) {
+        return res.code(401).send({ message: 'Credenciais inválidas' })
+      }
+      const isValidPassword = await bcrypt.compare(body.password, user.password)
+      if (!isValidPassword) {
+        return res.code(401).send({ message: 'Credenciais inválidas' })
       }
 
       // Verificar expiração de senha (60 dias)
@@ -120,6 +132,8 @@ export async function authRoutes(app: FastifyInstance, options?: { prisma?: Pris
         where: { id: user.id },
         data: { lastLogin: new Date() }
       })
+
+      clearLoginRateLimit(ip, emailNorm)
 
       // Gerar token JWT com expiração de 12 horas (meio dia)
       const token = app.jwt.sign({ 
