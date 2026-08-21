@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { ValidationEntry } from '../types/validation'
 import { createSafePersistStorage, removeLocalStorageByPrefix } from '../lib/safePersistStorage'
+import { hasAuthToken } from '../lib/authSession'
 import { shouldSkipStoreSync } from '../utils/syncCooldown'
 import { resolveValidationRelationId } from '../utils/validationRelations'
 
@@ -525,6 +526,7 @@ export const useValidationStore = create<ValidationState>()(
       }),
       onRehydrateStorage: () => () => {
         queueMicrotask(() => {
+          if (!hasAuthToken()) return
           const s = useValidationStore.getState()
           if (s.items.length === 0 && !s.loading) {
             void s.syncFromApi()

@@ -42,6 +42,18 @@ export const api = {
     } catch (e) {
       console.error('❌ API: Erro ao obter credenciais do auth-store:', e);
     }
+
+    const { isPublicApiPath } = await import('./authSession')
+    if (!isPublicApiPath(endpoint) && !(token && String(token).trim().length > 10)) {
+      const { handleUnauthorizedOnce } = await import('./handleUnauthorized')
+      handleUnauthorizedOnce(url)
+      const errorData: ApiError = {
+        message: 'Sessão expirada ou não autenticado',
+        status: 401,
+        data: null,
+      }
+      throw errorData
+    }
     
     const headers: Record<string, string> = { ...(config.headers as Record<string, string>) };
     if (token) headers['Authorization'] = `Bearer ${token}`;

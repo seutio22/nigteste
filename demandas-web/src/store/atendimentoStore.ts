@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { api } from '../lib/api.local'
+import { hasAuthToken } from '../lib/authSession'
 import type { TimelineEvent } from '../types/timeline'
 import { createSafePersistStorage, removeLocalStorageByPrefix } from '../lib/safePersistStorage'
 import { shouldSkipStoreSync } from '../utils/syncCooldown'
@@ -462,6 +463,7 @@ export const useAtendimentoStore = create<AtendimentoState>()(
       }),
       onRehydrateStorage: () => () => {
         queueMicrotask(() => {
+          if (!hasAuthToken()) return
           const s = useAtendimentoStore.getState()
           if (s.items.length === 0 && !s.isLoading) {
             void s.syncFromApi()

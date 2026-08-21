@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useNotificationStore } from './notificationStore'
 import { createSafePersistStorage, removeLocalStorageByPrefix } from '../lib/safePersistStorage'
+import { hasAuthToken } from '../lib/authSession'
 
 export function clearComunicadoLocalCache(): void {
   removeLocalStorageByPrefix('comunicado-storage')
@@ -323,6 +324,7 @@ export const useComunicadoStore = create<ComunicadoState>()(
       }),
       onRehydrateStorage: () => () => {
         queueMicrotask(() => {
+          if (!hasAuthToken()) return
           const s = useComunicadoStore.getState()
           if (s.items.length === 0 && !s.loading) {
             void s.syncFromApi()

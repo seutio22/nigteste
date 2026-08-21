@@ -24,7 +24,7 @@ export function AppLayout() {
   const navigate = useNavigate()
   const location = useLocation()
   const compactMain = location.pathname.startsWith('/placement')
-  const { logout, checkLoginExpiration } = useAuthStore()
+  const { logout, checkLoginExpiration, token } = useAuthStore()
   const [showTimeoutWarning, setShowTimeoutWarning] = useState(false)
   const isDev = import.meta.env.DEV
   const logDev = (...args: unknown[]) => {
@@ -132,16 +132,9 @@ export function AppLayout() {
 
   useEffect(() => {
     if (typeof document !== 'undefined' && document.hidden) return
+    // Sem token válido: não sync (JWT gate na API devolveria 401 e poluiria o console)
+    if (!token) return
     
-    // Inicializar dados mestres apenas se necessário (removido para evitar conflito)
-    // if (syncMasterData) {
-    //   console.log('🔍 AppLayout: Chamando syncMasterData...')
-    //   syncMasterData().catch((error) => {
-    //     console.error('❌ AppLayout: Erro no syncMasterData:', error)
-    //   })
-    // }
-    
-    // Inicializar dados automaticamente
     if (syncComunicados) {
       runSync('comunicados', syncComunicados)
     }
@@ -161,7 +154,7 @@ export function AppLayout() {
     if (syncProjetos) {
       runSync('projetos', syncProjetos)
     }
-  }, [syncMasterData, syncComunicados, syncValidacoes, syncDemandas, syncManutencoes, syncProjetos])
+  }, [token, syncMasterData, syncComunicados, syncValidacoes, syncDemandas, syncManutencoes, syncProjetos])
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-[#0d1114] transition-colors duration-300">

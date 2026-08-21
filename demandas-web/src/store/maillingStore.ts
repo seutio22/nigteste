@@ -4,6 +4,7 @@ import type { MaillingContact, MaillingFilter, ChangeLogEntry, SavedFilter } fro
 import { useAuthStore } from './authStore'
 import { useMasterDataStore } from './masterDataStore'
 import { createSafePersistStorage, removeLocalStorageByPrefix } from '../lib/safePersistStorage'
+import { hasAuthToken } from '../lib/authSession'
 import { shouldSkipStoreSync } from '../utils/syncCooldown'
 import * as XLSX from 'xlsx'
 
@@ -791,6 +792,7 @@ export const useMaillingStore = create<MaillingState>()(
       },
       onRehydrateStorage: () => () => {
         queueMicrotask(() => {
+          if (!hasAuthToken()) return
           const s = useMaillingStore.getState()
           if (s.contacts.length === 0 && !s.isSyncing) {
             void s.syncFromApi()

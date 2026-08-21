@@ -2,6 +2,7 @@
 import { useAuthStore } from '../store/authStore'
 import { getBaseUrl } from '../config/api'
 import { rewritePlacementShareEndpoint } from './placementShareSession'
+import { hasAuthToken, isPublicApiPath } from './authSession'
 
 export const API_CONFIG = {
   BASE_URL: getBaseUrl(),
@@ -69,15 +70,15 @@ export async function apiRequest<T = any>(
   const token = authState.token
   const userId = authState.user?.id || null
   const userRole = (authState.user as any)?.role || null
-  
-  // Log para depuração de projetos privados
-  if (endpoint.includes('/projetos/')) {
-    console.log('📤 api.local.ts - Headers enviados:', {
-      'x-user-id': userId || 'não definido',
-      'x-user-role': userRole || 'não definido',
-      'Authorization': token ? 'Bearer ***' : 'não definido',
-      endpoint
-    })
+
+  // Sem sessão: não dispara fetch (evita 401 no Network/console). Rotas públicas ok.
+  if (!isPublicApiPath(String(resolved)) && !hasAuthToken()) {
+    const { handleUnauthorizedOnce } = await import('./handleUnauthorized')
+    handleUnauthorizedOnce(url)
+    const err = new Error('Sessão expirada ou não autenticado')
+    ;(err as any).status = 401
+    ;(err as any).silent = true
+    throw err
   }
   
   const defaultOptions: RequestInit = {
@@ -140,7 +141,9 @@ export async function apiRequest<T = any>(
       return text as T
     }
   } catch (error) {
-    console.error(`Erro na API ${endpoint}:`, error)
+    if (!(error as any)?.silent) {
+      console.error(`Erro na API ${endpoint}:`, error)
+    }
     throw error
   }
 }

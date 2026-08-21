@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 // Removido import de Demand - usando tipo genérico
 import type { TimelineEvent } from '../types/timeline'
 import { createSafePersistStorage, removeLocalStorageByPrefix } from '../lib/safePersistStorage'
+import { hasAuthToken } from '../lib/authSession'
 import { useMasterDataStore } from './masterDataStore'
 import { shouldSkipStoreSync } from '../utils/syncCooldown'
 import {
@@ -502,6 +503,7 @@ export const useManutencaoStore = create<ManutencaoState>()(
       }),
       onRehydrateStorage: () => () => {
         queueMicrotask(() => {
+          if (!hasAuthToken()) return
           const s = useManutencaoStore.getState()
           if (s.items.length === 0 && !s.isLoading) {
             void s.syncFromApi()

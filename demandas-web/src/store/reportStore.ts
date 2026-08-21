@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { createSafePersistStorage, removeLocalStorageByPrefix } from '../lib/safePersistStorage'
+import { hasAuthToken } from '../lib/authSession'
 import { shouldSkipStoreSync } from '../utils/syncCooldown'
 
 export function clearReportLocalCache(): void {
@@ -460,6 +461,7 @@ export const useReportStore = create<ReportState>()(
       }),
       onRehydrateStorage: () => () => {
         queueMicrotask(() => {
+          if (!hasAuthToken()) return
           const s = useReportStore.getState()
           if (s.items.length === 0 && !s.isLoading) {
             void s.syncFromApi()

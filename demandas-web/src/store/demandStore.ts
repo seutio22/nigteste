@@ -7,6 +7,7 @@ import { useMasterDataStore } from './masterDataStore'
 import { shouldSkipStoreSync } from '../utils/syncCooldown'
 import { loadChamadoQualificacaoLocal } from '../lib/chamadoQualificacaoStorage'
 import { parseChamadoQualificacao } from '../types/chamadoQualificacao'
+import { hasAuthToken } from '../lib/authSession'
 
 /** Remove cache legado que persistia todas as demandas + timeline (estourava cota). */
 export function clearDemandLocalCache(): void {
@@ -583,6 +584,7 @@ export const useDemandStore = create<DemandState>()(
       }),
       onRehydrateStorage: () => () => {
         queueMicrotask(() => {
+          if (!hasAuthToken()) return
           const s = useDemandStore.getState()
           if (s.items.length === 0 && !s.isLoading) {
             void s.syncFromApi()
