@@ -147,7 +147,8 @@ export const useAuthStore = create<AuthState>()(
     }),
     { 
       name: 'auth-store',
-      version: 10, // Inclui departmentId/department no user persistido
+      // v11: invalida JWT antigo após rotação de JWT_SECRET em produção
+      version: 11,
       partialize: (state) => ({ 
         token: state.token, 
         user: state.user,

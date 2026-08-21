@@ -63,20 +63,9 @@ export const api = {
       const response = await fetch(url, config);
       
       if (!response.ok) {
-        // Interceptor para erro 401 (Token expirado/inválido)
         if (response.status === 401) {
-          console.error('🔒 ERRO 401: Token expirado ou inválido');
-          console.error('🔒 URL:', url);
-          console.warn('🔒 Redirecionando para login...');
-          
-          // Redirecionar IMEDIATAMENTE (sem delay)
-          // Importar dinamicamente para evitar dependência circular
-          import('../store/authStore').then(({ useAuthStore }) => {
-            // O logout já limpa todos os dados automaticamente
-            useAuthStore.getState().logout();
-            // Redirecionar para login após logout
-            window.location.href = '/login';
-          });
+          const { handleUnauthorizedOnce } = await import('./handleUnauthorized')
+          handleUnauthorizedOnce(url)
         }
         
         // Tentar ler a mensagem de erro do corpo da resposta

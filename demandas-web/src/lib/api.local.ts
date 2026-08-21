@@ -95,13 +95,8 @@ export async function apiRequest<T = any>(
     const response = await fetch(url, defaultOptions)
 
     if (response.status === 401) {
-      try {
-        const { useAuthStore } = await import('../store/authStore')
-        useAuthStore.getState().logout()
-      } catch {}
-      if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
-        window.location.href = '/login'
-      }
+      const { handleUnauthorizedOnce } = await import('./handleUnauthorized')
+      handleUnauthorizedOnce(url)
       throw new Error('Sessão expirada ou não autenticado')
     }
     
@@ -187,12 +182,8 @@ export const api = {
       body: formData,
     })
     if (response.status === 401) {
-      try {
-        useAuthStore.getState().logout()
-      } catch {}
-      if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
-        window.location.href = '/login'
-      }
+      const { handleUnauthorizedOnce } = await import('./handleUnauthorized')
+      handleUnauthorizedOnce(url)
       throw new Error('Sessão expirada ou não autenticado')
     }
     if (!response.ok) {
@@ -226,12 +217,8 @@ export const api = {
       },
     })
     if (response.status === 401) {
-      try {
-        useAuthStore.getState().logout()
-      } catch {}
-      if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
-        window.location.href = '/login'
-      }
+      const { handleUnauthorizedOnce } = await import('./handleUnauthorized')
+      handleUnauthorizedOnce(url)
       throw new Error('Sessão expirada ou não autenticado')
     }
     if (!response.ok) {
