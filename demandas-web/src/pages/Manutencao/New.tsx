@@ -159,38 +159,11 @@ export default function ManutencaoNewPage() {
   
 
 
-  // Função para verificar se o ticket já existe no banco
   const checkTicketExists = async (ticket: string): Promise<boolean> => {
     try {
-      console.log('🔍 VALIDAÇÃO TICKET MANUTENÇÃO: Verificando se ticket existe:', ticket)
-      
-      // Buscar no banco de dados via API
-      const baseUrl = 'https://nigteste-production.up.railway.app'
-      const response = await fetch(`${baseUrl}/manutencoes?ticket=${encodeURIComponent(ticket)}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      })
-      
-      if (response.ok) {
-        const data = await response.json()
-        const exists = Array.isArray(data) ? data.length > 0 : data !== null
-        
-        console.log('🔍 VALIDAÇÃO TICKET MANUTENÇÃO: Resultado da busca:', {
-          ticket,
-          responseStatus: response.status,
-          dataLength: Array.isArray(data) ? data.length : 'not array',
-          exists
-        })
-        
-        return exists
-      } else {
-        console.warn('⚠️ VALIDAÇÃO TICKET MANUTENÇÃO: Erro na API:', response.status)
-        return false
-      }
-    } catch (error) {
-      console.error('❌ VALIDAÇÃO TICKET MANUTENÇÃO: Erro ao verificar ticket:', error)
+      const data = await api.getManutencoes(`?ticket=${encodeURIComponent(ticket)}`)
+      return Array.isArray(data) ? data.length > 0 : data != null
+    } catch {
       return false
     }
   }

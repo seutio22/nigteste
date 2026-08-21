@@ -256,40 +256,11 @@ export default function DemandNewPage() {
     }
   }, [md.tiposServico, md.tiposDemanda])
 
-  // Função para verificar se o ticket já existe no banco
   const checkTicketExists = async (ticket: string): Promise<boolean> => {
     try {
-      console.log('🔍 VALIDAÇÃO TICKET: Verificando se ticket existe:', ticket)
-      
-      // Buscar no banco de dados via API - APENAS na página de demandas
-      const baseUrl = 'https://nigteste-production.up.railway.app'
-      const response = await fetch(`${baseUrl}/demandas?ticket=${encodeURIComponent(ticket)}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      })
-      
-      if (response.ok) {
-        const data = await response.json()
-        const exists = Array.isArray(data) ? data.length > 0 : data !== null
-        
-        console.log('🔍 VALIDAÇÃO TICKET: Resultado da busca:', {
-          ticket,
-          responseStatus: response.status,
-          dataLength: Array.isArray(data) ? data.length : 'not array',
-          exists,
-          endpoint: '/demandas',
-          note: 'Verificando APENAS na página de demandas'
-        })
-        
-        return exists
-      } else {
-        console.warn('⚠️ VALIDAÇÃO TICKET: Erro na API:', response.status)
-        return false
-      }
-    } catch (error) {
-      console.error('❌ VALIDAÇÃO TICKET: Erro ao verificar ticket:', error)
+      const data = await api.getDemandas(`?ticket=${encodeURIComponent(ticket)}`)
+      return Array.isArray(data) ? data.length > 0 : data != null
+    } catch {
       return false
     }
   }

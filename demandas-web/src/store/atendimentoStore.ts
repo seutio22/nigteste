@@ -118,22 +118,11 @@ export const useAtendimentoStore = create<AtendimentoState>()(
           return `ATD-${year}${month}${day}-${random}`
         }
         
-        // Função para verificar se o ticket já existe no banco
         const checkTicketExists = async (ticket: string): Promise<boolean> => {
           try {
-            const baseUrl = 'https://nigteste-production.up.railway.app'
-            const response = await fetch(`${baseUrl}/atendimentos?ticket=${encodeURIComponent(ticket)}`, {
-              method: 'GET',
-              headers: { 'Content-Type': 'application/json' }
-            })
-            
-            if (response.ok) {
-              const data = await response.json()
-              return Array.isArray(data) ? data.length > 0 : data !== null
-            }
-            return false
-          } catch (error) {
-            console.error('❌ AtendimentoStore: Erro ao verificar ticket:', error)
+            const data = await api.getAtendimentos(`?ticket=${encodeURIComponent(ticket)}`)
+            return Array.isArray(data) ? data.length > 0 : data != null
+          } catch {
             return false
           }
         }

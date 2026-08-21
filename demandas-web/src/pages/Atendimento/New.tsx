@@ -139,39 +139,11 @@ export default function AtendimentoNewPage() {
     }
   }, [user, masterDataStore.analistas, setValue])
 
-  // Função para verificar se o ticket já existe no banco
   const checkTicketExists = async (ticket: string): Promise<boolean> => {
     try {
-      console.log('🔍 VALIDAÇÃO TICKET ATENDIMENTO: Verificando se ticket existe:', ticket)
-      
-      // Buscar no banco de dados via API - usando a mesma abordagem das outras páginas
-      const baseUrl = 'https://nigteste-production.up.railway.app'
-      const response = await fetch(`${baseUrl}/atendimentos?ticket=${encodeURIComponent(ticket)}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      })
-      
-      if (response.ok) {
-        const data = await response.json()
-        const exists = Array.isArray(data) ? data.length > 0 : data !== null
-        
-        console.log('🔍 VALIDAÇÃO TICKET ATENDIMENTO: Resultado da busca:', {
-          ticket,
-          responseStatus: response.status,
-          dataLength: Array.isArray(data) ? data.length : 'not array',
-          exists,
-          endpoint: '/atendimentos'
-        })
-        
-        return exists
-      } else {
-        console.warn('⚠️ VALIDAÇÃO TICKET ATENDIMENTO: Erro na API:', response.status)
-        return false
-      }
-    } catch (error) {
-      console.error('❌ VALIDAÇÃO TICKET ATENDIMENTO: Erro ao verificar ticket:', error)
+      const data = await api.getAtendimentos(`?ticket=${encodeURIComponent(ticket)}`)
+      return Array.isArray(data) ? data.length > 0 : data != null
+    } catch {
       return false
     }
   }

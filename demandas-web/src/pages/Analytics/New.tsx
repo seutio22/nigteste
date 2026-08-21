@@ -21,6 +21,7 @@ import { useNavigate } from 'react-router-dom'
 import { useReportStore } from '../../store/reportStore'
 import { useMasterDataStore } from '../../store/masterDataStore'
 import { useAuthStore } from '../../store/authStore'
+import { api } from '../../lib/api.local'
 import { STATUS_REPORT_PADRAO } from '../../utils/statusPadrao'
 import { ArrowBack, Save, Cancel } from '@mui/icons-material'
 import { PrimaryActionButton } from '../../components/PrimaryActionButton'
@@ -126,45 +127,11 @@ export default function AnalyticsNewPage() {
     }
   }, [selectedClienteId])
 
-  // Função para verificar se o ticket já existe no banco
   const checkTicketExists = async (ticket: string): Promise<boolean> => {
     try {
-      console.log('🔍 VALIDAÇÃO TICKET ANALYTICS: Verificando se ticket existe:', ticket)
-      
-      // Buscar no banco de dados via API (Analytics usa endpoint /analytics que mapeia para report)
-      const baseUrl = 'https://nigteste-production.up.railway.app'
-      const response = await fetch(`${baseUrl}/analytics?ticket=${encodeURIComponent(ticket)}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      })
-      
-      if (response.ok) {
-        const data = await response.json()
-        
-        console.log('🔍 VALIDAÇÃO TICKET ANALYTICS: Resultado completo da busca:', data)
-        console.log('🔍 VALIDAÇÃO TICKET ANALYTICS: Tipo do resultado:', typeof data)
-        console.log('🔍 VALIDAÇÃO TICKET ANALYTICS: É array?', Array.isArray(data))
-        console.log('🔍 VALIDAÇÃO TICKET ANALYTICS: Tamanho do array:', Array.isArray(data) ? data.length : 'N/A')
-        console.log('🔍 VALIDAÇÃO TICKET ANALYTICS: Chaves do objeto:', data && typeof data === 'object' ? Object.keys(data) : 'N/A')
-        
-        const exists = Array.isArray(data) ? data.length > 0 : data !== null
-        
-        console.log('🔍 VALIDAÇÃO TICKET ANALYTICS: Resultado da busca:', {
-          ticket,
-          responseStatus: response.status,
-          dataLength: Array.isArray(data) ? data.length : 'not array',
-          exists
-        })
-        
-        return exists
-      } else {
-        console.warn('⚠️ VALIDAÇÃO TICKET ANALYTICS: Erro na API:', response.status)
-        return false
-      }
-    } catch (error) {
-      console.error('❌ VALIDAÇÃO TICKET ANALYTICS: Erro ao verificar ticket:', error)
+      const data = await api.getAnalytics(`?ticket=${encodeURIComponent(ticket)}`)
+      return Array.isArray(data) ? data.length > 0 : data != null
+    } catch {
       return false
     }
   }

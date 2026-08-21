@@ -339,7 +339,8 @@ export const api = {
     }),
 
   // Reajustes
-  getReajustes: () => apiRequest(API_CONFIG.ENDPOINTS.REAJUSTES),
+  getReajustes: (queryParams?: string) =>
+    apiRequest(`${API_CONFIG.ENDPOINTS.REAJUSTES}${queryParams || ''}`),
   getReajuste: (id: string) => apiRequest(`/reajusteLancamentos/${id}`),
   deleteReajuste: (id: string) =>
     apiRequest(`/reajusteLancamentos/${id}`, {
@@ -457,7 +458,7 @@ export const api = {
     }),
   
   // Analytics
-  getAnalytics: () => apiRequest('/analytics'),
+  getAnalytics: (queryParams?: string) => apiRequest(`/analytics${queryParams || ''}`),
 
   // Limpeza de dados
   // limparDuplicatasClientes removido - função de limpeza de duplicatas removida

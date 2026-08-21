@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom'
 import { useMasterDataStore } from '../../store/masterDataStore'
 import { useReajusteStore } from '../../store/reajusteStore'
 import { useAuthStore } from '../../store/authStore'
+import { api } from '../../lib/api.local'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPerfLogger } from '../../utils/perf'
 import { AsyncClienteAutocomplete, type ClienteOption } from '../../components/AsyncClienteAutocomplete'
@@ -160,38 +161,11 @@ export default function ReajusteNewPage() {
     }
   }, [user?.id, user?.name, md.analistas.length, setValue])
 
-  // Função para verificar se o ticket já existe no banco
   const checkTicketExists = async (ticket: string): Promise<boolean> => {
     try {
-      console.log('🔍 VALIDAÇÃO TICKET REAJUSTE: Verificando se ticket existe:', ticket)
-      
-      // Buscar no banco de dados via API
-      const baseUrl = 'https://nigteste-production.up.railway.app'
-      const response = await fetch(`${baseUrl}/reajustes?ticket=${encodeURIComponent(ticket)}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      })
-      
-      if (response.ok) {
-        const data = await response.json()
-        const exists = Array.isArray(data) ? data.length > 0 : data !== null
-        
-        console.log('🔍 VALIDAÇÃO TICKET REAJUSTE: Resultado da busca:', {
-          ticket,
-          responseStatus: response.status,
-          dataLength: Array.isArray(data) ? data.length : 'not array',
-          exists
-        })
-        
-        return exists
-      } else {
-        console.warn('⚠️ VALIDAÇÃO TICKET REAJUSTE: Erro na API:', response.status)
-        return false
-      }
-    } catch (error) {
-      console.error('❌ VALIDAÇÃO TICKET REAJUSTE: Erro ao verificar ticket:', error)
+      const data = await api.getReajustes(`?ticket=${encodeURIComponent(ticket)}`)
+      return Array.isArray(data) ? data.length > 0 : data != null
+    } catch {
       return false
     }
   }
