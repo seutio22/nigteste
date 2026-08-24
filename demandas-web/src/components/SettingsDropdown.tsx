@@ -127,19 +127,28 @@ export function SettingsDropdown() {
     setPasswordError('')
     setPasswordSuccess('')
     
+    const currentNorm = currentPassword.trim()
+    const newNorm = newPassword.trim()
+    const confirmNorm = confirmPassword.trim()
+
     // Validações
-    if (!currentPassword || !newPassword || !confirmPassword) {
+    if (!currentNorm || !newNorm || !confirmNorm) {
       setPasswordError('Todos os campos são obrigatórios')
       return
     }
     
-    if (newPassword.length < 6) {
+    if (newNorm.length < 6) {
       setPasswordError('A nova senha deve ter pelo menos 6 caracteres')
       return
     }
     
-    if (newPassword !== confirmPassword) {
+    if (newNorm !== confirmNorm) {
       setPasswordError('As senhas não coincidem')
+      return
+    }
+
+    if (newNorm === currentNorm) {
+      setPasswordError('A nova senha deve ser diferente da senha atual')
       return
     }
     
@@ -151,11 +160,11 @@ export function SettingsDropdown() {
 
       await api.changePassword({
         email: user.email.trim(),
-        currentPassword,
-        newPassword
+        currentPassword: currentNorm,
+        newPassword: newNorm
       })
       
-      setPasswordSuccess('Senha alterada com sucesso!')
+      setPasswordSuccess('Senha alterada com sucesso! Use a nova senha no próximo login.')
       
       // Limpar campos
       setCurrentPassword('')

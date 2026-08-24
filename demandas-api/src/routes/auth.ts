@@ -13,6 +13,11 @@ function normalizeEmail(email: string): string {
   return email.trim().toLowerCase()
 }
 
+/** Remove espaços acidentais no início/fim (copia/cola) sem alterar o miolo da senha. */
+function normalizePassword(password: string): string {
+  return password.trim()
+}
+
 export async function authRoutes(app: FastifyInstance, options?: { prisma?: PrismaClient }) {
   // Usar prisma compartilhado (singleton) para evitar múltiplas conexões
   const prisma = options?.prisma || prismaSingleton
@@ -30,6 +35,7 @@ export async function authRoutes(app: FastifyInstance, options?: { prisma?: Pris
       })
       const body = bodySchema.parse(req.body)
       const emailNorm = normalizeEmail(body.email)
+      const passwordNorm = normalizePassword(body.password)
 
       const ip =
         (typeof (req as any).ip === 'string' && (req as any).ip) ||
@@ -97,11 +103,17 @@ export async function authRoutes(app: FastifyInstance, options?: { prisma?: Pris
         return res.code(401).send({ message: 'Usuário inativo' })
       }
 
-      // Verificar senha
+      // Verificar senha (tenta com e sem trim — cobre senhas antigas com espaço acidental)
       if (!user.password) {
         return res.code(401).send({ message: 'Credenciais inválidas' })
       }
-      const isValidPassword = await bcrypt.compare(body.password, user.password)
+      if (!passwordNorm && !body.password) {
+        return res.code(401).send({ message: 'Credenciais inválidas' })
+      }
+      let isValidPassword = await bcrypt.compare(passwordNorm || body.password, user.password)
+      if (!isValidPassword && body.password !== passwordNorm) {
+        isValidPassword = await bcrypt.compare(body.password, user.password)
+      }
       if (!isValidPassword) {
         return res.code(401).send({ message: 'Credenciais inválidas' })
       }
@@ -181,6 +193,29 @@ export async function authRoutes(app: FastifyInstance, options?: { prisma?: Pris
       })
       const body = bodySchema.parse(req.body)
       const emailNorm = normalizeEmail(body.email)
+      const currentPassword = normalizePassword(body.currentPassword)
+      const newPassword = normalizePassword(body.newPassword)
+
+      if (newPassword.length < 6) {
+        return res.code(400).send({ message: 'Nova senha deve ter pelo menos 6 caracteres' })
+      }
+      if (newPassword === currentPassword) {
+        return res.code(400).send({ message: 'A nova senha deve ser diferente da senha atual' })
+      }
+
+      const ip =
+        (typeof (req as any).ip === 'string' && (req as any).ip) ||
+        String((req as any).headers?.['x-forwarded-for'] || '')
+          .split(',')[0]
+          .trim() ||
+        'unknown'
+      const rate = checkLoginRateLimit(ip, `pwd:${emailNorm}`)
+      if (rate.ok === false) {
+        return res.code(429).send({
+          message: 'Muitas tentativas de troca de senha. Tente novamente mais tarde.',
+          retryAfterSec: rate.retryAfterSec,
+        })
+      }
 
       const user = await prisma.user.findFirst({
         where: {
@@ -194,19 +229,23 @@ export async function authRoutes(app: FastifyInstance, options?: { prisma?: Pris
       }
 
       if (!user.active) {
-        return res.code(401).send({ message: 'Usuário inativo' })
+        return res.code(401).send({ message: 'Usuário inativo. Contate o administrador.' })
       }
 
       if (user.password) {
-        const isValidPassword = await bcrypt.compare(body.currentPassword, user.password)
+        let isValidPassword = await bcrypt.compare(currentPassword, user.password)
+        if (!isValidPassword && body.currentPassword !== currentPassword) {
+          isValidPassword = await bcrypt.compare(body.currentPassword, user.password)
+        }
         if (!isValidPassword) {
-          return res.code(401).send({ message: 'Credenciais inválidas' })
+          return res.code(401).send({ message: 'Senha atual incorreta' })
         }
       } else {
         console.warn('Usuário sem senha hash - aceitando troca sem validação (desenvolvimento)')
       }
 
-      const hashedPassword = await bcrypt.hash(body.newPassword, 10)
+      // Sempre persiste a senha já normalizada (sem espaços nas pontas)
+      const hashedPassword = await bcrypt.hash(newPassword, 10)
       await prisma.user.update({
         where: { id: user.id },
         data: {
@@ -218,10 +257,10 @@ export async function authRoutes(app: FastifyInstance, options?: { prisma?: Pris
       // Confirma que o hash foi persistido (evita “sucesso” falso se o update falhar de forma inesperada)
       const after = await prisma.user.findUnique({
         where: { id: user.id },
-        select: { password: true }
+        select: { password: true, passwordUpdatedAt: true }
       })
       const persistedOk =
-        !!after?.password && (await bcrypt.compare(body.newPassword, after.password))
+        !!after?.password && (await bcrypt.compare(newPassword, after.password))
       if (!persistedOk) {
         console.error('change-password: hash não verificado após update', { userId: user.id })
         return res.code(500).send({
@@ -230,7 +269,13 @@ export async function authRoutes(app: FastifyInstance, options?: { prisma?: Pris
         })
       }
 
-      return res.code(200).send({ message: 'Senha alterada com sucesso' })
+      clearLoginRateLimit(ip, emailNorm)
+      clearLoginRateLimit(ip, `pwd:${emailNorm}`)
+
+      return res.code(200).send({
+        message: 'Senha alterada com sucesso. Use a nova senha no próximo login.',
+        passwordUpdatedAt: after?.passwordUpdatedAt?.toISOString?.() ?? new Date().toISOString()
+      })
     } catch (error: any) {
       console.error('Erro ao alterar senha:', error)
       if (error instanceof z.ZodError) {

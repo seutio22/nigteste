@@ -95,6 +95,15 @@ export async function apiRequest<T = any>(
   try {
     const response = await fetch(url, defaultOptions)
 
+    // 401 em login/troca de senha = credenciais inválidas (não é sessão expirada)
+    if (response.status === 401 && isPublicApiPath(String(resolved))) {
+      const errorText = await response.text()
+      const error = new Error(messageFromApiErrorBody(response.status, errorText) || 'Credenciais inválidas')
+      ;(error as any).responseText = errorText
+      ;(error as any).status = 401
+      throw error
+    }
+
     if (response.status === 401) {
       const { handleUnauthorizedOnce } = await import('./handleUnauthorized')
       handleUnauthorizedOnce(url)

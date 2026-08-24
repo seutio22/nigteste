@@ -97,26 +97,29 @@ export default function LoginPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     const emailNorm = email.trim()
-    if (!emailNorm || !password) return
+    const passwordNorm = password.trim()
+    if (!emailNorm || !passwordNorm) return
     
     setIsLoading(true)
     setError('')
     
     try {
       if (requirePasswordChange) {
-        if (!newPassword || !confirmNewPassword) {
+        const newPasswordNorm = newPassword.trim()
+        const confirmNorm = confirmNewPassword.trim()
+        if (!newPasswordNorm || !confirmNorm) {
           setError('Informe a nova senha e a confirmação')
           setIsLoading(false)
           return
         }
         
-        if (newPassword.length < 6) {
+        if (newPasswordNorm.length < 6) {
           setError('A nova senha deve ter pelo menos 6 caracteres')
           setIsLoading(false)
           return
         }
         
-        if (newPassword !== confirmNewPassword) {
+        if (newPasswordNorm !== confirmNorm) {
           setError('As senhas não coincidem')
           setIsLoading(false)
           return
@@ -124,12 +127,12 @@ export default function LoginPage() {
         
         await api.changePassword({
           email: emailNorm,
-          currentPassword: password,
-          newPassword
+          currentPassword: passwordNorm,
+          newPassword: newPasswordNorm
         })
         
-        const data = await api.login({ email: emailNorm, password: newPassword })
-        setPassword(newPassword)
+        const data = await api.login({ email: emailNorm, password: newPasswordNorm })
+        setPassword(newPasswordNorm)
         await finalizeLogin(data)
         setRequirePasswordChange(false)
         setNewPassword('')
@@ -139,7 +142,7 @@ export default function LoginPage() {
       }
 
       // 1. Fazer login
-      const data = await api.login({ email: emailNorm, password })
+      const data = await api.login({ email: emailNorm, password: passwordNorm })
       await finalizeLogin(data)
       navigate('/')
     } catch (err: unknown) {

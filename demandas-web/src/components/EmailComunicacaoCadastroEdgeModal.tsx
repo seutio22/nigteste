@@ -147,7 +147,6 @@ function buildHtmlEdge(nomeDestinatario: string): string {
                       <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
                         <tr>
                           <td valign="top" width="50%" style="padding:0 10px 0 0; ${ff};">
-                            <p style="margin:0; line-height:175%; font-weight:bold; color:#009fdf; ${ff};">Karina Passeti</p>
                             <p style="margin:0; line-height:175%; font-weight:bold; color:#009fdf; ${ff};">Paula Petrovic</p>
                             <p style="margin:0; line-height:175%; font-weight:bold; color:#009fdf; ${ff};">Emyli Almeida</p>
                           </td>
@@ -465,7 +464,6 @@ function buildHtmlMoveLocal(nomeDestinatario: string, loginValue: string): strin
                       <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
                         <tr>
                           <td valign="top" width="50%" style="padding:0 10px 0 0; ${ff};">
-                            <p style="margin:0; line-height:175%; font-weight:bold; color:#009fdf; ${ff};">Karina Passeti</p>
                             <p style="margin:0; line-height:175%; font-weight:bold; color:#009fdf; ${ff};">Paula Petrovic</p>
                             <p style="margin:0; line-height:175%; font-weight:bold; color:#009fdf; ${ff};">Emyli Almeida</p>
                             <p style="margin:0; line-height:175%; font-weight:bold; color:#009fdf; ${ff};">Cristina Monteiro</p>
