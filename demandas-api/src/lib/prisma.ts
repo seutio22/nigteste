@@ -27,7 +27,7 @@ function withPrismaPoolParams(url: string): string {
   if (process.env.PRISMA_SKIP_POOL_PARAMS === '1') return url
   if (/connection_limit=/i.test(url) || /pgbouncer=/i.test(url)) return url
   const sep = url.includes('?') ? '&' : '?'
-  const limit = String(process.env.PRISMA_CONNECTION_LIMIT || '10').replace(/[^\d]/g, '') || '10'
+  const limit = String(process.env.PRISMA_CONNECTION_LIMIT || '5').replace(/[^\d]/g, '') || '5'
   const poolTimeout = String(process.env.PRISMA_POOL_TIMEOUT || '20').replace(/[^\d]/g, '') || '20'
   return `${url}${sep}connection_limit=${limit}&pool_timeout=${poolTimeout}&connect_timeout=10`
 }

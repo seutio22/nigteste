@@ -119,42 +119,65 @@ function getStartOfQuarter(d: Date): Date {
   return new Date(d.getFullYear(), m, 1, 0, 0, 0, 0)
 }
 
-type PageTimeRow = { userId: string; page: string | null; duration: number | null; createdAt: Date }
-
-function pageBreakdown(
-  rows: PageTimeRow[],
-  userId: string,
-  since: Date
-): Array<{ path: string; seconds: number }> {
-  const m = new Map<string, number>()
-  for (const r of rows) {
-    if (r.userId !== userId || !r.page || r.duration == null || r.duration <= 0) continue
-    if (r.createdAt < since) continue
-    m.set(r.page, (m.get(r.page) || 0) + r.duration)
-  }
-  return Array.from(m.entries())
-    .map(([path, seconds]) => ({ path, seconds }))
-    .sort((a, b) => b.seconds - a.seconds)
+type DwellAggRow = {
+  userId: string
+  page: string | null
+  _sum: { duration: number | null }
+  _count: { _all: number }
 }
 
-function totalPageSeconds(rows: PageTimeRow[], userId: string, since: Date): number {
-  let t = 0
-  for (const r of rows) {
-    if (r.userId !== userId || r.duration == null || r.duration <= 0) continue
-    if (r.createdAt < since) continue
-    t += r.duration
-  }
-  return t
+const TOP_PATHS_PER_USER = 25
+
+/** Agrega page_time no banco (evita carregar milhares de eventos na RAM). */
+async function aggregatePageDwell(userIds: string[], since: Date): Promise<DwellAggRow[]> {
+  if (userIds.length === 0) return []
+  const rows = await prisma.userActivity.groupBy({
+    by: ['userId', 'page'],
+    where: {
+      userId: { in: userIds },
+      action: 'page_time',
+      duration: { gt: 0 },
+      createdAt: { gte: since },
+      page: { not: null }
+    },
+    _sum: { duration: true },
+    _count: { _all: true }
+  })
+  return rows as DwellAggRow[]
 }
 
-function countPageTimeEvents(rows: PageTimeRow[], userId: string, since: Date): number {
-  let n = 0
+function buildDwellMaps(rows: DwellAggRow[]): {
+  totals: Map<string, number>
+  visits: Map<string, number>
+  byPage: Map<string, Array<{ path: string; seconds: number }>>
+} {
+  const totals = new Map<string, number>()
+  const visits = new Map<string, number>()
+  const pageMaps = new Map<string, Map<string, number>>()
+
   for (const r of rows) {
-    if (r.userId !== userId) continue
-    if (r.createdAt < since) continue
-    n += 1
+    const sec = r._sum.duration || 0
+    const cnt = r._count._all || 0
+    const path = r.page || '/'
+    totals.set(r.userId, (totals.get(r.userId) || 0) + sec)
+    visits.set(r.userId, (visits.get(r.userId) || 0) + cnt)
+    if (!pageMaps.has(r.userId)) pageMaps.set(r.userId, new Map())
+    const pm = pageMaps.get(r.userId)!
+    pm.set(path, (pm.get(path) || 0) + sec)
   }
-  return n
+
+  const byPage = new Map<string, Array<{ path: string; seconds: number }>>()
+  for (const [uid, pm] of pageMaps) {
+    byPage.set(
+      uid,
+      [...pm.entries()]
+        .map(([path, seconds]) => ({ path, seconds }))
+        .sort((a, b) => b.seconds - a.seconds)
+        .slice(0, TOP_PATHS_PER_USER)
+    )
+  }
+
+  return { totals, visits, byPage }
 }
 
 export default async function monitoringRoutes(fastify: FastifyInstance) {
@@ -345,24 +368,20 @@ export default async function monitoringRoutes(fastify: FastifyInstance) {
         activityTodayGroups.map((g: { userId: string; _count: { _all: number } }) => [g.userId, g._count._all])
       )
 
-      const pageTimeRows: PageTimeRow[] =
+      const [dwellTodayRows, dwellWeekRows, dwellMonthRows, dwellQuarterRows] =
         userIds.length === 0
-          ? []
-          : await prisma.userActivity.findMany({
-              where: {
-                userId: { in: userIds },
-                action: 'page_time',
-                duration: { gt: 0 },
-                createdAt: { gte: startOfQuarter },
-                page: { not: null }
-              },
-              select: {
-                userId: true,
-                page: true,
-                duration: true,
-                createdAt: true
-              }
-            })
+          ? [[], [], [], []]
+          : await Promise.all([
+              aggregatePageDwell(userIds, startOfDay),
+              aggregatePageDwell(userIds, startOfWeek),
+              aggregatePageDwell(userIds, startOfMonth),
+              aggregatePageDwell(userIds, startOfQuarter)
+            ])
+
+      const dwellToday = buildDwellMaps(dwellTodayRows)
+      const dwellWeek = buildDwellMaps(dwellWeekRows)
+      const dwellMonth = buildDwellMaps(dwellMonthRows)
+      const dwellQuarter = buildDwellMaps(dwellQuarterRows)
 
       const nowMs = Date.now()
 
@@ -410,15 +429,10 @@ export default async function monitoringRoutes(fastify: FastifyInstance) {
 
         const lastAccess = lastActivityAt || user.lastLogin || user.createdAt
 
-        const pageDwellTotalSecondsToday = totalPageSeconds(pageTimeRows, user.id, startOfDay)
-        const pageDwellTotalSecondsWeek = totalPageSeconds(pageTimeRows, user.id, startOfWeek)
-        const pageDwellTotalSecondsMonth = totalPageSeconds(pageTimeRows, user.id, startOfMonth)
-        const pageDwellTotalSecondsQuarter = totalPageSeconds(pageTimeRows, user.id, startOfQuarter)
-
-        const pageDwellVisitsToday = countPageTimeEvents(pageTimeRows, user.id, startOfDay)
-        const pageDwellVisitsWeek = countPageTimeEvents(pageTimeRows, user.id, startOfWeek)
-        const pageDwellVisitsMonth = countPageTimeEvents(pageTimeRows, user.id, startOfMonth)
-        const pageDwellVisitsQuarter = countPageTimeEvents(pageTimeRows, user.id, startOfQuarter)
+        const pageDwellTotalSecondsToday = dwellToday.totals.get(user.id) || 0
+        const pageDwellTotalSecondsWeek = dwellWeek.totals.get(user.id) || 0
+        const pageDwellTotalSecondsMonth = dwellMonth.totals.get(user.id) || 0
+        const pageDwellTotalSecondsQuarter = dwellQuarter.totals.get(user.id) || 0
 
         return {
           id: user.id,
@@ -447,19 +461,18 @@ export default async function monitoringRoutes(fastify: FastifyInstance) {
           apiCallCount: todayMonitoring?.apiCallCount || 0,
           activitiesTodayCount,
           hasRealActivity: !!(user.lastLogin || lastActivityRow || activitiesTodayCount > 0),
-          /** Tempo medido por rota (cada visita envia duração ao sair da página), em segundos */
           pageDwellTotalSecondsToday,
           pageDwellTotalSecondsWeek,
           pageDwellTotalSecondsMonth,
           pageDwellTotalSecondsQuarter,
-          pageDwellByPageToday: pageBreakdown(pageTimeRows, user.id, startOfDay),
-          pageDwellByPageWeek: pageBreakdown(pageTimeRows, user.id, startOfWeek),
-          pageDwellByPageMonth: pageBreakdown(pageTimeRows, user.id, startOfMonth),
-          pageDwellByPageQuarter: pageBreakdown(pageTimeRows, user.id, startOfQuarter),
-          pageDwellVisitsToday,
-          pageDwellVisitsWeek,
-          pageDwellVisitsMonth,
-          pageDwellVisitsQuarter
+          pageDwellByPageToday: dwellToday.byPage.get(user.id) || [],
+          pageDwellByPageWeek: dwellWeek.byPage.get(user.id) || [],
+          pageDwellByPageMonth: dwellMonth.byPage.get(user.id) || [],
+          pageDwellByPageQuarter: dwellQuarter.byPage.get(user.id) || [],
+          pageDwellVisitsToday: dwellToday.visits.get(user.id) || 0,
+          pageDwellVisitsWeek: dwellWeek.visits.get(user.id) || 0,
+          pageDwellVisitsMonth: dwellMonth.visits.get(user.id) || 0,
+          pageDwellVisitsQuarter: dwellQuarter.visits.get(user.id) || 0
         }
       })
 
@@ -498,7 +511,7 @@ export default async function monitoringRoutes(fastify: FastifyInstance) {
           daysInMonth.push(`${y}-${pad(m)}-${pad(d)}`)
         }
 
-        const [users, monitoringRows, pageEvents] = await Promise.all([
+        const [users, monitoringRows, pageAggRows] = await Promise.all([
           prisma.user.findMany({
             where: { active: true },
             select: { id: true, name: true, email: true },
@@ -510,15 +523,22 @@ export default async function monitoringRoutes(fastify: FastifyInstance) {
             },
             orderBy: { date: 'asc' }
           }),
-          prisma.userActivity.findMany({
-            where: {
-              action: 'page_time',
-              duration: { gt: 0 },
-              createdAt: { gte: rangeStartLocal, lte: rangeEndLocal },
-              page: { not: null }
-            },
-            select: { userId: true, page: true, duration: true, createdAt: true }
-          })
+          prisma.$queryRaw<
+            Array<{ userId: string; day: Date; page: string; seconds: bigint; visits: bigint }>
+          >`
+            SELECT "userId",
+                   date_trunc('day', "createdAt") AS day,
+                   "page",
+                   SUM(duration)::bigint AS seconds,
+                   COUNT(*)::bigint AS visits
+            FROM "UserActivity"
+            WHERE action = 'page_time'
+              AND duration > 0
+              AND "page" IS NOT NULL
+              AND "createdAt" >= ${rangeStartLocal}
+              AND "createdAt" <= ${rangeEndLocal}
+            GROUP BY 1, 2, 3
+          `
         ])
 
         type DayPageAgg = {
@@ -538,13 +558,18 @@ export default async function monitoringRoutes(fastify: FastifyInstance) {
           return um.get(dayKey)!
         }
 
-        for (const ev of pageEvents) {
-          const dk = ev.createdAt.toISOString().slice(0, 10)
+        for (const ev of pageAggRows) {
+          const dk =
+            ev.day instanceof Date
+              ? `${ev.day.getFullYear()}-${pad(ev.day.getMonth() + 1)}-${pad(ev.day.getDate())}`
+              : String(ev.day).slice(0, 10)
           const agg = ensureDayAgg(ev.userId, dk)
-          agg.pageDwellSessions += 1
-          agg.pageDwellSeconds += ev.duration || 0
+          const sec = Number(ev.seconds) || 0
+          const visits = Number(ev.visits) || 0
+          agg.pageDwellSessions += visits
+          agg.pageDwellSeconds += sec
           if (ev.page) {
-            agg.pages.set(ev.page, (agg.pages.get(ev.page) || 0) + (ev.duration || 0))
+            agg.pages.set(ev.page, (agg.pages.get(ev.page) || 0) + sec)
           }
         }
 
@@ -868,7 +893,7 @@ export default async function monitoringRoutes(fastify: FastifyInstance) {
         const ONLINE_MS = 5 * 60 * 1000
         const AWAY_MS = 15 * 60 * 1000
 
-        const [users, monitoringTrend, pageEventsTrend, activityEvents] = await Promise.all([
+        const [users, monitoringTrend, actionMixGroups, activityTodayCount] = await Promise.all([
           prisma.user.findMany({
             where: { active: true },
             select: {
@@ -918,42 +943,39 @@ export default async function monitoringRoutes(fastify: FastifyInstance) {
               apiCallCount: true
             }
           }),
-          prisma.userActivity.findMany({
-            where: {
-              action: 'page_time',
-              duration: { gt: 0 },
-              createdAt: { gte: trendStart },
-              page: { not: null }
-            },
-            select: { userId: true, page: true, duration: true, createdAt: true }
-          }),
-          prisma.userActivity.findMany({
+          prisma.userActivity.groupBy({
+            by: ['action'],
             where: { createdAt: { gte: startOfDay } },
-            select: { userId: true, action: true, duration: true, page: true, createdAt: true }
+            _count: { _all: true }
+          }),
+          prisma.userActivity.count({
+            where: { createdAt: { gte: startOfDay } }
           })
         ])
 
         const userIds = users.map((u) => u.id)
-        const pageEventsTodayWeek =
+        const [dwellTodayAgg, dwellWeekAgg, hourlyRaw] = await Promise.all([
+          aggregatePageDwell(userIds, startOfDay),
+          aggregatePageDwell(userIds, startOfWeek),
           userIds.length === 0
-            ? []
-            : await prisma.userActivity.findMany({
-                where: {
-                  userId: { in: userIds },
-                  action: 'page_time',
-                  duration: { gt: 0 },
-                  createdAt: { gte: startOfWeek },
-                  page: { not: null }
-                },
-                select: { userId: true, page: true, duration: true, createdAt: true }
-              })
+            ? Promise.resolve([] as Array<{ hour: number; activities: bigint; page_dwell: bigint }>)
+            : prisma.$queryRaw<Array<{ hour: number; activities: bigint; page_dwell: bigint }>>`
+                SELECT EXTRACT(HOUR FROM "createdAt")::int AS hour,
+                       COUNT(*)::bigint AS activities,
+                       COALESCE(SUM(CASE WHEN action = 'page_time' AND duration > 0 THEN duration ELSE 0 END), 0)::bigint AS page_dwell
+                FROM "UserActivity"
+                WHERE "createdAt" >= ${startOfDay}
+                GROUP BY 1
+                ORDER BY 1
+              `
+        ])
+
+        const dwellTodayMaps = buildDwellMaps(dwellTodayAgg)
+        const dwellWeekMaps = buildDwellMaps(dwellWeekAgg)
 
         const nowMs = Date.now()
         type Presence = 'online' | 'away' | 'offline'
         const userPresence = new Map<string, Presence>()
-        const userDwellToday = new Map<string, number>()
-        const userDwellWeek = new Map<string, number>()
-        const userLoginsToday = new Map<string, number>()
 
         for (const u of users) {
           const lastActivityAt = u.userActivities[0]?.createdAt
@@ -968,14 +990,6 @@ export default async function monitoringRoutes(fastify: FastifyInstance) {
           const presence: Presence =
             msSinceSeen < ONLINE_MS ? 'online' : msSinceSeen < AWAY_MS ? 'away' : 'offline'
           userPresence.set(u.id, presence)
-          userLoginsToday.set(u.id, u.userMonitoring[0]?.loginCount ?? 0)
-        }
-
-        for (const ev of pageEventsTodayWeek) {
-          if (ev.createdAt >= startOfDay) {
-            userDwellToday.set(ev.userId, (userDwellToday.get(ev.userId) ?? 0) + (ev.duration || 0))
-          }
-          userDwellWeek.set(ev.userId, (userDwellWeek.get(ev.userId) ?? 0) + (ev.duration || 0))
         }
 
         let onlineUsers = 0
@@ -995,8 +1009,8 @@ export default async function monitoringRoutes(fastify: FastifyInstance) {
           else offlineUsers++
 
           const mon = u.userMonitoring[0]
-          const dwellToday = userDwellToday.get(u.id) ?? mon?.pageDwellSeconds ?? 0
-          const dwellWeek = userDwellWeek.get(u.id) ?? 0
+          const dwellToday = dwellTodayMaps.totals.get(u.id) ?? mon?.pageDwellSeconds ?? 0
+          const dwellWeek = dwellWeekMaps.totals.get(u.id) ?? 0
           totalPageDwellSecondsToday += dwellToday
           totalPageDwellSecondsWeek += dwellWeek
           totalLoginsToday += mon?.loginCount ?? 0
@@ -1036,27 +1050,10 @@ export default async function monitoringRoutes(fastify: FastifyInstance) {
           b.logins += row.loginCount || 0
           b.pageDwellSeconds += row.pageDwellSeconds || 0
           b.apiCalls += row.apiCallCount || 0
+          b.activities += (row.pageViewCount || 0) + (row.apiCallCount || 0) + (row.loginCount || 0)
           if ((row.loginCount || 0) > 0 || (row.pageDwellSeconds || 0) > 0) {
             b.users.add(row.userId)
           }
-        }
-
-        for (const ev of pageEventsTrend) {
-          const dk = dayKey(ev.createdAt)
-          if (!trendByDay.has(dk)) {
-            trendByDay.set(dk, { logins: 0, pageDwellSeconds: 0, users: new Set(), activities: 0, apiCalls: 0 })
-          }
-          const b = trendByDay.get(dk)!
-          b.pageDwellSeconds += ev.duration || 0
-          b.users.add(ev.userId)
-        }
-
-        for (const ev of activityEvents) {
-          const dk = dayKey(ev.createdAt)
-          if (!trendByDay.has(dk)) {
-            trendByDay.set(dk, { logins: 0, pageDwellSeconds: 0, users: new Set(), activities: 0, apiCalls: 0 })
-          }
-          trendByDay.get(dk)!.activities++
         }
 
         for (let i = 0; i < trendDays; i++) {
@@ -1078,18 +1075,19 @@ export default async function monitoringRoutes(fastify: FastifyInstance) {
         const moduleMapToday = new Map<string, { seconds: number; users: Set<string> }>()
         const moduleMapWeek = new Map<string, { seconds: number; users: Set<string> }>()
 
-        for (const ev of pageEventsTodayWeek) {
-          const area = getPageAreaLabel(ev.page || '/')
-          if (ev.createdAt >= startOfDay) {
-            if (!moduleMapToday.has(area)) moduleMapToday.set(area, { seconds: 0, users: new Set() })
-            const t = moduleMapToday.get(area)!
-            t.seconds += ev.duration || 0
-            t.users.add(ev.userId)
-          }
+        for (const r of dwellTodayAgg) {
+          const area = getPageAreaLabel(r.page || '/')
+          if (!moduleMapToday.has(area)) moduleMapToday.set(area, { seconds: 0, users: new Set() })
+          const t = moduleMapToday.get(area)!
+          t.seconds += r._sum.duration || 0
+          t.users.add(r.userId)
+        }
+        for (const r of dwellWeekAgg) {
+          const area = getPageAreaLabel(r.page || '/')
           if (!moduleMapWeek.has(area)) moduleMapWeek.set(area, { seconds: 0, users: new Set() })
           const w = moduleMapWeek.get(area)!
-          w.seconds += ev.duration || 0
-          w.users.add(ev.userId)
+          w.seconds += r._sum.duration || 0
+          w.users.add(r.userId)
         }
 
         const moduleUsage = [...moduleMapWeek.entries()]
@@ -1102,12 +1100,8 @@ export default async function monitoringRoutes(fastify: FastifyInstance) {
           .sort((a, b) => b.secondsWeek - a.secondsWeek)
           .slice(0, 15)
 
-        const actionMixMap = new Map<string, number>()
-        for (const ev of activityEvents) {
-          actionMixMap.set(ev.action, (actionMixMap.get(ev.action) ?? 0) + 1)
-        }
-        const actionMixToday = [...actionMixMap.entries()]
-          .map(([action, count]) => ({ action, count }))
+        const actionMixToday = actionMixGroups
+          .map((row) => ({ action: row.action, count: row._count._all }))
           .sort((a, b) => b.count - a.count)
 
         const hourlyToday = Array.from({ length: 24 }, (_, hour) => ({
@@ -1116,11 +1110,11 @@ export default async function monitoringRoutes(fastify: FastifyInstance) {
           activities: 0,
           pageDwellSeconds: 0
         }))
-        for (const ev of activityEvents) {
-          const h = ev.createdAt.getHours()
-          hourlyToday[h].activities++
-          if (ev.action === 'page_time' && ev.duration) {
-            hourlyToday[h].pageDwellSeconds += ev.duration
+        for (const row of hourlyRaw) {
+          const h = Number(row.hour)
+          if (h >= 0 && h < 24) {
+            hourlyToday[h].activities = Number(row.activities)
+            hourlyToday[h].pageDwellSeconds = Number(row.page_dwell)
           }
         }
 
@@ -1150,8 +1144,8 @@ export default async function monitoringRoutes(fastify: FastifyInstance) {
             userName: u.name,
             userRole: u.role,
             departmentName: u.department?.nome ?? null,
-            dwellSecondsToday: userDwellToday.get(u.id) ?? u.userMonitoring[0]?.pageDwellSeconds ?? 0,
-            dwellSecondsWeek: userDwellWeek.get(u.id) ?? 0,
+            dwellSecondsToday: dwellTodayMaps.totals.get(u.id) ?? u.userMonitoring[0]?.pageDwellSeconds ?? 0,
+            dwellSecondsWeek: dwellWeekMaps.totals.get(u.id) ?? 0,
             loginsToday: u.userMonitoring[0]?.loginCount ?? 0,
             apiCallsToday: u.userMonitoring[0]?.apiCallCount ?? 0,
             presenceStatus: userPresence.get(u.id) ?? 'offline'
@@ -1172,7 +1166,7 @@ export default async function monitoringRoutes(fastify: FastifyInstance) {
             totalPageDwellSecondsToday,
             totalPageDwellSecondsWeek,
             totalLoginsToday,
-            totalActivitiesToday: activityEvents.length,
+            totalActivitiesToday: activityTodayCount,
             totalApiCallsToday,
             totalPageViewsToday,
             avgDwellSecondsPerActiveUserToday:
