@@ -29,7 +29,9 @@ import {
   ListItem,
   ListItemText,
   Divider,
-  LinearProgress
+  LinearProgress,
+  TextField,
+  Button
 } from '@mui/material'
 import {
   Person,
@@ -43,19 +45,25 @@ import {
   CalendarToday,
   QueryStats,
   CalendarMonth,
-  ExpandMore
+  ExpandMore,
+  Insights,
+  Search
 } from '@mui/icons-material'
 import Accordion from '@mui/material/Accordion'
 import AccordionSummary from '@mui/material/AccordionSummary'
 import AccordionDetails from '@mui/material/AccordionDetails'
 import { useAuthStore } from '../store/authStore'
 import { getApi } from '../lib/apiConfig'
+import { getBaseUrl } from '../config/api'
 import { formatIntegerPtBR } from '../utils/formatNumber'
 import {
   aggregateDwellByArea,
   getPageAreaLabel,
   shortenPathDisplay
 } from '../utils/pageMonitoringLabels'
+import MonitoringOverviewTab from './monitoring/MonitoringOverviewTab'
+import UserActivityDrawer from './monitoring/UserActivityDrawer'
+import type { AnalyticsDashboard } from './monitoring/monitoringTypes'
 
 interface MonthlyPanoramaDay {
   date: string
@@ -88,6 +96,8 @@ interface UserActivity {
   userName: string
   userEmail: string
   userRole: string
+  departmentId?: string | null
+  departmentName?: string | null
   lastAccess: string
   isOnline: boolean
   /** online | away | offline — baseado na última atividade/heartbeat */
@@ -180,6 +190,18 @@ export default function UserMonitoring() {
   const [monthlyLoading, setMonthlyLoading] = useState(false)
   const [monthlyError, setMonthlyError] = useState<string | null>(null)
 
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsDashboard | null>(null)
+  const [analyticsLoading, setAnalyticsLoading] = useState(false)
+  const [analyticsError, setAnalyticsError] = useState<string | null>(null)
+
+  const [roleFilter, setRoleFilter] = useState<string>('all')
+  const [departmentFilter, setDepartmentFilter] = useState<string>('all')
+  const [searchQuery, setSearchQuery] = useState('')
+
+  const [drawerUserId, setDrawerUserId] = useState<string | null>(null)
+  const [drawerUserName, setDrawerUserName] = useState<string | null>(null)
+  const [drawerOpen, setDrawerOpen] = useState(false)
+
   const { token } = useAuthStore()
   const isDev = import.meta.env.DEV
   const logDev = (...args: unknown[]) => {
@@ -205,7 +227,7 @@ export default function UserMonitoring() {
       logDev('🔍 Carregando dados de monitoramento REAIS...')
       
       // Buscar dados reais de monitoramento da API
-      const monitoringResponse = await fetch(`https://nigteste-production.up.railway.app/monitoring/users`, {
+      const monitoringResponse = await fetch(`${getBaseUrl()}/monitoring/users`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -284,6 +306,38 @@ export default function UserMonitoring() {
     }
   }, [token, panoramaYear, panoramaMonth])
 
+  const loadAnalyticsDashboard = useCallback(async () => {
+    if (!token) {
+      setAnalyticsError('Token de autenticação não encontrado')
+      return
+    }
+    setAnalyticsLoading(true)
+    setAnalyticsError(null)
+    try {
+      const api = getApi()
+      const data = await api.get<AnalyticsDashboard>('/monitoring/analytics-dashboard?days=14')
+      setAnalyticsData(data)
+    } catch (e) {
+      console.error('analytics-dashboard:', e)
+      setAnalyticsError('Não foi possível carregar o painel analítico.')
+      setAnalyticsData(null)
+    } finally {
+      setAnalyticsLoading(false)
+    }
+  }, [token])
+
+  const openUserDrawer = useCallback((userId: string, userName: string) => {
+    setDrawerUserId(userId)
+    setDrawerUserName(userName)
+    setDrawerOpen(true)
+  }, [])
+
+  const closeUserDrawer = useCallback(() => {
+    setDrawerOpen(false)
+    setDrawerUserId(null)
+    setDrawerUserName(null)
+  }, [])
+
   // Carregar dados ao montar componente
   useEffect(() => {
     lastFetchRef.current = Date.now()
@@ -305,13 +359,33 @@ export default function UserMonitoring() {
   }, [loadMonitoringData])
 
   useEffect(() => {
-    if (tabValue !== 3) return
+    if (tabValue !== 4) return
     void loadMonthlyPanorama()
   }, [tabValue, loadMonthlyPanorama])
+
+  useEffect(() => {
+    if (tabValue !== 0) return
+    void loadAnalyticsDashboard()
+  }, [tabValue, loadAnalyticsDashboard])
 
   // Filtrar e ordenar atividades
   const filteredActivities = useMemo(() => {
     let filtered = [...activities]
+
+    if (roleFilter !== 'all') {
+      filtered = filtered.filter((a) => a.userRole === roleFilter)
+    }
+    if (departmentFilter !== 'all') {
+      filtered = filtered.filter((a) => (a.departmentName || '') === departmentFilter)
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase()
+      filtered = filtered.filter(
+        (a) =>
+          a.userName.toLowerCase().includes(q) ||
+          a.userEmail.toLowerCase().includes(q)
+      )
+    }
 
     // Aplicar filtro de tempo
     const now = new Date()
@@ -384,7 +458,15 @@ export default function UserMonitoring() {
     })
 
     return filtered
-  }, [activities, timeFilter, sortBy, sortOrder])
+  }, [activities, timeFilter, sortBy, sortOrder, roleFilter, departmentFilter, searchQuery])
+
+  const departmentOptions = useMemo(() => {
+    const names = new Set<string>()
+    for (const a of activities) {
+      if (a.departmentName) names.add(a.departmentName)
+    }
+    return [...names].sort()
+  }, [activities])
 
   // Formatar tempo em horas e minutos
   const formatTime = (minutes: number): string => {
@@ -508,16 +590,14 @@ export default function UserMonitoring() {
               📊 Monitoramento de Usuários
             </Typography>
             <Typography variant="body1" color="text.secondary">
-              Sistema de monitoramento ativo - Coletando dados reais de atividade dos usuários
+              Analytics de uso, presença, módulos e tendências — com drill-down por usuário
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1, lineHeight: 1.6 }}>
               <strong>Online</strong>: uso real ou heartbeat nos últimos 5 minutos.{' '}
               <strong>Ausente</strong>: entre 5 e 15 minutos sem sinal.{' '}
               <strong>Offline</strong>: mais de 15 minutos ou sem histórico.{' '}
-              Heartbeat a cada 2 minutos só se a aba estiver visível e houver uso recente.{' '}
-              Aviso de inatividade aos 25 minutos; logout automático aos 30 minutos sem uso.{' '}
-              No fim do dia (meia-noite) a sessão é encerrada por completo.{' '}
-              <strong>Tempo por página</strong>: cada rota é uma sessão de tela; ao trocar de página ou sair, o tempo naquela rota é enviado ao servidor.
+              Clique em um usuário para ver a <strong>jornada</strong>: onde clicou, quanto tempo ficou em cada página e quanto ficou ocioso (sem interação).{' '}
+              Ociosidade começa após 1 minuto sem mouse/teclado; cliques em botões, abas e links são registrados automaticamente.
             </Typography>
           </Box>
           <IconButton onClick={loadMonitoringData} color="primary" size="large">
@@ -557,7 +637,7 @@ export default function UserMonitoring() {
                   <Box>
                     <Typography variant="h4">{formatIntegerPtBR(stats.onlineUsers)}</Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Usuários Online
+                      Online · {formatIntegerPtBR(stats.offlineUsers)} offline
                     </Typography>
                   </Box>
                 </Stack>
@@ -573,9 +653,13 @@ export default function UserMonitoring() {
                     <AccessTime />
                   </Avatar>
                   <Box>
-                    <Typography variant="h4">{formatTime(stats.averageTimeToday)}</Typography>
+                    <Typography variant="h4">
+                      {formatSecondsAsHM(
+                        activities.reduce((s, u) => s + (u.pageDwellTotalSecondsToday ?? 0), 0)
+                      )}
+                    </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Tempo Médio Hoje
+                      Tempo em páginas (hoje)
                     </Typography>
                   </Box>
                 </Stack>
@@ -593,7 +677,7 @@ export default function UserMonitoring() {
                   <Box>
                     <Typography variant="h4">{formatIntegerPtBR(stats.totalSessionsToday)}</Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Sessões Hoje
+                      Sessões · {stats.mostActiveUser !== 'N/A' ? `Top: ${stats.mostActiveUser}` : '—'}
                     </Typography>
                   </Box>
                 </Stack>
@@ -603,10 +687,41 @@ export default function UserMonitoring() {
         </Grid>
       )}
 
-      {/* Filtros e Controles (abas 0–2) */}
-      {tabValue < 3 && (
+      {/* Filtros e Controles (abas 1–3) */}
+      {tabValue >= 1 && tabValue <= 3 && (
       <Paper sx={{ p: 2, mb: 3 }}>
         <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
+          <TextField
+            size="small"
+            placeholder="Buscar nome ou e-mail…"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            InputProps={{ startAdornment: <Search fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} /> }}
+            sx={{ minWidth: 220 }}
+          />
+
+          <FormControl size="small" sx={{ minWidth: 130 }}>
+            <InputLabel>Perfil</InputLabel>
+            <Select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} label="Perfil">
+              <MenuItem value="all">Todos</MenuItem>
+              <MenuItem value="admin">Admin</MenuItem>
+              <MenuItem value="gerente">Gerente</MenuItem>
+              <MenuItem value="analista">Analista</MenuItem>
+              <MenuItem value="solicitante">Solicitante</MenuItem>
+              <MenuItem value="viewer">Viewer</MenuItem>
+            </Select>
+          </FormControl>
+
+          <FormControl size="small" sx={{ minWidth: 150 }}>
+            <InputLabel>Departamento</InputLabel>
+            <Select value={departmentFilter} onChange={(e) => setDepartmentFilter(e.target.value)} label="Departamento">
+              <MenuItem value="all">Todos</MenuItem>
+              {departmentOptions.map((d) => (
+                <MenuItem key={d} value={d}>{d}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
           <FormControl size="small" sx={{ minWidth: 120 }}>
             <InputLabel>Período</InputLabel>
             <Select
@@ -655,6 +770,7 @@ export default function UserMonitoring() {
       <Paper>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <Tabs value={tabValue} onChange={(e, newValue) => setTabValue(newValue)}>
+            <Tab label="Visão Geral" icon={<Insights />} />
             <Tab label="Lista Detalhada" icon={<Visibility />} />
             <Tab label="Resumo por Período" icon={<CalendarToday />} />
             <Tab label="Análise de Sessões" icon={<Schedule />} />
@@ -662,24 +778,41 @@ export default function UserMonitoring() {
           </Tabs>
         </Box>
 
-        {/* Tab 1: Lista Detalhada */}
         <TabPanel value={tabValue} index={0}>
+          <MonitoringOverviewTab
+            data={analyticsData}
+            loading={analyticsLoading}
+            error={analyticsError}
+            onRefresh={() => void loadAnalyticsDashboard()}
+            onSelectUser={openUserDrawer}
+          />
+        </TabPanel>
+
+        {/* Tab 1: Lista Detalhada */}
+        <TabPanel value={tabValue} index={1}>
           <TableContainer>
             <Table>
               <TableHead>
                 <TableRow>
                   <TableCell>Usuário</TableCell>
+                  <TableCell>Departamento</TableCell>
                   <TableCell>Presença</TableCell>
                   <TableCell>Última atividade</TableCell>
                   <TableCell>Sessão atual</TableCell>
                   <TableCell>Tempo nas páginas (hoje)</TableCell>
-                  <TableCell>Logins hoje</TableCell>
-                  <TableCell>Tempo médio/sessão</TableCell>
+                  <TableCell>Logins</TableCell>
+                  <TableCell>API / Views</TableCell>
+                  <TableCell align="right">Detalhes</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {filteredActivities.map((activity) => (
-                  <TableRow key={activity.id}>
+                  <TableRow
+                    key={activity.id}
+                    hover
+                    sx={{ cursor: 'pointer' }}
+                    onClick={() => openUserDrawer(activity.userId, activity.userName)}
+                  >
                     <TableCell>
                       <Stack direction="row" alignItems="center" spacing={2}>
                         <Avatar sx={{ width: 32, height: 32 }}>
@@ -694,6 +827,9 @@ export default function UserMonitoring() {
                           </Typography>
                         </Box>
                       </Stack>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">{activity.departmentName ?? '—'}</Typography>
                     </TableCell>
                     <TableCell>
                       {activity.hasRealActivity ? (
@@ -751,9 +887,17 @@ export default function UserMonitoring() {
                       </Typography>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2" color={activity.hasRealActivity ? 'text.primary' : 'text.secondary'}>
-                        {activity.hasRealActivity ? formatTime(activity.averageSessionTime) : '0h 0m'}
+                      <Typography variant="caption" display="block">
+                        API: {formatIntegerPtBR(activity.apiCallCount ?? 0)}
                       </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Views: {formatIntegerPtBR(activity.pageViewCount ?? 0)}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Button size="small" onClick={(e) => { e.stopPropagation(); openUserDrawer(activity.userId, activity.userName) }}>
+                        Ver log
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -763,7 +907,7 @@ export default function UserMonitoring() {
         </TabPanel>
 
         {/* Tab 2: Resumo por Período */}
-        <TabPanel value={tabValue} index={1}>
+        <TabPanel value={tabValue} index={2}>
           <Alert severity="info" sx={{ mb: 2 }}>
             Use o filtro <strong>Período</strong> acima. Os totais abaixo refletem o tempo em que o usuário permaneceu em cada <strong>rota</strong> (cada página = uma sessão de tela até sair ou navegar).
           </Alert>
@@ -886,7 +1030,7 @@ export default function UserMonitoring() {
         </TabPanel>
 
         {/* Tab 3: Análise de Sessões (sessão = permanência em uma página/rota) */}
-        <TabPanel value={tabValue} index={2}>
+        <TabPanel value={tabValue} index={3}>
           <Alert severity="info" sx={{ mb: 2 }}>
             <strong>Sessão de página</strong> = tempo em uma rota até navegar, recarregar ou sair. Abaixo, o tempo é <strong>sinalizado por área</strong> (Cadastro, Manutenção, Atendimento, etc.) e depois por URL. Período: filtro <strong>Período</strong> acima.
           </Alert>
@@ -1048,7 +1192,7 @@ export default function UserMonitoring() {
           </Grid>
         </TabPanel>
 
-        <TabPanel value={tabValue} index={3}>
+        <TabPanel value={tabValue} index={4}>
           <Alert severity="info" sx={{ mb: 2 }}>
             <strong>Armazenamento por dia:</strong> cada login e cada encerramento de permanência em página (
             <code>page_time</code>) atualiza o registro do <strong>dia</strong> do usuário. O panorama abaixo
@@ -1146,6 +1290,7 @@ export default function UserMonitoring() {
                               <TableCell align="right">Sessões (monitor)</TableCell>
                               <TableCell align="right">Sessões página</TableCell>
                               <TableCell align="right">Tempo em páginas</TableCell>
+                              <TableCell>Top rotas do dia</TableCell>
                             </TableRow>
                           </TableHead>
                           <TableBody>
@@ -1156,6 +1301,24 @@ export default function UserMonitoring() {
                                 <TableCell align="right">{formatIntegerPtBR(row.sessionCount)}</TableCell>
                                 <TableCell align="right">{formatIntegerPtBR(row.pageDwellSessions)}</TableCell>
                                 <TableCell align="right">{formatSecondsAsHM(row.pageDwellSeconds)}</TableCell>
+                                <TableCell>
+                                  {row.pages.length === 0 ? (
+                                    <Typography variant="caption" color="text.secondary">—</Typography>
+                                  ) : (
+                                    <Stack spacing={0.25}>
+                                      {row.pages.slice(0, 3).map((p) => (
+                                        <Typography key={p.path} variant="caption" display="block" noWrap title={p.path}>
+                                          {getPageAreaLabel(p.path)} · {formatSecondsAsHM(p.seconds)}
+                                        </Typography>
+                                      ))}
+                                      {row.pages.length > 3 && (
+                                        <Typography variant="caption" color="text.secondary">
+                                          +{row.pages.length - 3} rotas
+                                        </Typography>
+                                      )}
+                                    </Stack>
+                                  )}
+                                </TableCell>
                               </TableRow>
                             ))}
                           </TableBody>
@@ -1203,6 +1366,14 @@ export default function UserMonitoring() {
           )}
         </TabPanel>
       </Paper>
+
+      <UserActivityDrawer
+        open={drawerOpen}
+        userId={drawerUserId}
+        userName={drawerUserName}
+        token={token}
+        onClose={closeUserDrawer}
+      />
     </Box>
   )
 }

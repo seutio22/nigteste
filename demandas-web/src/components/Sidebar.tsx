@@ -3,6 +3,7 @@ import { useSidebar } from '../contexts/SidebarContext'
 import { useAuthStore } from '../store/authStore'
 import { useMasterDataStore } from '../store/masterDataStore'
 import { getUserPermissions, checkPermission } from '../utils/defaultPermissions'
+import { canViewAnyDadosSection } from '../utils/dadosPermissions'
 import { getUserDepartmentDisplay } from '../utils/userDepartmentDisplay'
 import {
   Home,
@@ -118,7 +119,12 @@ function pathMatchesAdministrativo(pathname: string) {
 function filterByPermission(items: MenuLink[], user: { permissions?: unknown; role: string } | null) {
   if (!user) return []
   const userPermissions = getUserPermissions(user.permissions, user.role)
-  return items.filter((item) => checkPermission(userPermissions, item.module as any, 'view'))
+  return items.filter((item) => {
+    if (item.module === 'dados') {
+      return canViewAnyDadosSection(userPermissions)
+    }
+    return checkPermission(userPermissions, item.module as any, 'view')
+  })
 }
 
 export function Sidebar() {

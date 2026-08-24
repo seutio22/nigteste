@@ -31,9 +31,11 @@ import AnalyticsPage from '../pages/Analytics'
 import AnalyticsNewPage from '../pages/Analytics/New'
 import AnalyticsDetailPage from '../pages/Analytics/Detail'
 import DadosLayoutPage from '../pages/DadosLayout'
+import DadosIndexRedirect from '../pages/DadosIndexRedirect'
 import DadosNigPage from '../pages/DadosNig'
 import DadosProdutividadePage from '../pages/DadosProdutividade'
 import DadosPlacementPage from '../pages/DadosPlacement'
+import { DadosSubpageGuard } from '../components/DadosSubpageGuard'
 import PlacementFilaListPage from '../pages/Placement/Fila/List'
 import PlacementFilaNewPage from '../pages/Placement/Fila/New'
 import PlacementFilaDetailPage from '../pages/Placement/Fila/Detail'
@@ -282,18 +284,23 @@ export function AppRoutes() {
             </Route>
           </Route>
 
-          <Route
-            path="dados"
-            element={
-              <ProtectedRoute module="dados">
-                <DadosLayoutPage />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<Navigate to="nig" replace />} />
-            <Route path="nig" element={<DadosNigPage />} />
-            <Route path="produtividade" element={<DadosProdutividadePage />} />
-            <Route path="placement" element={<DadosPlacementPage />} />
+          <Route path="dados" element={<DadosLayoutPage />}>
+            <Route index element={<DadosIndexRedirect />} />
+            <Route path="nig" element={
+              <DadosSubpageGuard subpage="nig">
+                <DadosNigPage />
+              </DadosSubpageGuard>
+            } />
+            <Route path="produtividade" element={
+              <DadosSubpageGuard subpage="produtividade">
+                <DadosProdutividadePage />
+              </DadosSubpageGuard>
+            } />
+            <Route path="placement" element={
+              <DadosSubpageGuard subpage="placement">
+                <DadosPlacementPage />
+              </DadosSubpageGuard>
+            } />
           </Route>
           
           {/* Rota admin/limpeza removida - página de limpeza de duplicatas removida */}

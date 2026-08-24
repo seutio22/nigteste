@@ -19,7 +19,10 @@ interface DadosHeaderProps {
   onAdd: () => void
   onExportAll: () => void
   onExportCurrent: () => void
-  // onCleanup removido - função de limpeza de duplicatas removida
+  canCreate?: boolean
+  canDelete?: boolean
+  canImport?: boolean
+  canExport?: boolean
 }
 
 export const DadosHeader: React.FC<DadosHeaderProps> = ({
@@ -31,13 +34,17 @@ export const DadosHeader: React.FC<DadosHeaderProps> = ({
   onAdd,
   onExportAll,
   onExportCurrent,
-  // onCleanup removido
+  canCreate = true,
+  canDelete = true,
+  canImport = true,
+  canExport = true,
 }) => {
   return (
     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 2 }}>
       <Typography variant="h5">Dados Mestres</Typography>
       
       <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+        {canImport ? (
         <Button 
           variant="outlined" 
           startIcon={<CloudUploadIcon />}
@@ -61,11 +68,15 @@ export const DadosHeader: React.FC<DadosHeaderProps> = ({
         >
           Upload
         </Button>
+        ) : null}
         
+        {canImport ? (
         <PrimaryActionButton startIcon={<AutoFixHighIcon />} onClick={onSmartImport}>
           Importador Inteligente
         </PrimaryActionButton>
+        ) : null}
         
+        {canDelete ? (
         <Button 
           variant="outlined" 
           startIcon={<DeleteIcon />}
@@ -92,7 +103,9 @@ export const DadosHeader: React.FC<DadosHeaderProps> = ({
         >
           Exclusão em Massa
         </Button>
+        ) : null}
         
+        {canExport ? (
         <Button 
           variant="outlined" 
           startIcon={<DownloadIcon />}
@@ -119,7 +132,9 @@ export const DadosHeader: React.FC<DadosHeaderProps> = ({
         >
           Exportar {activeTab}
         </Button>
+        ) : null}
         
+        {canExport ? (
         <Button 
           variant="outlined" 
           startIcon={<FileDownloadIcon />}
@@ -146,8 +161,7 @@ export const DadosHeader: React.FC<DadosHeaderProps> = ({
         >
           Exportar Tudo
         </Button>
-        
-        {/* Botão "Limpar Duplicatas" removido - substituído pelo importador inteligente com validação */}
+        ) : null}
         
         <Button 
           onClick={onHelp}
@@ -172,9 +186,11 @@ export const DadosHeader: React.FC<DadosHeaderProps> = ({
         </Button>
         
         
+        {canCreate ? (
         <IconButton color="primary" onClick={onAdd} size="small">
           <AddIcon />
         </IconButton>
+        ) : null}
       </Box>
     </Box>
   )

@@ -29,6 +29,11 @@ import {
   isSameCalendarDay,
   enumerateDaysYmd
 } from '../utils/dashboardFilters'
+import {
+  canViewDashboardPage,
+  isDashboardItemOwnedByUser,
+} from '../utils/dashboardUserScope'
+import { getUserPermissions } from '../utils/defaultPermissions'
 
 /**
  * Mesma origem de data usada em `calculatePageMetrics` para contar itens no período (data de criação).
@@ -207,6 +212,8 @@ export const useDashboardIndicators = (
     toDate?: string
     /** Enquanto true, não agrega dados (evita flash de totais globais antes de resolver analista vinculado). */
     userScopePending?: boolean
+    /** Sem analista master vinculado: filtra por nome/e-mail do usuário logado. */
+    ownScopeFallback?: boolean
   }
 ) => {
   // Debug removido para produção
@@ -232,6 +239,12 @@ export const useDashboardIndicators = (
   const projectStore = useProjectStore()
   const masterDataStore = useMasterDataStore()
   const user = useAuthStore((s) => s.user)
+
+  const visiblePageConfigs = useMemo(() => {
+    if (!user) return PAGE_CONFIGS
+    const perms = getUserPermissions(user.permissions, user.role)
+    return PAGE_CONFIGS.filter((cfg) => canViewDashboardPage(cfg.page, perms, user.role))
+  }, [user?.permissions, user?.role, user?.id])
 
   // Função para filtrar por data - mesma lógica para todas as páginas
   const inRange = useMemo(() => {
@@ -346,6 +359,10 @@ export const useDashboardIndicators = (
             return false
           }
         }
+      } else if (filters.ownScopeFallback) {
+        if (!isDashboardItemOwnedByUser(page, item, user, masterDataStore.analistas)) {
+          return false
+        }
       }
       
       if (!opts?.skipDate) {
@@ -389,6 +406,7 @@ export const useDashboardIndicators = (
     projectStore.projects,
     filters?.areaId,
     filters?.analistaId,
+    filters?.ownScopeFallback,
     filters?.userScopePending,
     filters?.fromDate,
     filters?.toDate,
@@ -423,6 +441,7 @@ export const useDashboardIndicators = (
     projectStore.projects,
     filters?.areaId,
     filters?.analistaId,
+    filters?.ownScopeFallback,
     filters?.userScopePending,
     masterDataStore.areas,
     masterDataStore.analistas,
@@ -433,7 +452,7 @@ export const useDashboardIndicators = (
     const { from, to } = resolveIndicatorDateRange(period, filters?.fromDate, filters?.toDate)
     const prev = getPreviousComparisonRange(from, to, period)
     if (!prev) return []
-    return PAGE_CONFIGS.map((cfg) => {
+    return visiblePageConfigs.map((cfg) => {
       const items = storeMapSansDate[cfg.page as keyof typeof storeMapSansDate] || []
       const cur = items.filter((item) =>
         isItemDateInRange(getItemDateForPage(cfg.page, item), from, to)
@@ -443,14 +462,14 @@ export const useDashboardIndicators = (
       ).length
       return { page: cfg.title, current: cur, previous: prv }
     })
-  }, [storeMapSansDate, period, filters?.fromDate, filters?.toDate])
+  }, [storeMapSansDate, period, filters?.fromDate, filters?.toDate, visiblePageConfigs])
 
   const chartDailyEvolution = useMemo(() => {
     const { from, to } = resolveIndicatorDateRange(period, filters?.fromDate, filters?.toDate)
     const days = enumerateDaysYmd(from, to)
     return days.map((dateKey) => {
       let total = 0
-      for (const cfg of PAGE_CONFIGS) {
+      for (const cfg of visiblePageConfigs) {
         const items = storeMapSansDate[cfg.page as keyof typeof storeMapSansDate] || []
         total += items.filter((item) => isSameCalendarDay(getItemDateForPage(cfg.page, item), dateKey)).length
       }
@@ -460,7 +479,7 @@ export const useDashboardIndicators = (
       })
       return { dateKey, label, total }
     })
-  }, [storeMapSansDate, period, filters?.fromDate, filters?.toDate])
+  }, [storeMapSansDate, period, filters?.fromDate, filters?.toDate, visiblePageConfigs])
 
   // Calcular métricas para todas as páginas
   // IMPORTANTE: Forçar recálculo quando os dados dos stores mudarem
@@ -509,7 +528,7 @@ export const useDashboardIndicators = (
     const range = resolveIndicatorDateRange(period, filters?.fromDate, filters?.toDate)
     const out: { [key: string]: PageMetrics } = {}
 
-    PAGE_CONFIGS.forEach((cfg) => {
+    visiblePageConfigs.forEach((cfg) => {
       const page = cfg.page
       const base = pageMetrics[page]
       if (!base) return
@@ -574,7 +593,7 @@ export const useDashboardIndicators = (
       completedRef?: string
     }> = []
 
-    PAGE_CONFIGS.forEach((cfg) => {
+    visiblePageConfigs.forEach((cfg) => {
       const page = cfg.page
       if (page === 'projetos') return
       const itemsSans = storeMapSansDate[page as keyof typeof storeMapSansDate] || []
@@ -609,7 +628,7 @@ export const useDashboardIndicators = (
     const currentRange = resolveIndicatorDateRange(period, filters?.fromDate, filters?.toDate)
     const prevRange = !hasDateFilters ? getPreviousComparisonRange(currentRange.from, currentRange.to, period) : null
 
-    PAGE_CONFIGS.forEach((config) => {
+    visiblePageConfigs.forEach((config) => {
       const metrics = pageMetricsWithProducao[config.page]
       if (!metrics) return
 
@@ -655,7 +674,7 @@ export const useDashboardIndicators = (
     })
 
     return result
-  }, [pageMetricsWithProducao, period, hasDateFilters, storeMap, filters?.fromDate, filters?.toDate])
+  }, [pageMetricsWithProducao, period, hasDateFilters, storeMap, filters?.fromDate, filters?.toDate, visiblePageConfigs])
 
   // Separar indicadores por categoria
   const indicatorsByCategory = useMemo(() => {
@@ -674,7 +693,7 @@ export const useDashboardIndicators = (
       return sum + (metrics ? metrics[period].created : 0)
     }, 0)
     /** Concluídos agregados pelas entradas «primary» em PAGE_CONFIG (inclui Projetos). */
-    const primaryPages = PAGE_CONFIGS.filter((c) => c.category === 'primary').map((c) => c.page)
+    const primaryPages = visiblePageConfigs.filter((c) => c.category === 'primary').map((c) => c.page)
     const completed = primaryPages.reduce((sum, p) => {
       const metrics = pageMetricsWithProducao[p]
       return sum + (metrics ? metrics[period].completed : 0)

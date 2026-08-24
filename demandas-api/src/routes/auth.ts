@@ -68,6 +68,7 @@ export async function authRoutes(app: FastifyInstance, options?: { prisma?: Pris
             role: true,
             active: true,
           permissions: true,
+          viewOwnDataOnly: true,
           departmentId: true,
           department: { select: { id: true, nome: true } },
           createdAt: true,
@@ -151,6 +152,7 @@ export async function authRoutes(app: FastifyInstance, options?: { prisma?: Pris
         email: user.email, 
         role: user.role,
         active: user.active,
+        viewOwnDataOnly: user.viewOwnDataOnly ?? false,
         departmentId: user.departmentId ?? null,
         department: user.department ?? null,
         permissions: user.permissions ? JSON.parse(user.permissions as string) : null

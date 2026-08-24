@@ -1,6 +1,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import { prisma } from '../lib/prisma'
 import { createRequirePermission } from '../middleware/requirePermission'
+import { getPageAreaLabel } from '../utils/pageMonitoringLabels'
 
 const requirePermission = createRequirePermission(prisma)
 
@@ -225,7 +226,7 @@ export default async function monitoringRoutes(fastify: FastifyInstance) {
   })
 
   // Endpoint para buscar dados de monitoramento
-  fastify.get('/users', async (request: FastifyRequest, reply: FastifyReply) => {
+  fastify.get('/users', { preHandler: [verifyJWT, requirePermission('usuarios', 'view')] }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       setImmediate(() => {
         void closeAllIdleSessions().catch((e) => {
@@ -254,6 +255,8 @@ export default async function monitoringRoutes(fastify: FastifyInstance) {
           name: true,
           email: true,
           role: true,
+          departmentId: true,
+          department: { select: { id: true, nome: true } },
           lastLogin: true,
           createdAt: true,
           userActivities: {
@@ -423,6 +426,8 @@ export default async function monitoringRoutes(fastify: FastifyInstance) {
           userName: user.name,
           userEmail: user.email,
           userRole: user.role,
+          departmentId: user.departmentId,
+          departmentName: user.department?.nome ?? null,
           lastAccess,
           lastSeenAt: new Date(lastSeenMs).toISOString(),
           minutesSinceLastActivity: Math.floor(msSinceSeen / 60000),
@@ -844,7 +849,537 @@ export default async function monitoringRoutes(fastify: FastifyInstance) {
   )
 
   // Endpoint para buscar atividades de um usuário específico
-  fastify.get('/user/:userId/activities', async (request: FastifyRequest, reply: FastifyReply) => {
+  /**
+   * Painel analítico agregado: tendências, módulos, presença e ranking.
+   */
+  fastify.get(
+    '/analytics-dashboard',
+    { preHandler: [verifyJWT, requirePermission('usuarios', 'view')] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      try {
+        const q = request.query as Record<string, string | undefined>
+        const trendDays = Math.min(30, Math.max(7, parseInt(q.days || '14', 10) || 14))
+        const nowDate = new Date()
+        const startOfDay = startOfLocalDay(nowDate)
+        const startOfWeek = startOfWeekMonday(nowDate)
+        const trendStart = new Date(startOfDay)
+        trendStart.setDate(trendStart.getDate() - (trendDays - 1))
+
+        const ONLINE_MS = 5 * 60 * 1000
+        const AWAY_MS = 15 * 60 * 1000
+
+        const [users, monitoringTrend, pageEventsTrend, activityEvents] = await Promise.all([
+          prisma.user.findMany({
+            where: { active: true },
+            select: {
+              id: true,
+              name: true,
+              role: true,
+              departmentId: true,
+              department: { select: { nome: true } },
+              lastLogin: true,
+              createdAt: true,
+              userActivities: {
+                take: 1,
+                orderBy: { createdAt: 'desc' },
+                select: { createdAt: true }
+              },
+              userSessions: {
+                where: { isActive: true },
+                take: 1,
+                orderBy: { lastActivity: 'desc' },
+                select: { isActive: true, loginTime: true, lastActivity: true }
+              },
+              userMonitoring: {
+                where: { date: { gte: startOfDay } },
+                take: 1,
+                orderBy: { date: 'desc' },
+                select: {
+                  loginCount: true,
+                  logoutCount: true,
+                  pageViewCount: true,
+                  apiCallCount: true,
+                  pageDwellSeconds: true,
+                  sessionCount: true
+                }
+              }
+            },
+            orderBy: { name: 'asc' }
+          }),
+          prisma.userMonitoring.findMany({
+            where: { date: { gte: trendStart, lte: nowDate } },
+            select: {
+              userId: true,
+              date: true,
+              loginCount: true,
+              sessionCount: true,
+              pageDwellSeconds: true,
+              pageViewCount: true,
+              apiCallCount: true
+            }
+          }),
+          prisma.userActivity.findMany({
+            where: {
+              action: 'page_time',
+              duration: { gt: 0 },
+              createdAt: { gte: trendStart },
+              page: { not: null }
+            },
+            select: { userId: true, page: true, duration: true, createdAt: true }
+          }),
+          prisma.userActivity.findMany({
+            where: { createdAt: { gte: startOfDay } },
+            select: { userId: true, action: true, duration: true, page: true, createdAt: true }
+          })
+        ])
+
+        const userIds = users.map((u) => u.id)
+        const pageEventsTodayWeek =
+          userIds.length === 0
+            ? []
+            : await prisma.userActivity.findMany({
+                where: {
+                  userId: { in: userIds },
+                  action: 'page_time',
+                  duration: { gt: 0 },
+                  createdAt: { gte: startOfWeek },
+                  page: { not: null }
+                },
+                select: { userId: true, page: true, duration: true, createdAt: true }
+              })
+
+        const nowMs = Date.now()
+        type Presence = 'online' | 'away' | 'offline'
+        const userPresence = new Map<string, Presence>()
+        const userDwellToday = new Map<string, number>()
+        const userDwellWeek = new Map<string, number>()
+        const userLoginsToday = new Map<string, number>()
+
+        for (const u of users) {
+          const lastActivityAt = u.userActivities[0]?.createdAt
+          const activeSession = u.userSessions[0]
+          const sessionPingAt = activeSession?.isActive ? activeSession.lastActivity : undefined
+          const loginAt = u.lastLogin ?? undefined
+          const times = [lastActivityAt?.getTime(), sessionPingAt?.getTime(), loginAt?.getTime()].filter(
+            (t): t is number => typeof t === 'number'
+          )
+          const lastSeenMs = times.length > 0 ? Math.max(...times) : u.createdAt.getTime()
+          const msSinceSeen = nowMs - lastSeenMs
+          const presence: Presence =
+            msSinceSeen < ONLINE_MS ? 'online' : msSinceSeen < AWAY_MS ? 'away' : 'offline'
+          userPresence.set(u.id, presence)
+          userLoginsToday.set(u.id, u.userMonitoring[0]?.loginCount ?? 0)
+        }
+
+        for (const ev of pageEventsTodayWeek) {
+          if (ev.createdAt >= startOfDay) {
+            userDwellToday.set(ev.userId, (userDwellToday.get(ev.userId) ?? 0) + (ev.duration || 0))
+          }
+          userDwellWeek.set(ev.userId, (userDwellWeek.get(ev.userId) ?? 0) + (ev.duration || 0))
+        }
+
+        let onlineUsers = 0
+        let awayUsers = 0
+        let offlineUsers = 0
+        let activeTodayUsers = 0
+        let totalPageDwellSecondsToday = 0
+        let totalPageDwellSecondsWeek = 0
+        let totalLoginsToday = 0
+        let totalApiCallsToday = 0
+        let totalPageViewsToday = 0
+
+        for (const u of users) {
+          const p = userPresence.get(u.id) ?? 'offline'
+          if (p === 'online') onlineUsers++
+          else if (p === 'away') awayUsers++
+          else offlineUsers++
+
+          const mon = u.userMonitoring[0]
+          const dwellToday = userDwellToday.get(u.id) ?? mon?.pageDwellSeconds ?? 0
+          const dwellWeek = userDwellWeek.get(u.id) ?? 0
+          totalPageDwellSecondsToday += dwellToday
+          totalPageDwellSecondsWeek += dwellWeek
+          totalLoginsToday += mon?.loginCount ?? 0
+          totalApiCallsToday += mon?.apiCallCount ?? 0
+          totalPageViewsToday += mon?.pageViewCount ?? 0
+
+          if (dwellToday > 0 || (mon?.loginCount ?? 0) > 0 || u.lastLogin) {
+            activeTodayUsers++
+          }
+        }
+
+        const pad = (n: number) => String(n).padStart(2, '0')
+        const dayKey = (d: Date) =>
+          `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+
+        const dailyTrend: Array<{
+          date: string
+          label: string
+          logins: number
+          pageDwellSeconds: number
+          activeUsers: number
+          activities: number
+          apiCalls: number
+        }> = []
+
+        const trendByDay = new Map<
+          string,
+          { logins: number; pageDwellSeconds: number; users: Set<string>; activities: number; apiCalls: number }
+        >()
+
+        for (const row of monitoringTrend) {
+          const dk = dayKey(row.date)
+          if (!trendByDay.has(dk)) {
+            trendByDay.set(dk, { logins: 0, pageDwellSeconds: 0, users: new Set(), activities: 0, apiCalls: 0 })
+          }
+          const b = trendByDay.get(dk)!
+          b.logins += row.loginCount || 0
+          b.pageDwellSeconds += row.pageDwellSeconds || 0
+          b.apiCalls += row.apiCallCount || 0
+          if ((row.loginCount || 0) > 0 || (row.pageDwellSeconds || 0) > 0) {
+            b.users.add(row.userId)
+          }
+        }
+
+        for (const ev of pageEventsTrend) {
+          const dk = dayKey(ev.createdAt)
+          if (!trendByDay.has(dk)) {
+            trendByDay.set(dk, { logins: 0, pageDwellSeconds: 0, users: new Set(), activities: 0, apiCalls: 0 })
+          }
+          const b = trendByDay.get(dk)!
+          b.pageDwellSeconds += ev.duration || 0
+          b.users.add(ev.userId)
+        }
+
+        for (const ev of activityEvents) {
+          const dk = dayKey(ev.createdAt)
+          if (!trendByDay.has(dk)) {
+            trendByDay.set(dk, { logins: 0, pageDwellSeconds: 0, users: new Set(), activities: 0, apiCalls: 0 })
+          }
+          trendByDay.get(dk)!.activities++
+        }
+
+        for (let i = 0; i < trendDays; i++) {
+          const d = new Date(trendStart)
+          d.setDate(d.getDate() + i)
+          const dk = dayKey(d)
+          const b = trendByDay.get(dk)
+          dailyTrend.push({
+            date: dk,
+            label: d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }),
+            logins: b?.logins ?? 0,
+            pageDwellSeconds: b?.pageDwellSeconds ?? 0,
+            activeUsers: b?.users.size ?? 0,
+            activities: b?.activities ?? 0,
+            apiCalls: b?.apiCalls ?? 0
+          })
+        }
+
+        const moduleMapToday = new Map<string, { seconds: number; users: Set<string> }>()
+        const moduleMapWeek = new Map<string, { seconds: number; users: Set<string> }>()
+
+        for (const ev of pageEventsTodayWeek) {
+          const area = getPageAreaLabel(ev.page || '/')
+          if (ev.createdAt >= startOfDay) {
+            if (!moduleMapToday.has(area)) moduleMapToday.set(area, { seconds: 0, users: new Set() })
+            const t = moduleMapToday.get(area)!
+            t.seconds += ev.duration || 0
+            t.users.add(ev.userId)
+          }
+          if (!moduleMapWeek.has(area)) moduleMapWeek.set(area, { seconds: 0, users: new Set() })
+          const w = moduleMapWeek.get(area)!
+          w.seconds += ev.duration || 0
+          w.users.add(ev.userId)
+        }
+
+        const moduleUsage = [...moduleMapWeek.entries()]
+          .map(([area, w]) => ({
+            area,
+            secondsToday: moduleMapToday.get(area)?.seconds ?? 0,
+            secondsWeek: w.seconds,
+            userCountWeek: w.users.size
+          }))
+          .sort((a, b) => b.secondsWeek - a.secondsWeek)
+          .slice(0, 15)
+
+        const actionMixMap = new Map<string, number>()
+        for (const ev of activityEvents) {
+          actionMixMap.set(ev.action, (actionMixMap.get(ev.action) ?? 0) + 1)
+        }
+        const actionMixToday = [...actionMixMap.entries()]
+          .map(([action, count]) => ({ action, count }))
+          .sort((a, b) => b.count - a.count)
+
+        const hourlyToday = Array.from({ length: 24 }, (_, hour) => ({
+          hour,
+          label: `${pad(hour)}h`,
+          activities: 0,
+          pageDwellSeconds: 0
+        }))
+        for (const ev of activityEvents) {
+          const h = ev.createdAt.getHours()
+          hourlyToday[h].activities++
+          if (ev.action === 'page_time' && ev.duration) {
+            hourlyToday[h].pageDwellSeconds += ev.duration
+          }
+        }
+
+        const presenceByRoleMap = new Map<
+          string,
+          { online: number; away: number; offline: number; total: number }
+        >()
+        for (const u of users) {
+          const role = u.role || 'analista'
+          if (!presenceByRoleMap.has(role)) {
+            presenceByRoleMap.set(role, { online: 0, away: 0, offline: 0, total: 0 })
+          }
+          const r = presenceByRoleMap.get(role)!
+          r.total++
+          const p = userPresence.get(u.id) ?? 'offline'
+          if (p === 'online') r.online++
+          else if (p === 'away') r.away++
+          else r.offline++
+        }
+        const presenceByRole = [...presenceByRoleMap.entries()]
+          .map(([role, v]) => ({ role, ...v }))
+          .sort((a, b) => b.total - a.total)
+
+        const topUsers = users
+          .map((u) => ({
+            userId: u.id,
+            userName: u.name,
+            userRole: u.role,
+            departmentName: u.department?.nome ?? null,
+            dwellSecondsToday: userDwellToday.get(u.id) ?? u.userMonitoring[0]?.pageDwellSeconds ?? 0,
+            dwellSecondsWeek: userDwellWeek.get(u.id) ?? 0,
+            loginsToday: u.userMonitoring[0]?.loginCount ?? 0,
+            apiCallsToday: u.userMonitoring[0]?.apiCallCount ?? 0,
+            presenceStatus: userPresence.get(u.id) ?? 'offline'
+          }))
+          .sort((a, b) => b.dwellSecondsToday - a.dwellSecondsToday)
+          .slice(0, 12)
+
+        const departments = [...new Set(users.map((u) => u.department?.nome).filter(Boolean))].sort() as string[]
+
+        return reply.send({
+          trendDays,
+          summary: {
+            totalUsers: users.length,
+            onlineUsers,
+            awayUsers,
+            offlineUsers,
+            activeTodayUsers,
+            totalPageDwellSecondsToday,
+            totalPageDwellSecondsWeek,
+            totalLoginsToday,
+            totalActivitiesToday: activityEvents.length,
+            totalApiCallsToday,
+            totalPageViewsToday,
+            avgDwellSecondsPerActiveUserToday:
+              activeTodayUsers > 0 ? Math.round(totalPageDwellSecondsToday / activeTodayUsers) : 0
+          },
+          moduleUsage,
+          topUsers,
+          dailyTrend,
+          presenceByRole,
+          hourlyToday: hourlyToday.filter((h) => h.hour <= nowDate.getHours() || h.activities > 0),
+          actionMixToday,
+          departments
+        })
+      } catch (error) {
+        console.error('Erro no analytics-dashboard:', error)
+        return reply.status(500).send({ error: 'Erro interno do servidor' })
+      }
+    }
+  )
+
+  /**
+   * Jornada aprofundada: tempo por página, ociosidade, cliques e timeline.
+   * Query: days=1|7|14 (padrão 1 = hoje)
+   */
+  fastify.get(
+    '/user/:userId/journey',
+    { preHandler: [verifyJWT, requirePermission('usuarios', 'view')] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      try {
+        const { userId } = request.params as { userId: string }
+        const q = request.query as Record<string, string | undefined>
+        const days = Math.min(30, Math.max(1, parseInt(q.days || '1', 10) || 1))
+
+        const user = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { id: true, name: true, email: true, role: true }
+        })
+        if (!user) return reply.status(404).send({ error: 'Usuário não encontrado' })
+
+        const since = startOfLocalDay(new Date())
+        since.setDate(since.getDate() - (days - 1))
+
+        const events = await prisma.userActivity.findMany({
+          where: {
+            userId,
+            createdAt: { gte: since },
+            action: { in: ['page_time', 'idle_time', 'ui_click_batch', 'login', 'logout', 'page_view'] }
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 800,
+          select: {
+            id: true,
+            action: true,
+            page: true,
+            duration: true,
+            metadata: true,
+            createdAt: true,
+            ipAddress: true
+          }
+        })
+
+        let pageDwellSeconds = 0
+        let idleSeconds = 0
+        let clickCount = 0
+        const pageMap = new Map<string, { seconds: number; visits: number; idleSeconds: number }>()
+        const clickMap = new Map<string, { label: string; page: string; count: number }>()
+        const timeline: Array<{
+          id: string
+          at: string
+          kind: string
+          label: string
+          page: string | null
+          seconds?: number
+          detail?: string
+        }> = []
+
+        for (const ev of events) {
+          let meta: any = null
+          if (ev.metadata) {
+            try {
+              meta = typeof ev.metadata === 'string' ? JSON.parse(ev.metadata) : ev.metadata
+            } catch {
+              meta = null
+            }
+          }
+
+          if (ev.action === 'page_time') {
+            const sec = ev.duration || 0
+            pageDwellSeconds += sec
+            const path = ev.page || '/'
+            if (!pageMap.has(path)) pageMap.set(path, { seconds: 0, visits: 0, idleSeconds: 0 })
+            const p = pageMap.get(path)!
+            p.seconds += sec
+            p.visits += 1
+            timeline.push({
+              id: ev.id,
+              at: ev.createdAt.toISOString(),
+              kind: 'page_time',
+              label: `Permaneceu em ${getPageAreaLabel(path)}`,
+              page: path,
+              seconds: sec,
+              detail: meta?.source ? `origem: ${meta.source}` : undefined
+            })
+          } else if (ev.action === 'idle_time') {
+            const sec = ev.duration || 0
+            idleSeconds += sec
+            const path = ev.page || '/'
+            if (!pageMap.has(path)) pageMap.set(path, { seconds: 0, visits: 0, idleSeconds: 0 })
+            pageMap.get(path)!.idleSeconds += sec
+            timeline.push({
+              id: ev.id,
+              at: ev.createdAt.toISOString(),
+              kind: 'idle_time',
+              label: 'Ocioso (sem interação)',
+              page: path,
+              seconds: sec,
+              detail: meta?.source ? `detectado em: ${meta.source}` : undefined
+            })
+          } else if (ev.action === 'ui_click_batch') {
+            const clicks = Array.isArray(meta?.clicks) ? meta.clicks : []
+            for (const c of clicks) {
+              clickCount += 1
+              const label = String(c.label || 'Clique').slice(0, 160)
+              const page = String(c.page || ev.page || '/')
+              const key = `${page}||${label}`
+              if (!clickMap.has(key)) clickMap.set(key, { label, page, count: 0 })
+              clickMap.get(key)!.count += 1
+              timeline.push({
+                id: `${ev.id}-${c.at || clickCount}`,
+                at: c.at || ev.createdAt.toISOString(),
+                kind: 'ui_click',
+                label: `Clicou: ${label}`,
+                page,
+                detail: c.tag ? `elemento: ${c.tag}` : undefined
+              })
+            }
+            if (clicks.length === 0 && meta?.count) {
+              clickCount += Number(meta.count) || 0
+            }
+          } else if (ev.action === 'login' || ev.action === 'logout' || ev.action === 'page_view') {
+            timeline.push({
+              id: ev.id,
+              at: ev.createdAt.toISOString(),
+              kind: ev.action,
+              label:
+                ev.action === 'login'
+                  ? 'Login'
+                  : ev.action === 'logout'
+                    ? 'Logout'
+                    : `Visualizou ${getPageAreaLabel(ev.page || '/')}`,
+              page: ev.page
+            })
+          }
+        }
+
+        // Timeline cronológica (mais recente primeiro já veio; reordenar por at)
+        timeline.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
+
+        const pages = [...pageMap.entries()]
+          .map(([path, v]) => ({
+            path,
+            area: getPageAreaLabel(path),
+            seconds: v.seconds,
+            visits: v.visits,
+            idleSeconds: v.idleSeconds,
+            activeSeconds: Math.max(0, v.seconds - v.idleSeconds)
+          }))
+          .sort((a, b) => b.seconds - a.seconds)
+
+        const topClicks = [...clickMap.values()]
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 40)
+          .map((c) => ({
+            ...c,
+            area: getPageAreaLabel(c.page)
+          }))
+
+        const activeSeconds = Math.max(0, pageDwellSeconds - idleSeconds)
+
+        return reply.send({
+          user,
+          days,
+          since: since.toISOString(),
+          summary: {
+            pageDwellSeconds,
+            idleSeconds,
+            activeSeconds,
+            clickCount,
+            distinctPages: pages.length,
+            idleRatio:
+              pageDwellSeconds > 0 ? Math.round((100 * idleSeconds) / pageDwellSeconds) : 0
+          },
+          pages,
+          topClicks,
+          timeline: timeline.slice(0, 200)
+        })
+      } catch (error) {
+        console.error('Erro no user journey:', error)
+        return reply.status(500).send({ error: 'Erro interno do servidor' })
+      }
+    }
+  )
+
+  fastify.get(
+    '/user/:userId/activities',
+    { preHandler: [verifyJWT, requirePermission('usuarios', 'view')] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { userId } = request.params as { userId: string }
       const { limit = 50, offset = 0 } = request.query as any
@@ -863,8 +1398,43 @@ export default async function monitoringRoutes(fastify: FastifyInstance) {
     }
   })
 
+  fastify.get(
+    '/user/:userId/sessions',
+    { preHandler: [verifyJWT, requirePermission('usuarios', 'view')] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      try {
+        const { userId } = request.params as { userId: string }
+        const { limit = 20 } = request.query as { limit?: string }
+
+        const sessions = await prisma.userSession.findMany({
+          where: { userId },
+          orderBy: { loginTime: 'desc' },
+          take: Math.min(50, parseInt(String(limit), 10) || 20),
+          select: {
+            id: true,
+            sessionId: true,
+            ipAddress: true,
+            userAgent: true,
+            loginTime: true,
+            logoutTime: true,
+            lastActivity: true,
+            isActive: true,
+            duration: true,
+            pageViews: true,
+            apiCalls: true
+          }
+        })
+
+        return reply.send(sessions)
+      } catch (error) {
+        console.error('Erro ao buscar sessões do usuário:', error)
+        return reply.status(500).send({ error: 'Erro interno do servidor' })
+      }
+    }
+  )
+
   // Endpoint para buscar estatísticas agregadas
-  fastify.get('/stats', async (request: FastifyRequest, reply: FastifyReply) => {
+  fastify.get('/stats', { preHandler: [verifyJWT, requirePermission('usuarios', 'view')] }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const now = new Date()
       const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())

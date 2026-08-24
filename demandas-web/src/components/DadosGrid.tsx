@@ -11,13 +11,17 @@ interface DadosGridProps {
   data: any[]
   onEdit: (row: any) => void
   onDelete: (id: string) => void
+  canEdit?: boolean
+  canDelete?: boolean
 }
 
 export const DadosGrid: React.FC<DadosGridProps> = ({
   activeTab,
   data,
   onEdit,
-  onDelete
+  onDelete,
+  canEdit = true,
+  canDelete = true,
 }) => {
   const { showOnlyActiveContracts, toggleActiveContractsFilter, syncFromApi } = useMasterDataStore()
   
@@ -153,8 +157,8 @@ export const DadosGrid: React.FC<DadosGridProps> = ({
     }
 
     const baseCols = baseColumns[activeTab] || []
-    
-    // Adicionar coluna de ações
+    if (!canEdit && !canDelete) return baseCols
+
     const actionsColumn: GridColDef = {
       field: 'acoes',
       headerName: 'Ações',
@@ -163,6 +167,7 @@ export const DadosGrid: React.FC<DadosGridProps> = ({
       filterable: false,
       renderCell: (params) => (
         <div className="flex gap-1">
+          {canEdit ? (
           <IconButton 
             color="primary" 
             size="small" 
@@ -178,6 +183,8 @@ export const DadosGrid: React.FC<DadosGridProps> = ({
           >
             <EditIcon />
           </IconButton>
+          ) : null}
+          {canDelete ? (
           <IconButton 
             color="error" 
             size="small" 
@@ -193,12 +200,13 @@ export const DadosGrid: React.FC<DadosGridProps> = ({
           >
             <DeleteIcon />
           </IconButton>
+          ) : null}
         </div>
       )
     }
 
     return [...baseCols, actionsColumn]
-  }, [activeTab, onEdit, onDelete])
+  }, [activeTab, onEdit, onDelete, canEdit, canDelete])
 
   return (
     <div style={{ height: 600, width: '100%' }}>

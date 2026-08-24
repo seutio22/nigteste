@@ -16,8 +16,7 @@ import {
   IconButton,
   Tooltip,
   Button,
-  LinearProgress,
-  CircularProgress
+  LinearProgress
 } from '@mui/material'
 import {
   Refresh as RefreshIcon,
@@ -44,8 +43,13 @@ import { useDashboardIndicators } from '../hooks/useDashboardIndicators'
 import { useAdvancedIndicators } from '../hooks/useAdvancedIndicators'
 import { AdvancedIndicators } from '../components/dashboard/AdvancedIndicators'
 import { StatusDetails } from '../components/dashboard/StatusDetails'
+import { BeautifulLoading } from '../components/BeautifulLoading'
 import type { PeriodType } from '../types/dashboardIndicators'
 import type { DashboardPdfMeta } from '../utils/dashboardPdfExport'
+import {
+  resolveLinkedAnalistaId,
+  shouldRestrictDashboardToOwnScope,
+} from '../utils/dashboardUserScope'
 
 const normalizeText = (value?: string) => (value || '').trim().toLowerCase()
 
@@ -108,26 +112,15 @@ export default function DashboardPage() {
   const isAdmin = user?.role === 'admin'
 
   /** Gerente, analista ou usuário com “só meus dados”: filtro de analista fixo pelo cadastro vinculado. */
-  const restrictAnalistaFilter =
-    user?.role === 'gerente' || user?.role === 'analista' || Boolean(user?.viewOwnDataOnly)
+  const restrictAnalistaFilter = shouldRestrictDashboardToOwnScope(
+    user?.role,
+    user?.viewOwnDataOnly
+  )
 
-  const linkedAnalistaId = useMemo(() => {
-    if (!restrictAnalistaFilter || !user) return ''
-    const analistas = masterDataStore.analistas
-    if (!analistas?.length) return ''
-    const emailNorm = (user.email || '').trim().toLowerCase()
-    const nameNorm = normalizeText(user.name || '')
-    const found = analistas.find((a) => {
-      const aEmail = (a.email || '').trim().toLowerCase()
-      const aNome = (a.nome || '').trim()
-      if (emailNorm && aEmail && aEmail === emailNorm) return true
-      if (nameNorm && aNome && normalizeText(aNome) === nameNorm) return true
-      if (nameNorm && aNome && normalizeText(aNome).includes(nameNorm)) return true
-      if (nameNorm && aNome && nameNorm.includes(normalizeText(aNome))) return true
-      return false
-    })
-    return found?.id ?? ''
-  }, [restrictAnalistaFilter, user?.id, user?.email, user?.name, masterDataStore.analistas])
+  const linkedAnalistaId = useMemo(
+    () => resolveLinkedAnalistaId(user, masterDataStore.analistas),
+    [user?.id, user?.email, user?.name, masterDataStore.analistas]
+  )
 
   // Filtros
   const [areaId, setAreaId] = useState('')
@@ -182,6 +175,9 @@ export default function DashboardPage() {
 
   const masterDataPending = !masterDataReady
 
+  const dashboardDataLoading = userScopePending || masterDataPending || dashboardSyncing
+  const showDashboardContentLoading = userScopePending || masterDataPending
+
   useEffect(() => {
     if (restrictAnalistaFilter && linkedAnalistaId && analistaId !== linkedAnalistaId) {
       setAnalistaId(linkedAnalistaId)
@@ -189,6 +185,27 @@ export default function DashboardPage() {
   }, [restrictAnalistaFilter, linkedAnalistaId, analistaId])
 
   const effectiveAnalistaId = restrictAnalistaFilter ? (linkedAnalistaId || analistaId) : analistaId
+  const ownScopeFallback = restrictAnalistaFilter && userScopeReady && !effectiveAnalistaId
+
+  /** Departamento NIG: visão global só para admin/gerente sem escopo restrito. */
+  const nigAllowedAnalistaIds = useMemo(() => {
+    if (restrictAnalistaFilter) return undefined
+    const nigArea = masterDataStore.areas.find((a) =>
+      String(a.nome || '').toLowerCase().includes('nig')
+    )
+    if (!nigArea) return undefined
+    const nigIds = (masterDataStore.analistas as any[])
+      .filter((a) => {
+        const depId = a?.departmentId || a?.department?.id || a?.areaId || a?.area?.id
+        const depNome = a?.department?.nome || a?.area?.nome
+        if (depId && String(depId) === String(nigArea.id)) return true
+        if (depNome && String(depNome).toLowerCase().includes('nig')) return true
+        return false
+      })
+      .map((a) => String(a?.id))
+      .filter(Boolean)
+    return nigIds.length > 0 ? nigIds : undefined
+  }, [restrictAnalistaFilter, masterDataStore.areas, masterDataStore.analistas])
 
   /** Só admin/gerente podem pedir `/projetos/stats/summary?analistaId=`; vazio = visão global (admin) ou usuário logado. */
   const projectStatsAnalistaId = useMemo(() => {
@@ -246,28 +263,14 @@ export default function DashboardPage() {
   const dashboardFilters = useMemo(() => ({
     areaId,
     analistaId: effectiveAnalistaId,
-    // Restringir o dashboard ao departamento NIG (quando os analistas carregam o departmentId/department).
-    allowedAnalistaIds: (() => {
-      const nigArea = masterDataStore.areas.find((a) => String(a.nome || '').toLowerCase().includes('nig'))
-      if (!nigArea) return undefined
-      const nigIds = (masterDataStore.analistas as any[])
-        .filter((a) => {
-          const depId = a?.departmentId || a?.department?.id || a?.areaId || a?.area?.id
-          const depNome = a?.department?.nome || a?.area?.nome
-          if (depId && String(depId) === String(nigArea.id)) return true
-          if (depNome && String(depNome).toLowerCase().includes('nig')) return true
-          return false
-        })
-        .map((a) => String(a?.id))
-        .filter(Boolean)
-      return nigIds.length > 0 ? nigIds : undefined
-    })(),
+    allowedAnalistaIds: nigAllowedAnalistaIds,
+    ownScopeFallback,
     userScopePending,
     // Passar filtros de data apenas se for filtro manual
     // Quando não é manual, o hook usa o período para calcular as datas automaticamente
     fromDate: isManualDateFilter && fromDate ? fromDate : undefined,
     toDate: isManualDateFilter && toDate ? toDate : undefined
-  }), [areaId, effectiveAnalistaId, userScopePending, isManualDateFilter, fromDate, toDate, masterDataStore.areas, masterDataStore.analistas])
+  }), [areaId, effectiveAnalistaId, nigAllowedAnalistaIds, ownScopeFallback, userScopePending, isManualDateFilter, fromDate, toDate])
 
   const {
     indicators,
@@ -284,27 +287,14 @@ export default function DashboardPage() {
   const advancedFilters = useMemo(() => ({
     areaId,
     analistaId: effectiveAnalistaId,
-    allowedAnalistaIds: (() => {
-      const nigArea = masterDataStore.areas.find((a) => String(a.nome || '').toLowerCase().includes('nig'))
-      if (!nigArea) return undefined
-      const nigIds = (masterDataStore.analistas as any[])
-        .filter((a) => {
-          const depId = a?.departmentId || a?.department?.id || a?.areaId || a?.area?.id
-          const depNome = a?.department?.nome || a?.area?.nome
-          if (depId && String(depId) === String(nigArea.id)) return true
-          if (depNome && String(depNome).toLowerCase().includes('nig')) return true
-          return false
-        })
-        .map((a) => String(a?.id))
-        .filter(Boolean)
-      return nigIds.length > 0 ? nigIds : undefined
-    })(),
+    allowedAnalistaIds: nigAllowedAnalistaIds,
+    ownScopeFallback,
     userScopePending,
     masterDataPending,
     // Sempre usar as datas do período atual (ou manual, se aplicado)
     fromDate: fromDate || undefined,
     toDate: toDate || undefined
-  }), [areaId, effectiveAnalistaId, userScopePending, masterDataPending, fromDate, toDate, masterDataStore.areas, masterDataStore.analistas])
+  }), [areaId, effectiveAnalistaId, nigAllowedAnalistaIds, ownScopeFallback, userScopePending, masterDataPending, fromDate, toDate])
 
   const { advancedIndicators, tempoExecucaoMetrics, analistaMetrics, unassignedPerformanceItems } =
     useAdvancedIndicators(advancedFilters)
@@ -527,7 +517,7 @@ export default function DashboardPage() {
 
   return (
     <Box sx={{ p: 3, backgroundColor: theme.palette.grey[50], minHeight: '100vh' }}>
-      {dashboardSyncing ? (
+      {dashboardDataLoading ? (
         <LinearProgress
           sx={{
             position: 'fixed',
@@ -559,16 +549,6 @@ export default function DashboardPage() {
           Visão geral do sistema de gestão de demandas, validações e reajustes
         </Typography>
       </Box>
-
-      {userScopePending ? (
-        <Alert
-          severity="info"
-          icon={<CircularProgress size={20} />}
-          sx={{ mb: 3, alignItems: 'center' }}
-        >
-          Identificando seu perfil de analista e carregando dados mestres. Os números aparecem já filtrados para você.
-        </Alert>
-      ) : null}
 
       {/* Filtros */}
       <Paper sx={{ p: 3, mb: 4, borderRadius: 2 }}>
@@ -690,33 +670,25 @@ export default function DashboardPage() {
               </Select>
             </FormControl>
           </Grid>
-          
+
+          {!restrictAnalistaFilter ? (
           <Grid item xs={12} sm={6} md={3}>
             <FormControl fullWidth size="small">
               <InputLabel>Analista</InputLabel>
               <Select
-                value={restrictAnalistaFilter ? effectiveAnalistaId : analistaId}
+                value={analistaId}
                 label="Analista"
-                onChange={(e) => !restrictAnalistaFilter && setAnalistaId(e.target.value)}
-                disabled={restrictAnalistaFilter}
-                readOnly={restrictAnalistaFilter}
+                onChange={(e) => setAnalistaId(e.target.value)}
                 displayEmpty
-                renderValue={(v) => {
-                  if (restrictAnalistaFilter) {
-                    if (!v) return 'Seus dados (nenhum analista vinculado ao usuário)'
-                    const a = masterDataStore.analistas.find((x) => x.id === v)
-                    return a ? `Seus dados (${a.nome})` : 'Seus dados'
-                  }
-                  return undefined
-                }}
               >
                 <MenuItem value="">Todos os analistas</MenuItem>
                 {masterDataStore.analistas.map(a => (
-                  <MenuItem key={a.id} value={a.id} disabled={restrictAnalistaFilter}>{a.nome}</MenuItem>
+                  <MenuItem key={a.id} value={a.id}>{a.nome}</MenuItem>
                 ))}
               </Select>
             </FormControl>
           </Grid>
+          ) : null}
           
           <Grid item xs={12} sm={6} md={2}>
             <TextField
@@ -762,6 +734,12 @@ export default function DashboardPage() {
 
 
       {/* Área capturada no PDF (indicadores + gráficos) — id usado por html2canvas */}
+      {showDashboardContentLoading ? (
+        <Box sx={{ py: 10 }}>
+          <BeautifulLoading message="Carregando dados" size="medium" showDots={false} />
+        </Box>
+      ) : (
+        <>
       <Box id="dashboard-pdf-export-root" component="section">
         {/* Novos Indicadores de Lançamentos */}
         <Box sx={{ mb: 4 }}>
@@ -795,6 +773,7 @@ export default function DashboardPage() {
           fromDate={fromDate || undefined}
           toDate={toDate || undefined}
           userScopePending={userScopePending}
+          ownScopeFallback={ownScopeFallback}
         />
       </Box>
 
@@ -804,12 +783,16 @@ export default function DashboardPage() {
         analistaId={effectiveAnalistaId}
         fromDate={fromDate || undefined}
         toDate={toDate || undefined}
-        showAnalistaFilter={isAdmin}
+        showAnalistaFilter={isAdmin && !restrictAnalistaFilter}
         userScopePending={userScopePending}
+        ownScopeFallback={ownScopeFallback}
       />
+        </>
+      )}
 
       {typeof generalStats?.completed === 'number' &&
       typeof concluidoAdvancedTotal === 'number' &&
+      !showDashboardContentLoading &&
       !masterDataPending &&
       !dashboardSyncing &&
       generalStats.completed !== concluidoAdvancedTotal ? (

@@ -17,12 +17,19 @@ import { useBulkDelete } from '../hooks/useBulkDelete'
 // CleanupModal removido - função de limpeza de duplicatas removida
 import { smartImporterConfigs } from '../config/smartImporterConfigs'
 import type { TabKey, FormData, DataMap } from '../types/dadosTypes'
+import { usePermissions } from '../hooks/usePermissions'
+import type { SystemPermissions } from '../types/permissions'
 import { runDadosSmartImport } from '../lib/dadosSmartImport'
 import type { ImportResult } from '../types/smartImporter'
 import { formatIntegerPtBR } from '../utils/formatNumber'
 
-export default function DadosPage() {
+export default function DadosPage({
+  permissionModule = 'dadosNig',
+}: {
+  permissionModule?: keyof SystemPermissions
+}) {
   const store = useMasterDataStore()
+  const { canCreate, canEdit, canDelete, canImport, canExport } = usePermissions(permissionModule)
   const dadosStore = useDadosStore()
   const { snack, setSnack, saveEntity, deleteEntity } = useDadosCRUD()
   const { bulkDelete, isDeleting } = useBulkDelete()
@@ -1152,7 +1159,10 @@ export default function DadosPage() {
           onAdd={handleAdd}
           onExportAll={handleExportAll}
           onExportCurrent={handleExportCurrent}
-          // onCleanup removido - função de limpeza de duplicatas removida
+          canCreate={canCreate}
+          canDelete={canDelete}
+          canImport={canImport}
+          canExport={canExport}
         />
 
 
@@ -1185,6 +1195,8 @@ export default function DadosPage() {
         data={currentData}
         onEdit={handleEdit}
         onDelete={handleDelete}
+        canEdit={canEdit}
+        canDelete={canDelete}
       />
 
       <DadosForm

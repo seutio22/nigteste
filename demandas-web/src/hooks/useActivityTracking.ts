@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from 'react'
 import { useAuthStore } from '../store/authStore'
 import { MONITORING_ACTIVITY_URL, MONITORING_API_BASE } from '../lib/monitoringClient'
+import { getLastInteractionAt, markUserInteraction } from './interactionIdleState'
 
 interface TrackingData {
   action: string
@@ -139,11 +140,8 @@ export function useActivityTracking() {
     if (!user || !token) return
 
     const IDLE_MS = 5 * 60 * 1000
-    let lastUserInteraction = Date.now()
 
-    const markInteraction = () => {
-      lastUserInteraction = Date.now()
-    }
+    const markInteraction = () => markUserInteraction()
     const interactionEvents = ['mousedown', 'mousemove', 'keydown', 'keypress', 'scroll', 'touchstart', 'click']
     interactionEvents.forEach((e) =>
       document.addEventListener(e, markInteraction, { capture: true, passive: true })
@@ -151,7 +149,7 @@ export function useActivityTracking() {
 
     const send = () => {
       if (typeof document !== 'undefined' && document.hidden) return
-      if (Date.now() - lastUserInteraction > IDLE_MS) return
+      if (Date.now() - getLastInteractionAt() > IDLE_MS) return
       trackActivity({
         action: 'heartbeat',
         page: typeof window !== 'undefined' ? window.location.pathname : undefined,

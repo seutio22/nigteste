@@ -1,4 +1,5 @@
 import { SystemPermissions, ModulePermission } from '../types/permissions'
+import { migrateDadosSubmodulePermissions } from './dadosPermissions'
 
 // Permissão completa (acesso total)
 const fullPermission: ModulePermission = {
@@ -76,6 +77,9 @@ export const DEFAULT_PERMISSIONS: Record<string, SystemPermissions> = {
     kanban: fullPermission,
     projetos: fullPermission,
     dados: fullPermission,
+    dadosNig: fullPermission,
+    dadosProdutividade: fullPermission,
+    dadosPlacement: fullPermission,
     usuarios: fullPermission,
     configuracoes: fullPermission,
     relatorios: fullPermission,
@@ -96,6 +100,9 @@ export const DEFAULT_PERMISSIONS: Record<string, SystemPermissions> = {
     kanban: fullPermission,
     projetos: fullPermission,
     dados: fullPermission,
+    dadosNig: fullPermission,
+    dadosProdutividade: fullPermission,
+    dadosPlacement: fullPermission,
     usuarios: noPermission, // ❌ CORRIGIDO: Gerentes não devem ter acesso a usuários
     configuracoes: readOnlyPermission,
     relatorios: fullPermission,
@@ -116,6 +123,9 @@ export const DEFAULT_PERMISSIONS: Record<string, SystemPermissions> = {
     kanban: analistaPermission,
     projetos: analistaPermission,
     dados: analistaPermission,
+    dadosNig: analistaPermission,
+    dadosProdutividade: analistaPermission,
+    dadosPlacement: analistaPermission,
     usuarios: noPermission,
     configuracoes: readOnlyPermission,
     relatorios: analistaPermission,
@@ -136,6 +146,9 @@ export const DEFAULT_PERMISSIONS: Record<string, SystemPermissions> = {
     kanban: readOnlyPermission,
     projetos: readOnlyPermission,
     dados: noPermission,
+    dadosNig: noPermission,
+    dadosProdutividade: noPermission,
+    dadosPlacement: noPermission,
     usuarios: noPermission,
     configuracoes: noPermission,
     relatorios: noPermission,
@@ -165,10 +178,8 @@ export function getUserPermissions(
         parsed = JSON.parse(userPermissionsString)
       }
       if (parsed && typeof parsed === 'object') {
-        // 🔁 Mescla com os defaults do role para preencher módulos novos que ainda
-        // não constem nas permissões customizadas (ex.: usuários criados antes da
-        // adição do módulo `placementFila`).
-        return { ...roleDefaults, ...parsed } as SystemPermissions
+        const merged = { ...roleDefaults, ...parsed } as SystemPermissions
+        return migrateDadosSubmodulePermissions(merged, parsed as Record<string, unknown>)
       }
     } catch (error) {
       // Erro silencioso - usar fallback

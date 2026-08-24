@@ -71,6 +71,7 @@ export default function LoginPage() {
           useAuthStore.getState().setAuth(data.token, {
             ...data.user,
             permissions: permissions,
+            viewOwnDataOnly: userData.viewOwnDataOnly ?? data.user.viewOwnDataOnly ?? false,
             passwordUpdatedAt: userData.passwordUpdatedAt ?? data.user.passwordUpdatedAt,
             departmentId:
               userData.departmentId !== undefined && userData.departmentId !== null

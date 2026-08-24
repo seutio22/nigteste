@@ -357,87 +357,55 @@ export async function userRoutes(app: FastifyInstance, options: { prisma: Prisma
         throw new Error('Não é possível deletar seu próprio usuário')
       }
       
-      // Usar transação para garantir consistência
-      await prisma.$transaction(async (tx) => {
-        // 1. Atualizar registros relacionados para remover referência ao usuário
-        // Demandas - definir userId como null
-        await tx.demanda.updateMany({
-          where: { userId: id },
-          data: { userId: null }
-        })
-        
-        // Manutenções - definir userId como null
-        await tx.manutencao.updateMany({
-          where: { userId: id },
-          data: { userId: null }
-        })
-        
-        // Atendimentos - definir userId como null
-        await tx.atendimento.updateMany({
-          where: { userId: id },
-          data: { userId: null }
-        })
-        
-        // Validações - definir userId como null
-        await tx.validacao.updateMany({
-          where: { userId: id },
-          data: { userId: null }
-        })
-        
-        // Validações de Manutenção - definir userId como null
-        await tx.validacaoManutencao.updateMany({
-          where: { userId: id },
-          data: { userId: null }
-        })
-        
-        // Reajustes - definir userId como null
-        await tx.reajuste.updateMany({
-          where: { userId: id },
-          data: { userId: null }
-        })
-        
-        // Reajustes de Manutenção - definir userId como null
-        await tx.reajusteManutencao.updateMany({
-          where: { userId: id },
-          data: { userId: null }
-        })
-        
-        // Comunicados - definir userId como null
-        await tx.comunicado.updateMany({
-          where: { userId: id },
-          data: { userId: null }
-        })
-        
-        // 2. Deletar registros que têm onDelete: Cascade
-        // UserPermissions (já tem onDelete: Cascade)
-        await tx.userPermission.deleteMany({
-          where: { userId: id }
-        })
-        
-        // ProjectMembers (já tem onDelete: Cascade)
-        await tx.projectMember.deleteMany({
-          where: { userId: id }
-        })
-        
-        // 3. Verificar se usuário é manager de algum projeto
-        const projectsManaged = await tx.project.findMany({
-          where: { managerId: id },
-          select: { id: true, name: true }
-        })
-        
-        if (projectsManaged.length > 0) {
-          throw new Error(`Não é possível excluir o usuário pois ele é gerente de ${projectsManaged.length} projeto(s): ${projectsManaged.map(p => p.name).join(', ')}`)
-        }
-        
-        // 4. Atualizar tickets do kanban
-        await tx.kanbanTicket.updateMany({
-          where: { assignee: id },
-          data: { assignee: null }
-        })
-        
-        // 5. Finalmente, deletar o usuário
-        await tx.user.delete({ where: { id } })
+      const projectsManaged = await prisma.project.findMany({
+        where: { managerId: id },
+        select: { id: true, name: true }
       })
+
+      if (projectsManaged.length > 0) {
+        throw new Error(
+          `Não é possível excluir o usuário pois ele é gerente de ${projectsManaged.length} projeto(s): ${projectsManaged.map(p => p.name).join(', ')}`
+        )
+      }
+
+      const nullUserId = { userId: null } as const
+      const nullOwnerId = { ownerId: null } as const
+      const nullAssignee = { assignee: null } as const
+
+      const deleted = await prisma.$transaction(async (tx) => {
+        // Referências opcionais sem onDelete no schema — anular antes do delete
+        await Promise.all([
+          tx.demanda.updateMany({ where: { userId: id }, data: nullUserId }),
+          tx.manutencao.updateMany({ where: { userId: id }, data: nullUserId }),
+          tx.atendimento.updateMany({ where: { userId: id }, data: nullUserId }),
+          tx.validacao.updateMany({ where: { userId: id }, data: nullUserId }),
+          tx.validacaoManutencao.updateMany({ where: { userId: id }, data: nullUserId }),
+          tx.reajuste.updateMany({ where: { userId: id }, data: nullUserId }),
+          tx.reajusteManutencao.updateMany({ where: { userId: id }, data: nullUserId }),
+          tx.reajusteLancamento.updateMany({ where: { userId: id }, data: nullUserId }),
+          tx.comunicado.updateMany({ where: { userId: id }, data: nullUserId }),
+          tx.timelineEvent.updateMany({ where: { userId: id }, data: nullUserId }),
+          tx.placementCotacao.updateMany({ where: { userId: id }, data: nullUserId }),
+          tx.project.updateMany({ where: { ownerId: id }, data: nullOwnerId }),
+          tx.kanbanTicket.updateMany({ where: { assignee: id }, data: nullAssignee }),
+        ])
+
+        // FK obrigatória sem cascade — remover manualmente (não pré-deletar filhos com onDelete:Cascade)
+        await Promise.all([
+          tx.userActivity.deleteMany({ where: { userId: id } }),
+          tx.userSession.deleteMany({ where: { userId: id } }),
+          tx.userMonitoring.deleteMany({ where: { userId: id } }),
+          tx.deletionLog.deleteMany({ where: { deletedBy: id } }),
+          tx.kanbanColumnPref.deleteMany({ where: { userId: id } }),
+        ])
+
+        // deleteMany: Prisma emula onDelete:Cascade/SetNull; evita P2025 de delete aninhado
+        return tx.user.deleteMany({ where: { id } })
+      }, { timeout: 60_000 })
+
+      if (deleted.count === 0) {
+        throw new Error('Usuário não encontrado')
+      }
       
       return { message: 'Usuário deletado com sucesso' }
     } catch (error: any) {

@@ -21,6 +21,7 @@ import {
 import { ExpandMore as ExpandMoreIcon } from '@mui/icons-material';
 import { PrimaryActionButton } from './PrimaryActionButton';
 import { SystemPermissions, ModulePermission } from '../types/permissions';
+import { getUserPermissions as mergeUserPermissions } from '../utils/defaultPermissions';
 
 interface PermissionManagerProps {
   open: boolean;
@@ -44,7 +45,10 @@ const MODULE_LABELS: Record<keyof SystemPermissions, string> = {
   analytics: 'Analytics',
   kanban: 'Kanban',
   projetos: 'Projetos',
-  dados: 'Dados',
+  dados: 'Dados (acesso geral — legado)',
+  dadosNig: 'NIG — dados mestres',
+  dadosProdutividade: 'Produtividade — regras e tempos',
+  dadosPlacement: 'Placement — cadastros',
   usuarios: 'Usuários',
   configuracoes: 'Configurações',
   relatorios: 'Relatórios',
@@ -62,6 +66,57 @@ const ACTION_LABELS: Record<keyof ModulePermission, string> = {
   reject: 'Rejeitar'
 };
 
+const HIDDEN_PERMISSION_MODULES: (keyof SystemPermissions)[] = []
+
+const PERMISSION_SECTIONS: { title?: string; modules: (keyof SystemPermissions)[] }[] = [
+  {
+    modules: ['home', 'dashboard'],
+  },
+  {
+    title: 'NIG — operacional',
+    modules: ['cadastro', 'manutencao', 'atendimento', 'comunicados', 'validacao', 'reajuste', 'mailling', 'analytics', 'kanban', 'projetos'],
+  },
+  {
+    title: 'Dados — subpáginas (/dados)',
+    modules: ['dadosNig', 'dadosProdutividade', 'dadosPlacement'],
+  },
+  {
+    title: 'Placement — operacional',
+    modules: ['placementFila'],
+  },
+  {
+    title: 'Administrativo',
+    modules: ['usuarios', 'configuracoes', 'relatorios'],
+  },
+]
+
+const ALL_DISPLAY_MODULES = PERMISSION_SECTIONS.flatMap((s) => s.modules)
+
+function completeModulePermission(perms?: ModulePermission): ModulePermission {
+  return {
+    view: perms?.view ?? false,
+    create: perms?.create ?? false,
+    edit: perms?.edit ?? false,
+    delete: perms?.delete ?? false,
+    export: perms?.export ?? false,
+    import: perms?.import ?? false,
+    approve: perms?.approve ?? false,
+    reject: perms?.reject ?? false,
+  }
+}
+
+function buildEditorPermissions(
+  userPermissions: SystemPermissions | null | undefined,
+  userRole: string
+): SystemPermissions {
+  const merged = mergeUserPermissions(userPermissions, userRole)
+  const complete = { ...merged } as SystemPermissions
+  for (const key of ALL_DISPLAY_MODULES) {
+    complete[key] = completeModulePermission(merged[key])
+  }
+  return complete
+}
+
 const ROLE_COLORS: Record<string, string> = {
   admin: '#f44336',
   gerente: '#ff9800',
@@ -78,33 +133,15 @@ export default function PermissionManager({
   userRole,
   userName
 }: PermissionManagerProps) {
-  const [permissions, setPermissions] = useState<SystemPermissions | null>(userPermissions);
+  const [permissions, setPermissions] = useState<SystemPermissions | null>(() =>
+    buildEditorPermissions(userPermissions, userRole)
+  );
   const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
-    // Garantir que TODAS as permissões tenham TODOS os campos (export, import, approve, reject)
-    if (userPermissions) {
-      const completePermissions: SystemPermissions = {} as SystemPermissions;
-      
-      Object.entries(userPermissions).forEach(([module, perms]) => {
-        completePermissions[module as keyof SystemPermissions] = {
-          view: perms.view ?? false,
-          create: perms.create ?? false,
-          edit: perms.edit ?? false,
-          delete: perms.delete ?? false,
-          export: perms.export ?? false,     // ✅ Garantir que existe
-          import: perms.import ?? false,     // ✅ Garantir que existe
-          approve: perms.approve ?? false,   // ✅ Garantir que existe
-          reject: perms.reject ?? false      // ✅ Garantir que existe
-        };
-      });
-      
-      setPermissions(completePermissions);
-    } else {
-      setPermissions(userPermissions);
-    }
-    setHasChanges(false);
-  }, [userPermissions]);
+    setPermissions(buildEditorPermissions(userPermissions, userRole))
+    setHasChanges(false)
+  }, [userPermissions, userRole])
 
   const handlePermissionChange = (
     module: keyof SystemPermissions,
@@ -215,9 +252,22 @@ export default function PermissionManager({
         </Box>
 
         <Grid container spacing={2}>
-          {Object.entries(permissions).map(([moduleKey, modulePermissions]) => {
-            const module = moduleKey as keyof SystemPermissions;
-            const canView = modulePermissions.view;
+          {PERMISSION_SECTIONS.map((section) => (
+            <React.Fragment key={section.title ?? 'geral'}>
+              {section.title ? (
+                <Grid item xs={12}>
+                  <Typography
+                    variant="subtitle1"
+                    sx={{ fontWeight: 700, mt: section.title === 'Dados — subpáginas (/dados)' ? 1 : 2, mb: 0.5 }}
+                  >
+                    {section.title}
+                  </Typography>
+                </Grid>
+              ) : null}
+              {section.modules
+                .filter((module) => permissions[module] && !HIDDEN_PERMISSION_MODULES.includes(module))
+                .map((module) => {
+            const modulePermissions = permissions[module]
             
             return (
               <Grid item xs={12} key={module}>
@@ -227,7 +277,7 @@ export default function PermissionManager({
                       <FormControlLabel
                         control={
                           <Switch
-                            checked={canView}
+                            checked={modulePermissions.view}
                             onChange={(e) => handleModuleToggle(module, e.target.checked)}
                             onClick={(e) => e.stopPropagation()}
                           />
@@ -238,8 +288,8 @@ export default function PermissionManager({
                         {MODULE_LABELS[module]}
                       </Typography>
                       <Chip
-                        label={canView ? 'Ativo' : 'Inativo'}
-                        color={canView ? 'success' : 'default'}
+                        label={modulePermissions.view ? 'Ativo' : 'Inativo'}
+                        color={modulePermissions.view ? 'success' : 'default'}
                         size="small"
                       />
                     </Box>
@@ -250,9 +300,6 @@ export default function PermissionManager({
                       {Object.entries(modulePermissions).map(([actionKey, actionValue]) => {
                         const action = actionKey as keyof ModulePermission;
                         
-                        // Mostrar TODAS as ações (não pular nenhuma)
-                        // Apenas desabilitar se o módulo não tiver view ativo
-                        
                         return (
                           <Grid item xs={6} sm={3} key={action}>
                             <FormControlLabel
@@ -260,7 +307,7 @@ export default function PermissionManager({
                                 <Checkbox
                                   checked={actionValue as boolean}
                                   onChange={(e) => handlePermissionChange(module, action, e.target.checked)}
-                                  disabled={!canView && action !== 'view'}
+                                  disabled={!modulePermissions.view && action !== 'view'}
                                 />
                               }
                               label={ACTION_LABELS[action] || action}
@@ -270,7 +317,7 @@ export default function PermissionManager({
                       })}
                     </Grid>
                     
-                    {canView && (
+                    {modulePermissions.view && (
                       <Box mt={2}>
                         <Divider />
                         <Typography variant="caption" color="textSecondary" sx={{ mt: 1, display: 'block' }}>
@@ -283,6 +330,8 @@ export default function PermissionManager({
               </Grid>
             );
           })}
+            </React.Fragment>
+          ))}
         </Grid>
       </DialogContent>
       

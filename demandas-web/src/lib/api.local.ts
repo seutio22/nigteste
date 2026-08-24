@@ -250,6 +250,15 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(userData),
     }),
+  updateUser: (id: string, userData: unknown) =>
+    apiRequest(`${API_CONFIG.ENDPOINTS.USERS}/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(userData),
+    }),
+  deleteUser: (id: string) =>
+    apiRequest(`${API_CONFIG.ENDPOINTS.USERS}/${id}`, {
+      method: 'DELETE',
+    }),
 
   // Demandas
   getDemandas: (queryParams?: string) => apiRequest(`${API_CONFIG.ENDPOINTS.DEMANDAS}${queryParams || ''}`),

@@ -23,7 +23,11 @@ export interface SystemPermissions {
   analytics: ModulePermission;
   kanban: ModulePermission;
   projetos: ModulePermission;
+  /** Legado: acesso geral a Dados (use submódulos abaixo). */
   dados: ModulePermission;
+  dadosNig: ModulePermission;
+  dadosProdutividade: ModulePermission;
+  dadosPlacement: ModulePermission;
   usuarios: ModulePermission;
   configuracoes: ModulePermission;
   relatorios: ModulePermission;

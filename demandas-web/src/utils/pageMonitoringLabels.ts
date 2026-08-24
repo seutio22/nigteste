@@ -39,6 +39,7 @@ export function getPageAreaLabel(storedPath: string): string {
   if (p.startsWith('/admin')) return 'Administração'
   if (p.startsWith('/projetos')) return 'Projetos'
   if (p.startsWith('/share/')) return 'Compartilhamento (projeto)'
+  if (p.startsWith('/placement')) return 'Placement'
   return 'Outras rotas'
 }
 

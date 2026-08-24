@@ -1,7 +1,19 @@
+import { useEffect, useMemo } from 'react'
 import { Box, Paper, Tab, Tabs, Typography } from '@mui/material'
-import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { useAuthStore } from '../store/authStore'
+import { getUserPermissions } from '../utils/defaultPermissions'
+import {
+  canViewAnyDadosSection,
+  canViewDadosSubpage,
+  type DadosSubpage,
+} from '../utils/dadosPermissions'
 
-type DadosSubpage = 'nig' | 'produtividade' | 'placement'
+const TAB_CONFIG: { id: DadosSubpage; label: string }[] = [
+  { id: 'nig', label: 'NIG' },
+  { id: 'produtividade', label: 'Produtividade' },
+  { id: 'placement', label: 'Placement' },
+]
 
 function getActiveSubpage(pathname: string): DadosSubpage {
   if (pathname.startsWith('/dados/produtividade')) return 'produtividade'
@@ -12,8 +24,46 @@ function getActiveSubpage(pathname: string): DadosSubpage {
 export default function DadosLayoutPage() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
+  const { user } = useAuthStore()
+  const permissions = useMemo(
+    () => getUserPermissions(user?.permissions, user?.role ?? ''),
+    [user?.permissions, user?.role]
+  )
+
+  const visibleTabs = useMemo(
+    () => TAB_CONFIG.filter((tab) => canViewDadosSubpage(permissions, tab.id)),
+    [permissions]
+  )
+
   const active = getActiveSubpage(pathname)
   const fillViewport = active === 'produtividade'
+  const activeAllowed = canViewDadosSubpage(permissions, active)
+
+  useEffect(() => {
+    if (!user) return
+    if (!activeAllowed) {
+      const first = visibleTabs[0]
+      if (first) navigate(`/dados/${first.id}`, { replace: true })
+    }
+  }, [activeAllowed, user, visibleTabs, navigate])
+
+  if (!user) {
+    return <Navigate to="/login" replace />
+  }
+
+  if (!canViewAnyDadosSection(permissions)) {
+    return <Navigate to="/" replace />
+  }
+
+  if (visibleTabs.length === 0) {
+    return <Navigate to="/" replace />
+  }
+
+  if (!activeAllowed) {
+    const first = visibleTabs[0]
+    if (first) return <Navigate to={`/dados/${first.id}`} replace />
+    return <Navigate to="/" replace />
+  }
 
   return (
     <Paper
@@ -31,15 +81,17 @@ export default function DadosLayoutPage() {
         Dados
       </Typography>
 
-      <Tabs
-        value={active}
-        onChange={(_, next: DadosSubpage) => navigate(`/dados/${next}`)}
-        sx={{ mb: 2, flexShrink: 0 }}
-      >
-        <Tab value="nig" label="NIG" />
-        <Tab value="produtividade" label="Produtividade" />
-        <Tab value="placement" label="Placement" />
-      </Tabs>
+      {visibleTabs.length > 1 ? (
+        <Tabs
+          value={visibleTabs.some((t) => t.id === active) ? active : visibleTabs[0].id}
+          onChange={(_, next: DadosSubpage) => navigate(`/dados/${next}`)}
+          sx={{ mb: 2, flexShrink: 0 }}
+        >
+          {visibleTabs.map((tab) => (
+            <Tab key={tab.id} value={tab.id} label={tab.label} />
+          ))}
+        </Tabs>
+      ) : null}
 
       <Box
         sx={{

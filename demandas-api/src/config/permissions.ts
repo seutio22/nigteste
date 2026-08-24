@@ -26,6 +26,9 @@ export interface SystemPermissions {
   kanban: ModulePermission;
   projetos: ModulePermission;
   dados: ModulePermission;
+  dadosNig: ModulePermission;
+  dadosProdutividade: ModulePermission;
+  dadosPlacement: ModulePermission;
   usuarios: ModulePermission;
   configuracoes: ModulePermission;
   relatorios: ModulePermission;
@@ -51,6 +54,9 @@ export const DEFAULT_PERMISSIONS: Record<string, SystemPermissions> = {
     kanban: { view: true, create: true, edit: true, delete: true },
     projetos: { view: true, create: true, edit: true, delete: true },
     dados: { view: true, create: true, edit: true, delete: true },
+    dadosNig: { view: true, create: true, edit: true, delete: true },
+    dadosProdutividade: { view: true, create: true, edit: true, delete: true },
+    dadosPlacement: { view: true, create: true, edit: true, delete: true },
     usuarios: { view: true, create: true, edit: true, delete: true },
     configuracoes: { view: true, create: true, edit: true, delete: true },
     relatorios: { view: true, create: true, edit: true, delete: true }
@@ -71,6 +77,9 @@ export const DEFAULT_PERMISSIONS: Record<string, SystemPermissions> = {
     kanban: { view: true, create: true, edit: true, delete: false },
     projetos: { view: true, create: true, edit: true, delete: false },
     dados: { view: true, create: false, edit: false, delete: false },
+    dadosNig: { view: true, create: false, edit: false, delete: false },
+    dadosProdutividade: { view: true, create: false, edit: false, delete: false },
+    dadosPlacement: { view: true, create: false, edit: false, delete: false },
     usuarios: { view: true, create: false, edit: false, delete: false },
     configuracoes: { view: true, create: false, edit: false, delete: false },
     relatorios: { view: true, create: false, edit: false, delete: false }
@@ -91,6 +100,9 @@ export const DEFAULT_PERMISSIONS: Record<string, SystemPermissions> = {
     kanban: { view: true, create: true, edit: true, delete: false },
     projetos: { view: true, create: true, edit: true, delete: false },
     dados: { view: false, create: false, edit: false, delete: false },
+    dadosNig: { view: false, create: false, edit: false, delete: false },
+    dadosProdutividade: { view: false, create: false, edit: false, delete: false },
+    dadosPlacement: { view: false, create: false, edit: false, delete: false },
     usuarios: { view: false, create: false, edit: false, delete: false },
     configuracoes: { view: false, create: false, edit: false, delete: false },
     relatorios: { view: false, create: false, edit: false, delete: false }
@@ -111,6 +123,9 @@ export const DEFAULT_PERMISSIONS: Record<string, SystemPermissions> = {
     kanban: { view: true, create: false, edit: false, delete: false },
     projetos: { view: false, create: false, edit: false, delete: false },
     dados: { view: false, create: false, edit: false, delete: false },
+    dadosNig: { view: false, create: false, edit: false, delete: false },
+    dadosProdutividade: { view: false, create: false, edit: false, delete: false },
+    dadosPlacement: { view: false, create: false, edit: false, delete: false },
     usuarios: { view: false, create: false, edit: false, delete: false },
     configuracoes: { view: false, create: false, edit: false, delete: false },
     relatorios: { view: false, create: false, edit: false, delete: false }
@@ -131,6 +146,9 @@ export const DEFAULT_PERMISSIONS: Record<string, SystemPermissions> = {
     kanban: { view: true, create: false, edit: false, delete: false },
     projetos: { view: true, create: false, edit: false, delete: false },
     dados: { view: false, create: false, edit: false, delete: false },
+    dadosNig: { view: false, create: false, edit: false, delete: false },
+    dadosProdutividade: { view: false, create: false, edit: false, delete: false },
+    dadosPlacement: { view: false, create: false, edit: false, delete: false },
     usuarios: { view: false, create: false, edit: false, delete: false },
     configuracoes: { view: false, create: false, edit: false, delete: false },
     relatorios: { view: false, create: false, edit: false, delete: false }

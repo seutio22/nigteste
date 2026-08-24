@@ -29,6 +29,7 @@ interface QuantitativeAnalysisPanelProps {
   fromDate?: string
   toDate?: string
   userScopePending?: boolean
+  ownScopeFallback?: boolean
 }
 
 export const QuantitativeAnalysisPanel: React.FC<QuantitativeAnalysisPanelProps> = ({
@@ -37,7 +38,8 @@ export const QuantitativeAnalysisPanel: React.FC<QuantitativeAnalysisPanelProps>
   analistaId,
   fromDate,
   toDate,
-  userScopePending
+  userScopePending,
+  ownScopeFallback
 }) => {
   const theme = useTheme()
   const modules = useQuantitativeAnalysis({
@@ -45,7 +47,8 @@ export const QuantitativeAnalysisPanel: React.FC<QuantitativeAnalysisPanelProps>
     analistaId,
     fromDate,
     toDate,
-    userScopePending
+    userScopePending,
+    ownScopeFallback
   })
 
   return (

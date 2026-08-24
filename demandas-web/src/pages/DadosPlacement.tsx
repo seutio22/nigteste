@@ -12,6 +12,7 @@ import CondicoesContratuaisTab from './Placement/CondicoesContratuaisTab'
 import IndicadoresOperadorasTab from './Placement/IndicadoresOperadorasTab'
 import OperadoraLogosTab from './Placement/OperadoraLogosTab'
 import { DadosTableUploadBar } from '../components/DadosTableUploadBar'
+import { usePermissions } from '../hooks/usePermissions'
 import { useMasterDataStore } from '../store/masterDataStore'
 import { usePlacementStore } from '../store/placementStore'
 import {
@@ -38,6 +39,7 @@ type PlacementTabKey =
 
 export default function DadosPlacementPage() {
   const [activeTab, setActiveTab] = useState<PlacementTabKey>('filiais')
+  const { canImport } = usePermissions('dadosPlacement')
   const operadoras = useMasterDataStore((s) => s.operadoras)
 
   const uploadConfig = useMemo(() => {
@@ -144,7 +146,9 @@ export default function DadosPlacementPage() {
       </Tabs>
 
       <Box>
-        <DadosTableUploadBar config={uploadConfig} onImported={refreshAfterImport} />
+        {canImport ? (
+          <DadosTableUploadBar config={uploadConfig} onImported={refreshAfterImport} />
+        ) : null}
         {activeTab === 'filiais' && <FiliaisTab />}
         {activeTab === 'corretores' && <CorretoresParceirosTab />}
         {activeTab === 'analistas' && <AnalistasTab />}

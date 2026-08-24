@@ -5,7 +5,10 @@ import { useValidationStore } from '../store/validationStore'
 import { useReajusteStore } from '../store/reajusteStore'
 import { useReportStore } from '../store/reportStore'
 import { useMasterDataStore } from '../store/masterDataStore'
+import { useAuthStore } from '../store/authStore'
 import { getItemDateForPage, matchesByIdOrName, parseDateForFilter } from '../utils/dashboardFilters'
+import { canViewDashboardPage, isDashboardItemOwnedByUser } from '../utils/dashboardUserScope'
+import { getUserPermissions } from '../utils/defaultPermissions'
 import {
   inferItensConcluidosDetalhe,
   parseItensConcluidosDetalhe,
@@ -205,6 +208,7 @@ export function useQuantitativeAnalysis(filters?: {
   fromDate?: string
   toDate?: string
   userScopePending?: boolean
+  ownScopeFallback?: boolean
 }): QuantitativeModule[] {
   const demandStore = useDemandStore()
   const manutencaoStore = useManutencaoStore()
@@ -212,6 +216,7 @@ export function useQuantitativeAnalysis(filters?: {
   const reajusteStore = useReajusteStore()
   const reportStore = useReportStore()
   const masterDataStore = useMasterDataStore()
+  const user = useAuthStore((s) => s.user)
 
   return useMemo(() => {
     const f = filters
@@ -270,6 +275,8 @@ export function useQuantitativeAnalysis(filters?: {
         if (f.analistaId) {
           const av = getAnalistaValue(item)
           if (!matchesByIdOrName(av, f.analistaId, masterDataStore.analistas)) return false
+        } else if (f.ownScopeFallback) {
+          if (!isDashboardItemOwnedByUser(page, item, user, masterDataStore.analistas)) return false
         }
         const itemDate = getItemDateForPage(page, item)
         // Sem data: não entra no recorte temporal (evita inflar totais com registros órfãos).
@@ -395,11 +402,23 @@ export function useQuantitativeAnalysis(filters?: {
       ],
     }
 
-    return [cadastro, manutencao, validacao, reajuste, analyticsMod]
+    const perms = getUserPermissions(user?.permissions, user?.role ?? '')
+    const modulePage: Record<string, string> = {
+      cadastro: 'demandas',
+      manutencao: 'manutencoes',
+      validacao: 'validacoes',
+      reajuste: 'reajustes',
+      analytics: 'analytics',
+    }
+
+    return [cadastro, manutencao, validacao, reajuste, analyticsMod].filter((mod) =>
+      canViewDashboardPage(modulePage[mod.id] ?? mod.id, perms, user?.role ?? '')
+    )
   }, [
     filters?.areaId,
     filters?.analistaId,
     filters?.userScopePending,
+    filters?.ownScopeFallback,
     filters?.fromDate,
     filters?.toDate,
     demandStore.items,
@@ -410,5 +429,8 @@ export function useQuantitativeAnalysis(filters?: {
     masterDataStore.areas,
     masterDataStore.analistas,
     masterDataStore.sistemas,
+    user?.id,
+    user?.permissions,
+    user?.role,
   ])
 }

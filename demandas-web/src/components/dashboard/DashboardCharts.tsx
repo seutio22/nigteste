@@ -37,6 +37,7 @@ interface DashboardChartsProps {
   fromDate?: string
   toDate?: string
   userScopePending?: boolean
+  ownScopeFallback?: boolean
 }
 
 export const DashboardCharts: React.FC<DashboardChartsProps> = ({
@@ -47,7 +48,8 @@ export const DashboardCharts: React.FC<DashboardChartsProps> = ({
   analistaId,
   fromDate,
   toDate,
-  userScopePending
+  userScopePending,
+  ownScopeFallback
 }) => {
   const theme = useTheme()
 
@@ -90,6 +92,7 @@ export const DashboardCharts: React.FC<DashboardChartsProps> = ({
         fromDate={fromDate}
         toDate={toDate}
         userScopePending={userScopePending}
+        ownScopeFallback={ownScopeFallback}
       />
 
       <Grid container spacing={3} sx={{ mb: 4 }}>

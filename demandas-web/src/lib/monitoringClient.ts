@@ -1,5 +1,11 @@
-/** Base da API em produção (alinhado ao restante do app). */
-export const MONITORING_API_BASE = 'https://nigteste-production.up.railway.app'
+import { getBaseUrl } from '../config/api'
+
+/** Base da API conforme ambiente (dev: proxy /api, prod: Railway). */
+export function getMonitoringApiBase(): string {
+  return getBaseUrl()
+}
+
+export const MONITORING_API_BASE = getMonitoringApiBase()
 
 export const MONITORING_ACTIVITY_URL = `${MONITORING_API_BASE}/monitoring/activity`
 
@@ -36,12 +42,13 @@ export async function notifyServerLogout(token: string, userId: string): Promise
       Authorization: `Bearer ${token}`
     }
     if (sessionId) {
-      await fetch(`${MONITORING_API_BASE}/monitoring/session/end`, {        method: 'POST',
+      await fetch(`${MONITORING_API_BASE}/monitoring/session/end`, {
+        method: 'POST',
         headers,
         body: JSON.stringify({ sessionId })
       })
     }
-    await fetch(`${MONITORING_API_BASE}/monitoring/activity`, {
+    await fetch(MONITORING_ACTIVITY_URL, {
       method: 'POST',
       headers,
       body: JSON.stringify({ userId, action: 'logout' })

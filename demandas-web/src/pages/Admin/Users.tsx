@@ -49,7 +49,7 @@ import PermissionManager from '../../components/PermissionManager'
 import UserMonitoring from '../../components/UserMonitoring'
 import DeletionHistoryTab from '../../components/DeletionHistoryTab'
 import { SystemPermissions } from '../../types/permissions'
-import { getInitialPermissions } from '../../utils/defaultPermissions'
+import { getInitialPermissions, getUserPermissions as resolveUserPermissions } from '../../utils/defaultPermissions'
 import { formatIntegerPtBR } from '../../utils/formatNumber'
 import { getUserDepartmentDisplay, getUserRoleCaption } from '../../utils/userDepartmentDisplay'
 
@@ -117,34 +117,21 @@ export default function UsersPage() {
   // Carregar usuários da API
   const loadUsers = useCallback(async () => {
     try {
-      console.log('🔍 Carregando usuários...')
-      
       if (!token) {
-        console.warn('❌ Sem token para carregar usuários - usuário deve estar autenticado.')
         setSnackbar({ open: true, message: 'Sessão expirada. Faça login novamente.', severity: 'error' })
         setLoading(false)
         return
       }
 
       setLoading(true)
-      const response = await fetch(`https://nigteste-production.up.railway.app/users`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        console.log('✅ Usuários carregados:', data.length)
-        setUsers(data)
-      } else {
-        console.error('❌ Erro ao carregar usuários:', response.status)
+      const { api } = await import('../../lib/api.local')
+      const data = await api.getUsers()
+      setUsers(Array.isArray(data) ? data : [])
+    } catch (error) {
+      const status = (error as { status?: number })?.status
+      if (status !== 401) {
         setSnackbar({ open: true, message: 'Erro ao carregar usuários', severity: 'error' })
       }
-    } catch (error) {
-      console.error('❌ Erro ao carregar usuários:', error)
-      setSnackbar({ open: true, message: 'Erro ao carregar usuários', severity: 'error' })
     } finally {
       setLoading(false)
     }
@@ -213,7 +200,9 @@ export default function UsersPage() {
         email: form.email,
         role: form.role,
         active: form.active,
-        departmentId
+        departmentId,
+        // Analistas e viewers enxergam só os próprios dados por padrão
+        viewOwnDataOnly: form.role === 'analista' || form.role === 'viewer',
       }
       if (form.password) userData.password = form.password
 
@@ -223,37 +212,24 @@ export default function UsersPage() {
         console.log(`✅ Criando usuário com permissões iniciais do role: ${form.role}`)
       }
 
-      const baseUrl = 'https://nigteste-production.up.railway.app'
-      const url = editingUser 
-        ? `${baseUrl}/users/${editingUser.id}`
-        : `${baseUrl}/users`
-      
-      const method = editingUser ? 'PUT' : 'POST'
-
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(userData)
-      })
-
-      if (response.ok) {
-        setSnackbar({ 
-          open: true, 
-          message: `Usuário ${editingUser ? 'atualizado' : 'criado'} com sucesso!`, 
-          severity: 'success' 
-        })
-        handleCloseDialog()
-        loadUsers()
+      const { api } = await import('../../lib/api.local')
+      if (editingUser) {
+        await api.updateUser(editingUser.id, userData)
       } else {
-        throw new Error('Erro na operação')
+        await api.createUser(userData)
       }
+
+      setSnackbar({ 
+        open: true, 
+        message: `Usuário ${editingUser ? 'atualizado' : 'criado'} com sucesso!`, 
+        severity: 'success' 
+      })
+      handleCloseDialog()
+      loadUsers()
     } catch (error) {
       setSnackbar({ open: true, message: 'Erro ao salvar usuário', severity: 'error' })
     }
-  }, [form, editingUser, token, handleCloseDialog, loadUsers])
+  }, [form, editingUser, handleCloseDialog, loadUsers])
 
   // Abrir gerenciador de permissões
   const handleOpenPermissions = useCallback((user: User) => {
@@ -273,30 +249,19 @@ export default function UsersPage() {
       const payload = {
         permissions: JSON.stringify(permissions)
       }
-      
-      console.log('📤 Payload que será enviado:', payload)
-      console.log('📤 Payload stringified:', JSON.stringify(payload, null, 2))
 
-      const response = await fetch(`https://nigteste-production.up.railway.app/users/${selectedUser.id}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
+      const { api } = await import('../../lib/api.local')
+      await api.updateUser(selectedUser.id, {
+        permissions: JSON.stringify(permissions)
       })
 
-      if (response.ok) {
-        setSnackbar({ open: true, message: 'Permissões atualizadas com sucesso!', severity: 'success' })
-        setPermissionDialogOpen(false)
-        loadUsers()
-      } else {
-        throw new Error('Erro ao atualizar permissões')
-      }
+      setSnackbar({ open: true, message: 'Permissões atualizadas com sucesso!', severity: 'success' })
+      setPermissionDialogOpen(false)
+      loadUsers()
     } catch (error) {
       setSnackbar({ open: true, message: 'Erro ao salvar permissões', severity: 'error' })
     }
-  }, [selectedUser, token, loadUsers])
+  }, [selectedUser, loadUsers])
 
   // Abrir diálogo de confirmação de exclusão
   const handleOpenDeleteDialog = useCallback((user: User) => {
@@ -315,26 +280,16 @@ export default function UsersPage() {
     if (!userToDelete) return
 
     try {
-      const response = await fetch(`https://nigteste-production.up.railway.app/users/${userToDelete.id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      })
+      const { api } = await import('../../lib/api.local')
+      await api.deleteUser(userToDelete.id)
 
-      if (response.ok) {
-        setSnackbar({ 
-          open: true, 
-          message: `Usuário "${userToDelete.name}" excluído com sucesso!`, 
-          severity: 'success' 
-        })
-        handleCloseDeleteDialog()
-        loadUsers()
-      } else {
-        const errorData = await response.json()
-        throw new Error(errorData.message || 'Erro ao excluir usuário')
-      }
+      setSnackbar({ 
+        open: true, 
+        message: `Usuário "${userToDelete.name}" excluído com sucesso!`, 
+        severity: 'success' 
+      })
+      handleCloseDeleteDialog()
+      loadUsers()
     } catch (error) {
       setSnackbar({ 
         open: true, 
@@ -342,16 +297,11 @@ export default function UsersPage() {
         severity: 'error' 
       })
     }
-  }, [userToDelete, token, handleCloseDeleteDialog, loadUsers])
+  }, [userToDelete, handleCloseDeleteDialog, loadUsers])
 
-  // Obter permissões do usuário
-  const getUserPermissions = (user: User): SystemPermissions | null => {
-    if (!user.permissions) return null
-    try {
-      return JSON.parse(user.permissions) as SystemPermissions
-    } catch {
-      return null
-    }
+  // Permissões efetivas (customizadas + defaults do role + submódulos de Dados)
+  const getUserPermissionsForEditor = (user: User): SystemPermissions => {
+    return resolveUserPermissions(user.permissions, user.role)
   }
 
   // Obter ícone do role
@@ -643,7 +593,7 @@ export default function UsersPage() {
             <PermissionManager
               open={permissionDialogOpen}
               onClose={() => setPermissionDialogOpen(false)}
-              userPermissions={getUserPermissions(selectedUser)}
+              userPermissions={getUserPermissionsForEditor(selectedUser)}
               onSave={handleSavePermissions}
               userRole={selectedUser.role}
               userName={selectedUser.name}

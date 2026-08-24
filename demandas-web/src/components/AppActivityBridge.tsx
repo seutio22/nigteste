@@ -1,12 +1,14 @@
 import { useActivityTracking } from '../hooks/useActivityTracking'
 import { usePageDwellTracking } from '../hooks/usePageDwellTracking'
+import { useInteractionTracking } from '../hooks/useInteractionTracking'
 
 /**
- * Inicia sessão de monitoramento, heartbeat, tempo por página (rota) e encerra sessão ao sair.
- * Deve ser montado uma única vez dentro do app autenticado.
+ * Sessão, heartbeat, tempo por página, cliques e ociosidade.
+ * Montar uma única vez no app autenticado.
  */
 export function AppActivityBridge() {
   useActivityTracking()
   usePageDwellTracking()
+  useInteractionTracking()
   return null
 }

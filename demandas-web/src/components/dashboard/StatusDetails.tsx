@@ -33,6 +33,7 @@ import { useValidationStore } from '../../store/validationStore'
 import { useAtendimentoStore } from '../../store/atendimentoStore'
 import { useReportStore } from '../../store/reportStore'
 import { useMasterDataStore } from '../../store/masterDataStore'
+import { useAuthStore } from '../../store/authStore'
 import {
   calculateBusinessDays,
   getExecutionEndDate,
@@ -41,6 +42,8 @@ import {
   matchesByIdOrName,
   parseDateForFilter
 } from '../../utils/dashboardFilters'
+import { canViewDashboardPage, isDashboardItemOwnedByUser } from '../../utils/dashboardUserScope'
+import { getUserPermissions } from '../../utils/defaultPermissions'
 import { formatIntegerPtBR } from '../../utils/formatNumber'
 
 interface StatusDetailsProps {
@@ -51,6 +54,8 @@ interface StatusDetailsProps {
   showAnalistaFilter?: boolean
   /** Enquanto o vínculo usuário↔analista não foi resolvido, não exibe contagens globais. */
   userScopePending?: boolean
+  /** Sem analista vinculado: filtra por nome/e-mail do usuário logado. */
+  ownScopeFallback?: boolean
 }
 
 // Tempo em aberto = dias úteis (seg–sex) entre data de início e data final do chamado; sem data final, até hoje.
@@ -116,9 +121,12 @@ export const StatusDetails: React.FC<StatusDetailsProps> = ({
   fromDate,
   toDate,
   showAnalistaFilter = false,
-  userScopePending = false
+  userScopePending = false,
+  ownScopeFallback = false
 }) => {
   const theme = useTheme()
+  const user = useAuthStore((s) => s.user)
+  const permissions = getUserPermissions(user?.permissions, user?.role ?? '')
   const demandStore = useDemandStore()
   const manutencaoStore = useManutencaoStore()
   const reajusteStore = useReajusteStore()
@@ -135,6 +143,27 @@ export const StatusDetails: React.FC<StatusDetailsProps> = ({
   }, [analistaId, selectedAnalistaId])
 
   const analistaIdForFilter = selectedAnalistaId || analistaId || ''
+
+  const matchesAnalistaScope = (page: string, item: Record<string, unknown>) => {
+    if (analistaIdForFilter) {
+      const getAnalistaValue = () => {
+        if (page === 'reajustes') return item.responsavelAnalista
+        if (page === 'manutencoes') return item.analistaId || item.analista
+        if (page === 'validacoes') {
+          return item.analistaId
+            || (item.analistaObj as { id?: string } | undefined)?.id
+            || (typeof item.analista === 'object' ? (item.analista as { id?: string })?.id : item.analista)
+        }
+        if (page === 'analytics') return item.analista
+        return item.analistaId || item.analista
+      }
+      return matchesByIdOrName(getAnalistaValue(), analistaIdForFilter, masterDataStore.analistas)
+    }
+    if (ownScopeFallback) {
+      return isDashboardItemOwnedByUser(page, item, user, masterDataStore.analistas)
+    }
+    return true
+  }
 
   // Função para filtrar por data
   const inRange = (iso?: string) => {
@@ -184,51 +213,51 @@ export const StatusDetails: React.FC<StatusDetailsProps> = ({
     if (userScopePending) return []
     return demandStore.items.filter(d =>
       matchesByIdOrName(d.areaId || d.area, areaId, masterDataStore.areas) &&
-      matchesByIdOrName(d.analistaId || d.analista, analistaIdForFilter, masterDataStore.analistas) &&
+      matchesAnalistaScope('demandas', d as Record<string, unknown>) &&
       inRange(getItemDateForPage('demandas', d))
     )
-  }, [userScopePending, demandStore.items, areaId, analistaIdForFilter, fromDate, toDate, masterDataStore.areas, masterDataStore.analistas])
+  }, [userScopePending, demandStore.items, areaId, analistaIdForFilter, ownScopeFallback, fromDate, toDate, masterDataStore.areas, masterDataStore.analistas, user?.id])
 
   const manutencoesFiltradas = useMemo(() => {
     if (userScopePending) return []
     return manutencaoStore.items.filter(m =>
-      matchesByIdOrName(m.analistaId || m.analista, analistaIdForFilter, masterDataStore.analistas) &&
+      matchesAnalistaScope('manutencoes', m as Record<string, unknown>) &&
       inRange(getItemDateForPage('manutencoes', m))
     )
-  }, [userScopePending, manutencaoStore.items, analistaIdForFilter, fromDate, toDate, masterDataStore.analistas])
+  }, [userScopePending, manutencaoStore.items, analistaIdForFilter, ownScopeFallback, fromDate, toDate, masterDataStore.analistas, user?.id])
 
   const reajustesFiltrados = useMemo(() => {
     if (userScopePending) return []
     return reajusteStore.items.filter(r =>
-      matchesByIdOrName(r.responsavelAnalista, analistaIdForFilter, masterDataStore.analistas) &&
+      matchesAnalistaScope('reajustes', r as Record<string, unknown>) &&
       inRange(getItemDateForPage('reajustes', r))
     )
-  }, [userScopePending, reajusteStore.items, analistaIdForFilter, fromDate, toDate, masterDataStore.analistas])
+  }, [userScopePending, reajusteStore.items, analistaIdForFilter, ownScopeFallback, fromDate, toDate, masterDataStore.analistas, user?.id])
 
   const validacoesFiltradas = useMemo(() => {
     if (userScopePending) return []
     return validationStore.items.filter(v =>
-      matchesByIdOrName((v as any).analistaId || v.analista, analistaIdForFilter, masterDataStore.analistas) &&
+      matchesAnalistaScope('validacoes', v as Record<string, unknown>) &&
       inRange(getItemDateForPage('validacoes', v))
     )
-  }, [userScopePending, validationStore.items, analistaIdForFilter, fromDate, toDate, masterDataStore.analistas])
+  }, [userScopePending, validationStore.items, analistaIdForFilter, ownScopeFallback, fromDate, toDate, masterDataStore.analistas, user?.id])
 
   const atendimentosFiltrados = useMemo(() => {
     if (userScopePending) return []
     return atendimentoStore.items.filter(a =>
       matchesByIdOrName((a as { areaId?: string }).areaId || a.area, areaId, masterDataStore.areas) &&
-      matchesByIdOrName((a as { analistaId?: string }).analistaId || a.analista, analistaIdForFilter, masterDataStore.analistas) &&
+      matchesAnalistaScope('atendimentos', a as Record<string, unknown>) &&
       inRange(getItemDateForPage('atendimentos', a))
     )
-  }, [userScopePending, atendimentoStore.items, areaId, analistaIdForFilter, fromDate, toDate, masterDataStore.areas, masterDataStore.analistas])
+  }, [userScopePending, atendimentoStore.items, areaId, analistaIdForFilter, ownScopeFallback, fromDate, toDate, masterDataStore.areas, masterDataStore.analistas, user?.id])
 
   const analyticsFiltrados = useMemo(() => {
     if (userScopePending) return []
     return reportStore.items.filter(r =>
-      matchesByIdOrName(r.analista, analistaIdForFilter, masterDataStore.analistas) &&
+      matchesAnalistaScope('analytics', r as Record<string, unknown>) &&
       inRange(getItemDateForPage('analytics', r))
     )
-  }, [userScopePending, reportStore.items, analistaIdForFilter, fromDate, toDate, masterDataStore.analistas])
+  }, [userScopePending, reportStore.items, analistaIdForFilter, ownScopeFallback, fromDate, toDate, masterDataStore.analistas, user?.id])
 
   // Estatísticas por status: tempo médio em dias úteis entre início e fim operacionais (mesma regra dos indicadores de execução).
   const calculateStatusStats = (items: any[], page: string) => {
@@ -359,12 +388,14 @@ export const StatusDetails: React.FC<StatusDetailsProps> = ({
   }
 
   // Verificar se há alguma tabela para exibir
-  const hasAnyData = demandasPorStatus.length > 0 || 
-                    manutencoesPorStatus.length > 0 || 
-                    reajustesPorStatus.length > 0 || 
-                    validacoesPorStatus.length > 0 ||
-                    atendimentosPorStatus.length > 0 ||
-                    analyticsPorStatus.length > 0
+  const hasAnyData = (
+    (canViewDashboardPage('demandas', permissions, user?.role ?? '') && demandasPorStatus.length > 0) ||
+    (canViewDashboardPage('manutencoes', permissions, user?.role ?? '') && manutencoesPorStatus.length > 0) ||
+    (canViewDashboardPage('reajustes', permissions, user?.role ?? '') && reajustesPorStatus.length > 0) ||
+    (canViewDashboardPage('validacoes', permissions, user?.role ?? '') && validacoesPorStatus.length > 0) ||
+    (canViewDashboardPage('atendimentos', permissions, user?.role ?? '') && atendimentosPorStatus.length > 0) ||
+    (canViewDashboardPage('analytics', permissions, user?.role ?? '') && analyticsPorStatus.length > 0)
+  )
 
   return (
     <Box>
@@ -398,24 +429,36 @@ export const StatusDetails: React.FC<StatusDetailsProps> = ({
 
         {hasAnyData ? (
           <Grid container spacing={3}>
+            {canViewDashboardPage('demandas', permissions, user?.role ?? '') ? (
             <Grid item xs={12} md={6}>
               {renderStatusTable('Demandas', demandasPorStatus, '#009FDF')}
             </Grid>
+            ) : null}
+            {canViewDashboardPage('manutencoes', permissions, user?.role ?? '') ? (
             <Grid item xs={12} md={6}>
               {renderStatusTable('Manutenções', manutencoesPorStatus, '#DA3832')}
             </Grid>
+            ) : null}
+            {canViewDashboardPage('reajustes', permissions, user?.role ?? '') ? (
             <Grid item xs={12} md={6}>
               {renderStatusTable('Reajustes', reajustesPorStatus, '#8b5cf6')}
             </Grid>
+            ) : null}
+            {canViewDashboardPage('validacoes', permissions, user?.role ?? '') ? (
             <Grid item xs={12} md={6}>
               {renderStatusTable('Validações', validacoesPorStatus, '#E5B800')}
             </Grid>
+            ) : null}
+            {canViewDashboardPage('atendimentos', permissions, user?.role ?? '') ? (
             <Grid item xs={12} md={6}>
               {renderStatusTable('Atendimentos', atendimentosPorStatus, '#00A649')}
             </Grid>
+            ) : null}
+            {canViewDashboardPage('analytics', permissions, user?.role ?? '') ? (
             <Grid item xs={12} md={6}>
               {renderStatusTable('Analytics', analyticsPorStatus, '#06b6d4')}
             </Grid>
+            ) : null}
           </Grid>
         ) : (
           <Box sx={{ textAlign: 'center', py: 4 }}>

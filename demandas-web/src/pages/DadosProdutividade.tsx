@@ -28,6 +28,7 @@ import {
   percentOfJornada,
   TEMPO_PREVISTO_PRESETS_MIN,
 } from './produtividadeJornada'
+import { usePermissions } from '../hooks/usePermissions'
 import {
   computeQuantityLineSeconds,
   getPageConfig,
@@ -247,6 +248,7 @@ function TempoInput({
 
 export default function DadosProdutividadePage() {
   const store = useMasterDataStore()
+  const { canCreate, canEdit, canDelete } = usePermissions('dadosProdutividade')
   const [rows, setRows] = useState<ProdutividadeRule[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -420,6 +422,7 @@ export default function DadosProdutividadePage() {
         filterable: false,
         renderCell: (params) => (
           <Stack direction="row" spacing={1}>
+            {canEdit ? (
             <Button
               size="small"
               variant="outlined"
@@ -427,6 +430,8 @@ export default function DadosProdutividadePage() {
             >
               Editar
             </Button>
+            ) : null}
+            {canDelete ? (
             <Button
               size="small"
               color="error"
@@ -435,11 +440,12 @@ export default function DadosProdutividadePage() {
             >
               Excluir
             </Button>
+            ) : null}
           </Stack>
         ),
       },
-    ],
-    [store]
+    ].filter((col) => col.field !== 'acoes' || canEdit || canDelete),
+    [store, canEdit, canDelete]
   )
 
   const hydrateDraftsFromRule = (rule: Partial<ProdutividadeRule>, cfg: PageProdutividadeConfig) => {
@@ -932,9 +938,11 @@ export default function DadosProdutividadePage() {
             <strong>08:00:00</strong>.
           </Typography>
         </Box>
+        {canCreate ? (
         <Button variant="contained" onClick={openNew}>
           Nova regra
         </Button>
+        ) : null}
       </Stack>
 
       {error && (

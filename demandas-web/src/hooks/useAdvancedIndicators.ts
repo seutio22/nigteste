@@ -9,6 +9,7 @@ import { useProjectStore } from '../store/projectStore'
 import { useMasterDataStore } from '../store/masterDataStore'
 import { useAuthStore } from '../store/authStore'
 import { isProjectLinkedToUser } from '../utils/projectAccess'
+import { isDashboardItemOwnedByUser } from '../utils/dashboardUserScope'
 import {
   calculateBusinessDays,
   getExecutionEndDate,
@@ -109,6 +110,8 @@ export const useAdvancedIndicators = (
     userScopePending?: boolean
     /** Enquanto true, aguarda cadastro de analistas antes de agrupar métricas. */
     masterDataPending?: boolean
+    /** Sem analista master vinculado: filtra por nome/e-mail do usuário logado. */
+    ownScopeFallback?: boolean
   }
 ) => {
   // Stores
@@ -191,6 +194,10 @@ export const useAdvancedIndicators = (
           if (!matchesByIdOrName(itemAnalista, filters.analistaId, masterDataStore.analistas)) {
             return false
           }
+        }
+      } else if (filters.ownScopeFallback) {
+        if (!isDashboardItemOwnedByUser(page, item, user, masterDataStore.analistas)) {
+          return false
         }
       }
 
