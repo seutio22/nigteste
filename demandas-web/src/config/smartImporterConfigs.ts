@@ -928,7 +928,79 @@ export const smartImporterConfigs: { [key: string]: SmartImporterConfig } = {
         valueField: 'id'
       }
     ]
-  }
+  },
+
+  produtividade: {
+    entityType: 'Produtividade',
+    requiredFields: ['pageKey'],
+    optionalFields: [
+      'id',
+      'pageLabel',
+      'tipo1Id',
+      'tipo1Nome',
+      'tipo2Id',
+      'tipo2Nome',
+      'total',
+      'tempoSistemasSeconds',
+      'tempoSistemasAdicionalSeconds',
+      'tempoSistemasAdicionalPorTotalSeconds',
+      'tempoUsuariosSeconds',
+      'tempoUsuariosAdicionalSeconds',
+      'tempoClientesSeconds',
+      'tempoClientesAdicionalSeconds',
+      'tempoRetornosSeconds',
+      'tempoRetornosAdicionalSeconds',
+      'tempoItensSeconds',
+      'tempoItensAdicionalSeconds',
+      'tempoContratosSeconds',
+      'tempoContratosAdicionalSeconds',
+      'tempoSubsSeconds',
+      'tempoSubsAdicionalSeconds',
+      'sistemasDetalhe',
+      'tempoPrevistoSeconds',
+      'pesoPontos',
+      'ativo',
+    ],
+    duplicateCheckFields: ['id'],
+    importModes: NIG_DADOS_IMPORT_MODES,
+    validationRules: [
+      {
+        field: 'pageKey',
+        type: 'required',
+        message: 'pageKey é obrigatório',
+      },
+      {
+        field: 'pageKey',
+        type: 'custom',
+        message:
+          'pageKey inválido. Use: demandas, manutencoes, atendimentos, validacoes, reajustes, analytics, projetos',
+        validator: (value) => {
+          if (value == null || String(value).trim() === '') return false
+          const allowed = new Set([
+            'demandas',
+            'manutencoes',
+            'atendimentos',
+            'validacoes',
+            'reajustes',
+            'analytics',
+            'projetos',
+          ])
+          return allowed.has(String(value).trim().toLowerCase())
+        },
+      },
+      {
+        field: 'ativo',
+        type: 'custom',
+        message: 'ativo deve ser true/false, 1/0, Ativo/Inativo',
+        validator: (value) => {
+          if (value == null || value === '') return true
+          const s = String(value).trim().toLowerCase()
+          return ['true', 'false', '1', '0', 'ativo', 'inativo', 'sim', 'não', 'nao'].includes(s)
+        },
+      },
+    ],
+    referenceFields: [],
+  },
 }
 
 /** Habilita insert / update / upsert no importador inteligente das abas Dados (NIG). */

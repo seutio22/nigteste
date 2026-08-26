@@ -6,6 +6,12 @@ import ProjectGantt from '../../components/ProjectGantt'
 import ShareProjectModal from '../../components/ShareProjectModal'
 import ExportProjectModal from '../../components/ExportProjectModal'
 import ProjectTemplatesDialog from '../../components/ProjectTemplatesDialog'
+import { ProjectDurationField } from '../../components/ProjectDurationField'
+import {
+  formatDurationHoursPair,
+  hoursToDurationDisplay,
+  parseDurationInputToHours,
+} from '../../utils/projectDuration'
 
 import {
   Box,
@@ -1136,6 +1142,7 @@ export default function ProjectDetailPage() {
     priority: 'medium',
     assignee: '',
     hours: '',
+    actualHoursInput: '',
     startDate: '',
     dueDate: '',
     observations: ''
@@ -1300,6 +1307,7 @@ export default function ProjectDetailPage() {
       priority: 'medium',
       assignee: '',
       hours: '',
+      actualHoursInput: '',
       startDate: '',
       dueDate: '',
       observations: ''
@@ -1419,6 +1427,12 @@ export default function ProjectDetailPage() {
       return
     }
 
+    const estimatedTaskHours = parseDurationInputToHours(newTaskData.estimatedHours)
+    if (newTaskData.estimatedHours?.trim() && estimatedTaskHours == null) {
+      setErrors({ task: 'Horas estimadas inválidas. Use minutos, horas ou HH:MM:SS.' })
+      return
+    }
+
     if (!project) {
       console.error('❌ Projeto é nulo')
       alert('Erro: Projeto não carregado')
@@ -1448,7 +1462,7 @@ export default function ProjectDetailPage() {
       status: 'pending',
       progress: 0,
       priority: newTaskData.priority,
-      estimatedHours: parseInt(newTaskData.estimatedHours) || 0,
+      estimatedHours: estimatedTaskHours ?? 0,
       actualHours: 0,
       dependencies: [],
       observations: newTaskData.observations,
@@ -1529,6 +1543,17 @@ export default function ProjectDetailPage() {
       return
     }
 
+    const estimatedSubHours = parseDurationInputToHours(newSubtaskData.hours)
+    const actualSubHours = parseDurationInputToHours(newSubtaskData.actualHoursInput)
+    if (newSubtaskData.hours?.trim() && estimatedSubHours == null) {
+      setErrors({ subtask: 'Horas estimadas inválidas. Use minutos, horas ou HH:MM:SS.' })
+      return
+    }
+    if (newSubtaskData.actualHoursInput?.trim() && actualSubHours == null) {
+      setErrors({ subtask: 'Tempo de execução inválido. Use minutos, horas ou HH:MM:SS.' })
+      return
+    }
+
     if (!project) {
       console.error('❌ Projeto é nulo')
       alert('Erro: Projeto não carregado')
@@ -1557,8 +1582,8 @@ export default function ProjectDetailPage() {
       startDate: newSubtaskData.startDate || null,
       dueDate: newSubtaskData.dueDate || null,
       actualEndDate: null,
-      estimatedHours: parseInt(newSubtaskData.hours) || 0,
-      actualHours: 0,
+      estimatedHours: estimatedSubHours ?? 0,
+      actualHours: actualSubHours ?? 0,
       progress: calculateSubtaskProgress({ status: newSubtaskData.status }),
       dependencies: [],
       order: 0,
@@ -1974,7 +1999,9 @@ export default function ProjectDetailPage() {
       priority: task.priority || 'medium',
       estimatedHours: task.estimatedHours || 0,
       actualHours: task.actualHours || 0,
-      observations: task.observations || ''
+      observations: task.observations || '',
+      _estimatedHoursInput: hoursToDurationDisplay(task.estimatedHours),
+      _actualHoursInput: hoursToDurationDisplay(task.actualHours),
     }
     
     setEditingTask(taskWithDates)
@@ -1988,7 +2015,9 @@ export default function ProjectDetailPage() {
       ...subtask,
       startDate: subtask.startDate && subtask.startDate !== 'null' ? subtask.startDate : null,
       dueDate: subtask.dueDate && subtask.dueDate !== 'null' ? subtask.dueDate : null,
-      actualEndDate: subtask.actualEndDate && subtask.actualEndDate !== 'null' ? subtask.actualEndDate : null
+      actualEndDate: subtask.actualEndDate && subtask.actualEndDate !== 'null' ? subtask.actualEndDate : null,
+      _estimatedHoursInput: hoursToDurationDisplay(subtask.estimatedHours ?? subtask.hours),
+      _actualHoursInput: hoursToDurationDisplay(subtask.actualHours),
     }
     
     setEditingSubtask(subtaskWithDates)
@@ -1998,15 +2027,30 @@ export default function ProjectDetailPage() {
   // Função para salvar edição de tarefa
   const handleSaveTaskEdit = () => {
     if (editingTask) {
+      const estimatedParsed = parseDurationInputToHours(editingTask._estimatedHoursInput ?? '')
+      const actualParsed = parseDurationInputToHours(editingTask._actualHoursInput ?? '')
+      if (editingTask._estimatedHoursInput?.trim() && estimatedParsed == null) {
+        alert('❌ Horas estimadas inválidas. Use minutos, horas ou HH:MM:SS.')
+        return
+      }
+      if (editingTask._actualHoursInput?.trim() && actualParsed == null) {
+        alert('❌ Tempo de execução inválido. Use minutos, horas ou HH:MM:SS.')
+        return
+      }
+      const taskToSave = {
+        ...editingTask,
+        estimatedHours: estimatedParsed ?? 0,
+        actualHours: actualParsed ?? 0,
+      }
       // Não permitir concluir sem data de finalização
-      if (String(editingTask.status) === 'completed' && !editingTask.actualEndDate) {
+      if (String(taskToSave.status) === 'completed' && !taskToSave.actualEndDate) {
         alert('❌ Para marcar como Concluída, informe a Data de Finalização.')
         return
       }
       // Validação de datas
-      if (editingTask.actualEndDate && editingTask.startDate) {
-        const startDate = new Date(editingTask.startDate)
-        const endDate = new Date(editingTask.actualEndDate)
+      if (taskToSave.actualEndDate && taskToSave.startDate) {
+        const startDate = new Date(taskToSave.startDate)
+        const endDate = new Date(taskToSave.actualEndDate)
         
         if (endDate < startDate) {
           alert('❌ A data de finalização não pode ser anterior à data de início!')
@@ -2014,9 +2058,9 @@ export default function ProjectDetailPage() {
         }
       }
       
-      if (editingTask.actualEndDate && editingTask.plannedEndDate) {
-        const plannedDate = new Date(editingTask.plannedEndDate)
-        const endDate = new Date(editingTask.actualEndDate)
+      if (taskToSave.actualEndDate && taskToSave.plannedEndDate) {
+        const plannedDate = new Date(taskToSave.plannedEndDate)
+        const endDate = new Date(taskToSave.actualEndDate)
         
         if (endDate > plannedDate) {
           const confirmLate = confirm('⚠️ A data de finalização é posterior à data de entrega prevista. Deseja continuar?')
@@ -2030,12 +2074,23 @@ export default function ProjectDetailPage() {
       updatedProject.timeline.phases.forEach((phase: any) => {
         phase.tasks.forEach((task: any) => {
           if (task.id === editingTask.id) {
+            const {
+              _estimatedHoursInput: _estDraft,
+              _actualHoursInput: _actDraft,
+              ...taskFields
+            } = taskToSave
             // Garantir que as datas sejam null se estiverem vazias
             const updatedTask = {
-              ...editingTask,
-              startDate: editingTask.startDate && editingTask.startDate !== '' ? editingTask.startDate : null,
-              plannedEndDate: editingTask.plannedEndDate && editingTask.plannedEndDate !== '' ? editingTask.plannedEndDate : null,
-              actualEndDate: editingTask.actualEndDate && editingTask.actualEndDate !== '' ? editingTask.actualEndDate : null
+              ...taskFields,
+              startDate: taskToSave.startDate && taskToSave.startDate !== '' ? taskToSave.startDate : null,
+              plannedEndDate:
+                taskToSave.plannedEndDate && taskToSave.plannedEndDate !== ''
+                  ? taskToSave.plannedEndDate
+                  : null,
+              actualEndDate:
+                taskToSave.actualEndDate && taskToSave.actualEndDate !== ''
+                  ? taskToSave.actualEndDate
+                  : null,
             }
             
             // Se a data de finalização foi definida e não for Cancelado, marcar como concluída
@@ -2093,15 +2148,30 @@ export default function ProjectDetailPage() {
   // Função para salvar edição de subtarefa
   const handleSaveSubtaskEdit = () => {
     if (editingSubtask && selectedTask) {
+      const estimatedParsed = parseDurationInputToHours(editingSubtask._estimatedHoursInput ?? '')
+      const actualParsed = parseDurationInputToHours(editingSubtask._actualHoursInput ?? '')
+      if (editingSubtask._estimatedHoursInput?.trim() && estimatedParsed == null) {
+        alert('❌ Horas estimadas inválidas. Use minutos, horas ou HH:MM:SS.')
+        return
+      }
+      if (editingSubtask._actualHoursInput?.trim() && actualParsed == null) {
+        alert('❌ Tempo de execução inválido. Use minutos, horas ou HH:MM:SS.')
+        return
+      }
+      const subtaskToSave = {
+        ...editingSubtask,
+        estimatedHours: estimatedParsed ?? 0,
+        actualHours: actualParsed ?? 0,
+      }
       // Não permitir concluir sem data de finalização
-      if (String(editingSubtask.status) === 'completed' && !editingSubtask.actualEndDate) {
+      if (String(subtaskToSave.status) === 'completed' && !subtaskToSave.actualEndDate) {
         alert('❌ Para marcar como Concluída, informe a Data de Finalização.')
         return
       }
       // Validação de datas
-      if (editingSubtask.actualEndDate && editingSubtask.startDate) {
-        const startDate = new Date(editingSubtask.startDate)
-        const endDate = new Date(editingSubtask.actualEndDate)
+      if (subtaskToSave.actualEndDate && subtaskToSave.startDate) {
+        const startDate = new Date(subtaskToSave.startDate)
+        const endDate = new Date(subtaskToSave.actualEndDate)
         
         if (endDate < startDate) {
           alert('❌ A data de finalização não pode ser anterior à data de início!')
@@ -2109,9 +2179,9 @@ export default function ProjectDetailPage() {
         }
       }
       
-      if (editingSubtask.actualEndDate && editingSubtask.dueDate) {
-        const dueDate = new Date(editingSubtask.dueDate)
-        const endDate = new Date(editingSubtask.actualEndDate)
+      if (subtaskToSave.actualEndDate && subtaskToSave.dueDate) {
+        const dueDate = new Date(subtaskToSave.dueDate)
+        const endDate = new Date(subtaskToSave.actualEndDate)
         
         if (endDate > dueDate) {
           const confirmLate = confirm('⚠️ A data de finalização é posterior à data de entrega prevista. Deseja continuar?')
@@ -2127,12 +2197,24 @@ export default function ProjectDetailPage() {
           if (task.id === selectedTask.id) {
             task.subtasks.forEach((subtask: any) => {
               if (subtask.id === editingSubtask.id) {
+                const {
+                  _estimatedHoursInput: _estDraft,
+                  _actualHoursInput: _actDraft,
+                  ...subtaskFields
+                } = subtaskToSave
                 // Garantir que as datas sejam null se estiverem vazias
                 const updatedSubtask = {
-                  ...editingSubtask,
-                  startDate: editingSubtask.startDate && editingSubtask.startDate !== '' ? editingSubtask.startDate : null,
-                  dueDate: editingSubtask.dueDate && editingSubtask.dueDate !== '' ? editingSubtask.dueDate : null,
-                  actualEndDate: editingSubtask.actualEndDate && editingSubtask.actualEndDate !== '' ? editingSubtask.actualEndDate : null
+                  ...subtaskFields,
+                  startDate:
+                    subtaskToSave.startDate && subtaskToSave.startDate !== ''
+                      ? subtaskToSave.startDate
+                      : null,
+                  dueDate:
+                    subtaskToSave.dueDate && subtaskToSave.dueDate !== '' ? subtaskToSave.dueDate : null,
+                  actualEndDate:
+                    subtaskToSave.actualEndDate && subtaskToSave.actualEndDate !== ''
+                      ? subtaskToSave.actualEndDate
+                      : null,
                 }
                 
                 // Se a data de finalização foi definida e não for Cancelado, marcar como concluída
@@ -2373,24 +2455,24 @@ export default function ProjectDetailPage() {
               </FormControl>
             </Grid>
             <Grid item xs={12} md={6}>
-              <TextField
+              <ProjectDurationField
                 fullWidth
                 label="Horas Estimadas"
-                type="number"
-                value={editingTask.estimatedHours || 0}
-                onChange={(e) => setEditingTask({ ...editingTask, estimatedHours: Number(e.target.value) })}
-                inputProps={{ min: 0 }}
+                value={editingTask._estimatedHoursInput ?? ''}
+                onChange={(v) =>
+                  setEditingTask({ ...editingTask, _estimatedHoursInput: v })
+                }
               />
             </Grid>
             
             <Grid item xs={12} md={6}>
-              <TextField
+              <ProjectDurationField
                 fullWidth
-                label="Horas Reais"
-                type="number"
-                value={editingTask.actualHours || 0}
-                onChange={(e) => setEditingTask({ ...editingTask, actualHours: Number(e.target.value) })}
-                inputProps={{ min: 0 }}
+                label="Tempo de Execução"
+                value={editingTask._actualHoursInput ?? ''}
+                onChange={(v) =>
+                  setEditingTask({ ...editingTask, _actualHoursInput: v })
+                }
               />
             </Grid>
             
@@ -2590,24 +2672,24 @@ export default function ProjectDetailPage() {
             )}
             
             <Grid item xs={12} md={6}>
-              <TextField
+              <ProjectDurationField
                 fullWidth
                 label="Horas Estimadas"
-                type="number"
-                value={editingSubtask.estimatedHours || editingSubtask.hours || 0}
-                onChange={(e) => setEditingSubtask({ ...editingSubtask, estimatedHours: Number(e.target.value) })}
-                inputProps={{ min: 0 }}
+                value={editingSubtask._estimatedHoursInput ?? ''}
+                onChange={(v) =>
+                  setEditingSubtask({ ...editingSubtask, _estimatedHoursInput: v })
+                }
               />
             </Grid>
             
             <Grid item xs={12} md={6}>
-              <TextField
+              <ProjectDurationField
                 fullWidth
-                label="Horas Reais"
-                type="number"
-                value={editingSubtask.actualHours || 0}
-                onChange={(e) => setEditingSubtask({ ...editingSubtask, actualHours: Number(e.target.value) })}
-                inputProps={{ min: 0 }}
+                label="Tempo de Execução"
+                value={editingSubtask._actualHoursInput ?? ''}
+                onChange={(v) =>
+                  setEditingSubtask({ ...editingSubtask, _actualHoursInput: v })
+                }
               />
             </Grid>
 
@@ -3744,8 +3826,30 @@ export default function ProjectDetailPage() {
                       Prioridade
                     </TableCell>
                     <TableCell sx={{ fontWeight: 'bold', width: 108 }}>Progresso</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', width: 52, maxWidth: 58, px: 0.5, textAlign: 'center' }}>
-                      Horas
+                    <TableCell
+                      sx={{
+                        fontWeight: 'bold',
+                        width: 72,
+                        maxWidth: 80,
+                        px: 0.5,
+                        textAlign: 'center',
+                        lineHeight: 1.15,
+                      }}
+                    >
+                      Tempo
+                      <Typography
+                        component="div"
+                        variant="caption"
+                        sx={{
+                          display: 'block',
+                          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                          fontSize: '0.62rem',
+                          fontWeight: 700,
+                          color: 'text.secondary',
+                        }}
+                      >
+                        HH:MM:SS
+                      </Typography>
                     </TableCell>
                     <TableCell sx={{ fontWeight: 'bold', minWidth: 120, maxWidth: 220 }}>Observações</TableCell>
                     {!readOnly && <TableCell sx={{ fontWeight: 'bold', width: '140px' }}>Ações</TableCell>}
@@ -3833,9 +3937,20 @@ export default function ProjectDetailPage() {
                         </TableCell>
                         
                         <TableCell sx={{ width: 56, maxWidth: 58, px: 0.5, textAlign: 'center', verticalAlign: 'middle' }}>
-                          <Tooltip title={`Real: ${task.actualHours ?? 0}h · Estimado: ${task.estimatedHours ?? 0}h`}>
-                            <Typography variant="caption" fontWeight="bold" component="span" sx={{ fontSize: '0.75rem' }}>
-                              {task.actualHours ?? 0}/{task.estimatedHours ?? 0}h
+                          <Tooltip
+                            title={`Execução / Estimado: ${formatDurationHoursPair(task.actualHours, task.estimatedHours)}`}
+                          >
+                            <Typography
+                              variant="caption"
+                              fontWeight="bold"
+                              component="span"
+                              sx={{
+                                fontSize: '0.68rem',
+                                lineHeight: 1.2,
+                                fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                              }}
+                            >
+                              {formatDurationHoursPair(task.actualHours, task.estimatedHours)}
                             </Typography>
                           </Tooltip>
                         </TableCell>
@@ -4020,9 +4135,20 @@ export default function ProjectDetailPage() {
                             </TableCell>
                             
                             <TableCell sx={{ width: 56, maxWidth: 58, px: 0.5, textAlign: 'center', verticalAlign: 'middle' }}>
-                              <Tooltip title={`Real: ${subtask.actualHours || 0}h · Estimado: ${subtask.estimatedHours || 0}h`}>
-                                <Typography variant="caption" fontWeight="bold" component="span" sx={{ fontSize: '0.75rem' }}>
-                                  {subtask.actualHours || 0}/{subtask.estimatedHours || 0}h
+                              <Tooltip
+                                title={`Execução / Estimado: ${formatDurationHoursPair(subtask.actualHours, subtask.estimatedHours)}`}
+                              >
+                                <Typography
+                                  variant="caption"
+                                  fontWeight="bold"
+                                  component="span"
+                                  sx={{
+                                    fontSize: '0.68rem',
+                                    lineHeight: 1.2,
+                                    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                                  }}
+                                >
+                                  {formatDurationHoursPair(subtask.actualHours, subtask.estimatedHours)}
                                 </Typography>
                               </Tooltip>
                             </TableCell>
@@ -5108,7 +5234,7 @@ export default function ProjectDetailPage() {
       plannedEndDate: 'Previsão de término',
       actualEndDate: 'Conclusão',
       estimatedHours: 'Horas estimadas',
-      actualHours: 'Horas realizadas',
+      actualHours: 'Tempo de execução',
       observations: 'Observações'
     } as Record<string, string>)[campo] || campo
 
@@ -6174,12 +6300,11 @@ export default function ProjectDetailPage() {
                     />
                   </Grid>
                   <Grid item xs={6}>
-                    <TextField
+                    <ProjectDurationField
                       fullWidth
                       label="Horas Estimadas"
-                      type="number"
                       value={newTaskData.estimatedHours}
-                      onChange={(e) => setNewTaskData({ ...newTaskData, estimatedHours: e.target.value })}
+                      onChange={(v) => setNewTaskData({ ...newTaskData, estimatedHours: v })}
                     />
                   </Grid>
                   <Grid item xs={12}>
@@ -6291,13 +6416,22 @@ export default function ProjectDetailPage() {
                   )}
                   
                   <Grid item xs={12} md={6}>
-                    <TextField
+                    <ProjectDurationField
                       fullWidth
                       label="Horas Estimadas"
-                      type="number"
                       value={newSubtaskData.hours}
-                      onChange={(e) => setNewSubtaskData({ ...newSubtaskData, hours: e.target.value })}
-                      inputProps={{ min: 0 }}
+                      onChange={(v) => setNewSubtaskData({ ...newSubtaskData, hours: v })}
+                    />
+                  </Grid>
+
+                  <Grid item xs={12} md={6}>
+                    <ProjectDurationField
+                      fullWidth
+                      label="Tempo de Execução"
+                      value={newSubtaskData.actualHoursInput}
+                      onChange={(v) =>
+                        setNewSubtaskData({ ...newSubtaskData, actualHoursInput: v })
+                      }
                     />
                   </Grid>
                   

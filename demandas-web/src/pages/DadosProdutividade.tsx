@@ -12,13 +12,17 @@ import {
   Divider,
   IconButton,
   MenuItem,
+  Snackbar,
   Stack,
   TextField,
   Typography,
 } from '@mui/material'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import AddIcon from '@mui/icons-material/Add'
+import FileDownloadIcon from '@mui/icons-material/FileDownload'
+import UploadFileIcon from '@mui/icons-material/UploadFile'
 import { DataGrid, type GridColDef } from '@mui/x-data-grid'
+import * as XLSX from 'xlsx'
 import { getApi } from '../lib/apiConfig'
 import { useMasterDataStore } from '../store/masterDataStore'
 import {
@@ -46,6 +50,14 @@ import {
   parseSistemasDetalhe,
   type SistemaTempoLinha,
 } from './produtividadeSistemasDetalhe'
+import { SmartImporter } from '../components/SmartImporter'
+import { smartImporterConfigs } from '../config/smartImporterConfigs'
+import {
+  buildProdutividadeExportRows,
+  runProdutividadeSmartImport,
+  type ProdutividadeRuleRow,
+} from '../lib/produtividadeImportExport'
+import type { ImportResult } from '../types/smartImporter'
 
 type ProdutividadeRule = {
   id: string
@@ -248,10 +260,16 @@ function TempoInput({
 
 export default function DadosProdutividadePage() {
   const store = useMasterDataStore()
-  const { canCreate, canEdit, canDelete } = usePermissions('dadosProdutividade')
+  const { canCreate, canEdit, canDelete, canImport, canExport } = usePermissions('dadosProdutividade')
   const [rows, setRows] = useState<ProdutividadeRule[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [smartImporterOpen, setSmartImporterOpen] = useState(false)
+  const [snack, setSnack] = useState<{
+    open: boolean
+    message: string
+    severity: 'success' | 'error' | 'warning' | 'info'
+  }>({ open: false, message: '', severity: 'success' })
 
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState<Partial<ProdutividadeRule>>({
@@ -266,6 +284,11 @@ export default function DadosProdutividadePage() {
 
   const pageCfg = useMemo(() => getPageConfig(form.pageKey ?? 'demandas'), [form.pageKey])
   const pageSupportsTotalSistema = form.pageKey === 'manutencoes'
+
+  const importerMasterData = useMemo(
+    () => ({ ...store, produtividadeRegras: rows }),
+    [store, rows]
+  )
 
   const sistemasDetalhePreview = useMemo((): SistemaTempoLinha[] => {
     return sistemasLinhas
@@ -679,6 +702,75 @@ export default function DadosProdutividadePage() {
     }
   }
 
+  const handleExport = () => {
+    try {
+      if (!rows.length) {
+        setSnack({
+          open: true,
+          message: 'Nenhuma regra de produtividade para exportar',
+          severity: 'warning',
+        })
+        return
+      }
+      const exportRows = buildProdutividadeExportRows(rows as ProdutividadeRuleRow[], store)
+      const workbook = XLSX.utils.book_new()
+      const worksheet = XLSX.utils.json_to_sheet(exportRows)
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Produtividade')
+      const fileName = `dados_produtividade_${new Date().toISOString().split('T')[0]}.xlsx`
+      XLSX.writeFile(workbook, fileName)
+      setSnack({
+        open: true,
+        message: `${exportRows.length} regra(s) exportada(s) com sucesso`,
+        severity: 'success',
+      })
+    } catch (e: any) {
+      setSnack({
+        open: true,
+        message: e?.message ?? 'Erro ao exportar produtividade',
+        severity: 'error',
+      })
+    }
+  }
+
+  const handleSmartImport = async (result: ImportResult) => {
+    try {
+      if (!result.valid?.length) {
+        setSnack({
+          open: true,
+          message: 'Nenhuma linha válida para importar',
+          severity: 'warning',
+        })
+        return
+      }
+      setLoading(true)
+      const api = getApi()
+      const run = await runProdutividadeSmartImport(api, result, store)
+      await fetchRows()
+      const parts = [
+        `${run.totalImported} gravada(s)`,
+        run.totalInserted ? `${run.totalInserted} nova(s)` : null,
+        run.totalUpdated ? `${run.totalUpdated} atualizada(s)` : null,
+        run.errors.length ? `${run.errors.length} erro(s)` : null,
+      ].filter(Boolean)
+      setSnack({
+        open: true,
+        message: parts.join(' · '),
+        severity: run.errors.length && run.totalImported === 0 ? 'error' : 'success',
+      })
+      if (run.errors.length) {
+        console.warn('Import produtividade — erros:', run.errors)
+      }
+    } catch (e: any) {
+      setSnack({
+        open: true,
+        message: e?.message ?? 'Erro durante a importação de produtividade',
+        severity: 'error',
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
   function renderTipoField(cfg: TipoFieldConfig | null) {
     if (!cfg) return null
     const value = (form[cfg.key] as string | null | undefined) ?? ''
@@ -938,11 +1030,33 @@ export default function DadosProdutividadePage() {
             <strong>08:00:00</strong>.
           </Typography>
         </Box>
-        {canCreate ? (
-        <Button variant="contained" onClick={openNew}>
-          Nova regra
-        </Button>
-        ) : null}
+        <Stack direction="row" gap={1} flexWrap="wrap" justifyContent="flex-end">
+          {canExport ? (
+            <Button
+              variant="outlined"
+              startIcon={<FileDownloadIcon />}
+              onClick={handleExport}
+              disabled={loading || rows.length === 0}
+            >
+              Exportar
+            </Button>
+          ) : null}
+          {canImport ? (
+            <Button
+              variant="outlined"
+              startIcon={<UploadFileIcon />}
+              onClick={() => setSmartImporterOpen(true)}
+              disabled={loading}
+            >
+              Importar
+            </Button>
+          ) : null}
+          {canCreate ? (
+            <Button variant="contained" startIcon={<AddIcon />} onClick={openNew}>
+              Nova regra
+            </Button>
+          ) : null}
+        </Stack>
       </Stack>
 
       {error && (
@@ -1073,6 +1187,29 @@ export default function DadosProdutividadePage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <SmartImporter
+        open={smartImporterOpen}
+        onClose={() => setSmartImporterOpen(false)}
+        onImport={handleSmartImport}
+        config={smartImporterConfigs.produtividade}
+        masterData={importerMasterData}
+      />
+
+      <Snackbar
+        open={snack.open}
+        autoHideDuration={6000}
+        onClose={() => setSnack((s) => ({ ...s, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          severity={snack.severity}
+          variant="filled"
+          onClose={() => setSnack((s) => ({ ...s, open: false }))}
+        >
+          {snack.message}
+        </Alert>
+      </Snackbar>
     </Box>
   )
 }

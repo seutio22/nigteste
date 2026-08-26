@@ -562,6 +562,10 @@ export class SmartValidationEngine {
     if (entityType.includes('cliente')) return this.masterData.clientes || []
     if (entityType.includes('contrato')) return this.masterData.contratos || []
     if (entityType.includes('operadora')) return this.masterData.operadoras || []
+    // Produtividade antes de "produto" (produtividade contém "produto")
+    if (entityType.includes('produtividade')) {
+      return (this.masterData as { produtividadeRegras?: unknown[] }).produtividadeRegras || []
+    }
     if (entityType.includes('produto')) return this.masterData.produtos || []
     if (entityType.includes('sistema')) return this.masterData.sistemas || []
     if (entityType.includes('grupo')) return this.masterData.grupos || []
