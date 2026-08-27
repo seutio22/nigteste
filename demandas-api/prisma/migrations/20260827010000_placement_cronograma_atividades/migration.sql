@@ -1,4 +1,6 @@
 -- Template de atividades do cronograma (Dados → Placement → Cronograma)
+-- Idempotente: a tabela pode já existir (db push anterior) sem parentId/responsavelPadrao.
+
 CREATE TABLE IF NOT EXISTS "placement_cronograma_atividades" (
     "id" TEXT NOT NULL,
     "ordem" INTEGER NOT NULL DEFAULT 0,
@@ -16,6 +18,12 @@ CREATE TABLE IF NOT EXISTS "placement_cronograma_atividades" (
 
     CONSTRAINT "placement_cronograma_atividades_pkey" PRIMARY KEY ("id")
 );
+
+ALTER TABLE "placement_cronograma_atividades" ADD COLUMN IF NOT EXISTS "parentId" TEXT;
+ALTER TABLE "placement_cronograma_atividades" ADD COLUMN IF NOT EXISTS "responsavelPadrao" TEXT;
+ALTER TABLE "placement_cronograma_atividades" ADD COLUMN IF NOT EXISTS "subtarefa" TEXT;
+ALTER TABLE "placement_cronograma_atividades" ADD COLUMN IF NOT EXISTS "slaDias" INTEGER;
+ALTER TABLE "placement_cronograma_atividades" ADD COLUMN IF NOT EXISTS "observacoes" TEXT;
 
 CREATE INDEX IF NOT EXISTS "placement_cronograma_atividades_ordem_idx"
   ON "placement_cronograma_atividades"("ordem");
