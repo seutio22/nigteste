@@ -11,6 +11,8 @@ import type { ComunicarMercadoState } from './placementComunicarMercado'
 import type { AguardandoOperadoraState } from './placementAguardandoOperadora'
 import type { ConsolidandoDadosState } from './placementConsolidandoDados'
 import type { ValidacaoPropostaState } from './placementValidacaoProposta'
+import type { PlacementCronogramaInstancia } from './placementCronograma'
+import { parseCronogramaFromKickOff } from './placementCronograma'
 
 export type KickOffEstrategiaItem = {
   id: string
@@ -38,6 +40,8 @@ export type KickOffEstrategia = {
   consolidandoDados?: ConsolidandoDadosState
   /** Estado da etapa Validação proposta (antes de Proposta enviada). */
   validacaoProposta?: ValidacaoPropostaState
+  /** Cronograma da cotação (datas por atividade). */
+  cronograma?: PlacementCronogramaInstancia
 }
 
 export type KickOffAberturaLabels = {
@@ -274,6 +278,9 @@ export function parseKickOffEstrategiaFromApi(raw: unknown): KickOffEstrategia {
     typeof o.validacaoProposta === 'object' &&
     !Array.isArray(o.validacaoProposta)
       ? { validacaoProposta: o.validacaoProposta as KickOffEstrategia['validacaoProposta'] }
+      : {}),
+    ...(o.cronograma && typeof o.cronograma === 'object' && !Array.isArray(o.cronograma)
+      ? { cronograma: parseCronogramaFromKickOff(o.cronograma) }
       : {}),
   }
 }

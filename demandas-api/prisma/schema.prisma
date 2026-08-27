@@ -1034,6 +1034,32 @@ model PlacementTemperatura {
   @@index([nome])
 }
 
+/// Atividade padrão do cronograma de cotação (Dados → Placement → Cronograma).
+/// Tarefas têm parentId null; subtarefas apontam para a tarefa pai.
+model PlacementCronogramaAtividade {
+  id                String   @id @default(uuid())
+  ordem             Int      @default(0)
+  etapaKey          String
+  tarefa            String
+  /// Legado — preferir subtarefas via parentId.
+  subtarefa         String?
+  parentId          String?
+  parent            PlacementCronogramaAtividade?  @relation("PlacementCronogramaSubtarefas", fields: [parentId], references: [id], onDelete: Cascade)
+  filhos            PlacementCronogramaAtividade[] @relation("PlacementCronogramaSubtarefas")
+  slaDias           Int?
+  slaReferencia     String   @default("apos_anterior")
+  responsavelPadrao String?
+  ativo             Boolean  @default(true)
+  observacoes       String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([ordem])
+  @@index([etapaKey])
+  @@index([parentId])
+  @@map("placement_cronograma_atividades")
+}
+
 /// Analista do processo (Dados → Placement → Analista).
 model PlacementAnalista {
   id                  String   @id @default(uuid())

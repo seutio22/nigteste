@@ -14,6 +14,7 @@ import {
 } from '@mui/material'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import SlideshowIcon from '@mui/icons-material/Slideshow'
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
 import { api } from '../../../lib/api.local'
 import { useMasterDataStore } from '../../../store/masterDataStore'
 import { usePlacementCotacaoStore } from '../../../store/placementCotacaoStore'
@@ -278,6 +279,14 @@ export default function PlacementComparativoDetailPage() {
             }
           >
             Slides
+          </Button>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<CalendarMonthIcon />}
+            onClick={() => navigate(`/placement/fila/${id}/cronograma`)}
+          >
+            Cronograma
           </Button>
         </Stack>
       </Box>

@@ -326,6 +326,7 @@ type KickOffEstrategiaPayload = {
   aguardandoOperadora?: unknown;
   consolidandoDados?: unknown;
   validacaoProposta?: unknown;
+  cronograma?: unknown;
 };
 
 function newKickOffItemId(): string {
@@ -391,6 +392,7 @@ function parseKickOffEstrategiaBody(value: unknown): KickOffEstrategiaPayload | 
     | 'aguardandoOperadora'
     | 'consolidandoDados'
     | 'validacaoProposta'
+    | 'cronograma'
   > = {};
   if (resumoEdicoes && Object.keys(resumoEdicoes).length) extra.resumoEdicoes = resumoEdicoes;
   if (raw.comunicarMercado && typeof raw.comunicarMercado === 'object' && !Array.isArray(raw.comunicarMercado)) {
@@ -416,6 +418,9 @@ function parseKickOffEstrategiaBody(value: unknown): KickOffEstrategiaPayload | 
     !Array.isArray(raw.validacaoProposta)
   ) {
     extra.validacaoProposta = raw.validacaoProposta;
+  }
+  if (raw.cronograma && typeof raw.cronograma === 'object' && !Array.isArray(raw.cronograma)) {
+    extra.cronograma = raw.cronograma;
   }
 
   return { secoes, mercadoAnalisado, notas, ...extra };
@@ -462,6 +467,12 @@ function mergeKickOffEstrategiaPayload(
       : existing.validacaoProposta;
   if (validacaoProposta !== undefined && validacaoProposta !== null) {
     merged.validacaoProposta = validacaoProposta;
+  }
+
+  const cronograma =
+    incoming.cronograma !== undefined ? incoming.cronograma : existing.cronograma;
+  if (cronograma !== undefined && cronograma !== null) {
+    merged.cronograma = cronograma;
   }
 
   return merged;
@@ -2485,6 +2496,314 @@ export default async function placementRoutes(
       return reply.status(500).send({ error: 'Erro interno do servidor' });
     }
   });
+
+  // ---- Cronograma (template de atividades — Dados → Placement) ---------------
+
+  const DEFAULT_CRONOGRAMA_ATIVIDADES: Array<{
+    ordem: number
+    etapaKey: string
+    tarefa: string
+    subtarefa: string | null
+    slaDias: number | null
+    slaReferencia: string
+  }> = [
+    { ordem: 1, etapaKey: 'base_atual', tarefa: 'Abertura e premissas', subtarefa: null, slaDias: 2, slaReferencia: 'inicio_processo' },
+    { ordem: 2, etapaKey: 'validacao', tarefa: 'Importar base de beneficiários', subtarefa: 'Base de beneficiários', slaDias: 3, slaReferencia: 'apos_anterior' },
+    { ordem: 3, etapaKey: 'validacao', tarefa: 'Análise da base', subtarefa: 'Grupo elegível, contrato e localidades', slaDias: 2, slaReferencia: 'apos_anterior' },
+    { ordem: 4, etapaKey: 'kick_off', tarefa: 'Kick off com cliente', subtarefa: null, slaDias: 5, slaReferencia: 'apos_anterior' },
+    { ordem: 5, etapaKey: 'estrategia', tarefa: 'Formalizar estratégia', subtarefa: null, slaDias: 3, slaReferencia: 'apos_anterior' },
+    { ordem: 6, etapaKey: 'em_cotacao', tarefa: 'Revisar base de beneficiários', subtarefa: 'Base de beneficiários', slaDias: 1, slaReferencia: 'apos_anterior' },
+    { ordem: 7, etapaKey: 'em_cotacao', tarefa: 'Análise do cenário de estudo', subtarefa: 'Análise da base', slaDias: 2, slaReferencia: 'apos_anterior' },
+    { ordem: 8, etapaKey: 'em_cotacao', tarefa: 'Comunicar mercado', subtarefa: 'E-mail aos fornecedores', slaDias: 2, slaReferencia: 'apos_anterior' },
+    { ordem: 9, etapaKey: 'aguardando_operadora', tarefa: 'Aguardar retorno das operadoras', subtarefa: null, slaDias: 15, slaReferencia: 'apos_anterior' },
+    { ordem: 10, etapaKey: 'consolidando_dados', tarefa: 'Consolidar dados da proposta', subtarefa: null, slaDias: 5, slaReferencia: 'apos_anterior' },
+    { ordem: 11, etapaKey: 'validacao_proposta', tarefa: 'Validar proposta', subtarefa: null, slaDias: 3, slaReferencia: 'apos_anterior' },
+    { ordem: 12, etapaKey: 'proposta_enviada', tarefa: 'Enviar proposta ao cliente', subtarefa: null, slaDias: 2, slaReferencia: 'apos_anterior' },
+    { ordem: 13, etapaKey: 'fechada', tarefa: 'Encerramento do processo', subtarefa: null, slaDias: 1, slaReferencia: 'apos_anterior' },
+  ]
+
+  const PLACEMENT_ETAPA_KEYS = new Set([
+    'base_atual',
+    'validacao',
+    'kick_off',
+    'estrategia',
+    'em_cotacao',
+    'aguardando_operadora',
+    'consolidando_dados',
+    'validacao_proposta',
+    'proposta_enviada',
+    'fechada',
+  ])
+
+  function parseCronogramaBody(body: Record<string, unknown>, requireTarefa: boolean) {
+    const tarefaRaw = body.tarefa ?? body.nome
+    const tarefa = tarefaRaw != null ? String(tarefaRaw).trim() : ''
+    if (requireTarefa && !tarefa) return { error: 'Tarefa é obrigatória' as const }
+
+    const etapaKeyRaw = body.etapaKey ?? body.etapa
+    const etapaKey = etapaKeyRaw != null ? String(etapaKeyRaw).trim() : ''
+    if (requireTarefa && !etapaKey) return { error: 'Etapa é obrigatória' as const }
+    if (etapaKey && !PLACEMENT_ETAPA_KEYS.has(etapaKey)) {
+      return { error: `Etapa inválida: ${etapaKey}` as const }
+    }
+
+    const subtarefaRaw = body.subtarefa ?? body.subetapaKey ?? body.subetapa
+    const subtarefa =
+      subtarefaRaw != null && String(subtarefaRaw).trim() ? String(subtarefaRaw).trim() : null
+
+    const parentIdRaw = body.parentId ?? body.parent_id
+    const parentId =
+      parentIdRaw != null && String(parentIdRaw).trim() ? String(parentIdRaw).trim() : null
+
+    const responsavelPadraoRaw = body.responsavelPadrao ?? body.responsavel ?? body.responsavel_padrao
+    const responsavelPadrao =
+      responsavelPadraoRaw != null && String(responsavelPadraoRaw).trim()
+        ? String(responsavelPadraoRaw).trim()
+        : null
+
+    const ordemRaw = body.ordem
+    const ordem =
+      typeof ordemRaw === 'number' && Number.isFinite(ordemRaw) ? Math.round(ordemRaw) : undefined
+
+    const slaDias =
+      body.slaDias == null || body.slaDias === ''
+        ? null
+        : Math.max(0, Math.round(Number(body.slaDias)))
+
+    const slaReferencia =
+      String(body.slaReferencia ?? 'apos_anterior').trim() === 'inicio_processo'
+        ? 'inicio_processo'
+        : 'apos_anterior'
+
+    return {
+      etapaKey: etapaKey || undefined,
+      tarefa: tarefa || undefined,
+      subtarefa,
+      parentId,
+      ordem,
+      slaDias: slaDias != null && Number.isFinite(slaDias) ? slaDias : null,
+      slaReferencia,
+      responsavelPadrao,
+      ativo: body.ativo !== false,
+      observacoes:
+        body.observacoes != null && String(body.observacoes).trim()
+          ? String(body.observacoes).trim()
+          : null,
+    }
+  }
+
+  async function ensureDefaultCronogramaAtividades() {
+    const count = await prisma.placementCronogramaAtividade.count()
+    if (count > 0) return
+    await prisma.placementCronogramaAtividade.createMany({
+      data: DEFAULT_CRONOGRAMA_ATIVIDADES.map((row) => ({
+        ordem: row.ordem,
+        etapaKey: row.etapaKey,
+        tarefa: row.tarefa,
+        subtarefa: row.subtarefa,
+        slaDias: row.slaDias,
+        slaReferencia: row.slaReferencia,
+        ativo: true,
+      })),
+    })
+  }
+
+  fastify.get('/placement/cronograma-atividades', async (_request, reply) => {
+    try {
+      await ensureDefaultCronogramaAtividades()
+      const atividades = await prisma.placementCronogramaAtividade.findMany({
+        orderBy: [{ ordem: 'asc' }, { tarefa: 'asc' }],
+      })
+      return { atividades }
+    } catch (error) {
+      console.error('❌ GET /placement/cronograma-atividades:', error)
+      return reply.status(500).send({ error: 'Erro interno do servidor' })
+    }
+  })
+
+  fastify.post('/placement/cronograma-atividades', async (request, reply) => {
+    try {
+      const body = (request.body ?? {}) as Record<string, unknown>
+      const parsed = parseCronogramaBody(body, true)
+      if ('error' in parsed) return reply.status(400).send({ error: parsed.error })
+
+      const ordem =
+        parsed.ordem ??
+        (await prisma.placementCronogramaAtividade.count()) + 1
+
+      const created = await prisma.placementCronogramaAtividade.create({
+        data: {
+          ordem,
+          etapaKey: parsed.etapaKey!,
+          tarefa: parsed.tarefa!,
+          subtarefa: parsed.subtarefa,
+          parentId: parsed.parentId,
+          slaDias: parsed.slaDias,
+          slaReferencia: parsed.slaReferencia,
+          responsavelPadrao: parsed.responsavelPadrao,
+          ativo: parsed.ativo,
+          observacoes: parsed.observacoes,
+        },
+      })
+      return reply.status(201).send(created)
+    } catch (error) {
+      console.error('❌ POST /placement/cronograma-atividades:', error)
+      return reply.status(500).send({ error: 'Erro interno do servidor' })
+    }
+  })
+
+  fastify.post('/placement/cronograma-atividades/batch', async (request, reply) => {
+    try {
+      const body = (request.body ?? {}) as { replace?: boolean; items?: unknown[] }
+      const items = Array.isArray(body.items) ? body.items : []
+      if (!items.length) return reply.status(400).send({ error: 'Informe ao menos uma linha' })
+
+      if (body.replace) {
+        await prisma.placementCronogramaAtividade.deleteMany({})
+      }
+
+      let imported = 0
+      const errors: string[] = []
+      const taskKeyToId = new Map<string, string>()
+
+      for (let i = 0; i < items.length; i++) {
+        const row = items[i]
+        if (!row || typeof row !== 'object' || Array.isArray(row)) {
+          errors.push(`Linha ${i + 1}: formato inválido`)
+          continue
+        }
+        const parsed = parseCronogramaBody(row as Record<string, unknown>, true)
+        if ('error' in parsed) {
+          errors.push(`Linha ${i + 1}: ${parsed.error}`)
+          continue
+        }
+
+        const subtarefaNome = parsed.subtarefa
+        if (subtarefaNome) continue
+
+        try {
+          const ordem = parsed.ordem ?? i + 1
+          const created = await prisma.placementCronogramaAtividade.create({
+            data: {
+              ordem,
+              etapaKey: parsed.etapaKey!,
+              tarefa: parsed.tarefa!,
+              subtarefa: null,
+              parentId: parsed.parentId ?? null,
+              slaDias: parsed.slaDias,
+              slaReferencia: parsed.slaReferencia,
+              responsavelPadrao: parsed.responsavelPadrao,
+              ativo: parsed.ativo,
+              observacoes: parsed.observacoes,
+            },
+          })
+          taskKeyToId.set(`${parsed.etapaKey}::${parsed.tarefa}`, created.id)
+          imported++
+        } catch (err) {
+          errors.push(`Linha ${i + 1}: ${err instanceof Error ? err.message : 'erro ao salvar'}`)
+        }
+      }
+
+      for (let i = 0; i < items.length; i++) {
+        const row = items[i]
+        if (!row || typeof row !== 'object' || Array.isArray(row)) continue
+        const parsed = parseCronogramaBody(row as Record<string, unknown>, true)
+        if ('error' in parsed || !parsed.subtarefa) continue
+
+        const parentKey = `${parsed.etapaKey}::${parsed.tarefa}`
+        const parentId = parsed.parentId ?? taskKeyToId.get(parentKey)
+        if (!parentId) {
+          errors.push(`Linha ${i + 1}: tarefa pai não encontrada (${parsed.tarefa})`)
+          continue
+        }
+
+        try {
+          const ordem = parsed.ordem ?? i + 1
+          await prisma.placementCronogramaAtividade.create({
+            data: {
+              ordem,
+              etapaKey: parsed.etapaKey!,
+              tarefa: parsed.subtarefa,
+              subtarefa: null,
+              parentId,
+              slaDias: parsed.slaDias,
+              slaReferencia: parsed.slaReferencia ?? 'apos_anterior',
+              responsavelPadrao: parsed.responsavelPadrao,
+              ativo: parsed.ativo,
+              observacoes: parsed.observacoes,
+            },
+          })
+          imported++
+        } catch (err) {
+          errors.push(`Linha ${i + 1}: ${err instanceof Error ? err.message : 'erro ao salvar subtarefa'}`)
+        }
+      }
+
+      const atividades = await prisma.placementCronogramaAtividade.findMany({
+        orderBy: [{ ordem: 'asc' }, { tarefa: 'asc' }],
+      })
+      return { imported, errors, atividades }
+    } catch (error) {
+      console.error('❌ POST /placement/cronograma-atividades/batch:', error)
+      const msg = error instanceof Error ? error.message : 'Erro interno do servidor'
+      return reply.status(500).send({ error: msg })
+    }
+  })
+
+  fastify.put('/placement/cronograma-atividades/:id', async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string }
+      const body = (request.body ?? {}) as Record<string, unknown>
+      const existing = await prisma.placementCronogramaAtividade.findUnique({ where: { id } })
+      if (!existing) return reply.status(404).send({ error: 'Atividade não encontrada' })
+
+      const parsed = parseCronogramaBody(body, false)
+      if ('error' in parsed) return reply.status(400).send({ error: parsed.error })
+
+      const data: Record<string, unknown> = {}
+      if (parsed.tarefa !== undefined) {
+        if (!parsed.tarefa) return reply.status(400).send({ error: 'Tarefa é obrigatória' })
+        data.tarefa = parsed.tarefa
+      }
+      if (parsed.etapaKey !== undefined) {
+        if (!parsed.etapaKey) return reply.status(400).send({ error: 'Etapa é obrigatória' })
+        data.etapaKey = parsed.etapaKey
+      }
+      if (body.subtarefa !== undefined || body.subetapaKey !== undefined || body.subetapa !== undefined) {
+        data.subtarefa = parsed.subtarefa
+      }
+      if (body.parentId !== undefined || body.parent_id !== undefined) {
+        data.parentId = parsed.parentId
+      }
+      if (body.responsavelPadrao !== undefined || body.responsavel !== undefined) {
+        data.responsavelPadrao = parsed.responsavelPadrao
+      }
+      if (parsed.ordem !== undefined) data.ordem = parsed.ordem
+      if (body.slaDias !== undefined) data.slaDias = parsed.slaDias
+      if (body.slaReferencia !== undefined) data.slaReferencia = parsed.slaReferencia
+      if (body.ativo !== undefined) data.ativo = parsed.ativo
+      if (body.observacoes !== undefined) data.observacoes = parsed.observacoes
+
+      const updated = await prisma.placementCronogramaAtividade.update({ where: { id }, data })
+      return updated
+    } catch (error) {
+      console.error('❌ PUT /placement/cronograma-atividades/:id:', error)
+      return reply.status(500).send({ error: 'Erro interno do servidor' })
+    }
+  })
+
+  fastify.delete('/placement/cronograma-atividades/:id', async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string }
+      const existing = await prisma.placementCronogramaAtividade.findUnique({ where: { id } })
+      if (!existing) return reply.status(404).send({ error: 'Atividade não encontrada' })
+      await prisma.placementCronogramaAtividade.delete({ where: { id } })
+      return { success: true }
+    } catch (error) {
+      console.error('❌ DELETE /placement/cronograma-atividades/:id:', error)
+      return reply.status(500).send({ error: 'Erro interno do servidor' })
+    }
+  })
 
   // ---- Analistas (catálogo Placement — responsável pelo processo) ------------
 

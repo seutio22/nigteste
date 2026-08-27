@@ -108,6 +108,26 @@ export interface PlacementNomeCadastro {
   updatedAt?: string
 }
 
+/** Atividade padrão do cronograma (Dados → Placement → Cronograma). */
+export interface PlacementCronogramaAtividade {
+  id: string
+  ordem: number
+  etapaKey: string
+  tarefa: string
+  /** Legado — preferir subtarefas via parentId. */
+  subtarefa?: string | null
+  parentId?: string | null
+  /** Tarefa extra parametrizada (não faz parte do fluxo padrão). */
+  complementar?: boolean
+  slaDias: number | null
+  slaReferencia: 'inicio_processo' | 'apos_anterior'
+  responsavelPadrao?: string | null
+  ativo: boolean
+  observacoes?: string | null
+  createdAt?: string
+  updatedAt?: string
+}
+
 interface PlacementState {
   filiais: PlacementFilial[]
   corretoresParceiros: PlacementCorretorParceiro[]
@@ -119,6 +139,7 @@ interface PlacementState {
   projetos: PlacementNomeCadastro[]
   pedidos: PlacementNomeCadastro[]
   temperaturas: PlacementNomeCadastro[]
+  cronogramaAtividades: PlacementCronogramaAtividade[]
   analistas: PlacementAnalista[]
   planos: PlacementPlano[]
   diferenciais: PlacementDiferencial[]
@@ -135,12 +156,14 @@ interface PlacementState {
   isLoadingCondicoes: boolean
   isLoadingContratoCatalogos: boolean
   isLoadingProjetosPedidos: boolean
+  isLoadingCronogramaAtividades: boolean
   lastSync: number
   lastSyncCorretores: number
   lastSyncProspects: number
   lastSyncCondicoes: number
   lastSyncContratoCatalogos: number
   lastSyncProjetosPedidos: number
+  lastSyncCronogramaAtividades: number
   lastSyncAnalistas: number
   lastSyncPlanos: number
   lastSyncDiferenciais: number
@@ -204,6 +227,54 @@ interface PlacementState {
   addTemperatura: (input: { nome: string }) => Promise<PlacementNomeCadastro>
   updateTemperatura: (id: string, input: Partial<Pick<PlacementNomeCadastro, 'nome'>>) => Promise<PlacementNomeCadastro>
   removeTemperatura: (id: string) => Promise<void>
+
+  syncCronogramaAtividades: (force?: boolean) => Promise<void>
+  addCronogramaAtividade: (input: {
+    ordem?: number
+    etapaKey: string
+    tarefa: string
+    subtarefa?: string | null
+    parentId?: string | null
+    slaDias?: number | null
+    slaReferencia?: 'inicio_processo' | 'apos_anterior'
+    responsavelPadrao?: string | null
+    ativo?: boolean
+    observacoes?: string | null
+  }) => Promise<PlacementCronogramaAtividade>
+  updateCronogramaAtividade: (
+    id: string,
+    input: Partial<
+      Pick<
+        PlacementCronogramaAtividade,
+        | 'ordem'
+        | 'etapaKey'
+        | 'tarefa'
+        | 'subtarefa'
+        | 'parentId'
+        | 'slaDias'
+        | 'slaReferencia'
+        | 'responsavelPadrao'
+        | 'ativo'
+        | 'observacoes'
+      >
+    >
+  ) => Promise<PlacementCronogramaAtividade>
+  removeCronogramaAtividade: (id: string) => Promise<void>
+  importCronogramaBatch: (
+    items: Array<{
+      ordem?: number
+      etapaKey: string
+      tarefa: string
+      subtarefa?: string | null
+      parentId?: string | null
+      slaDias?: number | null
+      slaReferencia?: 'inicio_processo' | 'apos_anterior'
+      responsavelPadrao?: string | null
+      ativo?: boolean
+      observacoes?: string | null
+    }>,
+    replace?: boolean
+  ) => Promise<{ imported: number; errors: string[] }>
 
   syncAnalistas: (force?: boolean) => Promise<void>
   addAnalista: (input: {
@@ -315,6 +386,7 @@ export const usePlacementStore = create<PlacementState>()(
       projetos: [],
       pedidos: [],
       temperaturas: [],
+      cronogramaAtividades: [],
       analistas: [],
       planos: [],
       diferenciais: [],
@@ -331,12 +403,14 @@ export const usePlacementStore = create<PlacementState>()(
       isLoadingCondicoes: false,
       isLoadingContratoCatalogos: false,
       isLoadingProjetosPedidos: false,
+      isLoadingCronogramaAtividades: false,
       lastSync: 0,
       lastSyncCorretores: 0,
       lastSyncProspects: 0,
       lastSyncCondicoes: 0,
       lastSyncContratoCatalogos: 0,
       lastSyncProjetosPedidos: 0,
+      lastSyncCronogramaAtividades: 0,
       lastSyncAnalistas: 0,
       lastSyncPlanos: 0,
       lastSyncDiferenciais: 0,
@@ -685,6 +759,68 @@ export const usePlacementStore = create<PlacementState>()(
         set((s) => ({ temperaturas: s.temperaturas.filter((c) => c.id !== id) }))
       },
 
+      async syncCronogramaAtividades(force?: boolean) {
+        const state = get()
+        if (state.isLoadingCronogramaAtividades) return
+        const now = Date.now()
+        if (!force && state.cronogramaAtividades.length > 0 && now - state.lastSyncCronogramaAtividades < FIVE_MINUTES_MS) {
+          return
+        }
+        try {
+          set({ isLoadingCronogramaAtividades: true })
+          const resp = (await api.get('/placement/cronograma-atividades')) as
+            | { atividades?: PlacementCronogramaAtividade[] }
+            | PlacementCronogramaAtividade[]
+          const cronogramaAtividades = Array.isArray(resp) ? resp : resp?.atividades ?? []
+          set({
+            cronogramaAtividades,
+            isLoadingCronogramaAtividades: false,
+            lastSyncCronogramaAtividades: now,
+          })
+        } catch (err) {
+          console.error('❌ placementStore.syncCronogramaAtividades:', err)
+          set({ isLoadingCronogramaAtividades: false })
+        }
+      },
+
+      async addCronogramaAtividade(input) {
+        const created = (await api.post('/placement/cronograma-atividades', input)) as PlacementCronogramaAtividade
+        set((s) => ({
+          cronogramaAtividades: [...s.cronogramaAtividades, created].sort(
+            (a, b) => a.ordem - b.ordem || a.tarefa.localeCompare(b.tarefa, 'pt-BR')
+          ),
+        }))
+        return created
+      },
+
+      async updateCronogramaAtividade(id, input) {
+        const updated = (await api.put(`/placement/cronograma-atividades/${id}`, input)) as PlacementCronogramaAtividade
+        set((s) => ({
+          cronogramaAtividades: s.cronogramaAtividades
+            .map((c) => (c.id === id ? { ...c, ...updated } : c))
+            .sort((a, b) => a.ordem - b.ordem || a.tarefa.localeCompare(b.tarefa, 'pt-BR')),
+        }))
+        return updated
+      },
+
+      async removeCronogramaAtividade(id) {
+        await api.delete(`/placement/cronograma-atividades/${id}`)
+        set((s) => ({ cronogramaAtividades: s.cronogramaAtividades.filter((c) => c.id !== id) }))
+      },
+
+      async importCronogramaBatch(items, replace = false) {
+        const resp = (await api.post('/placement/cronograma-atividades/batch', {
+          items,
+          replace,
+        })) as { imported?: number; errors?: string[]; atividades?: PlacementCronogramaAtividade[] }
+        const cronogramaAtividades = resp.atividades ?? []
+        set({ cronogramaAtividades, lastSyncCronogramaAtividades: Date.now() })
+        return {
+          imported: resp.imported ?? 0,
+          errors: resp.errors ?? [],
+        }
+      },
+
       async syncAnalistas(force?: boolean) {
         const state = get()
         if (state.isLoadingAnalistas) return
@@ -1013,12 +1149,14 @@ export const usePlacementStore = create<PlacementState>()(
         projetos: state.projetos,
         pedidos: state.pedidos,
         temperaturas: state.temperaturas,
+        cronogramaAtividades: state.cronogramaAtividades,
         lastSync: state.lastSync,
         lastSyncCorretores: state.lastSyncCorretores,
         lastSyncProspects: state.lastSyncProspects,
         lastSyncCondicoes: state.lastSyncCondicoes,
         lastSyncContratoCatalogos: state.lastSyncContratoCatalogos,
         lastSyncProjetosPedidos: state.lastSyncProjetosPedidos,
+        lastSyncCronogramaAtividades: state.lastSyncCronogramaAtividades,
         analistas: state.analistas,
         lastSyncAnalistas: state.lastSyncAnalistas,
         planos: state.planos,

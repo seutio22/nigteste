@@ -11,6 +11,7 @@ import DiferenciaisTab from './Placement/DiferenciaisTab'
 import CondicoesContratuaisTab from './Placement/CondicoesContratuaisTab'
 import IndicadoresOperadorasTab from './Placement/IndicadoresOperadorasTab'
 import OperadoraLogosTab from './Placement/OperadoraLogosTab'
+import PlacementCronogramaTab from './Placement/PlacementCronogramaTab'
 import { DadosTableUploadBar } from '../components/DadosTableUploadBar'
 import { usePermissions } from '../hooks/usePermissions'
 import { useMasterDataStore } from '../store/masterDataStore'
@@ -35,6 +36,7 @@ type PlacementTabKey =
   | 'tipoContratacao'
   | 'modalidadeContrato'
   | 'prazoVigenciaContrato'
+  | 'cronograma'
   | 'logosOperadora'
 
 export default function DadosPlacementPage() {
@@ -43,7 +45,12 @@ export default function DadosPlacementPage() {
   const operadoras = useMasterDataStore((s) => s.operadoras)
 
   const uploadConfig = useMemo(() => {
-    if (activeTab === 'logosOperadora' || activeTab === 'condicoesContratuais' || activeTab === 'indicadoresOperadoras')
+    if (
+      activeTab === 'logosOperadora' ||
+      activeTab === 'condicoesContratuais' ||
+      activeTab === 'indicadoresOperadoras' ||
+      activeTab === 'cronograma'
+    )
       return null
     return getPlacementUploadConfig(
       activeTab as PlacementDadosTabKey,
@@ -88,6 +95,9 @@ export default function DadosPlacementPage() {
       case 'pedido':
       case 'temperatura':
         void s.syncProjetosPedidos(true)
+        break
+      case 'cronograma':
+        void s.syncCronogramaAtividades(true)
         break
       case 'tipoContratacao':
       case 'modalidadeContrato':
@@ -142,6 +152,7 @@ export default function DadosPlacementPage() {
         <Tab value="tipoContratacao" label="Tipo contratação" />
         <Tab value="modalidadeContrato" label="Modalidade contrato" />
         <Tab value="prazoVigenciaContrato" label="Duração contratual" />
+        <Tab value="cronograma" label="Cronograma" />
         <Tab value="logosOperadora" label="Logos operadoras" />
       </Tabs>
 
@@ -164,6 +175,7 @@ export default function DadosPlacementPage() {
         {activeTab === 'tipoContratacao' && <PlacementContratoCatalogoTab kind="tipoContratacao" />}
         {activeTab === 'modalidadeContrato' && <PlacementContratoCatalogoTab kind="modalidadeContrato" />}
         {activeTab === 'prazoVigenciaContrato' && <PlacementContratoCatalogoTab kind="prazoVigenciaContrato" />}
+        {activeTab === 'cronograma' && <PlacementCronogramaTab />}
         {activeTab === 'logosOperadora' && <OperadoraLogosTab />}
       </Box>
     </Paper>

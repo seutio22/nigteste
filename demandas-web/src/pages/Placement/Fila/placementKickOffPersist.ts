@@ -260,6 +260,7 @@ export function buildKickOffEstrategiaPatch(
     aguardandoOperadora: patch.aguardandoOperadora ?? base.aguardandoOperadora,
     consolidandoDados: patch.consolidandoDados ?? base.consolidandoDados,
     validacaoProposta: patch.validacaoProposta ?? base.validacaoProposta,
+    cronograma: patch.cronograma ?? base.cronograma,
   }
 }
 

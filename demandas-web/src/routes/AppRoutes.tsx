@@ -43,6 +43,9 @@ import PlacementComparativoDetailPage from '../pages/Placement/Fila/PlacementCom
 import PlacementPropostaDetailPage from '../pages/Placement/Fila/PlacementPropostaDetailPage'
 import PlacementSlidesDetailPage from '../pages/Placement/Fila/PlacementSlidesDetailPage'
 import PlacementEtapaDetailPage from '../pages/Placement/Fila/PlacementEtapaDetailPage'
+import PlacementCronogramaLayout from '../pages/Placement/Fila/PlacementCronogramaLayout'
+import PlacementCronogramaTimelinePage from '../pages/Placement/Fila/PlacementCronogramaTimelinePage'
+import PlacementCronogramaParticipantesPage from '../pages/Placement/Fila/PlacementCronogramaParticipantesPage'
 import AdminUsersPage from '../pages/Admin/Users'
 import KanbanPage from '../pages/Kanban'
 import ProjectListPage from '../pages/Projetos/ListSimple'
@@ -271,6 +274,14 @@ export function AppRoutes() {
                   <PlacementEtapaDetailPage />
                 </ProtectedRoute>
               } />
+              <Route path=":id/cronograma" element={
+                <ProtectedRoute module="placementFila">
+                  <PlacementCronogramaLayout />
+                </ProtectedRoute>
+              }>
+                <Route index element={<PlacementCronogramaTimelinePage />} />
+                <Route path="participantes" element={<PlacementCronogramaParticipantesPage />} />
+              </Route>
               <Route path=":id" element={
                 <ProtectedRoute module="placementFila">
                   <PlacementFilaDetailPage />

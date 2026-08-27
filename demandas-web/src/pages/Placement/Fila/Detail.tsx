@@ -23,6 +23,7 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import SlideshowIcon from '@mui/icons-material/Slideshow'
 import OpenInFullIcon from '@mui/icons-material/OpenInFull'
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
 import {
   PlacementNavForwardButton,
   placementNavBackSx,
@@ -63,7 +64,11 @@ import { isRascunhoStatus } from './placementCotacaoStatus'
 import type { PlacementCotacaoWorkflowStatus } from './placementCotacaoStatus'
 import { useAuthStore } from '../../../store/authStore'
 import { parseKickOffEstrategiaFromApi } from './placementKickOffEstrategia'
-import { preferRicherKickOffWhenApplyingApi, mergeSavedKickOffIntoApiCotacao, mergeApiCotacaoIntoForm } from './placementKickOffPersist'
+import { preferRicherKickOffWhenApplyingApi, mergeSavedKickOffIntoApiCotacao, mergeApiCotacaoIntoForm, buildKickOffEstrategiaPatch } from './placementKickOffPersist'
+import {
+  syncCronogramaOnProcessStart,
+  syncCronogramaOnStageAdvance,
+} from './placementCronogramaSync'
 import { getRetreatDiscardScope, type WorkflowRetreatMode } from './placementWorkflowRetreat'
 import { comunicarMercadoIsComplete } from './placementComunicarMercado'
 import { normalizeEmCotacaoSubetapa } from './placementEmCotacaoWorkflow'
@@ -82,6 +87,7 @@ export default function PlacementFilaDetailPage({ fullscreen = false }: { fullsc
   const { analistas: analistasCadastro, operadoras, operadorasById, syncFromApi: syncMasterData } =
     useMasterDataStore()
   const placementAnalistas = usePlacementStore((s) => s.analistas)
+  const syncCronogramaAtividades = usePlacementStore((s) => s.syncCronogramaAtividades)
   const { user } = useAuthStore()
   const cotacaoFromStore = usePlacementCotacaoStore((s) => s.getById(id ?? ''))
   const updateCotacao = usePlacementCotacaoStore((s) => s.updateCotacao)
@@ -154,6 +160,10 @@ export default function PlacementFilaDetailPage({ fullscreen = false }: { fullsc
 
   const abrirComparativoTelaCheia = useCallback(() => {
     if (id) navigate(`/placement/fila/${id}/comparativo`)
+  }, [id, navigate])
+
+  const abrirCronogramaTelaCheia = useCallback(() => {
+    if (id) navigate(`/placement/fila/${id}/cronograma`)
   }, [id, navigate])
 
   const abrirEtapaTelaCheia = useCallback(() => {
@@ -400,6 +410,17 @@ export default function PlacementFilaDetailPage({ fullscreen = false }: { fullsc
         userId: user?.id ?? null,
       })
       applyCotacaoFromApi(updated)
+      await syncCronogramaAtividades(true)
+      const atividades = usePlacementStore.getState().cronogramaAtividades
+      const parsedKickOff = parseKickOffEstrategiaFromApi(updated.kickOffEstrategia ?? form.kickOffEstrategia)
+      const cronograma = syncCronogramaOnProcessStart(
+        atividades,
+        parsedKickOff.cronograma,
+        form.dataInicio || null
+      )
+      const kickOff = buildKickOffEstrategiaPatch(form.kickOffEstrategia, { cronograma })
+      await updateCotacao(id, { kickOffEstrategia: kickOff } as any, { light: true })
+      setForm((prev) => (prev ? { ...prev, kickOffEstrategia: kickOff } : prev))
     } catch (err: any) {
       console.error('❌ iniciarProcesso:', err)
       setErrorMsg(err?.message ?? 'Erro ao iniciar o processo.')
@@ -508,6 +529,22 @@ export default function PlacementFilaDetailPage({ fullscreen = false }: { fullsc
           { light: true }
         )
       }
+
+      await syncCronogramaAtividades(true)
+      const atividades = usePlacementStore.getState().cronogramaAtividades
+      const parsedKickOff = parseKickOffEstrategiaFromApi(formToAdvance.kickOffEstrategia)
+      const cronograma = syncCronogramaOnStageAdvance(
+        atividades,
+        parsedKickOff.cronograma,
+        prevStatus as PlacementCotacaoWorkflowStatus,
+        nextStatus
+      )
+      const kickOffComCronograma = buildKickOffEstrategiaPatch(formToAdvance.kickOffEstrategia, { cronograma })
+      await updateCotacao(id, { kickOffEstrategia: kickOffComCronograma } as any, { light: true })
+      formToAdvance = { ...formToAdvance, kickOffEstrategia: kickOffComCronograma }
+      formRef.current = formToAdvance
+      setForm(formToAdvance)
+
       const updated = await patchWorkflowStatus(id, { status: nextStatus })
       const returnedStatus = String(updated.status ?? '').trim().toLowerCase()
       const expectedStatus = String(nextStatus).trim().toLowerCase()
@@ -651,6 +688,15 @@ export default function PlacementFilaDetailPage({ fullscreen = false }: { fullsc
         disabled={formSaving}
       >
         Comparativo
+      </Button>
+      <Button
+        variant="outlined"
+        size="small"
+        startIcon={<CalendarMonthIcon />}
+        onClick={abrirCronogramaTelaCheia}
+        disabled={formSaving}
+      >
+        Cronograma
       </Button>
     </Stack>
   )
