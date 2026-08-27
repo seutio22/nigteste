@@ -2797,6 +2797,8 @@ export default async function placementRoutes(
       const { id } = request.params as { id: string }
       const existing = await prisma.placementCronogramaAtividade.findUnique({ where: { id } })
       if (!existing) return reply.status(404).send({ error: 'Atividade não encontrada' })
+      // Self-relation Restrict: remove subtarefas antes da tarefa pai
+      await prisma.placementCronogramaAtividade.deleteMany({ where: { parentId: id } })
       await prisma.placementCronogramaAtividade.delete({ where: { id } })
       return { success: true }
     } catch (error) {
