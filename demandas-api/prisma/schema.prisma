@@ -1044,7 +1044,7 @@ model PlacementCronogramaAtividade {
   /// Legado — preferir subtarefas via parentId.
   subtarefa         String?
   parentId          String?
-  parent            PlacementCronogramaAtividade?  @relation("PlacementCronogramaSubtarefas", fields: [parentId], references: [id], onDelete: Cascade)
+  parent            PlacementCronogramaAtividade?  @relation("PlacementCronogramaSubtarefas", fields: [parentId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   filhos            PlacementCronogramaAtividade[] @relation("PlacementCronogramaSubtarefas")
   slaDias           Int?
   slaReferencia     String   @default("apos_anterior")
