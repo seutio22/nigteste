@@ -137,7 +137,7 @@ export default function KanbanPage() {
               overflow: 'hidden',
               bgcolor: 'background.default',
             }
-          : { height: '100vh', width: '100%' }),
+          : { height: '100%', width: '100%', minHeight: 0, overflow: 'hidden' }),
       }}
     >
       {/* Header */}
@@ -263,7 +263,7 @@ export default function KanbanPage() {
       </Menu>
 
       {/* Conteúdo */}
-      <Box sx={{ flex: 1, p: 1, pt: 0.75, minHeight: 0, overflow: 'auto' }}>
+      <Box sx={{ flex: 1, p: 1, pt: 0.75, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         <KanbanBoard />
       </Box>
 

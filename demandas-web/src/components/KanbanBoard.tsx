@@ -19,15 +19,15 @@ import {
   Chip,
   Tooltip,
   Alert,
-  Snackbar
+  Collapse,
+  Snackbar,
 } from '@mui/material'
-import { 
+import {
   Add as AddIcon, 
   MoreVert as MoreVertIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   Warning as WarningIcon,
-  PersonOutline as PersonOutlineIcon,
   Event as EventIcon,
   RocketLaunch as RocketLaunchIcon,
   AccessTime as AccessTimeIcon,
@@ -35,7 +35,8 @@ import {
   ErrorOutline as ErrorOutlineIcon,
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
-  DragIndicator as DragIndicatorIcon
+  DragIndicator as DragIndicatorIcon,
+  ExpandMore as ExpandMoreIcon,
 } from '@mui/icons-material'
 import {
   useKanbanStore,
@@ -57,7 +58,7 @@ export const KanbanBoard: React.FC = () => {
   const [showDeleteAlert, setShowDeleteAlert] = useState(false)
   const [ticketToDelete, setTicketToDelete] = useState<KanbanTicket | null>(null)
   const [highlightedTicket, setHighlightedTicket] = useState<string | null>(null)
-  const [viewDescriptionTicket, setViewDescriptionTicket] = useState<KanbanTicket | null>(null)
+  const [expandedTickets, setExpandedTickets] = useState<Set<string>>(new Set())
   const [newTicket, setNewTicket] = useState({
     title: '',
     description: '',
@@ -204,8 +205,13 @@ export const KanbanBoard: React.FC = () => {
     console.log('🔍 KanbanBoard: Dialog aberto, selectedColumn:', columnId)
   }
 
-  const handleViewDescription = (ticket: KanbanTicket) => {
-    setViewDescriptionTicket(ticket)
+  const handleToggleExpand = (ticketId: string) => {
+    setExpandedTickets((prev) => {
+      const next = new Set(prev)
+      if (next.has(ticketId)) next.delete(ticketId)
+      else next.add(ticketId)
+      return next
+    })
   }
 
   const handleEditTicket = (ticket: KanbanTicket) => {
@@ -337,19 +343,20 @@ export const KanbanBoard: React.FC = () => {
   }
 
   return (
-    <Box sx={{ p: 0 }}>
+    <Box sx={{ height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
       <Box
         sx={{
+          flex: 1,
+          minHeight: 0,
           display: 'flex',
           gap: 1.5,
-          mt: 0.25,
           overflowX: 'auto',
-          pb: 0.5,
+          overflowY: 'hidden',
           alignItems: 'stretch',
         }}
       >
         {columns.map((column) => (
-          <Box key={column.id} sx={{ flex: '1 1 0', minWidth: 250 }}>
+          <Box key={column.id} sx={{ flex: '1 1 0', minWidth: 250, minHeight: 0, display: 'flex' }}>
             <Paper
               onDragOver={(e) => {
                 e.preventDefault()
@@ -357,7 +364,6 @@ export const KanbanBoard: React.FC = () => {
                 if (dragOverColumn !== column.id) setDragOverColumn(column.id)
               }}
               onDragLeave={(e) => {
-                // Só limpa quando o cursor sai da coluna inteira (não ao passar sobre filhos)
                 if (!e.currentTarget.contains(e.relatedTarget as Node)) {
                   setDragOverColumn((prev) => (prev === column.id ? null : prev))
                 }
@@ -368,23 +374,25 @@ export const KanbanBoard: React.FC = () => {
                 const ticketId = e.dataTransfer.getData('text/plain')
                 if (ticketId) handleMoveTicket(ticketId, column.id)
               }}
-              sx={{ 
-              p: 1.5, 
-              minHeight: 'calc(100vh - 200px)', 
-              maxHeight: 'calc(100vh - 200px)', 
-              overflow: 'hidden',
-              ...(dragOverColumn === column.id && {
-                outline: `2px dashed ${column.color}`,
-                outlineOffset: '-2px',
-                backgroundColor: 'rgba(0,159,223,0.04)'
-              }),
-              '&:hover': {
-                boxShadow: 3,
-                transform: 'translateY(-1px)',
-                transition: 'all 0.3s ease'
-              }
-            }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
+              sx={{
+                flex: 1,
+                minHeight: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                p: 1.5,
+                overflow: 'hidden',
+                ...(dragOverColumn === column.id && {
+                  outline: `2px dashed ${column.color}`,
+                  outlineOffset: '-2px',
+                  backgroundColor: 'rgba(0,159,223,0.04)',
+                }),
+                '&:hover': {
+                  boxShadow: 3,
+                  transition: 'box-shadow 0.3s ease',
+                },
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, flexShrink: 0 }}>
                 <Typography variant="h6" sx={{ fontWeight: 'bold', color: column.color, fontSize: '1rem' }}>
                   {column.title}
                 </Typography>
@@ -402,8 +410,8 @@ export const KanbanBoard: React.FC = () => {
                 </Typography>
               </Box>
               
-              {/* Botão adicionar - Mais compacto */}
-              <Box sx={{ mb: 1.5, textAlign: 'center' }}>
+              {/* Botão adicionar */}
+              <Box sx={{ mb: 1, textAlign: 'center', flexShrink: 0 }}>
                 <Button
                   variant="contained"
                   startIcon={<AddIcon />}
@@ -426,10 +434,12 @@ export const KanbanBoard: React.FC = () => {
                 </Button>
               </Box>
               
-              {/* Lista de tickets - Área com scroll (drop tratado na coluna inteira) */}
-              <Box sx={{ overflowY: 'auto', minHeight: 'calc(100vh - 300px)', maxHeight: 'calc(100vh - 300px)' }}>
+              {/* Lista de tickets */}
+              <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', pr: 0.25 }}>
                 {column.tickets.length > 0 ? (
-                  column.tickets.map((ticket) => (
+                  column.tickets.map((ticket) => {
+                    const isExpanded = expandedTickets.has(ticket.id)
+                    return (
                     <Card 
                       key={ticket.id} 
                       ref={(el) => ticketRefs.current[ticket.id] = el}
@@ -440,7 +450,7 @@ export const KanbanBoard: React.FC = () => {
                       }}
                       onDragEnd={() => setDragOverColumn(null)}
                       sx={{ 
-                        mb: 1.25,
+                        mb: 1,
                         position: 'relative',
                         borderRadius: 2,
                         border: '1px solid',
@@ -507,27 +517,25 @@ export const KanbanBoard: React.FC = () => {
                           </Typography>
                         </Box>
                       )}
-                      <CardContent sx={{ p: 1.75, pl: 2.25 }}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.75, gap: 1 }}>
+                      <CardContent sx={{ p: 1.25, pl: 1.75, '&:last-child': { pb: 1.25 } }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5, gap: 0.5 }}>
                           <Typography
-                            variant="body1"
+                            variant="body2"
                             sx={{
                               fontWeight: 700,
                               color: 'text.primary',
-                              fontSize: '0.95rem',
+                              fontSize: '0.875rem',
                               flex: 1,
-                              lineHeight: 1.25,
+                              lineHeight: 1.3,
                               display: '-webkit-box',
                               WebkitLineClamp: 2,
                               WebkitBoxOrient: 'vertical',
                               overflow: 'hidden',
-                              textOverflow: 'ellipsis'
                             }}
                           >
                             {ticket.title}
                           </Typography>
                           
-                          {/* Menu de ações */}
                           <TicketActions 
                             ticket={ticket}
                             currentStatus={column.id}
@@ -537,54 +545,15 @@ export const KanbanBoard: React.FC = () => {
                             onDelete={() => handleDeleteTicket(ticket)}
                           />
                         </Box>
-                        
-                        {ticket.description && (
-                          <Box sx={{ mb: 1.5 }}>
-                            <Typography 
-                              variant="body2" 
-                              color="text.secondary" 
-                              sx={{ 
-                                mb: 1,
-                                lineHeight: 1.5, 
-                                fontSize: '0.85rem',
-                                display: '-webkit-box',
-                                WebkitLineClamp: 4,
-                                WebkitBoxOrient: 'vertical',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                minHeight: '4.5rem'
-                              }}
-                            >
-                              {ticket.description}
-                            </Typography>
-                            
-                            {/* Botão Ver - Carrega descrição completa */}
-                            <Button
-                              size="small"
-                              variant="text"
-                              color="primary"
-                              onClick={() => handleViewDescription(ticket)}
-                              sx={{ 
-                                p: 0.5, 
-                                minWidth: 'auto',
-                                fontSize: '0.75rem',
-                                textTransform: 'none',
-                                '&:hover': { backgroundColor: 'transparent' }
-                              }}
-                            >
-                              Ver mais...
-                            </Button>
-                          </Box>
-                        )}
 
-                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, gap: 0.75, flexWrap: 'wrap' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
                           <Chip 
                             label={ticket.priority === 'high' ? 'Alta' : 
                                    ticket.priority === 'medium' ? 'Média' : 'Baixa'}
                             size="small"
                             sx={{ 
-                              height: 22,
-                              fontSize: '0.7rem',
+                              height: 20,
+                              fontSize: '0.68rem',
                               fontWeight: 700,
                               borderRadius: 999,
                               color:
@@ -609,58 +578,102 @@ export const KanbanBoard: React.FC = () => {
                             }}
                           />
                           
-                          {/* Chips compactos de datas (início/vencimento) */}
                           {ticket.startDate && <StartDateChip startDate={ticket.startDate} />}
                           {ticket.dueDate && <DueDateChip dueDate={ticket.dueDate} />}
 
-                          {/* Botões de movimento rápido */}
                           <QuickMoveButtons
                             ticket={ticket}
                             currentStatus={column.id}
                             columns={columns}
                             onMove={handleMoveTicket}
                           />
+
+                          <Button
+                            size="small"
+                            variant="text"
+                            color="inherit"
+                            onClick={() => handleToggleExpand(ticket.id)}
+                            endIcon={
+                              <ExpandMoreIcon
+                                sx={{
+                                  fontSize: 18,
+                                  transform: isExpanded ? 'rotate(180deg)' : 'none',
+                                  transition: 'transform 0.2s',
+                                }}
+                              />
+                            }
+                            sx={{
+                              ml: 'auto',
+                              p: 0,
+                              minWidth: 'auto',
+                              fontSize: '0.7rem',
+                              textTransform: 'none',
+                              color: 'text.secondary',
+                            }}
+                          >
+                            {isExpanded ? 'Menos' : 'Mais'}
+                          </Button>
                         </Box>
 
-                        {/* Assignee + criado em (compacto, sem emojis) */}
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mt: 0.25 }}>
-                          {ticket.assignee && (
-                            <Chip
-                              size="small"
-                              variant="outlined"
-                              icon={<PersonOutlineIcon sx={{ fontSize: 16 }} />}
-                              label={getUserNameById(ticket.assignee)}
-                              sx={{
-                                height: 22,
-                                fontSize: '0.72rem',
-                                borderRadius: 999,
-                                '& .MuiChip-icon': { ml: 0.5, mr: 0.25 }
-                              }}
-                            />
-                          )}
-                          <Chip
-                            size="small"
-                            variant="outlined"
-                            icon={<EventIcon sx={{ fontSize: 16 }} />}
-                            label={`Criado em ${new Date(ticket.createdAt).toLocaleDateString('pt-BR')}`}
+                        <Collapse in={isExpanded}>
+                          <Box
                             sx={{
-                              height: 22,
-                              fontSize: '0.72rem',
-                              borderRadius: 999,
-                              '& .MuiChip-icon': { ml: 0.5, mr: 0.25 }
+                              mt: 1,
+                              pt: 1,
+                              borderTop: '1px solid',
+                              borderColor: 'divider',
                             }}
-                          />
-                        </Box>
+                          >
+                            {ticket.description ? (
+                              <Typography
+                                variant="body2"
+                                color="text.secondary"
+                                sx={{
+                                  fontSize: '0.8rem',
+                                  lineHeight: 1.45,
+                                  whiteSpace: 'pre-wrap',
+                                  wordBreak: 'break-word',
+                                  mb: 1,
+                                }}
+                              >
+                                {ticket.description}
+                              </Typography>
+                            ) : (
+                              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                                Sem descrição.
+                              </Typography>
+                            )}
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                              {ticket.assignee && (
+                                <Typography variant="caption" color="text.secondary">
+                                  <strong>Responsável:</strong> {getUserNameById(ticket.assignee)}
+                                </Typography>
+                              )}
+                              <Typography variant="caption" color="text.secondary">
+                                <strong>Criado em:</strong>{' '}
+                                {new Date(ticket.createdAt).toLocaleDateString('pt-BR', {
+                                  day: '2-digit',
+                                  month: '2-digit',
+                                  year: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </Typography>
+                            </Box>
+                          </Box>
+                        </Collapse>
                       </CardContent>
                     </Card>
-                  ))
+                    )
+                  })
                 ) : (
                   <Box sx={{ 
                     display: 'flex', 
                     flexDirection: 'column', 
                     alignItems: 'center', 
                     justifyContent: 'center', 
-                    height: 'calc(100vh - 400px)',
+                    flex: 1,
+                    minHeight: 120,
                     color: 'text.secondary',
                     textAlign: 'center',
                     p: 2
@@ -752,97 +765,6 @@ export const KanbanBoard: React.FC = () => {
             disabled={!newTicket.title.trim()}
           >
             {editingTicket ? 'Atualizar' : 'Criar'} Tarefa
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Dialog para visualizar descrição completa */}
-      <Dialog open={!!viewDescriptionTicket} onClose={() => setViewDescriptionTicket(null)} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-              {viewDescriptionTicket?.title}
-            </Typography>
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          <Box sx={{ mt: 1 }}>
-            {viewDescriptionTicket?.description ? (
-              <Typography 
-                variant="body1" 
-                color="text.primary" 
-                sx={{ 
-                  lineHeight: 1.6,
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word'
-                }}
-              >
-                {viewDescriptionTicket.description}
-              </Typography>
-            ) : (
-              <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                Esta tarefa não possui descrição.
-              </Typography>
-            )}
-            
-            {/* Informações adicionais */}
-            <Box sx={{ mt: 3, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1, color: 'text.primary' }}>
-                Detalhes da Tarefa:
-              </Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <Typography variant="body2" color="text.secondary">Status:</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-                    {columns.find((col) => col.id === viewDescriptionTicket?.status)?.title ||
-                      viewDescriptionTicket?.status ||
-                      '—'}
-                  </Typography>
-                </Box>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <Typography variant="body2" color="text.secondary">Prioridade:</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-                    {viewDescriptionTicket?.priority === 'high' ? 'Alta' :
-                     viewDescriptionTicket?.priority === 'medium' ? 'Média' : 'Baixa'}
-                  </Typography>
-                </Box>
-                {viewDescriptionTicket?.assignee && (
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography variant="body2" color="text.secondary">Responsável:</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-                      {getUserNameById(viewDescriptionTicket.assignee)}
-                    </Typography>
-                  </Box>
-                )}
-                {viewDescriptionTicket?.startDate && (
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography variant="body2" color="text.secondary">Início:</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-                      {new Date(viewDescriptionTicket.startDate).toLocaleDateString('pt-BR')}
-                    </Typography>
-                  </Box>
-                )}
-                {viewDescriptionTicket?.dueDate && (
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography variant="body2" color="text.secondary">Vencimento:</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-                      {new Date(viewDescriptionTicket.dueDate).toLocaleDateString('pt-BR')}
-                    </Typography>
-                  </Box>
-                )}
-                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <Typography variant="body2" color="text.secondary">Criada em:</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-                    {new Date(viewDescriptionTicket?.createdAt || '').toLocaleDateString('pt-BR')}
-                  </Typography>
-                </Box>
-              </Box>
-            </Box>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setViewDescriptionTicket(null)} color="primary">
-            Fechar
           </Button>
         </DialogActions>
       </Dialog>
