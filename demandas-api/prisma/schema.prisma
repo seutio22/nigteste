@@ -1657,3 +1657,58 @@ model ProdutividadeRegra {
   @@index([pageKey, ativo])
   @@map("produtividade_regras")
 }
+
+/**
+ * Matriz de SLA (Dados → SLA).
+ * Mesma estrutura de Produtividade (tipos + quantidades → tempo previsto),
+ * com impacto de prioridade: alta | media | baixa.
+ */
+model SlaRegra {
+  id                   String   @id @default(uuid())
+  pageKey              String
+  tipo1Id              String?
+  tipo2Id              String?
+  /// Impacto: alta | media | baixa
+  impacto              String
+
+  qtdSistemas          Int?
+  tempoSistemasSeconds Int?
+  tempoSistemasAdicionalSeconds Int?
+  tempoSistemasAdicionalPorTotalSeconds Int?
+  sistemasDetalhe      Json?
+
+  qtdUsuarios          Int?
+  tempoUsuariosSeconds Int?
+  tempoUsuariosAdicionalSeconds Int?
+
+  qtdClientes          Int?
+  tempoClientesSeconds Int?
+  tempoClientesAdicionalSeconds Int?
+
+  qtdRetornos          Int?
+  tempoRetornosSeconds Int?
+  tempoRetornosAdicionalSeconds Int?
+
+  qtdItens             Int?
+  tempoItensSeconds    Int?
+  tempoItensAdicionalSeconds Int?
+
+  qtdContratos         Int?
+  tempoContratosSeconds Int?
+  tempoContratosAdicionalSeconds Int?
+
+  qtdSubs              Int?
+  tempoSubsSeconds     Int?
+  tempoSubsAdicionalSeconds Int?
+
+  tempoPrevistoSeconds Int?
+  pesoPontos           Float?
+  ativo                Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([pageKey])
+  @@index([pageKey, ativo])
+  @@index([pageKey, impacto])
+  @@map("sla_regras")
+}

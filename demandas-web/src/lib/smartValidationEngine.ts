@@ -562,6 +562,10 @@ export class SmartValidationEngine {
     if (entityType.includes('cliente')) return this.masterData.clientes || []
     if (entityType.includes('contrato')) return this.masterData.contratos || []
     if (entityType.includes('operadora')) return this.masterData.operadoras || []
+    // SLA antes de produtividade (sla não conflita, mas ordem explícita)
+    if (entityType.includes('sla')) {
+      return (this.masterData as { slaRegras?: unknown[] }).slaRegras || []
+    }
     // Produtividade antes de "produto" (produtividade contém "produto")
     if (entityType.includes('produtividade')) {
       return (this.masterData as { produtividadeRegras?: unknown[] }).produtividadeRegras || []

@@ -48,6 +48,7 @@ const MODULE_LABELS: Record<keyof SystemPermissions, string> = {
   dados: 'Dados (acesso geral — legado)',
   dadosNig: 'NIG — dados mestres',
   dadosProdutividade: 'Produtividade — regras e tempos',
+  dadosSla: 'SLA — regras por impacto',
   dadosPlacement: 'Placement — cadastros',
   usuarios: 'Usuários',
   configuracoes: 'Configurações',
@@ -78,7 +79,7 @@ const PERMISSION_SECTIONS: { title?: string; modules: (keyof SystemPermissions)[
   },
   {
     title: 'Dados — subpáginas (/dados)',
-    modules: ['dadosNig', 'dadosProdutividade', 'dadosPlacement'],
+    modules: ['dadosNig', 'dadosProdutividade', 'dadosSla', 'dadosPlacement'],
   },
   {
     title: 'Placement — operacional',

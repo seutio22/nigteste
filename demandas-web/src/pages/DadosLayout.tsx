@@ -12,11 +12,13 @@ import {
 const TAB_CONFIG: { id: DadosSubpage; label: string }[] = [
   { id: 'nig', label: 'NIG' },
   { id: 'produtividade', label: 'Produtividade' },
+  { id: 'sla', label: 'SLA' },
   { id: 'placement', label: 'Placement' },
 ]
 
 function getActiveSubpage(pathname: string): DadosSubpage {
   if (pathname.startsWith('/dados/produtividade')) return 'produtividade'
+  if (pathname.startsWith('/dados/sla')) return 'sla'
   if (pathname.startsWith('/dados/placement')) return 'placement'
   return 'nig'
 }
@@ -36,7 +38,7 @@ export default function DadosLayoutPage() {
   )
 
   const active = getActiveSubpage(pathname)
-  const fillViewport = active === 'produtividade'
+  const fillViewport = active === 'produtividade' || active === 'sla'
   const activeAllowed = canViewDadosSubpage(permissions, active)
 
   useEffect(() => {

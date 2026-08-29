@@ -28,6 +28,7 @@ export interface SystemPermissions {
   dados: ModulePermission;
   dadosNig: ModulePermission;
   dadosProdutividade: ModulePermission;
+  dadosSla: ModulePermission;
   dadosPlacement: ModulePermission;
   usuarios: ModulePermission;
   configuracoes: ModulePermission;
@@ -56,6 +57,7 @@ export const DEFAULT_PERMISSIONS: Record<string, SystemPermissions> = {
     dados: { view: true, create: true, edit: true, delete: true },
     dadosNig: { view: true, create: true, edit: true, delete: true },
     dadosProdutividade: { view: true, create: true, edit: true, delete: true },
+    dadosSla: { view: true, create: true, edit: true, delete: true },
     dadosPlacement: { view: true, create: true, edit: true, delete: true },
     usuarios: { view: true, create: true, edit: true, delete: true },
     configuracoes: { view: true, create: true, edit: true, delete: true },
@@ -79,6 +81,7 @@ export const DEFAULT_PERMISSIONS: Record<string, SystemPermissions> = {
     dados: { view: true, create: false, edit: false, delete: false },
     dadosNig: { view: true, create: false, edit: false, delete: false },
     dadosProdutividade: { view: true, create: false, edit: false, delete: false },
+    dadosSla: { view: true, create: false, edit: false, delete: false },
     dadosPlacement: { view: true, create: false, edit: false, delete: false },
     usuarios: { view: true, create: false, edit: false, delete: false },
     configuracoes: { view: true, create: false, edit: false, delete: false },
@@ -102,6 +105,7 @@ export const DEFAULT_PERMISSIONS: Record<string, SystemPermissions> = {
     dados: { view: false, create: false, edit: false, delete: false },
     dadosNig: { view: false, create: false, edit: false, delete: false },
     dadosProdutividade: { view: false, create: false, edit: false, delete: false },
+    dadosSla: { view: false, create: false, edit: false, delete: false },
     dadosPlacement: { view: false, create: false, edit: false, delete: false },
     usuarios: { view: false, create: false, edit: false, delete: false },
     configuracoes: { view: false, create: false, edit: false, delete: false },
@@ -125,6 +129,7 @@ export const DEFAULT_PERMISSIONS: Record<string, SystemPermissions> = {
     dados: { view: false, create: false, edit: false, delete: false },
     dadosNig: { view: false, create: false, edit: false, delete: false },
     dadosProdutividade: { view: false, create: false, edit: false, delete: false },
+    dadosSla: { view: false, create: false, edit: false, delete: false },
     dadosPlacement: { view: false, create: false, edit: false, delete: false },
     usuarios: { view: false, create: false, edit: false, delete: false },
     configuracoes: { view: false, create: false, edit: false, delete: false },
@@ -148,6 +153,7 @@ export const DEFAULT_PERMISSIONS: Record<string, SystemPermissions> = {
     dados: { view: false, create: false, edit: false, delete: false },
     dadosNig: { view: false, create: false, edit: false, delete: false },
     dadosProdutividade: { view: false, create: false, edit: false, delete: false },
+    dadosSla: { view: false, create: false, edit: false, delete: false },
     dadosPlacement: { view: false, create: false, edit: false, delete: false },
     usuarios: { view: false, create: false, edit: false, delete: false },
     configuracoes: { view: false, create: false, edit: false, delete: false },

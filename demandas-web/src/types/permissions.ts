@@ -27,6 +27,7 @@ export interface SystemPermissions {
   dados: ModulePermission;
   dadosNig: ModulePermission;
   dadosProdutividade: ModulePermission;
+  dadosSla: ModulePermission;
   dadosPlacement: ModulePermission;
   usuarios: ModulePermission;
   configuracoes: ModulePermission;

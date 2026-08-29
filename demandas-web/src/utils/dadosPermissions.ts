@@ -1,17 +1,18 @@
 import type { SystemPermissions } from '../types/permissions'
 import { checkPermission } from './defaultPermissions'
 
-export type DadosSubpage = 'nig' | 'produtividade' | 'placement'
+export type DadosSubpage = 'nig' | 'produtividade' | 'sla' | 'placement'
 
 export const DADOS_SUBPAGE_MODULE: Record<DadosSubpage, keyof SystemPermissions> = {
   nig: 'dadosNig',
   produtividade: 'dadosProdutividade',
+  sla: 'dadosSla',
   placement: 'dadosPlacement',
 }
 
 export const DADOS_SUBMODULE_KEYS = Object.values(DADOS_SUBPAGE_MODULE)
 
-export const DADOS_SUBPAGES: DadosSubpage[] = ['nig', 'produtividade', 'placement']
+export const DADOS_SUBPAGES: DadosSubpage[] = ['nig', 'produtividade', 'sla', 'placement']
 
 export function getDadosSubmodule(subpage: DadosSubpage): keyof SystemPermissions {
   return DADOS_SUBPAGE_MODULE[subpage]

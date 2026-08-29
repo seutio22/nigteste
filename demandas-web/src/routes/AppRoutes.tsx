@@ -34,6 +34,7 @@ import DadosLayoutPage from '../pages/DadosLayout'
 import DadosIndexRedirect from '../pages/DadosIndexRedirect'
 import DadosNigPage from '../pages/DadosNig'
 import DadosProdutividadePage from '../pages/DadosProdutividade'
+import DadosSlaPage from '../pages/DadosSla'
 import DadosPlacementPage from '../pages/DadosPlacement'
 import { DadosSubpageGuard } from '../components/DadosSubpageGuard'
 import PlacementFilaListPage from '../pages/Placement/Fila/List'
@@ -305,6 +306,11 @@ export function AppRoutes() {
             <Route path="produtividade" element={
               <DadosSubpageGuard subpage="produtividade">
                 <DadosProdutividadePage />
+              </DadosSubpageGuard>
+            } />
+            <Route path="sla" element={
+              <DadosSubpageGuard subpage="sla">
+                <DadosSlaPage />
               </DadosSubpageGuard>
             } />
             <Route path="placement" element={

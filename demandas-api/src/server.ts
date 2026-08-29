@@ -3621,7 +3621,63 @@ const resources = {
   projectShareTokens: crud('projectShareToken'),
   padroes: crud('padrao'),
   'produtividade-regras': crud('produtividadeRegra'),
+  'sla-regras': crud('slaRegra'),
 }
+
+/** Esqueleto SLA: só página + tipos (tempos ficam vazios para preenchimento manual). */
+app.post('/sla-regras/sync-from-produtividade', async (req: any, reply: any) => {
+  try {
+    const prodRules = await prisma.produtividadeRegra.findMany({
+      select: { pageKey: true, tipo1Id: true, tipo2Id: true },
+    })
+    let created = 0
+    let skipped = 0
+    const seen = new Set<string>()
+
+    for (const p of prodRules) {
+      const comboKey = `${p.pageKey}\0${p.tipo1Id ?? ''}\0${p.tipo2Id ?? ''}`
+      if (seen.has(comboKey)) {
+        skipped++
+        continue
+      }
+      seen.add(comboKey)
+
+      const exists = await prisma.slaRegra.findFirst({
+        where: {
+          pageKey: p.pageKey,
+          tipo1Id: p.tipo1Id ?? null,
+          tipo2Id: p.tipo2Id ?? null,
+        },
+      })
+      if (exists) {
+        skipped++
+        continue
+      }
+
+      await prisma.slaRegra.create({
+        data: {
+          pageKey: p.pageKey,
+          tipo1Id: p.tipo1Id ?? null,
+          tipo2Id: p.tipo2Id ?? null,
+          impacto: 'media',
+          ativo: true,
+        },
+      })
+      created++
+    }
+
+    return reply.send({
+      created,
+      skipped,
+      totalProdutividade: prodRules.length,
+    })
+  } catch (error: any) {
+    console.error('❌ POST /sla-regras/sync-from-produtividade:', error)
+    return reply.status(500).send({
+      message: error?.message ?? 'Erro ao replicar páginas e tipos da Produtividade',
+    })
+  }
+})
 
 // Rotas de alertas de projetos - registrar ANTES do CRUD para evitar conflito
 app.get('/projetos/:projectId/alerts', async (req: any, reply: any) => {
