@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Alert,
   Autocomplete,
@@ -27,30 +27,23 @@ import * as XLSX from 'xlsx'
 import { getApi } from '../lib/apiConfig'
 import { useMasterDataStore } from '../store/masterDataStore'
 import {
-  formatPresetLabel,
+  diasUteisToHorasCorridas,
+  diasUteisToSeconds,
+  formatDiasUteis,
   formatSecondsToHms,
-  parseHmsToSeconds,
-  percentOfJornada,
-  TEMPO_PREVISTO_PRESETS_MIN,
+  horasUteisToSeconds,
+  secondsToDiasUteis,
+  secondsToHorasUteis,
 } from './produtividadeJornada'
 import { usePermissions } from '../hooks/usePermissions'
 import {
-  computeQuantityLineSeconds,
   getPageConfig,
   SLA_PAGES,
   type CatalogKey,
   type PageSlaConfig,
-  type QuantityFieldConfig,
   type QuantityKey,
-  type TempoAdicionalKey,
-  type TempoBaseKey,
   type TipoFieldConfig,
 } from './slaPageConfig'
-import {
-  computeSistemasTempoSeconds,
-  parseSistemasDetalhe,
-  type SistemaTempoLinha,
-} from './produtividadeSistemasDetalhe'
 import { SlaImpactLegend } from '../components/SlaImpactLegend'
 import { SmartImporter } from '../components/SmartImporter'
 import { smartImporterConfigs } from '../config/smartImporterConfigs'
@@ -68,6 +61,27 @@ import {
   SLA_IMPACTO_LEGEND,
   type SlaImpacto,
 } from './slaImpact'
+import {
+  applyFaixaFromDias,
+  applyFaixaFromHoras,
+  draftsToFaixas,
+  faixaPrazoSeconds,
+  faixasToDrafts,
+  formatFaixaRangeLabel,
+  formatFaixasSummary,
+  formatSlaNumberPtBr,
+  isSlaFaixaModo,
+  maxQtdFaixas,
+  newSlaFaixaDraft,
+  parseFaixasPrazo,
+  parsePtBrNumber,
+  previewSlaPrazoForQuantity,
+  SLA_FAIXA_MODO_OPTIONS,
+  SLA_PRAZO_DIAS_PRESETS,
+  type SlaFaixaDraft,
+  type SlaFaixaModo,
+  type SlaFaixaPrazo,
+} from './slaFaixas'
 
 type SlaRule = {
   id: string
@@ -75,96 +89,15 @@ type SlaRule = {
   impacto: SlaImpacto
   tipo1Id?: string | null
   tipo2Id?: string | null
-  qtdSistemas?: number | null
-  tempoSistemasSeconds?: number | null
-  tempoSistemasAdicionalSeconds?: number | null
-  tempoSistemasAdicionalPorTotalSeconds?: number | null
-  sistemasDetalhe?: SistemaTempoLinha[] | unknown | null
-  qtdUsuarios?: number | null
-  tempoUsuariosSeconds?: number | null
-  tempoUsuariosAdicionalSeconds?: number | null
-  qtdClientes?: number | null
-  tempoClientesSeconds?: number | null
-  tempoClientesAdicionalSeconds?: number | null
-  qtdRetornos?: number | null
-  tempoRetornosSeconds?: number | null
-  tempoRetornosAdicionalSeconds?: number | null
-  qtdItens?: number | null
-  tempoItensSeconds?: number | null
-  tempoItensAdicionalSeconds?: number | null
-  qtdContratos?: number | null
-  tempoContratosSeconds?: number | null
-  tempoContratosAdicionalSeconds?: number | null
-  qtdSubs?: number | null
-  tempoSubsSeconds?: number | null
-  tempoSubsAdicionalSeconds?: number | null
+  faixasPrazo?: SlaFaixaPrazo[] | unknown | null
+  faixaModo?: SlaFaixaModo | string | null
+  faixaAdicionalSeconds?: number | null
   tempoPrevistoSeconds?: number | null
   pesoPontos?: number | null
   ativo: boolean
 }
 
-type SistemaLinhaDraft = {
-  key: string
-  /** '' = padrão (qualquer sistema) */
-  sistemaId: string
-  tempoHms: string
-  porTotalHms: string
-}
-
 const endpoint = '/sla-regras'
-
-let sistemaLinhaSeq = 0
-function newSistemaLinhaDraft(partial?: Partial<SistemaLinhaDraft>): SistemaLinhaDraft {
-  sistemaLinhaSeq += 1
-  return {
-    key: `sis-${sistemaLinhaSeq}`,
-    sistemaId: '',
-    tempoHms: '',
-    porTotalHms: '',
-    ...partial,
-  }
-}
-
-const ALL_QTY_KEYS: QuantityKey[] = [
-  'qtdSistemas',
-  'qtdUsuarios',
-  'qtdClientes',
-  'qtdRetornos',
-  'qtdItens',
-  'qtdContratos',
-  'qtdSubs',
-]
-
-const ALL_TEMPO_KEYS: (TempoBaseKey | TempoAdicionalKey)[] = [
-  'tempoSistemasSeconds',
-  'tempoSistemasAdicionalSeconds',
-  'tempoUsuariosSeconds',
-  'tempoUsuariosAdicionalSeconds',
-  'tempoClientesSeconds',
-  'tempoClientesAdicionalSeconds',
-  'tempoRetornosSeconds',
-  'tempoRetornosAdicionalSeconds',
-  'tempoItensSeconds',
-  'tempoItensAdicionalSeconds',
-  'tempoContratosSeconds',
-  'tempoContratosAdicionalSeconds',
-  'tempoSubsSeconds',
-  'tempoSubsAdicionalSeconds',
-]
-
-function parsePtBrNumber(raw: string | undefined): number | null {
-  if (raw == null) return null
-  const s = raw.trim().replace(/\s/g, '')
-  if (!s) return null
-  const normalized = s.includes(',') ? s.replace(/\./g, '').replace(',', '.') : s.replace(/\./g, '')
-  const n = Number(normalized)
-  return Number.isFinite(n) ? n : null
-}
-
-function formatIntPtBr(value: number | null | undefined): string {
-  if (value == null || Number.isNaN(Number(value))) return ''
-  return new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 }).format(Number(value))
-}
 
 function formatDec2PtBr(value: number | null | undefined): string {
   if (value == null || Number.isNaN(Number(value))) return ''
@@ -196,77 +129,19 @@ function resolveTipoLabel(
   return catalogItems(store, cfg.catalog).find((c) => c.id === value)?.nome ?? value
 }
 
-function emptyQtyDraft(keys: QuantityKey[]): Record<string, string> {
-  const d: Record<string, string> = {}
-  for (const k of keys) d[k] = ''
-  return d
+function metricLabel(pageKey: string, metric: QuantityKey | null): string {
+  if (!metric) return 'Prazo único'
+  const cfg = getPageConfig(pageKey)
+  return cfg.quantities.find((q) => q.key === metric)?.label ?? metric
 }
 
-function emptyTempoDraft(cfg: PageSlaConfig): Record<string, string> {
-  const d: Record<string, string> = { tempoFixo: '' }
-  for (const q of cfg.quantities) {
-    d[q.tempoBaseKey] = ''
-    d[q.tempoAdicionalKey] = ''
+function resolveRuleFaixas(rule: Partial<SlaRule>): SlaFaixaPrazo[] {
+  const fromJson = parseFaixasPrazo(rule.faixasPrazo)
+  if (fromJson.length) return fromJson
+  if (rule.tempoPrevistoSeconds != null && rule.tempoPrevistoSeconds > 0) {
+    return [{ metric: null, min: null, max: null, prazoSeconds: rule.tempoPrevistoSeconds }]
   }
-  return d
-}
-
-function TempoInput({
-  label,
-  value,
-  onChange,
-  helperText,
-}: {
-  label: string
-  value: string
-  onChange: (next: string) => void
-  helperText?: string
-}) {
-  return (
-    <Autocomplete
-      freeSolo
-      fullWidth
-      options={[...TEMPO_PREVISTO_PRESETS_MIN]}
-      getOptionLabel={(opt) => (typeof opt === 'number' ? formatPresetLabel(opt) : String(opt))}
-      filterOptions={(options, state) => {
-        const q = state.inputValue.trim().toLowerCase()
-        if (!q) return options
-        const digits = q.replace(/\D/g, '')
-        return options.filter((min) => String(min).includes(digits || q))
-      }}
-      inputValue={value}
-      onInputChange={(_, v, reason) => {
-        if (reason === 'reset') return
-        onChange(v)
-      }}
-      onChange={(_, v) => {
-        if (v == null) {
-          onChange('')
-          return
-        }
-        if (typeof v === 'number') {
-          onChange(formatSecondsToHms(v * 60))
-          return
-        }
-        const sec = parseHmsToSeconds(v)
-        onChange(sec != null ? formatSecondsToHms(sec) : v)
-      }}
-      renderInput={(params) => (
-        <TextField
-          {...params}
-          label={label}
-          placeholder="5  ou  00:05:00"
-          size="small"
-          onBlur={(e) => {
-            params.inputProps.onBlur?.(e as any)
-            const sec = parseHmsToSeconds(value)
-            if (sec != null) onChange(formatSecondsToHms(sec))
-          }}
-          helperText={helperText}
-        />
-      )}
-    />
-  )
+  return []
 }
 
 export default function DadosSlaPage() {
@@ -293,64 +168,61 @@ export default function DadosSlaPage() {
     impacto: 'media',
     ativo: true,
   })
-  const [qtyDraft, setQtyDraft] = useState<Record<string, string>>(emptyQtyDraft(ALL_QTY_KEYS))
-  const [tempoDraft, setTempoDraft] = useState<Record<string, string>>({})
+  const [faixasDraft, setFaixasDraft] = useState<SlaFaixaDraft[]>([newSlaFaixaDraft()])
+  const [faixaModo, setFaixaModo] = useState<SlaFaixaModo>('correspondente')
+  const [adicDiasDraft, setAdicDiasDraft] = useState('')
+  const [adicHorasDraft, setAdicHorasDraft] = useState('')
+  const [previewQtdDraft, setPreviewQtdDraft] = useState('15')
   const [pesoDraft, setPesoDraft] = useState('')
-  const [sistemasLinhas, setSistemasLinhas] = useState<SistemaLinhaDraft[]>([])
-  const [adicPorTotalDemaisHms, setAdicPorTotalDemaisHms] = useState('')
 
   const pageCfg = useMemo(() => getPageConfig(form.pageKey ?? 'demandas'), [form.pageKey])
-  const pageSupportsTotalSistema = form.pageKey === 'manutencoes'
 
-  const sistemasDetalhePreview = useMemo((): SistemaTempoLinha[] => {
-    return sistemasLinhas
-      .map((l) => {
-        const tempo = parseHmsToSeconds(l.tempoHms)
-        if (tempo == null || tempo <= 0) return null
-        const porTotal = parseHmsToSeconds(l.porTotalHms)
-        return {
-          sistemaId: l.sistemaId || null,
-          tempoSeconds: tempo,
-          tempoAdicionalPorTotalSeconds: porTotal != null && porTotal > 0 ? porTotal : null,
-        } satisfies SistemaTempoLinha
-      })
-      .filter(Boolean) as SistemaTempoLinha[]
-  }, [sistemasLinhas])
+  const faixasPreview = useMemo(() => draftsToFaixas(faixasDraft), [faixasDraft])
 
-  const totalPreviewSeconds = useMemo(() => {
-    if (pageCfg.allowTempoFixo && pageCfg.quantities.length === 0) {
-      return parseHmsToSeconds(tempoDraft.tempoFixo) ?? 0
+  const adicionalSeconds = useMemo(() => {
+    const fromHoras = horasUteisToSeconds(parsePtBrNumber(adicHorasDraft))
+    if (fromHoras != null && fromHoras > 0) return fromHoras
+    const fromDias = diasUteisToSeconds(parsePtBrNumber(adicDiasDraft))
+    if (fromDias != null && fromDias > 0) return fromDias
+    return null
+  }, [adicDiasDraft, adicHorasDraft])
+
+  const previewMetric = useMemo(() => {
+    const withMetric = faixasPreview.find((f) => f.metric)
+    return withMetric?.metric ?? (pageCfg.quantities[0]?.key as QuantityKey | undefined) ?? null
+  }, [faixasPreview, pageCfg.quantities])
+
+  const previewResult = useMemo(() => {
+    const qtd = parsePtBrNumber(previewQtdDraft)
+    if (qtd == null || qtd <= 0 || !faixasPreview.length) return null
+    return previewSlaPrazoForQuantity(
+      faixasPreview,
+      previewMetric,
+      Math.round(qtd),
+      faixaModo,
+      adicionalSeconds
+    )
+  }, [faixasPreview, previewMetric, previewQtdDraft, faixaModo, adicionalSeconds])
+
+  const applyAdicionalFromDias = (raw: string) => {
+    setAdicDiasDraft(raw)
+    const dias = parsePtBrNumber(raw)
+    if (dias == null) {
+      if (!raw.trim()) setAdicHorasDraft('')
+      return
     }
-    let sum = 0
-    for (const q of pageCfg.quantities) {
-      if (q.key === 'qtdSistemas') {
-        const qtd = parsePtBrNumber(qtyDraft.qtdSistemas)
-        const ids =
-          sistemasDetalhePreview.filter((d) => d.sistemaId).map((d) => d.sistemaId!) ||
-          []
-        // Preview: se há linhas específicas, simula esses sistemas; senão usa qtd informada
-        const sistemaIds =
-          ids.length > 0
-            ? ids
-            : Array.from({ length: Math.max(1, qtd ?? (sistemasDetalhePreview.length ? 1 : 0)) }, (_, i) =>
-                `preview-${i}`
-              )
-        sum += computeSistemasTempoSeconds({
-          sistemaIds: sistemasDetalhePreview.length ? sistemaIds : qtd != null ? sistemaIds : [],
-          detalhe: sistemasDetalhePreview,
-          tempoBaseSeconds: parseHmsToSeconds(tempoDraft.tempoSistemasSeconds),
-          tempoAdicionalSeconds: parseHmsToSeconds(tempoDraft.tempoSistemasAdicionalSeconds),
-          tempoAdicionalPorTotalDemaisSeconds: parseHmsToSeconds(adicPorTotalDemaisHms),
-        })
-        continue
-      }
-      const qtd = parsePtBrNumber(qtyDraft[q.key])
-      const base = parseHmsToSeconds(tempoDraft[q.tempoBaseKey])
-      const adic = parseHmsToSeconds(tempoDraft[q.tempoAdicionalKey])
-      sum += computeQuantityLineSeconds(qtd, base, adic)
+    setAdicHorasDraft(formatSlaNumberPtBr(secondsToHorasUteis(diasUteisToSeconds(dias))))
+  }
+
+  const applyAdicionalFromHoras = (raw: string) => {
+    setAdicHorasDraft(raw)
+    const horas = parsePtBrNumber(raw)
+    if (horas == null) {
+      if (!raw.trim()) setAdicDiasDraft('')
+      return
     }
-    return sum
-  }, [pageCfg, qtyDraft, tempoDraft, sistemasDetalhePreview, adicPorTotalDemaisHms])
+    setAdicDiasDraft(formatSlaNumberPtBr(secondsToDiasUteis(horasUteisToSeconds(horas))))
+  }
 
   useEffect(() => {
     void store.syncFromApi?.({
@@ -407,46 +279,48 @@ export default function DadosSlaPage() {
         ),
       },
       {
-        field: 'quantidades',
-        headerName: 'Quantidades + tempos',
+        field: 'faixasPrazo',
+        headerName: 'Faixas de prazo',
         flex: 1,
         minWidth: 280,
         sortable: false,
         valueGetter: (_, row) => {
-          const cfg = getPageConfig(row.pageKey)
-          const parts = cfg.quantities
-            .map((q) => {
-              if (q.key === 'qtdSistemas') {
-                const detalhe = parseSistemasDetalhe((row as any).sistemasDetalhe)
-                if (detalhe.length) {
-                  return `Sistemas: ${detalhe.length} linha(s) detalhadas`
-                }
-              }
-              const qtd = (row as any)[q.key] as number | null | undefined
-              const base = (row as any)[q.tempoBaseKey] as number | null | undefined
-              const adic = (row as any)[q.tempoAdicionalKey] as number | null | undefined
-              if (qtd == null && !base && !adic) return null
-              const line = computeQuantityLineSeconds(qtd, base, adic)
-              const qtdLabel = qtd != null ? `qtd ${formatIntPtBr(qtd)}` : 'qtd 1'
-              return `${q.label}: ${qtdLabel} → ${formatSecondsToHms(line) || '00:00:00'}`
-            })
-            .filter(Boolean)
-          return parts.length ? parts.join(' · ') : '—'
+          const r = row as SlaRule
+          return formatFaixasSummary(
+            resolveRuleFaixas(r),
+            (m) => metricLabel(r.pageKey, m),
+            isSlaFaixaModo(r.faixaModo) ? r.faixaModo : 'correspondente',
+            r.faixaAdicionalSeconds
+          )
         },
       },
       {
-        field: 'tempoPrevistoSeconds',
-        headerName: 'Total',
-        width: 100,
-        valueGetter: (_, row) => formatSecondsToHms(row.tempoPrevistoSeconds) || '—',
+        field: 'faixaModo',
+        headerName: 'Modo',
+        width: 130,
+        valueGetter: (_, row) =>
+          (row as SlaRule).faixaModo === 'somar' ? 'Somar' : 'Correspondente',
       },
       {
-        field: 'pctJornada',
-        headerName: '% 8h',
-        width: 90,
+        field: 'tempoPrevistoSeconds',
+        headerName: 'Horas úteis',
+        width: 110,
         valueGetter: (_, row) => {
-          const p = percentOfJornada(row.tempoPrevistoSeconds)
-          return p == null ? '—' : `${p}%`
+          const faixas = resolveRuleFaixas(row as SlaRule)
+          const sec = faixas[0]?.prazoSeconds ?? row.tempoPrevistoSeconds
+          return formatSecondsToHms(sec) || '—'
+        },
+      },
+      {
+        field: 'diasUteis',
+        headerName: 'Dias úteis',
+        width: 110,
+        valueGetter: (_, row) => {
+          const faixas = resolveRuleFaixas(row as SlaRule)
+          const sec = faixas[0]?.prazoSeconds ?? row.tempoPrevistoSeconds
+          const dias = secondsToDiasUteis(sec)
+          if (dias == null) return '—'
+          return formatSlaNumberPtBr(dias)
         },
       },
       {
@@ -471,23 +345,23 @@ export default function DadosSlaPage() {
         renderCell: (params) => (
           <Stack direction="row" spacing={1}>
             {canEdit ? (
-            <Button
-              size="small"
-              variant="outlined"
-              onClick={() => openEdit(params.row as SlaRule)}
-            >
-              Editar
-            </Button>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={() => openEdit(params.row as SlaRule)}
+              >
+                Editar
+              </Button>
             ) : null}
             {canDelete ? (
-            <Button
-              size="small"
-              color="error"
-              variant="outlined"
-              onClick={() => handleDelete(String((params.row as SlaRule).id))}
-            >
-              Excluir
-            </Button>
+              <Button
+                size="small"
+                color="error"
+                variant="outlined"
+                onClick={() => handleDelete(String((params.row as SlaRule).id))}
+              >
+                Excluir
+              </Button>
             ) : null}
           </Stack>
         ),
@@ -496,68 +370,36 @@ export default function DadosSlaPage() {
     [store, canEdit, canDelete]
   )
 
-  const hydrateDraftsFromRule = (rule: Partial<SlaRule>, cfg: PageSlaConfig) => {
-    const qd = emptyQtyDraft(ALL_QTY_KEYS)
-    for (const k of ALL_QTY_KEYS) {
-      qd[k] = formatIntPtBr((rule as any)[k] ?? null)
-    }
-    setQtyDraft(qd)
-
-    const td = emptyTempoDraft(cfg)
-    for (const q of cfg.quantities) {
-      td[q.tempoBaseKey] = formatSecondsToHms((rule as any)[q.tempoBaseKey])
-      td[q.tempoAdicionalKey] = formatSecondsToHms((rule as any)[q.tempoAdicionalKey])
-    }
-    if (cfg.allowTempoFixo) {
-      td.tempoFixo = formatSecondsToHms(rule.tempoPrevistoSeconds)
-    }
-    setTempoDraft(td)
-    setPesoDraft(formatDec2PtBr(rule.pesoPontos ?? null))
-    setAdicPorTotalDemaisHms(formatSecondsToHms(rule.tempoSistemasAdicionalPorTotalSeconds))
-
-    const detalhe = parseSistemasDetalhe(rule.sistemasDetalhe)
-    if (detalhe.length) {
-      setSistemasLinhas(
-        detalhe.map((d) =>
-          newSistemaLinhaDraft({
-            sistemaId: d.sistemaId || '',
-            tempoHms: formatSecondsToHms(d.tempoSeconds),
-            porTotalHms: formatSecondsToHms(d.tempoAdicionalPorTotalSeconds),
-          })
-        )
-      )
-    } else if (rule.tempoSistemasSeconds || rule.tempoSistemasAdicionalSeconds) {
-      // Legado: expõe como linha "padrão (qualquer)"
-      const linhas: SistemaLinhaDraft[] = []
-      if (rule.tempoSistemasSeconds) {
-        linhas.push(
-          newSistemaLinhaDraft({
-            sistemaId: '',
-            tempoHms: formatSecondsToHms(rule.tempoSistemasSeconds),
-          })
-        )
-      }
-      setSistemasLinhas(linhas)
+  const hydrateFromRule = (rule: Partial<SlaRule>) => {
+    const faixas = resolveRuleFaixas(rule)
+    setFaixasDraft(faixasToDrafts(faixas))
+    setFaixaModo(isSlaFaixaModo(rule.faixaModo) ? rule.faixaModo : 'correspondente')
+    const adic = rule.faixaAdicionalSeconds
+    if (adic != null && adic > 0) {
+      setAdicDiasDraft(formatSlaNumberPtBr(secondsToDiasUteis(adic)))
+      setAdicHorasDraft(formatSlaNumberPtBr(secondsToHorasUteis(adic)))
     } else {
-      setSistemasLinhas([])
+      setAdicDiasDraft('')
+      setAdicHorasDraft('')
     }
+    setPreviewQtdDraft('15')
+    setPesoDraft(formatDec2PtBr(rule.pesoPontos ?? null))
   }
 
   const openEdit = (row: SlaRule) => {
-    const cfg = getPageConfig(row.pageKey)
     setForm(row)
-    hydrateDraftsFromRule(row, cfg)
+    hydrateFromRule(row)
     setOpen(true)
   }
 
   const openNew = () => {
-    const cfg = getPageConfig('demandas')
     setForm({ pageKey: 'demandas', impacto: 'media', ativo: true })
-    setQtyDraft(emptyQtyDraft(ALL_QTY_KEYS))
-    setTempoDraft(emptyTempoDraft(cfg))
+    setFaixasDraft([newSlaFaixaDraft()])
+    setFaixaModo('correspondente')
+    setAdicDiasDraft('')
+    setAdicHorasDraft('')
+    setPreviewQtdDraft('15')
     setPesoDraft('')
-    setSistemasLinhas([])
-    setAdicPorTotalDemaisHms('')
     setOpen(true)
   }
 
@@ -584,7 +426,7 @@ export default function DadosSlaPage() {
       const sync = await syncSlaFromProdutividade(api)
       await fetchRows()
       const parts = [
-        sync.created ? `${sync.created} linha(s) criada(s) (página + tipos, sem tempos)` : null,
+        sync.created ? `${sync.created} linha(s) criada(s) (página + tipos, sem prazos)` : null,
         sync.skipped ? `${sync.skipped} já existente(s)` : null,
         `${sync.totalProdutividade} regra(s) na Produtividade`,
       ].filter(Boolean)
@@ -678,124 +520,69 @@ export default function DadosSlaPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const updateFaixa = (key: string, updater: (f: SlaFaixaDraft) => SlaFaixaDraft) => {
+    setFaixasDraft((rows) => rows.map((f) => (f.key === key ? updater(f) : f)))
+  }
+
   const handleSave = async () => {
     if (!isSlaImpacto(form.impacto)) {
       setError('Selecione o impacto (Alta, Média ou Baixa prioridade).')
       return
     }
+
+    for (const f of faixasDraft) {
+      if ((f.dias.trim() || f.horas.trim()) && faixaPrazoSeconds(f) == null) {
+        setError('Há faixa com prazo inválido. Informe dias ou horas úteis.')
+        return
+      }
+      const min = parsePtBrNumber(f.min)
+      const max = parsePtBrNumber(f.max)
+      if (f.min.trim() && min == null) {
+        setError('Quantidade mínima inválida em uma das faixas.')
+        return
+      }
+      if (f.max.trim() && max == null) {
+        setError('Quantidade máxima inválida em uma das faixas.')
+        return
+      }
+      if (min != null && max != null && min > max) {
+        setError('Em uma faixa, a quantidade mínima não pode ser maior que a máxima.')
+        return
+      }
+    }
+
+    if (adicDiasDraft.trim() && parsePtBrNumber(adicDiasDraft) == null) {
+      setError('Tempo adicional (dias) inválido.')
+      return
+    }
+    if (adicHorasDraft.trim() && parsePtBrNumber(adicHorasDraft) == null) {
+      setError('Tempo adicional (horas) inválido.')
+      return
+    }
+
+    const faixas = draftsToFaixas(faixasDraft)
+    if (!faixas.length) {
+      setError('Inclua ao menos uma faixa de prazo (dias ou horas úteis).')
+      return
+    }
+
     setLoading(true)
     setError(null)
     try {
       const api = getApi()
-      const allowed = new Set(pageCfg.quantities.map((q) => q.key))
-
+      const primary = faixas[0]?.prazoSeconds ?? null
       const payload: Record<string, unknown> = {
         pageKey: form.pageKey,
         impacto: form.impacto,
         tipo1Id: pageCfg.tipo1 ? form.tipo1Id || null : null,
         tipo2Id: pageCfg.tipo2 ? form.tipo2Id || null : null,
+        faixasPrazo: faixas,
+        faixaModo,
+        faixaAdicionalSeconds: adicionalSeconds,
+        tempoPrevistoSeconds: primary,
         pesoPontos: parsePtBrNumber(pesoDraft),
         ativo: form.ativo !== false,
       }
-
-      for (const k of ALL_QTY_KEYS) payload[k] = null
-      for (const k of ALL_TEMPO_KEYS) payload[k] = null
-      payload.sistemasDetalhe = null
-      payload.tempoSistemasAdicionalPorTotalSeconds = null
-
-      let total = 0
-
-      if (pageCfg.allowTempoFixo && pageCfg.quantities.length === 0) {
-        const fixo = parseHmsToSeconds(tempoDraft.tempoFixo)
-        if (tempoDraft.tempoFixo?.trim() && fixo == null) {
-          setError('Tempo previsto inválido. Digite minutos (ex.: 90) ou HH:MM:SS.')
-          setLoading(false)
-          return
-        }
-        total = fixo ?? 0
-      } else {
-        for (const q of pageCfg.quantities) {
-          if (!allowed.has(q.key)) continue
-
-          if (q.key === 'qtdSistemas') {
-            const qtdRaw = parsePtBrNumber(qtyDraft.qtdSistemas)
-            const qtd = qtdRaw == null ? null : Math.round(qtdRaw)
-            const detalhe = sistemasDetalhePreview
-            const adicDemaisRaw = tempoDraft.tempoSistemasAdicionalSeconds
-            const adicDemais = parseHmsToSeconds(adicDemaisRaw)
-            const porTotalDemais = parseHmsToSeconds(adicPorTotalDemaisHms)
-
-            if (adicDemaisRaw?.trim() && adicDemais == null) {
-              setError('Tempo adicional (demais sistemas) inválido.')
-              setLoading(false)
-              return
-            }
-            if (adicPorTotalDemaisHms.trim() && porTotalDemais == null) {
-              setError('Adicional por Total (demais sistemas) inválido.')
-              setLoading(false)
-              return
-            }
-            for (const l of sistemasLinhas) {
-              if (l.tempoHms.trim() && parseHmsToSeconds(l.tempoHms) == null) {
-                setError('Há tempo de sistema inválido. Use minutos ou HH:MM:SS.')
-                setLoading(false)
-                return
-              }
-              if (l.porTotalHms.trim() && parseHmsToSeconds(l.porTotalHms) == null) {
-                setError('Há adicional por Total inválido em sistemas.')
-                setLoading(false)
-                return
-              }
-            }
-
-            const padrao = detalhe.find((d) => !d.sistemaId)
-            payload.qtdSistemas = null
-            payload.sistemasDetalhe = detalhe.length ? detalhe : null
-            payload.tempoSistemasSeconds = padrao?.tempoSeconds ?? null
-            payload.tempoSistemasAdicionalSeconds = adicDemais
-            payload.tempoSistemasAdicionalPorTotalSeconds = porTotalDemais
-
-            const previewIds = detalhe.filter((d) => d.sistemaId).map((d) => d.sistemaId!)
-            total += computeSistemasTempoSeconds({
-              sistemaIds:
-                previewIds.length > 0
-                  ? previewIds
-                  : Array.from({ length: Math.max(qtd ?? (padrao ? 1 : 0), 0) }, (_, i) => `p-${i}`),
-              detalhe,
-              tempoBaseSeconds: padrao?.tempoSeconds ?? null,
-              tempoAdicionalSeconds: adicDemais,
-              tempoAdicionalPorTotalDemaisSeconds: porTotalDemais,
-            })
-            continue
-          }
-
-          const qtdRaw = parsePtBrNumber(qtyDraft[q.key])
-          const qtd = qtdRaw == null ? null : Math.round(qtdRaw)
-          const baseRaw = tempoDraft[q.tempoBaseKey]
-          const adicRaw = tempoDraft[q.tempoAdicionalKey]
-          const base = parseHmsToSeconds(baseRaw)
-          const adic = parseHmsToSeconds(adicRaw)
-
-          if (baseRaw?.trim() && base == null) {
-            setError(`Tempo total de ${q.label} inválido.`)
-            setLoading(false)
-            return
-          }
-          if (adicRaw?.trim() && adic == null) {
-            setError(`Tempo adicional de ${q.label} inválido.`)
-            setLoading(false)
-            return
-          }
-
-          // qtd* = só preview no formulário; não grava filtro rígido (taxas aplicam à qtd real do chamado)
-          payload[q.key] = null
-          payload[q.tempoBaseKey] = base
-          payload[q.tempoAdicionalKey] = adic
-          total += computeQuantityLineSeconds(qtd, base, adic)
-        }
-      }
-
-      payload.tempoPrevistoSeconds = total > 0 ? total : null
 
       if (form.id) {
         await api.put(`${endpoint}/${form.id}`, payload)
@@ -805,6 +592,11 @@ export default function DadosSlaPage() {
 
       setOpen(false)
       setForm({ pageKey: 'demandas', impacto: 'media', ativo: true })
+      setFaixasDraft([newSlaFaixaDraft()])
+      setFaixaModo('correspondente')
+      setAdicDiasDraft('')
+      setAdicHorasDraft('')
+      setPesoDraft('')
       await fetchRows()
     } catch (e: any) {
       setError(e?.message ?? 'Erro ao salvar regra')
@@ -856,10 +648,14 @@ export default function DadosSlaPage() {
     )
   }
 
-  function renderSistemasBlock() {
-    const sistemas = store.sistemas || []
+  function renderFaixaCard(faixa: SlaFaixaDraft, index: number) {
+    const sec = faixaPrazoSeconds(faixa) ?? 0
+    const dias = secondsToDiasUteis(sec)
+    const corridas = diasUteisToHorasCorridas(dias)
+
     return (
       <Box
+        key={faixa.key}
         sx={{
           p: 1.5,
           border: '1px solid',
@@ -868,199 +664,142 @@ export default function DadosSlaPage() {
           bgcolor: 'action.hover',
         }}
       >
-        <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
-          Sistemas
-        </Typography>
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
-          Cadastre tempo por sistema específico, ou use &quot;Qualquer (padrão)&quot; para todos. Sistemas do
-          chamado sem linha usam o tempo adicional dos demais.
-          {pageSupportsTotalSistema
-            ? ' Em Manutenções, o adicional por Total usa o Total de cada sistema na Operação.'
-            : ''}
-        </Typography>
-
-        <Stack gap={1.25}>
-          {sistemasLinhas.map((linha) => (
-            <Stack
-              key={linha.key}
-              direction={{ xs: 'column', md: 'row' }}
-              gap={1}
-              alignItems={{ md: 'flex-start' }}
-            >
-              <TextField
-                select
-                size="small"
-                label="Sistema"
-                value={linha.sistemaId}
-                onChange={(e) =>
-                  setSistemasLinhas((rows) =>
-                    rows.map((r) =>
-                      r.key === linha.key ? { ...r, sistemaId: e.target.value } : r
-                    )
-                  )
-                }
-                sx={{ minWidth: { md: 200 }, flex: 1 }}
-              >
-                <MenuItem value="">Qualquer (padrão)</MenuItem>
-                {sistemas.map((s: any) => (
-                  <MenuItem key={s.id} value={s.id}>
-                    {s.nome || s.id}
-                  </MenuItem>
-                ))}
-              </TextField>
-              <TempoInput
-                label="Tempo do sistema"
-                value={linha.tempoHms}
-                onChange={(v) =>
-                  setSistemasLinhas((rows) =>
-                    rows.map((r) => (r.key === linha.key ? { ...r, tempoHms: v } : r))
-                  )
-                }
-                helperText="Tempo base deste sistema"
-              />
-              {pageSupportsTotalSistema ? (
-                <TempoInput
-                  label="Adic. por un. do Total"
-                  value={linha.porTotalHms}
-                  onChange={(v) =>
-                    setSistemasLinhas((rows) =>
-                      rows.map((r) => (r.key === linha.key ? { ...r, porTotalHms: v } : r))
-                    )
-                  }
-                  helperText="× Total do sistema no chamado"
-                />
-              ) : null}
-              <IconButton
-                size="small"
-                color="error"
-                onClick={() => setSistemasLinhas((rows) => rows.filter((r) => r.key !== linha.key))}
-                sx={{ mt: { md: 0.5 } }}
-                aria-label="Remover sistema"
-              >
-                <DeleteOutlineIcon fontSize="small" />
-              </IconButton>
-            </Stack>
-          ))}
+        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+          <Typography variant="subtitle2">Faixa {index + 1}</Typography>
+          <IconButton
+            size="small"
+            color="error"
+            disabled={faixasDraft.length <= 1}
+            onClick={() => setFaixasDraft((rows) => rows.filter((r) => r.key !== faixa.key))}
+            aria-label="Remover faixa"
+          >
+            <DeleteOutlineIcon fontSize="small" />
+          </IconButton>
         </Stack>
 
-        <Stack direction="row" gap={1} sx={{ mt: 1.5 }} flexWrap="wrap">
-          <Button
-            size="small"
-            startIcon={<AddIcon />}
-            onClick={() => setSistemasLinhas((rows) => [...rows, newSistemaLinhaDraft()])}
-            sx={{ textTransform: 'none' }}
-          >
-            Adicionar sistema
-          </Button>
-          <Button
-            size="small"
-            variant="outlined"
-            onClick={() =>
-              setSistemasLinhas((rows) => [...rows, newSistemaLinhaDraft({ sistemaId: '' })])
-            }
-            sx={{ textTransform: 'none' }}
-          >
-            + Padrão (qualquer)
-          </Button>
-        </Stack>
-
-        <Divider sx={{ my: 1.5 }} />
-
-        <Stack direction={{ xs: 'column', md: 'row' }} gap={1.5}>
+        <Stack gap={1.5}>
           <TextField
-            label="Qtd. ref. (opcional)"
+            select
+            fullWidth
             size="small"
-            sx={{ width: { xs: '100%', md: 140 } }}
-            placeholder="ex.: 2"
-            value={qtyDraft.qtdSistemas ?? ''}
-            onChange={(e) => setQtyDraft((d) => ({ ...d, qtdSistemas: e.target.value }))}
-            helperText="Só preview; no chamado usa a qtd real"
-            inputProps={{ inputMode: 'numeric' }}
-          />
-          <TempoInput
-            label="Tempo adicional (demais sistemas)"
-            value={tempoDraft.tempoSistemasAdicionalSeconds ?? ''}
-            onChange={(v) => setTempoDraft((d) => ({ ...d, tempoSistemasAdicionalSeconds: v }))}
-            helperText="Sistemas do chamado sem linha específica/padrão"
-          />
-          {pageSupportsTotalSistema ? (
-            <TempoInput
-              label="Adic. por Total (demais)"
-              value={adicPorTotalDemaisHms}
-              onChange={setAdicPorTotalDemaisHms}
-              helperText="× Total nos sistemas demais"
+            label="Métrica (quantidade)"
+            value={faixa.metric}
+            onChange={(e) =>
+              updateFaixa(faixa.key, (f) => ({
+                ...f,
+                metric: e.target.value as QuantityKey | '',
+              }))
+            }
+            helperText="Ex.: SUB's em Validação. Use “Prazo único” se não depender de quantidade."
+          >
+            <MenuItem value="">Prazo único (qualquer qtd)</MenuItem>
+            {pageCfg.quantities.map((q) => (
+              <MenuItem key={q.key} value={q.key}>
+                {q.label}
+              </MenuItem>
+            ))}
+          </TextField>
+
+          {faixa.metric ? (
+            <Stack direction={{ xs: 'column', sm: 'row' }} gap={1.5}>
+              <TextField
+                size="small"
+                label="De (qtd mín.)"
+                placeholder="1"
+                value={faixa.min}
+                onChange={(e) => updateFaixa(faixa.key, (f) => ({ ...f, min: e.target.value }))}
+                inputProps={{ inputMode: 'numeric' }}
+                sx={{ flex: 1 }}
+              />
+              <TextField
+                size="small"
+                label="Até (qtd máx.)"
+                placeholder="10"
+                value={faixa.max}
+                onChange={(e) => updateFaixa(faixa.key, (f) => ({ ...f, max: e.target.value }))}
+                helperText="Vazio = sem limite superior"
+                inputProps={{ inputMode: 'numeric' }}
+                sx={{ flex: 1 }}
+              />
+            </Stack>
+          ) : null}
+
+          <Stack direction={{ xs: 'column', md: 'row' }} gap={1.5}>
+            <Autocomplete
+              freeSolo
+              fullWidth
+              options={[...SLA_PRAZO_DIAS_PRESETS]}
+              getOptionLabel={(opt) =>
+                typeof opt === 'number'
+                  ? `${opt} ${opt === 1 ? 'dia útil' : 'dias úteis'}`
+                  : String(opt)
+              }
+              inputValue={faixa.dias}
+              onInputChange={(_, v, reason) => {
+                if (reason === 'reset') return
+                updateFaixa(faixa.key, (f) => applyFaixaFromDias(f, v))
+              }}
+              onChange={(_, v) => {
+                if (v == null) {
+                  updateFaixa(faixa.key, (f) => applyFaixaFromDias(f, ''))
+                  return
+                }
+                if (typeof v === 'number') {
+                  updateFaixa(faixa.key, (f) => applyFaixaFromDias(f, formatSlaNumberPtBr(v)))
+                  return
+                }
+                updateFaixa(faixa.key, (f) => applyFaixaFromDias(f, String(v)))
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Dias úteis"
+                  placeholder="ex.: 2"
+                  size="small"
+                  inputProps={{ ...params.inputProps, inputMode: 'decimal' }}
+                />
+              )}
             />
+            <TextField
+              fullWidth
+              size="small"
+              label="Horas úteis"
+              placeholder="ex.: 16"
+              value={faixa.horas}
+              onChange={(e) =>
+                updateFaixa(faixa.key, (f) => applyFaixaFromHoras(f, e.target.value))
+              }
+              onBlur={() => {
+                const n = parsePtBrNumber(faixa.horas)
+                if (n != null) {
+                  updateFaixa(faixa.key, (f) => applyFaixaFromHoras(f, formatSlaNumberPtBr(n)))
+                }
+              }}
+              helperText={sec > 0 ? `= ${formatSecondsToHms(sec)}` : '1 dia útil = 8h'}
+              inputProps={{ inputMode: 'decimal' }}
+            />
+          </Stack>
+
+          {sec > 0 ? (
+            <Typography variant="caption" color="text.secondary">
+              {metricLabel(form.pageKey ?? 'demandas', (faixa.metric || null) as QuantityKey | null)}{' '}
+              {faixa.metric
+                ? formatFaixaRangeLabel(
+                    parsePtBrNumber(faixa.min),
+                    parsePtBrNumber(faixa.max)
+                  )
+                : ''}
+              {' → '}
+              {formatDiasUteis(sec)}
+              {corridas != null
+                ? ` (${new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 }).format(corridas)}h corridas)`
+                : ''}
+            </Typography>
           ) : null}
         </Stack>
       </Box>
     )
   }
-
-  function renderQuantityRow(q: QuantityFieldConfig) {
-    if (q.key === 'qtdSistemas') return renderSistemasBlock()
-
-    const qtd = parsePtBrNumber(qtyDraft[q.key])
-    const base = parseHmsToSeconds(tempoDraft[q.tempoBaseKey])
-    const adic = parseHmsToSeconds(tempoDraft[q.tempoAdicionalKey])
-    const line = computeQuantityLineSeconds(qtd, base, adic)
-    const n = qtd == null || qtd < 1 ? 1 : qtd
-
-    return (
-      <Box
-        sx={{
-          p: 1.5,
-          border: '1px solid',
-          borderColor: 'divider',
-          borderRadius: 1,
-          bgcolor: 'action.hover',
-        }}
-      >
-        <Typography variant="subtitle2" sx={{ mb: 1 }}>
-          {q.label}
-        </Typography>
-        <Stack direction={{ xs: 'column', md: 'row' }} gap={1.5} alignItems={{ md: 'flex-start' }}>
-          <TextField
-            label="Quantidade"
-            size="small"
-            sx={{ width: { xs: '100%', md: 120 } }}
-            placeholder="1"
-            value={qtyDraft[q.key] ?? ''}
-            onChange={(e) => setQtyDraft((d) => ({ ...d, [q.key]: e.target.value }))}
-            onBlur={() => {
-              const n = parsePtBrNumber(qtyDraft[q.key])
-              setQtyDraft((d) => ({
-                ...d,
-                [q.key]: n == null ? '' : formatIntPtBr(Math.round(n)),
-              }))
-            }}
-            helperText="Só para preview do total; no chamado usa a qtd real"
-            inputProps={{ inputMode: 'numeric' }}
-          />
-          <TempoInput
-            label="Tempo total (1ª un.)"
-            value={tempoDraft[q.tempoBaseKey] ?? ''}
-            onChange={(v) => setTempoDraft((d) => ({ ...d, [q.tempoBaseKey]: v }))}
-            helperText="Ex.: 5 min para 1 unidade"
-          />
-          <TempoInput
-            label="Tempo adicional (>1)"
-            value={tempoDraft[q.tempoAdicionalKey] ?? ''}
-            onChange={(v) => setTempoDraft((d) => ({ ...d, [q.tempoAdicionalKey]: v }))}
-            helperText="Somado a cada unidade além da 1ª"
-          />
-        </Stack>
-        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-          {line > 0
-            ? `Subtotal (${n} un.): ${formatSecondsToHms(line)} = base${
-                n > 1 ? ` + ${n - 1}× adicional` : ''
-              }`
-            : 'Preencha quantidade e tempos desta métrica (opcional).'}
-        </Typography>
-      </Box>
-    )
-  }
-
-  const pct = percentOfJornada(totalPreviewSeconds)
 
   return (
     <Box
@@ -1081,8 +820,8 @@ export default function DadosSlaPage() {
         <Box>
           <Typography variant="h6">SLA</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            Tempo de SLA por página, tipos de atividade e impacto. Mesma matriz de quantidades da
-            Produtividade. Jornada de referência: <strong>08:00:00</strong>.
+            Prazo por página, tipos e impacto. Use <strong>faixas</strong> quando a quantidade muda
+            o prazo (ex.: Validação — SUB&apos;s 1–10 vs 11–20). 1 dia útil = 8h úteis.
           </Typography>
           <SlaImpactLegend />
         </Box>
@@ -1154,14 +893,12 @@ export default function DadosSlaPage() {
           <Stack gap={2} mt={1}>
             <Stack direction={{ xs: 'column', md: 'row' }} gap={2}>
               <TextField
-                key="pageKey"
                 select
                 fullWidth
                 label="Página"
                 value={form.pageKey ?? 'demandas'}
                 onChange={(e) => {
                   const nextKey = e.target.value
-                  const cfg = getPageConfig(nextKey)
                   setForm({
                     pageKey: nextKey,
                     impacto: form.impacto ?? 'media',
@@ -1169,10 +906,7 @@ export default function DadosSlaPage() {
                     tipo1Id: null,
                     tipo2Id: null,
                   })
-                  setQtyDraft(emptyQtyDraft(ALL_QTY_KEYS))
-                  setTempoDraft(emptyTempoDraft(cfg))
-                  setSistemasLinhas([])
-                  setAdicPorTotalDemaisHms('')
+                  setFaixasDraft([newSlaFaixaDraft()])
                 }}
               >
                 {SLA_PAGES.map((p: PageSlaConfig) => (
@@ -1183,7 +917,6 @@ export default function DadosSlaPage() {
               </TextField>
 
               <TextField
-                key="impacto"
                 select
                 fullWidth
                 required
@@ -1201,7 +934,6 @@ export default function DadosSlaPage() {
               </TextField>
 
               <TextField
-                key="ativo"
                 select
                 fullWidth
                 label="Ativo"
@@ -1226,35 +958,128 @@ export default function DadosSlaPage() {
               </Stack>
             )}
 
-            {pageCfg.quantities.length > 0 && (
-              <>
-                <Divider />
-                <Typography variant="subtitle2">Quantidades e tempos</Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Ex.: 1 sistema = 5 min (tempo total); 2 sistemas = 5 min + 1× adicional.
-                </Typography>
-                <Stack gap={1.5}>
-                  {pageCfg.quantities.map((q) => (
-                    <Fragment key={q.key}>{renderQuantityRow(q)}</Fragment>
-                  ))}
-                </Stack>
-              </>
-            )}
+            <Divider />
+            <Typography variant="subtitle2">Faixas de prazo do SLA</Typography>
+            <Typography variant="caption" color="text.secondary">
+              Exemplo Validação: SUB&apos;s 1–10 = 2 dias; 11–20 = 3 dias. Depois escolha se o prazo
+              final usa só a faixa correspondente ou a soma das faixas atravessadas. Acima do máximo,
+              use o tempo adicional por unidade.
+            </Typography>
 
-            {pageCfg.allowTempoFixo && pageCfg.quantities.length === 0 && (
-              <TempoInput
-                label="Tempo previsto"
-                value={tempoDraft.tempoFixo ?? ''}
-                onChange={(v) => setTempoDraft((d) => ({ ...d, tempoFixo: v }))}
-                helperText="Digite minutos (ex.: 90) ou HH:MM:SS"
+            <TextField
+              select
+              fullWidth
+              size="small"
+              label="Como calcular o prazo final"
+              value={faixaModo}
+              onChange={(e) => setFaixaModo(e.target.value as SlaFaixaModo)}
+              helperText={SLA_FAIXA_MODO_OPTIONS.find((o) => o.value === faixaModo)?.help}
+            >
+              {SLA_FAIXA_MODO_OPTIONS.map((o) => (
+                <MenuItem key={o.value} value={o.value}>
+                  {o.label}
+                </MenuItem>
+              ))}
+            </TextField>
+
+            <Stack gap={1.5}>{faixasDraft.map((f, i) => renderFaixaCard(f, i))}</Stack>
+
+            <Button
+              size="small"
+              startIcon={<AddIcon />}
+              onClick={() =>
+                setFaixasDraft((rows) => [
+                  ...rows,
+                  newSlaFaixaDraft({
+                    metric: (pageCfg.quantities[0]?.key ?? '') as QuantityKey | '',
+                  }),
+                ])
+              }
+              sx={{ alignSelf: 'flex-start', textTransform: 'none' }}
+            >
+              Adicionar faixa
+            </Button>
+
+            <Divider />
+            <Typography variant="subtitle2">Tempo adicional (acima do máximo)</Typography>
+            <Typography variant="caption" color="text.secondary">
+              Se a quantidade passar do maior &quot;Até&quot; das faixas, soma este tempo por unidade
+              extra. Ex.: máx. 20 e qtd 25 → +5 × adicional. Deixe vazio se não houver.
+              {maxQtdFaixas(faixasPreview) != null
+                ? ` Máximo atual das faixas: ${maxQtdFaixas(faixasPreview)}.`
+                : ''}
+            </Typography>
+            <Stack direction={{ xs: 'column', md: 'row' }} gap={1.5}>
+              <TextField
+                size="small"
+                fullWidth
+                label="Adicional — dias úteis / un."
+                placeholder="ex.: 0,5"
+                value={adicDiasDraft}
+                onChange={(e) => applyAdicionalFromDias(e.target.value)}
+                onBlur={() => {
+                  const n = parsePtBrNumber(adicDiasDraft)
+                  if (n != null) applyAdicionalFromDias(formatSlaNumberPtBr(n))
+                }}
+                inputProps={{ inputMode: 'decimal' }}
               />
-            )}
+              <TextField
+                size="small"
+                fullWidth
+                label="Adicional — horas úteis / un."
+                placeholder="ex.: 4"
+                value={adicHorasDraft}
+                onChange={(e) => applyAdicionalFromHoras(e.target.value)}
+                onBlur={() => {
+                  const n = parsePtBrNumber(adicHorasDraft)
+                  if (n != null) applyAdicionalFromHoras(formatSlaNumberPtBr(n))
+                }}
+                helperText={
+                  adicionalSeconds
+                    ? `= ${formatSecondsToHms(adicionalSeconds)} por unidade acima do máx.`
+                    : 'Opcional'
+                }
+                inputProps={{ inputMode: 'decimal' }}
+              />
+            </Stack>
 
-            <Alert severity="success" variant="outlined">
-              Total previsto:{' '}
-              <strong>{formatSecondsToHms(totalPreviewSeconds) || '00:00:00'}</strong>
-              {pct != null ? ` · ${pct}% da jornada 08:00:00` : ''}
-            </Alert>
+            <Divider />
+            <Typography variant="subtitle2">Simular prazo final</Typography>
+            <Stack direction={{ xs: 'column', sm: 'row' }} gap={1.5} alignItems={{ sm: 'flex-start' }}>
+              <TextField
+                size="small"
+                label={`Qtd. de teste${previewMetric ? ` (${metricLabel(form.pageKey ?? 'demandas', previewMetric)})` : ''}`}
+                placeholder="15"
+                value={previewQtdDraft}
+                onChange={(e) => setPreviewQtdDraft(e.target.value)}
+                inputProps={{ inputMode: 'numeric' }}
+                sx={{ width: { xs: '100%', sm: 220 } }}
+              />
+            </Stack>
+            {previewResult?.seconds ? (
+              <Alert severity="success" variant="outlined">
+                SLA final:{' '}
+                <strong>{formatSecondsToHms(previewResult.seconds)}</strong>
+                {' · '}
+                <strong>{formatDiasUteis(previewResult.seconds)}</strong>
+                {previewResult.breakdown.length
+                  ? ` — ${previewResult.breakdown.join(' + ')}`
+                  : ''}
+              </Alert>
+            ) : faixasPreview.length > 0 ? (
+              <Alert severity="info" variant="outlined">
+                {formatFaixasSummary(
+                  faixasPreview,
+                  (m) => metricLabel(form.pageKey ?? 'demandas', m),
+                  faixaModo,
+                  adicionalSeconds
+                )}
+              </Alert>
+            ) : (
+              <Alert severity="info" variant="outlined">
+                Inclua ao menos uma faixa com dias ou horas úteis.
+              </Alert>
+            )}
 
             <TextField
               fullWidth

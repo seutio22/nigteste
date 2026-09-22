@@ -87,3 +87,50 @@ export function percentOfJornada(seconds: number | null | undefined): number | n
   return Math.round((seconds / JORNADA_UTIL_SEGUNDOS) * 1000) / 10
 }
 
+/**
+ * Converte segundos de prazo (em horas úteis) para dias úteis.
+ * Ex.: 48h (172800s) ÷ 8h/dia = 6 dias úteis.
+ */
+export function secondsToDiasUteis(seconds: number | null | undefined): number | null {
+  if (seconds == null || !Number.isFinite(seconds) || seconds < 0) return null
+  return Math.round((seconds / JORNADA_UTIL_SEGUNDOS) * 100) / 100
+}
+
+/** Dias úteis → segundos de prazo em horas úteis (1 dia = 8h). Ex.: 3 → 86400. */
+export function diasUteisToSeconds(dias: number | null | undefined): number | null {
+  if (dias == null || !Number.isFinite(dias) || dias < 0) return null
+  return Math.round(dias * JORNADA_UTIL_SEGUNDOS)
+}
+
+/** Segundos → horas úteis decimais. Ex.: 86400 → 24. */
+export function secondsToHorasUteis(seconds: number | null | undefined): number | null {
+  if (seconds == null || !Number.isFinite(seconds) || seconds < 0) return null
+  return Math.round((seconds / 3600) * 100) / 100
+}
+
+/** Horas úteis → segundos. Ex.: 24 → 86400. */
+export function horasUteisToSeconds(horas: number | null | undefined): number | null {
+  if (horas == null || !Number.isFinite(horas) || horas < 0) return null
+  return Math.round(horas * 3600)
+}
+
+/** Formata dias úteis em pt-BR (ex.: "6 dias úteis", "1 dia útil", "1,5 dias úteis"). */
+export function formatDiasUteis(seconds: number | null | undefined): string {
+  const dias = secondsToDiasUteis(seconds)
+  if (dias == null) return ''
+  const label = new Intl.NumberFormat('pt-BR', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(dias)
+  return dias === 1 ? `${label} dia útil` : `${label} dias úteis`
+}
+
+/**
+ * Horas corridas equivalentes ao prazo em dias úteis (1 dia útil → 24h no calendário).
+ * Ex.: 6 dias úteis × 24 = 144 horas corridas.
+ */
+export function diasUteisToHorasCorridas(diasUteis: number | null | undefined): number | null {
+  if (diasUteis == null || !Number.isFinite(diasUteis) || diasUteis < 0) return null
+  return Math.round(diasUteis * 24 * 100) / 100
+}
+

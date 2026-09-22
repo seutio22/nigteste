@@ -1701,6 +1701,14 @@ model SlaRegra {
   tempoSubsSeconds     Int?
   tempoSubsAdicionalSeconds Int?
 
+  /// Faixas de prazo por quantidade: [{ metric, min, max, prazoSeconds }]
+  /// Ex.: SUB's 1–10 → 2 dias úteis; 11–20 → 3 dias úteis.
+  faixasPrazo          Json?
+  /// correspondente = uma faixa; somar = soma faixas atravessadas
+  faixaModo            String   @default("correspondente")
+  /// Segundos úteis extras por unidade acima do maior "até" das faixas
+  faixaAdicionalSeconds Int?
+
   tempoPrevistoSeconds Int?
   pesoPontos           Float?
   ativo                Boolean  @default(true)

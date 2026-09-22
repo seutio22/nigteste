@@ -6,11 +6,17 @@ import {
   type ProdutividadeRuleRow,
 } from './produtividadeImportExport'
 import { getSlaImpactoLabel, isSlaImpacto, type SlaImpacto } from '../pages/slaImpact'
+import {
+  diasUteisToHorasCorridas,
+  parseHmsToSeconds,
+  secondsToDiasUteis,
+} from '../pages/produtividadeJornada'
 
 export const SLA_REGRAS_ENDPOINT = '/sla-regras'
 
 export type SlaRuleRow = ProdutividadeRuleRow & {
   impacto: SlaImpacto
+  faixasPrazo?: unknown
 }
 
 function parseImpacto(value: unknown): SlaImpacto | null {
@@ -38,11 +44,21 @@ export function buildSlaExportRows(
   rows: SlaRuleRow[],
   store: MasterDataState
 ): Record<string, unknown>[] {
-  return buildProdutividadeExportRows(rows, store).map((row, index) => ({
-    ...row,
-    impacto: rows[index]?.impacto ?? '',
-    impactoLabel: getSlaImpactoLabel(rows[index]?.impacto),
-  }))
+  return buildProdutividadeExportRows(rows, store).map((row, index) => {
+    const seconds =
+      rows[index]?.tempoPrevistoSeconds ??
+      parseHmsToSeconds(String(row.tempoPrevistoSeconds ?? row.total ?? ''))
+    const dias = secondsToDiasUteis(seconds)
+    const faixas = rows[index]?.faixasPrazo
+    return {
+      ...row,
+      impacto: rows[index]?.impacto ?? '',
+      impactoLabel: getSlaImpactoLabel(rows[index]?.impacto),
+      diasUteis: dias,
+      horasCorridas: diasUteisToHorasCorridas(dias),
+      faixasPrazo: faixas != null ? JSON.stringify(faixas) : '',
+    }
+  })
 }
 
 export function buildSlaImportPayload(
@@ -53,7 +69,21 @@ export function buildSlaImportPayload(
   const fromImpacto = parseImpacto(data.impacto)
   const fromLabel = parseImpacto(data.impactoLabel)
   const impacto = fromImpacto ?? fromLabel ?? 'media'
-  return { ...base, impacto }
+  const payload: Record<string, unknown> = { ...base, impacto }
+
+  if (data.faixasPrazo != null && data.faixasPrazo !== '') {
+    try {
+      const parsed =
+        typeof data.faixasPrazo === 'string'
+          ? JSON.parse(data.faixasPrazo)
+          : data.faixasPrazo
+      if (Array.isArray(parsed)) payload.faixasPrazo = parsed
+    } catch {
+      /* ignora JSON inválido */
+    }
+  }
+
+  return payload
 }
 
 export type SlaSmartImportRunResult = {

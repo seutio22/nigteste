@@ -1030,6 +1030,7 @@ export const smartImporterConfigs: { [key: string]: SmartImporterConfig } = {
       'tempoSubsSeconds',
       'tempoSubsAdicionalSeconds',
       'sistemasDetalhe',
+      'faixasPrazo',
       'tempoPrevistoSeconds',
       'pesoPontos',
       'ativo',
