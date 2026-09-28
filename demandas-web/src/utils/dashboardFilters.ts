@@ -58,7 +58,7 @@ export const resolveProjectAnalistaValue = (
     project.managerId,
     typeof manager === 'string' ? manager : (manager as { id?: string } | undefined)?.id,
     project.ownerId,
-    typeof owner === 'object' ? (owner as { id?: string }).id : owner,
+    owner && typeof owner === 'object' ? (owner as { id?: string }).id : owner,
     manager,
     owner,
   ]

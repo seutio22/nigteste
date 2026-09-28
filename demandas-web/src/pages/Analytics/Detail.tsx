@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useReportStore } from '../../store/reportStore'
 import { useMasterDataStore } from '../../store/masterDataStore'
 import { Timeline } from '../../components/Timeline'
+import { SlaChamadoCard } from '../../components/sla/SlaChamadoCard'
 import { ReportStatusBadge } from '../../components/ReportStatusBadge'
 import { PriorityBadge } from '../../components/PriorityBadge'
 import { normalizeReportStatus, STATUS_REPORT_PADRAO } from '../../utils/statusPadrao'
@@ -249,6 +250,10 @@ export default function AnalyticsDetailPage() {
                 </div>
               </div>
             </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg border shadow-sm">
+            <SlaChamadoCard pageKey="analytics" item={report} embedded />
           </div>
 
           {/* Timeline */}

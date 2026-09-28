@@ -21,7 +21,8 @@ import {
   DialogContent,
   DialogActions
 } from '@mui/material'
-import { Bell, Mail, List, Trash2, Eye, Users, CheckCircle2, UserCheck } from 'lucide-react'
+import { Bell, Mail, List, ListChecks, Trash2, Eye, Users, CheckCircle2, UserCheck } from 'lucide-react'
+import { FilaTab } from '../components/fila/FilaTab'
 import { useNotificationStore } from '../store/notificationStore'
 import { useAuthStore } from '../store/authStore'
 import { getApi } from '../lib/apiConfig'
@@ -126,6 +127,7 @@ export default function NotificationsPage() {
 
   /** Índice da aba "Meus alertas criados" (após Caixa de entrada, Lidas) */
   const managedTabIndex = canCreateAlerts ? 2 : -1
+  const filaTabIndex = canCreateAlerts ? 3 : 2
 
   useEffect(() => {
     if (canCreateAlerts && tab === managedTabIndex) {
@@ -199,7 +201,7 @@ export default function NotificationsPage() {
   const listToShow = tab === 0 ? unreadOnly : tab === 1 ? readOnly : []
 
   return (
-    <Box className="p-4 md:p-6 max-w-5xl mx-auto">
+    <Box className={`p-4 md:p-6 mx-auto ${tab === filaTabIndex ? 'max-w-[1600px]' : 'max-w-5xl'}`}>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-primary-100 flex items-center justify-center">
@@ -243,7 +245,10 @@ export default function NotificationsPage() {
         {canCreateAlerts && (
           <Tab icon={<List className="w-4 h-4" />} iconPosition="start" label="Meus alertas criados" />
         )}
+        <Tab icon={<ListChecks className="w-4 h-4" />} iconPosition="start" label="Fila" />
       </Tabs>
+
+      {tab === filaTabIndex && <FilaTab />}
 
       {(tab === 0 || tab === 1) && (
         <TableContainer component={Paper} variant="outlined" className="rounded-lg overflow-hidden">

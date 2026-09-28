@@ -6,6 +6,7 @@ import { ArrowLeft, Edit3 } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { StatusBadge } from '../../components/StatusBadge'
 import { Timeline } from '../../components/Timeline'
+import { SlaChamadoCard } from '../../components/sla/SlaChamadoCard'
 import { fmt } from '../../lib/utils'
 import { createPerfLogger } from '../../utils/perf'
 import { ReajusteEditInline } from './ReajusteEditInline'
@@ -349,6 +350,10 @@ export default function ReajusteDetailPage() {
                 </div>
               </div>
             </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg border shadow-sm">
+            <SlaChamadoCard pageKey="reajustes" item={reajuste} embedded />
           </div>
 
           {/* Histórico de Alterações */}

@@ -99,6 +99,7 @@ import {
 } from '@mui/icons-material'
 import { useProjectStore } from '../../store/projectStore'
 import { useAuthStore } from '../../store/authStore'
+import { getUserPermissions } from '../../utils/defaultPermissions'
 import { getApi } from '../../lib/apiConfig'
 import { PermissionGate } from '../../components/PermissionGate'
 import { PrimaryActionButton } from '../../components/PrimaryActionButton'
@@ -127,6 +128,9 @@ export default function ProjectListPageSimple() {
   const [filterMenuAnchor, setFilterMenuAnchor] = useState<null | HTMLElement>(null)
   /** mine = seus projetos | all = todos visíveis | archived = pausados + cancelados */
   const [projectScope, setProjectScope] = useState<'mine' | 'all' | 'archived'>('mine')
+  const somenteMeusProjetos =
+    !!user && user.role !== 'admin' && getUserPermissions(user.permissions, user.role).projetos?.viewAll === false
+  const scope = somenteMeusProjetos ? 'mine' : projectScope
   const [expandedDescriptions, setExpandedDescriptions] = useState<Record<string, boolean>>({})
   
   // Estados para funcionalidade de incluir vários projetos
@@ -232,15 +236,15 @@ export default function ProjectListPageSimple() {
 
   const filteredProjects = useMemo(() => {
     return projects.filter((project) => {
-      if (projectScope === 'mine' && !isProjectMine(project)) {
+      if (scope === 'mine' && !isProjectMine(project)) {
         return false
       }
-      if (projectScope === 'archived') {
+      if (scope === 'archived') {
         const s = project.status
         // Arquivados = concluídos + pausados + cancelados
         if (s !== 'completed' && s !== 'paused' && s !== 'cancelled') return false
       }
-      if ((projectScope === 'mine' || projectScope === 'all') && project.status !== 'active') {
+      if ((scope === 'mine' || scope === 'all') && project.status !== 'active') {
         return false
       }
       if (project.isPrivate && project.ownerId && user?.role !== 'admin' && project.ownerId !== user?.id) {
@@ -265,7 +269,7 @@ export default function ProjectListPageSimple() {
     })
   }, [
     projects,
-    projectScope,
+    scope,
     searchTerm,
     statusFilter,
     priorityFilter,
@@ -715,7 +719,7 @@ export default function ProjectListPageSimple() {
             }}
           >
             <ToggleButtonGroup
-              value={projectScope}
+              value={scope}
               exclusive
               size="small"
               color="primary"
@@ -736,18 +740,28 @@ export default function ProjectListPageSimple() {
                 <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>Meus projetos</Box>
                 <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>Meus</Box>
               </ToggleButton>
-              <ToggleButton value="all">
-                <Public className="w-4 h-4 mr-1 opacity-80 max-sm:hidden" />
-                <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>Todos os projetos</Box>
-                <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>Todos</Box>
-              </ToggleButton>
-              <ToggleButton value="archived">
-                <Archive className="w-4 h-4 mr-1 opacity-80 max-sm:hidden" />
-                Arquivados
-              </ToggleButton>
+              {!somenteMeusProjetos && (
+                <ToggleButton value="all">
+                  <Public className="w-4 h-4 mr-1 opacity-80 max-sm:hidden" />
+                  <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>Todos os projetos</Box>
+                  <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>Todos</Box>
+                </ToggleButton>
+              )}
+              {!somenteMeusProjetos && (
+                <ToggleButton value="archived">
+                  <Archive className="w-4 h-4 mr-1 opacity-80 max-sm:hidden" />
+                  Arquivados
+                </ToggleButton>
+              )}
             </ToggleButtonGroup>
 
-            <Tooltip title="Meus projetos e Todos os projetos mostram apenas projetos ativos. Arquivados reúne pausados e cancelados.">
+            <Tooltip
+              title={
+                somenteMeusProjetos
+                  ? 'Você visualiza apenas os projetos ativos em que é dono, gerente ou membro da equipe.'
+                  : 'Meus projetos e Todos os projetos mostram apenas projetos ativos. Arquivados reúne pausados e cancelados.'
+              }
+            >
               <IconButton size="small" aria-label="Sobre os escopos de lista" sx={{ color: 'text.secondary', p: 0.5 }}>
                 <InfoOutlined fontSize="small" />
               </IconButton>
@@ -852,7 +866,7 @@ export default function ProjectListPageSimple() {
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
               {searchTerm || statusFilter !== 'all' || priorityFilter !== 'all'
                 ? 'Tente ajustar os filtros de busca'
-                : projectScope === 'archived'
+                : scope === 'archived'
                   ? 'Não há projetos pausados ou cancelados no momento.'
                   : 'Crie seu primeiro projeto para começar'}
       </Typography>

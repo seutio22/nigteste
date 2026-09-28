@@ -7,6 +7,7 @@ import { useAuthStore } from '../../store/authStore'
 import { ArrowLeft, Edit3, Save, Clock } from 'lucide-react'
 import { StatusBadge } from '../../components/StatusBadge'
 import { Timeline } from '../../components/Timeline'
+import { SlaChamadoCard } from '../../components/sla/SlaChamadoCard'
 import { fmt, calcTempo } from '../../lib/utils'
 import { ValidationEntry } from '../../types/validation'
 import { createPerfLogger } from '../../utils/perf'
@@ -441,6 +442,10 @@ export default function ValidationDetailPage() {
                 </div>
               </div>
             </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg border shadow-sm">
+            <SlaChamadoCard pageKey="validacoes" item={validation} embedded />
           </div>
 
           {/* Timeline */}

@@ -15,6 +15,7 @@ import { PrimaryActionButton } from '../../components/PrimaryActionButton'
 import { createPerfLogger } from '../../utils/perf'
 import { qualidadeFromQtdRetornos } from '../../utils/qualidadeRetornos'
 import { QualificacaoChamadoPanel } from '../../components/cadastro/QualificacaoChamadoPanel'
+import { SlaChamadoCard } from '../../components/sla/SlaChamadoCard'
 
 const EmailComunicacaoCadastroEdgeModal = lazy(async () => {
   const m = await import('../../components/EmailComunicacaoCadastroEdgeModal')
@@ -379,6 +380,10 @@ export default function DemandDetailPage() {
                 </div>
               </div>
             </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg border shadow-sm">
+            <SlaChamadoCard pageKey="demandas" item={d} embedded />
           </div>
 
           <div className="bg-white p-6 rounded-lg border shadow-sm">

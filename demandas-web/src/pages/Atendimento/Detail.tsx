@@ -6,6 +6,7 @@ import { useAuthStore } from '../../store/authStore'
 import { StatusBadge } from '../../components/StatusBadge'
 import { Edit3, ArrowLeft, Clock, Copy, FileText, Lock } from 'lucide-react'
 import { Timeline } from '../../components/Timeline'
+import { SlaChamadoCard } from '../../components/sla/SlaChamadoCard'
 import { fmt, canEditAtendimento } from '../../lib/utils'
 import { api } from '../../lib/api.local'
 import { Autocomplete, Box, TextField, Typography } from '@mui/material'
@@ -369,6 +370,10 @@ export default function AtendimentoDetailPage() {
                 <div className="text-sm text-orange-800">Data Final</div>
               </div>
             </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg border shadow-sm">
+            <SlaChamadoCard pageKey="atendimentos" item={atendimento} embedded />
           </div>
 
                   {/* Timeline */}

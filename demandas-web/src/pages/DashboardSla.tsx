@@ -31,22 +31,19 @@ import {
   ExpandLess,
   ExpandMore,
   Refresh as RefreshIcon,
-  Speed as SpeedIcon,
   WarningAmber as WarnIcon,
   CheckCircleOutline as OkIcon,
   AccessTime as TimeIcon,
   AssignmentTurnedIn as DoneIcon,
   TrendingUp as HighIcon,
   TrendingDown as LowIcon,
-  CalendarMonth as MonthIcon,
-  Timeline as AvgIcon,
-  PeopleOutline as PeopleIcon,
-  CompareArrows as CompareIcon,
+  Schedule as SlaIcon,
+  TimerOff as LateIcon,
+  Rule as RuleIcon,
 } from '@mui/icons-material'
 import { Link as RouterLink, useNavigate } from 'react-router-dom'
-import { getApi } from '../lib/apiConfig'
-import { listTemposAdicionais, type TempoAdicionalRow } from './tempoAdicional'
-import { PrevistoRealizadoSection } from '../components/produtividade/PrevistoRealizadoSection'
+import { loadSlaRegras, loadStatusEventsByPage } from './slaData'
+import { SLA_STATUS_PAUSA_LABEL, type SlaStatusEvent } from './slaCalendar'
 import { useAuthStore } from '../store/authStore'
 import { useMasterDataStore } from '../store/masterDataStore'
 import { useDemandStore } from '../store/demandStore'
@@ -64,30 +61,31 @@ import {
   getExecutionStartDate,
 } from '../utils/dashboardFilters'
 import { formatSecondsToHms } from './produtividadeJornada'
+import { getSlaImpactoShortLabel } from './slaImpact'
 import {
-  buildProdutividadeDashboard,
-  formatCountsByPageLabel,
-  type AnalistaProdutividadeRow,
-  type ProdutividadePresencaInput,
-} from './produtividadeDashboard'
+  buildSlaDashboard,
+  formatSlaCountsByPageLabel,
+  type AnalistaSlaRow,
+} from './slaDashboard'
 import {
-  evaluateTicketProdutividade,
+  evaluateTicketSla,
   extractAnalyticsDims,
   extractAtendimentoDims,
   extractDemandaDims,
   extractManutencaoDims,
   extractReajusteDims,
   extractValidacaoDims,
-  PRODUTIVIDADE_DASHBOARD_PAGES,
-  PRODUTIVIDADE_PAGE_LABEL,
-  type ChamadoProdutividadeResult,
-  type ProdutividadePageKey,
-  type ProdutividadeRegraRow,
-} from './produtividadeMatching'
+  formatPrazoSlaLabel,
+  formatSlaStatusLabel,
+  SLA_DASHBOARD_PAGES,
+  SLA_PAGE_LABEL,
+  type ChamadoSlaResult,
+  type SlaDashboardPageKey,
+  type SlaRegraRow,
+} from './slaMatching'
 
-/** Rota de detalhe do chamado por página de produtividade. */
-function getTicketDetailPath(pageKey: ProdutividadePageKey | string, id: string): string | null {
-  const map: Partial<Record<ProdutividadePageKey, string>> = {
+function getTicketDetailPath(pageKey: SlaDashboardPageKey | string, id: string): string | null {
+  const map: Partial<Record<SlaDashboardPageKey, string>> = {
     demandas: 'cadastro',
     manutencoes: 'manutencao',
     atendimentos: 'atendimento',
@@ -95,7 +93,7 @@ function getTicketDetailPath(pageKey: ProdutividadePageKey | string, id: string)
     reajustes: 'reajuste',
     analytics: 'analytics',
   }
-  const base = map[pageKey as ProdutividadePageKey]
+  const base = map[pageKey as SlaDashboardPageKey]
   if (!base || !id) return null
   return `/${base}/${encodeURIComponent(id)}`
 }
@@ -121,13 +119,13 @@ function getPeriodDates(
   let end: Date
   switch (period) {
     case 'daily':
-      start = new Date(today)
-      end = new Date(today)
+      start = today
+      end = today
       break
     case 'quarterly': {
-      const quarter = Math.floor(now.getMonth() / 3)
-      start = new Date(now.getFullYear(), quarter * 3, 1)
-      end = new Date(now.getFullYear(), (quarter + 1) * 3, 0)
+      const q = Math.floor(now.getMonth() / 3)
+      start = new Date(now.getFullYear(), q * 3, 1)
+      end = new Date(now.getFullYear(), q * 3 + 3, 0)
       break
     }
     case 'monthly':
@@ -142,9 +140,8 @@ function getPeriodDates(
 }
 
 const FILTER_CONTROL_SX = {
-  minWidth: 0,
-  '& .MuiInputBase-root': { height: 40 },
-} as const
+  '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: 'background.paper' },
+}
 
 function KpiCard({
   title,
@@ -159,27 +156,27 @@ function KpiCard({
   icon: React.ReactNode
   color: string
 }) {
-  const theme = useTheme()
   return (
     <Paper
       elevation={0}
       sx={{
-        p: 2.25,
+        p: 2,
         height: '100%',
         borderRadius: 2,
-        border: `1px solid ${alpha(color, 0.22)}`,
-        background: `linear-gradient(135deg, ${alpha(color, 0.08)} 0%, ${theme.palette.background.paper} 70%)`,
+        border: '1px solid',
+        borderColor: 'divider',
+        bgcolor: (t) => alpha(color, t.palette.mode === 'dark' ? 0.12 : 0.06),
       }}
     >
-      <Stack direction="row" spacing={1.5} alignItems="flex-start">
+      <Stack direction="row" spacing={1.25} alignItems="flex-start">
         <Box
           sx={{
-            width: 40,
-            height: 40,
+            width: 36,
+            height: 36,
             borderRadius: 1.5,
             display: 'grid',
             placeItems: 'center',
-            bgcolor: alpha(color, 0.15),
+            bgcolor: alpha(color, 0.18),
             color,
             flexShrink: 0,
           }}
@@ -190,11 +187,11 @@ function KpiCard({
           <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
             {title}
           </Typography>
-          <Typography variant="h5" sx={{ fontWeight: 800, lineHeight: 1.2, mt: 0.25 }}>
+          <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1.2, mt: 0.25 }}>
             {value}
           </Typography>
           {subtitle ? (
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
               {subtitle}
             </Typography>
           ) : null}
@@ -204,7 +201,16 @@ function KpiCard({
   )
 }
 
-export default function DashboardProdutividadePage() {
+function statusChipColor(
+  status: ChamadoSlaResult['status']
+): 'success' | 'error' | 'warning' | 'default' {
+  if (status === 'dentro') return 'success'
+  if (status === 'fora') return 'error'
+  if (status === 'sem_execucao') return 'warning'
+  return 'default'
+}
+
+export default function DashboardSlaPage() {
   const theme = useTheme()
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
@@ -226,60 +232,13 @@ export default function DashboardProdutividadePage() {
   const [fromDate, setFromDate] = useState(() => getPeriodDates('monthly').fromDate)
   const [toDate, setToDate] = useState(() => getPeriodDates('monthly').toDate)
   const [analistaId, setAnalistaId] = useState('')
-  const [rules, setRules] = useState<ProdutividadeRegraRow[]>([])
-  const [presenca, setPresenca] = useState<ProdutividadePresencaInput | null>(null)
+  const [rules, setRules] = useState<SlaRegraRow[]>([])
+  const [statusByPage, setStatusByPage] = useState<
+    Partial<Record<SlaDashboardPageKey, Map<string, SlaStatusEvent[]>>>
+  >({})
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
-  const [adicionais, setAdicionais] = useState<TempoAdicionalRow[]>([])
-
-  const loadAdicionais = useCallback(async () => {
-    try {
-      setAdicionais(await listTemposAdicionais())
-    } catch (e) {
-      console.warn('Tempos adicionais indisponíveis:', e)
-      setAdicionais([])
-    }
-  }, [])
-
-  const loadPresenca = useCallback(async (from: string, to: string) => {
-    if (!from || !to) {
-      setPresenca(null)
-      return
-    }
-    try {
-      const api = getApi()
-      const data = await api.get<{
-        equipePrevista: number
-        pessoasComPresenca: number
-        pessoaDiasPresentes: number
-        users: Array<{ analistaId: string | null; daysPresent: number }>
-        warning?: string
-      }>(
-        `/monitoring/presence-range?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&department=${encodeURIComponent('NIG')}`
-      )
-      if (data?.warning) {
-        console.warn('Presença NIG:', data.warning)
-      }
-      const diasPresentesByAnalistaId: Record<string, number> = {}
-      for (const u of data?.users || []) {
-        if (!u.analistaId) continue
-        diasPresentesByAnalistaId[u.analistaId] =
-          (diasPresentesByAnalistaId[u.analistaId] || 0) + (u.daysPresent || 0)
-      }
-      setPresenca({
-        // Roster do departamento NIG (ex.: 6 pessoas ativas com department = NIG)
-        equipePrevista: Math.max(data?.equipePrevista || 0, 0),
-        pessoasPresentes: data?.pessoasComPresenca || 0,
-        // Pessoa-dias só de users NIG (API já filtra o departamento)
-        pessoaDiasPresentes: data?.pessoaDiasPresentes || 0,
-        diasPresentesByAnalistaId,
-      })
-    } catch (e) {
-      console.warn('Presença/monitoring indisponível para capacidade real:', e)
-      setPresenca(null)
-    }
-  }, [])
 
   const applyPeriod = useCallback((next: PeriodType, yearMonth?: string) => {
     setPeriod(next)
@@ -308,15 +267,6 @@ export default function DashboardProdutividadePage() {
     setToDate(range.toDate)
   }, [])
 
-  const handleFromDateChange = useCallback((value: string) => {
-    setFromDate(value)
-    if (value && value.length >= 7) setSelectedMonth(value.slice(0, 7))
-  }, [])
-
-  const handleToDateChange = useCallback((value: string) => {
-    setToDate(value)
-  }, [])
-
   const loadAll = useCallback(async () => {
     if (!isAdmin) return
     setLoading(true)
@@ -343,12 +293,20 @@ export default function DashboardProdutividadePage() {
           ] as any,
         }),
       ])
-      const api = getApi()
-      const data = await api.get<ProdutividadeRegraRow[]>('/produtividade-regras')
-      setRules(Array.isArray(data) ? data.filter((r) => r.ativo !== false) : [])
-      await Promise.all([loadPresenca(fromDate, toDate), loadAdicionais()])
+      const [regras, ...statusMaps] = await Promise.all([
+        loadSlaRegras(true),
+        ...SLA_DASHBOARD_PAGES.map((p) =>
+          loadStatusEventsByPage(p).catch(() => new Map<string, SlaStatusEvent[]>())
+        ),
+      ])
+      setRules(regras)
+      const next: Partial<Record<SlaDashboardPageKey, Map<string, SlaStatusEvent[]>>> = {}
+      SLA_DASHBOARD_PAGES.forEach((p, i) => {
+        next[p] = statusMaps[i]
+      })
+      setStatusByPage(next)
     } catch (e: any) {
-      setError(e?.message ?? 'Erro ao carregar produtividade')
+      setError(e?.message ?? 'Erro ao carregar SLA')
     } finally {
       setLoading(false)
     }
@@ -361,10 +319,6 @@ export default function DashboardProdutividadePage() {
     reajusteStore,
     reportStore,
     md,
-    fromDate,
-    toDate,
-    loadPresenca,
-    loadAdicionais,
   ])
 
   useEffect(() => {
@@ -372,48 +326,36 @@ export default function DashboardProdutividadePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdmin])
 
-  useEffect(() => {
-    if (!isAdmin) return
-    void loadPresenca(fromDate, toDate)
-  }, [isAdmin, fromDate, toDate, loadPresenca])
-
   const analistasList = useMemo(
     () => (md.analistas || []).map((a) => ({ id: a.id, nome: a.nome })),
     [md.analistas]
   )
 
-  const chamados = useMemo((): ChamadoProdutividadeResult[] => {
-    const out: ChamadoProdutividadeResult[] = []
-    const aprovadoPorChamado = new Map<string, number>()
-    for (const a of adicionais) {
-      if (a.status !== 'aprovado') continue
-      const key = `${a.pageKey}:${a.entityId}`
-      aprovadoPorChamado.set(key, (aprovadoPorChamado.get(key) || 0) + a.adicionalSeconds)
-    }
+  const chamados = useMemo((): ChamadoSlaResult[] => {
+    const out: ChamadoSlaResult[] = []
     const pushPage = (
-      page: string,
+      page: SlaDashboardPageKey,
       items: any[],
       extract: (item: any) => ReturnType<typeof extractDemandaDims>
     ) => {
+      const statusMap = statusByPage[page]
       for (const item of items || []) {
         if (!isItemConcluidoProducao(page, item)) continue
         const dataConclusao = getDataReferenciaConclusao(page, item)
         if (!dataConclusao) continue
-        const result = evaluateTicketProdutividade({
-          item,
-          dims: extract(item),
-          rules,
-          dataConclusao,
-          dataInicio: getExecutionStartDate(page, item) || null,
-          dataFinal: getExecutionEndDate(page, item) || null,
-          analistas: analistasList,
-        })
-        const adicional = aprovadoPorChamado.get(`${page}:${result.id}`) || 0
-        if (adicional > 0) {
-          result.tempoPrevistoSeconds += adicional
-          result.adicionalAprovadoSeconds = adicional
-        }
-        out.push(result)
+        out.push(
+          evaluateTicketSla({
+            item,
+            dims: extract(item),
+            rules,
+            dataConclusao,
+            dataInicio: getExecutionStartDate(page, item) || null,
+            dataFinal: getExecutionEndDate(page, item) || null,
+            concluido: true,
+            statusEvents: statusMap?.get(String(item.id)) ?? null,
+            analistas: analistasList,
+          })
+        )
       }
     }
 
@@ -433,7 +375,7 @@ export default function DashboardProdutividadePage() {
     reajusteStore.items,
     reportStore.items,
     rules,
-    adicionais,
+    statusByPage,
     analistasList,
   ])
 
@@ -447,22 +389,21 @@ export default function DashboardProdutividadePage() {
 
   const summary = useMemo(
     () =>
-      buildProdutividadeDashboard({
+      buildSlaDashboard({
         chamados,
         fromDate,
         toDate,
         analistaNomeById,
         analistaIdFilter: analistaId || null,
-        presenca,
       }),
-    [chamados, fromDate, toDate, analistaNomeById, analistaId, presenca]
+    [chamados, fromDate, toDate, analistaNomeById, analistaId]
   )
 
   if (!isAdmin) {
     return (
       <Box sx={{ p: 3 }}>
         <Alert severity="warning" sx={{ mb: 2 }}>
-          A página de Produtividade do Dashboard é restrita a administradores.
+          A página de SLA do Dashboard é restrita a administradores.
         </Alert>
         <Button startIcon={<BackIcon />} onClick={() => navigate('/dashboard')}>
           Voltar ao Dashboard
@@ -471,8 +412,12 @@ export default function DashboardProdutividadePage() {
     )
   }
 
-  const toggleRow = (id: string) =>
-    setExpanded((s) => ({ ...s, [id]: !s[id] }))
+  const toggleRow = (id: string) => setExpanded((s) => ({ ...s, [id]: !s[id] }))
+
+  const diasLabel =
+    summary.prazoSlaDiasUteis != null
+      ? `${String(summary.prazoSlaDiasUteis).replace('.', ',')} dias úteis`
+      : null
 
   return (
     <Box sx={{ p: { xs: 2, md: 3 } }}>
@@ -492,13 +437,13 @@ export default function DashboardProdutividadePage() {
             Dashboard
           </Button>
           <Typography variant="h5" sx={{ fontWeight: 800 }}>
-            Produtividade
+            SLA
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Produção por analista × tempo previsto (Dados → Produtividade). Capacidade prevista/real
-            considera só o departamento NIG (logins do painel de usuários). Páginas:{' '}
-            {PRODUTIVIDADE_DASHBOARD_PAGES.map((k) => PRODUTIVIDADE_PAGE_LABEL[k]).join(', ')}.
-            Conclusão pelo dia em que o chamado foi concluído.
+            Cumprimento de prazo por analista × regras de SLA (Dados → SLA), com faixas e impacto.
+            Páginas: {SLA_DASHBOARD_PAGES.map((k) => SLA_PAGE_LABEL[k]).join(', ')}. Conclusão pelo
+            dia em que o chamado foi concluído. Tempo em horas úteis (seg–sex, 09h–17h), descontando
+            os status {SLA_STATUS_PAUSA_LABEL}.
           </Typography>
         </Box>
         <Button
@@ -551,7 +496,7 @@ export default function DashboardProdutividadePage() {
               label="De"
               size="small"
               value={fromDate}
-              onChange={(e) => handleFromDateChange(e.target.value)}
+              onChange={(e) => setFromDate(e.target.value)}
               InputLabelProps={{ shrink: true }}
               sx={FILTER_CONTROL_SX}
             />
@@ -563,7 +508,7 @@ export default function DashboardProdutividadePage() {
               label="Até"
               size="small"
               value={toDate}
-              onChange={(e) => handleToDateChange(e.target.value)}
+              onChange={(e) => setToDate(e.target.value)}
               InputLabelProps={{ shrink: true }}
               sx={FILTER_CONTROL_SX}
             />
@@ -603,85 +548,82 @@ export default function DashboardProdutividadePage() {
           <KpiCard
             title="Chamados concluídos"
             value={String(summary.totalChamados)}
-            subtitle={formatCountsByPageLabel(summary.countsByPage)}
+            subtitle={formatSlaCountsByPageLabel(summary.countsByPage)}
             icon={<DoneIcon fontSize="small" />}
             color={theme.palette.primary.main}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <KpiCard
-            title="Média / dia útil"
-            value={summary.mediaDiaLabel}
+            title="Com regra SLA"
+            value={String(summary.matchedCount)}
             subtitle={
-              summary.pctMediaDia != null
-                ? `${String(summary.pctMediaDia).replace('.', ',')}% de 1 jornada · média por pessoa · ${summary.businessDaysInRange} dia(s)`
-                : `Média por pessoa · ${summary.businessDaysInRange} dia(s) útil(is)`
+              summary.unmatchedCount > 0
+                ? `${summary.unmatchedCount} sem regra correspondente`
+                : 'Todos com regra'
             }
-            icon={<AvgIcon fontSize="small" />}
+            icon={<RuleIcon fontSize="small" />}
             color="#0b6e4f"
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <KpiCard
-            title="% do mês (previsto)"
+            title="% dentro do prazo"
             value={
-              summary.pctMesCapacidade != null
-                ? `${String(summary.pctMesCapacidade).replace('.', ',')}%`
+              summary.pctDentro != null
+                ? `${String(summary.pctDentro).replace('.', ',')}%`
                 : '—'
             }
-            subtitle={`Previsto ${summary.tempoPrevistoLabel} ÷ capacidade ${summary.capacidadePeriodoLabel}`}
-            icon={<MonthIcon fontSize="small" />}
-            color={theme.palette.info.main}
+            subtitle={`${summary.dentroCount} dentro · ${summary.foraCount} fora`}
+            icon={<OkIcon fontSize="small" />}
+            color="#15803d"
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <KpiCard
-            title="% do mês (real)"
+            title="% fora do prazo"
             value={
-              summary.pctMesCapacidadeReal != null
-                ? `${String(summary.pctMesCapacidadeReal).replace('.', ',')}%`
-                : '—'
+              summary.pctFora != null ? `${String(summary.pctFora).replace('.', ',')}%` : '—'
             }
             subtitle={
-              summary.capacidadeRealLabel
-                ? `Previsto ÷ capacidade real ${summary.capacidadeRealLabel}`
-                : 'Sem dados de login no período'
+              summary.semExecucaoCount > 0
+                ? `${summary.semExecucaoCount} sem data de início`
+                : 'Comparado ao prazo útil da regra'
             }
-            icon={<CompareIcon fontSize="small" />}
+            icon={<LateIcon fontSize="small" />}
+            color="#b91c1c"
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <KpiCard
+            title="Prazo SLA (úteis)"
+            value={summary.prazoSlaLabel}
+            subtitle={diasLabel || 'Soma dos prazos das regras'}
+            icon={<SlaIcon fontSize="small" />}
             color="#0f766e"
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <KpiCard
-            title="Jornadas 8h"
-            value={String(summary.jornadasEquivalentes).replace('.', ',')}
-            subtitle={
-              summary.unmatchedCount > 0
-                ? `${summary.unmatchedCount} chamado(s) sem regra`
-                : 'Previsto total ÷ 08:00:00'
-            }
-            icon={
-              summary.unmatchedCount > 0 ? (
-                <WarnIcon fontSize="small" />
-              ) : (
-                <SpeedIcon fontSize="small" />
-              )
-            }
-            color="#b45309"
+            title="Tempo executado"
+            value={summary.tempoExecutadoLabel}
+            subtitle="Horas úteis do início ao fim, sem pausas"
+            icon={<TimeIcon fontSize="small" />}
+            color="#334155"
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <KpiCard
-            title="Maior índice"
+            title="Maior cumprimento"
             value={
-              summary.maiorIndice
-                ? `${String(summary.maiorIndice.pctMesCapacidade).replace('.', ',')}%`
+              summary.maiorCumprimento
+                ? `${String(summary.maiorCumprimento.pctDentro).replace('.', ',')}%`
                 : '—'
             }
             subtitle={
-              summary.maiorIndice
-                ? `${summary.maiorIndice.analistaNome} · média ${summary.maiorIndice.mediaDiaLabel}/dia`
-                : 'Sem produção com regra no período'
+              summary.maiorCumprimento
+                ? `${summary.maiorCumprimento.analistaNome} · ${summary.maiorCumprimento.dentroCount}/${summary.maiorCumprimento.totalChamados}`
+                : 'Sem chamados avaliáveis no período'
             }
             icon={<HighIcon fontSize="small" />}
             color="#15803d"
@@ -689,77 +631,19 @@ export default function DashboardProdutividadePage() {
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <KpiCard
-            title="Menor índice"
+            title="Menor cumprimento"
             value={
-              summary.menorIndice
-                ? `${String(summary.menorIndice.pctMesCapacidade).replace('.', ',')}%`
+              summary.menorCumprimento
+                ? `${String(summary.menorCumprimento.pctDentro).replace('.', ',')}%`
                 : '—'
             }
             subtitle={
-              summary.menorIndice
-                ? `${summary.menorIndice.analistaNome} · média ${summary.menorIndice.mediaDiaLabel}/dia`
-                : 'Sem produção com regra no período'
+              summary.menorCumprimento
+                ? `${summary.menorCumprimento.analistaNome} · ${summary.menorCumprimento.dentroCount}/${summary.menorCumprimento.totalChamados}`
+                : 'Sem chamados avaliáveis no período'
             }
             icon={<LowIcon fontSize="small" />}
             color="#b91c1c"
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <KpiCard
-            title="Tempo previsto"
-            value={summary.tempoPrevistoLabel}
-            subtitle="Soma de todas as páginas ativas"
-            icon={<TimeIcon fontSize="small" />}
-            color="#334155"
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <KpiCard
-            title="Capacidade prevista"
-            value={summary.capacidadePeriodoLabel}
-            subtitle={`${summary.businessDaysInRange} dia(s) × 08:00:00 × ${summary.pessoasCapacidade} pessoa(s) NIG`}
-            icon={<OkIcon fontSize="small" />}
-            color="#475569"
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <KpiCard
-            title="Capacidade real"
-            value={summary.capacidadeRealLabel || '—'}
-            subtitle={
-              summary.pessoaDiasPresentes != null
-                ? [
-                    summary.pessoasPresentes != null
-                      ? `${summary.pessoasPresentes} de ${summary.pessoasCapacidade} do NIG com login no período`
-                      : null,
-                    `soma ${summary.pessoaDiasPresentes} dia(s) com login × 08:00:00`,
-                    summary.pctPresencaCapacidade != null
-                      ? `${String(summary.pctPresencaCapacidade).replace('.', ',')}% da prevista`
-                      : null,
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')
-                : 'Logins do departamento NIG (painel de usuários)'
-            }
-            icon={<PeopleIcon fontSize="small" />}
-            color="#1d4ed8"
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <KpiCard
-            title="Pessoas presentes (NIG)"
-            value={
-              summary.pessoasPresentes != null
-                ? String(summary.pessoasPresentes)
-                : '—'
-            }
-            subtitle={
-              summary.pessoasPresentes != null
-                ? `de ${summary.pessoasCapacidade} no departamento NIG · cada dia com login conta na capacidade real`
-                : 'Aguardando monitoramento de login'
-            }
-            icon={<PeopleIcon fontSize="small" />}
-            color="#64748b"
           />
         </Grid>
       </Grid>
@@ -778,17 +662,18 @@ export default function DashboardProdutividadePage() {
                 <TableCell>Analista</TableCell>
                 <TableCell>Por página</TableCell>
                 <TableCell align="right">Total</TableCell>
-                <TableCell align="right">Previsto</TableCell>
-                <TableCell align="right">Média/dia</TableCell>
-                <TableCell align="right">% capacidade</TableCell>
-                <TableCell align="right">Jornadas</TableCell>
+                <TableCell align="right">Dentro</TableCell>
+                <TableCell align="right">Fora</TableCell>
+                <TableCell align="right">% cumprimento</TableCell>
+                <TableCell align="right">Prazo SLA</TableCell>
+                <TableCell align="right">Executado</TableCell>
                 <TableCell align="right">Sem regra</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {summary.byAnalista.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9}>
+                  <TableCell colSpan={10}>
                     <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
                       Nenhum chamado concluído no período nas páginas monitoradas.
                     </Typography>
@@ -801,10 +686,10 @@ export default function DashboardProdutividadePage() {
                     row={row}
                     open={!!expanded[row.analistaId]}
                     onToggle={() => toggleRow(row.analistaId)}
-                    isMaior={summary.maiorIndice?.analistaId === row.analistaId}
+                    isMaior={summary.maiorCumprimento?.analistaId === row.analistaId}
                     isMenor={
-                      summary.menorIndice?.analistaId === row.analistaId &&
-                      summary.maiorIndice?.analistaId !== row.analistaId
+                      summary.menorCumprimento?.analistaId === row.analistaId &&
+                      summary.maiorCumprimento?.analistaId !== row.analistaId
                     }
                   />
                 ))
@@ -813,21 +698,11 @@ export default function DashboardProdutividadePage() {
           </Table>
         </TableContainer>
       </Paper>
-
-      <PrevistoRealizadoSection
-        rows={adicionais}
-        rules={rules}
-        fromDate={fromDate}
-        toDate={toDate}
-        analistaId={analistaId}
-        analistaNomeById={analistaNomeById}
-        onChanged={() => void loadAdicionais()}
-      />
     </Box>
   )
 }
 
-function TicketLink({ chamado }: { chamado: ChamadoProdutividadeResult }) {
+function TicketLink({ chamado }: { chamado: ChamadoSlaResult }) {
   const href = getTicketDetailPath(chamado.pageKey, chamado.id)
   const label = chamado.ticket || 'Sem ticket'
   if (!href) {
@@ -858,7 +733,7 @@ function AnalistaBlock({
   isMaior,
   isMenor,
 }: {
-  row: AnalistaProdutividadeRow
+  row: AnalistaSlaRow
   open: boolean
   onToggle: () => void
   isMaior?: boolean
@@ -883,93 +758,83 @@ function AnalistaBlock({
         </TableCell>
         <TableCell>
           <Typography variant="caption" color="text.secondary">
-            {formatCountsByPageLabel(row.countsByPage)}
+            {formatSlaCountsByPageLabel(row.countsByPage)}
           </Typography>
         </TableCell>
         <TableCell align="right">{row.totalChamados}</TableCell>
-        <TableCell align="right">{row.tempoPrevistoLabel}</TableCell>
+        <TableCell align="right">{row.dentroCount}</TableCell>
+        <TableCell align="right">{row.foraCount}</TableCell>
         <TableCell align="right">
-          <Typography variant="body2" component="span">
-            {row.mediaDiaLabel}
-          </Typography>
-          {row.pctMediaDia != null ? (
-            <Typography variant="caption" color="text.secondary" display="block">
-              {String(row.pctMediaDia).replace('.', ',')}% jorn.
+          {row.pctDentro != null ? `${String(row.pctDentro).replace('.', ',')}%` : '—'}
+        </TableCell>
+        <TableCell align="right">
+          <Typography variant="body2">{row.prazoSlaLabel}</Typography>
+          {row.prazoSlaDiasUteis != null ? (
+            <Typography variant="caption" color="text.secondary">
+              {String(row.prazoSlaDiasUteis).replace('.', ',')}d úteis
             </Typography>
           ) : null}
         </TableCell>
-        <TableCell align="right">
-          {row.pctMesCapacidade != null
-            ? `${String(row.pctMesCapacidade).replace('.', ',')}%`
-            : '—'}
-          {row.diasPresentes != null ? (
-            <Typography variant="caption" color="text.secondary" display="block">
-              {row.diasPresentes} dia(s) com login
-            </Typography>
-          ) : null}
-        </TableCell>
-        <TableCell align="right">{String(row.jornadasEquivalentes).replace('.', ',')}</TableCell>
+        <TableCell align="right">{row.tempoExecutadoLabel}</TableCell>
         <TableCell align="right">
           {row.unmatchedCount > 0 ? (
-            <Chip size="small" color="warning" label={row.unmatchedCount} />
+            <Chip size="small" color="warning" variant="outlined" label={row.unmatchedCount} />
           ) : (
-            0
+            '0'
           )}
         </TableCell>
       </TableRow>
       <TableRow>
-        <TableCell colSpan={9} sx={{ py: 0, bgcolor: 'action.hover' }}>
+        <TableCell colSpan={10} sx={{ py: 0, borderBottom: open ? undefined : 'none' }}>
           <Collapse in={open} timeout="auto" unmountOnExit>
-            <Box sx={{ p: 2 }}>
-              <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
-                Chamados do período (previsto pela regra; executado ainda não cadastrado no chamado)
-              </Typography>
+            <Box sx={{ py: 1.5, px: 1 }}>
               <Table size="small">
                 <TableHead>
                   <TableRow>
                     <TableCell>Ticket</TableCell>
                     <TableCell>Página</TableCell>
+                    <TableCell>Impacto</TableCell>
                     <TableCell>Conclusão</TableCell>
-                    <TableCell>Início</TableCell>
-                    <TableCell>Fim</TableCell>
-                    <TableCell align="right">Previsto</TableCell>
+                    <TableCell align="right">Prazo SLA</TableCell>
                     <TableCell align="right">Executado</TableCell>
-                    <TableCell>Regra</TableCell>
+                    <TableCell>Status</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {row.chamados.map((c) => (
-                    <TableRow key={`${c.pageKey}-${c.id}`}>
+                    <TableRow key={c.id} hover>
                       <TableCell>
                         <TicketLink chamado={c} />
                       </TableCell>
                       <TableCell>{c.pageLabel}</TableCell>
-                      <TableCell>{String(c.dataConclusao).slice(0, 10)}</TableCell>
+                      <TableCell>{getSlaImpactoShortLabel(c.impacto)}</TableCell>
                       <TableCell>
-                        {c.dataInicio ? String(c.dataInicio).slice(0, 10) : '—'}
-                      </TableCell>
-                      <TableCell>
-                        {c.dataFinal ? String(c.dataFinal).slice(0, 10) : '—'}
-                      </TableCell>
-                      <TableCell align="right">
-                        {formatSecondsToHms(c.tempoPrevistoSeconds) || '00:00:00'}
-                        {c.adicionalAprovadoSeconds ? (
-                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                            inclui +{formatSecondsToHms(c.adicionalAprovadoSeconds)} aprovado
-                          </Typography>
-                        ) : null}
-                      </TableCell>
-                      <TableCell align="right">
-                        <Typography variant="caption" color="text.secondary">
-                          em breve
+                        <Typography variant="caption">
+                          {String(c.dataConclusao).slice(0, 10)}
                         </Typography>
                       </TableCell>
+                      <TableCell align="right">
+                        {c.matched ? formatPrazoSlaLabel(c.prazoSlaSeconds) : '—'}
+                      </TableCell>
+                      <TableCell align="right">
+                        {c.tempoExecutadoSeconds != null
+                          ? formatSecondsToHms(c.tempoExecutadoSeconds) || '00:00:00'
+                          : '—'}
+                      </TableCell>
                       <TableCell>
-                        {c.matched ? (
-                          <Chip size="small" color="success" label="ok" />
-                        ) : (
-                          <Chip size="small" color="warning" label="sem regra" />
-                        )}
+                        <Chip
+                          size="small"
+                          label={formatSlaStatusLabel(c.status)}
+                          color={statusChipColor(c.status)}
+                          variant={c.status === 'dentro' ? 'filled' : 'outlined'}
+                          icon={
+                            c.status === 'fora' ? (
+                              <WarnIcon />
+                            ) : c.status === 'dentro' ? (
+                              <OkIcon />
+                            ) : undefined
+                          }
+                        />
                       </TableCell>
                     </TableRow>
                   ))}

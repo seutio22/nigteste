@@ -1720,3 +1720,33 @@ model SlaRegra {
   @@index([pageKey, impacto])
   @@map("sla_regras")
 }
+
+/// Tempo adicional ao previsto (Produtividade) lançado no chamado, para reanálise das regras.
+model TempoAdicional {
+  id                   String    @id @default(uuid())
+  pageKey              String
+  entityId             String
+  ticket               String?
+  analistaId           String?
+  regraProdutividadeId String?
+  /// Tempo previsto no momento do lançamento (fixo mesmo se a regra mudar)
+  tempoPrevistoSeconds Int       @default(0)
+  adicionalSeconds     Int
+  motivo               String
+  justificativa        String
+  /// pendente | aprovado | rejeitado
+  status               String    @default("pendente")
+  comentarioRevisao    String?
+  revisorId            String?
+  revisorNome          String?
+  revisadoEm           DateTime?
+  userId               String?
+  userNome             String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@index([pageKey, entityId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("tempo_adicional")
+}

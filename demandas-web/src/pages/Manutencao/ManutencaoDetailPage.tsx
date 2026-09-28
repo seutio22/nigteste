@@ -20,6 +20,7 @@ import {
   ManutencaoContratosVinculosSection,
 } from '../../components/ManutencaoContratosVinculosSection'
 import { QualificacaoManutencaoPanel } from '../../components/manutencao/QualificacaoManutencaoPanel'
+import { SlaChamadoCard } from '../../components/sla/SlaChamadoCard'
 import {
   contratosVinculosToApi,
   deriveContratosIds,
@@ -333,6 +334,10 @@ export default function ManutencaoDetailPage() {
                 </div>
               </div>
             </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg border shadow-sm">
+            <SlaChamadoCard pageKey="manutencoes" item={d} embedded />
           </div>
 
           <div className="bg-white p-6 rounded-lg border shadow-sm">

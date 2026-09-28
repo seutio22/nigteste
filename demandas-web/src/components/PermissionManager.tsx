@@ -64,7 +64,8 @@ const ACTION_LABELS: Record<keyof ModulePermission, string> = {
   export: 'Exportar',
   import: 'Importar',
   approve: 'Aprovar',
-  reject: 'Rejeitar'
+  reject: 'Rejeitar',
+  viewAll: 'Ver todos os projetos e arquivados'
 };
 
 const HIDDEN_PERMISSION_MODULES: (keyof SystemPermissions)[] = []
@@ -93,7 +94,7 @@ const PERMISSION_SECTIONS: { title?: string; modules: (keyof SystemPermissions)[
 
 const ALL_DISPLAY_MODULES = PERMISSION_SECTIONS.flatMap((s) => s.modules)
 
-function completeModulePermission(perms?: ModulePermission): ModulePermission {
+function completeModulePermission(perms: ModulePermission | undefined, module: keyof SystemPermissions): ModulePermission {
   return {
     view: perms?.view ?? false,
     create: perms?.create ?? false,
@@ -103,6 +104,7 @@ function completeModulePermission(perms?: ModulePermission): ModulePermission {
     import: perms?.import ?? false,
     approve: perms?.approve ?? false,
     reject: perms?.reject ?? false,
+    ...(module === 'projetos' ? { viewAll: perms?.viewAll ?? true } : {}),
   }
 }
 
@@ -113,7 +115,7 @@ function buildEditorPermissions(
   const merged = mergeUserPermissions(userPermissions, userRole)
   const complete = { ...merged } as SystemPermissions
   for (const key of ALL_DISPLAY_MODULES) {
-    complete[key] = completeModulePermission(merged[key])
+    complete[key] = completeModulePermission(merged[key], key)
   }
   return complete
 }
@@ -302,7 +304,7 @@ export default function PermissionManager({
                         const action = actionKey as keyof ModulePermission;
                         
                         return (
-                          <Grid item xs={6} sm={3} key={action}>
+                          <Grid item xs={action === 'viewAll' ? 12 : 6} sm={action === 'viewAll' ? 6 : 3} key={action}>
                             <FormControlLabel
                               control={
                                 <Checkbox
@@ -318,6 +320,12 @@ export default function PermissionManager({
                       })}
                     </Grid>
                     
+                    {module === 'projetos' && modulePermissions.view && (
+                      <Typography variant="caption" color="textSecondary" sx={{ mt: 1, display: 'block' }}>
+                        Com "Ver todos os projetos e arquivados" desmarcado, o usuário enxerga apenas o menu "Meus
+                        projetos" (projetos em que é dono, gerente ou membro da equipe).
+                      </Typography>
+                    )}
                     {modulePermissions.view && (
                       <Box mt={2}>
                         <Divider />

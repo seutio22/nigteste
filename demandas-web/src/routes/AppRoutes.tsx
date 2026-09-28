@@ -8,6 +8,7 @@ import HomePage from '../pages/Home'
 import DashboardPage from '../pages/Dashboard'
 import DashboardProjetosPage from '../pages/DashboardProjetos'
 import DashboardProdutividadePage from '../pages/DashboardProdutividade'
+import DashboardSlaPage from '../pages/DashboardSla'
 import DemandListPage from '../pages/Demandas/List'
 import DemandNewPage from '../pages/Demandas/New'
 import DemandDetailPage from '../pages/Demandas/Detail'
@@ -81,6 +82,11 @@ export function AppRoutes() {
             <Route path="produtividade" element={
               <ProtectedRoute module="dashboard">
                 <DashboardProdutividadePage />
+              </ProtectedRoute>
+            } />
+            <Route path="sla" element={
+              <ProtectedRoute module="dashboard">
+                <DashboardSlaPage />
               </ProtectedRoute>
             } />
           </Route>

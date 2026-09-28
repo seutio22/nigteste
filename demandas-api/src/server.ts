@@ -6,12 +6,14 @@ import jwt from '@fastify/jwt'
 import authPlugin from './plugins/auth'
 import jwtGatePlugin from './plugins/jwtGate'
 import { authRoutes } from './routes/auth'
+import { getUserPermissions } from './config/permissions'
 import { userRoutes } from './routes/users'
 import { userAlertsRoutes } from './routes/userAlerts'
 import comunicadosRoutes from './routes/comunicados'
 import projectTeamRoutes from './routes/projectTeam'
 import projectWorkAuditRoutes from './routes/projectWorkAudit'
 import projectTemplatesRoutes from './routes/projectTemplates'
+import temposAdicionaisRoutes from './routes/temposAdicionais'
 import projectStatsSummaryRoutes from './routes/projectStatsSummary'
 import shareRoutes from './routes/share'
 import placementShareRoutes from './routes/placementShare'
@@ -1831,6 +1833,7 @@ function crud(entity: keyof PrismaClient) {
         const where: any = {}
         if (queryParams.entityId) where.entityId = queryParams.entityId
         if (queryParams.entityType) where.entityType = queryParams.entityType
+        if (queryParams.field) where.field = queryParams.field
         const pagination = parsePagination(queryParams)
         
         console.log('🔍 Buscando timelineEvents com filtros:', where)
@@ -3970,6 +3973,14 @@ for (const [path, repo] of Object.entries(resources)) {
       return { id: null, role: null }
     }
 
+    /** Permissão "Ver todos os projetos e arquivados" desmarcada em Gerenciar Permissões. */
+    const projetosSomenteMeus = async (userId: string | null, userRole: string | null): Promise<boolean> => {
+      if (!userId || userRole === 'admin') return false
+      const u = await prisma.user.findUnique({ where: { id: userId }, select: { permissions: true, role: true } })
+      if (!u) return false
+      return getUserPermissions(u.permissions, u.role).projetos?.viewAll === false
+    }
+
     app.get(`/${path}`, async (req: any, reply) => {
       try {
         let userId: string | null = null
@@ -3992,18 +4003,21 @@ for (const [path, repo] of Object.entries(resources)) {
 
         console.log('🔍 GET /projetos: userId =', userId, 'userRole =', userRole)
 
+        const somenteMeus = await projetosSomenteMeus(userId, userRole)
+        const meusProjetos = userId
+          ? [
+              { ownerId: userId },
+              { managerId: userId },
+              { members: { some: { userId } } },
+              { team: { contains: userId } }
+            ]
+          : []
+
         // Admin enxerga tudo
         const where: any = userRole === 'admin'
           ? {}
           : userId
-            ? {
-                OR: [
-                  { isPrivate: false },
-                  { ownerId: userId },
-                  { managerId: userId },
-                  { members: { some: { userId } } }
-                ]
-              }
+            ? { OR: somenteMeus ? meusProjetos : [{ isPrivate: false }, ...meusProjetos] }
             : { isPrivate: false }
 
         console.log('🔍 GET /projetos: where clause =', JSON.stringify(where, null, 2))
@@ -4165,7 +4179,10 @@ for (const [path, repo] of Object.entries(resources)) {
         const fallbackAccess = isPrivateWithoutOwner && isMember
         
         // Lógica IDÊNTICA à da lista: admin, público, owner, manager, ou membro (ou fallback)
-        const canView = isAdmin || isPublic || isOwner || isManager || isMember || fallbackAccess
+        const somenteMeus = await projetosSomenteMeus(userId, userRole)
+        const inTeam = !!userId && String((project as any).team || '').includes(String(userId))
+        const canView =
+          isAdmin || (isPublic && !somenteMeus) || isOwner || isManager || isMember || inTeam || fallbackAccess
 
         console.log('🔍 GET /projetos/:id: Verificação de acesso:', {
           projectId: id,
@@ -5882,6 +5899,9 @@ app.register(projectWorkAuditRoutes, { prisma })
 
 // Templates de cronograma de projetos
 app.register(projectTemplatesRoutes, { prisma })
+
+// Tempo adicional ao previsto (Produtividade) por chamado
+app.register(temposAdicionaisRoutes, { prisma })
 
 // Rotas de compartilhamento (DEVEM vir ANTES das rotas genéricas)
 app.register(shareRoutes, { prisma })

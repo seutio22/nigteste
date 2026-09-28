@@ -23,6 +23,7 @@ import {
   FilterList as FilterIcon,
   FolderOpen as ProjectsDashboardIcon,
   Speed as ProdutividadeIcon,
+  Schedule as SlaIcon,
 } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
@@ -583,30 +584,56 @@ export default function DashboardPage() {
               Dashboard de projetos
             </Button>
             {isAdmin ? (
-              <Button
-                variant="contained"
-                size="medium"
-                color="secondary"
-                startIcon={<ProdutividadeIcon />}
-                onClick={() => navigate('/dashboard/produtividade')}
-                sx={{
-                  borderRadius: '14px',
-                  padding: '10px 18px',
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  fontSize: '0.9rem',
-                  height: '40px',
-                  boxShadow: 'none',
-                  bgcolor: '#0b6e4f',
-                  '&:hover': {
-                    bgcolor: '#095c42',
-                    boxShadow: '0 4px 12px 0 rgba(11, 110, 79, 0.22)',
-                    transform: 'translateY(-1px)',
-                  },
-                }}
-              >
-                Produtividade
-              </Button>
+              <>
+                <Button
+                  variant="contained"
+                  size="medium"
+                  color="secondary"
+                  startIcon={<ProdutividadeIcon />}
+                  onClick={() => navigate('/dashboard/produtividade')}
+                  sx={{
+                    borderRadius: '14px',
+                    padding: '10px 18px',
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    fontSize: '0.9rem',
+                    height: '40px',
+                    boxShadow: 'none',
+                    bgcolor: '#0b6e4f',
+                    '&:hover': {
+                      bgcolor: '#095c42',
+                      boxShadow: '0 4px 12px 0 rgba(11, 110, 79, 0.22)',
+                      transform: 'translateY(-1px)',
+                    },
+                  }}
+                >
+                  Produtividade
+                </Button>
+                <Button
+                  variant="contained"
+                  size="medium"
+                  color="secondary"
+                  startIcon={<SlaIcon />}
+                  onClick={() => navigate('/dashboard/sla')}
+                  sx={{
+                    borderRadius: '14px',
+                    padding: '10px 18px',
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    fontSize: '0.9rem',
+                    height: '40px',
+                    boxShadow: 'none',
+                    bgcolor: '#0f766e',
+                    '&:hover': {
+                      bgcolor: '#0d9488',
+                      boxShadow: '0 4px 12px 0 rgba(15, 118, 110, 0.22)',
+                      transform: 'translateY(-1px)',
+                    },
+                  }}
+                >
+                  SLA
+                </Button>
+              </>
             ) : null}
             <Button
               variant="outlined"

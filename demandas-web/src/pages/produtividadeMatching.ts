@@ -95,6 +95,8 @@ export type ChamadoProdutividadeResult = {
   /** Data usada para atribuir o chamado ao dia de produção (conclusão) */
   dataConclusao: string
   tempoPrevistoSeconds: number
+  /** Parte do previsto que veio de tempo adicional aprovado no chamado. */
+  adicionalAprovadoSeconds?: number
   /** Futuro: HH:MM:SS real no chamado */
   tempoExecutadoSeconds: number | null
   regraId: string | null

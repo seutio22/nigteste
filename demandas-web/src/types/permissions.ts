@@ -8,6 +8,8 @@ export interface ModulePermission {
   import?: boolean;
   approve?: boolean;
   reject?: boolean;
+  /** Só em projetos: false = enxerga apenas "Meus projetos" (ausente = true). */
+  viewAll?: boolean;
 }
 
 export interface SystemPermissions {
