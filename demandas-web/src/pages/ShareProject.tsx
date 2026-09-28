@@ -28,7 +28,6 @@ import {
   Share as ShareIcon,
   CalendarToday as CalendarIcon,
   Person as PersonIcon,
-  Business as BusinessIcon,
   Assignment as AssignmentIcon,
   CheckCircle as CheckCircleIcon,
   Schedule as ScheduleIcon,
@@ -38,7 +37,6 @@ import {
   UnfoldMore as UnfoldMoreIcon,
   UnfoldLess as UnfoldLessIcon,
   Flag as FlagIcon,
-  Notes as NotesIcon,
   DateRange as DateRangeIcon,
   Timeline as TimelineIcon,
   Group as GroupIcon,
@@ -67,7 +65,9 @@ import {
   Wrench as WrenchIcon
 } from 'lucide-react';
 import { api } from '../lib/api.local';
+import { getShareVisitorId, useProjectShareTracking } from '../hooks/useProjectShareTracking';
 import ProjectGantt from '../components/ProjectGantt';
+import ProjectCharterView from '../components/ProjectCharterView';
 import { PrimaryActionButton } from '../components/PrimaryActionButton';
 import { formatIntegerPtBR } from '../utils/formatNumber';
 import {
@@ -341,6 +341,8 @@ const ShareProject: React.FC = () => {
   const [project, setProject] = useState<ProjectData | null>(null);
   const [shareInfo, setShareInfo] = useState<ShareInfo | null>(null);
   const [allowedViews, setAllowedViews] = useState<string[]>([]);
+  const [hiddenFields, setHiddenFields] = useState<string[]>([]);
+  const [accessLogId, setAccessLogId] = useState<string | undefined>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState(0);
@@ -380,7 +382,8 @@ const ShareProject: React.FC = () => {
     try {
       setLoading(true);
       console.log('🔍 Fetching project data for token:', token);
-      const response = await api.get(`/share/${token}`);
+      const visitorId = getShareVisitorId();
+      const response = await api.get(`/share/${token}${visitorId ? `?v=${encodeURIComponent(visitorId)}` : ''}`);
       console.log('📊 API Response:', response);
       
       if (response.project) {
@@ -407,6 +410,8 @@ const ShareProject: React.FC = () => {
         setProject(response.project);
         setShareInfo(response.shareInfo);
         setAllowedViews(response.allowedViews || []);
+        setHiddenFields(response.hiddenFields || []);
+        setAccessLogId(response.shareInfo?.accessLogId);
         
         console.log('🔍 Allowed views:', response.allowedViews);
         console.log('🔍 Share info:', response.shareInfo);
@@ -493,6 +498,21 @@ const ShareProject: React.FC = () => {
     return priorityLabels[priority] || priority;
   };
 
+  const timelineIndicatorsAllowed =
+    allowedViews.includes('timeline') ||
+    allowedViews.includes('indicators');
+
+  const availableTabs = [
+    { key: 'overview', label: 'Visão Geral', allowed: allowedViews.includes('overview') },
+    { key: 'timeline', label: 'Cronograma Detalhado', allowed: allowedViews.includes('timeline') },
+    { key: 'indicators', label: 'Indicadores', allowed: allowedViews.includes('indicators') || timelineIndicatorsAllowed },
+    { key: 'gantt', label: 'Gráfico de Gantt', allowed: allowedViews.includes('gantt') },
+    { key: 'team', label: 'Equipe', allowed: allowedViews.includes('team') },
+    { key: 'charter', label: 'Project Charter', allowed: ['charter', 'riscos', 'financeiro'].some((v) => allowedViews.includes(v)) }
+  ].filter(tab => tab.allowed);
+
+  useProjectShareTracking(token, accessLogId, availableTabs[activeTab]?.key);
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
@@ -514,19 +534,6 @@ const ShareProject: React.FC = () => {
     );
   }
 
-  const timelineIndicatorsAllowed =
-    allowedViews.includes('timeline') ||
-    allowedViews.includes('indicators');
-
-  const availableTabs = [
-    { key: 'overview', label: 'Visão Geral', allowed: allowedViews.includes('overview') },
-    { key: 'timeline', label: 'Cronograma Detalhado', allowed: allowedViews.includes('timeline') },
-    { key: 'indicators', label: 'Indicadores', allowed: allowedViews.includes('indicators') || timelineIndicatorsAllowed },
-    { key: 'gantt', label: 'Gráfico de Gantt', allowed: allowedViews.includes('gantt') },
-    { key: 'team', label: 'Equipe', allowed: allowedViews.includes('team') },
-    { key: 'resources', label: 'Stakeholders', allowed: allowedViews.includes('resources') }
-  ].filter(tab => tab.allowed);
-  
   const getTabIcon = (key: string) => {
     switch (key) {
       case 'overview':
@@ -539,8 +546,8 @@ const ShareProject: React.FC = () => {
         return <DonutLargeIcon className="w-5 h-5 flex-shrink-0" />;
       case 'team':
         return <GroupIcon className="w-5 h-5 flex-shrink-0" />;
-      case 'resources':
-        return <BusinessIcon className="w-5 h-5 flex-shrink-0" />;
+      case 'charter':
+        return <AssignmentIcon className="w-5 h-5 flex-shrink-0" />;
       default:
         return <DashboardIcon className="w-5 h-5 flex-shrink-0" />;
     }
@@ -696,9 +703,11 @@ const ShareProject: React.FC = () => {
                   </Typography>
                 </Box>
 
-                <Typography variant="body1" sx={{ color: '#6b7a80', mb: 3, lineHeight: 1.7 }}>
-                  {project.description || 'Sem descrição disponível para este projeto.'}
-                </Typography>
+                {!hiddenFields.includes('descricoes') && (
+                  <Typography variant="body1" sx={{ color: '#6b7a80', mb: 3, lineHeight: 1.7 }}>
+                    {project.description || 'Sem descrição disponível para este projeto.'}
+                  </Typography>
+                )}
 
                 <Grid container spacing={2}>
                   <Grid item xs={6} sm={3}>
@@ -784,43 +793,6 @@ const ShareProject: React.FC = () => {
                 </Grid>
               </CardContent>
             </Card>
-
-            {/* Card de Orçamento (se existir) */}
-            {project.budget != null && project.budget > 0 && (
-              <Card
-                sx={{
-                  mb: 3,
-                  borderRadius: 3,
-                  boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
-                  border: '1px solid rgba(0,0,0,0.04)',
-                  background: 'linear-gradient(135deg, #FBF4D4 0%, #E5B800 100%)'
-                }}
-              >
-                <CardContent sx={{ p: 3 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
-                    <Box
-                      sx={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: 2,
-                        backgroundColor: 'rgba(245, 158, 11, 0.2)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}
-                    >
-                      <NotesIcon sx={{ color: '#E5B800', fontSize: 20 }} />
-                    </Box>
-                    <Typography variant="h6" sx={{ fontWeight: 700, color: '#92400e' }}>
-                      Orçamento do Projeto
-                    </Typography>
-                  </Box>
-                  <Typography variant="h4" sx={{ fontWeight: 700, color: '#78350f' }}>
-                    R$ {Number(project.budget).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </Typography>
-                </CardContent>
-              </Card>
-            )}
           </Grid>
 
           {/* Sidebar Direita - Resumos */}
@@ -1753,57 +1725,6 @@ const ShareProject: React.FC = () => {
           </Card>
           );
         })}
-        
-        {/* Marcos Importantes do Projeto */}
-        {project.milestones && project.milestones?.length > 0 && (
-          <Box sx={{ mt: 4 }}>
-            <Typography variant="h6" gutterBottom color="primary">
-              Marcos Importantes (Milestones)
-            </Typography>
-            <Grid container spacing={2}>
-              {project.milestones.map((milestone: any, index: number) => (
-                <Grid item xs={12} md={6} key={milestone.id || index}>
-                  <Card sx={{ 
-                    border: milestone.completed ? '2px solid' : '1px solid',
-                    borderColor: milestone.completed ? 'success.main' : 'divider',
-                    backgroundColor: milestone.completed ? 'success.50' : 'background.paper'
-                  }}>
-                    <CardContent>
-                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                        <Avatar sx={{ 
-                          backgroundColor: milestone.completed ? 'success.main' : 'warning.main',
-                          width: 32,
-                          height: 32,
-                          mr: 1
-                        }}>
-                          {milestone.completed ? <CheckCircleIcon /> : <ScheduleIcon />}
-                        </Avatar>
-                        <Box sx={{ flex: 1 }}>
-                          <Typography variant="h6" color={milestone.completed ? 'success.main' : 'text.primary'}>
-                            {milestone.title}
-                          </Typography>
-                          <Typography variant="body2" color="textSecondary">
-                            {milestone.description}
-                          </Typography>
-                        </Box>
-                      </Box>
-                      
-                      <Box sx={{ mt: 2 }}>
-                        <Typography variant="body2" color="textSecondary">
-                          <CalendarIcon sx={{ mr: 1, fontSize: 14 }} />
-                          Prazo: {formatDate(milestone.dueDate)}
-                        </Typography>
-                        <Typography variant="body2" color="textSecondary">
-                          Status: {milestone.completed ? 'Concluído' : 'Pendente'}
-                        </Typography>
-                      </Box>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              ))}
-            </Grid>
-          </Box>
-        )}
       </Box>
     );
   };
@@ -2421,11 +2342,6 @@ const ShareProject: React.FC = () => {
                     <Typography variant="body2" color="text.secondary">Tarefas (cronograma)</Typography>
                     <Typography variant="body1" fontWeight="bold" color="primary.main">{formatIntegerPtBR(totalTasksGantt)}</Typography>
                   </Box>
-                  <Divider />
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography variant="body2" color="text.secondary">Marcos</Typography>
-                    <Typography variant="body1" fontWeight="bold" color="primary.main">{formatIntegerPtBR(project.milestones?.length || 0)}</Typography>
-                  </Box>
                 </Box>
               </CardContent>
             </Card>
@@ -2548,6 +2464,7 @@ const ShareProject: React.FC = () => {
             </CardContent>
           </Card>
         </Grid>
+        {!hiddenFields.includes('equipe_externa') && (
         <Grid item xs={12} md={6}>
           <Card sx={{ borderRadius: 2, boxShadow: 2 }}>
             <CardContent sx={{ p: 3 }}>
@@ -2585,136 +2502,7 @@ const ShareProject: React.FC = () => {
             </CardContent>
           </Card>
         </Grid>
-      </Grid>
-    </Box>
-  );
-
-  const renderResources = () => (
-    <Box>
-      <Paper
-        sx={{
-          p: 3,
-          mb: 3,
-          background: 'linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%)',
-          borderRadius: 2,
-          border: '1px solid',
-          borderColor: 'divider'
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <AssignmentIcon color="primary" sx={{ fontSize: 32 }} />
-          <Box>
-            <Typography variant="h5" fontWeight="bold" color="text.primary">
-              Stakeholders e Marcos
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Tarefas de alto nível e marcos do projeto
-            </Typography>
-          </Box>
-        </Box>
-      </Paper>
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={6}>
-          <Card sx={{ borderRadius: 2, boxShadow: 2 }}>
-            <CardContent sx={{ p: 3 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                <AssignmentIcon color="primary" />
-                <Typography variant="h6" fontWeight="bold">
-                  Tarefas ({formatIntegerPtBR(project.tasks?.length || 0)})
-                </Typography>
-              </Box>
-              {(project.tasks?.length || 0) > 0 ? (
-                <List disablePadding>
-                  {(project.tasks || []).map((task, index) => (
-                    <React.Fragment key={task.id}>
-                      <ListItem sx={{ px: 0, alignItems: 'flex-start' }}>
-                        <ListItemAvatar>
-                          <Avatar sx={{ backgroundColor: getStatusColor(task.status) }}>
-                            <AssignmentIcon sx={{ fontSize: 20 }} />
-                          </Avatar>
-                        </ListItemAvatar>
-                        <ListItemText
-                          primary={task.title}
-                          primaryTypographyProps={{ fontWeight: 600 }}
-                          secondary={
-                            <Box sx={{ mt: 0.5 }}>
-                              <Chip label={getStatusLabel(task.status)} size="small" sx={{ mr: 0.5, mb: 0.5, backgroundColor: getStatusColor(task.status), color: 'white' }} />
-                              <Chip label={getPriorityLabel(task.priority)} size="small" variant="outlined" sx={{ mr: 0.5, mb: 0.5 }} />
-                              {task.dueDate && (
-                                <Typography variant="body2" color="text.secondary" display="block">
-                                  Prazo: {formatDate(task.dueDate)}
-                                </Typography>
-                              )}
-                              {task.assignee && (
-                                <Typography variant="body2" color="text.secondary">
-                                  Responsável: {task.assignee.nome}
-                                </Typography>
-                              )}
-                            </Box>
-                          }
-                        />
-                      </ListItem>
-                      {index < (project.tasks?.length || 0) - 1 && <Divider />}
-                    </React.Fragment>
-                  ))}
-                </List>
-              ) : (
-                <Typography variant="body2" color="text.secondary">
-                  Nenhuma tarefa configurada.
-                </Typography>
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <Card sx={{ borderRadius: 2, boxShadow: 2 }}>
-            <CardContent sx={{ p: 3 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                <CheckCircleIcon color="primary" />
-                <Typography variant="h6" fontWeight="bold">
-                  Marcos ({formatIntegerPtBR(project.milestones?.length || 0)})
-                </Typography>
-              </Box>
-              {(project.milestones?.length || 0) > 0 ? (
-                <List disablePadding>
-                  {(project.milestones || []).map((milestone, index) => (
-                    <React.Fragment key={milestone.id}>
-                      <ListItem sx={{ px: 0 }}>
-                        <ListItemAvatar>
-                          <Avatar sx={{ backgroundColor: milestone.completed ? 'success.main' : 'warning.main' }}>
-                            {milestone.completed ? <CheckCircleIcon sx={{ fontSize: 20 }} /> : <ScheduleIcon sx={{ fontSize: 20 }} />}
-                          </Avatar>
-                        </ListItemAvatar>
-                        <ListItemText
-                          primary={milestone.title}
-                          primaryTypographyProps={{ fontWeight: 600 }}
-                          secondary={
-                            <Box sx={{ mt: 0.5 }}>
-                              <Chip
-                                label={milestone.completed ? 'Concluído' : 'Pendente'}
-                                size="small"
-                                color={milestone.completed ? 'success' : 'warning'}
-                                sx={{ mr: 0.5 }}
-                              />
-                              <Typography variant="body2" color="text.secondary" component="span">
-                                Prazo: {formatDate(milestone.dueDate)}
-                              </Typography>
-                            </Box>
-                          }
-                        />
-                      </ListItem>
-                      {index < (project.milestones?.length || 0) - 1 && <Divider />}
-                    </React.Fragment>
-                  ))}
-                </List>
-              ) : (
-                <Typography variant="body2" color="text.secondary">
-                  Nenhum marco configurado.
-                </Typography>
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
+        )}
       </Grid>
     </Box>
   );
@@ -2743,9 +2531,16 @@ const ShareProject: React.FC = () => {
       case 'team':
         console.log('🎯 Rendering Team tab');
         return renderTeam();
-      case 'resources':
-        console.log('🎯 Rendering Resources tab');
-        return renderResources();
+      case 'charter':
+        return (
+          <ProjectCharterView
+            charter={(project as any).charter}
+            readOnly
+            showEscopo={allowedViews.includes('charter')}
+            showRiscos={allowedViews.includes('riscos')}
+            showFinanceiro={allowedViews.includes('financeiro')}
+          />
+        );
       default:
         console.log('❌ Unknown tab:', currentTab.key);
         return null;

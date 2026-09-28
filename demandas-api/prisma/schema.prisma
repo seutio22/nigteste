@@ -673,6 +673,8 @@ model Project {
   isPrivate       Boolean                 @default(false)
   timeline        String?                 @default("{}")
   activities      String?                 @default("[]")
+  /// Project Charter (JSON): escopo, itens incluídos/excluídos e riscos mapeados.
+  charter         String?                 @default("{}")
   createdAt       DateTime                @default(now())
   updatedAt       DateTime                @updatedAt
   manager         User?                   @relation("ProjectManager", fields: [managerId], references: [id])
@@ -833,6 +835,8 @@ model ProjectShareToken {
   description  String?
   isActive     Boolean                 @default(true)
   allowedViews String                  @default("overview,timeline,gantt,team,resources")
+  /// CSV de detalhes ocultados no link (orcamento, descricoes, responsaveis, equipe_externa).
+  hiddenFields String                  @default("")
   expiresAt    DateTime?
   viewCount    Int                     @default(0)
   lastViewAt   DateTime?
@@ -849,6 +853,15 @@ model ProjectShareAccessLog {
   shareTokenId String
   ipAddress    String
   userAgent    String?
+  /// Identificador anônimo do navegador (localStorage) para contar visitantes únicos.
+  visitorId       String?
+  durationSeconds Int     @default(0)
+  clickCount      Int     @default(0)
+  /// JSON { [aba]: { seconds, clicks } }
+  sectionStats    String?
+  deviceType      String?
+  browser         String?
+  os              String?
   accessedAt   DateTime          @default(now())
   shareToken   ProjectShareToken @relation(fields: [shareTokenId], references: [id], onDelete: Cascade)
 

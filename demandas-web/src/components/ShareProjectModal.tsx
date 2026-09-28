@@ -16,11 +16,26 @@ import {
   Alert,
   IconButton,
   Tooltip,
-  Divider
+  Divider,
+  Checkbox,
+  FormControlLabel,
+  FormGroup
 } from '@mui/material';
-import { Close as CloseIcon, ContentCopy as CopyIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import {
+  Close as CloseIcon,
+  ContentCopy as CopyIcon,
+  Delete as DeleteIcon,
+  Insights as InsightsIcon
+} from '@mui/icons-material';
 import { api } from '../lib/api.local';
 import { PrimaryActionButton } from './PrimaryActionButton';
+import ShareAnalyticsDialog from './share/ShareAnalyticsDialog';
+import {
+  SHARE_HIDDEN_FIELD_OPTIONS,
+  formatDuracao,
+  summarizeShareAccess,
+  type ShareAccessLog
+} from './share/projectShareAnalytics';
 
 interface ShareProjectModalProps {
   open: boolean;
@@ -29,18 +44,13 @@ interface ShareProjectModalProps {
   projectName: string;
 }
 
-interface ShareAccessLog {
-  id: string;
-  ipAddress: string;
-  accessedAt: string;
-}
-
 interface ShareToken {
   id: string;
   name: string;
   description?: string;
   token: string;
   allowedViews: string;
+  hiddenFields?: string;
   expiresAt?: string;
   isActive: boolean;
   viewCount: number;
@@ -60,9 +70,11 @@ const ShareProjectModal: React.FC<ShareProjectModalProps> = ({
   const [newShare, setNewShare] = useState({
     name: '',
     description: '',
-    allowedViews: 'overview,timeline,gantt,team,resources',
+    allowedViews: 'overview,timeline,gantt,team',
+    hiddenFields: '',
     expiresAt: ''
   });
+  const [analyticsToken, setAnalyticsToken] = useState<ShareToken | null>(null);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -98,7 +110,8 @@ const ShareProjectModal: React.FC<ShareProjectModalProps> = ({
         setNewShare({
           name: '',
           description: '',
-          allowedViews: 'overview,timeline,gantt,team,resources',
+          allowedViews: 'overview,timeline,gantt,team',
+          hiddenFields: '',
           expiresAt: ''
         });
         fetchShareTokens();
@@ -152,11 +165,28 @@ const ShareProjectModal: React.FC<ShareProjectModalProps> = ({
       timeline: 'Cronograma Detalhado',
       gantt: 'Gráfico de Gantt',
       team: 'Equipe',
-      resources: 'Stakeholders'
+      resources: 'Stakeholders',
+      charter: 'Project Charter — escopo',
+      riscos: 'Project Charter — riscos',
+      financeiro: 'Project Charter — financeiro'
     };
     
     return views.split(',').map(view => viewMap[view.trim()] || view.trim()).join(', ');
   };
+
+  const hiddenList = (csv?: string) => (csv || '').split(',').map((s) => s.trim()).filter(Boolean);
+
+  const toggleHiddenField = (field: string, incluir: boolean) => {
+    const set = new Set(hiddenList(newShare.hiddenFields));
+    if (incluir) set.delete(field);
+    else set.add(field);
+    setNewShare({ ...newShare, hiddenFields: [...set].join(',') });
+  };
+
+  const getHiddenLabel = (csv?: string) =>
+    hiddenList(csv)
+      .map((f) => SHARE_HIDDEN_FIELD_OPTIONS.find((o) => o.value === f)?.label || f)
+      .join(', ');
 
   return (
     <Dialog
@@ -291,8 +321,12 @@ const ShareProjectModal: React.FC<ShareProjectModalProps> = ({
                     const viewMap: { [key: string]: string } = {
                       overview: 'Visão Geral',
                       timeline: 'Cronograma',
+                      gantt: 'Gantt',
                       team: 'Equipe',
-                      resources: 'Stakeholders'
+                      resources: 'Stakeholders',
+                      charter: 'Charter — escopo',
+                      riscos: 'Charter — riscos',
+                      financeiro: 'Charter — financeiro'
                     };
                     return <Chip key={value} label={viewMap[value] || value} size="small" />;
                   })}
@@ -303,9 +337,36 @@ const ShareProjectModal: React.FC<ShareProjectModalProps> = ({
               <MenuItem value="timeline">Cronograma Detalhado</MenuItem>
               <MenuItem value="gantt">Gráfico de Gantt</MenuItem>
               <MenuItem value="team">Equipe</MenuItem>
-              <MenuItem value="resources">Stakeholders</MenuItem>
+              <MenuItem value="charter">Project Charter — escopo e itens incluídos/excluídos</MenuItem>
+              <MenuItem value="riscos">Project Charter — riscos mapeados</MenuItem>
+              <MenuItem value="financeiro">Project Charter — financeiro</MenuItem>
             </Select>
           </FormControl>
+
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="body2" sx={{ fontWeight: 600, color: '#050032', fontFamily: 'Geometria, system-ui, sans-serif' }}>
+              Detalhes incluídos
+            </Typography>
+            <Typography variant="caption" sx={{ color: '#6b7a80', display: 'block', mb: 0.5 }}>
+              Desmarque o que não deve aparecer no link. Os dados desmarcados não são enviados para quem abre o link.
+            </Typography>
+            <FormGroup row>
+              {SHARE_HIDDEN_FIELD_OPTIONS.map((opt) => (
+                <Tooltip key={opt.value} title={opt.help}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        size="small"
+                        checked={!hiddenList(newShare.hiddenFields).includes(opt.value)}
+                        onChange={(e) => toggleHiddenField(opt.value, e.target.checked)}
+                      />
+                    }
+                    label={<Typography variant="body2">{opt.label}</Typography>}
+                  />
+                </Tooltip>
+              ))}
+            </FormGroup>
+          </Box>
 
           <PrimaryActionButton
             onClick={handleCreateShare}
@@ -405,6 +466,14 @@ const ShareProjectModal: React.FC<ShareProjectModalProps> = ({
                         Expira em: {formatDate(token.expiresAt)}
                       </Typography>
                     )}
+                    {hiddenList(token.hiddenFields).length > 0 && (
+                      <Typography
+                        variant="body2"
+                        sx={{ color: '#4b5563', fontFamily: 'Geometria, system-ui, sans-serif' }}
+                      >
+                        Detalhes ocultos: {getHiddenLabel(token.hiddenFields)}
+                      </Typography>
+                    )}
                     <Typography
                       variant="body2"
                       sx={{ color: '#4b5563', fontFamily: 'Geometria, system-ui, sans-serif' }}
@@ -414,52 +483,25 @@ const ShareProjectModal: React.FC<ShareProjectModalProps> = ({
                         <> · Última: {formatDate(token.lastViewAt)}</>
                       )}
                     </Typography>
-                    {token.accessLogs && token.accessLogs.length > 0 ? (
-                      <Box sx={{ mt: 1.5 }}>
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            display: 'block',
-                            color: '#6b7a80',
-                            fontFamily: 'Geometria, system-ui, sans-serif',
-                            fontWeight: 600,
-                            mb: 0.75
-                          }}
-                        >
-                          Histórico de acessos (últimos {token.accessLogs.length})
-                        </Typography>
-                        <Box
-                          component="ul"
-                          sx={{
-                            m: 0,
-                            pl: 2,
-                            maxHeight: 220,
-                            overflowY: 'auto',
-                            fontFamily: 'Geometria, system-ui, sans-serif'
-                          }}
-                        >
-                          {token.accessLogs.map((log) => (
-                            <li key={log.id}>
-                              <Typography variant="body2" sx={{ color: '#374151', fontSize: '0.8125rem' }}>
-                                {formatDate(log.accessedAt)} — IP: {log.ipAddress || '—'}
-                              </Typography>
-                            </li>
-                          ))}
+                    {(() => {
+                      const r = summarizeShareAccess(token.accessLogs || []);
+                      return (
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, mt: 1 }}>
+                          <Chip size="small" label={`${r.visitantesUnicos} visitante(s) único(s)`} />
+                          <Chip size="small" label={`Tempo médio: ${formatDuracao(r.tempoMedio)}`} />
+                          <Chip size="small" label={`${r.cliquesTotal} clique(s)`} />
+                          {r.secoes[0] && <Chip size="small" label={`Aba mais vista: ${r.secoes[0].label}`} />}
+                          <Button
+                            size="small"
+                            startIcon={<InsightsIcon fontSize="small" />}
+                            onClick={() => setAnalyticsToken(token)}
+                            sx={{ textTransform: 'none', ml: 'auto' }}
+                          >
+                            Ver estatísticas
+                          </Button>
                         </Box>
-                      </Box>
-                    ) : token.viewCount > 0 ? (
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          display: 'block',
-                          mt: 1,
-                          color: '#9ca3af',
-                          fontFamily: 'Geometria, system-ui, sans-serif'
-                        }}
-                      >
-                        Acessos anteriores não incluem IP/data (registrados antes desta versão).
-                      </Typography>
-                    ) : null}
+                      );
+                    })()}
                   </Box>
 
                   <Box display="flex" alignItems="center" gap={1}>
@@ -498,6 +540,12 @@ const ShareProjectModal: React.FC<ShareProjectModalProps> = ({
           Fechar
         </Button>
       </DialogActions>
+      <ShareAnalyticsDialog
+        open={analyticsToken != null}
+        onClose={() => setAnalyticsToken(null)}
+        nome={analyticsToken?.name || ''}
+        logs={analyticsToken?.accessLogs || []}
+      />
     </Dialog>
   );
 };

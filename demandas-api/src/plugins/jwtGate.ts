@@ -22,6 +22,7 @@ function isPublicPath(method: string, pathname: string): boolean {
 
   // Share público (leitura + telemetria do viewer)
   if (m === 'GET' && /^\/share\/[^/]+$/.test(pathname)) return true
+  if (m === 'POST' && /^\/share\/[^/]+\/access\/track$/.test(pathname)) return true
   if (m === 'GET' && /^\/share\/placement\/[^/]+$/.test(pathname)) return true
   if (m === 'GET' && /^\/share\/placement\/[^/]+\/cotacao$/.test(pathname)) return true
   if (m === 'GET' && /^\/share\/placement\/[^/]+\/beneficiarios$/.test(pathname)) return true

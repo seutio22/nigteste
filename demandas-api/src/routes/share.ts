@@ -1,5 +1,14 @@
 import { FastifyInstance, FastifyRequest } from 'fastify';
 import { PrismaClient } from '@prisma/client';
+import { charterForShare } from '../lib/projectCharter';
+import {
+  applyHiddenFields,
+  mergeSectionStats,
+  parseHiddenFields,
+  parseSectionStats,
+  parseTrackPayload,
+  parseUserAgent
+} from '../lib/projectShare';
 const crypto = require('crypto');
 
 function getClientIp(request: FastifyRequest): string {
@@ -21,10 +30,11 @@ export default async function shareRoutes(fastify: FastifyInstance, options: { p
   fastify.post('/projetos/:projectId/share', async (request, reply) => {
     try {
       const { projectId } = request.params as { projectId: string };
-      const { name, description, allowedViews, expiresAt } = request.body as {
+      const { name, description, allowedViews, hiddenFields, expiresAt } = request.body as {
         name?: string;
         description?: string;
         allowedViews?: string;
+        hiddenFields?: string;
         expiresAt?: string;
       };
 
@@ -47,7 +57,8 @@ export default async function shareRoutes(fastify: FastifyInstance, options: { p
           token,
           name: name || `Compartilhamento ${new Date().toLocaleDateString('pt-BR')}`,
           description,
-          allowedViews: allowedViews || 'overview,timeline,team,resources',
+          allowedViews: allowedViews || 'overview,timeline,team',
+          hiddenFields: parseHiddenFields(hiddenFields).join(','),
           expiresAt: expiresAt ? new Date(expiresAt) : null,
           createdBy:
             String((request as any).authUser?.id || (request as any).user?.sub || '').trim() ||
@@ -81,12 +92,29 @@ export default async function shareRoutes(fastify: FastifyInstance, options: { p
         include: {
           accessLogs: {
             orderBy: { accessedAt: 'desc' },
-            take: 50
+            take: 500,
+            select: {
+              id: true,
+              ipAddress: true,
+              accessedAt: true,
+              visitorId: true,
+              durationSeconds: true,
+              clickCount: true,
+              sectionStats: true,
+              deviceType: true,
+              browser: true,
+              os: true
+            }
           }
         }
       });
 
-      return { shareTokens };
+      return {
+        shareTokens: shareTokens.map((t) => ({
+          ...t,
+          accessLogs: t.accessLogs.map((log) => ({ ...log, sectionStats: parseSectionStats(log.sectionStats) }))
+        }))
+      };
     } catch (error) {
       console.error('Erro ao listar tokens de compartilhamento:', error);
       return reply.status(500).send({ error: 'Erro interno do servidor' });
@@ -124,21 +152,20 @@ export default async function shareRoutes(fastify: FastifyInstance, options: { p
         include: {
           project: {
             include: {
-              client: true,
-              manager: true,
+              client: { select: { id: true, nome: true } },
+              manager: { select: { id: true, name: true, email: true } },
               members: {
                 include: {
-                  user: true
+                  user: { select: { id: true, name: true, email: true } }
                 }
               },
               externalMembers: true,
               tasks: {
                 include: {
-                  assignee: true,
+                  assignee: { select: { id: true, nome: true } },
                   subtaskItems: true
                 }
               },
-              milestones: true,
               timelines: true
             }
           }
@@ -157,8 +184,10 @@ export default async function shareRoutes(fastify: FastifyInstance, options: { p
       const ua = request.headers['user-agent'];
       const userAgent =
         typeof ua === 'string' ? ua.slice(0, 2000) : ua != null ? String(ua).slice(0, 2000) : null;
+      const { v } = request.query as { v?: string };
+      const visitorId = typeof v === 'string' && /^[\w-]{8,64}$/.test(v) ? v : null;
 
-      await prisma.$transaction([
+      const [, accessLog] = await prisma.$transaction([
         prisma.projectShareToken.update({
           where: { id: shareToken.id },
           data: {
@@ -170,7 +199,9 @@ export default async function shareRoutes(fastify: FastifyInstance, options: { p
           data: {
             shareTokenId: shareToken.id,
             ipAddress: getClientIp(request) || 'desconhecido',
-            userAgent
+            userAgent,
+            visitorId,
+            ...parseUserAgent(userAgent)
           }
         })
       ]);
@@ -185,17 +216,60 @@ export default async function shareRoutes(fastify: FastifyInstance, options: { p
         }
       }
 
+      const allowedViews = shareToken.allowedViews.split(',');
+      const hiddenFields = parseHiddenFields(shareToken.hiddenFields);
+      (processedProject as any).charter = charterForShare((processedProject as any).charter, allowedViews);
+      delete (processedProject as any).activities;
+
       return {
-        project: processedProject,
-        allowedViews: shareToken.allowedViews.split(','),
+        project: applyHiddenFields(processedProject, [...new Set([...hiddenFields, 'orcamento' as const])]),
+        allowedViews,
+        hiddenFields,
         shareInfo: {
           name: shareToken.name,
           description: shareToken.description,
-          createdAt: shareToken.createdAt
+          createdAt: shareToken.createdAt,
+          accessLogId: accessLog.id
         }
       };
     } catch (error) {
       console.error('Erro ao acessar projeto compartilhado:', error);
+      return reply.status(500).send({ error: 'Erro interno do servidor' });
+    }
+  });
+
+  // Telemetria do link público: tempo visível, cliques e tempo/cliques por aba (valores acumulados)
+  fastify.post('/share/:token/access/track', async (request, reply) => {
+    try {
+      const { token } = request.params as { token: string };
+      const payload = parseTrackPayload(request.body);
+      if (!payload) {
+        return reply.status(400).send({ error: 'accessLogId é obrigatório' });
+      }
+
+      const log = await prisma.projectShareAccessLog.findFirst({
+        where: { id: payload.accessLogId, shareToken: { token, isActive: true } },
+        select: { id: true, accessedAt: true, durationSeconds: true, clickCount: true, sectionStats: true }
+      });
+      if (!log) {
+        return reply.status(404).send({ error: 'Registro de acesso não encontrado' });
+      }
+      if (Date.now() - log.accessedAt.getTime() > 24 * 3600 * 1000) {
+        return reply.status(410).send({ error: 'Registro de acesso encerrado' });
+      }
+
+      const sectionStats = mergeSectionStats(parseSectionStats(log.sectionStats), payload.sections);
+      await prisma.projectShareAccessLog.update({
+        where: { id: log.id },
+        data: {
+          durationSeconds: Math.max(log.durationSeconds, payload.durationSeconds),
+          clickCount: Math.max(log.clickCount, payload.clicks),
+          sectionStats: JSON.stringify(sectionStats)
+        }
+      });
+      return { success: true };
+    } catch (error) {
+      console.error('Erro ao registrar telemetria do compartilhamento:', error);
       return reply.status(500).send({ error: 'Erro interno do servidor' });
     }
   });

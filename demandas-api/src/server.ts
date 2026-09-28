@@ -7,6 +7,7 @@ import authPlugin from './plugins/auth'
 import jwtGatePlugin from './plugins/jwtGate'
 import { authRoutes } from './routes/auth'
 import { getUserPermissions } from './config/permissions'
+import { normalizeCharter } from './lib/projectCharter'
 import { userRoutes } from './routes/users'
 import { userAlertsRoutes } from './routes/userAlerts'
 import comunicadosRoutes from './routes/comunicados'
@@ -4214,6 +4215,7 @@ for (const [path, repo] of Object.entries(resources)) {
         const { members, owner, ...safeProject } = project as any
         return {
           ...safeProject,
+          charter: normalizeCharter(safeProject.charter),
           ownerName: owner?.name || owner?.email || safeProject.ownerId || null,
           canEdit
         }
@@ -4301,6 +4303,45 @@ for (const [path, repo] of Object.entries(resources)) {
     })
 
     // Atualizar projeto
+    app.put(`/${path}/:id/charter`, async (req: any, reply) => {
+      try {
+        const { id } = req.params as { id: string }
+        try {
+          await (req as any).jwtVerify?.()
+        } catch {
+          return reply.code(401).send({ error: 'Não autenticado' })
+        }
+        const u = (req as any).user
+        const userId: string | null = (u?.id ?? u?.sub) ?? null
+        const userRole: string | null = u?.role ?? null
+        if (!userId) return reply.code(401).send({ error: 'Não autenticado' })
+
+        const project = await prisma.project.findUnique({
+          where: { id },
+          select: { id: true, ownerId: true, managerId: true, members: { where: { isActive: true }, select: { userId: true } } }
+        })
+        if (!project) return reply.code(404).send({ error: 'Projeto não encontrado' })
+        const canEdit =
+          userRole === 'admin' ||
+          project.ownerId === userId ||
+          project.managerId === userId ||
+          (project.members as any[]).some((m: any) => m.userId === userId)
+        if (!canEdit) {
+          return reply.code(403).send({ error: 'Apenas owner, manager ou membros podem editar o Project Charter.' })
+        }
+
+        const autor = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } })
+        const charter = normalizeCharter(req.body || {})
+        charter.atualizadoEm = new Date().toISOString()
+        charter.atualizadoPor = autor?.name || null
+        await prisma.project.update({ where: { id }, data: { charter: JSON.stringify(charter) } })
+        return charter
+      } catch (error) {
+        req.log.error(error)
+        return reply.code(500).send({ error: 'Erro ao salvar o Project Charter' })
+      }
+    })
+
     app.put(`/${path}/:id`, async (req: any, reply) => {
       try {
         const { id } = req.params as { id: string }
@@ -4389,6 +4430,8 @@ for (const [path, repo] of Object.entries(resources)) {
         delete updateData.timelines
         delete updateData.shareTokens
         delete updateData.externalMembers
+        // Charter tem rota própria (PUT /projetos/:id/charter) para não ser sobrescrito por saves de outras abas
+        delete updateData.charter
         // Bloquear alteração de ownerId via PUT, EXCETO se estiver virando privado e não tiver ownerId
         if ('ownerId' in updateData) {
           // Se o projeto está virando privado e não tem ownerId, definir o userId como owner

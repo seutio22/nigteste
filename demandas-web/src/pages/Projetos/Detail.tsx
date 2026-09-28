@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import ProjectTeamManager from '../../components/ProjectTeamManager'
+import ProjectCharterView from '../../components/ProjectCharterView'
 import ProjectAlerts from '../../components/ProjectAlerts'
 import ProjectGantt from '../../components/ProjectGantt'
 import ShareProjectModal from '../../components/ShareProjectModal'
@@ -996,6 +997,7 @@ export default function ProjectDetailPage() {
   const isAdminUser = (user?.role || '').toLowerCase() === 'admin'
   /** Índice da aba LOG (somente admin); demais abas permanecem 0–6. */
   const LOG_TAB_INDEX = 7
+  const CHARTER_TAB_INDEX = 8
   const [project, setProject] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -4870,22 +4872,6 @@ export default function ProjectDetailPage() {
           </>
         )}
       </Paper>
-
-      {/* Recursos Financeiros */}
-      <Paper sx={{ p: 3, mt: 3 }}>
-        <Typography variant="h6" gutterBottom>Recursos Financeiros</Typography>
-        <Typography variant="body2" color="text.secondary">
-          Orçamento: R$ {project.budget || 'Não definido'}
-        </Typography>
-      </Paper>
-
-      {/* Recursos Materiais */}
-      <Paper sx={{ p: 3, mt: 3 }}>
-        <Typography variant="h6" gutterBottom>Recursos Materiais</Typography>
-        <Typography variant="body2" color="text.secondary">
-          Equipamentos e materiais necessários para o projeto.
-        </Typography>
-      </Paper>
     </Box>
   )
 
@@ -5741,15 +5727,16 @@ export default function ProjectDetailPage() {
           {/* Tabs de Conteúdo */}
           <Paper sx={{ mb: 3 }}>
             <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)}>
-              <Tab label="Visão Geral" />
-          <Tab label="Cronograma" />
-          <Tab label="Indicadores" />
-          <Tab label="Gantt" />
-          <Tab label="Stakeholders" />
-          <Tab label="Equipe" />
-              <Tab label="Atividades" />
+              <Tab value={0} label="Visão Geral" />
+              <Tab value={CHARTER_TAB_INDEX} label="Project Charter" />
+              <Tab value={1} label="Cronograma" />
+              <Tab value={2} label="Indicadores" />
+              <Tab value={3} label="Gantt" />
+              <Tab value={4} label="Stakeholders" />
+              <Tab value={5} label="Equipe" />
+              <Tab value={6} label="Atividades" />
               {isAdminUser && (
-                <Tab label="LOG" icon={<HistoryIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
+                <Tab value={LOG_TAB_INDEX} label="LOG" icon={<HistoryIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
               )}
             </Tabs>
           </Paper>
@@ -5956,17 +5943,6 @@ export default function ProjectDetailPage() {
                           />
                         </Grid>
                         <Grid item xs={12} sm={6}>
-                          <TextField
-                            fullWidth
-                            label="Orçamento (R$)"
-                            type="number"
-                            value={editing ? (editData.budget || '') : (project.budget || '')}
-                            onChange={(e) => handleInputChange('budget', Number(e.target.value))}
-                            disabled={!editing}
-                            inputProps={{ min: 0, step: 0.01 }}
-                          />
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
                           <FormControlLabel
                             control={
                               <Switch
@@ -6064,6 +6040,14 @@ export default function ProjectDetailPage() {
             </Box>
           )}
 
+          {activeTab === CHARTER_TAB_INDEX && (
+            <ProjectCharterView
+              projectId={project.id}
+              charter={(project as any).charter}
+              readOnly={readOnly}
+              onSaved={(charter) => setProject((p: any) => (p ? { ...p, charter } : p))}
+            />
+          )}
           {activeTab === 1 && renderTimelineView(readOnly)}
           {activeTab === 2 && renderIndicatorsView()}
           {activeTab === 3 && renderGanttView()}
